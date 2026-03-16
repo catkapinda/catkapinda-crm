@@ -1,2 +1,0 @@
-# catkapinda-crm
-crm
