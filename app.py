@@ -34,26 +34,22 @@ def login_gate() -> bool:
     if st.session_state.authenticated:
         return True
 
-    st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="assets/logo.png", layout="wide")
+    st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="📦", layout="wide")
     inject_global_styles()
-    st.markdown(
-    """
-    <div class="ck-corner-logo">
-        <img src="assets/logo.png">
-    </div>
-    """,
-    unsafe_allow_html=True
-    )
-    left, center, right = st.columns([1, 1.25, 1])
+
+    st.markdown("<div class='ck-login-gap'></div>", unsafe_allow_html=True)
+    left, center, right = st.columns([1.2, 0.9, 1.2])
+
     with center:
-        try:
-            st.image("assets/logo.png", width=170)
-        except Exception:
-            pass
-        st.markdown('<div class="ck-login-title">Çat Kapında Operasyon CRM</div>', unsafe_allow_html=True)
-        st.markdown('<div class="ck-login-subtitle">Rol bazlı giriş ile operasyon, personel, puantaj, kesinti ve kârlılık yönetimi.</div>', unsafe_allow_html=True)
-        username = st.text_input("Kullanıcı Adı")
-        password = st.text_input("Şifre", type="password")
+        st.markdown("<div class='ck-login-card'>", unsafe_allow_html=True)
+        st.markdown("<div class='ck-login-badge'>ÇAT KAPINDA</div>", unsafe_allow_html=True)
+        st.markdown('<div class="ck-login-title">Operasyon CRM</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="ck-login-subtitle">Operasyon, personel, puantaj, kesinti, ekipman, aylık hakediş ve kârlılık yönetimi.</div>',
+            unsafe_allow_html=True,
+        )
+        username = st.text_input("Kullanıcı Adı", placeholder="Kullanıcı adınızı girin")
+        password = st.text_input("Şifre", type="password", placeholder="Şifrenizi girin")
         if st.button("Giriş Yap", width='stretch'):
             user = USERS.get(username)
             if user and password == user["password"]:
@@ -64,17 +60,25 @@ def login_gate() -> bool:
                 st.rerun()
             else:
                 st.error("Kullanıcı adı veya şifre hatalı")
-        st.info("Admin: catkapinda | Şef: chef")
+        st.caption("Admin: catkapinda • Şef: chef")
+        st.markdown("</div>", unsafe_allow_html=True)
+
     return False
 
 
 def logout_button() -> None:
     role = st.session_state.get("role")
     display = USERS.get(st.session_state.get("username"), {}).get("display", role or "-")
-    
-    st.sidebar.markdown("### Çat Kapında CRM")
-    st.sidebar.caption(f"Giriş yapan: {st.session_state.get('username', '-')}")
-    st.sidebar.caption(f"Rol: {display}")
+    st.sidebar.markdown("## Çat Kapında CRM")
+    st.sidebar.markdown(
+        f"""
+        <div class="ck-side-user">
+            <div class="ck-side-user-name">{st.session_state.get("username", "-")}</div>
+            <div class="ck-side-user-role">{display}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     if st.sidebar.button("Çıkış Yap", width='stretch'):
         for key in ["authenticated", "username", "role"]:
             st.session_state.pop(key, None)
@@ -488,151 +492,243 @@ def inject_global_styles() -> None:
     st.markdown(
         """
         <style>
+            :root {
+                --ck-primary: #004AE0;
+                --ck-border: #E7EDF6;
+                --ck-text: #111827;
+                --ck-muted: #6B7280;
+                --ck-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+            }
+
             .stApp {
                 background:
-                    radial-gradient(circle at top right, rgba(0,74,224,0.08), transparent 22%),
-                    linear-gradient(180deg, #F7F9FC 0%, #FFFFFF 100%);
+                    radial-gradient(circle at top right, rgba(0,74,224,0.05), transparent 20%),
+                    linear-gradient(180deg, #F6F8FC 0%, #FCFDFE 100%);
             }
+
             .block-container {
-                padding-top: 1.1rem;
-                padding-bottom: 2rem;
                 max-width: 1460px;
+                padding-top: 2.1rem;
+                padding-bottom: 2rem;
             }
+
             [data-testid="stSidebar"] {
-                background: linear-gradient(180deg, #ffffff 0%, #F8FAFF 100%);
-                border-right: 1px solid #DCE6F8;
+                background: #FFFFFF;
+                border-right: 1px solid var(--ck-border);
+                padding-top: 0.4rem;
             }
+
+            [data-testid="stSidebar"] label,
             [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-                color: #0F172A;
+                color: var(--ck-text);
             }
+
+            [data-testid="stSidebar"] .stRadio > label {
+                font-size: 0.78rem;
+                font-weight: 800;
+                color: #8A94A6;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 0.5rem;
+            }
+
+            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 14px;
+                padding: 10px 12px;
+                margin-bottom: 6px;
+                transition: all 0.15s ease;
+            }
+
+            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:hover {
+                background: #F8FAFF;
+                border-color: #E4ECFB;
+            }
+
+            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label > div:first-child {
+                display: none;
+            }
+
+            .ck-side-user {
+                background: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
+                border: 1px solid var(--ck-border);
+                border-radius: 16px;
+                padding: 12px 14px;
+                margin: 0.3rem 0 1rem 0;
+            }
+
+            .ck-side-user-name {
+                font-size: 0.94rem;
+                font-weight: 800;
+                color: var(--ck-text);
+            }
+
+            .ck-side-user-role {
+                font-size: 0.8rem;
+                color: var(--ck-muted);
+                margin-top: 0.25rem;
+            }
+
+            .ck-login-gap { height: 4vh; }
+
+            .ck-login-card {
+                background: linear-gradient(180deg, #FFFFFF 0%, #FCFDFF 100%);
+                border: 1px solid var(--ck-border);
+                border-radius: 24px;
+                padding: 28px 26px 22px 26px;
+                box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+            }
+
+            .ck-login-badge {
+                width: fit-content;
+                margin: 0 auto 0.9rem auto;
+                padding: 6px 10px;
+                border-radius: 999px;
+                background: #EEF4FF;
+                color: #004AE0;
+                border: 1px solid #D6E4FF;
+                font-size: 0.76rem;
+                font-weight: 800;
+                letter-spacing: 0.12em;
+            }
+
             .ck-login-title {
-                font-size: 1.9rem;
+                font-size: 2rem;
                 font-weight: 800;
-                color: #0F172A;
-                margin-top: 0.4rem;
+                text-align: center;
+                letter-spacing: -0.04em;
+                color: var(--ck-text);
+                margin-bottom: 0.45rem;
+                line-height: 1.02;
             }
+
             .ck-login-subtitle {
-                color: #64748B;
-                margin-bottom: 1rem;
-                line-height: 1.45;
+                text-align: center;
+                color: var(--ck-muted);
+                line-height: 1.55;
+                margin-bottom: 1.1rem;
+                font-size: 0.96rem;
             }
-            .ck-hero {
-                background: linear-gradient(135deg, #004AE0 0%, #0037A8 100%);
-                border-radius: 22px;
-                padding: 24px 28px;
-                margin-bottom: 22px;
-                box-shadow: 0 18px 40px rgba(0, 74, 224, 0.18);
-            }
-            .ck-hero-title {
-                font-size: 1.85rem;
-                font-weight: 800;
-                color: white;
-                margin: 0;
-                line-height: 1.1;
-            }
-            .ck-hero-subtitle {
-                color: rgba(255,255,255,0.9);
-                margin-top: 0.45rem;
-                font-size: 0.98rem;
-            }
+
             div[data-testid="stMetric"] {
-                background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-                border: 1px solid #d8e6f5;
+                background: linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%);
+                border: 1px solid var(--ck-border);
                 border-radius: 18px;
-                padding: 14px 16px;
-                box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+                padding: 15px 16px;
+                box-shadow: var(--ck-shadow);
             }
+
             div[data-testid="stMetric"] label {
-                font-weight: 700;
+                font-weight: 800;
             }
-            .crm-section {
-                padding: 16px 18px;
-                border: 1px solid #e5eef8;
+
+            div[data-testid="stDataFrame"] {
+                border: 1px solid var(--ck-border);
                 border-radius: 18px;
-                background: #fbfdff;
-                margin-bottom: 14px;
-                box-shadow: 0 8px 18px rgba(15, 23, 42, 0.03);
+                overflow: hidden;
+                background: white;
+                box-shadow: var(--ck-shadow);
             }
-            .crm-section h3 {
-                margin: 0;
-                font-size: 1.08rem;
-                color: #0F172A;
+
+            .ck-panel {
+                background: linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%);
+                border: 1px solid var(--ck-border);
+                border-radius: 20px;
+                padding: 18px;
+                box-shadow: var(--ck-shadow);
+                height: 100%;
             }
-            .crm-section p {
-                margin: 6px 0 0 0;
-                color: #5b6b7d;
+
+            .ck-panel-title {
+                font-size: 1rem;
+                font-weight: 800;
+                color: var(--ck-text);
+                margin-bottom: 0.85rem;
+            }
+
+            .ck-list-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+                padding: 11px 0;
+                border-bottom: 1px solid #EEF2F7;
                 font-size: 0.92rem;
+                color: var(--ck-text);
             }
+
+            .ck-list-row:last-child {
+                border-bottom: none;
+            }
+
+            .ck-chip {
+                background: #EEF4FF;
+                border: 1px solid #D7E6FF;
+                color: #004AE0;
+                border-radius: 999px;
+                padding: 6px 10px;
+                font-size: 0.78rem;
+                font-weight: 800;
+                white-space: nowrap;
+            }
+
+            .stButton > button, .stDownloadButton > button {
+                border-radius: 14px;
+                font-weight: 800;
+                border: 1px solid #DCE7FA;
+                background: #FFFFFF;
+                min-height: 2.7rem;
+            }
+
+            .stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"] {
+                background: #004AE0;
+                color: #FFFFFF;
+                border: none;
+            }
+
+            .stTextInput input, .stNumberInput input, .stTextArea textarea {
+                border-radius: 14px;
+            }
+
+            .stSelectbox [data-baseweb="select"] > div, .stDateInput > div > div {
+                border-radius: 14px;
+            }
+
             div[data-baseweb="tab-list"] {
-                gap: 0.25rem;
+                gap: 0.45rem;
             }
+
             div[data-baseweb="tab-list"] button {
-                border-radius: 12px;
-                background: #F4F7FF;
-                border: 1px solid #DCE6F8;
-                padding-top: 0.45rem;
-                padding-bottom: 0.45rem;
+                border-radius: 14px;
+                border: 1px solid #DCE7FA;
+                background: #F8FAFF;
+                padding-top: 0.48rem;
+                padding-bottom: 0.48rem;
             }
+
             div[data-baseweb="tab-list"] button[aria-selected="true"] {
                 background: #004AE0;
                 border-color: #004AE0;
             }
+
             div[data-baseweb="tab-list"] button[aria-selected="true"] p {
                 color: white !important;
             }
-            div[data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
-                font-weight: 700;
-                font-size: 0.96rem;
-            }
-            div[data-testid="stDataFrame"] {
-                border: 1px solid #e5eef8;
-                border-radius: 16px;
-                overflow: hidden;
-            }
-            .stButton>button, .stDownloadButton>button {
-                border-radius: 12px;
-                font-weight: 700;
-                border: 1px solid #C9D8FB;
-            }
-            .stButton>button[kind="primary"], .stDownloadButton>button[kind="primary"] {
-                background: linear-gradient(135deg, #004AE0 0%, #0037A8 100%);
-                color: white;
-                border: none;
-            }
-            .stTextInput input, .stNumberInput input, .stTextArea textarea {
-                border-radius: 12px;
-            }
-            .stSelectbox [data-baseweb="select"] > div, .stDateInput > div > div {
-                border-radius: 12px;
-            }
-        
-.ck-corner-logo{
-position:fixed;
-top:14px;
-left:18px;
-z-index:9999;
-}
-.ck-corner-logo img{
-height:38px;
-opacity:0.95;
-}
-</style>
 
+            div[data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+                font-size: 0.94rem;
+                font-weight: 800;
+            }
+        </style>
         """,
         unsafe_allow_html=True,
     )
 
 
 def section_intro(title: str, caption: str) -> None:
-    st.markdown(
-        f"""
-        <div class="crm-section">
-            <h3>{title}</h3>
-            <p>{caption}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.subheader(title)
+    st.caption(caption)
 
 
 def fetch_df(conn: sqlite3.Connection, query: str, params: tuple = ()) -> pd.DataFrame:
@@ -772,36 +868,90 @@ def month_bounds(selected_month: str) -> tuple[str, str]:
     return f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{last_day:02d}"
 
 
+
+def render_dashboard_panel(title: str, rows: list[tuple[str, str]]) -> None:
+    body = ''.join([f'<div class="ck-list-row"><span>{left}</span><span class="ck-chip">{right}</span></div>' for left, right in rows])
+    st.markdown(f'<div class="ck-panel"><div class="ck-panel-title">{title}</div>{body}</div>', unsafe_allow_html=True)
+
+
 def dashboard_tab(conn: sqlite3.Connection) -> None:
-    section_intro("🏠 Ana Dashboard | Güncel Operasyon Özeti", "Aktif restoran, aktif personel, puantaj toplamları ve temel finansal görünüm.")
+    section_intro("Ana Dashboard", "Operasyonun genel görünümü, şube özeti ve öne çıkan içgörüler.")
+
     entries = fetch_df(conn, "SELECT * FROM daily_entries")
     active_restaurants = conn.execute("SELECT COUNT(*) FROM restaurants WHERE active=1").fetchone()[0]
     active_people = conn.execute("SELECT COUNT(*) FROM personnel WHERE status='Aktif'").fetchone()[0]
     joker_count = conn.execute("SELECT COUNT(*) FROM personnel WHERE role='Joker' AND status='Aktif'").fetchone()[0]
+
     total_packages = float(entries["package_count"].sum()) if not entries.empty else 0
     total_hours = float(entries["worked_hours"].sum()) if not entries.empty else 0
+    today_packages = 0.0
+    package_per_hour = (total_packages / total_hours) if total_hours else 0
 
-    cols = st.columns(5)
-    cols[0].metric("Aktif restoran", active_restaurants)
-    cols[1].metric("Aktif personel", active_people)
-    cols[2].metric("Joker havuzu", joker_count)
-    cols[3].metric("Toplam paket", f"{total_packages:,.0f}")
-    cols[4].metric("Toplam saat", f"{total_hours:,.0f}")
+    if not entries.empty and "entry_date" in entries.columns:
+        tmp = entries.copy()
+        tmp["entry_date"] = pd.to_datetime(tmp["entry_date"], errors="coerce").dt.date
+        today_df = tmp[tmp["entry_date"] == date.today()]
+        today_packages = float(today_df["package_count"].sum()) if not today_df.empty else 0
 
-    if not entries.empty:
-        q = """
-        SELECT r.brand || ' - ' || r.branch AS restoran, SUM(d.package_count) AS paket, SUM(d.worked_hours) AS saat
+    row1 = st.columns(3, gap="large")
+    row1[0].metric("Aktif Restoran", fmt_number(active_restaurants))
+    row1[1].metric("Aktif Personel", fmt_number(active_people))
+    row1[2].metric("Joker Havuzu", fmt_number(joker_count))
+
+    row2 = st.columns(2, gap="large")
+    row2[0].metric("Bugün Paket", fmt_number(today_packages))
+    row2[1].metric("Paket / Saat", fmt_number(package_per_hour))
+
+    if entries.empty:
+        st.info("Henüz günlük puantaj kaydı yok.")
+        return
+
+    perf = fetch_df(conn, """
+        SELECT
+            r.brand || ' - ' || r.branch AS restoran,
+            SUM(d.package_count) AS paket,
+            SUM(d.worked_hours) AS saat
         FROM daily_entries d
         JOIN restaurants r ON r.id = d.restaurant_id
         GROUP BY 1
         ORDER BY paket DESC
-        """
-        perf = fetch_df(conn, q)
-        c1, c2 = st.columns(2)
-        c1.dataframe(perf, width='stretch', hide_index=True)
-        c2.bar_chart(perf.set_index("restoran")[["paket"]])
-    else:
-        st.info("Henüz günlük puantaj kaydı yok.")
+    """)
+    perf["paket_saat"] = perf.apply(lambda x: (float(x["paket"]) / float(x["saat"])) if float(x["saat"] or 0) else 0, axis=1)
+
+    left, right = st.columns([1.55, 1], gap="large")
+    with left:
+        st.markdown("##### Şube Operasyon Özeti")
+        display = format_display_df(
+            perf,
+            number_cols=["paket", "saat", "paket_saat"],
+            rename_map={
+                "restoran": "Restoran",
+                "paket": "Toplam Paket",
+                "saat": "Toplam Saat",
+                "paket_saat": "Paket / Saat",
+            },
+        )
+        st.dataframe(display, width='stretch', hide_index=True)
+
+    with right:
+        top_rest = perf.iloc[0]["restoran"] if not perf.empty else "-"
+        top_pkg = fmt_number(perf.iloc[0]["paket"]) if not perf.empty else "0"
+        best_row = perf.sort_values("paket_saat", ascending=False).iloc[0] if not perf.empty else None
+        best_name = best_row["restoran"] if best_row is not None else "-"
+        best_eff = fmt_number(best_row["paket_saat"]) if best_row is not None else "0"
+
+        render_dashboard_panel(
+            "Hızlı İçgörüler",
+            [
+                ("En yüksek hacimli şube", f"{top_rest} · {top_pkg} paket"),
+                ("En verimli şube", f"{best_name} · {best_eff}"),
+                ("Toplam çalışma saati", fmt_number(total_hours)),
+            ],
+        )
+
+        role_df = fetch_df(conn, "SELECT role, COUNT(*) AS adet FROM personnel WHERE status='Aktif' GROUP BY role ORDER BY adet DESC")
+        role_rows = [(row["role"], fmt_number(row["adet"])) for _, row in role_df.iterrows()] if not role_df.empty else [("Veri", "0")]
+        render_dashboard_panel("Aktif Kadro Dağılımı", role_rows)
 
 
 def restaurants_tab(conn: sqlite3.Connection) -> None:
@@ -2232,34 +2382,14 @@ def main() -> None:
     if not login_gate():
         return
 
-    st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="assets/logo.png", layout="wide")
+    st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="📦", layout="wide")
     inject_global_styles()
-    try:
-        st.logo("assets/logo.png", icon_image="assets/logo.png")
-    except Exception:
-        pass
-
-    head_left, head_right = st.columns([0.16, 0.84], vertical_alignment="center")
-    with head_left:
-        try:
-            st.image("assets/logo.png", width=120)
-        except Exception:
-            pass
-    with head_right:
-        st.markdown('<div class="ck-hero"><div class="ck-hero-title">Çat Kapında Operasyon CRM</div><div class="ck-hero-subtitle">Operasyon, personel, puantaj, kesinti, ekipman, aylık hakediş ve kârlılık yönetimi tek ekranda.</div></div>', unsafe_allow_html=True)
 
     conn = get_conn()
     role = st.session_state.get("role", "")
 
     menu = st.sidebar.radio("Ana Menü", allowed_menu_items(role))
     logout_button()
-
-    st.sidebar.markdown("---")
-    st.sidebar.info("Önce restoran, personel, ekipman ve puantaj verisi girilir; ardından Raporlar ve Karlılık ekranından finansal sonuçlar izlenir.")
-    st.sidebar.write("Hızlı Kurallar Özeti")
-    st.sidebar.write(f"Kurye saatlik maliyet: {fmt_try(COURIER_HOURLY_COST)}")
-    st.sidebar.write(f"Diğer restoranlar paket primi: {fmt_try(COURIER_PACKAGE_COST_DEFAULT_LOW)} / {fmt_try(COURIER_PACKAGE_COST_DEFAULT_HIGH)}")
-    st.sidebar.write(f"Quick China paket primi: {fmt_try(COURIER_PACKAGE_COST_QC)}")
 
     ensure_role_access(menu, role)
 
