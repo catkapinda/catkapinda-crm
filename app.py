@@ -241,11 +241,10 @@ def get_database_url() -> str | None:
 
 
 def connect_postgres(database_url: str) -> CompatConnection:
-    import psycopg2
-    from psycopg2.extras import DictCursor
+    import psycopg
+    from psycopg.rows import dict_row
 
-    raw_conn = psycopg2.connect(database_url, cursor_factory=DictCursor)
-    raw_conn.autocommit = False
+    raw_conn = psycopg.connect(database_url, row_factory=dict_row)
     return CompatConnection(raw_conn, "postgres")
 
 
