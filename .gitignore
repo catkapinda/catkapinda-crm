@@ -1,7 +1,0 @@
-__pycache__/
-.venv/
-*.pyc
-*.pyo
-*.pyd
-.DS_Store
-catkapinda_crm.db
