@@ -130,6 +130,11 @@ class CompatConnection:
     def rollback(self) -> None:
         self.raw_conn.rollback()
 
+    def backup(self, target_conn) -> None:
+        if self.backend != "sqlite":
+            raise NotImplementedError("Yedekleme işlemi sadece SQLite için desteklenir.")
+        self.raw_conn.backup(target_conn)
+
     def close(self) -> None:
         self.raw_conn.close()
 
@@ -899,7 +904,6 @@ def get_conn() -> CompatConnection:
     seed_initial_data(conn)
     migrate_data(conn)
     cleanup_auth_sessions(conn)
-    create_daily_backup(conn)
     return conn
 
 
