@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import calendar
 from io import BytesIO
+import os
 import re
 import secrets
+import shutil
 import sqlite3
+import tempfile
+import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Any, Iterable, Sequence
 
 import pandas as pd
 import streamlit as st
@@ -18,19 +23,59 @@ from reportlab.pdfgen import canvas
 
 
 USERS = {
-    "catkapinda": {"password": "Cat2025.", "role": "admin", "display": "Yönetim Kurulu / Admin"},
+    "catkapinda": {"password": "Cat2025.", "role": "admin", "display": "Yönetim Kurulu / Yönetici"},
     "chef": {"password": "Chef2025.", "role": "sef", "display": "Şef"},
 }
 
-DB_PATH = Path(__file__).with_name("catkapinda_crm.db")
+APP_DATA_DIR = Path.home() / "Documents" / "CatKapindaData"
+BACKUP_DIR = APP_DATA_DIR / "backups"
+DB_PATH = APP_DATA_DIR / "catkapinda_crm.db"
+LEGACY_DB_PATHS = [
+    Path(__file__).with_name("catkapinda_crm.db"),
+    Path.home() / "Desktop" / "catkapinda_crm.db",
+    Path.home() / "Desktop" / "catkapinda_crm_v1" / "catkapinda_crm.db",
+]
 AUTH_QUERY_KEY = "ck_session"
 AUTH_SESSION_DAYS = 30
+MAX_DB_BACKUPS = 30
 VAT_RATE_DEFAULT = 20.0
 COURIER_HOURLY_COST = 250.0  # KDV dahil
 COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
 COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 COURIER_PACKAGE_COST_QC = 25.0
 PACKAGE_THRESHOLD_DEFAULT = 390
+PRICING_MODEL_LABELS = {
+    "hourly_plus_package": "Saatlik + Paket",
+    "threshold_package": "Eşikli Paket",
+    "hourly_only": "Sadece Saatlik",
+    "fixed_monthly": "Sabit Aylık Ücret",
+}
+COST_MODEL_LABELS = {
+    "standard_courier": "Standart Kurye",
+    "fixed_monthly": "Sabit Aylık Ücret",
+}
+ACTIVE_STATUS_LABELS = {
+    1: "Aktif",
+    0: "Pasif",
+    "1": "Aktif",
+    "0": "Pasif",
+}
+ALLOCATION_SOURCE_LABELS = {
+    "Degisken maliyet": "Değişken maliyet",
+    "Sabit maliyet payi": "Sabit maliyet payı",
+    "Sabit maliyet tam atama": "Sabit maliyet tam atama",
+}
+TABLE_EXPORT_ORDER = [
+    "restaurants",
+    "personnel",
+    "plate_history",
+    "daily_entries",
+    "deductions",
+    "inventory_purchases",
+    "courier_equipment_issues",
+    "box_returns",
+    "auth_sessions",
+]
 
 
 @dataclass
@@ -43,6 +88,67 @@ class PricingRule:
     package_rate_high: float
     fixed_monthly_fee: float
     vat_rate: float
+
+
+class CompatConnection:
+    def __init__(self, raw_conn, backend: str):
+        self.raw_conn = raw_conn
+        self.backend = backend
+
+    def execute(self, query: str, params: Sequence[Any] = ()):
+        sql = adapt_sql(query, self.backend)
+        if self.backend == "sqlite":
+            cursor = self.raw_conn.execute(sql, params)
+            return CompatCursor(cursor)
+        cursor = self.raw_conn.cursor()
+        cursor.execute(sql, params)
+        return CompatCursor(cursor)
+
+    def executemany(self, query: str, param_sets: Iterable[Sequence[Any]]):
+        sql = adapt_sql(query, self.backend)
+        if self.backend == "sqlite":
+            cursor = self.raw_conn.executemany(sql, param_sets)
+            return CompatCursor(cursor)
+        cursor = self.raw_conn.cursor()
+        cursor.executemany(sql, list(param_sets))
+        return CompatCursor(cursor)
+
+    def executescript(self, script: str) -> None:
+        if self.backend == "sqlite":
+            self.raw_conn.executescript(script)
+            return
+        cursor = self.raw_conn.cursor()
+        try:
+            for statement in split_sql_script(script):
+                cursor.execute(statement)
+        finally:
+            cursor.close()
+
+    def commit(self) -> None:
+        self.raw_conn.commit()
+
+    def rollback(self) -> None:
+        self.raw_conn.rollback()
+
+    def close(self) -> None:
+        self.raw_conn.close()
+
+
+class CompatCursor:
+    def __init__(self, cursor):
+        self.cursor = cursor
+
+    def fetchone(self):
+        return self.cursor.fetchone()
+
+    def fetchall(self):
+        return self.cursor.fetchall()
+
+    def close(self) -> None:
+        try:
+            self.cursor.close()
+        except Exception:
+            pass
 
 
 def init_auth_state() -> None:
@@ -101,9 +207,99 @@ def set_query_param(name: str, value: str | None) -> None:
     st.experimental_set_query_params(**params)
 
 
-def ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(
-        """
+def split_sql_script(script: str) -> list[str]:
+    return [statement.strip() for statement in script.split(";") if statement.strip()]
+
+
+def adapt_sql(query: str, backend: str) -> str:
+    if backend == "postgres":
+        return query.replace("?", "%s")
+    return query
+
+
+def get_database_url() -> str | None:
+    env_value = os.getenv("DATABASE_URL")
+    if env_value:
+        return env_value
+
+    try:
+        if "DATABASE_URL" in st.secrets:
+            return st.secrets["DATABASE_URL"]
+        if "database" in st.secrets and "url" in st.secrets["database"]:
+            return st.secrets["database"]["url"]
+    except Exception:
+        return None
+    return None
+
+
+def connect_postgres(database_url: str) -> CompatConnection:
+    import psycopg2
+    from psycopg2.extras import DictCursor
+
+    raw_conn = psycopg2.connect(database_url, cursor_factory=DictCursor)
+    raw_conn.autocommit = False
+    return CompatConnection(raw_conn, "postgres")
+
+
+def connect_sqlite() -> CompatConnection:
+    ensure_data_storage()
+    raw_conn = sqlite3.connect(DB_PATH)
+    raw_conn.row_factory = sqlite3.Row
+    return CompatConnection(raw_conn, "sqlite")
+
+
+def connect_database() -> CompatConnection:
+    database_url = get_database_url()
+    if database_url:
+        return connect_postgres(database_url)
+    return connect_sqlite()
+
+
+def ensure_data_storage() -> Path | None:
+    APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
+    if DB_PATH.exists():
+        return None
+
+    candidates = [path for path in LEGACY_DB_PATHS if path.exists() and path != DB_PATH]
+    if not candidates:
+        return None
+
+    latest_source = max(candidates, key=lambda path: path.stat().st_mtime)
+    shutil.copy2(latest_source, DB_PATH)
+    return latest_source
+
+
+def prune_old_backups() -> None:
+    backups = sorted(BACKUP_DIR.glob("catkapinda_crm_*.db"), key=lambda path: path.stat().st_mtime, reverse=True)
+    for old_backup in backups[MAX_DB_BACKUPS:]:
+        try:
+            old_backup.unlink()
+        except OSError:
+            continue
+
+
+def create_daily_backup(conn: CompatConnection) -> Path | None:
+    if conn.backend != "sqlite":
+        return None
+    backup_path = BACKUP_DIR / f"catkapinda_crm_{date.today().isoformat()}.db"
+    if backup_path.exists():
+        prune_old_backups()
+        return backup_path
+
+    backup_conn = sqlite3.connect(backup_path)
+    try:
+        conn.backup(backup_conn)
+    finally:
+        backup_conn.close()
+
+    prune_old_backups()
+    return backup_path
+
+
+def ensure_schema(conn: CompatConnection) -> None:
+    sqlite_schema = """
         CREATE TABLE IF NOT EXISTS restaurants (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             brand TEXT NOT NULL,
@@ -241,12 +437,274 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             expires_at TEXT NOT NULL
         );
-        """
-    )
+    """
+
+    postgres_schema = """
+        CREATE TABLE IF NOT EXISTS restaurants (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            brand TEXT NOT NULL,
+            branch TEXT NOT NULL,
+            billing_group TEXT,
+            pricing_model TEXT NOT NULL,
+            hourly_rate DOUBLE PRECISION DEFAULT 0,
+            package_rate DOUBLE PRECISION DEFAULT 0,
+            package_threshold BIGINT,
+            package_rate_low DOUBLE PRECISION DEFAULT 0,
+            package_rate_high DOUBLE PRECISION DEFAULT 0,
+            fixed_monthly_fee DOUBLE PRECISION DEFAULT 0,
+            vat_rate DOUBLE PRECISION DEFAULT 20,
+            target_headcount BIGINT DEFAULT 0,
+            start_date TEXT,
+            end_date TEXT,
+            extra_headcount_request BIGINT DEFAULT 0,
+            extra_headcount_request_date TEXT,
+            reduce_headcount_request BIGINT DEFAULT 0,
+            reduce_headcount_request_date TEXT,
+            contact_name TEXT,
+            contact_phone TEXT,
+            contact_email TEXT,
+            tax_office TEXT,
+            tax_number TEXT,
+            active BIGINT DEFAULT 1,
+            notes TEXT,
+            UNIQUE(brand, branch)
+        );
+
+        CREATE TABLE IF NOT EXISTS personnel (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            person_code TEXT,
+            full_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Aktif',
+            phone TEXT,
+            tc_no TEXT,
+            iban TEXT,
+            accounting_type TEXT DEFAULT '-',
+            new_company_setup TEXT DEFAULT 'Hayır',
+            accounting_revenue DOUBLE PRECISION DEFAULT 0,
+            accountant_cost DOUBLE PRECISION DEFAULT 0,
+            company_setup_revenue DOUBLE PRECISION DEFAULT 0,
+            company_setup_cost DOUBLE PRECISION DEFAULT 0,
+            assigned_restaurant_id BIGINT REFERENCES restaurants(id),
+            vehicle_type TEXT,
+            motor_rental TEXT DEFAULT 'Hayır',
+            current_plate TEXT,
+            start_date TEXT,
+            exit_date TEXT,
+            cost_model TEXT NOT NULL DEFAULT 'standard_courier',
+            monthly_fixed_cost DOUBLE PRECISION DEFAULT 0,
+            notes TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS plate_history (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            personnel_id BIGINT NOT NULL REFERENCES personnel(id),
+            plate TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT,
+            reason TEXT,
+            active BIGINT DEFAULT 1
+        );
+
+        CREATE TABLE IF NOT EXISTS daily_entries (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            entry_date TEXT NOT NULL,
+            restaurant_id BIGINT NOT NULL REFERENCES restaurants(id),
+            planned_personnel_id BIGINT REFERENCES personnel(id),
+            actual_personnel_id BIGINT REFERENCES personnel(id),
+            status TEXT NOT NULL,
+            worked_hours DOUBLE PRECISION DEFAULT 0,
+            package_count DOUBLE PRECISION DEFAULT 0,
+            notes TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS deductions (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            personnel_id BIGINT NOT NULL REFERENCES personnel(id),
+            deduction_date TEXT NOT NULL,
+            deduction_type TEXT NOT NULL,
+            amount DOUBLE PRECISION NOT NULL,
+            notes TEXT,
+            equipment_issue_id BIGINT
+        );
+
+        CREATE TABLE IF NOT EXISTS inventory_purchases (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            purchase_date TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            quantity BIGINT NOT NULL,
+            total_invoice_amount DOUBLE PRECISION NOT NULL,
+            unit_cost DOUBLE PRECISION NOT NULL,
+            supplier TEXT,
+            invoice_no TEXT,
+            notes TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS courier_equipment_issues (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            personnel_id BIGINT NOT NULL REFERENCES personnel(id),
+            issue_date TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            quantity BIGINT NOT NULL DEFAULT 1,
+            unit_cost DOUBLE PRECISION NOT NULL DEFAULT 0,
+            unit_sale_price DOUBLE PRECISION NOT NULL DEFAULT 0,
+            installment_count BIGINT NOT NULL DEFAULT 2,
+            sale_type TEXT NOT NULL DEFAULT 'Satış',
+            notes TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS box_returns (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            personnel_id BIGINT NOT NULL REFERENCES personnel(id),
+            return_date TEXT NOT NULL,
+            quantity BIGINT NOT NULL DEFAULT 1,
+            condition_status TEXT NOT NULL,
+            payout_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+            waived BIGINT NOT NULL DEFAULT 0,
+            notes TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS auth_sessions (
+            token TEXT PRIMARY KEY,
+            username TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        );
+    """
+    conn.executescript(postgres_schema if conn.backend == "postgres" else sqlite_schema)
     conn.commit()
 
 
-def cleanup_auth_sessions(conn: sqlite3.Connection) -> None:
+def get_table_columns(conn: CompatConnection, table_name: str) -> set[str]:
+    if conn.backend == "sqlite":
+        return {row["name"] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
+
+    rows = conn.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = ?
+        """,
+        (table_name,),
+    ).fetchall()
+    return {row["column_name"] for row in rows}
+
+
+def database_has_operational_data(conn: CompatConnection) -> bool:
+    return any(table_has_rows(conn, table) for table in ["restaurants", "personnel", "daily_entries", "deductions"])
+
+
+def find_legacy_sqlite_source() -> Path | None:
+    candidates = []
+    seen = set()
+    for path in [*LEGACY_DB_PATHS, DB_PATH]:
+        if path in seen:
+            continue
+        seen.add(path)
+        if path.exists():
+            candidates.append(path)
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def reset_postgres_sequences(conn: CompatConnection, tables: list[str]) -> None:
+    if conn.backend != "postgres":
+        return
+    for table in tables:
+        conn.execute(
+            f"""
+            SELECT setval(
+                pg_get_serial_sequence('{table}', 'id'),
+                COALESCE((SELECT MAX(id) FROM {table}), 1),
+                EXISTS (SELECT 1 FROM {table})
+            )
+            """
+        )
+    conn.commit()
+
+
+def import_sqlite_into_current_db(conn: CompatConnection, sqlite_path: Path) -> bool:
+    if conn.backend != "postgres" or not sqlite_path.exists():
+        return False
+
+    source = sqlite3.connect(sqlite_path)
+    source.row_factory = sqlite3.Row
+    imported_anything = False
+    identity_tables = []
+
+    try:
+        for table in TABLE_EXPORT_ORDER:
+            columns = [row["name"] for row in source.execute(f"PRAGMA table_info({table})").fetchall()]
+            if not columns:
+                continue
+            rows = source.execute(f"SELECT {', '.join(columns)} FROM {table}").fetchall()
+            if not rows:
+                continue
+            placeholders = ", ".join(["?"] * len(columns))
+            insert_sql = f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})"
+            payload = [tuple(row[col] for col in columns) for row in rows]
+            conn.executemany(insert_sql, payload)
+            imported_anything = True
+            if "id" in columns and table != "auth_sessions":
+                identity_tables.append(table)
+        conn.commit()
+        reset_postgres_sequences(conn, identity_tables)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        source.close()
+
+    return imported_anything
+
+
+def maybe_migrate_legacy_sqlite_to_postgres(conn: CompatConnection) -> Path | None:
+    if conn.backend != "postgres" or database_has_operational_data(conn):
+        return None
+    source = find_legacy_sqlite_source()
+    if not source:
+        return None
+    imported = import_sqlite_into_current_db(conn, source)
+    return source if imported else None
+
+
+def insert_equipment_issue_and_get_id(
+    conn: CompatConnection,
+    personnel_id: int,
+    issue_date_str: str,
+    item_name: str,
+    quantity: int,
+    unit_cost: float,
+    unit_sale_price: float,
+    installment_count: int,
+    sale_type: str,
+    notes: str,
+) -> int:
+    if conn.backend == "postgres":
+        row = conn.execute(
+            """
+            INSERT INTO courier_equipment_issues
+            (personnel_id, issue_date, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
+            """,
+            (personnel_id, issue_date_str, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes),
+        ).fetchone()
+        return int(row[0])
+
+    conn.execute(
+        """
+        INSERT INTO courier_equipment_issues
+        (personnel_id, issue_date, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (personnel_id, issue_date_str, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes),
+    )
+    return int(conn.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+
+def cleanup_auth_sessions(conn: CompatConnection) -> None:
     conn.execute(
         "DELETE FROM auth_sessions WHERE expires_at <= ?",
         (datetime.utcnow().isoformat(timespec="seconds"),),
@@ -309,12 +767,12 @@ def revoke_current_auth_session(conn: sqlite3.Connection) -> None:
     clear_authenticated_user()
 
 
-def table_has_rows(conn: sqlite3.Connection, table: str) -> bool:
+def table_has_rows(conn: CompatConnection, table: str) -> bool:
     cur = conn.execute(f"SELECT COUNT(*) FROM {table}")
     return cur.fetchone()[0] > 0
 
 
-def seed_initial_data(conn: sqlite3.Connection) -> None:
+def seed_initial_data(conn: CompatConnection) -> None:
     if not table_has_rows(conn, "restaurants"):
         restaurants = [
             ("Fasuli", "Beyoğlu", "Fasuli", "threshold_package", 273, 0, 390, 33.75, 47.25, 0, 20, 2, 1, "390 pakete kadar düşük prim, üstü yüksek prim."),
@@ -369,7 +827,7 @@ def seed_initial_data(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def migrate_data(conn: sqlite3.Connection) -> None:
+def migrate_data(conn: CompatConnection) -> None:
     corrections = [
         ("Evrem", "Evrem Karapınar", "Joker"),
         ("Ali", "Ali Kudret Bakar", "Joker"),
@@ -386,7 +844,7 @@ def migrate_data(conn: sqlite3.Connection) -> None:
         "UPDATE personnel SET notes = 'Quick China Takım Şefi; saatlik/paket maliyeti yok' WHERE full_name = 'Recep Çevik' AND role = 'Şef'"
     )
 
-    personnel_cols = {row["name"] for row in conn.execute("PRAGMA table_info(personnel)")}
+    personnel_cols = get_table_columns(conn, "personnel")
     if "accounting_type" not in personnel_cols:
         conn.execute("ALTER TABLE personnel ADD COLUMN accounting_type TEXT DEFAULT '-'")
     if "new_company_setup" not in personnel_cols:
@@ -400,7 +858,7 @@ def migrate_data(conn: sqlite3.Connection) -> None:
     if "company_setup_cost" not in personnel_cols:
         conn.execute("ALTER TABLE personnel ADD COLUMN company_setup_cost REAL DEFAULT 0")
 
-    restaurant_cols = {row["name"] for row in conn.execute("PRAGMA table_info(restaurants)")}
+    restaurant_cols = get_table_columns(conn, "restaurants")
     if "start_date" not in restaurant_cols:
         conn.execute("ALTER TABLE restaurants ADD COLUMN start_date TEXT")
     if "end_date" not in restaurant_cols:
@@ -424,19 +882,20 @@ def migrate_data(conn: sqlite3.Connection) -> None:
     if "tax_number" not in restaurant_cols:
         conn.execute("ALTER TABLE restaurants ADD COLUMN tax_number TEXT")
 
-    existing = {row["name"] for row in conn.execute("PRAGMA table_info(deductions)")}
+    existing = get_table_columns(conn, "deductions")
     if "equipment_issue_id" not in existing:
         conn.execute("ALTER TABLE deductions ADD COLUMN equipment_issue_id INTEGER")
     conn.commit()
 
 
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+def get_conn() -> CompatConnection:
+    conn = connect_database()
     ensure_schema(conn)
+    maybe_migrate_legacy_sqlite_to_postgres(conn)
     seed_initial_data(conn)
     migrate_data(conn)
     cleanup_auth_sessions(conn)
+    create_daily_backup(conn)
     return conn
 
 
@@ -507,6 +966,11 @@ def logout_button(conn: sqlite3.Connection) -> None:
         """,
         unsafe_allow_html=True,
     )
+    if conn.backend == "postgres":
+        st.sidebar.caption("Harici veritabanı etkin.")
+    else:
+        st.sidebar.caption("Yerel veritabanı etkin.")
+        st.sidebar.caption("Günlük yedekleme etkin.")
     if st.sidebar.button("Çıkış Yap", use_container_width=True):
         revoke_current_auth_session(conn)
         st.rerun()
@@ -515,7 +979,7 @@ def logout_button(conn: sqlite3.Connection) -> None:
 def allowed_menu_items(role: str) -> list[str]:
     if role == "admin":
         return [
-            "🏠 Ana Dashboard",
+            "🏠 Genel Bakış",
             "🏢 Restoran Yönetimi",
             "👥 Personel Yönetimi",
             "📦 Ekipman & Zimmet",
@@ -686,16 +1150,28 @@ def fmt_number(v: float) -> str:
     return s
 
 
+def display_mapped_value(value, mapping: dict) -> str:
+    if pd.isna(value):
+        return ""
+    if value in mapping:
+        return mapping[value]
+    return mapping.get(str(value), value)
+
+
 def format_display_df(
     df: pd.DataFrame,
     currency_cols: list[str] | None = None,
     percent_cols: list[str] | None = None,
     number_cols: list[str] | None = None,
     rename_map: dict[str, str] | None = None,
+    value_maps: dict[str, dict] | None = None,
 ) -> pd.DataFrame:
     if df is None or df.empty:
         return df
     out = df.copy()
+    for col, mapping in (value_maps or {}).items():
+        if col in out.columns:
+            out[col] = out[col].apply(lambda x: display_mapped_value(x, mapping))
     if rename_map:
         out = out.rename(columns=rename_map)
     for col in currency_cols or []:
@@ -708,6 +1184,143 @@ def format_display_df(
         if col in out.columns:
             out[col] = out[col].apply(lambda x: fmt_number(x) if pd.notna(x) else "")
     return out
+
+
+def format_restaurants_table(df: pd.DataFrame) -> pd.DataFrame:
+    return format_display_df(
+        df,
+        currency_cols=["hourly_rate", "package_rate", "package_rate_low", "package_rate_high", "fixed_monthly_fee"],
+        percent_cols=["vat_rate"],
+        number_cols=["package_threshold", "target_headcount", "extra_headcount_request", "reduce_headcount_request"],
+        rename_map={
+            "id": "ID",
+            "brand": "Marka",
+            "branch": "Şube",
+            "billing_group": "Fatura Grubu",
+            "pricing_model": "Fiyat Modeli",
+            "hourly_rate": "Saatlik Ücret",
+            "package_rate": "Paket Primi",
+            "package_threshold": "Paket Eşiği",
+            "package_rate_low": "Eşik Altı Prim",
+            "package_rate_high": "Eşik Üstü Prim",
+            "fixed_monthly_fee": "Sabit Aylık Ücret",
+            "vat_rate": "KDV",
+            "target_headcount": "Hedef Kadro",
+            "start_date": "Başlangıç Tarihi",
+            "end_date": "Bitiş Tarihi",
+            "extra_headcount_request": "Ek Kurye Talebi",
+            "extra_headcount_request_date": "Ek Talep Tarihi",
+            "reduce_headcount_request": "Kurye Azaltma Talebi",
+            "reduce_headcount_request_date": "Azaltma Talep Tarihi",
+            "contact_name": "Yetkili Adı",
+            "contact_phone": "Yetkili Telefon",
+            "contact_email": "Yetkili E-posta",
+            "tax_office": "Vergi Dairesi",
+            "tax_number": "Vergi Numarası",
+            "active": "Durum",
+            "notes": "Notlar",
+        },
+        value_maps={
+            "pricing_model": PRICING_MODEL_LABELS,
+            "active": ACTIVE_STATUS_LABELS,
+        },
+    )
+
+
+def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
+    visible_df = df.drop(columns=["assigned_restaurant_id"], errors="ignore")
+    return format_display_df(
+        visible_df,
+        currency_cols=["accounting_revenue", "accountant_cost", "company_setup_revenue", "company_setup_cost", "monthly_fixed_cost"],
+        rename_map={
+            "id": "ID",
+            "person_code": "Personel Kodu",
+            "full_name": "Ad Soyad",
+            "role": "Rol",
+            "status": "Durum",
+            "phone": "Telefon",
+            "tc_no": "TC Kimlik No",
+            "iban": "IBAN",
+            "accounting_type": "Muhasebe",
+            "new_company_setup": "Yeni Şirket Açılışı",
+            "accounting_revenue": "Muhasebe Geliri",
+            "accountant_cost": "Muhasebeci Maliyeti",
+            "company_setup_revenue": "Şirket Açılış Geliri",
+            "company_setup_cost": "Şirket Açılış Maliyeti",
+            "vehicle_type": "Motor Tipi",
+            "motor_rental": "Motor Kiralama",
+            "current_plate": "Güncel Plaka",
+            "start_date": "İşe Giriş Tarihi",
+            "exit_date": "Çıkış Tarihi",
+            "cost_model": "Maliyet Modeli",
+            "monthly_fixed_cost": "Aylık Sabit Maliyet",
+            "notes": "Notlar",
+            "restoran": "Ana Restoran",
+        },
+        value_maps={
+            "cost_model": COST_MODEL_LABELS,
+        },
+    )
+
+
+def build_table_backup_zip(conn: CompatConnection) -> bytes:
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for table in TABLE_EXPORT_ORDER:
+            df = fetch_df(conn, f"SELECT * FROM {table}")
+            archive.writestr(f"{table}.csv", df.to_csv(index=False).encode("utf-8-sig"))
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def render_backup_tools(conn: CompatConnection) -> None:
+    if st.session_state.get("role") != "admin":
+        return
+
+    with st.expander("Veri Yedekleme ve Aktarma", expanded=False):
+        backend_text = "Harici veritabanı" if conn.backend == "postgres" else "Yerel veritabanı"
+        st.caption(f"Aktif kayıt altyapısı: {backend_text}")
+
+        backup_zip = build_table_backup_zip(conn)
+        st.download_button(
+            "Tüm tabloları yedek olarak indir",
+            data=backup_zip,
+            file_name=f"catkapinda_tam_yedek_{date.today().isoformat()}.zip",
+            mime="application/zip",
+            use_container_width=True,
+        )
+
+        if conn.backend == "sqlite" and DB_PATH.exists():
+            st.download_button(
+                "SQLite veritabanı dosyasını indir",
+                data=DB_PATH.read_bytes(),
+                file_name=f"catkapinda_crm_{date.today().isoformat()}.db",
+                mime="application/octet-stream",
+                use_container_width=True,
+            )
+            st.info("Harici veritabanına geçmeden önce bu dosyayı indirmen en güvenli adım olur.")
+
+        if conn.backend == "postgres" and not database_has_operational_data(conn):
+            st.markdown("#### SQLite yedeğini içe aktar")
+            upload = st.file_uploader("Daha önce indirdiğin `.db` yedeğini seç", type=["db"], key="sqlite_backup_import")
+            if st.button("Yedeği içe aktar", key="sqlite_backup_import_btn", use_container_width=True, disabled=upload is None):
+                if upload is None:
+                    st.warning("Önce bir `.db` dosyası seçmelisin.")
+                else:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
+                        temp_db.write(upload.getvalue())
+                        temp_path = Path(temp_db.name)
+                    try:
+                        imported = import_sqlite_into_current_db(conn, temp_path)
+                        if imported:
+                            st.success("SQLite yedeği başarıyla harici veritabanına aktarıldı.")
+                            st.rerun()
+                        st.info("Yedek dosyasında aktarılacak veri bulunamadı.")
+                    finally:
+                        try:
+                            temp_path.unlink()
+                        except OSError:
+                            pass
 
 
 def inject_global_styles() -> None:
@@ -1007,8 +1620,8 @@ def section_intro(title: str, caption: str) -> None:
     )
 
 
-def fetch_df(conn: sqlite3.Connection, query: str, params: tuple = ()) -> pd.DataFrame:
-    return pd.read_sql_query(query, conn, params=params)
+def fetch_df(conn: CompatConnection, query: str, params: tuple = ()) -> pd.DataFrame:
+    return pd.read_sql_query(adapt_sql(query, conn.backend), conn.raw_conn, params=params)
 
 
 def get_restaurant_options(conn: sqlite3.Connection) -> dict[str, int]:
@@ -1149,7 +1762,8 @@ def month_bounds(selected_month: str) -> tuple[str, str]:
 
 
 def dashboard_tab(conn: sqlite3.Connection) -> None:
-    section_intro("🏠 Ana Dashboard | Güncel Operasyon Özeti", "Aktif restoran, aktif personel, puantaj toplamları ve temel finansal görünüm.")
+    section_intro("🏠 Genel Bakış | Güncel Operasyon Özeti", "Aktif restoran, aktif personel, puantaj toplamları ve temel finansal görünüm.")
+    render_backup_tools(conn)
     entries = fetch_df(conn, "SELECT * FROM daily_entries")
     active_restaurants = conn.execute("SELECT COUNT(*) FROM restaurants WHERE active=1").fetchone()[0]
     active_people = conn.execute("SELECT COUNT(*) FROM personnel WHERE status='Aktif'").fetchone()[0]
@@ -1184,7 +1798,8 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
     st.subheader("Restoran Yönetimi | Şube, fiyat modeli ve aktif/pasif durumu")
     st.caption("Yeni restoran ekle, fiyat modelini tanımla, aktif/pasif yönet ve yanlış test kayıtlarını sil.")
     df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    restaurants_display = format_restaurants_table(df)
+    st.dataframe(restaurants_display, use_container_width=True, hide_index=True)
 
     st.markdown("### Restoran durumu yönetimi")
     selected_row = None
@@ -1229,7 +1844,11 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             brand = c1.text_input("Marka")
             branch = c2.text_input("Şube")
             billing_group = c3.text_input("Fatura grubu / vergi levhası")
-            pricing_model = st.selectbox("Fiyat modeli", ["hourly_plus_package", "threshold_package", "hourly_only", "fixed_monthly"])
+            pricing_model = st.selectbox(
+                "Fiyat modeli",
+                list(PRICING_MODEL_LABELS.keys()),
+                format_func=lambda x: PRICING_MODEL_LABELS.get(x, x),
+            )
 
             c4, c5, c6 = st.columns(3)
             hourly_rate = c4.number_input("Saatlik ücret", min_value=0.0, value=0.0, step=1.0)
@@ -1260,7 +1879,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             c18, c19, c20 = st.columns(3)
             contact_name = c18.text_input("Yetkili ad soyad")
             contact_phone = c19.text_input("Yetkili telefon")
-            contact_email = c20.text_input("Yetkili mail")
+            contact_email = c20.text_input("Yetkili e-posta")
 
             c21, c22 = st.columns(2)
             tax_office = c21.text_input("Vergi Dairesi")
@@ -1320,9 +1939,14 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             edit_branch = c2.text_input("Şube", value=selected_row["branch"] or "")
             edit_billing_group = c3.text_input("Fatura grubu / vergi levhası", value=selected_row["billing_group"] or "")
 
-            pricing_options = ["hourly_plus_package", "threshold_package", "hourly_only", "fixed_monthly"]
+            pricing_options = list(PRICING_MODEL_LABELS.keys())
             current_pricing = selected_row["pricing_model"] if pd.notna(selected_row["pricing_model"]) and selected_row["pricing_model"] in pricing_options else pricing_options[0]
-            edit_pricing_model = st.selectbox("Fiyat modeli", pricing_options, index=pricing_options.index(current_pricing))
+            edit_pricing_model = st.selectbox(
+                "Fiyat modeli",
+                pricing_options,
+                index=pricing_options.index(current_pricing),
+                format_func=lambda x: PRICING_MODEL_LABELS.get(x, x),
+            )
 
             c4, c5, c6 = st.columns(3)
             edit_hourly_rate = c4.number_input("Saatlik ücret", min_value=0.0, value=safe_float(selected_row["hourly_rate"]), step=1.0)
@@ -1357,7 +1981,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             c18, c19, c20 = st.columns(3)
             edit_contact_name = c18.text_input("Yetkili ad soyad", value=selected_row["contact_name"] or "")
             edit_contact_phone = c19.text_input("Yetkili telefon", value=selected_row["contact_phone"] or "")
-            edit_contact_email = c20.text_input("Yetkili mail", value=selected_row["contact_email"] or "")
+            edit_contact_email = c20.text_input("Yetkili e-posta", value=selected_row["contact_email"] or "")
 
             c21, c22 = st.columns(2)
             edit_tax_office = c21.text_input("Vergi Dairesi", value=selected_row["tax_office"] or "")
@@ -1420,7 +2044,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     ORDER BY p.full_name
     """
     df = fetch_df(conn, q)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    personnel_display = format_personnel_table(df)
+    st.dataframe(personnel_display, use_container_width=True, hide_index=True)
 
     rest_opts = get_restaurant_options(conn)
     rest_opts_with_blank = {"-": None, **rest_opts}
@@ -1458,7 +2083,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             current_plate = c17.text_input("Güncel plaka")
 
             c18, c19, c20 = st.columns(3)
-            cost_model = c18.selectbox("Maliyet modeli", ["standard_courier", "fixed_monthly"])
+            cost_model = c18.selectbox(
+                "Maliyet modeli",
+                list(COST_MODEL_LABELS.keys()),
+                format_func=lambda x: COST_MODEL_LABELS.get(x, x),
+            )
             monthly_fixed_cost = c19.number_input("Aylık sabit maliyet", min_value=0.0, value=0.0, step=100.0)
             start_date = c20.date_input("İşe giriş tarihi", value=None)
 
@@ -1520,7 +2149,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         role_options = ["Kurye", "Joker", "Şef"]
         vehicle_options = ["", "Çat Kapında", "Kendi"]
         rental_options = ["Hayır", "Evet"]
-        cost_options = ["standard_courier", "fixed_monthly"]
+        cost_options = list(COST_MODEL_LABELS.keys())
 
         with st.form("personnel_edit_form"):
             c1, c2, c3 = st.columns(3)
@@ -1565,7 +2194,12 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
             c18, c19, c20 = st.columns(3)
             edit_plate = c18.text_input("Güncel plaka", value=row["current_plate"] or "")
-            edit_cost_model = c19.selectbox("Maliyet modeli", cost_options, index=cost_options.index(row["cost_model"]) if row["cost_model"] in cost_options else 0)
+            edit_cost_model = c19.selectbox(
+                "Maliyet modeli",
+                cost_options,
+                index=cost_options.index(row["cost_model"]) if row["cost_model"] in cost_options else 0,
+                format_func=lambda x: COST_MODEL_LABELS.get(x, x),
+            )
             edit_monthly_cost = c20.number_input("Aylık sabit maliyet", min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0)
 
             c21, c22 = st.columns(2)
@@ -2113,15 +2747,18 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             submitted = st.form_submit_button("Zimmet kaydet ve taksit oluştur", use_container_width=True)
             if submitted:
                 person_id = person_opts[person_label]
-                conn.execute(
-                    """
-                    INSERT INTO courier_equipment_issues
-                    (personnel_id, issue_date, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (person_id, issue_date.isoformat(), item_name, int(quantity), unit_cost, unit_sale_price, int(installment_count), sale_type, notes),
+                issue_id = insert_equipment_issue_and_get_id(
+                    conn,
+                    person_id,
+                    issue_date.isoformat(),
+                    item_name,
+                    int(quantity),
+                    unit_cost,
+                    unit_sale_price,
+                    int(installment_count),
+                    sale_type,
+                    notes,
                 )
-                issue_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
                 total_sale_amount = float(quantity) * float(unit_sale_price)
                 post_equipment_installments(conn, issue_id, person_id, issue_date, item_name, total_sale_amount, int(installment_count))
                 st.success(f"Zimmet kaydedildi. Toplam satış: {fmt_try(total_sale_amount)} | {installment_count} taksit oluşturuldu.")
@@ -2445,9 +3082,9 @@ def build_payroll_pdf(selected_month: str, payroll_row: dict, deduction_rows: pd
         c.drawString(x, y, str(text))
 
     y = height - 50
-    write_line("Cat Kapinda", 40, y, 16)
+    write_line("Çat Kapında", 40, y, 16)
     y -= 22
-    write_line("Kurye Hakedis Raporu", 40, y, 14)
+    write_line("Kurye Hakediş Raporu", 40, y, 14)
     y -= 28
 
     lines = [
@@ -2466,26 +3103,26 @@ def build_payroll_pdf(selected_month: str, payroll_row: dict, deduction_rows: pd
     c.line(40, y, width - 40, y)
     y -= 20
 
-    write_line("Calisma Ozeti", 40, y, 12)
+    write_line("Çalışma Özeti", 40, y, 12)
     y -= 18
     write_line(f"Toplam Saat: {int(float(payroll_row.get('calisma_saati', 0) or 0))}", 40, y)
     y -= 16
     write_line(f"Toplam Paket: {int(float(payroll_row.get('paket', 0) or 0))}", 40, y)
     y -= 22
 
-    write_line("Hakedis Ozeti", 40, y, 12)
+    write_line("Hakediş Özeti", 40, y, 12)
     y -= 18
-    write_line(f"Brut Hakedis: {fmt_currency_pdf(payroll_row.get('brut_maliyet', 0))}", 40, y)
+    write_line(f"Brüt Hakediş: {fmt_currency_pdf(payroll_row.get('brut_maliyet', 0))}", 40, y)
     y -= 16
     write_line(f"Toplam Kesinti: {fmt_currency_pdf(payroll_row.get('kesinti', 0))}", 40, y)
     y -= 16
-    write_line(f"Net Odeme: {fmt_currency_pdf(payroll_row.get('net_maliyet', 0))}", 40, y, 11)
+    write_line(f"Net Ödeme: {fmt_currency_pdf(payroll_row.get('net_maliyet', 0))}", 40, y, 11)
     y -= 24
 
-    write_line("Kesinti Detayi", 40, y, 12)
+    write_line("Kesinti Detayı", 40, y, 12)
     y -= 18
     if deduction_rows is None or deduction_rows.empty:
-        write_line("Bu ay icin kesinti kaydi bulunamadi.", 40, y)
+        write_line("Bu ay için kesinti kaydı bulunamadı.", 40, y)
         y -= 16
     else:
         grouped = deduction_rows.groupby("deduction_type", dropna=False)["amount"].sum().reset_index()
@@ -2499,7 +3136,7 @@ def build_payroll_pdf(selected_month: str, payroll_row: dict, deduction_rows: pd
     y -= 8
     c.line(40, y, width - 40, y)
     y -= 16
-    write_line("Cat Kapinda Operasyon CRM tarafindan olusturuldu.", 40, y, 9)
+    write_line("Çat Kapında Operasyon CRM tarafından oluşturuldu.", 40, y, 9)
 
     c.save()
     buffer.seek(0)
@@ -2507,7 +3144,7 @@ def build_payroll_pdf(selected_month: str, payroll_row: dict, deduction_rows: pd
 
 
 def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
-    section_intro("🧾 Aylık Hakediş | Personel bazlı brüt, kesinti ve net ödeme özeti", "Aylık puantaj ve kesinti verilerini personel bazında hesaplar; CSV dışa aktarma sağlar.")
+    section_intro("🧾 Aylık Hakediş | Personel bazlı brüt, kesinti ve net ödeme özeti", "Aylık puantaj ve kesinti verilerini personel bazında hesaplar; tablo dosyası olarak dışa aktarma sağlar.")
 
     entries = fetch_df(
         conn,
@@ -2592,19 +3229,22 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
             "restoran_sayisi": "Restoran Sayısı",
             "maliyet_modeli": "Maliyet Modeli",
         },
+        value_maps={
+            "maliyet_modeli": COST_MODEL_LABELS,
+        },
     )
     st.dataframe(payroll_display, use_container_width=True, hide_index=True)
     st.download_button(
-        "Aylık hakediş CSV indir",
+        "Aylık hakediş tablosunu indir",
         data=cost_df.to_csv(index=False).encode("utf-8-sig"),
         file_name=f"catkapinda_aylik_hakedis_{selected_month}.csv",
         mime="text/csv",
     )
 
-    st.markdown("### PDF Hakediş İndir")
+    st.markdown("### Hakediş Belgesini İndir")
     pdf_person_options = {f"{row['personel']} | {row['rol']}": row["personnel_id"] for _, row in cost_df.sort_values("personel").iterrows()}
     if pdf_person_options:
-        selected_pdf_label = st.selectbox("PDF oluşturulacak personel", list(pdf_person_options.keys()))
+        selected_pdf_label = st.selectbox("Belgesi oluşturulacak personel", list(pdf_person_options.keys()))
         selected_pdf_id = pdf_person_options[selected_pdf_label]
         payroll_row = cost_df[cost_df["personnel_id"] == selected_pdf_id].iloc[0].to_dict()
 
@@ -2623,13 +3263,13 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
         pdf_bytes = build_payroll_pdf(selected_month, payroll_row, deduction_rows, worked_restaurants)
         safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", str(payroll_row.get("personel", "personel")))
         st.download_button(
-            "PDF hakediş indir",
+            "Hakediş belgesini indir",
             data=pdf_bytes,
             file_name=f"hakedis_{safe_name}_{selected_month}.pdf",
             mime="application/pdf",
         )
     else:
-        st.info("PDF oluşturmak için önce hakediş tablosunda personel verisi oluşmalı.")
+        st.info("Belge oluşturmak için önce hakediş tablosunda personel verisi oluşmalı.")
 
 
 def reports_tab(conn: sqlite3.Connection) -> None:
@@ -2737,10 +3377,13 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 "kdv_haric": "Restoran KDV Hariç",
                 "kdv_dahil": "Restoran KDV Dahil",
             },
+            value_maps={
+                "model": PRICING_MODEL_LABELS,
+            },
         )
         st.dataframe(invoice_display_df, use_container_width=True, hide_index=True)
         st.download_button(
-            "Fatura raporunu CSV indir",
+            "Fatura raporunu indir",
             data=invoice_df.to_csv(index=False).encode("utf-8-sig"),
             file_name=f"catkapinda_fatura_{selected_month}.csv",
             mime="text/csv",
@@ -2761,10 +3404,13 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 "net_maliyet": "Net Kurye Maliyeti",
                 "maliyet_modeli": "Maliyet Modeli",
             },
+            value_maps={
+                "maliyet_modeli": COST_MODEL_LABELS,
+            },
         )
         st.dataframe(cost_display_df, use_container_width=True, hide_index=True)
         st.download_button(
-            "Personel maliyetini CSV indir",
+            "Personel maliyet raporunu indir",
             data=cost_df.to_csv(index=False).encode("utf-8-sig"),
             file_name=f"catkapinda_personel_maliyet_{selected_month}.csv",
             mime="text/csv",
@@ -2793,10 +3439,13 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                     "kar_marji_%": "Kâr Marjı",
                     "model": "Fiyat Modeli",
                 },
+                value_maps={
+                    "model": PRICING_MODEL_LABELS,
+                },
             )
             st.dataframe(profit_display_df, use_container_width=True, hide_index=True)
             st.download_button(
-                "Restoran kârlılık CSV indir",
+                "Restoran kârlılık raporunu indir",
                 data=profit_df.to_csv(index=False).encode("utf-8-sig"),
                 file_name=f"catkapinda_restoran_karlilik_{selected_month}.csv",
                 mime="text/csv",
@@ -2818,10 +3467,13 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                     "maliyet": "Maliyet Payı",
                     "kaynak": "Maliyet Kaynağı",
                 },
+                value_maps={
+                    "kaynak": ALLOCATION_SOURCE_LABELS,
+                },
             )
             st.dataframe(distribution_display_df, use_container_width=True, hide_index=True)
             st.download_button(
-                "Personel-şube dağılımı CSV indir",
+                "Personel-şube dağılımını indir",
                 data=person_distribution_df.to_csv(index=False).encode("utf-8-sig"),
                 file_name=f"catkapinda_personel_sube_dagilim_{selected_month}.csv",
                 mime="text/csv",
@@ -2862,7 +3514,7 @@ def main() -> None:
 
         ensure_role_access(menu, role)
 
-        if menu == "🏠 Ana Dashboard":
+        if menu == "🏠 Genel Bakış":
             dashboard_tab(conn)
         elif menu == "🏢 Restoran Yönetimi":
             restaurants_tab(conn)
