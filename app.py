@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Sequence
+from urllib.parse import urlsplit
 
 import pandas as pd
 import streamlit as st
@@ -225,7 +226,7 @@ def adapt_sql(query: str, backend: str) -> str:
     return query
 
 
-def get_database_url() -> str | None:
+def get_database_config() -> str | dict[str, Any] | None:
     env_value = os.getenv("DATABASE_URL")
     if env_value:
         return env_value
@@ -233,22 +234,60 @@ def get_database_url() -> str | None:
     try:
         if "DATABASE_URL" in st.secrets:
             return st.secrets["DATABASE_URL"]
-        if "database" in st.secrets and "url" in st.secrets["database"]:
-            return st.secrets["database"]["url"]
+        if "database" in st.secrets:
+            db_secrets = st.secrets["database"]
+            if "url" in db_secrets:
+                return db_secrets["url"]
+            required = {"host", "user", "password"}
+            if required.issubset(set(db_secrets.keys())):
+                return {
+                    "host": str(db_secrets["host"]).strip(),
+                    "port": int(db_secrets.get("port", 5432)),
+                    "dbname": str(db_secrets.get("dbname", db_secrets.get("database", "postgres"))).strip(),
+                    "user": str(db_secrets["user"]).strip(),
+                    "password": str(db_secrets["password"]),
+                    "sslmode": str(db_secrets.get("sslmode", "require")).strip() or "require",
+                }
     except Exception:
         return None
     return None
 
 
-def connect_postgres(database_url: str) -> CompatConnection:
+def connect_postgres(database_config: str | dict[str, Any]) -> CompatConnection:
     import psycopg
     from psycopg.rows import dict_row
 
-    cleaned_url = (database_url or "").strip().strip('"').strip("'")
-    if "sslmode=" not in cleaned_url:
-        separator = "&" if "?" in cleaned_url else "?"
-        cleaned_url = f"{cleaned_url}{separator}sslmode=require"
-    raw_conn = psycopg.connect(cleaned_url, row_factory=dict_row, connect_timeout=10)
+    try:
+        if isinstance(database_config, dict):
+            raw_conn = psycopg.connect(
+                host=database_config["host"],
+                port=int(database_config.get("port", 5432)),
+                dbname=database_config.get("dbname", "postgres"),
+                user=database_config["user"],
+                password=database_config["password"],
+                sslmode=database_config.get("sslmode", "require"),
+                row_factory=dict_row,
+                connect_timeout=10,
+            )
+        else:
+            cleaned_url = (database_config or "").strip().strip('"').strip("'")
+            if "sslmode=" not in cleaned_url:
+                separator = "&" if "?" in cleaned_url else "?"
+                cleaned_url = f"{cleaned_url}{separator}sslmode=require"
+            raw_conn = psycopg.connect(cleaned_url, row_factory=dict_row, connect_timeout=10)
+    except Exception as exc:
+        if isinstance(database_config, dict):
+            safe_target = f"{database_config.get('host', '?')}:{database_config.get('port', 5432)}"
+            safe_user = database_config.get("user", "?")
+        else:
+            parsed = urlsplit((database_config or "").strip().strip('"').strip("'"))
+            safe_target = f"{parsed.hostname or '?'}:{parsed.port or 5432}"
+            safe_user = parsed.username or "?"
+        raise RuntimeError(
+            "PostgreSQL baglantisi kurulamadi. "
+            f"Hedef: {safe_target} | Kullanici: {safe_user}. "
+            "Supabase bilgilerini yeniden kopyalayip Streamlit Secrets'e kaydet."
+        ) from exc
     return CompatConnection(raw_conn, "postgres")
 
 
@@ -260,9 +299,9 @@ def connect_sqlite() -> CompatConnection:
 
 
 def connect_database() -> CompatConnection:
-    database_url = get_database_url()
-    if database_url:
-        return connect_postgres(database_url)
+    database_config = get_database_config()
+    if database_config:
+        return connect_postgres(database_config)
     return connect_sqlite()
 
 
