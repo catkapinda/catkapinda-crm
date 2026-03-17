@@ -1794,15 +1794,15 @@ def calculate_customer_invoice(group: pd.DataFrame, rule: PricingRule) -> tuple[
     return total_hours, total_packages, subtotal, grand_total
 
 
+def calculate_standard_courier_cost(total_hours: float) -> float:
+    # Standart kurye maliyeti saatlik 250 TL (KDV dahil) olarak hesaplanır.
+    return float(total_hours or 0) * COURIER_HOURLY_COST
+
+
 def calculate_personnel_cost(month_df: pd.DataFrame, personnel_df: pd.DataFrame, deductions_df: pd.DataFrame) -> pd.DataFrame:
     results = []
     if personnel_df.empty:
         return pd.DataFrame()
-
-    grouped_entries = month_df.groupby(["actual_personnel_id", "restaurant_id"], dropna=False).agg(
-        worked_hours=("worked_hours", "sum"),
-        package_count=("package_count", "sum"),
-    ).reset_index()
 
     total_by_person = month_df.groupby("actual_personnel_id", dropna=False).agg(
         worked_hours=("worked_hours", "sum"),
@@ -1814,14 +1814,8 @@ def calculate_personnel_cost(month_df: pd.DataFrame, personnel_df: pd.DataFrame,
     else:
         deduction_by_person = deductions_df.groupby("personnel_id", dropna=False)["amount"].sum().reset_index(name="deduction_total")
 
-    for col in ["pricing_model", "hourly_rate", "package_rate", "package_threshold", "package_rate_low", "package_rate_high", "fixed_monthly_fee", "vat_rate"]:
-        if col not in month_df.columns:
-            month_df[col] = None
-    restaurant_rules = month_df[["restaurant_id", "pricing_model", "brand", "branch"]].drop_duplicates()
-
     for _, person in personnel_df.iterrows():
         person_id = person["id"]
-        person_entries = grouped_entries[grouped_entries["actual_personnel_id"] == person_id].copy()
         totals = total_by_person[total_by_person["actual_personnel_id"] == person_id]
         worked_hours = float(totals["worked_hours"].sum()) if not totals.empty else 0.0
         packages = float(totals["package_count"].sum()) if not totals.empty else 0.0
@@ -1830,20 +1824,7 @@ def calculate_personnel_cost(month_df: pd.DataFrame, personnel_df: pd.DataFrame,
         if person["cost_model"] == "fixed_monthly":
             gross_cost = float(person["monthly_fixed_cost"] or 0)
         else:
-            hourly_cost = worked_hours * COURIER_HOURLY_COST
-            package_cost = 0.0
-            for _, entry in person_entries.iterrows():
-                rid = entry["restaurant_id"]
-                pkg = float(entry["package_count"] or 0)
-                rule_row = restaurant_rules[restaurant_rules["restaurant_id"] == rid]
-                brand = rule_row["brand"].iloc[0] if not rule_row.empty else ""
-                if brand == "Quick China":
-                    package_cost += pkg * COURIER_PACKAGE_COST_QC
-                else:
-                    low_qty = min(pkg, PACKAGE_THRESHOLD_DEFAULT)
-                    high_qty = max(pkg - PACKAGE_THRESHOLD_DEFAULT, 0)
-                    package_cost += low_qty * COURIER_PACKAGE_COST_DEFAULT_LOW + high_qty * COURIER_PACKAGE_COST_DEFAULT_HIGH
-            gross_cost = hourly_cost + package_cost
+            gross_cost = calculate_standard_courier_cost(worked_hours)
 
         net_cost = gross_cost - deductions
         results.append(
@@ -3079,23 +3060,16 @@ def build_branch_profitability(month_df: pd.DataFrame, personnel_df: pd.DataFram
         cost_model = row.get("cost_model") or "standard_courier"
         hours = float(row["saat"] or 0)
         packages = float(row["paket"] or 0)
-        brand = row["brand"]
         if cost_model == "fixed_monthly":
             continue
-        if brand == "Quick China":
-            package_cost = packages * COURIER_PACKAGE_COST_QC
-        else:
-            low_qty = min(packages, PACKAGE_THRESHOLD_DEFAULT)
-            high_qty = max(packages - PACKAGE_THRESHOLD_DEFAULT, 0)
-            package_cost = low_qty * COURIER_PACKAGE_COST_DEFAULT_LOW + high_qty * COURIER_PACKAGE_COST_DEFAULT_HIGH
         allocation_rows.append(
             {
-                "restoran": f"{brand} - {row['branch']}",
+                "restoran": f"{row['brand']} - {row['branch']}",
                 "personel": row.get("full_name") or "-",
                 "rol": role,
                 "saat": hours,
                 "paket": packages,
-                "maliyet": hours * COURIER_HOURLY_COST + package_cost,
+                "maliyet": calculate_standard_courier_cost(hours),
                 "kaynak": "Degisken maliyet",
             }
         )
