@@ -1779,9 +1779,9 @@ def calculate_customer_invoice(group: pd.DataFrame, rule: PricingRule) -> tuple[
     if rule.pricing_model == "hourly_plus_package":
         subtotal = total_hours * rule.hourly_rate + total_packages * rule.package_rate
     elif rule.pricing_model == "threshold_package":
-        low_qty = min(total_packages, float(rule.package_threshold or 0))
-        high_qty = max(total_packages - float(rule.package_threshold or 0), 0)
-        subtotal = total_hours * rule.hourly_rate + low_qty * rule.package_rate_low + high_qty * rule.package_rate_high
+        package_threshold = float(rule.package_threshold or 0)
+        package_rate = rule.package_rate_low if total_packages <= package_threshold else rule.package_rate_high
+        subtotal = total_hours * rule.hourly_rate + total_packages * package_rate
     elif rule.pricing_model == "hourly_only":
         subtotal = total_hours * rule.hourly_rate
     elif rule.pricing_model == "fixed_monthly":
@@ -1794,15 +1794,39 @@ def calculate_customer_invoice(group: pd.DataFrame, rule: PricingRule) -> tuple[
     return total_hours, total_packages, subtotal, grand_total
 
 
-def calculate_standard_courier_cost(total_hours: float) -> float:
-    # Standart kurye maliyeti saatlik 250 TL (KDV dahil) olarak hesaplanır.
-    return float(total_hours or 0) * COURIER_HOURLY_COST
+def calculate_standard_package_cost(total_packages: float, brand: str = "", pricing_model: str = "") -> float:
+    package_total = float(total_packages or 0)
+    if (brand or "").strip() == "Quick China":
+        return package_total * COURIER_PACKAGE_COST_QC
+    if pricing_model == "threshold_package":
+        package_rate = COURIER_PACKAGE_COST_DEFAULT_LOW if package_total <= PACKAGE_THRESHOLD_DEFAULT else COURIER_PACKAGE_COST_DEFAULT_HIGH
+        return package_total * package_rate
+    return 0.0
+
+
+def calculate_standard_courier_cost(
+    total_hours: float,
+    total_packages: float = 0.0,
+    brand: str = "",
+    pricing_model: str = "",
+) -> float:
+    # Standart kurye maliyeti saatlik 250 TL (KDV dahil) baz alınır.
+    cost = float(total_hours or 0) * COURIER_HOURLY_COST
+    cost += calculate_standard_package_cost(total_packages, brand=brand, pricing_model=pricing_model)
+    return cost
 
 
 def calculate_personnel_cost(month_df: pd.DataFrame, personnel_df: pd.DataFrame, deductions_df: pd.DataFrame) -> pd.DataFrame:
     results = []
     if personnel_df.empty:
         return pd.DataFrame()
+
+    grouped_entries = month_df.groupby(
+        ["actual_personnel_id", "restaurant_id", "brand", "pricing_model"],
+        dropna=False,
+    ).agg(
+        package_count=("package_count", "sum"),
+    ).reset_index()
 
     total_by_person = month_df.groupby("actual_personnel_id", dropna=False).agg(
         worked_hours=("worked_hours", "sum"),
@@ -1824,7 +1848,15 @@ def calculate_personnel_cost(month_df: pd.DataFrame, personnel_df: pd.DataFrame,
         if person["cost_model"] == "fixed_monthly":
             gross_cost = float(person["monthly_fixed_cost"] or 0)
         else:
-            gross_cost = calculate_standard_courier_cost(worked_hours)
+            package_cost = 0.0
+            person_entries = grouped_entries[grouped_entries["actual_personnel_id"] == person_id]
+            for _, entry in person_entries.iterrows():
+                package_cost += calculate_standard_package_cost(
+                    entry["package_count"],
+                    brand=entry.get("brand", ""),
+                    pricing_model=entry.get("pricing_model", ""),
+                )
+            gross_cost = (worked_hours * COURIER_HOURLY_COST) + package_cost
 
         net_cost = gross_cost - deductions
         results.append(
@@ -3037,7 +3069,7 @@ def build_branch_profitability(month_df: pd.DataFrame, personnel_df: pd.DataFram
     if month_df.empty or invoice_df.empty:
         return pd.DataFrame(), pd.DataFrame()
 
-    work = month_df.groupby(["brand", "branch", "actual_personnel_id"], dropna=False).agg(
+    work = month_df.groupby(["brand", "branch", "pricing_model", "actual_personnel_id"], dropna=False).agg(
         saat=("worked_hours", "sum"),
         paket=("package_count", "sum"),
     ).reset_index()
@@ -3069,7 +3101,12 @@ def build_branch_profitability(month_df: pd.DataFrame, personnel_df: pd.DataFram
                 "rol": role,
                 "saat": hours,
                 "paket": packages,
-                "maliyet": calculate_standard_courier_cost(hours),
+                "maliyet": calculate_standard_courier_cost(
+                    hours,
+                    total_packages=packages,
+                    brand=row["brand"],
+                    pricing_model=row.get("pricing_model", ""),
+                ),
                 "kaynak": "Degisken maliyet",
             }
         )
