@@ -160,6 +160,29 @@ class CompatCursor:
             pass
 
 
+def first_row_value(row: Any, default: Any = None) -> Any:
+    if row is None:
+        return default
+    if isinstance(row, dict):
+        values = list(row.values())
+        return values[0] if values else default
+    try:
+        return row[0]
+    except Exception:
+        pass
+    if hasattr(row, "keys"):
+        try:
+            keys = list(row.keys())
+            if keys:
+                return row[keys[0]]
+        except Exception:
+            pass
+    try:
+        return next(iter(row))
+    except Exception:
+        return default
+
+
 def init_auth_state() -> None:
     defaults = {
         "authenticated": False,
@@ -746,7 +769,7 @@ def insert_equipment_issue_and_get_id(
             """,
             (personnel_id, issue_date_str, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes),
         ).fetchone()
-        return int(row[0])
+        return int(first_row_value(row, 0))
 
     conn.execute(
         """
@@ -756,7 +779,7 @@ def insert_equipment_issue_and_get_id(
         """,
         (personnel_id, issue_date_str, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes),
     )
-    return int(conn.execute("SELECT last_insert_rowid()").fetchone()[0])
+    return int(first_row_value(conn.execute("SELECT last_insert_rowid()").fetchone(), 0))
 
 
 def cleanup_auth_sessions(conn: CompatConnection) -> None:
@@ -824,7 +847,7 @@ def revoke_current_auth_session(conn: sqlite3.Connection) -> None:
 
 def table_has_rows(conn: CompatConnection, table: str) -> bool:
     cur = conn.execute(f"SELECT COUNT(*) FROM {table}")
-    return cur.fetchone()[0] > 0
+    return int(first_row_value(cur.fetchone(), 0) or 0) > 0
 
 
 def seed_initial_data(conn: CompatConnection) -> None:
@@ -1130,7 +1153,7 @@ def latest_average_cost(conn: sqlite3.Connection, item_name: str) -> float:
         """,
         (item_name,),
     ).fetchone()
-    return float(row[0] or 0)
+    return float(first_row_value(row, 0) or 0)
 
 
 def post_equipment_installments(
@@ -1146,7 +1169,7 @@ def post_equipment_installments(
         return
     installment_amount = round(total_sale_amount / installment_count, 2)
     dates = [(pd.Timestamp(issue_date) + pd.DateOffset(months=i)).date().isoformat() for i in range(installment_count)]
-    existing = conn.execute("SELECT COUNT(*) FROM deductions WHERE equipment_issue_id = ?", (issue_id,)).fetchone()[0]
+    existing = int(first_row_value(conn.execute("SELECT COUNT(*) FROM deductions WHERE equipment_issue_id = ?", (issue_id,)).fetchone(), 0) or 0)
     if existing:
         return
     for i, due_date in enumerate(dates, start=1):
@@ -1820,9 +1843,9 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
     section_intro("🏠 Genel Bakış | Güncel Operasyon Özeti", "Aktif restoran, aktif personel, puantaj toplamları ve temel finansal görünüm.")
     render_backup_tools(conn)
     entries = fetch_df(conn, "SELECT * FROM daily_entries")
-    active_restaurants = conn.execute("SELECT COUNT(*) FROM restaurants WHERE active=1").fetchone()[0]
-    active_people = conn.execute("SELECT COUNT(*) FROM personnel WHERE status='Aktif'").fetchone()[0]
-    joker_count = conn.execute("SELECT COUNT(*) FROM personnel WHERE role='Joker' AND status='Aktif'").fetchone()[0]
+    active_restaurants = int(first_row_value(conn.execute("SELECT COUNT(*) FROM restaurants WHERE active=1").fetchone(), 0) or 0)
+    active_people = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE status='Aktif'").fetchone(), 0) or 0)
+    joker_count = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE role='Joker' AND status='Aktif'").fetchone(), 0) or 0)
     total_packages = float(entries["package_count"].sum()) if not entries.empty else 0
     total_hours = float(entries["worked_hours"].sum()) if not entries.empty else 0
 
@@ -1872,9 +1895,9 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             st.success("Restoran durumu güncellendi.")
             st.rerun()
         if c3.button("Kalıcı sil", use_container_width=True):
-            linked_people = conn.execute("SELECT COUNT(*) FROM personnel WHERE assigned_restaurant_id = ?", (selected_id,)).fetchone()[0]
-            linked_puantaj = conn.execute("SELECT COUNT(*) FROM daily_entries WHERE restaurant_id = ?", (selected_id,)).fetchone()[0]
-            linked_deductions = conn.execute(
+            linked_people = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE assigned_restaurant_id = ?", (selected_id,)).fetchone(), 0) or 0)
+            linked_puantaj = int(first_row_value(conn.execute("SELECT COUNT(*) FROM daily_entries WHERE restaurant_id = ?", (selected_id,)).fetchone(), 0) or 0)
+            linked_deductions = int(first_row_value(conn.execute(
                 """
                 SELECT COUNT(*)
                 FROM deductions d
@@ -1882,7 +1905,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                 WHERE p.assigned_restaurant_id = ?
                 """,
                 (selected_id,),
-            ).fetchone()[0]
+            ).fetchone(), 0) or 0)
             if linked_people or linked_puantaj or linked_deductions:
                 st.error("Bu restorana bağlı personel, puantaj veya kesinti kaydı var. Önce pasife alman daha doğru olur.")
             else:
