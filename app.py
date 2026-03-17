@@ -138,6 +138,9 @@ class CompatCursor:
     def __init__(self, cursor):
         self.cursor = cursor
 
+    def __iter__(self):
+        return iter(self.cursor)
+
     def fetchone(self):
         return self.cursor.fetchone()
 
@@ -806,7 +809,8 @@ def seed_initial_data(conn: CompatConnection) -> None:
         )
 
     if not table_has_rows(conn, "personnel"):
-        restaurant_map = {f"{row['brand']} - {row['branch']}": row['id'] for row in conn.execute("SELECT id, brand, branch FROM restaurants")}
+        restaurant_rows = conn.execute("SELECT id, brand, branch FROM restaurants").fetchall()
+        restaurant_map = {f"{row['brand']} - {row['branch']}": row["id"] for row in restaurant_rows}
         seeded_people = [
             ("CK-J01", "Evrem Karapınar", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 82500, "Joker havuzu"),
             ("CK-J02", "Ali Kudret Bakar", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 82500, "Joker havuzu"),
