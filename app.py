@@ -244,7 +244,11 @@ def connect_postgres(database_url: str) -> CompatConnection:
     import psycopg
     from psycopg.rows import dict_row
 
-    raw_conn = psycopg.connect(database_url, row_factory=dict_row)
+    cleaned_url = (database_url or "").strip().strip('"').strip("'")
+    if "sslmode=" not in cleaned_url:
+        separator = "&" if "?" in cleaned_url else "?"
+        cleaned_url = f"{cleaned_url}{separator}sslmode=require"
+    raw_conn = psycopg.connect(cleaned_url, row_factory=dict_row, connect_timeout=10)
     return CompatConnection(raw_conn, "postgres")
 
 
