@@ -227,13 +227,7 @@ def adapt_sql(query: str, backend: str) -> str:
 
 
 def get_database_config() -> str | dict[str, Any] | None:
-    env_value = os.getenv("DATABASE_URL")
-    if env_value:
-        return env_value
-
     try:
-        if "DATABASE_URL" in st.secrets:
-            return st.secrets["DATABASE_URL"]
         if "database" in st.secrets:
             db_secrets = st.secrets["database"]
             if "url" in db_secrets:
@@ -248,8 +242,14 @@ def get_database_config() -> str | dict[str, Any] | None:
                     "password": str(db_secrets["password"]),
                     "sslmode": str(db_secrets.get("sslmode", "require")).strip() or "require",
                 }
+        if "DATABASE_URL" in st.secrets:
+            return st.secrets["DATABASE_URL"]
     except Exception:
-        return None
+        pass
+
+    env_value = os.getenv("DATABASE_URL")
+    if env_value:
+        return env_value
     return None
 
 
@@ -280,9 +280,14 @@ def connect_postgres(database_config: str | dict[str, Any]) -> CompatConnection:
             safe_target = f"{database_config.get('host', '?')}:{database_config.get('port', 5432)}"
             safe_user = database_config.get("user", "?")
         else:
-            parsed = urlsplit((database_config or "").strip().strip('"').strip("'"))
-            safe_target = f"{parsed.hostname or '?'}:{parsed.port or 5432}"
-            safe_user = parsed.username or "?"
+            cleaned_value = (database_config or "").strip().strip('"').strip("'")
+            try:
+                parsed = urlsplit(cleaned_value)
+                safe_target = f"{parsed.hostname or '?'}:{parsed.port or 5432}"
+                safe_user = parsed.username or "?"
+            except Exception:
+                safe_target = "?"
+                safe_user = "?"
         raise RuntimeError(
             "PostgreSQL baglantisi kurulamadi. "
             f"Hedef: {safe_target} | Kullanici: {safe_user}. "
@@ -3553,7 +3558,26 @@ def main() -> None:
     st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="📦", layout="wide")
     inject_global_styles()
 
-    conn = get_conn()
+    try:
+        conn = get_conn()
+    except RuntimeError as exc:
+        st.error(str(exc))
+        st.info(
+            "Supabase baglantisi kurulamadigi icin uygulama acilmadi. "
+            "Streamlit Secrets icindeki [database] bilgilerini Supabase Connect ekranindaki host/user "
+            "alanlariyla tekrar karsilastir."
+        )
+        st.code(
+            '[database]\n'
+            'host = "..." \n'
+            'port = 5432\n'
+            'dbname = "postgres"\n'
+            'user = "..." \n'
+            'password = "..." \n'
+            'sslmode = "require"\n',
+            language="toml",
+        )
+        return
     try:
         if not login_gate(conn):
             return
