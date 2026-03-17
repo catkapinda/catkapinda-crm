@@ -1699,7 +1699,37 @@ def section_intro(title: str, caption: str) -> None:
 
 
 def fetch_df(conn: CompatConnection, query: str, params: tuple = ()) -> pd.DataFrame:
-    return pd.read_sql_query(adapt_sql(query, conn.backend), conn.raw_conn, params=params)
+    if conn.backend == "sqlite":
+        return pd.read_sql_query(adapt_sql(query, conn.backend), conn.raw_conn, params=params)
+
+    cursor = conn.execute(query, params)
+    try:
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+
+    if not rows:
+        return pd.DataFrame()
+
+    normalized_rows = []
+    for row in rows:
+        if isinstance(row, dict):
+            normalized_rows.append(row)
+            continue
+        try:
+            normalized_rows.append(dict(row))
+            continue
+        except Exception:
+            pass
+        if hasattr(row, "keys"):
+            try:
+                normalized_rows.append({key: row[key] for key in row.keys()})
+                continue
+            except Exception:
+                pass
+        normalized_rows.append(dict(enumerate(row)))
+
+    return pd.DataFrame(normalized_rows)
 
 
 def get_restaurant_options(conn: sqlite3.Connection) -> dict[str, int]:
