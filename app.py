@@ -1653,6 +1653,35 @@ def sync_all_personnel_business_rules(conn: CompatConnection) -> None:
         sync_person_auto_onboarding(conn, row, create_missing=False)
 
 
+def get_personnel_dependency_counts(conn: CompatConnection, personnel_id: int) -> dict[str, int]:
+    return {
+        "puantaj": int(
+            first_row_value(
+                conn.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM daily_entries
+                    WHERE planned_personnel_id = ? OR actual_personnel_id = ?
+                    """,
+                    (personnel_id, personnel_id),
+                ).fetchone(),
+                0,
+            )
+            or 0
+        ),
+        "kesinti": int(first_row_value(conn.execute("SELECT COUNT(*) FROM deductions WHERE personnel_id = ?", (personnel_id,)).fetchone(), 0) or 0),
+        "plaka": int(first_row_value(conn.execute("SELECT COUNT(*) FROM plate_history WHERE personnel_id = ?", (personnel_id,)).fetchone(), 0) or 0),
+        "zimmet": int(
+            first_row_value(
+                conn.execute("SELECT COUNT(*) FROM courier_equipment_issues WHERE personnel_id = ?", (personnel_id,)).fetchone(),
+                0,
+            )
+            or 0
+        ),
+        "box_iade": int(first_row_value(conn.execute("SELECT COUNT(*) FROM box_returns WHERE personnel_id = ?", (personnel_id,)).fetchone(), 0) or 0),
+    }
+
+
 def fmt_try(v: float) -> str:
     try:
         num = float(v)
@@ -1720,8 +1749,9 @@ def format_display_df(
 
 
 def format_restaurants_table(df: pd.DataFrame) -> pd.DataFrame:
+    visible_df = df.drop(columns=["billing_group"], errors="ignore")
     return format_display_df(
-        df,
+        visible_df,
         currency_cols=["hourly_rate", "package_rate", "package_rate_low", "package_rate_high", "fixed_monthly_fee"],
         percent_cols=["vat_rate"],
         number_cols=["package_threshold", "target_headcount", "extra_headcount_request", "reduce_headcount_request"],
@@ -1729,7 +1759,6 @@ def format_restaurants_table(df: pd.DataFrame) -> pd.DataFrame:
             "id": "ID",
             "brand": "Marka",
             "branch": "Şube",
-            "billing_group": "Fatura Grubu",
             "pricing_model": "Fiyat Modeli",
             "hourly_rate": "Saatlik Ücret",
             "package_rate": "Paket Primi",
@@ -2775,7 +2804,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
         if status_filter != "Tümü":
             wanted = 1 if status_filter == "Aktif" else 0
             filtered_df = filtered_df[filtered_df["active"].apply(lambda x: safe_int(x, 0)) == wanted].copy()
-        filtered_df = apply_text_search(filtered_df, ["brand", "branch", "billing_group", "contact_name", "contact_phone"], search_query)
+        filtered_df = apply_text_search(filtered_df, ["brand", "branch", "contact_name", "contact_phone"], search_query)
 
         if df.empty:
             st.info("Henüz kayıtlı restoran yok.")
@@ -2833,10 +2862,9 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
         render_tab_header("Yeni Şube Kartı", "Temel bilgiler, fiyatlandırma, operasyon ve iletişim alanlarını daha düzenli bloklar halinde gir.")
         with st.form("restaurant_form", clear_on_submit=True):
             st.markdown("##### Temel Bilgiler")
-            c1, c2, c3 = st.columns(3)
+            c1, c2 = st.columns(2)
             brand = c1.text_input("Marka")
             branch = c2.text_input("Şube")
-            billing_group = c3.text_input("Fatura grubu / vergi levhası")
 
             st.markdown("##### Fiyatlandırma")
             c4, c5 = st.columns(2)
@@ -2900,7 +2928,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                     (
                         brand,
                         branch,
-                        billing_group,
+                        "",
                         pricing_model,
                         hourly_rate,
                         package_rate,
@@ -2943,7 +2971,6 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                     "Mevcut Kart",
                     [
                         ("Durum", ACTIVE_STATUS_LABELS.get(selected_row["active"], selected_row["active"])),
-                        ("Fatura Grubu", selected_row["billing_group"] or "-"),
                         ("Başlangıç", selected_row["start_date"] or "-"),
                         ("Ek Talep", safe_int(selected_row["extra_headcount_request"])),
                         ("Azaltma Talebi", safe_int(selected_row["reduce_headcount_request"])),
@@ -2952,10 +2979,9 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             with left:
                 with st.form("restaurant_edit_form"):
                     st.markdown("##### Temel Bilgiler")
-                    c1, c2, c3 = st.columns(3)
+                    c1, c2 = st.columns(2)
                     edit_brand = c1.text_input("Marka", value=selected_row["brand"] or "")
                     edit_branch = c2.text_input("Şube", value=selected_row["branch"] or "")
-                    edit_billing_group = c3.text_input("Fatura grubu / vergi levhası", value=selected_row["billing_group"] or "")
 
                     st.markdown("##### Fiyatlandırma")
                     pricing_options = list(PRICING_MODEL_LABELS.keys())
@@ -3024,7 +3050,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                             (
                                 edit_brand,
                                 edit_branch,
-                                edit_billing_group,
+                                "",
                                 edit_pricing_model,
                                 edit_hourly_rate,
                                 edit_package_rate,
@@ -3363,9 +3389,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     )
                     edit_notes = st.text_area("Notlar", value=row["notes"] or "")
 
-                    c23, c24 = st.columns(2)
+                    c23, c24, c25 = st.columns(3)
                     update_clicked = c23.form_submit_button("Personeli güncelle", use_container_width=True)
                     toggle_clicked = c24.form_submit_button("Aktif/Pasif durumunu değiştir", use_container_width=True)
+                    delete_clicked = c25.form_submit_button("Kalıcı sil", use_container_width=True)
 
                     if update_clicked:
                         assigned_id = rest_opts_with_blank.get(edit_restaurant)
@@ -3419,6 +3446,32 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         sync_person_business_rules(conn, updated_person, create_onboarding=False)
                         st.success(f"Personel durumu {new_status} olarak güncellendi.")
                         st.rerun()
+
+                    if delete_clicked:
+                        dependency_counts = get_personnel_dependency_counts(conn, selected_id)
+                        total_dependencies = sum(dependency_counts.values())
+                        if total_dependencies:
+                            detail_parts = [
+                                f"{label}: {count}"
+                                for label, count in [
+                                    ("Puantaj", dependency_counts["puantaj"]),
+                                    ("Kesinti", dependency_counts["kesinti"]),
+                                    ("Plaka geçmişi", dependency_counts["plaka"]),
+                                    ("Zimmet", dependency_counts["zimmet"]),
+                                    ("Box iade", dependency_counts["box_iade"]),
+                                ]
+                                if count
+                            ]
+                            st.error(
+                                "Bu personel kartına bağlı operasyon verisi var; güvenlik için silinmedi. "
+                                + " | ".join(detail_parts)
+                                + ". İstersen personeli pasife al."
+                            )
+                        else:
+                            conn.execute("DELETE FROM personnel WHERE id = ?", (selected_id,))
+                            conn.commit()
+                            st.success("Personel kartı kalıcı olarak silindi.")
+                            st.rerun()
 
     else:
         render_tab_header("Plaka ve Motor Geçmişi", "Aktif plaka değişimlerini kayıt altına al, geçmiş zimmet hareketlerini alttaki tabloda takip et.")
