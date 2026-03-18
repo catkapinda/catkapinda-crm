@@ -67,6 +67,8 @@ COST_MODEL_LABELS = {
     "standard_courier": "Standart Kurye",
     "fixed_monthly": "Sabit Aylık Ücret",
 }
+PERSONNEL_ROLE_OPTIONS = ["Kurye", "Bölge Müdürü", "Saha Denetmen Şefi", "Restoran Takım Şefi", "Joker"]
+MANAGEMENT_ROLE_OPTIONS = ["Bölge Müdürü", "Saha Denetmen Şefi", "Restoran Takım Şefi"]
 ACTIVE_STATUS_LABELS = {
     1: "Aktif",
     0: "Pasif",
@@ -948,7 +950,7 @@ def seed_initial_data(conn: CompatConnection) -> None:
             ("CK-J02", "Ali Kudret Bakar", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 82500, "Joker havuzu"),
             ("CK-J03", "Cihan Can Çimen", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 117475, "Joker havuzu"),
             ("CK-J04", "Yaşar Tunç Beratoğlu", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 101600, "Joker havuzu"),
-            ("CK-S01", "Recep Çevik", "Şef", "Aktif", None, None, None, restaurant_map.get("Quick China - Ataşehir"), "", "Hayır", "", None, None, "fixed_monthly", 72050, "Quick China Takım Şefi; saatlik/paket maliyeti yok"),
+            ("CK-RTS01", "Recep Çevik", "Restoran Takım Şefi", "Aktif", None, None, None, restaurant_map.get("Quick China - Ataşehir"), "", "Hayır", "", None, None, "fixed_monthly", 72050, "Quick China Takım Şefi; saatlik/paket maliyeti yok"),
         ]
         conn.executemany(
             """
@@ -979,6 +981,7 @@ def migrate_data(conn: CompatConnection) -> None:
     conn.execute(
         "UPDATE personnel SET notes = 'Quick China Takım Şefi; saatlik/paket maliyeti yok' WHERE full_name = 'Recep Çevik' AND role = 'Şef'"
     )
+    conn.execute("UPDATE personnel SET role = 'Restoran Takım Şefi' WHERE role = 'Şef'")
 
     personnel_cols = get_table_columns(conn, "personnel")
     if "accounting_type" not in personnel_cols:
@@ -1128,6 +1131,7 @@ def allowed_menu_items(role: str) -> list[str]:
     if role == "admin":
         return [
             "🏠 Genel Bakış",
+            "📣 Güncellemeler ve Duyurular",
             "🏢 Restoran Yönetimi",
             "👥 Personel Yönetimi",
             "📦 Ekipman & Zimmet",
@@ -1139,6 +1143,7 @@ def allowed_menu_items(role: str) -> list[str]:
         ]
     if role == "sef":
         return [
+            "📣 Güncellemeler ve Duyurular",
             "👥 Personel Yönetimi",
             "🗓 Günlük Puantaj",
             "🗂 Toplu Puantaj",
@@ -1682,6 +1687,26 @@ def get_personnel_dependency_counts(conn: CompatConnection, personnel_id: int) -
     }
 
 
+def delete_personnel_and_dependencies(conn: CompatConnection, personnel_id: int) -> None:
+    equipment_df = fetch_df(conn, "SELECT id FROM courier_equipment_issues WHERE personnel_id = ?", (personnel_id,))
+    equipment_ids = [safe_int(value) for value in equipment_df["id"].tolist()] if not equipment_df.empty and "id" in equipment_df.columns else []
+
+    try:
+        if equipment_ids:
+            placeholders = ", ".join(["?"] * len(equipment_ids))
+            conn.execute(f"DELETE FROM deductions WHERE equipment_issue_id IN ({placeholders})", tuple(equipment_ids))
+        conn.execute("DELETE FROM deductions WHERE personnel_id = ?", (personnel_id,))
+        conn.execute("DELETE FROM box_returns WHERE personnel_id = ?", (personnel_id,))
+        conn.execute("DELETE FROM plate_history WHERE personnel_id = ?", (personnel_id,))
+        conn.execute("DELETE FROM daily_entries WHERE planned_personnel_id = ? OR actual_personnel_id = ?", (personnel_id, personnel_id))
+        conn.execute("DELETE FROM courier_equipment_issues WHERE personnel_id = ?", (personnel_id,))
+        conn.execute("DELETE FROM personnel WHERE id = ?", (personnel_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def fmt_try(v: float) -> str:
     try:
         num = float(v)
@@ -2142,6 +2167,47 @@ def inject_global_styles() -> None:
                 color: rgba(255,255,255,0.86);
             }
 
+            .ck-update-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 14px;
+                margin-top: 0.25rem;
+            }
+
+            .ck-update-card {
+                background: linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%);
+                border: 1px solid var(--ck-border);
+                border-radius: 22px;
+                padding: 18px 18px 16px;
+                box-shadow: var(--ck-shadow);
+                height: 100%;
+            }
+
+            .ck-update-card-title {
+                font-size: 1rem;
+                font-weight: 860;
+                color: var(--ck-text);
+                letter-spacing: -0.03em;
+            }
+
+            .ck-update-card-text {
+                margin-top: 0.45rem;
+                color: var(--ck-muted);
+                line-height: 1.65;
+                font-size: 0.92rem;
+            }
+
+            .ck-update-list {
+                margin: 0.9rem 0 0;
+                padding-left: 1rem;
+                color: var(--ck-text);
+            }
+
+            .ck-update-list li {
+                margin-bottom: 0.4rem;
+                line-height: 1.55;
+            }
+
             .ck-login-gap {
                 height: 5vh;
             }
@@ -2376,6 +2442,10 @@ def inject_global_styles() -> None:
                 .ck-hero-grid {
                     grid-template-columns: 1fr;
                 }
+
+                .ck-update-grid {
+                    grid-template-columns: 1fr;
+                }
             }
         </style>
         """,
@@ -2457,6 +2527,20 @@ def render_action_card(title: str, subtitle: str, highlight: bool = False) -> No
         <div class="{class_name}">
             <div class="ck-action-card-title">{html.escape(title)}</div>
             <div class="ck-action-card-subtitle">{html.escape(subtitle)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_update_card(title: str, text: str, bullets: list[str]) -> None:
+    bullet_html = "".join(f"<li>{html.escape(item)}</li>" for item in bullets)
+    st.markdown(
+        f"""
+        <div class="ck-update-card">
+            <div class="ck-update-card-title">{html.escape(title)}</div>
+            <div class="ck-update-card-text">{html.escape(text)}</div>
+            <ul class="ck-update-list">{bullet_html}</ul>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2579,6 +2663,9 @@ def get_person_options(conn: sqlite3.Connection, active_only: bool = True) -> di
 def role_code_prefix(role: str) -> str:
     mapping = {
         "Kurye": "K",
+        "Bölge Müdürü": "BM",
+        "Saha Denetmen Şefi": "SDS",
+        "Restoran Takım Şefi": "RTS",
         "Joker": "J",
         "Şef": "TŞ",
     }
@@ -2743,6 +2830,91 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
         c2.bar_chart(perf.set_index("restoran")[["paket"]])
     else:
         st.info("Henüz günlük puantaj kaydı yok.")
+
+
+def announcements_tab() -> None:
+    render_management_hero(
+        "GÜNCELLEMELER VE DUYURULAR",
+        "Sistem değişiklikleri ve operasyon notları",
+        "Form içindeki uzun açıklamaları kaldırdık; önemli iş kuralları ve son arayüz güncellemeleri artık burada toplu, net ve kurumsal bir formatta duruyor.",
+        [
+            ("Aktif Başlık", 3),
+            ("Son Güncelleme", "19 Mart 2026"),
+            ("Odak", "Personel ve Şube"),
+            ("Silme Modu", "Tam Silme"),
+        ],
+    )
+
+    tab1, tab2, tab3 = st.tabs(["Arayüz Güncellemeleri", "Otomatik Kurallar", "Silme ve Veri Politikası"])
+
+    with tab1:
+        c1, c2 = st.columns(2)
+        with c1:
+            render_update_card(
+                "Personel Yönetimi sadeleşti",
+                "Personel ekleme ve düzenleme ekranlarını daha temiz ve daha hızlı kullanılabilir hale getirdik.",
+                [
+                    "Motor kiralama alanı kaldırıldı; sadece Motor Tipi kaldı.",
+                    "Muhasebe gelir ve maliyet alanları otomatik doluyor.",
+                    "Uzun operasyon açıklamaları form içinden kaldırıldı.",
+                ],
+            )
+        with c2:
+            render_update_card(
+                "Restoran Yönetimi temizlendi",
+                "Şube formundaki gereksiz alanları kaldırarak daha odaklı bir kayıt akışı bıraktık.",
+                [
+                    "Fatura grubu / vergi levhası alanı arayüzden kaldırıldı.",
+                    "Fiyatlandırma, operasyon ve iletişim blokları korunuyor.",
+                    "Hızlı aksiyon alanı ve liste görünümü aynen devam ediyor.",
+                ],
+            )
+
+    with tab2:
+        c1, c2 = st.columns(2)
+        with c1:
+            render_update_card(
+                "Personel kartında otomatik finans",
+                "Aşağıdaki kurallar personel kartı kaydedildiğinde sistem tarafından otomatik uygulanır.",
+                [
+                    "Motor Tipi Çat Kapında ise aylık 13.000₺ motor kira kesintisi açılır.",
+                    "Muhasebe tipi Çat Kapında Muhasebe ise 2.000₺ gelir ve 1.400₺ maliyet otomatik yazılır.",
+                    "Yeni şirket açılışı Evet ise tek seferlik 1.500₺ kesinti oluşturulur.",
+                ],
+            )
+        with c2:
+            render_update_card(
+                "Kurye işe giriş zimmetleri",
+                "Kurye rolüyle açılan kartlarda işe giriş ekipmanları sistem tarafından oluşturulur.",
+                [
+                    "Box 3.200₺, Punch 2.000₺ ve Korumalı Mont 4.750₺ olarak açılır.",
+                    "Bu ürünler 2 aylık taksit halinde hakedişe yansır.",
+                    "Tekstil ürünleri %10, diğer ekipmanlar %20 KDV mantığıyla tutulur.",
+                ],
+            )
+
+    with tab3:
+        c1, c2 = st.columns(2)
+        with c1:
+            render_update_card(
+                "Kalıcı silme davranışı güncellendi",
+                "Personel kartındaki kalıcı silme işlemi artık bağlantılı kayıtları da temizleyerek tam silme yapar.",
+                [
+                    "Bağlı puantaj kayıtları silinir.",
+                    "Bağlı kesinti, plaka geçmişi, zimmet ve box iade kayıtları silinir.",
+                    "Temizleme sonrası personel kartı tamamen kaldırılır.",
+                ],
+            )
+        with c2:
+            render_update_card(
+                "Ne zaman pasif, ne zaman sil?",
+                "Operasyon geçmişi korunacaksa pasife alma, tamamen kaldırılacaksa kalıcı silme kullanılmalı.",
+                [
+                    "Geçmiş raporlar korunacaksa Pasif tercih et.",
+                    "Test, mükerrer veya yanlış açılmış kartlarda Kalıcı sil kullan.",
+                    "Kalıcı silme geri alınamaz; veriler birlikte kaldırılır.",
+                ],
+            )
 
 
 def restaurants_tab(conn: sqlite3.Connection) -> None:
@@ -3093,17 +3265,17 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     active_count = int((df["status"] == "Aktif").sum()) if not df.empty else 0
     passive_count = int((df["status"] == "Pasif").sum()) if not df.empty else 0
     courier_count = int((df["role"] == "Kurye").sum()) if not df.empty else 0
-    joker_chef_count = int(df["role"].isin(["Joker", "Şef"]).sum()) if not df.empty else 0
+    support_role_count = int(df["role"].isin(["Joker", *MANAGEMENT_ROLE_OPTIONS, "Şef"]).sum()) if not df.empty else 0
 
     render_management_hero(
         "PERSONEL YÖNETİMİ",
-        "Kurye, joker, şef ve araç kartları",
+        "Kurye, yönetim ve operasyon kartları",
         "Filtrelenebilir personel listesi, daha belirgin sekmeler ve düzenli kart yapısı ile yeni kurye ekleme ve düzenleme akışlarını sadeleştir.",
         [
             ("Toplam Personel", len(df)),
             ("Aktif Personel", active_count),
             ("Kurye", courier_count),
-            ("Joker + Şef", joker_chef_count),
+            ("Joker + Yönetim", support_role_count),
         ],
     )
     if passive_count:
@@ -3115,7 +3287,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        render_action_card("Yeni Personel Ekle", "Kurye, joker ya da şef kartını görünür ana form üzerinden oluştur.", highlight=st.session_state[workspace_key] == "add")
+        render_action_card("Yeni Personel Ekle", "Kurye, yönetim ya da joker kartını görünür ana form üzerinden oluştur.", highlight=st.session_state[workspace_key] == "add")
         if st.button("Yeni Personel Formunu Aç", key="personnel_workspace_add", use_container_width=True):
             st.session_state[workspace_key] = "add"
     with c2:
@@ -3137,7 +3309,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         render_tab_header("Personel Listesi", "Rol, durum ve restoran filtreleri ile kayıtları daralt; sağ panelden seçili kişiyi hızlıca incele.")
         f1, f2, f3, f4 = st.columns([2.1, 1, 1, 1.2])
         search_query = f1.text_input("Ara", placeholder="Ad, kod, telefon veya plaka ara", key="person_search")
-        role_filter = f2.selectbox("Rol", ["Tümü", "Kurye", "Joker", "Şef"], key="person_role_filter")
+        role_filter = f2.selectbox("Rol", ["Tümü"] + PERSONNEL_ROLE_OPTIONS, key="person_role_filter")
         status_filter = f3.selectbox("Durum", ["Tümü", "Aktif", "Pasif"], key="person_status_filter")
         restaurant_options = ["Tümü"] + sorted(df["restoran"].dropna().astype(str).unique().tolist()) if not df.empty else ["Tümü"]
         restaurant_filter = f4.selectbox("Ana restoran", restaurant_options, key="person_rest_filter")
@@ -3185,7 +3357,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             st.markdown("##### Kimlik ve Görev")
             c1, c2, c3 = st.columns(3)
             full_name = c1.text_input("Ad soyad")
-            role = c2.selectbox("Rol", ["Kurye", "Joker", "Şef"])
+            role = c2.selectbox("Rol", PERSONNEL_ROLE_OPTIONS)
             code_preview = next_person_code(conn, role)
             c3.text_input("Otomatik personel kodu", value=code_preview, disabled=True)
 
@@ -3209,7 +3381,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 format_func=lambda x: COST_MODEL_LABELS.get(x, x),
             )
             auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(accounting_type)
-            st.info("Sabit maaş / sabit giderli roller için maliyet modeli ve aylık sabit maliyet alanlarını birlikte doldur.")
 
             c13, c14, c15 = st.columns(3)
             c13.number_input("Muhasebeden aldığımız ücret", min_value=0.0, value=float(auto_accounting_revenue), step=100.0, disabled=True)
@@ -3225,14 +3396,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             vehicle_type = c18.selectbox("Motor Tipi", ["Çat Kapında", "Kendi Motoru"], index=1)
             current_plate = c19.text_input("Güncel plaka")
             effective_motor_rental = resolve_motor_rental_value(vehicle_type, "Hayır")
-            if effective_motor_rental == "Evet":
-                st.info("Bu seçimle aylık 13.000₺ motor kira kesintisi otomatik açılır.")
-
-            render_rule_summary_card(
-                "Otomatik Akış Özeti",
-                "Bu kart kaydedildiğinde sistemin hangi fatura ve kesintileri kendi kendine oluşturacağını aşağıda görüyorsun.",
-                build_personnel_rule_lines(role, effective_motor_rental, accounting_type, new_company_setup),
-            )
             notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar")
             submitted = st.form_submit_button("Personel kartını oluştur", use_container_width=True)
             if submitted and full_name:
@@ -3293,7 +3456,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
             assigned_value = row["restoran"] if pd.notna(row["restoran"]) and row["restoran"] in rest_opts else "-"
             status_options = ["Aktif", "Pasif"]
-            role_options = ["Kurye", "Joker", "Şef"]
+            role_options = PERSONNEL_ROLE_OPTIONS
             vehicle_options = ["Çat Kapında", "Kendi Motoru"]
             cost_options = list(COST_MODEL_LABELS.keys())
 
@@ -3308,16 +3471,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Motor", row["vehicle_type"] or "-"),
                         ("Maliyet Modeli", COST_MODEL_LABELS.get(row["cost_model"], row["cost_model"])),
                     ],
-                )
-                render_rule_summary_card(
-                    "Kartın Otomatik Kuralları",
-                    "Bu personel kartı kaydedildiğinde ya da güncellendiğinde sistem aşağıdaki işlemleri otomatik senkronlar.",
-                    build_personnel_rule_lines(
-                        row["role"] or "Kurye",
-                        resolve_motor_rental_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır"),
-                        row["accounting_type"] or "-",
-                        row["new_company_setup"] or "Hayır",
-                    ),
                 )
             with left:
                 with st.form("personnel_edit_form"):
@@ -3376,17 +3529,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     edit_restaurant = c18.selectbox("Ana restoran", list(rest_opts_with_blank.keys()), index=list(rest_opts_with_blank.keys()).index(assigned_value) if assigned_value in rest_opts_with_blank else 0)
                     edit_vehicle = c19.selectbox("Motor Tipi", vehicle_options, index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1)
                     effective_edit_motor_rental = resolve_motor_rental_value(edit_vehicle, "Hayır")
-                    if effective_edit_motor_rental == "Evet":
-                        st.info("Bu seçimle aylık 13.000₺ motor kira kesintisi aktif tutulur.")
 
                     c21, c22 = st.columns(2)
                     edit_plate = c21.text_input("Güncel plaka", value=row["current_plate"] or "")
                     c22.markdown("")
-                    render_rule_summary_card(
-                        "Güncelleme Sonrası Otomatik Akış",
-                        "Rol, motor, muhasebe ve şirket açılışı seçimlerine göre sistem bu kartı ve hakediş bağlantılarını yeniden senkronlar.",
-                        build_personnel_rule_lines(edit_role, effective_edit_motor_rental, edit_accounting, edit_new_company),
-                    )
                     edit_notes = st.text_area("Notlar", value=row["notes"] or "")
 
                     c23, c24, c25 = st.columns(3)
@@ -3449,29 +3595,23 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
                     if delete_clicked:
                         dependency_counts = get_personnel_dependency_counts(conn, selected_id)
-                        total_dependencies = sum(dependency_counts.values())
-                        if total_dependencies:
-                            detail_parts = [
-                                f"{label}: {count}"
-                                for label, count in [
-                                    ("Puantaj", dependency_counts["puantaj"]),
-                                    ("Kesinti", dependency_counts["kesinti"]),
-                                    ("Plaka geçmişi", dependency_counts["plaka"]),
-                                    ("Zimmet", dependency_counts["zimmet"]),
-                                    ("Box iade", dependency_counts["box_iade"]),
-                                ]
-                                if count
+                        delete_personnel_and_dependencies(conn, selected_id)
+                        detail_parts = [
+                            f"{label}: {count}"
+                            for label, count in [
+                                ("Puantaj", dependency_counts["puantaj"]),
+                                ("Kesinti", dependency_counts["kesinti"]),
+                                ("Plaka geçmişi", dependency_counts["plaka"]),
+                                ("Zimmet", dependency_counts["zimmet"]),
+                                ("Box iade", dependency_counts["box_iade"]),
                             ]
-                            st.error(
-                                "Bu personel kartına bağlı operasyon verisi var; güvenlik için silinmedi. "
-                                + " | ".join(detail_parts)
-                                + ". İstersen personeli pasife al."
-                            )
+                            if count
+                        ]
+                        if detail_parts:
+                            st.success("Personel ve bağlı kayıtlar silindi. " + " | ".join(detail_parts))
                         else:
-                            conn.execute("DELETE FROM personnel WHERE id = ?", (selected_id,))
-                            conn.commit()
                             st.success("Personel kartı kalıcı olarak silindi.")
-                            st.rerun()
+                        st.rerun()
 
     else:
         render_tab_header("Plaka ve Motor Geçmişi", "Aktif plaka değişimlerini kayıt altına al, geçmiş zimmet hareketlerini alttaki tabloda takip et.")
@@ -3780,8 +3920,16 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
         SELECT id, full_name, role
         FROM personnel
         WHERE status='Aktif'
-          AND (? = 1 OR assigned_restaurant_id = ? OR role IN ('Joker', 'Şef'))
-        ORDER BY CASE WHEN role='Şef' THEN 1 WHEN role='Joker' THEN 2 ELSE 3 END, full_name
+          AND (? = 1 OR assigned_restaurant_id = ? OR role IN ('Joker', 'Bölge Müdürü', 'Saha Denetmen Şefi', 'Restoran Takım Şefi'))
+        ORDER BY
+            CASE
+                WHEN role='Restoran Takım Şefi' THEN 1
+                WHEN role='Saha Denetmen Şefi' THEN 2
+                WHEN role='Bölge Müdürü' THEN 3
+                WHEN role='Joker' THEN 4
+                ELSE 5
+            END,
+            full_name
         """,
         (1 if include_all_active else 0, restaurant_id),
     ).fetchall()
@@ -4431,7 +4579,7 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
 
     c1, c2, c3 = st.columns(3)
     selected_month = c1.selectbox("Hakediş Ayı", month_options)
-    role_filter = c2.selectbox("Rol", ["Tümü", "Kurye", "Joker", "Şef"])
+    role_filter = c2.selectbox("Rol", ["Tümü"] + PERSONNEL_ROLE_OPTIONS)
     restaurant_choices = ["Tümü"]
     if not entries.empty:
         restaurant_choices += sorted((entries["brand"] + " - " + entries["branch"]).dropna().unique().tolist())
@@ -4788,6 +4936,8 @@ def main() -> None:
 
         if menu == "🏠 Genel Bakış":
             dashboard_tab(conn)
+        elif menu == "📣 Güncellemeler ve Duyurular":
+            announcements_tab()
         elif menu == "🏢 Restoran Yönetimi":
             restaurants_tab(conn)
         elif menu == "👥 Personel Yönetimi":
