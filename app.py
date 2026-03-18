@@ -48,6 +48,7 @@ COURIER_PACKAGE_COST_QC = 25.0
 PACKAGE_THRESHOLD_DEFAULT = 390
 AUTO_MOTOR_RENTAL_DEDUCTION = 13000.0
 AUTO_ACCOUNTING_DEDUCTION = 2000.0
+AUTO_ACCOUNTANT_COST = 1400.0
 AUTO_COMPANY_SETUP_DEDUCTION = 1500.0
 AUTO_EQUIPMENT_INSTALLMENT_COUNT = 2
 TEXTILE_ITEM_NAMES = {"Polar", "Tişört", "Korumalı Mont", "Yelek", "Yağmurluk"}
@@ -992,6 +993,9 @@ def migrate_data(conn: CompatConnection) -> None:
         conn.execute("ALTER TABLE personnel ADD COLUMN company_setup_revenue REAL DEFAULT 0")
     if "company_setup_cost" not in personnel_cols:
         conn.execute("ALTER TABLE personnel ADD COLUMN company_setup_cost REAL DEFAULT 0")
+    conn.execute("UPDATE personnel SET vehicle_type = 'Kendi Motoru' WHERE vehicle_type = 'Kendi'")
+    conn.execute("UPDATE personnel SET vehicle_type = 'Çat Kapında' WHERE (vehicle_type IS NULL OR vehicle_type = '') AND motor_rental = 'Evet'")
+    conn.execute("UPDATE personnel SET vehicle_type = 'Kendi Motoru' WHERE vehicle_type IS NULL OR vehicle_type = ''")
 
     restaurant_cols = get_table_columns(conn, "restaurants")
     if "start_date" not in restaurant_cols:
@@ -1404,7 +1408,11 @@ def sync_person_auto_deductions(
                 "notes": note_text,
             }
 
-    if str(get_row_value(person_row, "motor_rental", "Hayır") or "Hayır") == "Evet":
+    effective_motor_rental = resolve_motor_rental_value(
+        str(get_row_value(person_row, "vehicle_type", "") or ""),
+        str(get_row_value(person_row, "motor_rental", "Hayır") or "Hayır"),
+    )
+    if effective_motor_rental == "Evet":
         add_monthly_rows("auto:motor_rental", "Motor kira", AUTO_MOTOR_RENTAL_DEDUCTION, "Sistem: Çat Kapında motor kira kesintisi")
 
     if str(get_row_value(person_row, "accounting_type", "-") or "-") == "Çat Kapında Muhasebe":
@@ -1606,6 +1614,41 @@ def sync_all_personnel_business_rules(conn: CompatConnection) -> None:
     if people_df.empty:
         return
     for _, row in people_df.iterrows():
+        resolved_vehicle_type = resolve_vehicle_type_value(
+            str(row.get("vehicle_type", "") or ""),
+            str(row.get("motor_rental", "Hayır") or "Hayır"),
+        )
+        effective_motor_rental = resolve_motor_rental_value(
+            resolved_vehicle_type,
+            str(row.get("motor_rental", "Hayır") or "Hayır"),
+        )
+        auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(str(row.get("accounting_type", "-") or "-"))
+        if (
+            str(row.get("vehicle_type", "") or "") != resolved_vehicle_type
+            or
+            str(row.get("motor_rental", "Hayır") or "Hayır") != effective_motor_rental
+            or abs(safe_float(row.get("accounting_revenue")) - auto_accounting_revenue) > 0.01
+            or abs(safe_float(row.get("accountant_cost")) - auto_accountant_cost) > 0.01
+        ):
+            conn.execute(
+                """
+                UPDATE personnel
+                SET vehicle_type = ?, motor_rental = ?, accounting_revenue = ?, accountant_cost = ?
+                WHERE id = ?
+                """,
+                (
+                    resolved_vehicle_type,
+                    effective_motor_rental,
+                    auto_accounting_revenue,
+                    auto_accountant_cost,
+                    int(row["id"]),
+                ),
+            )
+            conn.commit()
+            row["vehicle_type"] = resolved_vehicle_type
+            row["motor_rental"] = effective_motor_rental
+            row["accounting_revenue"] = auto_accounting_revenue
+            row["accountant_cost"] = auto_accountant_cost
         sync_person_auto_deductions(conn, row, full_history=False)
         sync_person_auto_onboarding(conn, row, create_missing=False)
 
@@ -1718,7 +1761,7 @@ def format_restaurants_table(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
-    visible_df = df.drop(columns=["assigned_restaurant_id"], errors="ignore")
+    visible_df = df.drop(columns=["assigned_restaurant_id", "motor_rental"], errors="ignore")
     return format_display_df(
         visible_df,
         currency_cols=["accounting_revenue", "accountant_cost", "company_setup_revenue", "company_setup_cost", "monthly_fixed_cost"],
@@ -1738,7 +1781,6 @@ def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
             "company_setup_revenue": "Şirket Açılış Geliri",
             "company_setup_cost": "Şirket Açılış Maliyeti",
             "vehicle_type": "Motor Tipi",
-            "motor_rental": "Motor Kiralama",
             "current_plate": "Güncel Plaka",
             "start_date": "İşe Giriş Tarihi",
             "exit_date": "Çıkış Tarihi",
@@ -2395,6 +2437,32 @@ def render_action_card(title: str, subtitle: str, highlight: bool = False) -> No
     )
 
 
+def resolve_motor_rental_value(vehicle_type: str, motor_rental: str) -> str:
+    normalized_vehicle_type = (vehicle_type or "").strip()
+    if normalized_vehicle_type == "Kendi":
+        normalized_vehicle_type = "Kendi Motoru"
+    if normalized_vehicle_type == "Çat Kapında":
+        return "Evet"
+    if normalized_vehicle_type == "Kendi Motoru":
+        return "Hayır"
+    return motor_rental or "Hayır"
+
+
+def resolve_vehicle_type_value(vehicle_type: str, motor_rental: str = "Hayır") -> str:
+    normalized_vehicle_type = (vehicle_type or "").strip()
+    if normalized_vehicle_type == "Kendi":
+        normalized_vehicle_type = "Kendi Motoru"
+    if normalized_vehicle_type in ["Çat Kapında", "Kendi Motoru"]:
+        return normalized_vehicle_type
+    return "Çat Kapında" if (motor_rental or "Hayır") == "Evet" else "Kendi Motoru"
+
+
+def resolve_accounting_defaults(accounting_type: str) -> tuple[float, float]:
+    if (accounting_type or "").strip() == "Çat Kapında Muhasebe":
+        return AUTO_ACCOUNTING_DEDUCTION, AUTO_ACCOUNTANT_COST
+    return 0.0, 0.0
+
+
 def build_personnel_rule_lines(role: str, motor_rental: str, accounting_type: str, new_company_setup: str) -> list[str]:
     lines = ["Personel kartı seçilen ana restoran ile bağlanır; puantaj ve hakediş bu ilişkiyi kullanır."]
     if motor_rental == "Evet":
@@ -2403,9 +2471,9 @@ def build_personnel_rule_lines(role: str, motor_rental: str, accounting_type: st
         lines.append("Motor kira kapalı: aylık 13.000₺ motor kesintisi oluşmaz.")
 
     if accounting_type == "Çat Kapında Muhasebe":
-        lines.append("Muhasebe aktif: her ay 2.000₺ otomatik muhasebe kesintisi oluşur.")
+        lines.append("Muhasebe aktif: kuryeden 2.000₺ alınır, muhasebeye 1.400₺ ödenir ve aylık 2.000₺ otomatik kesinti oluşur.")
     else:
-        lines.append("Muhasebe dışarıda: aylık 2.000₺ muhasebe kesintisi oluşmaz.")
+        lines.append("Muhasebe dışarıda: muhasebe gelir/gider alanları 0 olur ve aylık 2.000₺ kesinti oluşmaz.")
 
     if new_company_setup == "Evet":
         lines.append("Şirket açılışı aktif: ilk ay için tek seferlik 1.500₺ kesinti yazılır.")
@@ -3117,11 +3185,12 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 list(COST_MODEL_LABELS.keys()),
                 format_func=lambda x: COST_MODEL_LABELS.get(x, x),
             )
+            auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(accounting_type)
             st.info("Sabit maaş / sabit giderli roller için maliyet modeli ve aylık sabit maliyet alanlarını birlikte doldur.")
 
             c13, c14, c15 = st.columns(3)
-            accounting_revenue = c13.number_input("Muhasebeden aldığımız ücret", min_value=0.0, value=0.0, step=100.0)
-            accountant_cost = c14.number_input("Muhasebeciye ödediğimiz", min_value=0.0, value=0.0, step=100.0)
+            c13.number_input("Muhasebeden aldığımız ücret", min_value=0.0, value=float(auto_accounting_revenue), step=100.0, disabled=True)
+            c14.number_input("Muhasebeciye ödediğimiz", min_value=0.0, value=float(auto_accountant_cost), step=100.0, disabled=True)
             monthly_fixed_cost = c15.number_input("Aylık sabit maliyet", min_value=0.0, value=0.0, step=100.0)
 
             c16, c17 = st.columns(2)
@@ -3133,11 +3202,14 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             vehicle_type = c18.selectbox("Motor tipi", ["", "Çat Kapında", "Kendi"])
             motor_rental = c19.selectbox("Motor kiralama", ["Hayır", "Evet"])
             current_plate = c20.text_input("Güncel plaka")
+            effective_motor_rental = resolve_motor_rental_value(vehicle_type, motor_rental)
+            if effective_motor_rental == "Evet":
+                st.info("Bu seçimle aylık 13.000₺ motor kira kesintisi otomatik açılır.")
 
             render_rule_summary_card(
                 "Otomatik Akış Özeti",
                 "Bu kart kaydedildiğinde sistemin hangi fatura ve kesintileri kendi kendine oluşturacağını aşağıda görüyorsun.",
-                build_personnel_rule_lines(role, motor_rental, accounting_type, new_company_setup),
+                build_personnel_rule_lines(role, effective_motor_rental, accounting_type, new_company_setup),
             )
             notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar")
             submitted = st.form_submit_button("Personel kartını oluştur", use_container_width=True)
@@ -3164,13 +3236,13 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         iban,
                         accounting_type,
                         new_company_setup,
-                        accounting_revenue,
-                        accountant_cost,
+                        auto_accounting_revenue,
+                        auto_accountant_cost,
                         company_setup_revenue,
                         company_setup_cost,
                         assigned_id,
                         vehicle_type,
-                        motor_rental,
+                        effective_motor_rental,
                         current_plate,
                         start_date_str,
                         cost_model,
@@ -3221,7 +3293,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     "Bu personel kartı kaydedildiğinde ya da güncellendiğinde sistem aşağıdaki işlemleri otomatik senkronlar.",
                     build_personnel_rule_lines(
                         row["role"] or "Kurye",
-                        row["motor_rental"] or "Hayır",
+                        resolve_motor_rental_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır"),
                         row["accounting_type"] or "-",
                         row["new_company_setup"] or "Hayır",
                     ),
@@ -3266,10 +3338,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         index=cost_options.index(row["cost_model"]) if row["cost_model"] in cost_options else 0,
                         format_func=lambda x: COST_MODEL_LABELS.get(x, x),
                     )
+                    auto_edit_accounting_revenue, auto_edit_accountant_cost = resolve_accounting_defaults(edit_accounting)
 
                     c13, c14, c15 = st.columns(3)
-                    edit_accounting_revenue = c13.number_input("Muhasebeden aldığımız ücret", min_value=0.0, value=float(row["accounting_revenue"] or 0.0), step=100.0)
-                    edit_accountant_cost = c14.number_input("Muhasebeciye ödediğimiz", min_value=0.0, value=float(row["accountant_cost"] or 0.0), step=100.0)
+                    c13.number_input("Muhasebeden aldığımız ücret", min_value=0.0, value=float(auto_edit_accounting_revenue), step=100.0, disabled=True)
+                    c14.number_input("Muhasebeciye ödediğimiz", min_value=0.0, value=float(auto_edit_accountant_cost), step=100.0, disabled=True)
                     edit_monthly_cost = c15.number_input("Aylık sabit maliyet", min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0)
 
                     c16, c17 = st.columns(2)
@@ -3281,6 +3354,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     edit_restaurant = c18.selectbox("Ana restoran", list(rest_opts_with_blank.keys()), index=list(rest_opts_with_blank.keys()).index(assigned_value) if assigned_value in rest_opts_with_blank else 0)
                     edit_vehicle = c19.selectbox("Motor tipi", vehicle_options, index=vehicle_options.index(row["vehicle_type"]) if row["vehicle_type"] in vehicle_options else 0)
                     edit_rental = c20.selectbox("Motor kiralama", rental_options, index=rental_options.index(row["motor_rental"]) if row["motor_rental"] in rental_options else 0)
+                    effective_edit_motor_rental = resolve_motor_rental_value(edit_vehicle, edit_rental)
+                    if effective_edit_motor_rental == "Evet":
+                        st.info("Bu seçimle aylık 13.000₺ motor kira kesintisi aktif tutulur.")
 
                     c21, c22 = st.columns(2)
                     edit_plate = c21.text_input("Güncel plaka", value=row["current_plate"] or "")
@@ -3288,7 +3364,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     render_rule_summary_card(
                         "Güncelleme Sonrası Otomatik Akış",
                         "Rol, motor, muhasebe ve şirket açılışı seçimlerine göre sistem bu kartı ve hakediş bağlantılarını yeniden senkronlar.",
-                        build_personnel_rule_lines(edit_role, edit_rental, edit_accounting, edit_new_company),
+                        build_personnel_rule_lines(edit_role, effective_edit_motor_rental, edit_accounting, edit_new_company),
                     )
                     edit_notes = st.text_area("Notlar", value=row["notes"] or "")
 
@@ -3318,13 +3394,13 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 edit_iban,
                                 edit_accounting,
                                 edit_new_company,
-                                edit_accounting_revenue,
-                                edit_accountant_cost,
+                                auto_edit_accounting_revenue,
+                                auto_edit_accountant_cost,
                                 edit_company_setup_revenue,
                                 edit_company_setup_cost,
                                 assigned_id,
                                 edit_vehicle,
-                                edit_rental,
+                                effective_edit_motor_rental,
                                 edit_plate,
                                 start_date_str,
                                 edit_cost_model,
