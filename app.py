@@ -46,6 +46,16 @@ COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
 COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 COURIER_PACKAGE_COST_QC = 25.0
 PACKAGE_THRESHOLD_DEFAULT = 390
+AUTO_MOTOR_RENTAL_DEDUCTION = 13000.0
+AUTO_ACCOUNTING_DEDUCTION = 2000.0
+AUTO_COMPANY_SETUP_DEDUCTION = 1500.0
+AUTO_EQUIPMENT_INSTALLMENT_COUNT = 2
+TEXTILE_ITEM_NAMES = {"Polar", "Tişört", "Korumalı Mont", "Yelek", "Yağmurluk"}
+AUTO_ONBOARDING_ITEMS = [
+    {"key": "box", "item_name": "Box", "unit_sale_price": 3200.0, "vat_rate": 20.0},
+    {"key": "punch", "item_name": "Punch", "unit_sale_price": 2000.0, "vat_rate": 20.0},
+    {"key": "korumali_mont", "item_name": "Korumalı Mont", "unit_sale_price": 4750.0, "vat_rate": 10.0},
+]
 PRICING_MODEL_LABELS = {
     "hourly_plus_package": "Saatlik + Paket",
     "threshold_package": "Eşikli Paket",
@@ -182,6 +192,43 @@ def first_row_value(row: Any, default: Any = None) -> Any:
         return next(iter(row))
     except Exception:
         return default
+
+
+def get_row_value(row: Any, key: str, default: Any = None) -> Any:
+    if row is None:
+        return default
+    if isinstance(row, dict):
+        value = row.get(key, default)
+    else:
+        try:
+            value = row[key]
+        except Exception:
+            try:
+                value = row.get(key, default)
+            except Exception:
+                value = default
+    try:
+        if pd.isna(value):
+            return default
+    except Exception:
+        pass
+    return value
+
+
+def parse_date_value(value: Any) -> date | None:
+    if value in [None, ""]:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        parsed = pd.to_datetime(value)
+    except Exception:
+        return None
+    if pd.isna(parsed):
+        return None
+    return parsed.date()
 
 
 def init_auth_state() -> None:
@@ -469,6 +516,7 @@ def ensure_schema(conn: CompatConnection) -> None:
             deduction_type TEXT NOT NULL,
             amount REAL NOT NULL,
             notes TEXT,
+            auto_source_key TEXT,
             FOREIGN KEY (personnel_id) REFERENCES personnel(id)
         );
 
@@ -492,8 +540,10 @@ def ensure_schema(conn: CompatConnection) -> None:
             quantity INTEGER NOT NULL DEFAULT 1,
             unit_cost REAL NOT NULL DEFAULT 0,
             unit_sale_price REAL NOT NULL DEFAULT 0,
+            vat_rate REAL NOT NULL DEFAULT 20,
             installment_count INTEGER NOT NULL DEFAULT 2,
             sale_type TEXT NOT NULL DEFAULT 'Satış',
+            auto_source_key TEXT,
             notes TEXT,
             FOREIGN KEY (personnel_id) REFERENCES personnel(id)
         );
@@ -604,7 +654,8 @@ def ensure_schema(conn: CompatConnection) -> None:
             deduction_type TEXT NOT NULL,
             amount DOUBLE PRECISION NOT NULL,
             notes TEXT,
-            equipment_issue_id BIGINT
+            equipment_issue_id BIGINT,
+            auto_source_key TEXT
         );
 
         CREATE TABLE IF NOT EXISTS inventory_purchases (
@@ -627,8 +678,10 @@ def ensure_schema(conn: CompatConnection) -> None:
             quantity BIGINT NOT NULL DEFAULT 1,
             unit_cost DOUBLE PRECISION NOT NULL DEFAULT 0,
             unit_sale_price DOUBLE PRECISION NOT NULL DEFAULT 0,
+            vat_rate DOUBLE PRECISION NOT NULL DEFAULT 20,
             installment_count BIGINT NOT NULL DEFAULT 2,
             sale_type TEXT NOT NULL DEFAULT 'Satış',
+            auto_source_key TEXT,
             notes TEXT
         );
 
@@ -759,26 +812,28 @@ def insert_equipment_issue_and_get_id(
     installment_count: int,
     sale_type: str,
     notes: str,
+    vat_rate: float = VAT_RATE_DEFAULT,
+    auto_source_key: str | None = None,
 ) -> int:
     if conn.backend == "postgres":
         row = conn.execute(
             """
             INSERT INTO courier_equipment_issues
-            (personnel_id, issue_date, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (personnel_id, issue_date, item_name, quantity, unit_cost, unit_sale_price, vat_rate, installment_count, sale_type, auto_source_key, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id
             """,
-            (personnel_id, issue_date_str, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes),
+            (personnel_id, issue_date_str, item_name, quantity, unit_cost, unit_sale_price, vat_rate, installment_count, sale_type, auto_source_key, notes),
         ).fetchone()
         return int(first_row_value(row, 0))
 
     conn.execute(
         """
         INSERT INTO courier_equipment_issues
-        (personnel_id, issue_date, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (personnel_id, issue_date, item_name, quantity, unit_cost, unit_sale_price, vat_rate, installment_count, sale_type, auto_source_key, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (personnel_id, issue_date_str, item_name, quantity, unit_cost, unit_sale_price, installment_count, sale_type, notes),
+        (personnel_id, issue_date_str, item_name, quantity, unit_cost, unit_sale_price, vat_rate, installment_count, sale_type, auto_source_key, notes),
     )
     return int(first_row_value(conn.execute("SELECT last_insert_rowid()").fetchone(), 0))
 
@@ -965,6 +1020,15 @@ def migrate_data(conn: CompatConnection) -> None:
     existing = get_table_columns(conn, "deductions")
     if "equipment_issue_id" not in existing:
         conn.execute("ALTER TABLE deductions ADD COLUMN equipment_issue_id INTEGER")
+    if "auto_source_key" not in existing:
+        conn.execute("ALTER TABLE deductions ADD COLUMN auto_source_key TEXT")
+
+    equipment_issue_cols = get_table_columns(conn, "courier_equipment_issues")
+    if "vat_rate" not in equipment_issue_cols:
+        vat_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE courier_equipment_issues ADD COLUMN vat_rate {vat_type} DEFAULT 20")
+    if "auto_source_key" not in equipment_issue_cols:
+        conn.execute("ALTER TABLE courier_equipment_issues ADD COLUMN auto_source_key TEXT")
     conn.commit()
 
 
@@ -974,6 +1038,7 @@ def get_conn() -> CompatConnection:
     maybe_migrate_legacy_sqlite_to_postgres(conn)
     seed_initial_data(conn)
     migrate_data(conn)
+    sync_all_personnel_business_rules(conn)
     cleanup_auth_sessions(conn)
     return conn
 
@@ -1157,26 +1222,115 @@ def latest_average_cost(conn: sqlite3.Connection, item_name: str) -> float:
     return float(first_row_value(row, 0) or 0)
 
 
+def get_equipment_vat_rate(item_name: str) -> float:
+    return 10.0 if (item_name or "").strip() in TEXTILE_ITEM_NAMES else VAT_RATE_DEFAULT
+
+
+def get_default_equipment_sale_price(item_name: str) -> float:
+    for item in AUTO_ONBOARDING_ITEMS:
+        if item["item_name"] == (item_name or "").strip():
+            return float(item["unit_sale_price"])
+    return 0.0
+
+
+def describe_auto_source_key(auto_source_key: Any) -> str:
+    key = str(auto_source_key or "").strip()
+    if not key:
+        return "Manuel"
+    if key.startswith("auto:motor_rental:"):
+        return "Sistem | Aylık motor kira"
+    if key.startswith("auto:accounting:"):
+        return "Sistem | Aylık muhasebe"
+    if key.startswith("auto:company_setup"):
+        return "Sistem | Şirket açılışı"
+    if key.startswith("auto:onboarding:"):
+        return "Sistem | İşe giriş zimmeti"
+    return "Sistem"
+
+
 def post_equipment_installments(
     conn: sqlite3.Connection,
     issue_id: int,
     personnel_id: int,
-    issue_date: date,
+    issue_date: date | str,
     item_name: str,
     total_sale_amount: float,
     installment_count: int,
+    auto_source_key_prefix: str | None = None,
 ) -> None:
     if installment_count <= 0 or total_sale_amount <= 0:
         return
+    issue_date_value = parse_date_value(issue_date) or date.today()
     installment_amount = round(total_sale_amount / installment_count, 2)
-    dates = [(pd.Timestamp(issue_date) + pd.DateOffset(months=i)).date().isoformat() for i in range(installment_count)]
-    existing = int(first_row_value(conn.execute("SELECT COUNT(*) FROM deductions WHERE equipment_issue_id = ?", (issue_id,)).fetchone(), 0) or 0)
-    if existing:
+    dates = [(pd.Timestamp(issue_date_value) + pd.DateOffset(months=i)).date().isoformat() for i in range(installment_count)]
+
+    if not auto_source_key_prefix:
+        existing = int(first_row_value(conn.execute("SELECT COUNT(*) FROM deductions WHERE equipment_issue_id = ?", (issue_id,)).fetchone(), 0) or 0)
+        if existing:
+            return
+        for i, due_date in enumerate(dates, start=1):
+            conn.execute(
+                "INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, equipment_issue_id) VALUES (?, ?, ?, ?, ?, ?)",
+                (personnel_id, due_date, "Zimmet Taksiti", installment_amount, f"{item_name} {i}/{installment_count}", issue_id),
+            )
+        conn.commit()
         return
-    for i, due_date in enumerate(dates, start=1):
+
+    expected_rows = [
+        {
+            "deduction_date": due_date,
+            "deduction_type": "Zimmet Taksiti",
+            "amount": installment_amount,
+            "notes": f"{item_name} {i}/{installment_count}",
+            "auto_source_key": f"{auto_source_key_prefix}:installment:{i}",
+        }
+        for i, due_date in enumerate(dates, start=1)
+    ]
+
+    existing_rows = fetch_df(
+        conn,
+        "SELECT id, deduction_date, deduction_type, amount, notes, auto_source_key FROM deductions WHERE equipment_issue_id = ?",
+        (issue_id,),
+    )
+    needs_rebuild = existing_rows.empty or len(existing_rows) != len(expected_rows)
+    if not needs_rebuild:
+        existing_map = {str(row["auto_source_key"] or ""): row for _, row in existing_rows.iterrows()}
+        expected_keys = {row["auto_source_key"] for row in expected_rows}
+        if set(existing_map.keys()) != expected_keys:
+            needs_rebuild = True
+        else:
+            for expected in expected_rows:
+                current = existing_map.get(expected["auto_source_key"])
+                current_amount = float(current["amount"] or 0) if current is not None else 0.0
+                if (
+                    current is None
+                    or str(current["deduction_date"]) != expected["deduction_date"]
+                    or str(current["deduction_type"]) != expected["deduction_type"]
+                    or abs(current_amount - expected["amount"]) > 0.01
+                    or str(current["notes"] or "") != expected["notes"]
+                ):
+                    needs_rebuild = True
+                    break
+
+    if not needs_rebuild:
+        return
+
+    conn.execute("DELETE FROM deductions WHERE equipment_issue_id = ?", (issue_id,))
+    for expected in expected_rows:
         conn.execute(
-            "INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, equipment_issue_id) VALUES (?, ?, ?, ?, ?, ?)",
-            (personnel_id, due_date, "Zimmet Taksiti", installment_amount, f"{item_name} {i}/{installment_count}", issue_id),
+            """
+            INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, equipment_issue_id, auto_source_key)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                personnel_id,
+                expected["deduction_date"],
+                expected["deduction_type"],
+                expected["amount"],
+                expected["notes"],
+                issue_id,
+                expected["auto_source_key"],
+            ),
         )
     conn.commit()
 
@@ -1197,6 +1351,263 @@ def safe_float(v, default: float = 0.0) -> float:
         return float(v)
     except Exception:
         return default
+
+
+def iter_month_starts(start_value: date, end_value: date) -> list[date]:
+    current = date(start_value.year, start_value.month, 1)
+    last = date(end_value.year, end_value.month, 1)
+    months = []
+    while current <= last:
+        months.append(current)
+        if current.month == 12:
+            current = date(current.year + 1, 1, 1)
+        else:
+            current = date(current.year, current.month + 1, 1)
+    return months
+
+
+def build_monthly_deduction_date(start_value: date, month_start_value: date) -> date:
+    if start_value.year == month_start_value.year and start_value.month == month_start_value.month:
+        return start_value
+    return month_start_value
+
+
+def sync_person_auto_deductions(
+    conn: CompatConnection,
+    person_row: Any,
+    as_of: date | None = None,
+    full_history: bool = True,
+) -> None:
+    person_id = safe_int(get_row_value(person_row, "id"))
+    if person_id <= 0:
+        return
+
+    today_value = as_of or date.today()
+    start_value = parse_date_value(get_row_value(person_row, "start_date")) or today_value
+    exit_value = parse_date_value(get_row_value(person_row, "exit_date"))
+    status = str(get_row_value(person_row, "status", "Aktif") or "Aktif")
+    period_end = exit_value if status == "Pasif" and exit_value else today_value
+    if period_end < start_value:
+        period_end = start_value
+    recurring_start = start_value if full_history else max(start_value, date(today_value.year, today_value.month, 1))
+
+    expected_rows: dict[str, dict[str, Any]] = {}
+
+    def add_monthly_rows(prefix: str, deduction_type: str, amount: float, note_text: str) -> None:
+        for month_value in iter_month_starts(recurring_start, period_end):
+            auto_key = f"{prefix}:{month_value.strftime('%Y-%m')}"
+            due_date = build_monthly_deduction_date(start_value, month_value).isoformat()
+            expected_rows[auto_key] = {
+                "deduction_date": due_date,
+                "deduction_type": deduction_type,
+                "amount": amount,
+                "notes": note_text,
+            }
+
+    if str(get_row_value(person_row, "motor_rental", "Hayır") or "Hayır") == "Evet":
+        add_monthly_rows("auto:motor_rental", "Motor kira", AUTO_MOTOR_RENTAL_DEDUCTION, "Sistem: Çat Kapında motor kira kesintisi")
+
+    if str(get_row_value(person_row, "accounting_type", "-") or "-") == "Çat Kapında Muhasebe":
+        add_monthly_rows("auto:accounting", "Muhasebe Ücreti", AUTO_ACCOUNTING_DEDUCTION, "Sistem: Çat Kapında muhasebe kesintisi")
+
+    if full_history and str(get_row_value(person_row, "new_company_setup", "Hayır") or "Hayır") == "Evet":
+        expected_rows["auto:company_setup"] = {
+            "deduction_date": start_value.isoformat(),
+            "deduction_type": "Şirket Açılış Ücreti",
+            "amount": AUTO_COMPANY_SETUP_DEDUCTION,
+            "notes": "Sistem: Tek seferlik şirket açılış kesintisi",
+        }
+
+    existing_rows = fetch_df(
+        conn,
+        """
+        SELECT id, deduction_date, deduction_type, amount, notes, auto_source_key
+        FROM deductions
+        WHERE personnel_id = ? AND auto_source_key IS NOT NULL
+        """,
+        (person_id,),
+    )
+    managed_prefixes = ("auto:motor_rental:", "auto:accounting:", "auto:company_setup")
+    if existing_rows.empty:
+        managed_rows = pd.DataFrame(columns=["id", "deduction_date", "deduction_type", "amount", "notes", "auto_source_key"])
+    else:
+        managed_rows = existing_rows[
+            existing_rows["auto_source_key"].fillna("").astype(str).apply(lambda value: any(value.startswith(prefix) for prefix in managed_prefixes))
+        ].copy()
+
+    existing_map: dict[str, Any] = {}
+    changed = False
+    for _, row in managed_rows.iterrows():
+        auto_key = str(row["auto_source_key"] or "")
+        if auto_key not in existing_map:
+            existing_map[auto_key] = row
+            continue
+        conn.execute("DELETE FROM deductions WHERE id = ?", (int(row["id"]),))
+        changed = True
+
+    for auto_key, row in existing_map.items():
+        if auto_key in expected_rows or not full_history:
+            continue
+        conn.execute("DELETE FROM deductions WHERE id = ?", (int(row["id"]),))
+        changed = True
+
+    for auto_key, expected in expected_rows.items():
+        current = existing_map.get(auto_key)
+        if current is None:
+            conn.execute(
+                """
+                INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, auto_source_key)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    person_id,
+                    expected["deduction_date"],
+                    expected["deduction_type"],
+                    expected["amount"],
+                    expected["notes"],
+                    auto_key,
+                ),
+            )
+            changed = True
+            continue
+
+        current_amount = safe_float(current["amount"])
+        if (
+            str(current["deduction_date"]) != expected["deduction_date"]
+            or str(current["deduction_type"] or "") != expected["deduction_type"]
+            or abs(current_amount - float(expected["amount"])) > 0.01
+            or str(current["notes"] or "") != expected["notes"]
+        ):
+            conn.execute(
+                """
+                UPDATE deductions
+                SET deduction_date = ?, deduction_type = ?, amount = ?, notes = ?
+                WHERE id = ?
+                """,
+                (
+                    expected["deduction_date"],
+                    expected["deduction_type"],
+                    expected["amount"],
+                    expected["notes"],
+                    int(current["id"]),
+                ),
+            )
+            changed = True
+
+    if changed:
+        conn.commit()
+
+
+def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_missing: bool = True) -> None:
+    if str(get_row_value(person_row, "role", "") or "") != "Kurye":
+        return
+
+    person_id = safe_int(get_row_value(person_row, "id"))
+    if person_id <= 0:
+        return
+
+    issue_date_value = parse_date_value(get_row_value(person_row, "start_date")) or date.today()
+    for item in AUTO_ONBOARDING_ITEMS:
+        auto_key = f"auto:onboarding:{item['key']}"
+        existing = fetch_df(
+            conn,
+            """
+            SELECT id, issue_date, quantity, unit_cost, unit_sale_price, vat_rate, installment_count, sale_type, notes
+            FROM courier_equipment_issues
+            WHERE personnel_id = ? AND auto_source_key = ?
+            ORDER BY id
+            """,
+            (person_id, auto_key),
+        )
+
+        issue_notes = "Sistem: Otomatik işe giriş zimmeti"
+        if existing.empty:
+            if not create_missing:
+                continue
+            unit_cost = latest_average_cost(conn, item["item_name"])
+            if unit_cost <= 0:
+                unit_cost = float(item["unit_sale_price"])
+            issue_id = insert_equipment_issue_and_get_id(
+                conn,
+                person_id,
+                issue_date_value.isoformat(),
+                item["item_name"],
+                1,
+                unit_cost,
+                float(item["unit_sale_price"]),
+                AUTO_EQUIPMENT_INSTALLMENT_COUNT,
+                "Satış",
+                issue_notes,
+                vat_rate=float(item["vat_rate"]),
+                auto_source_key=auto_key,
+            )
+            conn.commit()
+            base_issue_date = issue_date_value
+        else:
+            row = existing.iloc[0]
+            issue_id = safe_int(row["id"])
+            base_issue_date = parse_date_value(row["issue_date"]) or issue_date_value
+            resolved_cost = safe_float(row["unit_cost"])
+            if resolved_cost <= 0:
+                resolved_cost = latest_average_cost(conn, item["item_name"])
+            if resolved_cost <= 0:
+                resolved_cost = float(item["unit_sale_price"])
+            if (
+                safe_int(row["quantity"], 1) != 1
+                or abs(safe_float(row["unit_sale_price"]) - float(item["unit_sale_price"])) > 0.01
+                or abs(safe_float(row["vat_rate"], VAT_RATE_DEFAULT) - float(item["vat_rate"])) > 0.01
+                or safe_int(row["installment_count"], AUTO_EQUIPMENT_INSTALLMENT_COUNT) != AUTO_EQUIPMENT_INSTALLMENT_COUNT
+                or str(row["sale_type"] or "") != "Satış"
+                or str(row["notes"] or "") != issue_notes
+            ):
+                conn.execute(
+                    """
+                    UPDATE courier_equipment_issues
+                    SET quantity = ?, unit_cost = ?, unit_sale_price = ?, vat_rate = ?, installment_count = ?, sale_type = ?, notes = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        1,
+                        resolved_cost,
+                        float(item["unit_sale_price"]),
+                        float(item["vat_rate"]),
+                        AUTO_EQUIPMENT_INSTALLMENT_COUNT,
+                        "Satış",
+                        issue_notes,
+                        issue_id,
+                    ),
+                )
+                conn.commit()
+
+        post_equipment_installments(
+            conn,
+            issue_id,
+            person_id,
+            base_issue_date,
+            item["item_name"],
+            float(item["unit_sale_price"]),
+            AUTO_EQUIPMENT_INSTALLMENT_COUNT,
+            auto_source_key_prefix=auto_key,
+        )
+
+
+def sync_person_business_rules(
+    conn: CompatConnection,
+    person_row: Any,
+    create_onboarding: bool = True,
+    full_history: bool = True,
+) -> None:
+    sync_person_auto_deductions(conn, person_row, full_history=full_history)
+    sync_person_auto_onboarding(conn, person_row, create_missing=create_onboarding)
+
+
+def sync_all_personnel_business_rules(conn: CompatConnection) -> None:
+    people_df = fetch_df(conn, "SELECT * FROM personnel")
+    if people_df.empty:
+        return
+    for _, row in people_df.iterrows():
+        sync_person_auto_deductions(conn, row, full_history=False)
+        sync_person_auto_onboarding(conn, row, create_missing=False)
 
 
 def fmt_try(v: float) -> str:
@@ -1758,6 +2169,41 @@ def inject_global_styles() -> None:
                 margin-bottom: 0.85rem;
             }
 
+            .ck-policy-card {
+                background:
+                    radial-gradient(circle at top right, rgba(255,255,255,0.2), transparent 22%),
+                    linear-gradient(135deg, #0C4BCB 0%, #1491D4 100%);
+                border-radius: 22px;
+                padding: 18px 18px 16px;
+                box-shadow: 0 18px 38px rgba(12, 75, 203, 0.18);
+                color: #FFFFFF;
+                margin: 0.55rem 0 1rem 0;
+            }
+
+            .ck-policy-title {
+                font-size: 1rem;
+                font-weight: 850;
+                letter-spacing: -0.03em;
+            }
+
+            .ck-policy-subtitle {
+                margin-top: 0.35rem;
+                color: rgba(255,255,255,0.86);
+                line-height: 1.6;
+                font-size: 0.9rem;
+            }
+
+            .ck-policy-list {
+                margin: 0.9rem 0 0;
+                padding-left: 1rem;
+            }
+
+            .ck-policy-list li {
+                margin-bottom: 0.45rem;
+                line-height: 1.55;
+                color: rgba(255,255,255,0.94);
+            }
+
             .ck-list-row {
                 display: flex;
                 justify-content: space-between;
@@ -1943,6 +2389,45 @@ def render_action_card(title: str, subtitle: str, highlight: bool = False) -> No
         <div class="{class_name}">
             <div class="ck-action-card-title">{html.escape(title)}</div>
             <div class="ck-action-card-subtitle">{html.escape(subtitle)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def build_personnel_rule_lines(role: str, motor_rental: str, accounting_type: str, new_company_setup: str) -> list[str]:
+    lines = ["Personel kartı seçilen ana restoran ile bağlanır; puantaj ve hakediş bu ilişkiyi kullanır."]
+    if motor_rental == "Evet":
+        lines.append("Motor kira aktif: personel pasife alınana kadar her ay 13.000₺ otomatik kesilir.")
+    else:
+        lines.append("Motor kira kapalı: aylık 13.000₺ motor kesintisi oluşmaz.")
+
+    if accounting_type == "Çat Kapında Muhasebe":
+        lines.append("Muhasebe aktif: her ay 2.000₺ otomatik muhasebe kesintisi oluşur.")
+    else:
+        lines.append("Muhasebe dışarıda: aylık 2.000₺ muhasebe kesintisi oluşmaz.")
+
+    if new_company_setup == "Evet":
+        lines.append("Şirket açılışı aktif: ilk ay için tek seferlik 1.500₺ kesinti yazılır.")
+    else:
+        lines.append("Şirket açılışı kapalı: tek seferlik 1.500₺ kesinti oluşmaz.")
+
+    if role == "Kurye":
+        lines.append("İşe giriş zimmeti: Box 3.200₺, Punch 2.000₺ ve Korumalı Mont 4.750₺ olarak 2 taksite bölünür.")
+        lines.append("Polar ve tişört sezon ürünü olarak hazır; fiyat tanımlanmadığı için henüz otomatik faturalanmıyor.")
+    else:
+        lines.append("Otomatik işe giriş zimmeti şu an sadece Kurye rolü için açılır.")
+    return lines
+
+
+def render_rule_summary_card(title: str, subtitle: str, lines: list[str]) -> None:
+    items_html = "".join(f"<li>{html.escape(line)}</li>" for line in lines)
+    st.markdown(
+        f"""
+        <div class="ck-policy-card">
+            <div class="ck-policy-title">{html.escape(title)}</div>
+            <div class="ck-policy-subtitle">{html.escape(subtitle)}</div>
+            <ul class="ck-policy-list">{items_html}</ul>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2649,6 +3134,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             motor_rental = c19.selectbox("Motor kiralama", ["Hayır", "Evet"])
             current_plate = c20.text_input("Güncel plaka")
 
+            render_rule_summary_card(
+                "Otomatik Akış Özeti",
+                "Bu kart kaydedildiğinde sistemin hangi fatura ve kesintileri kendi kendine oluşturacağını aşağıda görüyorsun.",
+                build_personnel_rule_lines(role, motor_rental, accounting_type, new_company_setup),
+            )
             notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar")
             submitted = st.form_submit_button("Personel kartını oluştur", use_container_width=True)
             if submitted and full_name:
@@ -2689,6 +3179,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     ),
                 )
                 conn.commit()
+                created_person = conn.execute("SELECT * FROM personnel WHERE person_code = ? ORDER BY id DESC", (auto_code,)).fetchone()
+                sync_person_business_rules(conn, created_person)
                 st.success(f"Personel kaydedildi. Kod: {auto_code}")
                 st.rerun()
 
@@ -2723,6 +3215,16 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Motor", row["vehicle_type"] or "-"),
                         ("Maliyet Modeli", COST_MODEL_LABELS.get(row["cost_model"], row["cost_model"])),
                     ],
+                )
+                render_rule_summary_card(
+                    "Kartın Otomatik Kuralları",
+                    "Bu personel kartı kaydedildiğinde ya da güncellendiğinde sistem aşağıdaki işlemleri otomatik senkronlar.",
+                    build_personnel_rule_lines(
+                        row["role"] or "Kurye",
+                        row["motor_rental"] or "Hayır",
+                        row["accounting_type"] or "-",
+                        row["new_company_setup"] or "Hayır",
+                    ),
                 )
             with left:
                 with st.form("personnel_edit_form"):
@@ -2783,6 +3285,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     c21, c22 = st.columns(2)
                     edit_plate = c21.text_input("Güncel plaka", value=row["current_plate"] or "")
                     c22.markdown("")
+                    render_rule_summary_card(
+                        "Güncelleme Sonrası Otomatik Akış",
+                        "Rol, motor, muhasebe ve şirket açılışı seçimlerine göre sistem bu kartı ve hakediş bağlantılarını yeniden senkronlar.",
+                        build_personnel_rule_lines(edit_role, edit_rental, edit_accounting, edit_new_company),
+                    )
                     edit_notes = st.text_area("Notlar", value=row["notes"] or "")
 
                     c23, c24 = st.columns(2)
@@ -2827,6 +3334,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             ),
                         )
                         conn.commit()
+                        updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
+                        sync_person_business_rules(conn, updated_person, create_onboarding=False)
                         st.success("Personel kaydı güncellendi.")
                         st.rerun()
 
@@ -2835,6 +3344,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         exit_date = date.today().isoformat() if new_status == "Pasif" else None
                         conn.execute("UPDATE personnel SET status=?, exit_date=? WHERE id=?", (new_status, exit_date, selected_id))
                         conn.commit()
+                        updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
+                        sync_person_business_rules(conn, updated_person, create_onboarding=False)
                         st.success(f"Personel durumu {new_status} olarak güncellendi.")
                         st.rerun()
 
@@ -3027,7 +3538,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
 
 def deductions_tab(conn: sqlite3.Connection) -> None:
-    section_intro("💸 Kesinti Yönetimi | Motor kira, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; raporlarda net maliyete yansır.")
+    section_intro("💸 Kesinti Yönetimi | Motor kira, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; personel kartından gelen sistem kesintileri de aynı tabloda görünür.")
     person_opts = get_person_options(conn, active_only=False)
     deduction_types = ["Motor kira", "Yakıt", "HGS", "İdari ceza", "Hasar", "Zimmet", "Muhasebe Ücreti", "Şirket Açılış Ücreti", "Fatura Edilmeyen Tutar", "Diğer"]
 
@@ -3051,20 +3562,22 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     raw_df = fetch_df(
         conn,
         """
-        SELECT d.id, d.personnel_id, d.deduction_date, p.full_name AS personel, d.deduction_type, d.amount, d.notes
+        SELECT d.id, d.personnel_id, d.deduction_date, p.full_name AS personel, d.deduction_type, d.amount, d.notes, d.auto_source_key
         FROM deductions d
         JOIN personnel p ON p.id = d.personnel_id
         ORDER BY d.deduction_date DESC, d.id DESC
         """,
     )
+    raw_df["source_text"] = raw_df["auto_source_key"].apply(describe_auto_source_key) if not raw_df.empty else []
     deductions_display_df = format_display_df(
-        raw_df.drop(columns=["id", "personnel_id"], errors="ignore"),
+        raw_df.drop(columns=["id", "personnel_id", "auto_source_key"], errors="ignore"),
         currency_cols=["Tutar"],
         rename_map={
             "deduction_date": "Tarih",
             "personel": "Personel",
             "deduction_type": "Kesinti Türü",
             "amount": "Tutar",
+            "source_text": "Kaynak",
             "notes": "Açıklama",
         },
     )
@@ -3088,6 +3601,9 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     person_index = list(person_opts.keys()).index(current_person) if current_person in person_opts else 0
     type_index = deduction_types.index(row["deduction_type"]) if row["deduction_type"] in deduction_types else len(deduction_types) - 1
     current_date = datetime.strptime(str(row["deduction_date"]), "%Y-%m-%d").date()
+    is_auto_record = bool(str(row.get("auto_source_key") or "").strip())
+    if is_auto_record:
+        st.warning("Bu kesinti sistem tarafından personel kartından üretildi. Değiştirmek için ilgili personel kartındaki motor, muhasebe veya şirket açılışı ayarını güncelle.")
 
     with st.form("deduction_edit_form"):
         c1, c2, c3 = st.columns(3)
@@ -3097,8 +3613,8 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         edit_amount = st.number_input("Tutar", min_value=0.0, value=safe_float(row["amount"]), step=50.0)
         edit_notes = st.text_input("Açıklama", value=row["notes"] or "")
         c4, c5 = st.columns(2)
-        update_clicked = c4.form_submit_button("Kesinti güncelle", use_container_width=True)
-        delete_clicked = c5.form_submit_button("Kesinti sil", use_container_width=True)
+        update_clicked = c4.form_submit_button("Kesinti güncelle", use_container_width=True, disabled=is_auto_record)
+        delete_clicked = c5.form_submit_button("Kesinti sil", use_container_width=True, disabled=is_auto_record)
 
         if update_clicked and edit_amount > 0:
             conn.execute(
@@ -3252,6 +3768,8 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
 
 
 EQUIPMENT_ITEMS = [
+    "Box",
+    "Punch",
     "Box+Punch",
     "Polar",
     "Tişört",
@@ -3339,14 +3857,17 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             issue_date = c2.date_input("Zimmet tarihi", value=date.today(), key="issue_date")
             item_name = c3.selectbox("Ürün", EQUIPMENT_ITEMS, key="issue_item")
             suggested_cost = latest_average_cost(conn, item_name)
+            suggested_sale_price = get_default_equipment_sale_price(item_name) or suggested_cost
+            vat_rate = get_equipment_vat_rate(item_name)
             c4, c5, c6 = st.columns(3)
             quantity = c4.number_input("Adet", min_value=1, value=1, step=1, key="issue_qty")
             unit_cost = c5.number_input("Birim maliyet", min_value=0.0, value=float(suggested_cost), step=50.0, key="issue_cost")
-            unit_sale_price = c6.number_input("Kuryeye satış fiyatı", min_value=0.0, value=float(suggested_cost), step=50.0, key="issue_sale")
+            unit_sale_price = c6.number_input("Kuryeye satış fiyatı | KDV dahil", min_value=0.0, value=float(suggested_sale_price), step=50.0, key="issue_sale")
             c7, c8, c9 = st.columns(3)
             installment_count = c7.selectbox("Taksit sayısı", [1, 2, 3], index=1, key="issue_installment")
             sale_type = c8.selectbox("İşlem tipi", ["Satış", "Depozit / Teslim"], key="issue_sale_type")
             notes = c9.text_input("Not", key="issue_notes")
+            st.caption(f"Bu ürün için varsayılan KDV oranı: %{fmt_number(vat_rate)}")
             submitted = st.form_submit_button("Zimmet kaydet ve taksit oluştur", use_container_width=True)
             if submitted:
                 person_id = person_opts[person_label]
@@ -3361,6 +3882,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                     int(installment_count),
                     sale_type,
                     notes,
+                    vat_rate=vat_rate,
                 )
                 total_sale_amount = float(quantity) * float(unit_sale_price)
                 post_equipment_installments(conn, issue_id, person_id, issue_date, item_name, total_sale_amount, int(installment_count))
@@ -3369,7 +3891,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
         issues = fetch_df(
             conn,
             """
-            SELECT i.id, i.issue_date, p.full_name, i.item_name, i.quantity, i.unit_cost, i.unit_sale_price,
+            SELECT i.id, i.issue_date, p.full_name, i.item_name, i.quantity, i.unit_cost, i.unit_sale_price, i.vat_rate, i.auto_source_key,
                    (i.quantity * i.unit_cost) AS total_cost,
                    (i.quantity * i.unit_sale_price) AS total_sale,
                    ((i.quantity * i.unit_sale_price) - (i.quantity * i.unit_cost)) AS gross_profit,
@@ -3380,10 +3902,12 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             """,
         )
         if not issues.empty:
+            issues["source_text"] = issues["auto_source_key"].apply(describe_auto_source_key)
             issues_display = format_display_df(
-                issues,
+                issues.drop(columns=["auto_source_key"], errors="ignore"),
                 currency_cols=["unit_cost", "unit_sale_price", "total_cost", "total_sale", "gross_profit"],
                 number_cols=["quantity", "installment_count"],
+                percent_cols=["vat_rate"],
                 rename_map={
                     "id": "ID",
                     "issue_date": "Tarih",
@@ -3392,11 +3916,13 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                     "quantity": "Adet",
                     "unit_cost": "Birim Maliyet",
                     "unit_sale_price": "Birim Satış",
+                    "vat_rate": "KDV",
                     "total_cost": "Toplam Maliyet",
                     "total_sale": "Toplam Satış",
                     "gross_profit": "Brüt Kâr",
                     "installment_count": "Taksit",
                     "sale_type": "İşlem Tipi",
+                    "source_text": "Kaynak",
                     "notes": "Not",
                 },
             )
@@ -3405,7 +3931,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
         installment_df = fetch_df(
             conn,
             """
-            SELECT d.deduction_date, p.full_name, d.deduction_type, d.amount, d.notes
+            SELECT d.deduction_date, p.full_name, d.deduction_type, d.amount, d.notes, d.auto_source_key
             FROM deductions d
             JOIN personnel p ON p.id = d.personnel_id
             WHERE d.equipment_issue_id IS NOT NULL
@@ -3414,14 +3940,16 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
         )
         if not installment_df.empty:
             st.markdown("#### Oluşan zimmet taksitleri")
+            installment_df["source_text"] = installment_df["auto_source_key"].apply(describe_auto_source_key)
             installment_display = format_display_df(
-                installment_df,
+                installment_df.drop(columns=["auto_source_key"], errors="ignore"),
                 currency_cols=["amount"],
                 rename_map={
                     "deduction_date": "Tarih",
                     "full_name": "Personel",
                     "deduction_type": "Tür",
                     "amount": "Tutar",
+                    "source_text": "Kaynak",
                     "notes": "Açıklama",
                 },
             )
