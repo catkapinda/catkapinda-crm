@@ -2086,7 +2086,7 @@ def inject_global_styles() -> None:
                 position: relative;
                 z-index: 1;
                 display: grid;
-                grid-template-columns: repeat(4, minmax(0, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
                 gap: 12px;
                 margin-top: 1.25rem;
             }
@@ -2142,7 +2142,11 @@ def inject_global_styles() -> None:
                 border-radius: 22px;
                 padding: 18px 18px 16px;
                 box-shadow: var(--ck-shadow);
-                min-height: 132px;
+                min-height: 158px;
+                height: 158px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
             }
 
             .ck-action-card-highlight {
@@ -2449,6 +2453,11 @@ def inject_global_styles() -> None:
 
                 .ck-hero-grid {
                     grid-template-columns: 1fr;
+                }
+
+                .ck-action-card {
+                    height: auto;
+                    min-height: 132px;
                 }
 
                 .ck-update-grid {
@@ -2928,16 +2937,20 @@ def announcements_tab() -> None:
 def restaurants_tab(conn: sqlite3.Connection) -> None:
     df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
     active_count = int(df["active"].apply(lambda x: safe_int(x, 0)).sum()) if not df.empty else 0
+    hourly_plus_count = int((df["pricing_model"] == "hourly_plus_package").sum()) if not df.empty else 0
     threshold_count = int((df["pricing_model"] == "threshold_package").sum()) if not df.empty else 0
+    hourly_only_count = int((df["pricing_model"] == "hourly_only").sum()) if not df.empty else 0
     fixed_count = int((df["pricing_model"] == "fixed_monthly").sum()) if not df.empty else 0
     render_management_hero(
         "RESTORAN YÖNETİMİ",
         "Şube kartları, fiyat anlaşmaları ve operasyon durumu",
-        "Filtrelenebilir liste, hızlı aksiyon paneli ve ayrı sekmelerle yeni şube ekleme ya da güncelleme işlemlerini daha rahat yönet.",
+        "Filtrelenebilir liste, hızlı aksiyon paneli ve tum fiyat modeli dagilimini ayni alanda net bicimde gorerek yeni sube ekleme ya da guncelleme islemlerini daha rahat yonet.",
         [
             ("Toplam Şube", len(df)),
             ("Aktif Şube", active_count),
-            ("Eşikli Anlaşma", threshold_count),
+            ("Saatlik + Paket", hourly_plus_count),
+            ("Eşikli Paket", threshold_count),
+            ("Sadece Saatlik", hourly_only_count),
             ("Sabit Aylık", fixed_count),
         ],
     )
