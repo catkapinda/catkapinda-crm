@@ -466,6 +466,7 @@ def ensure_schema(conn: CompatConnection) -> None:
             role TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'Aktif',
             phone TEXT,
+            address TEXT,
             tc_no TEXT,
             iban TEXT,
             accounting_type TEXT DEFAULT '-',
@@ -574,11 +575,6 @@ def ensure_schema(conn: CompatConnection) -> None:
             meta_key TEXT PRIMARY KEY,
             meta_value TEXT NOT NULL
         );
-
-        CREATE TABLE IF NOT EXISTS app_meta (
-            meta_key TEXT PRIMARY KEY,
-            meta_value TEXT NOT NULL
-        );
     """
 
     postgres_schema = """
@@ -619,6 +615,7 @@ def ensure_schema(conn: CompatConnection) -> None:
             role TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'Aktif',
             phone TEXT,
+            address TEXT,
             tc_no TEXT,
             iban TEXT,
             accounting_type TEXT DEFAULT '-',
@@ -714,11 +711,6 @@ def ensure_schema(conn: CompatConnection) -> None:
             username TEXT NOT NULL,
             created_at TEXT NOT NULL,
             expires_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS app_meta (
-            meta_key TEXT PRIMARY KEY,
-            meta_value TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS app_meta (
@@ -1040,6 +1032,8 @@ def migrate_data(conn: CompatConnection) -> None:
         conn.execute("ALTER TABLE personnel ADD COLUMN company_setup_revenue REAL DEFAULT 0")
     if "company_setup_cost" not in personnel_cols:
         conn.execute("ALTER TABLE personnel ADD COLUMN company_setup_cost REAL DEFAULT 0")
+    if "address" not in personnel_cols:
+        conn.execute("ALTER TABLE personnel ADD COLUMN address TEXT")
     conn.execute("UPDATE personnel SET vehicle_type = 'Kendi Motoru' WHERE vehicle_type = 'Kendi'")
     conn.execute("UPDATE personnel SET vehicle_type = 'Çat Kapında' WHERE (vehicle_type IS NULL OR vehicle_type = '') AND motor_rental = 'Evet'")
     conn.execute("UPDATE personnel SET vehicle_type = 'Kendi Motoru' WHERE vehicle_type IS NULL OR vehicle_type = ''")
@@ -1186,6 +1180,7 @@ def allowed_menu_items(role: str) -> list[str]:
             "📣 Güncellemeler ve Duyurular",
             "🏢 Restoran Yönetimi",
             "👥 Personel Yönetimi",
+            "🛒 Satın Alma",
             "📦 Ekipman & Zimmet",
             "🗓 Günlük Puantaj",
             "🗂 Toplu Puantaj",
@@ -1878,6 +1873,7 @@ def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
             "role": "Rol",
             "status": "Durum",
             "phone": "Telefon",
+            "address": "Adres",
             "tc_no": "TC Kimlik No",
             "iban": "IBAN",
             "accounting_type": "Muhasebe",
@@ -3377,7 +3373,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         role_filter = f2.selectbox("Rol", ["Tümü"] + PERSONNEL_ROLE_OPTIONS, key="person_role_filter")
         status_filter = f3.selectbox("Durum", ["Tümü", "Aktif", "Pasif"], key="person_status_filter")
         restaurant_options = ["Tümü"] + sorted(df["restoran"].dropna().astype(str).unique().tolist()) if not df.empty else ["Tümü"]
-        restaurant_filter = f4.selectbox("Ana restoran", restaurant_options, key="person_rest_filter")
+        restaurant_filter = f4.selectbox("Ana Restoran", restaurant_options, key="person_rest_filter")
 
         filtered_df = df.copy()
         if role_filter != "Tümü":
@@ -3386,7 +3382,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             filtered_df = filtered_df[filtered_df["status"] == status_filter].copy()
         if restaurant_filter != "Tümü":
             filtered_df = filtered_df[filtered_df["restoran"] == restaurant_filter].copy()
-        filtered_df = apply_text_search(filtered_df, ["person_code", "full_name", "phone", "current_plate", "restoran"], search_query)
+        filtered_df = apply_text_search(filtered_df, ["person_code", "full_name", "phone", "address", "current_plate", "restoran"], search_query)
 
         if df.empty:
             st.info("Henüz personel kaydı yok.")
@@ -3401,7 +3397,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 st.dataframe(format_personnel_table(filtered_df), use_container_width=True, hide_index=True)
                 st.caption(f"{len(filtered_df)} personel gösteriliyor.")
             with right:
-                preview_label = st.selectbox("Kart önizleme", list(preview_labels.keys()), key="person_preview_select")
+                preview_label = st.selectbox("Kart Önizleme", list(preview_labels.keys()), key="person_preview_select")
                 preview_id = preview_labels[preview_label]
                 preview_row = df.loc[df["id"] == preview_id].iloc[0]
                 render_record_snapshot(
@@ -3421,48 +3417,50 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         with st.form("personnel_form", clear_on_submit=True):
             st.markdown("##### Kimlik ve Görev")
             c1, c2, c3 = st.columns(3)
-            full_name = c1.text_input("Ad soyad")
+            full_name = c1.text_input("Ad Soyad")
             role = c2.selectbox("Rol", PERSONNEL_ROLE_OPTIONS)
             code_preview = next_person_code(conn, role)
-            c3.text_input("Otomatik personel kodu", value=code_preview, disabled=True)
+            c3.text_input("Otomatik Personel Kodu", value=code_preview, disabled=True)
 
             c4, c5, c6 = st.columns(3)
             status = c4.selectbox("Durum", ["Aktif", "Pasif"])
             phone = c5.text_input("Telefon")
-            assigned_label = c6.selectbox("Ana restoran", list(rest_opts_with_blank.keys()))
+            assigned_label = c6.selectbox("Ana Restoran", list(rest_opts_with_blank.keys()))
 
             c7, c8, c9 = st.columns(3)
             tc_no = c7.text_input("TC Kimlik No")
             iban = c8.text_input("IBAN")
-            start_date = c9.date_input("İşe giriş tarihi", value=None)
+            start_date = c9.date_input("İşe Giriş Tarihi", value=None)
+
+            address = st.text_area("Adres", placeholder="Açık Adres")
 
             st.markdown("##### Muhasebe ve Şirket")
             c10, c11, c12 = st.columns(3)
             accounting_type = c10.selectbox("Muhasebe", ["-", "Çat Kapında Muhasebe", "Kendi Muhasebecisi"])
-            new_company_setup = c11.selectbox("Yeni şirket açılışı", ["Hayır", "Evet"])
+            new_company_setup = c11.selectbox("Yeni Şirket Açılışı", ["Hayır", "Evet"])
             cost_model = c12.selectbox(
-                "Maliyet modeli",
+                "Maliyet Modeli",
                 list(COST_MODEL_LABELS.keys()),
                 format_func=lambda x: COST_MODEL_LABELS.get(x, x),
             )
             auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(accounting_type)
 
             c13, c14, c15 = st.columns(3)
-            c13.number_input("Muhasebeden aldığımız ücret", min_value=0.0, value=float(auto_accounting_revenue), step=100.0, disabled=True)
-            c14.number_input("Muhasebeciye ödediğimiz", min_value=0.0, value=float(auto_accountant_cost), step=100.0, disabled=True)
-            monthly_fixed_cost = c15.number_input("Aylık sabit maliyet", min_value=0.0, value=0.0, step=100.0)
+            c13.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_accounting_revenue), step=100.0, disabled=True)
+            c14.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_accountant_cost), step=100.0, disabled=True)
+            monthly_fixed_cost = c15.number_input("Aylık Sabit Maliyet", min_value=0.0, value=0.0, step=100.0)
 
             c16, c17 = st.columns(2)
-            company_setup_revenue = c16.number_input("Şirket açılışından aldığımız ücret", min_value=0.0, value=0.0, step=100.0)
-            company_setup_cost = c17.number_input("Şirket açılış maliyeti", min_value=0.0, value=0.0, step=100.0)
+            company_setup_revenue = c16.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=0.0, step=100.0)
+            company_setup_cost = c17.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=0.0, step=100.0)
 
             st.markdown("##### Araç ve Operasyon")
             c18, c19 = st.columns(2)
             vehicle_type = c18.selectbox("Motor Tipi", ["Çat Kapında", "Kendi Motoru"], index=1)
-            current_plate = c19.text_input("Güncel plaka")
+            current_plate = c19.text_input("Güncel Plaka")
             effective_motor_rental = resolve_motor_rental_value(vehicle_type, "Hayır")
             notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar")
-            submitted = st.form_submit_button("Personel kartını oluştur", use_container_width=True)
+            submitted = st.form_submit_button("Personel Kartını Oluştur", use_container_width=True)
             if submitted and full_name:
                 assigned_id = rest_opts_with_blank.get(assigned_label)
                 start_date_str = start_date.isoformat() if isinstance(start_date, date) else None
@@ -3470,11 +3468,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 conn.execute(
                     """
                     INSERT INTO personnel (
-                        person_code, full_name, role, status, phone, tc_no, iban,
+                        person_code, full_name, role, status, phone, address, tc_no, iban,
                         accounting_type, new_company_setup, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
                         assigned_restaurant_id, vehicle_type, motor_rental, current_plate, start_date,
                         cost_model, monthly_fixed_cost, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         auto_code,
@@ -3482,6 +3480,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         role,
                         status,
                         phone,
+                        address,
                         tc_no,
                         iban,
                         accounting_type,
@@ -3515,7 +3514,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 f"{row['full_name']} | {row['role']} | Kod: {row['person_code'] or '-'} | ID: {row['id']}": int(row["id"])
                 for _, row in df.iterrows()
             }
-            selected_label = st.selectbox("Düzenlenecek personel", list(person_labels.keys()), key="edit_person_select")
+            selected_label = st.selectbox("Düzenlenecek Personel", list(person_labels.keys()), key="edit_person_select")
             selected_id = person_labels[selected_label]
             row = df.loc[df["id"] == selected_id].iloc[0]
 
@@ -3549,11 +3548,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     if match:
                         existing_num = match.group(1)
                     code_default = row["person_code"] if row["role"] == edit_role and row["person_code"] else f"CK-{new_prefix}{existing_num or suggested_code.split(new_prefix)[1]}"
-                    edit_code = c2.text_input("Personel kodu", value=code_default or suggested_code)
-                    c3.caption(f"Önerilen kod: {suggested_code}")
+                    edit_code = c2.text_input("Personel Kodu", value=code_default or suggested_code)
+                    c3.caption(f"Önerilen Kod: {suggested_code}")
 
                     c4, c5, c6 = st.columns(3)
-                    edit_name = c4.text_input("Ad soyad", value=row["full_name"] or "")
+                    edit_name = c4.text_input("Ad Soyad", value=row["full_name"] or "")
                     edit_status = c5.selectbox("Durum", status_options, index=status_options.index(row["status"]) if row["status"] in status_options else 0)
                     edit_phone = c6.text_input("Telefon", value=row["phone"] or "")
 
@@ -3561,7 +3560,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     edit_tc = c7.text_input("TC Kimlik No", value=row["tc_no"] or "")
                     edit_iban = c8.text_input("IBAN", value=row["iban"] or "")
                     start_val = datetime.strptime(row["start_date"], "%Y-%m-%d").date() if row["start_date"] else None
-                    edit_start_date = c9.date_input("İşe giriş tarihi", value=start_val)
+                    edit_start_date = c9.date_input("İşe Giriş Tarihi", value=start_val)
+
+                    edit_address = st.text_area("Adres", value=row["address"] or "")
 
                     st.markdown("##### Muhasebe ve Şirket")
                     c10, c11, c12 = st.columns(3)
@@ -3570,9 +3571,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     edit_accounting = c10.selectbox("Muhasebe", accounting_options, index=accounting_options.index(current_acc) if current_acc in accounting_options else 0)
                     new_company_options = ["Hayır", "Evet"]
                     current_newco = row["new_company_setup"] if pd.notna(row["new_company_setup"]) else "Hayır"
-                    edit_new_company = c11.selectbox("Yeni şirket açılışı", new_company_options, index=new_company_options.index(current_newco) if current_newco in new_company_options else 0)
+                    edit_new_company = c11.selectbox("Yeni Şirket Açılışı", new_company_options, index=new_company_options.index(current_newco) if current_newco in new_company_options else 0)
                     edit_cost_model = c12.selectbox(
-                        "Maliyet modeli",
+                        "Maliyet Modeli",
                         cost_options,
                         index=cost_options.index(row["cost_model"]) if row["cost_model"] in cost_options else 0,
                         format_func=lambda x: COST_MODEL_LABELS.get(x, x),
@@ -3580,30 +3581,30 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     auto_edit_accounting_revenue, auto_edit_accountant_cost = resolve_accounting_defaults(edit_accounting)
 
                     c13, c14, c15 = st.columns(3)
-                    c13.number_input("Muhasebeden aldığımız ücret", min_value=0.0, value=float(auto_edit_accounting_revenue), step=100.0, disabled=True)
-                    c14.number_input("Muhasebeciye ödediğimiz", min_value=0.0, value=float(auto_edit_accountant_cost), step=100.0, disabled=True)
-                    edit_monthly_cost = c15.number_input("Aylık sabit maliyet", min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0)
+                    c13.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_edit_accounting_revenue), step=100.0, disabled=True)
+                    c14.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_edit_accountant_cost), step=100.0, disabled=True)
+                    edit_monthly_cost = c15.number_input("Aylık Sabit Maliyet", min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0)
 
                     c16, c17 = st.columns(2)
-                    edit_company_setup_revenue = c16.number_input("Şirket açılışından aldığımız ücret", min_value=0.0, value=float(row["company_setup_revenue"] or 0.0), step=100.0)
-                    edit_company_setup_cost = c17.number_input("Şirket açılış maliyeti", min_value=0.0, value=float(row["company_setup_cost"] or 0.0), step=100.0)
+                    edit_company_setup_revenue = c16.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(row["company_setup_revenue"] or 0.0), step=100.0)
+                    edit_company_setup_cost = c17.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(row["company_setup_cost"] or 0.0), step=100.0)
 
                     st.markdown("##### Araç ve Operasyon")
                     c18, c19 = st.columns(2)
                     current_vehicle = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
-                    edit_restaurant = c18.selectbox("Ana restoran", list(rest_opts_with_blank.keys()), index=list(rest_opts_with_blank.keys()).index(assigned_value) if assigned_value in rest_opts_with_blank else 0)
+                    edit_restaurant = c18.selectbox("Ana Restoran", list(rest_opts_with_blank.keys()), index=list(rest_opts_with_blank.keys()).index(assigned_value) if assigned_value in rest_opts_with_blank else 0)
                     edit_vehicle = c19.selectbox("Motor Tipi", vehicle_options, index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1)
                     effective_edit_motor_rental = resolve_motor_rental_value(edit_vehicle, "Hayır")
 
                     c21, c22 = st.columns(2)
-                    edit_plate = c21.text_input("Güncel plaka", value=row["current_plate"] or "")
+                    edit_plate = c21.text_input("Güncel Plaka", value=row["current_plate"] or "")
                     c22.markdown("")
                     edit_notes = st.text_area("Notlar", value=row["notes"] or "")
 
                     c23, c24, c25 = st.columns(3)
-                    update_clicked = c23.form_submit_button("Personeli güncelle", use_container_width=True)
-                    toggle_clicked = c24.form_submit_button("Aktif/Pasif durumunu değiştir", use_container_width=True)
-                    delete_clicked = c25.form_submit_button("Kalıcı sil", use_container_width=True)
+                    update_clicked = c23.form_submit_button("Personeli Güncelle", use_container_width=True)
+                    toggle_clicked = c24.form_submit_button("Aktif/Pasif Durumunu Değiştir", use_container_width=True)
+                    delete_clicked = c25.form_submit_button("Kalıcı Sil", use_container_width=True)
 
                     if update_clicked:
                         assigned_id = rest_opts_with_blank.get(edit_restaurant)
@@ -3611,7 +3612,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         conn.execute(
                             """
                             UPDATE personnel
-                            SET person_code=?, full_name=?, role=?, status=?, phone=?, tc_no=?, iban=?,
+                            SET person_code=?, full_name=?, role=?, status=?, phone=?, address=?, tc_no=?, iban=?,
                                 accounting_type=?, new_company_setup=?, accounting_revenue=?, accountant_cost=?, company_setup_revenue=?, company_setup_cost=?, assigned_restaurant_id=?,
                                 vehicle_type=?, motor_rental=?, current_plate=?, start_date=?,
                                 cost_model=?, monthly_fixed_cost=?, notes=?
@@ -3623,6 +3624,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 edit_role,
                                 edit_status,
                                 edit_phone,
+                                edit_address,
                                 edit_tc,
                                 edit_iban,
                                 edit_accounting,
@@ -4128,65 +4130,73 @@ NON_RETURNABLE_ITEMS = {
 }
 
 
+def purchases_tab(conn: sqlite3.Connection) -> None:
+    section_intro(
+        "🛒 Satın Alma | Fatura girişi ve birim maliyet takibi",
+        "Ekipman satın alma faturalarını ayrı ekranda yönet; ürün bazlı birim maliyeti ve geçmiş alımları tek listede takip et.",
+    )
+
+    with st.form("purchase_form", clear_on_submit=True):
+        c1, c2, c3 = st.columns(3)
+        purchase_date = c1.date_input("Fatura Tarihi", value=date.today(), key="purchase_date")
+        item_name = c2.selectbox("Ürün", EQUIPMENT_ITEMS, key="purchase_item")
+        quantity = c3.number_input("Adet", min_value=1, value=1, step=1, key="purchase_qty")
+        c4, c5, c6 = st.columns(3)
+        total_invoice_amount = c4.number_input("Toplam Fatura Tutarı", min_value=0.0, value=0.0, step=100.0, key="purchase_total")
+        supplier = c5.text_input("Tedarikçi", key="purchase_supplier")
+        invoice_no = c6.text_input("Fatura No", key="purchase_invoice_no")
+        notes = st.text_input("Not", key="purchase_notes")
+        submitted = st.form_submit_button("Satın Alma Kaydet", use_container_width=True)
+        if submitted and quantity > 0 and total_invoice_amount > 0:
+            unit_cost = round(total_invoice_amount / quantity, 2)
+            conn.execute(
+                """
+                INSERT INTO inventory_purchases
+                (purchase_date, item_name, quantity, total_invoice_amount, unit_cost, supplier, invoice_no, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (purchase_date.isoformat(), item_name, int(quantity), total_invoice_amount, unit_cost, supplier, invoice_no, notes),
+            )
+            conn.commit()
+            st.success(f"Satın alma kaydedildi. Birim maliyet: {fmt_try(unit_cost)}")
+            st.rerun()
+
+    purchases = fetch_df(conn, "SELECT purchase_date, item_name, quantity, total_invoice_amount, unit_cost, supplier, invoice_no, notes FROM inventory_purchases ORDER BY purchase_date DESC, id DESC")
+    if purchases.empty:
+        st.info("Henüz satın alma faturası kaydı yok.")
+        return
+
+    purchases_display = format_display_df(
+        purchases,
+        currency_cols=["total_invoice_amount", "unit_cost"],
+        number_cols=["quantity"],
+        rename_map={
+            "purchase_date": "Tarih",
+            "item_name": "Ürün",
+            "quantity": "Adet",
+            "total_invoice_amount": "Toplam Fatura",
+            "unit_cost": "Birim Maliyet",
+            "supplier": "Tedarikçi",
+            "invoice_no": "Fatura No",
+            "notes": "Not",
+        },
+    )
+    st.dataframe(purchases_display, use_container_width=True, hide_index=True)
+
+
 def equipment_tab(conn: sqlite3.Connection) -> None:
     section_intro(
-        "📦 Ekipman & Zimmet | Satın alma, kurye satışı, 2 taksit kesinti ve box geri alım",
-        "Ekipman satın alma maliyetini, kuryeye satış fiyatını, otomatik taksit kesintilerini ve box geri alımını tek panelden yönet.",
+        "📦 Ekipman & Zimmet | Kurye satışı, taksit kesintisi ve box geri alım",
+        "Kurye zimmetlerini, oluşan taksit kesintilerini, box geri alımlarını ve ekipman kârlılığını bu panelden yönet.",
     )
     person_opts = get_person_options(conn, active_only=False)
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "🧾 Satın Alma",
+    tab1, tab2, tab3 = st.tabs([
         "👷 Kurye Zimmet / Satış",
         "🔄 Box Geri Alım",
         "📈 Ekipman Kârlılığı",
     ])
 
     with tab1:
-        st.markdown("#### Satın alma faturası girişi")
-        with st.form("purchase_form", clear_on_submit=True):
-            c1, c2, c3 = st.columns(3)
-            purchase_date = c1.date_input("Fatura tarihi", value=date.today(), key="purchase_date")
-            item_name = c2.selectbox("Ürün", EQUIPMENT_ITEMS, key="purchase_item")
-            quantity = c3.number_input("Adet", min_value=1, value=1, step=1, key="purchase_qty")
-            c4, c5, c6 = st.columns(3)
-            total_invoice_amount = c4.number_input("Toplam fatura tutarı", min_value=0.0, value=0.0, step=100.0, key="purchase_total")
-            supplier = c5.text_input("Tedarikçi", key="purchase_supplier")
-            invoice_no = c6.text_input("Fatura no", key="purchase_invoice_no")
-            notes = st.text_input("Not", key="purchase_notes")
-            submitted = st.form_submit_button("Satın alma kaydet", use_container_width=True)
-            if submitted and quantity > 0 and total_invoice_amount > 0:
-                unit_cost = round(total_invoice_amount / quantity, 2)
-                conn.execute(
-                    """
-                    INSERT INTO inventory_purchases
-                    (purchase_date, item_name, quantity, total_invoice_amount, unit_cost, supplier, invoice_no, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (purchase_date.isoformat(), item_name, int(quantity), total_invoice_amount, unit_cost, supplier, invoice_no, notes),
-                )
-                conn.commit()
-                st.success(f"Satın alma kaydedildi. Birim maliyet: {fmt_try(unit_cost)}")
-
-        purchases = fetch_df(conn, "SELECT purchase_date, item_name, quantity, total_invoice_amount, unit_cost, supplier, invoice_no, notes FROM inventory_purchases ORDER BY purchase_date DESC, id DESC")
-        if not purchases.empty:
-            purchases_display = format_display_df(
-                purchases,
-                currency_cols=["total_invoice_amount", "unit_cost"],
-                number_cols=["quantity"],
-                rename_map={
-                    "purchase_date": "Tarih",
-                    "item_name": "Ürün",
-                    "quantity": "Adet",
-                    "total_invoice_amount": "Toplam Fatura",
-                    "unit_cost": "Birim Maliyet",
-                    "supplier": "Tedarikçi",
-                    "invoice_no": "Fatura No",
-                    "notes": "Not",
-                },
-            )
-            st.dataframe(purchases_display, use_container_width=True, hide_index=True)
-
-    with tab2:
         st.markdown("#### Kurye zimmet / satış kaydı")
         with st.form("equipment_issue_form", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
@@ -4292,7 +4302,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             )
             st.dataframe(installment_display, use_container_width=True, hide_index=True)
 
-    with tab3:
+    with tab2:
         st.markdown("#### Box geri alım")
         with st.form("box_return_form", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
@@ -4345,7 +4355,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             cols = ["Tarih", "Personel", "Adet", "Durum", "Geri Ödeme", "Parasını İstemedi", "Not"]
             st.dataframe(returns_display[cols], use_container_width=True, hide_index=True)
 
-    with tab4:
+    with tab3:
         st.markdown("#### Ekipman satış ve kârlılık özeti")
         sales_profit = fetch_df(
             conn,
@@ -4410,7 +4420,6 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                 },
             )
             st.dataframe(stock_display, use_container_width=True, hide_index=True)
-
 
 def build_branch_profitability(month_df: pd.DataFrame, personnel_df: pd.DataFrame, deductions_df: pd.DataFrame, invoice_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     if month_df.empty or invoice_df.empty:
@@ -5007,6 +5016,8 @@ def main() -> None:
             restaurants_tab(conn)
         elif menu == "👥 Personel Yönetimi":
             personnel_tab(conn)
+        elif menu == "🛒 Satın Alma":
+            purchases_tab(conn)
         elif menu == "📦 Ekipman & Zimmet":
             equipment_tab(conn)
         elif menu == "🗓 Günlük Puantaj":
