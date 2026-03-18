@@ -569,6 +569,16 @@ def ensure_schema(conn: CompatConnection) -> None:
             created_at TEXT NOT NULL,
             expires_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS app_meta (
+            meta_key TEXT PRIMARY KEY,
+            meta_value TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS app_meta (
+            meta_key TEXT PRIMARY KEY,
+            meta_value TEXT NOT NULL
+        );
     """
 
     postgres_schema = """
@@ -704,6 +714,16 @@ def ensure_schema(conn: CompatConnection) -> None:
             username TEXT NOT NULL,
             created_at TEXT NOT NULL,
             expires_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS app_meta (
+            meta_key TEXT PRIMARY KEY,
+            meta_value TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS app_meta (
+            meta_key TEXT PRIMARY KEY,
+            meta_value TEXT NOT NULL
         );
     """
     conn.executescript(postgres_schema if conn.backend == "postgres" else sqlite_schema)
@@ -910,61 +930,85 @@ def table_has_rows(conn: CompatConnection, table: str) -> bool:
 
 
 def seed_initial_data(conn: CompatConnection) -> None:
-    if not table_has_rows(conn, "restaurants"):
-        restaurants = [
-            ("Fasuli", "Beyoğlu", "Fasuli", "threshold_package", 273, 0, 390, 33.75, 47.25, 0, 20, 2, 1, "390 pakete kadar düşük prim, üstü yüksek prim."),
-            ("Fasuli", "Vatan", "Fasuli", "threshold_package", 273, 0, 390, 33.75, 47.25, 0, 20, 2, 1, "390 pakete kadar düşük prim, üstü yüksek prim."),
-            ("Köroğlu Pide", "Merkez", "Köroğlu Pide", "threshold_package", 260, 0, 390, 27, 40.5, 0, 20, 4, 1, "390 paket eşiği."),
-            ("Sushi Inn", "Merkez", "Sushi Inn", "fixed_monthly", 0, 0, None, 0, 0, 79800, 20, 1, 1, "26 gün 10 saat çalışan 1 kurye için sabit ücret."),
-            ("SushiCo", "Beyoğlu", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 4, 1, "Standart SushiCo modeli."),
-            ("SushiCo", "Sancaktepe", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 4, 1, "Standart SushiCo modeli."),
-            ("SushiCo", "İdealistpark", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 4, 1, "Standart SushiCo modeli."),
-            ("Quick China", "Ataşehir", "Quick China", "hourly_plus_package", 279, 32, None, 0, 0, 84500, 20, 5, 1, "Şube içinde 4+1 kurye/şef yapısı var."),
-            ("Quick China", "Suadiye", "Quick China", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 4, 1, "Quick China standart şube."),
-            ("Hacıbaşar", "Maltepe", "Hacıbaşar", "threshold_package", 254, 0, 390, 27, 40.5, 0, 20, 2, 1, "390 paket eşiği."),
-            ("Hacıbaşar", "Ümraniye", "Hacıbaşar", "threshold_package", 254, 0, 390, 27, 40.5, 0, 20, 2, 1, "390 paket eşiği."),
-            ("Yavuzbey İskender", "Merkez", "Yavuzbey İskender", "hourly_plus_package", 264, 33, None, 0, 0, 0, 20, 3, 1, "Saatlik + paket."),
-            ("Burger@", "Kavacık", "Burger@", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 1, 1, "Saatlik + paket."),
-            ("SushiCo", "Lens Kurtköy", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 2, 1, "Standart SushiCo modeli."),
-            ("SushiCo", "Acr Loft", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 2, 1, "Standart SushiCo modeli."),
-            ("SushiCo", "Çengelköy", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 5, 1, "Standart SushiCo modeli."),
-            ("Doğu Otomotiv", "Merkez", "Doğu Otomotiv", "hourly_only", 330, 0, None, 0, 0, 0, 20, 4, 1, "Sadece saatlik."),
-            ("SC Petshop", "Merkez", "SC Petshop", "fixed_monthly", 0, 0, None, 0, 0, 79800, 20, 1, 1, "10 saat çalışan 1 kurye için aylık sabit ücret."),
-        ]
-        conn.executemany(
-            """
-            INSERT INTO restaurants (
-                brand, branch, billing_group, pricing_model, hourly_rate, package_rate,
-                package_threshold, package_rate_low, package_rate_high, fixed_monthly_fee,
-                vat_rate, target_headcount, active, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            restaurants,
-        )
+    seed_flag_row = conn.execute("SELECT meta_value FROM app_meta WHERE meta_key = ?", ("initial_seed_done",)).fetchone()
+    seed_done = str(first_row_value(seed_flag_row, "") or "") == "1"
+    has_existing_data = any(table_has_rows(conn, table) for table in ["restaurants", "personnel", "daily_entries", "deductions"])
 
-    if not table_has_rows(conn, "personnel"):
-        restaurant_rows = conn.execute("SELECT id, brand, branch FROM restaurants").fetchall()
-        restaurant_map = {f"{row['brand']} - {row['branch']}": row["id"] for row in restaurant_rows}
-        seeded_people = [
-            ("CK-J01", "Evrem Karapınar", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 82500, "Joker havuzu"),
-            ("CK-J02", "Ali Kudret Bakar", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 82500, "Joker havuzu"),
-            ("CK-J03", "Cihan Can Çimen", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 117475, "Joker havuzu"),
-            ("CK-J04", "Yaşar Tunç Beratoğlu", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 101600, "Joker havuzu"),
-            ("CK-RTS01", "Recep Çevik", "Restoran Takım Şefi", "Aktif", None, None, None, restaurant_map.get("Quick China - Ataşehir"), "", "Hayır", "", None, None, "fixed_monthly", 72050, "Quick China Takım Şefi; saatlik/paket maliyeti yok"),
-        ]
-        conn.executemany(
+    if seed_done:
+        return
+
+    if has_existing_data:
+        conn.execute(
             """
-            INSERT INTO personnel (
-                person_code, full_name, role, status, phone, tc_no, iban,
-                assigned_restaurant_id, vehicle_type, motor_rental, current_plate,
-                start_date, exit_date, cost_model, monthly_fixed_cost, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO app_meta (meta_key, meta_value)
+            VALUES (?, ?)
+            ON CONFLICT(meta_key) DO UPDATE SET meta_value = excluded.meta_value
             """,
-            seeded_people,
+            ("initial_seed_done", "1"),
         )
+        conn.commit()
+        return
+
+    restaurants = [
+        ("Fasuli", "Beyoğlu", "Fasuli", "threshold_package", 273, 0, 390, 33.75, 47.25, 0, 20, 2, 1, "390 pakete kadar düşük prim, üstü yüksek prim."),
+        ("Fasuli", "Vatan", "Fasuli", "threshold_package", 273, 0, 390, 33.75, 47.25, 0, 20, 2, 1, "390 pakete kadar düşük prim, üstü yüksek prim."),
+        ("Köroğlu Pide", "Merkez", "Köroğlu Pide", "threshold_package", 260, 0, 390, 27, 40.5, 0, 20, 4, 1, "390 paket eşiği."),
+        ("Sushi Inn", "Merkez", "Sushi Inn", "fixed_monthly", 0, 0, None, 0, 0, 79800, 20, 1, 1, "26 gün 10 saat çalışan 1 kurye için sabit ücret."),
+        ("SushiCo", "Beyoğlu", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 4, 1, "Standart SushiCo modeli."),
+        ("SushiCo", "Sancaktepe", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 4, 1, "Standart SushiCo modeli."),
+        ("SushiCo", "İdealistpark", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 4, 1, "Standart SushiCo modeli."),
+        ("Quick China", "Ataşehir", "Quick China", "hourly_plus_package", 279, 32, None, 0, 0, 84500, 20, 5, 1, "Şube içinde 4+1 kurye/şef yapısı var."),
+        ("Quick China", "Suadiye", "Quick China", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 4, 1, "Quick China standart şube."),
+        ("Hacıbaşar", "Maltepe", "Hacıbaşar", "threshold_package", 254, 0, 390, 27, 40.5, 0, 20, 2, 1, "390 paket eşiği."),
+        ("Hacıbaşar", "Ümraniye", "Hacıbaşar", "threshold_package", 254, 0, 390, 27, 40.5, 0, 20, 2, 1, "390 paket eşiği."),
+        ("Yavuzbey İskender", "Merkez", "Yavuzbey İskender", "hourly_plus_package", 264, 33, None, 0, 0, 0, 20, 3, 1, "Saatlik + paket."),
+        ("Burger@", "Kavacık", "Burger@", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 1, 1, "Saatlik + paket."),
+        ("SushiCo", "Lens Kurtköy", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 2, 1, "Standart SushiCo modeli."),
+        ("SushiCo", "Acr Loft", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 2, 1, "Standart SushiCo modeli."),
+        ("SushiCo", "Çengelköy", "SushiCo Group", "hourly_plus_package", 279, 32, None, 0, 0, 0, 20, 5, 1, "Standart SushiCo modeli."),
+        ("Doğu Otomotiv", "Merkez", "Doğu Otomotiv", "hourly_only", 330, 0, None, 0, 0, 0, 20, 4, 1, "Sadece saatlik."),
+        ("SC Petshop", "Merkez", "SC Petshop", "fixed_monthly", 0, 0, None, 0, 0, 79800, 20, 1, 1, "10 saat çalışan 1 kurye için aylık sabit ücret."),
+    ]
+    conn.executemany(
+        """
+        INSERT INTO restaurants (
+            brand, branch, billing_group, pricing_model, hourly_rate, package_rate,
+            package_threshold, package_rate_low, package_rate_high, fixed_monthly_fee,
+            vat_rate, target_headcount, active, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        restaurants,
+    )
+
+    restaurant_rows = conn.execute("SELECT id, brand, branch FROM restaurants").fetchall()
+    restaurant_map = {f"{row['brand']} - {row['branch']}": row["id"] for row in restaurant_rows}
+    seeded_people = [
+        ("CK-J01", "Evrem Karapınar", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 82500, "Joker havuzu"),
+        ("CK-J02", "Ali Kudret Bakar", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 82500, "Joker havuzu"),
+        ("CK-J03", "Cihan Can Çimen", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 117475, "Joker havuzu"),
+        ("CK-J04", "Yaşar Tunç Beratoğlu", "Joker", "Aktif", None, None, None, None, "", "Hayır", "", None, None, "fixed_monthly", 101600, "Joker havuzu"),
+        ("CK-RTS01", "Recep Çevik", "Restoran Takım Şefi", "Aktif", None, None, None, restaurant_map.get("Quick China - Ataşehir"), "", "Hayır", "", None, None, "fixed_monthly", 72050, "Quick China Takım Şefi; saatlik/paket maliyeti yok"),
+    ]
+    conn.executemany(
+        """
+        INSERT INTO personnel (
+            person_code, full_name, role, status, phone, tc_no, iban,
+            assigned_restaurant_id, vehicle_type, motor_rental, current_plate,
+            start_date, exit_date, cost_model, monthly_fixed_cost, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        seeded_people,
+    )
+
+    conn.execute(
+        """
+        INSERT INTO app_meta (meta_key, meta_value)
+        VALUES (?, ?)
+        ON CONFLICT(meta_key) DO UPDATE SET meta_value = excluded.meta_value
+        """,
+        ("initial_seed_done", "1"),
+    )
     conn.commit()
-
-
 def migrate_data(conn: CompatConnection) -> None:
     corrections = [
         ("Evrem", "Evrem Karapınar", "Joker"),
