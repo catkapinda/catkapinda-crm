@@ -1621,6 +1621,45 @@ def inject_global_styles() -> None:
                 font-size: 0.93rem;
             }
 
+            .ck-action-card {
+                background: linear-gradient(180deg, #FFFFFF 0%, #F9FBFF 100%);
+                border: 1px solid #DFE9F8;
+                border-radius: 22px;
+                padding: 18px 18px 16px;
+                box-shadow: var(--ck-shadow);
+                min-height: 132px;
+            }
+
+            .ck-action-card-highlight {
+                background:
+                    radial-gradient(circle at top right, rgba(255,255,255,0.22), transparent 22%),
+                    linear-gradient(135deg, #0C4BCB 0%, #127ADB 100%);
+                border-color: transparent;
+                box-shadow: 0 18px 38px rgba(12, 75, 203, 0.22);
+            }
+
+            .ck-action-card-title {
+                font-size: 1.02rem;
+                font-weight: 860;
+                color: var(--ck-text);
+                letter-spacing: -0.03em;
+            }
+
+            .ck-action-card-highlight .ck-action-card-title {
+                color: #FFFFFF;
+            }
+
+            .ck-action-card-subtitle {
+                margin-top: 0.45rem;
+                color: var(--ck-muted);
+                line-height: 1.65;
+                font-size: 0.9rem;
+            }
+
+            .ck-action-card-highlight .ck-action-card-subtitle {
+                color: rgba(255,255,255,0.86);
+            }
+
             .ck-login-gap {
                 height: 5vh;
             }
@@ -1897,6 +1936,19 @@ def render_tab_header(title: str, subtitle: str) -> None:
     )
 
 
+def render_action_card(title: str, subtitle: str, highlight: bool = False) -> None:
+    class_name = "ck-action-card ck-action-card-highlight" if highlight else "ck-action-card"
+    st.markdown(
+        f"""
+        <div class="{class_name}">
+            <div class="ck-action-card-title">{html.escape(title)}</div>
+            <div class="ck-action-card-subtitle">{html.escape(subtitle)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def fetch_df(conn: CompatConnection, query: str, params: tuple = ()) -> pd.DataFrame:
     if conn.backend == "sqlite":
         return pd.read_sql_query(adapt_sql(query, conn.backend), conn.raw_conn, params=params)
@@ -2131,9 +2183,27 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
         ],
     )
 
-    list_tab, add_tab, edit_tab = st.tabs(["📋 Liste ve İşlemler", "➕ Yeni Şube", "✏️ Şube Güncelle"])
+    workspace_key = "restaurant_workspace_mode"
+    if workspace_key not in st.session_state:
+        st.session_state[workspace_key] = "add"
 
-    with list_tab:
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        render_action_card("Yeni Şube Oluştur", "Yeni restoran ya da yeni şube açılışını ana form üzerinden başlat.", highlight=st.session_state[workspace_key] == "add")
+        if st.button("Yeni Şube Formunu Aç", key="restaurant_workspace_add", use_container_width=True):
+            st.session_state[workspace_key] = "add"
+    with c2:
+        render_action_card("Şube Listesini Gör", "Tüm restoran kartlarını filtrele, ara ve seçili kayıt üzerinde işlem yap.", highlight=st.session_state[workspace_key] == "list")
+        if st.button("Listeyi Aç", key="restaurant_workspace_list", use_container_width=True):
+            st.session_state[workspace_key] = "list"
+    with c3:
+        render_action_card("Şube Kartını Güncelle", "Mevcut anlaşmaları, fiyatları ve iletişim bilgilerini düzenle.", highlight=st.session_state[workspace_key] == "edit")
+        if st.button("Güncelleme Alanını Aç", key="restaurant_workspace_edit", use_container_width=True):
+            st.session_state[workspace_key] = "edit"
+
+    workspace_mode = st.session_state[workspace_key]
+
+    if workspace_mode == "list":
         render_tab_header("Şube Listesi", "Marka, fiyat modeli ve durum filtresi ile kayıtları daralt; sağ panelden seçili şube üzerinde hızlı işlem yap.")
         f1, f2, f3, f4 = st.columns([2.2, 1, 1.2, 1])
         search_query = f1.text_input("Ara", placeholder="Marka, şube, fatura grubu veya yetkili adı ara", key="restaurant_search")
@@ -2209,7 +2279,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                         st.rerun()
                 st.caption("Kalıcı silme işlemi yalnızca test veya yanlış açılmış kayıtlar için kullanılmalı.")
 
-    with add_tab:
+    elif workspace_mode == "add":
         render_tab_header("Yeni Şube Kartı", "Temel bilgiler, fiyatlandırma, operasyon ve iletişim alanlarını daha düzenli bloklar halinde gir.")
         with st.form("restaurant_form", clear_on_submit=True):
             st.markdown("##### Temel Bilgiler")
@@ -2308,7 +2378,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                 st.success("Restoran kaydedildi. Yeni kart listede görünmeye hazır.")
                 st.rerun()
 
-    with edit_tab:
+    else:
         if df.empty:
             st.info("Güncellenecek restoran kaydı bulunmuyor.")
         else:
@@ -2463,9 +2533,31 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     if passive_count:
         st.caption(f"Pasif personel sayısı: {passive_count}")
 
-    list_tab, add_tab, edit_tab, plate_tab = st.tabs(["📋 Liste", "➕ Yeni Personel", "✏️ Personel Düzenle", "🛵 Plaka / Motor"])
+    workspace_key = "personnel_workspace_mode"
+    if workspace_key not in st.session_state:
+        st.session_state[workspace_key] = "add"
 
-    with list_tab:
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        render_action_card("Yeni Personel Ekle", "Kurye, joker ya da şef kartını görünür ana form üzerinden oluştur.", highlight=st.session_state[workspace_key] == "add")
+        if st.button("Yeni Personel Formunu Aç", key="personnel_workspace_add", use_container_width=True):
+            st.session_state[workspace_key] = "add"
+    with c2:
+        render_action_card("Personel Listesi", "Tüm kayıtları filtrele, ara ve seçili personeli tek bakışta incele.", highlight=st.session_state[workspace_key] == "list")
+        if st.button("Listeyi Aç", key="personnel_workspace_list", use_container_width=True):
+            st.session_state[workspace_key] = "list"
+    with c3:
+        render_action_card("Personel Düzenle", "Kart bilgilerini, görev rolünü ve maliyet ayarlarını güncelle.", highlight=st.session_state[workspace_key] == "edit")
+        if st.button("Düzenleme Alanını Aç", key="personnel_workspace_edit", use_container_width=True):
+            st.session_state[workspace_key] = "edit"
+    with c4:
+        render_action_card("Plaka / Motor", "Araç, plaka ve zimmet geçmişini ayrı çalışma alanında yönet.", highlight=st.session_state[workspace_key] == "plate")
+        if st.button("Plaka Alanını Aç", key="personnel_workspace_plate", use_container_width=True):
+            st.session_state[workspace_key] = "plate"
+
+    workspace_mode = st.session_state[workspace_key]
+
+    if workspace_mode == "list":
         render_tab_header("Personel Listesi", "Rol, durum ve restoran filtreleri ile kayıtları daralt; sağ panelden seçili kişiyi hızlıca incele.")
         f1, f2, f3, f4 = st.columns([2.1, 1, 1, 1.2])
         search_query = f1.text_input("Ara", placeholder="Ad, kod, telefon veya plaka ara", key="person_search")
@@ -2511,7 +2603,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 )
                 st.info("Kartı düzenlemek, pasife almak veya görev bilgilerini değiştirmek için “Personel Düzenle” sekmesini kullan.")
 
-    with add_tab:
+    elif workspace_mode == "add":
         render_tab_header("Yeni Personel Kartı", "Kimlik, muhasebe, maliyet ve araç alanlarını bloklar halinde doldurarak yeni kart oluştur.")
         with st.form("personnel_form", clear_on_submit=True):
             st.markdown("##### Kimlik ve Görev")
@@ -2600,7 +2692,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 st.success(f"Personel kaydedildi. Kod: {auto_code}")
                 st.rerun()
 
-    with edit_tab:
+    elif workspace_mode == "edit":
         if df.empty:
             st.info("Güncellenecek personel kaydı bulunmuyor.")
         else:
@@ -2746,7 +2838,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         st.success(f"Personel durumu {new_status} olarak güncellendi.")
                         st.rerun()
 
-    with plate_tab:
+    else:
         render_tab_header("Plaka ve Motor Geçmişi", "Aktif plaka değişimlerini kayıt altına al, geçmiş zimmet hareketlerini alttaki tabloda takip et.")
         person_opts = get_person_options(conn, active_only=False)
         if person_opts:
