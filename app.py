@@ -3198,11 +3198,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             company_setup_cost = c17.number_input("Şirket açılış maliyeti", min_value=0.0, value=0.0, step=100.0)
 
             st.markdown("##### Araç ve Operasyon")
-            c18, c19, c20 = st.columns(3)
-            vehicle_type = c18.selectbox("Motor tipi", ["", "Çat Kapında", "Kendi"])
-            motor_rental = c19.selectbox("Motor kiralama", ["Hayır", "Evet"])
-            current_plate = c20.text_input("Güncel plaka")
-            effective_motor_rental = resolve_motor_rental_value(vehicle_type, motor_rental)
+            c18, c19 = st.columns(2)
+            vehicle_type = c18.selectbox("Motor Tipi", ["Çat Kapında", "Kendi Motoru"], index=1)
+            current_plate = c19.text_input("Güncel plaka")
+            effective_motor_rental = resolve_motor_rental_value(vehicle_type, "Hayır")
             if effective_motor_rental == "Evet":
                 st.info("Bu seçimle aylık 13.000₺ motor kira kesintisi otomatik açılır.")
 
@@ -3272,8 +3271,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             assigned_value = row["restoran"] if pd.notna(row["restoran"]) and row["restoran"] in rest_opts else "-"
             status_options = ["Aktif", "Pasif"]
             role_options = ["Kurye", "Joker", "Şef"]
-            vehicle_options = ["", "Çat Kapında", "Kendi"]
-            rental_options = ["Hayır", "Evet"]
+            vehicle_options = ["Çat Kapında", "Kendi Motoru"]
             cost_options = list(COST_MODEL_LABELS.keys())
 
             left, right = st.columns([2.2, 1])
@@ -3350,11 +3348,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     edit_company_setup_cost = c17.number_input("Şirket açılış maliyeti", min_value=0.0, value=float(row["company_setup_cost"] or 0.0), step=100.0)
 
                     st.markdown("##### Araç ve Operasyon")
-                    c18, c19, c20 = st.columns(3)
+                    c18, c19 = st.columns(2)
+                    current_vehicle = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
                     edit_restaurant = c18.selectbox("Ana restoran", list(rest_opts_with_blank.keys()), index=list(rest_opts_with_blank.keys()).index(assigned_value) if assigned_value in rest_opts_with_blank else 0)
-                    edit_vehicle = c19.selectbox("Motor tipi", vehicle_options, index=vehicle_options.index(row["vehicle_type"]) if row["vehicle_type"] in vehicle_options else 0)
-                    edit_rental = c20.selectbox("Motor kiralama", rental_options, index=rental_options.index(row["motor_rental"]) if row["motor_rental"] in rental_options else 0)
-                    effective_edit_motor_rental = resolve_motor_rental_value(edit_vehicle, edit_rental)
+                    edit_vehicle = c19.selectbox("Motor Tipi", vehicle_options, index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1)
+                    effective_edit_motor_rental = resolve_motor_rental_value(edit_vehicle, "Hayır")
                     if effective_edit_motor_rental == "Evet":
                         st.info("Bu seçimle aylık 13.000₺ motor kira kesintisi aktif tutulur.")
 
