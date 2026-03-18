@@ -1510,6 +1510,117 @@ def inject_global_styles() -> None:
                 font-size: 0.95rem;
             }
 
+            .ck-hero {
+                position: relative;
+                overflow: hidden;
+                border-radius: 28px;
+                padding: 28px 26px 24px;
+                margin: 0 0 1.2rem 0;
+                background:
+                    radial-gradient(circle at top right, rgba(255,255,255,0.24), transparent 22%),
+                    linear-gradient(135deg, #0D4CCD 0%, #0B67D8 48%, #1695D3 100%);
+                box-shadow: 0 22px 52px rgba(10, 76, 210, 0.22);
+                color: #FFFFFF;
+            }
+
+            .ck-hero::after {
+                content: "";
+                position: absolute;
+                right: -50px;
+                top: -50px;
+                width: 180px;
+                height: 180px;
+                border-radius: 50%;
+                background: rgba(255,255,255,0.09);
+            }
+
+            .ck-hero-kicker {
+                display: inline-flex;
+                width: fit-content;
+                padding: 7px 12px;
+                border-radius: 999px;
+                background: rgba(255,255,255,0.14);
+                border: 1px solid rgba(255,255,255,0.18);
+                font-size: 0.76rem;
+                font-weight: 800;
+                letter-spacing: 0.12em;
+                margin-bottom: 0.9rem;
+            }
+
+            .ck-hero-title {
+                position: relative;
+                z-index: 1;
+                font-size: 2rem;
+                font-weight: 900;
+                letter-spacing: -0.05em;
+                line-height: 1.02;
+                max-width: 760px;
+            }
+
+            .ck-hero-subtitle {
+                position: relative;
+                z-index: 1;
+                margin-top: 0.6rem;
+                max-width: 760px;
+                color: rgba(255,255,255,0.9);
+                line-height: 1.7;
+                font-size: 0.98rem;
+            }
+
+            .ck-hero-grid {
+                position: relative;
+                z-index: 1;
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 12px;
+                margin-top: 1.25rem;
+            }
+
+            .ck-hero-stat {
+                background: rgba(255,255,255,0.12);
+                border: 1px solid rgba(255,255,255,0.16);
+                border-radius: 18px;
+                padding: 14px 14px 12px;
+                backdrop-filter: blur(8px);
+            }
+
+            .ck-hero-value {
+                font-size: 1.35rem;
+                line-height: 1;
+                font-weight: 900;
+                letter-spacing: -0.04em;
+            }
+
+            .ck-hero-label {
+                margin-top: 0.45rem;
+                font-size: 0.82rem;
+                color: rgba(255,255,255,0.82);
+                line-height: 1.4;
+            }
+
+            .ck-tab-header {
+                background: linear-gradient(180deg, #FFFFFF 0%, #F9FBFF 100%);
+                border: 1px solid var(--ck-border);
+                border-radius: 22px;
+                padding: 18px 18px 16px;
+                box-shadow: var(--ck-shadow);
+                margin: 0.15rem 0 1rem 0;
+            }
+
+            .ck-tab-header-title {
+                font-size: 1.1rem;
+                font-weight: 850;
+                color: var(--ck-text);
+                letter-spacing: -0.03em;
+            }
+
+            .ck-tab-header-subtitle {
+                margin-top: 0.35rem;
+                color: var(--ck-muted);
+                line-height: 1.65;
+                font-size: 0.93rem;
+            }
+
             .ck-login-gap {
                 height: 5vh;
             }
@@ -1657,20 +1768,29 @@ def inject_global_styles() -> None:
             }
 
             div[data-baseweb="tab-list"] {
-                gap: 0.45rem;
+                gap: 0.5rem;
+                background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%);
+                border: 1px solid #E3ECFA;
+                border-radius: 22px;
+                padding: 0.45rem;
+                box-shadow: 0 14px 32px rgba(15, 23, 42, 0.06);
             }
 
             div[data-baseweb="tab-list"] button {
-                border-radius: 14px;
+                border-radius: 16px;
                 border: 1px solid #DCE7FA;
                 background: #F8FAFF;
-                padding-top: 0.48rem;
-                padding-bottom: 0.48rem;
+                padding-top: 0.7rem;
+                padding-bottom: 0.7rem;
+                min-height: 58px;
+                transition: all 0.18s ease;
             }
 
             div[data-baseweb="tab-list"] button[aria-selected="true"] {
-                background: var(--ck-primary);
-                border-color: var(--ck-primary);
+                background: linear-gradient(135deg, #0D4CCD 0%, #1184DB 100%);
+                border-color: transparent;
+                box-shadow: 0 14px 28px rgba(13, 76, 205, 0.22);
+                transform: translateY(-1px);
             }
 
             div[data-baseweb="tab-list"] button[aria-selected="true"] p {
@@ -1678,8 +1798,28 @@ def inject_global_styles() -> None:
             }
 
             div[data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
-                font-size: 0.94rem;
-                font-weight: 800;
+                font-size: 0.95rem;
+                font-weight: 850;
+            }
+
+            @media (max-width: 960px) {
+                .ck-hero-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+            }
+
+            @media (max-width: 640px) {
+                .ck-hero {
+                    padding: 22px 18px 18px;
+                }
+
+                .ck-hero-title {
+                    font-size: 1.55rem;
+                }
+
+                .ck-hero-grid {
+                    grid-template-columns: 1fr;
+                }
             }
         </style>
         """,
@@ -1717,6 +1857,42 @@ def render_record_snapshot(title: str, items: list[tuple[str, Any]]) -> None:
         rows.append(f"<div class='ck-list-row'><span>{safe_label}</span><span class='ck-chip'>{safe_value}</span></div>")
     st.markdown(
         f"<div class='ck-panel'><div class='ck-panel-title'>{html.escape(title)}</div>{''.join(rows)}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_management_hero(kicker: str, title: str, subtitle: str, stats: list[tuple[str, Any]]) -> None:
+    stat_cards = []
+    for label, value in stats:
+        stat_cards.append(
+            f"""
+            <div class="ck-hero-stat">
+                <div class="ck-hero-value">{html.escape(str(value))}</div>
+                <div class="ck-hero-label">{html.escape(str(label))}</div>
+            </div>
+            """
+        )
+    st.markdown(
+        f"""
+        <div class="ck-hero">
+            <div class="ck-hero-kicker">{html.escape(kicker)}</div>
+            <div class="ck-hero-title">{html.escape(title)}</div>
+            <div class="ck-hero-subtitle">{html.escape(subtitle)}</div>
+            <div class="ck-hero-grid">{''.join(stat_cards)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_tab_header(title: str, subtitle: str) -> None:
+    st.markdown(
+        f"""
+        <div class="ck-tab-header">
+            <div class="ck-tab-header-title">{html.escape(title)}</div>
+            <div class="ck-tab-header-subtitle">{html.escape(subtitle)}</div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -1939,24 +2115,26 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
 
 
 def restaurants_tab(conn: sqlite3.Connection) -> None:
-    section_intro(
-        "🏢 Restoran Yönetimi | Şube kartları, fiyat anlaşmaları ve operasyon durumu",
-        "Şubeleri tek ekrandan takip et, filtrele, yeni şube aç ve mevcut anlaşmaları daha düzenli bir akışla güncelle.",
-    )
     df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
     active_count = int(df["active"].apply(lambda x: safe_int(x, 0)).sum()) if not df.empty else 0
     threshold_count = int((df["pricing_model"] == "threshold_package").sum()) if not df.empty else 0
     fixed_count = int((df["pricing_model"] == "fixed_monthly").sum()) if not df.empty else 0
-
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Toplam şube", len(df))
-    m2.metric("Aktif şube", active_count)
-    m3.metric("Eşikli anlaşma", threshold_count)
-    m4.metric("Sabit aylık model", fixed_count)
+    render_management_hero(
+        "RESTORAN YÖNETİMİ",
+        "Şube kartları, fiyat anlaşmaları ve operasyon durumu",
+        "Filtrelenebilir liste, hızlı aksiyon paneli ve ayrı sekmelerle yeni şube ekleme ya da güncelleme işlemlerini daha rahat yönet.",
+        [
+            ("Toplam Şube", len(df)),
+            ("Aktif Şube", active_count),
+            ("Eşikli Anlaşma", threshold_count),
+            ("Sabit Aylık", fixed_count),
+        ],
+    )
 
     list_tab, add_tab, edit_tab = st.tabs(["📋 Liste ve İşlemler", "➕ Yeni Şube", "✏️ Şube Güncelle"])
 
     with list_tab:
+        render_tab_header("Şube Listesi", "Marka, fiyat modeli ve durum filtresi ile kayıtları daralt; sağ panelden seçili şube üzerinde hızlı işlem yap.")
         f1, f2, f3, f4 = st.columns([2.2, 1, 1.2, 1])
         search_query = f1.text_input("Ara", placeholder="Marka, şube, fatura grubu veya yetkili adı ara", key="restaurant_search")
         brand_options = ["Tümü"] + sorted(df["brand"].dropna().astype(str).unique().tolist()) if not df.empty else ["Tümü"]
@@ -1979,19 +2157,30 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             filtered_df = filtered_df[filtered_df["active"].apply(lambda x: safe_int(x, 0)) == wanted].copy()
         filtered_df = apply_text_search(filtered_df, ["brand", "branch", "billing_group", "contact_name", "contact_phone"], search_query)
 
-        st.dataframe(format_restaurants_table(filtered_df), use_container_width=True, hide_index=True)
-        st.caption(f"{len(filtered_df)} kayıt gösteriliyor.")
-
         if df.empty:
             st.info("Henüz kayıtlı restoran yok.")
         else:
-            st.markdown("#### Hızlı durum yönetimi")
             action_labels = {f"{row['brand']} - {row['branch']} (ID: {row['id']})": int(row["id"]) for _, row in df.iterrows()}
-            left, right = st.columns([2.1, 1])
+            left, right = st.columns([2.35, 1])
             with left:
+                st.dataframe(format_restaurants_table(filtered_df), use_container_width=True, hide_index=True)
+                st.caption(f"{len(filtered_df)} kayıt gösteriliyor.")
+            with right:
                 selected_label = st.selectbox("İşlem yapılacak şube", list(action_labels.keys()), key="restaurant_action_select")
                 selected_id = action_labels[selected_label]
                 selected_row = df.loc[df["id"] == selected_id].iloc[0]
+                render_record_snapshot(
+                    "Seçili Şube",
+                    [
+                        ("Marka", selected_row["brand"] or "-"),
+                        ("Şube", selected_row["branch"] or "-"),
+                        ("Fiyat Modeli", PRICING_MODEL_LABELS.get(selected_row["pricing_model"], selected_row["pricing_model"])),
+                        ("Durum", ACTIVE_STATUS_LABELS.get(selected_row["active"], selected_row["active"])),
+                        ("Hedef Kadro", safe_int(selected_row["target_headcount"])),
+                        ("Yetkili", selected_row["contact_name"] or "-"),
+                    ],
+                )
+                st.markdown("##### Hızlı Aksiyonlar")
                 b1, b2 = st.columns(2)
                 current_active = safe_int(selected_row["active"], 1)
                 if b1.button("Pasife al" if current_active == 1 else "Aktifleştir", use_container_width=True, key="restaurant_toggle_btn"):
@@ -2019,21 +2208,9 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                         st.success("Restoran kalıcı olarak silindi.")
                         st.rerun()
                 st.caption("Kalıcı silme işlemi yalnızca test veya yanlış açılmış kayıtlar için kullanılmalı.")
-            with right:
-                render_record_snapshot(
-                    "Şube Özeti",
-                    [
-                        ("Fiyat Modeli", PRICING_MODEL_LABELS.get(selected_row["pricing_model"], selected_row["pricing_model"])),
-                        ("Durum", ACTIVE_STATUS_LABELS.get(selected_row["active"], selected_row["active"])),
-                        ("Hedef Kadro", safe_int(selected_row["target_headcount"])),
-                        ("Yetkili", selected_row["contact_name"] or "-"),
-                        ("Telefon", selected_row["contact_phone"] or "-"),
-                    ],
-                )
 
     with add_tab:
-        st.markdown("#### Yeni şube kartı")
-        st.caption("Temel bilgileri, fiyat yapısını ve operasyon notlarını tek formda oluştur.")
+        render_tab_header("Yeni Şube Kartı", "Temel bilgiler, fiyatlandırma, operasyon ve iletişim alanlarını daha düzenli bloklar halinde gir.")
         with st.form("restaurant_form", clear_on_submit=True):
             st.markdown("##### Temel Bilgiler")
             c1, c2, c3 = st.columns(3)
@@ -2049,6 +2226,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                 format_func=lambda x: PRICING_MODEL_LABELS.get(x, x),
             )
             vat_rate = c5.number_input("KDV %", min_value=0.0, value=20.0, step=1.0)
+            st.info("Eşikli anlaşmalarda saatlik, eşik ve düşük / yüksek paket tarife alanlarını birlikte doldurman yeterli.")
 
             c6, c7, c8 = st.columns(3)
             hourly_rate = c6.number_input("Saatlik ücret", min_value=0.0, value=0.0, step=1.0)
@@ -2134,7 +2312,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
         if df.empty:
             st.info("Güncellenecek restoran kaydı bulunmuyor.")
         else:
-            st.markdown("#### Şube bilgilerini güncelle")
+            render_tab_header("Şube Güncelleme", "Solda düzenleme formunu kullan, sağ tarafta mevcut şube kartının kısa özetini gör.")
             edit_labels = {f"{row['brand']} - {row['branch']} (ID: {row['id']})": int(row["id"]) for _, row in df.iterrows()}
             edit_selected_label = st.selectbox("Güncellenecek şube", list(edit_labels.keys()), key="restaurant_edit_select")
             selected_id = edit_labels[edit_selected_label]
@@ -2257,10 +2435,6 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
 
 def personnel_tab(conn: sqlite3.Connection) -> None:
-    section_intro(
-        "👥 Personel Yönetimi | Kurye, joker, şef ve araç bilgileri",
-        "Personel kartlarını daha sade bir akışla yönet; yeni kurye ekle, filtrele, güncelle ve plaka geçmişini takip et.",
-    )
     q = """
     SELECT p.*, r.brand || ' - ' || r.branch AS restoran
     FROM personnel p
@@ -2275,17 +2449,24 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     courier_count = int((df["role"] == "Kurye").sum()) if not df.empty else 0
     joker_chef_count = int(df["role"].isin(["Joker", "Şef"]).sum()) if not df.empty else 0
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Toplam personel", len(df))
-    m2.metric("Aktif personel", active_count)
-    m3.metric("Kurye", courier_count)
-    m4.metric("Joker + Şef", joker_chef_count)
+    render_management_hero(
+        "PERSONEL YÖNETİMİ",
+        "Kurye, joker, şef ve araç kartları",
+        "Filtrelenebilir personel listesi, daha belirgin sekmeler ve düzenli kart yapısı ile yeni kurye ekleme ve düzenleme akışlarını sadeleştir.",
+        [
+            ("Toplam Personel", len(df)),
+            ("Aktif Personel", active_count),
+            ("Kurye", courier_count),
+            ("Joker + Şef", joker_chef_count),
+        ],
+    )
     if passive_count:
         st.caption(f"Pasif personel sayısı: {passive_count}")
 
     list_tab, add_tab, edit_tab, plate_tab = st.tabs(["📋 Liste", "➕ Yeni Personel", "✏️ Personel Düzenle", "🛵 Plaka / Motor"])
 
     with list_tab:
+        render_tab_header("Personel Listesi", "Rol, durum ve restoran filtreleri ile kayıtları daralt; sağ panelden seçili kişiyi hızlıca incele.")
         f1, f2, f3, f4 = st.columns([2.1, 1, 1, 1.2])
         search_query = f1.text_input("Ara", placeholder="Ad, kod, telefon veya plaka ara", key="person_search")
         role_filter = f2.selectbox("Rol", ["Tümü", "Kurye", "Joker", "Şef"], key="person_role_filter")
@@ -2302,9 +2483,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             filtered_df = filtered_df[filtered_df["restoran"] == restaurant_filter].copy()
         filtered_df = apply_text_search(filtered_df, ["person_code", "full_name", "phone", "current_plate", "restoran"], search_query)
 
-        st.dataframe(format_personnel_table(filtered_df), use_container_width=True, hide_index=True)
-        st.caption(f"{len(filtered_df)} personel gösteriliyor.")
-
         if df.empty:
             st.info("Henüz personel kaydı yok.")
         else:
@@ -2313,15 +2491,16 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 f"{row['full_name']} | {row['role']} | Kod: {row['person_code'] or '-'}": int(row["id"])
                 for _, row in preview_source.iterrows()
             }
-            left, right = st.columns([2.2, 1])
+            left, right = st.columns([2.35, 1])
             with left:
+                st.dataframe(format_personnel_table(filtered_df), use_container_width=True, hide_index=True)
+                st.caption(f"{len(filtered_df)} personel gösteriliyor.")
+            with right:
                 preview_label = st.selectbox("Kart önizleme", list(preview_labels.keys()), key="person_preview_select")
                 preview_id = preview_labels[preview_label]
                 preview_row = df.loc[df["id"] == preview_id].iloc[0]
-                st.caption("Detaylı düzenleme için “Personel Düzenle” sekmesini kullanabilirsin.")
-            with right:
                 render_record_snapshot(
-                    "Personel Özeti",
+                    "Seçili Personel",
                     [
                         ("Kod", preview_row["person_code"] or "-"),
                         ("Rol", preview_row["role"] or "-"),
@@ -2330,10 +2509,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Plaka", preview_row["current_plate"] or "-"),
                     ],
                 )
+                st.info("Kartı düzenlemek, pasife almak veya görev bilgilerini değiştirmek için “Personel Düzenle” sekmesini kullan.")
 
     with add_tab:
-        st.markdown("#### Yeni personel kartı")
-        st.caption("Kurye, joker veya şef kartını adım adım oluştur.")
+        render_tab_header("Yeni Personel Kartı", "Kimlik, muhasebe, maliyet ve araç alanlarını bloklar halinde doldurarak yeni kart oluştur.")
         with st.form("personnel_form", clear_on_submit=True):
             st.markdown("##### Kimlik ve Görev")
             c1, c2, c3 = st.columns(3)
@@ -2361,6 +2540,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 list(COST_MODEL_LABELS.keys()),
                 format_func=lambda x: COST_MODEL_LABELS.get(x, x),
             )
+            st.info("Sabit maaş / sabit giderli roller için maliyet modeli ve aylık sabit maliyet alanlarını birlikte doldur.")
 
             c13, c14, c15 = st.columns(3)
             accounting_revenue = c13.number_input("Muhasebeden aldığımız ücret", min_value=0.0, value=0.0, step=100.0)
@@ -2424,7 +2604,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         if df.empty:
             st.info("Güncellenecek personel kaydı bulunmuyor.")
         else:
-            st.markdown("#### Personel kartını güncelle")
+            render_tab_header("Personel Düzenleme", "Solda düzenleme formu, sağda mevcut kart özeti bulunur. Rol değiştiğinde sistem uygun kod önerisini gösterir.")
             person_labels = {
                 f"{row['full_name']} | {row['role']} | Kod: {row['person_code'] or '-'} | ID: {row['id']}": int(row["id"])
                 for _, row in df.iterrows()
@@ -2567,7 +2747,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         st.rerun()
 
     with plate_tab:
-        st.markdown("#### Plaka değişimi ve motor zimmeti")
+        render_tab_header("Plaka ve Motor Geçmişi", "Aktif plaka değişimlerini kayıt altına al, geçmiş zimmet hareketlerini alttaki tabloda takip et.")
         person_opts = get_person_options(conn, active_only=False)
         if person_opts:
             with st.form("plate_form", clear_on_submit=True):
