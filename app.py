@@ -1039,14 +1039,22 @@ def migrate_data(conn: CompatConnection) -> None:
     conn.commit()
 
 
-def get_conn() -> CompatConnection:
-    conn = connect_database()
+def ensure_runtime_bootstrap(conn: CompatConnection) -> None:
+    bootstrap_key = f"_crm_bootstrap_done_{conn.backend}"
+    if st.session_state.get(bootstrap_key):
+        return
     ensure_schema(conn)
     maybe_migrate_legacy_sqlite_to_postgres(conn)
     seed_initial_data(conn)
     migrate_data(conn)
     sync_all_personnel_business_rules(conn)
     cleanup_auth_sessions(conn)
+    st.session_state[bootstrap_key] = True
+
+
+def get_conn() -> CompatConnection:
+    conn = connect_database()
+    ensure_runtime_bootstrap(conn)
     return conn
 
 
