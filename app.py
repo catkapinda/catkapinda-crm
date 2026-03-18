@@ -2389,27 +2389,24 @@ def render_record_snapshot(title: str, items: list[tuple[str, Any]]) -> None:
 
 
 def render_management_hero(kicker: str, title: str, subtitle: str, stats: list[tuple[str, Any]]) -> None:
-    stat_cards = []
-    for label, value in stats:
-        stat_cards.append(
-            f"""
-            <div class="ck-hero-stat">
-                <div class="ck-hero-value">{html.escape(str(value))}</div>
-                <div class="ck-hero-label">{html.escape(str(label))}</div>
-            </div>
-            """
+    stat_cards_html = "".join(
+        (
+            "<div class='ck-hero-stat'>"
+            f"<div class='ck-hero-value'>{html.escape(str(value))}</div>"
+            f"<div class='ck-hero-label'>{html.escape(str(label))}</div>"
+            "</div>"
         )
-    st.markdown(
-        f"""
-        <div class="ck-hero">
-            <div class="ck-hero-kicker">{html.escape(kicker)}</div>
-            <div class="ck-hero-title">{html.escape(title)}</div>
-            <div class="ck-hero-subtitle">{html.escape(subtitle)}</div>
-            <div class="ck-hero-grid">{''.join(stat_cards)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+        for label, value in stats
     )
+    hero_html = (
+        "<div class='ck-hero'>"
+        f"<div class='ck-hero-kicker'>{html.escape(kicker)}</div>"
+        f"<div class='ck-hero-title'>{html.escape(title)}</div>"
+        f"<div class='ck-hero-subtitle'>{html.escape(subtitle)}</div>"
+        f"<div class='ck-hero-grid'>{stat_cards_html}</div>"
+        "</div>"
+    )
+    st.markdown(hero_html, unsafe_allow_html=True)
 
 
 def render_tab_header(title: str, subtitle: str) -> None:
