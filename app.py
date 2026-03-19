@@ -2076,28 +2076,17 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
 
 def render_sidebar_brand() -> None:
-    full_name = str(st.session_state.get("user_full_name") or "Yetkili Kullanıcı")
-    role_display = str(st.session_state.get("user_role_display") or "Operasyon Ekibi")
-    name_parts = [part for part in full_name.split() if part.strip()]
-    initials = "".join(part[:1] for part in name_parts[:2]).upper() or "CK"
+    logo_markup = build_login_logo_markup()
     st.sidebar.markdown(
         f"""
         <div class="ck-side-heading">
             <div class="ck-side-heading-title">Çat Kapında</div>
             <div class="ck-side-heading-subtitle">Operasyon CRM</div>
         </div>
-        <div class="ck-side-user">
-            <div class="ck-side-user-top">
-                <div class="ck-side-user-avatar">{html.escape(initials)}</div>
-                <div>
-                    <div class="ck-side-user-name">{html.escape(full_name)}</div>
-                    <div class="ck-side-user-role">{html.escape(role_display)}</div>
-                </div>
-            </div>
-            <div class="ck-side-user-chip-row">
-                <span class="ck-side-user-chip">Aktif Oturum</span>
-                <span class="ck-side-user-chip">Kurumsal Erişim</span>
-            </div>
+        <div class="ck-side-logo-card">
+            <div class="ck-side-logo-shell">{logo_markup}</div>
+            <div class="ck-side-logo-line"></div>
+            <div class="ck-side-logo-note">Teslimat operasyonu için kurumsal yönetim paneli</div>
         </div>
         <div class="ck-side-menu-note">Ana Menü</div>
         """,
@@ -2768,33 +2757,23 @@ def sync_all_personnel_business_rules(conn: CompatConnection, full_history: bool
             resolved_vehicle_type,
             str(row.get("motor_rental", "Hayır") or "Hayır"),
         )
-        auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(str(row.get("accounting_type", "Kendi Muhasebecisi") or "Kendi Muhasebecisi"))
-        auto_company_setup_revenue, auto_company_setup_cost = resolve_company_setup_defaults(str(row.get("new_company_setup", "Hayır") or "Hayır"))
         normalized_cost_model = normalize_cost_model_value(str(row.get("cost_model", "standard_courier") or "standard_courier"), str(row.get("role", "Kurye") or "Kurye"))
         if (
             str(row.get("vehicle_type", "") or "") != resolved_vehicle_type
             or
             str(row.get("motor_rental", "Hayır") or "Hayır") != effective_motor_rental
             or str(row.get("cost_model", "standard_courier") or "standard_courier") != normalized_cost_model
-            or abs(safe_float(row.get("accounting_revenue")) - auto_accounting_revenue) > 0.01
-            or abs(safe_float(row.get("accountant_cost")) - auto_accountant_cost) > 0.01
-            or abs(safe_float(row.get("company_setup_revenue")) - auto_company_setup_revenue) > 0.01
-            or abs(safe_float(row.get("company_setup_cost")) - auto_company_setup_cost) > 0.01
         ):
             conn.execute(
                 """
                 UPDATE personnel
-                SET vehicle_type = ?, motor_rental = ?, cost_model = ?, accounting_revenue = ?, accountant_cost = ?, company_setup_revenue = ?, company_setup_cost = ?
+                SET vehicle_type = ?, motor_rental = ?, cost_model = ?
                 WHERE id = ?
                 """,
                 (
                     resolved_vehicle_type,
                     effective_motor_rental,
                     normalized_cost_model,
-                    auto_accounting_revenue,
-                    auto_accountant_cost,
-                    auto_company_setup_revenue,
-                    auto_company_setup_cost,
                     int(row["id"]),
                 ),
             )
@@ -2802,10 +2781,6 @@ def sync_all_personnel_business_rules(conn: CompatConnection, full_history: bool
             row["vehicle_type"] = resolved_vehicle_type
             row["motor_rental"] = effective_motor_rental
             row["cost_model"] = normalized_cost_model
-            row["accounting_revenue"] = auto_accounting_revenue
-            row["accountant_cost"] = auto_accountant_cost
-            row["company_setup_revenue"] = auto_company_setup_revenue
-            row["company_setup_cost"] = auto_company_setup_cost
         sync_person_auto_deductions(conn, row, full_history=full_history)
         sync_person_auto_onboarding(conn, row, create_missing=False)
 
@@ -3121,6 +3096,28 @@ def inject_global_styles() -> None:
                 padding-top: 0.4rem;
             }
 
+            section[data-testid="stSidebar"] {
+                min-width: 18rem !important;
+                max-width: 18rem !important;
+            }
+
+            section[data-testid="stSidebar"] > div {
+                width: 18rem !important;
+            }
+
+            section[data-testid="stSidebar"][aria-expanded="false"] {
+                min-width: 18rem !important;
+                max-width: 18rem !important;
+                transform: none !important;
+                margin-left: 0 !important;
+            }
+
+            section[data-testid="stSidebar"][aria-expanded="false"] > div {
+                width: 18rem !important;
+                transform: none !important;
+                margin-left: 0 !important;
+            }
+
             [data-testid="stSidebar"] label,
             [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
                 color: var(--ck-text);
@@ -3194,65 +3191,58 @@ def inject_global_styles() -> None:
                 text-transform: uppercase;
             }
 
-            .ck-side-user {
+            .ck-side-logo-card {
                 background: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
                 border: 1px solid var(--ck-border);
                 border-radius: 16px;
-                padding: 13px 13px 12px;
+                padding: 15px 13px 14px;
                 margin: 0.45rem 0 0.95rem 0;
                 box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+                text-align: center;
             }
 
-            .ck-side-user-top {
+            .ck-side-logo-shell {
                 display: flex;
-                align-items: center;
-                gap: 12px;
+                justify-content: center;
             }
 
-            .ck-side-user-avatar {
-                width: 38px;
-                height: 38px;
-                border-radius: 12px;
+            .ck-side-logo-shell .ck-login-logo-mark {
+                width: 92px;
+                height: 92px;
+                flex: 0 0 92px;
+                border-radius: 28px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 background: linear-gradient(135deg, #0C4BCB 0%, #1182D3 100%);
-                color: #FFFFFF;
-                font-size: 0.88rem;
-                font-weight: 900;
-                box-shadow: 0 10px 20px rgba(12, 75, 203, 0.16);
+                box-shadow: 0 14px 24px rgba(12, 75, 203, 0.15);
             }
 
-            .ck-side-user-name {
-                font-size: 0.94rem;
-                font-weight: 800;
-                color: var(--ck-text);
+            .ck-side-logo-shell .ck-login-logo-mark-image {
+                background: rgba(255,255,255,0.98);
+                border: 1px solid #D9E6FB;
+                padding: 8px;
             }
 
-            .ck-side-user-role {
-                font-size: 0.8rem;
-                color: var(--ck-muted);
-                margin-top: 0.25rem;
+            .ck-side-logo-shell .ck-login-logo-image {
+                object-fit: contain;
+                border-radius: 20px;
             }
 
-            .ck-side-user-chip-row {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-                margin-top: 0.65rem;
-            }
-
-            .ck-side-user-chip {
-                display: inline-flex;
-                align-items: center;
-                padding: 6px 10px;
+            .ck-side-logo-line {
+                width: 42px;
+                height: 3px;
+                margin: 0.85rem auto 0;
                 border-radius: 999px;
-                background: #F3F7FF;
-                border: 1px solid #D8E6FB;
-                color: #305A96;
-                font-size: 0.72rem;
-                font-weight: 800;
-                letter-spacing: 0.03em;
+                background: linear-gradient(135deg, #0C4BCB 0%, #1491D4 100%);
+            }
+
+            .ck-side-logo-note {
+                margin-top: 0.75rem;
+                color: #60738F;
+                font-size: 0.8rem;
+                line-height: 1.55;
+                font-weight: 700;
             }
 
             .ck-side-menu-note {
@@ -4473,8 +4463,6 @@ def validate_personnel_form(
         errors.append("TC Kimlik No alanı zorunlu.")
     if not (iban or "").strip():
         errors.append("IBAN alanı zorunlu.")
-    if not (address or "").strip():
-        errors.append("Adres alanı zorunlu.")
     if not (current_plate or "").strip():
         errors.append("Güncel plaka alanı zorunlu.")
     if start_date_value is None:
@@ -5144,6 +5132,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "new_person_new_company_setup": "Hayır",
             "new_person_start_date": date.today(),
             "new_person_vehicle_type": "Çat Kapında",
+            "new_person_accounting_revenue": 0.0,
+            "new_person_accountant_cost": 0.0,
+            "new_person_company_setup_revenue": 0.0,
+            "new_person_company_setup_cost": 0.0,
             "new_person_monthly_fixed_cost": 0.0,
             "new_person_current_plate": "",
             "new_person_notes": "",
@@ -5189,7 +5181,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             render_field_label("İşe Giriş Tarihi", required=True)
             start_date = st.date_input("İşe Giriş Tarihi", key="new_person_start_date", label_visibility="collapsed")
 
-        render_field_label("Adres", required=True)
+        render_field_label("Adres")
         address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address", label_visibility="collapsed")
 
         st.markdown("##### Muhasebe ve Şirket")
@@ -5211,16 +5203,22 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 format_func=lambda x: COST_MODEL_LABELS.get(x, x),
                 label_visibility="collapsed",
             )
-        auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(accounting_type)
-        auto_company_setup_revenue, auto_company_setup_cost = resolve_company_setup_defaults(new_company_setup)
+        if "new_person_accounting_revenue" not in st.session_state:
+            st.session_state["new_person_accounting_revenue"] = float(resolve_accounting_defaults(accounting_type)[0])
+        if "new_person_accountant_cost" not in st.session_state:
+            st.session_state["new_person_accountant_cost"] = float(resolve_accounting_defaults(accounting_type)[1])
+        if "new_person_company_setup_revenue" not in st.session_state:
+            st.session_state["new_person_company_setup_revenue"] = float(resolve_company_setup_defaults(new_company_setup)[0])
+        if "new_person_company_setup_cost" not in st.session_state:
+            st.session_state["new_person_company_setup_cost"] = float(resolve_company_setup_defaults(new_company_setup)[1])
 
         c13, c14, c15 = st.columns(3)
         with c13:
             render_field_label("Muhasebeden Aldığımız Ücret")
-            st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_accounting_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+            accounting_revenue = st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, step=100.0, key="new_person_accounting_revenue", label_visibility="collapsed")
         with c14:
             render_field_label("Muhasebeciye Ödediğimiz")
-            st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_accountant_cost), step=100.0, disabled=True, label_visibility="collapsed")
+            accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, step=100.0, key="new_person_accountant_cost", label_visibility="collapsed")
         if is_fixed_cost_model(cost_model):
             with c15:
                 render_field_label("Aylık Sabit Maliyet", required=True)
@@ -5232,10 +5230,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         c16, c17 = st.columns(2)
         with c16:
             render_field_label("Şirket Açılışından Aldığımız Ücret")
-            st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(auto_company_setup_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+            company_setup_revenue = st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, step=100.0, key="new_person_company_setup_revenue", label_visibility="collapsed")
         with c17:
             render_field_label("Şirket Açılış Maliyeti")
-            st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(auto_company_setup_cost), step=100.0, disabled=True, label_visibility="collapsed")
+            company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, step=100.0, key="new_person_company_setup_cost", label_visibility="collapsed")
 
         st.markdown("##### Araç ve Operasyon")
         c18, c19 = st.columns(2)
@@ -5293,10 +5291,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             iban,
                             accounting_type,
                             new_company_setup,
-                            auto_accounting_revenue,
-                            auto_accountant_cost,
-                            auto_company_setup_revenue,
-                            auto_company_setup_cost,
+                            accounting_revenue,
+                            accountant_cost,
+                            company_setup_revenue,
+                            company_setup_cost,
                             assigned_id,
                             vehicle_type,
                             effective_motor_rental,
@@ -5417,7 +5415,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         render_field_label("İşe Giriş Tarihi", required=True)
                         edit_start_date = st.date_input("İşe Giriş Tarihi", value=start_val, label_visibility="collapsed")
 
-                    render_field_label("Adres", required=True)
+                    render_field_label("Adres")
                     edit_address = st.text_area("Adres", value=row["address"] or "", label_visibility="collapsed")
 
                     st.markdown("##### Muhasebe ve Şirket")
@@ -5456,16 +5454,13 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             key="edit_person_cost_model_display",
                             label_visibility="collapsed",
                         )
-                    auto_edit_accounting_revenue, auto_edit_accountant_cost = resolve_accounting_defaults(edit_accounting)
-                    auto_edit_company_setup_revenue, auto_edit_company_setup_cost = resolve_company_setup_defaults(edit_new_company)
-
                     c13, c14, c15 = st.columns(3)
                     with c13:
                         render_field_label("Muhasebeden Aldığımız Ücret")
-                        st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_edit_accounting_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+                        edit_accounting_revenue = st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(row["accounting_revenue"] or 0.0), step=100.0, label_visibility="collapsed")
                     with c14:
                         render_field_label("Muhasebeciye Ödediğimiz")
-                        st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_edit_accountant_cost), step=100.0, disabled=True, label_visibility="collapsed")
+                        edit_accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(row["accountant_cost"] or 0.0), step=100.0, label_visibility="collapsed")
                     if is_fixed_cost_model(edit_cost_model):
                         with c15:
                             render_field_label("Aylık Sabit Maliyet", required=True)
@@ -5477,10 +5472,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     c16, c17 = st.columns(2)
                     with c16:
                         render_field_label("Şirket Açılışından Aldığımız Ücret")
-                        st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(auto_edit_company_setup_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+                        edit_company_setup_revenue = st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(row["company_setup_revenue"] or 0.0), step=100.0, label_visibility="collapsed")
                     with c17:
                         render_field_label("Şirket Açılış Maliyeti")
-                        st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(auto_edit_company_setup_cost), step=100.0, disabled=True, label_visibility="collapsed")
+                        edit_company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(row["company_setup_cost"] or 0.0), step=100.0, label_visibility="collapsed")
 
                     st.markdown("##### Araç ve Operasyon")
                     c18, c19 = st.columns(2)
@@ -5557,10 +5552,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                     edit_iban,
                                     edit_accounting,
                                     edit_new_company,
-                                    auto_edit_accounting_revenue,
-                                    auto_edit_accountant_cost,
-                                    auto_edit_company_setup_revenue,
-                                    auto_edit_company_setup_cost,
+                                    edit_accounting_revenue,
+                                    edit_accountant_cost,
+                                    edit_company_setup_revenue,
+                                    edit_company_setup_cost,
                                     assigned_id,
                                     edit_vehicle,
                                     effective_edit_motor_rental,
