@@ -2844,15 +2844,17 @@ def inject_global_styles() -> None:
             }
 
             .ck-login-logo-mark {
-                width: 60px;
-                height: 60px;
-                border-radius: 18px;
+                width: 96px;
+                height: 96px;
+                flex: 0 0 96px;
+                border-radius: 26px;
                 background: linear-gradient(135deg, #0D4CCD 0%, #1491D4 100%);
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                overflow: hidden;
                 color: white;
-                font-size: 1.15rem;
+                font-size: 1.6rem;
                 font-weight: 900;
                 letter-spacing: 0.08em;
                 box-shadow: 0 18px 34px rgba(13, 76, 205, 0.22);
@@ -2861,7 +2863,7 @@ def inject_global_styles() -> None:
             .ck-login-logo-mark-image {
                 background: linear-gradient(180deg, #FFFFFF 0%, #F4F8FF 100%);
                 border: 1px solid #DCE7FF;
-                padding: 6px;
+                padding: 2px;
             }
 
             .ck-login-logo-image {
@@ -2869,7 +2871,9 @@ def inject_global_styles() -> None:
                 height: 100%;
                 display: block;
                 object-fit: contain;
-                border-radius: 12px;
+                border-radius: 22px;
+                image-rendering: -webkit-optimize-contrast;
+                image-rendering: crisp-edges;
             }
 
             .ck-login-logo-copy {
@@ -3256,9 +3260,10 @@ def inject_global_styles() -> None:
                 }
 
                 .ck-login-logo-mark {
-                    width: 52px;
-                    height: 52px;
-                    border-radius: 16px;
+                    width: 74px;
+                    height: 74px;
+                    flex: 0 0 74px;
+                    border-radius: 22px;
                 }
 
                 .ck-login-logo-line {
