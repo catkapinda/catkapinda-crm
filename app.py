@@ -31,6 +31,10 @@ from reportlab.pdfgen import canvas
 
 DEFAULT_AUTH_PASSWORD = "123456"
 LOGIN_LOGO_CANDIDATES = [
+    "assets/catkapinda_logo.png",
+    "assets/catkapinda_logo.jpg",
+    "assets/catkapinda_logo.jpeg",
+    "assets/catkapinda_logo.svg",
     "catkapinda_logo.png",
     "catkapinda_logo.jpg",
     "catkapinda_logo.jpeg",
@@ -39,10 +43,6 @@ LOGIN_LOGO_CANDIDATES = [
     "logo.jpg",
     "logo.jpeg",
     "logo.svg",
-    "assets/catkapinda_logo.png",
-    "assets/catkapinda_logo.jpg",
-    "assets/catkapinda_logo.jpeg",
-    "assets/catkapinda_logo.svg",
 ]
 DEFAULT_AUTH_USERS = [
     {
