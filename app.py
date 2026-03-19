@@ -51,7 +51,7 @@ AUTO_ACCOUNTING_DEDUCTION = 2000.0
 AUTO_ACCOUNTANT_COST = 1400.0
 AUTO_COMPANY_SETUP_DEDUCTION = 1500.0
 AUTO_COMPANY_SETUP_REVENUE = 1500.0
-AUTO_COMPANY_SETUP_COST = 0.0
+AUTO_COMPANY_SETUP_COST = 500.0
 AUTO_EQUIPMENT_INSTALLMENT_COUNT = 2
 TEXTILE_ITEM_NAMES = {"Polar", "Tişört", "Korumalı Mont", "Yelek", "Yağmurluk"}
 AUTO_ONBOARDING_ITEMS = [
@@ -72,6 +72,8 @@ FIXED_COST_MODEL_BY_ROLE = {
     "Restoran Takım Şefi": "fixed_restoran_takim_sefi",
     "Joker": "fixed_joker",
 }
+PERSONNEL_ROLE_OPTIONS = ["Kurye", "Bölge Müdürü", "Saha Denetmen Şefi", "Restoran Takım Şefi", "Joker"]
+MANAGEMENT_ROLE_OPTIONS = ["Bölge Müdürü", "Saha Denetmen Şefi", "Restoran Takım Şefi"]
 FIXED_COST_MODEL_LABELS = {
     "fixed_kurye": "Kurye",
     "fixed_bolge_muduru": "Bölge Müdürü",
@@ -79,14 +81,12 @@ FIXED_COST_MODEL_LABELS = {
     "fixed_restoran_takim_sefi": "Restoran Takım Şefi",
     "fixed_joker": "Joker",
 }
-VISIBLE_COST_MODEL_OPTIONS = ["standard_courier", *FIXED_COST_MODEL_BY_ROLE.values()]
+VISIBLE_COST_MODEL_OPTIONS = PERSONNEL_ROLE_OPTIONS
 COST_MODEL_LABELS = {
-    "standard_courier": "Standart Kurye",
+    "standard_courier": "Kurye",
     **FIXED_COST_MODEL_LABELS,
     "fixed_monthly": "Sabit Aylık Ücret",
 }
-PERSONNEL_ROLE_OPTIONS = ["Kurye", "Bölge Müdürü", "Saha Denetmen Şefi", "Restoran Takım Şefi", "Joker"]
-MANAGEMENT_ROLE_OPTIONS = ["Bölge Müdürü", "Saha Denetmen Şefi", "Restoran Takım Şefi"]
 ACTIVE_STATUS_LABELS = {
     1: "Aktif",
     0: "Pasif",
@@ -487,7 +487,7 @@ def ensure_schema(conn: CompatConnection) -> None:
             address TEXT,
             tc_no TEXT,
             iban TEXT,
-            accounting_type TEXT DEFAULT '-',
+            accounting_type TEXT DEFAULT 'Kendi Muhasebecisi',
             new_company_setup TEXT DEFAULT 'Hayır',
             accounting_revenue REAL DEFAULT 0,
             accountant_cost REAL DEFAULT 0,
@@ -636,7 +636,7 @@ def ensure_schema(conn: CompatConnection) -> None:
             address TEXT,
             tc_no TEXT,
             iban TEXT,
-            accounting_type TEXT DEFAULT '-',
+            accounting_type TEXT DEFAULT 'Kendi Muhasebecisi',
             new_company_setup TEXT DEFAULT 'Hayır',
             accounting_revenue DOUBLE PRECISION DEFAULT 0,
             accountant_cost DOUBLE PRECISION DEFAULT 0,
@@ -1039,7 +1039,7 @@ def migrate_data(conn: CompatConnection) -> None:
 
     personnel_cols = get_table_columns(conn, "personnel")
     if "accounting_type" not in personnel_cols:
-        conn.execute("ALTER TABLE personnel ADD COLUMN accounting_type TEXT DEFAULT '-'")
+        conn.execute("ALTER TABLE personnel ADD COLUMN accounting_type TEXT DEFAULT 'Kendi Muhasebecisi'")
     if "new_company_setup" not in personnel_cols:
         conn.execute("ALTER TABLE personnel ADD COLUMN new_company_setup TEXT DEFAULT 'Hayır'")
     if "accounting_revenue" not in personnel_cols:
@@ -1057,7 +1057,9 @@ def migrate_data(conn: CompatConnection) -> None:
             "UPDATE personnel SET cost_model = ? WHERE cost_model = 'fixed_monthly' AND role = ?",
             (cost_model_key, role_name),
         )
+    conn.execute("UPDATE personnel SET cost_model = 'standard_courier' WHERE cost_model = 'fixed_kurye'")
     conn.execute("UPDATE personnel SET cost_model = 'standard_courier' WHERE cost_model IS NULL OR cost_model = ''")
+    conn.execute("UPDATE personnel SET accounting_type = 'Kendi Muhasebecisi' WHERE accounting_type IS NULL OR TRIM(accounting_type) = '' OR accounting_type = '-'")
     conn.execute("UPDATE personnel SET vehicle_type = 'Kendi Motoru' WHERE vehicle_type = 'Kendi'")
     conn.execute("UPDATE personnel SET vehicle_type = 'Çat Kapında' WHERE (vehicle_type IS NULL OR vehicle_type = '') AND motor_rental = 'Evet'")
     conn.execute("UPDATE personnel SET vehicle_type = 'Kendi Motoru' WHERE vehicle_type IS NULL OR vehicle_type = ''")
@@ -1484,7 +1486,7 @@ def sync_person_auto_deductions(
     if effective_motor_rental == "Evet":
         add_monthly_rows("auto:motor_rental", "Motor kira", AUTO_MOTOR_RENTAL_DEDUCTION, "Sistem: Çat Kapında motor kira kesintisi")
 
-    if str(get_row_value(person_row, "accounting_type", "-") or "-") == "Çat Kapında Muhasebe":
+    if str(get_row_value(person_row, "accounting_type", "Kendi Muhasebecisi") or "Kendi Muhasebecisi") == "Çat Kapında Muhasebe":
         add_monthly_rows("auto:accounting", "Muhasebe Ücreti", AUTO_ACCOUNTING_DEDUCTION, "Sistem: Çat Kapında muhasebe kesintisi")
 
     if full_history and str(get_row_value(person_row, "new_company_setup", "Hayır") or "Hayır") == "Evet":
@@ -1691,7 +1693,7 @@ def sync_all_personnel_business_rules(conn: CompatConnection) -> None:
             resolved_vehicle_type,
             str(row.get("motor_rental", "Hayır") or "Hayır"),
         )
-        auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(str(row.get("accounting_type", "-") or "-"))
+        auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(str(row.get("accounting_type", "Kendi Muhasebecisi") or "Kendi Muhasebecisi"))
         auto_company_setup_revenue, auto_company_setup_cost = resolve_company_setup_defaults(str(row.get("new_company_setup", "Hayır") or "Hayır"))
         normalized_cost_model = normalize_cost_model_value(str(row.get("cost_model", "standard_courier") or "standard_courier"), str(row.get("role", "Kurye") or "Kurye"))
         if (
@@ -2732,23 +2734,30 @@ def resolve_company_setup_defaults(new_company_setup: str) -> tuple[float, float
 
 
 def resolve_fixed_cost_model(role: str) -> str:
-    return FIXED_COST_MODEL_BY_ROLE.get((role or "").strip(), "fixed_kurye")
+    normalized_role = (role or "").strip()
+    if normalized_role == "Kurye":
+        return "standard_courier"
+    return FIXED_COST_MODEL_BY_ROLE.get(normalized_role, "standard_courier")
 
 
-def normalize_cost_model_value(cost_model: str, role: str) -> str:
+def resolve_cost_role_option(cost_model: str, role: str) -> str:
     normalized = (cost_model or "").strip()
-    if normalized in VISIBLE_COST_MODEL_OPTIONS:
-        return normalized
-    if normalized == "fixed_monthly":
-        return resolve_fixed_cost_model(role)
-    reverse_labels = {label: key for key, label in FIXED_COST_MODEL_LABELS.items()}
+    reverse_labels = {value: key for key, value in FIXED_COST_MODEL_BY_ROLE.items()}
     if normalized in reverse_labels:
         return reverse_labels[normalized]
     if normalized in PERSONNEL_ROLE_OPTIONS:
-        return resolve_fixed_cost_model(normalized)
-    if not normalized:
-        return "standard_courier"
-    return normalized if normalized == "standard_courier" else resolve_fixed_cost_model(role)
+        return normalized
+
+    normalized_role = (role or "").strip()
+    if normalized in ["", "standard_courier", "fixed_kurye"]:
+        return normalized_role if normalized_role in PERSONNEL_ROLE_OPTIONS else "Kurye"
+    return normalized_role if normalized_role in PERSONNEL_ROLE_OPTIONS else "Kurye"
+
+
+def normalize_cost_model_value(cost_model: str, role: str) -> str:
+    if (cost_model or "").strip() == "fixed_monthly":
+        return resolve_fixed_cost_model(role)
+    return resolve_fixed_cost_model(resolve_cost_role_option(cost_model, role))
 
 
 def is_fixed_cost_model(cost_model: str) -> bool:
@@ -3512,9 +3521,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "new_person_iban": "",
             "new_person_start_date": None,
             "new_person_address": "",
-            "new_person_accounting_type": "-",
+            "new_person_accounting_type": "Kendi Muhasebecisi",
             "new_person_new_company_setup": "Hayır",
-            "new_person_cost_model": "standard_courier",
+            "new_person_cost_model": "Kurye",
             "new_person_monthly_fixed_cost": 0.0,
             "new_person_vehicle_type": "Kendi Motoru",
             "new_person_current_plate": "",
@@ -3523,6 +3532,13 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         for key, value in new_person_defaults.items():
             if key not in st.session_state:
                 st.session_state[key] = value
+        if st.session_state.get("new_person_accounting_type") not in ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"]:
+            st.session_state["new_person_accounting_type"] = "Kendi Muhasebecisi"
+        if st.session_state.get("new_person_cost_model") not in PERSONNEL_ROLE_OPTIONS:
+            st.session_state["new_person_cost_model"] = resolve_cost_role_option(
+                str(st.session_state.get("new_person_cost_model", "Kurye") or "Kurye"),
+                str(st.session_state.get("new_person_role", "Kurye") or "Kurye"),
+            )
 
         st.markdown("##### Kimlik ve Görev")
         c1, c2, c3 = st.columns(3)
@@ -3544,10 +3560,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
         st.markdown("##### Muhasebe ve Şirket")
         c10, c11, c12 = st.columns(3)
-        accounting_type = c10.selectbox("Muhasebe", ["-", "Çat Kapında Muhasebe", "Kendi Muhasebecisi"], key="new_person_accounting_type")
+        accounting_type = c10.selectbox("Muhasebe", ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"], key="new_person_accounting_type")
         new_company_setup = c11.selectbox("Yeni Şirket Açılışı", ["Hayır", "Evet"], key="new_person_new_company_setup")
         cost_model = c12.selectbox(
-            "Maliyet Modeli",
+            "Rol",
             VISIBLE_COST_MODEL_OPTIONS,
             format_func=lambda x: COST_MODEL_LABELS.get(x, x),
             key="new_person_cost_model",
@@ -3612,7 +3628,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         effective_motor_rental,
                         current_plate,
                         start_date_str,
-                        cost_model,
+                        normalize_cost_model_value(cost_model, role),
                         monthly_fixed_cost,
                         notes,
                     ),
@@ -3653,7 +3669,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Durum", row["status"] or "-"),
                         ("Restoran", row["restoran"] or "-"),
                         ("Motor", row["vehicle_type"] or "-"),
-                        ("Maliyet Modeli", COST_MODEL_LABELS.get(normalize_cost_model_value(str(row["cost_model"] or ""), str(row["role"] or "Kurye")), row["cost_model"])),
+                        ("Rol", resolve_cost_role_option(str(row["cost_model"] or ""), str(row["role"] or "Kurye"))),
                     ],
                 )
             with left:
@@ -3686,15 +3702,15 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
                     st.markdown("##### Muhasebe ve Şirket")
                     c10, c11, c12 = st.columns(3)
-                    accounting_options = ["-", "Çat Kapında Muhasebe", "Kendi Muhasebecisi"]
-                    current_acc = row["accounting_type"] if pd.notna(row["accounting_type"]) else "-"
+                    accounting_options = ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"]
+                    current_acc = row["accounting_type"] if pd.notna(row["accounting_type"]) and row["accounting_type"] not in [None, "", "-"] else "Kendi Muhasebecisi"
                     edit_accounting = c10.selectbox("Muhasebe", accounting_options, index=accounting_options.index(current_acc) if current_acc in accounting_options else 0)
                     new_company_options = ["Hayır", "Evet"]
                     current_newco = row["new_company_setup"] if pd.notna(row["new_company_setup"]) else "Hayır"
                     edit_new_company = c11.selectbox("Yeni Şirket Açılışı", new_company_options, index=new_company_options.index(current_newco) if current_newco in new_company_options else 0)
-                    current_cost_model = normalize_cost_model_value(str(row["cost_model"] or ""), str(row["role"] or "Kurye"))
+                    current_cost_model = resolve_cost_role_option(str(row["cost_model"] or ""), str(row["role"] or "Kurye"))
                     edit_cost_model = c12.selectbox(
-                        "Maliyet Modeli",
+                        "Rol",
                         cost_options,
                         index=cost_options.index(current_cost_model) if current_cost_model in cost_options else 0,
                         format_func=lambda x: COST_MODEL_LABELS.get(x, x),
@@ -3764,7 +3780,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 effective_edit_motor_rental,
                                 edit_plate,
                                 start_date_str,
-                                edit_cost_model,
+                                normalize_cost_model_value(edit_cost_model, edit_role),
                                 edit_monthly_cost,
                                 edit_notes,
                                 selected_id,
