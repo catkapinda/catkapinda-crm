@@ -2076,17 +2076,15 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
 
 def render_sidebar_brand() -> None:
-    logo_markup = build_login_logo_markup()
     st.sidebar.markdown(
-        f"""
+        """
         <div class="ck-side-heading">
             <div class="ck-side-heading-title">Çat Kapında</div>
             <div class="ck-side-heading-subtitle">Operasyon CRM</div>
         </div>
-        <div class="ck-side-logo-card">
-            <div class="ck-side-logo-shell">{logo_markup}</div>
-            <div class="ck-side-logo-line"></div>
-            <div class="ck-side-logo-note">Teslimat operasyonu için kurumsal yönetim paneli</div>
+        <div class="ck-side-toolbar">
+            <div class="ck-side-toolbar-icon">✦</div>
+            <div class="ck-side-toolbar-text">Kurumsal Operasyon Paneli</div>
         </div>
         <div class="ck-side-menu-note">Ana Menü</div>
         """,
@@ -3191,58 +3189,38 @@ def inject_global_styles() -> None:
                 text-transform: uppercase;
             }
 
-            .ck-side-logo-card {
+            .ck-side-toolbar {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin: 0.45rem 0 0.95rem 0;
+                padding: 10px 12px;
+                border-radius: 14px;
                 background: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
                 border: 1px solid var(--ck-border);
-                border-radius: 16px;
-                padding: 15px 13px 14px;
-                margin: 0.45rem 0 0.95rem 0;
                 box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
-                text-align: center;
             }
 
-            .ck-side-logo-shell {
-                display: flex;
-                justify-content: center;
-            }
-
-            .ck-side-logo-shell .ck-login-logo-mark {
-                width: 92px;
-                height: 92px;
-                flex: 0 0 92px;
-                border-radius: 28px;
+            .ck-side-toolbar-icon {
+                width: 30px;
+                height: 30px;
+                flex: 0 0 30px;
+                border-radius: 10px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 background: linear-gradient(135deg, #0C4BCB 0%, #1182D3 100%);
-                box-shadow: 0 14px 24px rgba(12, 75, 203, 0.15);
+                color: #FFFFFF;
+                font-size: 0.92rem;
+                font-weight: 900;
+                box-shadow: 0 10px 18px rgba(12, 75, 203, 0.14);
             }
 
-            .ck-side-logo-shell .ck-login-logo-mark-image {
-                background: rgba(255,255,255,0.98);
-                border: 1px solid #D9E6FB;
-                padding: 8px;
-            }
-
-            .ck-side-logo-shell .ck-login-logo-image {
-                object-fit: contain;
-                border-radius: 20px;
-            }
-
-            .ck-side-logo-line {
-                width: 42px;
-                height: 3px;
-                margin: 0.85rem auto 0;
-                border-radius: 999px;
-                background: linear-gradient(135deg, #0C4BCB 0%, #1491D4 100%);
-            }
-
-            .ck-side-logo-note {
-                margin-top: 0.75rem;
-                color: #60738F;
-                font-size: 0.8rem;
-                line-height: 1.55;
-                font-weight: 700;
+            .ck-side-toolbar-text {
+                color: #3A4D68;
+                font-size: 0.82rem;
+                font-weight: 760;
+                letter-spacing: 0.01em;
             }
 
             .ck-side-menu-note {
