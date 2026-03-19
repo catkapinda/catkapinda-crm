@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import calendar
 import hashlib
 import html
@@ -9,11 +10,13 @@ import os
 import re
 import secrets
 import shutil
+import smtplib
 import sqlite3
 import tempfile
 import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 from urllib.parse import urlsplit
@@ -27,6 +30,20 @@ from reportlab.pdfgen import canvas
 
 
 DEFAULT_AUTH_PASSWORD = "123456"
+LOGIN_LOGO_CANDIDATES = [
+    "catkapinda_logo.png",
+    "catkapinda_logo.jpg",
+    "catkapinda_logo.jpeg",
+    "catkapinda_logo.svg",
+    "logo.png",
+    "logo.jpg",
+    "logo.jpeg",
+    "logo.svg",
+    "assets/catkapinda_logo.png",
+    "assets/catkapinda_logo.jpg",
+    "assets/catkapinda_logo.jpeg",
+    "assets/catkapinda_logo.svg",
+]
 DEFAULT_AUTH_USERS = [
     {
         "email": "ebru@catkapinda.com",
@@ -49,6 +66,8 @@ DEFAULT_AUTH_USERS = [
 ]
 LEGACY_AUTH_IDENTITIES = {"catkapinda", "chef"}
 PASSWORD_HASH_ITERATIONS = 200_000
+TEMP_PASSWORD_LENGTH = 10
+SMTP_PORT_DEFAULT = 587
 
 APP_DATA_DIR = Path.home() / "Documents" / "CatKapindaData"
 BACKUP_DIR = APP_DATA_DIR / "backups"
@@ -315,6 +334,126 @@ def get_auth_user(conn: CompatConnection, identity: str) -> Any:
         "SELECT * FROM auth_users WHERE lower(email) = lower(?) LIMIT 1",
         (normalized_identity,),
     ).fetchone()
+
+
+def build_login_logo_markup() -> str:
+    mime_map = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".svg": "image/svg+xml",
+    }
+    app_dir = Path(__file__).resolve().parent
+
+    for candidate in LOGIN_LOGO_CANDIDATES:
+        logo_path = app_dir / candidate
+        if not logo_path.exists() or not logo_path.is_file():
+            continue
+        try:
+            encoded = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+        except OSError:
+            continue
+        mime_type = mime_map.get(logo_path.suffix.lower(), "image/png")
+        return (
+            '<div class="ck-login-logo-mark ck-login-logo-mark-image">'
+            f'<img src="data:{mime_type};base64,{encoded}" alt="Çat Kapında Logo" class="ck-login-logo-image" />'
+            "</div>"
+        )
+
+    return '<div class="ck-login-logo-mark">CK</div>'
+
+
+def coerce_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "evet"}
+
+
+def generate_temporary_password(length: int = TEMP_PASSWORD_LENGTH) -> str:
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def get_smtp_config() -> dict[str, Any] | None:
+    try:
+        if "smtp" in st.secrets:
+            smtp_secrets = st.secrets["smtp"]
+            host = str(smtp_secrets.get("host", "") or "").strip()
+            from_email = str(smtp_secrets.get("from_email", "") or "").strip()
+            if host and from_email:
+                return {
+                    "host": host,
+                    "port": int(smtp_secrets.get("port", SMTP_PORT_DEFAULT)),
+                    "username": str(smtp_secrets.get("username", "") or "").strip(),
+                    "password": str(smtp_secrets.get("password", "") or ""),
+                    "from_email": from_email,
+                    "from_name": str(smtp_secrets.get("from_name", "Çat Kapında CRM") or "Çat Kapında CRM").strip(),
+                    "use_ssl": coerce_bool(smtp_secrets.get("use_ssl"), default=False),
+                    "starttls": coerce_bool(smtp_secrets.get("starttls"), default=True),
+                }
+    except Exception:
+        pass
+
+    host = str(os.getenv("SMTP_HOST", "") or "").strip()
+    from_email = str(os.getenv("SMTP_FROM_EMAIL", "") or "").strip()
+    if not host or not from_email:
+        return None
+
+    return {
+        "host": host,
+        "port": int(os.getenv("SMTP_PORT", str(SMTP_PORT_DEFAULT)) or SMTP_PORT_DEFAULT),
+        "username": str(os.getenv("SMTP_USERNAME", "") or "").strip(),
+        "password": str(os.getenv("SMTP_PASSWORD", "") or ""),
+        "from_email": from_email,
+        "from_name": str(os.getenv("SMTP_FROM_NAME", "Çat Kapında CRM") or "Çat Kapında CRM").strip(),
+        "use_ssl": coerce_bool(os.getenv("SMTP_USE_SSL"), default=False),
+        "starttls": coerce_bool(os.getenv("SMTP_STARTTLS"), default=True),
+    }
+
+
+def send_temporary_password_email(recipient_email: str, full_name: str, temporary_password: str) -> None:
+    smtp_config = get_smtp_config()
+    if not smtp_config:
+        raise RuntimeError("Şifre sıfırlama maili için SMTP ayarları henüz tanımlı değil.")
+
+    message = EmailMessage()
+    message["Subject"] = "Çat Kapında CRM | Geçici Giriş Şifresi"
+    message["From"] = f"{smtp_config['from_name']} <{smtp_config['from_email']}>"
+    message["To"] = recipient_email
+    message.set_content(
+        f"""Merhaba {full_name or 'Çat Kapında ekibi'},
+
+Çat Kapında Operasyon CRM hesabın için yeni geçici giriş şifren oluşturuldu.
+
+Geçici Şifre: {temporary_password}
+
+Giriş yaptıktan sonra sağ üstteki Profil alanından şifreni hemen güncellemeni öneririz.
+
+Giriş adresi: https://crmcatkapinda.com
+
+Bu işlemi sen yapmadıysan lütfen sistem yöneticisine hemen bilgi ver.
+
+Çat Kapında CRM
+"""
+    )
+
+    try:
+        if smtp_config["use_ssl"]:
+            with smtplib.SMTP_SSL(smtp_config["host"], int(smtp_config["port"]), timeout=20) as server:
+                if smtp_config["username"]:
+                    server.login(smtp_config["username"], smtp_config["password"])
+                server.send_message(message)
+        else:
+            with smtplib.SMTP(smtp_config["host"], int(smtp_config["port"]), timeout=20) as server:
+                if smtp_config["starttls"]:
+                    server.starttls()
+                if smtp_config["username"]:
+                    server.login(smtp_config["username"], smtp_config["password"])
+                server.send_message(message)
+    except Exception as exc:
+        raise RuntimeError("Şifre sıfırlama maili gönderilemedi. SMTP ayarlarını kontrol et.") from exc
 
 
 def init_auth_state() -> None:
@@ -1295,12 +1434,13 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
     left, center, right = st.columns([0.9, 1.3, 0.9])
     with center:
+        logo_markup = build_login_logo_markup()
         st.markdown("<div class='ck-login-gap'></div>", unsafe_allow_html=True)
         st.markdown("<div class='ck-login-card'>", unsafe_allow_html=True)
         st.markdown(
-            """
+            f"""
             <div class="ck-login-logo">
-                <div class="ck-login-logo-mark">CK</div>
+                {logo_markup}
                 <div class="ck-login-logo-copy">
                     <div class="ck-login-logo-eyebrow">Çat Kapında</div>
                     <div class="ck-login-logo-line">Operasyon CRM</div>
@@ -1353,16 +1493,55 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 """
                 <div class="ck-login-help-card">
                     <div class="ck-login-help-title">Şifre Desteği</div>
-                    <div class="ck-login-help-text">Bu sürümde otomatik mail kodlu şifre sıfırlama aktif değil. Kurumsal e-posta hesabını belirterek sistem yöneticisinden geçici giriş şifresi talep edebilirsin.</div>
+                    <div class="ck-login-help-text">Kurumsal e-posta adresini gir. Sistem, aktif hesabına yeni bir geçici şifre üretip e-posta ile iletsin.</div>
                     <div class="ck-login-help-steps">
-                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">1</span><span>Kurumsal e-posta adresini hazırla ve giriş yapmak istediğin hesabı netleştir.</span></div>
-                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">2</span><span>Sistem yöneticisinden geçici giriş şifresi talep et ve gerekirse eski şifrenin iptal edilmesini iste.</span></div>
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">1</span><span>Kurumsal e-posta adresini yaz ve yeni geçici şifreyi talep et.</span></div>
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">2</span><span>Geçici şifre e-posta adresine gelsin ve bu şifreyle giriş yap.</span></div>
                         <div class="ck-login-help-step"><span class="ck-login-help-step-badge">3</span><span>Panele girdikten sonra sağ üstteki <strong>Profil</strong> alanından şifreni hemen değiştir.</span></div>
                     </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
+
+            with st.form("forgot_password_form", clear_on_submit=True):
+                forgot_email = st.text_input("Kurumsal E-Posta Adresi", placeholder="ornek@catkapinda.com")
+                forgot_submitted = st.form_submit_button("Yeni Geçici Şifre Gönder", use_container_width=True)
+
+            if forgot_submitted:
+                reset_identity = normalize_auth_identity(forgot_email)
+                reset_user = get_auth_user(conn, reset_identity)
+                if not reset_user or safe_int(get_row_value(reset_user, "is_active", 0), 0) != 1:
+                    st.error("Bu e-posta adresi için aktif bir hesap bulunamadı.")
+                else:
+                    temporary_password = generate_temporary_password()
+                    try:
+                        conn.execute(
+                            """
+                            UPDATE auth_users
+                            SET password_hash = ?, must_change_password = 1, updated_at = ?
+                            WHERE id = ?
+                            """,
+                            (
+                                hash_auth_password(temporary_password),
+                                datetime.utcnow().isoformat(timespec="seconds"),
+                                int(get_row_value(reset_user, "id", 0) or 0),
+                            ),
+                        )
+                        send_temporary_password_email(
+                            reset_identity,
+                            str(get_row_value(reset_user, "full_name", "") or ""),
+                            temporary_password,
+                        )
+                        conn.commit()
+                        st.session_state.login_help_visible = False
+                        st.success("Yeni geçici şifren e-posta adresine gönderildi. Giriş yaptıktan sonra Profil alanından şifreni güncelle.")
+                    except RuntimeError as exc:
+                        conn.rollback()
+                        st.error(str(exc))
+                    except Exception:
+                        conn.rollback()
+                        st.error("Şifre sıfırlama işlemi tamamlanamadı. Birkaç dakika sonra tekrar dene.")
 
         if submitted:
             entered_username = normalize_auth_identity(username)
@@ -2688,6 +2867,20 @@ def inject_global_styles() -> None:
                 font-weight: 900;
                 letter-spacing: 0.08em;
                 box-shadow: 0 18px 34px rgba(13, 76, 205, 0.22);
+            }
+
+            .ck-login-logo-mark-image {
+                background: linear-gradient(180deg, #FFFFFF 0%, #F4F8FF 100%);
+                border: 1px solid #DCE7FF;
+                padding: 6px;
+            }
+
+            .ck-login-logo-image {
+                width: 100%;
+                height: 100%;
+                display: block;
+                object-fit: contain;
+                border-radius: 12px;
             }
 
             .ck-login-logo-copy {
