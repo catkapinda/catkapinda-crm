@@ -4486,6 +4486,23 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         ],
     )
     render_flash_message()
+    recently_created_payload = st.session_state.pop("personnel_recently_created", None)
+    recently_created_id = safe_int(get_row_value(recently_created_payload, "personnel_id"), 0) if recently_created_payload else 0
+
+    if recently_created_id > 0 and not df.empty:
+        recent_match = df[df["id"] == recently_created_id]
+        if not recent_match.empty:
+            recent_row = recent_match.iloc[0]
+            render_record_snapshot(
+                "Son Eklenen Personel",
+                [
+                    ("Ad Soyad", recent_row["full_name"] or "-"),
+                    ("Kod", recent_row["person_code"] or "-"),
+                    ("Rol", recent_row["role"] or "-"),
+                    ("Durum", recent_row["status"] or "-"),
+                    ("Ana Restoran", recent_row["restoran"] or "-"),
+                ],
+            )
 
     if passive_count:
         st.caption(f"Pasif personel sayısı: {passive_count}")
@@ -4540,6 +4557,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 f"{row['full_name']} | {row['role']} | Kod: {row['person_code'] or '-'}": int(row["id"])
                 for _, row in preview_source.iterrows()
             }
+            if recently_created_id > 0:
+                for label, person_id in preview_labels.items():
+                    if person_id == recently_created_id:
+                        st.session_state["person_preview_select"] = label
+                        break
             left, right = st.columns([2.35, 1])
             with left:
                 st.dataframe(format_personnel_table(filtered_df), use_container_width=True, hide_index=True)
@@ -4686,6 +4708,13 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 sync_person_business_rules(conn, created_person)
                 for key, value in new_person_defaults.items():
                     st.session_state[key] = value
+                created_person_id = safe_int(get_row_value(created_person, "id"), 0)
+                st.session_state[workspace_key] = "list"
+                st.session_state["person_search"] = ""
+                st.session_state["person_role_filter"] = "Tümü"
+                st.session_state["person_status_filter"] = "Tümü"
+                st.session_state["person_rest_filter"] = "Tümü"
+                st.session_state["personnel_recently_created"] = {"personnel_id": created_person_id}
                 set_flash_message("success", f"Personel başarıyla eklendi. Kod: {auto_code}")
                 st.rerun()
 
