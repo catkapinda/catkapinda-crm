@@ -3082,11 +3082,16 @@ def inject_global_styles() -> None:
                 background: rgba(245, 248, 253, 0.72);
             }
 
-            [data-testid="stToolbar"],
             [data-testid="stDecoration"],
             [data-testid="stStatusWidget"],
             #MainMenu {
                 display: none !important;
+            }
+
+            [data-testid="stToolbar"] {
+                display: flex !important;
+                visibility: visible !important;
+                opacity: 1 !important;
             }
 
             header[data-testid="stHeader"] button[kind="header"] {
@@ -3095,6 +3100,13 @@ def inject_global_styles() -> None:
                 justify-content: center;
                 opacity: 1 !important;
                 visibility: visible !important;
+            }
+
+            [data-testid="collapsedControl"],
+            [data-testid="stSidebarCollapsedControl"] {
+                display: flex !important;
+                visibility: visible !important;
+                opacity: 1 !important;
             }
 
             .block-container {
