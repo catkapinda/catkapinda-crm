@@ -4852,8 +4852,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     )
     render_flash_message()
     create_success_message = str(st.session_state.get("personnel_create_success_message", "") or "").strip()
-    if create_success_message:
-        st.success(create_success_message)
 
     recently_created_payload = st.session_state.get("personnel_recently_created")
     recently_created_id = safe_int(get_row_value(recently_created_payload, "personnel_id"), 0) if recently_created_payload else 0
@@ -4964,8 +4962,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
     elif workspace_mode == "add":
         render_tab_header("Yeni Personel Kartı", "Kimlik, muhasebe, maliyet ve araç alanlarını bloklar halinde doldurarak yeni kart oluştur.")
-        if create_success_message:
-            st.success(create_success_message)
         if recently_created_id > 0 and not df.empty:
             recent_match = df[df["id"] == recently_created_id]
             if not recent_match.empty:
@@ -5093,6 +5089,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
         create_clicked = st.button("Personel Kartını Oluştur", use_container_width=True, key="new_person_create")
         if create_clicked:
+            st.session_state.pop("personnel_create_success_message", None)
+            st.session_state.pop("personnel_recently_created", None)
             assigned_id = rest_opts_with_blank.get(assigned_label)
             validation_errors = validate_personnel_form(
                 full_name=full_name,
@@ -5170,6 +5168,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     st.session_state["personnel_create_success_message"] = success_text
                     set_flash_message("success", success_text)
                     st.rerun()
+        if create_success_message:
+            st.success(f"Personel kartı oluşturuldu. {create_success_message}")
 
     elif workspace_mode == "edit":
         if df.empty:
