@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+import base64
 import calendar
+import hashlib
 import html
+import hmac
 from io import BytesIO
 import os
 import re
 import secrets
 import shutil
+import smtplib
 import sqlite3
 import tempfile
 import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 from urllib.parse import urlsplit
@@ -24,10 +29,45 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 
-USERS = {
-    "catkapinda": {"password": "Cat2025.", "role": "admin", "display": "Yönetim Kurulu / Yönetici"},
-    "chef": {"password": "Chef2025.", "role": "sef", "display": "Şef"},
-}
+DEFAULT_AUTH_PASSWORD = "123456"
+LOGIN_LOGO_CANDIDATES = [
+    "catkapinda_logo.png",
+    "catkapinda_logo.jpg",
+    "catkapinda_logo.jpeg",
+    "catkapinda_logo.svg",
+    "logo.png",
+    "logo.jpg",
+    "logo.jpeg",
+    "logo.svg",
+    "assets/catkapinda_logo.png",
+    "assets/catkapinda_logo.jpg",
+    "assets/catkapinda_logo.jpeg",
+    "assets/catkapinda_logo.svg",
+]
+DEFAULT_AUTH_USERS = [
+    {
+        "email": "ebru@catkapinda.com",
+        "full_name": "Ebru Aslan",
+        "role": "admin",
+        "role_display": "Yönetim Kurulu / Yönetici",
+    },
+    {
+        "email": "mert.kurtulus@catkapinda.com",
+        "full_name": "Mert Kurtuluş",
+        "role": "admin",
+        "role_display": "Yönetim Kurulu / Yönetici",
+    },
+    {
+        "email": "muhammed.terim@catkapinda.com",
+        "full_name": "Muhammed Terim",
+        "role": "admin",
+        "role_display": "Yönetim Kurulu / Yönetici",
+    },
+]
+LEGACY_AUTH_IDENTITIES = {"catkapinda", "chef"}
+PASSWORD_HASH_ITERATIONS = 200_000
+TEMP_PASSWORD_LENGTH = 10
+SMTP_PORT_DEFAULT = 587
 
 APP_DATA_DIR = Path.home() / "Documents" / "CatKapindaData"
 BACKUP_DIR = APP_DATA_DIR / "backups"
@@ -107,6 +147,7 @@ TABLE_EXPORT_ORDER = [
     "inventory_purchases",
     "courier_equipment_issues",
     "box_returns",
+    "auth_users",
     "auth_sessions",
 ]
 
@@ -252,30 +293,207 @@ def parse_date_value(value: Any) -> date | None:
     return parsed.date()
 
 
+def normalize_auth_identity(value: str) -> str:
+    return (value or "").strip().lower()
+
+
+def hash_auth_password(password: str, salt: str | None = None) -> str:
+    resolved_salt = salt or secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        (password or "").encode("utf-8"),
+        resolved_salt.encode("utf-8"),
+        PASSWORD_HASH_ITERATIONS,
+    ).hex()
+    return f"pbkdf2_sha256${PASSWORD_HASH_ITERATIONS}${resolved_salt}${digest}"
+
+
+def verify_auth_password(password: str, stored_hash: str) -> bool:
+    parts = str(stored_hash or "").split("$", 3)
+    if len(parts) != 4 or parts[0] != "pbkdf2_sha256":
+        return hmac.compare_digest(str(stored_hash or ""), str(password or ""))
+    _, iterations_text, salt, digest = parts
+    try:
+        iterations = int(iterations_text)
+    except ValueError:
+        return False
+    candidate = hashlib.pbkdf2_hmac(
+        "sha256",
+        (password or "").encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations,
+    ).hex()
+    return hmac.compare_digest(candidate, digest)
+
+
+def get_auth_user(conn: CompatConnection, identity: str) -> Any:
+    normalized_identity = normalize_auth_identity(identity)
+    if not normalized_identity:
+        return None
+    return conn.execute(
+        "SELECT * FROM auth_users WHERE lower(email) = lower(?) LIMIT 1",
+        (normalized_identity,),
+    ).fetchone()
+
+
+def build_login_logo_markup() -> str:
+    mime_map = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".svg": "image/svg+xml",
+    }
+    app_dir = Path(__file__).resolve().parent
+
+    for candidate in LOGIN_LOGO_CANDIDATES:
+        logo_path = app_dir / candidate
+        if not logo_path.exists() or not logo_path.is_file():
+            continue
+        try:
+            encoded = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+        except OSError:
+            continue
+        mime_type = mime_map.get(logo_path.suffix.lower(), "image/png")
+        return (
+            '<div class="ck-login-logo-mark ck-login-logo-mark-image">'
+            f'<img src="data:{mime_type};base64,{encoded}" alt="Çat Kapında Logo" class="ck-login-logo-image" />'
+            "</div>"
+        )
+
+    return '<div class="ck-login-logo-mark">CK</div>'
+
+
+def coerce_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "evet"}
+
+
+def generate_temporary_password(length: int = TEMP_PASSWORD_LENGTH) -> str:
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def get_smtp_config() -> dict[str, Any] | None:
+    try:
+        if "smtp" in st.secrets:
+            smtp_secrets = st.secrets["smtp"]
+            host = str(smtp_secrets.get("host", "") or "").strip()
+            from_email = str(smtp_secrets.get("from_email", "") or "").strip()
+            if host and from_email:
+                return {
+                    "host": host,
+                    "port": int(smtp_secrets.get("port", SMTP_PORT_DEFAULT)),
+                    "username": str(smtp_secrets.get("username", "") or "").strip(),
+                    "password": str(smtp_secrets.get("password", "") or ""),
+                    "from_email": from_email,
+                    "from_name": str(smtp_secrets.get("from_name", "Çat Kapında CRM") or "Çat Kapında CRM").strip(),
+                    "use_ssl": coerce_bool(smtp_secrets.get("use_ssl"), default=False),
+                    "starttls": coerce_bool(smtp_secrets.get("starttls"), default=True),
+                }
+    except Exception:
+        pass
+
+    host = str(os.getenv("SMTP_HOST", "") or "").strip()
+    from_email = str(os.getenv("SMTP_FROM_EMAIL", "") or "").strip()
+    if not host or not from_email:
+        return None
+
+    return {
+        "host": host,
+        "port": int(os.getenv("SMTP_PORT", str(SMTP_PORT_DEFAULT)) or SMTP_PORT_DEFAULT),
+        "username": str(os.getenv("SMTP_USERNAME", "") or "").strip(),
+        "password": str(os.getenv("SMTP_PASSWORD", "") or ""),
+        "from_email": from_email,
+        "from_name": str(os.getenv("SMTP_FROM_NAME", "Çat Kapında CRM") or "Çat Kapında CRM").strip(),
+        "use_ssl": coerce_bool(os.getenv("SMTP_USE_SSL"), default=False),
+        "starttls": coerce_bool(os.getenv("SMTP_STARTTLS"), default=True),
+    }
+
+
+def send_temporary_password_email(recipient_email: str, full_name: str, temporary_password: str) -> None:
+    smtp_config = get_smtp_config()
+    if not smtp_config:
+        raise RuntimeError("Şifre sıfırlama maili için SMTP ayarları henüz tanımlı değil.")
+
+    message = EmailMessage()
+    message["Subject"] = "Çat Kapında CRM | Geçici Giriş Şifresi"
+    message["From"] = f"{smtp_config['from_name']} <{smtp_config['from_email']}>"
+    message["To"] = recipient_email
+    message.set_content(
+        f"""Merhaba {full_name or 'Çat Kapında ekibi'},
+
+Çat Kapında Operasyon CRM hesabın için yeni geçici giriş şifren oluşturuldu.
+
+Geçici Şifre: {temporary_password}
+
+Giriş yaptıktan sonra sağ üstteki Profil alanından şifreni hemen güncellemeni öneririz.
+
+Giriş adresi: https://crmcatkapinda.com
+
+Bu işlemi sen yapmadıysan lütfen sistem yöneticisine hemen bilgi ver.
+
+Çat Kapında CRM
+"""
+    )
+
+    try:
+        if smtp_config["use_ssl"]:
+            with smtplib.SMTP_SSL(smtp_config["host"], int(smtp_config["port"]), timeout=20) as server:
+                if smtp_config["username"]:
+                    server.login(smtp_config["username"], smtp_config["password"])
+                server.send_message(message)
+        else:
+            with smtplib.SMTP(smtp_config["host"], int(smtp_config["port"]), timeout=20) as server:
+                if smtp_config["starttls"]:
+                    server.starttls()
+                if smtp_config["username"]:
+                    server.login(smtp_config["username"], smtp_config["password"])
+                server.send_message(message)
+    except Exception as exc:
+        raise RuntimeError("Şifre sıfırlama maili gönderilemedi. SMTP ayarlarını kontrol et.") from exc
+
+
 def init_auth_state() -> None:
     defaults = {
         "authenticated": False,
         "username": None,
         "role": None,
         "auth_token": None,
+        "user_full_name": None,
+        "user_role_display": None,
+        "must_change_password": False,
+        "login_help_visible": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
 
-def set_authenticated_user(username: str, token: str | None = None) -> None:
-    user = USERS.get(username)
-    if not user:
+def set_authenticated_user(user_row: Any, token: str | None = None) -> None:
+    if not user_row:
         return
     st.session_state.authenticated = True
-    st.session_state.username = username
-    st.session_state.role = user["role"]
+    st.session_state.username = str(get_row_value(user_row, "email", "") or "")
+    st.session_state.role = str(get_row_value(user_row, "role", "") or "")
     st.session_state.auth_token = token
+    st.session_state.user_full_name = str(get_row_value(user_row, "full_name", "") or "")
+    st.session_state.user_role_display = str(get_row_value(user_row, "role_display", "") or "")
+    st.session_state.must_change_password = bool(safe_int(get_row_value(user_row, "must_change_password", 0), 0))
 
 
 def clear_authenticated_user() -> None:
-    for key in ["authenticated", "username", "role", "auth_token"]:
+    for key in [
+        "authenticated",
+        "username",
+        "role",
+        "auth_token",
+        "user_full_name",
+        "user_role_display",
+        "must_change_password",
+    ]:
         st.session_state.pop(key, None)
 
 
@@ -589,6 +807,19 @@ def ensure_schema(conn: CompatConnection) -> None:
             expires_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS auth_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            full_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            role_display TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            must_change_password INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS app_meta (
             meta_key TEXT PRIMARY KEY,
             meta_value TEXT NOT NULL
@@ -729,6 +960,19 @@ def ensure_schema(conn: CompatConnection) -> None:
             username TEXT NOT NULL,
             created_at TEXT NOT NULL,
             expires_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS auth_users (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            full_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            role_display TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_active BIGINT NOT NULL DEFAULT 1,
+            must_change_password BIGINT NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS app_meta (
@@ -879,6 +1123,64 @@ def cleanup_auth_sessions(conn: CompatConnection) -> None:
     conn.commit()
 
 
+def sync_default_auth_users(conn: CompatConnection) -> None:
+    now_text = datetime.utcnow().isoformat(timespec="seconds")
+
+    for legacy_identity in LEGACY_AUTH_IDENTITIES:
+        conn.execute("DELETE FROM auth_users WHERE lower(email) = lower(?)", (legacy_identity,))
+        conn.execute("DELETE FROM auth_sessions WHERE username = ?", (legacy_identity,))
+
+    for user in DEFAULT_AUTH_USERS:
+        existing = get_auth_user(conn, user["email"])
+        if existing is None:
+            conn.execute(
+                """
+                INSERT INTO auth_users (
+                    email, full_name, role, role_display, password_hash,
+                    is_active, must_change_password, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    normalize_auth_identity(user["email"]),
+                    user["full_name"],
+                    user["role"],
+                    user["role_display"],
+                    hash_auth_password(DEFAULT_AUTH_PASSWORD),
+                    1,
+                    1,
+                    now_text,
+                    now_text,
+                ),
+            )
+            continue
+
+        password_hash = str(get_row_value(existing, "password_hash", "") or "")
+        must_change_password = safe_int(get_row_value(existing, "must_change_password", 0), 0)
+        if not password_hash:
+            password_hash = hash_auth_password(DEFAULT_AUTH_PASSWORD)
+            must_change_password = 1
+        conn.execute(
+            """
+            UPDATE auth_users
+            SET email = ?, full_name = ?, role = ?, role_display = ?, password_hash = ?,
+                is_active = 1, must_change_password = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                normalize_auth_identity(user["email"]),
+                user["full_name"],
+                user["role"],
+                user["role_display"],
+                password_hash,
+                must_change_password,
+                now_text,
+                int(get_row_value(existing, "id", 0) or 0),
+            ),
+        )
+
+    conn.commit()
+
+
 def create_auth_session(conn: sqlite3.Connection, username: str) -> str:
     cleanup_auth_sessions(conn)
     conn.execute("DELETE FROM auth_sessions WHERE username = ?", (username,))
@@ -915,13 +1217,14 @@ def restore_auth_session(conn: sqlite3.Connection) -> bool:
         set_query_param(AUTH_QUERY_KEY, None)
         return False
 
-    if row["username"] not in USERS:
+    auth_user = get_auth_user(conn, str(row["username"] or ""))
+    if not auth_user or safe_int(get_row_value(auth_user, "is_active", 0), 0) != 1:
         conn.execute("DELETE FROM auth_sessions WHERE token = ?", (token,))
         conn.commit()
         set_query_param(AUTH_QUERY_KEY, None)
         return False
 
-    set_authenticated_user(row["username"], token)
+    set_authenticated_user(auth_user, token)
     return True
 
 
@@ -1111,6 +1414,7 @@ def ensure_runtime_bootstrap(conn: CompatConnection) -> None:
     maybe_migrate_legacy_sqlite_to_postgres(conn)
     seed_initial_data(conn)
     migrate_data(conn)
+    sync_default_auth_users(conn)
     sync_all_personnel_business_rules(conn)
     cleanup_auth_sessions(conn)
     st.session_state[bootstrap_key] = True
@@ -1128,51 +1432,124 @@ def login_gate(conn: sqlite3.Connection) -> bool:
     if st.session_state.authenticated or restore_auth_session(conn):
         return True
 
-    left, center, right = st.columns([1.1, 0.95, 1.1])
+    left, center, right = st.columns([0.9, 1.3, 0.9])
     with center:
+        logo_markup = build_login_logo_markup()
         st.markdown("<div class='ck-login-gap'></div>", unsafe_allow_html=True)
-        st.markdown("<div class='ck-login-card'>", unsafe_allow_html=True)
-        st.markdown("<div class='ck-login-kicker'>ÇAT KAPINDA</div>", unsafe_allow_html=True)
-        st.markdown("<div class='ck-login-title'>Operasyon CRM</div>", unsafe_allow_html=True)
         st.markdown(
-            "<div class='ck-login-subtitle'>Şube operasyonunu, personeli, puantajı, ekipmanı ve aylık kârlılığı tek ekrandan yönet.</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            """
-            <div class="ck-login-feature-row">
-                <div class="ck-login-feature">Günlük puantaj</div>
-                <div class="ck-login-feature">Aylık hakediş</div>
-                <div class="ck-login-feature">Kârlılık raporları</div>
+            f"""
+            <div class='ck-login-card'>
+                <div class="ck-login-logo">
+                    {logo_markup}
+                    <div class="ck-login-logo-copy">
+                        <div class="ck-login-logo-eyebrow">Çat Kapında</div>
+                        <div class="ck-login-logo-line">Operasyon CRM</div>
+                    </div>
+                </div>
+                <div class='ck-login-kicker'>Operasyon Yönetim Paneli</div>
+                <div class='ck-login-title'>Şube, personel ve kârlılığı tek ekrandan yönet.</div>
+                <div class='ck-login-subtitle'>Günlük puantajdan ekipman zimmetine, aylık hakedişten kârlılık özetine kadar tüm operasyon akışını düzenli bir panelde topla.</div>
+                <div class="ck-login-feature-grid">
+                    <div class="ck-login-feature-card">
+                        <span>Şube Yönetimi</span>
+                        <strong>Fiyat anlaşmaları ve operasyon kartlarını tek yerden takip et.</strong>
+                    </div>
+                    <div class="ck-login-feature-card">
+                        <span>Personel Akışı</span>
+                        <strong>Puantaj, zimmet ve kesinti hareketlerini düzenli görünümle yönet.</strong>
+                    </div>
+                    <div class="ck-login-feature-card">
+                        <span>Finansal Özet</span>
+                        <strong>Aylık hakediş ve kârlılık ekranlarına aynı girişten ulaş.</strong>
+                    </div>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+        st.markdown("<div class='ck-login-form-title'>Güvenli Giriş</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ck-login-form-subtitle'>Yetkili e-posta hesabınla panele eriş.</div>", unsafe_allow_html=True)
+
         with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("Kullanıcı Adı", placeholder="Kullanıcı adını gir")
+            username = st.text_input("E-posta Adresi", placeholder="ornek@catkapinda.com")
             password = st.text_input("Şifre", type="password", placeholder="Şifreni gir")
-            remember_me = st.checkbox("Bu cihazda oturumu 30 gün açık tut", value=True)
+            remember_me = st.checkbox("Bu Cihazı Hatırla", value=True, help="Kişisel cihazlarda açık bırakabilirsin.")
             submitted = st.form_submit_button("Panele Gir", use_container_width=True)
 
-        st.caption("Bu seçenek açıkken sayfayı yenilediğinde tekrar giriş istenmez.")
+        if st.button("Şifremi Unuttum", key="login_help_toggle", use_container_width=True):
+            st.session_state.login_help_visible = not st.session_state.get("login_help_visible", False)
+
+        if st.session_state.get("login_help_visible"):
+            st.markdown(
+                """
+                <div class="ck-login-help-card">
+                    <div class="ck-login-help-title">Şifre Desteği</div>
+                    <div class="ck-login-help-text">Kurumsal e-posta adresini gir. Sistem, aktif hesabına yeni bir geçici şifre üretip e-posta ile iletsin.</div>
+                    <div class="ck-login-help-steps">
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">1</span><span>Kurumsal e-posta adresini yaz ve yeni geçici şifreyi talep et.</span></div>
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">2</span><span>Geçici şifre e-posta adresine gelsin ve bu şifreyle giriş yap.</span></div>
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">3</span><span>Panele girdikten sonra sağ üstteki <strong>Profil</strong> alanından şifreni hemen değiştir.</span></div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            with st.form("forgot_password_form", clear_on_submit=True):
+                forgot_email = st.text_input("Kurumsal E-Posta Adresi", placeholder="ornek@catkapinda.com")
+                forgot_submitted = st.form_submit_button("Yeni Geçici Şifre Gönder", use_container_width=True)
+
+            if forgot_submitted:
+                reset_identity = normalize_auth_identity(forgot_email)
+                reset_user = get_auth_user(conn, reset_identity)
+                if not reset_user or safe_int(get_row_value(reset_user, "is_active", 0), 0) != 1:
+                    st.error("Bu e-posta adresi için aktif bir hesap bulunamadı.")
+                else:
+                    temporary_password = generate_temporary_password()
+                    try:
+                        conn.execute(
+                            """
+                            UPDATE auth_users
+                            SET password_hash = ?, must_change_password = 1, updated_at = ?
+                            WHERE id = ?
+                            """,
+                            (
+                                hash_auth_password(temporary_password),
+                                datetime.utcnow().isoformat(timespec="seconds"),
+                                int(get_row_value(reset_user, "id", 0) or 0),
+                            ),
+                        )
+                        send_temporary_password_email(
+                            reset_identity,
+                            str(get_row_value(reset_user, "full_name", "") or ""),
+                            temporary_password,
+                        )
+                        conn.commit()
+                        st.session_state.login_help_visible = False
+                        st.success("Yeni geçici şifren e-posta adresine gönderildi. Giriş yaptıktan sonra Profil alanından şifreni güncelle.")
+                    except RuntimeError as exc:
+                        conn.rollback()
+                        st.error(str(exc))
+                    except Exception:
+                        conn.rollback()
+                        st.error("Şifre sıfırlama işlemi tamamlanamadı. Birkaç dakika sonra tekrar dene.")
 
         if submitted:
-            entered_username = username.strip()
-            user = USERS.get(entered_username)
-            if user and password == user["password"]:
+            entered_username = normalize_auth_identity(username)
+            user = get_auth_user(conn, entered_username)
+            if user and safe_int(get_row_value(user, "is_active", 0), 0) == 1 and verify_auth_password(password, str(get_row_value(user, "password_hash", "") or "")):
                 token = create_auth_session(conn, entered_username) if remember_me else None
                 if token:
                     set_query_param(AUTH_QUERY_KEY, token)
                 else:
                     set_query_param(AUTH_QUERY_KEY, None)
-                set_authenticated_user(entered_username, token)
+                set_authenticated_user(user, token)
+                st.session_state.login_help_visible = False
                 st.success("Giriş başarılı. Panel hazırlanıyor...")
                 st.rerun()
             else:
-                st.error("Kullanıcı adı veya şifre hatalı.")
-
-        st.markdown("</div>", unsafe_allow_html=True)
+                st.error("E-posta adresi veya şifre hatalı.")
     return False
 
 
@@ -1192,6 +1569,73 @@ def logout_button(conn: sqlite3.Connection) -> None:
     if st.sidebar.button("Oturumu Kapat", use_container_width=True):
         revoke_current_auth_session(conn)
         st.rerun()
+
+
+def render_top_profile(conn: CompatConnection) -> None:
+    current_user = get_auth_user(conn, str(st.session_state.get("username") or ""))
+    if not current_user:
+        return
+
+    _, right_col = st.columns([7, 1.45])
+    with right_col:
+        full_name = str(get_row_value(current_user, "full_name", "") or st.session_state.get("user_full_name") or "Kullanıcı")
+        email = str(get_row_value(current_user, "email", "") or st.session_state.get("username") or "")
+        role_display = str(get_row_value(current_user, "role_display", "") or st.session_state.get("user_role_display") or "")
+        password_status = "Geçici Şifre" if st.session_state.get("must_change_password") else "Güncel Şifre"
+
+        with st.popover("👤 Profil", use_container_width=True):
+            st.markdown("##### Hesap Özeti")
+            st.markdown(f"**{full_name}**")
+            st.caption(role_display)
+
+            if st.session_state.get("must_change_password"):
+                st.info("Geçici şifre kullanıyorsun. Güvenlik için aşağıdaki alandan yeni şifre belirle.")
+
+            st.markdown("##### İletişim Bilgileri")
+            st.markdown(f"**Ad Soyad:** {full_name}")
+            st.markdown(f"**E-posta:** {email}")
+
+            st.markdown("##### Hesap Durumu")
+            st.markdown(f"**Yetki:** {role_display}")
+            st.markdown(f"**Şifre Durumu:** {password_status}")
+            st.divider()
+            st.markdown("##### Şifremi Değiştir")
+
+            with st.form("change_password_form", clear_on_submit=True):
+                current_password = st.text_input("Mevcut Şifre", type="password")
+                new_password = st.text_input("Yeni Şifre", type="password")
+                confirm_password = st.text_input("Yeni Şifre Tekrar", type="password")
+                password_submitted = st.form_submit_button("Şifreyi Güncelle", use_container_width=True)
+
+            if password_submitted:
+                stored_hash = str(get_row_value(current_user, "password_hash", "") or "")
+                if not verify_auth_password(current_password, stored_hash):
+                    st.error("Mevcut şifreyi doğru girmelisin.")
+                elif len(new_password or "") < 6:
+                    st.error("Yeni şifre en az 6 karakter olmalı.")
+                elif new_password != confirm_password:
+                    st.error("Yeni şifre alanları birbiriyle aynı olmalı.")
+                else:
+                    conn.execute(
+                        """
+                        UPDATE auth_users
+                        SET password_hash = ?, must_change_password = 0, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            hash_auth_password(new_password),
+                            datetime.utcnow().isoformat(timespec="seconds"),
+                            int(get_row_value(current_user, "id", 0) or 0),
+                        ),
+                    )
+                    conn.commit()
+                    st.session_state.must_change_password = False
+                    st.success("Şifren güncellendi.")
+                    st.rerun()
+
+            if st.button("Oturumu Kapat", key="profile_logout_btn", use_container_width=True):
+                revoke_current_auth_session(conn)
+                st.rerun()
 
 
 def allowed_menu_items(role: str) -> list[str]:
@@ -2011,6 +2455,15 @@ def inject_global_styles() -> None:
                 background: rgba(245, 248, 253, 0.72);
             }
 
+            [data-testid="stToolbar"],
+            [data-testid="stDecoration"],
+            [data-testid="stStatusWidget"],
+            #MainMenu,
+            button[kind="header"],
+            [data-testid="stAppViewContainer"] > .main > div:first-child button {
+                display: none !important;
+            }
+
             .block-container {
                 max-width: 1460px;
                 padding-top: 2rem;
@@ -2358,65 +2811,253 @@ def inject_global_styles() -> None:
             }
 
             .ck-login-gap {
-                height: 5vh;
+                height: clamp(24px, 5vh, 56px);
             }
 
             .ck-login-card {
-                background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(252,253,255,0.98) 100%);
+                position: relative;
+                overflow: hidden;
+                background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%);
                 border: 1px solid rgba(231, 237, 246, 0.92);
-                border-radius: 28px;
-                padding: 30px 28px 24px;
+                border-radius: 32px;
+                padding: 28px 28px 24px;
                 box-shadow: 0 24px 60px rgba(15, 23, 42, 0.10);
                 backdrop-filter: blur(10px);
             }
 
+            .ck-login-card::before {
+                content: "";
+                position: absolute;
+                inset: 0 0 auto 0;
+                height: 180px;
+                background: radial-gradient(circle at top right, rgba(20,145,212,0.16), transparent 34%);
+                pointer-events: none;
+            }
+
+            .ck-login-logo {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                margin-bottom: 1rem;
+                position: relative;
+                z-index: 1;
+            }
+
+            .ck-login-logo-mark {
+                width: 60px;
+                height: 60px;
+                border-radius: 18px;
+                background: linear-gradient(135deg, #0D4CCD 0%, #1491D4 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 1.15rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                box-shadow: 0 18px 34px rgba(13, 76, 205, 0.22);
+            }
+
+            .ck-login-logo-mark-image {
+                background: linear-gradient(180deg, #FFFFFF 0%, #F4F8FF 100%);
+                border: 1px solid #DCE7FF;
+                padding: 6px;
+            }
+
+            .ck-login-logo-image {
+                width: 100%;
+                height: 100%;
+                display: block;
+                object-fit: contain;
+                border-radius: 12px;
+            }
+
+            .ck-login-logo-copy {
+                display: flex;
+                flex-direction: column;
+                gap: 0.18rem;
+            }
+
+            .ck-login-logo-eyebrow {
+                color: #5A7198;
+                font-size: 0.78rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+            }
+
+            .ck-login-logo-line {
+                color: var(--ck-text);
+                font-size: 1.28rem;
+                font-weight: 850;
+                letter-spacing: -0.04em;
+            }
+
             .ck-login-kicker {
                 width: fit-content;
-                margin: 0 auto 1rem auto;
+                margin: 0 0 1rem 0;
                 padding: 7px 12px;
                 border-radius: 999px;
                 background: var(--ck-primary-soft);
                 color: var(--ck-primary);
                 border: 1px solid #D8E5FF;
-                font-size: 0.75rem;
+                font-size: 0.74rem;
                 font-weight: 800;
                 letter-spacing: 0.12em;
+                position: relative;
+                z-index: 1;
             }
 
             .ck-login-title {
-                font-size: 2.1rem;
-                font-weight: 800;
-                text-align: center;
-                letter-spacing: -0.05em;
+                font-size: 2.2rem;
+                font-weight: 850;
+                letter-spacing: -0.06em;
                 color: var(--ck-text);
-                margin-bottom: 0.45rem;
+                margin-bottom: 0.55rem;
                 line-height: 1.02;
+                max-width: 700px;
+                position: relative;
+                z-index: 1;
             }
 
             .ck-login-subtitle {
-                text-align: center;
                 color: var(--ck-muted);
-                line-height: 1.6;
-                margin-bottom: 1.05rem;
-                font-size: 0.96rem;
-            }
-
-            .ck-login-feature-row {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-                justify-content: center;
+                line-height: 1.7;
                 margin-bottom: 1.15rem;
+                font-size: 0.97rem;
+                max-width: 690px;
+                position: relative;
+                z-index: 1;
             }
 
-            .ck-login-feature {
-                padding: 7px 11px;
-                border-radius: 999px;
+            .ck-login-feature-grid {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 12px;
+                margin-bottom: 1.25rem;
+                position: relative;
+                z-index: 1;
+            }
+
+            .ck-login-feature-card {
+                min-height: 96px;
+                padding: 14px 15px;
+                border-radius: 18px;
+                background: rgba(255,255,255,0.82);
+                border: 1px solid #E2EBFA;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+            }
+
+            .ck-login-feature-card span {
+                display: block;
+                margin-bottom: 0.45rem;
+                color: #3F6EA9;
+                font-size: 0.76rem;
+                font-weight: 800;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+
+            .ck-login-feature-card strong {
+                display: block;
+                color: var(--ck-text);
+                font-size: 0.93rem;
+                line-height: 1.5;
+                font-weight: 760;
+            }
+
+            .ck-login-form-shell {
+                position: relative;
+                z-index: 1;
+                background: rgba(255,255,255,0.96);
+                border: 1px solid #E4ECF8;
+                border-radius: 24px;
+                padding: 20px 18px 16px;
+                box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+            }
+
+            .ck-login-form-title {
+                color: var(--ck-text);
+                font-size: 1.06rem;
+                font-weight: 850;
+                letter-spacing: -0.03em;
+            }
+
+            .ck-login-form-subtitle {
+                color: var(--ck-muted);
+                margin: 0.32rem 0 1rem;
+                font-size: 0.9rem;
+                line-height: 1.6;
+            }
+
+            .ck-login-card [data-testid="stTextInputRootElement"] input {
+                border-radius: 14px;
+            }
+
+            .ck-login-card .stCheckbox label {
+                color: #42526B;
+                font-weight: 600;
+            }
+
+            .ck-login-card div[data-testid="stFormSubmitButton"] button {
+                background: linear-gradient(135deg, #0D4CCD 0%, #1491D4 100%);
+                color: white;
+                border: none;
+                box-shadow: 0 16px 30px rgba(13, 76, 205, 0.24);
+            }
+
+            .ck-login-card div[data-testid="stFormSubmitButton"] button p {
+                color: white !important;
+            }
+
+            .ck-login-help-card {
+                margin-top: 0.85rem;
+                padding: 14px 15px;
+                border-radius: 18px;
                 background: #F7FAFF;
-                border: 1px solid #E1EBFF;
-                color: #31508B;
-                font-size: 0.8rem;
-                font-weight: 700;
+                border: 1px solid #DCE8FB;
+            }
+
+            .ck-login-help-title {
+                color: var(--ck-text);
+                font-size: 0.98rem;
+                font-weight: 820;
+                margin-bottom: 0.35rem;
+            }
+
+            .ck-login-help-text {
+                color: #4B5E7A;
+                font-size: 0.88rem;
+                line-height: 1.6;
+            }
+
+            .ck-login-help-steps {
+                display: grid;
+                gap: 8px;
+                margin-top: 0.78rem;
+            }
+
+            .ck-login-help-step {
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                color: #294467;
+                font-size: 0.86rem;
+                line-height: 1.55;
+            }
+
+            .ck-login-help-step-badge {
+                width: 24px;
+                height: 24px;
+                flex: 0 0 24px;
+                border-radius: 999px;
+                background: #E8F0FF;
+                color: #0D4CCD;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.76rem;
+                font-weight: 900;
             }
 
             div[data-testid="stMetric"] {
@@ -2577,6 +3218,14 @@ def inject_global_styles() -> None:
                 .ck-hero-grid {
                     grid-template-columns: repeat(2, minmax(0, 1fr));
                 }
+
+                .ck-login-feature-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .ck-login-title {
+                    font-size: 1.8rem;
+                }
             }
 
             @media (max-width: 640px) {
@@ -2599,6 +3248,29 @@ def inject_global_styles() -> None:
 
                 .ck-update-grid {
                     grid-template-columns: 1fr;
+                }
+
+                .ck-login-card {
+                    padding: 22px 18px 18px;
+                    border-radius: 26px;
+                }
+
+                .ck-login-logo-mark {
+                    width: 52px;
+                    height: 52px;
+                    border-radius: 16px;
+                }
+
+                .ck-login-logo-line {
+                    font-size: 1.08rem;
+                }
+
+                .ck-login-title {
+                    font-size: 1.55rem;
+                }
+
+                .ck-login-form-shell {
+                    padding: 18px 14px 14px;
                 }
             }
         </style>
@@ -5214,6 +5886,7 @@ def main() -> None:
         logout_button(conn)
 
         ensure_role_access(menu, role)
+        render_top_profile(conn)
 
         if menu == "Genel Bakış":
             dashboard_tab(conn)
