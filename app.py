@@ -85,6 +85,7 @@ COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 COURIER_PACKAGE_COST_QC = 25.0
 PACKAGE_THRESHOLD_DEFAULT = 390
 AUTO_MOTOR_RENTAL_DEDUCTION = 13000.0
+MOTOR_RENTAL_STANDARD_MONTH_DAYS = 30
 AUTO_ACCOUNTING_DEDUCTION = 2000.0
 AUTO_ACCOUNTANT_COST = 1400.0
 AUTO_COMPANY_SETUP_DEDUCTION = 1500.0
@@ -98,8 +99,8 @@ AUTO_ONBOARDING_ITEMS = [
     {"key": "korumali_mont", "item_name": "Korumalı Mont", "unit_sale_price": 4750.0, "vat_rate": 10.0},
 ]
 PRICING_MODEL_LABELS = {
-    "hourly_plus_package": "Saatlik + Paket",
-    "threshold_package": "Eşikli Paket",
+    "hourly_plus_package": "Hacimsiz Primli",
+    "threshold_package": "Hacimli Primli",
     "hourly_only": "Sadece Saatlik",
     "fixed_monthly": "Sabit Aylık Ücret",
 }
@@ -1733,14 +1734,26 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
         div[data-testid="stForm"] [data-testid="stTextInputRootElement"] input {
             min-height: 56px;
+            height: 56px;
             border-radius: 18px;
             background: #F7FAFF;
             border: 1px solid #DCE7FA;
+            padding: 0 18px !important;
+            line-height: 1.2 !important;
+            display: flex;
+            align-items: center;
+        }
+
+        div[data-testid="stForm"] [data-baseweb="input"] {
+            align-items: center;
         }
 
         div[data-testid="stForm"] [data-baseweb="input"] > div {
+            min-height: 56px;
             background: transparent !important;
             border: none !important;
+            display: flex;
+            align-items: center;
         }
 
         div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] > button {
@@ -1929,16 +1942,16 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     </div>
                     <div class="ck-login-hero-stats">
                         <div class="ck-login-hero-stat">
-                            <small>Güvenli erişim</small>
-                            <strong>E-posta tabanlı kurumsal oturum</strong>
+                            <small>Kurumsal erişim</small>
+                            <strong>Yetkili kullanıcılar için güvenli ve kontrollü giriş altyapısı</strong>
                         </div>
                         <div class="ck-login-hero-stat">
-                            <small>Şifre desteği</small>
-                            <strong>Mail ile geçici parola yenileme</strong>
+                            <small>Hesap sürekliliği</small>
+                            <strong>Geçici parola ve profil güncelleme akışıyla kesintisiz erişim</strong>
                         </div>
                         <div class="ck-login-hero-stat">
-                            <small>Çalışma düzeni</small>
-                            <strong>Önce staging, sonra canlı geçiş</strong>
+                            <small>Yönetim standardı</small>
+                            <strong>Operasyon, personel ve finans görünümünü tek merkezden yönet</strong>
                         </div>
                     </div>
                 </div>
@@ -1950,17 +1963,17 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             st.markdown(
                 """
                 <div class="ck-login-panel-head">
-                    <div class="ck-login-panel-kicker">Yetkili Erisim</div>
-                    <div class="ck-login-panel-title">Panele giriş yap</div>
-                    <div class="ck-login-panel-subtitle">Kurumsal e-posta hesabınla güvenli şekilde devam et. Şifreni unuttuysan sistem sana yeni geçici şifreyi doğrudan e-posta ile göndersin.</div>
+                    <div class="ck-login-panel-kicker">Kurumsal Erişim</div>
+                    <div class="ck-login-panel-title">Operasyon paneline giriş yap</div>
+                    <div class="ck-login-panel-subtitle">Yetkili hesabınla giriş yaparak şube operasyonunu, saha ekiplerini ve finans görünümünü tek merkezden yönet. Erişim ihtiyacında sistem sana kontrollü şekilde yeni geçici parola oluştursun.</div>
                     <div class="ck-login-panel-badges">
-                        <span>Mail ile sıfırlama</span>
-                        <span>Güvenli oturum</span>
-                        <span>Hatırlanan cihazlar</span>
+                        <span>Kurumsal giriş katmanı</span>
+                        <span>Hızlı parola yenileme</span>
+                        <span>Kontrollü oturum devamlılığı</span>
                     </div>
                 </div>
-                <div class="ck-login-form-title">Giriş Bilgileri</div>
-                <div class="ck-login-form-subtitle">Yetkili e-posta hesabın ve kişisel şifrenle devam et.</div>
+                <div class="ck-login-form-title">Hesap Bilgileri</div>
+                <div class="ck-login-form-subtitle">Kurumsal e-posta adresin ve güncel şifrenle girişini tamamla.</div>
                 """,
                 unsafe_allow_html=True,
             )
@@ -2395,6 +2408,37 @@ def build_monthly_deduction_date(start_value: date, month_start_value: date) -> 
     return month_start_value
 
 
+def count_person_worked_days_in_range(
+    conn: CompatConnection,
+    personnel_id: int,
+    period_start: date,
+    period_end: date,
+) -> int:
+    if personnel_id <= 0 or period_end < period_start:
+        return 0
+
+    row = conn.execute(
+        """
+        SELECT COUNT(DISTINCT entry_date)
+        FROM daily_entries
+        WHERE actual_personnel_id = ?
+          AND entry_date BETWEEN ? AND ?
+          AND (
+              status NOT IN ('İzin', 'Gelmedi')
+              OR worked_hours > 0
+              OR package_count > 0
+          )
+        """,
+        (personnel_id, period_start.isoformat(), period_end.isoformat()),
+    ).fetchone()
+    return max(int(first_row_value(row, 0) or 0), 0)
+
+
+def calculate_prorated_motor_rental_amount(worked_days: int) -> float:
+    billable_days = min(max(int(worked_days or 0), 0), MOTOR_RENTAL_STANDARD_MONTH_DAYS)
+    return round((AUTO_MOTOR_RENTAL_DEDUCTION / MOTOR_RENTAL_STANDARD_MONTH_DAYS) * billable_days, 2)
+
+
 def sync_person_auto_deductions(
     conn: CompatConnection,
     person_row: Any,
@@ -2432,7 +2476,23 @@ def sync_person_auto_deductions(
         str(get_row_value(person_row, "motor_rental", "Hayır") or "Hayır"),
     )
     if effective_motor_rental == "Evet":
-        add_monthly_rows("auto:motor_rental", "Motor kira", AUTO_MOTOR_RENTAL_DEDUCTION, "Sistem: Çat Kapında motor kira kesintisi")
+        for month_value in iter_month_starts(recurring_start, period_end):
+            month_last_day = calendar.monthrange(month_value.year, month_value.month)[1]
+            month_end_value = date(month_value.year, month_value.month, month_last_day)
+            active_period_start = max(start_value, month_value)
+            active_period_end = min(period_end, month_end_value)
+            worked_days = count_person_worked_days_in_range(conn, person_id, active_period_start, active_period_end)
+            amount = calculate_prorated_motor_rental_amount(worked_days)
+            if amount <= 0:
+                continue
+            auto_key = f"auto:motor_rental:{month_value.strftime('%Y-%m')}"
+            due_date = build_monthly_deduction_date(start_value, month_value).isoformat()
+            expected_rows[auto_key] = {
+                "deduction_date": due_date,
+                "deduction_type": "Motor kira",
+                "amount": amount,
+                "notes": f"Sistem: Çat Kapında motor kira kesintisi ({worked_days} gün, KDV dahil)",
+            }
 
     if str(get_row_value(person_row, "accounting_type", "Kendi Muhasebecisi") or "Kendi Muhasebecisi") == "Çat Kapında Muhasebe":
         add_monthly_rows("auto:accounting", "Muhasebe Ücreti", AUTO_ACCOUNTING_DEDUCTION, "Sistem: Çat Kapında muhasebe kesintisi")
@@ -2628,7 +2688,28 @@ def sync_person_business_rules(
     sync_person_auto_onboarding(conn, person_row, create_missing=create_onboarding)
 
 
-def sync_all_personnel_business_rules(conn: CompatConnection) -> None:
+def sync_personnel_business_rules_for_ids(
+    conn: CompatConnection,
+    personnel_ids: Iterable[int],
+    create_onboarding: bool = False,
+    full_history: bool = True,
+) -> None:
+    unique_ids = []
+    seen = set()
+    for personnel_id in personnel_ids:
+        resolved_id = safe_int(personnel_id)
+        if resolved_id <= 0 or resolved_id in seen:
+            continue
+        seen.add(resolved_id)
+        unique_ids.append(resolved_id)
+
+    for personnel_id in unique_ids:
+        person_row = conn.execute("SELECT * FROM personnel WHERE id = ?", (personnel_id,)).fetchone()
+        if person_row:
+            sync_person_business_rules(conn, person_row, create_onboarding=create_onboarding, full_history=full_history)
+
+
+def sync_all_personnel_business_rules(conn: CompatConnection, full_history: bool = False) -> None:
     people_df = fetch_df(conn, "SELECT * FROM personnel")
     if people_df.empty:
         return
@@ -2679,7 +2760,7 @@ def sync_all_personnel_business_rules(conn: CompatConnection) -> None:
             row["accountant_cost"] = auto_accountant_cost
             row["company_setup_revenue"] = auto_company_setup_revenue
             row["company_setup_cost"] = auto_company_setup_cost
-        sync_person_auto_deductions(conn, row, full_history=False)
+        sync_person_auto_deductions(conn, row, full_history=full_history)
         sync_person_auto_onboarding(conn, row, create_missing=False)
 
 
@@ -3273,6 +3354,20 @@ def inject_global_styles() -> None:
                 color: rgba(255,255,255,0.86);
             }
 
+            .ck-field-label {
+                margin: 0.1rem 0 0.35rem;
+                color: #324766;
+                font-size: 0.95rem;
+                font-weight: 700;
+                line-height: 1.35;
+            }
+
+            .ck-required-star {
+                color: #E11D48;
+                font-weight: 900;
+                margin-left: 0.15rem;
+            }
+
             .ck-login-gap {
                 height: clamp(24px, 5vh, 56px);
             }
@@ -3788,6 +3883,14 @@ def render_action_card(title: str, subtitle: str, highlight: bool = False) -> No
     )
 
 
+def render_field_label(label: str, required: bool = False) -> None:
+    required_html = ' <span class="ck-required-star">*</span>' if required else ""
+    st.markdown(
+        f'<div class="ck-field-label">{html.escape(label)}{required_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def resolve_motor_rental_value(vehicle_type: str, motor_rental: str) -> str:
     normalized_vehicle_type = (vehicle_type or "").strip()
     if normalized_vehicle_type == "Kendi":
@@ -4121,6 +4224,112 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
     )
     st.dataframe(perf_display, use_container_width=True, hide_index=True)
 
+
+def validate_restaurant_form(
+    brand: str,
+    branch: str,
+    pricing_model: str,
+    hourly_rate: float,
+    package_rate: float,
+    package_threshold: int,
+    package_rate_low: float,
+    package_rate_high: float,
+    fixed_fee: float,
+    headcount: int,
+    start_date_value: date | None,
+    end_date_value: date | None,
+    extra_req: int,
+    extra_req_date: date | None,
+    reduce_req: int,
+    reduce_req_date: date | None,
+    contact_name: str,
+    contact_phone: str,
+    contact_email: str,
+    tax_office: str,
+    tax_number: str,
+) -> list[str]:
+    errors = []
+    if not (brand or "").strip():
+        errors.append("Marka alanı zorunlu.")
+    if not (branch or "").strip():
+        errors.append("Şube alanı zorunlu.")
+    if not (contact_name or "").strip():
+        errors.append("Yetkili ad soyad alanı zorunlu.")
+    if not (contact_phone or "").strip():
+        errors.append("Yetkili telefon alanı zorunlu.")
+    if not (contact_email or "").strip():
+        errors.append("Yetkili e-posta alanı zorunlu.")
+    if not (tax_office or "").strip():
+        errors.append("Vergi dairesi alanı zorunlu.")
+    if not (tax_number or "").strip():
+        errors.append("Vergi numarası alanı zorunlu.")
+    if headcount <= 0:
+        errors.append("Hedef kadro 0'dan büyük olmalı.")
+    if start_date_value is None:
+        errors.append("Başlangıç tarihi zorunlu.")
+    if start_date_value and end_date_value and end_date_value < start_date_value:
+        errors.append("Bitiş tarihi başlangıç tarihinden önce olamaz.")
+    if extra_req > 0 and extra_req_date is None:
+        errors.append("Ek kurye talebi girildiğinde ek talep tarihi de seçilmeli.")
+    if reduce_req > 0 and reduce_req_date is None:
+        errors.append("Kurye azaltma talebi girildiğinde azaltma talep tarihi de seçilmeli.")
+
+    if pricing_model == "hourly_plus_package":
+        if hourly_rate <= 0:
+            errors.append("Saatlik + Paket modelinde saatlik ücret zorunlu.")
+        if package_rate <= 0:
+            errors.append("Saatlik + Paket modelinde paket primi zorunlu.")
+    elif pricing_model == "threshold_package":
+        if hourly_rate <= 0:
+            errors.append("Eşikli Paket modelinde saatlik ücret zorunlu.")
+        if package_threshold <= 0:
+            errors.append("Eşikli Paket modelinde paket eşiği zorunlu.")
+        if package_rate_low <= 0 or package_rate_high <= 0:
+            errors.append("Eşikli Paket modelinde eşik altı ve eşik üstü primler zorunlu.")
+    elif pricing_model == "hourly_only":
+        if hourly_rate <= 0:
+            errors.append("Sadece Saatlik modelinde saatlik ücret zorunlu.")
+    elif pricing_model == "fixed_monthly":
+        if fixed_fee <= 0:
+            errors.append("Sabit Aylık Ücret modelinde sabit aylık ücret zorunlu.")
+
+    return errors
+
+
+def validate_personnel_form(
+    full_name: str,
+    phone: str,
+    tc_no: str,
+    iban: str,
+    address: str,
+    current_plate: str,
+    role: str,
+    assigned_restaurant_id: int | None,
+    start_date_value: date | None,
+    cost_model: str,
+    monthly_fixed_cost: float,
+) -> list[str]:
+    errors = []
+    if not (full_name or "").strip():
+        errors.append("Ad Soyad alanı zorunlu.")
+    if not (phone or "").strip():
+        errors.append("Telefon alanı zorunlu.")
+    if not (tc_no or "").strip():
+        errors.append("TC Kimlik No alanı zorunlu.")
+    if not (iban or "").strip():
+        errors.append("IBAN alanı zorunlu.")
+    if not (address or "").strip():
+        errors.append("Adres alanı zorunlu.")
+    if not (current_plate or "").strip():
+        errors.append("Güncel plaka alanı zorunlu.")
+    if start_date_value is None:
+        errors.append("İşe giriş tarihi zorunlu.")
+    if role in {"Kurye", "Restoran Takım Şefi"} and not assigned_restaurant_id:
+        errors.append("Bu rol için ana restoran seçilmesi zorunlu.")
+    if is_fixed_cost_model(cost_model) and monthly_fixed_cost <= 0:
+        errors.append("Sabit maliyetli rollerde aylık sabit maliyet zorunlu.")
+    return errors
+
 def restaurants_tab(conn: sqlite3.Connection) -> None:
     df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
     active_count = int(df["active"].apply(lambda x: safe_int(x, 0)).sum()) if not df.empty else 0
@@ -4241,36 +4450,77 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
     elif workspace_mode == "add":
         render_tab_header("Yeni Şube Kartı", "Temel bilgiler, fiyatlandırma, operasyon ve iletişim alanlarını daha düzenli bloklar halinde gir.")
-        with st.form("restaurant_form", clear_on_submit=True):
+        with st.container():
             st.markdown("##### Temel Bilgiler")
             c1, c2 = st.columns(2)
-            brand = c1.text_input("Marka")
-            branch = c2.text_input("Şube")
+            with c1:
+                render_field_label("Marka", required=True)
+                brand = st.text_input("Marka", label_visibility="collapsed")
+            with c2:
+                render_field_label("Şube", required=True)
+                branch = st.text_input("Şube", label_visibility="collapsed")
 
             st.markdown("##### Fiyatlandırma")
             c4, c5 = st.columns(2)
-            pricing_model = c4.selectbox(
-                "Fiyat Modeli",
-                list(PRICING_MODEL_LABELS.keys()),
-                format_func=lambda x: PRICING_MODEL_LABELS.get(x, x),
-            )
-            vat_rate = c5.number_input("KDV %", min_value=0.0, value=20.0, step=1.0)
+            with c4:
+                render_field_label("Fiyat Modeli", required=True)
+                pricing_model = st.selectbox(
+                    "Fiyat Modeli",
+                    list(PRICING_MODEL_LABELS.keys()),
+                    format_func=lambda x: PRICING_MODEL_LABELS.get(x, x),
+                    label_visibility="collapsed",
+                )
+            with c5:
+                render_field_label("KDV %")
+                vat_rate = st.number_input("KDV %", min_value=0.0, value=20.0, step=1.0, label_visibility="collapsed")
 
-            c6, c7, c8 = st.columns(3)
-            hourly_rate = c6.number_input("Saatlik Ücret", min_value=0.0, value=0.0, step=1.0)
-            package_rate = c7.number_input("Paket Primi", min_value=0.0, value=0.0, step=1.0)
-            package_threshold = c8.number_input("Paket Eşiği", min_value=0, value=390, step=1)
+            hourly_rate = 0.0
+            package_rate = 0.0
+            package_threshold = 0
+            package_rate_low = 0.0
+            package_rate_high = 0.0
+            fixed_fee = 0.0
 
-            c9, c10, c11 = st.columns(3)
-            package_rate_low = c9.number_input("Eşik Altı Prim", min_value=0.0, value=0.0, step=0.25)
-            package_rate_high = c10.number_input("Eşik Üstü Prim", min_value=0.0, value=0.0, step=0.25)
-            fixed_fee = c11.number_input("Sabit Aylık Ücret", min_value=0.0, value=0.0, step=100.0)
+            if pricing_model == "hourly_plus_package":
+                c6, c7 = st.columns(2)
+                with c6:
+                    render_field_label("Saatlik Ücret", required=True)
+                    hourly_rate = st.number_input("Saatlik Ücret", min_value=0.0, value=0.0, step=1.0, label_visibility="collapsed")
+                with c7:
+                    render_field_label("Paket Primi", required=True)
+                    package_rate = st.number_input("Paket Primi", min_value=0.0, value=0.0, step=1.0, label_visibility="collapsed")
+            elif pricing_model == "threshold_package":
+                c6, c7, c8, c9 = st.columns(4)
+                with c6:
+                    render_field_label("Saatlik Ücret", required=True)
+                    hourly_rate = st.number_input("Saatlik Ücret", min_value=0.0, value=0.0, step=1.0, label_visibility="collapsed")
+                with c7:
+                    render_field_label("Paket Eşiği", required=True)
+                    package_threshold = st.number_input("Paket Eşiği", min_value=0, value=390, step=1, label_visibility="collapsed")
+                with c8:
+                    render_field_label("Eşik Altı Prim", required=True)
+                    package_rate_low = st.number_input("Eşik Altı Prim", min_value=0.0, value=0.0, step=0.25, label_visibility="collapsed")
+                with c9:
+                    render_field_label("Eşik Üstü Prim", required=True)
+                    package_rate_high = st.number_input("Eşik Üstü Prim", min_value=0.0, value=0.0, step=0.25, label_visibility="collapsed")
+            elif pricing_model == "hourly_only":
+                render_field_label("Saatlik Ücret", required=True)
+                hourly_rate = st.number_input("Saatlik Ücret", min_value=0.0, value=0.0, step=1.0, label_visibility="collapsed")
+            elif pricing_model == "fixed_monthly":
+                render_field_label("Sabit Aylık Ücret", required=True)
+                fixed_fee = st.number_input("Sabit Aylık Ücret", min_value=0.0, value=0.0, step=100.0, label_visibility="collapsed")
 
             st.markdown("##### Operasyon ve Kadro")
             c12, c13, c14 = st.columns(3)
-            headcount = c12.number_input("Hedef Kadro", min_value=0, value=0, step=1)
-            start_date_val = c13.date_input("Başlangıç Tarihi", value=None)
-            end_date_val = c14.date_input("Bitiş Tarihi", value=None)
+            with c12:
+                render_field_label("Hedef Kadro", required=True)
+                headcount = st.number_input("Hedef Kadro", min_value=0, value=0, step=1, label_visibility="collapsed")
+            with c13:
+                render_field_label("Başlangıç Tarihi", required=True)
+                start_date_val = st.date_input("Başlangıç Tarihi", value=None, label_visibility="collapsed")
+            with c14:
+                render_field_label("Bitiş Tarihi")
+                end_date_val = st.date_input("Bitiş Tarihi", value=None, label_visibility="collapsed")
 
             c15, c16 = st.columns(2)
             extra_req = c15.number_input("Ek Kurye Talep Sayısı", min_value=0, value=0, step=1)
@@ -4282,59 +4532,96 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
             st.markdown("##### İletişim ve Vergi")
             c19, c20, c21 = st.columns(3)
-            contact_name = c19.text_input("Yetkili Ad Soyad")
-            contact_phone = c20.text_input("Yetkili Telefon")
-            contact_email = c21.text_input("Yetkili E-Posta")
+            with c19:
+                render_field_label("Yetkili Ad Soyad", required=True)
+                contact_name = st.text_input("Yetkili Ad Soyad", label_visibility="collapsed")
+            with c20:
+                render_field_label("Yetkili Telefon", required=True)
+                contact_phone = st.text_input("Yetkili Telefon", label_visibility="collapsed")
+            with c21:
+                render_field_label("Yetkili E-Posta", required=True)
+                contact_email = st.text_input("Yetkili E-Posta", label_visibility="collapsed")
 
             c22, c23 = st.columns(2)
-            tax_office = c22.text_input("Vergi Dairesi")
-            tax_number = c23.text_input("Vergi Numarası")
+            with c22:
+                render_field_label("Vergi Dairesi", required=True)
+                tax_office = st.text_input("Vergi Dairesi", label_visibility="collapsed")
+            with c23:
+                render_field_label("Vergi Numarası", required=True)
+                tax_number = st.text_input("Vergi Numarası", label_visibility="collapsed")
 
             notes = st.text_area("Notlar", placeholder="Şube içi önemli notlar, çalışma düzeni veya anlaşma detayı")
-            submitted = st.form_submit_button("Şube Kartını Oluştur", use_container_width=True)
-            if submitted and brand and branch:
-                conn.execute(
-                    """
-                    INSERT INTO restaurants (
-                        brand, branch, billing_group, pricing_model, hourly_rate, package_rate,
-                        package_threshold, package_rate_low, package_rate_high, fixed_monthly_fee,
-                        vat_rate, target_headcount, start_date, end_date,
-                        extra_headcount_request, extra_headcount_request_date,
-                        reduce_headcount_request, reduce_headcount_request_date,
-                        contact_name, contact_phone, contact_email, tax_office, tax_number,
-                        active, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-                    """,
-                    (
-                        brand,
-                        branch,
-                        None,
-                        pricing_model,
-                        hourly_rate,
-                        package_rate,
-                        package_threshold,
-                        package_rate_low,
-                        package_rate_high,
-                        fixed_fee,
-                        vat_rate,
-                        headcount,
-                        start_date_val.isoformat() if isinstance(start_date_val, date) else None,
-                        end_date_val.isoformat() if isinstance(end_date_val, date) else None,
-                        extra_req,
-                        extra_req_date.isoformat() if isinstance(extra_req_date, date) else None,
-                        reduce_req,
-                        reduce_req_date.isoformat() if isinstance(reduce_req_date, date) else None,
-                        contact_name,
-                        contact_phone,
-                        contact_email,
-                        tax_office,
-                        tax_number,
-                        notes,
-                    ),
+            submitted = st.button("Şube Kartını Oluştur", use_container_width=True, key="restaurant_create_submit")
+            if submitted:
+                validation_errors = validate_restaurant_form(
+                    brand=brand,
+                    branch=branch,
+                    pricing_model=pricing_model,
+                    hourly_rate=hourly_rate,
+                    package_rate=package_rate,
+                    package_threshold=package_threshold,
+                    package_rate_low=package_rate_low,
+                    package_rate_high=package_rate_high,
+                    fixed_fee=fixed_fee,
+                    headcount=headcount,
+                    start_date_value=start_date_val if isinstance(start_date_val, date) else None,
+                    end_date_value=end_date_val if isinstance(end_date_val, date) else None,
+                    extra_req=extra_req,
+                    extra_req_date=extra_req_date if isinstance(extra_req_date, date) else None,
+                    reduce_req=reduce_req,
+                    reduce_req_date=reduce_req_date if isinstance(reduce_req_date, date) else None,
+                    contact_name=contact_name,
+                    contact_phone=contact_phone,
+                    contact_email=contact_email,
+                    tax_office=tax_office,
+                    tax_number=tax_number,
                 )
-                conn.commit()
-                set_flash_message("success", "Restoran başarıyla eklendi.")
-                st.rerun()
+                if validation_errors:
+                    for error_text in validation_errors:
+                        st.error(error_text)
+                else:
+                    conn.execute(
+                        """
+                        INSERT INTO restaurants (
+                            brand, branch, billing_group, pricing_model, hourly_rate, package_rate,
+                            package_threshold, package_rate_low, package_rate_high, fixed_monthly_fee,
+                            vat_rate, target_headcount, start_date, end_date,
+                            extra_headcount_request, extra_headcount_request_date,
+                            reduce_headcount_request, reduce_headcount_request_date,
+                            contact_name, contact_phone, contact_email, tax_office, tax_number,
+                            active, notes
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                        """,
+                        (
+                            brand,
+                            branch,
+                            None,
+                            pricing_model,
+                            hourly_rate,
+                            package_rate,
+                            package_threshold if pricing_model == "threshold_package" else None,
+                            package_rate_low,
+                            package_rate_high,
+                            fixed_fee,
+                            vat_rate,
+                            headcount,
+                            start_date_val.isoformat() if isinstance(start_date_val, date) else None,
+                            end_date_val.isoformat() if isinstance(end_date_val, date) else None,
+                            extra_req,
+                            extra_req_date.isoformat() if isinstance(extra_req_date, date) else None,
+                            reduce_req,
+                            reduce_req_date.isoformat() if isinstance(reduce_req_date, date) else None,
+                            contact_name,
+                            contact_phone,
+                            contact_email,
+                            tax_office,
+                            tax_number,
+                            notes,
+                        ),
+                    )
+                    conn.commit()
+                    set_flash_message("success", "Restoran başarıyla eklendi.")
+                    st.rerun()
 
     else:
         if df.empty:
@@ -4357,41 +4644,82 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                     ],
                 )
             with left:
-                with st.form("restaurant_edit_form"):
+                with st.container():
                     st.markdown("##### Temel Bilgiler")
                     c1, c2 = st.columns(2)
-                    edit_brand = c1.text_input("Marka", value=selected_row["brand"] or "")
-                    edit_branch = c2.text_input("Şube", value=selected_row["branch"] or "")
+                    with c1:
+                        render_field_label("Marka", required=True)
+                        edit_brand = st.text_input("Marka", value=selected_row["brand"] or "", label_visibility="collapsed")
+                    with c2:
+                        render_field_label("Şube", required=True)
+                        edit_branch = st.text_input("Şube", value=selected_row["branch"] or "", label_visibility="collapsed")
 
                     st.markdown("##### Fiyatlandırma")
                     pricing_options = list(PRICING_MODEL_LABELS.keys())
                     current_pricing = selected_row["pricing_model"] if pd.notna(selected_row["pricing_model"]) and selected_row["pricing_model"] in pricing_options else pricing_options[0]
                     c4, c5 = st.columns(2)
-                    edit_pricing_model = c4.selectbox(
-                        "Fiyat Modeli",
-                        pricing_options,
-                        index=pricing_options.index(current_pricing),
-                        format_func=lambda x: PRICING_MODEL_LABELS.get(x, x),
-                    )
-                    edit_vat_rate = c5.number_input("KDV %", min_value=0.0, value=safe_float(selected_row["vat_rate"], 20.0), step=1.0)
+                    with c4:
+                        render_field_label("Fiyat Modeli", required=True)
+                        edit_pricing_model = st.selectbox(
+                            "Fiyat Modeli",
+                            pricing_options,
+                            index=pricing_options.index(current_pricing),
+                            format_func=lambda x: PRICING_MODEL_LABELS.get(x, x),
+                            label_visibility="collapsed",
+                        )
+                    with c5:
+                        render_field_label("KDV %")
+                        edit_vat_rate = st.number_input("KDV %", min_value=0.0, value=safe_float(selected_row["vat_rate"], 20.0), step=1.0, label_visibility="collapsed")
 
-                    c6, c7, c8 = st.columns(3)
-                    edit_hourly_rate = c6.number_input("Saatlik Ücret", min_value=0.0, value=safe_float(selected_row["hourly_rate"]), step=1.0)
-                    edit_package_rate = c7.number_input("Paket Primi", min_value=0.0, value=safe_float(selected_row["package_rate"]), step=1.0)
-                    edit_package_threshold = c8.number_input("Paket Eşiği", min_value=0, value=safe_int(selected_row["package_threshold"], 390), step=1)
+                    edit_hourly_rate = 0.0
+                    edit_package_rate = 0.0
+                    edit_package_threshold = 0
+                    edit_package_rate_low = 0.0
+                    edit_package_rate_high = 0.0
+                    edit_fixed_fee = 0.0
 
-                    c9, c10, c11 = st.columns(3)
-                    edit_package_rate_low = c9.number_input("Eşik Altı Prim", min_value=0.0, value=safe_float(selected_row["package_rate_low"]), step=0.25)
-                    edit_package_rate_high = c10.number_input("Eşik Üstü Prim", min_value=0.0, value=safe_float(selected_row["package_rate_high"]), step=0.25)
-                    edit_fixed_fee = c11.number_input("Sabit Aylık Ücret", min_value=0.0, value=safe_float(selected_row["fixed_monthly_fee"]), step=100.0)
+                    if edit_pricing_model == "hourly_plus_package":
+                        c6, c7 = st.columns(2)
+                        with c6:
+                            render_field_label("Saatlik Ücret", required=True)
+                            edit_hourly_rate = st.number_input("Saatlik Ücret", min_value=0.0, value=safe_float(selected_row["hourly_rate"]), step=1.0, label_visibility="collapsed")
+                        with c7:
+                            render_field_label("Paket Primi", required=True)
+                            edit_package_rate = st.number_input("Paket Primi", min_value=0.0, value=safe_float(selected_row["package_rate"]), step=1.0, label_visibility="collapsed")
+                    elif edit_pricing_model == "threshold_package":
+                        c6, c7, c8, c9 = st.columns(4)
+                        with c6:
+                            render_field_label("Saatlik Ücret", required=True)
+                            edit_hourly_rate = st.number_input("Saatlik Ücret", min_value=0.0, value=safe_float(selected_row["hourly_rate"]), step=1.0, label_visibility="collapsed")
+                        with c7:
+                            render_field_label("Paket Eşiği", required=True)
+                            edit_package_threshold = st.number_input("Paket Eşiği", min_value=0, value=safe_int(selected_row["package_threshold"], 390), step=1, label_visibility="collapsed")
+                        with c8:
+                            render_field_label("Eşik Altı Prim", required=True)
+                            edit_package_rate_low = st.number_input("Eşik Altı Prim", min_value=0.0, value=safe_float(selected_row["package_rate_low"]), step=0.25, label_visibility="collapsed")
+                        with c9:
+                            render_field_label("Eşik Üstü Prim", required=True)
+                            edit_package_rate_high = st.number_input("Eşik Üstü Prim", min_value=0.0, value=safe_float(selected_row["package_rate_high"]), step=0.25, label_visibility="collapsed")
+                    elif edit_pricing_model == "hourly_only":
+                        render_field_label("Saatlik Ücret", required=True)
+                        edit_hourly_rate = st.number_input("Saatlik Ücret", min_value=0.0, value=safe_float(selected_row["hourly_rate"]), step=1.0, label_visibility="collapsed")
+                    elif edit_pricing_model == "fixed_monthly":
+                        render_field_label("Sabit Aylık Ücret", required=True)
+                        edit_fixed_fee = st.number_input("Sabit Aylık Ücret", min_value=0.0, value=safe_float(selected_row["fixed_monthly_fee"]), step=100.0, label_visibility="collapsed")
 
                     st.markdown("##### Operasyon ve Kadro")
                     start_val = datetime.strptime(selected_row["start_date"], "%Y-%m-%d").date() if pd.notna(selected_row["start_date"]) and selected_row["start_date"] else None
                     end_val = datetime.strptime(selected_row["end_date"], "%Y-%m-%d").date() if pd.notna(selected_row["end_date"]) and selected_row["end_date"] else None
                     c12, c13, c14 = st.columns(3)
-                    edit_headcount = c12.number_input("Hedef Kadro", min_value=0, value=safe_int(selected_row["target_headcount"]), step=1)
-                    edit_start_date = c13.date_input("Başlangıç Tarihi", value=start_val)
-                    edit_end_date = c14.date_input("Bitiş Tarihi", value=end_val)
+                    with c12:
+                        render_field_label("Hedef Kadro", required=True)
+                        edit_headcount = st.number_input("Hedef Kadro", min_value=0, value=safe_int(selected_row["target_headcount"]), step=1, label_visibility="collapsed")
+                    with c13:
+                        render_field_label("Başlangıç Tarihi", required=True)
+                        edit_start_date = st.date_input("Başlangıç Tarihi", value=start_val, label_visibility="collapsed")
+                    with c14:
+                        render_field_label("Bitiş Tarihi")
+                        edit_end_date = st.date_input("Bitiş Tarihi", value=end_val, label_visibility="collapsed")
 
                     extra_date_val = datetime.strptime(selected_row["extra_headcount_request_date"], "%Y-%m-%d").date() if pd.notna(selected_row["extra_headcount_request_date"]) and selected_row["extra_headcount_request_date"] else None
                     reduce_date_val = datetime.strptime(selected_row["reduce_headcount_request_date"], "%Y-%m-%d").date() if pd.notna(selected_row["reduce_headcount_request_date"]) and selected_row["reduce_headcount_request_date"] else None
@@ -4405,58 +4733,95 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
                     st.markdown("##### İletişim ve Vergi")
                     c19, c20, c21 = st.columns(3)
-                    edit_contact_name = c19.text_input("Yetkili Ad Soyad", value=selected_row["contact_name"] or "")
-                    edit_contact_phone = c20.text_input("Yetkili Telefon", value=selected_row["contact_phone"] or "")
-                    edit_contact_email = c21.text_input("Yetkili E-Posta", value=selected_row["contact_email"] or "")
+                    with c19:
+                        render_field_label("Yetkili Ad Soyad", required=True)
+                        edit_contact_name = st.text_input("Yetkili Ad Soyad", value=selected_row["contact_name"] or "", label_visibility="collapsed")
+                    with c20:
+                        render_field_label("Yetkili Telefon", required=True)
+                        edit_contact_phone = st.text_input("Yetkili Telefon", value=selected_row["contact_phone"] or "", label_visibility="collapsed")
+                    with c21:
+                        render_field_label("Yetkili E-Posta", required=True)
+                        edit_contact_email = st.text_input("Yetkili E-Posta", value=selected_row["contact_email"] or "", label_visibility="collapsed")
 
                     c22, c23 = st.columns(2)
-                    edit_tax_office = c22.text_input("Vergi Dairesi", value=selected_row["tax_office"] or "")
-                    edit_tax_number = c23.text_input("Vergi Numarası", value=selected_row["tax_number"] or "")
+                    with c22:
+                        render_field_label("Vergi Dairesi", required=True)
+                        edit_tax_office = st.text_input("Vergi Dairesi", value=selected_row["tax_office"] or "", label_visibility="collapsed")
+                    with c23:
+                        render_field_label("Vergi Numarası", required=True)
+                        edit_tax_number = st.text_input("Vergi Numarası", value=selected_row["tax_number"] or "", label_visibility="collapsed")
 
                     edit_notes = st.text_area("Notlar", value=selected_row["notes"] or "")
-                    submitted_edit = st.form_submit_button("Şube Kartını Güncelle", use_container_width=True)
+                    submitted_edit = st.button("Şube Kartını Güncelle", use_container_width=True, key="restaurant_edit_submit")
                     if submitted_edit:
-                        conn.execute(
-                            """
-                            UPDATE restaurants
-                            SET brand=?, branch=?, pricing_model=?, hourly_rate=?, package_rate=?,
-                                package_threshold=?, package_rate_low=?, package_rate_high=?, fixed_monthly_fee=?,
-                                vat_rate=?, target_headcount=?, start_date=?, end_date=?,
-                                extra_headcount_request=?, extra_headcount_request_date=?,
-                                reduce_headcount_request=?, reduce_headcount_request_date=?,
-                                contact_name=?, contact_phone=?, contact_email=?, tax_office=?, tax_number=?, notes=?
-                            WHERE id=?
-                            """,
-                            (
-                                edit_brand,
-                                edit_branch,
-                                edit_pricing_model,
-                                edit_hourly_rate,
-                                edit_package_rate,
-                                edit_package_threshold,
-                                edit_package_rate_low,
-                                edit_package_rate_high,
-                                edit_fixed_fee,
-                                edit_vat_rate,
-                                edit_headcount,
-                                edit_start_date.isoformat() if isinstance(edit_start_date, date) else None,
-                                edit_end_date.isoformat() if isinstance(edit_end_date, date) else None,
-                                edit_extra_req,
-                                edit_extra_req_date.isoformat() if isinstance(edit_extra_req_date, date) else None,
-                                edit_reduce_req,
-                                edit_reduce_req_date.isoformat() if isinstance(edit_reduce_req_date, date) else None,
-                                edit_contact_name,
-                                edit_contact_phone,
-                                edit_contact_email,
-                                edit_tax_office,
-                                edit_tax_number,
-                                edit_notes,
-                                selected_id,
-                            ),
+                        validation_errors = validate_restaurant_form(
+                            brand=edit_brand,
+                            branch=edit_branch,
+                            pricing_model=edit_pricing_model,
+                            hourly_rate=edit_hourly_rate,
+                            package_rate=edit_package_rate,
+                            package_threshold=edit_package_threshold,
+                            package_rate_low=edit_package_rate_low,
+                            package_rate_high=edit_package_rate_high,
+                            fixed_fee=edit_fixed_fee,
+                            headcount=edit_headcount,
+                            start_date_value=edit_start_date if isinstance(edit_start_date, date) else None,
+                            end_date_value=edit_end_date if isinstance(edit_end_date, date) else None,
+                            extra_req=edit_extra_req,
+                            extra_req_date=edit_extra_req_date if isinstance(edit_extra_req_date, date) else None,
+                            reduce_req=edit_reduce_req,
+                            reduce_req_date=edit_reduce_req_date if isinstance(edit_reduce_req_date, date) else None,
+                            contact_name=edit_contact_name,
+                            contact_phone=edit_contact_phone,
+                            contact_email=edit_contact_email,
+                            tax_office=edit_tax_office,
+                            tax_number=edit_tax_number,
                         )
-                        conn.commit()
-                        set_flash_message("success", "Restoran kartı başarıyla güncellendi.")
-                        st.rerun()
+                        if validation_errors:
+                            for error_text in validation_errors:
+                                st.error(error_text)
+                        else:
+                            conn.execute(
+                                """
+                                UPDATE restaurants
+                                SET brand=?, branch=?, pricing_model=?, hourly_rate=?, package_rate=?,
+                                    package_threshold=?, package_rate_low=?, package_rate_high=?, fixed_monthly_fee=?,
+                                    vat_rate=?, target_headcount=?, start_date=?, end_date=?,
+                                    extra_headcount_request=?, extra_headcount_request_date=?,
+                                    reduce_headcount_request=?, reduce_headcount_request_date=?,
+                                    contact_name=?, contact_phone=?, contact_email=?, tax_office=?, tax_number=?, notes=?
+                                WHERE id=?
+                                """,
+                                (
+                                    edit_brand,
+                                    edit_branch,
+                                    edit_pricing_model,
+                                    edit_hourly_rate,
+                                    edit_package_rate,
+                                    edit_package_threshold if edit_pricing_model == "threshold_package" else None,
+                                    edit_package_rate_low,
+                                    edit_package_rate_high,
+                                    edit_fixed_fee,
+                                    edit_vat_rate,
+                                    edit_headcount,
+                                    edit_start_date.isoformat() if isinstance(edit_start_date, date) else None,
+                                    edit_end_date.isoformat() if isinstance(edit_end_date, date) else None,
+                                    edit_extra_req,
+                                    edit_extra_req_date.isoformat() if isinstance(edit_extra_req_date, date) else None,
+                                    edit_reduce_req,
+                                    edit_reduce_req_date.isoformat() if isinstance(edit_reduce_req_date, date) else None,
+                                    edit_contact_name,
+                                    edit_contact_phone,
+                                    edit_contact_email,
+                                    edit_tax_office,
+                                    edit_tax_number,
+                                    edit_notes,
+                                    selected_id,
+                                ),
+                            )
+                            conn.commit()
+                            set_flash_message("success", "Restoran kartı başarıyla güncellendi.")
+                            st.rerun()
 
 
 def personnel_tab(conn: sqlite3.Connection) -> None:
@@ -4486,7 +4851,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         ],
     )
     render_flash_message()
-    recently_created_payload = st.session_state.pop("personnel_recently_created", None)
+    create_success_message = str(st.session_state.get("personnel_create_success_message", "") or "").strip()
+    if create_success_message:
+        st.success(create_success_message)
+
+    recently_created_payload = st.session_state.get("personnel_recently_created")
     recently_created_id = safe_int(get_row_value(recently_created_payload, "personnel_id"), 0) if recently_created_payload else 0
 
     if recently_created_id > 0 and not df.empty:
@@ -4503,6 +4872,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     ("Ana Restoran", recent_row["restoran"] or "-"),
                 ],
             )
+        else:
+            st.session_state.pop("personnel_recently_created", None)
+            st.session_state.pop("personnel_create_success_message", None)
 
     if passive_count:
         st.caption(f"Pasif personel sayısı: {passive_count}")
@@ -4515,18 +4887,26 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     with c1:
         render_action_card("Yeni Personel Ekle", "Kurye, yönetim ya da operasyon kartını görünür ana form üzerinden oluştur.", highlight=st.session_state[workspace_key] == "add")
         if st.button("Yeni Personel Formunu Aç", key="personnel_workspace_add", use_container_width=True):
+            st.session_state.pop("personnel_create_success_message", None)
+            st.session_state.pop("personnel_recently_created", None)
             st.session_state[workspace_key] = "add"
     with c2:
         render_action_card("Personel Listesi", "Tüm kayıtları filtrele, ara ve seçili personeli tek bakışta incele.", highlight=st.session_state[workspace_key] == "list")
         if st.button("Listeyi Aç", key="personnel_workspace_list", use_container_width=True):
+            st.session_state.pop("personnel_create_success_message", None)
+            st.session_state.pop("personnel_recently_created", None)
             st.session_state[workspace_key] = "list"
     with c3:
         render_action_card("Personel Düzenle", "Kart bilgilerini, görev rolünü ve maliyet ayarlarını güncelle.", highlight=st.session_state[workspace_key] == "edit")
         if st.button("Düzenleme Alanını Aç", key="personnel_workspace_edit", use_container_width=True):
+            st.session_state.pop("personnel_create_success_message", None)
+            st.session_state.pop("personnel_recently_created", None)
             st.session_state[workspace_key] = "edit"
     with c4:
         render_action_card("Plaka / Motor", "Araç, plaka ve zimmet geçmişini ayrı çalışma alanında yönet.", highlight=st.session_state[workspace_key] == "plate")
         if st.button("Plaka Alanını Aç", key="personnel_workspace_plate", use_container_width=True):
+            st.session_state.pop("personnel_create_success_message", None)
+            st.session_state.pop("personnel_recently_created", None)
             st.session_state[workspace_key] = "plate"
 
     workspace_mode = st.session_state[workspace_key]
@@ -4595,7 +4975,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "new_person_address": "",
             "new_person_accounting_type": "Kendi Muhasebecisi",
             "new_person_new_company_setup": "Hayır",
-            "new_person_cost_model": "Kurye",
             "new_person_current_plate": "",
             "new_person_notes": "",
         }
@@ -4604,119 +4983,177 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 st.session_state[key] = value
         if st.session_state.get("new_person_accounting_type") not in ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"]:
             st.session_state["new_person_accounting_type"] = "Kendi Muhasebecisi"
-        if st.session_state.get("new_person_cost_model") not in PERSONNEL_ROLE_OPTIONS:
-            st.session_state["new_person_cost_model"] = resolve_cost_role_option(
-                str(st.session_state.get("new_person_cost_model", "Kurye") or "Kurye"),
-                str(st.session_state.get("new_person_role", "Kurye") or "Kurye"),
-            )
 
         st.markdown("##### Kimlik ve Görev")
         c1, c2, c3 = st.columns(3)
-        full_name = c1.text_input("Ad Soyad", key="new_person_full_name")
-        role = c2.selectbox("Rol", PERSONNEL_ROLE_OPTIONS, key="new_person_role")
+        with c1:
+            render_field_label("Ad Soyad", required=True)
+            full_name = st.text_input("Ad Soyad", key="new_person_full_name", label_visibility="collapsed")
+        with c2:
+            render_field_label("Rol")
+            role = st.selectbox("Rol", PERSONNEL_ROLE_OPTIONS, key="new_person_role", label_visibility="collapsed")
         code_preview = next_person_code(conn, role)
-        c3.text_input("Otomatik Personel Kodu", value=code_preview, disabled=True)
+        with c3:
+            render_field_label("Otomatik Personel Kodu")
+            st.text_input("Otomatik Personel Kodu", value=code_preview, disabled=True, label_visibility="collapsed")
 
         c4, c5 = st.columns(2)
-        phone = c4.text_input("Telefon", key="new_person_phone")
-        assigned_label = c5.selectbox("Ana Restoran", list(rest_opts_with_blank.keys()), key="new_person_assigned_label")
+        with c4:
+            render_field_label("Telefon", required=True)
+            phone = st.text_input("Telefon", key="new_person_phone", label_visibility="collapsed")
+        with c5:
+            render_field_label("Ana Restoran", required=role in {"Kurye", "Restoran Takım Şefi"})
+            assigned_label = st.selectbox("Ana Restoran", list(rest_opts_with_blank.keys()), key="new_person_assigned_label", label_visibility="collapsed")
 
         c7, c8, c9 = st.columns(3)
-        tc_no = c7.text_input("TC Kimlik No", key="new_person_tc_no")
-        iban = c8.text_input("IBAN", key="new_person_iban")
-        start_date = c9.date_input("İşe Giriş Tarihi", key="new_person_start_date")
+        with c7:
+            render_field_label("TC Kimlik No", required=True)
+            tc_no = st.text_input("TC Kimlik No", key="new_person_tc_no", label_visibility="collapsed")
+        with c8:
+            render_field_label("IBAN", required=True)
+            iban = st.text_input("IBAN", key="new_person_iban", label_visibility="collapsed")
+        with c9:
+            render_field_label("İşe Giriş Tarihi", required=True)
+            start_date = st.date_input("İşe Giriş Tarihi", key="new_person_start_date", label_visibility="collapsed")
 
-        address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address")
+        render_field_label("Adres", required=True)
+        address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address", label_visibility="collapsed")
 
         st.markdown("##### Muhasebe ve Şirket")
         c10, c11, c12 = st.columns(3)
-        accounting_type = c10.selectbox("Muhasebe", ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"], key="new_person_accounting_type")
-        new_company_setup = c11.selectbox("Yeni Şirket Açılışı", ["Hayır", "Evet"], key="new_person_new_company_setup")
-        cost_model = c12.selectbox(
-            "Rol",
-            VISIBLE_COST_MODEL_OPTIONS,
-            format_func=lambda x: COST_MODEL_LABELS.get(x, x),
-            key="new_person_cost_model",
-        )
+        with c10:
+            render_field_label("Muhasebe")
+            accounting_type = st.selectbox("Muhasebe", ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"], key="new_person_accounting_type", label_visibility="collapsed")
+        with c11:
+            render_field_label("Yeni Şirket Açılışı")
+            new_company_setup = st.selectbox("Yeni Şirket Açılışı", ["Hayır", "Evet"], key="new_person_new_company_setup", label_visibility="collapsed")
+        selected_cost_model = resolve_cost_role_option("", role)
+        with c12:
+            render_field_label("Maliyet Modeli")
+            cost_model = st.selectbox(
+                "Maliyet Modeli",
+                [selected_cost_model],
+                index=0,
+                disabled=True,
+                format_func=lambda x: COST_MODEL_LABELS.get(x, x),
+                label_visibility="collapsed",
+            )
         auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(accounting_type)
         auto_company_setup_revenue, auto_company_setup_cost = resolve_company_setup_defaults(new_company_setup)
 
         c13, c14, c15 = st.columns(3)
-        c13.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_accounting_revenue), step=100.0, disabled=True)
-        c14.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_accountant_cost), step=100.0, disabled=True)
+        with c13:
+            render_field_label("Muhasebeden Aldığımız Ücret")
+            st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_accounting_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+        with c14:
+            render_field_label("Muhasebeciye Ödediğimiz")
+            st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_accountant_cost), step=100.0, disabled=True, label_visibility="collapsed")
         if is_fixed_cost_model(cost_model):
-            monthly_fixed_cost = c15.number_input("Aylık Sabit Maliyet", min_value=0.0, step=100.0, key="new_person_monthly_fixed_cost")
+            with c15:
+                render_field_label("Aylık Sabit Maliyet", required=True)
+                monthly_fixed_cost = st.number_input("Aylık Sabit Maliyet", min_value=0.0, step=100.0, key="new_person_monthly_fixed_cost", label_visibility="collapsed")
         else:
             c15.markdown("")
             monthly_fixed_cost = 0.0
 
         c16, c17 = st.columns(2)
-        c16.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(auto_company_setup_revenue), step=100.0, disabled=True)
-        c17.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(auto_company_setup_cost), step=100.0, disabled=True)
+        with c16:
+            render_field_label("Şirket Açılışından Aldığımız Ücret")
+            st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(auto_company_setup_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+        with c17:
+            render_field_label("Şirket Açılış Maliyeti")
+            st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(auto_company_setup_cost), step=100.0, disabled=True, label_visibility="collapsed")
 
         st.markdown("##### Araç ve Operasyon")
         c18, c19 = st.columns(2)
-        vehicle_type = c18.selectbox("Motor Tipi", ["Çat Kapında", "Kendi Motoru"], key="new_person_vehicle_type")
-        current_plate = c19.text_input("Güncel Plaka", key="new_person_current_plate")
+        with c18:
+            render_field_label("Motor Tipi")
+            vehicle_type = st.selectbox("Motor Tipi", ["Çat Kapında", "Kendi Motoru"], key="new_person_vehicle_type", label_visibility="collapsed")
+        with c19:
+            render_field_label("Güncel Plaka", required=True)
+            current_plate = st.text_input("Güncel Plaka", key="new_person_current_plate", label_visibility="collapsed")
         effective_motor_rental = resolve_motor_rental_value(vehicle_type, "Hayır")
         notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar", key="new_person_notes")
 
         create_clicked = st.button("Personel Kartını Oluştur", use_container_width=True, key="new_person_create")
         if create_clicked:
-            if not (full_name or "").strip():
-                st.error("Ad Soyad alanı zorunlu.")
+            assigned_id = rest_opts_with_blank.get(assigned_label)
+            validation_errors = validate_personnel_form(
+                full_name=full_name,
+                phone=phone,
+                tc_no=tc_no,
+                iban=iban,
+                address=address,
+                current_plate=current_plate,
+                role=role,
+                assigned_restaurant_id=assigned_id,
+                start_date_value=start_date if isinstance(start_date, date) else None,
+                cost_model=cost_model,
+                monthly_fixed_cost=monthly_fixed_cost,
+            )
+            if validation_errors:
+                for error_text in validation_errors:
+                    st.error(error_text)
             else:
-                assigned_id = rest_opts_with_blank.get(assigned_label)
-                start_date_str = start_date.isoformat() if isinstance(start_date, date) else None
-                auto_code = next_person_code(conn, role)
-                conn.execute(
-                    """
-                    INSERT INTO personnel (
-                        person_code, full_name, role, status, phone, address, tc_no, iban,
-                        accounting_type, new_company_setup, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
-                        assigned_restaurant_id, vehicle_type, motor_rental, current_plate, start_date,
-                        cost_model, monthly_fixed_cost, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        auto_code,
-                        full_name,
-                        role,
-                        "Aktif",
-                        phone,
-                        address,
-                        tc_no,
-                        iban,
-                        accounting_type,
-                        new_company_setup,
-                        auto_accounting_revenue,
-                        auto_accountant_cost,
-                        auto_company_setup_revenue,
-                        auto_company_setup_cost,
-                        assigned_id,
-                        vehicle_type,
-                        effective_motor_rental,
-                        current_plate,
-                        start_date_str,
-                        normalize_cost_model_value(cost_model, role),
-                        monthly_fixed_cost,
-                        notes,
-                    ),
-                )
-                conn.commit()
-                created_person = conn.execute("SELECT * FROM personnel WHERE person_code = ? ORDER BY id DESC", (auto_code,)).fetchone()
-                sync_person_business_rules(conn, created_person)
-                for key, value in new_person_defaults.items():
-                    st.session_state[key] = value
-                created_person_id = safe_int(get_row_value(created_person, "id"), 0)
-                st.session_state[workspace_key] = "list"
-                st.session_state["person_search"] = ""
-                st.session_state["person_role_filter"] = "Tümü"
-                st.session_state["person_status_filter"] = "Tümü"
-                st.session_state["person_rest_filter"] = "Tümü"
-                st.session_state["personnel_recently_created"] = {"personnel_id": created_person_id}
-                set_flash_message("success", f"Personel başarıyla eklendi. Kod: {auto_code}")
-                st.rerun()
+                try:
+                    start_date_str = start_date.isoformat() if isinstance(start_date, date) else None
+                    auto_code = next_person_code(conn, role)
+                    conn.execute(
+                        """
+                        INSERT INTO personnel (
+                            person_code, full_name, role, status, phone, address, tc_no, iban,
+                            accounting_type, new_company_setup, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
+                            assigned_restaurant_id, vehicle_type, motor_rental, current_plate, start_date,
+                            cost_model, monthly_fixed_cost, notes
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            auto_code,
+                            full_name,
+                            role,
+                            "Aktif",
+                            phone,
+                            address,
+                            tc_no,
+                            iban,
+                            accounting_type,
+                            new_company_setup,
+                            auto_accounting_revenue,
+                            auto_accountant_cost,
+                            auto_company_setup_revenue,
+                            auto_company_setup_cost,
+                            assigned_id,
+                            vehicle_type,
+                            effective_motor_rental,
+                            current_plate,
+                            start_date_str,
+                            normalize_cost_model_value(cost_model, role),
+                            monthly_fixed_cost,
+                            notes,
+                        ),
+                    )
+                    conn.commit()
+                    created_person = conn.execute("SELECT * FROM personnel WHERE person_code = ? ORDER BY id DESC", (auto_code,)).fetchone()
+                    if not created_person:
+                        raise RuntimeError("Personel kaydı oluşturuldu ancak kayıt tekrar okunamadı.")
+                    sync_person_business_rules(conn, created_person)
+                except Exception as exc:
+                    conn.rollback()
+                    st.error(f"Personel kartı oluşturulamadı: {exc}")
+                else:
+                    for key, value in new_person_defaults.items():
+                        st.session_state[key] = value
+                    created_person_id = safe_int(get_row_value(created_person, "id"), 0)
+                    success_text = f"{full_name} başarıyla eklendi. Kod: {auto_code}"
+                    st.session_state[workspace_key] = "list"
+                    st.session_state["person_search"] = ""
+                    st.session_state["person_role_filter"] = "Tümü"
+                    st.session_state["person_status_filter"] = "Tümü"
+                    st.session_state["person_rest_filter"] = "Tümü"
+                    st.session_state["personnel_recently_created"] = {"personnel_id": created_person_id}
+                    st.session_state["personnel_create_success_message"] = success_text
+                    set_flash_message("success", success_text)
+                    st.rerun()
 
     elif workspace_mode == "edit":
         if df.empty:
@@ -4735,7 +5172,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             status_options = ["Aktif", "Pasif"]
             role_options = PERSONNEL_ROLE_OPTIONS
             vehicle_options = ["Çat Kapında", "Kendi Motoru"]
-            cost_options = VISIBLE_COST_MODEL_OPTIONS
 
             left, right = st.columns([2.2, 1])
             with right:
@@ -4753,12 +5189,15 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 with st.form("personnel_edit_form"):
                     st.markdown("##### Kimlik ve Görev")
                     c1, c2, c3 = st.columns(3)
-                    edit_role = c1.selectbox(
-                        "Rol",
-                        role_options,
-                        index=role_options.index(row["role"]) if row["role"] in role_options else 0,
-                        key="edit_person_role",
-                    )
+                    with c1:
+                        render_field_label("Rol")
+                        edit_role = st.selectbox(
+                            "Rol",
+                            role_options,
+                            index=role_options.index(row["role"]) if row["role"] in role_options else 0,
+                            key="edit_person_role",
+                            label_visibility="collapsed",
+                        )
                     suggested_code = next_person_code(conn, edit_role, exclude_id=selected_id)
                     new_prefix = role_code_prefix(edit_role)
                     existing_num = ""
@@ -4766,88 +5205,134 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     if match:
                         existing_num = match.group(1)
                     code_default = row["person_code"] if row["role"] == edit_role and row["person_code"] else f"CK-{new_prefix}{existing_num or suggested_code.split(new_prefix)[1]}"
-                    edit_code = c2.text_input("Personel Kodu", value=code_default or suggested_code)
-                    c3.caption(f"Önerilen Kod: {suggested_code}")
+                    with c2:
+                        render_field_label("Personel Kodu")
+                        edit_code = st.text_input("Personel Kodu", value=code_default or suggested_code, label_visibility="collapsed")
+                    with c3:
+                        render_field_label("Önerilen Kod")
+                        st.caption(suggested_code)
 
                     c4, c5, c6 = st.columns(3)
-                    edit_name = c4.text_input("Ad Soyad", value=row["full_name"] or "")
-                    edit_status = c5.selectbox(
-                        "Durum",
-                        status_options,
-                        index=status_options.index(row["status"]) if row["status"] in status_options else 0,
-                        key="edit_person_status",
-                    )
-                    edit_phone = c6.text_input("Telefon", value=row["phone"] or "")
+                    with c4:
+                        render_field_label("Ad Soyad", required=True)
+                        edit_name = st.text_input("Ad Soyad", value=row["full_name"] or "", label_visibility="collapsed")
+                    with c5:
+                        render_field_label("Durum")
+                        edit_status = st.selectbox(
+                            "Durum",
+                            status_options,
+                            index=status_options.index(row["status"]) if row["status"] in status_options else 0,
+                            key="edit_person_status",
+                            label_visibility="collapsed",
+                        )
+                    with c6:
+                        render_field_label("Telefon", required=True)
+                        edit_phone = st.text_input("Telefon", value=row["phone"] or "", label_visibility="collapsed")
 
                     c7, c8, c9 = st.columns(3)
-                    edit_tc = c7.text_input("TC Kimlik No", value=row["tc_no"] or "")
-                    edit_iban = c8.text_input("IBAN", value=row["iban"] or "")
+                    with c7:
+                        render_field_label("TC Kimlik No", required=True)
+                        edit_tc = st.text_input("TC Kimlik No", value=row["tc_no"] or "", label_visibility="collapsed")
+                    with c8:
+                        render_field_label("IBAN", required=True)
+                        edit_iban = st.text_input("IBAN", value=row["iban"] or "", label_visibility="collapsed")
                     start_val = datetime.strptime(row["start_date"], "%Y-%m-%d").date() if row["start_date"] else None
-                    edit_start_date = c9.date_input("İşe Giriş Tarihi", value=start_val)
+                    with c9:
+                        render_field_label("İşe Giriş Tarihi", required=True)
+                        edit_start_date = st.date_input("İşe Giriş Tarihi", value=start_val, label_visibility="collapsed")
 
-                    edit_address = st.text_area("Adres", value=row["address"] or "")
+                    render_field_label("Adres", required=True)
+                    edit_address = st.text_area("Adres", value=row["address"] or "", label_visibility="collapsed")
 
                     st.markdown("##### Muhasebe ve Şirket")
                     c10, c11, c12 = st.columns(3)
                     accounting_options = ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"]
                     current_acc = row["accounting_type"] if pd.notna(row["accounting_type"]) and row["accounting_type"] not in [None, "", "-"] else "Kendi Muhasebecisi"
-                    edit_accounting = c10.selectbox(
-                        "Muhasebe",
-                        accounting_options,
-                        index=accounting_options.index(current_acc) if current_acc in accounting_options else 0,
-                        key="edit_person_accounting",
-                    )
+                    with c10:
+                        render_field_label("Muhasebe")
+                        edit_accounting = st.selectbox(
+                            "Muhasebe",
+                            accounting_options,
+                            index=accounting_options.index(current_acc) if current_acc in accounting_options else 0,
+                            key="edit_person_accounting",
+                            label_visibility="collapsed",
+                        )
                     new_company_options = ["Hayır", "Evet"]
                     current_newco = row["new_company_setup"] if pd.notna(row["new_company_setup"]) else "Hayır"
-                    edit_new_company = c11.selectbox(
-                        "Yeni Şirket Açılışı",
-                        new_company_options,
-                        index=new_company_options.index(current_newco) if current_newco in new_company_options else 0,
-                        key="edit_person_new_company",
-                    )
-                    current_cost_model = resolve_cost_role_option(str(row["cost_model"] or ""), str(row["role"] or "Kurye"))
-                    edit_cost_model = c12.selectbox(
-                        "Rol",
-                        cost_options,
-                        index=cost_options.index(current_cost_model) if current_cost_model in cost_options else 0,
-                        format_func=lambda x: COST_MODEL_LABELS.get(x, x),
-                        key="edit_person_cost_model",
-                    )
+                    with c11:
+                        render_field_label("Yeni Şirket Açılışı")
+                        edit_new_company = st.selectbox(
+                            "Yeni Şirket Açılışı",
+                            new_company_options,
+                            index=new_company_options.index(current_newco) if current_newco in new_company_options else 0,
+                            key="edit_person_new_company",
+                            label_visibility="collapsed",
+                        )
+                    edit_cost_model = resolve_cost_role_option("", edit_role)
+                    with c12:
+                        render_field_label("Maliyet Modeli")
+                        st.selectbox(
+                            "Maliyet Modeli",
+                            [edit_cost_model],
+                            index=0,
+                            disabled=True,
+                            format_func=lambda x: COST_MODEL_LABELS.get(x, x),
+                            key="edit_person_cost_model_display",
+                            label_visibility="collapsed",
+                        )
                     auto_edit_accounting_revenue, auto_edit_accountant_cost = resolve_accounting_defaults(edit_accounting)
                     auto_edit_company_setup_revenue, auto_edit_company_setup_cost = resolve_company_setup_defaults(edit_new_company)
 
                     c13, c14, c15 = st.columns(3)
-                    c13.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_edit_accounting_revenue), step=100.0, disabled=True)
-                    c14.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_edit_accountant_cost), step=100.0, disabled=True)
+                    with c13:
+                        render_field_label("Muhasebeden Aldığımız Ücret")
+                        st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_edit_accounting_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+                    with c14:
+                        render_field_label("Muhasebeciye Ödediğimiz")
+                        st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_edit_accountant_cost), step=100.0, disabled=True, label_visibility="collapsed")
                     if is_fixed_cost_model(edit_cost_model):
-                        edit_monthly_cost = c15.number_input("Aylık Sabit Maliyet", min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0)
+                        with c15:
+                            render_field_label("Aylık Sabit Maliyet", required=True)
+                            edit_monthly_cost = st.number_input("Aylık Sabit Maliyet", min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0, label_visibility="collapsed")
                     else:
                         c15.markdown("")
                         edit_monthly_cost = 0.0
 
                     c16, c17 = st.columns(2)
-                    c16.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(auto_edit_company_setup_revenue), step=100.0, disabled=True)
-                    c17.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(auto_edit_company_setup_cost), step=100.0, disabled=True)
+                    with c16:
+                        render_field_label("Şirket Açılışından Aldığımız Ücret")
+                        st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(auto_edit_company_setup_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+                    with c17:
+                        render_field_label("Şirket Açılış Maliyeti")
+                        st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(auto_edit_company_setup_cost), step=100.0, disabled=True, label_visibility="collapsed")
 
                     st.markdown("##### Araç ve Operasyon")
                     c18, c19 = st.columns(2)
                     current_vehicle = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
-                    edit_restaurant = c18.selectbox(
-                        "Ana Restoran",
-                        list(rest_opts_with_blank.keys()),
-                        index=list(rest_opts_with_blank.keys()).index(assigned_value) if assigned_value in rest_opts_with_blank else 0,
-                        key="edit_person_restaurant",
-                    )
-                    edit_vehicle = c19.selectbox(
-                        "Motor Tipi",
-                        vehicle_options,
-                        index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1,
-                        key="edit_person_vehicle",
-                    )
+                    with c18:
+                        render_field_label("Ana Restoran", required=edit_role in {"Kurye", "Restoran Takım Şefi"})
+                        edit_restaurant = st.selectbox(
+                            "Ana Restoran",
+                            list(rest_opts_with_blank.keys()),
+                            index=list(rest_opts_with_blank.keys()).index(assigned_value) if assigned_value in rest_opts_with_blank else 0,
+                            key="edit_person_restaurant",
+                            label_visibility="collapsed",
+                        )
+                    with c19:
+                        render_field_label("Motor Tipi")
+                        edit_vehicle = st.selectbox(
+                            "Motor Tipi",
+                            vehicle_options,
+                            index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1,
+                            key="edit_person_vehicle",
+                            label_visibility="collapsed",
+                        )
                     effective_edit_motor_rental = resolve_motor_rental_value(edit_vehicle, "Hayır")
 
                     c21, c22 = st.columns(2)
-                    edit_plate = c21.text_input("Güncel Plaka", value=row["current_plate"] or "")
+                    with c21:
+                        render_field_label("Güncel Plaka", required=True)
+                        edit_plate = st.text_input("Güncel Plaka", value=row["current_plate"] or "", label_visibility="collapsed")
                     c22.markdown("")
                     edit_notes = st.text_area("Notlar", value=row["notes"] or "")
 
@@ -4858,47 +5343,64 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
                     if update_clicked:
                         assigned_id = rest_opts_with_blank.get(edit_restaurant)
-                        start_date_str = edit_start_date.isoformat() if isinstance(edit_start_date, date) else None
-                        conn.execute(
-                            """
-                            UPDATE personnel
-                            SET person_code=?, full_name=?, role=?, status=?, phone=?, address=?, tc_no=?, iban=?,
-                                accounting_type=?, new_company_setup=?, accounting_revenue=?, accountant_cost=?, company_setup_revenue=?, company_setup_cost=?, assigned_restaurant_id=?,
-                                vehicle_type=?, motor_rental=?, current_plate=?, start_date=?,
-                                cost_model=?, monthly_fixed_cost=?, notes=?
-                            WHERE id=?
-                            """,
-                            (
-                                edit_code,
-                                edit_name,
-                                edit_role,
-                                edit_status,
-                                edit_phone,
-                                edit_address,
-                                edit_tc,
-                                edit_iban,
-                                edit_accounting,
-                                edit_new_company,
-                                auto_edit_accounting_revenue,
-                                auto_edit_accountant_cost,
-                                auto_edit_company_setup_revenue,
-                                auto_edit_company_setup_cost,
-                                assigned_id,
-                                edit_vehicle,
-                                effective_edit_motor_rental,
-                                edit_plate,
-                                start_date_str,
-                                normalize_cost_model_value(edit_cost_model, edit_role),
-                                edit_monthly_cost,
-                                edit_notes,
-                                selected_id,
-                            ),
+                        validation_errors = validate_personnel_form(
+                            full_name=edit_name,
+                            phone=edit_phone,
+                            tc_no=edit_tc,
+                            iban=edit_iban,
+                            address=edit_address,
+                            current_plate=edit_plate,
+                            role=edit_role,
+                            assigned_restaurant_id=assigned_id,
+                            start_date_value=edit_start_date if isinstance(edit_start_date, date) else None,
+                            cost_model=edit_cost_model,
+                            monthly_fixed_cost=edit_monthly_cost,
                         )
-                        conn.commit()
-                        updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
-                        sync_person_business_rules(conn, updated_person, create_onboarding=False)
-                        set_flash_message("success", "Personel kartı başarıyla güncellendi.")
-                        st.rerun()
+                        if validation_errors:
+                            for error_text in validation_errors:
+                                st.error(error_text)
+                        else:
+                            start_date_str = edit_start_date.isoformat() if isinstance(edit_start_date, date) else None
+                            conn.execute(
+                                """
+                                UPDATE personnel
+                                SET person_code=?, full_name=?, role=?, status=?, phone=?, address=?, tc_no=?, iban=?,
+                                    accounting_type=?, new_company_setup=?, accounting_revenue=?, accountant_cost=?, company_setup_revenue=?, company_setup_cost=?, assigned_restaurant_id=?,
+                                    vehicle_type=?, motor_rental=?, current_plate=?, start_date=?,
+                                    cost_model=?, monthly_fixed_cost=?, notes=?
+                                WHERE id=?
+                                """,
+                                (
+                                    edit_code,
+                                    edit_name,
+                                    edit_role,
+                                    edit_status,
+                                    edit_phone,
+                                    edit_address,
+                                    edit_tc,
+                                    edit_iban,
+                                    edit_accounting,
+                                    edit_new_company,
+                                    auto_edit_accounting_revenue,
+                                    auto_edit_accountant_cost,
+                                    auto_edit_company_setup_revenue,
+                                    auto_edit_company_setup_cost,
+                                    assigned_id,
+                                    edit_vehicle,
+                                    effective_edit_motor_rental,
+                                    edit_plate,
+                                    start_date_str,
+                                    normalize_cost_model_value(edit_cost_model, edit_role),
+                                    edit_monthly_cost,
+                                    edit_notes,
+                                    selected_id,
+                                ),
+                            )
+                            conn.commit()
+                            updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
+                            sync_person_business_rules(conn, updated_person, create_onboarding=False)
+                            set_flash_message("success", "Personel kartı başarıyla güncellendi.")
+                            st.rerun()
 
                     if toggle_clicked:
                         new_status = "Pasif" if row["status"] == "Aktif" else "Aktif"
@@ -5056,6 +5558,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 (entry_date.isoformat(), rest_opts[rest_label], planned_id, actual_id, status, worked_hours, package_count, notes),
             )
             conn.commit()
+            sync_personnel_business_rules_for_ids(conn, [actual_id], create_onboarding=False, full_history=True)
             st.success("Günlük kayıt eklendi.")
             st.rerun()
 
@@ -5125,6 +5628,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             delete_clicked = u2.form_submit_button("Kaydı sil", use_container_width=True)
 
             if update_clicked:
+                previous_actual_id = safe_int(selected["actual_personnel_id"], 0)
                 planned_id = person_opts[edit_planned_label] if edit_planned_label != "-" else None
                 actual_id = person_opts[edit_actual_label] if edit_actual_label != "-" else None
                 conn.execute(
@@ -5147,12 +5651,15 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     ),
                 )
                 conn.commit()
+                sync_personnel_business_rules_for_ids(conn, [previous_actual_id, actual_id], create_onboarding=False, full_history=True)
                 st.success("Günlük puantaj kaydı güncellendi.")
                 st.rerun()
 
             if delete_clicked:
+                deleted_actual_id = safe_int(selected["actual_personnel_id"], 0)
                 conn.execute("DELETE FROM daily_entries WHERE id = ?", (selected_id,))
                 conn.commit()
+                sync_personnel_business_rules_for_ids(conn, [deleted_actual_id], create_onboarding=False, full_history=True)
                 st.success("Günlük puantaj kaydı silindi.")
                 st.rerun()
     else:
@@ -5161,6 +5668,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
 def deductions_tab(conn: sqlite3.Connection) -> None:
     section_intro("💸 Kesinti Yönetimi | Motor kira, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; personel kartından gelen sistem kesintileri de aynı tabloda görünür.")
+    sync_all_personnel_business_rules(conn, full_history=True)
     person_opts = get_person_options(conn, active_only=False)
     deduction_types = ["Yakıt", "HGS", "İdari ceza", "Hasar", "Fatura Edilmeyen Tutar"]
 
@@ -5356,6 +5864,7 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
     csave, cclear = st.columns([1, 1])
     if csave.button("Tümünü Kaydet", key="bulk_save_btn", use_container_width=True):
         inserted = 0
+        affected_person_ids = []
         for _, row in edited_df.iterrows():
             person_label = str(row.get("Personel", "")).strip()
             if not person_label or person_label not in person_label_map:
@@ -5387,7 +5896,9 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
                 ),
             )
             inserted += 1
+            affected_person_ids.append(person_id)
         conn.commit()
+        sync_personnel_business_rules_for_ids(conn, affected_person_ids, create_onboarding=False, full_history=True)
         st.session_state.bulk_editor_rows = None
         st.success(f"{inserted} satır kaydedildi.")
         st.rerun()
@@ -5519,8 +6030,8 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             vat_rate = get_equipment_vat_rate(item_name)
             c4, c5, c6 = st.columns(3)
             quantity = c4.number_input("Adet", min_value=1, value=1, step=1, key="issue_qty")
-            unit_cost = c5.number_input("Birim maliyet", min_value=0.0, value=float(st.session_state.get("issue_cost", 0.0) or 0.0), step=50.0, key="issue_cost")
-            unit_sale_price = c6.number_input("Kuryeye satış fiyatı | KDV dahil", min_value=0.0, value=float(st.session_state.get("issue_sale", 0.0) or 0.0), step=50.0, key="issue_sale")
+            unit_cost = c5.number_input("Birim maliyet", min_value=0.0, step=50.0, key="issue_cost")
+            unit_sale_price = c6.number_input("Kuryeye satış fiyatı | KDV dahil", min_value=0.0, step=50.0, key="issue_sale")
             c7, c8, c9 = st.columns(3)
             installment_count = c7.selectbox("Taksit sayısı", [1, 2, 3], index=1, key="issue_installment")
             sale_type = c8.selectbox("İşlem tipi", ["Satış", "Depozit / Teslim"], key="issue_sale_type")
@@ -5934,6 +6445,7 @@ def build_payroll_pdf(selected_month: str, payroll_row: dict, deduction_rows: pd
 
 def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
     section_intro("🧾 Aylık Hakediş | Personel bazlı brüt, kesinti ve net ödeme özeti", "Aylık puantaj ve kesinti verilerini personel bazında hesaplar; tablo dosyası olarak dışa aktarma sağlar.")
+    sync_all_personnel_business_rules(conn, full_history=True)
 
     entries = fetch_df(
         conn,
@@ -6061,8 +6573,57 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
         st.info("Belge oluşturmak için önce hakediş tablosunda personel verisi oluşmalı.")
 
 
+def announcements_tab() -> None:
+    render_management_hero(
+        "GÜNCELLEMELER VE DUYURULAR",
+        "Sistemdeki son iyileştirmeler ve takip notları",
+        "Operasyon ekibinin son yayınlanan geliştirmeleri tek ekranda görmesi için hazırlanan hızlı özet alanı.",
+        [
+            ("Giriş Deneyimi", "Yenilendi"),
+            ("Personel Formları", "Güncellendi"),
+            ("Restoran Fiyatlama", "Dinamik"),
+            ("Motor Kira Hesabı", "Gün Bazlı"),
+        ],
+    )
+
+    section_intro(
+        "Son Yayınlanan İyileştirmeler",
+        "Yakın dönemde canlıya alınan başlıca düzenlemeler aşağıda özetlenmiştir.",
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        render_record_snapshot(
+            "Operasyon ve Form Akışları",
+            [
+                ("Personel Yönetimi", "Ekleme sonrası görünür başarı mesajı ve son eklenen kartı"),
+                ("Zorunlu Alanlar", "Kırmızı * ile işaretlenir ve boş geçilemez"),
+                ("Rol / Maliyet Modeli", "Personel formunda otomatik eşlenir"),
+                ("Restoran Fiyat Modelleri", "Seçime göre sadece ilgili alanlar görünür"),
+            ],
+        )
+    with c2:
+        render_record_snapshot(
+            "Finans ve Hesaplama",
+            [
+                ("Motor Kira", "13.000 / 30 x çalışılan gün formülüyle hesaplanır"),
+                ("Kesinti Senkronu", "Puantaj ekleme, güncelleme ve silmede otomatik yenilenir"),
+                ("Hakediş / Raporlar", "Açılırken sistem kesintileri yeniden senkronlanır"),
+                ("Şifre Sıfırlama", "Mail ile geçici şifre gönderimi desteklenir"),
+            ],
+        )
+
+    st.markdown("##### Notlar")
+    st.info(
+        "Canlı ortamda bir değişiklik görünmüyorsa Render tarafında bazen `Manual Deploy` çalıştırmak gerekebilir. "
+        "Deploy tamamlandıktan sonra sayfayı sert yenilemek en güvenli kontroldür."
+    )
+    st.caption("Bu alan sabit duyuru panosu gibi çalışır; yeni operasyon notları gerektiğinde genişletilebilir.")
+
+
 def reports_tab(conn: sqlite3.Connection) -> None:
     section_intro("📊 Raporlar ve Karlılık | Fatura, personel maliyeti, yan gelir ve restoran kârlılığı", "Aylık müşteri faturası, personel maliyeti, restoran bazlı kârlılık, yan gelir analizi ve personel-şube dağılımı.")
+    sync_all_personnel_business_rules(conn, full_history=True)
 
     entries = fetch_df(
         conn,
@@ -6319,7 +6880,6 @@ def main() -> None:
         role = st.session_state.get("role", "")
         render_sidebar_brand()
         menu = st.sidebar.radio("Ana Menü", allowed_menu_items(role))
-        logout_button(conn)
 
         ensure_role_access(menu, role)
         render_top_profile(conn)
