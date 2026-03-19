@@ -1975,6 +1975,9 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 unsafe_allow_html=True,
             )
 
+            forgot_email = ""
+            forgot_submitted = False
+
             if st.button("Şifremi Unuttum", key="login_help_toggle", use_container_width=True):
                 st.session_state.login_help_visible = not st.session_state.get("login_help_visible", False)
 
