@@ -1175,24 +1175,17 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
 
 def logout_button(conn: sqlite3.Connection) -> None:
-    role = st.session_state.get("role")
-    display = USERS.get(st.session_state.get("username"), {}).get("display", role or "-")
-    st.sidebar.markdown("## Çat Kapında CRM")
     st.sidebar.markdown(
-        f"""
-        <div class="ck-side-user">
-            <div class="ck-side-user-name">{st.session_state.get("username", "-")}</div>
-            <div class="ck-side-user-role">{display}</div>
+        """
+        <div class="ck-side-brand">
+            <div class="ck-side-brand-mark">CK</div>
+            <div class="ck-side-brand-title">Çat Kapında</div>
+            <div class="ck-side-brand-subtitle">Operasyon CRM</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    if conn.backend == "postgres":
-        st.sidebar.caption("Harici veritabanı etkin.")
-    else:
-        st.sidebar.caption("Yerel veritabanı etkin.")
-        st.sidebar.caption("Günlük yedekleme etkin.")
-    if st.sidebar.button("Çıkış Yap", use_container_width=True):
+    if st.sidebar.button("Oturumu Kapat", use_container_width=True):
         revoke_current_auth_session(conn)
         st.rerun()
 
@@ -1201,24 +1194,22 @@ def allowed_menu_items(role: str) -> list[str]:
     if role == "admin":
         return [
             "🏠 Genel Bakış",
-            "📣 Güncellemeler ve Duyurular",
             "🏢 Restoran Yönetimi",
             "👥 Personel Yönetimi",
+            "🗓 Puantaj",
             "🛒 Satın Alma",
             "📦 Ekipman & Zimmet",
-            "🗓 Günlük Puantaj",
-            "🗂 Toplu Puantaj",
             "💸 Kesinti Yönetimi",
             "🧾 Aylık Hakediş",
             "📊 Raporlar ve Karlılık",
+            "📣 Güncellemeler ve Duyurular",
         ]
     if role == "sef":
         return [
-            "📣 Güncellemeler ve Duyurular",
             "👥 Personel Yönetimi",
-            "🗓 Günlük Puantaj",
-            "🗂 Toplu Puantaj",
+            "🗓 Puantaj",
             "💸 Kesinti Yönetimi",
+            "📣 Güncellemeler ve Duyurular",
         ]
     return []
 
@@ -2058,6 +2049,45 @@ def inject_global_styles() -> None:
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label > div:first-child {
                 display: none;
+            }
+
+            .ck-side-brand {
+                background:
+                    radial-gradient(circle at top right, rgba(255,255,255,0.22), transparent 25%),
+                    linear-gradient(135deg, #0C4BCB 0%, #1290D6 100%);
+                border-radius: 22px;
+                padding: 18px 16px 16px;
+                margin: 0.2rem 0 1rem 0;
+                box-shadow: 0 18px 38px rgba(12, 75, 203, 0.22);
+                color: #FFFFFF;
+            }
+
+            .ck-side-brand-mark {
+                width: 44px;
+                height: 44px;
+                border-radius: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(255,255,255,0.18);
+                border: 1px solid rgba(255,255,255,0.22);
+                font-size: 0.95rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                margin-bottom: 0.85rem;
+            }
+
+            .ck-side-brand-title {
+                font-size: 1rem;
+                font-weight: 900;
+                letter-spacing: -0.03em;
+            }
+
+            .ck-side-brand-subtitle {
+                margin-top: 0.25rem;
+                font-size: 0.82rem;
+                color: rgba(255,255,255,0.82);
+                line-height: 1.5;
             }
 
             .ck-side-user {
@@ -3162,7 +3192,6 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
         new_person_defaults = {
             "new_person_full_name": "",
             "new_person_role": PERSONNEL_ROLE_OPTIONS[0],
-            "new_person_status": "Aktif",
             "new_person_phone": "",
             "new_person_assigned_label": "-",
             "new_person_tc_no": "",
@@ -3188,10 +3217,9 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
         code_preview = next_person_code(conn, role)
         c3.text_input("Otomatik Personel Kodu", value=code_preview, disabled=True)
 
-        c4, c5, c6 = st.columns(3)
-        status = c4.selectbox("Durum", ["Aktif", "Pasif"], key="new_person_status")
-        phone = c5.text_input("Telefon", key="new_person_phone")
-        assigned_label = c6.selectbox("Ana Restoran", list(rest_opts_with_blank.keys()), key="new_person_assigned_label")
+        c4, c5 = st.columns(2)
+        phone = c4.text_input("Telefon", key="new_person_phone")
+        assigned_label = c5.selectbox("Ana Restoran", list(rest_opts_with_blank.keys()), key="new_person_assigned_label")
 
         c7, c8, c9 = st.columns(3)
         tc_no = c7.text_input("TC Kimlik No", key="new_person_tc_no")
@@ -3254,7 +3282,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                         auto_code,
                         full_name,
                         role,
-                        status,
+                        "Aktif",
                         phone,
                         address,
                         tc_no,
@@ -3517,6 +3545,48 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             st.info("Önce personel eklenmeli.")
 
 
+def attendance_tab(conn: sqlite3.Connection) -> None:
+    today_value = date.today()
+    month_start = today_value.replace(day=1).isoformat()
+    today_count = int(first_row_value(conn.execute("SELECT COUNT(*) FROM daily_entries WHERE entry_date = ?", (today_value.isoformat(),)).fetchone(), 0) or 0)
+    month_count = int(first_row_value(conn.execute("SELECT COUNT(*) FROM daily_entries WHERE entry_date BETWEEN ? AND ?", (month_start, today_value.isoformat())).fetchone(), 0) or 0)
+    total_count = int(first_row_value(conn.execute("SELECT COUNT(*) FROM daily_entries").fetchone(), 0) or 0)
+    active_restaurants = int(first_row_value(conn.execute("SELECT COUNT(*) FROM restaurants WHERE active=1").fetchone(), 0) or 0)
+
+    render_management_hero(
+        "PUANTAJ",
+        "Günlük ve toplu giriş akışları",
+        "Tek menü altında günlük puantaj ve toplu puantaj ekranlarını aç; operasyon ekibi için daha temiz bir giriş alanı kullan.",
+        [
+            ("Toplam Kayıt", total_count),
+            ("Bugünkü Kayıt", today_count),
+            ("Bu Ay Kayıt", month_count),
+            ("Aktif Restoran", active_restaurants),
+        ],
+    )
+
+    workspace_key = "attendance_workspace_mode"
+    if workspace_key not in st.session_state:
+        st.session_state[workspace_key] = "daily"
+
+    c1, c2 = st.columns(2)
+    with c1:
+        render_action_card("Günlük Puantaj", "Şube, saat, paket ve fiilen çalışan personel bilgisini tek kayıt olarak gir.", highlight=st.session_state[workspace_key] == "daily")
+        if st.button("Günlük Alanını Aç", key="attendance_workspace_daily", use_container_width=True):
+            st.session_state[workspace_key] = "daily"
+    with c2:
+        render_action_card("Toplu Puantaj", "Bir şubedeki çoklu personel kaydını tablo halinde veya WhatsApp metniyle içeri al.", highlight=st.session_state[workspace_key] == "bulk")
+        if st.button("Toplu Alanı Aç", key="attendance_workspace_bulk", use_container_width=True):
+            st.session_state[workspace_key] = "bulk"
+
+    if st.session_state[workspace_key] == "daily":
+        render_tab_header("Günlük Puantaj", "Şube bazlı tekil puantaj kayıtlarını gir, düzelt ve yönet.")
+        daily_entries_tab(conn)
+    else:
+        render_tab_header("Toplu Puantaj", "Aynı gün içinde çoklu personel kayıtlarını tablo veya metin aktarımıyla yönet.")
+        toplu_puantaj_tab(conn)
+
+
 def daily_entries_tab(conn: sqlite3.Connection) -> None:
     status_options = ["Normal", "Joker", "İzin", "Gelmedi", "Çıkış yaptı", "Şef"]
     st.subheader("Günlük Puantaj | Saat, paket ve fiilen çalışan personel kaydı")
@@ -3655,7 +3725,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 def deductions_tab(conn: sqlite3.Connection) -> None:
     section_intro("💸 Kesinti Yönetimi | Motor kira, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; personel kartından gelen sistem kesintileri de aynı tabloda görünür.")
     person_opts = get_person_options(conn, active_only=False)
-    deduction_types = ["Motor kira", "Yakıt", "HGS", "İdari ceza", "Hasar", "Zimmet", "Muhasebe Ücreti", "Şirket Açılış Ücreti", "Fatura Edilmeyen Tutar", "Diğer"]
+    deduction_types = ["Yakıt", "HGS", "İdari ceza", "Hasar", "Fatura Edilmeyen Tutar"]
 
     with st.form("deduction_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
@@ -3919,6 +3989,9 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
         "Ekipman satın alma faturalarını ayrı ekranda yönet; ürün bazlı birim maliyeti ve geçmiş alımları tek listede takip et.",
     )
 
+    if st.session_state.get("purchase_item") == "Box+Punch":
+        st.session_state["purchase_item"] = "Box"
+
     with st.form("purchase_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
         purchase_date = c1.date_input("Fatura Tarihi", value=date.today(), key="purchase_date")
@@ -3981,24 +4054,42 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
 
     with tab1:
         st.markdown("#### Kurye zimmet / satış kaydı")
-        with st.form("equipment_issue_form", clear_on_submit=True):
+        if not person_opts:
+            st.info("Önce personel eklenmeli.")
+        else:
+            if st.session_state.get("issue_item") == "Box+Punch":
+                st.session_state["issue_item"] = "Box"
+            if st.session_state.get("issue_item") not in EQUIPMENT_ITEMS:
+                st.session_state["issue_item"] = EQUIPMENT_ITEMS[0]
+            if st.session_state.get("issue_last_item") not in EQUIPMENT_ITEMS:
+                st.session_state["issue_last_item"] = st.session_state.get("issue_item", EQUIPMENT_ITEMS[0])
+            if "issue_cost" not in st.session_state:
+                st.session_state["issue_cost"] = float(latest_average_cost(conn, st.session_state["issue_item"]))
+            if "issue_sale" not in st.session_state:
+                initial_sale = get_default_equipment_sale_price(st.session_state["issue_item"]) or st.session_state["issue_cost"]
+                st.session_state["issue_sale"] = float(initial_sale)
+
             c1, c2, c3 = st.columns(3)
             person_label = c1.selectbox("Personel", list(person_opts.keys()), key="issue_person")
             issue_date = c2.date_input("Zimmet tarihi", value=date.today(), key="issue_date")
             item_name = c3.selectbox("Ürün", EQUIPMENT_ITEMS, key="issue_item")
-            suggested_cost = latest_average_cost(conn, item_name)
-            suggested_sale_price = get_default_equipment_sale_price(item_name) or suggested_cost
+            if st.session_state.get("issue_last_item") != item_name:
+                refreshed_cost = latest_average_cost(conn, item_name)
+                refreshed_sale = get_default_equipment_sale_price(item_name) or refreshed_cost
+                st.session_state["issue_cost"] = float(refreshed_cost)
+                st.session_state["issue_sale"] = float(refreshed_sale)
+                st.session_state["issue_last_item"] = item_name
             vat_rate = get_equipment_vat_rate(item_name)
             c4, c5, c6 = st.columns(3)
             quantity = c4.number_input("Adet", min_value=1, value=1, step=1, key="issue_qty")
-            unit_cost = c5.number_input("Birim maliyet", min_value=0.0, value=float(suggested_cost), step=50.0, key="issue_cost")
-            unit_sale_price = c6.number_input("Kuryeye satış fiyatı | KDV dahil", min_value=0.0, value=float(suggested_sale_price), step=50.0, key="issue_sale")
+            unit_cost = c5.number_input("Birim maliyet", min_value=0.0, value=float(st.session_state.get("issue_cost", 0.0) or 0.0), step=50.0, key="issue_cost")
+            unit_sale_price = c6.number_input("Kuryeye satış fiyatı | KDV dahil", min_value=0.0, value=float(st.session_state.get("issue_sale", 0.0) or 0.0), step=50.0, key="issue_sale")
             c7, c8, c9 = st.columns(3)
             installment_count = c7.selectbox("Taksit sayısı", [1, 2, 3], index=1, key="issue_installment")
             sale_type = c8.selectbox("İşlem tipi", ["Satış", "Depozit / Teslim"], key="issue_sale_type")
             notes = c9.text_input("Not", key="issue_notes")
             st.caption(f"Bu ürün için varsayılan KDV oranı: %{fmt_number(vat_rate)}")
-            submitted = st.form_submit_button("Zimmet kaydet ve taksit oluştur", use_container_width=True)
+            submitted = st.button("Zimmet Kaydet ve Taksit Oluştur", use_container_width=True, key="issue_submit")
             if submitted:
                 person_id = person_opts[person_label]
                 issue_id = insert_equipment_issue_and_get_id(
@@ -4016,7 +4107,10 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                 )
                 total_sale_amount = float(quantity) * float(unit_sale_price)
                 post_equipment_installments(conn, issue_id, person_id, issue_date, item_name, total_sale_amount, int(installment_count))
+                st.session_state["issue_qty"] = 1
+                st.session_state["issue_notes"] = ""
                 st.success(f"Zimmet kaydedildi. Toplam satış: {fmt_try(total_sale_amount)} | {installment_count} taksit oluşturuldu.")
+                st.rerun()
 
         issues = fetch_df(
             conn,
@@ -4799,14 +4893,12 @@ def main() -> None:
             restaurants_tab(conn)
         elif menu == "👥 Personel Yönetimi":
             personnel_tab(conn)
+        elif menu == "🗓 Puantaj":
+            attendance_tab(conn)
         elif menu == "🛒 Satın Alma":
             purchases_tab(conn)
         elif menu == "📦 Ekipman & Zimmet":
             equipment_tab(conn)
-        elif menu == "🗓 Günlük Puantaj":
-            daily_entries_tab(conn)
-        elif menu == "🗂 Toplu Puantaj":
-            toplu_puantaj_tab(conn)
         elif menu == "💸 Kesinti Yönetimi":
             deductions_tab(conn)
         elif menu == "🧾 Aylık Hakediş":
