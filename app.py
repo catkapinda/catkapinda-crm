@@ -1436,46 +1436,38 @@ def login_gate(conn: sqlite3.Connection) -> bool:
     with center:
         logo_markup = build_login_logo_markup()
         st.markdown("<div class='ck-login-gap'></div>", unsafe_allow_html=True)
-        st.markdown("<div class='ck-login-card'>", unsafe_allow_html=True)
         st.markdown(
             f"""
-            <div class="ck-login-logo">
-                {logo_markup}
-                <div class="ck-login-logo-copy">
-                    <div class="ck-login-logo-eyebrow">Çat Kapında</div>
-                    <div class="ck-login-logo-line">Operasyon CRM</div>
+            <div class='ck-login-card'>
+                <div class="ck-login-logo">
+                    {logo_markup}
+                    <div class="ck-login-logo-copy">
+                        <div class="ck-login-logo-eyebrow">Çat Kapında</div>
+                        <div class="ck-login-logo-line">Operasyon CRM</div>
+                    </div>
                 </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown("<div class='ck-login-kicker'>Operasyon Yönetim Paneli</div>", unsafe_allow_html=True)
-        st.markdown("<div class='ck-login-title'>Şube, personel ve kârlılığı tek ekrandan yönet.</div>", unsafe_allow_html=True)
-        st.markdown(
-            "<div class='ck-login-subtitle'>Günlük puantajdan ekipman zimmetine, aylık hakedişten kârlılık özetine kadar tüm operasyon akışını düzenli bir panelde topla.</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            """
-            <div class="ck-login-feature-grid">
-                <div class="ck-login-feature-card">
-                    <span>Şube Yönetimi</span>
-                    <strong>Fiyat anlaşmaları ve operasyon kartlarını tek yerden takip et.</strong>
-                </div>
-                <div class="ck-login-feature-card">
-                    <span>Personel Akışı</span>
-                    <strong>Puantaj, zimmet ve kesinti hareketlerini düzenli görünümle yönet.</strong>
-                </div>
-                <div class="ck-login-feature-card">
-                    <span>Finansal Özet</span>
-                    <strong>Aylık hakediş ve kârlılık ekranlarına aynı girişten ulaş.</strong>
+                <div class='ck-login-kicker'>Operasyon Yönetim Paneli</div>
+                <div class='ck-login-title'>Şube, personel ve kârlılığı tek ekrandan yönet.</div>
+                <div class='ck-login-subtitle'>Günlük puantajdan ekipman zimmetine, aylık hakedişten kârlılık özetine kadar tüm operasyon akışını düzenli bir panelde topla.</div>
+                <div class="ck-login-feature-grid">
+                    <div class="ck-login-feature-card">
+                        <span>Şube Yönetimi</span>
+                        <strong>Fiyat anlaşmaları ve operasyon kartlarını tek yerden takip et.</strong>
+                    </div>
+                    <div class="ck-login-feature-card">
+                        <span>Personel Akışı</span>
+                        <strong>Puantaj, zimmet ve kesinti hareketlerini düzenli görünümle yönet.</strong>
+                    </div>
+                    <div class="ck-login-feature-card">
+                        <span>Finansal Özet</span>
+                        <strong>Aylık hakediş ve kârlılık ekranlarına aynı girişten ulaş.</strong>
+                    </div>
                 </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        st.markdown("<div class='ck-login-form-shell'>", unsafe_allow_html=True)
         st.markdown("<div class='ck-login-form-title'>Güvenli Giriş</div>", unsafe_allow_html=True)
         st.markdown("<div class='ck-login-form-subtitle'>Yetkili e-posta hesabınla panele eriş.</div>", unsafe_allow_html=True)
 
@@ -1558,9 +1550,6 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 st.rerun()
             else:
                 st.error("E-posta adresi veya şifre hatalı.")
-
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
     return False
 
 
