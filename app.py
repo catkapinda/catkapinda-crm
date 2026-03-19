@@ -258,6 +258,7 @@ def init_auth_state() -> None:
         "username": None,
         "role": None,
         "auth_token": None,
+        "login_help_visible": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -1128,34 +1129,76 @@ def login_gate(conn: sqlite3.Connection) -> bool:
     if st.session_state.authenticated or restore_auth_session(conn):
         return True
 
-    left, center, right = st.columns([1.1, 0.95, 1.1])
+    left, center, right = st.columns([0.9, 1.3, 0.9])
     with center:
         st.markdown("<div class='ck-login-gap'></div>", unsafe_allow_html=True)
         st.markdown("<div class='ck-login-card'>", unsafe_allow_html=True)
-        st.markdown("<div class='ck-login-kicker'>ÇAT KAPINDA</div>", unsafe_allow_html=True)
-        st.markdown("<div class='ck-login-title'>Operasyon CRM</div>", unsafe_allow_html=True)
         st.markdown(
-            "<div class='ck-login-subtitle'>Şube operasyonunu, personeli, puantajı, ekipmanı ve aylık kârlılığı tek ekrandan yönet.</div>",
+            """
+            <div class="ck-login-logo">
+                <div class="ck-login-logo-mark">CK</div>
+                <div class="ck-login-logo-copy">
+                    <div class="ck-login-logo-eyebrow">Çat Kapında</div>
+                    <div class="ck-login-logo-line">Operasyon CRM</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown("<div class='ck-login-kicker'>Operasyon Yönetim Paneli</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ck-login-title'>Şube, personel ve kârlılığı tek ekrandan yönet.</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='ck-login-subtitle'>Günlük puantajdan ekipman zimmetine, aylık hakedişten kârlılık özetine kadar tüm operasyon akışını düzenli bir panelde topla.</div>",
             unsafe_allow_html=True,
         )
         st.markdown(
             """
-            <div class="ck-login-feature-row">
-                <div class="ck-login-feature">Günlük puantaj</div>
-                <div class="ck-login-feature">Aylık hakediş</div>
-                <div class="ck-login-feature">Kârlılık raporları</div>
+            <div class="ck-login-feature-grid">
+                <div class="ck-login-feature-card">
+                    <span>Şube Yönetimi</span>
+                    <strong>Fiyat anlaşmaları ve operasyon kartlarını tek yerden takip et.</strong>
+                </div>
+                <div class="ck-login-feature-card">
+                    <span>Personel Akışı</span>
+                    <strong>Puantaj, zimmet ve kesinti hareketlerini düzenli görünümle yönet.</strong>
+                </div>
+                <div class="ck-login-feature-card">
+                    <span>Finansal Özet</span>
+                    <strong>Aylık hakediş ve kârlılık ekranlarına aynı girişten ulaş.</strong>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+        st.markdown("<div class='ck-login-form-shell'>", unsafe_allow_html=True)
+        st.markdown("<div class='ck-login-form-title'>Güvenli Giriş</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ck-login-form-subtitle'>Yetkili kullanıcı hesabınla panele eriş.</div>", unsafe_allow_html=True)
+
         with st.form("login_form", clear_on_submit=False):
             username = st.text_input("Kullanıcı Adı", placeholder="Kullanıcı adını gir")
             password = st.text_input("Şifre", type="password", placeholder="Şifreni gir")
-            remember_me = st.checkbox("Bu cihazda oturumu 30 gün açık tut", value=True)
+            remember_me = st.checkbox("Bu Cihazı Hatırla", value=True, help="Kişisel cihazlarda açık bırakabilirsin.")
             submitted = st.form_submit_button("Panele Gir", use_container_width=True)
 
-        st.caption("Bu seçenek açıkken sayfayı yenilediğinde tekrar giriş istenmez.")
+        if st.button("Şifremi Unuttum", key="login_help_toggle", use_container_width=True):
+            st.session_state.login_help_visible = not st.session_state.get("login_help_visible", False)
+
+        if st.session_state.get("login_help_visible"):
+            st.markdown(
+                """
+                <div class="ck-login-help-card">
+                    <div class="ck-login-help-title">Şifre Desteği</div>
+                    <div class="ck-login-help-text">Bu sürümde otomatik şifre sıfırlama bağlantısı bulunmuyor. Şifreni yenilemek için kullanıcı adını belirterek sistem yöneticisinden yeni giriş şifresi talep et.</div>
+                    <div class="ck-login-help-steps">
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">1</span><span>Kullanıcı adını hazırla ve giriş yapmak istediğin hesabı netleştir.</span></div>
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">2</span><span>Sistem yöneticisinden yeni şifre talep et ve eski şifrenin geçersiz sayılmasını iste.</span></div>
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">3</span><span>Yeni şifre ile tekrar giriş yapıp cihaz sana aitse <strong>Bu Cihazı Hatırla</strong> seçeneğini açık bırak.</span></div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
         if submitted:
             entered_username = username.strip()
@@ -1167,11 +1210,13 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 else:
                     set_query_param(AUTH_QUERY_KEY, None)
                 set_authenticated_user(entered_username, token)
+                st.session_state.login_help_visible = False
                 st.success("Giriş başarılı. Panel hazırlanıyor...")
                 st.rerun()
             else:
                 st.error("Kullanıcı adı veya şifre hatalı.")
 
+        st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
     return False
 
@@ -2358,65 +2403,239 @@ def inject_global_styles() -> None:
             }
 
             .ck-login-gap {
-                height: 5vh;
+                height: clamp(24px, 5vh, 56px);
             }
 
             .ck-login-card {
-                background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(252,253,255,0.98) 100%);
+                position: relative;
+                overflow: hidden;
+                background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%);
                 border: 1px solid rgba(231, 237, 246, 0.92);
-                border-radius: 28px;
-                padding: 30px 28px 24px;
+                border-radius: 32px;
+                padding: 28px 28px 24px;
                 box-shadow: 0 24px 60px rgba(15, 23, 42, 0.10);
                 backdrop-filter: blur(10px);
             }
 
+            .ck-login-card::before {
+                content: "";
+                position: absolute;
+                inset: 0 0 auto 0;
+                height: 180px;
+                background: radial-gradient(circle at top right, rgba(20,145,212,0.16), transparent 34%);
+                pointer-events: none;
+            }
+
+            .ck-login-logo {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                margin-bottom: 1rem;
+                position: relative;
+                z-index: 1;
+            }
+
+            .ck-login-logo-mark {
+                width: 60px;
+                height: 60px;
+                border-radius: 18px;
+                background: linear-gradient(135deg, #0D4CCD 0%, #1491D4 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 1.15rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                box-shadow: 0 18px 34px rgba(13, 76, 205, 0.22);
+            }
+
+            .ck-login-logo-copy {
+                display: flex;
+                flex-direction: column;
+                gap: 0.18rem;
+            }
+
+            .ck-login-logo-eyebrow {
+                color: #5A7198;
+                font-size: 0.78rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+            }
+
+            .ck-login-logo-line {
+                color: var(--ck-text);
+                font-size: 1.28rem;
+                font-weight: 850;
+                letter-spacing: -0.04em;
+            }
+
             .ck-login-kicker {
                 width: fit-content;
-                margin: 0 auto 1rem auto;
+                margin: 0 0 1rem 0;
                 padding: 7px 12px;
                 border-radius: 999px;
                 background: var(--ck-primary-soft);
                 color: var(--ck-primary);
                 border: 1px solid #D8E5FF;
-                font-size: 0.75rem;
+                font-size: 0.74rem;
                 font-weight: 800;
                 letter-spacing: 0.12em;
+                position: relative;
+                z-index: 1;
             }
 
             .ck-login-title {
-                font-size: 2.1rem;
-                font-weight: 800;
-                text-align: center;
-                letter-spacing: -0.05em;
+                font-size: 2.2rem;
+                font-weight: 850;
+                letter-spacing: -0.06em;
                 color: var(--ck-text);
-                margin-bottom: 0.45rem;
+                margin-bottom: 0.55rem;
                 line-height: 1.02;
+                max-width: 700px;
+                position: relative;
+                z-index: 1;
             }
 
             .ck-login-subtitle {
-                text-align: center;
                 color: var(--ck-muted);
-                line-height: 1.6;
-                margin-bottom: 1.05rem;
-                font-size: 0.96rem;
-            }
-
-            .ck-login-feature-row {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-                justify-content: center;
+                line-height: 1.7;
                 margin-bottom: 1.15rem;
+                font-size: 0.97rem;
+                max-width: 690px;
+                position: relative;
+                z-index: 1;
             }
 
-            .ck-login-feature {
-                padding: 7px 11px;
-                border-radius: 999px;
+            .ck-login-feature-grid {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 12px;
+                margin-bottom: 1.25rem;
+                position: relative;
+                z-index: 1;
+            }
+
+            .ck-login-feature-card {
+                min-height: 96px;
+                padding: 14px 15px;
+                border-radius: 18px;
+                background: rgba(255,255,255,0.82);
+                border: 1px solid #E2EBFA;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+            }
+
+            .ck-login-feature-card span {
+                display: block;
+                margin-bottom: 0.45rem;
+                color: #3F6EA9;
+                font-size: 0.76rem;
+                font-weight: 800;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+
+            .ck-login-feature-card strong {
+                display: block;
+                color: var(--ck-text);
+                font-size: 0.93rem;
+                line-height: 1.5;
+                font-weight: 760;
+            }
+
+            .ck-login-form-shell {
+                position: relative;
+                z-index: 1;
+                background: rgba(255,255,255,0.96);
+                border: 1px solid #E4ECF8;
+                border-radius: 24px;
+                padding: 20px 18px 16px;
+                box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+            }
+
+            .ck-login-form-title {
+                color: var(--ck-text);
+                font-size: 1.06rem;
+                font-weight: 850;
+                letter-spacing: -0.03em;
+            }
+
+            .ck-login-form-subtitle {
+                color: var(--ck-muted);
+                margin: 0.32rem 0 1rem;
+                font-size: 0.9rem;
+                line-height: 1.6;
+            }
+
+            .ck-login-card [data-testid="stTextInputRootElement"] input {
+                border-radius: 14px;
+            }
+
+            .ck-login-card .stCheckbox label {
+                color: #42526B;
+                font-weight: 600;
+            }
+
+            .ck-login-card div[data-testid="stFormSubmitButton"] button {
+                background: linear-gradient(135deg, #0D4CCD 0%, #1491D4 100%);
+                color: white;
+                border: none;
+                box-shadow: 0 16px 30px rgba(13, 76, 205, 0.24);
+            }
+
+            .ck-login-card div[data-testid="stFormSubmitButton"] button p {
+                color: white !important;
+            }
+
+            .ck-login-help-card {
+                margin-top: 0.85rem;
+                padding: 14px 15px;
+                border-radius: 18px;
                 background: #F7FAFF;
-                border: 1px solid #E1EBFF;
-                color: #31508B;
-                font-size: 0.8rem;
-                font-weight: 700;
+                border: 1px solid #DCE8FB;
+            }
+
+            .ck-login-help-title {
+                color: var(--ck-text);
+                font-size: 0.98rem;
+                font-weight: 820;
+                margin-bottom: 0.35rem;
+            }
+
+            .ck-login-help-text {
+                color: #4B5E7A;
+                font-size: 0.88rem;
+                line-height: 1.6;
+            }
+
+            .ck-login-help-steps {
+                display: grid;
+                gap: 8px;
+                margin-top: 0.78rem;
+            }
+
+            .ck-login-help-step {
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                color: #294467;
+                font-size: 0.86rem;
+                line-height: 1.55;
+            }
+
+            .ck-login-help-step-badge {
+                width: 24px;
+                height: 24px;
+                flex: 0 0 24px;
+                border-radius: 999px;
+                background: #E8F0FF;
+                color: #0D4CCD;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.76rem;
+                font-weight: 900;
             }
 
             div[data-testid="stMetric"] {
@@ -2577,6 +2796,14 @@ def inject_global_styles() -> None:
                 .ck-hero-grid {
                     grid-template-columns: repeat(2, minmax(0, 1fr));
                 }
+
+                .ck-login-feature-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .ck-login-title {
+                    font-size: 1.8rem;
+                }
             }
 
             @media (max-width: 640px) {
@@ -2599,6 +2826,29 @@ def inject_global_styles() -> None:
 
                 .ck-update-grid {
                     grid-template-columns: 1fr;
+                }
+
+                .ck-login-card {
+                    padding: 22px 18px 18px;
+                    border-radius: 26px;
+                }
+
+                .ck-login-logo-mark {
+                    width: 52px;
+                    height: 52px;
+                    border-radius: 16px;
+                }
+
+                .ck-login-logo-line {
+                    font-size: 1.08rem;
+                }
+
+                .ck-login-title {
+                    font-size: 1.55rem;
+                }
+
+                .ck-login-form-shell {
+                    padding: 18px 14px 14px;
                 }
             }
         </style>
