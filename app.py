@@ -2273,6 +2273,12 @@ def inject_global_styles() -> None:
                 background: rgba(245, 248, 253, 0.72);
             }
 
+            [data-testid="stToolbar"],
+            [data-testid="stDecoration"],
+            [data-testid="stStatusWidget"] {
+                display: none !important;
+            }
+
             .block-container {
                 max-width: 1460px;
                 padding-top: 2rem;
