@@ -1430,6 +1430,7 @@ def ensure_runtime_bootstrap(conn: CompatConnection) -> None:
     maybe_migrate_legacy_sqlite_to_postgres(conn)
     seed_initial_data(conn)
     migrate_data(conn)
+    normalize_existing_deduction_dates(conn)
     sync_default_auth_users(conn)
     sync_all_personnel_business_rules(conn)
     cleanup_auth_sessions(conn)
@@ -2331,7 +2332,10 @@ def post_equipment_installments(
         return
     issue_date_value = parse_date_value(issue_date) or date.today()
     installment_amount = round(total_sale_amount / installment_count, 2)
-    dates = [(pd.Timestamp(issue_date_value) + pd.DateOffset(months=i)).date().isoformat() for i in range(installment_count)]
+    dates = [
+        normalize_deduction_date((pd.Timestamp(issue_date_value) + pd.DateOffset(months=i)).date()).isoformat()
+        for i in range(installment_count)
+    ]
 
     if not auto_source_key_prefix:
         existing = int(first_row_value(conn.execute("SELECT COUNT(*) FROM deductions WHERE equipment_issue_id = ?", (issue_id,)).fetchone(), 0) or 0)
@@ -2435,10 +2439,39 @@ def iter_month_starts(start_value: date, end_value: date) -> list[date]:
     return months
 
 
+def end_of_month(value: date) -> date:
+    last_day = calendar.monthrange(value.year, value.month)[1]
+    return date(value.year, value.month, last_day)
+
+
+def normalize_deduction_date(value: date | str | None) -> date:
+    base_value = parse_date_value(value) or date.today()
+    return end_of_month(base_value)
+
+
 def build_monthly_deduction_date(start_value: date, month_start_value: date) -> date:
-    if start_value.year == month_start_value.year and start_value.month == month_start_value.month:
-        return start_value
-    return month_start_value
+    return normalize_deduction_date(month_start_value)
+
+
+def normalize_existing_deduction_dates(conn: CompatConnection) -> None:
+    deduction_rows = fetch_df(conn, "SELECT id, deduction_date FROM deductions")
+    if deduction_rows.empty:
+        return
+
+    changed = False
+    for _, row in deduction_rows.iterrows():
+        deduction_id = safe_int(row.get("id"))
+        current_date = parse_date_value(row.get("deduction_date"))
+        if deduction_id <= 0 or current_date is None:
+            continue
+        normalized_date = normalize_deduction_date(current_date).isoformat()
+        if str(row.get("deduction_date") or "") == normalized_date:
+            continue
+        conn.execute("UPDATE deductions SET deduction_date = ? WHERE id = ?", (normalized_date, deduction_id))
+        changed = True
+
+    if changed:
+        conn.commit()
 
 
 def count_person_worked_days_in_range(
@@ -2532,7 +2565,7 @@ def sync_person_auto_deductions(
 
     if full_history and str(get_row_value(person_row, "new_company_setup", "Hayır") or "Hayır") == "Evet":
         expected_rows["auto:company_setup"] = {
-            "deduction_date": start_value.isoformat(),
+            "deduction_date": normalize_deduction_date(start_value).isoformat(),
             "deduction_type": "Şirket Açılış Ücreti",
             "amount": AUTO_COMPANY_SETUP_DEDUCTION,
             "notes": "Sistem: Tek seferlik şirket açılış kesintisi",
@@ -4204,19 +4237,31 @@ def calculate_personnel_cost(month_df: pd.DataFrame, personnel_df: pd.DataFrame,
     if personnel_df.empty:
         return pd.DataFrame()
 
-    grouped_entries = month_df.groupby(
-        ["actual_personnel_id", "restaurant_id", "brand", "pricing_model"],
-        dropna=False,
-    ).agg(
-        package_count=("package_count", "sum"),
-    ).reset_index()
+    required_entry_columns = {
+        "actual_personnel_id",
+        "restaurant_id",
+        "brand",
+        "pricing_model",
+        "worked_hours",
+        "package_count",
+    }
+    if month_df is None or month_df.empty or not required_entry_columns.issubset(set(month_df.columns)):
+        grouped_entries = pd.DataFrame(columns=["actual_personnel_id", "restaurant_id", "brand", "pricing_model", "package_count"])
+        total_by_person = pd.DataFrame(columns=["actual_personnel_id", "worked_hours", "package_count"])
+    else:
+        grouped_entries = month_df.groupby(
+            ["actual_personnel_id", "restaurant_id", "brand", "pricing_model"],
+            dropna=False,
+        ).agg(
+            package_count=("package_count", "sum"),
+        ).reset_index()
 
-    total_by_person = month_df.groupby("actual_personnel_id", dropna=False).agg(
-        worked_hours=("worked_hours", "sum"),
-        package_count=("package_count", "sum"),
-    ).reset_index()
+        total_by_person = month_df.groupby("actual_personnel_id", dropna=False).agg(
+            worked_hours=("worked_hours", "sum"),
+            package_count=("package_count", "sum"),
+        ).reset_index()
 
-    if deductions_df.empty:
+    if deductions_df is None or deductions_df.empty or not {"personnel_id", "amount"}.issubset(set(deductions_df.columns)):
         deduction_by_person = pd.DataFrame(columns=["personnel_id", "deduction_total"])
     else:
         deduction_by_person = deductions_df.groupby("personnel_id", dropna=False)["amount"].sum().reset_index(name="deduction_total")
@@ -5830,13 +5875,16 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         notes = st.text_input("Açıklama")
         submitted = st.form_submit_button("Kesinti ekle", use_container_width=True)
         if submitted and amount > 0:
+            deduction_due_date = normalize_deduction_date(ded_date)
             conn.execute(
                 "INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes) VALUES (?, ?, ?, ?, ?)",
-                (person_opts[person_label], ded_date.isoformat(), ded_type, amount, notes),
+                (person_opts[person_label], deduction_due_date.isoformat(), ded_type, amount, notes),
             )
             conn.commit()
-            st.success("Kesinti kaydedildi.")
+            st.success(f"Kesinti ay sonuna kaydedildi: {deduction_due_date.isoformat()}")
             st.rerun()
+
+    st.caption("Girilen kesinti hangi aya aitse, kayıt o ayın son gününe yazılır ve hakedişten ay sonu düşülür.")
 
     raw_df = fetch_df(
         conn,
@@ -5896,16 +5944,17 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         delete_clicked = c5.form_submit_button("Kesinti sil", use_container_width=True, disabled=is_auto_record)
 
         if update_clicked and edit_amount > 0:
+            deduction_due_date = normalize_deduction_date(edit_date)
             conn.execute(
                 """
                 UPDATE deductions
                 SET personnel_id = ?, deduction_date = ?, deduction_type = ?, amount = ?, notes = ?
                 WHERE id = ?
                 """,
-                (person_opts[edit_person], edit_date.isoformat(), edit_type, edit_amount, edit_notes, selected_id),
+                (person_opts[edit_person], deduction_due_date.isoformat(), edit_type, edit_amount, edit_notes, selected_id),
             )
             conn.commit()
-            st.success("Kesinti güncellendi.")
+            st.success(f"Kesinti ay sonuna güncellendi: {deduction_due_date.isoformat()}")
             st.rerun()
 
         if delete_clicked:
