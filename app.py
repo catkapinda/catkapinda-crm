@@ -1408,18 +1408,28 @@ def render_top_profile(conn: CompatConnection) -> None:
     if not current_user:
         return
 
-    left_col, right_col = st.columns([6, 1.45])
-    with left_col:
-        if st.session_state.get("must_change_password"):
-            st.warning("Geçici şifreyle giriş yaptın. Güvenlik için şifreni sağ üstteki Profil alanından güncelle.")
-
+    _, right_col = st.columns([7, 1.45])
     with right_col:
         full_name = str(get_row_value(current_user, "full_name", "") or st.session_state.get("user_full_name") or "Kullanıcı")
-        first_name = full_name.split()[0] if full_name.strip() else "Profil"
-        with st.popover(f"👤 {first_name}", use_container_width=True):
+        email = str(get_row_value(current_user, "email", "") or st.session_state.get("username") or "")
+        role_display = str(get_row_value(current_user, "role_display", "") or st.session_state.get("user_role_display") or "")
+        password_status = "Geçici Şifre" if st.session_state.get("must_change_password") else "Güncel Şifre"
+
+        with st.popover("👤 Profil", use_container_width=True):
+            st.markdown("##### Hesap Özeti")
             st.markdown(f"**{full_name}**")
-            st.caption(str(get_row_value(current_user, "email", "") or st.session_state.get("username") or ""))
-            st.caption(str(get_row_value(current_user, "role_display", "") or st.session_state.get("user_role_display") or ""))
+            st.caption(role_display)
+
+            if st.session_state.get("must_change_password"):
+                st.info("Geçici şifre kullanıyorsun. Güvenlik için aşağıdaki alandan yeni şifre belirle.")
+
+            st.markdown("##### İletişim Bilgileri")
+            st.markdown(f"**Ad Soyad:** {full_name}")
+            st.markdown(f"**E-posta:** {email}")
+
+            st.markdown("##### Hesap Durumu")
+            st.markdown(f"**Yetki:** {role_display}")
+            st.markdown(f"**Şifre Durumu:** {password_status}")
             st.divider()
             st.markdown("##### Şifremi Değiştir")
 
@@ -1454,6 +1464,10 @@ def render_top_profile(conn: CompatConnection) -> None:
                     st.session_state.must_change_password = False
                     st.success("Şifren güncellendi.")
                     st.rerun()
+
+            if st.button("Oturumu Kapat", key="profile_logout_btn", use_container_width=True):
+                revoke_current_auth_session(conn)
+                st.rerun()
 
 
 def allowed_menu_items(role: str) -> list[str]:
@@ -2275,7 +2289,10 @@ def inject_global_styles() -> None:
 
             [data-testid="stToolbar"],
             [data-testid="stDecoration"],
-            [data-testid="stStatusWidget"] {
+            [data-testid="stStatusWidget"],
+            #MainMenu,
+            button[kind="header"],
+            [data-testid="stAppViewContainer"] > .main > div:first-child button {
                 display: none !important;
             }
 
