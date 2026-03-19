@@ -70,7 +70,6 @@ TEMP_PASSWORD_LENGTH = 10
 SMTP_PORT_DEFAULT = 587
 
 APP_DATA_DIR = Path.home() / "Documents" / "CatKapindaData"
-BACKUP_DIR = APP_DATA_DIR / "backups"
 DB_PATH = APP_DATA_DIR / "catkapinda_crm.db"
 LEGACY_DB_PATHS = [
     Path(__file__).with_name("catkapinda_crm.db"),
@@ -79,7 +78,6 @@ LEGACY_DB_PATHS = [
 ]
 AUTH_QUERY_KEY = "ck_session"
 AUTH_SESSION_DAYS = 30
-MAX_DB_BACKUPS = 30
 VAT_RATE_DEFAULT = 20.0
 COURIER_HOURLY_COST = 250.0  # KDV dahil
 COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
@@ -656,7 +654,6 @@ def connect_database() -> CompatConnection:
 
 def ensure_data_storage() -> Path | None:
     APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
     if DB_PATH.exists():
         return None
@@ -668,33 +665,6 @@ def ensure_data_storage() -> Path | None:
     latest_source = max(candidates, key=lambda path: path.stat().st_mtime)
     shutil.copy2(latest_source, DB_PATH)
     return latest_source
-
-
-def prune_old_backups() -> None:
-    backups = sorted(BACKUP_DIR.glob("catkapinda_crm_*.db"), key=lambda path: path.stat().st_mtime, reverse=True)
-    for old_backup in backups[MAX_DB_BACKUPS:]:
-        try:
-            old_backup.unlink()
-        except OSError:
-            continue
-
-
-def create_daily_backup(conn: CompatConnection) -> Path | None:
-    if conn.backend != "sqlite":
-        return None
-    backup_path = BACKUP_DIR / f"catkapinda_crm_{date.today().isoformat()}.db"
-    if backup_path.exists():
-        prune_old_backups()
-        return backup_path
-
-    backup_conn = sqlite3.connect(backup_path)
-    try:
-        conn.backup(backup_conn)
-    finally:
-        backup_conn.close()
-
-    prune_old_backups()
-    return backup_path
 
 
 def ensure_schema(conn: CompatConnection) -> None:
@@ -3303,47 +3273,6 @@ def inject_global_styles() -> None:
                 color: rgba(255,255,255,0.86);
             }
 
-            .ck-update-grid {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 14px;
-                margin-top: 0.25rem;
-            }
-
-            .ck-update-card {
-                background: linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%);
-                border: 1px solid var(--ck-border);
-                border-radius: 22px;
-                padding: 18px 18px 16px;
-                box-shadow: var(--ck-shadow);
-                height: 100%;
-            }
-
-            .ck-update-card-title {
-                font-size: 1rem;
-                font-weight: 860;
-                color: var(--ck-text);
-                letter-spacing: -0.03em;
-            }
-
-            .ck-update-card-text {
-                margin-top: 0.45rem;
-                color: var(--ck-muted);
-                line-height: 1.65;
-                font-size: 0.92rem;
-            }
-
-            .ck-update-list {
-                margin: 0.9rem 0 0;
-                padding-left: 1rem;
-                color: var(--ck-text);
-            }
-
-            .ck-update-list li {
-                margin-bottom: 0.4rem;
-                line-height: 1.55;
-            }
-
             .ck-login-gap {
                 height: clamp(24px, 5vh, 56px);
             }
@@ -3634,41 +3563,6 @@ def inject_global_styles() -> None:
                 margin-bottom: 0.85rem;
             }
 
-            .ck-policy-card {
-                background:
-                    radial-gradient(circle at top right, rgba(255,255,255,0.2), transparent 22%),
-                    linear-gradient(135deg, #0C4BCB 0%, #1491D4 100%);
-                border-radius: 22px;
-                padding: 18px 18px 16px;
-                box-shadow: 0 18px 38px rgba(12, 75, 203, 0.18);
-                color: #FFFFFF;
-                margin: 0.55rem 0 1rem 0;
-            }
-
-            .ck-policy-title {
-                font-size: 1rem;
-                font-weight: 850;
-                letter-spacing: -0.03em;
-            }
-
-            .ck-policy-subtitle {
-                margin-top: 0.35rem;
-                color: rgba(255,255,255,0.86);
-                line-height: 1.6;
-                font-size: 0.9rem;
-            }
-
-            .ck-policy-list {
-                margin: 0.9rem 0 0;
-                padding-left: 1rem;
-            }
-
-            .ck-policy-list li {
-                margin-bottom: 0.45rem;
-                line-height: 1.55;
-                color: rgba(255,255,255,0.94);
-            }
-
             .ck-list-row {
                 display: flex;
                 justify-content: space-between;
@@ -3784,10 +3678,6 @@ def inject_global_styles() -> None:
                     min-height: 132px;
                 }
 
-                .ck-update-grid {
-                    grid-template-columns: 1fr;
-                }
-
                 .ck-login-card {
                     padding: 22px 18px 18px;
                     border-radius: 26px;
@@ -3898,20 +3788,6 @@ def render_action_card(title: str, subtitle: str, highlight: bool = False) -> No
     )
 
 
-def render_update_card(title: str, text: str, bullets: list[str]) -> None:
-    bullet_html = "".join(f"<li>{html.escape(item)}</li>" for item in bullets)
-    st.markdown(
-        f"""
-        <div class="ck-update-card">
-            <div class="ck-update-card-title">{html.escape(title)}</div>
-            <div class="ck-update-card-text">{html.escape(text)}</div>
-            <ul class="ck-update-list">{bullet_html}</ul>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def resolve_motor_rental_value(vehicle_type: str, motor_rental: str) -> str:
     normalized_vehicle_type = (vehicle_type or "").strip()
     if normalized_vehicle_type == "Kendi":
@@ -3973,45 +3849,6 @@ def normalize_cost_model_value(cost_model: str, role: str) -> str:
 
 def is_fixed_cost_model(cost_model: str) -> bool:
     return normalize_cost_model_value(cost_model, "Kurye") != "standard_courier"
-
-
-def build_personnel_rule_lines(role: str, motor_rental: str, accounting_type: str, new_company_setup: str) -> list[str]:
-    lines = ["Personel kartı seçilen ana restoran ile bağlanır; puantaj ve hakediş bu ilişkiyi kullanır."]
-    if motor_rental == "Evet":
-        lines.append("Motor kira aktif: personel pasife alınana kadar her ay 13.000₺ otomatik kesilir.")
-    else:
-        lines.append("Motor kira kapalı: aylık 13.000₺ motor kesintisi oluşmaz.")
-
-    if accounting_type == "Çat Kapında Muhasebe":
-        lines.append("Muhasebe aktif: kuryeden 2.000₺ alınır, muhasebeye 1.400₺ ödenir ve aylık 2.000₺ otomatik kesinti oluşur.")
-    else:
-        lines.append("Muhasebe dışarıda: muhasebe gelir/gider alanları 0 olur ve aylık 2.000₺ kesinti oluşmaz.")
-
-    if new_company_setup == "Evet":
-        lines.append("Şirket açılışı aktif: ilk ay için tek seferlik 1.500₺ kesinti yazılır.")
-    else:
-        lines.append("Şirket açılışı kapalı: tek seferlik 1.500₺ kesinti oluşmaz.")
-
-    if role == "Kurye":
-        lines.append("İşe giriş zimmeti: Box 3.200₺, Punch 2.000₺ ve Korumalı Mont 4.750₺ olarak 2 taksite bölünür.")
-        lines.append("Polar ve tişört sezon ürünü olarak hazır; fiyat tanımlanmadığı için henüz otomatik faturalanmıyor.")
-    else:
-        lines.append("Otomatik işe giriş zimmeti şu an sadece Kurye rolü için açılır.")
-    return lines
-
-
-def render_rule_summary_card(title: str, subtitle: str, lines: list[str]) -> None:
-    items_html = "".join(f"<li>{html.escape(line)}</li>" for line in lines)
-    st.markdown(
-        f"""
-        <div class="ck-policy-card">
-            <div class="ck-policy-title">{html.escape(title)}</div>
-            <div class="ck-policy-subtitle">{html.escape(subtitle)}</div>
-            <ul class="ck-policy-list">{items_html}</ul>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def fetch_df(conn: CompatConnection, query: str, params: tuple = ()) -> pd.DataFrame:
