@@ -1979,8 +1979,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             )
 
             with st.form("login_form", clear_on_submit=False):
-                username = st.text_input("E-posta Adresi", placeholder="ad.soyad@catkapinda.com")
-                password = st.text_input("Şifre", type="password", placeholder="Kurumsal şifreni gir")
+                username = st.text_input("E-posta Adresi", placeholder="ornek@catkapinda.com")
+                password = st.text_input("Şifre", type="password", placeholder="Şifreni gir")
                 remember_me = st.checkbox("Bu Cihazı Hatırla", value=True, help="Kişisel cihazlarda açık bırakabilirsin.")
                 submitted = st.form_submit_button("Panele Gir", use_container_width=True)
 
@@ -4242,12 +4242,27 @@ def validate_restaurant_form(
     extra_req_date: date | None,
     reduce_req: int,
     reduce_req_date: date | None,
+    contact_name: str,
+    contact_phone: str,
+    contact_email: str,
+    tax_office: str,
+    tax_number: str,
 ) -> list[str]:
     errors = []
     if not (brand or "").strip():
         errors.append("Marka alanı zorunlu.")
     if not (branch or "").strip():
         errors.append("Şube alanı zorunlu.")
+    if not (contact_name or "").strip():
+        errors.append("Yetkili ad soyad alanı zorunlu.")
+    if not (contact_phone or "").strip():
+        errors.append("Yetkili telefon alanı zorunlu.")
+    if not (contact_email or "").strip():
+        errors.append("Yetkili e-posta alanı zorunlu.")
+    if not (tax_office or "").strip():
+        errors.append("Vergi dairesi alanı zorunlu.")
+    if not (tax_number or "").strip():
+        errors.append("Vergi numarası alanı zorunlu.")
     if headcount <= 0:
         errors.append("Hedef kadro 0'dan büyük olmalı.")
     if start_date_value is None:
@@ -4284,6 +4299,10 @@ def validate_restaurant_form(
 def validate_personnel_form(
     full_name: str,
     phone: str,
+    tc_no: str,
+    iban: str,
+    address: str,
+    current_plate: str,
     role: str,
     assigned_restaurant_id: int | None,
     start_date_value: date | None,
@@ -4295,6 +4314,14 @@ def validate_personnel_form(
         errors.append("Ad Soyad alanı zorunlu.")
     if not (phone or "").strip():
         errors.append("Telefon alanı zorunlu.")
+    if not (tc_no or "").strip():
+        errors.append("TC Kimlik No alanı zorunlu.")
+    if not (iban or "").strip():
+        errors.append("IBAN alanı zorunlu.")
+    if not (address or "").strip():
+        errors.append("Adres alanı zorunlu.")
+    if not (current_plate or "").strip():
+        errors.append("Güncel plaka alanı zorunlu.")
     if start_date_value is None:
         errors.append("İşe giriş tarihi zorunlu.")
     if role in {"Kurye", "Restoran Takım Şefi"} and not assigned_restaurant_id:
@@ -4505,13 +4532,23 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
             st.markdown("##### İletişim ve Vergi")
             c19, c20, c21 = st.columns(3)
-            contact_name = c19.text_input("Yetkili Ad Soyad")
-            contact_phone = c20.text_input("Yetkili Telefon")
-            contact_email = c21.text_input("Yetkili E-Posta")
+            with c19:
+                render_field_label("Yetkili Ad Soyad", required=True)
+                contact_name = st.text_input("Yetkili Ad Soyad", label_visibility="collapsed")
+            with c20:
+                render_field_label("Yetkili Telefon", required=True)
+                contact_phone = st.text_input("Yetkili Telefon", label_visibility="collapsed")
+            with c21:
+                render_field_label("Yetkili E-Posta", required=True)
+                contact_email = st.text_input("Yetkili E-Posta", label_visibility="collapsed")
 
             c22, c23 = st.columns(2)
-            tax_office = c22.text_input("Vergi Dairesi")
-            tax_number = c23.text_input("Vergi Numarası")
+            with c22:
+                render_field_label("Vergi Dairesi", required=True)
+                tax_office = st.text_input("Vergi Dairesi", label_visibility="collapsed")
+            with c23:
+                render_field_label("Vergi Numarası", required=True)
+                tax_number = st.text_input("Vergi Numarası", label_visibility="collapsed")
 
             notes = st.text_area("Notlar", placeholder="Şube içi önemli notlar, çalışma düzeni veya anlaşma detayı")
             submitted = st.button("Şube Kartını Oluştur", use_container_width=True, key="restaurant_create_submit")
@@ -4533,6 +4570,11 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                     extra_req_date=extra_req_date if isinstance(extra_req_date, date) else None,
                     reduce_req=reduce_req,
                     reduce_req_date=reduce_req_date if isinstance(reduce_req_date, date) else None,
+                    contact_name=contact_name,
+                    contact_phone=contact_phone,
+                    contact_email=contact_email,
+                    tax_office=tax_office,
+                    tax_number=tax_number,
                 )
                 if validation_errors:
                     for error_text in validation_errors:
@@ -4691,13 +4733,23 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
                     st.markdown("##### İletişim ve Vergi")
                     c19, c20, c21 = st.columns(3)
-                    edit_contact_name = c19.text_input("Yetkili Ad Soyad", value=selected_row["contact_name"] or "")
-                    edit_contact_phone = c20.text_input("Yetkili Telefon", value=selected_row["contact_phone"] or "")
-                    edit_contact_email = c21.text_input("Yetkili E-Posta", value=selected_row["contact_email"] or "")
+                    with c19:
+                        render_field_label("Yetkili Ad Soyad", required=True)
+                        edit_contact_name = st.text_input("Yetkili Ad Soyad", value=selected_row["contact_name"] or "", label_visibility="collapsed")
+                    with c20:
+                        render_field_label("Yetkili Telefon", required=True)
+                        edit_contact_phone = st.text_input("Yetkili Telefon", value=selected_row["contact_phone"] or "", label_visibility="collapsed")
+                    with c21:
+                        render_field_label("Yetkili E-Posta", required=True)
+                        edit_contact_email = st.text_input("Yetkili E-Posta", value=selected_row["contact_email"] or "", label_visibility="collapsed")
 
                     c22, c23 = st.columns(2)
-                    edit_tax_office = c22.text_input("Vergi Dairesi", value=selected_row["tax_office"] or "")
-                    edit_tax_number = c23.text_input("Vergi Numarası", value=selected_row["tax_number"] or "")
+                    with c22:
+                        render_field_label("Vergi Dairesi", required=True)
+                        edit_tax_office = st.text_input("Vergi Dairesi", value=selected_row["tax_office"] or "", label_visibility="collapsed")
+                    with c23:
+                        render_field_label("Vergi Numarası", required=True)
+                        edit_tax_number = st.text_input("Vergi Numarası", value=selected_row["tax_number"] or "", label_visibility="collapsed")
 
                     edit_notes = st.text_area("Notlar", value=selected_row["notes"] or "")
                     submitted_edit = st.button("Şube Kartını Güncelle", use_container_width=True, key="restaurant_edit_submit")
@@ -4719,6 +4771,11 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                             extra_req_date=edit_extra_req_date if isinstance(edit_extra_req_date, date) else None,
                             reduce_req=edit_reduce_req,
                             reduce_req_date=edit_reduce_req_date if isinstance(edit_reduce_req_date, date) else None,
+                            contact_name=edit_contact_name,
+                            contact_phone=edit_contact_phone,
+                            contact_email=edit_contact_email,
+                            tax_office=edit_tax_office,
+                            tax_number=edit_tax_number,
                         )
                         if validation_errors:
                             for error_text in validation_errors:
@@ -4950,16 +5007,17 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
         c7, c8, c9 = st.columns(3)
         with c7:
-            render_field_label("TC Kimlik No")
+            render_field_label("TC Kimlik No", required=True)
             tc_no = st.text_input("TC Kimlik No", key="new_person_tc_no", label_visibility="collapsed")
         with c8:
-            render_field_label("IBAN")
+            render_field_label("IBAN", required=True)
             iban = st.text_input("IBAN", key="new_person_iban", label_visibility="collapsed")
         with c9:
             render_field_label("İşe Giriş Tarihi", required=True)
             start_date = st.date_input("İşe Giriş Tarihi", key="new_person_start_date", label_visibility="collapsed")
 
-        address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address")
+        render_field_label("Adres", required=True)
+        address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address", label_visibility="collapsed")
 
         st.markdown("##### Muhasebe ve Şirket")
         c10, c11, c12 = st.columns(3)
@@ -5012,7 +5070,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             render_field_label("Motor Tipi")
             vehicle_type = st.selectbox("Motor Tipi", ["Çat Kapında", "Kendi Motoru"], key="new_person_vehicle_type", label_visibility="collapsed")
         with c19:
-            render_field_label("Güncel Plaka")
+            render_field_label("Güncel Plaka", required=True)
             current_plate = st.text_input("Güncel Plaka", key="new_person_current_plate", label_visibility="collapsed")
         effective_motor_rental = resolve_motor_rental_value(vehicle_type, "Hayır")
         notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar", key="new_person_notes")
@@ -5023,6 +5081,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             validation_errors = validate_personnel_form(
                 full_name=full_name,
                 phone=phone,
+                tc_no=tc_no,
+                iban=iban,
+                address=address,
+                current_plate=current_plate,
                 role=role,
                 assigned_restaurant_id=assigned_id,
                 start_date_value=start_date if isinstance(start_date, date) else None,
@@ -5033,58 +5095,65 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 for error_text in validation_errors:
                     st.error(error_text)
             else:
-                start_date_str = start_date.isoformat() if isinstance(start_date, date) else None
-                auto_code = next_person_code(conn, role)
-                conn.execute(
-                    """
-                    INSERT INTO personnel (
-                        person_code, full_name, role, status, phone, address, tc_no, iban,
-                        accounting_type, new_company_setup, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
-                        assigned_restaurant_id, vehicle_type, motor_rental, current_plate, start_date,
-                        cost_model, monthly_fixed_cost, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        auto_code,
-                        full_name,
-                        role,
-                        "Aktif",
-                        phone,
-                        address,
-                        tc_no,
-                        iban,
-                        accounting_type,
-                        new_company_setup,
-                        auto_accounting_revenue,
-                        auto_accountant_cost,
-                        auto_company_setup_revenue,
-                        auto_company_setup_cost,
-                        assigned_id,
-                        vehicle_type,
-                        effective_motor_rental,
-                        current_plate,
-                        start_date_str,
-                        normalize_cost_model_value(cost_model, role),
-                        monthly_fixed_cost,
-                        notes,
-                    ),
-                )
-                conn.commit()
-                created_person = conn.execute("SELECT * FROM personnel WHERE person_code = ? ORDER BY id DESC", (auto_code,)).fetchone()
-                sync_person_business_rules(conn, created_person)
-                for key, value in new_person_defaults.items():
-                    st.session_state[key] = value
-                created_person_id = safe_int(get_row_value(created_person, "id"), 0)
-                success_text = f"{full_name} başarıyla eklendi. Kod: {auto_code}"
-                st.session_state[workspace_key] = "list"
-                st.session_state["person_search"] = ""
-                st.session_state["person_role_filter"] = "Tümü"
-                st.session_state["person_status_filter"] = "Tümü"
-                st.session_state["person_rest_filter"] = "Tümü"
-                st.session_state["personnel_recently_created"] = {"personnel_id": created_person_id}
-                st.session_state["personnel_create_success_message"] = success_text
-                set_flash_message("success", success_text)
-                st.rerun()
+                try:
+                    start_date_str = start_date.isoformat() if isinstance(start_date, date) else None
+                    auto_code = next_person_code(conn, role)
+                    conn.execute(
+                        """
+                        INSERT INTO personnel (
+                            person_code, full_name, role, status, phone, address, tc_no, iban,
+                            accounting_type, new_company_setup, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
+                            assigned_restaurant_id, vehicle_type, motor_rental, current_plate, start_date,
+                            cost_model, monthly_fixed_cost, notes
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            auto_code,
+                            full_name,
+                            role,
+                            "Aktif",
+                            phone,
+                            address,
+                            tc_no,
+                            iban,
+                            accounting_type,
+                            new_company_setup,
+                            auto_accounting_revenue,
+                            auto_accountant_cost,
+                            auto_company_setup_revenue,
+                            auto_company_setup_cost,
+                            assigned_id,
+                            vehicle_type,
+                            effective_motor_rental,
+                            current_plate,
+                            start_date_str,
+                            normalize_cost_model_value(cost_model, role),
+                            monthly_fixed_cost,
+                            notes,
+                        ),
+                    )
+                    conn.commit()
+                    created_person = conn.execute("SELECT * FROM personnel WHERE person_code = ? ORDER BY id DESC", (auto_code,)).fetchone()
+                    if not created_person:
+                        raise RuntimeError("Personel kaydı oluşturuldu ancak kayıt tekrar okunamadı.")
+                    sync_person_business_rules(conn, created_person)
+                except Exception as exc:
+                    conn.rollback()
+                    st.error(f"Personel kartı oluşturulamadı: {exc}")
+                else:
+                    for key, value in new_person_defaults.items():
+                        st.session_state[key] = value
+                    created_person_id = safe_int(get_row_value(created_person, "id"), 0)
+                    success_text = f"{full_name} başarıyla eklendi. Kod: {auto_code}"
+                    st.session_state[workspace_key] = "list"
+                    st.session_state["person_search"] = ""
+                    st.session_state["person_role_filter"] = "Tümü"
+                    st.session_state["person_status_filter"] = "Tümü"
+                    st.session_state["person_rest_filter"] = "Tümü"
+                    st.session_state["personnel_recently_created"] = {"personnel_id": created_person_id}
+                    st.session_state["personnel_create_success_message"] = success_text
+                    set_flash_message("success", success_text)
+                    st.rerun()
 
     elif workspace_mode == "edit":
         if df.empty:
@@ -5162,17 +5231,18 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
                     c7, c8, c9 = st.columns(3)
                     with c7:
-                        render_field_label("TC Kimlik No")
+                        render_field_label("TC Kimlik No", required=True)
                         edit_tc = st.text_input("TC Kimlik No", value=row["tc_no"] or "", label_visibility="collapsed")
                     with c8:
-                        render_field_label("IBAN")
+                        render_field_label("IBAN", required=True)
                         edit_iban = st.text_input("IBAN", value=row["iban"] or "", label_visibility="collapsed")
                     start_val = datetime.strptime(row["start_date"], "%Y-%m-%d").date() if row["start_date"] else None
                     with c9:
                         render_field_label("İşe Giriş Tarihi", required=True)
                         edit_start_date = st.date_input("İşe Giriş Tarihi", value=start_val, label_visibility="collapsed")
 
-                    edit_address = st.text_area("Adres", value=row["address"] or "")
+                    render_field_label("Adres", required=True)
+                    edit_address = st.text_area("Adres", value=row["address"] or "", label_visibility="collapsed")
 
                     st.markdown("##### Muhasebe ve Şirket")
                     c10, c11, c12 = st.columns(3)
@@ -5261,7 +5331,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
                     c21, c22 = st.columns(2)
                     with c21:
-                        render_field_label("Güncel Plaka")
+                        render_field_label("Güncel Plaka", required=True)
                         edit_plate = st.text_input("Güncel Plaka", value=row["current_plate"] or "", label_visibility="collapsed")
                     c22.markdown("")
                     edit_notes = st.text_area("Notlar", value=row["notes"] or "")
@@ -5276,6 +5346,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         validation_errors = validate_personnel_form(
                             full_name=edit_name,
                             phone=edit_phone,
+                            tc_no=edit_tc,
+                            iban=edit_iban,
+                            address=edit_address,
+                            current_plate=edit_plate,
                             role=edit_role,
                             assigned_restaurant_id=assigned_id,
                             start_date_value=edit_start_date if isinstance(edit_start_date, date) else None,
@@ -6806,7 +6880,6 @@ def main() -> None:
         role = st.session_state.get("role", "")
         render_sidebar_brand()
         menu = st.sidebar.radio("Ana Menü", allowed_menu_items(role))
-        logout_button(conn)
 
         ensure_role_access(menu, role)
         render_top_profile(conn)
