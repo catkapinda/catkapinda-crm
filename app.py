@@ -1623,33 +1623,34 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             position: relative;
             z-index: 1;
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: 1fr;
             gap: 12px;
         }
 
         .ck-login-hero-stat {
-            padding: 16px 18px;
-            border-radius: 22px;
-            background: rgba(4, 15, 44, 0.22);
-            border: 1px solid rgba(255,255,255,0.10);
+            padding: 18px 20px;
+            border-radius: 24px;
+            background: linear-gradient(180deg, rgba(4, 15, 44, 0.34), rgba(4, 15, 44, 0.18));
+            border: 1px solid rgba(255,255,255,0.14);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
         }
 
         .ck-login-hero-stat small {
             display: block;
-            color: rgba(255,255,255,0.62);
-            font-size: 0.74rem;
+            color: rgba(255,255,255,0.76);
+            font-size: 0.76rem;
             font-weight: 800;
             letter-spacing: 0.12em;
             text-transform: uppercase;
-            margin-bottom: 0.45rem;
+            margin-bottom: 0.6rem;
         }
 
         .ck-login-hero-stat strong {
             display: block;
             color: #FFFFFF;
-            font-size: 0.98rem;
-            line-height: 1.45;
-            font-weight: 800;
+            font-size: 1rem;
+            line-height: 1.75;
+            font-weight: 760;
         }
 
         .ck-login-panel-head {
@@ -1932,38 +1933,30 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 f"""
                 <div class="ck-login-hero-card">
                     <div class="ck-login-hero-brand">
-                        <div class="ck-login-hero-brand-note">Teslimat operasyonu için premium komuta merkezi</div>
+                        <div class="ck-login-hero-brand-note">TESLİMAT OPERASYONU KOMUTA MERKEZİ</div>
                         <div class="ck-login-logo-showcase">{logo_markup}</div>
                     </div>
-                    <div class="ck-login-hero-kicker">Çat Kapında Operasyon CRM</div>
-                    <div class="ck-login-hero-title">Saha ritmini, ekipleri ve kârlılığı tek merkezden yönet.</div>
-                    <div class="ck-login-hero-subtitle">Şube anlaşmalarını, personel akışını, ekipman hareketlerini ve aylık finansal görünümü tek bir komuta panelinde topla. Masaüstünde güçlü bir yönetim ekranı, telefonda ise uygulama hissi veren hızlı bir onboarding akışıyla çalış.</div>
+                    <div class="ck-login-hero-kicker">ÇAT KAPINDA OPERASYON CRM</div>
+                    <div class="ck-login-hero-title">Teslimat operasyonunun tüm katmanlarını tek merkezde yönetin.</div>
+                    <div class="ck-login-hero-subtitle">Çat Kapında Operasyon CRM, şube yapısından saha akışına ve finansal performansa kadar tüm operasyonu tek panelde birleştirir. Dağınık süreçleri ortadan kaldırır, karar alma hızını artırır ve operasyonu ölçeklenebilir bir yapıya dönüştürür.</div>
                     <div class="ck-login-hero-proof-grid">
                         <div class="ck-login-hero-proof-card">
-                            <span>Şube Katmanı</span>
-                            <strong>Anlaşma kuralları, aktiflik durumu ve operasyon notları tek görünümde.</strong>
+                            <span>Şube Yönetimi</span>
+                            <strong>Şube ağı, anlaşma yapıları ve operasyonel durum tek merkezden kontrol edilir.</strong>
                         </div>
                         <div class="ck-login-hero-proof-card">
-                            <span>Saha Akışı</span>
-                            <strong>Puantaj, zimmet, kesinti ve kurye hareketlerini aynı ritimde takip et.</strong>
+                            <span>Saha Operasyonu</span>
+                            <strong>Kurye hareketleri, puantaj ve zimmet süreçleri anlık olarak izlenir ve yönetilir.</strong>
                         </div>
                         <div class="ck-login-hero-proof-card">
-                            <span>Finans Merkezi</span>
-                            <strong>Hakediş, ekipman satışı ve kârlılık ekranlarına tek girişten ulaş.</strong>
+                            <span>Finans Yönetimi</span>
+                            <strong>Hakediş, maliyet ve kârlılık verileri tek panelde toplanarak finansal görünürlük sağlanır.</strong>
                         </div>
                     </div>
                     <div class="ck-login-hero-stats">
                         <div class="ck-login-hero-stat">
-                            <small>Kurumsal erişim</small>
-                            <strong>Yetkili kullanıcılar için güvenli ve kontrollü giriş altyapısı</strong>
-                        </div>
-                        <div class="ck-login-hero-stat">
-                            <small>Hesap sürekliliği</small>
-                            <strong>Geçici parola ve profil güncelleme akışıyla kesintisiz erişim</strong>
-                        </div>
-                        <div class="ck-login-hero-stat">
-                            <small>Yönetim standardı</small>
-                            <strong>Operasyon, personel ve finans görünümünü tek merkezden yönet</strong>
+                            <small>Operasyonel veriyi yönetime dönüştüren altyapı</small>
+                            <strong>Tüm operasyon katmanlarının tek sistemde birleşmesi, veri kaybını ortadan kaldırır ve sürdürülebilir büyüme için gerekli olan kontrol, şeffaflık ve standardizasyonu sağlar.</strong>
                         </div>
                     </div>
                 </div>
