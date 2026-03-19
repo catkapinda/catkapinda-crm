@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import calendar
+import hashlib
 import html
+import hmac
 from io import BytesIO
 import os
 import re
@@ -24,10 +26,29 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 
-USERS = {
-    "catkapinda": {"password": "Cat2025.", "role": "admin", "display": "Yönetim Kurulu / Yönetici"},
-    "chef": {"password": "Chef2025.", "role": "sef", "display": "Şef"},
-}
+DEFAULT_AUTH_PASSWORD = "123456"
+DEFAULT_AUTH_USERS = [
+    {
+        "email": "ebru@catkapinda.com",
+        "full_name": "Ebru Aslan",
+        "role": "admin",
+        "role_display": "Yönetim Kurulu / Yönetici",
+    },
+    {
+        "email": "mert.kurtulus@catkapinda.com",
+        "full_name": "Mert Kurtuluş",
+        "role": "admin",
+        "role_display": "Yönetim Kurulu / Yönetici",
+    },
+    {
+        "email": "muhammed.terim@catkapinda.com",
+        "full_name": "Muhammed Terim",
+        "role": "admin",
+        "role_display": "Yönetim Kurulu / Yönetici",
+    },
+]
+LEGACY_AUTH_IDENTITIES = {"catkapinda", "chef"}
+PASSWORD_HASH_ITERATIONS = 200_000
 
 APP_DATA_DIR = Path.home() / "Documents" / "CatKapindaData"
 BACKUP_DIR = APP_DATA_DIR / "backups"
@@ -107,6 +128,7 @@ TABLE_EXPORT_ORDER = [
     "inventory_purchases",
     "courier_equipment_issues",
     "box_returns",
+    "auth_users",
     "auth_sessions",
 ]
 
@@ -252,12 +274,58 @@ def parse_date_value(value: Any) -> date | None:
     return parsed.date()
 
 
+def normalize_auth_identity(value: str) -> str:
+    return (value or "").strip().lower()
+
+
+def hash_auth_password(password: str, salt: str | None = None) -> str:
+    resolved_salt = salt or secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        (password or "").encode("utf-8"),
+        resolved_salt.encode("utf-8"),
+        PASSWORD_HASH_ITERATIONS,
+    ).hex()
+    return f"pbkdf2_sha256${PASSWORD_HASH_ITERATIONS}${resolved_salt}${digest}"
+
+
+def verify_auth_password(password: str, stored_hash: str) -> bool:
+    parts = str(stored_hash or "").split("$", 3)
+    if len(parts) != 4 or parts[0] != "pbkdf2_sha256":
+        return hmac.compare_digest(str(stored_hash or ""), str(password or ""))
+    _, iterations_text, salt, digest = parts
+    try:
+        iterations = int(iterations_text)
+    except ValueError:
+        return False
+    candidate = hashlib.pbkdf2_hmac(
+        "sha256",
+        (password or "").encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations,
+    ).hex()
+    return hmac.compare_digest(candidate, digest)
+
+
+def get_auth_user(conn: CompatConnection, identity: str) -> Any:
+    normalized_identity = normalize_auth_identity(identity)
+    if not normalized_identity:
+        return None
+    return conn.execute(
+        "SELECT * FROM auth_users WHERE lower(email) = lower(?) LIMIT 1",
+        (normalized_identity,),
+    ).fetchone()
+
+
 def init_auth_state() -> None:
     defaults = {
         "authenticated": False,
         "username": None,
         "role": None,
         "auth_token": None,
+        "user_full_name": None,
+        "user_role_display": None,
+        "must_change_password": False,
         "login_help_visible": False,
     }
     for key, value in defaults.items():
@@ -265,18 +333,28 @@ def init_auth_state() -> None:
             st.session_state[key] = value
 
 
-def set_authenticated_user(username: str, token: str | None = None) -> None:
-    user = USERS.get(username)
-    if not user:
+def set_authenticated_user(user_row: Any, token: str | None = None) -> None:
+    if not user_row:
         return
     st.session_state.authenticated = True
-    st.session_state.username = username
-    st.session_state.role = user["role"]
+    st.session_state.username = str(get_row_value(user_row, "email", "") or "")
+    st.session_state.role = str(get_row_value(user_row, "role", "") or "")
     st.session_state.auth_token = token
+    st.session_state.user_full_name = str(get_row_value(user_row, "full_name", "") or "")
+    st.session_state.user_role_display = str(get_row_value(user_row, "role_display", "") or "")
+    st.session_state.must_change_password = bool(safe_int(get_row_value(user_row, "must_change_password", 0), 0))
 
 
 def clear_authenticated_user() -> None:
-    for key in ["authenticated", "username", "role", "auth_token"]:
+    for key in [
+        "authenticated",
+        "username",
+        "role",
+        "auth_token",
+        "user_full_name",
+        "user_role_display",
+        "must_change_password",
+    ]:
         st.session_state.pop(key, None)
 
 
@@ -590,6 +668,19 @@ def ensure_schema(conn: CompatConnection) -> None:
             expires_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS auth_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            full_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            role_display TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            must_change_password INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS app_meta (
             meta_key TEXT PRIMARY KEY,
             meta_value TEXT NOT NULL
@@ -730,6 +821,19 @@ def ensure_schema(conn: CompatConnection) -> None:
             username TEXT NOT NULL,
             created_at TEXT NOT NULL,
             expires_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS auth_users (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            full_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            role_display TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_active BIGINT NOT NULL DEFAULT 1,
+            must_change_password BIGINT NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS app_meta (
@@ -880,6 +984,64 @@ def cleanup_auth_sessions(conn: CompatConnection) -> None:
     conn.commit()
 
 
+def sync_default_auth_users(conn: CompatConnection) -> None:
+    now_text = datetime.utcnow().isoformat(timespec="seconds")
+
+    for legacy_identity in LEGACY_AUTH_IDENTITIES:
+        conn.execute("DELETE FROM auth_users WHERE lower(email) = lower(?)", (legacy_identity,))
+        conn.execute("DELETE FROM auth_sessions WHERE username = ?", (legacy_identity,))
+
+    for user in DEFAULT_AUTH_USERS:
+        existing = get_auth_user(conn, user["email"])
+        if existing is None:
+            conn.execute(
+                """
+                INSERT INTO auth_users (
+                    email, full_name, role, role_display, password_hash,
+                    is_active, must_change_password, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    normalize_auth_identity(user["email"]),
+                    user["full_name"],
+                    user["role"],
+                    user["role_display"],
+                    hash_auth_password(DEFAULT_AUTH_PASSWORD),
+                    1,
+                    1,
+                    now_text,
+                    now_text,
+                ),
+            )
+            continue
+
+        password_hash = str(get_row_value(existing, "password_hash", "") or "")
+        must_change_password = safe_int(get_row_value(existing, "must_change_password", 0), 0)
+        if not password_hash:
+            password_hash = hash_auth_password(DEFAULT_AUTH_PASSWORD)
+            must_change_password = 1
+        conn.execute(
+            """
+            UPDATE auth_users
+            SET email = ?, full_name = ?, role = ?, role_display = ?, password_hash = ?,
+                is_active = 1, must_change_password = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                normalize_auth_identity(user["email"]),
+                user["full_name"],
+                user["role"],
+                user["role_display"],
+                password_hash,
+                must_change_password,
+                now_text,
+                int(get_row_value(existing, "id", 0) or 0),
+            ),
+        )
+
+    conn.commit()
+
+
 def create_auth_session(conn: sqlite3.Connection, username: str) -> str:
     cleanup_auth_sessions(conn)
     conn.execute("DELETE FROM auth_sessions WHERE username = ?", (username,))
@@ -916,13 +1078,14 @@ def restore_auth_session(conn: sqlite3.Connection) -> bool:
         set_query_param(AUTH_QUERY_KEY, None)
         return False
 
-    if row["username"] not in USERS:
+    auth_user = get_auth_user(conn, str(row["username"] or ""))
+    if not auth_user or safe_int(get_row_value(auth_user, "is_active", 0), 0) != 1:
         conn.execute("DELETE FROM auth_sessions WHERE token = ?", (token,))
         conn.commit()
         set_query_param(AUTH_QUERY_KEY, None)
         return False
 
-    set_authenticated_user(row["username"], token)
+    set_authenticated_user(auth_user, token)
     return True
 
 
@@ -1112,6 +1275,7 @@ def ensure_runtime_bootstrap(conn: CompatConnection) -> None:
     maybe_migrate_legacy_sqlite_to_postgres(conn)
     seed_initial_data(conn)
     migrate_data(conn)
+    sync_default_auth_users(conn)
     sync_all_personnel_business_rules(conn)
     cleanup_auth_sessions(conn)
     st.session_state[bootstrap_key] = True
@@ -1173,10 +1337,10 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
         st.markdown("<div class='ck-login-form-shell'>", unsafe_allow_html=True)
         st.markdown("<div class='ck-login-form-title'>Güvenli Giriş</div>", unsafe_allow_html=True)
-        st.markdown("<div class='ck-login-form-subtitle'>Yetkili kullanıcı hesabınla panele eriş.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ck-login-form-subtitle'>Yetkili e-posta hesabınla panele eriş.</div>", unsafe_allow_html=True)
 
         with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("Kullanıcı Adı", placeholder="Kullanıcı adını gir")
+            username = st.text_input("E-posta Adresi", placeholder="ornek@catkapinda.com")
             password = st.text_input("Şifre", type="password", placeholder="Şifreni gir")
             remember_me = st.checkbox("Bu Cihazı Hatırla", value=True, help="Kişisel cihazlarda açık bırakabilirsin.")
             submitted = st.form_submit_button("Panele Gir", use_container_width=True)
@@ -1189,11 +1353,11 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 """
                 <div class="ck-login-help-card">
                     <div class="ck-login-help-title">Şifre Desteği</div>
-                    <div class="ck-login-help-text">Bu sürümde otomatik şifre sıfırlama bağlantısı bulunmuyor. Şifreni yenilemek için kullanıcı adını belirterek sistem yöneticisinden yeni giriş şifresi talep et.</div>
+                    <div class="ck-login-help-text">Bu sürümde otomatik mail kodlu şifre sıfırlama aktif değil. Kurumsal e-posta hesabını belirterek sistem yöneticisinden geçici giriş şifresi talep edebilirsin.</div>
                     <div class="ck-login-help-steps">
-                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">1</span><span>Kullanıcı adını hazırla ve giriş yapmak istediğin hesabı netleştir.</span></div>
-                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">2</span><span>Sistem yöneticisinden yeni şifre talep et ve eski şifrenin geçersiz sayılmasını iste.</span></div>
-                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">3</span><span>Yeni şifre ile tekrar giriş yapıp cihaz sana aitse <strong>Bu Cihazı Hatırla</strong> seçeneğini açık bırak.</span></div>
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">1</span><span>Kurumsal e-posta adresini hazırla ve giriş yapmak istediğin hesabı netleştir.</span></div>
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">2</span><span>Sistem yöneticisinden geçici giriş şifresi talep et ve gerekirse eski şifrenin iptal edilmesini iste.</span></div>
+                        <div class="ck-login-help-step"><span class="ck-login-help-step-badge">3</span><span>Panele girdikten sonra sağ üstteki <strong>Profil</strong> alanından şifreni hemen değiştir.</span></div>
                     </div>
                 </div>
                 """,
@@ -1201,20 +1365,20 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             )
 
         if submitted:
-            entered_username = username.strip()
-            user = USERS.get(entered_username)
-            if user and password == user["password"]:
+            entered_username = normalize_auth_identity(username)
+            user = get_auth_user(conn, entered_username)
+            if user and safe_int(get_row_value(user, "is_active", 0), 0) == 1 and verify_auth_password(password, str(get_row_value(user, "password_hash", "") or "")):
                 token = create_auth_session(conn, entered_username) if remember_me else None
                 if token:
                     set_query_param(AUTH_QUERY_KEY, token)
                 else:
                     set_query_param(AUTH_QUERY_KEY, None)
-                set_authenticated_user(entered_username, token)
+                set_authenticated_user(user, token)
                 st.session_state.login_help_visible = False
                 st.success("Giriş başarılı. Panel hazırlanıyor...")
                 st.rerun()
             else:
-                st.error("Kullanıcı adı veya şifre hatalı.")
+                st.error("E-posta adresi veya şifre hatalı.")
 
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -1237,6 +1401,59 @@ def logout_button(conn: sqlite3.Connection) -> None:
     if st.sidebar.button("Oturumu Kapat", use_container_width=True):
         revoke_current_auth_session(conn)
         st.rerun()
+
+
+def render_top_profile(conn: CompatConnection) -> None:
+    current_user = get_auth_user(conn, str(st.session_state.get("username") or ""))
+    if not current_user:
+        return
+
+    left_col, right_col = st.columns([6, 1.45])
+    with left_col:
+        if st.session_state.get("must_change_password"):
+            st.warning("Geçici şifreyle giriş yaptın. Güvenlik için şifreni sağ üstteki Profil alanından güncelle.")
+
+    with right_col:
+        full_name = str(get_row_value(current_user, "full_name", "") or st.session_state.get("user_full_name") or "Kullanıcı")
+        first_name = full_name.split()[0] if full_name.strip() else "Profil"
+        with st.popover(f"👤 {first_name}", use_container_width=True):
+            st.markdown(f"**{full_name}**")
+            st.caption(str(get_row_value(current_user, "email", "") or st.session_state.get("username") or ""))
+            st.caption(str(get_row_value(current_user, "role_display", "") or st.session_state.get("user_role_display") or ""))
+            st.divider()
+            st.markdown("##### Şifremi Değiştir")
+
+            with st.form("change_password_form", clear_on_submit=True):
+                current_password = st.text_input("Mevcut Şifre", type="password")
+                new_password = st.text_input("Yeni Şifre", type="password")
+                confirm_password = st.text_input("Yeni Şifre Tekrar", type="password")
+                password_submitted = st.form_submit_button("Şifreyi Güncelle", use_container_width=True)
+
+            if password_submitted:
+                stored_hash = str(get_row_value(current_user, "password_hash", "") or "")
+                if not verify_auth_password(current_password, stored_hash):
+                    st.error("Mevcut şifreyi doğru girmelisin.")
+                elif len(new_password or "") < 6:
+                    st.error("Yeni şifre en az 6 karakter olmalı.")
+                elif new_password != confirm_password:
+                    st.error("Yeni şifre alanları birbiriyle aynı olmalı.")
+                else:
+                    conn.execute(
+                        """
+                        UPDATE auth_users
+                        SET password_hash = ?, must_change_password = 0, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            hash_auth_password(new_password),
+                            datetime.utcnow().isoformat(timespec="seconds"),
+                            int(get_row_value(current_user, "id", 0) or 0),
+                        ),
+                    )
+                    conn.commit()
+                    st.session_state.must_change_password = False
+                    st.success("Şifren güncellendi.")
+                    st.rerun()
 
 
 def allowed_menu_items(role: str) -> list[str]:
@@ -5464,6 +5681,7 @@ def main() -> None:
         logout_button(conn)
 
         ensure_role_access(menu, role)
+        render_top_profile(conn)
 
         if menu == "Genel Bakış":
             dashboard_tab(conn)
