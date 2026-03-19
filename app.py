@@ -105,16 +105,16 @@ PRICING_MODEL_LABELS = {
     "fixed_monthly": "Sabit Aylık Ücret",
 }
 MENU_DISPLAY_LABELS = {
-    "Genel Bakış": "Panorama Merkezi",
-    "Restoran Yönetimi": "Şube Portföyü",
-    "Personel Yönetimi": "Ekip Kadrosu",
-    "Puantaj": "Saha Akışı",
-    "Satın Alma": "Tedarik Masası",
-    "Ekipman & Zimmet": "Zimmet Kontrol",
-    "Kesinti Yönetimi": "Finans Kesintileri",
-    "Aylık Hakediş": "Hakediş Merkezi",
-    "Raporlar ve Karlılık": "Karlılık Raporları",
-    "Güncellemeler ve Duyurular": "Duyuru Akışı",
+    "Genel Bakış": "Genel Bakış",
+    "Restoran Yönetimi": "Restoran Yönetimi",
+    "Personel Yönetimi": "Personel Yönetimi",
+    "Puantaj": "Puantaj",
+    "Satın Alma": "Satın Alma",
+    "Ekipman & Zimmet": "Ekipman ve Zimmet",
+    "Kesinti Yönetimi": "Kesinti Yönetimi",
+    "Aylık Hakediş": "Aylık Hakediş",
+    "Raporlar ve Karlılık": "Raporlar ve Karlılık",
+    "Güncellemeler ve Duyurular": "Güncellemeler ve Duyurular",
 }
 FIXED_COST_MODEL_BY_ROLE = {
     "Kurye": "fixed_kurye",
@@ -2086,11 +2086,6 @@ def render_sidebar_brand() -> None:
             <div class="ck-side-heading-title">Çat Kapında</div>
             <div class="ck-side-heading-subtitle">Operasyon CRM</div>
         </div>
-        <div class="ck-side-orbit">
-            <div class="ck-side-orbit-kicker">Komuta Alanı</div>
-            <div class="ck-side-orbit-title">Şube, ekip ve finans akışını tek panelden yönetin.</div>
-            <div class="ck-side-orbit-note">Her modül daha hızlı geçiş, daha net karar ve daha düzenli operasyon için hazır.</div>
-        </div>
         <div class="ck-side-user">
             <div class="ck-side-user-top">
                 <div class="ck-side-user-avatar">{html.escape(initials)}</div>
@@ -2104,7 +2099,7 @@ def render_sidebar_brand() -> None:
                 <span class="ck-side-user-chip">Kurumsal Erişim</span>
             </div>
         </div>
-        <div class="ck-side-menu-note">Komuta Alanları</div>
+        <div class="ck-side-menu-note">Ana Menü</div>
         """,
         unsafe_allow_html=True,
     )
@@ -3090,10 +3085,16 @@ def inject_global_styles() -> None:
             [data-testid="stToolbar"],
             [data-testid="stDecoration"],
             [data-testid="stStatusWidget"],
-            #MainMenu,
-            button[kind="header"],
-            [data-testid="stAppViewContainer"] > .main > div:first-child button {
+            #MainMenu {
                 display: none !important;
+            }
+
+            header[data-testid="stHeader"] button[kind="header"] {
+                display: inline-flex !important;
+                align-items: center;
+                justify-content: center;
+                opacity: 1 !important;
+                visibility: visible !important;
             }
 
             .block-container {
@@ -3114,58 +3115,32 @@ def inject_global_styles() -> None:
             }
 
             [data-testid="stSidebar"] .stRadio > label {
-                font-size: 0.78rem;
+                font-size: 0.76rem;
                 font-weight: 800;
                 color: #8A94A6;
                 text-transform: uppercase;
                 letter-spacing: 0.06em;
-                margin-bottom: 0.5rem;
+                margin-bottom: 0.45rem;
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
-                position: relative;
-                background: linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%);
-                border: 1px solid #E2EAF7;
-                border-radius: 16px;
-                padding: 12px 14px;
-                margin-bottom: 8px;
+                background: #FFFFFF;
+                border: 1px solid #E3EAF5;
+                border-radius: 14px;
+                padding: 11px 13px;
+                margin-bottom: 7px;
                 transition: all 0.18s ease;
-                overflow: hidden;
-            }
-
-            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label::before {
-                content: "";
-                position: absolute;
-                left: 12px;
-                top: 50%;
-                width: 10px;
-                height: 10px;
-                border-radius: 3px;
-                background: linear-gradient(135deg, #0C4BCB 0%, #1491D4 100%);
-                transform: translateY(-50%) rotate(45deg);
-                box-shadow: 0 6px 16px rgba(12, 75, 203, 0.22);
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:hover {
-                border-color: #BCD3F6;
+                border-color: #C6D7F4;
                 background: #F8FBFF;
-                transform: translateX(2px);
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) {
-                background:
-                    radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 25%),
-                    linear-gradient(135deg, #0C4BCB 0%, #1290D6 100%);
-                border-color: transparent;
-                box-shadow: 0 16px 30px rgba(12, 75, 203, 0.18);
-                transform: translateX(3px);
-            }
-
-            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked)::before {
-                background: #FFFFFF;
-                border-radius: 999px;
-                transform: translateY(-50%);
-                box-shadow: none;
+                background: #F3F8FF;
+                border-color: #BBD1F5;
+                box-shadow: inset 3px 0 0 #0C4BCB;
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label > div:first-child {
@@ -3173,15 +3148,15 @@ def inject_global_styles() -> None:
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label [data-testid="stMarkdownContainer"] p {
-                padding-left: 20px;
-                font-size: 0.95rem;
-                font-weight: 850;
-                letter-spacing: -0.02em;
+                padding-left: 0;
+                font-size: 0.92rem;
+                font-weight: 780;
+                letter-spacing: -0.01em;
                 color: #23324A;
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) [data-testid="stMarkdownContainer"] p {
-                color: #FFFFFF !important;
+                color: #0C4BCB !important;
             }
 
             .ck-side-heading {
@@ -3207,49 +3182,13 @@ def inject_global_styles() -> None:
                 text-transform: uppercase;
             }
 
-            .ck-side-orbit {
-                position: relative;
-                overflow: hidden;
-                margin: 0.75rem 0 0.9rem;
-                padding: 15px 15px 14px;
-                border-radius: 18px;
-                background:
-                    radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 28%),
-                    linear-gradient(140deg, #0E2248 0%, #0C4BCB 58%, #13A4DE 100%);
-                box-shadow: 0 18px 34px rgba(12, 75, 203, 0.18);
-            }
-
-            .ck-side-orbit-kicker {
-                color: rgba(255,255,255,0.72);
-                font-size: 0.7rem;
-                font-weight: 800;
-                letter-spacing: 0.14em;
-                text-transform: uppercase;
-            }
-
-            .ck-side-orbit-title {
-                margin-top: 0.45rem;
-                color: #FFFFFF;
-                font-size: 1rem;
-                line-height: 1.28;
-                font-weight: 860;
-                letter-spacing: -0.03em;
-            }
-
-            .ck-side-orbit-note {
-                margin-top: 0.45rem;
-                color: rgba(255,255,255,0.82);
-                font-size: 0.82rem;
-                line-height: 1.55;
-            }
-
             .ck-side-user {
                 background: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
                 border: 1px solid var(--ck-border);
-                border-radius: 18px;
-                padding: 14px 14px 13px;
-                margin: 0.3rem 0 1rem 0;
-                box-shadow: 0 14px 26px rgba(15, 23, 42, 0.05);
+                border-radius: 16px;
+                padding: 13px 13px 12px;
+                margin: 0.45rem 0 0.95rem 0;
+                box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
             }
 
             .ck-side-user-top {
@@ -3259,17 +3198,17 @@ def inject_global_styles() -> None:
             }
 
             .ck-side-user-avatar {
-                width: 42px;
-                height: 42px;
-                border-radius: 14px;
+                width: 38px;
+                height: 38px;
+                border-radius: 12px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background: linear-gradient(135deg, #0C4BCB 0%, #1491D4 100%);
+                background: linear-gradient(135deg, #0C4BCB 0%, #1182D3 100%);
                 color: #FFFFFF;
-                font-size: 0.95rem;
+                font-size: 0.88rem;
                 font-weight: 900;
-                box-shadow: 0 12px 24px rgba(12, 75, 203, 0.2);
+                box-shadow: 0 10px 20px rgba(12, 75, 203, 0.16);
             }
 
             .ck-side-user-name {
@@ -3288,7 +3227,7 @@ def inject_global_styles() -> None:
                 display: flex;
                 flex-wrap: wrap;
                 gap: 8px;
-                margin-top: 0.8rem;
+                margin-top: 0.65rem;
             }
 
             .ck-side-user-chip {
@@ -3305,7 +3244,7 @@ def inject_global_styles() -> None:
             }
 
             .ck-side-menu-note {
-                margin: 0.05rem 0 0.55rem;
+                margin: 0.05rem 0 0.45rem;
                 color: #8A94A6;
                 font-size: 0.74rem;
                 font-weight: 800;
@@ -7075,7 +7014,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="📦", layout="wide")
+    st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="📦", layout="wide", initial_sidebar_state="expanded")
     inject_global_styles()
 
     try:
