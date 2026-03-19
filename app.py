@@ -497,6 +497,31 @@ def clear_authenticated_user() -> None:
         st.session_state.pop(key, None)
 
 
+def set_flash_message(level: str, text: str) -> None:
+    st.session_state["ck_flash_message"] = {
+        "level": str(level or "info"),
+        "text": str(text or ""),
+    }
+
+
+def render_flash_message() -> None:
+    payload = st.session_state.pop("ck_flash_message", None)
+    if not payload:
+        return
+    level = str(payload.get("level", "info") or "info").strip().lower()
+    message_text = str(payload.get("text", "") or "").strip()
+    if not message_text:
+        return
+    if level == "success":
+        st.success(message_text)
+    elif level == "warning":
+        st.warning(message_text)
+    elif level == "error":
+        st.error(message_text)
+    else:
+        st.info(message_text)
+
+
 def get_query_param(name: str) -> str | None:
     if hasattr(st, "query_params"):
         value = st.query_params.get(name)
@@ -1183,7 +1208,6 @@ def sync_default_auth_users(conn: CompatConnection) -> None:
 
 def create_auth_session(conn: sqlite3.Connection, username: str) -> str:
     cleanup_auth_sessions(conn)
-    conn.execute("DELETE FROM auth_sessions WHERE username = ?", (username,))
     token = secrets.token_urlsafe(32)
     created_at = datetime.utcnow()
     expires_at = created_at + timedelta(days=AUTH_SESSION_DAYS)
@@ -4271,6 +4295,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             ("Sabit Aylık", fixed_count),
         ],
     )
+    render_flash_message()
 
     workspace_key = "restaurant_workspace_mode"
     if workspace_key not in st.session_state:
@@ -4345,7 +4370,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                 if b1.button("Pasife Al" if current_active == 1 else "Aktifleştir", use_container_width=True, key="restaurant_toggle_btn"):
                     conn.execute("UPDATE restaurants SET active = ? WHERE id = ?", (0 if current_active == 1 else 1, selected_id))
                     conn.commit()
-                    st.success("Restoran durumu güncellendi.")
+                    set_flash_message("success", "Restoran başarıyla pasife alındı." if current_active == 1 else "Restoran başarıyla aktifleştirildi.")
                     st.rerun()
                 if b2.button("Kalıcı Sil", use_container_width=True, key="restaurant_delete_btn"):
                     linked_people = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE assigned_restaurant_id = ?", (selected_id,)).fetchone(), 0) or 0)
@@ -4364,7 +4389,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                     else:
                         conn.execute("DELETE FROM restaurants WHERE id = ?", (selected_id,))
                         conn.commit()
-                        st.success("Restoran kalıcı olarak silindi.")
+                        set_flash_message("success", "Restoran kaydı kalıcı olarak silindi.")
                         st.rerun()
                 st.caption("Kalıcı silme işlemi yalnızca test veya yanlış açılmış kayıtlar için kullanılmalı.")
 
@@ -4462,7 +4487,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                     ),
                 )
                 conn.commit()
-                st.success("Restoran kaydedildi. Yeni kart listede görünmeye hazır.")
+                set_flash_message("success", "Restoran başarıyla eklendi.")
                 st.rerun()
 
     else:
@@ -4584,7 +4609,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                             ),
                         )
                         conn.commit()
-                        st.success("Restoran güncellendi.")
+                        set_flash_message("success", "Restoran kartı başarıyla güncellendi.")
                         st.rerun()
 
 
@@ -4614,6 +4639,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             ("Joker + Yönetim", management_count),
         ],
     )
+    render_flash_message()
+
     if passive_count:
         st.caption(f"Pasif personel sayısı: {passive_count}")
 
@@ -4813,7 +4840,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 sync_person_business_rules(conn, created_person)
                 for key, value in new_person_defaults.items():
                     st.session_state[key] = value
-                st.success(f"Personel kaydedildi. Kod: {auto_code}")
+                set_flash_message("success", f"Personel başarıyla eklendi. Kod: {auto_code}")
                 st.rerun()
 
     elif workspace_mode == "edit":
@@ -4995,7 +5022,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         conn.commit()
                         updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
                         sync_person_business_rules(conn, updated_person, create_onboarding=False)
-                        st.success("Personel kaydı güncellendi.")
+                        set_flash_message("success", "Personel kartı başarıyla güncellendi.")
                         st.rerun()
 
                     if toggle_clicked:
@@ -5005,7 +5032,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         conn.commit()
                         updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
                         sync_person_business_rules(conn, updated_person, create_onboarding=False)
-                        st.success(f"Personel durumu {new_status} olarak güncellendi.")
+                        set_flash_message("success", "Personel başarıyla pasife alındı." if new_status == "Pasif" else "Personel başarıyla aktifleştirildi.")
                         st.rerun()
 
                     if delete_clicked:
@@ -5023,9 +5050,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             if count
                         ]
                         if detail_parts:
-                            st.success("Personel ve bağlı kayıtlar silindi. " + " | ".join(detail_parts))
+                            set_flash_message("success", "Personel ve bağlı kayıtlar kalıcı olarak silindi. " + " | ".join(detail_parts))
                         else:
-                            st.success("Personel kartı kalıcı olarak silindi.")
+                            set_flash_message("success", "Personel kaydı kalıcı olarak silindi.")
                         st.rerun()
 
     else:
