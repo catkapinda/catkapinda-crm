@@ -4851,7 +4851,12 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 with st.form("personnel_edit_form"):
                     st.markdown("##### Kimlik ve Görev")
                     c1, c2, c3 = st.columns(3)
-                    edit_role = c1.selectbox("Rol", role_options, index=role_options.index(row["role"]) if row["role"] in role_options else 0)
+                    edit_role = c1.selectbox(
+                        "Rol",
+                        role_options,
+                        index=role_options.index(row["role"]) if row["role"] in role_options else 0,
+                        key="edit_person_role",
+                    )
                     suggested_code = next_person_code(conn, edit_role, exclude_id=selected_id)
                     new_prefix = role_code_prefix(edit_role)
                     existing_num = ""
@@ -4864,7 +4869,12 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
                     c4, c5, c6 = st.columns(3)
                     edit_name = c4.text_input("Ad Soyad", value=row["full_name"] or "")
-                    edit_status = c5.selectbox("Durum", status_options, index=status_options.index(row["status"]) if row["status"] in status_options else 0)
+                    edit_status = c5.selectbox(
+                        "Durum",
+                        status_options,
+                        index=status_options.index(row["status"]) if row["status"] in status_options else 0,
+                        key="edit_person_status",
+                    )
                     edit_phone = c6.text_input("Telefon", value=row["phone"] or "")
 
                     c7, c8, c9 = st.columns(3)
@@ -4879,16 +4889,27 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     c10, c11, c12 = st.columns(3)
                     accounting_options = ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"]
                     current_acc = row["accounting_type"] if pd.notna(row["accounting_type"]) and row["accounting_type"] not in [None, "", "-"] else "Kendi Muhasebecisi"
-                    edit_accounting = c10.selectbox("Muhasebe", accounting_options, index=accounting_options.index(current_acc) if current_acc in accounting_options else 0)
+                    edit_accounting = c10.selectbox(
+                        "Muhasebe",
+                        accounting_options,
+                        index=accounting_options.index(current_acc) if current_acc in accounting_options else 0,
+                        key="edit_person_accounting",
+                    )
                     new_company_options = ["Hayır", "Evet"]
                     current_newco = row["new_company_setup"] if pd.notna(row["new_company_setup"]) else "Hayır"
-                    edit_new_company = c11.selectbox("Yeni Şirket Açılışı", new_company_options, index=new_company_options.index(current_newco) if current_newco in new_company_options else 0)
+                    edit_new_company = c11.selectbox(
+                        "Yeni Şirket Açılışı",
+                        new_company_options,
+                        index=new_company_options.index(current_newco) if current_newco in new_company_options else 0,
+                        key="edit_person_new_company",
+                    )
                     current_cost_model = resolve_cost_role_option(str(row["cost_model"] or ""), str(row["role"] or "Kurye"))
                     edit_cost_model = c12.selectbox(
                         "Rol",
                         cost_options,
                         index=cost_options.index(current_cost_model) if current_cost_model in cost_options else 0,
                         format_func=lambda x: COST_MODEL_LABELS.get(x, x),
+                        key="edit_person_cost_model",
                     )
                     auto_edit_accounting_revenue, auto_edit_accountant_cost = resolve_accounting_defaults(edit_accounting)
                     auto_edit_company_setup_revenue, auto_edit_company_setup_cost = resolve_company_setup_defaults(edit_new_company)
@@ -4909,8 +4930,18 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     st.markdown("##### Araç ve Operasyon")
                     c18, c19 = st.columns(2)
                     current_vehicle = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
-                    edit_restaurant = c18.selectbox("Ana Restoran", list(rest_opts_with_blank.keys()), index=list(rest_opts_with_blank.keys()).index(assigned_value) if assigned_value in rest_opts_with_blank else 0)
-                    edit_vehicle = c19.selectbox("Motor Tipi", vehicle_options, index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1)
+                    edit_restaurant = c18.selectbox(
+                        "Ana Restoran",
+                        list(rest_opts_with_blank.keys()),
+                        index=list(rest_opts_with_blank.keys()).index(assigned_value) if assigned_value in rest_opts_with_blank else 0,
+                        key="edit_person_restaurant",
+                    )
+                    edit_vehicle = c19.selectbox(
+                        "Motor Tipi",
+                        vehicle_options,
+                        index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1,
+                        key="edit_person_vehicle",
+                    )
                     effective_edit_motor_rental = resolve_motor_rental_value(edit_vehicle, "Hayır")
 
                     c21, c22 = st.columns(2)
