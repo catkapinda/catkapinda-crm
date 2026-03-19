@@ -104,6 +104,18 @@ PRICING_MODEL_LABELS = {
     "hourly_only": "Sadece Saatlik",
     "fixed_monthly": "Sabit Aylık Ücret",
 }
+MENU_DISPLAY_LABELS = {
+    "Genel Bakış": "Genel Bakış",
+    "Restoran Yönetimi": "Restoran Yönetimi",
+    "Personel Yönetimi": "Personel Yönetimi",
+    "Puantaj": "Puantaj",
+    "Satın Alma": "Satın Alma",
+    "Ekipman & Zimmet": "Ekipman ve Zimmet",
+    "Kesinti Yönetimi": "Kesinti Yönetimi",
+    "Aylık Hakediş": "Aylık Hakediş",
+    "Raporlar ve Karlılık": "Raporlar ve Karlılık",
+    "Güncellemeler ve Duyurular": "Güncellemeler ve Duyurular",
+}
 FIXED_COST_MODEL_BY_ROLE = {
     "Kurye": "fixed_kurye",
     "Bölge Müdürü": "fixed_bolge_muduru",
@@ -1611,33 +1623,34 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             position: relative;
             z-index: 1;
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: 1fr;
             gap: 12px;
         }
 
         .ck-login-hero-stat {
-            padding: 16px 18px;
-            border-radius: 22px;
-            background: rgba(4, 15, 44, 0.22);
-            border: 1px solid rgba(255,255,255,0.10);
+            padding: 18px 20px;
+            border-radius: 24px;
+            background: linear-gradient(180deg, rgba(4, 15, 44, 0.34), rgba(4, 15, 44, 0.18));
+            border: 1px solid rgba(255,255,255,0.14);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
         }
 
         .ck-login-hero-stat small {
             display: block;
-            color: rgba(255,255,255,0.62);
-            font-size: 0.74rem;
+            color: rgba(255,255,255,0.76);
+            font-size: 0.76rem;
             font-weight: 800;
             letter-spacing: 0.12em;
             text-transform: uppercase;
-            margin-bottom: 0.45rem;
+            margin-bottom: 0.6rem;
         }
 
         .ck-login-hero-stat strong {
             display: block;
             color: #FFFFFF;
-            font-size: 0.98rem;
-            line-height: 1.45;
-            font-weight: 800;
+            font-size: 1rem;
+            line-height: 1.75;
+            font-weight: 760;
         }
 
         .ck-login-panel-head {
@@ -1920,38 +1933,30 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 f"""
                 <div class="ck-login-hero-card">
                     <div class="ck-login-hero-brand">
-                        <div class="ck-login-hero-brand-note">Teslimat operasyonu için premium komuta merkezi</div>
+                        <div class="ck-login-hero-brand-note">TESLİMAT OPERASYONU KOMUTA MERKEZİ</div>
                         <div class="ck-login-logo-showcase">{logo_markup}</div>
                     </div>
-                    <div class="ck-login-hero-kicker">Çat Kapında Operasyon CRM</div>
-                    <div class="ck-login-hero-title">Saha ritmini, ekipleri ve kârlılığı tek merkezden yönet.</div>
-                    <div class="ck-login-hero-subtitle">Şube anlaşmalarını, personel akışını, ekipman hareketlerini ve aylık finansal görünümü tek bir komuta panelinde topla. Masaüstünde güçlü bir yönetim ekranı, telefonda ise uygulama hissi veren hızlı bir onboarding akışıyla çalış.</div>
+                    <div class="ck-login-hero-kicker">ÇAT KAPINDA OPERASYON CRM</div>
+                    <div class="ck-login-hero-title">Teslimat operasyonunun tüm katmanlarını tek merkezde yönetin.</div>
+                    <div class="ck-login-hero-subtitle">Çat Kapında Operasyon CRM, şube yapısından saha akışına ve finansal performansa kadar tüm operasyonu tek panelde birleştirir. Dağınık süreçleri ortadan kaldırır, karar alma hızını artırır ve operasyonu ölçeklenebilir bir yapıya dönüştürür.</div>
                     <div class="ck-login-hero-proof-grid">
                         <div class="ck-login-hero-proof-card">
-                            <span>Şube Katmanı</span>
-                            <strong>Anlaşma kuralları, aktiflik durumu ve operasyon notları tek görünümde.</strong>
+                            <span>Şube Yönetimi</span>
+                            <strong>Şube ağı, anlaşma yapıları ve operasyonel durum tek merkezden kontrol edilir.</strong>
                         </div>
                         <div class="ck-login-hero-proof-card">
-                            <span>Saha Akışı</span>
-                            <strong>Puantaj, zimmet, kesinti ve kurye hareketlerini aynı ritimde takip et.</strong>
+                            <span>Saha Operasyonu</span>
+                            <strong>Kurye hareketleri, puantaj ve zimmet süreçleri anlık olarak izlenir ve yönetilir.</strong>
                         </div>
                         <div class="ck-login-hero-proof-card">
-                            <span>Finans Merkezi</span>
-                            <strong>Hakediş, ekipman satışı ve kârlılık ekranlarına tek girişten ulaş.</strong>
+                            <span>Finans Yönetimi</span>
+                            <strong>Hakediş, maliyet ve kârlılık verileri tek panelde toplanarak finansal görünürlük sağlanır.</strong>
                         </div>
                     </div>
                     <div class="ck-login-hero-stats">
                         <div class="ck-login-hero-stat">
-                            <small>Kurumsal erişim</small>
-                            <strong>Yetkili kullanıcılar için güvenli ve kontrollü giriş altyapısı</strong>
-                        </div>
-                        <div class="ck-login-hero-stat">
-                            <small>Hesap sürekliliği</small>
-                            <strong>Geçici parola ve profil güncelleme akışıyla kesintisiz erişim</strong>
-                        </div>
-                        <div class="ck-login-hero-stat">
-                            <small>Yönetim standardı</small>
-                            <strong>Operasyon, personel ve finans görünümünü tek merkezden yönet</strong>
+                            <small>Operasyonel veriyi yönetime dönüştüren altyapı</small>
+                            <strong>Tüm operasyon katmanlarının tek sistemde birleşmesi, veri kaybını ortadan kaldırır ve sürdürülebilir büyüme için gerekli olan kontrol, şeffaflık ve standardizasyonu sağlar.</strong>
                         </div>
                     </div>
                 </div>
@@ -2071,12 +2076,19 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
 
 def render_sidebar_brand() -> None:
+    logo_markup = build_login_logo_markup()
     st.sidebar.markdown(
-        """
+        f"""
         <div class="ck-side-heading">
             <div class="ck-side-heading-title">Çat Kapında</div>
             <div class="ck-side-heading-subtitle">Operasyon CRM</div>
         </div>
+        <div class="ck-side-logo-card">
+            <div class="ck-side-logo-shell">{logo_markup}</div>
+            <div class="ck-side-logo-line"></div>
+            <div class="ck-side-logo-note">Teslimat operasyonu için kurumsal yönetim paneli</div>
+        </div>
+        <div class="ck-side-menu-note">Ana Menü</div>
         """,
         unsafe_allow_html=True,
     )
@@ -2099,24 +2111,41 @@ def render_top_profile(conn: CompatConnection) -> None:
         email = str(get_row_value(current_user, "email", "") or st.session_state.get("username") or "")
         role_display = str(get_row_value(current_user, "role_display", "") or st.session_state.get("user_role_display") or "")
         password_status = "Geçici Şifre" if st.session_state.get("must_change_password") else "Güncel Şifre"
+        name_parts = [part for part in full_name.split() if part.strip()]
+        initials = "".join(part[:1] for part in name_parts[:2]).upper() or "CK"
 
-        with st.popover("👤 Profil", use_container_width=True):
-            st.markdown("##### Hesap Özeti")
-            st.markdown(f"**{full_name}**")
-            st.caption(role_display)
+        with st.popover("Profil ve Ayarlar", use_container_width=True):
+            st.markdown(
+                f"""
+                <div class="ck-profile-shell">
+                    <div class="ck-profile-hero">
+                        <div class="ck-profile-avatar">{html.escape(initials)}</div>
+                        <div>
+                            <div class="ck-profile-kicker">Hesap Merkezi</div>
+                            <div class="ck-profile-name">{html.escape(full_name)}</div>
+                            <div class="ck-profile-mail">{html.escape(email)}</div>
+                        </div>
+                    </div>
+                    <div class="ck-profile-chip-row">
+                        <span class="ck-profile-chip">{html.escape(role_display)}</span>
+                        <span class="ck-profile-chip">{html.escape(password_status)}</span>
+                        <span class="ck-profile-chip">Kurumsal Erişim</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
             if st.session_state.get("must_change_password"):
                 st.info("Geçici şifre kullanıyorsun. Güvenlik için aşağıdaki alandan yeni şifre belirle.")
 
-            st.markdown("##### İletişim Bilgileri")
+            st.markdown("##### Hesap Özeti")
             st.markdown(f"**Ad Soyad:** {full_name}")
             st.markdown(f"**E-posta:** {email}")
-
-            st.markdown("##### Hesap Durumu")
             st.markdown(f"**Yetki:** {role_display}")
             st.markdown(f"**Şifre Durumu:** {password_status}")
             st.divider()
-            st.markdown("##### Şifremi Değiştir")
+            st.markdown("##### Güvenlik Ayarları")
 
             with st.form("change_password_form", clear_on_submit=True):
                 current_password = st.text_input("Mevcut Şifre", type="password")
@@ -2149,6 +2178,12 @@ def render_top_profile(conn: CompatConnection) -> None:
                     st.session_state.must_change_password = False
                     st.success("Şifren güncellendi.")
                     st.rerun()
+
+            if st.session_state.get("role") == "admin":
+                st.divider()
+                with st.expander("Veri Yönetimi ve Yedekleme", expanded=False):
+                    st.caption("Yedek alma, dışa aktarma ve gerekirse veri aktarma işlemlerini bu alandan yönetebilirsin.")
+                    render_backup_tools_content(conn)
 
             if st.button("Oturumu Kapat", key="profile_logout_btn", use_container_width=True):
                 revoke_current_auth_session(conn)
@@ -2722,33 +2757,23 @@ def sync_all_personnel_business_rules(conn: CompatConnection, full_history: bool
             resolved_vehicle_type,
             str(row.get("motor_rental", "Hayır") or "Hayır"),
         )
-        auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(str(row.get("accounting_type", "Kendi Muhasebecisi") or "Kendi Muhasebecisi"))
-        auto_company_setup_revenue, auto_company_setup_cost = resolve_company_setup_defaults(str(row.get("new_company_setup", "Hayır") or "Hayır"))
         normalized_cost_model = normalize_cost_model_value(str(row.get("cost_model", "standard_courier") or "standard_courier"), str(row.get("role", "Kurye") or "Kurye"))
         if (
             str(row.get("vehicle_type", "") or "") != resolved_vehicle_type
             or
             str(row.get("motor_rental", "Hayır") or "Hayır") != effective_motor_rental
             or str(row.get("cost_model", "standard_courier") or "standard_courier") != normalized_cost_model
-            or abs(safe_float(row.get("accounting_revenue")) - auto_accounting_revenue) > 0.01
-            or abs(safe_float(row.get("accountant_cost")) - auto_accountant_cost) > 0.01
-            or abs(safe_float(row.get("company_setup_revenue")) - auto_company_setup_revenue) > 0.01
-            or abs(safe_float(row.get("company_setup_cost")) - auto_company_setup_cost) > 0.01
         ):
             conn.execute(
                 """
                 UPDATE personnel
-                SET vehicle_type = ?, motor_rental = ?, cost_model = ?, accounting_revenue = ?, accountant_cost = ?, company_setup_revenue = ?, company_setup_cost = ?
+                SET vehicle_type = ?, motor_rental = ?, cost_model = ?
                 WHERE id = ?
                 """,
                 (
                     resolved_vehicle_type,
                     effective_motor_rental,
                     normalized_cost_model,
-                    auto_accounting_revenue,
-                    auto_accountant_cost,
-                    auto_company_setup_revenue,
-                    auto_company_setup_cost,
                     int(row["id"]),
                 ),
             )
@@ -2756,10 +2781,6 @@ def sync_all_personnel_business_rules(conn: CompatConnection, full_history: bool
             row["vehicle_type"] = resolved_vehicle_type
             row["motor_rental"] = effective_motor_rental
             row["cost_model"] = normalized_cost_model
-            row["accounting_revenue"] = auto_accounting_revenue
-            row["accountant_cost"] = auto_accountant_cost
-            row["company_setup_revenue"] = auto_company_setup_revenue
-            row["company_setup_cost"] = auto_company_setup_cost
         sync_person_auto_deductions(conn, row, full_history=full_history)
         sync_person_auto_onboarding(conn, row, create_missing=False)
 
@@ -2966,54 +2987,50 @@ def build_table_backup_zip(conn: CompatConnection) -> bytes:
     return buffer.getvalue()
 
 
-def render_backup_tools(conn: CompatConnection) -> None:
-    if st.session_state.get("role") != "admin":
-        return
+def render_backup_tools_content(conn: CompatConnection) -> None:
+    backend_text = "Harici veritabanı" if conn.backend == "postgres" else "Yerel veritabanı"
+    st.caption(f"Aktif kayıt altyapısı: {backend_text}")
 
-    with st.expander("Veri Yedekleme ve Aktarma", expanded=False):
-        backend_text = "Harici veritabanı" if conn.backend == "postgres" else "Yerel veritabanı"
-        st.caption(f"Aktif kayıt altyapısı: {backend_text}")
+    backup_zip = build_table_backup_zip(conn)
+    st.download_button(
+        "Tüm tabloları yedek olarak indir",
+        data=backup_zip,
+        file_name=f"catkapinda_tam_yedek_{date.today().isoformat()}.zip",
+        mime="application/zip",
+        use_container_width=True,
+    )
 
-        backup_zip = build_table_backup_zip(conn)
+    if conn.backend == "sqlite" and DB_PATH.exists():
         st.download_button(
-            "Tüm tabloları yedek olarak indir",
-            data=backup_zip,
-            file_name=f"catkapinda_tam_yedek_{date.today().isoformat()}.zip",
-            mime="application/zip",
+            "SQLite veritabanı dosyasını indir",
+            data=DB_PATH.read_bytes(),
+            file_name=f"catkapinda_crm_{date.today().isoformat()}.db",
+            mime="application/octet-stream",
             use_container_width=True,
         )
+        st.info("Harici veritabanına geçmeden önce bu dosyayı indirmen en güvenli adım olur.")
 
-        if conn.backend == "sqlite" and DB_PATH.exists():
-            st.download_button(
-                "SQLite veritabanı dosyasını indir",
-                data=DB_PATH.read_bytes(),
-                file_name=f"catkapinda_crm_{date.today().isoformat()}.db",
-                mime="application/octet-stream",
-                use_container_width=True,
-            )
-            st.info("Harici veritabanına geçmeden önce bu dosyayı indirmen en güvenli adım olur.")
-
-        if conn.backend == "postgres" and not database_has_operational_data(conn):
-            st.markdown("#### SQLite yedeğini içe aktar")
-            upload = st.file_uploader("Daha önce indirdiğin `.db` yedeğini seç", type=["db"], key="sqlite_backup_import")
-            if st.button("Yedeği içe aktar", key="sqlite_backup_import_btn", use_container_width=True, disabled=upload is None):
-                if upload is None:
-                    st.warning("Önce bir `.db` dosyası seçmelisin.")
-                else:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-                        temp_db.write(upload.getvalue())
-                        temp_path = Path(temp_db.name)
+    if conn.backend == "postgres" and not database_has_operational_data(conn):
+        st.markdown("#### SQLite yedeğini içe aktar")
+        upload = st.file_uploader("Daha önce indirdiğin `.db` yedeğini seç", type=["db"], key="sqlite_backup_import")
+        if st.button("Yedeği içe aktar", key="sqlite_backup_import_btn", use_container_width=True, disabled=upload is None):
+            if upload is None:
+                st.warning("Önce bir `.db` dosyası seçmelisin.")
+            else:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
+                    temp_db.write(upload.getvalue())
+                    temp_path = Path(temp_db.name)
+                try:
+                    imported = import_sqlite_into_current_db(conn, temp_path)
+                    if imported:
+                        st.success("SQLite yedeği başarıyla harici veritabanına aktarıldı.")
+                        st.rerun()
+                    st.info("Yedek dosyasında aktarılacak veri bulunamadı.")
+                finally:
                     try:
-                        imported = import_sqlite_into_current_db(conn, temp_path)
-                        if imported:
-                            st.success("SQLite yedeği başarıyla harici veritabanına aktarıldı.")
-                            st.rerun()
-                        st.info("Yedek dosyasında aktarılacak veri bulunamadı.")
-                    finally:
-                        try:
-                            temp_path.unlink()
-                        except OSError:
-                            pass
+                        temp_path.unlink()
+                    except OSError:
+                        pass
 
 
 def inject_global_styles() -> None:
@@ -3040,13 +3057,31 @@ def inject_global_styles() -> None:
                 background: rgba(245, 248, 253, 0.72);
             }
 
-            [data-testid="stToolbar"],
             [data-testid="stDecoration"],
             [data-testid="stStatusWidget"],
-            #MainMenu,
-            button[kind="header"],
-            [data-testid="stAppViewContainer"] > .main > div:first-child button {
+            #MainMenu {
                 display: none !important;
+            }
+
+            [data-testid="stToolbar"] {
+                display: flex !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
+
+            header[data-testid="stHeader"] button[kind="header"] {
+                display: inline-flex !important;
+                align-items: center;
+                justify-content: center;
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+
+            [data-testid="collapsedControl"],
+            [data-testid="stSidebarCollapsedControl"] {
+                display: flex !important;
+                visibility: visible !important;
+                opacity: 1 !important;
             }
 
             .block-container {
@@ -3061,64 +3096,60 @@ def inject_global_styles() -> None:
                 padding-top: 0.4rem;
             }
 
+            section[data-testid="stSidebar"] {
+                min-width: 18rem !important;
+                max-width: 18rem !important;
+            }
+
+            section[data-testid="stSidebar"] > div {
+                width: 18rem !important;
+            }
+
+            section[data-testid="stSidebar"][aria-expanded="false"] {
+                min-width: 18rem !important;
+                max-width: 18rem !important;
+                transform: none !important;
+                margin-left: 0 !important;
+            }
+
+            section[data-testid="stSidebar"][aria-expanded="false"] > div {
+                width: 18rem !important;
+                transform: none !important;
+                margin-left: 0 !important;
+            }
+
             [data-testid="stSidebar"] label,
             [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
                 color: var(--ck-text);
             }
 
             [data-testid="stSidebar"] .stRadio > label {
-                font-size: 0.78rem;
+                font-size: 0.76rem;
                 font-weight: 800;
                 color: #8A94A6;
                 text-transform: uppercase;
                 letter-spacing: 0.06em;
-                margin-bottom: 0.5rem;
+                margin-bottom: 0.45rem;
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
-                position: relative;
-                background: linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%);
-                border: 1px solid #E2EAF7;
-                border-radius: 16px;
-                padding: 12px 14px;
-                margin-bottom: 8px;
+                background: #FFFFFF;
+                border: 1px solid #E3EAF5;
+                border-radius: 14px;
+                padding: 11px 13px;
+                margin-bottom: 7px;
                 transition: all 0.18s ease;
-                overflow: hidden;
-            }
-
-            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label::before {
-                content: "";
-                position: absolute;
-                left: 12px;
-                top: 50%;
-                width: 10px;
-                height: 10px;
-                border-radius: 3px;
-                background: linear-gradient(135deg, #0C4BCB 0%, #1491D4 100%);
-                transform: translateY(-50%) rotate(45deg);
-                box-shadow: 0 6px 16px rgba(12, 75, 203, 0.22);
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:hover {
-                border-color: #BCD3F6;
+                border-color: #C6D7F4;
                 background: #F8FBFF;
-                transform: translateX(2px);
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) {
-                background:
-                    radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 25%),
-                    linear-gradient(135deg, #0C4BCB 0%, #1290D6 100%);
-                border-color: transparent;
-                box-shadow: 0 16px 30px rgba(12, 75, 203, 0.18);
-                transform: translateX(3px);
-            }
-
-            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked)::before {
-                background: #FFFFFF;
-                border-radius: 999px;
-                transform: translateY(-50%);
-                box-shadow: none;
+                background: #F3F8FF;
+                border-color: #BBD1F5;
+                box-shadow: inset 3px 0 0 #0C4BCB;
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label > div:first-child {
@@ -3126,15 +3157,15 @@ def inject_global_styles() -> None:
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label [data-testid="stMarkdownContainer"] p {
-                padding-left: 20px;
-                font-size: 0.95rem;
-                font-weight: 850;
-                letter-spacing: -0.02em;
+                padding-left: 0;
+                font-size: 0.92rem;
+                font-weight: 780;
+                letter-spacing: -0.01em;
                 color: #23324A;
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) [data-testid="stMarkdownContainer"] p {
-                color: #FFFFFF !important;
+                color: #0C4BCB !important;
             }
 
             .ck-side-heading {
@@ -3160,24 +3191,139 @@ def inject_global_styles() -> None:
                 text-transform: uppercase;
             }
 
-            .ck-side-user {
+            .ck-side-logo-card {
                 background: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
                 border: 1px solid var(--ck-border);
                 border-radius: 16px;
-                padding: 12px 14px;
-                margin: 0.3rem 0 1rem 0;
+                padding: 15px 13px 14px;
+                margin: 0.45rem 0 0.95rem 0;
+                box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+                text-align: center;
             }
 
-            .ck-side-user-name {
-                font-size: 0.94rem;
-                font-weight: 800;
-                color: var(--ck-text);
+            .ck-side-logo-shell {
+                display: flex;
+                justify-content: center;
             }
 
-            .ck-side-user-role {
+            .ck-side-logo-shell .ck-login-logo-mark {
+                width: 92px;
+                height: 92px;
+                flex: 0 0 92px;
+                border-radius: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(135deg, #0C4BCB 0%, #1182D3 100%);
+                box-shadow: 0 14px 24px rgba(12, 75, 203, 0.15);
+            }
+
+            .ck-side-logo-shell .ck-login-logo-mark-image {
+                background: rgba(255,255,255,0.98);
+                border: 1px solid #D9E6FB;
+                padding: 8px;
+            }
+
+            .ck-side-logo-shell .ck-login-logo-image {
+                object-fit: contain;
+                border-radius: 20px;
+            }
+
+            .ck-side-logo-line {
+                width: 42px;
+                height: 3px;
+                margin: 0.85rem auto 0;
+                border-radius: 999px;
+                background: linear-gradient(135deg, #0C4BCB 0%, #1491D4 100%);
+            }
+
+            .ck-side-logo-note {
+                margin-top: 0.75rem;
+                color: #60738F;
                 font-size: 0.8rem;
-                color: var(--ck-muted);
-                margin-top: 0.25rem;
+                line-height: 1.55;
+                font-weight: 700;
+            }
+
+            .ck-side-menu-note {
+                margin: 0.05rem 0 0.45rem;
+                color: #8A94A6;
+                font-size: 0.74rem;
+                font-weight: 800;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+            }
+
+            .ck-profile-shell {
+                margin-bottom: 0.35rem;
+            }
+
+            .ck-profile-hero {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                padding: 14px;
+                border-radius: 22px;
+                background:
+                    radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 26%),
+                    linear-gradient(140deg, #0E2248 0%, #0C4BCB 58%, #13A4DE 100%);
+                color: #FFFFFF;
+                box-shadow: 0 22px 42px rgba(12, 75, 203, 0.2);
+            }
+
+            .ck-profile-avatar {
+                width: 56px;
+                height: 56px;
+                border-radius: 18px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(255,255,255,0.16);
+                border: 1px solid rgba(255,255,255,0.18);
+                font-size: 1.05rem;
+                font-weight: 900;
+            }
+
+            .ck-profile-kicker {
+                color: rgba(255,255,255,0.72);
+                font-size: 0.72rem;
+                font-weight: 800;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+            }
+
+            .ck-profile-name {
+                margin-top: 0.2rem;
+                color: #FFFFFF;
+                font-size: 1.05rem;
+                font-weight: 860;
+                letter-spacing: -0.03em;
+            }
+
+            .ck-profile-mail {
+                margin-top: 0.2rem;
+                color: rgba(255,255,255,0.82);
+                font-size: 0.82rem;
+                line-height: 1.45;
+            }
+
+            .ck-profile-chip-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 0.75rem;
+            }
+
+            .ck-profile-chip {
+                display: inline-flex;
+                align-items: center;
+                padding: 7px 11px;
+                border-radius: 999px;
+                background: #F5F8FF;
+                border: 1px solid #D8E6FB;
+                color: #294B7C;
+                font-size: 0.76rem;
+                font-weight: 800;
             }
 
             .crm-section {
@@ -4142,7 +4288,6 @@ def month_bounds(selected_month: str) -> tuple[str, str]:
 
 
 def dashboard_tab(conn: sqlite3.Connection) -> None:
-    render_backup_tools(conn)
     entries = fetch_df(conn, "SELECT * FROM daily_entries")
     active_restaurants = int(first_row_value(conn.execute("SELECT COUNT(*) FROM restaurants WHERE active=1").fetchone(), 0) or 0)
     active_people = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE status='Aktif'").fetchone(), 0) or 0)
@@ -4318,8 +4463,6 @@ def validate_personnel_form(
         errors.append("TC Kimlik No alanı zorunlu.")
     if not (iban or "").strip():
         errors.append("IBAN alanı zorunlu.")
-    if not (address or "").strip():
-        errors.append("Adres alanı zorunlu.")
     if not (current_plate or "").strip():
         errors.append("Güncel plaka alanı zorunlu.")
     if start_date_value is None:
@@ -4852,8 +4995,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     )
     render_flash_message()
     create_success_message = str(st.session_state.get("personnel_create_success_message", "") or "").strip()
-    if create_success_message:
-        st.success(create_success_message)
 
     recently_created_payload = st.session_state.get("personnel_recently_created")
     recently_created_id = safe_int(get_row_value(recently_created_payload, "personnel_id"), 0) if recently_created_payload else 0
@@ -4964,6 +5105,20 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
     elif workspace_mode == "add":
         render_tab_header("Yeni Personel Kartı", "Kimlik, muhasebe, maliyet ve araç alanlarını bloklar halinde doldurarak yeni kart oluştur.")
+        if recently_created_id > 0 and not df.empty:
+            recent_match = df[df["id"] == recently_created_id]
+            if not recent_match.empty:
+                recent_row = recent_match.iloc[0]
+                render_record_snapshot(
+                    "Az Önce Oluşturulan Personel",
+                    [
+                        ("Ad Soyad", recent_row["full_name"] or "-"),
+                        ("Kod", recent_row["person_code"] or "-"),
+                        ("Rol", recent_row["role"] or "-"),
+                        ("Durum", recent_row["status"] or "-"),
+                        ("Ana Restoran", recent_row["restoran"] or "-"),
+                    ],
+                )
 
         new_person_defaults = {
             "new_person_full_name": "",
@@ -4975,9 +5130,19 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "new_person_address": "",
             "new_person_accounting_type": "Kendi Muhasebecisi",
             "new_person_new_company_setup": "Hayır",
+            "new_person_start_date": date.today(),
+            "new_person_vehicle_type": "Çat Kapında",
+            "new_person_accounting_revenue": 0.0,
+            "new_person_accountant_cost": 0.0,
+            "new_person_company_setup_revenue": 0.0,
+            "new_person_company_setup_cost": 0.0,
+            "new_person_monthly_fixed_cost": 0.0,
             "new_person_current_plate": "",
             "new_person_notes": "",
         }
+        if st.session_state.pop("personnel_form_reset_pending", False):
+            for key, value in new_person_defaults.items():
+                st.session_state[key] = value
         for key, value in new_person_defaults.items():
             if key not in st.session_state:
                 st.session_state[key] = value
@@ -5016,7 +5181,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             render_field_label("İşe Giriş Tarihi", required=True)
             start_date = st.date_input("İşe Giriş Tarihi", key="new_person_start_date", label_visibility="collapsed")
 
-        render_field_label("Adres", required=True)
+        render_field_label("Adres")
         address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address", label_visibility="collapsed")
 
         st.markdown("##### Muhasebe ve Şirket")
@@ -5038,16 +5203,22 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 format_func=lambda x: COST_MODEL_LABELS.get(x, x),
                 label_visibility="collapsed",
             )
-        auto_accounting_revenue, auto_accountant_cost = resolve_accounting_defaults(accounting_type)
-        auto_company_setup_revenue, auto_company_setup_cost = resolve_company_setup_defaults(new_company_setup)
+        if "new_person_accounting_revenue" not in st.session_state:
+            st.session_state["new_person_accounting_revenue"] = float(resolve_accounting_defaults(accounting_type)[0])
+        if "new_person_accountant_cost" not in st.session_state:
+            st.session_state["new_person_accountant_cost"] = float(resolve_accounting_defaults(accounting_type)[1])
+        if "new_person_company_setup_revenue" not in st.session_state:
+            st.session_state["new_person_company_setup_revenue"] = float(resolve_company_setup_defaults(new_company_setup)[0])
+        if "new_person_company_setup_cost" not in st.session_state:
+            st.session_state["new_person_company_setup_cost"] = float(resolve_company_setup_defaults(new_company_setup)[1])
 
         c13, c14, c15 = st.columns(3)
         with c13:
             render_field_label("Muhasebeden Aldığımız Ücret")
-            st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_accounting_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+            accounting_revenue = st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, step=100.0, key="new_person_accounting_revenue", label_visibility="collapsed")
         with c14:
             render_field_label("Muhasebeciye Ödediğimiz")
-            st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_accountant_cost), step=100.0, disabled=True, label_visibility="collapsed")
+            accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, step=100.0, key="new_person_accountant_cost", label_visibility="collapsed")
         if is_fixed_cost_model(cost_model):
             with c15:
                 render_field_label("Aylık Sabit Maliyet", required=True)
@@ -5059,10 +5230,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         c16, c17 = st.columns(2)
         with c16:
             render_field_label("Şirket Açılışından Aldığımız Ücret")
-            st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(auto_company_setup_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+            company_setup_revenue = st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, step=100.0, key="new_person_company_setup_revenue", label_visibility="collapsed")
         with c17:
             render_field_label("Şirket Açılış Maliyeti")
-            st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(auto_company_setup_cost), step=100.0, disabled=True, label_visibility="collapsed")
+            company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, step=100.0, key="new_person_company_setup_cost", label_visibility="collapsed")
 
         st.markdown("##### Araç ve Operasyon")
         c18, c19 = st.columns(2)
@@ -5077,6 +5248,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
         create_clicked = st.button("Personel Kartını Oluştur", use_container_width=True, key="new_person_create")
         if create_clicked:
+            st.session_state.pop("personnel_create_success_message", None)
+            st.session_state.pop("personnel_recently_created", None)
             assigned_id = rest_opts_with_blank.get(assigned_label)
             validation_errors = validate_personnel_form(
                 full_name=full_name,
@@ -5118,10 +5291,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             iban,
                             accounting_type,
                             new_company_setup,
-                            auto_accounting_revenue,
-                            auto_accountant_cost,
-                            auto_company_setup_revenue,
-                            auto_company_setup_cost,
+                            accounting_revenue,
+                            accountant_cost,
+                            company_setup_revenue,
+                            company_setup_cost,
                             assigned_id,
                             vehicle_type,
                             effective_motor_rental,
@@ -5141,19 +5314,20 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     conn.rollback()
                     st.error(f"Personel kartı oluşturulamadı: {exc}")
                 else:
-                    for key, value in new_person_defaults.items():
-                        st.session_state[key] = value
                     created_person_id = safe_int(get_row_value(created_person, "id"), 0)
                     success_text = f"{full_name} başarıyla eklendi. Kod: {auto_code}"
-                    st.session_state[workspace_key] = "list"
+                    st.session_state[workspace_key] = "add"
                     st.session_state["person_search"] = ""
                     st.session_state["person_role_filter"] = "Tümü"
                     st.session_state["person_status_filter"] = "Tümü"
                     st.session_state["person_rest_filter"] = "Tümü"
                     st.session_state["personnel_recently_created"] = {"personnel_id": created_person_id}
                     st.session_state["personnel_create_success_message"] = success_text
+                    st.session_state["personnel_form_reset_pending"] = True
                     set_flash_message("success", success_text)
                     st.rerun()
+        if create_success_message:
+            st.success(f"Personel kartı oluşturuldu. {create_success_message}")
 
     elif workspace_mode == "edit":
         if df.empty:
@@ -5241,7 +5415,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         render_field_label("İşe Giriş Tarihi", required=True)
                         edit_start_date = st.date_input("İşe Giriş Tarihi", value=start_val, label_visibility="collapsed")
 
-                    render_field_label("Adres", required=True)
+                    render_field_label("Adres")
                     edit_address = st.text_area("Adres", value=row["address"] or "", label_visibility="collapsed")
 
                     st.markdown("##### Muhasebe ve Şirket")
@@ -5280,16 +5454,13 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             key="edit_person_cost_model_display",
                             label_visibility="collapsed",
                         )
-                    auto_edit_accounting_revenue, auto_edit_accountant_cost = resolve_accounting_defaults(edit_accounting)
-                    auto_edit_company_setup_revenue, auto_edit_company_setup_cost = resolve_company_setup_defaults(edit_new_company)
-
                     c13, c14, c15 = st.columns(3)
                     with c13:
                         render_field_label("Muhasebeden Aldığımız Ücret")
-                        st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_edit_accounting_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+                        edit_accounting_revenue = st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(row["accounting_revenue"] or 0.0), step=100.0, label_visibility="collapsed")
                     with c14:
                         render_field_label("Muhasebeciye Ödediğimiz")
-                        st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_edit_accountant_cost), step=100.0, disabled=True, label_visibility="collapsed")
+                        edit_accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(row["accountant_cost"] or 0.0), step=100.0, label_visibility="collapsed")
                     if is_fixed_cost_model(edit_cost_model):
                         with c15:
                             render_field_label("Aylık Sabit Maliyet", required=True)
@@ -5301,10 +5472,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     c16, c17 = st.columns(2)
                     with c16:
                         render_field_label("Şirket Açılışından Aldığımız Ücret")
-                        st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(auto_edit_company_setup_revenue), step=100.0, disabled=True, label_visibility="collapsed")
+                        edit_company_setup_revenue = st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(row["company_setup_revenue"] or 0.0), step=100.0, label_visibility="collapsed")
                     with c17:
                         render_field_label("Şirket Açılış Maliyeti")
-                        st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(auto_edit_company_setup_cost), step=100.0, disabled=True, label_visibility="collapsed")
+                        edit_company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(row["company_setup_cost"] or 0.0), step=100.0, label_visibility="collapsed")
 
                     st.markdown("##### Araç ve Operasyon")
                     c18, c19 = st.columns(2)
@@ -5381,10 +5552,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                     edit_iban,
                                     edit_accounting,
                                     edit_new_company,
-                                    auto_edit_accounting_revenue,
-                                    auto_edit_accountant_cost,
-                                    auto_edit_company_setup_revenue,
-                                    auto_edit_company_setup_cost,
+                                    edit_accounting_revenue,
+                                    edit_accountant_cost,
+                                    edit_company_setup_revenue,
+                                    edit_company_setup_cost,
                                     assigned_id,
                                     edit_vehicle,
                                     effective_edit_motor_rental,
@@ -6850,7 +7021,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="📦", layout="wide")
+    st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="📦", layout="wide", initial_sidebar_state="expanded")
     inject_global_styles()
 
     try:
@@ -6879,7 +7050,12 @@ def main() -> None:
 
         role = st.session_state.get("role", "")
         render_sidebar_brand()
-        menu = st.sidebar.radio("Ana Menü", allowed_menu_items(role))
+        menu = st.sidebar.radio(
+            "Komuta Alanları",
+            allowed_menu_items(role),
+            format_func=lambda item: MENU_DISPLAY_LABELS.get(item, item),
+            label_visibility="collapsed",
+        )
 
         ensure_role_access(menu, role)
         render_top_profile(conn)
