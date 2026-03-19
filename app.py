@@ -512,6 +512,15 @@ def render_flash_message() -> None:
     message_text = str(payload.get("text", "") or "").strip()
     if not message_text:
         return
+
+    toast_icon = {
+        "success": ":material/check_circle:",
+        "warning": ":material/warning:",
+        "error": ":material/error:",
+        "info": ":material/info:",
+    }.get(level, ":material/info:")
+    st.toast(message_text, icon=toast_icon)
+
     if level == "success":
         st.success(message_text)
     elif level == "warning":
@@ -1928,38 +1937,38 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 f"""
                 <div class="ck-login-hero-card">
                     <div class="ck-login-hero-brand">
-                        <div class="ck-login-hero-brand-note">Teslimat operasyonu icin premium komuta merkezi</div>
+                        <div class="ck-login-hero-brand-note">Teslimat operasyonu için premium komuta merkezi</div>
                         <div class="ck-login-logo-showcase">{logo_markup}</div>
                     </div>
-                    <div class="ck-login-hero-kicker">Cat Kapinda Operasyon CRM</div>
-                    <div class="ck-login-hero-title">Saha ritmini, ekipleri ve karliligi tek merkezden yonet.</div>
-                    <div class="ck-login-hero-subtitle">Sube anlasmalarini, personel akisini, ekipman hareketlerini ve aylik finansal gorunumu tek bir komuta panelinde topla. Masaustunde guclu bir yonetim ekrani, telefonda ise uygulama hissi veren hizli bir onboarding akisiyla calis.</div>
+                    <div class="ck-login-hero-kicker">Çat Kapında Operasyon CRM</div>
+                    <div class="ck-login-hero-title">Saha ritmini, ekipleri ve kârlılığı tek merkezden yönet.</div>
+                    <div class="ck-login-hero-subtitle">Şube anlaşmalarını, personel akışını, ekipman hareketlerini ve aylık finansal görünümü tek bir komuta panelinde topla. Masaüstünde güçlü bir yönetim ekranı, telefonda ise uygulama hissi veren hızlı bir onboarding akışıyla çalış.</div>
                     <div class="ck-login-hero-proof-grid">
                         <div class="ck-login-hero-proof-card">
-                            <span>Sube Katmani</span>
-                            <strong>Anlasma kurallari, aktiflik durumu ve operasyon notlari tek gorunumde.</strong>
+                            <span>Şube Katmanı</span>
+                            <strong>Anlaşma kuralları, aktiflik durumu ve operasyon notları tek görünümde.</strong>
                         </div>
                         <div class="ck-login-hero-proof-card">
-                            <span>Saha Akisi</span>
-                            <strong>Puantaj, zimmet, kesinti ve kurye hareketlerini ayni ritimde takip et.</strong>
+                            <span>Saha Akışı</span>
+                            <strong>Puantaj, zimmet, kesinti ve kurye hareketlerini aynı ritimde takip et.</strong>
                         </div>
                         <div class="ck-login-hero-proof-card">
                             <span>Finans Merkezi</span>
-                            <strong>Hakedis, ekipman satisi ve karlilik ekranlarina tek giristen ulas.</strong>
+                            <strong>Hakediş, ekipman satışı ve kârlılık ekranlarına tek girişten ulaş.</strong>
                         </div>
                     </div>
                     <div class="ck-login-hero-stats">
                         <div class="ck-login-hero-stat">
-                            <small>Guvenli erisim</small>
-                            <strong>E-posta tabanli kurumsal oturum</strong>
+                            <small>Güvenli erişim</small>
+                            <strong>E-posta tabanlı kurumsal oturum</strong>
                         </div>
                         <div class="ck-login-hero-stat">
-                            <small>Sifre destegi</small>
-                            <strong>Mail ile gecici parola yenileme</strong>
+                            <small>Şifre desteği</small>
+                            <strong>Mail ile geçici parola yenileme</strong>
                         </div>
                         <div class="ck-login-hero-stat">
-                            <small>Calisma duzeni</small>
-                            <strong>Once staging, sonra canli gecis</strong>
+                            <small>Çalışma düzeni</small>
+                            <strong>Önce staging, sonra canlı geçiş</strong>
                         </div>
                     </div>
                 </div>
@@ -1972,16 +1981,16 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 """
                 <div class="ck-login-panel-head">
                     <div class="ck-login-panel-kicker">Yetkili Erisim</div>
-                    <div class="ck-login-panel-title">Panele giris yap</div>
-                    <div class="ck-login-panel-subtitle">Kurumsal e-posta hesabinla guvenli sekilde devam et. Sifreni unuttuysan sistem sana yeni gecici sifreyi dogrudan e-posta ile gondersin.</div>
+                    <div class="ck-login-panel-title">Panele giriş yap</div>
+                    <div class="ck-login-panel-subtitle">Kurumsal e-posta hesabınla güvenli şekilde devam et. Şifreni unuttuysan sistem sana yeni geçici şifreyi doğrudan e-posta ile göndersin.</div>
                     <div class="ck-login-panel-badges">
-                        <span>Mail ile sifirlama</span>
-                        <span>Guvenli oturum</span>
-                        <span>Hatirlanan cihazlar</span>
+                        <span>Mail ile sıfırlama</span>
+                        <span>Güvenli oturum</span>
+                        <span>Hatırlanan cihazlar</span>
                     </div>
                 </div>
-                <div class="ck-login-form-title">Giris Bilgileri</div>
-                <div class="ck-login-form-subtitle">Yetkili e-posta hesabin ve kisisel sifrenle devam et.</div>
+                <div class="ck-login-form-title">Giriş Bilgileri</div>
+                <div class="ck-login-form-subtitle">Yetkili e-posta hesabın ve kişisel şifrenle devam et.</div>
                 """,
                 unsafe_allow_html=True,
             )
@@ -1994,7 +2003,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
             st.markdown(
                 """
-                <div class="ck-login-footer-note">Giris bilgilerin kurumsal e-posta hesabina tanimlidir. Parolan unutulursa sistem yeni gecici sifreni e-posta kutuna otomatik iletir; panele girdikten sonra Profil alanindan sifreni hemen guncelleyebilirsin.</div>
+                <div class="ck-login-footer-note">Giriş bilgilerin kurumsal e-posta hesabına tanımlıdır. Parolan unutulursa sistem yeni geçici şifreni e-posta kutuna otomatik iletir; panele girdikten sonra Profil alanından şifreni hemen güncelleyebilirsin.</div>
                 """,
                 unsafe_allow_html=True,
             )
