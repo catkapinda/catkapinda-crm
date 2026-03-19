@@ -4697,13 +4697,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "new_person_assigned_label": "-",
             "new_person_tc_no": "",
             "new_person_iban": "",
-            "new_person_start_date": None,
             "new_person_address": "",
             "new_person_accounting_type": "Kendi Muhasebecisi",
             "new_person_new_company_setup": "Hayır",
             "new_person_cost_model": "Kurye",
-            "new_person_monthly_fixed_cost": 0.0,
-            "new_person_vehicle_type": "Kendi Motoru",
             "new_person_current_plate": "",
             "new_person_notes": "",
         }
@@ -4732,7 +4729,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         c7, c8, c9 = st.columns(3)
         tc_no = c7.text_input("TC Kimlik No", key="new_person_tc_no")
         iban = c8.text_input("IBAN", key="new_person_iban")
-        start_date = c9.date_input("İşe Giriş Tarihi", value=st.session_state.get("new_person_start_date"), key="new_person_start_date")
+        start_date = c9.date_input("İşe Giriş Tarihi", key="new_person_start_date")
 
         address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address")
 
@@ -4753,7 +4750,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         c13.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(auto_accounting_revenue), step=100.0, disabled=True)
         c14.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(auto_accountant_cost), step=100.0, disabled=True)
         if is_fixed_cost_model(cost_model):
-            monthly_fixed_cost = c15.number_input("Aylık Sabit Maliyet", min_value=0.0, value=float(st.session_state.get("new_person_monthly_fixed_cost", 0.0) or 0.0), step=100.0, key="new_person_monthly_fixed_cost")
+            monthly_fixed_cost = c15.number_input("Aylık Sabit Maliyet", min_value=0.0, step=100.0, key="new_person_monthly_fixed_cost")
         else:
             c15.markdown("")
             monthly_fixed_cost = 0.0
@@ -4764,7 +4761,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
         st.markdown("##### Araç ve Operasyon")
         c18, c19 = st.columns(2)
-        vehicle_type = c18.selectbox("Motor Tipi", ["Çat Kapında", "Kendi Motoru"], index=1, key="new_person_vehicle_type")
+        vehicle_type = c18.selectbox("Motor Tipi", ["Çat Kapında", "Kendi Motoru"], key="new_person_vehicle_type")
         current_plate = c19.text_input("Güncel Plaka", key="new_person_current_plate")
         effective_motor_rental = resolve_motor_rental_value(vehicle_type, "Hayır")
         notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar", key="new_person_notes")
