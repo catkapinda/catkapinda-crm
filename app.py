@@ -3074,7 +3074,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
     render_management_hero(
         "RESTORAN YÖNETİMİ",
         "Şube kartları, fiyat anlaşmaları ve operasyon durumu",
-        "Filtrelenebilir liste, hızlı aksiyon paneli ve tum fiyat modeli dagilimini ayni alanda net bicimde gorerek yeni sube ekleme ya da guncelleme islemlerini daha rahat yonet.",
+        "Filtrelenebilir liste, hızlı aksiyon paneli ve tüm fiyat modeli dağılımını aynı alanda net biçimde görerek yeni şube ekleme ya da güncelleme işlemlerini daha rahat yönet.",
         [
             ("Toplam Şube", len(df)),
             ("Aktif Şube", active_count),
@@ -3108,11 +3108,11 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
     if workspace_mode == "list":
         render_tab_header("Şube Listesi", "Marka, fiyat modeli ve durum filtresi ile kayıtları daralt; sağ panelden seçili şube üzerinde hızlı işlem yap.")
         f1, f2, f3, f4 = st.columns([2.2, 1, 1.2, 1])
-        search_query = f1.text_input("Ara", placeholder="Marka, şube, fatura grubu veya yetkili adı ara", key="restaurant_search")
+        search_query = f1.text_input("Ara", placeholder="Marka, şube veya yetkili adı ara", key="restaurant_search")
         brand_options = ["Tümü"] + sorted(df["brand"].dropna().astype(str).unique().tolist()) if not df.empty else ["Tümü"]
         brand_filter = f2.selectbox("Marka", brand_options, key="restaurant_brand_filter")
         model_filter = f3.selectbox(
-            "Fiyat modeli",
+            "Fiyat Modeli",
             ["Tümü"] + list(PRICING_MODEL_LABELS.keys()),
             format_func=lambda x: "Tümü" if x == "Tümü" else PRICING_MODEL_LABELS.get(x, x),
             key="restaurant_model_filter",
@@ -3138,7 +3138,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                 st.dataframe(format_restaurants_table(filtered_df), use_container_width=True, hide_index=True)
                 st.caption(f"{len(filtered_df)} kayıt gösteriliyor.")
             with right:
-                selected_label = st.selectbox("İşlem yapılacak şube", list(action_labels.keys()), key="restaurant_action_select")
+                selected_label = st.selectbox("İşlem Yapılacak Şube", list(action_labels.keys()), key="restaurant_action_select")
                 selected_id = action_labels[selected_label]
                 selected_row = df.loc[df["id"] == selected_id].iloc[0]
                 render_record_snapshot(
@@ -3155,12 +3155,12 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                 st.markdown("##### Hızlı Aksiyonlar")
                 b1, b2 = st.columns(2)
                 current_active = safe_int(selected_row["active"], 1)
-                if b1.button("Pasife al" if current_active == 1 else "Aktifleştir", use_container_width=True, key="restaurant_toggle_btn"):
+                if b1.button("Pasife Al" if current_active == 1 else "Aktifleştir", use_container_width=True, key="restaurant_toggle_btn"):
                     conn.execute("UPDATE restaurants SET active = ? WHERE id = ?", (0 if current_active == 1 else 1, selected_id))
                     conn.commit()
                     st.success("Restoran durumu güncellendi.")
                     st.rerun()
-                if b2.button("Kalıcı sil", use_container_width=True, key="restaurant_delete_btn"):
+                if b2.button("Kalıcı Sil", use_container_width=True, key="restaurant_delete_btn"):
                     linked_people = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE assigned_restaurant_id = ?", (selected_id,)).fetchone(), 0) or 0)
                     linked_puantaj = int(first_row_value(conn.execute("SELECT COUNT(*) FROM daily_entries WHERE restaurant_id = ?", (selected_id,)).fetchone(), 0) or 0)
                     linked_deductions = int(first_row_value(conn.execute(
@@ -3180,6 +3180,325 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                         st.success("Restoran kalıcı olarak silindi.")
                         st.rerun()
                 st.caption("Kalıcı silme işlemi yalnızca test veya yanlış açılmış kayıtlar için kullanılmalı.")
+
+    elif workspace_mode == "add":
+        render_tab_header("Yeni Şube Kartı", "Temel bilgiler, fiyatlandırma, operasyon ve iletişim alanlarını daha düzenli bloklar halinde gir.")
+        with st.form("restaurant_form", clear_on_submit=True):
+            st.markdown("##### Temel Bilgiler")
+            c1, c2 = st.columns(2)
+            brand = c1.text_input("Marka")
+            branch = c2.text_input("Şube")
+
+            st.markdown("##### Fiyatlandırma")
+            c4, c5 = st.columns(2)
+            pricing_model = c4.selectbox(
+                "Fiyat Modeli",
+                list(PRICING_MODEL_LABELS.keys()),
+                format_func=lambda x: PRICING_MODEL_LABELS.get(x, x),
+            )
+            vat_rate = c5.number_input("KDV %", min_value=0.0, value=20.0, step=1.0)
+
+            c6, c7, c8 = st.columns(3)
+            hourly_rate = c6.number_input("Saatlik Ücret", min_value=0.0, value=0.0, step=1.0)
+            package_rate = c7.number_input("Paket Primi", min_value=0.0, value=0.0, step=1.0)
+            package_threshold = c8.number_input("Paket Eşiği", min_value=0, value=390, step=1)
+
+            c9, c10, c11 = st.columns(3)
+            package_rate_low = c9.number_input("Eşik Altı Prim", min_value=0.0, value=0.0, step=0.25)
+            package_rate_high = c10.number_input("Eşik Üstü Prim", min_value=0.0, value=0.0, step=0.25)
+            fixed_fee = c11.number_input("Sabit Aylık Ücret", min_value=0.0, value=0.0, step=100.0)
+
+            st.markdown("##### Operasyon ve Kadro")
+            c12, c13, c14 = st.columns(3)
+            headcount = c12.number_input("Hedef Kadro", min_value=0, value=0, step=1)
+            start_date_val = c13.date_input("Başlangıç Tarihi", value=None)
+            end_date_val = c14.date_input("Bitiş Tarihi", value=None)
+
+            c15, c16 = st.columns(2)
+            extra_req = c15.number_input("Ek Kurye Talep Sayısı", min_value=0, value=0, step=1)
+            extra_req_date = c16.date_input("Ek Kurye Talep Tarihi", value=None)
+
+            c17, c18 = st.columns(2)
+            reduce_req = c17.number_input("Kurye Azaltma Talep Sayısı", min_value=0, value=0, step=1)
+            reduce_req_date = c18.date_input("Kurye Azaltma Talep Tarihi", value=None)
+
+            st.markdown("##### İletişim ve Vergi")
+            c19, c20, c21 = st.columns(3)
+            contact_name = c19.text_input("Yetkili Ad Soyad")
+            contact_phone = c20.text_input("Yetkili Telefon")
+            contact_email = c21.text_input("Yetkili E-Posta")
+
+            c22, c23 = st.columns(2)
+            tax_office = c22.text_input("Vergi Dairesi")
+            tax_number = c23.text_input("Vergi Numarası")
+
+            notes = st.text_area("Notlar", placeholder="Şube içi önemli notlar, çalışma düzeni veya anlaşma detayı")
+            submitted = st.form_submit_button("Şube Kartını Oluştur", use_container_width=True)
+            if submitted and brand and branch:
+                conn.execute(
+                    """
+                    INSERT INTO restaurants (
+                        brand, branch, billing_group, pricing_model, hourly_rate, package_rate,
+                        package_threshold, package_rate_low, package_rate_high, fixed_monthly_fee,
+                        vat_rate, target_headcount, start_date, end_date,
+                        extra_headcount_request, extra_headcount_request_date,
+                        reduce_headcount_request, reduce_headcount_request_date,
+                        contact_name, contact_phone, contact_email, tax_office, tax_number,
+                        active, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                    """,
+                    (
+                        brand,
+                        branch,
+                        None,
+                        pricing_model,
+                        hourly_rate,
+                        package_rate,
+                        package_threshold,
+                        package_rate_low,
+                        package_rate_high,
+                        fixed_fee,
+                        vat_rate,
+                        headcount,
+                        start_date_val.isoformat() if isinstance(start_date_val, date) else None,
+                        end_date_val.isoformat() if isinstance(end_date_val, date) else None,
+                        extra_req,
+                        extra_req_date.isoformat() if isinstance(extra_req_date, date) else None,
+                        reduce_req,
+                        reduce_req_date.isoformat() if isinstance(reduce_req_date, date) else None,
+                        contact_name,
+                        contact_phone,
+                        contact_email,
+                        tax_office,
+                        tax_number,
+                        notes,
+                    ),
+                )
+                conn.commit()
+                st.success("Restoran kaydedildi. Yeni kart listede görünmeye hazır.")
+                st.rerun()
+
+    else:
+        if df.empty:
+            st.info("Güncellenecek restoran kaydı bulunmuyor.")
+        else:
+            render_tab_header("Şube Güncelleme", "Solda düzenleme formunu kullan, sağ tarafta mevcut şube kartının kısa özetini gör.")
+            edit_labels = {f"{row['brand']} - {row['branch']} (ID: {row['id']})": int(row["id"]) for _, row in df.iterrows()}
+            edit_selected_label = st.selectbox("Güncellenecek Şube", list(edit_labels.keys()), key="restaurant_edit_select")
+            selected_id = edit_labels[edit_selected_label]
+            selected_row = df.loc[df["id"] == selected_id].iloc[0]
+            left, right = st.columns([2.2, 1])
+            with right:
+                render_record_snapshot(
+                    "Mevcut Kart",
+                    [
+                        ("Durum", ACTIVE_STATUS_LABELS.get(selected_row["active"], selected_row["active"])),
+                        ("Başlangıç", selected_row["start_date"] or "-"),
+                        ("Ek Talep", safe_int(selected_row["extra_headcount_request"])),
+                        ("Azaltma Talebi", safe_int(selected_row["reduce_headcount_request"])),
+                    ],
+                )
+            with left:
+                with st.form("restaurant_edit_form"):
+                    st.markdown("##### Temel Bilgiler")
+                    c1, c2 = st.columns(2)
+                    edit_brand = c1.text_input("Marka", value=selected_row["brand"] or "")
+                    edit_branch = c2.text_input("Şube", value=selected_row["branch"] or "")
+
+                    st.markdown("##### Fiyatlandırma")
+                    pricing_options = list(PRICING_MODEL_LABELS.keys())
+                    current_pricing = selected_row["pricing_model"] if pd.notna(selected_row["pricing_model"]) and selected_row["pricing_model"] in pricing_options else pricing_options[0]
+                    c4, c5 = st.columns(2)
+                    edit_pricing_model = c4.selectbox(
+                        "Fiyat Modeli",
+                        pricing_options,
+                        index=pricing_options.index(current_pricing),
+                        format_func=lambda x: PRICING_MODEL_LABELS.get(x, x),
+                    )
+                    edit_vat_rate = c5.number_input("KDV %", min_value=0.0, value=safe_float(selected_row["vat_rate"], 20.0), step=1.0)
+
+                    c6, c7, c8 = st.columns(3)
+                    edit_hourly_rate = c6.number_input("Saatlik Ücret", min_value=0.0, value=safe_float(selected_row["hourly_rate"]), step=1.0)
+                    edit_package_rate = c7.number_input("Paket Primi", min_value=0.0, value=safe_float(selected_row["package_rate"]), step=1.0)
+                    edit_package_threshold = c8.number_input("Paket Eşiği", min_value=0, value=safe_int(selected_row["package_threshold"], 390), step=1)
+
+                    c9, c10, c11 = st.columns(3)
+                    edit_package_rate_low = c9.number_input("Eşik Altı Prim", min_value=0.0, value=safe_float(selected_row["package_rate_low"]), step=0.25)
+                    edit_package_rate_high = c10.number_input("Eşik Üstü Prim", min_value=0.0, value=safe_float(selected_row["package_rate_high"]), step=0.25)
+                    edit_fixed_fee = c11.number_input("Sabit Aylık Ücret", min_value=0.0, value=safe_float(selected_row["fixed_monthly_fee"]), step=100.0)
+
+                    st.markdown("##### Operasyon ve Kadro")
+                    start_val = datetime.strptime(selected_row["start_date"], "%Y-%m-%d").date() if pd.notna(selected_row["start_date"]) and selected_row["start_date"] else None
+                    end_val = datetime.strptime(selected_row["end_date"], "%Y-%m-%d").date() if pd.notna(selected_row["end_date"]) and selected_row["end_date"] else None
+                    c12, c13, c14 = st.columns(3)
+                    edit_headcount = c12.number_input("Hedef Kadro", min_value=0, value=safe_int(selected_row["target_headcount"]), step=1)
+                    edit_start_date = c13.date_input("Başlangıç Tarihi", value=start_val)
+                    edit_end_date = c14.date_input("Bitiş Tarihi", value=end_val)
+
+                    extra_date_val = datetime.strptime(selected_row["extra_headcount_request_date"], "%Y-%m-%d").date() if pd.notna(selected_row["extra_headcount_request_date"]) and selected_row["extra_headcount_request_date"] else None
+                    reduce_date_val = datetime.strptime(selected_row["reduce_headcount_request_date"], "%Y-%m-%d").date() if pd.notna(selected_row["reduce_headcount_request_date"]) and selected_row["reduce_headcount_request_date"] else None
+                    c15, c16 = st.columns(2)
+                    edit_extra_req = c15.number_input("Ek Kurye Talep Sayısı", min_value=0, value=safe_int(selected_row["extra_headcount_request"]), step=1)
+                    edit_extra_req_date = c16.date_input("Ek Kurye Talep Tarihi", value=extra_date_val)
+
+                    c17, c18 = st.columns(2)
+                    edit_reduce_req = c17.number_input("Kurye Azaltma Talep Sayısı", min_value=0, value=safe_int(selected_row["reduce_headcount_request"]), step=1)
+                    edit_reduce_req_date = c18.date_input("Kurye Azaltma Talep Tarihi", value=reduce_date_val)
+
+                    st.markdown("##### İletişim ve Vergi")
+                    c19, c20, c21 = st.columns(3)
+                    edit_contact_name = c19.text_input("Yetkili Ad Soyad", value=selected_row["contact_name"] or "")
+                    edit_contact_phone = c20.text_input("Yetkili Telefon", value=selected_row["contact_phone"] or "")
+                    edit_contact_email = c21.text_input("Yetkili E-Posta", value=selected_row["contact_email"] or "")
+
+                    c22, c23 = st.columns(2)
+                    edit_tax_office = c22.text_input("Vergi Dairesi", value=selected_row["tax_office"] or "")
+                    edit_tax_number = c23.text_input("Vergi Numarası", value=selected_row["tax_number"] or "")
+
+                    edit_notes = st.text_area("Notlar", value=selected_row["notes"] or "")
+                    submitted_edit = st.form_submit_button("Şube Kartını Güncelle", use_container_width=True)
+                    if submitted_edit:
+                        conn.execute(
+                            """
+                            UPDATE restaurants
+                            SET brand=?, branch=?, pricing_model=?, hourly_rate=?, package_rate=?,
+                                package_threshold=?, package_rate_low=?, package_rate_high=?, fixed_monthly_fee=?,
+                                vat_rate=?, target_headcount=?, start_date=?, end_date=?,
+                                extra_headcount_request=?, extra_headcount_request_date=?,
+                                reduce_headcount_request=?, reduce_headcount_request_date=?,
+                                contact_name=?, contact_phone=?, contact_email=?, tax_office=?, tax_number=?, notes=?
+                            WHERE id=?
+                            """,
+                            (
+                                edit_brand,
+                                edit_branch,
+                                edit_pricing_model,
+                                edit_hourly_rate,
+                                edit_package_rate,
+                                edit_package_threshold,
+                                edit_package_rate_low,
+                                edit_package_rate_high,
+                                edit_fixed_fee,
+                                edit_vat_rate,
+                                edit_headcount,
+                                edit_start_date.isoformat() if isinstance(edit_start_date, date) else None,
+                                edit_end_date.isoformat() if isinstance(edit_end_date, date) else None,
+                                edit_extra_req,
+                                edit_extra_req_date.isoformat() if isinstance(edit_extra_req_date, date) else None,
+                                edit_reduce_req,
+                                edit_reduce_req_date.isoformat() if isinstance(edit_reduce_req_date, date) else None,
+                                edit_contact_name,
+                                edit_contact_phone,
+                                edit_contact_email,
+                                edit_tax_office,
+                                edit_tax_number,
+                                edit_notes,
+                                selected_id,
+                            ),
+                        )
+                        conn.commit()
+                        st.success("Restoran güncellendi.")
+                        st.rerun()
+
+
+def personnel_tab(conn: sqlite3.Connection) -> None:
+    q = """
+    SELECT p.*, r.brand || ' - ' || r.branch AS restoran
+    FROM personnel p
+    LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+    ORDER BY p.full_name
+    """
+    df = fetch_df(conn, q)
+    rest_opts = get_restaurant_options(conn)
+    rest_opts_with_blank = {"-": None, **rest_opts}
+    active_count = int((df["status"] == "Aktif").sum()) if not df.empty else 0
+    passive_count = int((df["status"] == "Pasif").sum()) if not df.empty else 0
+    courier_count = int((df["role"] == "Kurye").sum()) if not df.empty else 0
+    management_count = int(df["role"].isin(["Joker", *MANAGEMENT_ROLE_OPTIONS]).sum()) if not df.empty else 0
+
+    render_management_hero(
+        "PERSONEL YÖNETİMİ",
+        "Kurye, yönetim ve operasyon kartları",
+        "Filtrelenebilir personel listesi, daha belirgin sekmeler ve düzenli kart yapısı ile yeni personel ekleme ve düzenleme akışlarını sadeleştir.",
+        [
+            ("Toplam Personel", len(df)),
+            ("Aktif Personel", active_count),
+            ("Kurye", courier_count),
+            ("Joker + Yönetim", management_count),
+        ],
+    )
+    if passive_count:
+        st.caption(f"Pasif personel sayısı: {passive_count}")
+
+    workspace_key = "personnel_workspace_mode"
+    if workspace_key not in st.session_state:
+        st.session_state[workspace_key] = "add"
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        render_action_card("Yeni Personel Ekle", "Kurye, yönetim ya da operasyon kartını görünür ana form üzerinden oluştur.", highlight=st.session_state[workspace_key] == "add")
+        if st.button("Yeni Personel Formunu Aç", key="personnel_workspace_add", use_container_width=True):
+            st.session_state[workspace_key] = "add"
+    with c2:
+        render_action_card("Personel Listesi", "Tüm kayıtları filtrele, ara ve seçili personeli tek bakışta incele.", highlight=st.session_state[workspace_key] == "list")
+        if st.button("Listeyi Aç", key="personnel_workspace_list", use_container_width=True):
+            st.session_state[workspace_key] = "list"
+    with c3:
+        render_action_card("Personel Düzenle", "Kart bilgilerini, görev rolünü ve maliyet ayarlarını güncelle.", highlight=st.session_state[workspace_key] == "edit")
+        if st.button("Düzenleme Alanını Aç", key="personnel_workspace_edit", use_container_width=True):
+            st.session_state[workspace_key] = "edit"
+    with c4:
+        render_action_card("Plaka / Motor", "Araç, plaka ve zimmet geçmişini ayrı çalışma alanında yönet.", highlight=st.session_state[workspace_key] == "plate")
+        if st.button("Plaka Alanını Aç", key="personnel_workspace_plate", use_container_width=True):
+            st.session_state[workspace_key] = "plate"
+
+    workspace_mode = st.session_state[workspace_key]
+
+    if workspace_mode == "list":
+        render_tab_header("Personel Listesi", "Rol, durum ve restoran filtreleri ile kayıtları daralt; sağ panelden seçili kişiyi hızlıca incele.")
+        f1, f2, f3, f4 = st.columns([2.1, 1, 1, 1.2])
+        search_query = f1.text_input("Ara", placeholder="Ad, kod, telefon veya plaka ara", key="person_search")
+        role_filter = f2.selectbox("Rol", ["Tümü", *PERSONNEL_ROLE_OPTIONS], key="person_role_filter")
+        status_filter = f3.selectbox("Durum", ["Tümü", "Aktif", "Pasif"], key="person_status_filter")
+        restaurant_options = ["Tümü"] + sorted(df["restoran"].dropna().astype(str).unique().tolist()) if not df.empty else ["Tümü"]
+        restaurant_filter = f4.selectbox("Ana Restoran", restaurant_options, key="person_rest_filter")
+
+        filtered_df = df.copy()
+        if role_filter != "Tümü":
+            filtered_df = filtered_df[filtered_df["role"] == role_filter].copy()
+        if status_filter != "Tümü":
+            filtered_df = filtered_df[filtered_df["status"] == status_filter].copy()
+        if restaurant_filter != "Tümü":
+            filtered_df = filtered_df[filtered_df["restoran"] == restaurant_filter].copy()
+        filtered_df = apply_text_search(filtered_df, ["person_code", "full_name", "phone", "address", "current_plate", "restoran"], search_query)
+
+        if df.empty:
+            st.info("Henüz personel kaydı yok.")
+        else:
+            preview_source = filtered_df if not filtered_df.empty else df
+            preview_labels = {
+                f"{row['full_name']} | {row['role']} | Kod: {row['person_code'] or '-'}": int(row["id"])
+                for _, row in preview_source.iterrows()
+            }
+            left, right = st.columns([2.35, 1])
+            with left:
+                st.dataframe(format_personnel_table(filtered_df), use_container_width=True, hide_index=True)
+                st.caption(f"{len(filtered_df)} personel gösteriliyor.")
+            with right:
+                preview_label = st.selectbox("Kart Önizleme", list(preview_labels.keys()), key="person_preview_select")
+                preview_id = preview_labels[preview_label]
+                preview_row = df.loc[df["id"] == preview_id].iloc[0]
+                render_record_snapshot(
+                    "Seçili Personel",
+                    [
+                        ("Kod", preview_row["person_code"] or "-"),
+                        ("Rol", preview_row["role"] or "-"),
+                        ("Durum", preview_row["status"] or "-"),
+                        ("Ana Restoran", preview_row["restoran"] or "-"),
+                        ("Plaka", preview_row["current_plate"] or "-"),
+                    ],
+                )
+                st.info("Kartı düzenlemek, pasife almak veya görev bilgilerini değiştirmek için “Personel Düzenle” sekmesini kullan.")
 
     elif workspace_mode == "add":
         render_tab_header("Yeni Personel Kartı", "Kimlik, muhasebe, maliyet ve araç alanlarını bloklar halinde doldurarak yeni kart oluştur.")
@@ -3494,12 +3813,12 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             with st.form("plate_form", clear_on_submit=True):
                 c1, c2, c3 = st.columns(3)
                 person_label = c1.selectbox("Personel", list(person_opts.keys()))
-                plate = c2.text_input("Yeni plaka")
+                plate = c2.text_input("Yeni Plaka")
                 reason = c3.selectbox("Sebep", ["Yeni zimmet", "Kaza", "Bakım", "Geçici değişim", "Diğer"])
                 c4, c5 = st.columns(2)
                 start_dt = c4.date_input("Başlangıç", value=date.today())
                 end_dt = c5.date_input("Bitiş", value=None)
-                submitted = st.form_submit_button("Plaka geçmişine ekle", use_container_width=True)
+                submitted = st.form_submit_button("Plaka Geçmişine Ekle", use_container_width=True)
                 if submitted and plate:
                     pid = person_opts[person_label]
                     conn.execute("UPDATE plate_history SET active=0, end_date=? WHERE personnel_id=? AND active=1", (start_dt.isoformat(), pid))
@@ -3538,7 +3857,6 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                 st.dataframe(plate_display[cols], use_container_width=True, hide_index=True)
         else:
             st.info("Önce personel eklenmeli.")
-
 
 def attendance_tab(conn: sqlite3.Connection) -> None:
     today_value = date.today()
