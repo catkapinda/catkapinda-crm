@@ -4964,6 +4964,22 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
     elif workspace_mode == "add":
         render_tab_header("Yeni Personel Kartı", "Kimlik, muhasebe, maliyet ve araç alanlarını bloklar halinde doldurarak yeni kart oluştur.")
+        if create_success_message:
+            st.success(create_success_message)
+        if recently_created_id > 0 and not df.empty:
+            recent_match = df[df["id"] == recently_created_id]
+            if not recent_match.empty:
+                recent_row = recent_match.iloc[0]
+                render_record_snapshot(
+                    "Az Önce Oluşturulan Personel",
+                    [
+                        ("Ad Soyad", recent_row["full_name"] or "-"),
+                        ("Kod", recent_row["person_code"] or "-"),
+                        ("Rol", recent_row["role"] or "-"),
+                        ("Durum", recent_row["status"] or "-"),
+                        ("Ana Restoran", recent_row["restoran"] or "-"),
+                    ],
+                )
 
         new_person_defaults = {
             "new_person_full_name": "",
@@ -5145,7 +5161,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         st.session_state[key] = value
                     created_person_id = safe_int(get_row_value(created_person, "id"), 0)
                     success_text = f"{full_name} başarıyla eklendi. Kod: {auto_code}"
-                    st.session_state[workspace_key] = "list"
+                    st.session_state[workspace_key] = "add"
                     st.session_state["person_search"] = ""
                     st.session_state["person_role_filter"] = "Tümü"
                     st.session_state["person_status_filter"] = "Tümü"
