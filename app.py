@@ -1734,14 +1734,26 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
         div[data-testid="stForm"] [data-testid="stTextInputRootElement"] input {
             min-height: 56px;
+            height: 56px;
             border-radius: 18px;
             background: #F7FAFF;
             border: 1px solid #DCE7FA;
+            padding: 0 18px !important;
+            line-height: 1.2 !important;
+            display: flex;
+            align-items: center;
+        }
+
+        div[data-testid="stForm"] [data-baseweb="input"] {
+            align-items: center;
         }
 
         div[data-testid="stForm"] [data-baseweb="input"] > div {
+            min-height: 56px;
             background: transparent !important;
             border: none !important;
+            display: flex;
+            align-items: center;
         }
 
         div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] > button {
@@ -1930,16 +1942,16 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     </div>
                     <div class="ck-login-hero-stats">
                         <div class="ck-login-hero-stat">
-                            <small>Güvenli erişim</small>
-                            <strong>E-posta tabanlı kurumsal oturum</strong>
+                            <small>Kurumsal erişim</small>
+                            <strong>Yetkili kullanıcılar için güvenli ve kontrollü giriş altyapısı</strong>
                         </div>
                         <div class="ck-login-hero-stat">
-                            <small>Şifre desteği</small>
-                            <strong>Mail ile geçici parola yenileme</strong>
+                            <small>Hesap sürekliliği</small>
+                            <strong>Geçici parola ve profil güncelleme akışıyla kesintisiz erişim</strong>
                         </div>
                         <div class="ck-login-hero-stat">
-                            <small>Çalışma düzeni</small>
-                            <strong>Önce staging, sonra canlı geçiş</strong>
+                            <small>Yönetim standardı</small>
+                            <strong>Operasyon, personel ve finans görünümünü tek merkezden yönet</strong>
                         </div>
                     </div>
                 </div>
@@ -1951,24 +1963,24 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             st.markdown(
                 """
                 <div class="ck-login-panel-head">
-                    <div class="ck-login-panel-kicker">Yetkili Erisim</div>
-                    <div class="ck-login-panel-title">Panele giriş yap</div>
-                    <div class="ck-login-panel-subtitle">Kurumsal e-posta hesabınla güvenli şekilde devam et. Şifreni unuttuysan sistem sana yeni geçici şifreyi doğrudan e-posta ile göndersin.</div>
+                    <div class="ck-login-panel-kicker">Kurumsal Erişim</div>
+                    <div class="ck-login-panel-title">Operasyon paneline giriş yap</div>
+                    <div class="ck-login-panel-subtitle">Yetkili hesabınla giriş yaparak şube operasyonunu, saha ekiplerini ve finans görünümünü tek merkezden yönet. Erişim ihtiyacında sistem sana kontrollü şekilde yeni geçici parola oluştursun.</div>
                     <div class="ck-login-panel-badges">
-                        <span>Mail ile sıfırlama</span>
-                        <span>Güvenli oturum</span>
-                        <span>Hatırlanan cihazlar</span>
+                        <span>Kurumsal giriş katmanı</span>
+                        <span>Hızlı parola yenileme</span>
+                        <span>Kontrollü oturum devamlılığı</span>
                     </div>
                 </div>
-                <div class="ck-login-form-title">Giriş Bilgileri</div>
-                <div class="ck-login-form-subtitle">Yetkili e-posta hesabın ve kişisel şifrenle devam et.</div>
+                <div class="ck-login-form-title">Hesap Bilgileri</div>
+                <div class="ck-login-form-subtitle">Kurumsal e-posta adresin ve güncel şifrenle girişini tamamla.</div>
                 """,
                 unsafe_allow_html=True,
             )
 
             with st.form("login_form", clear_on_submit=False):
-                username = st.text_input("E-posta Adresi", placeholder="ornek@catkapinda.com")
-                password = st.text_input("Şifre", type="password", placeholder="Şifreni gir")
+                username = st.text_input("E-posta Adresi", placeholder="ad.soyad@catkapinda.com")
+                password = st.text_input("Şifre", type="password", placeholder="Kurumsal şifreni gir")
                 remember_me = st.checkbox("Bu Cihazı Hatırla", value=True, help="Kişisel cihazlarda açık bırakabilirsin.")
                 submitted = st.form_submit_button("Panele Gir", use_container_width=True)
 
@@ -4411,7 +4423,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
     elif workspace_mode == "add":
         render_tab_header("Yeni Şube Kartı", "Temel bilgiler, fiyatlandırma, operasyon ve iletişim alanlarını daha düzenli bloklar halinde gir.")
-        with st.form("restaurant_form", clear_on_submit=True):
+        with st.container():
             st.markdown("##### Temel Bilgiler")
             c1, c2 = st.columns(2)
             with c1:
@@ -4502,7 +4514,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             tax_number = c23.text_input("Vergi Numarası")
 
             notes = st.text_area("Notlar", placeholder="Şube içi önemli notlar, çalışma düzeni veya anlaşma detayı")
-            submitted = st.form_submit_button("Şube Kartını Oluştur", use_container_width=True)
+            submitted = st.button("Şube Kartını Oluştur", use_container_width=True, key="restaurant_create_submit")
             if submitted:
                 validation_errors = validate_restaurant_form(
                     brand=brand,
@@ -4590,7 +4602,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                     ],
                 )
             with left:
-                with st.form("restaurant_edit_form"):
+                with st.container():
                     st.markdown("##### Temel Bilgiler")
                     c1, c2 = st.columns(2)
                     with c1:
@@ -4688,7 +4700,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                     edit_tax_number = c23.text_input("Vergi Numarası", value=selected_row["tax_number"] or "")
 
                     edit_notes = st.text_area("Notlar", value=selected_row["notes"] or "")
-                    submitted_edit = st.form_submit_button("Şube Kartını Güncelle", use_container_width=True)
+                    submitted_edit = st.button("Şube Kartını Güncelle", use_container_width=True, key="restaurant_edit_submit")
                     if submitted_edit:
                         validation_errors = validate_restaurant_form(
                             brand=edit_brand,
@@ -5944,8 +5956,8 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             vat_rate = get_equipment_vat_rate(item_name)
             c4, c5, c6 = st.columns(3)
             quantity = c4.number_input("Adet", min_value=1, value=1, step=1, key="issue_qty")
-            unit_cost = c5.number_input("Birim maliyet", min_value=0.0, value=float(st.session_state.get("issue_cost", 0.0) or 0.0), step=50.0, key="issue_cost")
-            unit_sale_price = c6.number_input("Kuryeye satış fiyatı | KDV dahil", min_value=0.0, value=float(st.session_state.get("issue_sale", 0.0) or 0.0), step=50.0, key="issue_sale")
+            unit_cost = c5.number_input("Birim maliyet", min_value=0.0, step=50.0, key="issue_cost")
+            unit_sale_price = c6.number_input("Kuryeye satış fiyatı | KDV dahil", min_value=0.0, step=50.0, key="issue_sale")
             c7, c8, c9 = st.columns(3)
             installment_count = c7.selectbox("Taksit sayısı", [1, 2, 3], index=1, key="issue_installment")
             sale_type = c8.selectbox("İşlem tipi", ["Satış", "Depozit / Teslim"], key="issue_sale_type")
@@ -6485,6 +6497,54 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
         )
     else:
         st.info("Belge oluşturmak için önce hakediş tablosunda personel verisi oluşmalı.")
+
+
+def announcements_tab() -> None:
+    render_management_hero(
+        "GÜNCELLEMELER VE DUYURULAR",
+        "Sistemdeki son iyileştirmeler ve takip notları",
+        "Operasyon ekibinin son yayınlanan geliştirmeleri tek ekranda görmesi için hazırlanan hızlı özet alanı.",
+        [
+            ("Giriş Deneyimi", "Yenilendi"),
+            ("Personel Formları", "Güncellendi"),
+            ("Restoran Fiyatlama", "Dinamik"),
+            ("Motor Kira Hesabı", "Gün Bazlı"),
+        ],
+    )
+
+    section_intro(
+        "Son Yayınlanan İyileştirmeler",
+        "Yakın dönemde canlıya alınan başlıca düzenlemeler aşağıda özetlenmiştir.",
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        render_record_snapshot(
+            "Operasyon ve Form Akışları",
+            [
+                ("Personel Yönetimi", "Ekleme sonrası görünür başarı mesajı ve son eklenen kartı"),
+                ("Zorunlu Alanlar", "Kırmızı * ile işaretlenir ve boş geçilemez"),
+                ("Rol / Maliyet Modeli", "Personel formunda otomatik eşlenir"),
+                ("Restoran Fiyat Modelleri", "Seçime göre sadece ilgili alanlar görünür"),
+            ],
+        )
+    with c2:
+        render_record_snapshot(
+            "Finans ve Hesaplama",
+            [
+                ("Motor Kira", "13.000 / 30 x çalışılan gün formülüyle hesaplanır"),
+                ("Kesinti Senkronu", "Puantaj ekleme, güncelleme ve silmede otomatik yenilenir"),
+                ("Hakediş / Raporlar", "Açılırken sistem kesintileri yeniden senkronlanır"),
+                ("Şifre Sıfırlama", "Mail ile geçici şifre gönderimi desteklenir"),
+            ],
+        )
+
+    st.markdown("##### Notlar")
+    st.info(
+        "Canlı ortamda bir değişiklik görünmüyorsa Render tarafında bazen `Manual Deploy` çalıştırmak gerekebilir. "
+        "Deploy tamamlandıktan sonra sayfayı sert yenilemek en güvenli kontroldür."
+    )
+    st.caption("Bu alan sabit duyuru panosu gibi çalışır; yeni operasyon notları gerektiğinde genişletilebilir.")
 
 
 def reports_tab(conn: sqlite3.Connection) -> None:
