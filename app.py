@@ -104,6 +104,18 @@ PRICING_MODEL_LABELS = {
     "hourly_only": "Sadece Saatlik",
     "fixed_monthly": "Sabit Aylık Ücret",
 }
+MENU_DISPLAY_LABELS = {
+    "Genel Bakış": "Panorama Merkezi",
+    "Restoran Yönetimi": "Şube Portföyü",
+    "Personel Yönetimi": "Ekip Kadrosu",
+    "Puantaj": "Saha Akışı",
+    "Satın Alma": "Tedarik Masası",
+    "Ekipman & Zimmet": "Zimmet Kontrol",
+    "Kesinti Yönetimi": "Finans Kesintileri",
+    "Aylık Hakediş": "Hakediş Merkezi",
+    "Raporlar ve Karlılık": "Karlılık Raporları",
+    "Güncellemeler ve Duyurular": "Duyuru Akışı",
+}
 FIXED_COST_MODEL_BY_ROLE = {
     "Kurye": "fixed_kurye",
     "Bölge Müdürü": "fixed_bolge_muduru",
@@ -2071,12 +2083,35 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
 
 def render_sidebar_brand() -> None:
+    full_name = str(st.session_state.get("user_full_name") or "Yetkili Kullanıcı")
+    role_display = str(st.session_state.get("user_role_display") or "Operasyon Ekibi")
+    name_parts = [part for part in full_name.split() if part.strip()]
+    initials = "".join(part[:1] for part in name_parts[:2]).upper() or "CK"
     st.sidebar.markdown(
-        """
+        f"""
         <div class="ck-side-heading">
             <div class="ck-side-heading-title">Çat Kapında</div>
             <div class="ck-side-heading-subtitle">Operasyon CRM</div>
         </div>
+        <div class="ck-side-orbit">
+            <div class="ck-side-orbit-kicker">Komuta Alanı</div>
+            <div class="ck-side-orbit-title">Şube, ekip ve finans akışını tek panelden yönetin.</div>
+            <div class="ck-side-orbit-note">Her modül daha hızlı geçiş, daha net karar ve daha düzenli operasyon için hazır.</div>
+        </div>
+        <div class="ck-side-user">
+            <div class="ck-side-user-top">
+                <div class="ck-side-user-avatar">{html.escape(initials)}</div>
+                <div>
+                    <div class="ck-side-user-name">{html.escape(full_name)}</div>
+                    <div class="ck-side-user-role">{html.escape(role_display)}</div>
+                </div>
+            </div>
+            <div class="ck-side-user-chip-row">
+                <span class="ck-side-user-chip">Aktif Oturum</span>
+                <span class="ck-side-user-chip">Kurumsal Erişim</span>
+            </div>
+        </div>
+        <div class="ck-side-menu-note">Komuta Alanları</div>
         """,
         unsafe_allow_html=True,
     )
@@ -2099,24 +2134,41 @@ def render_top_profile(conn: CompatConnection) -> None:
         email = str(get_row_value(current_user, "email", "") or st.session_state.get("username") or "")
         role_display = str(get_row_value(current_user, "role_display", "") or st.session_state.get("user_role_display") or "")
         password_status = "Geçici Şifre" if st.session_state.get("must_change_password") else "Güncel Şifre"
+        name_parts = [part for part in full_name.split() if part.strip()]
+        initials = "".join(part[:1] for part in name_parts[:2]).upper() or "CK"
 
-        with st.popover("👤 Profil", use_container_width=True):
-            st.markdown("##### Hesap Özeti")
-            st.markdown(f"**{full_name}**")
-            st.caption(role_display)
+        with st.popover("Profil ve Ayarlar", use_container_width=True):
+            st.markdown(
+                f"""
+                <div class="ck-profile-shell">
+                    <div class="ck-profile-hero">
+                        <div class="ck-profile-avatar">{html.escape(initials)}</div>
+                        <div>
+                            <div class="ck-profile-kicker">Hesap Merkezi</div>
+                            <div class="ck-profile-name">{html.escape(full_name)}</div>
+                            <div class="ck-profile-mail">{html.escape(email)}</div>
+                        </div>
+                    </div>
+                    <div class="ck-profile-chip-row">
+                        <span class="ck-profile-chip">{html.escape(role_display)}</span>
+                        <span class="ck-profile-chip">{html.escape(password_status)}</span>
+                        <span class="ck-profile-chip">Kurumsal Erişim</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
             if st.session_state.get("must_change_password"):
                 st.info("Geçici şifre kullanıyorsun. Güvenlik için aşağıdaki alandan yeni şifre belirle.")
 
-            st.markdown("##### İletişim Bilgileri")
+            st.markdown("##### Hesap Özeti")
             st.markdown(f"**Ad Soyad:** {full_name}")
             st.markdown(f"**E-posta:** {email}")
-
-            st.markdown("##### Hesap Durumu")
             st.markdown(f"**Yetki:** {role_display}")
             st.markdown(f"**Şifre Durumu:** {password_status}")
             st.divider()
-            st.markdown("##### Şifremi Değiştir")
+            st.markdown("##### Güvenlik Ayarları")
 
             with st.form("change_password_form", clear_on_submit=True):
                 current_password = st.text_input("Mevcut Şifre", type="password")
@@ -2149,6 +2201,12 @@ def render_top_profile(conn: CompatConnection) -> None:
                     st.session_state.must_change_password = False
                     st.success("Şifren güncellendi.")
                     st.rerun()
+
+            if st.session_state.get("role") == "admin":
+                st.divider()
+                with st.expander("Veri Yönetimi ve Yedekleme", expanded=False):
+                    st.caption("Yedek alma, dışa aktarma ve gerekirse veri aktarma işlemlerini bu alandan yönetebilirsin.")
+                    render_backup_tools_content(conn)
 
             if st.button("Oturumu Kapat", key="profile_logout_btn", use_container_width=True):
                 revoke_current_auth_session(conn)
@@ -2966,54 +3024,50 @@ def build_table_backup_zip(conn: CompatConnection) -> bytes:
     return buffer.getvalue()
 
 
-def render_backup_tools(conn: CompatConnection) -> None:
-    if st.session_state.get("role") != "admin":
-        return
+def render_backup_tools_content(conn: CompatConnection) -> None:
+    backend_text = "Harici veritabanı" if conn.backend == "postgres" else "Yerel veritabanı"
+    st.caption(f"Aktif kayıt altyapısı: {backend_text}")
 
-    with st.expander("Veri Yedekleme ve Aktarma", expanded=False):
-        backend_text = "Harici veritabanı" if conn.backend == "postgres" else "Yerel veritabanı"
-        st.caption(f"Aktif kayıt altyapısı: {backend_text}")
+    backup_zip = build_table_backup_zip(conn)
+    st.download_button(
+        "Tüm tabloları yedek olarak indir",
+        data=backup_zip,
+        file_name=f"catkapinda_tam_yedek_{date.today().isoformat()}.zip",
+        mime="application/zip",
+        use_container_width=True,
+    )
 
-        backup_zip = build_table_backup_zip(conn)
+    if conn.backend == "sqlite" and DB_PATH.exists():
         st.download_button(
-            "Tüm tabloları yedek olarak indir",
-            data=backup_zip,
-            file_name=f"catkapinda_tam_yedek_{date.today().isoformat()}.zip",
-            mime="application/zip",
+            "SQLite veritabanı dosyasını indir",
+            data=DB_PATH.read_bytes(),
+            file_name=f"catkapinda_crm_{date.today().isoformat()}.db",
+            mime="application/octet-stream",
             use_container_width=True,
         )
+        st.info("Harici veritabanına geçmeden önce bu dosyayı indirmen en güvenli adım olur.")
 
-        if conn.backend == "sqlite" and DB_PATH.exists():
-            st.download_button(
-                "SQLite veritabanı dosyasını indir",
-                data=DB_PATH.read_bytes(),
-                file_name=f"catkapinda_crm_{date.today().isoformat()}.db",
-                mime="application/octet-stream",
-                use_container_width=True,
-            )
-            st.info("Harici veritabanına geçmeden önce bu dosyayı indirmen en güvenli adım olur.")
-
-        if conn.backend == "postgres" and not database_has_operational_data(conn):
-            st.markdown("#### SQLite yedeğini içe aktar")
-            upload = st.file_uploader("Daha önce indirdiğin `.db` yedeğini seç", type=["db"], key="sqlite_backup_import")
-            if st.button("Yedeği içe aktar", key="sqlite_backup_import_btn", use_container_width=True, disabled=upload is None):
-                if upload is None:
-                    st.warning("Önce bir `.db` dosyası seçmelisin.")
-                else:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-                        temp_db.write(upload.getvalue())
-                        temp_path = Path(temp_db.name)
+    if conn.backend == "postgres" and not database_has_operational_data(conn):
+        st.markdown("#### SQLite yedeğini içe aktar")
+        upload = st.file_uploader("Daha önce indirdiğin `.db` yedeğini seç", type=["db"], key="sqlite_backup_import")
+        if st.button("Yedeği içe aktar", key="sqlite_backup_import_btn", use_container_width=True, disabled=upload is None):
+            if upload is None:
+                st.warning("Önce bir `.db` dosyası seçmelisin.")
+            else:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
+                    temp_db.write(upload.getvalue())
+                    temp_path = Path(temp_db.name)
+                try:
+                    imported = import_sqlite_into_current_db(conn, temp_path)
+                    if imported:
+                        st.success("SQLite yedeği başarıyla harici veritabanına aktarıldı.")
+                        st.rerun()
+                    st.info("Yedek dosyasında aktarılacak veri bulunamadı.")
+                finally:
                     try:
-                        imported = import_sqlite_into_current_db(conn, temp_path)
-                        if imported:
-                            st.success("SQLite yedeği başarıyla harici veritabanına aktarıldı.")
-                            st.rerun()
-                        st.info("Yedek dosyasında aktarılacak veri bulunamadı.")
-                    finally:
-                        try:
-                            temp_path.unlink()
-                        except OSError:
-                            pass
+                        temp_path.unlink()
+                    except OSError:
+                        pass
 
 
 def inject_global_styles() -> None:
@@ -3160,12 +3214,69 @@ def inject_global_styles() -> None:
                 text-transform: uppercase;
             }
 
+            .ck-side-orbit {
+                position: relative;
+                overflow: hidden;
+                margin: 0.75rem 0 0.9rem;
+                padding: 15px 15px 14px;
+                border-radius: 18px;
+                background:
+                    radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 28%),
+                    linear-gradient(140deg, #0E2248 0%, #0C4BCB 58%, #13A4DE 100%);
+                box-shadow: 0 18px 34px rgba(12, 75, 203, 0.18);
+            }
+
+            .ck-side-orbit-kicker {
+                color: rgba(255,255,255,0.72);
+                font-size: 0.7rem;
+                font-weight: 800;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+            }
+
+            .ck-side-orbit-title {
+                margin-top: 0.45rem;
+                color: #FFFFFF;
+                font-size: 1rem;
+                line-height: 1.28;
+                font-weight: 860;
+                letter-spacing: -0.03em;
+            }
+
+            .ck-side-orbit-note {
+                margin-top: 0.45rem;
+                color: rgba(255,255,255,0.82);
+                font-size: 0.82rem;
+                line-height: 1.55;
+            }
+
             .ck-side-user {
                 background: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
                 border: 1px solid var(--ck-border);
-                border-radius: 16px;
-                padding: 12px 14px;
+                border-radius: 18px;
+                padding: 14px 14px 13px;
                 margin: 0.3rem 0 1rem 0;
+                box-shadow: 0 14px 26px rgba(15, 23, 42, 0.05);
+            }
+
+            .ck-side-user-top {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .ck-side-user-avatar {
+                width: 42px;
+                height: 42px;
+                border-radius: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(135deg, #0C4BCB 0%, #1491D4 100%);
+                color: #FFFFFF;
+                font-size: 0.95rem;
+                font-weight: 900;
+                box-shadow: 0 12px 24px rgba(12, 75, 203, 0.2);
             }
 
             .ck-side-user-name {
@@ -3178,6 +3289,107 @@ def inject_global_styles() -> None:
                 font-size: 0.8rem;
                 color: var(--ck-muted);
                 margin-top: 0.25rem;
+            }
+
+            .ck-side-user-chip-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 0.8rem;
+            }
+
+            .ck-side-user-chip {
+                display: inline-flex;
+                align-items: center;
+                padding: 6px 10px;
+                border-radius: 999px;
+                background: #F3F7FF;
+                border: 1px solid #D8E6FB;
+                color: #305A96;
+                font-size: 0.72rem;
+                font-weight: 800;
+                letter-spacing: 0.03em;
+            }
+
+            .ck-side-menu-note {
+                margin: 0.05rem 0 0.55rem;
+                color: #8A94A6;
+                font-size: 0.74rem;
+                font-weight: 800;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+            }
+
+            .ck-profile-shell {
+                margin-bottom: 0.35rem;
+            }
+
+            .ck-profile-hero {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                padding: 14px;
+                border-radius: 22px;
+                background:
+                    radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 26%),
+                    linear-gradient(140deg, #0E2248 0%, #0C4BCB 58%, #13A4DE 100%);
+                color: #FFFFFF;
+                box-shadow: 0 22px 42px rgba(12, 75, 203, 0.2);
+            }
+
+            .ck-profile-avatar {
+                width: 56px;
+                height: 56px;
+                border-radius: 18px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(255,255,255,0.16);
+                border: 1px solid rgba(255,255,255,0.18);
+                font-size: 1.05rem;
+                font-weight: 900;
+            }
+
+            .ck-profile-kicker {
+                color: rgba(255,255,255,0.72);
+                font-size: 0.72rem;
+                font-weight: 800;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+            }
+
+            .ck-profile-name {
+                margin-top: 0.2rem;
+                color: #FFFFFF;
+                font-size: 1.05rem;
+                font-weight: 860;
+                letter-spacing: -0.03em;
+            }
+
+            .ck-profile-mail {
+                margin-top: 0.2rem;
+                color: rgba(255,255,255,0.82);
+                font-size: 0.82rem;
+                line-height: 1.45;
+            }
+
+            .ck-profile-chip-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 0.75rem;
+            }
+
+            .ck-profile-chip {
+                display: inline-flex;
+                align-items: center;
+                padding: 7px 11px;
+                border-radius: 999px;
+                background: #F5F8FF;
+                border: 1px solid #D8E6FB;
+                color: #294B7C;
+                font-size: 0.76rem;
+                font-weight: 800;
             }
 
             .crm-section {
@@ -4142,7 +4354,6 @@ def month_bounds(selected_month: str) -> tuple[str, str]:
 
 
 def dashboard_tab(conn: sqlite3.Connection) -> None:
-    render_backup_tools(conn)
     entries = fetch_df(conn, "SELECT * FROM daily_entries")
     active_restaurants = int(first_row_value(conn.execute("SELECT COUNT(*) FROM restaurants WHERE active=1").fetchone(), 0) or 0)
     active_people = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE status='Aktif'").fetchone(), 0) or 0)
@@ -4987,9 +5198,15 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "new_person_address": "",
             "new_person_accounting_type": "Kendi Muhasebecisi",
             "new_person_new_company_setup": "Hayır",
+            "new_person_start_date": date.today(),
+            "new_person_vehicle_type": "Çat Kapında",
+            "new_person_monthly_fixed_cost": 0.0,
             "new_person_current_plate": "",
             "new_person_notes": "",
         }
+        if st.session_state.pop("personnel_form_reset_pending", False):
+            for key, value in new_person_defaults.items():
+                st.session_state[key] = value
         for key, value in new_person_defaults.items():
             if key not in st.session_state:
                 st.session_state[key] = value
@@ -5155,8 +5372,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     conn.rollback()
                     st.error(f"Personel kartı oluşturulamadı: {exc}")
                 else:
-                    for key, value in new_person_defaults.items():
-                        st.session_state[key] = value
                     created_person_id = safe_int(get_row_value(created_person, "id"), 0)
                     success_text = f"{full_name} başarıyla eklendi. Kod: {auto_code}"
                     st.session_state[workspace_key] = "add"
@@ -5166,6 +5381,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     st.session_state["person_rest_filter"] = "Tümü"
                     st.session_state["personnel_recently_created"] = {"personnel_id": created_person_id}
                     st.session_state["personnel_create_success_message"] = success_text
+                    st.session_state["personnel_form_reset_pending"] = True
                     set_flash_message("success", success_text)
                     st.rerun()
         if create_success_message:
@@ -6895,7 +7111,12 @@ def main() -> None:
 
         role = st.session_state.get("role", "")
         render_sidebar_brand()
-        menu = st.sidebar.radio("Ana Menü", allowed_menu_items(role))
+        menu = st.sidebar.radio(
+            "Komuta Alanları",
+            allowed_menu_items(role),
+            format_func=lambda item: MENU_DISPLAY_LABELS.get(item, item),
+            label_visibility="collapsed",
+        )
 
         ensure_role_access(menu, role)
         render_top_profile(conn)
