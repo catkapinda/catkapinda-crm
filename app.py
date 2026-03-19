@@ -1174,17 +1174,19 @@ def login_gate(conn: sqlite3.Connection) -> bool:
     return False
 
 
-def logout_button(conn: sqlite3.Connection) -> None:
+def render_sidebar_brand() -> None:
     st.sidebar.markdown(
         """
-        <div class="ck-side-brand">
-            <div class="ck-side-brand-mark">CK</div>
-            <div class="ck-side-brand-title">Çat Kapında</div>
-            <div class="ck-side-brand-subtitle">Operasyon CRM</div>
+        <div class="ck-side-heading">
+            <div class="ck-side-heading-title">Çat Kapında</div>
+            <div class="ck-side-heading-subtitle">Operasyon CRM</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+
+def logout_button(conn: sqlite3.Connection) -> None:
     if st.sidebar.button("Oturumu Kapat", use_container_width=True):
         revoke_current_auth_session(conn)
         st.rerun()
@@ -1193,23 +1195,23 @@ def logout_button(conn: sqlite3.Connection) -> None:
 def allowed_menu_items(role: str) -> list[str]:
     if role == "admin":
         return [
-            "🏠 Genel Bakış",
-            "🏢 Restoran Yönetimi",
-            "👥 Personel Yönetimi",
-            "🗓 Puantaj",
-            "🛒 Satın Alma",
-            "📦 Ekipman & Zimmet",
-            "💸 Kesinti Yönetimi",
-            "🧾 Aylık Hakediş",
-            "📊 Raporlar ve Karlılık",
-            "📣 Güncellemeler ve Duyurular",
+            "Genel Bakış",
+            "Restoran Yönetimi",
+            "Personel Yönetimi",
+            "Puantaj",
+            "Satın Alma",
+            "Ekipman & Zimmet",
+            "Kesinti Yönetimi",
+            "Aylık Hakediş",
+            "Raporlar ve Karlılık",
+            "Güncellemeler ve Duyurular",
         ]
     if role == "sef":
         return [
-            "👥 Personel Yönetimi",
-            "🗓 Puantaj",
-            "💸 Kesinti Yönetimi",
-            "📣 Güncellemeler ve Duyurular",
+            "Personel Yönetimi",
+            "Puantaj",
+            "Kesinti Yönetimi",
+            "Güncellemeler ve Duyurular",
         ]
     return []
 
@@ -2034,60 +2036,88 @@ def inject_global_styles() -> None:
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
-                background: transparent;
-                border: 1px solid transparent;
-                border-radius: 14px;
-                padding: 10px 12px;
-                margin-bottom: 6px;
-                transition: all 0.15s ease;
+                position: relative;
+                background: linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%);
+                border: 1px solid #E2EAF7;
+                border-radius: 16px;
+                padding: 12px 14px;
+                margin-bottom: 8px;
+                transition: all 0.18s ease;
+                overflow: hidden;
+            }
+
+            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label::before {
+                content: "";
+                position: absolute;
+                left: 12px;
+                top: 50%;
+                width: 10px;
+                height: 10px;
+                border-radius: 3px;
+                background: linear-gradient(135deg, #0C4BCB 0%, #1491D4 100%);
+                transform: translateY(-50%) rotate(45deg);
+                box-shadow: 0 6px 16px rgba(12, 75, 203, 0.22);
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:hover {
-                background: #F8FAFF;
-                border-color: #E4ECFB;
+                border-color: #BCD3F6;
+                background: #F8FBFF;
+                transform: translateX(2px);
+            }
+
+            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) {
+                background:
+                    radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 25%),
+                    linear-gradient(135deg, #0C4BCB 0%, #1290D6 100%);
+                border-color: transparent;
+                box-shadow: 0 16px 30px rgba(12, 75, 203, 0.18);
+                transform: translateX(3px);
+            }
+
+            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked)::before {
+                background: #FFFFFF;
+                border-radius: 999px;
+                transform: translateY(-50%);
+                box-shadow: none;
             }
 
             [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label > div:first-child {
                 display: none;
             }
 
-            .ck-side-brand {
-                background:
-                    radial-gradient(circle at top right, rgba(255,255,255,0.22), transparent 25%),
-                    linear-gradient(135deg, #0C4BCB 0%, #1290D6 100%);
-                border-radius: 22px;
-                padding: 18px 16px 16px;
-                margin: 0.2rem 0 1rem 0;
-                box-shadow: 0 18px 38px rgba(12, 75, 203, 0.22);
-                color: #FFFFFF;
-            }
-
-            .ck-side-brand-mark {
-                width: 44px;
-                height: 44px;
-                border-radius: 14px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(255,255,255,0.18);
-                border: 1px solid rgba(255,255,255,0.22);
+            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label [data-testid="stMarkdownContainer"] p {
+                padding-left: 20px;
                 font-size: 0.95rem;
+                font-weight: 850;
+                letter-spacing: -0.02em;
+                color: #23324A;
+            }
+
+            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) [data-testid="stMarkdownContainer"] p {
+                color: #FFFFFF !important;
+            }
+
+            .ck-side-heading {
+                padding: 0.15rem 0 0.9rem 0.1rem;
+                margin-bottom: 0.35rem;
+                border-bottom: 1px solid #E7EDF6;
+            }
+
+            .ck-side-heading-title {
+                font-size: 1.2rem;
                 font-weight: 900;
+                letter-spacing: -0.05em;
+                color: #132238;
+                line-height: 1;
+            }
+
+            .ck-side-heading-subtitle {
+                margin-top: 0.28rem;
+                font-size: 0.78rem;
+                color: #71819A;
+                font-weight: 700;
                 letter-spacing: 0.08em;
-                margin-bottom: 0.85rem;
-            }
-
-            .ck-side-brand-title {
-                font-size: 1rem;
-                font-weight: 900;
-                letter-spacing: -0.03em;
-            }
-
-            .ck-side-brand-subtitle {
-                margin-top: 0.25rem;
-                font-size: 0.82rem;
-                color: rgba(255,255,255,0.82);
-                line-height: 1.5;
+                text-transform: uppercase;
             }
 
             .ck-side-user {
@@ -2952,122 +2982,87 @@ def month_bounds(selected_month: str) -> tuple[str, str]:
 
 
 def dashboard_tab(conn: sqlite3.Connection) -> None:
-    section_intro("🏠 Genel Bakış | Güncel Operasyon Özeti", "Aktif restoran, aktif personel, puantaj toplamları ve temel finansal görünüm.")
     render_backup_tools(conn)
     entries = fetch_df(conn, "SELECT * FROM daily_entries")
     active_restaurants = int(first_row_value(conn.execute("SELECT COUNT(*) FROM restaurants WHERE active=1").fetchone(), 0) or 0)
     active_people = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE status='Aktif'").fetchone(), 0) or 0)
     joker_count = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE role='Joker' AND status='Aktif'").fetchone(), 0) or 0)
-    total_packages = float(entries["package_count"].sum()) if not entries.empty else 0
-    total_hours = float(entries["worked_hours"].sum()) if not entries.empty else 0
+    total_packages = float(entries["package_count"].sum()) if not entries.empty else 0.0
+    total_hours = float(entries["worked_hours"].sum()) if not entries.empty else 0.0
 
-    cols = st.columns(5)
-    cols[0].metric("Aktif restoran", active_restaurants)
-    cols[1].metric("Aktif personel", active_people)
-    cols[2].metric("Joker havuzu", joker_count)
-    cols[3].metric("Toplam paket", f"{total_packages:,.0f}")
-    cols[4].metric("Toplam saat", f"{total_hours:,.0f}")
-
-    if not entries.empty:
-        q = """
-        SELECT r.brand || ' - ' || r.branch AS restoran, SUM(d.package_count) AS paket, SUM(d.worked_hours) AS saat
-        FROM daily_entries d
-        JOIN restaurants r ON r.id = d.restaurant_id
-        GROUP BY 1
-        ORDER BY paket DESC
-        """
-        perf = fetch_df(conn, q)
-        c1, c2 = st.columns(2)
-        c1.dataframe(perf, use_container_width=True, hide_index=True)
-        c2.bar_chart(perf.set_index("restoran")[["paket"]])
-    else:
-        st.info("Henüz günlük puantaj kaydı yok.")
-
-
-def announcements_tab() -> None:
     render_management_hero(
-        "GÜNCELLEMELER VE DUYURULAR",
-        "Sistem değişiklikleri ve operasyon notları",
-        "Form içindeki uzun açıklamaları kaldırdık; önemli iş kuralları ve son arayüz güncellemeleri artık burada toplu, net ve kurumsal bir formatta duruyor.",
+        "GENEL BAKIŞ",
+        "Operasyonun güncel ritmi ve saha yoğunluğu",
+        "Şube, personel ve puantaj verisini tek bakışta gör; günlük operasyon temposunu daha güçlü bir özet paneliyle takip et.",
         [
-            ("Aktif Başlık", 3),
-            ("Son Güncelleme", "19 Mart 2026"),
-            ("Odak", "Personel ve Şube"),
-            ("Silme Modu", "Tam Silme"),
+            ("Aktif Restoran", active_restaurants),
+            ("Aktif Personel", active_people),
+            ("Joker Havuzu", joker_count),
+            ("Toplam Paket", f"{total_packages:,.0f}"),
+            ("Toplam Saat", f"{total_hours:,.0f}"),
         ],
     )
 
-    tab1, tab2, tab3 = st.tabs(["Arayüz Güncellemeleri", "Otomatik Kurallar", "Silme ve Veri Politikası"])
+    if entries.empty:
+        st.info("Henüz günlük puantaj kaydı yok.")
+        return
 
-    with tab1:
-        c1, c2 = st.columns(2)
-        with c1:
-            render_update_card(
-                "Personel Yönetimi sadeleşti",
-                "Personel ekleme ve düzenleme ekranlarını daha temiz ve daha hızlı kullanılabilir hale getirdik.",
-                [
-                    "Motor kiralama alanı kaldırıldı; sadece Motor Tipi kaldı.",
-                    "Muhasebe gelir ve maliyet alanları otomatik doluyor.",
-                    "Uzun operasyon açıklamaları form içinden kaldırıldı.",
-                ],
-            )
-        with c2:
-            render_update_card(
-                "Restoran Yönetimi temizlendi",
-                "Şube formundaki gereksiz alanları kaldırarak daha odaklı bir kayıt akışı bıraktık.",
-                [
-                    "Fatura grubu / vergi levhası alanı arayüzden kaldırıldı.",
-                    "Fiyatlandırma, operasyon ve iletişim blokları korunuyor.",
-                    "Hızlı aksiyon alanı ve liste görünümü aynen devam ediyor.",
-                ],
-            )
+    entries["entry_date"] = pd.to_datetime(entries["entry_date"])
+    q = """
+    SELECT r.brand || ' - ' || r.branch AS restoran, SUM(d.package_count) AS paket, SUM(d.worked_hours) AS saat
+    FROM daily_entries d
+    JOIN restaurants r ON r.id = d.restaurant_id
+    GROUP BY 1
+    ORDER BY paket DESC
+    """
+    perf = fetch_df(conn, q)
+    daily_trend = entries.groupby(entries["entry_date"].dt.date, dropna=False).agg(
+        paket=("package_count", "sum"),
+        saat=("worked_hours", "sum"),
+    ).reset_index().rename(columns={"entry_date": "gun"})
+    daily_trend = daily_trend.rename(columns={daily_trend.columns[0]: "gun"}).sort_values("gun").tail(14)
+    daily_trend["gun_label"] = pd.to_datetime(daily_trend["gun"]).dt.strftime("%d %b")
 
-    with tab2:
-        c1, c2 = st.columns(2)
-        with c1:
-            render_update_card(
-                "Personel kartında otomatik finans",
-                "Aşağıdaki kurallar personel kartı kaydedildiğinde sistem tarafından otomatik uygulanır.",
-                [
-                    "Motor Tipi Çat Kapında ise aylık 13.000₺ motor kira kesintisi açılır.",
-                    "Muhasebe tipi Çat Kapında Muhasebe ise 2.000₺ gelir ve 1.400₺ maliyet otomatik yazılır.",
-                    "Yeni şirket açılışı Evet ise tek seferlik 1.500₺ kesinti oluşturulur.",
-                ],
-            )
-        with c2:
-            render_update_card(
-                "Kurye işe giriş zimmetleri",
-                "Kurye rolüyle açılan kartlarda işe giriş ekipmanları sistem tarafından oluşturulur.",
-                [
-                    "Box 3.200₺, Punch 2.000₺ ve Korumalı Mont 4.750₺ olarak açılır.",
-                    "Bu ürünler 2 aylık taksit halinde hakedişe yansır.",
-                    "Tekstil ürünleri %10, diğer ekipmanlar %20 KDV mantığıyla tutulur.",
-                ],
-            )
+    c1, c2 = st.columns([1.6, 1])
+    with c1:
+        st.markdown("<div class='ck-panel-title'>Son 14 Gün Paket Akışı</div>", unsafe_allow_html=True)
+        try:
+            import altair as alt
 
-    with tab3:
-        c1, c2 = st.columns(2)
-        with c1:
-            render_update_card(
-                "Kalıcı silme davranışı güncellendi",
-                "Personel kartındaki kalıcı silme işlemi artık bağlantılı kayıtları da temizleyerek tam silme yapar.",
-                [
-                    "Bağlı puantaj kayıtları silinir.",
-                    "Bağlı kesinti, plaka geçmişi, zimmet ve box iade kayıtları silinir.",
-                    "Temizleme sonrası personel kartı tamamen kaldırılır.",
-                ],
+            area = alt.Chart(daily_trend).mark_area(color="#9FD4FF", opacity=0.38).encode(
+                x=alt.X("gun:T", axis=alt.Axis(title=None, format="%d %b", labelColor="#6B7A90", tickColor="#DCE6F5")),
+                y=alt.Y("paket:Q", axis=alt.Axis(title=None, gridColor="#E6EEF9", labelColor="#6B7A90")),
+                tooltip=[alt.Tooltip("gun:T", title="Tarih"), alt.Tooltip("paket:Q", title="Paket", format=",.0f")],
             )
-        with c2:
-            render_update_card(
-                "Ne zaman pasif, ne zaman sil?",
-                "Operasyon geçmişi korunacaksa pasife alma, tamamen kaldırılacaksa kalıcı silme kullanılmalı.",
-                [
-                    "Geçmiş raporlar korunacaksa Pasif tercih et.",
-                    "Test, mükerrer veya yanlış açılmış kartlarda Kalıcı sil kullan.",
-                    "Kalıcı silme geri alınamaz; veriler birlikte kaldırılır.",
-                ],
+            line = alt.Chart(daily_trend).mark_line(color="#0C4BCB", strokeWidth=3, point=alt.OverlayMarkDef(color="#0C4BCB", filled=True, size=64)).encode(
+                x="gun:T",
+                y="paket:Q",
+                tooltip=[alt.Tooltip("gun:T", title="Tarih"), alt.Tooltip("paket:Q", title="Paket", format=",.0f"), alt.Tooltip("saat:Q", title="Saat", format=",.1f")],
             )
+            chart = (area + line).properties(height=300).configure_view(strokeWidth=0)
+            st.altair_chart(chart, use_container_width=True)
+        except Exception:
+            fallback = daily_trend[["gun_label", "paket"]].set_index("gun_label")
+            st.line_chart(fallback)
+        st.caption("Grafik son 14 günlük toplam paket hareketini gösterir.")
 
+    with c2:
+        top_rows = []
+        for _, row in perf.head(6).iterrows():
+            top_rows.append((row["restoran"], f"{fmt_number(row['paket'])} Paket | {fmt_number(row['saat'])} Saat"))
+        render_record_snapshot("En Yoğun Şubeler", top_rows or [("-", "Veri yok")])
+
+    st.markdown("<div class='ck-panel-title' style='margin-top:0.6rem;'>Şube Performans Özeti</div>", unsafe_allow_html=True)
+    perf_display = format_display_df(
+        perf.head(10),
+        number_cols=["paket", "saat"],
+        rename_map={
+            "restoran": "Restoran / Şube",
+            "paket": "Toplam Paket",
+            "saat": "Toplam Saat",
+        },
+    )
+    st.dataframe(perf_display, use_container_width=True, hide_index=True)
 
 def restaurants_tab(conn: sqlite3.Connection) -> None:
     df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
@@ -4880,30 +4875,31 @@ def main() -> None:
             return
 
         role = st.session_state.get("role", "")
+        render_sidebar_brand()
         menu = st.sidebar.radio("Ana Menü", allowed_menu_items(role))
         logout_button(conn)
 
         ensure_role_access(menu, role)
 
-        if menu == "🏠 Genel Bakış":
+        if menu == "Genel Bakış":
             dashboard_tab(conn)
-        elif menu == "📣 Güncellemeler ve Duyurular":
+        elif menu == "Güncellemeler ve Duyurular":
             announcements_tab()
-        elif menu == "🏢 Restoran Yönetimi":
+        elif menu == "Restoran Yönetimi":
             restaurants_tab(conn)
-        elif menu == "👥 Personel Yönetimi":
+        elif menu == "Personel Yönetimi":
             personnel_tab(conn)
-        elif menu == "🗓 Puantaj":
+        elif menu == "Puantaj":
             attendance_tab(conn)
-        elif menu == "🛒 Satın Alma":
+        elif menu == "Satın Alma":
             purchases_tab(conn)
-        elif menu == "📦 Ekipman & Zimmet":
+        elif menu == "Ekipman & Zimmet":
             equipment_tab(conn)
-        elif menu == "💸 Kesinti Yönetimi":
+        elif menu == "Kesinti Yönetimi":
             deductions_tab(conn)
-        elif menu == "🧾 Aylık Hakediş":
+        elif menu == "Aylık Hakediş":
             monthly_payroll_tab(conn)
-        elif menu == "📊 Raporlar ve Karlılık":
+        elif menu == "Raporlar ve Karlılık":
             reports_tab(conn)
     finally:
         conn.close()
