@@ -32,7 +32,7 @@ from reportlab.pdfgen import canvas
 DEFAULT_AUTH_PASSWORD = "123456"
 APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
 APP_PAGE_ICON = "🧭"
-RUNTIME_BOOTSTRAP_VERSION = "2026-03-20-performance-1"
+RUNTIME_BOOTSTRAP_VERSION = "2026-03-20-performance-2"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
     "assets/catkapinda_logo.jpg",
@@ -101,6 +101,10 @@ AUTO_ONBOARDING_ITEMS = [
     {"key": "punch", "item_name": "Punch", "unit_sale_price": 2000.0, "vat_rate": 20.0},
     {"key": "korumali_mont", "item_name": "Korumalı Mont", "unit_sale_price": 4750.0, "vat_rate": 10.0},
 ]
+AUTO_ONBOARDING_EXCLUDED_KEYS_BY_BRAND = {
+    "Köroğlu Pide": {"box", "punch"},
+    "Doğu Otomotiv": {"box", "punch"},
+}
 PRICING_MODEL_LABELS = {
     "hourly_plus_package": "Hacimsiz Primli",
     "threshold_package": "Hacimli Primli",
@@ -2776,6 +2780,13 @@ def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_
     if person_id <= 0:
         return
 
+    assigned_restaurant_id = safe_int(get_row_value(person_row, "assigned_restaurant_id"))
+    excluded_item_keys: set[str] = set()
+    if assigned_restaurant_id > 0:
+        restaurant_row = conn.execute("SELECT brand FROM restaurants WHERE id = ?", (assigned_restaurant_id,)).fetchone()
+        restaurant_brand = str(get_row_value(restaurant_row, "brand", "") or first_row_value(restaurant_row, "") or "").strip()
+        excluded_item_keys = set(AUTO_ONBOARDING_EXCLUDED_KEYS_BY_BRAND.get(restaurant_brand, set()))
+
     issue_date_value = parse_date_value(get_row_value(person_row, "start_date")) or date.today()
     for item in AUTO_ONBOARDING_ITEMS:
         auto_key = f"auto:onboarding:{item['key']}"
@@ -2789,6 +2800,17 @@ def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_
             """,
             (person_id, auto_key),
         )
+
+        if item["key"] in excluded_item_keys:
+            if not existing.empty:
+                for issue_id in existing["id"].tolist():
+                    resolved_issue_id = safe_int(issue_id)
+                    if resolved_issue_id <= 0:
+                        continue
+                    conn.execute("DELETE FROM deductions WHERE equipment_issue_id = ?", (resolved_issue_id,))
+                    conn.execute("DELETE FROM courier_equipment_issues WHERE id = ?", (resolved_issue_id,))
+                conn.commit()
+            continue
 
         issue_notes = "Sistem: Otomatik işe giriş zimmeti"
         if existing.empty:
