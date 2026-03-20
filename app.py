@@ -5093,87 +5093,487 @@ def month_bounds(selected_month: str) -> tuple[str, str]:
     return f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{last_day:02d}"
 
 
+def build_invoice_summary_df(month_df: pd.DataFrame) -> pd.DataFrame:
+    if month_df is None or month_df.empty:
+        return pd.DataFrame()
+
+    invoicing_rows = []
+    for (restaurant_id, brand, branch), group in month_df.groupby(["restaurant_id", "brand", "branch"], dropna=False):
+        if group.empty:
+            continue
+        first = group.iloc[0]
+        rule = PricingRule(
+            pricing_model=str(first.get("pricing_model", "") or ""),
+            hourly_rate=safe_float(first.get("hourly_rate"), 0.0),
+            package_rate=safe_float(first.get("package_rate"), 0.0),
+            package_threshold=safe_int(first.get("package_threshold"), 0),
+            package_rate_low=safe_float(first.get("package_rate_low"), 0.0),
+            package_rate_high=safe_float(first.get("package_rate_high"), 0.0),
+            fixed_monthly_fee=safe_float(first.get("fixed_monthly_fee"), 0.0),
+            vat_rate=safe_float(first.get("vat_rate"), VAT_RATE_DEFAULT),
+        )
+        hours, packages, subtotal, grand_total = calculate_customer_invoice(group, rule)
+        invoicing_rows.append(
+            {
+                "restaurant_id": restaurant_id,
+                "restoran": f"{brand} - {branch}",
+                "model": rule.pricing_model,
+                "saat": hours,
+                "paket": packages,
+                "kdv_haric": subtotal,
+                "kdv_dahil": grand_total,
+            }
+        )
+
+    if not invoicing_rows:
+        return pd.DataFrame()
+    return pd.DataFrame(invoicing_rows).sort_values(["kdv_dahil", "restoran"], ascending=[False, True]).reset_index(drop=True)
+
+
 def dashboard_tab(conn: sqlite3.Connection) -> None:
-    entries = fetch_df(conn, "SELECT * FROM daily_entries")
-    active_restaurants = int(first_row_value(conn.execute("SELECT COUNT(*) FROM restaurants WHERE active=1").fetchone(), 0) or 0)
-    active_people = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE status='Aktif'").fetchone(), 0) or 0)
-    joker_count = int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel WHERE role='Joker' AND status='Aktif'").fetchone(), 0) or 0)
-    total_packages = float(entries["package_count"].sum()) if not entries.empty else 0.0
-    total_hours = float(entries["worked_hours"].sum()) if not entries.empty else 0.0
+    today_value = date.today()
+    selected_month = today_value.strftime("%Y-%m")
+    month_start, month_end = month_bounds(selected_month)
+
+    entries = fetch_df(
+        conn,
+        """
+        SELECT d.*, r.brand, r.branch, r.target_headcount, r.pricing_model, r.hourly_rate, r.package_rate,
+               r.package_threshold, r.package_rate_low, r.package_rate_high, r.fixed_monthly_fee, r.vat_rate
+        FROM daily_entries d
+        JOIN restaurants r ON r.id = d.restaurant_id
+        """,
+    )
+    active_restaurants_df = fetch_df(conn, "SELECT * FROM restaurants WHERE active = 1 ORDER BY brand, branch")
+    personnel_df = fetch_df(conn, "SELECT * FROM personnel")
+    role_history_df = fetch_df(conn, "SELECT * FROM personnel_role_history ORDER BY personnel_id, effective_date, id")
+    month_deductions = fetch_df(conn, "SELECT * FROM deductions WHERE deduction_date BETWEEN ? AND ?", (month_start, month_end))
+    onboarding_issue_df = fetch_df(
+        conn,
+        """
+        SELECT personnel_id, auto_source_key
+        FROM courier_equipment_issues
+        WHERE auto_source_key LIKE 'auto:onboarding:%'
+        """,
+    )
+
+    for optional_column, default_value in {
+        "company_title": "",
+        "address": "",
+        "contact_name": "",
+        "contact_phone": "",
+        "contact_email": "",
+        "tax_office": "",
+        "tax_number": "",
+        "target_headcount": 0,
+    }.items():
+        if optional_column not in active_restaurants_df.columns:
+            active_restaurants_df[optional_column] = default_value
+
+    active_restaurants = len(active_restaurants_df)
+    active_people_df = personnel_df[personnel_df["status"].fillna("").astype(str) == "Aktif"].copy() if not personnel_df.empty else pd.DataFrame()
+    active_people = len(active_people_df)
+
+    if not entries.empty:
+        entries["entry_date_value"] = pd.to_datetime(entries["entry_date"], errors="coerce").dt.date
+        entries = entries[entries["entry_date_value"].notna()].copy()
+    else:
+        entries = pd.DataFrame(
+            columns=[
+                "entry_date",
+                "entry_date_value",
+                "restaurant_id",
+                "actual_personnel_id",
+                "status",
+                "worked_hours",
+                "package_count",
+                "brand",
+                "branch",
+                "target_headcount",
+                "pricing_model",
+                "hourly_rate",
+                "package_rate",
+                "package_threshold",
+                "package_rate_low",
+                "package_rate_high",
+                "fixed_monthly_fee",
+                "vat_rate",
+            ]
+        )
+
+    month_entries = (
+        entries[(entries["entry_date_value"] >= parse_date_value(month_start)) & (entries["entry_date_value"] <= parse_date_value(month_end))].copy()
+        if not entries.empty
+        else pd.DataFrame(columns=entries.columns)
+    )
+    today_entries = entries[entries["entry_date_value"] == today_value].copy() if not entries.empty else pd.DataFrame(columns=entries.columns)
+    working_today_entries = (
+        today_entries[
+            (~today_entries["status"].fillna("").isin(["İzin", "Gelmedi"]))
+            | (today_entries["worked_hours"].fillna(0) > 0)
+            | (today_entries["package_count"].fillna(0) > 0)
+        ].copy()
+        if not today_entries.empty
+        else pd.DataFrame(columns=today_entries.columns)
+    )
+
+    today_working_people = (
+        int(working_today_entries["actual_personnel_id"].dropna().astype(int).nunique())
+        if not working_today_entries.empty and "actual_personnel_id" in working_today_entries.columns
+        else 0
+    )
+    month_packages = float(month_entries["package_count"].sum()) if not month_entries.empty else 0.0
+
+    invoice_df = build_invoice_summary_df(month_entries)
+    profit_df, _, shared_overhead_df = build_branch_profitability(month_entries, personnel_df, month_deductions, invoice_df, role_history_df)
+    month_revenue = float(invoice_df["kdv_dahil"].sum()) if not invoice_df.empty else 0.0
+    month_operation_gap = float(profit_df["brut_fark"].sum()) if not profit_df.empty else 0.0
+
+    today_restaurant_ids = (
+        today_entries["restaurant_id"].dropna().astype(int).unique().tolist()
+        if not today_entries.empty and "restaurant_id" in today_entries.columns
+        else []
+    )
+    missing_attendance_df = (
+        active_restaurants_df[~active_restaurants_df["id"].astype(int).isin(today_restaurant_ids)][["brand", "branch"]].copy()
+        if not active_restaurants_df.empty
+        else pd.DataFrame(columns=["brand", "branch"])
+    )
+
+    if not working_today_entries.empty:
+        today_headcount_df = (
+            working_today_entries.groupby("restaurant_id", dropna=False)["actual_personnel_id"]
+            .nunique()
+            .reset_index(name="bugun_kadro")
+        )
+    else:
+        today_headcount_df = pd.DataFrame(columns=["restaurant_id", "bugun_kadro"])
+
+    restaurant_headcount_df = active_restaurants_df[["id", "brand", "branch", "target_headcount"]].copy()
+    restaurant_headcount_df["target_headcount"] = restaurant_headcount_df["target_headcount"].apply(lambda value: safe_int(value, 0))
+    under_target_df = restaurant_headcount_df.merge(
+        today_headcount_df,
+        how="left",
+        left_on="id",
+        right_on="restaurant_id",
+    ).fillna({"bugun_kadro": 0})
+    under_target_df["bugun_kadro"] = under_target_df["bugun_kadro"].apply(lambda value: safe_int(value, 0))
+    under_target_df["acik_kadro"] = under_target_df["target_headcount"] - under_target_df["bugun_kadro"]
+    under_target_df = under_target_df[(under_target_df["target_headcount"] > 0) & (under_target_df["acik_kadro"] > 0)].copy()
+    under_target_df = under_target_df.sort_values(["acik_kadro", "brand", "branch"], ascending=[False, True, True])
+
+    people_lookup = personnel_df[["id", "full_name", "role"]].rename(
+        columns={"id": "actual_personnel_id", "full_name": "personel", "role": "personel_rolu"}
+    ) if not personnel_df.empty else pd.DataFrame(columns=["actual_personnel_id", "personel", "personel_rolu"])
+    joker_usage_df = pd.DataFrame(columns=["restoran", "joker_sayisi", "paket"])
+    if not working_today_entries.empty:
+        joker_entries = working_today_entries.merge(people_lookup, how="left", on="actual_personnel_id")
+        joker_entries = joker_entries[
+            (joker_entries["status"].fillna("").astype(str) == "Joker")
+            | (joker_entries["personel_rolu"].fillna("").astype(str) == "Joker")
+        ].copy()
+        if not joker_entries.empty:
+            joker_usage_df = (
+                joker_entries.groupby(["brand", "branch"], dropna=False)
+                .agg(joker_sayisi=("actual_personnel_id", "nunique"), paket=("package_count", "sum"))
+                .reset_index()
+            )
+            joker_usage_df["restoran"] = joker_usage_df["brand"] + " - " + joker_usage_df["branch"]
+            joker_usage_df = joker_usage_df[["restoran", "joker_sayisi", "paket"]].sort_values(["joker_sayisi", "paket"], ascending=[False, False])
+
+    missing_personnel_rows = []
+    if not active_people_df.empty:
+        for _, row in active_people_df.iterrows():
+            missing_fields = []
+            if not str(row.get("phone") or "").strip():
+                missing_fields.append("Telefon")
+            if not str(row.get("tc_no") or "").strip():
+                missing_fields.append("TC")
+            if not str(row.get("iban") or "").strip():
+                missing_fields.append("IBAN")
+            if not str(row.get("current_plate") or "").strip():
+                missing_fields.append("Plaka")
+            if str(row.get("role") or "") in {"Kurye", "Restoran Takım Şefi"} and not safe_int(row.get("assigned_restaurant_id"), 0):
+                missing_fields.append("Ana restoran")
+            if missing_fields:
+                missing_personnel_rows.append(
+                    {
+                        "personel": str(row.get("full_name") or "-"),
+                        "rol": str(row.get("role") or "-"),
+                        "eksik_alanlar": ", ".join(missing_fields),
+                    }
+                )
+    missing_personnel_df = pd.DataFrame(missing_personnel_rows)
+
+    missing_restaurant_rows = []
+    if not active_restaurants_df.empty:
+        for _, row in active_restaurants_df.iterrows():
+            missing_fields = []
+            for field_label, field_name in [
+                ("Yetkili", "contact_name"),
+                ("Telefon", "contact_phone"),
+                ("E-posta", "contact_email"),
+                ("Ünvan", "company_title"),
+                ("Adres", "address"),
+                ("Vergi Dairesi", "tax_office"),
+                ("Vergi No", "tax_number"),
+            ]:
+                if not str(row.get(field_name) or "").strip():
+                    missing_fields.append(field_label)
+            if missing_fields:
+                missing_restaurant_rows.append(
+                    {
+                        "restoran": f"{row['brand']} - {row['branch']}",
+                        "eksik_alanlar": ", ".join(missing_fields),
+                    }
+                )
+    missing_restaurant_df = pd.DataFrame(missing_restaurant_rows)
+
+    onboarding_keys_by_person: dict[int, set[str]] = {}
+    if not onboarding_issue_df.empty:
+        for _, row in onboarding_issue_df.iterrows():
+            personnel_id = safe_int(row.get("personnel_id"))
+            auto_source_key = str(row.get("auto_source_key") or "")
+            onboarding_key = auto_source_key.split(":")[-1].strip()
+            if personnel_id <= 0 or not onboarding_key:
+                continue
+            onboarding_keys_by_person.setdefault(personnel_id, set()).add(onboarding_key)
+
+    restaurant_brand_by_id = {
+        safe_int(row.get("id")): str(row.get("brand") or "").strip()
+        for _, row in active_restaurants_df.iterrows()
+    }
+    missing_onboarding_rows = []
+    if not active_people_df.empty:
+        active_courier_df = active_people_df[active_people_df["role"].fillna("").astype(str) == "Kurye"].copy()
+        for _, row in active_courier_df.iterrows():
+            person_id = safe_int(row.get("id"))
+            assigned_restaurant_id = safe_int(row.get("assigned_restaurant_id"), 0)
+            restaurant_brand = restaurant_brand_by_id.get(assigned_restaurant_id, "")
+            excluded_keys = set(AUTO_ONBOARDING_EXCLUDED_KEYS_BY_BRAND.get(restaurant_brand, set()))
+            expected_keys = {item["key"] for item in AUTO_ONBOARDING_ITEMS if item["key"] not in excluded_keys}
+            existing_keys = onboarding_keys_by_person.get(person_id, set())
+            missing_keys = sorted(expected_keys - existing_keys)
+            if missing_keys:
+                missing_onboarding_rows.append(
+                    {
+                        "personel": str(row.get("full_name") or "-"),
+                        "restoran": next(
+                            (
+                                f"{restaurant_row['brand']} - {restaurant_row['branch']}"
+                                for _, restaurant_row in active_restaurants_df.iterrows()
+                                if safe_int(restaurant_row.get("id")) == assigned_restaurant_id
+                            ),
+                            "-",
+                        ),
+                        "eksik_zimmet": ", ".join(missing_keys),
+                    }
+                )
+    missing_onboarding_df = pd.DataFrame(missing_onboarding_rows)
+
+    critical_alert_count = (
+        len(missing_attendance_df)
+        + len(under_target_df)
+        + len(missing_onboarding_df)
+        + len(missing_personnel_df)
+        + len(missing_restaurant_df)
+    )
 
     render_management_hero(
         "GENEL BAKIŞ",
-        "Operasyonun güncel ritmi ve saha yoğunluğu",
-        "Şube, personel ve puantaj verisini tek bakışta gör; günlük operasyon temposunu daha güçlü bir özet paneliyle takip et.",
+        "Operasyonun güncel ritmi, riski ve finansal görünümü",
+        "Bugünkü saha yükünü, eksik kadroları ve bu ayki finansal fotoğrafı tek panelde gör; yönetim kararlarını daha hızlı ve daha kontrollü ver.",
         [
             ("Aktif Restoran", active_restaurants),
             ("Aktif Personel", active_people),
-            ("Joker Havuzu", joker_count),
-            ("Toplam Paket", f"{total_packages:,.0f}"),
-            ("Toplam Saat", f"{total_hours:,.0f}"),
+            ("Bugün Çalışan", today_working_people),
+            ("Bu Ay Paket", fmt_number(month_packages)),
+            ("Bu Ay Fatura", fmt_try(month_revenue)),
+            ("Kritik Uyarı", critical_alert_count),
+            ("Bu Ay Operasyon Farkı", fmt_try(month_operation_gap)),
         ],
     )
 
-    if entries.empty:
-        st.info("Henüz günlük puantaj kaydı yok.")
-        return
+    top_profit_items = [
+        (row["restoran"], fmt_try(row["brut_fark"]))
+        for _, row in profit_df.head(5).iterrows()
+    ] if not profit_df.empty else [("-", "Henüz veri yok")]
+    risk_items = [
+        (row["restoran"], fmt_try(row["brut_fark"]))
+        for _, row in profit_df.sort_values("brut_fark", ascending=True).head(5).iterrows()
+    ] if not profit_df.empty else [("-", "Henüz veri yok")]
 
-    entries["entry_date"] = pd.to_datetime(entries["entry_date"])
-    q = """
-    SELECT r.brand || ' - ' || r.branch AS restoran, SUM(d.package_count) AS paket, SUM(d.worked_hours) AS saat
-    FROM daily_entries d
-    JOIN restaurants r ON r.id = d.restaurant_id
-    GROUP BY 1
-    ORDER BY paket DESC
-    """
-    perf = fetch_df(conn, q)
-    daily_trend = entries.groupby(entries["entry_date"].dt.date, dropna=False).agg(
+    c_top_1, c_top_2 = st.columns([1.2, 1])
+    with c_top_1:
+        render_record_snapshot(
+            "Kritik Uyarılar",
+            [
+                ("Bugün puantaj bekleyen şube", len(missing_attendance_df)),
+                ("Hedef kadro altında kalan şube", len(under_target_df)),
+                ("Bugün joker kullanılan şube", len(joker_usage_df)),
+                ("Eksik onboarding kurye", len(missing_onboarding_df)),
+                ("Eksik personel kartı", len(missing_personnel_df)),
+                ("Eksik restoran kartı", len(missing_restaurant_df)),
+            ],
+        )
+    with c_top_2:
+        render_record_snapshot(
+            "Bu Ay Yönetim Özeti",
+            [
+                ("Restoran faturası", fmt_try(month_revenue)),
+                ("Operasyon farkı", fmt_try(month_operation_gap)),
+                ("Paylaşılan yönetim maliyeti", fmt_try(float(shared_overhead_df["aylik_net_maliyet"].sum()) if not shared_overhead_df.empty else 0.0)),
+                ("Kârlı restoran", len(profit_df[profit_df["brut_fark"] >= 0]) if not profit_df.empty else 0),
+                ("Riskli restoran", len(profit_df[profit_df["brut_fark"] < 0]) if not profit_df.empty else 0),
+            ],
+        )
+
+    if entries.empty:
+        st.info("Henüz günlük puantaj kaydı yok. İlk kayıtlar geldikçe dashboard operasyon akışını burada gösterecek.")
+    daily_trend = entries.groupby("entry_date_value", dropna=False).agg(
         paket=("package_count", "sum"),
         saat=("worked_hours", "sum"),
-    ).reset_index().rename(columns={"entry_date": "gun"})
-    daily_trend = daily_trend.rename(columns={daily_trend.columns[0]: "gun"}).sort_values("gun").tail(14)
+    ).reset_index().rename(columns={"entry_date_value": "gun"}) if not entries.empty else pd.DataFrame(columns=["gun", "paket", "saat"])
+    daily_trend = daily_trend.sort_values("gun").tail(14)
     daily_trend["gun_label"] = pd.to_datetime(daily_trend["gun"]).dt.strftime("%d %b")
+    month_perf = (
+        month_entries.groupby(["brand", "branch"], dropna=False).agg(paket=("package_count", "sum"), saat=("worked_hours", "sum")).reset_index()
+        if not month_entries.empty
+        else pd.DataFrame(columns=["brand", "branch", "paket", "saat"])
+    )
+    if not month_perf.empty:
+        month_perf["restoran"] = month_perf["brand"] + " - " + month_perf["branch"]
+        month_perf = month_perf[["restoran", "paket", "saat"]].sort_values(["paket", "saat"], ascending=[False, False])
 
-    c1, c2 = st.columns([1.6, 1])
+    c1, c2 = st.columns([1.55, 1])
     with c1:
         st.markdown("<div class='ck-panel-title'>Son 14 Gün Paket Akışı</div>", unsafe_allow_html=True)
-        try:
-            import altair as alt
+        if daily_trend.empty:
+            st.info("Grafik için son 14 günde puantaj verisi oluşmadı.")
+        else:
+            try:
+                import altair as alt
 
-            area = alt.Chart(daily_trend).mark_area(color="#9FD4FF", opacity=0.38).encode(
-                x=alt.X("gun:T", axis=alt.Axis(title=None, format="%d %b", labelColor="#6B7A90", tickColor="#DCE6F5")),
-                y=alt.Y("paket:Q", axis=alt.Axis(title=None, gridColor="#E6EEF9", labelColor="#6B7A90")),
-                tooltip=[alt.Tooltip("gun:T", title="Tarih"), alt.Tooltip("paket:Q", title="Paket", format=",.0f")],
-            )
-            line = alt.Chart(daily_trend).mark_line(color="#0C4BCB", strokeWidth=3, point=alt.OverlayMarkDef(color="#0C4BCB", filled=True, size=64)).encode(
-                x="gun:T",
-                y="paket:Q",
-                tooltip=[alt.Tooltip("gun:T", title="Tarih"), alt.Tooltip("paket:Q", title="Paket", format=",.0f"), alt.Tooltip("saat:Q", title="Saat", format=",.1f")],
-            )
-            chart = (area + line).properties(height=300).configure_view(strokeWidth=0)
-            st.altair_chart(chart, use_container_width=True)
-        except Exception:
-            fallback = daily_trend[["gun_label", "paket"]].set_index("gun_label")
-            st.line_chart(fallback)
-        st.caption("Grafik son 14 günlük toplam paket hareketini gösterir.")
+                area = alt.Chart(daily_trend).mark_area(color="#9FD4FF", opacity=0.38).encode(
+                    x=alt.X("gun:T", axis=alt.Axis(title=None, format="%d %b", labelColor="#6B7A90", tickColor="#DCE6F5")),
+                    y=alt.Y("paket:Q", axis=alt.Axis(title=None, gridColor="#E6EEF9", labelColor="#6B7A90")),
+                    tooltip=[alt.Tooltip("gun:T", title="Tarih"), alt.Tooltip("paket:Q", title="Paket", format=",.0f")],
+                )
+                line = alt.Chart(daily_trend).mark_line(color="#0C4BCB", strokeWidth=3, point=alt.OverlayMarkDef(color="#0C4BCB", filled=True, size=64)).encode(
+                    x="gun:T",
+                    y="paket:Q",
+                    tooltip=[alt.Tooltip("gun:T", title="Tarih"), alt.Tooltip("paket:Q", title="Paket", format=",.0f"), alt.Tooltip("saat:Q", title="Saat", format=",.1f")],
+                )
+                chart = (area + line).properties(height=300).configure_view(strokeWidth=0)
+                st.altair_chart(chart, use_container_width=True)
+            except Exception:
+                fallback = daily_trend[["gun_label", "paket"]].set_index("gun_label")
+                st.line_chart(fallback)
+            st.caption("Grafik son 14 günlük toplam paket hareketini gösterir.")
 
     with c2:
         top_rows = []
-        for _, row in perf.head(6).iterrows():
+        for _, row in month_perf.head(6).iterrows():
             top_rows.append((row["restoran"], f"{fmt_number(row['paket'])} Paket | {fmt_number(row['saat'])} Saat"))
-        render_record_snapshot("En Yoğun Şubeler", top_rows or [("-", "Veri yok")])
+        render_record_snapshot("Bu Ay En Yoğun Şubeler", top_rows or [("-", "Henüz veri yok")])
 
-    st.markdown("<div class='ck-panel-title' style='margin-top:0.6rem;'>Şube Performans Özeti</div>", unsafe_allow_html=True)
-    perf_display = format_display_df(
-        perf.head(10),
-        number_cols=["paket", "saat"],
-        rename_map={
-            "restoran": "Restoran / Şube",
-            "paket": "Toplam Paket",
-            "saat": "Toplam Saat",
-        },
-    )
-    st.dataframe(perf_display, use_container_width=True, hide_index=True)
+    alerts_col, actions_col = st.columns([1.35, 1])
+    with alerts_col:
+        st.markdown("<div class='ck-panel-title'>Aksiyon Gerektiren Şubeler</div>", unsafe_allow_html=True)
+        action_rows = []
+        for _, row in missing_attendance_df.head(5).iterrows():
+            action_rows.append(
+                {
+                    "Restoran / Şube": f"{row['brand']} - {row['branch']}",
+                    "Uyarı": "Bugün puantaj bekleniyor",
+                    "Detay": "Günlük kayıt henüz girilmedi",
+                }
+            )
+        for _, row in under_target_df.head(5).iterrows():
+            action_rows.append(
+                {
+                    "Restoran / Şube": f"{row['brand']} - {row['branch']}",
+                    "Uyarı": "Hedef kadronun altında",
+                    "Detay": f"Açık kadro: {safe_int(row['acik_kadro'])}",
+                }
+            )
+        actions_df = pd.DataFrame(action_rows)
+        if actions_df.empty:
+            st.success("Bugün için kritik şube alarmı görünmüyor.")
+        else:
+            st.dataframe(actions_df, use_container_width=True, hide_index=True)
+
+        if not joker_usage_df.empty:
+            joker_display = format_display_df(
+                joker_usage_df.head(6),
+                number_cols=["joker_sayisi", "paket"],
+                rename_map={
+                    "restoran": "Joker Kullanılan Şube",
+                    "joker_sayisi": "Joker",
+                    "paket": "Paket",
+                },
+            )
+            st.markdown("<div class='ck-panel-title' style='margin-top:0.45rem;'>Bugün Joker Kullanılan Şubeler</div>", unsafe_allow_html=True)
+            st.dataframe(joker_display, use_container_width=True, hide_index=True)
+
+    with actions_col:
+        st.markdown("<div class='ck-panel-title'>Hızlı Komuta Alanı</div>", unsafe_allow_html=True)
+        quick_actions = [
+            ("Bugünkü Puantajı Aç", "Puantaj", "Günlük saha kaydına geç."),
+            ("Yeni Personel Kartı", "Personel Yönetimi", "Yeni kurye veya yönetici ekle."),
+            ("Yeni Şube Kartı", "Restoran Yönetimi", "Restoran anlaşma kartını aç."),
+            ("Kesinti Kaydı Gir", "Kesinti Yönetimi", "Ay sonu kesintisini işle."),
+            ("Zimmet Kaydını Aç", "Ekipman & Zimmet", "Ekipman hareketini kaydet."),
+            ("Aylık Raporu Aç", "Raporlar ve Karlılık", "Bu ayın kârlılık ekranına geç."),
+        ]
+        for index, (button_label, target_menu, subtitle) in enumerate(quick_actions):
+            render_action_card(button_label, subtitle, highlight=False)
+            if st.button(button_label, key=f"dashboard_quick_action_{index}", use_container_width=True):
+                st.session_state["ck_sidebar_target_menu"] = target_menu
+                st.rerun()
+
+    finance_col, hygiene_col = st.columns(2)
+    with finance_col:
+        st.markdown("<div class='ck-panel-title'>Bu Ay Karlılık Özeti</div>", unsafe_allow_html=True)
+        metric_cols = st.columns(3)
+        metric_cols[0].metric("Restoran Faturası", fmt_try(month_revenue))
+        metric_cols[1].metric("Operasyon Farkı", fmt_try(month_operation_gap))
+        metric_cols[2].metric(
+            "Yönetim Payı",
+            fmt_try(float(shared_overhead_df["aylik_net_maliyet"].sum()) if not shared_overhead_df.empty else 0.0),
+        )
+        c_profit, c_risk = st.columns(2)
+        with c_profit:
+            render_record_snapshot("En Kârlı 5 Restoran", top_profit_items)
+        with c_risk:
+            render_record_snapshot("En Riskli 5 Restoran", risk_items)
+
+    with hygiene_col:
+        st.markdown("<div class='ck-panel-title'>Kart ve Zimmet Kontrolü</div>", unsafe_allow_html=True)
+        hygiene_rows = [
+            ("Eksik onboarding kurye", len(missing_onboarding_df)),
+            ("Eksik personel kartı", len(missing_personnel_df)),
+            ("Eksik restoran kartı", len(missing_restaurant_df)),
+        ]
+        render_record_snapshot("Veri Hijyeni", hygiene_rows)
+
+        if not missing_onboarding_df.empty:
+            onboarding_display = missing_onboarding_df.head(6).rename(
+                columns={"personel": "Personel", "restoran": "Restoran / Şube", "eksik_zimmet": "Eksik Zimmet"}
+            )
+            st.dataframe(onboarding_display, use_container_width=True, hide_index=True)
+        elif not missing_personnel_df.empty:
+            personnel_display = missing_personnel_df.head(6).rename(
+                columns={"personel": "Personel", "rol": "Rol", "eksik_alanlar": "Eksik Alanlar"}
+            )
+            st.dataframe(personnel_display, use_container_width=True, hide_index=True)
+        elif not missing_restaurant_df.empty:
+            restaurant_display = missing_restaurant_df.head(6).rename(
+                columns={"restoran": "Restoran / Şube", "eksik_alanlar": "Eksik Alanlar"}
+            )
+            st.dataframe(restaurant_display, use_container_width=True, hide_index=True)
+        else:
+            st.success("Aktif kartlar ve otomatik onboarding tarafında öne çıkan eksik görünmüyor.")
 
 
 def validate_restaurant_form(
@@ -8247,9 +8647,16 @@ def main() -> None:
 
         role = st.session_state.get("role", "")
         render_sidebar_brand()
+        menu_items = allowed_menu_items(role)
+        target_menu = st.session_state.pop("ck_sidebar_target_menu", None)
+        if target_menu in menu_items:
+            st.session_state["ck_main_menu"] = target_menu
+        if st.session_state.get("ck_main_menu") not in menu_items:
+            st.session_state["ck_main_menu"] = menu_items[0]
         menu = st.sidebar.radio(
             "Komuta Alanları",
-            allowed_menu_items(role),
+            menu_items,
+            key="ck_main_menu",
             format_func=lambda item: MENU_DISPLAY_LABELS.get(item, item),
             label_visibility="collapsed",
         )
