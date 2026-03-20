@@ -721,6 +721,8 @@ def ensure_schema(conn: CompatConnection) -> None:
             contact_name TEXT,
             contact_phone TEXT,
             contact_email TEXT,
+            company_title TEXT,
+            address TEXT,
             tax_office TEXT,
             tax_number TEXT,
             active INTEGER DEFAULT 1,
@@ -885,6 +887,8 @@ def ensure_schema(conn: CompatConnection) -> None:
             contact_name TEXT,
             contact_phone TEXT,
             contact_email TEXT,
+            company_title TEXT,
+            address TEXT,
             tax_office TEXT,
             tax_number TEXT,
             active BIGINT DEFAULT 1,
@@ -1443,6 +1447,10 @@ def migrate_data(conn: CompatConnection) -> None:
         conn.execute("ALTER TABLE restaurants ADD COLUMN contact_phone TEXT")
     if "contact_email" not in restaurant_cols:
         conn.execute("ALTER TABLE restaurants ADD COLUMN contact_email TEXT")
+    if "company_title" not in restaurant_cols:
+        conn.execute("ALTER TABLE restaurants ADD COLUMN company_title TEXT")
+    if "address" not in restaurant_cols:
+        conn.execute("ALTER TABLE restaurants ADD COLUMN address TEXT")
     if "tax_office" not in restaurant_cols:
         conn.execute("ALTER TABLE restaurants ADD COLUMN tax_office TEXT")
     if "tax_number" not in restaurant_cols:
@@ -3288,6 +3296,8 @@ def format_restaurants_table(df: pd.DataFrame) -> pd.DataFrame:
             "contact_name": "Yetkili Adı",
             "contact_phone": "Yetkili Telefon",
             "contact_email": "Yetkili E-posta",
+            "company_title": "Ünvan",
+            "address": "Adres",
             "tax_office": "Vergi Dairesi",
             "tax_number": "Vergi Numarası",
             "active": "Durum",
@@ -4819,6 +4829,8 @@ def validate_restaurant_form(
     contact_name: str,
     contact_phone: str,
     contact_email: str,
+    company_title: str,
+    address: str,
     tax_office: str,
     tax_number: str,
 ) -> list[str]:
@@ -4966,7 +4978,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
         if status_filter != "Tümü":
             wanted = 1 if status_filter == "Aktif" else 0
             filtered_df = filtered_df[filtered_df["active"].apply(lambda x: safe_int(x, 0)) == wanted].copy()
-        filtered_df = apply_text_search(filtered_df, ["brand", "branch", "contact_name", "contact_phone"], search_query)
+        filtered_df = apply_text_search(filtered_df, ["brand", "branch", "contact_name", "contact_phone", "company_title", "address"], search_query)
 
         if df.empty:
             st.info("Henüz kayıtlı restoran yok.")
@@ -4989,6 +5001,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                         ("Durum", ACTIVE_STATUS_LABELS.get(selected_row["active"], selected_row["active"])),
                         ("Hedef Kadro", safe_int(selected_row["target_headcount"])),
                         ("Yetkili", selected_row["contact_name"] or "-"),
+                        ("Ünvan", selected_row["company_title"] or "-"),
                     ],
                 )
                 st.markdown("##### Hızlı Aksiyonlar")
@@ -5116,9 +5129,17 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
             c22, c23 = st.columns(2)
             with c22:
+                render_field_label("Ünvan")
+                company_title = st.text_input("Ünvan", label_visibility="collapsed")
+            with c23:
+                render_field_label("Adres")
+                address = st.text_input("Adres", label_visibility="collapsed")
+
+            c24, c25 = st.columns(2)
+            with c24:
                 render_field_label("Vergi Dairesi", required=True)
                 tax_office = st.text_input("Vergi Dairesi", label_visibility="collapsed")
-            with c23:
+            with c25:
                 render_field_label("Vergi Numarası", required=True)
                 tax_number = st.text_input("Vergi Numarası", label_visibility="collapsed")
 
@@ -5145,6 +5166,8 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                     contact_name=contact_name,
                     contact_phone=contact_phone,
                     contact_email=contact_email,
+                    company_title=company_title,
+                    address=address,
                     tax_office=tax_office,
                     tax_number=tax_number,
                 )
@@ -5160,9 +5183,9 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                             vat_rate, target_headcount, start_date, end_date,
                             extra_headcount_request, extra_headcount_request_date,
                             reduce_headcount_request, reduce_headcount_request_date,
-                            contact_name, contact_phone, contact_email, tax_office, tax_number,
+                            contact_name, contact_phone, contact_email, company_title, address, tax_office, tax_number,
                             active, notes
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
                         """,
                         (
                             brand,
@@ -5186,6 +5209,8 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                             contact_name,
                             contact_phone,
                             contact_email,
+                            company_title,
+                            address,
                             tax_office,
                             tax_number,
                             notes,
@@ -5317,9 +5342,17 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
                     c22, c23 = st.columns(2)
                     with c22:
+                        render_field_label("Ünvan")
+                        edit_company_title = st.text_input("Ünvan", value=selected_row["company_title"] or "", label_visibility="collapsed")
+                    with c23:
+                        render_field_label("Adres")
+                        edit_address = st.text_input("Adres", value=selected_row["address"] or "", label_visibility="collapsed")
+
+                    c24, c25 = st.columns(2)
+                    with c24:
                         render_field_label("Vergi Dairesi", required=True)
                         edit_tax_office = st.text_input("Vergi Dairesi", value=selected_row["tax_office"] or "", label_visibility="collapsed")
-                    with c23:
+                    with c25:
                         render_field_label("Vergi Numarası", required=True)
                         edit_tax_number = st.text_input("Vergi Numarası", value=selected_row["tax_number"] or "", label_visibility="collapsed")
 
@@ -5346,6 +5379,8 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                             contact_name=edit_contact_name,
                             contact_phone=edit_contact_phone,
                             contact_email=edit_contact_email,
+                            company_title=edit_company_title,
+                            address=edit_address,
                             tax_office=edit_tax_office,
                             tax_number=edit_tax_number,
                         )
@@ -5361,7 +5396,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                                     vat_rate=?, target_headcount=?, start_date=?, end_date=?,
                                     extra_headcount_request=?, extra_headcount_request_date=?,
                                     reduce_headcount_request=?, reduce_headcount_request_date=?,
-                                    contact_name=?, contact_phone=?, contact_email=?, tax_office=?, tax_number=?, notes=?
+                                    contact_name=?, contact_phone=?, contact_email=?, company_title=?, address=?, tax_office=?, tax_number=?, notes=?
                                 WHERE id=?
                                 """,
                                 (
@@ -5385,6 +5420,8 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                                     edit_contact_name,
                                     edit_contact_phone,
                                     edit_contact_email,
+                                    edit_company_title,
+                                    edit_address,
                                     edit_tax_office,
                                     edit_tax_number,
                                     edit_notes,
