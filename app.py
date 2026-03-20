@@ -4830,48 +4830,37 @@ def render_record_snapshot(title: str, items: list[tuple[str, Any]]) -> None:
 
 
 def render_alert_stack(title: str, items: list[dict[str, Any]]) -> None:
-    tone_map = {
-        "critical": ("ck-alert-item-critical", "ck-alert-badge-critical"),
-        "warning": ("ck-alert-item-warning", "ck-alert-badge-warning"),
-        "info": ("ck-alert-item-info", "ck-alert-badge-info"),
-        "success": ("ck-alert-item-success", "ck-alert-badge-success"),
+    tone_label_map = {
+        "critical": "Kritik",
+        "warning": "Dikkat",
+        "info": "Bilgi",
+        "success": "Stabil",
     }
-    card_html = []
-    for item in items:
-        tone = str(item.get("tone", "info") or "info").strip().lower()
-        item_class, badge_class = tone_map.get(tone, tone_map["info"])
-        badge_label = html.escape(str(item.get("badge", "Bilgi") or "Bilgi"))
-        title_text = html.escape(str(item.get("title", "-") or "-"))
-        detail_text = html.escape(str(item.get("detail", "") or ""))
-        card_html.append(
-            f"""
-            <div class="ck-alert-item {item_class}">
-                <div class="ck-alert-top">
-                    <div class="ck-alert-title">{title_text}</div>
-                    <div class="ck-alert-badge {badge_class}">{badge_label}</div>
-                </div>
-                <div class="ck-alert-detail">{detail_text}</div>
-            </div>
-            """
-        )
 
-    if not card_html:
-        card_html.append(
-            """
-            <div class="ck-alert-item ck-alert-item-success">
-                <div class="ck-alert-top">
-                    <div class="ck-alert-title">Bugün için kritik aksiyon görünmüyor.</div>
-                    <div class="ck-alert-badge ck-alert-badge-success">Stabil</div>
-                </div>
-                <div class="ck-alert-detail">Operasyon akışında öne çıkan bir alarm tespit edilmedi.</div>
-            </div>
-            """
-        )
+    with st.container(border=True):
+        st.markdown(f"**{title}**")
+        normalized_items = items or [
+            {
+                "tone": "success",
+                "badge": "Stabil",
+                "title": "Bugün için kritik aksiyon görünmüyor.",
+                "detail": "Operasyon akışında öne çıkan bir alarm tespit edilmedi.",
+            }
+        ]
 
-    st.markdown(
-        f"<div class='ck-panel'><div class='ck-panel-title'>{html.escape(title)}</div><div class='ck-alert-stack'>{''.join(card_html)}</div></div>",
-        unsafe_allow_html=True,
-    )
+        for item in normalized_items:
+            tone = str(item.get("tone", "info") or "info").strip().lower()
+            tone_label = tone_label_map.get(tone, "Bilgi")
+            badge_label = str(item.get("badge", "Bilgi") or "Bilgi").strip()
+            title_text = str(item.get("title", "-") or "-").strip()
+            detail_text = str(item.get("detail", "") or "").strip()
+
+            with st.container(border=True):
+                top_left, top_right = st.columns([1, 0.35])
+                top_left.markdown(f"**{title_text}**")
+                top_right.caption(f"{tone_label} | {badge_label}")
+                if detail_text:
+                    st.caption(detail_text)
 
 
 def render_management_hero(kicker: str, title: str, subtitle: str, stats: list[tuple[str, Any]]) -> None:
