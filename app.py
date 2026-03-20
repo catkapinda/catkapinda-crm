@@ -30,6 +30,9 @@ from reportlab.pdfgen import canvas
 
 
 DEFAULT_AUTH_PASSWORD = "123456"
+APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
+APP_PAGE_ICON = "🧭"
+RUNTIME_BOOTSTRAP_VERSION = "2026-03-20-performance-2"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
     "assets/catkapinda_logo.jpg",
@@ -98,6 +101,10 @@ AUTO_ONBOARDING_ITEMS = [
     {"key": "punch", "item_name": "Punch", "unit_sale_price": 2000.0, "vat_rate": 20.0},
     {"key": "korumali_mont", "item_name": "Korumalı Mont", "unit_sale_price": 4750.0, "vat_rate": 10.0},
 ]
+AUTO_ONBOARDING_EXCLUDED_KEYS_BY_BRAND = {
+    "Köroğlu Pide": {"box", "punch"},
+    "Doğu Otomotiv": {"box", "punch"},
+}
 PRICING_MODEL_LABELS = {
     "hourly_plus_package": "Hacimsiz Primli",
     "threshold_package": "Hacimli Primli",
@@ -477,6 +484,7 @@ def init_auth_state() -> None:
         "user_role_display": None,
         "must_change_password": False,
         "login_help_visible": False,
+        "login_transition_active": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -504,6 +512,7 @@ def clear_authenticated_user() -> None:
         "user_full_name",
         "user_role_display",
         "must_change_password",
+        "login_transition_active",
     ]:
         st.session_state.pop(key, None)
 
@@ -1001,6 +1010,23 @@ def ensure_schema(conn: CompatConnection) -> None:
     conn.commit()
 
 
+def get_app_meta_value(conn: CompatConnection, meta_key: str, default: str = "") -> str:
+    row = conn.execute("SELECT meta_value FROM app_meta WHERE meta_key = ?", (meta_key,)).fetchone()
+    return str(first_row_value(row, default) or default)
+
+
+def set_app_meta_value(conn: CompatConnection, meta_key: str, meta_value: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO app_meta (meta_key, meta_value)
+        VALUES (?, ?)
+        ON CONFLICT(meta_key) DO UPDATE SET meta_value = excluded.meta_value
+        """,
+        (meta_key, meta_value),
+    )
+    conn.commit()
+
+
 def get_table_columns(conn: CompatConnection, table_name: str) -> set[str]:
     if conn.backend == "sqlite":
         return {row["name"] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
@@ -1429,10 +1455,13 @@ def ensure_runtime_bootstrap(conn: CompatConnection) -> None:
     ensure_schema(conn)
     maybe_migrate_legacy_sqlite_to_postgres(conn)
     seed_initial_data(conn)
-    migrate_data(conn)
-    normalize_existing_deduction_dates(conn)
+    applied_bootstrap_version = get_app_meta_value(conn, "runtime_bootstrap_version")
+    if applied_bootstrap_version != RUNTIME_BOOTSTRAP_VERSION:
+        migrate_data(conn)
+        normalize_existing_deduction_dates(conn)
+        sync_all_personnel_business_rules(conn, full_history=True)
+        set_app_meta_value(conn, "runtime_bootstrap_version", RUNTIME_BOOTSTRAP_VERSION)
     sync_default_auth_users(conn)
-    sync_all_personnel_business_rules(conn)
     cleanup_auth_sessions(conn)
     st.session_state[bootstrap_key] = True
 
@@ -1522,7 +1551,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             border: 1px solid rgba(255,255,255,0.16);
             background: rgba(255,255,255,0.12);
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
-            font-size: 0.78rem;
+            font-size: 0.74rem;
             font-weight: 800;
             letter-spacing: 0.12em;
             text-transform: uppercase;
@@ -1554,7 +1583,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             position: relative;
             z-index: 1;
             color: rgba(255,255,255,0.82);
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             font-weight: 800;
             letter-spacing: 0.14em;
             text-transform: uppercase;
@@ -1566,8 +1595,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             z-index: 1;
             margin: 0;
             color: #FFFFFF;
-            font-size: clamp(2.7rem, 4vw, 4.6rem);
-            line-height: 0.96;
+            font-size: clamp(2.42rem, 3.7vw, 4.05rem);
+            line-height: 0.98;
             letter-spacing: -0.075em;
             font-weight: 880;
             max-width: 720px;
@@ -1579,8 +1608,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             margin: 1.2rem 0 1.55rem;
             max-width: 630px;
             color: rgba(255,255,255,0.84);
-            font-size: 1.02rem;
-            line-height: 1.8;
+            font-size: 0.96rem;
+            line-height: 1.72;
         }
 
         .ck-login-hero-proof-grid {
@@ -1606,7 +1635,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             display: block;
             margin-bottom: 0.6rem;
             color: rgba(255,255,255,0.74);
-            font-size: 0.76rem;
+            font-size: 0.72rem;
             font-weight: 800;
             letter-spacing: 0.12em;
             text-transform: uppercase;
@@ -1615,8 +1644,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
         .ck-login-hero-proof-card strong {
             display: block;
             color: #FFFFFF;
-            font-size: 1rem;
-            line-height: 1.7;
+            font-size: 0.94rem;
+            line-height: 1.62;
             font-weight: 760;
         }
 
@@ -1639,7 +1668,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
         .ck-login-hero-stat small {
             display: block;
             color: rgba(255,255,255,0.76);
-            font-size: 0.76rem;
+            font-size: 0.72rem;
             font-weight: 800;
             letter-spacing: 0.12em;
             text-transform: uppercase;
@@ -1649,8 +1678,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
         .ck-login-hero-stat strong {
             display: block;
             color: #FFFFFF;
-            font-size: 1rem;
-            line-height: 1.75;
+            font-size: 0.94rem;
+            line-height: 1.66;
             font-weight: 760;
         }
 
@@ -1681,7 +1710,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             position: relative;
             z-index: 1;
             color: #4D6E9F;
-            font-size: 0.76rem;
+            font-size: 0.72rem;
             font-weight: 900;
             letter-spacing: 0.13em;
             text-transform: uppercase;
@@ -1692,7 +1721,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             z-index: 1;
             margin-top: 0.8rem;
             color: #111F39;
-            font-size: 2rem;
+            font-size: 1.82rem;
             line-height: 1.02;
             font-weight: 860;
             letter-spacing: -0.06em;
@@ -1704,8 +1733,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             z-index: 1;
             margin-top: 0.7rem;
             color: #60738F;
-            line-height: 1.75;
-            font-size: 0.94rem;
+            line-height: 1.68;
+            font-size: 0.9rem;
         }
 
         .ck-login-panel-badges {
@@ -1725,7 +1754,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             border: 1px solid #DBE7FB;
             background: rgba(255,255,255,0.82);
             color: #0D4CCD;
-            font-size: 0.78rem;
+            font-size: 0.74rem;
             font-weight: 800;
             letter-spacing: 0.04em;
         }
@@ -1811,8 +1840,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
         .ck-login-help-text {
             color: #4E617D;
-            font-size: 0.9rem;
-            line-height: 1.7;
+            font-size: 0.86rem;
+            line-height: 1.64;
         }
 
         .ck-login-help-steps {
@@ -1826,8 +1855,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             align-items: flex-start;
             gap: 10px;
             color: #294467;
-            font-size: 0.87rem;
-            line-height: 1.55;
+            font-size: 0.83rem;
+            line-height: 1.5;
         }
 
         .ck-login-help-step-badge {
@@ -1851,8 +1880,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             background: rgba(255,255,255,0.74);
             border: 1px solid rgba(219,228,245,0.88);
             color: #5E6E89;
-            line-height: 1.7;
-            font-size: 0.9rem;
+            line-height: 1.64;
+            font-size: 0.86rem;
         }
 
         @media (max-width: 1200px) {
@@ -1904,15 +1933,15 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             }
 
             .ck-login-panel-title {
-                font-size: 1.65rem;
+                font-size: 1.52rem;
             }
 
             .ck-login-hero-title {
-                font-size: 2.2rem;
+                font-size: 2rem;
             }
 
             .ck-login-hero-subtitle {
-                font-size: 0.94rem;
+                font-size: 0.9rem;
             }
 
             div[data-testid="stForm"] {
@@ -1956,7 +1985,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     </div>
                     <div class="ck-login-hero-stats">
                         <div class="ck-login-hero-stat">
-                            <small>Operasyonel veriyi yönetime dönüştüren altyapı</small>
+                            <small>Operasyonel Veriyi Yönetime Dönüştüren Altyapı</small>
                             <strong>Tüm operasyon katmanlarının tek sistemde birleşmesi, veri kaybını ortadan kaldırır ve sürdürülebilir büyüme için gerekli olan kontrol, şeffaflık ve standardizasyonu sağlar.</strong>
                         </div>
                     </div>
@@ -1969,13 +1998,13 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             st.markdown(
                 """
                 <div class="ck-login-panel-head">
-                    <div class="ck-login-panel-kicker">Kurumsal Erişim</div>
-                    <div class="ck-login-panel-title">Operasyon paneline giriş yap</div>
-                    <div class="ck-login-panel-subtitle">Yetkili hesabınla giriş yaparak şube operasyonunu, saha ekiplerini ve finans görünümünü tek merkezden yönet. Erişim ihtiyacında sistem sana kontrollü şekilde yeni geçici parola oluştursun.</div>
+                    <div class="ck-login-panel-kicker">Karar süreçlerini hızlandıran erişim</div>
+                    <div class="ck-login-panel-title">Operasyonel verilere anlık erişim sağlayın</div>
+                    <div class="ck-login-panel-subtitle">Operasyonel verilere anlık erişim sağlayarak yönetim süreçlerini gecikmesiz şekilde sürdürün. Sahadaki değişimlere hızlı tepki verin, kontrolü kaybetmeden operasyonu yönetin.</div>
                     <div class="ck-login-panel-badges">
-                        <span>Kurumsal giriş katmanı</span>
-                        <span>Hızlı parola yenileme</span>
-                        <span>Kontrollü oturum devamlılığı</span>
+                        <span>Anlık veri erişimi</span>
+                        <span>Hızlı karar alma</span>
+                        <span>Kesintisiz yönetim</span>
                     </div>
                 </div>
                 <div class="ck-login-form-title">Hesap Bilgileri</div>
@@ -2069,7 +2098,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     set_query_param(AUTH_QUERY_KEY, None)
                 set_authenticated_user(user, token)
                 st.session_state.login_help_visible = False
-                st.success("Giriş başarılı. Panel hazırlanıyor...")
+                st.session_state.login_transition_active = True
                 st.rerun()
             else:
                 st.error("E-posta adresi veya şifre hatalı.")
@@ -2084,13 +2113,213 @@ def render_sidebar_brand() -> None:
             <div class="ck-side-heading-subtitle">Operasyon CRM</div>
         </div>
         <div class="ck-side-toolbar">
-            <div class="ck-side-toolbar-icon">✦</div>
-            <div class="ck-side-toolbar-text">Kurumsal Operasyon Paneli</div>
+            <div class="ck-side-toolbar-icon">🧭</div>
+            <div class="ck-side-toolbar-text">Operasyon Paneli</div>
         </div>
         <div class="ck-side-menu-note">Ana Menü</div>
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_boot_shell() -> Any:
+    if st.session_state.get("_ck_boot_shell_rendered"):
+        return None
+    placeholder = st.empty()
+    placeholder.markdown(
+        """
+        <style>
+            .ck-boot-shell {
+                display: grid;
+                place-items: center;
+                min-height: 62vh;
+                padding: 2rem 1rem 1rem;
+            }
+
+            .ck-boot-card {
+                width: min(520px, 100%);
+                padding: 1.5rem 1.5rem 1.35rem;
+                border-radius: 28px;
+                border: 1px solid rgba(201, 216, 242, 0.92);
+                background:
+                    radial-gradient(circle at top right, rgba(42, 132, 255, 0.12), transparent 34%),
+                    linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.96) 100%);
+                box-shadow: 0 24px 60px rgba(15, 23, 42, 0.10);
+            }
+
+            .ck-boot-kicker {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 0.45rem 0.8rem;
+                border-radius: 999px;
+                background: #F1F6FF;
+                border: 1px solid #D7E4FA;
+                color: #2857AF;
+                font-size: 0.74rem;
+                font-weight: 800;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+            }
+
+            .ck-boot-title {
+                margin-top: 1rem;
+                color: #111F39;
+                font-size: clamp(1.7rem, 3vw, 2.35rem);
+                line-height: 1.06;
+                letter-spacing: -0.05em;
+                font-weight: 880;
+            }
+
+            .ck-boot-copy {
+                margin-top: 0.8rem;
+                color: #5A6D89;
+                font-size: 0.98rem;
+                line-height: 1.7;
+            }
+
+            .ck-boot-loader {
+                margin-top: 1.15rem;
+                width: 100%;
+                height: 10px;
+                overflow: hidden;
+                border-radius: 999px;
+                background: #EAF1FB;
+            }
+
+            .ck-boot-loader-bar {
+                width: 42%;
+                height: 100%;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #0C4BCB 0%, #1A9EF0 100%);
+                animation: ckBootPulse 1.2s ease-in-out infinite;
+                transform-origin: left center;
+            }
+
+            @keyframes ckBootPulse {
+                0% { transform: translateX(-18%) scaleX(0.82); opacity: 0.72; }
+                50% { transform: translateX(92%) scaleX(1.04); opacity: 1; }
+                100% { transform: translateX(210%) scaleX(0.88); opacity: 0.72; }
+            }
+        </style>
+        <div class="ck-boot-shell">
+            <div class="ck-boot-card">
+                <div class="ck-boot-kicker">🧭 Operasyon Paneli Hazırlanıyor</div>
+                <div class="ck-boot-title">Çat Kapında sistem bileşenleri yükleniyor.</div>
+                <div class="ck-boot-copy">Veritabanı bağlantısı ve oturum kontrolleri hazırlanıyor. İlk açılışta kısa bir yüklenme süresi görülebilir.</div>
+                <div class="ck-boot-loader"><div class="ck-boot-loader-bar"></div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    return placeholder
+
+
+def render_login_transition_overlay() -> None:
+    if not st.session_state.get("login_transition_active"):
+        return
+
+    st.markdown(
+        """
+        <style>
+            .ck-login-transition-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 999999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 1.25rem;
+                background:
+                    radial-gradient(circle at top right, rgba(10, 76, 210, 0.10), transparent 22%),
+                    linear-gradient(180deg, rgba(247, 250, 255, 0.98) 0%, rgba(240, 246, 255, 0.98) 100%);
+                backdrop-filter: blur(12px);
+                animation: ckLoginOverlayFade 1.05s ease forwards;
+                pointer-events: none;
+            }
+
+            .ck-login-transition-card {
+                width: min(460px, 100%);
+                padding: 1.35rem 1.35rem 1.2rem;
+                border-radius: 26px;
+                border: 1px solid rgba(207, 220, 243, 0.96);
+                background: rgba(255,255,255,0.92);
+                box-shadow: 0 26px 60px rgba(15, 23, 42, 0.12);
+            }
+
+            .ck-login-transition-kicker {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.45rem;
+                padding: 0.42rem 0.76rem;
+                border-radius: 999px;
+                background: #EEF5FF;
+                border: 1px solid #D5E3FB;
+                color: #295AB3;
+                font-size: 0.72rem;
+                font-weight: 800;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+            }
+
+            .ck-login-transition-title {
+                margin-top: 0.9rem;
+                color: #13233D;
+                font-size: clamp(1.45rem, 3vw, 1.95rem);
+                line-height: 1.08;
+                letter-spacing: -0.04em;
+                font-weight: 880;
+            }
+
+            .ck-login-transition-text {
+                margin-top: 0.7rem;
+                color: #5F7290;
+                font-size: 0.94rem;
+                line-height: 1.7;
+            }
+
+            .ck-login-transition-loader {
+                margin-top: 0.95rem;
+                width: 100%;
+                height: 10px;
+                overflow: hidden;
+                border-radius: 999px;
+                background: #E9F1FB;
+            }
+
+            .ck-login-transition-loader-bar {
+                width: 38%;
+                height: 100%;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #0C4BCB 0%, #1A9EF0 100%);
+                animation: ckLoginOverlayPulse 0.95s ease-in-out infinite;
+                transform-origin: left center;
+            }
+
+            @keyframes ckLoginOverlayPulse {
+                0% { transform: translateX(-20%) scaleX(0.86); opacity: 0.76; }
+                50% { transform: translateX(108%) scaleX(1.02); opacity: 1; }
+                100% { transform: translateX(228%) scaleX(0.9); opacity: 0.76; }
+            }
+
+            @keyframes ckLoginOverlayFade {
+                0%, 65% { opacity: 1; visibility: visible; }
+                100% { opacity: 0; visibility: hidden; }
+            }
+        </style>
+        <div class="ck-login-transition-overlay">
+            <div class="ck-login-transition-card">
+                <div class="ck-login-transition-kicker">🧭 Oturum Açıldı</div>
+                <div class="ck-login-transition-title">Çalışma alanı hazırlanıyor.</div>
+                <div class="ck-login-transition-text">Panel yüklenirken önceki giriş ekranı gizleniyor. Operasyon görünümü birkaç saniye içinde hazır olacak.</div>
+                <div class="ck-login-transition-loader"><div class="ck-login-transition-loader-bar"></div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state.login_transition_active = False
 
 
 def logout_button(conn: sqlite3.Connection) -> None:
@@ -2659,6 +2888,13 @@ def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_
     if person_id <= 0:
         return
 
+    assigned_restaurant_id = safe_int(get_row_value(person_row, "assigned_restaurant_id"))
+    excluded_item_keys: set[str] = set()
+    if assigned_restaurant_id > 0:
+        restaurant_row = conn.execute("SELECT brand FROM restaurants WHERE id = ?", (assigned_restaurant_id,)).fetchone()
+        restaurant_brand = str(get_row_value(restaurant_row, "brand", "") or first_row_value(restaurant_row, "") or "").strip()
+        excluded_item_keys = set(AUTO_ONBOARDING_EXCLUDED_KEYS_BY_BRAND.get(restaurant_brand, set()))
+
     issue_date_value = parse_date_value(get_row_value(person_row, "start_date")) or date.today()
     for item in AUTO_ONBOARDING_ITEMS:
         auto_key = f"auto:onboarding:{item['key']}"
@@ -2672,6 +2908,17 @@ def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_
             """,
             (person_id, auto_key),
         )
+
+        if item["key"] in excluded_item_keys:
+            if not existing.empty:
+                for issue_id in existing["id"].tolist():
+                    resolved_issue_id = safe_int(issue_id)
+                    if resolved_issue_id <= 0:
+                        continue
+                    conn.execute("DELETE FROM deductions WHERE equipment_issue_id = ?", (resolved_issue_id,))
+                    conn.execute("DELETE FROM courier_equipment_issues WHERE id = ?", (resolved_issue_id,))
+                conn.commit()
+            continue
 
         issue_notes = "Sistem: Otomatik işe giriş zimmeti"
         if existing.empty:
@@ -3511,6 +3758,65 @@ def inject_global_styles() -> None:
                 color: rgba(255,255,255,0.86);
             }
 
+            .ck-workspace-shell {
+                margin-bottom: 1rem;
+                padding: 1.15rem 1.2rem 1rem;
+                border-radius: 24px;
+                border: 1px solid #DCE6F5;
+                background:
+                    radial-gradient(circle at top right, rgba(35, 114, 244, 0.12), transparent 28%),
+                    linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%);
+                box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06);
+            }
+
+            .ck-workspace-shell-kicker {
+                color: #4E6FA7;
+                font-size: 0.76rem;
+                font-weight: 900;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+            }
+
+            .ck-workspace-shell-title {
+                margin-top: 0.6rem;
+                color: #13233D;
+                font-size: 1.35rem;
+                line-height: 1.12;
+                font-weight: 840;
+                letter-spacing: -0.04em;
+            }
+
+            .ck-workspace-shell-text {
+                margin-top: 0.55rem;
+                color: #617491;
+                font-size: 0.95rem;
+                line-height: 1.7;
+            }
+
+            .ck-workspace-shell-loader {
+                margin-top: 0.95rem;
+                width: 100%;
+                height: 9px;
+                overflow: hidden;
+                border-radius: 999px;
+                background: #EAF1FB;
+            }
+
+            .ck-workspace-shell-loader-bar {
+                width: 36%;
+                height: 100%;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #0C4BCB 0%, #1A9EF0 100%);
+                animation: ckWorkspaceShellPulse 1.15s ease-in-out infinite;
+                transform-origin: left center;
+            }
+
+            @keyframes ckWorkspaceShellPulse {
+                0% { transform: translateX(-22%) scaleX(0.84); opacity: 0.75; }
+                50% { transform: translateX(108%) scaleX(1.02); opacity: 1; }
+                100% { transform: translateX(230%) scaleX(0.9); opacity: 0.75; }
+            }
+
             .ck-field-label {
                 margin: 0.1rem 0 0.35rem;
                 color: #324766;
@@ -4021,6 +4327,23 @@ def render_tab_header(title: str, subtitle: str) -> None:
         <div class="ck-tab-header">
             <div class="ck-tab-header-title">{html.escape(title)}</div>
             <div class="ck-tab-header-subtitle">{html.escape(subtitle)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_workspace_loading_shell(menu_label: str) -> None:
+    safe_menu_label = html.escape(str(menu_label or "çalışma alanı"))
+    st.markdown(
+        f"""
+        <div class="ck-workspace-shell">
+            <div class="ck-workspace-shell-kicker">Panel Hazırlanıyor</div>
+            <div class="ck-workspace-shell-title">{safe_menu_label} açılıyor.</div>
+            <div class="ck-workspace-shell-text">Oturum doğrulandı. İçerik ve operasyon verileri yükleniyor.</div>
+            <div class="ck-workspace-shell-loader">
+                <div class="ck-workspace-shell-loader-bar"></div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -5862,7 +6185,6 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
 def deductions_tab(conn: sqlite3.Connection) -> None:
     section_intro("💸 Kesinti Yönetimi | Motor kira, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; personel kartından gelen sistem kesintileri de aynı tabloda görünür.")
-    sync_all_personnel_business_rules(conn, full_history=True)
     person_opts = get_person_options(conn, active_only=False)
     deduction_types = ["Yakıt", "HGS", "İdari ceza", "Hasar", "Fatura Edilmeyen Tutar"]
 
@@ -6163,13 +6485,20 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
             st.success(f"Satın alma kaydedildi. Birim maliyet: {fmt_try(unit_cost)}")
             st.rerun()
 
-    purchases = fetch_df(conn, "SELECT purchase_date, item_name, quantity, total_invoice_amount, unit_cost, supplier, invoice_no, notes FROM inventory_purchases ORDER BY purchase_date DESC, id DESC")
+    purchases = fetch_df(
+        conn,
+        """
+        SELECT id, purchase_date, item_name, quantity, total_invoice_amount, unit_cost, supplier, invoice_no, notes
+        FROM inventory_purchases
+        ORDER BY purchase_date DESC, id DESC
+        """,
+    )
     if purchases.empty:
         st.info("Henüz satın alma faturası kaydı yok.")
         return
 
     purchases_display = format_display_df(
-        purchases,
+        purchases.drop(columns=["id"], errors="ignore"),
         currency_cols=["total_invoice_amount", "unit_cost"],
         number_cols=["quantity"],
         rename_map={
@@ -6184,6 +6513,69 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
         },
     )
     st.dataframe(purchases_display, use_container_width=True, hide_index=True)
+
+    st.markdown("### Satın alma kaydı düzenle / sil")
+    purchase_options = {
+        f"{row['purchase_date']} | {row['item_name']} | {fmt_try(row['total_invoice_amount'])} | ID:{int(row['id'])}": int(row["id"])
+        for _, row in purchases.iterrows()
+    }
+    selected_label = st.selectbox("Düzenlenecek kayıt", list(purchase_options.keys()), key="purchase_manage_select")
+    selected_id = purchase_options[selected_label]
+    row = purchases.loc[purchases["id"] == selected_id].iloc[0]
+    current_date = datetime.strptime(str(row["purchase_date"]), "%Y-%m-%d").date()
+    item_options = EQUIPMENT_ITEMS
+    current_item = str(row["item_name"] or "")
+    item_index = item_options.index(current_item) if current_item in item_options else 0
+
+    with st.form("purchase_edit_form"):
+        c1, c2, c3 = st.columns(3)
+        edit_purchase_date = c1.date_input("Fatura Tarihi", value=current_date)
+        edit_item_name = c2.selectbox("Ürün", item_options, index=item_index)
+        edit_quantity = c3.number_input("Adet", min_value=1, value=max(safe_int(row["quantity"], 1), 1), step=1)
+        c4, c5, c6 = st.columns(3)
+        edit_total_invoice_amount = c4.number_input("Toplam Fatura Tutarı", min_value=0.0, value=max(safe_float(row["total_invoice_amount"]), 0.0), step=100.0)
+        edit_supplier = c5.text_input("Tedarikçi", value=str(row["supplier"] or ""))
+        edit_invoice_no = c6.text_input("Fatura No", value=str(row["invoice_no"] or ""))
+        edit_notes = st.text_input("Not", value=str(row["notes"] or ""))
+        recalculated_unit_cost = round(edit_total_invoice_amount / edit_quantity, 2) if edit_quantity > 0 and edit_total_invoice_amount > 0 else 0.0
+        st.caption(f"Yeni birim maliyet: {fmt_try(recalculated_unit_cost)}")
+        b1, b2 = st.columns(2)
+        update_clicked = b1.form_submit_button("Satın Alma Kaydını Güncelle", use_container_width=True)
+        delete_clicked = b2.form_submit_button("Satın Alma Kaydını Sil", use_container_width=True)
+
+        if update_clicked:
+            if edit_quantity <= 0:
+                st.error("Adet en az 1 olmalı.")
+            elif edit_total_invoice_amount <= 0:
+                st.error("Toplam fatura tutarı 0'dan büyük olmalı.")
+            else:
+                conn.execute(
+                    """
+                    UPDATE inventory_purchases
+                    SET purchase_date = ?, item_name = ?, quantity = ?, total_invoice_amount = ?, unit_cost = ?, supplier = ?, invoice_no = ?, notes = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        edit_purchase_date.isoformat(),
+                        edit_item_name,
+                        int(edit_quantity),
+                        edit_total_invoice_amount,
+                        recalculated_unit_cost,
+                        edit_supplier,
+                        edit_invoice_no,
+                        edit_notes,
+                        selected_id,
+                    ),
+                )
+                conn.commit()
+                st.success(f"Satın alma kaydı güncellendi. Yeni birim maliyet: {fmt_try(recalculated_unit_cost)}")
+                st.rerun()
+
+        if delete_clicked:
+            conn.execute("DELETE FROM inventory_purchases WHERE id = ?", (selected_id,))
+            conn.commit()
+            st.success("Satın alma kaydı silindi.")
+            st.rerun()
 
 
 def equipment_tab(conn: sqlite3.Connection) -> None:
@@ -6643,7 +7035,6 @@ def build_payroll_pdf(selected_month: str, payroll_row: dict, deduction_rows: pd
 
 def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
     section_intro("🧾 Aylık Hakediş | Personel bazlı brüt, kesinti ve net ödeme özeti", "Aylık puantaj ve kesinti verilerini personel bazında hesaplar; tablo dosyası olarak dışa aktarma sağlar.")
-    sync_all_personnel_business_rules(conn, full_history=True)
 
     entries = fetch_df(
         conn,
@@ -6821,7 +7212,6 @@ def announcements_tab() -> None:
 
 def reports_tab(conn: sqlite3.Connection) -> None:
     section_intro("📊 Raporlar ve Karlılık | Fatura, personel maliyeti, yan gelir ve restoran kârlılığı", "Aylık müşteri faturası, personel maliyeti, restoran bazlı kârlılık, yan gelir analizi ve personel-şube dağılımı.")
-    sync_all_personnel_business_rules(conn, full_history=True)
 
     entries = fetch_df(
         conn,
@@ -7048,11 +7438,16 @@ def reports_tab(conn: sqlite3.Connection) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="📦", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title=APP_PAGE_TITLE, page_icon=APP_PAGE_ICON, layout="wide", initial_sidebar_state="expanded")
     inject_global_styles()
+    render_login_transition_overlay()
+    boot_placeholder = render_boot_shell()
 
     try:
         conn = get_conn()
+        if boot_placeholder is not None:
+            boot_placeholder.empty()
+            st.session_state["_ck_boot_shell_rendered"] = True
     except RuntimeError as exc:
         st.error(str(exc))
         st.info(
@@ -7086,27 +7481,30 @@ def main() -> None:
 
         ensure_role_access(menu, role)
         render_top_profile(conn)
-
-        if menu == "Genel Bakış":
-            dashboard_tab(conn)
-        elif menu == "Güncellemeler ve Duyurular":
-            announcements_tab()
-        elif menu == "Restoran Yönetimi":
-            restaurants_tab(conn)
-        elif menu == "Personel Yönetimi":
-            personnel_tab(conn)
-        elif menu == "Puantaj":
-            attendance_tab(conn)
-        elif menu == "Satın Alma":
-            purchases_tab(conn)
-        elif menu == "Ekipman & Zimmet":
-            equipment_tab(conn)
-        elif menu == "Kesinti Yönetimi":
-            deductions_tab(conn)
-        elif menu == "Aylık Hakediş":
-            monthly_payroll_tab(conn)
-        elif menu == "Raporlar ve Karlılık":
-            reports_tab(conn)
+        content_placeholder = st.empty()
+        with content_placeholder.container():
+            render_workspace_loading_shell(MENU_DISPLAY_LABELS.get(menu, menu))
+        with content_placeholder.container():
+            if menu == "Genel Bakış":
+                dashboard_tab(conn)
+            elif menu == "Güncellemeler ve Duyurular":
+                announcements_tab()
+            elif menu == "Restoran Yönetimi":
+                restaurants_tab(conn)
+            elif menu == "Personel Yönetimi":
+                personnel_tab(conn)
+            elif menu == "Puantaj":
+                attendance_tab(conn)
+            elif menu == "Satın Alma":
+                purchases_tab(conn)
+            elif menu == "Ekipman & Zimmet":
+                equipment_tab(conn)
+            elif menu == "Kesinti Yönetimi":
+                deductions_tab(conn)
+            elif menu == "Aylık Hakediş":
+                monthly_payroll_tab(conn)
+            elif menu == "Raporlar ve Karlılık":
+                reports_tab(conn)
     finally:
         conn.close()
 
