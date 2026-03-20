@@ -3828,26 +3828,13 @@ def inject_global_styles() -> None:
                 padding-top: 0.4rem;
             }
 
-            section[data-testid="stSidebar"] {
+            section[data-testid="stSidebar"][aria-expanded="true"] {
                 min-width: 18rem !important;
                 max-width: 18rem !important;
             }
 
-            section[data-testid="stSidebar"] > div {
+            section[data-testid="stSidebar"][aria-expanded="true"] > div {
                 width: 18rem !important;
-            }
-
-            section[data-testid="stSidebar"][aria-expanded="false"] {
-                min-width: 18rem !important;
-                max-width: 18rem !important;
-                transform: none !important;
-                margin-left: 0 !important;
-            }
-
-            section[data-testid="stSidebar"][aria-expanded="false"] > div {
-                width: 18rem !important;
-                transform: none !important;
-                margin-left: 0 !important;
             }
 
             [data-testid="stSidebar"] label,
