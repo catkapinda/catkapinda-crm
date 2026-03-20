@@ -4588,6 +4588,94 @@ def inject_global_styles() -> None:
                 white-space: nowrap;
             }
 
+            .ck-alert-stack {
+                display: grid;
+                gap: 10px;
+            }
+
+            .ck-alert-item {
+                border-radius: 18px;
+                border: 1px solid #E4EBF7;
+                background: linear-gradient(180deg, #FFFFFF 0%, #FBFDFF 100%);
+                padding: 13px 14px 12px;
+                box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+            }
+
+            .ck-alert-item-critical {
+                border-color: #F5C8CF;
+                background: linear-gradient(180deg, #FFF6F7 0%, #FFFDFD 100%);
+            }
+
+            .ck-alert-item-warning {
+                border-color: #F4E1B8;
+                background: linear-gradient(180deg, #FFFBEF 0%, #FFFDFC 100%);
+            }
+
+            .ck-alert-item-info {
+                border-color: #D8E6FF;
+                background: linear-gradient(180deg, #F7FAFF 0%, #FFFFFF 100%);
+            }
+
+            .ck-alert-item-success {
+                border-color: #CDE7D7;
+                background: linear-gradient(180deg, #F4FBF6 0%, #FFFFFF 100%);
+            }
+
+            .ck-alert-top {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+            }
+
+            .ck-alert-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 6px 9px;
+                border-radius: 999px;
+                font-size: 0.72rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                white-space: nowrap;
+            }
+
+            .ck-alert-badge-critical {
+                background: #FFE2E8;
+                color: #B12043;
+            }
+
+            .ck-alert-badge-warning {
+                background: #FFF0C9;
+                color: #9B6A00;
+            }
+
+            .ck-alert-badge-info {
+                background: #EAF2FF;
+                color: #1E56BF;
+            }
+
+            .ck-alert-badge-success {
+                background: #E2F5E8;
+                color: #197A42;
+            }
+
+            .ck-alert-title {
+                color: var(--ck-text);
+                font-size: 0.96rem;
+                font-weight: 820;
+                letter-spacing: -0.02em;
+                line-height: 1.4;
+            }
+
+            .ck-alert-detail {
+                margin-top: 0.42rem;
+                color: #617491;
+                font-size: 0.88rem;
+                line-height: 1.55;
+            }
+
             .stButton > button, .stDownloadButton > button {
                 border-radius: 14px;
                 font-weight: 800;
@@ -4737,6 +4825,51 @@ def render_record_snapshot(title: str, items: list[tuple[str, Any]]) -> None:
         rows.append(f"<div class='ck-list-row'><span>{safe_label}</span><span class='ck-chip'>{safe_value}</span></div>")
     st.markdown(
         f"<div class='ck-panel'><div class='ck-panel-title'>{html.escape(title)}</div>{''.join(rows)}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_alert_stack(title: str, items: list[dict[str, Any]]) -> None:
+    tone_map = {
+        "critical": ("ck-alert-item-critical", "ck-alert-badge-critical"),
+        "warning": ("ck-alert-item-warning", "ck-alert-badge-warning"),
+        "info": ("ck-alert-item-info", "ck-alert-badge-info"),
+        "success": ("ck-alert-item-success", "ck-alert-badge-success"),
+    }
+    card_html = []
+    for item in items:
+        tone = str(item.get("tone", "info") or "info").strip().lower()
+        item_class, badge_class = tone_map.get(tone, tone_map["info"])
+        badge_label = html.escape(str(item.get("badge", "Bilgi") or "Bilgi"))
+        title_text = html.escape(str(item.get("title", "-") or "-"))
+        detail_text = html.escape(str(item.get("detail", "") or ""))
+        card_html.append(
+            f"""
+            <div class="ck-alert-item {item_class}">
+                <div class="ck-alert-top">
+                    <div class="ck-alert-title">{title_text}</div>
+                    <div class="ck-alert-badge {badge_class}">{badge_label}</div>
+                </div>
+                <div class="ck-alert-detail">{detail_text}</div>
+            </div>
+            """
+        )
+
+    if not card_html:
+        card_html.append(
+            """
+            <div class="ck-alert-item ck-alert-item-success">
+                <div class="ck-alert-top">
+                    <div class="ck-alert-title">Bugün için kritik aksiyon görünmüyor.</div>
+                    <div class="ck-alert-badge ck-alert-badge-success">Stabil</div>
+                </div>
+                <div class="ck-alert-detail">Operasyon akışında öne çıkan bir alarm tespit edilmedi.</div>
+            </div>
+            """
+        )
+
+    st.markdown(
+        f"<div class='ck-panel'><div class='ck-panel-title'>{html.escape(title)}</div><div class='ck-alert-stack'>{''.join(card_html)}</div></div>",
         unsafe_allow_html=True,
     )
 
@@ -5404,6 +5537,88 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
         for _, row in profit_df.sort_values("brut_fark", ascending=True).head(5).iterrows()
     ] if not profit_df.empty else [("-", "Henüz veri yok")]
 
+    priority_alerts = []
+    for _, row in missing_attendance_df.head(3).iterrows():
+        priority_alerts.append(
+            {
+                "tone": "critical",
+                "badge": "Bugün",
+                "title": f"{row['brand']} - {row['branch']}",
+                "detail": "Günlük puantaj kaydı henüz açılmadı. Gün sonu kapanışını geciktirebilir.",
+            }
+        )
+    for _, row in under_target_df.head(3).iterrows():
+        open_headcount = safe_int(row["acik_kadro"], 0)
+        priority_alerts.append(
+            {
+                "tone": "critical" if open_headcount >= 2 else "warning",
+                "badge": "Kadro",
+                "title": f"{row['brand']} - {row['branch']}",
+                "detail": f"Hedef kadroya göre {open_headcount} kişilik açık görünüyor.",
+            }
+        )
+    if not profit_df.empty:
+        negative_profit_df = profit_df[profit_df["brut_fark"] < 0].sort_values("brut_fark", ascending=True).head(3)
+        for _, row in negative_profit_df.iterrows():
+            priority_alerts.append(
+                {
+                    "tone": "warning",
+                    "badge": "Finans",
+                    "title": str(row["restoran"] or "-"),
+                    "detail": f"Bu ay operasyon farkı {fmt_try(row['brut_fark'])} seviyesinde.",
+                }
+            )
+    for _, row in missing_onboarding_df.head(2).iterrows():
+        priority_alerts.append(
+            {
+                "tone": "info",
+                "badge": "Zimmet",
+                "title": str(row["personel"] or "-"),
+                "detail": f"Eksik onboarding: {row['eksik_zimmet']}",
+            }
+        )
+
+    brand_summary_df = pd.DataFrame()
+    if not month_entries.empty:
+        restaurant_brand_df = month_entries[["brand", "branch"]].drop_duplicates().copy()
+        restaurant_brand_df["restoran"] = restaurant_brand_df["brand"] + " - " + restaurant_brand_df["branch"]
+        brand_ops_df = (
+            month_entries.groupby("brand", dropna=False)
+            .agg(
+                restoran_sayisi=("restaurant_id", "nunique"),
+                paket=("package_count", "sum"),
+                saat=("worked_hours", "sum"),
+            )
+            .reset_index()
+        )
+        brand_revenue_df = (
+            invoice_df.merge(restaurant_brand_df[["restoran", "brand"]], how="left", on="restoran")
+            .groupby("brand", dropna=False)
+            .agg(toplam_fatura=("kdv_dahil", "sum"))
+            .reset_index()
+        ) if not invoice_df.empty else pd.DataFrame(columns=["brand", "toplam_fatura"])
+        brand_profit_agg_df = (
+            profit_df.merge(restaurant_brand_df[["restoran", "brand"]], how="left", on="restoran")
+            .groupby("brand", dropna=False)
+            .agg(
+                operasyon_farki=("brut_fark", "sum"),
+                ortalama_marj=("kar_marji_%", "mean"),
+            )
+            .reset_index()
+        ) if not profit_df.empty else pd.DataFrame(columns=["brand", "operasyon_farki", "ortalama_marj"])
+        brand_summary_df = (
+            brand_ops_df.merge(brand_revenue_df, how="left", on="brand")
+            .merge(brand_profit_agg_df, how="left", on="brand")
+            .fillna({"toplam_fatura": 0, "operasyon_farki": 0, "ortalama_marj": 0})
+        )
+        brand_summary_df["durum"] = brand_summary_df.apply(
+            lambda row: "Kritik"
+            if safe_float(row["operasyon_farki"], 0.0) < 0
+            else ("İzleme" if safe_float(row["ortalama_marj"], 0.0) < 8 else "Sağlam"),
+            axis=1,
+        )
+        brand_summary_df = brand_summary_df.sort_values(["operasyon_farki", "paket"], ascending=[False, False]).reset_index(drop=True)
+
     c_top_1, c_top_2 = st.columns([1.2, 1])
     with c_top_1:
         render_record_snapshot(
@@ -5428,6 +5643,32 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
                 ("Riskli restoran", len(profit_df[profit_df["brut_fark"] < 0]) if not profit_df.empty else 0),
             ],
         )
+
+    focus_col, brand_col = st.columns([1.1, 1.2])
+    with focus_col:
+        render_alert_stack("Bugün Acil Aksiyon", priority_alerts)
+    with brand_col:
+        st.markdown("<div class='ck-panel-title'>Marka Bazlı Özet</div>", unsafe_allow_html=True)
+        if brand_summary_df.empty:
+            st.info("Marka bazlı özet için bu ay puantaj verisi oluşmadı.")
+        else:
+            brand_display_df = format_display_df(
+                brand_summary_df.head(8),
+                currency_cols=["toplam_fatura", "operasyon_farki"],
+                number_cols=["restoran_sayisi", "paket", "saat"],
+                percent_cols=["ortalama_marj"],
+                rename_map={
+                    "brand": "Marka",
+                    "restoran_sayisi": "Şube",
+                    "paket": "Paket",
+                    "saat": "Saat",
+                    "toplam_fatura": "Fatura",
+                    "operasyon_farki": "Operasyon Farkı",
+                    "ortalama_marj": "Ort. Marj",
+                    "durum": "Durum",
+                },
+            )
+            st.dataframe(brand_display_df, use_container_width=True, hide_index=True)
 
     if entries.empty:
         st.info("Henüz günlük puantaj kaydı yok. İlk kayıtlar geldikçe dashboard operasyon akışını burada gösterecek.")
