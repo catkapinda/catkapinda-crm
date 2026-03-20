@@ -30,6 +30,9 @@ from reportlab.pdfgen import canvas
 
 
 DEFAULT_AUTH_PASSWORD = "123456"
+APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
+APP_PAGE_ICON = "🧭"
+RUNTIME_BOOTSTRAP_VERSION = "2026-03-20-performance-1"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
     "assets/catkapinda_logo.jpg",
@@ -1001,6 +1004,23 @@ def ensure_schema(conn: CompatConnection) -> None:
     conn.commit()
 
 
+def get_app_meta_value(conn: CompatConnection, meta_key: str, default: str = "") -> str:
+    row = conn.execute("SELECT meta_value FROM app_meta WHERE meta_key = ?", (meta_key,)).fetchone()
+    return str(first_row_value(row, default) or default)
+
+
+def set_app_meta_value(conn: CompatConnection, meta_key: str, meta_value: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO app_meta (meta_key, meta_value)
+        VALUES (?, ?)
+        ON CONFLICT(meta_key) DO UPDATE SET meta_value = excluded.meta_value
+        """,
+        (meta_key, meta_value),
+    )
+    conn.commit()
+
+
 def get_table_columns(conn: CompatConnection, table_name: str) -> set[str]:
     if conn.backend == "sqlite":
         return {row["name"] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
@@ -1429,10 +1449,13 @@ def ensure_runtime_bootstrap(conn: CompatConnection) -> None:
     ensure_schema(conn)
     maybe_migrate_legacy_sqlite_to_postgres(conn)
     seed_initial_data(conn)
-    migrate_data(conn)
-    normalize_existing_deduction_dates(conn)
+    applied_bootstrap_version = get_app_meta_value(conn, "runtime_bootstrap_version")
+    if applied_bootstrap_version != RUNTIME_BOOTSTRAP_VERSION:
+        migrate_data(conn)
+        normalize_existing_deduction_dates(conn)
+        sync_all_personnel_business_rules(conn, full_history=True)
+        set_app_meta_value(conn, "runtime_bootstrap_version", RUNTIME_BOOTSTRAP_VERSION)
     sync_default_auth_users(conn)
-    sync_all_personnel_business_rules(conn)
     cleanup_auth_sessions(conn)
     st.session_state[bootstrap_key] = True
 
@@ -2084,13 +2107,107 @@ def render_sidebar_brand() -> None:
             <div class="ck-side-heading-subtitle">Operasyon CRM</div>
         </div>
         <div class="ck-side-toolbar">
-            <div class="ck-side-toolbar-icon">✦</div>
-            <div class="ck-side-toolbar-text">Kurumsal Operasyon Paneli</div>
+            <div class="ck-side-toolbar-icon">🧭</div>
+            <div class="ck-side-toolbar-text">Operasyon Paneli</div>
         </div>
         <div class="ck-side-menu-note">Ana Menü</div>
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_boot_shell() -> Any:
+    if st.session_state.get("_ck_boot_shell_rendered"):
+        return None
+    placeholder = st.empty()
+    placeholder.markdown(
+        """
+        <style>
+            .ck-boot-shell {
+                display: grid;
+                place-items: center;
+                min-height: 62vh;
+                padding: 2rem 1rem 1rem;
+            }
+
+            .ck-boot-card {
+                width: min(520px, 100%);
+                padding: 1.5rem 1.5rem 1.35rem;
+                border-radius: 28px;
+                border: 1px solid rgba(201, 216, 242, 0.92);
+                background:
+                    radial-gradient(circle at top right, rgba(42, 132, 255, 0.12), transparent 34%),
+                    linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.96) 100%);
+                box-shadow: 0 24px 60px rgba(15, 23, 42, 0.10);
+            }
+
+            .ck-boot-kicker {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 0.45rem 0.8rem;
+                border-radius: 999px;
+                background: #F1F6FF;
+                border: 1px solid #D7E4FA;
+                color: #2857AF;
+                font-size: 0.74rem;
+                font-weight: 800;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+            }
+
+            .ck-boot-title {
+                margin-top: 1rem;
+                color: #111F39;
+                font-size: clamp(1.7rem, 3vw, 2.35rem);
+                line-height: 1.06;
+                letter-spacing: -0.05em;
+                font-weight: 880;
+            }
+
+            .ck-boot-copy {
+                margin-top: 0.8rem;
+                color: #5A6D89;
+                font-size: 0.98rem;
+                line-height: 1.7;
+            }
+
+            .ck-boot-loader {
+                margin-top: 1.15rem;
+                width: 100%;
+                height: 10px;
+                overflow: hidden;
+                border-radius: 999px;
+                background: #EAF1FB;
+            }
+
+            .ck-boot-loader-bar {
+                width: 42%;
+                height: 100%;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #0C4BCB 0%, #1A9EF0 100%);
+                animation: ckBootPulse 1.2s ease-in-out infinite;
+                transform-origin: left center;
+            }
+
+            @keyframes ckBootPulse {
+                0% { transform: translateX(-18%) scaleX(0.82); opacity: 0.72; }
+                50% { transform: translateX(92%) scaleX(1.04); opacity: 1; }
+                100% { transform: translateX(210%) scaleX(0.88); opacity: 0.72; }
+            }
+        </style>
+        <div class="ck-boot-shell">
+            <div class="ck-boot-card">
+                <div class="ck-boot-kicker">🧭 Operasyon Paneli Hazırlanıyor</div>
+                <div class="ck-boot-title">Çat Kapında sistem bileşenleri yükleniyor.</div>
+                <div class="ck-boot-copy">Veritabanı bağlantısı ve oturum kontrolleri hazırlanıyor. İlk açılışta kısa bir yüklenme süresi görülebilir.</div>
+                <div class="ck-boot-loader"><div class="ck-boot-loader-bar"></div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    return placeholder
 
 
 def logout_button(conn: sqlite3.Connection) -> None:
@@ -3511,6 +3628,65 @@ def inject_global_styles() -> None:
                 color: rgba(255,255,255,0.86);
             }
 
+            .ck-workspace-shell {
+                margin-bottom: 1rem;
+                padding: 1.15rem 1.2rem 1rem;
+                border-radius: 24px;
+                border: 1px solid #DCE6F5;
+                background:
+                    radial-gradient(circle at top right, rgba(35, 114, 244, 0.12), transparent 28%),
+                    linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%);
+                box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06);
+            }
+
+            .ck-workspace-shell-kicker {
+                color: #4E6FA7;
+                font-size: 0.76rem;
+                font-weight: 900;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+            }
+
+            .ck-workspace-shell-title {
+                margin-top: 0.6rem;
+                color: #13233D;
+                font-size: 1.35rem;
+                line-height: 1.12;
+                font-weight: 840;
+                letter-spacing: -0.04em;
+            }
+
+            .ck-workspace-shell-text {
+                margin-top: 0.55rem;
+                color: #617491;
+                font-size: 0.95rem;
+                line-height: 1.7;
+            }
+
+            .ck-workspace-shell-loader {
+                margin-top: 0.95rem;
+                width: 100%;
+                height: 9px;
+                overflow: hidden;
+                border-radius: 999px;
+                background: #EAF1FB;
+            }
+
+            .ck-workspace-shell-loader-bar {
+                width: 36%;
+                height: 100%;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #0C4BCB 0%, #1A9EF0 100%);
+                animation: ckWorkspaceShellPulse 1.15s ease-in-out infinite;
+                transform-origin: left center;
+            }
+
+            @keyframes ckWorkspaceShellPulse {
+                0% { transform: translateX(-22%) scaleX(0.84); opacity: 0.75; }
+                50% { transform: translateX(108%) scaleX(1.02); opacity: 1; }
+                100% { transform: translateX(230%) scaleX(0.9); opacity: 0.75; }
+            }
+
             .ck-field-label {
                 margin: 0.1rem 0 0.35rem;
                 color: #324766;
@@ -4021,6 +4197,23 @@ def render_tab_header(title: str, subtitle: str) -> None:
         <div class="ck-tab-header">
             <div class="ck-tab-header-title">{html.escape(title)}</div>
             <div class="ck-tab-header-subtitle">{html.escape(subtitle)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_workspace_loading_shell(menu_label: str) -> None:
+    safe_menu_label = html.escape(str(menu_label or "çalışma alanı"))
+    st.markdown(
+        f"""
+        <div class="ck-workspace-shell">
+            <div class="ck-workspace-shell-kicker">Panel Hazırlanıyor</div>
+            <div class="ck-workspace-shell-title">{safe_menu_label} açılıyor.</div>
+            <div class="ck-workspace-shell-text">Oturum doğrulandı. İçerik ve operasyon verileri yükleniyor.</div>
+            <div class="ck-workspace-shell-loader">
+                <div class="ck-workspace-shell-loader-bar"></div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -5862,7 +6055,6 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
 def deductions_tab(conn: sqlite3.Connection) -> None:
     section_intro("💸 Kesinti Yönetimi | Motor kira, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; personel kartından gelen sistem kesintileri de aynı tabloda görünür.")
-    sync_all_personnel_business_rules(conn, full_history=True)
     person_opts = get_person_options(conn, active_only=False)
     deduction_types = ["Yakıt", "HGS", "İdari ceza", "Hasar", "Fatura Edilmeyen Tutar"]
 
@@ -6643,7 +6835,6 @@ def build_payroll_pdf(selected_month: str, payroll_row: dict, deduction_rows: pd
 
 def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
     section_intro("🧾 Aylık Hakediş | Personel bazlı brüt, kesinti ve net ödeme özeti", "Aylık puantaj ve kesinti verilerini personel bazında hesaplar; tablo dosyası olarak dışa aktarma sağlar.")
-    sync_all_personnel_business_rules(conn, full_history=True)
 
     entries = fetch_df(
         conn,
@@ -6821,7 +7012,6 @@ def announcements_tab() -> None:
 
 def reports_tab(conn: sqlite3.Connection) -> None:
     section_intro("📊 Raporlar ve Karlılık | Fatura, personel maliyeti, yan gelir ve restoran kârlılığı", "Aylık müşteri faturası, personel maliyeti, restoran bazlı kârlılık, yan gelir analizi ve personel-şube dağılımı.")
-    sync_all_personnel_business_rules(conn, full_history=True)
 
     entries = fetch_df(
         conn,
@@ -7048,11 +7238,15 @@ def reports_tab(conn: sqlite3.Connection) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Çat Kapında Operasyon CRM", page_icon="📦", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title=APP_PAGE_TITLE, page_icon=APP_PAGE_ICON, layout="wide", initial_sidebar_state="expanded")
     inject_global_styles()
+    boot_placeholder = render_boot_shell()
 
     try:
         conn = get_conn()
+        if boot_placeholder is not None:
+            boot_placeholder.empty()
+            st.session_state["_ck_boot_shell_rendered"] = True
     except RuntimeError as exc:
         st.error(str(exc))
         st.info(
@@ -7086,27 +7280,30 @@ def main() -> None:
 
         ensure_role_access(menu, role)
         render_top_profile(conn)
-
-        if menu == "Genel Bakış":
-            dashboard_tab(conn)
-        elif menu == "Güncellemeler ve Duyurular":
-            announcements_tab()
-        elif menu == "Restoran Yönetimi":
-            restaurants_tab(conn)
-        elif menu == "Personel Yönetimi":
-            personnel_tab(conn)
-        elif menu == "Puantaj":
-            attendance_tab(conn)
-        elif menu == "Satın Alma":
-            purchases_tab(conn)
-        elif menu == "Ekipman & Zimmet":
-            equipment_tab(conn)
-        elif menu == "Kesinti Yönetimi":
-            deductions_tab(conn)
-        elif menu == "Aylık Hakediş":
-            monthly_payroll_tab(conn)
-        elif menu == "Raporlar ve Karlılık":
-            reports_tab(conn)
+        content_placeholder = st.empty()
+        with content_placeholder.container():
+            render_workspace_loading_shell(MENU_DISPLAY_LABELS.get(menu, menu))
+        with content_placeholder.container():
+            if menu == "Genel Bakış":
+                dashboard_tab(conn)
+            elif menu == "Güncellemeler ve Duyurular":
+                announcements_tab()
+            elif menu == "Restoran Yönetimi":
+                restaurants_tab(conn)
+            elif menu == "Personel Yönetimi":
+                personnel_tab(conn)
+            elif menu == "Puantaj":
+                attendance_tab(conn)
+            elif menu == "Satın Alma":
+                purchases_tab(conn)
+            elif menu == "Ekipman & Zimmet":
+                equipment_tab(conn)
+            elif menu == "Kesinti Yönetimi":
+                deductions_tab(conn)
+            elif menu == "Aylık Hakediş":
+                monthly_payroll_tab(conn)
+            elif menu == "Raporlar ve Karlılık":
+                reports_tab(conn)
     finally:
         conn.close()
 
