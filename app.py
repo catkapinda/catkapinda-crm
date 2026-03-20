@@ -484,6 +484,7 @@ def init_auth_state() -> None:
         "user_role_display": None,
         "must_change_password": False,
         "login_help_visible": False,
+        "login_transition_active": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -511,6 +512,7 @@ def clear_authenticated_user() -> None:
         "user_full_name",
         "user_role_display",
         "must_change_password",
+        "login_transition_active",
     ]:
         st.session_state.pop(key, None)
 
@@ -2096,7 +2098,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     set_query_param(AUTH_QUERY_KEY, None)
                 set_authenticated_user(user, token)
                 st.session_state.login_help_visible = False
-                st.success("Giriş başarılı. Panel hazırlanıyor...")
+                st.session_state.login_transition_active = True
                 st.rerun()
             else:
                 st.error("E-posta adresi veya şifre hatalı.")
@@ -2212,6 +2214,112 @@ def render_boot_shell() -> Any:
         unsafe_allow_html=True,
     )
     return placeholder
+
+
+def render_login_transition_overlay() -> None:
+    if not st.session_state.get("login_transition_active"):
+        return
+
+    st.markdown(
+        """
+        <style>
+            .ck-login-transition-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 999999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 1.25rem;
+                background:
+                    radial-gradient(circle at top right, rgba(10, 76, 210, 0.10), transparent 22%),
+                    linear-gradient(180deg, rgba(247, 250, 255, 0.98) 0%, rgba(240, 246, 255, 0.98) 100%);
+                backdrop-filter: blur(12px);
+                animation: ckLoginOverlayFade 1.05s ease forwards;
+                pointer-events: none;
+            }
+
+            .ck-login-transition-card {
+                width: min(460px, 100%);
+                padding: 1.35rem 1.35rem 1.2rem;
+                border-radius: 26px;
+                border: 1px solid rgba(207, 220, 243, 0.96);
+                background: rgba(255,255,255,0.92);
+                box-shadow: 0 26px 60px rgba(15, 23, 42, 0.12);
+            }
+
+            .ck-login-transition-kicker {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.45rem;
+                padding: 0.42rem 0.76rem;
+                border-radius: 999px;
+                background: #EEF5FF;
+                border: 1px solid #D5E3FB;
+                color: #295AB3;
+                font-size: 0.72rem;
+                font-weight: 800;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+            }
+
+            .ck-login-transition-title {
+                margin-top: 0.9rem;
+                color: #13233D;
+                font-size: clamp(1.45rem, 3vw, 1.95rem);
+                line-height: 1.08;
+                letter-spacing: -0.04em;
+                font-weight: 880;
+            }
+
+            .ck-login-transition-text {
+                margin-top: 0.7rem;
+                color: #5F7290;
+                font-size: 0.94rem;
+                line-height: 1.7;
+            }
+
+            .ck-login-transition-loader {
+                margin-top: 0.95rem;
+                width: 100%;
+                height: 10px;
+                overflow: hidden;
+                border-radius: 999px;
+                background: #E9F1FB;
+            }
+
+            .ck-login-transition-loader-bar {
+                width: 38%;
+                height: 100%;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #0C4BCB 0%, #1A9EF0 100%);
+                animation: ckLoginOverlayPulse 0.95s ease-in-out infinite;
+                transform-origin: left center;
+            }
+
+            @keyframes ckLoginOverlayPulse {
+                0% { transform: translateX(-20%) scaleX(0.86); opacity: 0.76; }
+                50% { transform: translateX(108%) scaleX(1.02); opacity: 1; }
+                100% { transform: translateX(228%) scaleX(0.9); opacity: 0.76; }
+            }
+
+            @keyframes ckLoginOverlayFade {
+                0%, 65% { opacity: 1; visibility: visible; }
+                100% { opacity: 0; visibility: hidden; }
+            }
+        </style>
+        <div class="ck-login-transition-overlay">
+            <div class="ck-login-transition-card">
+                <div class="ck-login-transition-kicker">🧭 Oturum Açıldı</div>
+                <div class="ck-login-transition-title">Çalışma alanı hazırlanıyor.</div>
+                <div class="ck-login-transition-text">Panel yüklenirken önceki giriş ekranı gizleniyor. Operasyon görünümü birkaç saniye içinde hazır olacak.</div>
+                <div class="ck-login-transition-loader"><div class="ck-login-transition-loader-bar"></div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state.login_transition_active = False
 
 
 def logout_button(conn: sqlite3.Connection) -> None:
@@ -6377,13 +6485,20 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
             st.success(f"Satın alma kaydedildi. Birim maliyet: {fmt_try(unit_cost)}")
             st.rerun()
 
-    purchases = fetch_df(conn, "SELECT purchase_date, item_name, quantity, total_invoice_amount, unit_cost, supplier, invoice_no, notes FROM inventory_purchases ORDER BY purchase_date DESC, id DESC")
+    purchases = fetch_df(
+        conn,
+        """
+        SELECT id, purchase_date, item_name, quantity, total_invoice_amount, unit_cost, supplier, invoice_no, notes
+        FROM inventory_purchases
+        ORDER BY purchase_date DESC, id DESC
+        """,
+    )
     if purchases.empty:
         st.info("Henüz satın alma faturası kaydı yok.")
         return
 
     purchases_display = format_display_df(
-        purchases,
+        purchases.drop(columns=["id"], errors="ignore"),
         currency_cols=["total_invoice_amount", "unit_cost"],
         number_cols=["quantity"],
         rename_map={
@@ -6398,6 +6513,69 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
         },
     )
     st.dataframe(purchases_display, use_container_width=True, hide_index=True)
+
+    st.markdown("### Satın alma kaydı düzenle / sil")
+    purchase_options = {
+        f"{row['purchase_date']} | {row['item_name']} | {fmt_try(row['total_invoice_amount'])} | ID:{int(row['id'])}": int(row["id"])
+        for _, row in purchases.iterrows()
+    }
+    selected_label = st.selectbox("Düzenlenecek kayıt", list(purchase_options.keys()), key="purchase_manage_select")
+    selected_id = purchase_options[selected_label]
+    row = purchases.loc[purchases["id"] == selected_id].iloc[0]
+    current_date = datetime.strptime(str(row["purchase_date"]), "%Y-%m-%d").date()
+    item_options = EQUIPMENT_ITEMS
+    current_item = str(row["item_name"] or "")
+    item_index = item_options.index(current_item) if current_item in item_options else 0
+
+    with st.form("purchase_edit_form"):
+        c1, c2, c3 = st.columns(3)
+        edit_purchase_date = c1.date_input("Fatura Tarihi", value=current_date)
+        edit_item_name = c2.selectbox("Ürün", item_options, index=item_index)
+        edit_quantity = c3.number_input("Adet", min_value=1, value=max(safe_int(row["quantity"], 1), 1), step=1)
+        c4, c5, c6 = st.columns(3)
+        edit_total_invoice_amount = c4.number_input("Toplam Fatura Tutarı", min_value=0.0, value=max(safe_float(row["total_invoice_amount"]), 0.0), step=100.0)
+        edit_supplier = c5.text_input("Tedarikçi", value=str(row["supplier"] or ""))
+        edit_invoice_no = c6.text_input("Fatura No", value=str(row["invoice_no"] or ""))
+        edit_notes = st.text_input("Not", value=str(row["notes"] or ""))
+        recalculated_unit_cost = round(edit_total_invoice_amount / edit_quantity, 2) if edit_quantity > 0 and edit_total_invoice_amount > 0 else 0.0
+        st.caption(f"Yeni birim maliyet: {fmt_try(recalculated_unit_cost)}")
+        b1, b2 = st.columns(2)
+        update_clicked = b1.form_submit_button("Satın Alma Kaydını Güncelle", use_container_width=True)
+        delete_clicked = b2.form_submit_button("Satın Alma Kaydını Sil", use_container_width=True)
+
+        if update_clicked:
+            if edit_quantity <= 0:
+                st.error("Adet en az 1 olmalı.")
+            elif edit_total_invoice_amount <= 0:
+                st.error("Toplam fatura tutarı 0'dan büyük olmalı.")
+            else:
+                conn.execute(
+                    """
+                    UPDATE inventory_purchases
+                    SET purchase_date = ?, item_name = ?, quantity = ?, total_invoice_amount = ?, unit_cost = ?, supplier = ?, invoice_no = ?, notes = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        edit_purchase_date.isoformat(),
+                        edit_item_name,
+                        int(edit_quantity),
+                        edit_total_invoice_amount,
+                        recalculated_unit_cost,
+                        edit_supplier,
+                        edit_invoice_no,
+                        edit_notes,
+                        selected_id,
+                    ),
+                )
+                conn.commit()
+                st.success(f"Satın alma kaydı güncellendi. Yeni birim maliyet: {fmt_try(recalculated_unit_cost)}")
+                st.rerun()
+
+        if delete_clicked:
+            conn.execute("DELETE FROM inventory_purchases WHERE id = ?", (selected_id,))
+            conn.commit()
+            st.success("Satın alma kaydı silindi.")
+            st.rerun()
 
 
 def equipment_tab(conn: sqlite3.Connection) -> None:
@@ -7262,6 +7440,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
 def main() -> None:
     st.set_page_config(page_title=APP_PAGE_TITLE, page_icon=APP_PAGE_ICON, layout="wide", initial_sidebar_state="expanded")
     inject_global_styles()
+    render_login_transition_overlay()
     boot_placeholder = render_boot_shell()
 
     try:
