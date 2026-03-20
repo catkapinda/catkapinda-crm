@@ -32,7 +32,7 @@ from reportlab.pdfgen import canvas
 DEFAULT_AUTH_PASSWORD = "123456"
 APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
 APP_PAGE_ICON = "🧭"
-RUNTIME_BOOTSTRAP_VERSION = "2026-03-20-performance-2"
+RUNTIME_BOOTSTRAP_VERSION = "2026-03-20-equipment-cost-vat-1"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
     "assets/catkapinda_logo.jpg",
@@ -89,12 +89,17 @@ COURIER_PACKAGE_COST_QC = 25.0
 PACKAGE_THRESHOLD_DEFAULT = 390
 AUTO_MOTOR_RENTAL_DEDUCTION = 13000.0
 MOTOR_RENTAL_STANDARD_MONTH_DAYS = 30
+MOTOR_RENTAL_VAT_RATE = 20.0
 AUTO_ACCOUNTING_DEDUCTION = 2000.0
 AUTO_ACCOUNTANT_COST = 1400.0
 AUTO_COMPANY_SETUP_DEDUCTION = 1500.0
 AUTO_COMPANY_SETUP_REVENUE = 1500.0
 AUTO_COMPANY_SETUP_COST = 500.0
 AUTO_EQUIPMENT_INSTALLMENT_COUNT = 2
+EQUIPMENT_REDUCED_VAT_START_DATE = date(2026, 3, 1)
+EQUIPMENT_VAT_RATE_BEFORE_REDUCTION = 20.0
+EQUIPMENT_VAT_RATE_AFTER_REDUCTION = 10.0
+EQUIPMENT_ALWAYS_STANDARD_VAT_ITEMS = {"Kask", "Telefon Tutacağı"}
 TEXTILE_ITEM_NAMES = {"Polar", "Tişört", "Korumalı Mont", "Yelek", "Yağmurluk"}
 AUTO_ONBOARDING_ITEMS = [
     {"key": "box", "item_name": "Box", "unit_sale_price": 3200.0, "vat_rate": 20.0},
@@ -155,7 +160,9 @@ ALLOCATION_SOURCE_LABELS = {
     "Degisken maliyet": "Değişken maliyet",
     "Sabit maliyet payi": "Sabit maliyet payı",
     "Sabit maliyet tam atama": "Sabit maliyet tam atama",
+    "Paylasilan yonetim maliyeti": "Paylaşılan yönetim maliyeti",
 }
+SHARED_OVERHEAD_ROLES = {"Joker", "Bölge Müdürü"}
 TABLE_EXPORT_ORDER = [
     "restaurants",
     "personnel",
@@ -731,6 +738,8 @@ def ensure_schema(conn: CompatConnection) -> None:
             address TEXT,
             tc_no TEXT,
             iban TEXT,
+            emergency_contact_name TEXT,
+            emergency_contact_phone TEXT,
             accounting_type TEXT DEFAULT 'Kendi Muhasebecisi',
             new_company_setup TEXT DEFAULT 'Hayır',
             accounting_revenue REAL DEFAULT 0,
@@ -893,6 +902,8 @@ def ensure_schema(conn: CompatConnection) -> None:
             address TEXT,
             tc_no TEXT,
             iban TEXT,
+            emergency_contact_name TEXT,
+            emergency_contact_phone TEXT,
             accounting_type TEXT DEFAULT 'Kendi Muhasebecisi',
             new_company_setup TEXT DEFAULT 'Hayır',
             accounting_revenue DOUBLE PRECISION DEFAULT 0,
@@ -1397,6 +1408,10 @@ def migrate_data(conn: CompatConnection) -> None:
         conn.execute("ALTER TABLE personnel ADD COLUMN company_setup_cost REAL DEFAULT 0")
     if "address" not in personnel_cols:
         conn.execute("ALTER TABLE personnel ADD COLUMN address TEXT")
+    if "emergency_contact_name" not in personnel_cols:
+        conn.execute("ALTER TABLE personnel ADD COLUMN emergency_contact_name TEXT")
+    if "emergency_contact_phone" not in personnel_cols:
+        conn.execute("ALTER TABLE personnel ADD COLUMN emergency_contact_phone TEXT")
     for role_name, cost_model_key in FIXED_COST_MODEL_BY_ROLE.items():
         conn.execute(
             "UPDATE personnel SET cost_model = ? WHERE cost_model = 'fixed_monthly' AND role = ?",
@@ -1459,6 +1474,7 @@ def ensure_runtime_bootstrap(conn: CompatConnection) -> None:
     if applied_bootstrap_version != RUNTIME_BOOTSTRAP_VERSION:
         migrate_data(conn)
         normalize_existing_deduction_dates(conn)
+        normalize_equipment_issue_costs_and_vat(conn)
         sync_all_personnel_business_rules(conn, full_history=True)
         set_app_meta_value(conn, "runtime_bootstrap_version", RUNTIME_BOOTSTRAP_VERSION)
     sync_default_auth_users(conn)
@@ -2521,8 +2537,38 @@ def latest_average_cost(conn: sqlite3.Connection, item_name: str) -> float:
     return float(first_row_value(row, 0) or 0)
 
 
-def get_equipment_vat_rate(item_name: str) -> float:
-    return 10.0 if (item_name or "").strip() in TEXTILE_ITEM_NAMES else VAT_RATE_DEFAULT
+def get_equipment_cost_snapshot(conn: sqlite3.Connection, item_name: str) -> tuple[int, float, int, float]:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS row_count, COALESCE(SUM(total_invoice_amount), 0) AS total_invoice_amount, COALESCE(SUM(quantity), 0) AS total_quantity, COALESCE(MAX(id), 0) AS max_id
+        FROM inventory_purchases
+        WHERE item_name = ?
+        """,
+        ((item_name or "").strip(),),
+    ).fetchone()
+    row_count = safe_int(get_row_value(row, "row_count", 0), 0)
+    total_invoice_amount = safe_float(get_row_value(row, "total_invoice_amount", 0.0), 0.0)
+    total_quantity = safe_int(get_row_value(row, "total_quantity", 0), 0)
+    weighted_average = round(total_invoice_amount / total_quantity, 2) if total_quantity > 0 else 0.0
+    max_id = safe_int(get_row_value(row, "max_id", 0), 0)
+    return row_count, total_invoice_amount, max_id, weighted_average
+
+
+def get_default_equipment_unit_cost(conn: sqlite3.Connection, item_name: str) -> float:
+    *_, weighted_average = get_equipment_cost_snapshot(conn, item_name)
+    if weighted_average > 0:
+        return weighted_average
+    return latest_average_cost(conn, item_name)
+
+
+def get_equipment_vat_rate(item_name: str, issue_date: date | str | None = None) -> float:
+    normalized_item_name = str(item_name or "").strip()
+    if normalized_item_name in EQUIPMENT_ALWAYS_STANDARD_VAT_ITEMS:
+        return EQUIPMENT_VAT_RATE_BEFORE_REDUCTION
+    effective_date = parse_date_value(issue_date) or date.today()
+    if effective_date >= EQUIPMENT_REDUCED_VAT_START_DATE:
+        return EQUIPMENT_VAT_RATE_AFTER_REDUCTION
+    return EQUIPMENT_VAT_RATE_BEFORE_REDUCTION
 
 
 def get_default_equipment_sale_price(item_name: str) -> float:
@@ -2698,6 +2744,38 @@ def normalize_existing_deduction_dates(conn: CompatConnection) -> None:
             continue
         conn.execute("UPDATE deductions SET deduction_date = ? WHERE id = ?", (normalized_date, deduction_id))
         changed = True
+
+    if changed:
+        conn.commit()
+
+
+def normalize_equipment_issue_costs_and_vat(conn: CompatConnection) -> None:
+    issue_rows = fetch_df(conn, "SELECT id, issue_date, item_name, unit_cost, vat_rate FROM courier_equipment_issues")
+    if issue_rows.empty:
+        return
+
+    changed = False
+    for _, row in issue_rows.iterrows():
+        issue_id = safe_int(row.get("id"))
+        item_name = str(row.get("item_name") or "").strip()
+        if issue_id <= 0 or not item_name:
+            continue
+
+        target_cost = get_default_equipment_unit_cost(conn, item_name)
+        target_vat_rate = get_equipment_vat_rate(item_name, row.get("issue_date"))
+        current_cost = safe_float(row.get("unit_cost"), 0.0)
+        current_vat_rate = safe_float(row.get("vat_rate"), VAT_RATE_DEFAULT)
+
+        if (target_cost > 0 and abs(current_cost - target_cost) > 0.01) or abs(current_vat_rate - target_vat_rate) > 0.01:
+            conn.execute(
+                "UPDATE courier_equipment_issues SET unit_cost = ?, vat_rate = ? WHERE id = ?",
+                (
+                    target_cost if target_cost > 0 else current_cost,
+                    target_vat_rate,
+                    issue_id,
+                ),
+            )
+            changed = True
 
     if changed:
         conn.commit()
@@ -2898,6 +2976,7 @@ def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_
     issue_date_value = parse_date_value(get_row_value(person_row, "start_date")) or date.today()
     for item in AUTO_ONBOARDING_ITEMS:
         auto_key = f"auto:onboarding:{item['key']}"
+        target_vat_rate = get_equipment_vat_rate(item["item_name"], issue_date_value)
         existing = fetch_df(
             conn,
             """
@@ -2924,7 +3003,7 @@ def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_
         if existing.empty:
             if not create_missing:
                 continue
-            unit_cost = latest_average_cost(conn, item["item_name"])
+            unit_cost = get_default_equipment_unit_cost(conn, item["item_name"])
             if unit_cost <= 0:
                 unit_cost = float(item["unit_sale_price"])
             issue_id = insert_equipment_issue_and_get_id(
@@ -2938,7 +3017,7 @@ def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_
                 AUTO_EQUIPMENT_INSTALLMENT_COUNT,
                 "Satış",
                 issue_notes,
-                vat_rate=float(item["vat_rate"]),
+                vat_rate=target_vat_rate,
                 auto_source_key=auto_key,
             )
             conn.commit()
@@ -2947,15 +3026,17 @@ def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_
             row = existing.iloc[0]
             issue_id = safe_int(row["id"])
             base_issue_date = parse_date_value(row["issue_date"]) or issue_date_value
+            target_vat_rate = get_equipment_vat_rate(item["item_name"], base_issue_date)
             resolved_cost = safe_float(row["unit_cost"])
             if resolved_cost <= 0:
-                resolved_cost = latest_average_cost(conn, item["item_name"])
+                resolved_cost = get_default_equipment_unit_cost(conn, item["item_name"])
             if resolved_cost <= 0:
                 resolved_cost = float(item["unit_sale_price"])
             if (
                 safe_int(row["quantity"], 1) != 1
+                or abs(safe_float(row["unit_cost"]) - resolved_cost) > 0.01
                 or abs(safe_float(row["unit_sale_price"]) - float(item["unit_sale_price"])) > 0.01
-                or abs(safe_float(row["vat_rate"], VAT_RATE_DEFAULT) - float(item["vat_rate"])) > 0.01
+                or abs(safe_float(row["vat_rate"], VAT_RATE_DEFAULT) - target_vat_rate) > 0.01
                 or safe_int(row["installment_count"], AUTO_EQUIPMENT_INSTALLMENT_COUNT) != AUTO_EQUIPMENT_INSTALLMENT_COUNT
                 or str(row["sale_type"] or "") != "Satış"
                 or str(row["notes"] or "") != issue_notes
@@ -2970,7 +3051,7 @@ def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_
                         1,
                         resolved_cost,
                         float(item["unit_sale_price"]),
-                        float(item["vat_rate"]),
+                        target_vat_rate,
                         AUTO_EQUIPMENT_INSTALLMENT_COUNT,
                         "Satış",
                         issue_notes,
@@ -3231,6 +3312,8 @@ def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
             "role": "Rol",
             "status": "Durum",
             "phone": "Telefon",
+            "emergency_contact_name": "Acil Durum İletişim Kişisi",
+            "emergency_contact_phone": "Acil Durum Telefonu",
             "address": "Adres",
             "tc_no": "TC Kimlik No",
             "iban": "IBAN",
@@ -5357,6 +5440,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     ("Rol", recent_row["role"] or "-"),
                     ("Durum", recent_row["status"] or "-"),
                     ("Ana Restoran", recent_row["restoran"] or "-"),
+                    ("Acil Durum Kişisi", recent_row["emergency_contact_name"] or "-"),
                 ],
             )
         else:
@@ -5414,7 +5498,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             filtered_df = filtered_df[filtered_df["status"] == status_filter].copy()
         if restaurant_filter != "Tümü":
             filtered_df = filtered_df[filtered_df["restoran"] == restaurant_filter].copy()
-        filtered_df = apply_text_search(filtered_df, ["person_code", "full_name", "phone", "address", "current_plate", "restoran"], search_query)
+        filtered_df = apply_text_search(
+            filtered_df,
+            ["person_code", "full_name", "phone", "emergency_contact_name", "emergency_contact_phone", "address", "current_plate", "restoran"],
+            search_query,
+        )
 
         if df.empty:
             st.info("Henüz personel kaydı yok.")
@@ -5445,6 +5533,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Durum", preview_row["status"] or "-"),
                         ("Ana Restoran", preview_row["restoran"] or "-"),
                         ("Plaka", preview_row["current_plate"] or "-"),
+                        ("Acil Durum Kişisi", preview_row["emergency_contact_name"] or "-"),
                     ],
                 )
                 st.info("Kartı düzenlemek, pasife almak veya görev bilgilerini değiştirmek için “Personel Düzenle” sekmesini kullan.")
@@ -5463,6 +5552,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Rol", recent_row["role"] or "-"),
                         ("Durum", recent_row["status"] or "-"),
                         ("Ana Restoran", recent_row["restoran"] or "-"),
+                        ("Acil Durum Kişisi", recent_row["emergency_contact_name"] or "-"),
                     ],
                 )
 
@@ -5474,6 +5564,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "new_person_tc_no": "",
             "new_person_iban": "",
             "new_person_address": "",
+            "new_person_emergency_contact_name": "",
+            "new_person_emergency_contact_phone": "",
             "new_person_accounting_type": "Kendi Muhasebecisi",
             "new_person_new_company_setup": "Hayır",
             "new_person_start_date": date.today(),
@@ -5529,6 +5621,15 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
         render_field_label("Adres")
         address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address", label_visibility="collapsed")
+
+        st.markdown("##### Acil Durum İletişimi")
+        c9a, c9b = st.columns(2)
+        with c9a:
+            render_field_label("Acil Durum İletişim Adı Soyadı")
+            emergency_contact_name = st.text_input("Acil Durum İletişim Adı Soyadı", key="new_person_emergency_contact_name", label_visibility="collapsed")
+        with c9b:
+            render_field_label("Acil Durum İletişim Telefonu")
+            emergency_contact_phone = st.text_input("Acil Durum İletişim Telefonu", key="new_person_emergency_contact_phone", label_visibility="collapsed")
 
         st.markdown("##### Muhasebe ve Şirket")
         c10, c11, c12 = st.columns(3)
@@ -5621,10 +5722,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         """
                         INSERT INTO personnel (
                             person_code, full_name, role, status, phone, address, tc_no, iban,
+                            emergency_contact_name, emergency_contact_phone,
                             accounting_type, new_company_setup, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
                             assigned_restaurant_id, vehicle_type, motor_rental, current_plate, start_date,
                             cost_model, monthly_fixed_cost, notes
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             auto_code,
@@ -5635,6 +5737,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             address,
                             tc_no,
                             iban,
+                            emergency_contact_name,
+                            emergency_contact_phone,
                             accounting_type,
                             new_company_setup,
                             accounting_revenue,
@@ -5703,6 +5807,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Restoran", row["restoran"] or "-"),
                         ("Motor", row["vehicle_type"] or "-"),
                         ("Rol", resolve_cost_role_option(str(row["cost_model"] or ""), str(row["role"] or "Kurye"))),
+                        ("Acil Durum Kişisi", row["emergency_contact_name"] or "-"),
                     ],
                 )
             with left:
@@ -5763,6 +5868,23 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
                     render_field_label("Adres")
                     edit_address = st.text_area("Adres", value=row["address"] or "", label_visibility="collapsed")
+
+                    st.markdown("##### Acil Durum İletişimi")
+                    c9a, c9b = st.columns(2)
+                    with c9a:
+                        render_field_label("Acil Durum İletişim Adı Soyadı")
+                        edit_emergency_contact_name = st.text_input(
+                            "Acil Durum İletişim Adı Soyadı",
+                            value=row["emergency_contact_name"] or "",
+                            label_visibility="collapsed",
+                        )
+                    with c9b:
+                        render_field_label("Acil Durum İletişim Telefonu")
+                        edit_emergency_contact_phone = st.text_input(
+                            "Acil Durum İletişim Telefonu",
+                            value=row["emergency_contact_phone"] or "",
+                            label_visibility="collapsed",
+                        )
 
                     st.markdown("##### Muhasebe ve Şirket")
                     c10, c11, c12 = st.columns(3)
@@ -5882,6 +6004,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 """
                                 UPDATE personnel
                                 SET person_code=?, full_name=?, role=?, status=?, phone=?, address=?, tc_no=?, iban=?,
+                                    emergency_contact_name=?, emergency_contact_phone=?,
                                     accounting_type=?, new_company_setup=?, accounting_revenue=?, accountant_cost=?, company_setup_revenue=?, company_setup_cost=?, assigned_restaurant_id=?,
                                     vehicle_type=?, motor_rental=?, current_plate=?, start_date=?,
                                     cost_model=?, monthly_fixed_cost=?, notes=?
@@ -5896,6 +6019,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                     edit_address,
                                     edit_tc,
                                     edit_iban,
+                                    edit_emergency_contact_name,
+                                    edit_emergency_contact_phone,
                                     edit_accounting,
                                     edit_new_company,
                                     edit_accounting_revenue,
@@ -6435,7 +6560,9 @@ EQUIPMENT_ITEMS = [
     "Tişört",
     "Korumalı Mont",
     "Yelek",
+    "Reflektörlü Yelek",
     "Yağmurluk",
+    "Göğüs Çantası",
     "Kask",
     "Telefon Tutacağı",
 ]
@@ -6445,7 +6572,9 @@ NON_RETURNABLE_ITEMS = {
     "Tişört",
     "Korumalı Mont",
     "Yelek",
+    "Reflektörlü Yelek",
     "Yağmurluk",
+    "Göğüs Çantası",
     "Kask",
     "Telefon Tutacağı",
 }
@@ -6601,23 +6730,34 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                 st.session_state["issue_item"] = EQUIPMENT_ITEMS[0]
             if st.session_state.get("issue_last_item") not in EQUIPMENT_ITEMS:
                 st.session_state["issue_last_item"] = st.session_state.get("issue_item", EQUIPMENT_ITEMS[0])
+            active_item_name = st.session_state.get("issue_item", EQUIPMENT_ITEMS[0])
+            active_cost_snapshot = get_equipment_cost_snapshot(conn, active_item_name)
+            active_average_cost = active_cost_snapshot[3]
             if "issue_cost" not in st.session_state:
-                st.session_state["issue_cost"] = float(latest_average_cost(conn, st.session_state["issue_item"]))
+                st.session_state["issue_cost"] = float(get_default_equipment_unit_cost(conn, active_item_name))
+                st.session_state["issue_cost_source_snapshot"] = active_cost_snapshot
             if "issue_sale" not in st.session_state:
-                initial_sale = get_default_equipment_sale_price(st.session_state["issue_item"]) or st.session_state["issue_cost"]
+                initial_sale = get_default_equipment_sale_price(active_item_name) or st.session_state["issue_cost"]
                 st.session_state["issue_sale"] = float(initial_sale)
+            if tuple(st.session_state.get("issue_cost_source_snapshot") or ()) != tuple(active_cost_snapshot):
+                st.session_state["issue_cost"] = float(active_average_cost)
+                st.session_state["issue_cost_source_snapshot"] = active_cost_snapshot
 
             c1, c2, c3 = st.columns(3)
             person_label = c1.selectbox("Personel", list(person_opts.keys()), key="issue_person")
             issue_date = c2.date_input("Zimmet tarihi", value=date.today(), key="issue_date")
             item_name = c3.selectbox("Ürün", EQUIPMENT_ITEMS, key="issue_item")
             if st.session_state.get("issue_last_item") != item_name:
-                refreshed_cost = latest_average_cost(conn, item_name)
+                refreshed_snapshot = get_equipment_cost_snapshot(conn, item_name)
+                refreshed_cost = refreshed_snapshot[3]
+                if refreshed_cost <= 0:
+                    refreshed_cost = latest_average_cost(conn, item_name)
                 refreshed_sale = get_default_equipment_sale_price(item_name) or refreshed_cost
                 st.session_state["issue_cost"] = float(refreshed_cost)
                 st.session_state["issue_sale"] = float(refreshed_sale)
+                st.session_state["issue_cost_source_snapshot"] = refreshed_snapshot
                 st.session_state["issue_last_item"] = item_name
-            vat_rate = get_equipment_vat_rate(item_name)
+            vat_rate = get_equipment_vat_rate(item_name, issue_date)
             c4, c5, c6 = st.columns(3)
             quantity = c4.number_input("Adet", min_value=1, value=1, step=1, key="issue_qty")
             unit_cost = c5.number_input("Birim maliyet", min_value=0.0, step=50.0, key="issue_cost")
@@ -6627,6 +6767,8 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             sale_type = c8.selectbox("İşlem tipi", ["Satış", "Depozit / Teslim"], key="issue_sale_type")
             notes = c9.text_input("Not", key="issue_notes")
             st.caption(f"Bu ürün için varsayılan KDV oranı: %{fmt_number(vat_rate)}")
+            if active_average_cost > 0:
+                st.caption(f"Varsayılan birim maliyet satın alma kayıtlarındaki ağırlıklı ortalamadan geliyor: {fmt_try(active_average_cost)}")
             submitted = st.button("Zimmet Kaydet ve Taksit Oluştur", use_container_width=True, key="issue_submit")
             if submitted:
                 person_id = person_opts[person_label]
@@ -6836,9 +6978,14 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             )
             st.dataframe(stock_display, use_container_width=True, hide_index=True)
 
-def build_branch_profitability(month_df: pd.DataFrame, personnel_df: pd.DataFrame, deductions_df: pd.DataFrame, invoice_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def build_branch_profitability(
+    month_df: pd.DataFrame,
+    personnel_df: pd.DataFrame,
+    deductions_df: pd.DataFrame,
+    invoice_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     if month_df.empty or invoice_df.empty:
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
     work = month_df.groupby(["brand", "branch", "pricing_model", "actual_personnel_id"], dropna=False).agg(
         saat=("worked_hours", "sum"),
@@ -6855,6 +7002,8 @@ def build_branch_profitability(month_df: pd.DataFrame, personnel_df: pd.DataFram
         ded_by_person = deductions_df.groupby("personnel_id", dropna=False)["amount"].sum().reset_index(name="toplam_kesinti")
 
     allocation_rows = []
+    shared_overhead_rows = []
+    invoiced_restaurants = sorted(invoice_df["restoran"].dropna().astype(str).unique().tolist())
     for _, row in work.iterrows():
         person_id = row["actual_personnel_id"]
         if pd.isna(person_id):
@@ -6888,6 +7037,35 @@ def build_branch_profitability(month_df: pd.DataFrame, personnel_df: pd.DataFram
         gross = float(person["monthly_fixed_cost"] or 0)
         total_ded = float(ded_by_person.loc[ded_by_person["personnel_id"] == pid, "toplam_kesinti"].sum()) if not ded_by_person.empty else 0.0
         net = gross - total_ded
+        role_name = str(person.get("role") or "")
+
+        if role_name in SHARED_OVERHEAD_ROLES and invoiced_restaurants:
+            per_restaurant_share = net / len(invoiced_restaurants)
+            for restaurant_name in invoiced_restaurants:
+                allocation_rows.append(
+                    {
+                        "restoran": restaurant_name,
+                        "personel": person["full_name"],
+                        "rol": role_name,
+                        "saat": 0.0,
+                        "paket": 0.0,
+                        "maliyet": per_restaurant_share,
+                        "kaynak": "Paylasilan yonetim maliyeti",
+                    }
+                )
+            shared_overhead_rows.append(
+                {
+                    "personel": person["full_name"],
+                    "rol": role_name,
+                    "aylik_brut_maliyet": gross,
+                    "toplam_kesinti": total_ded,
+                    "aylik_net_maliyet": net,
+                    "paylastirilan_restoran_sayisi": len(invoiced_restaurants),
+                    "restoran_basina_pay": per_restaurant_share,
+                }
+            )
+            continue
+
         per_work = work[work["actual_personnel_id"] == pid].copy()
         if not per_work.empty and float(per_work["saat"].sum()) > 0:
             total_hours = float(per_work["saat"].sum())
@@ -6924,17 +7102,31 @@ def build_branch_profitability(month_df: pd.DataFrame, personnel_df: pd.DataFram
 
     alloc_df = pd.DataFrame(allocation_rows)
     if alloc_df.empty:
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(shared_overhead_rows)
 
-    branch_cost = alloc_df.groupby("restoran", dropna=False).agg(toplam_personel_maliyeti=("maliyet", "sum")).reset_index()
+    direct_cost_df = (
+        alloc_df[alloc_df["kaynak"] != "Paylasilan yonetim maliyeti"]
+        .groupby("restoran", dropna=False)
+        .agg(dogrudan_personel_maliyeti=("maliyet", "sum"))
+        .reset_index()
+    )
+    shared_cost_df = (
+        alloc_df[alloc_df["kaynak"] == "Paylasilan yonetim maliyeti"]
+        .groupby("restoran", dropna=False)
+        .agg(paylasilan_yonetim_maliyeti=("maliyet", "sum"))
+        .reset_index()
+    )
 
-    profit_df = invoice_df.merge(branch_cost, how="left", on="restoran").fillna({"toplam_personel_maliyeti": 0})
+    profit_df = invoice_df.merge(direct_cost_df, how="left", on="restoran").merge(shared_cost_df, how="left", on="restoran")
+    profit_df = profit_df.fillna({"dogrudan_personel_maliyeti": 0, "paylasilan_yonetim_maliyeti": 0})
+    profit_df["toplam_personel_maliyeti"] = profit_df["dogrudan_personel_maliyeti"] + profit_df["paylasilan_yonetim_maliyeti"]
     profit_df["brut_fark"] = profit_df["kdv_dahil"] - profit_df["toplam_personel_maliyeti"]
     profit_df["kar_marji_%"] = profit_df.apply(lambda x: (x["brut_fark"] / x["kdv_dahil"] * 100) if x["kdv_dahil"] else 0, axis=1)
     profit_df = profit_df.sort_values("brut_fark", ascending=False)
 
     person_distribution = alloc_df.sort_values(["restoran", "rol", "personel"]).reset_index(drop=True)
-    return profit_df, person_distribution
+    shared_overhead_df = pd.DataFrame(shared_overhead_rows).sort_values(["rol", "personel"]).reset_index(drop=True) if shared_overhead_rows else pd.DataFrame()
+    return profit_df, person_distribution, shared_overhead_df
 
 
 def fmt_currency_pdf(value: float) -> str:
@@ -7299,9 +7491,9 @@ def reports_tab(conn: sqlite3.Connection) -> None:
     c3.metric("Brüt operasyon farkı", fmt_try(gross_profit))
     c4.metric("Yan gelir neti", fmt_try(side_income_net))
 
-    profit_df, person_distribution_df = build_branch_profitability(month_df, personnel_df, deductions_df, invoice_df)
+    profit_df, person_distribution_df, shared_overhead_df = build_branch_profitability(month_df, personnel_df, deductions_df, invoice_df)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🧾 Restoran Faturası", "👥 Kurye Maliyeti", "📈 Restoran Karlılığı", "🔀 Personel-Şube Dağılımı", "💼 Yan Gelir Analizi"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🧾 Restoran Faturası", "👥 Kurye Maliyeti", "📈 Restoran Karlılığı", "🧩 Paylaşılan Yönetim", "🔀 Personel-Şube Dağılımı", "💼 Yan Gelir Analizi"])
     with tab1:
         invoice_display_df = format_display_df(
             invoice_df,
@@ -7359,11 +7551,11 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         else:
             p1, p2, p3 = st.columns(3)
             p1.metric("En yüksek restoran faturası | KDV dahil", fmt_try(float(profit_df["kdv_dahil"].max())))
-            p2.metric("En yüksek kurye maliyeti", fmt_try(float(profit_df["toplam_personel_maliyeti"].max())))
+            p2.metric("En yüksek toplam maliyet", fmt_try(float(profit_df["toplam_personel_maliyeti"].max())))
             p3.metric("En yüksek brüt fark", fmt_try(float(profit_df["brut_fark"].max())))
             profit_display_df = format_display_df(
                 profit_df,
-                currency_cols=["Restoran KDV Hariç", "Restoran KDV Dahil", "Toplam Kurye Maliyeti", "Brüt Fark"],
+                currency_cols=["Restoran KDV Hariç", "Restoran KDV Dahil", "Doğrudan Personel Maliyeti", "Paylaşılan Yönetim Maliyeti", "Toplam Personel Maliyeti", "Brüt Fark"],
                 percent_cols=["Kâr Marjı"],
                 number_cols=["Toplam Saat", "Toplam Paket"],
                 rename_map={
@@ -7372,7 +7564,9 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                     "paket": "Toplam Paket",
                     "kdv_haric": "Restoran KDV Hariç",
                     "kdv_dahil": "Restoran KDV Dahil",
-                    "toplam_personel_maliyeti": "Toplam Kurye Maliyeti",
+                    "dogrudan_personel_maliyeti": "Doğrudan Personel Maliyeti",
+                    "paylasilan_yonetim_maliyeti": "Paylaşılan Yönetim Maliyeti",
+                    "toplam_personel_maliyeti": "Toplam Personel Maliyeti",
                     "brut_fark": "Brüt Fark",
                     "kar_marji_%": "Kâr Marjı",
                     "model": "Fiyat Modeli",
@@ -7389,6 +7583,39 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 mime="text/csv",
             )
     with tab4:
+        if shared_overhead_df.empty:
+            st.info("Bu ay paylaşılan yönetim maliyeti bulunmuyor.")
+        else:
+            shared_total = float(shared_overhead_df["aylik_net_maliyet"].sum())
+            allocated_count = int(shared_overhead_df["paylastirilan_restoran_sayisi"].max()) if not shared_overhead_df.empty else 0
+            restaurant_share = (shared_total / allocated_count) if allocated_count > 0 else 0.0
+            s1, s2, s3 = st.columns(3)
+            s1.metric("Toplam Joker + Bölge Müdürü Maliyeti", fmt_try(shared_total))
+            s2.metric("Paylaştırılan Restoran Sayısı", allocated_count)
+            s3.metric("Restoran Başına Yönetim Payı", fmt_try(restaurant_share))
+            shared_display_df = format_display_df(
+                shared_overhead_df,
+                currency_cols=["Aylık Brüt Maliyet", "Toplam Kesinti", "Aylık Net Maliyet", "Restoran Başına Pay"],
+                number_cols=["Paylaştırılan Restoran Sayısı"],
+                rename_map={
+                    "personel": "Personel",
+                    "rol": "Rol",
+                    "aylik_brut_maliyet": "Aylık Brüt Maliyet",
+                    "toplam_kesinti": "Toplam Kesinti",
+                    "aylik_net_maliyet": "Aylık Net Maliyet",
+                    "paylastirilan_restoran_sayisi": "Paylaştırılan Restoran Sayısı",
+                    "restoran_basina_pay": "Restoran Başına Pay",
+                },
+            )
+            st.dataframe(shared_display_df, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Paylaşılan yönetim maliyetini indir",
+                data=shared_overhead_df.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"catkapinda_paylasilan_yonetim_{selected_month}.csv",
+                mime="text/csv",
+            )
+
+    with tab5:
         if person_distribution_df.empty:
             st.info("Personel-şube dağılımı için veri yok.")
         else:
@@ -7417,7 +7644,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 mime="text/csv",
             )
 
-    with tab5:
+    with tab6:
         side_df = pd.DataFrame(
             [
                 {"kalem": "Muhasebe Hizmeti", "gelir": accounting_rev, "maliyet": accountant_cost_total, "net_kar": accounting_rev - accountant_cost_total},
