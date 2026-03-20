@@ -5296,6 +5296,17 @@ def validate_personnel_form(
 
 def restaurants_tab(conn: sqlite3.Connection) -> None:
     df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
+    for optional_column, default_value in {
+        "company_title": "",
+        "address": "",
+        "contact_name": "",
+        "contact_phone": "",
+        "contact_email": "",
+        "tax_office": "",
+        "tax_number": "",
+    }.items():
+        if optional_column not in df.columns:
+            df[optional_column] = default_value
     active_count = int(df["active"].apply(lambda x: safe_int(x, 0)).sum()) if not df.empty else 0
     hourly_plus_count = int((df["pricing_model"] == "hourly_plus_package").sum()) if not df.empty else 0
     threshold_count = int((df["pricing_model"] == "threshold_package").sum()) if not df.empty else 0
