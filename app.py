@@ -1549,7 +1549,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             border: 1px solid rgba(255,255,255,0.16);
             background: rgba(255,255,255,0.12);
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
-            font-size: 0.78rem;
+            font-size: 0.74rem;
             font-weight: 800;
             letter-spacing: 0.12em;
             text-transform: uppercase;
@@ -1581,7 +1581,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             position: relative;
             z-index: 1;
             color: rgba(255,255,255,0.82);
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             font-weight: 800;
             letter-spacing: 0.14em;
             text-transform: uppercase;
@@ -1593,8 +1593,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             z-index: 1;
             margin: 0;
             color: #FFFFFF;
-            font-size: clamp(2.7rem, 4vw, 4.6rem);
-            line-height: 0.96;
+            font-size: clamp(2.42rem, 3.7vw, 4.05rem);
+            line-height: 0.98;
             letter-spacing: -0.075em;
             font-weight: 880;
             max-width: 720px;
@@ -1606,8 +1606,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             margin: 1.2rem 0 1.55rem;
             max-width: 630px;
             color: rgba(255,255,255,0.84);
-            font-size: 1.02rem;
-            line-height: 1.8;
+            font-size: 0.96rem;
+            line-height: 1.72;
         }
 
         .ck-login-hero-proof-grid {
@@ -1633,7 +1633,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             display: block;
             margin-bottom: 0.6rem;
             color: rgba(255,255,255,0.74);
-            font-size: 0.76rem;
+            font-size: 0.72rem;
             font-weight: 800;
             letter-spacing: 0.12em;
             text-transform: uppercase;
@@ -1642,8 +1642,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
         .ck-login-hero-proof-card strong {
             display: block;
             color: #FFFFFF;
-            font-size: 1rem;
-            line-height: 1.7;
+            font-size: 0.94rem;
+            line-height: 1.62;
             font-weight: 760;
         }
 
@@ -1666,7 +1666,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
         .ck-login-hero-stat small {
             display: block;
             color: rgba(255,255,255,0.76);
-            font-size: 0.76rem;
+            font-size: 0.72rem;
             font-weight: 800;
             letter-spacing: 0.12em;
             text-transform: uppercase;
@@ -1676,8 +1676,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
         .ck-login-hero-stat strong {
             display: block;
             color: #FFFFFF;
-            font-size: 1rem;
-            line-height: 1.75;
+            font-size: 0.94rem;
+            line-height: 1.66;
             font-weight: 760;
         }
 
@@ -1708,7 +1708,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             position: relative;
             z-index: 1;
             color: #4D6E9F;
-            font-size: 0.76rem;
+            font-size: 0.72rem;
             font-weight: 900;
             letter-spacing: 0.13em;
             text-transform: uppercase;
@@ -1719,7 +1719,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             z-index: 1;
             margin-top: 0.8rem;
             color: #111F39;
-            font-size: 2rem;
+            font-size: 1.82rem;
             line-height: 1.02;
             font-weight: 860;
             letter-spacing: -0.06em;
@@ -1731,8 +1731,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             z-index: 1;
             margin-top: 0.7rem;
             color: #60738F;
-            line-height: 1.75;
-            font-size: 0.94rem;
+            line-height: 1.68;
+            font-size: 0.9rem;
         }
 
         .ck-login-panel-badges {
@@ -1752,7 +1752,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             border: 1px solid #DBE7FB;
             background: rgba(255,255,255,0.82);
             color: #0D4CCD;
-            font-size: 0.78rem;
+            font-size: 0.74rem;
             font-weight: 800;
             letter-spacing: 0.04em;
         }
@@ -1838,8 +1838,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
         .ck-login-help-text {
             color: #4E617D;
-            font-size: 0.9rem;
-            line-height: 1.7;
+            font-size: 0.86rem;
+            line-height: 1.64;
         }
 
         .ck-login-help-steps {
@@ -1853,8 +1853,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             align-items: flex-start;
             gap: 10px;
             color: #294467;
-            font-size: 0.87rem;
-            line-height: 1.55;
+            font-size: 0.83rem;
+            line-height: 1.5;
         }
 
         .ck-login-help-step-badge {
@@ -1878,8 +1878,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             background: rgba(255,255,255,0.74);
             border: 1px solid rgba(219,228,245,0.88);
             color: #5E6E89;
-            line-height: 1.7;
-            font-size: 0.9rem;
+            line-height: 1.64;
+            font-size: 0.86rem;
         }
 
         @media (max-width: 1200px) {
@@ -1931,15 +1931,15 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             }
 
             .ck-login-panel-title {
-                font-size: 1.65rem;
+                font-size: 1.52rem;
             }
 
             .ck-login-hero-title {
-                font-size: 2.2rem;
+                font-size: 2rem;
             }
 
             .ck-login-hero-subtitle {
-                font-size: 0.94rem;
+                font-size: 0.9rem;
             }
 
             div[data-testid="stForm"] {
@@ -1983,7 +1983,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     </div>
                     <div class="ck-login-hero-stats">
                         <div class="ck-login-hero-stat">
-                            <small>Operasyonel veriyi yönetime dönüştüren altyapı</small>
+                            <small>Operasyonel Veriyi Yönetime Dönüştüren Altyapı</small>
                             <strong>Tüm operasyon katmanlarının tek sistemde birleşmesi, veri kaybını ortadan kaldırır ve sürdürülebilir büyüme için gerekli olan kontrol, şeffaflık ve standardizasyonu sağlar.</strong>
                         </div>
                     </div>
@@ -1996,13 +1996,13 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             st.markdown(
                 """
                 <div class="ck-login-panel-head">
-                    <div class="ck-login-panel-kicker">Kurumsal Erişim</div>
-                    <div class="ck-login-panel-title">Operasyon paneline giriş yap</div>
-                    <div class="ck-login-panel-subtitle">Yetkili hesabınla giriş yaparak şube operasyonunu, saha ekiplerini ve finans görünümünü tek merkezden yönet. Erişim ihtiyacında sistem sana kontrollü şekilde yeni geçici parola oluştursun.</div>
+                    <div class="ck-login-panel-kicker">Karar süreçlerini hızlandıran erişim</div>
+                    <div class="ck-login-panel-title">Operasyonel verilere anlık erişim sağlayın</div>
+                    <div class="ck-login-panel-subtitle">Operasyonel verilere anlık erişim sağlayarak yönetim süreçlerini gecikmesiz şekilde sürdürün. Sahadaki değişimlere hızlı tepki verin, kontrolü kaybetmeden operasyonu yönetin.</div>
                     <div class="ck-login-panel-badges">
-                        <span>Kurumsal giriş katmanı</span>
-                        <span>Hızlı parola yenileme</span>
-                        <span>Kontrollü oturum devamlılığı</span>
+                        <span>Anlık veri erişimi</span>
+                        <span>Hızlı karar alma</span>
+                        <span>Kesintisiz yönetim</span>
                     </div>
                 </div>
                 <div class="ck-login-form-title">Hesap Bilgileri</div>
