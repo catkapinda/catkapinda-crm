@@ -5153,8 +5153,9 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
         """
         SELECT personnel_id, auto_source_key
         FROM courier_equipment_issues
-        WHERE auto_source_key LIKE 'auto:onboarding:%'
+        WHERE auto_source_key LIKE ?
         """,
+        ("auto:onboarding:%",),
     )
 
     for optional_column, default_value in {
