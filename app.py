@@ -3236,6 +3236,117 @@ def normalize_equipment_issue_costs_and_vat(conn: CompatConnection) -> None:
         conn.commit()
 
 
+def delete_equipment_issue_records(conn: CompatConnection, issue_ids: Iterable[int]) -> int:
+    resolved_issue_ids = []
+    seen = set()
+    for issue_id in issue_ids:
+        resolved_id = safe_int(issue_id, 0)
+        if resolved_id <= 0 or resolved_id in seen:
+            continue
+        seen.add(resolved_id)
+        resolved_issue_ids.append(resolved_id)
+
+    if not resolved_issue_ids:
+        return 0
+
+    placeholders = ", ".join(["?"] * len(resolved_issue_ids))
+    conn.execute(f"DELETE FROM deductions WHERE equipment_issue_id IN ({placeholders})", tuple(resolved_issue_ids))
+    conn.execute(f"DELETE FROM courier_equipment_issues WHERE id IN ({placeholders})", tuple(resolved_issue_ids))
+    conn.commit()
+    return len(resolved_issue_ids)
+
+
+def bulk_update_equipment_issue_records(
+    conn: CompatConnection,
+    issue_ids: Iterable[int],
+    *,
+    issue_date_value: date | None = None,
+    unit_cost_value: float | None = None,
+    unit_sale_price_value: float | None = None,
+    vat_rate_value: float | None = None,
+    installment_count_value: int | None = None,
+    sale_type_value: str | None = None,
+    note_append_text: str = "",
+) -> int:
+    resolved_issue_ids = []
+    seen = set()
+    for issue_id in issue_ids:
+        resolved_id = safe_int(issue_id, 0)
+        if resolved_id <= 0 or resolved_id in seen:
+            continue
+        seen.add(resolved_id)
+        resolved_issue_ids.append(resolved_id)
+
+    if not resolved_issue_ids:
+        return 0
+
+    placeholders = ", ".join(["?"] * len(resolved_issue_ids))
+    issues_df = fetch_df(
+        conn,
+        f"""
+        SELECT id, personnel_id, issue_date, item_name, quantity, unit_cost, unit_sale_price, vat_rate, installment_count, sale_type, notes
+        FROM courier_equipment_issues
+        WHERE id IN ({placeholders})
+        ORDER BY issue_date DESC, id DESC
+        """,
+        tuple(resolved_issue_ids),
+    )
+    if issues_df.empty:
+        return 0
+
+    updated_count = 0
+    normalized_note_text = str(note_append_text or "").strip()
+    for _, row in issues_df.iterrows():
+        issue_id = safe_int(row["id"], 0)
+        personnel_id = safe_int(row["personnel_id"], 0)
+        if issue_id <= 0 or personnel_id <= 0:
+            continue
+
+        resolved_issue_date = issue_date_value or parse_date_value(row["issue_date"]) or date.today()
+        resolved_unit_cost = unit_cost_value if unit_cost_value is not None else safe_float(row["unit_cost"], 0.0)
+        resolved_unit_sale_price = unit_sale_price_value if unit_sale_price_value is not None else safe_float(row["unit_sale_price"], 0.0)
+        resolved_vat_rate = vat_rate_value if vat_rate_value is not None else safe_float(row["vat_rate"], VAT_RATE_DEFAULT)
+        resolved_installment_count = installment_count_value if installment_count_value is not None else max(safe_int(row["installment_count"], 1), 1)
+        resolved_sale_type = sale_type_value if sale_type_value is not None else str(row["sale_type"] or "Satış")
+        existing_notes = str(row["notes"] or "").strip()
+        resolved_notes = existing_notes
+        if normalized_note_text:
+            resolved_notes = " | ".join([part for part in [existing_notes, normalized_note_text] if part])
+
+        conn.execute(
+            """
+            UPDATE courier_equipment_issues
+            SET issue_date = ?, unit_cost = ?, unit_sale_price = ?, vat_rate = ?, installment_count = ?, sale_type = ?, notes = ?
+            WHERE id = ?
+            """,
+            (
+                resolved_issue_date.isoformat(),
+                resolved_unit_cost,
+                resolved_unit_sale_price,
+                resolved_vat_rate,
+                resolved_installment_count,
+                resolved_sale_type,
+                resolved_notes,
+                issue_id,
+            ),
+        )
+        conn.execute("DELETE FROM deductions WHERE equipment_issue_id = ?", (issue_id,))
+        total_sale_amount = safe_float(row["quantity"], 0.0) * resolved_unit_sale_price
+        post_equipment_installments(
+            conn,
+            issue_id,
+            personnel_id,
+            resolved_issue_date,
+            str(row["item_name"] or ""),
+            total_sale_amount,
+            resolved_installment_count,
+        )
+        updated_count += 1
+
+    conn.commit()
+    return updated_count
+
+
 def count_person_worked_days_in_range(
     conn: CompatConnection,
     personnel_id: int,
@@ -6935,6 +7046,38 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             selected_label = st.selectbox("Düzenlenecek Personel", list(person_labels.keys()), key="edit_person_select")
             selected_id = person_labels[selected_label]
             row = df.loc[df["id"] == selected_id].iloc[0]
+            row_role_value = str(row["role"] or "Kurye")
+            row_status_value = str(row["status"] or "Aktif")
+            row_accounting_value = str(row["accounting_type"] or "Kendi Muhasebecisi")
+            row_new_company_value = str(row["new_company_setup"] or "Hayır")
+            row_vehicle_value = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
+            row_motor_purchase_value = str(row["motor_purchase"] or "Hayır") if pd.notna(row["motor_purchase"]) else "Hayır"
+            edit_form_signature = (
+                selected_id,
+                row_role_value,
+                row_status_value,
+                row_accounting_value,
+                row_new_company_value,
+                row_vehicle_value,
+                row_motor_purchase_value,
+            )
+            if st.session_state.get("_edit_person_form_signature") != edit_form_signature:
+                st.session_state[f"edit_person_role_{selected_id}"] = row_role_value if row_role_value in PERSONNEL_ROLE_OPTIONS else "Kurye"
+                st.session_state[f"edit_person_status_{selected_id}"] = row_status_value if row_status_value in ["Aktif", "Pasif"] else "Aktif"
+                st.session_state[f"edit_person_accounting_{selected_id}"] = (
+                    row_accounting_value if row_accounting_value in ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"] else "Kendi Muhasebecisi"
+                )
+                st.session_state[f"edit_person_new_company_{selected_id}"] = (
+                    row_new_company_value if row_new_company_value in ["Hayır", "Evet"] else "Hayır"
+                )
+                st.session_state[f"edit_person_vehicle_{selected_id}"] = (
+                    row_vehicle_value if row_vehicle_value in ["Çat Kapında", "Kendi Motoru"] else "Kendi Motoru"
+                )
+                st.session_state[f"edit_person_motor_purchase_{selected_id}"] = (
+                    row_motor_purchase_value if row_motor_purchase_value in ["Hayır", "Evet"] else "Hayır"
+                )
+                st.session_state[f"edit_person_transition_enabled_{selected_id}"] = False
+                st.session_state["_edit_person_form_signature"] = edit_form_signature
             role_history_rows = fetch_df(
                 conn,
                 """
@@ -6953,17 +7096,23 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
             left, right = st.columns([2.2, 1])
             with right:
-                render_record_snapshot(
-                    "Mevcut Kart",
+                current_snapshot_items = [
+                    ("Kod", row["person_code"] or "-"),
+                    ("Durum", row["status"] or "-"),
+                ]
+                if str(row["role"] or "") in {"Kurye", "Restoran Takım Şefi"}:
+                    current_snapshot_items.append(("Restoran", row["restoran"] or "-"))
+                current_snapshot_items.extend(
                     [
-                        ("Kod", row["person_code"] or "-"),
-                        ("Durum", row["status"] or "-"),
-                        ("Restoran", row["restoran"] or "-"),
                         ("Motor", row["vehicle_type"] or "-"),
                         ("Çat Kapında Motor Satışı", format_motor_purchase_summary(row)),
                         ("Rol", resolve_cost_role_option(str(row["cost_model"] or ""), str(row["role"] or "Kurye"))),
                         ("Acil Durum Kişisi", row["emergency_contact_name"] or "-"),
-                    ],
+                    ]
+                )
+                render_record_snapshot(
+                    "Mevcut Kart",
+                    current_snapshot_items,
                 )
                 if not role_history_rows.empty:
                     st.markdown("##### Rol Geçmişi")
@@ -6992,7 +7141,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             "Rol",
                             role_options,
                             index=role_options.index(row["role"]) if row["role"] in role_options else 0,
-                            key="edit_person_role",
+                            key=f"edit_person_role_{selected_id}",
                             label_visibility="collapsed",
                         )
                     suggested_code = next_person_code(conn, edit_role, exclude_id=selected_id)
@@ -7019,7 +7168,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             "Durum",
                             status_options,
                             index=status_options.index(row["status"]) if row["status"] in status_options else 0,
-                            key="edit_person_status",
+                            key=f"edit_person_status_{selected_id}",
                             label_visibility="collapsed",
                         )
                     with c6:
@@ -7068,7 +7217,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             "Muhasebe",
                             accounting_options,
                             index=accounting_options.index(current_acc) if current_acc in accounting_options else 0,
-                            key="edit_person_accounting",
+                            key=f"edit_person_accounting_{selected_id}",
                             label_visibility="collapsed",
                         )
                     new_company_options = ["Hayır", "Evet"]
@@ -7079,7 +7228,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             "Yeni Şirket Açılışı",
                             new_company_options,
                             index=new_company_options.index(current_newco) if current_newco in new_company_options else 0,
-                            key="edit_person_new_company",
+                            key=f"edit_person_new_company_{selected_id}",
                             label_visibility="collapsed",
                         )
                     edit_cost_model = resolve_cost_role_option("", edit_role)
@@ -7091,7 +7240,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             index=0,
                             disabled=True,
                             format_func=lambda x: COST_MODEL_LABELS.get(x, x),
-                            key="edit_person_cost_model_display",
+                            key=f"edit_person_cost_model_display_{selected_id}",
                             label_visibility="collapsed",
                         )
                     c13, c14, c15 = st.columns(3)
@@ -7117,11 +7266,14 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         render_field_label("Şirket Açılış Maliyeti")
                         edit_company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(row["company_setup_cost"] or 0.0), step=100.0, label_visibility="collapsed")
 
-                    st.markdown("##### Rol Geçişi")
-                    transition_enabled = st.checkbox("Bu personel için rol geçiş kaydı ekle", key=f"edit_person_transition_enabled_{selected_id}")
-                    transition_previous_role = str(row["role"] or "Kurye")
+                    role_changed = edit_role != row_role_value
+                    transition_enabled = False
+                    transition_previous_role = row_role_value
                     transition_effective_date = None
-                    if transition_enabled:
+                    if role_changed:
+                        st.markdown("##### Rol Geçişi")
+                        transition_enabled = st.checkbox("Bu personel için rol geçiş kaydı ekle", key=f"edit_person_transition_enabled_{selected_id}")
+                    if role_changed and transition_enabled:
                         transition_default_date = date.today()
                         if start_val and start_val <= date.today():
                             transition_default_date = start_val
@@ -7131,7 +7283,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             transition_previous_role = st.selectbox(
                                 "Geçiş Öncesi Rol",
                                 role_options,
-                                index=role_options.index(row["role"]) if row["role"] in role_options else 0,
+                                index=role_options.index(row_role_value) if row_role_value in role_options else 0,
                                 key=f"edit_person_previous_role_{selected_id}",
                                 label_visibility="collapsed",
                             )
@@ -7152,25 +7304,36 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             st.caption("Bu geçişte yeni rol standart kurye maliyet modeliyle kaydedilir.")
 
                     st.markdown("##### Araç ve Operasyon")
-                    c18, c19 = st.columns(2)
                     current_vehicle = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
-                    with c18:
-                        render_field_label("Ana Restoran", required=edit_role in {"Kurye", "Restoran Takım Şefi"})
-                        edit_restaurant_default = assigned_value if edit_role in {"Kurye", "Restoran Takım Şefi"} and assigned_value in rest_opts_with_blank else "-"
-                        edit_restaurant = st.selectbox(
-                            "Ana Restoran",
-                            list(rest_opts_with_blank.keys()),
-                            index=list(rest_opts_with_blank.keys()).index(edit_restaurant_default),
-                            key=f"edit_person_restaurant_{selected_id}_{edit_role}",
-                            label_visibility="collapsed",
-                        )
-                    with c19:
+                    edit_restaurant = "-"
+                    if edit_role in {"Kurye", "Restoran Takım Şefi"}:
+                        c18, c19 = st.columns(2)
+                        with c18:
+                            render_field_label("Ana Restoran", required=True)
+                            edit_restaurant_default = assigned_value if assigned_value in rest_opts_with_blank else "-"
+                            edit_restaurant = st.selectbox(
+                                "Ana Restoran",
+                                list(rest_opts_with_blank.keys()),
+                                index=list(rest_opts_with_blank.keys()).index(edit_restaurant_default),
+                                key=f"edit_person_restaurant_{selected_id}_{edit_role}",
+                                label_visibility="collapsed",
+                            )
+                        with c19:
+                            render_field_label("Motor Tipi")
+                            edit_vehicle = st.selectbox(
+                                "Motor Tipi",
+                                vehicle_options,
+                                index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1,
+                                key=f"edit_person_vehicle_{selected_id}",
+                                label_visibility="collapsed",
+                            )
+                    else:
                         render_field_label("Motor Tipi")
                         edit_vehicle = st.selectbox(
                             "Motor Tipi",
                             vehicle_options,
                             index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1,
-                            key="edit_person_vehicle",
+                            key=f"edit_person_vehicle_{selected_id}",
                             label_visibility="collapsed",
                         )
                     effective_edit_motor_rental = resolve_motor_rental_value(edit_vehicle, "Hayır")
@@ -7185,7 +7348,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             "Çat Kapında Motor Satışı",
                             ["Hayır", "Evet"],
                             index=1 if current_motor_purchase == "Evet" else 0,
-                            key="edit_person_motor_purchase",
+                            key=f"edit_person_motor_purchase_{selected_id}",
                             label_visibility="collapsed",
                         )
                     default_motor_purchase_date = parse_date_value(row["motor_purchase_start_date"]) or date.today()
@@ -7199,7 +7362,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         edit_motor_purchase_start_date = st.date_input(
                             "Motor Satın Alım Tarihi",
                             value=default_motor_purchase_date,
-                            key="edit_person_motor_purchase_start_date",
+                            key=f"edit_person_motor_purchase_start_date_{selected_id}",
                             disabled=edit_motor_purchase != "Evet",
                             label_visibility="collapsed",
                         )
@@ -7212,7 +7375,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             "Taahhüt Süresi (Ay)",
                             [12, 15, 18],
                             index=[12, 15, 18].index(current_commitment_months),
-                            key="edit_person_motor_purchase_commitment_months",
+                            key=f"edit_person_motor_purchase_commitment_months_{selected_id}",
                             disabled=edit_motor_purchase != "Evet",
                             label_visibility="collapsed",
                         )
@@ -7223,7 +7386,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             min_value=0.0,
                             value=max(current_motor_purchase_sale_price, 0.0),
                             step=1000.0,
-                            key="edit_person_motor_purchase_sale_price",
+                            key=f"edit_person_motor_purchase_sale_price_{selected_id}",
                             disabled=edit_motor_purchase != "Evet",
                             label_visibility="collapsed",
                         )
@@ -7253,9 +7416,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             motor_purchase_commitment_months=safe_int(edit_motor_purchase_commitment_months, 0),
                             motor_purchase_sale_price=safe_float(edit_motor_purchase_sale_price, 0.0),
                         )
-                        if edit_role != str(row["role"] or "") and not transition_enabled:
+                        if role_changed and not transition_enabled:
                             validation_errors.append("Rol değişikliği yapıyorsan rol başlangıç tarihini de kaydetmelisin.")
-                        if transition_enabled:
+                        if role_changed and transition_enabled:
                             if transition_previous_role == edit_role:
                                 validation_errors.append("Rol geçiş kaydında önceki rol ile yeni rol farklı olmalı.")
                             if not isinstance(transition_effective_date, date):
@@ -7338,10 +7501,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             )
                             conn.commit()
                             updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
-                            if transition_enabled:
+                            if role_changed and transition_enabled:
                                 previous_fixed_cost = 0.0
                                 previous_cost_model = normalize_cost_model_value("", transition_previous_role)
-                                if is_fixed_cost_model(previous_cost_model) and transition_previous_role == str(row["role"] or ""):
+                                if is_fixed_cost_model(previous_cost_model) and transition_previous_role == row_role_value:
                                     previous_fixed_cost = safe_float(row["monthly_fixed_cost"], 0.0)
                                 record_person_role_transition(
                                     conn,
@@ -8176,6 +8339,81 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                 },
             )
             st.dataframe(issues_display, use_container_width=True, hide_index=True)
+
+            st.markdown("#### Toplu güncelle / sil")
+            bulk_issue_options = {
+                f"{row['issue_date']} | {row['full_name']} | {row['item_name']} | {safe_int(row['quantity'], 0)} adet | ID:{safe_int(row['id'], 0)}": int(row["id"])
+                for _, row in issues.iterrows()
+            }
+            selected_bulk_labels = st.multiselect(
+                "İşlem yapılacak zimmet kayıtları",
+                list(bulk_issue_options.keys()),
+                key="equipment_bulk_issue_select",
+            )
+            selected_bulk_issue_ids = [bulk_issue_options[label] for label in selected_bulk_labels]
+
+            with st.form("equipment_bulk_manage_form"):
+                st.caption("Seçili zimmet kayıtlarını tek seferde güncelleyebilir veya silebilirsin. Boş bıraktığın güncelleme alanları mevcut değerleri korur.")
+                b1, b2, b3 = st.columns(3)
+                bulk_update_date_enabled = b1.checkbox("Tarihi güncelle", value=False)
+                bulk_update_cost_enabled = b2.checkbox("Birim maliyeti güncelle", value=False)
+                bulk_update_sale_enabled = b3.checkbox("Birim satışı güncelle", value=False)
+                b4, b5, b6 = st.columns(3)
+                bulk_update_vat_enabled = b4.checkbox("KDV güncelle", value=False)
+                bulk_update_installment_enabled = b5.checkbox("Taksit sayısını güncelle", value=False)
+                bulk_update_sale_type_enabled = b6.checkbox("İşlem tipini güncelle", value=False)
+
+                c1, c2, c3 = st.columns(3)
+                bulk_issue_date = c1.date_input("Yeni zimmet tarihi", value=date.today(), disabled=not bulk_update_date_enabled)
+                bulk_unit_cost = c2.number_input("Yeni birim maliyet", min_value=0.0, value=0.0, step=50.0, disabled=not bulk_update_cost_enabled)
+                bulk_unit_sale_price = c3.number_input("Yeni birim satış", min_value=0.0, value=0.0, step=50.0, disabled=not bulk_update_sale_enabled)
+                c4, c5, c6 = st.columns(3)
+                bulk_vat_rate = c4.number_input("Yeni KDV oranı", min_value=0.0, max_value=100.0, value=VAT_RATE_DEFAULT, step=5.0, disabled=not bulk_update_vat_enabled)
+                bulk_installment_count = c5.selectbox("Yeni taksit sayısı", [1, 2, 3, 6, 12], index=1, disabled=not bulk_update_installment_enabled)
+                bulk_sale_type = c6.selectbox("Yeni işlem tipi", ["Satış", "Depozit / Teslim"], disabled=not bulk_update_sale_type_enabled)
+                bulk_note_text = st.text_input("Seçili kayıtlara eklenecek not", placeholder="Örn: Mart revizyonu")
+
+                a1, a2 = st.columns(2)
+                bulk_update_clicked = a1.form_submit_button("Seçili Kayıtları Güncelle", use_container_width=True)
+                bulk_delete_clicked = a2.form_submit_button("Seçili Kayıtları Sil", use_container_width=True)
+
+                if bulk_update_clicked:
+                    if not selected_bulk_issue_ids:
+                        st.error("Önce en az bir zimmet kaydı seçmelisin.")
+                    elif not any(
+                        [
+                            bulk_update_date_enabled,
+                            bulk_update_cost_enabled,
+                            bulk_update_sale_enabled,
+                            bulk_update_vat_enabled,
+                            bulk_update_installment_enabled,
+                            bulk_update_sale_type_enabled,
+                            str(bulk_note_text or "").strip(),
+                        ]
+                    ):
+                        st.error("Toplu güncelleme için en az bir alan seçmeli veya not eklemelisin.")
+                    else:
+                        updated_count = bulk_update_equipment_issue_records(
+                            conn,
+                            selected_bulk_issue_ids,
+                            issue_date_value=bulk_issue_date if bulk_update_date_enabled else None,
+                            unit_cost_value=bulk_unit_cost if bulk_update_cost_enabled else None,
+                            unit_sale_price_value=bulk_unit_sale_price if bulk_update_sale_enabled else None,
+                            vat_rate_value=bulk_vat_rate if bulk_update_vat_enabled else None,
+                            installment_count_value=bulk_installment_count if bulk_update_installment_enabled else None,
+                            sale_type_value=bulk_sale_type if bulk_update_sale_type_enabled else None,
+                            note_append_text=bulk_note_text,
+                        )
+                        st.success(f"{updated_count} zimmet kaydı toplu olarak güncellendi.")
+                        st.rerun()
+
+                if bulk_delete_clicked:
+                    if not selected_bulk_issue_ids:
+                        st.error("Önce en az bir zimmet kaydı seçmelisin.")
+                    else:
+                        deleted_count = delete_equipment_issue_records(conn, selected_bulk_issue_ids)
+                        st.success(f"{deleted_count} zimmet kaydı ve bağlı taksitleri silindi.")
+                        st.rerun()
 
         installment_df = fetch_df(
             conn,
