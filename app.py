@@ -93,6 +93,14 @@ MOTOR_RENTAL_VAT_RATE = 20.0
 AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION = 11250.0
 AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT = 12
 AUTO_MOTOR_PURCHASE_TOTAL_PRICE = AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION * AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT
+MOTOR_PURCHASE_COMMITMENT_OPTIONS = [12, 15, 18]
+MOTOR_USAGE_MODE_OPTIONS = ["Kendi Motoru", "Çat Kapında Motor Kirası", "Çat Kapında Motor Satışı"]
+DEDUCTION_SOURCE_FILTER_OPTIONS = [
+    "Tümü",
+    "Manuel Kayıtlar",
+    "Otomatik Motor Kirası",
+    "Otomatik Motor Satışı",
+]
 SYSTEM_PERSONNEL_AUTO_DEDUCTION_PREFIXES = (
     "auto:motor_rental:",
     "auto:motor_purchase:",
@@ -769,6 +777,7 @@ def ensure_schema(conn: CompatConnection) -> None:
             assigned_restaurant_id INTEGER,
             vehicle_type TEXT,
             motor_rental TEXT DEFAULT 'Hayır',
+            motor_rental_monthly_amount REAL DEFAULT 13000,
             motor_purchase TEXT DEFAULT 'Hayır',
             motor_purchase_start_date TEXT,
             motor_purchase_commitment_months INTEGER,
@@ -800,6 +809,11 @@ def ensure_schema(conn: CompatConnection) -> None:
             personnel_id INTEGER NOT NULL,
             vehicle_type TEXT NOT NULL,
             motor_rental TEXT NOT NULL DEFAULT 'Hayır',
+            motor_rental_monthly_amount REAL DEFAULT 13000,
+            motor_purchase TEXT DEFAULT 'Hayır',
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_amount REAL DEFAULT 11250,
             effective_date TEXT NOT NULL,
             notes TEXT,
             FOREIGN KEY (personnel_id) REFERENCES personnel(id)
@@ -962,6 +976,7 @@ def ensure_schema(conn: CompatConnection) -> None:
             assigned_restaurant_id BIGINT REFERENCES restaurants(id),
             vehicle_type TEXT,
             motor_rental TEXT DEFAULT 'Hayır',
+            motor_rental_monthly_amount DOUBLE PRECISION DEFAULT 13000,
             motor_purchase TEXT DEFAULT 'Hayır',
             motor_purchase_start_date TEXT,
             motor_purchase_commitment_months BIGINT,
@@ -991,6 +1006,11 @@ def ensure_schema(conn: CompatConnection) -> None:
             personnel_id BIGINT NOT NULL REFERENCES personnel(id),
             vehicle_type TEXT NOT NULL,
             motor_rental TEXT NOT NULL DEFAULT 'Hayır',
+            motor_rental_monthly_amount DOUBLE PRECISION DEFAULT 13000,
+            motor_purchase TEXT DEFAULT 'Hayır',
+            motor_purchase_commitment_months BIGINT,
+            motor_purchase_sale_price DOUBLE PRECISION,
+            motor_purchase_monthly_amount DOUBLE PRECISION DEFAULT 11250,
             effective_date TEXT NOT NULL,
             notes TEXT
         );
@@ -1488,6 +1508,9 @@ def migrate_data(conn: CompatConnection) -> None:
         conn.execute("ALTER TABLE personnel ADD COLUMN emergency_contact_phone TEXT")
     if "motor_purchase" not in personnel_cols:
         conn.execute("ALTER TABLE personnel ADD COLUMN motor_purchase TEXT DEFAULT 'Hayır'")
+    if "motor_rental_monthly_amount" not in personnel_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE personnel ADD COLUMN motor_rental_monthly_amount {amount_type} DEFAULT 13000")
     if "motor_purchase_start_date" not in personnel_cols:
         conn.execute("ALTER TABLE personnel ADD COLUMN motor_purchase_start_date TEXT")
     if "motor_purchase_commitment_months" not in personnel_cols:
@@ -1513,6 +1536,7 @@ def migrate_data(conn: CompatConnection) -> None:
     conn.execute("UPDATE personnel SET vehicle_type = 'Kendi Motoru' WHERE vehicle_type = 'Kendi'")
     conn.execute("UPDATE personnel SET vehicle_type = 'Çat Kapında' WHERE (vehicle_type IS NULL OR vehicle_type = '') AND motor_rental = 'Evet'")
     conn.execute("UPDATE personnel SET vehicle_type = 'Kendi Motoru' WHERE vehicle_type IS NULL OR vehicle_type = ''")
+    conn.execute("UPDATE personnel SET motor_rental_monthly_amount = ? WHERE motor_rental_monthly_amount IS NULL OR motor_rental_monthly_amount <= 0", (AUTO_MOTOR_RENTAL_DEDUCTION,))
     conn.execute("UPDATE personnel SET motor_purchase = 'Hayır' WHERE motor_purchase IS NULL OR TRIM(motor_purchase) = ''")
     conn.execute(
         """
@@ -1544,6 +1568,25 @@ def migrate_data(conn: CompatConnection) -> None:
     )
     conn.execute("UPDATE personnel SET motor_purchase_monthly_amount = ? WHERE motor_purchase_monthly_amount IS NULL OR motor_purchase_monthly_amount <= 0", (AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,))
     conn.execute("UPDATE personnel SET motor_purchase_installment_count = ? WHERE motor_purchase_installment_count IS NULL OR motor_purchase_installment_count <= 0", (AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,))
+
+    vehicle_history_cols = get_table_columns(conn, "personnel_vehicle_history")
+    if "motor_rental_monthly_amount" not in vehicle_history_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE personnel_vehicle_history ADD COLUMN motor_rental_monthly_amount {amount_type} DEFAULT 13000")
+    if "motor_purchase" not in vehicle_history_cols:
+        conn.execute("ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase TEXT DEFAULT 'Hayır'")
+    if "motor_purchase_commitment_months" not in vehicle_history_cols:
+        commitment_type = "BIGINT" if conn.backend == "postgres" else "INTEGER"
+        conn.execute(f"ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase_commitment_months {commitment_type}")
+    if "motor_purchase_sale_price" not in vehicle_history_cols:
+        sale_price_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase_sale_price {sale_price_type}")
+    if "motor_purchase_monthly_amount" not in vehicle_history_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase_monthly_amount {amount_type} DEFAULT 11250")
+    conn.execute("UPDATE personnel_vehicle_history SET motor_rental_monthly_amount = ? WHERE motor_rental_monthly_amount IS NULL OR motor_rental_monthly_amount <= 0", (AUTO_MOTOR_RENTAL_DEDUCTION,))
+    conn.execute("UPDATE personnel_vehicle_history SET motor_purchase = 'Hayır' WHERE motor_purchase IS NULL OR TRIM(motor_purchase) = ''")
+    conn.execute("UPDATE personnel_vehicle_history SET motor_purchase_monthly_amount = ? WHERE motor_purchase_monthly_amount IS NULL OR motor_purchase_monthly_amount <= 0", (AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,))
 
     restaurant_cols = get_table_columns(conn, "restaurants")
     if "start_date" not in restaurant_cols:
@@ -2748,16 +2791,16 @@ def describe_auto_source_key(auto_source_key: Any) -> str:
     if not key:
         return "Manuel"
     if key.startswith("auto:motor_rental:"):
-        return "Sistem | Aylık motor kira"
+        return "Otomatik | Motor kirası"
     if key.startswith("auto:motor_purchase:"):
-        return "Sistem | Motor satın alım taksiti"
+        return "Otomatik | Motor satış taksiti"
     if key.startswith("auto:accounting:"):
-        return "Sistem | Aylık muhasebe"
+        return "Otomatik | Muhasebe"
     if key.startswith("auto:company_setup"):
-        return "Sistem | Şirket açılışı"
+        return "Otomatik | Şirket açılışı"
     if key.startswith("auto:onboarding:"):
-        return "Sistem | İşe giriş zimmeti"
-    return "Sistem"
+        return "Otomatik | İşe giriş zimmeti"
+    return "Otomatik"
 
 
 def is_system_personnel_auto_deduction_key(auto_source_key: Any) -> bool:
@@ -3164,6 +3207,11 @@ def upsert_person_vehicle_snapshot(
     effective_date_value: date | str | None,
     vehicle_type: str,
     motor_rental: str,
+    motor_rental_monthly_amount: float = AUTO_MOTOR_RENTAL_DEDUCTION,
+    motor_purchase: str = "Hayır",
+    motor_purchase_commitment_months: int | None = None,
+    motor_purchase_sale_price: float = 0.0,
+    motor_purchase_monthly_amount: float = AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
     notes: str = "",
 ) -> None:
     resolved_personnel_id = safe_int(personnel_id)
@@ -3172,6 +3220,8 @@ def upsert_person_vehicle_snapshot(
     effective_date = parse_date_value(effective_date_value) or date.today()
     normalized_vehicle_type = resolve_vehicle_type_value(vehicle_type, motor_rental)
     normalized_motor_rental = resolve_motor_rental_value(normalized_vehicle_type, motor_rental)
+    normalized_motor_purchase = "Evet" if str(motor_purchase or "Hayır").strip() == "Evet" else "Hayır"
+    normalized_motor_rental = resolve_motor_rental_value(normalized_vehicle_type, motor_rental, normalized_motor_purchase)
     existing = conn.execute(
         """
         SELECT id
@@ -3186,12 +3236,17 @@ def upsert_person_vehicle_snapshot(
         conn.execute(
             """
             UPDATE personnel_vehicle_history
-            SET vehicle_type = ?, motor_rental = ?, notes = ?
+            SET vehicle_type = ?, motor_rental = ?, motor_rental_monthly_amount = ?, motor_purchase = ?, motor_purchase_commitment_months = ?, motor_purchase_sale_price = ?, motor_purchase_monthly_amount = ?, notes = ?
             WHERE id = ?
             """,
             (
                 normalized_vehicle_type,
                 normalized_motor_rental,
+                safe_float(motor_rental_monthly_amount, AUTO_MOTOR_RENTAL_DEDUCTION),
+                normalized_motor_purchase,
+                safe_int(motor_purchase_commitment_months, 0) or None,
+                safe_float(motor_purchase_sale_price, 0.0) or None,
+                safe_float(motor_purchase_monthly_amount, AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION),
                 notes,
                 safe_int(get_row_value(existing, "id")),
             ),
@@ -3200,13 +3255,18 @@ def upsert_person_vehicle_snapshot(
         conn.execute(
             """
             INSERT INTO personnel_vehicle_history
-            (personnel_id, vehicle_type, motor_rental, effective_date, notes)
-            VALUES (?, ?, ?, ?, ?)
+            (personnel_id, vehicle_type, motor_rental, motor_rental_monthly_amount, motor_purchase, motor_purchase_commitment_months, motor_purchase_sale_price, motor_purchase_monthly_amount, effective_date, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 resolved_personnel_id,
                 normalized_vehicle_type,
                 normalized_motor_rental,
+                safe_float(motor_rental_monthly_amount, AUTO_MOTOR_RENTAL_DEDUCTION),
+                normalized_motor_purchase,
+                safe_int(motor_purchase_commitment_months, 0) or None,
+                safe_float(motor_purchase_sale_price, 0.0) or None,
+                safe_float(motor_purchase_monthly_amount, AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION),
                 effective_date.isoformat(),
                 notes,
             ),
@@ -3218,6 +3278,11 @@ def ensure_person_vehicle_history_baseline(
     person_row: Any,
     vehicle_type_override: str | None = None,
     motor_rental_override: str | None = None,
+    motor_rental_monthly_amount_override: float | None = None,
+    motor_purchase_override: str | None = None,
+    motor_purchase_commitment_months_override: int | None = None,
+    motor_purchase_sale_price_override: float | None = None,
+    motor_purchase_monthly_amount_override: float | None = None,
     notes: str = "Sistem: Başlangıç araç kaydı",
 ) -> None:
     person_id = safe_int(get_row_value(person_row, "id"))
@@ -3234,6 +3299,7 @@ def ensure_person_vehicle_history_baseline(
     baseline_motor_rental = resolve_motor_rental_value(
         baseline_vehicle_type,
         str(motor_rental_override or get_row_value(person_row, "motor_rental", "Hayır") or "Hayır"),
+        str(motor_purchase_override or get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır"),
     )
     upsert_person_vehicle_snapshot(
         conn,
@@ -3241,6 +3307,23 @@ def ensure_person_vehicle_history_baseline(
         start_date_value,
         baseline_vehicle_type,
         baseline_motor_rental,
+        motor_rental_monthly_amount=safe_float(
+            motor_rental_monthly_amount_override if motor_rental_monthly_amount_override is not None else get_row_value(person_row, "motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION),
+            AUTO_MOTOR_RENTAL_DEDUCTION,
+        ),
+        motor_purchase=str(motor_purchase_override or get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır"),
+        motor_purchase_commitment_months=safe_int(
+            motor_purchase_commitment_months_override if motor_purchase_commitment_months_override is not None else get_row_value(person_row, "motor_purchase_commitment_months", 0),
+            0,
+        ),
+        motor_purchase_sale_price=safe_float(
+            motor_purchase_sale_price_override if motor_purchase_sale_price_override is not None else get_row_value(person_row, "motor_purchase_sale_price", 0.0),
+            0.0,
+        ),
+        motor_purchase_monthly_amount=safe_float(
+            motor_purchase_monthly_amount_override if motor_purchase_monthly_amount_override is not None else get_row_value(person_row, "motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION),
+            AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
+        ),
         notes=notes,
     )
 
@@ -3266,17 +3349,28 @@ def sync_person_current_vehicle_snapshot(conn: CompatConnection, person_row: Any
     normalized_motor_rental = resolve_motor_rental_value(
         normalized_vehicle_type,
         str(get_row_value(person_row, "motor_rental", "Hayır") or "Hayır"),
+        str(get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır"),
     )
+    motor_rental_monthly_amount = safe_float(get_row_value(person_row, "motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
+    motor_purchase = str(get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır")
+    motor_purchase_commitment_months = safe_int(get_row_value(person_row, "motor_purchase_commitment_months", 0), 0)
+    motor_purchase_sale_price = safe_float(get_row_value(person_row, "motor_purchase_sale_price", 0.0), 0.0)
+    motor_purchase_monthly_amount = safe_float(get_row_value(person_row, "motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION)
     if latest:
         conn.execute(
             """
             UPDATE personnel_vehicle_history
-            SET vehicle_type = ?, motor_rental = ?
+            SET vehicle_type = ?, motor_rental = ?, motor_rental_monthly_amount = ?, motor_purchase = ?, motor_purchase_commitment_months = ?, motor_purchase_sale_price = ?, motor_purchase_monthly_amount = ?
             WHERE id = ?
             """,
             (
                 normalized_vehicle_type,
                 normalized_motor_rental,
+                motor_rental_monthly_amount,
+                motor_purchase,
+                motor_purchase_commitment_months or None,
+                motor_purchase_sale_price or None,
+                motor_purchase_monthly_amount,
                 safe_int(get_row_value(latest, "id")),
             ),
         )
@@ -3291,6 +3385,11 @@ def record_person_vehicle_transition(
     previous_vehicle_type: str,
     transition_date_value: date | str | None,
     previous_motor_rental: str = "Hayır",
+    previous_motor_rental_monthly_amount: float | None = None,
+    previous_motor_purchase: str | None = None,
+    previous_motor_purchase_commitment_months: int | None = None,
+    previous_motor_purchase_sale_price: float | None = None,
+    previous_motor_purchase_monthly_amount: float | None = None,
 ) -> None:
     person_id = safe_int(get_row_value(updated_person_row, "id"))
     if person_id <= 0:
@@ -3303,18 +3402,28 @@ def record_person_vehicle_transition(
         str(get_row_value(updated_person_row, "vehicle_type", "") or ""),
         str(get_row_value(updated_person_row, "motor_rental", "Hayır") or "Hayır"),
     )
+    current_motor_purchase = str(get_row_value(updated_person_row, "motor_purchase", "Hayır") or "Hayır")
     current_motor_rental = resolve_motor_rental_value(
         current_vehicle_type,
         str(get_row_value(updated_person_row, "motor_rental", "Hayır") or "Hayır"),
+        current_motor_purchase,
     )
+    current_motor_rental_monthly_amount = safe_float(get_row_value(updated_person_row, "motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
+    current_motor_purchase_commitment_months = safe_int(get_row_value(updated_person_row, "motor_purchase_commitment_months", 0), 0)
+    current_motor_purchase_sale_price = safe_float(get_row_value(updated_person_row, "motor_purchase_sale_price", 0.0), 0.0)
+    current_motor_purchase_monthly_amount = safe_float(get_row_value(updated_person_row, "motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION)
     previous_vehicle_type_value = resolve_vehicle_type_value(previous_vehicle_type, previous_motor_rental)
-    previous_motor_rental_value = resolve_motor_rental_value(previous_vehicle_type_value, previous_motor_rental)
+    previous_motor_rental_value = resolve_motor_rental_value(
+        previous_vehicle_type_value,
+        previous_motor_rental,
+        str(previous_motor_purchase or get_row_value(original_person_row, "motor_purchase", "Hayır") or "Hayır"),
+    )
     baseline_date = parse_date_value(get_row_value(original_person_row, "start_date")) or date.today()
 
     existing_history = fetch_df(
         conn,
         """
-        SELECT id, vehicle_type, effective_date
+        SELECT id, vehicle_type, motor_purchase, effective_date
         FROM personnel_vehicle_history
         WHERE personnel_id = ?
         ORDER BY effective_date, id
@@ -3328,6 +3437,11 @@ def record_person_vehicle_transition(
             baseline_date,
             previous_vehicle_type_value,
             previous_motor_rental_value,
+            motor_rental_monthly_amount=safe_float(previous_motor_rental_monthly_amount, AUTO_MOTOR_RENTAL_DEDUCTION),
+            motor_purchase=str(previous_motor_purchase or get_row_value(original_person_row, "motor_purchase", "Hayır") or "Hayır"),
+            motor_purchase_commitment_months=safe_int(previous_motor_purchase_commitment_months if previous_motor_purchase_commitment_months is not None else get_row_value(original_person_row, "motor_purchase_commitment_months", 0), 0),
+            motor_purchase_sale_price=safe_float(previous_motor_purchase_sale_price if previous_motor_purchase_sale_price is not None else get_row_value(original_person_row, "motor_purchase_sale_price", 0.0), 0.0),
+            motor_purchase_monthly_amount=safe_float(previous_motor_purchase_monthly_amount if previous_motor_purchase_monthly_amount is not None else get_row_value(original_person_row, "motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION),
             notes="Sistem: Araç değişimi öncesi başlangıç kaydı",
         )
     elif len(existing_history) == 1:
@@ -3336,17 +3450,26 @@ def record_person_vehicle_transition(
         if (
             first_effective_date == baseline_date
             and str(first_row["vehicle_type"] or "") == current_vehicle_type
-            and previous_vehicle_type_value != current_vehicle_type
+            and str(first_row.get("motor_purchase") or "Hayır") == current_motor_purchase
+            and (
+                previous_vehicle_type_value != current_vehicle_type
+                or str(previous_motor_purchase or get_row_value(original_person_row, "motor_purchase", "Hayır") or "Hayır") != current_motor_purchase
+            )
         ):
             conn.execute(
                 """
                 UPDATE personnel_vehicle_history
-                SET vehicle_type = ?, motor_rental = ?, notes = ?
+                SET vehicle_type = ?, motor_rental = ?, motor_rental_monthly_amount = ?, motor_purchase = ?, motor_purchase_commitment_months = ?, motor_purchase_sale_price = ?, motor_purchase_monthly_amount = ?, notes = ?
                 WHERE id = ?
                 """,
                 (
                     previous_vehicle_type_value,
                     previous_motor_rental_value,
+                    safe_float(previous_motor_rental_monthly_amount, AUTO_MOTOR_RENTAL_DEDUCTION),
+                    str(previous_motor_purchase or get_row_value(original_person_row, "motor_purchase", "Hayır") or "Hayır"),
+                    safe_int(previous_motor_purchase_commitment_months if previous_motor_purchase_commitment_months is not None else get_row_value(original_person_row, "motor_purchase_commitment_months", 0), 0) or None,
+                    safe_float(previous_motor_purchase_sale_price if previous_motor_purchase_sale_price is not None else get_row_value(original_person_row, "motor_purchase_sale_price", 0.0), 0.0) or None,
+                    safe_float(previous_motor_purchase_monthly_amount if previous_motor_purchase_monthly_amount is not None else get_row_value(original_person_row, "motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION),
                     "Sistem: Araç değişimi öncesi başlangıç kaydı",
                     safe_int(first_row["id"]),
                 ),
@@ -3358,6 +3481,11 @@ def record_person_vehicle_transition(
         transition_date,
         current_vehicle_type,
         current_motor_rental,
+        motor_rental_monthly_amount=current_motor_rental_monthly_amount,
+        motor_purchase=current_motor_purchase,
+        motor_purchase_commitment_months=current_motor_purchase_commitment_months,
+        motor_purchase_sale_price=current_motor_purchase_sale_price,
+        motor_purchase_monthly_amount=current_motor_purchase_monthly_amount,
         notes="Sistem: Araç tipi geçiş kaydı",
     )
 
@@ -3412,7 +3540,16 @@ def build_person_vehicle_segments(
                 {
                     "effective_date": effective_date_value,
                     "vehicle_type": normalized_vehicle_type,
-                    "motor_rental": resolve_motor_rental_value(normalized_vehicle_type, str(row.get("motor_rental", "Hayır") or "Hayır")),
+                    "motor_rental": resolve_motor_rental_value(
+                        normalized_vehicle_type,
+                        str(row.get("motor_rental", "Hayır") or "Hayır"),
+                        str(row.get("motor_purchase", "Hayır") or "Hayır"),
+                    ),
+                    "motor_rental_monthly_amount": safe_float(row.get("motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION),
+                    "motor_purchase": str(row.get("motor_purchase", "Hayır") or "Hayır"),
+                    "motor_purchase_commitment_months": safe_int(row.get("motor_purchase_commitment_months", 0), 0),
+                    "motor_purchase_sale_price": safe_float(row.get("motor_purchase_sale_price", 0.0), 0.0),
+                    "motor_purchase_monthly_amount": safe_float(row.get("motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION),
                 }
             )
 
@@ -3425,7 +3562,16 @@ def build_person_vehicle_segments(
             {
                 "effective_date": parse_date_value(get_row_value(person_row, "start_date")) or period_start,
                 "vehicle_type": baseline_vehicle_type,
-                "motor_rental": resolve_motor_rental_value(baseline_vehicle_type, str(get_row_value(person_row, "motor_rental", "Hayır") or "Hayır")),
+                "motor_rental": resolve_motor_rental_value(
+                    baseline_vehicle_type,
+                    str(get_row_value(person_row, "motor_rental", "Hayır") or "Hayır"),
+                    str(get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır"),
+                ),
+                "motor_rental_monthly_amount": safe_float(get_row_value(person_row, "motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION),
+                "motor_purchase": str(get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır"),
+                "motor_purchase_commitment_months": safe_int(get_row_value(person_row, "motor_purchase_commitment_months", 0), 0),
+                "motor_purchase_sale_price": safe_float(get_row_value(person_row, "motor_purchase_sale_price", 0.0), 0.0),
+                "motor_purchase_monthly_amount": safe_float(get_row_value(person_row, "motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION),
             }
         )
 
@@ -3442,6 +3588,11 @@ def build_person_vehicle_segments(
                 "end_date": segment_end,
                 "vehicle_type": snapshot["vehicle_type"],
                 "motor_rental": snapshot["motor_rental"],
+                "motor_rental_monthly_amount": snapshot["motor_rental_monthly_amount"],
+                "motor_purchase": snapshot["motor_purchase"],
+                "motor_purchase_commitment_months": snapshot["motor_purchase_commitment_months"],
+                "motor_purchase_sale_price": snapshot["motor_purchase_sale_price"],
+                "motor_purchase_monthly_amount": snapshot["motor_purchase_monthly_amount"],
             }
         )
     return segments
@@ -3773,15 +3924,15 @@ def calculate_prorated_monthly_deduction_amount(monthly_amount: float, billable_
     return round((float(monthly_amount) / MOTOR_RENTAL_STANDARD_MONTH_DAYS) * billable_days, 2)
 
 
-def calculate_prorated_motor_rental_amount(billable_days: int) -> float:
-    return calculate_prorated_monthly_deduction_amount(AUTO_MOTOR_RENTAL_DEDUCTION, billable_days)
+def calculate_prorated_motor_rental_amount(billable_days: int, monthly_amount: float = AUTO_MOTOR_RENTAL_DEDUCTION) -> float:
+    return calculate_prorated_monthly_deduction_amount(monthly_amount, billable_days)
 
 
-def calculate_motor_purchase_monthly_reference(total_price: float, commitment_months: int) -> float:
+def calculate_motor_purchase_monthly_reference(monthly_amount: float, commitment_months: int) -> float:
     resolved_months = max(int(commitment_months or 0), 0)
     if resolved_months <= 0:
         return 0.0
-    return round(max(float(total_price or 0), 0.0) / resolved_months, 2)
+    return round(max(float(monthly_amount or 0), 0.0), 2)
 
 
 def sync_person_auto_deductions(
@@ -3813,7 +3964,7 @@ def sync_person_auto_deductions(
     vehicle_history_df = fetch_df(
         conn,
         """
-        SELECT personnel_id, vehicle_type, motor_rental, effective_date
+        SELECT personnel_id, vehicle_type, motor_rental, motor_rental_monthly_amount, motor_purchase, motor_purchase_commitment_months, motor_purchase_sale_price, motor_purchase_monthly_amount, effective_date
         FROM personnel_vehicle_history
         WHERE personnel_id = ?
         ORDER BY effective_date, id
@@ -3827,70 +3978,82 @@ def sync_person_auto_deductions(
         if segment_period_end < segment_period_start:
             continue
 
-        rented_billable_days = 0
+        rental_amount_total = 0.0
+        rental_days_total = 0
+        sale_amount_total = 0.0
+        sale_days_total = 0
+        sale_commitment_months = 0
+        sale_installment_no = 0
+        sale_multiple_segments = False
+        sale_segment_count = 0
+
         for vehicle_segment in build_person_vehicle_segments(person_row, vehicle_history_df, segment_period_start, segment_period_end):
             normalized_vehicle_type = resolve_vehicle_type_value(
                 str(vehicle_segment.get("vehicle_type", "") or ""),
                 str(vehicle_segment.get("motor_rental", "Hayır") or "Hayır"),
             )
+            segment_start = vehicle_segment["start_date"]
+            segment_end = vehicle_segment["end_date"]
+            segment_days = (segment_end - segment_start).days + 1
+            if segment_days <= 0:
+                continue
+
+            segment_motor_purchase = str(vehicle_segment.get("motor_purchase", "Hayır") or "Hayır")
+            if segment_motor_purchase == "Evet":
+                segment_monthly_amount = safe_float(vehicle_segment.get("motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), 0.0)
+                segment_commitment_months = safe_int(vehicle_segment.get("motor_purchase_commitment_months", 0), 0)
+                if segment_monthly_amount > 0 and segment_commitment_months > 0:
+                    sale_segment_count += 1
+                    sale_days_total += segment_days
+                    sale_amount_total += calculate_prorated_monthly_deduction_amount(segment_monthly_amount, segment_days)
+                    sale_commitment_months = segment_commitment_months
+                    month_offset = ((month_cursor.year - segment_start.year) * 12) + (month_cursor.month - segment_start.month)
+                    sale_installment_no = max(sale_installment_no, month_offset + 1)
+                continue
+
             if normalized_vehicle_type != "Çat Kapında":
                 continue
-            rented_billable_days += (vehicle_segment["end_date"] - vehicle_segment["start_date"]).days + 1
+            segment_rental_monthly_amount = safe_float(vehicle_segment.get("motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
+            rental_days_total += segment_days
+            rental_amount_total += calculate_prorated_motor_rental_amount(segment_days, segment_rental_monthly_amount)
 
-        amount = calculate_prorated_motor_rental_amount(rented_billable_days)
-        if amount <= 0:
-            continue
         deduction_date_value = build_monthly_deduction_date(segment_period_start, month_cursor)
-        conn.execute(
-            """
-            INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, auto_source_key)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                person_id,
-                deduction_date_value.isoformat(),
-                "Motor Kirası",
-                amount,
-                f"Sistem: {rented_billable_days} gün Çat Kapında motor kullanımına göre otomatik hesaplandı.",
-                f"auto:motor_rental:{person_id}:{month_cursor.strftime('%Y-%m')}",
-            ),
-        )
-
-    if str(get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır") == "Evet":
-        purchase_start_date_value = parse_date_value(get_row_value(person_row, "motor_purchase_start_date")) or start_date_value
-        commitment_months = max(safe_int(get_row_value(person_row, "motor_purchase_commitment_months"), 0), 0)
-        monthly_amount = safe_float(get_row_value(person_row, "motor_purchase_monthly_amount"), 0.0)
-        if commitment_months > 0 and monthly_amount > 0:
-            purchase_end_month_start = add_months(purchase_start_date_value, commitment_months - 1)
-            purchase_period_end = min(end_of_month(purchase_end_month_start), end_date_value)
-            if purchase_period_end >= purchase_start_date_value:
-                purchase_month_start_value = purchase_start_date_value.replace(day=1) if full_history else max((as_of or date.today()).replace(day=1), purchase_start_date_value.replace(day=1))
-                for month_cursor in iter_month_starts(purchase_month_start_value, purchase_period_end):
-                    segment_period_start = max(purchase_start_date_value, month_cursor)
-                    segment_period_end = min(end_of_month(month_cursor), purchase_period_end)
-                    if segment_period_end < segment_period_start:
-                        continue
-                    billable_days = (segment_period_end - segment_period_start).days + 1
-                    amount = calculate_prorated_monthly_deduction_amount(monthly_amount, billable_days)
-                    if amount <= 0:
-                        continue
-                    month_offset = ((month_cursor.year - purchase_start_date_value.year) * 12) + (month_cursor.month - purchase_start_date_value.month)
-                    installment_no = month_offset + 1
-                    deduction_date_value = build_monthly_deduction_date(segment_period_start, month_cursor)
-                    conn.execute(
-                        """
-                        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, auto_source_key)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            person_id,
-                            deduction_date_value.isoformat(),
-                            "Motor Satın Alım",
-                            amount,
-                            f"Sistem: {installment_no}/{commitment_months} taksit | {billable_days} gün aktif dönem üzerinden otomatik hesaplandı.",
-                            f"auto:motor_purchase:{person_id}:{month_cursor.strftime('%Y-%m')}",
-                        ),
-                    )
+        if rental_amount_total > 0:
+            conn.execute(
+                """
+                INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, auto_source_key)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    person_id,
+                    deduction_date_value.isoformat(),
+                    "Motor Kirası",
+                    round(rental_amount_total, 2),
+                    f"Sistem: {rental_days_total} gün Çat Kapında motor kullanımı | bu ay toplam kira kesintisi.",
+                    f"auto:motor_rental:{person_id}:{month_cursor.strftime('%Y-%m')}",
+                ),
+            )
+        if sale_amount_total > 0:
+            sale_multiple_segments = sale_segment_count > 1
+            installment_text = (
+                f"{sale_installment_no}/{sale_commitment_months} taksit"
+                if sale_commitment_months > 0 and not sale_multiple_segments
+                else "çoklu motor satış geçişi"
+            )
+            conn.execute(
+                """
+                INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, auto_source_key)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    person_id,
+                    deduction_date_value.isoformat(),
+                    "Motor Satın Alım",
+                    round(sale_amount_total, 2),
+                    f"Sistem: {installment_text} | {sale_days_total} gün aktif satış dönemi üzerinden otomatik hesaplandı.",
+                    f"auto:motor_purchase:{person_id}:{month_cursor.strftime('%Y-%m')}",
+                ),
+            )
     conn.commit()
 
 
@@ -3978,6 +4141,7 @@ def sync_all_personnel_business_rules(conn: CompatConnection, full_history: bool
         effective_motor_rental = resolve_motor_rental_value(
             resolved_vehicle_type,
             str(row.get("motor_rental", "Hayır") or "Hayır"),
+            str(row.get("motor_purchase", "Hayır") or "Hayır"),
         )
         normalized_cost_model = normalize_cost_model_value(str(row.get("cost_model", "standard_courier") or "standard_courier"), str(row.get("role", "Kurye") or "Kurye"))
         if (
@@ -4181,7 +4345,7 @@ def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
     )
     return format_display_df(
         visible_df,
-        currency_cols=["accounting_revenue", "accountant_cost", "company_setup_revenue", "company_setup_cost", "motor_purchase_sale_price", "monthly_fixed_cost"],
+        currency_cols=["accounting_revenue", "accountant_cost", "company_setup_revenue", "company_setup_cost", "motor_rental_monthly_amount", "motor_purchase_sale_price", "monthly_fixed_cost"],
         rename_map={
             "id": "ID",
             "person_code": "Personel Kodu",
@@ -4201,9 +4365,10 @@ def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
             "company_setup_revenue": "Şirket Açılış Geliri",
             "company_setup_cost": "Şirket Açılış Maliyeti",
             "vehicle_type": "Motor Tipi",
+            "motor_rental_monthly_amount": "Aylık Motor Kira Tutarı",
             "motor_purchase_start_date": "Motor Satın Alım Tarihi",
             "motor_purchase_commitment_months": "Taahhüt Süresi (Ay)",
-            "motor_purchase_sale_price": "Motor Satış Fiyatı",
+            "motor_purchase_sale_price": "Aylık Motor Satış Taksiti",
             "current_plate": "Güncel Plaka",
             "start_date": "İşe Giriş Tarihi",
             "exit_date": "Çıkış Tarihi",
@@ -4221,17 +4386,182 @@ def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
 def format_motor_purchase_summary(row: Any) -> str:
     if str(get_row_value(row, "motor_purchase", "Hayır") or "Hayır") != "Evet":
         return "-"
-    sale_price = safe_float(get_row_value(row, "motor_purchase_sale_price", 0.0), 0.0)
+    monthly_amount = safe_float(
+        get_row_value(
+            row,
+            "motor_purchase_monthly_amount",
+            get_row_value(row, "motor_purchase_sale_price", 0.0),
+        ),
+        0.0,
+    )
     commitment_months = safe_int(get_row_value(row, "motor_purchase_commitment_months", 0), 0)
     start_date_text = str(get_row_value(row, "motor_purchase_start_date", "") or "").strip()
     parts = []
-    if sale_price > 0:
-        parts.append(fmt_try(sale_price))
+    if monthly_amount > 0:
+        parts.append(f"{fmt_try(monthly_amount)} / ay")
     if commitment_months > 0:
         parts.append(f"{commitment_months} ay")
     if start_date_text:
         parts.append(start_date_text)
     return " | ".join(parts) if parts else "Tanımlı"
+
+
+def format_motor_rental_summary(row: Any) -> str:
+    vehicle_type = str(get_row_value(row, "vehicle_type", "") or "").strip()
+    motor_purchase = str(get_row_value(row, "motor_purchase", "Hayır") or "Hayır").strip()
+    if motor_purchase == "Evet":
+        return "Motor satışı aktif | kira uygulanmaz"
+    if vehicle_type != "Çat Kapında":
+        return "-"
+    monthly_amount = safe_float(get_row_value(row, "motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
+    return f"{fmt_try(monthly_amount)} / ay"
+
+
+def render_vehicle_transition_caption() -> None:
+    st.caption(
+        "Motor düzeni değiştiyse bu tarih, yeni kullanım modelinin geçerli olduğu ilk günü temsil eder. "
+        "Kira, satış ve kendi motoru geçişleri ay sonu kesintilerine otomatik yansır."
+    )
+
+
+def render_motor_purchase_proration_caption() -> None:
+    st.caption(
+        "Bu tarih aylık motor satış taksidinin başladığı ilk gündür. Ayın 1'i değilse ilk ay tutarı, "
+        "bu tarihten ay sonuna kadar prorate edilir."
+    )
+
+
+def render_motor_deduction_snapshot(
+    *,
+    vehicle_type: str,
+    motor_purchase: str,
+    motor_rental_monthly_amount: float = AUTO_MOTOR_RENTAL_DEDUCTION,
+    sale_price: float = 0.0,
+    commitment_months: int = 0,
+) -> None:
+    items: list[tuple[str, Any]] = []
+    if str(vehicle_type or "").strip() == "Çat Kapında" and str(motor_purchase or "Hayır").strip() != "Evet":
+        items.append(("Motor Kirası", f"{fmt_try(motor_rental_monthly_amount)} / ay"))
+    if str(motor_purchase or "Hayır").strip() == "Evet":
+        monthly_reference = calculate_motor_purchase_monthly_reference(safe_float(sale_price, 0.0), safe_int(commitment_months, 0))
+        if monthly_reference > 0:
+            items.append(("Aylık Motor Satış Taksiti", f"{fmt_try(monthly_reference)} / ay"))
+        if safe_int(commitment_months, 0) > 0:
+            items.append(("Taahhüt", f"{safe_int(commitment_months, 0)} ay"))
+        items.append(("Motor Kirası", "Uygulanmaz"))
+    if not items:
+        return
+    render_record_snapshot("Otomatik Motor Kesinti Özeti", items)
+    st.caption(
+        "Motor kira ve motor satış tutarları tam ayda tam kesilir. Sadece işe giriş, işten çıkış, "
+        "motor tipi değişimi veya motor satış başlangıcı ay içinde ise /30 bazlı prorate edilir."
+    )
+
+
+def build_motor_usage_payload(
+    *,
+    motor_usage_mode: str,
+    motor_rental_monthly_amount: float,
+    motor_purchase_start_date_value: date | None,
+    motor_purchase_commitment_months: int | None,
+    motor_purchase_sale_price: float,
+) -> dict[str, Any]:
+    vehicle_type, motor_purchase = resolve_motor_usage_fields(motor_usage_mode)
+    sale_mode_enabled = motor_purchase == "Evet"
+    motor_rental = "Hayır" if sale_mode_enabled else resolve_motor_rental_value(vehicle_type, "Hayır")
+    motor_rental_monthly_amount_value = (
+        safe_float(motor_rental_monthly_amount, 0.0)
+        if motor_usage_mode == "Çat Kapında Motor Kirası"
+        else 0.0
+    )
+    motor_purchase_start_date_str = (
+        motor_purchase_start_date_value.isoformat()
+        if sale_mode_enabled and isinstance(motor_purchase_start_date_value, date)
+        else None
+    )
+    motor_purchase_commitment_value = (
+        safe_int(motor_purchase_commitment_months, 12)
+        if sale_mode_enabled
+        else None
+    )
+    motor_purchase_sale_price_value = (
+        safe_float(motor_purchase_sale_price, 0.0)
+        if sale_mode_enabled
+        else None
+    )
+    motor_purchase_monthly_reference = (
+        calculate_motor_purchase_monthly_reference(motor_purchase_sale_price_value, motor_purchase_commitment_value)
+        if sale_mode_enabled
+        else 0.0
+    )
+    motor_purchase_installment_count_value = (
+        motor_purchase_commitment_value
+        if sale_mode_enabled
+        else None
+    )
+    return {
+        "vehicle_type": vehicle_type,
+        "motor_rental": motor_rental,
+        "motor_purchase": motor_purchase,
+        "motor_rental_monthly_amount": motor_rental_monthly_amount_value,
+        "motor_purchase_start_date_str": motor_purchase_start_date_str,
+        "motor_purchase_commitment_months": motor_purchase_commitment_value,
+        "motor_purchase_sale_price": motor_purchase_sale_price_value,
+        "motor_purchase_monthly_amount": motor_purchase_monthly_reference,
+        "motor_purchase_installment_count": motor_purchase_installment_count_value,
+    }
+
+
+def motor_usage_payload_has_charge(payload: dict[str, Any]) -> bool:
+    return (
+        str(payload.get("motor_rental", "Hayır") or "Hayır") == "Evet"
+        or str(payload.get("motor_purchase", "Hayır") or "Hayır") == "Evet"
+    )
+
+
+def render_motor_deduction_snapshot_from_payload(payload: dict[str, Any]) -> None:
+    if not motor_usage_payload_has_charge(payload):
+        return
+    render_motor_deduction_snapshot(
+        vehicle_type=str(payload.get("vehicle_type", "") or ""),
+        motor_purchase=str(payload.get("motor_purchase", "Hayır") or "Hayır"),
+        motor_rental_monthly_amount=safe_float(payload.get("motor_rental_monthly_amount", 0.0), 0.0),
+        sale_price=safe_float(
+            payload.get("motor_purchase_monthly_amount", payload.get("motor_purchase_sale_price", 0.0)),
+            0.0,
+        ),
+        commitment_months=safe_int(payload.get("motor_purchase_commitment_months", 0), 0),
+    )
+
+
+def filter_deductions_by_source(raw_df: pd.DataFrame, source_filter: str) -> pd.DataFrame:
+    filtered_raw_df = raw_df.copy()
+    if filtered_raw_df.empty:
+        return filtered_raw_df
+    if source_filter == "Manuel Kayıtlar":
+        return filtered_raw_df[filtered_raw_df["auto_source_key"].fillna("").astype(str).str.strip() == ""].copy()
+    if source_filter == "Otomatik Motor Kirası":
+        return filtered_raw_df[filtered_raw_df["auto_source_key"].fillna("").astype(str).str.startswith("auto:motor_rental:")].copy()
+    if source_filter == "Otomatik Motor Satışı":
+        return filtered_raw_df[filtered_raw_df["auto_source_key"].fillna("").astype(str).str.startswith("auto:motor_purchase:")].copy()
+    return filtered_raw_df
+
+
+def get_deduction_source_filter_caption(source_filter: str) -> str:
+    captions = {
+        "Manuel Kayıtlar": "Yalnızca manuel girilmiş kesintiler gösteriliyor.",
+        "Otomatik Motor Kirası": "Personel kartındaki motor tipi ve tarih bilgisine göre oluşan otomatik motor kira kesintileri gösteriliyor.",
+        "Otomatik Motor Satışı": "Personel kartındaki motor satış tarihi, fiyatı ve taahhüt süresine göre oluşan otomatik taksitler gösteriliyor.",
+    }
+    return captions.get(source_filter, "")
+
+
+def build_auto_deduction_warning_text(auto_source_key: Any) -> str:
+    return (
+        f"Bu kayıt {describe_auto_source_key(auto_source_key)} akışından otomatik üretildi. "
+        "Değişiklik için ilgili personel kartındaki motor tipi, motor satış tarihi, fiyatı veya "
+        "başlangıç/çıkış tarihini güncelle."
+    )
 
 
 def build_table_backup_zip(conn: CompatConnection) -> bytes:
@@ -5771,7 +6101,9 @@ def render_field_label(label: str, required: bool = False) -> None:
     )
 
 
-def resolve_motor_rental_value(vehicle_type: str, motor_rental: str) -> str:
+def resolve_motor_rental_value(vehicle_type: str, motor_rental: str, motor_purchase: str = "Hayır") -> str:
+    if str(motor_purchase or "Hayır").strip() == "Evet":
+        return "Hayır"
     normalized_vehicle_type = (vehicle_type or "").strip()
     if normalized_vehicle_type == "Kendi":
         normalized_vehicle_type = "Kendi Motoru"
@@ -5791,6 +6123,28 @@ def resolve_vehicle_type_value(vehicle_type: str, motor_rental: str = "Hayır") 
     return "Çat Kapında" if (motor_rental or "Hayır") == "Evet" else "Kendi Motoru"
 
 
+def resolve_motor_usage_mode(vehicle_type: str, motor_purchase: str, motor_rental: str = "Hayır") -> str:
+    normalized_vehicle_type = resolve_vehicle_type_value(vehicle_type, motor_rental)
+    if str(motor_purchase or "Hayır").strip() == "Evet":
+        return "Çat Kapında Motor Satışı"
+    if normalized_vehicle_type == "Çat Kapında":
+        return "Çat Kapında Motor Kirası"
+    return "Kendi Motoru"
+
+
+def resolve_motor_usage_fields(motor_usage_mode: str) -> tuple[str, str]:
+    normalized_mode = str(motor_usage_mode or "").strip()
+    if normalized_mode == "Çat Kapında Motor Satışı":
+        return "Çat Kapında", "Evet"
+    if normalized_mode == "Çat Kapında Motor Kirası":
+        return "Çat Kapında", "Hayır"
+    return "Kendi Motoru", "Hayır"
+
+
+def role_requires_primary_restaurant(role: str) -> bool:
+    return str(role or "").strip() in {"Kurye", "Restoran Takım Şefi"}
+
+
 def resolve_accounting_defaults(accounting_type: str) -> tuple[float, float]:
     if (accounting_type or "").strip() == "Çat Kapında Muhasebe":
         return AUTO_ACCOUNTING_DEDUCTION, AUTO_ACCOUNTANT_COST
@@ -5808,6 +6162,14 @@ def resolve_fixed_cost_model(role: str) -> str:
     if normalized_role == "Kurye":
         return "standard_courier"
     return FIXED_COST_MODEL_BY_ROLE.get(normalized_role, "standard_courier")
+
+
+def get_role_fixed_cost_label(role: str, transition: bool = False) -> str:
+    normalized_role = str(role or "").strip()
+    if normalized_role not in FIXED_COST_MODEL_BY_ROLE:
+        return "Aylık Sabit Maliyet"
+    suffix = "Sabit Maaşı" if transition else "Aylık Sabit Maliyeti"
+    return f"{normalized_role} {suffix}"
 
 
 def resolve_cost_role_option(cost_model: str, role: str) -> str:
@@ -5832,6 +6194,56 @@ def normalize_cost_model_value(cost_model: str, role: str) -> str:
 
 def is_fixed_cost_model(cost_model: str) -> bool:
     return normalize_cost_model_value(cost_model, "Kurye") != "standard_courier"
+
+
+def initialize_edit_person_transition_state(
+    selected_id: int,
+    row_role_value: str,
+    monthly_fixed_cost: float,
+    start_date_value: date | None,
+) -> None:
+    default_role = row_role_value if row_role_value in PERSONNEL_ROLE_OPTIONS else "Kurye"
+    st.session_state[f"edit_person_transition_enabled_{selected_id}"] = False
+    st.session_state[f"edit_person_previous_role_{selected_id}"] = default_role
+    st.session_state[f"edit_person_transition_new_role_{selected_id}"] = default_role
+    st.session_state[f"edit_person_transition_monthly_cost_{selected_id}"] = float(monthly_fixed_cost or 0.0)
+    st.session_state[f"edit_person_transition_date_{selected_id}"] = start_date_value if start_date_value else date.today()
+
+
+def resolve_effective_role_from_transition(
+    current_role: str,
+    transition_enabled: bool,
+    transition_new_role: str,
+) -> tuple[str, bool]:
+    effective_role = transition_new_role if transition_enabled else current_role
+    return effective_role, effective_role != current_role
+
+
+def validate_role_transition_inputs(
+    *,
+    role_changed: bool,
+    transition_enabled: bool,
+    transition_previous_role: str,
+    effective_role: str,
+    transition_effective_date: date | None,
+    start_date_value: date | None,
+) -> list[str]:
+    errors: list[str] = []
+    if role_changed and not transition_enabled:
+        errors.append("Rol değişikliği yapıyorsan rol başlangıç tarihini de kaydetmelisin.")
+        return errors
+    if transition_enabled and not role_changed:
+        errors.append("Rol değişikliği kaydı eklemek için yeni rol mevcut rolden farklı olmalı.")
+        return errors
+    if not (role_changed and transition_enabled):
+        return errors
+    if transition_previous_role == effective_role:
+        errors.append("Rol geçiş kaydında önceki rol ile yeni rol farklı olmalı.")
+    if not isinstance(transition_effective_date, date):
+        errors.append("Rol başlangıç tarihi zorunlu.")
+    elif isinstance(start_date_value, date) and transition_effective_date < start_date_value:
+        errors.append("Rol başlangıç tarihi işe giriş tarihinden önce olamaz.")
+    return errors
 
 
 def fetch_df(conn: CompatConnection, query: str, params: tuple = ()) -> pd.DataFrame:
@@ -6251,7 +6663,7 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
                 missing_fields.append("IBAN")
             if not str(row.get("current_plate") or "").strip():
                 missing_fields.append("Plaka")
-            if str(row.get("role") or "") in {"Kurye", "Restoran Takım Şefi"} and not safe_int(row.get("assigned_restaurant_id"), 0):
+            if role_requires_primary_restaurant(str(row.get("role") or "")) and not safe_int(row.get("assigned_restaurant_id"), 0):
                 missing_fields.append("Ana restoran")
             if missing_fields:
                 missing_personnel_rows.append(
@@ -6708,6 +7120,8 @@ def validate_personnel_form(
     role: str,
     assigned_restaurant_id: int | None,
     start_date_value: date | None,
+    vehicle_type: str,
+    motor_rental_monthly_amount: float,
     cost_model: str,
     monthly_fixed_cost: float,
     motor_purchase: str = "Hayır",
@@ -6728,8 +7142,11 @@ def validate_personnel_form(
         errors.append("Güncel plaka alanı zorunlu.")
     if start_date_value is None:
         errors.append("İşe giriş tarihi zorunlu.")
-    if role in {"Kurye", "Restoran Takım Şefi"} and not assigned_restaurant_id:
+    if role_requires_primary_restaurant(role) and not assigned_restaurant_id:
         errors.append("Bu rol için ana restoran seçilmesi zorunlu.")
+    if str(vehicle_type or "").strip() == "Çat Kapında" and str(motor_purchase or "Hayır") != "Evet":
+        if safe_float(motor_rental_monthly_amount, 0.0) <= 0:
+            errors.append("Çat Kapında motor kullanımında aylık motor kira tutarı zorunlu.")
     if str(motor_purchase or "Hayır") == "Evet":
         if motor_purchase_start_date_value is None:
             errors.append("Motor satın alım tarihi zorunlu.")
@@ -7300,6 +7717,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     for optional_column, default_value in {
         "emergency_contact_name": "",
         "emergency_contact_phone": "",
+        "motor_rental_monthly_amount": AUTO_MOTOR_RENTAL_DEDUCTION,
         "motor_purchase": "Hayır",
         "motor_purchase_start_date": "",
         "motor_purchase_commitment_months": None,
@@ -7345,6 +7763,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     ("Rol", recent_row["role"] or "-"),
                     ("Durum", recent_row["status"] or "-"),
                     ("Ana Restoran", recent_row["restoran"] or "-"),
+                    ("Motor Kirası", format_motor_rental_summary(recent_row)),
                     ("Çat Kapında Motor Satışı", format_motor_purchase_summary(recent_row)),
                     ("Acil Durum Kişisi", recent_row["emergency_contact_name"] or "-"),
                 ],
@@ -7457,6 +7876,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Durum", preview_row["status"] or "-"),
                         ("Ana Restoran", preview_row["restoran"] or "-"),
                         ("Plaka", preview_row["current_plate"] or "-"),
+                        ("Motor Kirası", format_motor_rental_summary(preview_row)),
                         ("Çat Kapında Motor Satışı", format_motor_purchase_summary(preview_row)),
                         ("Acil Durum Kişisi", preview_row["emergency_contact_name"] or "-"),
                     ],
@@ -7477,6 +7897,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Rol", recent_row["role"] or "-"),
                         ("Durum", recent_row["status"] or "-"),
                         ("Ana Restoran", recent_row["restoran"] or "-"),
+                        ("Motor Kirası", format_motor_rental_summary(recent_row)),
                         ("Çat Kapında Motor Satışı", format_motor_purchase_summary(recent_row)),
                         ("Acil Durum Kişisi", recent_row["emergency_contact_name"] or "-"),
                     ],
@@ -7496,10 +7917,12 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "new_person_new_company_setup": "Hayır",
             "new_person_start_date": date.today(),
             "new_person_vehicle_type": "Çat Kapında",
+            "new_person_motor_usage_mode": "Çat Kapında Motor Kirası",
+            "new_person_motor_rental_monthly_amount": AUTO_MOTOR_RENTAL_DEDUCTION,
             "new_person_motor_purchase": "Hayır",
             "new_person_motor_purchase_start_date": date.today(),
             "new_person_motor_purchase_commitment_months": 12,
-            "new_person_motor_purchase_sale_price": AUTO_MOTOR_PURCHASE_TOTAL_PRICE,
+            "new_person_motor_purchase_sale_price": AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
             "new_person_accounting_revenue": 0.0,
             "new_person_accountant_cost": 0.0,
             "new_person_company_setup_revenue": 0.0,
@@ -7535,8 +7958,14 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             render_field_label("Telefon", required=True)
             phone = st.text_input("Telefon", key="new_person_phone", label_visibility="collapsed")
         with c5:
-            render_field_label("Ana Restoran", required=role in {"Kurye", "Restoran Takım Şefi"})
-            assigned_label = st.selectbox("Ana Restoran", list(rest_opts_with_blank.keys()), key="new_person_assigned_label", label_visibility="collapsed")
+            render_field_label("Ana Restoran", required=role_requires_primary_restaurant(role))
+            assigned_label = st.selectbox(
+                "Ana Restoran",
+                list(rest_opts_with_blank.keys()),
+                key="new_person_assigned_label",
+                disabled=not role_requires_primary_restaurant(role),
+                label_visibility="collapsed",
+            )
 
         c7, c8, c9 = st.columns(3)
         with c7:
@@ -7597,7 +8026,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             render_field_label("Muhasebeciye Ödediğimiz")
             accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, step=100.0, key="new_person_accountant_cost", label_visibility="collapsed")
         if is_fixed_cost_model(cost_model):
-            fixed_cost_label = f"{role} Aylık Sabit Maliyeti" if role in FIXED_COST_MODEL_BY_ROLE else "Aylık Sabit Maliyet"
+            fixed_cost_label = get_role_fixed_cost_label(role)
             with c15:
                 render_field_label(fixed_cost_label, required=True)
                 monthly_fixed_cost = st.number_input(fixed_cost_label, min_value=0.0, step=100.0, key="new_person_monthly_fixed_cost", label_visibility="collapsed")
@@ -7616,53 +8045,94 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, step=100.0, key="new_person_company_setup_cost", label_visibility="collapsed")
 
         st.markdown("##### Araç ve Operasyon")
-        c18, c19 = st.columns(2)
+        c18, c19, c20 = st.columns(3)
         with c18:
-            render_field_label("Motor Tipi")
-            vehicle_type = st.selectbox("Motor Tipi", ["Çat Kapında", "Kendi Motoru"], key="new_person_vehicle_type", label_visibility="collapsed")
+            render_field_label("Motor Kullanım Modeli")
+            motor_usage_mode = st.selectbox(
+                "Motor Kullanım Modeli",
+                MOTOR_USAGE_MODE_OPTIONS,
+                key="new_person_motor_usage_mode",
+                label_visibility="collapsed",
+            )
         with c19:
             render_field_label("Güncel Plaka", required=True)
             current_plate = st.text_input("Güncel Plaka", key="new_person_current_plate", label_visibility="collapsed")
-        effective_motor_rental = resolve_motor_rental_value(vehicle_type, "Hayır")
+        sale_mode_enabled = motor_usage_mode == "Çat Kapında Motor Satışı"
+        if motor_usage_mode == "Çat Kapında Motor Kirası":
+            with c20:
+                render_field_label("Aylık Motor Kira Tutarı", required=True)
+                motor_rental_monthly_amount = st.number_input(
+                    "Aylık Motor Kira Tutarı",
+                    min_value=0.0,
+                    step=100.0,
+                    key="new_person_motor_rental_monthly_amount",
+                    label_visibility="collapsed",
+                )
+            st.caption("Bu personel Çat Kapında motorunu kiralıyorsa aylık kira tutarı buradan yönetilir.")
+        else:
+            with c20:
+                render_field_label("Aylık Motor Kira Tutarı")
+                st.number_input(
+                    "Aylık Motor Kira Tutarı",
+                    min_value=0.0,
+                    step=100.0,
+                    value=0.0,
+                    disabled=True,
+                    key="new_person_motor_rental_monthly_amount_disabled",
+                    label_visibility="collapsed",
+                )
+            motor_rental_monthly_amount = 0.0
+
         st.markdown("##### Çat Kapında Motor Satış Bilgisi")
-        c20, c21, c22, c23 = st.columns(4)
-        with c20:
-            render_field_label("Çat Kapında Motor Satışı")
-            motor_purchase = st.selectbox("Çat Kapında Motor Satışı", ["Hayır", "Evet"], key="new_person_motor_purchase", label_visibility="collapsed")
+        c21, c22, c23 = st.columns(3)
         with c21:
-            render_field_label("Motor Satın Alım Tarihi", required=motor_purchase == "Evet")
+            render_field_label("Motor Satın Alım Tarihi", required=sale_mode_enabled)
             motor_purchase_start_date = st.date_input(
                 "Motor Satın Alım Tarihi",
                 key="new_person_motor_purchase_start_date",
-                disabled=motor_purchase != "Evet",
+                disabled=not sale_mode_enabled,
                 label_visibility="collapsed",
             )
+        if sale_mode_enabled:
+            render_motor_purchase_proration_caption()
         with c22:
-            render_field_label("Taahhüt Süresi (Ay)", required=motor_purchase == "Evet")
+            render_field_label("Taahhüt Süresi (Ay)", required=sale_mode_enabled)
             motor_purchase_commitment_months = st.selectbox(
                 "Taahhüt Süresi (Ay)",
-                [12, 15, 18],
+                MOTOR_PURCHASE_COMMITMENT_OPTIONS,
                 key="new_person_motor_purchase_commitment_months",
-                disabled=motor_purchase != "Evet",
+                disabled=not sale_mode_enabled,
                 label_visibility="collapsed",
             )
         with c23:
-            render_field_label("Motor Satış Fiyatı", required=motor_purchase == "Evet")
+            render_field_label("Aylık Motor Satış Taksiti", required=sale_mode_enabled)
             motor_purchase_sale_price = st.number_input(
-                "Motor Satış Fiyatı",
+                "Aylık Motor Satış Taksiti",
                 min_value=0.0,
-                step=1000.0,
+                step=100.0,
                 key="new_person_motor_purchase_sale_price",
-                disabled=motor_purchase != "Evet",
+                disabled=not sale_mode_enabled,
                 label_visibility="collapsed",
             )
+        if sale_mode_enabled:
+            st.info("Motor satış modeli seçildi. Bu personelde ayrıca motor kirası uygulanmaz.")
+        motor_usage_payload = build_motor_usage_payload(
+            motor_usage_mode=motor_usage_mode,
+            motor_rental_monthly_amount=safe_float(motor_rental_monthly_amount, 0.0),
+            motor_purchase_start_date_value=motor_purchase_start_date if isinstance(motor_purchase_start_date, date) else None,
+            motor_purchase_commitment_months=safe_int(motor_purchase_commitment_months, 0),
+            motor_purchase_sale_price=safe_float(motor_purchase_sale_price, 0.0),
+        )
+        vehicle_type = str(motor_usage_payload["vehicle_type"] or "")
+        motor_purchase = str(motor_usage_payload["motor_purchase"] or "Hayır")
+        render_motor_deduction_snapshot_from_payload(motor_usage_payload)
         notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar", key="new_person_notes")
 
         create_clicked = st.button("Personel Kartını Oluştur", use_container_width=True, key="new_person_create")
         if create_clicked:
             st.session_state.pop("personnel_create_success_message", None)
             st.session_state.pop("personnel_recently_created", None)
-            assigned_id = rest_opts_with_blank.get(assigned_label) if role in {"Kurye", "Restoran Takım Şefi"} else None
+            assigned_id = rest_opts_with_blank.get(assigned_label) if role_requires_primary_restaurant(role) else None
             validation_errors = validate_personnel_form(
                 full_name=full_name,
                 phone=phone,
@@ -7673,6 +8143,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 role=role,
                 assigned_restaurant_id=assigned_id,
                 start_date_value=start_date if isinstance(start_date, date) else None,
+                vehicle_type=vehicle_type,
+                motor_rental_monthly_amount=safe_float(motor_rental_monthly_amount, 0.0),
                 cost_model=cost_model,
                 monthly_fixed_cost=monthly_fixed_cost,
                 motor_purchase=motor_purchase,
@@ -7686,31 +8158,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             else:
                 try:
                     start_date_str = start_date.isoformat() if isinstance(start_date, date) else None
-                    motor_purchase_start_date_str = (
-                        motor_purchase_start_date.isoformat()
-                        if motor_purchase == "Evet" and isinstance(motor_purchase_start_date, date)
-                        else None
-                    )
-                    motor_purchase_commitment_value = (
-                        safe_int(motor_purchase_commitment_months, 12)
-                        if motor_purchase == "Evet"
-                        else None
-                    )
-                    motor_purchase_sale_price_value = (
-                        safe_float(motor_purchase_sale_price, 0.0)
-                        if motor_purchase == "Evet"
-                        else None
-                    )
-                    motor_purchase_monthly_reference = (
-                        calculate_motor_purchase_monthly_reference(motor_purchase_sale_price_value, motor_purchase_commitment_value)
-                        if motor_purchase == "Evet"
-                        else AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION
-                    )
-                    motor_purchase_installment_count_value = (
-                        motor_purchase_commitment_value
-                        if motor_purchase == "Evet"
-                        else AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT
-                    )
                     auto_code = next_person_code(conn, role)
                     conn.execute(
                         """
@@ -7719,9 +8166,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             emergency_contact_name, emergency_contact_phone,
                             accounting_type, new_company_setup, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
                             assigned_restaurant_id, vehicle_type, motor_rental, motor_purchase, motor_purchase_start_date, motor_purchase_commitment_months,
-                            motor_purchase_sale_price, motor_purchase_monthly_amount, motor_purchase_installment_count, current_plate, start_date,
+                            motor_rental_monthly_amount, motor_purchase_sale_price, motor_purchase_monthly_amount, motor_purchase_installment_count, current_plate, start_date,
                             cost_model, monthly_fixed_cost, notes
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             auto_code,
@@ -7741,14 +8188,15 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             company_setup_revenue,
                             company_setup_cost,
                             assigned_id,
-                            vehicle_type,
-                            effective_motor_rental,
-                            motor_purchase,
-                            motor_purchase_start_date_str,
-                            motor_purchase_commitment_value,
-                            motor_purchase_sale_price_value,
-                            motor_purchase_monthly_reference,
-                            motor_purchase_installment_count_value,
+                            motor_usage_payload["vehicle_type"],
+                            motor_usage_payload["motor_rental"],
+                            motor_usage_payload["motor_purchase"],
+                            motor_usage_payload["motor_purchase_start_date_str"],
+                            motor_usage_payload["motor_purchase_commitment_months"],
+                            motor_usage_payload["motor_rental_monthly_amount"],
+                            motor_usage_payload["motor_purchase_sale_price"],
+                            motor_usage_payload["motor_purchase_monthly_amount"],
+                            motor_usage_payload["motor_purchase_installment_count"],
                             current_plate,
                             start_date_str,
                             normalize_cost_model_value(cost_model, role),
@@ -7800,6 +8248,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             row_new_company_value = str(row["new_company_setup"] or "Hayır")
             row_vehicle_value = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
             row_motor_purchase_value = str(row["motor_purchase"] or "Hayır") if pd.notna(row["motor_purchase"]) else "Hayır"
+            row_motor_usage_mode = resolve_motor_usage_mode(row_vehicle_value, row_motor_purchase_value, row["motor_rental"] or "Hayır")
             start_val = parse_date_value(row["start_date"])
             edit_form_signature = (
                 selected_id,
@@ -7807,8 +8256,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 row_status_value,
                 row_accounting_value,
                 row_new_company_value,
-                row_vehicle_value,
-                row_motor_purchase_value,
+                row_motor_usage_mode,
             )
             if st.session_state.get("_edit_person_form_signature") != edit_form_signature:
                 st.session_state[f"edit_person_role_{selected_id}"] = row_role_value if row_role_value in PERSONNEL_ROLE_OPTIONS else "Kurye"
@@ -7819,21 +8267,15 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 st.session_state[f"edit_person_new_company_{selected_id}"] = (
                     row_new_company_value if row_new_company_value in ["Hayır", "Evet"] else "Hayır"
                 )
-                st.session_state[f"edit_person_vehicle_{selected_id}"] = (
-                    row_vehicle_value if row_vehicle_value in ["Çat Kapında", "Kendi Motoru"] else "Kendi Motoru"
+                st.session_state[f"edit_person_motor_usage_mode_{selected_id}"] = (
+                    row_motor_usage_mode if row_motor_usage_mode in MOTOR_USAGE_MODE_OPTIONS else "Kendi Motoru"
                 )
-                st.session_state[f"edit_person_motor_purchase_{selected_id}"] = (
-                    row_motor_purchase_value if row_motor_purchase_value in ["Hayır", "Evet"] else "Hayır"
+                initialize_edit_person_transition_state(
+                    selected_id,
+                    row_role_value,
+                    float(row.get("monthly_fixed_cost") or 0.0),
+                    start_val,
                 )
-                st.session_state[f"edit_person_transition_enabled_{selected_id}"] = False
-                st.session_state[f"edit_person_previous_role_{selected_id}"] = (
-                    row_role_value if row_role_value in PERSONNEL_ROLE_OPTIONS else "Kurye"
-                )
-                st.session_state[f"edit_person_transition_new_role_{selected_id}"] = (
-                    row_role_value if row_role_value in PERSONNEL_ROLE_OPTIONS else "Kurye"
-                )
-                st.session_state[f"edit_person_transition_monthly_cost_{selected_id}"] = float(row.get("monthly_fixed_cost") or 0.0)
-                st.session_state[f"edit_person_transition_date_{selected_id}"] = start_val if start_val else date.today()
                 st.session_state["_edit_person_form_signature"] = edit_form_signature
             role_history_rows = fetch_df(
                 conn,
@@ -7849,7 +8291,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             assigned_value = row["restoran"] if pd.notna(row["restoran"]) and row["restoran"] in rest_opts else "-"
             status_options = ["Aktif", "Pasif"]
             role_options = PERSONNEL_ROLE_OPTIONS
-            vehicle_options = ["Çat Kapında", "Kendi Motoru"]
 
             left, right = st.columns([2.2, 1])
             with right:
@@ -7857,11 +8298,12 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     ("Kod", row["person_code"] or "-"),
                     ("Durum", row["status"] or "-"),
                 ]
-                if str(row["role"] or "") in {"Kurye", "Restoran Takım Şefi"}:
+                if role_requires_primary_restaurant(str(row["role"] or "")):
                     current_snapshot_items.append(("Restoran", row["restoran"] or "-"))
                 current_snapshot_items.extend(
                     [
                         ("Motor", row["vehicle_type"] or "-"),
+                        ("Motor Kirası", format_motor_rental_summary(row)),
                         ("Çat Kapında Motor Satışı", format_motor_purchase_summary(row)),
                         ("Rol", resolve_cost_role_option(str(row["cost_model"] or ""), str(row["role"] or "Kurye"))),
                         ("Acil Durum Kişisi", row["emergency_contact_name"] or "-"),
@@ -7927,7 +8369,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     transition_cost_model = resolve_cost_role_option("", transition_new_role)
                     with role_change_cols[3]:
                         if is_fixed_cost_model(transition_cost_model):
-                            transition_cost_label = f"{transition_new_role} Sabit Maaşı"
+                            transition_cost_label = get_role_fixed_cost_label(transition_new_role, transition=True)
                             render_field_label(transition_cost_label, required=True)
                             transition_monthly_cost = st.number_input(
                                 transition_cost_label,
@@ -7947,10 +8389,13 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             )
                     if transition_new_role == "Joker":
                         st.caption("Joker rolüne geçildiğinde bu personel artık paket primi almaz; yalnızca sabit maaşı gün bazlı prorate edilir.")
-                effective_role = transition_new_role if transition_enabled else row_role_value
-                role_changed = effective_role != row_role_value
+                effective_role, role_changed = resolve_effective_role_from_transition(
+                    row_role_value,
+                    transition_enabled,
+                    transition_new_role,
+                )
 
-                with st.form("personnel_edit_form"):
+                with st.container():
                     st.markdown("##### Kimlik ve Görev")
                     c1, c2, c3 = st.columns(3)
                     with c1:
@@ -8026,7 +8471,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     st.markdown("##### Muhasebe ve Şirket")
                     c10, c11, c12 = st.columns(3)
                     accounting_options = ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"]
-                    current_acc = row["accounting_type"] if pd.notna(row["accounting_type"]) and row["accounting_type"] not in [None, "", "-"] else "Kendi Muhasebecisi"
                     with c10:
                         render_field_label("Muhasebe")
                         edit_accounting = st.selectbox(
@@ -8036,7 +8480,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             label_visibility="collapsed",
                         )
                     new_company_options = ["Hayır", "Evet"]
-                    current_newco = row["new_company_setup"] if pd.notna(row["new_company_setup"]) else "Hayır"
                     with c11:
                         render_field_label("Yeni Şirket Açılışı")
                         edit_new_company = st.selectbox(
@@ -8065,7 +8508,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         render_field_label("Muhasebeciye Ödediğimiz")
                         edit_accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(row["accountant_cost"] or 0.0), step=100.0, label_visibility="collapsed")
                     if is_fixed_cost_model(edit_cost_model) and not transition_enabled:
-                        edit_fixed_cost_label = f"{effective_role} Aylık Sabit Maliyeti" if effective_role in FIXED_COST_MODEL_BY_ROLE else "Aylık Sabit Maliyet"
+                        edit_fixed_cost_label = get_role_fixed_cost_label(effective_role)
                         with c15:
                             render_field_label(edit_fixed_cost_label, required=True)
                             edit_monthly_cost = st.number_input(edit_fixed_cost_label, min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0, label_visibility="collapsed")
@@ -8083,9 +8526,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
                     st.markdown("##### Araç ve Operasyon")
                     current_vehicle = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
+                    current_motor_usage_mode = resolve_motor_usage_mode(current_vehicle, row["motor_purchase"] or "Hayır", row["motor_rental"] or "Hayır")
                     edit_restaurant = "-"
-                    if effective_role in {"Kurye", "Restoran Takım Şefi"}:
-                        c18, c19 = st.columns(2)
+                    if role_requires_primary_restaurant(effective_role):
+                        c18, c19, c20 = st.columns(3)
                         with c18:
                             render_field_label("Ana Restoran", required=True)
                             edit_restaurant_default = assigned_value if assigned_value in rest_opts_with_blank else "-"
@@ -8097,98 +8541,119 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 label_visibility="collapsed",
                             )
                         with c19:
-                            render_field_label("Motor Tipi")
-                            edit_vehicle = st.selectbox(
-                                "Motor Tipi",
-                                vehicle_options,
-                                key=f"edit_person_vehicle_{selected_id}",
+                            render_field_label("Motor Kullanım Modeli")
+                            edit_motor_usage_mode = st.selectbox(
+                                "Motor Kullanım Modeli",
+                                MOTOR_USAGE_MODE_OPTIONS,
+                                key=f"edit_person_motor_usage_mode_{selected_id}",
                                 label_visibility="collapsed",
                             )
+                        with c20:
+                            render_field_label("Güncel Plaka", required=True)
+                            edit_plate = st.text_input("Güncel Plaka", value=row["current_plate"] or "", label_visibility="collapsed")
                     else:
-                        render_field_label("Motor Tipi")
-                        edit_vehicle = st.selectbox(
-                            "Motor Tipi",
-                            vehicle_options,
-                            key=f"edit_person_vehicle_{selected_id}",
+                        c18, c19 = st.columns(2)
+                        with c18:
+                            render_field_label("Motor Kullanım Modeli")
+                            edit_motor_usage_mode = st.selectbox(
+                                "Motor Kullanım Modeli",
+                                MOTOR_USAGE_MODE_OPTIONS,
+                                key=f"edit_person_motor_usage_mode_{selected_id}",
+                                label_visibility="collapsed",
+                            )
+                        with c19:
+                            render_field_label("Güncel Plaka", required=True)
+                            edit_plate = st.text_input("Güncel Plaka", value=row["current_plate"] or "", label_visibility="collapsed")
+                    current_motor_rental_monthly_amount = safe_float(row.get("motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
+                    if edit_motor_usage_mode == "Çat Kapında Motor Kirası":
+                        render_field_label("Aylık Motor Kira Tutarı", required=True)
+                        edit_motor_rental_monthly_amount = st.number_input(
+                            "Aylık Motor Kira Tutarı",
+                            min_value=0.0,
+                            value=max(current_motor_rental_monthly_amount, 0.0),
+                            step=100.0,
+                            key=f"edit_person_motor_rental_monthly_amount_{selected_id}",
                             label_visibility="collapsed",
                         )
-                    effective_edit_motor_rental = resolve_motor_rental_value(edit_vehicle, "Hayır")
-                    vehicle_changed = edit_vehicle != current_vehicle
+                        st.caption("Bu personel Çat Kapında motorunu kiralıyorsa aylık kira tutarı buradan yönetilir.")
+                    else:
+                        edit_motor_rental_monthly_amount = 0.0
+                    motor_mode_changed = edit_motor_usage_mode != current_motor_usage_mode
                     c20a, c20b = st.columns(2)
                     with c20a:
-                        render_field_label("Motor Tipi Başlangıç Tarihi", required=vehicle_changed)
+                        render_field_label("Motor Düzeni Başlangıç Tarihi", required=motor_mode_changed)
                         edit_vehicle_transition_date = st.date_input(
-                            "Motor Tipi Başlangıç Tarihi",
+                            "Motor Düzeni Başlangıç Tarihi",
                             value=start_val or date.today(),
                             key=f"edit_person_vehicle_transition_date_{selected_id}",
                             label_visibility="collapsed",
                         )
                     with c20b:
-                        st.caption(
-                            "Motor tipi değiştiyse bu tarih, yeni motor tipinin geçerli olduğu ilk günü temsil eder. "
-                            "Ay içi Çat Kapında kullanım günleri motor kira kesintisine otomatik yansır."
-                        )
-                    c21, c22 = st.columns(2)
+                        render_vehicle_transition_caption()
+                    c21, c22, c23 = st.columns(3)
                     with c21:
-                        render_field_label("Güncel Plaka", required=True)
-                        edit_plate = st.text_input("Güncel Plaka", value=row["current_plate"] or "", label_visibility="collapsed")
-                    current_motor_purchase = str(row["motor_purchase"] or "Hayır") if pd.notna(row["motor_purchase"]) else "Hayır"
-                    with c22:
-                        render_field_label("Çat Kapında Motor Satışı")
-                        edit_motor_purchase = st.selectbox(
-                            "Çat Kapında Motor Satışı",
-                            ["Hayır", "Evet"],
-                            key=f"edit_person_motor_purchase_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                    default_motor_purchase_date = parse_date_value(row["motor_purchase_start_date"]) or date.today()
-                    current_motor_purchase_sale_price = safe_float(
-                        row["motor_purchase_sale_price"],
-                        safe_float(row["motor_purchase_monthly_amount"], 0.0) * max(safe_int(row["motor_purchase_installment_count"], 0), 0),
-                    )
-                    c23a, c23b, c23c = st.columns(3)
-                    with c23a:
-                        render_field_label("Motor Satın Alım Tarihi", required=edit_motor_purchase == "Evet")
+                        render_field_label("Motor Satın Alım Tarihi", required=edit_motor_usage_mode == "Çat Kapında Motor Satışı")
+                        default_motor_purchase_date = parse_date_value(row["motor_purchase_start_date"]) or date.today()
                         edit_motor_purchase_start_date = st.date_input(
                             "Motor Satın Alım Tarihi",
                             value=default_motor_purchase_date,
                             key=f"edit_person_motor_purchase_start_date_{selected_id}",
-                            disabled=edit_motor_purchase != "Evet",
+                            disabled=edit_motor_usage_mode != "Çat Kapında Motor Satışı",
                             label_visibility="collapsed",
                         )
+                    if edit_motor_usage_mode == "Çat Kapında Motor Satışı":
+                        render_motor_purchase_proration_caption()
                     current_commitment_months = safe_int(row["motor_purchase_commitment_months"], 12)
-                    if current_commitment_months not in [12, 15, 18]:
+                    if current_commitment_months not in MOTOR_PURCHASE_COMMITMENT_OPTIONS:
                         current_commitment_months = 12
-                    with c23b:
-                        render_field_label("Taahhüt Süresi (Ay)", required=edit_motor_purchase == "Evet")
+                    with c22:
+                        render_field_label("Taahhüt Süresi (Ay)", required=edit_motor_usage_mode == "Çat Kapında Motor Satışı")
                         edit_motor_purchase_commitment_months = st.selectbox(
                             "Taahhüt Süresi (Ay)",
-                            [12, 15, 18],
-                            index=[12, 15, 18].index(current_commitment_months),
+                            MOTOR_PURCHASE_COMMITMENT_OPTIONS,
+                            index=MOTOR_PURCHASE_COMMITMENT_OPTIONS.index(current_commitment_months),
                             key=f"edit_person_motor_purchase_commitment_months_{selected_id}",
-                            disabled=edit_motor_purchase != "Evet",
+                            disabled=edit_motor_usage_mode != "Çat Kapında Motor Satışı",
                             label_visibility="collapsed",
                         )
-                    with c23c:
-                        render_field_label("Motor Satış Fiyatı", required=edit_motor_purchase == "Evet")
+                    current_motor_purchase_sale_price = safe_float(
+                        row["motor_purchase_monthly_amount"],
+                        safe_float(row["motor_purchase_sale_price"], 0.0),
+                    )
+                    with c23:
+                        render_field_label("Aylık Motor Satış Taksiti", required=edit_motor_usage_mode == "Çat Kapında Motor Satışı")
                         edit_motor_purchase_sale_price = st.number_input(
-                            "Motor Satış Fiyatı",
+                            "Aylık Motor Satış Taksiti",
                             min_value=0.0,
                             value=max(current_motor_purchase_sale_price, 0.0),
-                            step=1000.0,
+                            step=100.0,
                             key=f"edit_person_motor_purchase_sale_price_{selected_id}",
-                            disabled=edit_motor_purchase != "Evet",
+                            disabled=edit_motor_usage_mode != "Çat Kapında Motor Satışı",
                             label_visibility="collapsed",
                         )
+                    edit_motor_usage_payload = build_motor_usage_payload(
+                        motor_usage_mode=edit_motor_usage_mode,
+                        motor_rental_monthly_amount=safe_float(edit_motor_rental_monthly_amount, 0.0),
+                        motor_purchase_start_date_value=edit_motor_purchase_start_date if isinstance(edit_motor_purchase_start_date, date) else None,
+                        motor_purchase_commitment_months=safe_int(edit_motor_purchase_commitment_months, 0),
+                        motor_purchase_sale_price=safe_float(edit_motor_purchase_sale_price, 0.0),
+                    )
+                    edit_vehicle = str(edit_motor_usage_payload["vehicle_type"] or "")
+                    edit_motor_purchase = str(edit_motor_usage_payload["motor_purchase"] or "Hayır")
+                    current_motor_purchase = str(row["motor_purchase"] or "Hayır") if pd.notna(row["motor_purchase"]) else "Hayır"
+                    effective_edit_motor_rental = str(edit_motor_usage_payload["motor_rental"] or "Hayır")
+                    if edit_motor_usage_mode == "Çat Kapında Motor Satışı":
+                        st.info("Motor satış modeli seçildi. Bu personelde ayrıca motor kirası uygulanmaz.")
+                    render_motor_deduction_snapshot_from_payload(edit_motor_usage_payload)
                     edit_notes = st.text_area("Notlar", value=row["notes"] or "")
 
                     c24, c25, c26 = st.columns(3)
-                    update_clicked = c24.form_submit_button("Personeli Güncelle", use_container_width=True)
-                    toggle_clicked = c25.form_submit_button("Aktif/Pasif Durumunu Değiştir", use_container_width=True)
-                    delete_clicked = c26.form_submit_button("Kalıcı Sil", use_container_width=True)
+                    update_clicked = c24.button("Personeli Güncelle", use_container_width=True, key=f"edit_person_update_{selected_id}")
+                    toggle_clicked = c25.button("Aktif/Pasif Durumunu Değiştir", use_container_width=True, key=f"edit_person_toggle_{selected_id}")
+                    delete_clicked = c26.button("Kalıcı Sil", use_container_width=True, key=f"edit_person_delete_{selected_id}")
 
                     if update_clicked:
-                        assigned_id = rest_opts_with_blank.get(edit_restaurant) if effective_role in {"Kurye", "Restoran Takım Şefi"} else None
+                        assigned_id = rest_opts_with_blank.get(edit_restaurant) if role_requires_primary_restaurant(effective_role) else None
                         effective_monthly_cost = (
                             safe_float(transition_monthly_cost, 0.0)
                             if role_changed and transition_enabled and is_fixed_cost_model(edit_cost_model)
@@ -8204,6 +8669,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             role=effective_role,
                             assigned_restaurant_id=assigned_id,
                             start_date_value=edit_start_date if isinstance(edit_start_date, date) else None,
+                            vehicle_type=edit_vehicle,
+                            motor_rental_monthly_amount=safe_float(edit_motor_usage_payload["motor_rental_monthly_amount"], 0.0),
                             cost_model=edit_cost_model,
                             monthly_fixed_cost=effective_monthly_cost,
                             motor_purchase=edit_motor_purchase,
@@ -8211,56 +8678,30 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             motor_purchase_commitment_months=safe_int(edit_motor_purchase_commitment_months, 0),
                             motor_purchase_sale_price=safe_float(edit_motor_purchase_sale_price, 0.0),
                         )
-                        if role_changed and not transition_enabled:
-                            validation_errors.append("Rol değişikliği yapıyorsan rol başlangıç tarihini de kaydetmelisin.")
-                        if transition_enabled and not role_changed:
-                            validation_errors.append("Rol değişikliği kaydı eklemek için önce yukarıdan yeni rolü seçmelisin.")
-                        if role_changed and transition_enabled:
-                            if transition_previous_role == effective_role:
-                                validation_errors.append("Rol geçiş kaydında önceki rol ile yeni rol farklı olmalı.")
-                            if not isinstance(transition_effective_date, date):
-                                validation_errors.append("Rol başlangıç tarihi zorunlu.")
-                            elif isinstance(edit_start_date, date) and transition_effective_date < edit_start_date:
-                                validation_errors.append("Rol başlangıç tarihi işe giriş tarihinden önce olamaz.")
-                        if vehicle_changed and isinstance(edit_start_date, date) and edit_vehicle_transition_date < edit_start_date:
-                            validation_errors.append("Motor tipi başlangıç tarihi işe giriş tarihinden önce olamaz.")
+                        validation_errors.extend(
+                            validate_role_transition_inputs(
+                                role_changed=role_changed,
+                                transition_enabled=transition_enabled,
+                                transition_previous_role=transition_previous_role,
+                                effective_role=effective_role,
+                                transition_effective_date=transition_effective_date if isinstance(transition_effective_date, date) else None,
+                                start_date_value=edit_start_date if isinstance(edit_start_date, date) else None,
+                            )
+                        )
+                        if motor_mode_changed and isinstance(edit_start_date, date) and edit_vehicle_transition_date < edit_start_date:
+                            validation_errors.append("Motor düzeni başlangıç tarihi işe giriş tarihinden önce olamaz.")
                         if validation_errors:
                             for error_text in validation_errors:
                                 st.error(error_text)
                         else:
                             start_date_str = edit_start_date.isoformat() if isinstance(edit_start_date, date) else None
-                            motor_purchase_start_date_str = (
-                                edit_motor_purchase_start_date.isoformat()
-                                if edit_motor_purchase == "Evet" and isinstance(edit_motor_purchase_start_date, date)
-                                else None
-                            )
-                            motor_purchase_commitment_value = (
-                                safe_int(edit_motor_purchase_commitment_months, 12)
-                                if edit_motor_purchase == "Evet"
-                                else None
-                            )
-                            motor_purchase_sale_price_value = (
-                                safe_float(edit_motor_purchase_sale_price, 0.0)
-                                if edit_motor_purchase == "Evet"
-                                else None
-                            )
-                            motor_purchase_monthly_reference = (
-                                calculate_motor_purchase_monthly_reference(motor_purchase_sale_price_value, motor_purchase_commitment_value)
-                                if edit_motor_purchase == "Evet"
-                                else AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION
-                            )
-                            motor_purchase_installment_count_value = (
-                                motor_purchase_commitment_value
-                                if edit_motor_purchase == "Evet"
-                                else AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT
-                            )
                             conn.execute(
                                 """
                                 UPDATE personnel
                                 SET person_code=?, full_name=?, role=?, status=?, phone=?, address=?, tc_no=?, iban=?,
                                     emergency_contact_name=?, emergency_contact_phone=?,
                                     accounting_type=?, new_company_setup=?, accounting_revenue=?, accountant_cost=?, company_setup_revenue=?, company_setup_cost=?, assigned_restaurant_id=?,
-                                    vehicle_type=?, motor_rental=?, motor_purchase=?, motor_purchase_start_date=?, motor_purchase_commitment_months=?, motor_purchase_sale_price=?, motor_purchase_monthly_amount=?, motor_purchase_installment_count=?, current_plate=?, start_date=?,
+                                    vehicle_type=?, motor_rental=?, motor_purchase=?, motor_purchase_start_date=?, motor_purchase_commitment_months=?, motor_rental_monthly_amount=?, motor_purchase_sale_price=?, motor_purchase_monthly_amount=?, motor_purchase_installment_count=?, current_plate=?, start_date=?,
                                     cost_model=?, monthly_fixed_cost=?, notes=?
                                 WHERE id=?
                                 """,
@@ -8282,14 +8723,15 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                     edit_company_setup_revenue,
                                     edit_company_setup_cost,
                                     assigned_id,
-                                    edit_vehicle,
-                                    effective_edit_motor_rental,
-                                    edit_motor_purchase,
-                                    motor_purchase_start_date_str,
-                                    motor_purchase_commitment_value,
-                                    motor_purchase_sale_price_value,
-                                    motor_purchase_monthly_reference,
-                                    motor_purchase_installment_count_value,
+                                    edit_motor_usage_payload["vehicle_type"],
+                                    edit_motor_usage_payload["motor_rental"],
+                                    edit_motor_usage_payload["motor_purchase"],
+                                    edit_motor_usage_payload["motor_purchase_start_date_str"],
+                                    edit_motor_usage_payload["motor_purchase_commitment_months"],
+                                    edit_motor_usage_payload["motor_rental_monthly_amount"],
+                                    edit_motor_usage_payload["motor_purchase_sale_price"],
+                                    edit_motor_usage_payload["motor_purchase_monthly_amount"],
+                                    edit_motor_usage_payload["motor_purchase_installment_count"],
                                     edit_plate,
                                     start_date_str,
                                     normalize_cost_model_value(edit_cost_model, effective_role),
@@ -8315,7 +8757,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 )
                             else:
                                 sync_person_current_role_snapshot(conn, updated_person)
-                            if vehicle_changed:
+                            if motor_mode_changed:
                                 record_person_vehicle_transition(
                                     conn,
                                     row.to_dict(),
@@ -8323,6 +8765,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                     current_vehicle,
                                     edit_vehicle_transition_date,
                                     previous_motor_rental=str(row["motor_rental"] or "Hayır"),
+                                    previous_motor_rental_monthly_amount=safe_float(row.get("motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION),
+                                    previous_motor_purchase=current_motor_purchase,
+                                    previous_motor_purchase_commitment_months=safe_int(row.get("motor_purchase_commitment_months", 0), 0),
+                                    previous_motor_purchase_sale_price=safe_float(row.get("motor_purchase_sale_price", 0.0), 0.0),
+                                    previous_motor_purchase_monthly_amount=safe_float(row.get("motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION),
                                 )
                             else:
                                 sync_person_current_vehicle_snapshot(conn, updated_person)
@@ -8597,7 +9044,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
 
 def deductions_tab(conn: sqlite3.Connection) -> None:
-    section_intro("💸 Kesinti Yönetimi | Motor kira, bakım, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; personel kartından gelen sistem kesintileri de aynı tabloda görünür.")
+    section_intro("💸 Kesinti Yönetimi | Motor kira, bakım, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; otomatik motor kesintileri de aynı tabloda görünür.")
     person_opts = get_person_options(conn, active_only=False)
     deduction_types = ["Bakım", "Yakıt", "HGS", "İdari ceza", "Hasar", "Fatura Edilmeyen Tutar"]
 
@@ -8631,8 +9078,13 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         """,
     )
     raw_df["source_text"] = raw_df["auto_source_key"].apply(describe_auto_source_key) if not raw_df.empty else []
+    source_filter = st.selectbox("Kesinti Kaynağı", DEDUCTION_SOURCE_FILTER_OPTIONS, key="deduction_source_filter")
+    filtered_raw_df = filter_deductions_by_source(raw_df, source_filter)
+    source_filter_caption = get_deduction_source_filter_caption(source_filter)
+    if source_filter_caption:
+        st.caption(source_filter_caption)
     deductions_display_df = format_display_df(
-        raw_df.drop(columns=["id", "personnel_id", "auto_source_key"], errors="ignore"),
+        filtered_raw_df.drop(columns=["id", "personnel_id", "auto_source_key"], errors="ignore"),
         currency_cols=["Tutar"],
         rename_map={
             "deduction_date": "Tarih",
@@ -8711,7 +9163,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     current_date = datetime.strptime(str(row["deduction_date"]), "%Y-%m-%d").date()
     is_auto_record = is_system_personnel_auto_deduction_key(row.get("auto_source_key"))
     if is_auto_record:
-        st.warning("Bu kesinti sistem tarafından personel kartından üretildi. Değiştirmek için ilgili personel kartındaki motor, muhasebe veya şirket açılışı ayarını güncelle.")
+        st.warning(build_auto_deduction_warning_text(row.get("auto_source_key")))
 
     with st.form("deduction_edit_form"):
         c1, c2, c3 = st.columns(3)
