@@ -7461,15 +7461,32 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     )
                     st.dataframe(role_history_display, use_container_width=True, hide_index=True)
             with left:
+                st.markdown("##### Kimlik ve Görev")
+                role_bar_left, role_bar_right = st.columns([1.2, 1])
+                with role_bar_left:
+                    render_field_label("Rol")
+                    edit_role = st.selectbox(
+                        "Rol",
+                        role_options,
+                        key=f"edit_person_role_{selected_id}",
+                        label_visibility="collapsed",
+                    )
+                role_changed = edit_role != row_role_value
+                with role_bar_right:
+                    transition_enabled = st.checkbox(
+                        "Rol değişikliği kaydı ekle",
+                        key=f"edit_person_transition_enabled_{selected_id}",
+                    )
+
                 with st.form("personnel_edit_form"):
-                    st.markdown("##### Kimlik ve Görev")
                     c1, c2, c3 = st.columns(3)
                     with c1:
-                        render_field_label("Rol")
-                        edit_role = st.selectbox(
-                            "Rol",
-                            role_options,
-                            key=f"edit_person_role_{selected_id}",
+                        render_field_label("Seçilen Rol")
+                        st.text_input(
+                            "Seçilen Rol",
+                            value=edit_role,
+                            disabled=True,
+                            key=f"edit_person_role_display_{selected_id}",
                             label_visibility="collapsed",
                         )
                     suggested_code = next_person_code(conn, edit_role, exclude_id=selected_id)
@@ -7594,18 +7611,14 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         render_field_label("Şirket Açılış Maliyeti")
                         edit_company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(row["company_setup_cost"] or 0.0), step=100.0, label_visibility="collapsed")
 
-                    role_changed = edit_role != row_role_value
                     st.markdown("##### Rol Değişikliği")
                     st.caption(
-                        "Rol değişikliği kaydı için yukarıdaki Rol alanından yeni rolü seç, sonra aşağıdaki geçiş alanını aç. "
+                        "Rol değişikliği kaydı için yukarıdaki Rol alanından yeni rolü seç. "
                         "Örnek: 15'ine kadar kurye, 16'sından itibaren joker ise başlangıç tarihine 16'sını gir."
-                    )
-                    transition_enabled = st.checkbox(
-                        "Bu personel için rol değişikliği kaydı ekle",
-                        key=f"edit_person_transition_enabled_{selected_id}",
                     )
                     transition_previous_role = row_role_value
                     transition_effective_date = None
+                    transition_monthly_cost = edit_monthly_cost
                     if transition_enabled and not role_changed:
                         st.info("Önce yukarıdaki Rol alanından yeni rolü seç. Sonra geçiş tarihini kaydedebilirsin.")
                     if role_changed and transition_enabled:
@@ -7634,7 +7647,16 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 label_visibility="collapsed",
                             )
                         if is_fixed_cost_model(edit_cost_model):
-                            st.caption(f"Bu geçişte yeni rolün aylık sabit maliyeti {fmt_try(edit_monthly_cost)} olarak kaydedilir.")
+                            render_field_label(f"{edit_role} Sabit Maaşı", required=True)
+                            transition_monthly_cost = st.number_input(
+                                f"{edit_role} Sabit Maaşı",
+                                min_value=0.0,
+                                value=float(edit_monthly_cost or 0.0),
+                                step=100.0,
+                                key=f"edit_person_transition_monthly_cost_{selected_id}",
+                                label_visibility="collapsed",
+                            )
+                            st.caption("Bu personel yeni rolde paket primi almaz; sabit maaşı gün bazlı prorate edilerek hesaplanır.")
                         else:
                             st.caption("Bu geçişte yeni rol standart kurye maliyet modeliyle kaydedilir.")
 
@@ -7731,6 +7753,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
 
                     if update_clicked:
                         assigned_id = rest_opts_with_blank.get(edit_restaurant) if edit_role in {"Kurye", "Restoran Takım Şefi"} else None
+                        effective_monthly_cost = (
+                            safe_float(transition_monthly_cost, 0.0)
+                            if role_changed and transition_enabled and is_fixed_cost_model(edit_cost_model)
+                            else safe_float(edit_monthly_cost, 0.0)
+                        )
                         validation_errors = validate_personnel_form(
                             full_name=edit_name,
                             phone=edit_phone,
@@ -7742,7 +7769,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             assigned_restaurant_id=assigned_id,
                             start_date_value=edit_start_date if isinstance(edit_start_date, date) else None,
                             cost_model=edit_cost_model,
-                            monthly_fixed_cost=edit_monthly_cost,
+                            monthly_fixed_cost=effective_monthly_cost,
                             motor_purchase=edit_motor_purchase,
                             motor_purchase_start_date_value=edit_motor_purchase_start_date if isinstance(edit_motor_purchase_start_date, date) else None,
                             motor_purchase_commitment_months=safe_int(edit_motor_purchase_commitment_months, 0),
@@ -7828,7 +7855,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                     edit_plate,
                                     start_date_str,
                                     normalize_cost_model_value(edit_cost_model, edit_role),
-                                    edit_monthly_cost,
+                                    effective_monthly_cost,
                                     edit_notes,
                                     selected_id,
                                 ),
