@@ -7381,6 +7381,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             row_new_company_value = str(row["new_company_setup"] or "Hayır")
             row_vehicle_value = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
             row_motor_purchase_value = str(row["motor_purchase"] or "Hayır") if pd.notna(row["motor_purchase"]) else "Hayır"
+            start_val = parse_date_value(row["start_date"])
             edit_form_signature = (
                 selected_id,
                 row_role_value,
@@ -7579,7 +7580,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     with c8:
                         render_field_label("IBAN", required=True)
                         edit_iban = st.text_input("IBAN", value=row["iban"] or "", label_visibility="collapsed")
-                    start_val = datetime.strptime(row["start_date"], "%Y-%m-%d").date() if row["start_date"] else None
                     with c9:
                         render_field_label("İşe Giriş Tarihi", required=True)
                         edit_start_date = st.date_input("İşe Giriş Tarihi", value=start_val, label_visibility="collapsed")
