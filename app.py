@@ -3221,6 +3221,7 @@ def upsert_person_vehicle_snapshot(
     normalized_vehicle_type = resolve_vehicle_type_value(vehicle_type, motor_rental)
     normalized_motor_rental = resolve_motor_rental_value(normalized_vehicle_type, motor_rental)
     normalized_motor_purchase = "Evet" if str(motor_purchase or "Hayır").strip() == "Evet" else "Hayır"
+    normalized_motor_rental = resolve_motor_rental_value(normalized_vehicle_type, motor_rental, normalized_motor_purchase)
     existing = conn.execute(
         """
         SELECT id
@@ -3298,6 +3299,7 @@ def ensure_person_vehicle_history_baseline(
     baseline_motor_rental = resolve_motor_rental_value(
         baseline_vehicle_type,
         str(motor_rental_override or get_row_value(person_row, "motor_rental", "Hayır") or "Hayır"),
+        str(motor_purchase_override or get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır"),
     )
     upsert_person_vehicle_snapshot(
         conn,
@@ -3347,6 +3349,7 @@ def sync_person_current_vehicle_snapshot(conn: CompatConnection, person_row: Any
     normalized_motor_rental = resolve_motor_rental_value(
         normalized_vehicle_type,
         str(get_row_value(person_row, "motor_rental", "Hayır") or "Hayır"),
+        str(get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır"),
     )
     motor_rental_monthly_amount = safe_float(get_row_value(person_row, "motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
     motor_purchase = str(get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır")
@@ -3399,17 +3402,22 @@ def record_person_vehicle_transition(
         str(get_row_value(updated_person_row, "vehicle_type", "") or ""),
         str(get_row_value(updated_person_row, "motor_rental", "Hayır") or "Hayır"),
     )
+    current_motor_purchase = str(get_row_value(updated_person_row, "motor_purchase", "Hayır") or "Hayır")
     current_motor_rental = resolve_motor_rental_value(
         current_vehicle_type,
         str(get_row_value(updated_person_row, "motor_rental", "Hayır") or "Hayır"),
+        current_motor_purchase,
     )
     current_motor_rental_monthly_amount = safe_float(get_row_value(updated_person_row, "motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
-    current_motor_purchase = str(get_row_value(updated_person_row, "motor_purchase", "Hayır") or "Hayır")
     current_motor_purchase_commitment_months = safe_int(get_row_value(updated_person_row, "motor_purchase_commitment_months", 0), 0)
     current_motor_purchase_sale_price = safe_float(get_row_value(updated_person_row, "motor_purchase_sale_price", 0.0), 0.0)
     current_motor_purchase_monthly_amount = safe_float(get_row_value(updated_person_row, "motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION)
     previous_vehicle_type_value = resolve_vehicle_type_value(previous_vehicle_type, previous_motor_rental)
-    previous_motor_rental_value = resolve_motor_rental_value(previous_vehicle_type_value, previous_motor_rental)
+    previous_motor_rental_value = resolve_motor_rental_value(
+        previous_vehicle_type_value,
+        previous_motor_rental,
+        str(previous_motor_purchase or get_row_value(original_person_row, "motor_purchase", "Hayır") or "Hayır"),
+    )
     baseline_date = parse_date_value(get_row_value(original_person_row, "start_date")) or date.today()
 
     existing_history = fetch_df(
@@ -3532,7 +3540,11 @@ def build_person_vehicle_segments(
                 {
                     "effective_date": effective_date_value,
                     "vehicle_type": normalized_vehicle_type,
-                    "motor_rental": resolve_motor_rental_value(normalized_vehicle_type, str(row.get("motor_rental", "Hayır") or "Hayır")),
+                    "motor_rental": resolve_motor_rental_value(
+                        normalized_vehicle_type,
+                        str(row.get("motor_rental", "Hayır") or "Hayır"),
+                        str(row.get("motor_purchase", "Hayır") or "Hayır"),
+                    ),
                     "motor_rental_monthly_amount": safe_float(row.get("motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION),
                     "motor_purchase": str(row.get("motor_purchase", "Hayır") or "Hayır"),
                     "motor_purchase_commitment_months": safe_int(row.get("motor_purchase_commitment_months", 0), 0),
@@ -3550,7 +3562,11 @@ def build_person_vehicle_segments(
             {
                 "effective_date": parse_date_value(get_row_value(person_row, "start_date")) or period_start,
                 "vehicle_type": baseline_vehicle_type,
-                "motor_rental": resolve_motor_rental_value(baseline_vehicle_type, str(get_row_value(person_row, "motor_rental", "Hayır") or "Hayır")),
+                "motor_rental": resolve_motor_rental_value(
+                    baseline_vehicle_type,
+                    str(get_row_value(person_row, "motor_rental", "Hayır") or "Hayır"),
+                    str(get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır"),
+                ),
                 "motor_rental_monthly_amount": safe_float(get_row_value(person_row, "motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION),
                 "motor_purchase": str(get_row_value(person_row, "motor_purchase", "Hayır") or "Hayır"),
                 "motor_purchase_commitment_months": safe_int(get_row_value(person_row, "motor_purchase_commitment_months", 0), 0),
@@ -4125,6 +4141,7 @@ def sync_all_personnel_business_rules(conn: CompatConnection, full_history: bool
         effective_motor_rental = resolve_motor_rental_value(
             resolved_vehicle_type,
             str(row.get("motor_rental", "Hayır") or "Hayır"),
+            str(row.get("motor_purchase", "Hayır") or "Hayır"),
         )
         normalized_cost_model = normalize_cost_model_value(str(row.get("cost_model", "standard_courier") or "standard_courier"), str(row.get("role", "Kurye") or "Kurye"))
         if (
@@ -6084,7 +6101,9 @@ def render_field_label(label: str, required: bool = False) -> None:
     )
 
 
-def resolve_motor_rental_value(vehicle_type: str, motor_rental: str) -> str:
+def resolve_motor_rental_value(vehicle_type: str, motor_rental: str, motor_purchase: str = "Hayır") -> str:
+    if str(motor_purchase or "Hayır").strip() == "Evet":
+        return "Hayır"
     normalized_vehicle_type = (vehicle_type or "").strip()
     if normalized_vehicle_type == "Kendi":
         normalized_vehicle_type = "Kendi Motoru"
