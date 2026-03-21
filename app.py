@@ -3880,23 +3880,23 @@ def inject_global_styles() -> None:
 
             .block-container {
                 max-width: 1460px;
-                padding-top: 2rem;
+                padding-top: 1.85rem;
                 padding-bottom: 2rem;
             }
 
             [data-testid="stSidebar"] {
                 background: #FFFFFF;
                 border-right: 1px solid var(--ck-border);
-                padding-top: 0.4rem;
+                padding-top: 0.25rem;
             }
 
             section[data-testid="stSidebar"][aria-expanded="true"] {
-                min-width: 18rem !important;
-                max-width: 18rem !important;
+                min-width: 17.4rem !important;
+                max-width: 17.4rem !important;
             }
 
             section[data-testid="stSidebar"][aria-expanded="true"] > div {
-                width: 18rem !important;
+                width: 17.4rem !important;
             }
 
             [data-testid="stSidebar"] label,
@@ -3905,8 +3905,8 @@ def inject_global_styles() -> None:
             }
 
             .ck-side-brand-shell {
-                margin: 0.05rem 0 0.9rem;
-                padding: 0.2rem 0 0.95rem 0.05rem;
+                margin: 0.05rem 0 1rem;
+                padding: 0.15rem 0 1rem 0.08rem;
                 border-bottom: 1px solid #E7EDF6;
             }
 
@@ -3920,23 +3920,23 @@ def inject_global_styles() -> None:
             }
 
             .ck-side-brand-title {
-                font-size: 1.14rem;
+                font-size: 1.1rem;
                 font-weight: 900;
-                letter-spacing: -0.045em;
+                letter-spacing: -0.04em;
                 color: #132238;
-                line-height: 1.18;
+                line-height: 1.2;
             }
 
             .ck-side-brand-copy {
-                margin-top: 0.34rem;
+                margin-top: 0.28rem;
                 color: #74839B;
-                font-size: 0.82rem;
-                line-height: 1.5;
+                font-size: 0.8rem;
+                line-height: 1.45;
                 font-weight: 640;
             }
 
             .ck-side-section-title {
-                margin: 0.1rem 0 0.5rem 0.05rem;
+                margin: 0.3rem 0 0.42rem 0.08rem;
                 color: #8A94A6;
                 font-size: 0.7rem;
                 font-weight: 860;
@@ -3948,14 +3948,14 @@ def inject_global_styles() -> None:
                 width: 100%;
                 justify-content: flex-start;
                 text-align: left;
-                border-radius: 14px;
+                border-radius: 15px;
                 border: 1px solid #E3EAF5;
                 background: #FFFFFF;
-                min-height: 2.85rem;
-                margin-bottom: 0.45rem;
-                padding: 0.75rem 0.9rem;
-                font-size: 0.92rem;
-                font-weight: 780;
+                min-height: 2.72rem;
+                margin-bottom: 0.38rem;
+                padding: 0.72rem 0.88rem;
+                font-size: 0.9rem;
+                font-weight: 770;
                 letter-spacing: -0.01em;
                 color: #23324A;
                 transition: all 0.18s ease;
@@ -3968,10 +3968,10 @@ def inject_global_styles() -> None:
             }
 
             [data-testid="stSidebar"] .stButton > button[kind="primary"] {
-                background: #F3F8FF;
-                border-color: #BBD1F5;
+                background: linear-gradient(180deg, #F5F9FF 0%, #EFF5FF 100%);
+                border-color: #B8CEF3;
                 color: #0C4BCB;
-                box-shadow: inset 3px 0 0 #0C4BCB;
+                box-shadow: inset 3px 0 0 #0C4BCB, 0 10px 22px rgba(12, 75, 203, 0.06);
             }
 
             .ck-profile-shell {
