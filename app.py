@@ -5059,6 +5059,15 @@ def render_dashboard_data_grid(
     )
 
 
+def build_grid_rows(display_df: pd.DataFrame, columns: list[str]) -> list[dict[str, Any]]:
+    if display_df is None or display_df.empty:
+        return []
+    rows = []
+    for _, row in display_df.iterrows():
+        rows.append({column: row.get(column, "-") or "-" for column in columns})
+    return rows
+
+
 def render_alert_stack(title: str, items: list[dict[str, Any]], border: bool = True) -> None:
     tone_label_map = {
         "critical": "Kritik",
@@ -9135,13 +9144,22 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
             "maliyet_modeli": COST_MODEL_LABELS,
         },
     )
-    st.dataframe(payroll_display, use_container_width=True, hide_index=True)
-    st.download_button(
-        "Aylık hakediş tablosunu indir",
-        data=cost_df.to_csv(index=False).encode("utf-8-sig"),
-        file_name=f"catkapinda_aylik_hakedis_{selected_month}.csv",
-        mime="text/csv",
-    )
+    with st.container(border=True):
+        payroll_columns = ["Personel", "Rol", "Toplam Saat", "Toplam Paket", "Brüt Hakediş", "Toplam Kesinti", "Net Ödeme", "Maliyet Modeli"]
+        render_dashboard_data_grid(
+            "Hakediş Özeti",
+            "Personel bazlı çalışma, kesinti ve net ödeme görünümünü daha temiz satırlarda incele.",
+            payroll_columns,
+            build_grid_rows(payroll_display, payroll_columns),
+            "Seçilen filtre için hakediş verisi bulunamadı.",
+            muted_columns={"Maliyet Modeli"},
+        )
+        st.download_button(
+            "Aylık hakediş tablosunu indir",
+            data=cost_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name=f"catkapinda_aylik_hakedis_{selected_month}.csv",
+            mime="text/csv",
+        )
 
     st.markdown("### Hakediş Belgesini İndir")
     pdf_person_options = {f"{row['personel']} | {row['rol']}": row["personnel_id"] for _, row in cost_df.sort_values("personel").iterrows()}
@@ -9338,13 +9356,22 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 "model": PRICING_MODEL_LABELS,
             },
         )
-        st.dataframe(invoice_display_df, use_container_width=True, hide_index=True)
-        st.download_button(
-            "Fatura raporunu indir",
-            data=invoice_df.to_csv(index=False).encode("utf-8-sig"),
-            file_name=f"catkapinda_fatura_{selected_month}.csv",
-            mime="text/csv",
-        )
+        with st.container(border=True):
+            invoice_columns = ["Restoran / Şube", "Fiyat Modeli", "Toplam Saat", "Toplam Paket", "Restoran KDV Hariç", "Restoran KDV Dahil"]
+            render_dashboard_data_grid(
+                "Restoran Faturası",
+                "Aylık fatura görünümünü şube bazında daha okunur satırlarda incele.",
+                invoice_columns,
+                build_grid_rows(invoice_display_df, invoice_columns),
+                "Fatura görünümü için veri yok.",
+                muted_columns={"Fiyat Modeli"},
+            )
+            st.download_button(
+                "Fatura raporunu indir",
+                data=invoice_df.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"catkapinda_fatura_{selected_month}.csv",
+                mime="text/csv",
+            )
     with tab2:
         cost_display_df = format_display_df(
             cost_df,
@@ -9365,13 +9392,22 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 "maliyet_modeli": COST_MODEL_LABELS,
             },
         )
-        st.dataframe(cost_display_df, use_container_width=True, hide_index=True)
-        st.download_button(
-            "Personel maliyet raporunu indir",
-            data=cost_df.to_csv(index=False).encode("utf-8-sig"),
-            file_name=f"catkapinda_personel_maliyet_{selected_month}.csv",
-            mime="text/csv",
-        )
+        with st.container(border=True):
+            cost_columns = ["Personel", "Rol", "Toplam Saat", "Toplam Paket", "Toplam Kesinti", "Net Kurye Maliyeti", "Maliyet Modeli"]
+            render_dashboard_data_grid(
+                "Kurye Maliyeti",
+                "Personel maliyetini, çalışma hacmi ve maliyet modeliyle birlikte daha güçlü bir listede gör.",
+                cost_columns,
+                build_grid_rows(cost_display_df, cost_columns),
+                "Kurye maliyet verisi bulunamadı.",
+                muted_columns={"Maliyet Modeli"},
+            )
+            st.download_button(
+                "Personel maliyet raporunu indir",
+                data=cost_df.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"catkapinda_personel_maliyet_{selected_month}.csv",
+                mime="text/csv",
+            )
     with tab3:
         if profit_df.empty:
             st.info("Restoran kârlılığı için veri yok.")
@@ -9402,13 +9438,22 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                     "model": PRICING_MODEL_LABELS,
                 },
             )
-            st.dataframe(profit_display_df, use_container_width=True, hide_index=True)
-            st.download_button(
-                "Restoran kârlılık raporunu indir",
-                data=profit_df.to_csv(index=False).encode("utf-8-sig"),
-                file_name=f"catkapinda_restoran_karlilik_{selected_month}.csv",
-                mime="text/csv",
-            )
+            with st.container(border=True):
+                profit_columns = ["Restoran / Şube", "Restoran KDV Dahil", "Doğrudan Personel Maliyeti", "Ortak Operasyon Payı", "Brüt Fark", "Kâr Marjı"]
+                render_dashboard_data_grid(
+                    "Restoran Karlılığı",
+                    "Fatura ve maliyet tarafını aynı satırda görerek hangi şubenin gerçekten güçlü çalıştığını daha hızlı yorumla.",
+                    profit_columns,
+                    build_grid_rows(profit_display_df, profit_columns),
+                    "Restoran kârlılığı için veri yok.",
+                    muted_columns={"Ortak Operasyon Payı"},
+                )
+                st.download_button(
+                    "Restoran kârlılık raporunu indir",
+                    data=profit_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"catkapinda_restoran_karlilik_{selected_month}.csv",
+                    mime="text/csv",
+                )
     with tab4:
         if shared_overhead_df.empty:
             st.info("Bu ay ortak operasyon payı bulunmuyor.")
@@ -9434,13 +9479,21 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                     "restoran_basina_pay": "Restoran Başına Pay",
                 },
             )
-            st.dataframe(shared_display_df, use_container_width=True, hide_index=True)
-            st.download_button(
-                "Ortak operasyon payını indir",
-                data=shared_overhead_df.to_csv(index=False).encode("utf-8-sig"),
-                file_name=f"catkapinda_paylasilan_yonetim_{selected_month}.csv",
-                mime="text/csv",
-            )
+            with st.container(border=True):
+                shared_columns = ["Personel", "Rol", "Aylık Net Maliyet", "Paylaştırılan Restoran Sayısı", "Restoran Başına Pay"]
+                render_dashboard_data_grid(
+                    "Ortak Operasyon Payı",
+                    "Paylaşılan yönetim yükünü kişi bazında ve restoran başına düşen etkiyle birlikte gör.",
+                    shared_columns,
+                    build_grid_rows(shared_display_df, shared_columns),
+                    "Bu ay ortak operasyon payı bulunmuyor.",
+                )
+                st.download_button(
+                    "Ortak operasyon payını indir",
+                    data=shared_overhead_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"catkapinda_paylasilan_yonetim_{selected_month}.csv",
+                    mime="text/csv",
+                )
 
     with tab5:
         if person_distribution_df.empty:
@@ -9463,13 +9516,22 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                     "kaynak": ALLOCATION_SOURCE_LABELS,
                 },
             )
-            st.dataframe(distribution_display_df, use_container_width=True, hide_index=True)
-            st.download_button(
-                "Personel-şube dağılımını indir",
-                data=person_distribution_df.to_csv(index=False).encode("utf-8-sig"),
-                file_name=f"catkapinda_personel_sube_dagilim_{selected_month}.csv",
-                mime="text/csv",
-            )
+            with st.container(border=True):
+                distribution_columns = ["Restoran / Şube", "Personel", "Rol", "Saat", "Paket", "Maliyet Payı", "Maliyet Kaynağı"]
+                render_dashboard_data_grid(
+                    "Personel-Şube Dağılımı",
+                    "Personel maliyetinin şubelere nasıl dağıldığını daha seçilebilir bir yüzeyde incele.",
+                    distribution_columns,
+                    build_grid_rows(distribution_display_df, distribution_columns),
+                    "Personel-şube dağılımı için veri yok.",
+                    muted_columns={"Maliyet Kaynağı"},
+                )
+                st.download_button(
+                    "Personel-şube dağılımını indir",
+                    data=person_distribution_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"catkapinda_personel_sube_dagilim_{selected_month}.csv",
+                    mime="text/csv",
+                )
 
     with tab6:
         side_df = pd.DataFrame(
@@ -9488,7 +9550,15 @@ def reports_tab(conn: sqlite3.Connection) -> None:
             currency_cols=["Gelir", "Maliyet", "Net Kâr"],
             rename_map={"kalem": "Kalem", "gelir": "Gelir", "maliyet": "Maliyet", "net_kar": "Net Kâr"},
         )
-        st.dataframe(side_display_df, use_container_width=True, hide_index=True)
+        with st.container(border=True):
+            side_columns = ["Kalem", "Gelir", "Maliyet", "Net Kâr"]
+            render_dashboard_data_grid(
+                "Yan Gelir Analizi",
+                "Yan gelir kalemlerini maliyet ve net katkı ile birlikte daha şık satırlarda gör.",
+                side_columns,
+                build_grid_rows(side_display_df, side_columns),
+                "Yan gelir analizi için veri yok.",
+            )
 
 
 def main() -> None:
