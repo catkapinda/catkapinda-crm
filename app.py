@@ -7178,12 +7178,15 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             render_field_label("Muhasebeciye Ödediğimiz")
             accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, step=100.0, key="new_person_accountant_cost", label_visibility="collapsed")
         if is_fixed_cost_model(cost_model):
+            fixed_cost_label = f"{role} Aylık Sabit Maliyeti" if role in FIXED_COST_MODEL_BY_ROLE else "Aylık Sabit Maliyet"
             with c15:
-                render_field_label("Aylık Sabit Maliyet", required=True)
-                monthly_fixed_cost = st.number_input("Aylık Sabit Maliyet", min_value=0.0, step=100.0, key="new_person_monthly_fixed_cost", label_visibility="collapsed")
+                render_field_label(fixed_cost_label, required=True)
+                monthly_fixed_cost = st.number_input(fixed_cost_label, min_value=0.0, step=100.0, key="new_person_monthly_fixed_cost", label_visibility="collapsed")
         else:
             c15.markdown("")
             monthly_fixed_cost = 0.0
+        if role == "Joker":
+            st.caption("Joker rolünde personel artık paket primi almaz; aylık sabit maaşı gün bazlı prorate edilerek hakedişe yansır.")
 
         c16, c17 = st.columns(2)
         with c16:
@@ -7573,12 +7576,15 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         render_field_label("Muhasebeciye Ödediğimiz")
                         edit_accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(row["accountant_cost"] or 0.0), step=100.0, label_visibility="collapsed")
                     if is_fixed_cost_model(edit_cost_model):
+                        edit_fixed_cost_label = f"{edit_role} Aylık Sabit Maliyeti" if edit_role in FIXED_COST_MODEL_BY_ROLE else "Aylık Sabit Maliyet"
                         with c15:
-                            render_field_label("Aylık Sabit Maliyet", required=True)
-                            edit_monthly_cost = st.number_input("Aylık Sabit Maliyet", min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0, label_visibility="collapsed")
+                            render_field_label(edit_fixed_cost_label, required=True)
+                            edit_monthly_cost = st.number_input(edit_fixed_cost_label, min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0, label_visibility="collapsed")
                     else:
                         c15.markdown("")
                         edit_monthly_cost = 0.0
+                    if edit_role == "Joker":
+                        st.caption("Joker rolüne geçildiğinde bu personel artık paket primi almaz; bu alandaki aylık sabit maaş gün bazlı prorate edilerek hesaplanır.")
 
                     c16, c17 = st.columns(2)
                     with c16:
