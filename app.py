@@ -4835,6 +4835,97 @@ def inject_global_styles() -> None:
                 line-height: 1.55;
             }
 
+            .ck-data-grid-table {
+                display: grid;
+                gap: 10px;
+                margin-top: 0.35rem;
+            }
+
+            .ck-data-grid-head {
+                display: grid;
+                grid-template-columns: repeat(var(--ck-cols), minmax(0, 1fr));
+                gap: 12px;
+                padding: 0 6px;
+            }
+
+            .ck-data-grid-head-item {
+                color: #74839B;
+                font-size: 0.72rem;
+                font-weight: 900;
+                letter-spacing: 0.11em;
+                text-transform: uppercase;
+            }
+
+            .ck-data-grid-row {
+                display: grid;
+                grid-template-columns: repeat(var(--ck-cols), minmax(0, 1fr));
+                gap: 12px;
+                border: 1px solid #E3ECFA;
+                border-radius: 18px;
+                background: linear-gradient(180deg, #FFFFFF 0%, #FBFDFF 100%);
+                padding: 14px 15px;
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
+            }
+
+            .ck-data-cell {
+                min-width: 0;
+            }
+
+            .ck-data-cell-label {
+                display: none;
+                color: #74839B;
+                font-size: 0.7rem;
+                font-weight: 800;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                margin-bottom: 0.22rem;
+            }
+
+            .ck-data-cell-value {
+                color: var(--ck-text);
+                font-size: 0.92rem;
+                font-weight: 700;
+                line-height: 1.45;
+                word-break: break-word;
+            }
+
+            .ck-data-cell-value-muted {
+                color: #5F738F;
+                font-weight: 620;
+            }
+
+            .ck-data-pill {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 6px 10px;
+                border-radius: 999px;
+                font-size: 0.75rem;
+                font-weight: 900;
+                letter-spacing: 0.05em;
+                white-space: nowrap;
+            }
+
+            .ck-data-pill-critical {
+                background: #FFE4EA;
+                color: #B51D45;
+            }
+
+            .ck-data-pill-warning {
+                background: #FFF1CE;
+                color: #966400;
+            }
+
+            .ck-data-pill-info {
+                background: #EAF2FF;
+                color: #1656C0;
+            }
+
+            .ck-data-pill-success {
+                background: #E3F7EA;
+                color: #177241;
+            }
+
             .stButton > button, .stDownloadButton > button {
                 border-radius: 14px;
                 font-weight: 800;
@@ -4947,6 +5038,20 @@ def inject_global_styles() -> None:
                 .ck-login-form-shell {
                     padding: 18px 14px 14px;
                 }
+
+                .ck-data-grid-head {
+                    display: none;
+                }
+
+                .ck-data-grid-row {
+                    grid-template-columns: 1fr;
+                    gap: 10px;
+                    padding: 13px 14px;
+                }
+
+                .ck-data-cell-label {
+                    display: block;
+                }
             }
         </style>
         """,
@@ -4988,7 +5093,73 @@ def render_record_snapshot(title: str, items: list[tuple[str, Any]]) -> None:
     )
 
 
-def render_alert_stack(title: str, items: list[dict[str, Any]]) -> None:
+def resolve_dashboard_tone(value: Any, default: str = "info") -> str:
+    normalized = str(value or "").strip().lower()
+    if any(token in normalized for token in ["kritik", "bekleniyor", "negatif", "zarar", "açık", "eksik"]):
+        return "critical"
+    if any(token in normalized for token in ["izleme", "dikkat", "altında", "finans"]):
+        return "warning"
+    if any(token in normalized for token in ["sağlam", "stabil", "tamam"]):
+        return "success"
+    if any(token in normalized for token in ["bilgi", "takip"]):
+        return "info"
+    return default
+
+
+def render_dashboard_data_grid(
+    title: str,
+    subtitle: str | None,
+    columns: list[str],
+    rows: list[dict[str, Any]],
+    empty_message: str,
+    badge_columns: set[str] | None = None,
+    muted_columns: set[str] | None = None,
+) -> None:
+    render_dashboard_section_header(title, subtitle)
+    badge_columns = badge_columns or set()
+    muted_columns = muted_columns or set()
+
+    if not rows:
+        st.info(empty_message)
+        return
+
+    head_html = "".join(
+        f"<div class='ck-data-grid-head-item'>{html.escape(str(column))}</div>"
+        for column in columns
+    )
+
+    row_html = []
+    for row in rows:
+        cell_html = []
+        for column in columns:
+            raw_value = row.get(column, "-")
+            value_text = html.escape(str(raw_value if raw_value not in [None, ""] else "-"))
+            if column in badge_columns:
+                tone = resolve_dashboard_tone(raw_value)
+                value_html = f"<span class='ck-data-pill ck-data-pill-{tone}'>{value_text}</span>"
+            else:
+                value_class = "ck-data-cell-value ck-data-cell-value-muted" if column in muted_columns else "ck-data-cell-value"
+                value_html = f"<span class='{value_class}'>{value_text}</span>"
+            cell_html.append(
+                "<div class='ck-data-cell'>"
+                f"<div class='ck-data-cell-label'>{html.escape(str(column))}</div>"
+                f"{value_html}"
+                "</div>"
+            )
+        row_html.append(f"<div class='ck-data-grid-row'>{''.join(cell_html)}</div>")
+
+    st.markdown(
+        (
+            f"<div class='ck-data-grid-table' style='--ck-cols:{len(columns)};'>"
+            f"<div class='ck-data-grid-head'>{head_html}</div>"
+            f"{''.join(row_html)}"
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def render_alert_stack(title: str, items: list[dict[str, Any]], border: bool = True) -> None:
     tone_label_map = {
         "critical": "Kritik",
         "warning": "Dikkat",
@@ -4996,7 +5167,7 @@ def render_alert_stack(title: str, items: list[dict[str, Any]]) -> None:
         "success": "Stabil",
     }
 
-    with st.container(border=True):
+    with st.container(border=border):
         st.markdown(f"**{title}**")
         normalized_items = items or [
             {
@@ -5746,27 +5917,35 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
         render_alert_stack("Bugün Acil Aksiyon", priority_alerts)
     with brand_col:
         with st.container(border=True):
-            render_dashboard_section_header("Marka Bazlı Özet", "Markaların bu ayki operasyon ve gelir fotoğrafını tek tabloda gör.")
             if brand_summary_df.empty:
-                st.info("Marka bazlı özet için bu ay puantaj verisi oluşmadı.")
-            else:
-                brand_display_df = format_display_df(
-                    brand_summary_df.head(8),
-                    currency_cols=["toplam_fatura", "operasyon_farki"],
-                    number_cols=["restoran_sayisi", "paket", "saat"],
-                    percent_cols=["ortalama_marj"],
-                    rename_map={
-                        "brand": "Marka",
-                        "restoran_sayisi": "Şube",
-                        "paket": "Paket",
-                        "saat": "Saat",
-                        "toplam_fatura": "Fatura",
-                        "operasyon_farki": "Operasyon Farkı",
-                        "ortalama_marj": "Ort. Marj",
-                        "durum": "Durum",
-                    },
+                render_dashboard_data_grid(
+                    "Marka Bazlı Özet",
+                    "Markaların bu ayki operasyon ve gelir fotoğrafını daha okunur kart satırlarında gör.",
+                    ["Marka", "Şube", "Hacim", "Fatura", "Operasyon Farkı", "Durum"],
+                    [],
+                    "Marka bazlı özet için bu ay puantaj verisi oluşmadı.",
+                    badge_columns={"Durum"},
                 )
-                st.dataframe(brand_display_df, use_container_width=True, hide_index=True)
+            else:
+                brand_rows = [
+                    {
+                        "Marka": row["brand"],
+                        "Şube": fmt_number(row["restoran_sayisi"]),
+                        "Hacim": f"{fmt_number(row['paket'])} Paket | {fmt_number(row['saat'])} Saat",
+                        "Fatura": fmt_try(row["toplam_fatura"]),
+                        "Operasyon Farkı": fmt_try(row["operasyon_farki"]),
+                        "Durum": row["durum"],
+                    }
+                    for _, row in brand_summary_df.head(8).iterrows()
+                ]
+                render_dashboard_data_grid(
+                    "Marka Bazlı Özet",
+                    "Markaların bu ayki operasyon ve gelir fotoğrafını daha okunur kart satırlarında gör.",
+                    ["Marka", "Şube", "Hacim", "Fatura", "Operasyon Farkı", "Durum"],
+                    brand_rows,
+                    "Marka bazlı özet için bu ay puantaj verisi oluşmadı.",
+                    badge_columns={"Durum"},
+                )
 
     if entries.empty:
         st.info("Henüz günlük puantaj kaydı yok. İlk kayıtlar geldikçe dashboard operasyon akışını burada gösterecek.")
@@ -5821,43 +6000,48 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
     alerts_col, actions_col = st.columns([1.25, 1], gap="large")
     with alerts_col:
         with st.container(border=True):
-            render_dashboard_section_header("Aksiyon Gerektiren Şubeler", "Gün sonu kapanışını veya kadro dengesini etkileyebilecek şubeleri öne çıkar.")
-            action_rows = []
+            action_alerts = []
             for _, row in missing_attendance_df.head(5).iterrows():
-                action_rows.append(
+                action_alerts.append(
                     {
-                        "Restoran / Şube": f"{row['brand']} - {row['branch']}",
-                        "Uyarı": "Bugün puantaj bekleniyor",
-                        "Detay": "Günlük kayıt henüz girilmedi",
+                        "tone": "critical",
+                        "badge": "Bugün",
+                        "title": f"{row['brand']} - {row['branch']}",
+                        "detail": "Bugün puantaj bekleniyor. Günlük kayıt henüz girilmedi.",
                     }
                 )
             for _, row in under_target_df.head(5).iterrows():
-                action_rows.append(
+                action_alerts.append(
                     {
-                        "Restoran / Şube": f"{row['brand']} - {row['branch']}",
-                        "Uyarı": "Hedef kadronun altında",
-                        "Detay": f"Açık kadro: {safe_int(row['acik_kadro'])}",
+                        "tone": "warning" if safe_int(row["acik_kadro"], 0) < 2 else "critical",
+                        "badge": "Kadro",
+                        "title": f"{row['brand']} - {row['branch']}",
+                        "detail": f"Hedef kadronun altında. Açık kadro: {safe_int(row['acik_kadro'])}",
                     }
                 )
-            actions_df = pd.DataFrame(action_rows)
-            if actions_df.empty:
-                st.success("Bugün için kritik şube alarmı görünmüyor.")
-            else:
-                st.dataframe(actions_df, use_container_width=True, hide_index=True)
+            render_alert_stack(
+                "Aksiyon Gerektiren Şubeler",
+                action_alerts,
+                border=False,
+            )
 
             if not joker_usage_df.empty:
-                joker_display = format_display_df(
-                    joker_usage_df.head(6),
-                    number_cols=["joker_sayisi", "paket"],
-                    rename_map={
-                        "restoran": "Joker Kullanılan Şube",
-                        "joker_sayisi": "Joker",
-                        "paket": "Paket",
-                    },
-                )
                 st.markdown("<div class='ck-dashboard-spacer-sm'></div>", unsafe_allow_html=True)
-                render_dashboard_section_header("Bugün Joker Kullanılan Şubeler")
-                st.dataframe(joker_display, use_container_width=True, hide_index=True)
+                joker_rows = [
+                    {
+                        "Şube": row["restoran"],
+                        "Joker": fmt_number(row["joker_sayisi"]),
+                        "Paket": fmt_number(row["paket"]),
+                    }
+                    for _, row in joker_usage_df.head(6).iterrows()
+                ]
+                render_dashboard_data_grid(
+                    "Bugün Joker Kullanılan Şubeler",
+                    "Joker desteği alan şubeleri ve gün içi yükünü öne çıkar.",
+                    ["Şube", "Joker", "Paket"],
+                    joker_rows,
+                    "Bugün joker kullanılan şube görünmüyor.",
+                )
 
     with actions_col:
         with st.container(border=True):
@@ -5903,15 +6087,38 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
             render_record_snapshot("Veri Hijyeni", hygiene_rows)
 
             if not missing_personnel_df.empty:
-                personnel_display = missing_personnel_df.head(6).rename(
-                    columns={"personel": "Personel", "rol": "Rol", "eksik_alanlar": "Eksik Alanlar"}
+                personnel_rows = [
+                    {
+                        "Personel": row["personel"],
+                        "Rol": row["rol"],
+                        "Eksik Alanlar": row["eksik_alanlar"],
+                    }
+                    for _, row in missing_personnel_df.head(6).iterrows()
+                ]
+                render_dashboard_data_grid(
+                    "Eksik Personel Kartları",
+                    "Tamamlanması gereken aktif personel alanlarını hızlıca gör.",
+                    ["Personel", "Rol", "Eksik Alanlar"],
+                    personnel_rows,
+                    "Eksik personel kartı görünmüyor.",
+                    muted_columns={"Eksik Alanlar"},
                 )
-                st.dataframe(personnel_display, use_container_width=True, hide_index=True)
             elif not missing_restaurant_df.empty:
-                restaurant_display = missing_restaurant_df.head(6).rename(
-                    columns={"restoran": "Restoran / Şube", "eksik_alanlar": "Eksik Alanlar"}
+                restaurant_rows = [
+                    {
+                        "Restoran / Şube": row["restoran"],
+                        "Eksik Alanlar": row["eksik_alanlar"],
+                    }
+                    for _, row in missing_restaurant_df.head(6).iterrows()
+                ]
+                render_dashboard_data_grid(
+                    "Eksik Restoran Kartları",
+                    "İletişim ve vergi alanı eksik kalan şubeleri düzenle.",
+                    ["Restoran / Şube", "Eksik Alanlar"],
+                    restaurant_rows,
+                    "Eksik restoran kartı görünmüyor.",
+                    muted_columns={"Eksik Alanlar"},
                 )
-                st.dataframe(restaurant_display, use_container_width=True, hide_index=True)
             else:
                 st.success("Aktif kartlar tarafında öne çıkan kritik eksik görünmüyor.")
 
