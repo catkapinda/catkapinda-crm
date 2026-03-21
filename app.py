@@ -126,17 +126,24 @@ PRICING_MODEL_LABELS = {
     "fixed_monthly": "Sabit Aylık Ücret",
 }
 MENU_DISPLAY_LABELS = {
-    "Genel Bakış": "◩ Genel Bakış",
-    "Restoran Yönetimi": "◫ Restoran Yönetimi",
-    "Personel Yönetimi": "◉ Personel Yönetimi",
-    "Puantaj": "◔ Puantaj",
-    "Satın Alma": "◌ Satın Alma",
-    "Ekipman & Zimmet": "◧ Ekipman ve Zimmet",
-    "Kesinti Yönetimi": "◒ Kesinti Yönetimi",
-    "Aylık Hakediş": "◍ Aylık Hakediş",
-    "Raporlar ve Karlılık": "◹ Raporlar ve Karlılık",
-    "Güncellemeler ve Duyurular": "◎ Güncellemeler ve Duyurular",
+    "Genel Bakış": "Genel Bakış",
+    "Restoran Yönetimi": "Restoran Yönetimi",
+    "Personel Yönetimi": "Personel Yönetimi",
+    "Puantaj": "Puantaj",
+    "Satın Alma": "Satın Alma",
+    "Ekipman & Zimmet": "Ekipman ve Zimmet",
+    "Kesinti Yönetimi": "Kesinti Yönetimi",
+    "Aylık Hakediş": "Aylık Hakediş",
+    "Raporlar ve Karlılık": "Raporlar ve Karlılık",
+    "Güncellemeler ve Duyurular": "Güncellemeler ve Duyurular",
 }
+MENU_SECTIONS = [
+    ("Kontrol", ["Genel Bakış"]),
+    ("Operasyon", ["Puantaj", "Ekipman & Zimmet", "Kesinti Yönetimi"]),
+    ("Kayıtlar", ["Restoran Yönetimi", "Personel Yönetimi", "Satın Alma"]),
+    ("Finans", ["Aylık Hakediş", "Raporlar ve Karlılık"]),
+    ("Kurumsal", ["Güncellemeler ve Duyurular"]),
+]
 FIXED_COST_MODEL_BY_ROLE = {
     "Kurye": "fixed_kurye",
     "Bölge Müdürü": "fixed_bolge_muduru",
@@ -2226,17 +2233,37 @@ def render_sidebar_brand() -> None:
     st.sidebar.markdown(
         """
         <div class="ck-side-brand-shell">
-            <div class="ck-side-brand-meta">
-                <span class="ck-side-brand-signal"></span>
-                <span class="ck-side-brand-kicker">Kurumsal Navigasyon</span>
-            </div>
+            <div class="ck-side-brand-kicker">Teslimat Operasyonu</div>
             <div class="ck-side-brand-title">Çat Kapında Operasyon CRM</div>
             <div class="ck-side-brand-copy">Teslimat operasyonu yönetim paneli</div>
         </div>
-        <div class="ck-side-menu-note">Operasyon Modülleri</div>
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_sidebar_navigation(menu_items: list[str], current_menu: str) -> str:
+    resolved_menu = current_menu if current_menu in menu_items else (menu_items[0] if menu_items else "")
+    for section_title, section_items in MENU_SECTIONS:
+        visible_items = [item for item in section_items if item in menu_items]
+        if not visible_items:
+            continue
+        st.sidebar.markdown(
+            f"<div class='ck-side-section-title'>{html.escape(section_title)}</div>",
+            unsafe_allow_html=True,
+        )
+        for item in visible_items:
+            is_selected = item == resolved_menu
+            clicked = st.sidebar.button(
+                MENU_DISPLAY_LABELS.get(item, item),
+                key=f"sidebar_nav_{item}",
+                use_container_width=True,
+                type="primary" if is_selected else "secondary",
+            )
+            if clicked and not is_selected:
+                st.session_state["ck_main_menu"] = item
+                st.rerun()
+    return resolved_menu
 
 
 def render_boot_shell() -> Any:
@@ -3877,79 +3904,19 @@ def inject_global_styles() -> None:
                 color: var(--ck-text);
             }
 
-            [data-testid="stSidebar"] .stRadio > label {
-                font-size: 0.76rem;
-                font-weight: 800;
-                color: #8A94A6;
-                text-transform: uppercase;
-                letter-spacing: 0.06em;
-                margin-bottom: 0.45rem;
-            }
-
-            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
-                background: #FFFFFF;
-                border: 1px solid #E3EAF5;
-                border-radius: 14px;
-                padding: 11px 13px;
-                margin-bottom: 7px;
-                transition: all 0.18s ease;
-            }
-
-            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:hover {
-                border-color: #C6D7F4;
-                background: #F8FBFF;
-            }
-
-            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) {
-                background: #F3F8FF;
-                border-color: #BBD1F5;
-                box-shadow: inset 3px 0 0 #0C4BCB;
-            }
-
-            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label > div:first-child {
-                display: none;
-            }
-
-            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label [data-testid="stMarkdownContainer"] p {
-                padding-left: 0;
-                font-size: 0.92rem;
-                font-weight: 780;
-                letter-spacing: -0.01em;
-                color: #23324A;
-            }
-
-            [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) [data-testid="stMarkdownContainer"] p {
-                color: #0C4BCB !important;
-            }
-
             .ck-side-brand-shell {
                 margin: 0.05rem 0 0.9rem;
                 padding: 0.2rem 0 0.95rem 0.05rem;
                 border-bottom: 1px solid #E7EDF6;
             }
 
-            .ck-side-brand-meta {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                margin-bottom: 0.55rem;
-            }
-
-            .ck-side-brand-signal {
-                width: 9px;
-                height: 9px;
-                flex: 0 0 9px;
-                border-radius: 999px;
-                background: linear-gradient(135deg, #0C4BCB 0%, #0EA5E9 100%);
-                box-shadow: 0 0 0 5px rgba(12, 75, 203, 0.08);
-            }
-
             .ck-side-brand-kicker {
-                color: #6D7D95;
+                color: #7A889E;
                 font-size: 0.72rem;
                 font-weight: 820;
                 letter-spacing: 0.11em;
                 text-transform: uppercase;
+                margin-bottom: 0.55rem;
             }
 
             .ck-side-brand-title {
@@ -3968,13 +3935,43 @@ def inject_global_styles() -> None:
                 font-weight: 640;
             }
 
-            .ck-side-menu-note {
-                margin: 0.02rem 0 0.5rem;
+            .ck-side-section-title {
+                margin: 0.1rem 0 0.5rem 0.05rem;
                 color: #8A94A6;
-                font-size: 0.72rem;
+                font-size: 0.7rem;
                 font-weight: 860;
                 letter-spacing: 0.14em;
                 text-transform: uppercase;
+            }
+
+            [data-testid="stSidebar"] .stButton > button {
+                width: 100%;
+                justify-content: flex-start;
+                text-align: left;
+                border-radius: 14px;
+                border: 1px solid #E3EAF5;
+                background: #FFFFFF;
+                min-height: 2.85rem;
+                margin-bottom: 0.45rem;
+                padding: 0.75rem 0.9rem;
+                font-size: 0.92rem;
+                font-weight: 780;
+                letter-spacing: -0.01em;
+                color: #23324A;
+                transition: all 0.18s ease;
+                box-shadow: none;
+            }
+
+            [data-testid="stSidebar"] .stButton > button:hover {
+                border-color: #C6D7F4;
+                background: #F8FBFF;
+            }
+
+            [data-testid="stSidebar"] .stButton > button[kind="primary"] {
+                background: #F3F8FF;
+                border-color: #BBD1F5;
+                color: #0C4BCB;
+                box-shadow: inset 3px 0 0 #0C4BCB;
             }
 
             .ck-profile-shell {
@@ -9535,13 +9532,8 @@ def main() -> None:
             st.session_state["ck_main_menu"] = target_menu
         if st.session_state.get("ck_main_menu") not in menu_items:
             st.session_state["ck_main_menu"] = menu_items[0]
-        menu = st.sidebar.radio(
-            "Komuta Alanları",
-            menu_items,
-            key="ck_main_menu",
-            format_func=lambda item: MENU_DISPLAY_LABELS.get(item, item),
-            label_visibility="collapsed",
-        )
+        menu = render_sidebar_navigation(menu_items, st.session_state.get("ck_main_menu", menu_items[0]))
+        st.session_state["ck_main_menu"] = menu
 
         ensure_role_access(menu, role)
         render_top_profile(conn)
