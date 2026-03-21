@@ -126,16 +126,16 @@ PRICING_MODEL_LABELS = {
     "fixed_monthly": "Sabit Aylık Ücret",
 }
 MENU_DISPLAY_LABELS = {
-    "Genel Bakış": "Genel Bakış",
-    "Restoran Yönetimi": "Restoran Yönetimi",
-    "Personel Yönetimi": "Personel Yönetimi",
-    "Puantaj": "Puantaj",
-    "Satın Alma": "Satın Alma",
-    "Ekipman & Zimmet": "Ekipman ve Zimmet",
-    "Kesinti Yönetimi": "Kesinti Yönetimi",
-    "Aylık Hakediş": "Aylık Hakediş",
-    "Raporlar ve Karlılık": "Raporlar ve Karlılık",
-    "Güncellemeler ve Duyurular": "Güncellemeler ve Duyurular",
+    "Genel Bakış": "◩ Genel Bakış",
+    "Restoran Yönetimi": "◫ Restoran Yönetimi",
+    "Personel Yönetimi": "◉ Personel Yönetimi",
+    "Puantaj": "◔ Puantaj",
+    "Satın Alma": "◌ Satın Alma",
+    "Ekipman & Zimmet": "◧ Ekipman ve Zimmet",
+    "Kesinti Yönetimi": "◒ Kesinti Yönetimi",
+    "Aylık Hakediş": "◍ Aylık Hakediş",
+    "Raporlar ve Karlılık": "◹ Raporlar ve Karlılık",
+    "Güncellemeler ve Duyurular": "◎ Güncellemeler ve Duyurular",
 }
 FIXED_COST_MODEL_BY_ROLE = {
     "Kurye": "fixed_kurye",
@@ -2225,15 +2225,15 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 def render_sidebar_brand() -> None:
     st.sidebar.markdown(
         """
-        <div class="ck-side-heading">
-            <div class="ck-side-heading-title">Çat Kapında</div>
-            <div class="ck-side-heading-subtitle">Operasyon CRM</div>
+        <div class="ck-side-brand-shell">
+            <div class="ck-side-brand-meta">
+                <span class="ck-side-brand-signal"></span>
+                <span class="ck-side-brand-kicker">Kurumsal Navigasyon</span>
+            </div>
+            <div class="ck-side-brand-title">Çat Kapında Operasyon CRM</div>
+            <div class="ck-side-brand-copy">Teslimat operasyonu yönetim paneli</div>
         </div>
-        <div class="ck-side-toolbar">
-            <div class="ck-side-toolbar-icon">🧭</div>
-            <div class="ck-side-toolbar-text">Operasyon Paneli</div>
-        </div>
-        <div class="ck-side-menu-note">Ana Menü</div>
+        <div class="ck-side-menu-note">Operasyon Modülleri</div>
         """,
         unsafe_allow_html=True,
     )
@@ -3922,69 +3922,58 @@ def inject_global_styles() -> None:
                 color: #0C4BCB !important;
             }
 
-            .ck-side-heading {
-                padding: 0.15rem 0 0.9rem 0.1rem;
-                margin-bottom: 0.35rem;
+            .ck-side-brand-shell {
+                margin: 0.05rem 0 0.9rem;
+                padding: 0.2rem 0 0.95rem 0.05rem;
                 border-bottom: 1px solid #E7EDF6;
             }
 
-            .ck-side-heading-title {
-                font-size: 1.2rem;
-                font-weight: 900;
-                letter-spacing: -0.05em;
-                color: #132238;
-                line-height: 1;
+            .ck-side-brand-meta {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 0.55rem;
             }
 
-            .ck-side-heading-subtitle {
-                margin-top: 0.28rem;
-                font-size: 0.78rem;
-                color: #71819A;
-                font-weight: 700;
-                letter-spacing: 0.08em;
+            .ck-side-brand-signal {
+                width: 9px;
+                height: 9px;
+                flex: 0 0 9px;
+                border-radius: 999px;
+                background: linear-gradient(135deg, #0C4BCB 0%, #0EA5E9 100%);
+                box-shadow: 0 0 0 5px rgba(12, 75, 203, 0.08);
+            }
+
+            .ck-side-brand-kicker {
+                color: #6D7D95;
+                font-size: 0.72rem;
+                font-weight: 820;
+                letter-spacing: 0.11em;
                 text-transform: uppercase;
             }
 
-            .ck-side-toolbar {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                margin: 0.45rem 0 0.95rem 0;
-                padding: 10px 12px;
-                border-radius: 14px;
-                background: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
-                border: 1px solid var(--ck-border);
-                box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
-            }
-
-            .ck-side-toolbar-icon {
-                width: 30px;
-                height: 30px;
-                flex: 0 0 30px;
-                border-radius: 10px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: linear-gradient(135deg, #0C4BCB 0%, #1182D3 100%);
-                color: #FFFFFF;
-                font-size: 0.92rem;
+            .ck-side-brand-title {
+                font-size: 1.14rem;
                 font-weight: 900;
-                box-shadow: 0 10px 18px rgba(12, 75, 203, 0.14);
+                letter-spacing: -0.045em;
+                color: #132238;
+                line-height: 1.18;
             }
 
-            .ck-side-toolbar-text {
-                color: #3A4D68;
+            .ck-side-brand-copy {
+                margin-top: 0.34rem;
+                color: #74839B;
                 font-size: 0.82rem;
-                font-weight: 760;
-                letter-spacing: 0.01em;
+                line-height: 1.5;
+                font-weight: 640;
             }
 
             .ck-side-menu-note {
-                margin: 0.05rem 0 0.45rem;
+                margin: 0.02rem 0 0.5rem;
                 color: #8A94A6;
-                font-size: 0.74rem;
-                font-weight: 800;
-                letter-spacing: 0.12em;
+                font-size: 0.72rem;
+                font-weight: 860;
+                letter-spacing: 0.14em;
                 text-transform: uppercase;
             }
 
