@@ -5095,6 +5095,10 @@ def render_record_snapshot(title: str, items: list[tuple[str, Any]]) -> None:
 
 def resolve_dashboard_tone(value: Any, default: str = "info") -> str:
     normalized = str(value or "").strip().lower()
+    if "aktif" in normalized:
+        return "success"
+    if "pasif" in normalized:
+        return "warning"
     if any(token in normalized for token in ["kritik", "bekleniyor", "negatif", "zarar", "açık", "eksik"]):
         return "critical"
     if any(token in normalized for token in ["izleme", "dikkat", "altında", "finans"]):
@@ -6322,7 +6326,25 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             action_labels = {f"{row['brand']} - {row['branch']} (ID: {row['id']})": int(row["id"]) for _, row in df.iterrows()}
             left, right = st.columns([2.35, 1])
             with left:
-                st.dataframe(format_restaurants_table(filtered_df), use_container_width=True, hide_index=True)
+                restaurant_rows = [
+                    {
+                        "Şube": f"{row['brand']} - {row['branch']}",
+                        "Fiyat Modeli": PRICING_MODEL_LABELS.get(row["pricing_model"], row["pricing_model"]),
+                        "Kadro": fmt_number(row["target_headcount"]),
+                        "Yetkili": row["contact_name"] or "-",
+                        "Durum": ACTIVE_STATUS_LABELS.get(row["active"], row["active"]),
+                    }
+                    for _, row in filtered_df.iterrows()
+                ]
+                render_dashboard_data_grid(
+                    "Şube Kartları",
+                    "Marka, fiyat modeli ve yönetim bilgisini daha okunur kart satırlarında izle.",
+                    ["Şube", "Fiyat Modeli", "Kadro", "Yetkili", "Durum"],
+                    restaurant_rows,
+                    "Filtreye uyan restoran kaydı görünmüyor.",
+                    badge_columns={"Durum"},
+                    muted_columns={"Fiyat Modeli"},
+                )
                 st.caption(f"{len(filtered_df)} kayıt gösteriliyor.")
             with right:
                 selected_label = st.selectbox("İşlem Yapılacak Şube", list(action_labels.keys()), key="restaurant_action_select")
@@ -6905,7 +6927,25 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         break
             left, right = st.columns([2.35, 1])
             with left:
-                st.dataframe(format_personnel_table(filtered_df), use_container_width=True, hide_index=True)
+                personnel_rows = [
+                    {
+                        "Personel": row["full_name"] or "-",
+                        "Rol": row["role"] or "-",
+                        "Ana Restoran": row["restoran"] or "-",
+                        "Motor": row["vehicle_type"] or "-",
+                        "Durum": row["status"] or "-",
+                    }
+                    for _, row in filtered_df.iterrows()
+                ]
+                render_dashboard_data_grid(
+                    "Personel Kartları",
+                    "Personel kayıtlarını rol, restoran ve operasyon durumu ile birlikte daha temiz satırlarda takip et.",
+                    ["Personel", "Rol", "Ana Restoran", "Motor", "Durum"],
+                    personnel_rows,
+                    "Filtreye uyan personel kaydı görünmüyor.",
+                    badge_columns={"Durum"},
+                    muted_columns={"Ana Restoran"},
+                )
                 st.caption(f"{len(filtered_df)} personel gösteriliyor.")
             with right:
                 preview_label = st.selectbox("Kart Önizleme", list(preview_labels.keys()), key="person_preview_select")
@@ -7347,7 +7387,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         edit_role = st.selectbox(
                             "Rol",
                             role_options,
-                            index=role_options.index(row["role"]) if row["role"] in role_options else 0,
                             key=f"edit_person_role_{selected_id}",
                             label_visibility="collapsed",
                         )
@@ -7374,7 +7413,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         edit_status = st.selectbox(
                             "Durum",
                             status_options,
-                            index=status_options.index(row["status"]) if row["status"] in status_options else 0,
                             key=f"edit_person_status_{selected_id}",
                             label_visibility="collapsed",
                         )
@@ -7423,7 +7461,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         edit_accounting = st.selectbox(
                             "Muhasebe",
                             accounting_options,
-                            index=accounting_options.index(current_acc) if current_acc in accounting_options else 0,
                             key=f"edit_person_accounting_{selected_id}",
                             label_visibility="collapsed",
                         )
@@ -7434,7 +7471,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         edit_new_company = st.selectbox(
                             "Yeni Şirket Açılışı",
                             new_company_options,
-                            index=new_company_options.index(current_newco) if current_newco in new_company_options else 0,
                             key=f"edit_person_new_company_{selected_id}",
                             label_visibility="collapsed",
                         )
@@ -7530,7 +7566,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             edit_vehicle = st.selectbox(
                                 "Motor Tipi",
                                 vehicle_options,
-                                index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1,
                                 key=f"edit_person_vehicle_{selected_id}",
                                 label_visibility="collapsed",
                             )
@@ -7539,7 +7574,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         edit_vehicle = st.selectbox(
                             "Motor Tipi",
                             vehicle_options,
-                            index=vehicle_options.index(current_vehicle) if current_vehicle in vehicle_options else 1,
                             key=f"edit_person_vehicle_{selected_id}",
                             label_visibility="collapsed",
                         )
@@ -7554,7 +7588,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         edit_motor_purchase = st.selectbox(
                             "Çat Kapında Motor Satışı",
                             ["Hayır", "Evet"],
-                            index=1 if current_motor_purchase == "Evet" else 0,
                             key=f"edit_person_motor_purchase_{selected_id}",
                             label_visibility="collapsed",
                         )
@@ -8040,7 +8073,53 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
             "notes": "Açıklama",
         },
     )
-    st.dataframe(deductions_display_df, use_container_width=True, hide_index=True)
+    deduction_rows = [
+        {
+            "Tarih": row["Tarih"],
+            "Personel": row["Personel"],
+            "Tür": row["Kesinti Türü"],
+            "Tutar": row["Tutar"],
+            "Kaynak": row["Kaynak"],
+            "Açıklama": row["Açıklama"] or "-",
+        }
+        for _, row in deductions_display_df.iterrows()
+    ]
+    render_dashboard_data_grid(
+        "Kesinti Listesi",
+        "Manuel ve sistem kaynaklı kesintileri daha düzenli satırlarda izle.",
+        ["Tarih", "Personel", "Tür", "Tutar", "Kaynak", "Açıklama"],
+        deduction_rows,
+        "Henüz kesinti kaydı yok.",
+        muted_columns={"Kaynak", "Açıklama"},
+    )
+
+    st.markdown("### Toplu kesinti sil")
+    manual_deductions_df = raw_df[raw_df["auto_source_key"].fillna("").astype(str).str.strip() == ""].copy() if not raw_df.empty else pd.DataFrame()
+    if manual_deductions_df.empty:
+        st.info("Toplu silme için uygun manuel kesinti kaydı görünmüyor.")
+    else:
+        bulk_deduction_options = {
+            f"{row['deduction_date']} | {row['personel']} | {row['deduction_type']} | {fmt_try(row['amount'])} | ID:{int(row['id'])}": int(row["id"])
+            for _, row in manual_deductions_df.iterrows()
+        }
+        selected_bulk_deduction_labels = st.multiselect(
+            "Toplu silinecek kesinti kayıtları",
+            list(bulk_deduction_options.keys()),
+            key="bulk_deduction_delete_select",
+        )
+        if st.button("Seçili Kesintileri Toplu Sil", use_container_width=True, key="bulk_deduction_delete_button"):
+            selected_bulk_deduction_ids = [bulk_deduction_options[label] for label in selected_bulk_deduction_labels]
+            if not selected_bulk_deduction_ids:
+                st.error("Önce en az bir manuel kesinti kaydı seçmelisin.")
+            else:
+                placeholders = ", ".join(["?"] * len(selected_bulk_deduction_ids))
+                conn.execute(
+                    f"DELETE FROM deductions WHERE id IN ({placeholders})",
+                    tuple(selected_bulk_deduction_ids),
+                )
+                conn.commit()
+                st.success(f"{len(selected_bulk_deduction_ids)} manuel kesinti kaydı toplu olarak silindi.")
+                st.rerun()
 
     st.markdown("### Kesinti düzenle / sil")
     if raw_df.empty:
@@ -8339,7 +8418,25 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
             "notes": "Not",
         },
     )
-    st.dataframe(purchases_display, use_container_width=True, hide_index=True)
+    purchase_rows = [
+        {
+            "Tarih": row["Tarih"],
+            "Ürün": row["Ürün"],
+            "Adet": row["Adet"],
+            "Toplam Fatura": row["Toplam Fatura"],
+            "Birim Maliyet": row["Birim Maliyet"],
+            "Tedarikçi": row["Tedarikçi"] or "-",
+        }
+        for _, row in purchases_display.iterrows()
+    ]
+    render_dashboard_data_grid(
+        "Satın Alma Listesi",
+        "Fatura kayıtlarını ürün, maliyet ve tedarikçi bazında daha şık satırlarda takip et.",
+        ["Tarih", "Ürün", "Adet", "Toplam Fatura", "Birim Maliyet", "Tedarikçi"],
+        purchase_rows,
+        "Henüz satın alma faturası kaydı yok.",
+        muted_columns={"Tedarikçi"},
+    )
 
     st.markdown("### Satın alma kaydı düzenle / sil")
     purchase_options = {
