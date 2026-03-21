@@ -32,7 +32,7 @@ from reportlab.pdfgen import canvas
 DEFAULT_AUTH_PASSWORD = "123456"
 APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
 APP_PAGE_ICON = "🧭"
-RUNTIME_BOOTSTRAP_VERSION = "2026-03-21-manual-issue-1"
+RUNTIME_BOOTSTRAP_VERSION = "2026-03-21-manual-deductions-1"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
     "assets/catkapinda_logo.jpg",
@@ -93,6 +93,12 @@ MOTOR_RENTAL_VAT_RATE = 20.0
 AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION = 11250.0
 AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT = 12
 AUTO_MOTOR_PURCHASE_TOTAL_PRICE = AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION * AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT
+SYSTEM_PERSONNEL_AUTO_DEDUCTION_PREFIXES = (
+    "auto:motor_rental:",
+    "auto:motor_purchase:",
+    "auto:accounting:",
+    "auto:company_setup",
+)
 AUTO_ACCOUNTING_DEDUCTION = 2000.0
 AUTO_ACCOUNTANT_COST = 1400.0
 AUTO_COMPANY_SETUP_DEDUCTION = 1500.0
@@ -1568,6 +1574,7 @@ def ensure_runtime_bootstrap(conn: CompatConnection) -> None:
         normalize_existing_deduction_dates(conn)
         normalize_equipment_issue_costs_and_vat(conn)
         cleanup_auto_onboarding_records(conn)
+        cleanup_auto_personnel_deduction_records(conn)
         ensure_all_person_role_histories(conn)
         sync_all_personnel_business_rules(conn, full_history=True)
         set_app_meta_value(conn, "runtime_bootstrap_version", RUNTIME_BOOTSTRAP_VERSION)
@@ -2705,6 +2712,11 @@ def describe_auto_source_key(auto_source_key: Any) -> str:
     return "Sistem"
 
 
+def is_system_personnel_auto_deduction_key(auto_source_key: Any) -> bool:
+    key = str(auto_source_key or "").strip()
+    return any(key.startswith(prefix) for prefix in SYSTEM_PERSONNEL_AUTO_DEDUCTION_PREFIXES)
+
+
 def post_equipment_installments(
     conn: sqlite3.Connection,
     issue_id: int,
@@ -3391,121 +3403,7 @@ def sync_person_auto_deductions(
     as_of: date | None = None,
     full_history: bool = True,
 ) -> None:
-    person_id = safe_int(get_row_value(person_row, "id"))
-    if person_id <= 0:
-        return
-
-    today_value = as_of or date.today()
-    start_value = parse_date_value(get_row_value(person_row, "start_date")) or today_value
-    exit_value = parse_date_value(get_row_value(person_row, "exit_date"))
-    status = str(get_row_value(person_row, "status", "Aktif") or "Aktif")
-    period_end = exit_value if status == "Pasif" and exit_value else today_value
-    if period_end < start_value:
-        period_end = start_value
-    recurring_start = start_value if full_history else max(start_value, date(today_value.year, today_value.month, 1))
-
-    expected_rows: dict[str, dict[str, Any]] = {}
-
-    def add_monthly_rows(prefix: str, deduction_type: str, amount: float, note_text: str) -> None:
-        for month_value in iter_month_starts(recurring_start, period_end):
-            auto_key = f"{prefix}:{month_value.strftime('%Y-%m')}"
-            due_date = build_monthly_deduction_date(start_value, month_value).isoformat()
-            expected_rows[auto_key] = {
-                "deduction_date": due_date,
-                "deduction_type": deduction_type,
-                "amount": amount,
-                "notes": note_text,
-            }
-
-    if str(get_row_value(person_row, "accounting_type", "Kendi Muhasebecisi") or "Kendi Muhasebecisi") == "Çat Kapında Muhasebe":
-        add_monthly_rows("auto:accounting", "Muhasebe Ücreti", AUTO_ACCOUNTING_DEDUCTION, "Sistem: Çat Kapında muhasebe kesintisi")
-
-    if full_history and str(get_row_value(person_row, "new_company_setup", "Hayır") or "Hayır") == "Evet":
-        expected_rows["auto:company_setup"] = {
-            "deduction_date": normalize_deduction_date(start_value).isoformat(),
-            "deduction_type": "Şirket Açılış Ücreti",
-            "amount": AUTO_COMPANY_SETUP_DEDUCTION,
-            "notes": "Sistem: Tek seferlik şirket açılış kesintisi",
-        }
-
-    existing_rows = fetch_df(
-        conn,
-        """
-        SELECT id, deduction_date, deduction_type, amount, notes, auto_source_key
-        FROM deductions
-        WHERE personnel_id = ? AND auto_source_key IS NOT NULL
-        """,
-        (person_id,),
-    )
-    managed_prefixes = ("auto:motor_rental:", "auto:motor_purchase:", "auto:accounting:", "auto:company_setup")
-    if existing_rows.empty:
-        managed_rows = pd.DataFrame(columns=["id", "deduction_date", "deduction_type", "amount", "notes", "auto_source_key"])
-    else:
-        managed_rows = existing_rows[
-            existing_rows["auto_source_key"].fillna("").astype(str).apply(lambda value: any(value.startswith(prefix) for prefix in managed_prefixes))
-        ].copy()
-
-    existing_map: dict[str, Any] = {}
-    changed = False
-    for _, row in managed_rows.iterrows():
-        auto_key = str(row["auto_source_key"] or "")
-        if auto_key not in existing_map:
-            existing_map[auto_key] = row
-            continue
-        conn.execute("DELETE FROM deductions WHERE id = ?", (int(row["id"]),))
-        changed = True
-
-    for auto_key, row in existing_map.items():
-        if auto_key in expected_rows or not full_history:
-            continue
-        conn.execute("DELETE FROM deductions WHERE id = ?", (int(row["id"]),))
-        changed = True
-
-    for auto_key, expected in expected_rows.items():
-        current = existing_map.get(auto_key)
-        if current is None:
-            conn.execute(
-                """
-                INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, auto_source_key)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    person_id,
-                    expected["deduction_date"],
-                    expected["deduction_type"],
-                    expected["amount"],
-                    expected["notes"],
-                    auto_key,
-                ),
-            )
-            changed = True
-            continue
-
-        current_amount = safe_float(current["amount"])
-        if (
-            str(current["deduction_date"]) != expected["deduction_date"]
-            or str(current["deduction_type"] or "") != expected["deduction_type"]
-            or abs(current_amount - float(expected["amount"])) > 0.01
-            or str(current["notes"] or "") != expected["notes"]
-        ):
-            conn.execute(
-                """
-                UPDATE deductions
-                SET deduction_date = ?, deduction_type = ?, amount = ?, notes = ?
-                WHERE id = ?
-                """,
-                (
-                    expected["deduction_date"],
-                    expected["deduction_type"],
-                    expected["amount"],
-                    expected["notes"],
-                    int(current["id"]),
-                ),
-            )
-            changed = True
-
-    if changed:
-        conn.commit()
+    return
 
 
 def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_missing: bool = True) -> None:
@@ -3533,6 +3431,18 @@ def cleanup_auto_onboarding_records(conn: CompatConnection) -> None:
     conn.execute("DELETE FROM deductions WHERE auto_source_key LIKE ?", ("auto:onboarding:%",))
     conn.execute("DELETE FROM courier_equipment_issues WHERE auto_source_key LIKE ?", ("auto:onboarding:%",))
     conn.commit()
+
+
+def cleanup_auto_personnel_deduction_records(conn: CompatConnection) -> None:
+    changed = False
+    for prefix in SYSTEM_PERSONNEL_AUTO_DEDUCTION_PREFIXES:
+        row = conn.execute("SELECT COUNT(*) FROM deductions WHERE auto_source_key LIKE ?", (f"{prefix}%",)).fetchone()
+        if safe_int(first_row_value(row, 0), 0) <= 0:
+            continue
+        conn.execute("DELETE FROM deductions WHERE auto_source_key LIKE ?", (f"{prefix}%",))
+        changed = True
+    if changed:
+        conn.commit()
 
 
 def sync_person_business_rules(
@@ -8139,7 +8049,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     person_index = list(person_opts.keys()).index(current_person) if current_person in person_opts else 0
     type_index = deduction_types.index(row["deduction_type"]) if row["deduction_type"] in deduction_types else len(deduction_types) - 1
     current_date = datetime.strptime(str(row["deduction_date"]), "%Y-%m-%d").date()
-    is_auto_record = bool(str(row.get("auto_source_key") or "").strip())
+    is_auto_record = is_system_personnel_auto_deduction_key(row.get("auto_source_key"))
     if is_auto_record:
         st.warning("Bu kesinti sistem tarafından personel kartından üretildi. Değiştirmek için ilgili personel kartındaki motor, muhasebe veya şirket açılışı ayarını güncelle.")
 
