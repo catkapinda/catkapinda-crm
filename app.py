@@ -7589,12 +7589,19 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         edit_company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(row["company_setup_cost"] or 0.0), step=100.0, label_visibility="collapsed")
 
                     role_changed = edit_role != row_role_value
-                    transition_enabled = False
+                    st.markdown("##### Rol Değişikliği")
+                    st.caption(
+                        "Rol değişikliği kaydı için yukarıdaki Rol alanından yeni rolü seç, sonra aşağıdaki geçiş alanını aç. "
+                        "Örnek: 15'ine kadar kurye, 16'sından itibaren joker ise başlangıç tarihine 16'sını gir."
+                    )
+                    transition_enabled = st.checkbox(
+                        "Bu personel için rol değişikliği kaydı ekle",
+                        key=f"edit_person_transition_enabled_{selected_id}",
+                    )
                     transition_previous_role = row_role_value
                     transition_effective_date = None
-                    if role_changed:
-                        st.markdown("##### Rol Geçişi")
-                        transition_enabled = st.checkbox("Bu personel için rol geçiş kaydı ekle", key=f"edit_person_transition_enabled_{selected_id}")
+                    if transition_enabled and not role_changed:
+                        st.info("Önce yukarıdaki Rol alanından yeni rolü seç. Sonra geçiş tarihini kaydedebilirsin.")
                     if role_changed and transition_enabled:
                         transition_default_date = date.today()
                         if start_val and start_val <= date.today():
@@ -7737,6 +7744,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         )
                         if role_changed and not transition_enabled:
                             validation_errors.append("Rol değişikliği yapıyorsan rol başlangıç tarihini de kaydetmelisin.")
+                        if transition_enabled and not role_changed:
+                            validation_errors.append("Rol değişikliği kaydı eklemek için önce yukarıdan yeni rolü seçmelisin.")
                         if role_changed and transition_enabled:
                             if transition_previous_role == edit_role:
                                 validation_errors.append("Rol geçiş kaydında önceki rol ile yeni rol farklı olmalı.")
@@ -9277,6 +9286,10 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
     month_entries = entries[(entries["entry_date"] >= start_date) & (entries["entry_date"] <= end_date)].copy() if not entries.empty else pd.DataFrame()
     month_deductions = deductions[(deductions["deduction_date"] >= start_date) & (deductions["deduction_date"] <= end_date)].copy() if not deductions.empty else pd.DataFrame()
 
+    st.caption(
+        "Hakediş notu: Kesintiler seçilen ayın son gününe yazılır. Bu ekrandaki net ödeme, ay kapanışına göre hesaplanır; ödeme akışı ayın 15'inde yapılır."
+    )
+
     if restaurant_filter != "Tümü" and not month_entries.empty:
         month_entries = month_entries[(month_entries["brand"] + " - " + month_entries["branch"]) == restaurant_filter].copy()
 
@@ -9488,9 +9501,13 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 "kdv_dahil": grand_total,
             }
         )
-    invoice_df = pd.DataFrame(invoicing_rows).sort_values("restoran")
-
     restaurants_df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
+    operational_restaurant_names = get_operational_restaurant_names_for_period(
+        restaurants_df,
+        parse_date_value(start_date) or date.today(),
+        parse_date_value(end_date) or date.today(),
+    )
+    invoice_df = pd.DataFrame(invoicing_rows).sort_values("restoran")
     personnel_df = fetch_df(conn, "SELECT * FROM personnel")
     role_history_df = fetch_df(conn, "SELECT * FROM personnel_role_history ORDER BY personnel_id, effective_date, id")
     deductions_df = fetch_df(conn, "SELECT * FROM deductions WHERE deduction_date BETWEEN ? AND ?", (start_date, end_date))
@@ -9549,6 +9566,18 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         ],
         title="Rapor Yönetim Özeti",
         subtitle="Seçilen ayın gelir, maliyet ve ek katkılarını aynı bakışta özetler.",
+    )
+
+    covered_restaurant_count = int(invoice_df["restoran"].dropna().astype(str).nunique()) if not invoice_df.empty else 0
+    operational_restaurant_count = len(operational_restaurant_names)
+    if operational_restaurant_count > 0 and covered_restaurant_count < operational_restaurant_count:
+        st.warning(
+            f"{selected_month} için rapor şu an kısmi veriyle çalışıyor: {covered_restaurant_count} restoranın puantaj/fatura verisi var, "
+            f"{operational_restaurant_count} restoran operasyonel havuzda görünüyor. Ortak operasyon payı bu havuza bölünür."
+        )
+    st.caption(
+        "Ortak Operasyon Payı notu: Joker ve Bölge Müdürü maliyeti, dönem içinde operasyonel kabul edilen restoranlara eşit dağıtılır. "
+        "Bu dağıtım restoran faturalarını değiştirmez; yalnızca kârlılık hesabına yansır."
     )
 
     profit_df, person_distribution_df, shared_overhead_df = build_branch_profitability(
@@ -9712,7 +9741,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                     {
                         "label": "Paylaştırılan Restoran Sayısı",
                         "value": allocated_count,
-                        "note": "Bu ay fatura oluşan şubeler",
+                        "note": "Dönem içinde operasyonel kabul edilen şubeler",
                     },
                     {
                         "label": "Restoran Başına Ortak Pay",
@@ -9722,7 +9751,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                     },
                 ],
                 title="Ortak Operasyon Özeti",
-                subtitle="Paylaşılan yönetim ve joker maliyetinin şubelere nasıl yansıdığını özetler.",
+                subtitle="Joker ve Bölge Müdürü maliyetinin operasyonel restoran havuzuna nasıl dağıldığını özetler.",
             )
             shared_display_df = format_display_df(
                 shared_overhead_df,
