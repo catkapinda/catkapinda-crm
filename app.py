@@ -4154,6 +4154,93 @@ def inject_global_styles() -> None:
                 line-height: 1.4;
             }
 
+            .ck-exec-strip {
+                display: grid;
+                gap: 14px;
+                margin: 0.1rem 0 1rem;
+            }
+
+            .ck-exec-strip-head {
+                display: flex;
+                align-items: end;
+                justify-content: space-between;
+                gap: 12px;
+            }
+
+            .ck-exec-strip-title {
+                color: var(--ck-text);
+                font-size: 1.02rem;
+                font-weight: 860;
+                letter-spacing: -0.03em;
+            }
+
+            .ck-exec-strip-copy {
+                color: var(--ck-muted);
+                font-size: 0.86rem;
+                line-height: 1.55;
+            }
+
+            .ck-exec-strip-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+                gap: 12px;
+            }
+
+            .ck-exec-card {
+                position: relative;
+                overflow: hidden;
+                border-radius: 22px;
+                border: 1px solid #DFE8F7;
+                background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%);
+                padding: 16px 16px 15px;
+                box-shadow: 0 16px 28px rgba(15, 23, 42, 0.05);
+            }
+
+            .ck-exec-card::after {
+                content: "";
+                position: absolute;
+                inset: 0 0 auto 0;
+                height: 3px;
+                background: linear-gradient(90deg, #D8E5FB 0%, #EDF3FD 100%);
+            }
+
+            .ck-exec-card-positive::after {
+                background: linear-gradient(90deg, #1D8F57 0%, #7FD4A6 100%);
+            }
+
+            .ck-exec-card-warning::after {
+                background: linear-gradient(90deg, #C98A12 0%, #F5D27B 100%);
+            }
+
+            .ck-exec-card-critical::after {
+                background: linear-gradient(90deg, #C53B5C 0%, #F2A3B6 100%);
+            }
+
+            .ck-exec-card-label {
+                color: #6A7A92;
+                font-size: 0.72rem;
+                font-weight: 860;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+            }
+
+            .ck-exec-card-value {
+                margin-top: 0.72rem;
+                color: #10203A;
+                font-size: 1.38rem;
+                font-weight: 900;
+                letter-spacing: -0.05em;
+                line-height: 1.05;
+            }
+
+            .ck-exec-card-note {
+                margin-top: 0.58rem;
+                color: #71819A;
+                font-size: 0.82rem;
+                line-height: 1.45;
+                font-weight: 620;
+            }
+
             .ck-tab-header {
                 background: linear-gradient(180deg, #FFFFFF 0%, #F9FBFF 100%);
                 border: 1px solid var(--ck-border);
@@ -5066,6 +5153,42 @@ def build_grid_rows(display_df: pd.DataFrame, columns: list[str]) -> list[dict[s
     for _, row in display_df.iterrows():
         rows.append({column: row.get(column, "-") or "-" for column in columns})
     return rows
+
+
+def render_executive_metrics(
+    metrics: list[dict[str, Any]],
+    title: str | None = None,
+    subtitle: str | None = None,
+) -> None:
+    title_html = ""
+    if title or subtitle:
+        title_html = (
+            "<div class='ck-exec-strip-head'>"
+            f"<div><div class='ck-exec-strip-title'>{html.escape(str(title or ''))}</div>"
+            f"<div class='ck-exec-strip-copy'>{html.escape(str(subtitle or ''))}</div></div>"
+            "</div>"
+        )
+
+    cards_html = []
+    for metric in metrics:
+        label = html.escape(str(metric.get("label", "") or ""))
+        value = html.escape(str(metric.get("value", "-") or "-"))
+        note = html.escape(str(metric.get("note", "") or ""))
+        tone = str(metric.get("tone", "neutral") or "neutral").strip().lower()
+        tone_class = f" ck-exec-card-{tone}" if tone in {"positive", "warning", "critical"} else ""
+        note_html = f"<div class='ck-exec-card-note'>{note}</div>" if note else ""
+        cards_html.append(
+            f"<div class='ck-exec-card{tone_class}'>"
+            f"<div class='ck-exec-card-label'>{label}</div>"
+            f"<div class='ck-exec-card-value'>{value}</div>"
+            f"{note_html}"
+            "</div>"
+        )
+
+    st.markdown(
+        f"<div class='ck-exec-strip'>{title_html}<div class='ck-exec-strip-grid'>{''.join(cards_html)}</div></div>",
+        unsafe_allow_html=True,
+    )
 
 
 def render_alert_stack(title: str, items: list[dict[str, Any]], border: bool = True) -> None:
@@ -9118,10 +9241,29 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
     cost_df["restoran_sayisi"] = cost_df["restoran_sayisi"].fillna(0).astype(int)
     cost_df["ay"] = selected_month
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Toplam Brüt Hakediş", fmt_try(float(cost_df["brut_maliyet"].sum())))
-    m2.metric("Toplam Kesinti", fmt_try(float(cost_df["kesinti"].sum())))
-    m3.metric("Toplam Net Ödeme", fmt_try(float(cost_df["net_maliyet"].sum())))
+    render_executive_metrics(
+        [
+            {
+                "label": "Toplam Brüt Hakediş",
+                "value": fmt_try(float(cost_df["brut_maliyet"].sum())),
+                "note": f"{selected_month} çalışma toplamı",
+            },
+            {
+                "label": "Toplam Kesinti",
+                "value": fmt_try(float(cost_df["kesinti"].sum())),
+                "note": "Ay sonu kesinti toplamı",
+                "tone": "warning",
+            },
+            {
+                "label": "Toplam Net Ödeme",
+                "value": fmt_try(float(cost_df["net_maliyet"].sum())),
+                "note": "Hakediş kapanış özeti",
+                "tone": "positive",
+            },
+        ],
+        title="Hakediş Yönetim Özeti",
+        subtitle="Seçilen ayın brüt, kesinti ve net ödeme seviyesini yönetim bakışıyla özetler.",
+    )
 
     payroll_display = format_display_df(
         cost_df[["ay", "personel", "rol", "durum", "calisma_saati", "paket", "brut_maliyet", "kesinti", "net_maliyet", "restoran_sayisi", "maliyet_modeli"]],
@@ -9324,11 +9466,34 @@ def reports_tab(conn: sqlite3.Connection) -> None:
     equipment_cost = float(equipment_sales_df["toplam_maliyet"].sum()) if not equipment_sales_df.empty else 0.0
     side_income_net = (accounting_rev - accountant_cost_total) + (setup_rev - setup_cost) + (equipment_rev - equipment_cost)
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Aylık restoran faturası | KDV dahil", fmt_try(revenue))
-    c2.metric("Toplam kurye maliyeti", fmt_try(personnel_cost))
-    c3.metric("Brüt operasyon farkı", fmt_try(gross_profit))
-    c4.metric("Yan gelir neti", fmt_try(side_income_net))
+    render_executive_metrics(
+        [
+            {
+                "label": "Aylık Restoran Faturası",
+                "value": fmt_try(revenue),
+                "note": f"{selected_month} | KDV dahil",
+            },
+            {
+                "label": "Toplam Kurye Maliyeti",
+                "value": fmt_try(personnel_cost),
+                "note": "Net maliyet toplamı",
+            },
+            {
+                "label": "Brüt Operasyon Farkı",
+                "value": fmt_try(gross_profit),
+                "note": "Fatura ve personel maliyeti farkı",
+                "tone": "positive" if gross_profit >= 0 else "critical",
+            },
+            {
+                "label": "Yan Gelir Neti",
+                "value": fmt_try(side_income_net),
+                "note": "Muhasebe, açılış ve ekipman katkısı",
+                "tone": "positive" if side_income_net >= 0 else "warning",
+            },
+        ],
+        title="Rapor Yönetim Özeti",
+        subtitle="Seçilen ayın gelir, maliyet ve ek katkılarını aynı bakışta özetler.",
+    )
 
     profit_df, person_distribution_df, shared_overhead_df = build_branch_profitability(
         month_df,
@@ -9412,10 +9577,29 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         if profit_df.empty:
             st.info("Restoran kârlılığı için veri yok.")
         else:
-            p1, p2, p3 = st.columns(3)
-            p1.metric("En yüksek restoran faturası | KDV dahil", fmt_try(float(profit_df["kdv_dahil"].max())))
-            p2.metric("En yüksek toplam maliyet", fmt_try(float(profit_df["toplam_personel_maliyeti"].max())))
-            p3.metric("En yüksek brüt fark", fmt_try(float(profit_df["brut_fark"].max())))
+            render_executive_metrics(
+                [
+                    {
+                        "label": "En Yüksek Restoran Faturası",
+                        "value": fmt_try(float(profit_df["kdv_dahil"].max())),
+                        "note": "KDV dahil en yüksek şube",
+                    },
+                    {
+                        "label": "En Yüksek Toplam Maliyet",
+                        "value": fmt_try(float(profit_df["toplam_personel_maliyeti"].max())),
+                        "note": "Şube bazlı toplam yük",
+                        "tone": "warning",
+                    },
+                    {
+                        "label": "En Yüksek Brüt Fark",
+                        "value": fmt_try(float(profit_df["brut_fark"].max())),
+                        "note": "En güçlü operasyon çıktısı",
+                        "tone": "positive",
+                    },
+                ],
+                title="Karlılık Nabzı",
+                subtitle="Restoran kârlılık tablosundaki en güçlü öne çıkan üç sinyali izler.",
+            )
             profit_display_df = format_display_df(
                 profit_df,
                 currency_cols=["Restoran KDV Hariç", "Restoran KDV Dahil", "Doğrudan Personel Maliyeti", "Ortak Operasyon Payı", "Toplam Personel Maliyeti", "Brüt Fark"],
@@ -9461,10 +9645,28 @@ def reports_tab(conn: sqlite3.Connection) -> None:
             shared_total = float(shared_overhead_df["aylik_net_maliyet"].sum())
             allocated_count = int(shared_overhead_df["paylastirilan_restoran_sayisi"].max()) if not shared_overhead_df.empty else 0
             restaurant_share = (shared_total / allocated_count) if allocated_count > 0 else 0.0
-            s1, s2, s3 = st.columns(3)
-            s1.metric("Toplam Ortak Operasyon Maliyeti", fmt_try(shared_total))
-            s2.metric("Paylaştırılan Restoran Sayısı", allocated_count)
-            s3.metric("Restoran Başına Ortak Operasyon Payı", fmt_try(restaurant_share))
+            render_executive_metrics(
+                [
+                    {
+                        "label": "Toplam Ortak Operasyon Maliyeti",
+                        "value": fmt_try(shared_total),
+                        "note": "Joker ve yönetim desteği toplamı",
+                    },
+                    {
+                        "label": "Paylaştırılan Restoran Sayısı",
+                        "value": allocated_count,
+                        "note": "Bu ay fatura oluşan şubeler",
+                    },
+                    {
+                        "label": "Restoran Başına Ortak Pay",
+                        "value": fmt_try(restaurant_share),
+                        "note": "Şube başı ortak operasyon yükü",
+                        "tone": "warning",
+                    },
+                ],
+                title="Ortak Operasyon Özeti",
+                subtitle="Paylaşılan yönetim ve joker maliyetinin şubelere nasıl yansıdığını özetler.",
+            )
             shared_display_df = format_display_df(
                 shared_overhead_df,
                 currency_cols=["Aylık Brüt Maliyet", "Toplam Kesinti", "Aylık Net Maliyet", "Restoran Başına Pay"],
@@ -9549,6 +9751,29 @@ def reports_tab(conn: sqlite3.Connection) -> None:
             side_df,
             currency_cols=["Gelir", "Maliyet", "Net Kâr"],
             rename_map={"kalem": "Kalem", "gelir": "Gelir", "maliyet": "Maliyet", "net_kar": "Net Kâr"},
+        )
+        render_executive_metrics(
+            [
+                {
+                    "label": "Toplam Yan Gelir",
+                    "value": fmt_try(float(side_df["gelir"].sum())),
+                    "note": "Yan gelir kalemleri toplamı",
+                },
+                {
+                    "label": "Toplam Yan Gelir Maliyeti",
+                    "value": fmt_try(float(side_df["maliyet"].sum())),
+                    "note": "Eşlik eden toplam maliyet",
+                    "tone": "warning",
+                },
+                {
+                    "label": "Toplam Yan Gelir Neti",
+                    "value": fmt_try(float(side_df["net_kar"].sum())),
+                    "note": "Net katkı görünümü",
+                    "tone": "positive" if float(side_df["net_kar"].sum()) >= 0 else "critical",
+                },
+            ],
+            title="Yan Gelir Özeti",
+            subtitle="Muhasebe, açılış ve ekipman kaynaklı katkının üst görünümünü verir.",
         )
         with st.container(border=True):
             side_columns = ["Kalem", "Gelir", "Maliyet", "Net Kâr"]
