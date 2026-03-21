@@ -8376,7 +8376,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     transition_new_role,
                 )
 
-                with st.form("personnel_edit_form"):
+                with st.container():
                     st.markdown("##### Kimlik ve Görev")
                     c1, c2, c3 = st.columns(3)
                     with c1:
@@ -8629,9 +8629,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     edit_notes = st.text_area("Notlar", value=row["notes"] or "")
 
                     c24, c25, c26 = st.columns(3)
-                    update_clicked = c24.form_submit_button("Personeli Güncelle", use_container_width=True)
-                    toggle_clicked = c25.form_submit_button("Aktif/Pasif Durumunu Değiştir", use_container_width=True)
-                    delete_clicked = c26.form_submit_button("Kalıcı Sil", use_container_width=True)
+                    update_clicked = c24.button("Personeli Güncelle", use_container_width=True, key=f"edit_person_update_{selected_id}")
+                    toggle_clicked = c25.button("Aktif/Pasif Durumunu Değiştir", use_container_width=True, key=f"edit_person_toggle_{selected_id}")
+                    delete_clicked = c26.button("Kalıcı Sil", use_container_width=True, key=f"edit_person_delete_{selected_id}")
 
                     if update_clicked:
                         assigned_id = rest_opts_with_blank.get(edit_restaurant) if role_requires_primary_restaurant(effective_role) else None
