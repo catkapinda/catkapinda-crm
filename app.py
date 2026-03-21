@@ -2748,16 +2748,16 @@ def describe_auto_source_key(auto_source_key: Any) -> str:
     if not key:
         return "Manuel"
     if key.startswith("auto:motor_rental:"):
-        return "Sistem | Aylık motor kira"
+        return "Otomatik | Motor kirası"
     if key.startswith("auto:motor_purchase:"):
-        return "Sistem | Motor satın alım taksiti"
+        return "Otomatik | Motor satış taksiti"
     if key.startswith("auto:accounting:"):
-        return "Sistem | Aylık muhasebe"
+        return "Otomatik | Muhasebe"
     if key.startswith("auto:company_setup"):
-        return "Sistem | Şirket açılışı"
+        return "Otomatik | Şirket açılışı"
     if key.startswith("auto:onboarding:"):
-        return "Sistem | İşe giriş zimmeti"
-    return "Sistem"
+        return "Otomatik | İşe giriş zimmeti"
+    return "Otomatik"
 
 
 def is_system_personnel_auto_deduction_key(auto_source_key: Any) -> bool:
@@ -4232,6 +4232,31 @@ def format_motor_purchase_summary(row: Any) -> str:
     if start_date_text:
         parts.append(start_date_text)
     return " | ".join(parts) if parts else "Tanımlı"
+
+
+def render_motor_deduction_snapshot(
+    *,
+    vehicle_type: str,
+    motor_purchase: str,
+    sale_price: float = 0.0,
+    commitment_months: int = 0,
+) -> None:
+    items: list[tuple[str, Any]] = []
+    if str(vehicle_type or "").strip() == "Çat Kapında":
+        items.append(("Motor Kirası", f"{fmt_try(AUTO_MOTOR_RENTAL_DEDUCTION)} / ay"))
+    if str(motor_purchase or "Hayır").strip() == "Evet":
+        monthly_reference = calculate_motor_purchase_monthly_reference(safe_float(sale_price, 0.0), safe_int(commitment_months, 0))
+        if monthly_reference > 0:
+            items.append(("Motor Satış Taksiti", f"{fmt_try(monthly_reference)} / ay"))
+        if safe_int(commitment_months, 0) > 0:
+            items.append(("Taahhüt", f"{safe_int(commitment_months, 0)} ay"))
+    if not items:
+        return
+    render_record_snapshot("Otomatik Motor Kesinti Özeti", items)
+    st.caption(
+        "Motor kira ve motor satış tutarları tam ayda tam kesilir. Sadece işe giriş, işten çıkış, "
+        "motor tipi değişimi veya motor satış başlangıcı ay içinde ise /30 bazlı prorate edilir."
+    )
 
 
 def build_table_backup_zip(conn: CompatConnection) -> bytes:
@@ -7637,6 +7662,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 disabled=motor_purchase != "Evet",
                 label_visibility="collapsed",
             )
+        if motor_purchase == "Evet":
+            st.caption(
+                "Bu tarih motor satış taksidinin başladığı ilk gündür. Ayın 1'i değilse ilk ay tutarı, bu tarihten ay sonuna kadar prorate edilir."
+            )
         with c22:
             render_field_label("Taahhüt Süresi (Ay)", required=motor_purchase == "Evet")
             motor_purchase_commitment_months = st.selectbox(
@@ -7655,6 +7684,13 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 key="new_person_motor_purchase_sale_price",
                 disabled=motor_purchase != "Evet",
                 label_visibility="collapsed",
+            )
+        if effective_motor_rental == "Evet" or motor_purchase == "Evet":
+            render_motor_deduction_snapshot(
+                vehicle_type=vehicle_type,
+                motor_purchase=motor_purchase,
+                sale_price=safe_float(motor_purchase_sale_price, 0.0),
+                commitment_months=safe_int(motor_purchase_commitment_months, 0),
             )
         notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar", key="new_person_notes")
 
@@ -8156,6 +8192,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             disabled=edit_motor_purchase != "Evet",
                             label_visibility="collapsed",
                         )
+                    if edit_motor_purchase == "Evet":
+                        st.caption(
+                            "Bu tarih motor satış taksidinin başladığı ilk gündür. Ayın 1'i değilse ilk ay tutarı, bu tarihten ay sonuna kadar prorate edilir."
+                        )
                     current_commitment_months = safe_int(row["motor_purchase_commitment_months"], 12)
                     if current_commitment_months not in [12, 15, 18]:
                         current_commitment_months = 12
@@ -8179,6 +8219,13 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             key=f"edit_person_motor_purchase_sale_price_{selected_id}",
                             disabled=edit_motor_purchase != "Evet",
                             label_visibility="collapsed",
+                        )
+                    if effective_edit_motor_rental == "Evet" or edit_motor_purchase == "Evet":
+                        render_motor_deduction_snapshot(
+                            vehicle_type=edit_vehicle,
+                            motor_purchase=edit_motor_purchase,
+                            sale_price=safe_float(edit_motor_purchase_sale_price, 0.0),
+                            commitment_months=safe_int(edit_motor_purchase_commitment_months, 0),
                         )
                     edit_notes = st.text_area("Notlar", value=row["notes"] or "")
 
@@ -8597,7 +8644,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
 
 def deductions_tab(conn: sqlite3.Connection) -> None:
-    section_intro("💸 Kesinti Yönetimi | Motor kira, bakım, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; personel kartından gelen sistem kesintileri de aynı tabloda görünür.")
+    section_intro("💸 Kesinti Yönetimi | Motor kira, bakım, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; otomatik motor kesintileri de aynı tabloda görünür.")
     person_opts = get_person_options(conn, active_only=False)
     deduction_types = ["Bakım", "Yakıt", "HGS", "İdari ceza", "Hasar", "Fatura Edilmeyen Tutar"]
 
@@ -8631,8 +8678,29 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         """,
     )
     raw_df["source_text"] = raw_df["auto_source_key"].apply(describe_auto_source_key) if not raw_df.empty else []
+    source_filter_options = [
+        "Tümü",
+        "Manuel Kayıtlar",
+        "Otomatik Motor Kirası",
+        "Otomatik Motor Satışı",
+    ]
+    source_filter = st.selectbox("Kesinti Kaynağı", source_filter_options, key="deduction_source_filter")
+    filtered_raw_df = raw_df.copy()
+    if not filtered_raw_df.empty:
+        if source_filter == "Manuel Kayıtlar":
+            filtered_raw_df = filtered_raw_df[filtered_raw_df["auto_source_key"].fillna("").astype(str).str.strip() == ""].copy()
+        elif source_filter == "Otomatik Motor Kirası":
+            filtered_raw_df = filtered_raw_df[filtered_raw_df["auto_source_key"].fillna("").astype(str).str.startswith("auto:motor_rental:")].copy()
+        elif source_filter == "Otomatik Motor Satışı":
+            filtered_raw_df = filtered_raw_df[filtered_raw_df["auto_source_key"].fillna("").astype(str).str.startswith("auto:motor_purchase:")].copy()
+    if source_filter == "Manuel Kayıtlar":
+        st.caption("Yalnızca manuel girilmiş kesintiler gösteriliyor.")
+    elif source_filter == "Otomatik Motor Kirası":
+        st.caption("Personel kartındaki motor tipi ve tarih bilgisine göre oluşan otomatik motor kira kesintileri gösteriliyor.")
+    elif source_filter == "Otomatik Motor Satışı":
+        st.caption("Personel kartındaki motor satış tarihi, fiyatı ve taahhüt süresine göre oluşan otomatik taksitler gösteriliyor.")
     deductions_display_df = format_display_df(
-        raw_df.drop(columns=["id", "personnel_id", "auto_source_key"], errors="ignore"),
+        filtered_raw_df.drop(columns=["id", "personnel_id", "auto_source_key"], errors="ignore"),
         currency_cols=["Tutar"],
         rename_map={
             "deduction_date": "Tarih",
@@ -8711,7 +8779,10 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     current_date = datetime.strptime(str(row["deduction_date"]), "%Y-%m-%d").date()
     is_auto_record = is_system_personnel_auto_deduction_key(row.get("auto_source_key"))
     if is_auto_record:
-        st.warning("Bu kesinti sistem tarafından personel kartından üretildi. Değiştirmek için ilgili personel kartındaki motor, muhasebe veya şirket açılışı ayarını güncelle.")
+        st.warning(
+            f"Bu kayıt {describe_auto_source_key(row.get('auto_source_key'))} akışından otomatik üretildi. "
+            "Değişiklik için ilgili personel kartındaki motor tipi, motor satış tarihi, fiyatı veya başlangıç/çıkış tarihini güncelle."
+        )
 
     with st.form("deduction_edit_form"):
         c1, c2, c3 = st.columns(3)
