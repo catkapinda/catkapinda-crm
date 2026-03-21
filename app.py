@@ -7406,6 +7406,14 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     row_motor_purchase_value if row_motor_purchase_value in ["Hayır", "Evet"] else "Hayır"
                 )
                 st.session_state[f"edit_person_transition_enabled_{selected_id}"] = False
+                st.session_state[f"edit_person_previous_role_{selected_id}"] = (
+                    row_role_value if row_role_value in PERSONNEL_ROLE_OPTIONS else "Kurye"
+                )
+                st.session_state[f"edit_person_transition_new_role_{selected_id}"] = (
+                    row_role_value if row_role_value in PERSONNEL_ROLE_OPTIONS else "Kurye"
+                )
+                st.session_state[f"edit_person_transition_monthly_cost_{selected_id}"] = float(row.get("monthly_fixed_cost") or 0.0)
+                st.session_state[f"edit_person_transition_date_{selected_id}"] = start_val if start_val else date.today()
                 st.session_state["_edit_person_form_signature"] = edit_form_signature
             role_history_rows = fetch_df(
                 conn,
@@ -7461,41 +7469,86 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     )
                     st.dataframe(role_history_display, use_container_width=True, hide_index=True)
             with left:
-                st.markdown("##### Kimlik ve Görev")
-                role_bar_left, role_bar_right = st.columns([1.2, 1])
-                with role_bar_left:
-                    render_field_label("Rol")
-                    edit_role = st.selectbox(
-                        "Rol",
-                        role_options,
-                        key=f"edit_person_role_{selected_id}",
-                        label_visibility="collapsed",
-                    )
-                role_changed = edit_role != row_role_value
-                with role_bar_right:
-                    transition_enabled = st.checkbox(
-                        "Rol değişikliği kaydı ekle",
-                        key=f"edit_person_transition_enabled_{selected_id}",
-                    )
+                transition_enabled = st.checkbox(
+                    "Rol değişikliği kaydı ekle",
+                    key=f"edit_person_transition_enabled_{selected_id}",
+                )
+                transition_previous_role = row_role_value
+                transition_new_role = row_role_value
+                transition_effective_date = None
+                transition_monthly_cost = float(row.get("monthly_fixed_cost") or 0.0)
+                if transition_enabled:
+                    st.markdown("##### Rol Değişikliği")
+                    st.caption("Örnek: 15'ine kadar kurye, 16'sından itibaren joker ise başlangıç tarihine 16'sını gir.")
+                    role_change_cols = st.columns(4)
+                    with role_change_cols[0]:
+                        render_field_label("Geçiş Öncesi Rol", required=True)
+                        transition_previous_role = st.selectbox(
+                            "Geçiş Öncesi Rol",
+                            role_options,
+                            key=f"edit_person_previous_role_{selected_id}",
+                            label_visibility="collapsed",
+                        )
+                    with role_change_cols[1]:
+                        render_field_label("Yeni Rol", required=True)
+                        transition_new_role = st.selectbox(
+                            "Yeni Rol",
+                            role_options,
+                            key=f"edit_person_transition_new_role_{selected_id}",
+                            label_visibility="collapsed",
+                        )
+                    with role_change_cols[2]:
+                        render_field_label("Rol Başlangıç Tarihi", required=True)
+                        transition_effective_date = st.date_input(
+                            "Rol Başlangıç Tarihi",
+                            key=f"edit_person_transition_date_{selected_id}",
+                            label_visibility="collapsed",
+                        )
+                    transition_cost_model = resolve_cost_role_option("", transition_new_role)
+                    with role_change_cols[3]:
+                        if is_fixed_cost_model(transition_cost_model):
+                            transition_cost_label = f"{transition_new_role} Sabit Maaşı"
+                            render_field_label(transition_cost_label, required=True)
+                            transition_monthly_cost = st.number_input(
+                                transition_cost_label,
+                                min_value=0.0,
+                                step=100.0,
+                                key=f"edit_person_transition_monthly_cost_{selected_id}",
+                                label_visibility="collapsed",
+                            )
+                        else:
+                            render_field_label("Yeni Rol Maliyet Modeli")
+                            st.text_input(
+                                "Yeni Rol Maliyet Modeli",
+                                value=COST_MODEL_LABELS.get(transition_cost_model, transition_cost_model),
+                                disabled=True,
+                                key=f"edit_person_transition_cost_model_display_{selected_id}",
+                                label_visibility="collapsed",
+                            )
+                    if transition_new_role == "Joker":
+                        st.caption("Joker rolüne geçildiğinde bu personel artık paket primi almaz; yalnızca sabit maaşı gün bazlı prorate edilir.")
+                effective_role = transition_new_role if transition_enabled else row_role_value
+                role_changed = effective_role != row_role_value
 
                 with st.form("personnel_edit_form"):
+                    st.markdown("##### Kimlik ve Görev")
                     c1, c2, c3 = st.columns(3)
                     with c1:
-                        render_field_label("Seçilen Rol")
+                        render_field_label("Rol")
                         st.text_input(
-                            "Seçilen Rol",
-                            value=edit_role,
+                            "Rol",
+                            value=effective_role,
                             disabled=True,
                             key=f"edit_person_role_display_{selected_id}",
                             label_visibility="collapsed",
                         )
-                    suggested_code = next_person_code(conn, edit_role, exclude_id=selected_id)
-                    new_prefix = role_code_prefix(edit_role)
+                    suggested_code = next_person_code(conn, effective_role, exclude_id=selected_id)
+                    new_prefix = role_code_prefix(effective_role)
                     existing_num = ""
                     match = re.search(rf"^CK-{re.escape(new_prefix)}(\d+)$", row["person_code"] or "")
                     if match:
                         existing_num = match.group(1)
-                    code_default = row["person_code"] if row["role"] == edit_role and row["person_code"] else f"CK-{new_prefix}{existing_num or suggested_code.split(new_prefix)[1]}"
+                    code_default = row["person_code"] if row["role"] == effective_role and row["person_code"] else f"CK-{new_prefix}{existing_num or suggested_code.split(new_prefix)[1]}"
                     with c2:
                         render_field_label("Personel Kodu")
                         edit_code = st.text_input("Personel Kodu", value=code_default or suggested_code, label_visibility="collapsed")
@@ -7573,7 +7626,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             key=f"edit_person_new_company_{selected_id}",
                             label_visibility="collapsed",
                         )
-                    edit_cost_model = resolve_cost_role_option("", edit_role)
+                    edit_cost_model = resolve_cost_role_option("", effective_role)
                     with c12:
                         render_field_label("Maliyet Modeli")
                         st.selectbox(
@@ -7592,16 +7645,14 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     with c14:
                         render_field_label("Muhasebeciye Ödediğimiz")
                         edit_accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(row["accountant_cost"] or 0.0), step=100.0, label_visibility="collapsed")
-                    if is_fixed_cost_model(edit_cost_model):
-                        edit_fixed_cost_label = f"{edit_role} Aylık Sabit Maliyeti" if edit_role in FIXED_COST_MODEL_BY_ROLE else "Aylık Sabit Maliyet"
+                    if is_fixed_cost_model(edit_cost_model) and not transition_enabled:
+                        edit_fixed_cost_label = f"{effective_role} Aylık Sabit Maliyeti" if effective_role in FIXED_COST_MODEL_BY_ROLE else "Aylık Sabit Maliyet"
                         with c15:
                             render_field_label(edit_fixed_cost_label, required=True)
                             edit_monthly_cost = st.number_input(edit_fixed_cost_label, min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0, label_visibility="collapsed")
                     else:
                         c15.markdown("")
-                        edit_monthly_cost = 0.0
-                    if edit_role == "Joker":
-                        st.caption("Joker rolüne geçildiğinde bu personel artık paket primi almaz; bu alandaki aylık sabit maaş gün bazlı prorate edilerek hesaplanır.")
+                        edit_monthly_cost = float(row["monthly_fixed_cost"] or 0.0)
 
                     c16, c17 = st.columns(2)
                     with c16:
@@ -7611,59 +7662,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         render_field_label("Şirket Açılış Maliyeti")
                         edit_company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(row["company_setup_cost"] or 0.0), step=100.0, label_visibility="collapsed")
 
-                    st.markdown("##### Rol Değişikliği")
-                    st.caption(
-                        "Rol değişikliği kaydı için yukarıdaki Rol alanından yeni rolü seç. "
-                        "Örnek: 15'ine kadar kurye, 16'sından itibaren joker ise başlangıç tarihine 16'sını gir."
-                    )
-                    transition_previous_role = row_role_value
-                    transition_effective_date = None
-                    transition_monthly_cost = edit_monthly_cost
-                    if transition_enabled and not role_changed:
-                        st.info("Önce yukarıdaki Rol alanından yeni rolü seç. Sonra geçiş tarihini kaydedebilirsin.")
-                    if role_changed and transition_enabled:
-                        transition_default_date = date.today()
-                        if start_val and start_val <= date.today():
-                            transition_default_date = start_val
-                        c17a, c17b, c17c = st.columns(3)
-                        with c17a:
-                            render_field_label("Geçiş Öncesi Rol", required=True)
-                            transition_previous_role = st.selectbox(
-                                "Geçiş Öncesi Rol",
-                                role_options,
-                                index=role_options.index(row_role_value) if row_role_value in role_options else 0,
-                                key=f"edit_person_previous_role_{selected_id}",
-                                label_visibility="collapsed",
-                            )
-                        with c17b:
-                            render_field_label("Yeni Rol")
-                            st.text_input("Yeni Rol", value=edit_role, disabled=True, key=f"edit_person_new_role_display_{selected_id}", label_visibility="collapsed")
-                        with c17c:
-                            render_field_label("Rol Başlangıç Tarihi", required=True)
-                            transition_effective_date = st.date_input(
-                                "Rol Başlangıç Tarihi",
-                                value=transition_default_date,
-                                key=f"edit_person_transition_date_{selected_id}",
-                                label_visibility="collapsed",
-                            )
-                        if is_fixed_cost_model(edit_cost_model):
-                            render_field_label(f"{edit_role} Sabit Maaşı", required=True)
-                            transition_monthly_cost = st.number_input(
-                                f"{edit_role} Sabit Maaşı",
-                                min_value=0.0,
-                                value=float(edit_monthly_cost or 0.0),
-                                step=100.0,
-                                key=f"edit_person_transition_monthly_cost_{selected_id}",
-                                label_visibility="collapsed",
-                            )
-                            st.caption("Bu personel yeni rolde paket primi almaz; sabit maaşı gün bazlı prorate edilerek hesaplanır.")
-                        else:
-                            st.caption("Bu geçişte yeni rol standart kurye maliyet modeliyle kaydedilir.")
-
                     st.markdown("##### Araç ve Operasyon")
                     current_vehicle = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
                     edit_restaurant = "-"
-                    if edit_role in {"Kurye", "Restoran Takım Şefi"}:
+                    if effective_role in {"Kurye", "Restoran Takım Şefi"}:
                         c18, c19 = st.columns(2)
                         with c18:
                             render_field_label("Ana Restoran", required=True)
@@ -7672,7 +7674,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 "Ana Restoran",
                                 list(rest_opts_with_blank.keys()),
                                 index=list(rest_opts_with_blank.keys()).index(edit_restaurant_default),
-                                key=f"edit_person_restaurant_{selected_id}_{edit_role}",
+                                key=f"edit_person_restaurant_{selected_id}_{effective_role}",
                                 label_visibility="collapsed",
                             )
                         with c19:
@@ -7752,7 +7754,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     delete_clicked = c26.form_submit_button("Kalıcı Sil", use_container_width=True)
 
                     if update_clicked:
-                        assigned_id = rest_opts_with_blank.get(edit_restaurant) if edit_role in {"Kurye", "Restoran Takım Şefi"} else None
+                        assigned_id = rest_opts_with_blank.get(edit_restaurant) if effective_role in {"Kurye", "Restoran Takım Şefi"} else None
                         effective_monthly_cost = (
                             safe_float(transition_monthly_cost, 0.0)
                             if role_changed and transition_enabled and is_fixed_cost_model(edit_cost_model)
@@ -7765,7 +7767,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             iban=edit_iban,
                             address=edit_address,
                             current_plate=edit_plate,
-                            role=edit_role,
+                            role=effective_role,
                             assigned_restaurant_id=assigned_id,
                             start_date_value=edit_start_date if isinstance(edit_start_date, date) else None,
                             cost_model=edit_cost_model,
@@ -7780,7 +7782,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         if transition_enabled and not role_changed:
                             validation_errors.append("Rol değişikliği kaydı eklemek için önce yukarıdan yeni rolü seçmelisin.")
                         if role_changed and transition_enabled:
-                            if transition_previous_role == edit_role:
+                            if transition_previous_role == effective_role:
                                 validation_errors.append("Rol geçiş kaydında önceki rol ile yeni rol farklı olmalı.")
                             if not isinstance(transition_effective_date, date):
                                 validation_errors.append("Rol başlangıç tarihi zorunlu.")
@@ -7829,7 +7831,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 (
                                     edit_code,
                                     edit_name,
-                                    edit_role,
+                                    effective_role,
                                     edit_status,
                                     edit_phone,
                                     edit_address,
@@ -7854,7 +7856,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                     motor_purchase_installment_count_value,
                                     edit_plate,
                                     start_date_str,
-                                    normalize_cost_model_value(edit_cost_model, edit_role),
+                                    normalize_cost_model_value(edit_cost_model, effective_role),
                                     effective_monthly_cost,
                                     edit_notes,
                                     selected_id,
