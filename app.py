@@ -92,6 +92,7 @@ MOTOR_RENTAL_STANDARD_MONTH_DAYS = 30
 MOTOR_RENTAL_VAT_RATE = 20.0
 AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION = 11250.0
 AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT = 12
+AUTO_MOTOR_PURCHASE_TOTAL_PRICE = AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION * AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT
 AUTO_ACCOUNTING_DEDUCTION = 2000.0
 AUTO_ACCOUNTANT_COST = 1400.0
 AUTO_COMPANY_SETUP_DEDUCTION = 1500.0
@@ -757,6 +758,7 @@ def ensure_schema(conn: CompatConnection) -> None:
             motor_purchase TEXT DEFAULT 'Hayır',
             motor_purchase_start_date TEXT,
             motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
             motor_purchase_monthly_amount REAL DEFAULT 11250,
             motor_purchase_installment_count INTEGER DEFAULT 12,
             current_plate TEXT,
@@ -939,6 +941,7 @@ def ensure_schema(conn: CompatConnection) -> None:
             motor_purchase TEXT DEFAULT 'Hayır',
             motor_purchase_start_date TEXT,
             motor_purchase_commitment_months BIGINT,
+            motor_purchase_sale_price DOUBLE PRECISION,
             motor_purchase_monthly_amount DOUBLE PRECISION DEFAULT 11250,
             motor_purchase_installment_count BIGINT DEFAULT 12,
             current_plate TEXT,
@@ -1457,6 +1460,9 @@ def migrate_data(conn: CompatConnection) -> None:
     if "motor_purchase_commitment_months" not in personnel_cols:
         commitment_type = "BIGINT" if conn.backend == "postgres" else "INTEGER"
         conn.execute(f"ALTER TABLE personnel ADD COLUMN motor_purchase_commitment_months {commitment_type}")
+    if "motor_purchase_sale_price" not in personnel_cols:
+        sale_price_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE personnel ADD COLUMN motor_purchase_sale_price {sale_price_type}")
     if "motor_purchase_monthly_amount" not in personnel_cols:
         amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
         conn.execute(f"ALTER TABLE personnel ADD COLUMN motor_purchase_monthly_amount {amount_type} DEFAULT 11250")
@@ -1491,6 +1497,16 @@ def migrate_data(conn: CompatConnection) -> None:
           AND (motor_purchase_start_date IS NULL OR TRIM(motor_purchase_start_date) = '')
           AND start_date IS NOT NULL
           AND TRIM(start_date) <> ''
+        """
+    )
+    conn.execute(
+        """
+        UPDATE personnel
+        SET motor_purchase_sale_price = COALESCE(motor_purchase_monthly_amount, 0) * COALESCE(motor_purchase_installment_count, 0)
+        WHERE motor_purchase = 'Evet'
+          AND (motor_purchase_sale_price IS NULL OR motor_purchase_sale_price <= 0)
+          AND COALESCE(motor_purchase_monthly_amount, 0) > 0
+          AND COALESCE(motor_purchase_installment_count, 0) > 0
         """
     )
     conn.execute("UPDATE personnel SET motor_purchase_monthly_amount = ? WHERE motor_purchase_monthly_amount IS NULL OR motor_purchase_monthly_amount <= 0", (AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,))
@@ -3251,6 +3267,13 @@ def calculate_prorated_motor_rental_amount(worked_days: int) -> float:
     return round((AUTO_MOTOR_RENTAL_DEDUCTION / MOTOR_RENTAL_STANDARD_MONTH_DAYS) * billable_days, 2)
 
 
+def calculate_motor_purchase_monthly_reference(total_price: float, commitment_months: int) -> float:
+    resolved_months = max(int(commitment_months or 0), 0)
+    if resolved_months <= 0:
+        return 0.0
+    return round(max(float(total_price or 0), 0.0) / resolved_months, 2)
+
+
 def sync_person_auto_deductions(
     conn: CompatConnection,
     person_row: Any,
@@ -3647,7 +3670,7 @@ def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
     )
     return format_display_df(
         visible_df,
-        currency_cols=["accounting_revenue", "accountant_cost", "company_setup_revenue", "company_setup_cost", "monthly_fixed_cost"],
+        currency_cols=["accounting_revenue", "accountant_cost", "company_setup_revenue", "company_setup_cost", "motor_purchase_sale_price", "monthly_fixed_cost"],
         rename_map={
             "id": "ID",
             "person_code": "Personel Kodu",
@@ -3669,6 +3692,7 @@ def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
             "vehicle_type": "Motor Tipi",
             "motor_purchase_start_date": "Motor Satın Alım Tarihi",
             "motor_purchase_commitment_months": "Taahhüt Süresi (Ay)",
+            "motor_purchase_sale_price": "Motor Satış Fiyatı",
             "current_plate": "Güncel Plaka",
             "start_date": "İşe Giriş Tarihi",
             "exit_date": "Çıkış Tarihi",
@@ -3681,6 +3705,22 @@ def format_personnel_table(df: pd.DataFrame) -> pd.DataFrame:
             "cost_model": COST_MODEL_LABELS,
         },
     )
+
+
+def format_motor_purchase_summary(row: Any) -> str:
+    if str(get_row_value(row, "motor_purchase", "Hayır") or "Hayır") != "Evet":
+        return "-"
+    sale_price = safe_float(get_row_value(row, "motor_purchase_sale_price", 0.0), 0.0)
+    commitment_months = safe_int(get_row_value(row, "motor_purchase_commitment_months", 0), 0)
+    start_date_text = str(get_row_value(row, "motor_purchase_start_date", "") or "").strip()
+    parts = []
+    if sale_price > 0:
+        parts.append(fmt_try(sale_price))
+    if commitment_months > 0:
+        parts.append(f"{commitment_months} ay")
+    if start_date_text:
+        parts.append(start_date_text)
+    return " | ".join(parts) if parts else "Tanımlı"
 
 
 def build_table_backup_zip(conn: CompatConnection) -> bytes:
@@ -5797,6 +5837,10 @@ def validate_personnel_form(
     start_date_value: date | None,
     cost_model: str,
     monthly_fixed_cost: float,
+    motor_purchase: str = "Hayır",
+    motor_purchase_start_date_value: date | None = None,
+    motor_purchase_commitment_months: int | None = None,
+    motor_purchase_sale_price: float = 0.0,
 ) -> list[str]:
     errors = []
     if not (full_name or "").strip():
@@ -5813,6 +5857,13 @@ def validate_personnel_form(
         errors.append("İşe giriş tarihi zorunlu.")
     if role in {"Kurye", "Restoran Takım Şefi"} and not assigned_restaurant_id:
         errors.append("Bu rol için ana restoran seçilmesi zorunlu.")
+    if str(motor_purchase or "Hayır") == "Evet":
+        if motor_purchase_start_date_value is None:
+            errors.append("Motor satın alım tarihi zorunlu.")
+        if safe_int(motor_purchase_commitment_months, 0) <= 0:
+            errors.append("Motor satış taahhüt süresi zorunlu.")
+        if safe_float(motor_purchase_sale_price, 0.0) <= 0:
+            errors.append("Motor satış fiyatı zorunlu.")
     if is_fixed_cost_model(cost_model) and monthly_fixed_cost <= 0:
         errors.append("Sabit maliyetli rollerde aylık sabit maliyet zorunlu.")
     return errors
@@ -6361,6 +6412,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         "motor_purchase": "Hayır",
         "motor_purchase_start_date": "",
         "motor_purchase_commitment_months": None,
+        "motor_purchase_sale_price": 0.0,
         "motor_purchase_monthly_amount": AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
         "motor_purchase_installment_count": AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,
     }.items():
@@ -6402,12 +6454,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     ("Rol", recent_row["role"] or "-"),
                     ("Durum", recent_row["status"] or "-"),
                     ("Ana Restoran", recent_row["restoran"] or "-"),
-                    (
-                        "Motor Satın Alımı",
-                        f"{safe_int(recent_row['motor_purchase_commitment_months'], 0)} ay | {recent_row['motor_purchase_start_date']}"
-                        if str(recent_row["motor_purchase"] or "Hayır") == "Evet" and str(recent_row["motor_purchase_start_date"] or "").strip()
-                        else "-",
-                    ),
+                    ("Çat Kapında Motor Satışı", format_motor_purchase_summary(recent_row)),
                     ("Acil Durum Kişisi", recent_row["emergency_contact_name"] or "-"),
                 ],
             )
@@ -6501,12 +6548,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Durum", preview_row["status"] or "-"),
                         ("Ana Restoran", preview_row["restoran"] or "-"),
                         ("Plaka", preview_row["current_plate"] or "-"),
-                        (
-                            "Motor Satın Alımı",
-                            f"{safe_int(preview_row['motor_purchase_commitment_months'], 0)} ay | {preview_row['motor_purchase_start_date']}"
-                            if str(preview_row["motor_purchase"] or "Hayır") == "Evet" and str(preview_row["motor_purchase_start_date"] or "").strip()
-                            else "-",
-                        ),
+                        ("Çat Kapında Motor Satışı", format_motor_purchase_summary(preview_row)),
                         ("Acil Durum Kişisi", preview_row["emergency_contact_name"] or "-"),
                     ],
                 )
@@ -6526,12 +6568,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Rol", recent_row["role"] or "-"),
                         ("Durum", recent_row["status"] or "-"),
                         ("Ana Restoran", recent_row["restoran"] or "-"),
-                        (
-                            "Motor Satın Alımı",
-                            f"{safe_int(recent_row['motor_purchase_commitment_months'], 0)} ay | {recent_row['motor_purchase_start_date']}"
-                            if str(recent_row["motor_purchase"] or "Hayır") == "Evet" and str(recent_row["motor_purchase_start_date"] or "").strip()
-                            else "-",
-                        ),
+                        ("Çat Kapında Motor Satışı", format_motor_purchase_summary(recent_row)),
                         ("Acil Durum Kişisi", recent_row["emergency_contact_name"] or "-"),
                     ],
                 )
@@ -6553,6 +6590,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "new_person_motor_purchase": "Hayır",
             "new_person_motor_purchase_start_date": date.today(),
             "new_person_motor_purchase_commitment_months": 12,
+            "new_person_motor_purchase_sale_price": AUTO_MOTOR_PURCHASE_TOTAL_PRICE,
             "new_person_accounting_revenue": 0.0,
             "new_person_accountant_cost": 0.0,
             "new_person_company_setup_revenue": 0.0,
@@ -6674,11 +6712,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             render_field_label("Güncel Plaka", required=True)
             current_plate = st.text_input("Güncel Plaka", key="new_person_current_plate", label_visibility="collapsed")
         effective_motor_rental = resolve_motor_rental_value(vehicle_type, "Hayır")
-        st.markdown("##### Motor Satın Alım Bilgisi")
-        c20, c21, c22 = st.columns(3)
+        st.markdown("##### Çat Kapında Motor Satış Bilgisi")
+        c20, c21, c22, c23 = st.columns(4)
         with c20:
-            render_field_label("Bizden Motor Satın Alımı")
-            motor_purchase = st.selectbox("Bizden Motor Satın Alımı", ["Hayır", "Evet"], key="new_person_motor_purchase", label_visibility="collapsed")
+            render_field_label("Çat Kapında Motor Satışı")
+            motor_purchase = st.selectbox("Çat Kapında Motor Satışı", ["Hayır", "Evet"], key="new_person_motor_purchase", label_visibility="collapsed")
         with c21:
             render_field_label("Motor Satın Alım Tarihi", required=motor_purchase == "Evet")
             motor_purchase_start_date = st.date_input(
@@ -6691,8 +6729,18 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             render_field_label("Taahhüt Süresi (Ay)", required=motor_purchase == "Evet")
             motor_purchase_commitment_months = st.selectbox(
                 "Taahhüt Süresi (Ay)",
-                [12, 15],
+                [12, 15, 18],
                 key="new_person_motor_purchase_commitment_months",
+                disabled=motor_purchase != "Evet",
+                label_visibility="collapsed",
+            )
+        with c23:
+            render_field_label("Motor Satış Fiyatı", required=motor_purchase == "Evet")
+            motor_purchase_sale_price = st.number_input(
+                "Motor Satış Fiyatı",
+                min_value=0.0,
+                step=1000.0,
+                key="new_person_motor_purchase_sale_price",
                 disabled=motor_purchase != "Evet",
                 label_visibility="collapsed",
             )
@@ -6702,7 +6750,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         if create_clicked:
             st.session_state.pop("personnel_create_success_message", None)
             st.session_state.pop("personnel_recently_created", None)
-            assigned_id = rest_opts_with_blank.get(assigned_label)
+            assigned_id = rest_opts_with_blank.get(assigned_label) if role in {"Kurye", "Restoran Takım Şefi"} else None
             validation_errors = validate_personnel_form(
                 full_name=full_name,
                 phone=phone,
@@ -6715,6 +6763,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 start_date_value=start_date if isinstance(start_date, date) else None,
                 cost_model=cost_model,
                 monthly_fixed_cost=monthly_fixed_cost,
+                motor_purchase=motor_purchase,
+                motor_purchase_start_date_value=motor_purchase_start_date if isinstance(motor_purchase_start_date, date) else None,
+                motor_purchase_commitment_months=safe_int(motor_purchase_commitment_months, 0),
+                motor_purchase_sale_price=safe_float(motor_purchase_sale_price, 0.0),
             )
             if validation_errors:
                 for error_text in validation_errors:
@@ -6732,6 +6784,21 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         if motor_purchase == "Evet"
                         else None
                     )
+                    motor_purchase_sale_price_value = (
+                        safe_float(motor_purchase_sale_price, 0.0)
+                        if motor_purchase == "Evet"
+                        else None
+                    )
+                    motor_purchase_monthly_reference = (
+                        calculate_motor_purchase_monthly_reference(motor_purchase_sale_price_value, motor_purchase_commitment_value)
+                        if motor_purchase == "Evet"
+                        else AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION
+                    )
+                    motor_purchase_installment_count_value = (
+                        motor_purchase_commitment_value
+                        if motor_purchase == "Evet"
+                        else AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT
+                    )
                     auto_code = next_person_code(conn, role)
                     conn.execute(
                         """
@@ -6740,9 +6807,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             emergency_contact_name, emergency_contact_phone,
                             accounting_type, new_company_setup, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
                             assigned_restaurant_id, vehicle_type, motor_rental, motor_purchase, motor_purchase_start_date, motor_purchase_commitment_months,
-                            motor_purchase_monthly_amount, motor_purchase_installment_count, current_plate, start_date,
+                            motor_purchase_sale_price, motor_purchase_monthly_amount, motor_purchase_installment_count, current_plate, start_date,
                             cost_model, monthly_fixed_cost, notes
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             auto_code,
@@ -6767,8 +6834,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             motor_purchase,
                             motor_purchase_start_date_str,
                             motor_purchase_commitment_value,
-                            AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
-                            AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,
+                            motor_purchase_sale_price_value,
+                            motor_purchase_monthly_reference,
+                            motor_purchase_installment_count_value,
                             current_plate,
                             start_date_str,
                             normalize_cost_model_value(cost_model, role),
@@ -6839,12 +6907,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         ("Durum", row["status"] or "-"),
                         ("Restoran", row["restoran"] or "-"),
                         ("Motor", row["vehicle_type"] or "-"),
-                        (
-                            "Motor Satın Alımı",
-                            f"{safe_int(row['motor_purchase_commitment_months'], 0)} ay | {row['motor_purchase_start_date']}"
-                            if str(row["motor_purchase"] or "Hayır") == "Evet" and str(row["motor_purchase_start_date"] or "").strip()
-                            else "-",
-                        ),
+                        ("Çat Kapında Motor Satışı", format_motor_purchase_summary(row)),
                         ("Rol", resolve_cost_role_option(str(row["cost_model"] or ""), str(row["role"] or "Kurye"))),
                         ("Acil Durum Kişisi", row["emergency_contact_name"] or "-"),
                     ],
@@ -7040,11 +7103,12 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     current_vehicle = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
                     with c18:
                         render_field_label("Ana Restoran", required=edit_role in {"Kurye", "Restoran Takım Şefi"})
+                        edit_restaurant_default = assigned_value if edit_role in {"Kurye", "Restoran Takım Şefi"} and assigned_value in rest_opts_with_blank else "-"
                         edit_restaurant = st.selectbox(
                             "Ana Restoran",
                             list(rest_opts_with_blank.keys()),
-                            index=list(rest_opts_with_blank.keys()).index(assigned_value) if assigned_value in rest_opts_with_blank else 0,
-                            key="edit_person_restaurant",
+                            index=list(rest_opts_with_blank.keys()).index(edit_restaurant_default),
+                            key=f"edit_person_restaurant_{selected_id}_{edit_role}",
                             label_visibility="collapsed",
                         )
                     with c19:
@@ -7063,16 +7127,20 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         edit_plate = st.text_input("Güncel Plaka", value=row["current_plate"] or "", label_visibility="collapsed")
                     current_motor_purchase = str(row["motor_purchase"] or "Hayır") if pd.notna(row["motor_purchase"]) else "Hayır"
                     with c22:
-                        render_field_label("Bizden Motor Satın Alımı")
+                        render_field_label("Çat Kapında Motor Satışı")
                         edit_motor_purchase = st.selectbox(
-                            "Bizden Motor Satın Alımı",
+                            "Çat Kapında Motor Satışı",
                             ["Hayır", "Evet"],
                             index=1 if current_motor_purchase == "Evet" else 0,
                             key="edit_person_motor_purchase",
                             label_visibility="collapsed",
                         )
                     default_motor_purchase_date = parse_date_value(row["motor_purchase_start_date"]) or date.today()
-                    c23a, c23b = st.columns(2)
+                    current_motor_purchase_sale_price = safe_float(
+                        row["motor_purchase_sale_price"],
+                        safe_float(row["motor_purchase_monthly_amount"], 0.0) * max(safe_int(row["motor_purchase_installment_count"], 0), 0),
+                    )
+                    c23a, c23b, c23c = st.columns(3)
                     with c23a:
                         render_field_label("Motor Satın Alım Tarihi", required=edit_motor_purchase == "Evet")
                         edit_motor_purchase_start_date = st.date_input(
@@ -7083,15 +7151,26 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             label_visibility="collapsed",
                         )
                     current_commitment_months = safe_int(row["motor_purchase_commitment_months"], 12)
-                    if current_commitment_months not in [12, 15]:
+                    if current_commitment_months not in [12, 15, 18]:
                         current_commitment_months = 12
                     with c23b:
                         render_field_label("Taahhüt Süresi (Ay)", required=edit_motor_purchase == "Evet")
                         edit_motor_purchase_commitment_months = st.selectbox(
                             "Taahhüt Süresi (Ay)",
-                            [12, 15],
-                            index=[12, 15].index(current_commitment_months),
+                            [12, 15, 18],
+                            index=[12, 15, 18].index(current_commitment_months),
                             key="edit_person_motor_purchase_commitment_months",
+                            disabled=edit_motor_purchase != "Evet",
+                            label_visibility="collapsed",
+                        )
+                    with c23c:
+                        render_field_label("Motor Satış Fiyatı", required=edit_motor_purchase == "Evet")
+                        edit_motor_purchase_sale_price = st.number_input(
+                            "Motor Satış Fiyatı",
+                            min_value=0.0,
+                            value=max(current_motor_purchase_sale_price, 0.0),
+                            step=1000.0,
+                            key="edit_person_motor_purchase_sale_price",
                             disabled=edit_motor_purchase != "Evet",
                             label_visibility="collapsed",
                         )
@@ -7103,7 +7182,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     delete_clicked = c26.form_submit_button("Kalıcı Sil", use_container_width=True)
 
                     if update_clicked:
-                        assigned_id = rest_opts_with_blank.get(edit_restaurant)
+                        assigned_id = rest_opts_with_blank.get(edit_restaurant) if edit_role in {"Kurye", "Restoran Takım Şefi"} else None
                         validation_errors = validate_personnel_form(
                             full_name=edit_name,
                             phone=edit_phone,
@@ -7116,6 +7195,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             start_date_value=edit_start_date if isinstance(edit_start_date, date) else None,
                             cost_model=edit_cost_model,
                             monthly_fixed_cost=edit_monthly_cost,
+                            motor_purchase=edit_motor_purchase,
+                            motor_purchase_start_date_value=edit_motor_purchase_start_date if isinstance(edit_motor_purchase_start_date, date) else None,
+                            motor_purchase_commitment_months=safe_int(edit_motor_purchase_commitment_months, 0),
+                            motor_purchase_sale_price=safe_float(edit_motor_purchase_sale_price, 0.0),
                         )
                         if edit_role != str(row["role"] or "") and not transition_enabled:
                             validation_errors.append("Rol değişikliği yapıyorsan rol başlangıç tarihini de kaydetmelisin.")
@@ -7141,13 +7224,28 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 if edit_motor_purchase == "Evet"
                                 else None
                             )
+                            motor_purchase_sale_price_value = (
+                                safe_float(edit_motor_purchase_sale_price, 0.0)
+                                if edit_motor_purchase == "Evet"
+                                else None
+                            )
+                            motor_purchase_monthly_reference = (
+                                calculate_motor_purchase_monthly_reference(motor_purchase_sale_price_value, motor_purchase_commitment_value)
+                                if edit_motor_purchase == "Evet"
+                                else AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION
+                            )
+                            motor_purchase_installment_count_value = (
+                                motor_purchase_commitment_value
+                                if edit_motor_purchase == "Evet"
+                                else AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT
+                            )
                             conn.execute(
                                 """
                                 UPDATE personnel
                                 SET person_code=?, full_name=?, role=?, status=?, phone=?, address=?, tc_no=?, iban=?,
                                     emergency_contact_name=?, emergency_contact_phone=?,
                                     accounting_type=?, new_company_setup=?, accounting_revenue=?, accountant_cost=?, company_setup_revenue=?, company_setup_cost=?, assigned_restaurant_id=?,
-                                    vehicle_type=?, motor_rental=?, motor_purchase=?, motor_purchase_start_date=?, motor_purchase_commitment_months=?, motor_purchase_monthly_amount=?, motor_purchase_installment_count=?, current_plate=?, start_date=?,
+                                    vehicle_type=?, motor_rental=?, motor_purchase=?, motor_purchase_start_date=?, motor_purchase_commitment_months=?, motor_purchase_sale_price=?, motor_purchase_monthly_amount=?, motor_purchase_installment_count=?, current_plate=?, start_date=?,
                                     cost_model=?, monthly_fixed_cost=?, notes=?
                                 WHERE id=?
                                 """,
@@ -7174,8 +7272,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                     edit_motor_purchase,
                                     motor_purchase_start_date_str,
                                     motor_purchase_commitment_value,
-                                    AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
-                                    AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,
+                                    motor_purchase_sale_price_value,
+                                    motor_purchase_monthly_reference,
+                                    motor_purchase_installment_count_value,
                                     edit_plate,
                                     start_date_str,
                                     normalize_cost_model_value(edit_cost_model, edit_role),
