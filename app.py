@@ -3153,6 +3153,50 @@ def infer_reporting_period(month_df: pd.DataFrame, deductions_df: pd.DataFrame) 
     return month_start_value, end_of_month(month_start_value)
 
 
+def get_operational_restaurant_names_for_period(
+    restaurants_df: pd.DataFrame | None,
+    period_start: date,
+    period_end: date,
+) -> list[str]:
+    if restaurants_df is None or restaurants_df.empty:
+        return []
+
+    work = restaurants_df.copy()
+    for column_name, default_value in {
+        "brand": "",
+        "branch": "",
+        "active": 1,
+        "start_date": None,
+        "end_date": None,
+    }.items():
+        if column_name not in work.columns:
+            work[column_name] = default_value
+
+    operational_names: set[str] = set()
+    for _, row in work.iterrows():
+        brand = str(row.get("brand") or "").strip()
+        branch = str(row.get("branch") or "").strip()
+        if not brand or not branch:
+            continue
+
+        start_date_value = parse_date_value(row.get("start_date"))
+        end_date_value = parse_date_value(row.get("end_date"))
+        has_dates = start_date_value is not None or end_date_value is not None
+        if has_dates:
+            overlaps_period = (
+                (start_date_value is None or start_date_value <= period_end)
+                and (end_date_value is None or end_date_value >= period_start)
+            )
+            if not overlaps_period:
+                continue
+        elif safe_int(row.get("active"), 0) != 1:
+            continue
+
+        operational_names.add(f"{brand} - {branch}")
+
+    return sorted(operational_names)
+
+
 def build_person_role_segments(
     person_row: Any,
     role_history_df: pd.DataFrame,
@@ -5713,7 +5757,14 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
     month_packages = float(month_entries["package_count"].sum()) if not month_entries.empty else 0.0
 
     invoice_df = build_invoice_summary_df(month_entries)
-    profit_df, _, shared_overhead_df = build_branch_profitability(month_entries, personnel_df, month_deductions, invoice_df, role_history_df)
+    profit_df, _, shared_overhead_df = build_branch_profitability(
+        month_entries,
+        personnel_df,
+        month_deductions,
+        invoice_df,
+        role_history_df,
+        restaurants_df=active_restaurants_df,
+    )
     month_revenue = float(invoice_df["kdv_dahil"].sum()) if not invoice_df.empty else 0.0
     month_operation_gap = float(profit_df["brut_fark"].sum()) if not profit_df.empty else 0.0
 
@@ -8899,6 +8950,7 @@ def build_branch_profitability(
     deductions_df: pd.DataFrame,
     invoice_df: pd.DataFrame,
     role_history_df: pd.DataFrame | None = None,
+    restaurants_df: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     if month_df.empty or invoice_df.empty:
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
@@ -8917,6 +8969,9 @@ def build_branch_profitability(
     allocation_rows = []
     shared_overhead_rows = []
     invoiced_restaurants = sorted(invoice_df["restoran"].dropna().astype(str).unique().tolist())
+    shared_overhead_restaurants = get_operational_restaurant_names_for_period(restaurants_df, period_start, period_end)
+    if not shared_overhead_restaurants:
+        shared_overhead_restaurants = invoiced_restaurants
     for _, person in personnel_df.iterrows():
         pid = safe_int(person["id"])
         if pid <= 0:
@@ -8985,9 +9040,9 @@ def build_branch_profitability(
             segment_net = segment_gross - segment_deduction_share
             role_name = str(segment.get("role") or "")
 
-            if role_name in SHARED_OVERHEAD_ROLES and invoiced_restaurants:
-                per_restaurant_share = segment_net / len(invoiced_restaurants)
-                for restaurant_name in invoiced_restaurants:
+            if role_name in SHARED_OVERHEAD_ROLES and shared_overhead_restaurants:
+                per_restaurant_share = segment_net / len(shared_overhead_restaurants)
+                for restaurant_name in shared_overhead_restaurants:
                     allocation_rows.append(
                         {
                             "restoran": restaurant_name,
@@ -9007,7 +9062,7 @@ def build_branch_profitability(
                         "aylik_brut_maliyet": segment_gross,
                         "toplam_kesinti": segment_deduction_share,
                         "aylik_net_maliyet": segment_net,
-                        "paylastirilan_restoran_sayisi": len(invoiced_restaurants),
+                        "paylastirilan_restoran_sayisi": len(shared_overhead_restaurants),
                         "restoran_basina_pay": per_restaurant_share,
                     }
                 )
@@ -9435,6 +9490,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
     invoice_df = pd.DataFrame(invoicing_rows).sort_values("restoran")
 
+    restaurants_df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
     personnel_df = fetch_df(conn, "SELECT * FROM personnel")
     role_history_df = fetch_df(conn, "SELECT * FROM personnel_role_history ORDER BY personnel_id, effective_date, id")
     deductions_df = fetch_df(conn, "SELECT * FROM deductions WHERE deduction_date BETWEEN ? AND ?", (start_date, end_date))
@@ -9501,6 +9557,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         deductions_df,
         invoice_df,
         role_history_df=role_history_df,
+        restaurants_df=restaurants_df,
     )
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🧾 Restoran Faturası", "👥 Kurye Maliyeti", "📈 Restoran Karlılığı", "🧩 Ortak Operasyon Payı", "🔀 Personel-Şube Dağılımı", "💼 Yan Gelir Analizi"])
