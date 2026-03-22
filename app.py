@@ -80,6 +80,7 @@ from ui_helpers import (
     render_action_card,
     render_alert_stack,
     render_dashboard_data_grid,
+    render_dashboard_section_header,
     render_executive_metrics,
     render_field_label,
     render_management_hero,
