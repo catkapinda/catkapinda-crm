@@ -308,3 +308,60 @@ def build_invoice_summary_df(month_df: pd.DataFrame) -> pd.DataFrame:
     if not invoicing_rows:
         return pd.DataFrame()
     return pd.DataFrame(invoicing_rows).sort_values(["kdv_dahil", "restoran"], ascending=[False, True]).reset_index(drop=True)
+
+
+def build_restaurant_invoice_drilldown_map(
+    month_df: pd.DataFrame,
+    personnel_df: pd.DataFrame | None = None,
+) -> dict[str, pd.DataFrame]:
+    if month_df is None or month_df.empty:
+        return {}
+
+    work = month_df.copy()
+    for column_name, default_value in {
+        "brand": "",
+        "branch": "",
+        "worked_hours": 0.0,
+        "package_count": 0.0,
+        "actual_personnel_id": None,
+    }.items():
+        if column_name not in work.columns:
+            work[column_name] = default_value
+
+    work["restoran"] = work["brand"].fillna("").astype(str) + " - " + work["branch"].fillna("").astype(str)
+    work["worked_hours"] = pd.to_numeric(work["worked_hours"], errors="coerce").fillna(0.0)
+    work["package_count"] = pd.to_numeric(work["package_count"], errors="coerce").fillna(0.0)
+    work["actual_personnel_id"] = pd.to_numeric(work["actual_personnel_id"], errors="coerce")
+
+    if personnel_df is not None and not personnel_df.empty and "id" in personnel_df.columns:
+        people_lookup = personnel_df[["id", "full_name", "role"]].copy()
+        people_lookup["id"] = pd.to_numeric(people_lookup["id"], errors="coerce")
+        people_lookup = people_lookup.rename(columns={"id": "actual_personnel_id", "full_name": "personel", "role": "rol"})
+        work = work.merge(people_lookup, how="left", on="actual_personnel_id")
+    else:
+        work["personel"] = None
+        work["rol"] = None
+
+    work["personel"] = work["personel"].fillna("")
+    work["rol"] = work["rol"].fillna("")
+    work.loc[(work["personel"].astype(str).str.strip() == "") & work["actual_personnel_id"].notna(), "personel"] = (
+        "Personel #" + work["actual_personnel_id"].fillna(0).astype(int).astype(str)
+    )
+    work.loc[work["personel"].astype(str).str.strip() == "", "personel"] = "Belirsiz Personel"
+    work.loc[work["rol"].astype(str).str.strip() == "", "rol"] = "-"
+
+    grouped = (
+        work.groupby(["restoran", "personel", "rol"], dropna=False)
+        .agg(calisma_saati=("worked_hours", "sum"), paket=("package_count", "sum"))
+        .reset_index()
+    )
+    grouped = grouped[(grouped["calisma_saati"] > 0) | (grouped["paket"] > 0)].copy()
+    if grouped.empty:
+        return {}
+
+    drilldown_map: dict[str, pd.DataFrame] = {}
+    for restoran_name, restaurant_group in grouped.groupby("restoran", dropna=False):
+        detail_df = restaurant_group[["personel", "rol", "calisma_saati", "paket"]].copy()
+        detail_df = detail_df.sort_values(["paket", "calisma_saati", "personel"], ascending=[False, False, True]).reset_index(drop=True)
+        drilldown_map[str(restoran_name or "")] = detail_df
+    return drilldown_map
