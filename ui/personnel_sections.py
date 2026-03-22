@@ -111,6 +111,7 @@ def render_personnel_add_workspace(
     next_person_code_fn: Callable[..., str],
     build_new_person_form_defaults_fn: Callable[..., dict[str, Any]],
     prepare_new_person_form_state_fn: Callable[..., None],
+    create_person_with_onboarding_fn: Callable[..., Any],
     clear_new_person_onboarding_state_fn: Callable[[], None],
     initialize_onboarding_equipment_state_fn: Callable[[Any, str, date | None], None],
     onboarding_equipment_state_key_fn: Callable[[str, str], str],
@@ -423,107 +424,59 @@ def render_personnel_add_workspace(
         return
 
     try:
-        start_date_str = start_date.isoformat() if isinstance(start_date, date) else None
-        auto_code = next_person_code_fn(conn, role)
-        conn.execute(
-            """
-            INSERT INTO personnel (
-                person_code, full_name, role, status, phone, address, tc_no, iban,
-                emergency_contact_name, emergency_contact_phone,
-                accounting_type, new_company_setup, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
-                assigned_restaurant_id, vehicle_type, motor_rental, motor_purchase, motor_purchase_start_date, motor_purchase_commitment_months,
-                motor_rental_monthly_amount, motor_purchase_sale_price, motor_purchase_monthly_amount, motor_purchase_installment_count, current_plate, start_date,
-                cost_model, monthly_fixed_cost, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                auto_code,
-                full_name,
-                role,
-                "Aktif",
-                phone,
-                address,
-                tc_no,
-                iban,
-                emergency_contact_name,
-                emergency_contact_phone,
-                accounting_type,
-                new_company_setup,
-                accounting_revenue,
-                accountant_cost,
-                company_setup_revenue,
-                company_setup_cost,
-                assigned_id,
-                motor_usage_payload["vehicle_type"],
-                motor_usage_payload["motor_rental"],
-                motor_usage_payload["motor_purchase"],
-                motor_usage_payload["motor_purchase_start_date_str"],
-                motor_usage_payload["motor_purchase_commitment_months"],
-                motor_usage_payload["motor_rental_monthly_amount"],
-                motor_usage_payload["motor_purchase_sale_price"],
-                motor_usage_payload["motor_purchase_monthly_amount"],
-                motor_usage_payload["motor_purchase_installment_count"],
-                current_plate,
-                start_date_str,
-                normalize_cost_model_value_fn(cost_model, role),
-                monthly_fixed_cost,
-                notes,
-            ),
+        create_result = create_person_with_onboarding_fn(
+            conn,
+            role=role,
+            person_values={
+                "full_name": full_name,
+                "role": role,
+                "phone": phone,
+                "address": address,
+                "tc_no": tc_no,
+                "iban": iban,
+                "emergency_contact_name": emergency_contact_name,
+                "emergency_contact_phone": emergency_contact_phone,
+                "accounting_type": accounting_type,
+                "new_company_setup": new_company_setup,
+                "accounting_revenue": accounting_revenue,
+                "accountant_cost": accountant_cost,
+                "company_setup_revenue": company_setup_revenue,
+                "company_setup_cost": company_setup_cost,
+                "assigned_restaurant_id": assigned_id,
+                "vehicle_type": motor_usage_payload["vehicle_type"],
+                "motor_rental": motor_usage_payload["motor_rental"],
+                "motor_purchase": motor_usage_payload["motor_purchase"],
+                "motor_purchase_start_date": motor_usage_payload["motor_purchase_start_date_str"],
+                "motor_purchase_commitment_months": motor_usage_payload["motor_purchase_commitment_months"],
+                "motor_rental_monthly_amount": motor_usage_payload["motor_rental_monthly_amount"],
+                "motor_purchase_sale_price": motor_usage_payload["motor_purchase_sale_price"],
+                "motor_purchase_monthly_amount": motor_usage_payload["motor_purchase_monthly_amount"],
+                "motor_purchase_installment_count": motor_usage_payload["motor_purchase_installment_count"],
+                "current_plate": current_plate,
+                "start_date": start_date.isoformat() if isinstance(start_date, date) else None,
+                "cost_model": normalize_cost_model_value_fn(cost_model, role),
+                "monthly_fixed_cost": monthly_fixed_cost,
+                "notes": notes,
+            },
+            onboarding_issue_payloads=onboarding_issue_payloads,
+            safe_int_fn=safe_int_fn,
+            safe_float_fn=safe_float_fn,
+            insert_equipment_issue_and_get_id_fn=insert_equipment_issue_and_get_id_fn,
+            post_equipment_installments_fn=post_equipment_installments_fn,
+            sync_person_current_role_snapshot_fn=sync_person_current_role_snapshot_fn,
+            sync_person_business_rules_fn=sync_person_business_rules_fn,
         )
-        conn.commit()
-        created_person = conn.execute("SELECT * FROM personnel WHERE person_code = ? ORDER BY id DESC", (auto_code,)).fetchone()
-        if not created_person:
-            raise RuntimeError("Personel kaydı oluşturuldu ancak kayıt tekrar okunamadı.")
-        created_person_id = safe_int_fn(created_person["id"], 0)
-        for payload in onboarding_issue_payloads:
-            issue_date_value = payload["issue_date"]
-            quantity_value = safe_int_fn(payload["quantity"], 1)
-            sale_price_value = safe_float_fn(payload["unit_sale_price"], 0.0)
-            installment_count_value = safe_int_fn(payload["installment_count"], 1)
-            vat_rate_value = safe_float_fn(payload["vat_rate"], 10.0)
-            issue_id = insert_equipment_issue_and_get_id_fn(
-                conn,
-                created_person_id,
-                issue_date_value.isoformat(),
-                str(payload["item_name"] or ""),
-                quantity_value,
-                safe_float_fn(payload["unit_cost"], 0.0),
-                sale_price_value,
-                installment_count_value,
-                "Satış",
-                str(payload.get("notes", "") or ""),
-                vat_rate=vat_rate_value,
-            )
-            post_equipment_installments_fn(
-                conn,
-                issue_id,
-                created_person_id,
-                issue_date_value,
-                str(payload["item_name"] or ""),
-                float(quantity_value) * float(sale_price_value),
-                installment_count_value,
-                "Satış",
-            )
-        sync_person_current_role_snapshot_fn(conn, created_person)
-        conn.commit()
-        sync_person_business_rules_fn(conn, created_person)
     except Exception as exc:
-        conn.rollback()
         st.error(f"Personel kartı oluşturulamadı: {exc}")
         return
 
-    equipment_summary = (
-        f" | {len(onboarding_issue_payloads)} onboarding ekipmanı kaydedildi"
-        if onboarding_issue_payloads
-        else ""
-    )
-    success_text = f"{full_name} başarıyla eklendi. Kod: {auto_code}{equipment_summary}"
+    success_text = create_result.success_text
     st.session_state[workspace_key] = "add"
     st.session_state["person_search"] = ""
     st.session_state["person_role_filter"] = "Tümü"
     st.session_state["person_status_filter"] = "Tümü"
     st.session_state["person_rest_filter"] = "Tümü"
-    st.session_state["personnel_recently_created"] = {"personnel_id": created_person_id}
+    st.session_state["personnel_recently_created"] = {"personnel_id": create_result.created_person_id}
     st.session_state["personnel_create_success_message"] = success_text
     st.session_state["personnel_form_reset_pending"] = True
     set_flash_message_fn("success", success_text)
@@ -561,6 +514,9 @@ def render_personnel_edit_workspace(
     is_fixed_cost_model_fn: Callable[[str], bool],
     get_role_fixed_cost_label_fn: Callable[..., str],
     build_personnel_code_display_values_fn: Callable[..., tuple[str, str]],
+    update_person_and_sync_fn: Callable[..., Any],
+    toggle_person_status_and_sync_fn: Callable[..., Any],
+    delete_person_with_dependencies_fn: Callable[..., Any],
     build_motor_usage_payload_fn: Callable[..., dict[str, Any]],
     render_vehicle_transition_caption_fn: Callable[[], None],
     render_motor_purchase_proration_caption_fn: Callable[[], None],
@@ -1038,120 +994,97 @@ def render_personnel_edit_workspace(
                     for error_text in validation_errors:
                         st.error(error_text)
                 else:
-                    start_date_str = edit_start_date.isoformat() if isinstance(edit_start_date, date) else None
-                    conn.execute(
-                        """
-                        UPDATE personnel
-                        SET person_code=?, full_name=?, role=?, status=?, phone=?, address=?, tc_no=?, iban=?,
-                            emergency_contact_name=?, emergency_contact_phone=?,
-                            accounting_type=?, new_company_setup=?, accounting_revenue=?, accountant_cost=?, company_setup_revenue=?, company_setup_cost=?, assigned_restaurant_id=?,
-                            vehicle_type=?, motor_rental=?, motor_purchase=?, motor_purchase_start_date=?, motor_purchase_commitment_months=?, motor_rental_monthly_amount=?, motor_purchase_sale_price=?, motor_purchase_monthly_amount=?, motor_purchase_installment_count=?, current_plate=?, start_date=?,
-                            cost_model=?, monthly_fixed_cost=?, notes=?
-                        WHERE id=?
-                        """,
-                        (
-                            edit_code,
-                            edit_name,
-                            effective_role,
-                            edit_status,
-                            edit_phone,
-                            edit_address,
-                            edit_tc,
-                            edit_iban,
-                            edit_emergency_contact_name,
-                            edit_emergency_contact_phone,
-                            edit_accounting,
-                            edit_new_company,
-                            edit_accounting_revenue,
-                            edit_accountant_cost,
-                            edit_company_setup_revenue,
-                            edit_company_setup_cost,
-                            assigned_id,
-                            edit_motor_usage_payload["vehicle_type"],
-                            edit_motor_usage_payload["motor_rental"],
-                            edit_motor_usage_payload["motor_purchase"],
-                            edit_motor_usage_payload["motor_purchase_start_date_str"],
-                            edit_motor_usage_payload["motor_purchase_commitment_months"],
-                            edit_motor_usage_payload["motor_rental_monthly_amount"],
-                            edit_motor_usage_payload["motor_purchase_sale_price"],
-                            edit_motor_usage_payload["motor_purchase_monthly_amount"],
-                            edit_motor_usage_payload["motor_purchase_installment_count"],
-                            edit_plate,
-                            start_date_str,
-                            normalize_cost_model_value_fn(edit_cost_model, effective_role),
-                            effective_monthly_cost,
-                            edit_notes,
-                            selected_id,
-                        ),
-                    )
-                    conn.commit()
-                    updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
-                    if role_changed and transition_enabled:
-                        previous_fixed_cost = 0.0
-                        previous_cost_model = normalize_cost_model_value_fn("", transition_previous_role)
-                        if is_fixed_cost_model_fn(previous_cost_model) and transition_previous_role == row_role_value:
-                            previous_fixed_cost = safe_float_fn(row["monthly_fixed_cost"], 0.0)
-                        record_person_role_transition_fn(
+                    try:
+                        update_result = update_person_and_sync_fn(
                             conn,
-                            row.to_dict(),
-                            updated_person,
-                            transition_previous_role,
-                            transition_effective_date,
-                            previous_monthly_fixed_cost=previous_fixed_cost,
+                            person_id=selected_id,
+                            original_row=row,
+                            person_values={
+                                "person_code": edit_code,
+                                "full_name": edit_name,
+                                "role": effective_role,
+                                "status": edit_status,
+                                "phone": edit_phone,
+                                "address": edit_address,
+                                "tc_no": edit_tc,
+                                "iban": edit_iban,
+                                "emergency_contact_name": edit_emergency_contact_name,
+                                "emergency_contact_phone": edit_emergency_contact_phone,
+                                "accounting_type": edit_accounting,
+                                "new_company_setup": edit_new_company,
+                                "accounting_revenue": edit_accounting_revenue,
+                                "accountant_cost": edit_accountant_cost,
+                                "company_setup_revenue": edit_company_setup_revenue,
+                                "company_setup_cost": edit_company_setup_cost,
+                                "assigned_restaurant_id": assigned_id,
+                                "vehicle_type": edit_motor_usage_payload["vehicle_type"],
+                                "motor_rental": edit_motor_usage_payload["motor_rental"],
+                                "motor_purchase": edit_motor_usage_payload["motor_purchase"],
+                                "motor_purchase_start_date": edit_motor_usage_payload["motor_purchase_start_date_str"],
+                                "motor_purchase_commitment_months": edit_motor_usage_payload["motor_purchase_commitment_months"],
+                                "motor_rental_monthly_amount": edit_motor_usage_payload["motor_rental_monthly_amount"],
+                                "motor_purchase_sale_price": edit_motor_usage_payload["motor_purchase_sale_price"],
+                                "motor_purchase_monthly_amount": edit_motor_usage_payload["motor_purchase_monthly_amount"],
+                                "motor_purchase_installment_count": edit_motor_usage_payload["motor_purchase_installment_count"],
+                                "current_plate": edit_plate,
+                                "start_date": edit_start_date.isoformat() if isinstance(edit_start_date, date) else None,
+                                "cost_model": normalize_cost_model_value_fn(edit_cost_model, effective_role),
+                                "monthly_fixed_cost": effective_monthly_cost,
+                                "notes": edit_notes,
+                            },
+                            role_changed=role_changed,
+                            transition_enabled=transition_enabled,
+                            transition_previous_role=transition_previous_role,
+                            transition_effective_date=transition_effective_date if isinstance(transition_effective_date, date) else None,
+                            is_fixed_cost_model_fn=is_fixed_cost_model_fn,
+                            safe_float_fn=safe_float_fn,
+                            safe_int_fn=safe_int_fn,
+                            normalize_cost_model_value_fn=normalize_cost_model_value_fn,
+                            record_person_role_transition_fn=record_person_role_transition_fn,
+                            sync_person_current_role_snapshot_fn=sync_person_current_role_snapshot_fn,
+                            motor_mode_changed=motor_mode_changed,
+                            current_vehicle=current_vehicle,
+                            current_motor_purchase=current_motor_purchase,
+                            edit_vehicle_transition_date=edit_vehicle_transition_date,
+                            auto_motor_rental_deduction=auto_motor_rental_deduction,
+                            auto_motor_purchase_monthly_deduction=auto_motor_purchase_monthly_deduction,
+                            record_person_vehicle_transition_fn=record_person_vehicle_transition_fn,
+                            sync_person_current_vehicle_snapshot_fn=sync_person_current_vehicle_snapshot_fn,
+                            sync_person_business_rules_fn=sync_person_business_rules_fn,
                         )
+                    except Exception as exc:
+                        st.error(f"Personel kartı güncellenemedi: {exc}")
                     else:
-                        sync_person_current_role_snapshot_fn(conn, updated_person)
-                    if motor_mode_changed:
-                        record_person_vehicle_transition_fn(
-                            conn,
-                            row.to_dict(),
-                            updated_person,
-                            current_vehicle,
-                            edit_vehicle_transition_date,
-                            previous_motor_rental=str(row["motor_rental"] or "Hayır"),
-                            previous_motor_rental_monthly_amount=safe_float_fn(row.get("motor_rental_monthly_amount", auto_motor_rental_deduction), auto_motor_rental_deduction),
-                            previous_motor_purchase=current_motor_purchase,
-                            previous_motor_purchase_commitment_months=safe_int_fn(row.get("motor_purchase_commitment_months", 0), 0),
-                            previous_motor_purchase_sale_price=safe_float_fn(row.get("motor_purchase_sale_price", 0.0), 0.0),
-                            previous_motor_purchase_monthly_amount=safe_float_fn(row.get("motor_purchase_monthly_amount", auto_motor_purchase_monthly_deduction), auto_motor_purchase_monthly_deduction),
-                        )
-                    else:
-                        sync_person_current_vehicle_snapshot_fn(conn, updated_person)
-                    conn.commit()
-                    sync_person_business_rules_fn(conn, updated_person, create_onboarding=False)
-                    set_flash_message_fn("success", "Personel kartı başarıyla güncellendi.")
-                    st.rerun()
+                        set_flash_message_fn("success", update_result.success_text)
+                        st.rerun()
 
             if toggle_clicked:
-                new_status = "Pasif" if row["status"] == "Aktif" else "Aktif"
-                exit_date = date.today().isoformat() if new_status == "Pasif" else None
-                conn.execute("UPDATE personnel SET status=?, exit_date=? WHERE id=?", (new_status, exit_date, selected_id))
-                conn.commit()
-                updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
-                sync_person_business_rules_fn(conn, updated_person, create_onboarding=False)
-                set_flash_message_fn("success", "Personel başarıyla pasife alındı." if new_status == "Pasif" else "Personel başarıyla aktifleştirildi.")
-                st.rerun()
+                try:
+                    toggle_result = toggle_person_status_and_sync_fn(
+                        conn,
+                        person_id=selected_id,
+                        current_status=str(row["status"] or "Aktif"),
+                        sync_person_business_rules_fn=sync_person_business_rules_fn,
+                    )
+                except Exception as exc:
+                    st.error(f"Personel durumu güncellenemedi: {exc}")
+                else:
+                    set_flash_message_fn("success", toggle_result.success_text)
+                    st.rerun()
 
             if delete_clicked:
-                dependency_counts = get_personnel_dependency_counts_fn(conn, selected_id)
-                delete_personnel_and_dependencies_fn(conn, selected_id)
-                detail_parts = [
-                    f"{label}: {count}"
-                    for label, count in [
-                        ("Puantaj", dependency_counts["puantaj"]),
-                        ("Kesinti", dependency_counts["kesinti"]),
-                        ("Rol geçmişi", dependency_counts["rol_gecmisi"]),
-                        ("Plaka geçmişi", dependency_counts["plaka"]),
-                        ("Zimmet", dependency_counts["zimmet"]),
-                        ("Box iade", dependency_counts["box_iade"]),
-                    ]
-                    if count
-                ]
-                if detail_parts:
-                    set_flash_message_fn("success", "Personel ve bağlı kayıtlar kalıcı olarak silindi. " + " | ".join(detail_parts))
+                try:
+                    delete_result = delete_person_with_dependencies_fn(
+                        conn,
+                        person_id=selected_id,
+                        get_personnel_dependency_counts_fn=get_personnel_dependency_counts_fn,
+                        delete_personnel_and_dependencies_fn=delete_personnel_and_dependencies_fn,
+                    )
+                except Exception as exc:
+                    st.error(f"Personel silinemedi: {exc}")
                 else:
-                    set_flash_message_fn("success", "Personel kaydı kalıcı olarak silindi.")
-                st.rerun()
+                    set_flash_message_fn("success", delete_result.success_text)
+                    st.rerun()
 
             render_personnel_equipment_section(
                 conn,
