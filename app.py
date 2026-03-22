@@ -1,19 +1,13 @@
 from __future__ import annotations
 
-import base64
 import calendar
-import hashlib
 import html
-import hmac
-from io import BytesIO
 import os
 import re
 import secrets
 import shutil
 import smtplib
 import sqlite3
-import tempfile
-import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from email.message import EmailMessage
@@ -130,6 +124,28 @@ from bootstrap_engine import (
     database_has_operational_data,
     ensure_runtime_bootstrap,
     import_sqlite_into_current_db,
+)
+from auth_engine import (
+    build_login_logo_markup,
+    cleanup_auth_sessions,
+    clear_authenticated_user,
+    configure_auth_engine,
+    create_auth_session,
+    get_auth_user,
+    get_query_param,
+    hash_auth_password,
+    init_auth_state,
+    normalize_auth_identity,
+    restore_auth_session,
+    revoke_current_auth_session,
+    set_authenticated_user,
+    set_query_param,
+    sync_default_auth_users,
+    verify_auth_password,
+)
+from backup_sections import (
+    configure_backup_sections,
+    render_backup_tools_content,
 )
 from report_sections import (
     render_cost_report_tab,
@@ -484,76 +500,6 @@ def parse_date_value(value: Any) -> date | None:
     return parsed.date()
 
 
-def normalize_auth_identity(value: str) -> str:
-    return (value or "").strip().lower()
-
-
-def hash_auth_password(password: str, salt: str | None = None) -> str:
-    resolved_salt = salt or secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac(
-        "sha256",
-        (password or "").encode("utf-8"),
-        resolved_salt.encode("utf-8"),
-        PASSWORD_HASH_ITERATIONS,
-    ).hex()
-    return f"pbkdf2_sha256${PASSWORD_HASH_ITERATIONS}${resolved_salt}${digest}"
-
-
-def verify_auth_password(password: str, stored_hash: str) -> bool:
-    parts = str(stored_hash or "").split("$", 3)
-    if len(parts) != 4 or parts[0] != "pbkdf2_sha256":
-        return hmac.compare_digest(str(stored_hash or ""), str(password or ""))
-    _, iterations_text, salt, digest = parts
-    try:
-        iterations = int(iterations_text)
-    except ValueError:
-        return False
-    candidate = hashlib.pbkdf2_hmac(
-        "sha256",
-        (password or "").encode("utf-8"),
-        salt.encode("utf-8"),
-        iterations,
-    ).hex()
-    return hmac.compare_digest(candidate, digest)
-
-
-def get_auth_user(conn: CompatConnection, identity: str) -> Any:
-    normalized_identity = normalize_auth_identity(identity)
-    if not normalized_identity:
-        return None
-    return conn.execute(
-        "SELECT * FROM auth_users WHERE lower(email) = lower(?) LIMIT 1",
-        (normalized_identity,),
-    ).fetchone()
-
-
-def build_login_logo_markup() -> str:
-    mime_map = {
-        ".png": "image/png",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".svg": "image/svg+xml",
-    }
-    app_dir = Path(__file__).resolve().parent
-
-    for candidate in LOGIN_LOGO_CANDIDATES:
-        logo_path = app_dir / candidate
-        if not logo_path.exists() or not logo_path.is_file():
-            continue
-        try:
-            encoded = base64.b64encode(logo_path.read_bytes()).decode("ascii")
-        except OSError:
-            continue
-        mime_type = mime_map.get(logo_path.suffix.lower(), "image/png")
-        return (
-            '<div class="ck-login-logo-mark ck-login-logo-mark-image">'
-            f'<img src="data:{mime_type};base64,{encoded}" alt="Çat Kapında Logo" class="ck-login-logo-image" />'
-            "</div>"
-        )
-
-    return '<div class="ck-login-logo-mark">CK</div>'
-
-
 def coerce_bool(value: Any, default: bool = False) -> bool:
     if value is None:
         return default
@@ -647,49 +593,6 @@ Bu işlemi sen yapmadıysan lütfen sistem yöneticisine hemen bilgi ver.
         raise RuntimeError("Şifre sıfırlama maili gönderilemedi. SMTP ayarlarını kontrol et.") from exc
 
 
-def init_auth_state() -> None:
-    defaults = {
-        "authenticated": False,
-        "username": None,
-        "role": None,
-        "auth_token": None,
-        "user_full_name": None,
-        "user_role_display": None,
-        "must_change_password": False,
-        "login_help_visible": False,
-        "login_transition_active": False,
-    }
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
-
-
-def set_authenticated_user(user_row: Any, token: str | None = None) -> None:
-    if not user_row:
-        return
-    st.session_state.authenticated = True
-    st.session_state.username = str(get_row_value(user_row, "email", "") or "")
-    st.session_state.role = str(get_row_value(user_row, "role", "") or "")
-    st.session_state.auth_token = token
-    st.session_state.user_full_name = str(get_row_value(user_row, "full_name", "") or "")
-    st.session_state.user_role_display = str(get_row_value(user_row, "role_display", "") or "")
-    st.session_state.must_change_password = bool(safe_int(get_row_value(user_row, "must_change_password", 0), 0))
-
-
-def clear_authenticated_user() -> None:
-    for key in [
-        "authenticated",
-        "username",
-        "role",
-        "auth_token",
-        "user_full_name",
-        "user_role_display",
-        "must_change_password",
-        "login_transition_active",
-    ]:
-        st.session_state.pop(key, None)
-
-
 def set_flash_message(level: str, text: str) -> None:
     st.session_state["ck_flash_message"] = {
         "level": str(level or "info"),
@@ -722,35 +625,6 @@ def render_flash_message() -> None:
         st.error(message_text)
     else:
         st.info(message_text)
-
-
-def get_query_param(name: str) -> str | None:
-    if hasattr(st, "query_params"):
-        value = st.query_params.get(name)
-    else:
-        value = st.experimental_get_query_params().get(name)
-    if isinstance(value, list):
-        return value[0] if value else None
-    return value
-
-
-def set_query_param(name: str, value: str | None) -> None:
-    if hasattr(st, "query_params"):
-        if value is None:
-            try:
-                del st.query_params[name]
-            except Exception:
-                pass
-        else:
-            st.query_params[name] = value
-        return
-
-    params = st.experimental_get_query_params()
-    if value is None:
-        params.pop(name, None)
-    else:
-        params[name] = value
-    st.experimental_set_query_params(**params)
 
 
 def split_sql_script(script: str) -> list[str]:
@@ -897,127 +771,6 @@ def insert_equipment_issue_and_get_id(
         (personnel_id, issue_date_str, item_name, quantity, unit_cost, unit_sale_price, vat_rate, installment_count, sale_type, auto_source_key, notes),
     )
     return int(first_row_value(conn.execute("SELECT last_insert_rowid()").fetchone(), 0))
-
-
-def cleanup_auth_sessions(conn: CompatConnection) -> None:
-    conn.execute(
-        "DELETE FROM auth_sessions WHERE expires_at <= ?",
-        (datetime.utcnow().isoformat(timespec="seconds"),),
-    )
-    conn.commit()
-
-
-def sync_default_auth_users(conn: CompatConnection) -> None:
-    now_text = datetime.utcnow().isoformat(timespec="seconds")
-
-    for legacy_identity in LEGACY_AUTH_IDENTITIES:
-        conn.execute("DELETE FROM auth_users WHERE lower(email) = lower(?)", (legacy_identity,))
-        conn.execute("DELETE FROM auth_sessions WHERE username = ?", (legacy_identity,))
-
-    for user in DEFAULT_AUTH_USERS:
-        existing = get_auth_user(conn, user["email"])
-        if existing is None:
-            conn.execute(
-                """
-                INSERT INTO auth_users (
-                    email, full_name, role, role_display, password_hash,
-                    is_active, must_change_password, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    normalize_auth_identity(user["email"]),
-                    user["full_name"],
-                    user["role"],
-                    user["role_display"],
-                    hash_auth_password(DEFAULT_AUTH_PASSWORD),
-                    1,
-                    1,
-                    now_text,
-                    now_text,
-                ),
-            )
-            continue
-
-        password_hash = str(get_row_value(existing, "password_hash", "") or "")
-        must_change_password = safe_int(get_row_value(existing, "must_change_password", 0), 0)
-        if not password_hash:
-            password_hash = hash_auth_password(DEFAULT_AUTH_PASSWORD)
-            must_change_password = 1
-        conn.execute(
-            """
-            UPDATE auth_users
-            SET email = ?, full_name = ?, role = ?, role_display = ?, password_hash = ?,
-                is_active = 1, must_change_password = ?, updated_at = ?
-            WHERE id = ?
-            """,
-            (
-                normalize_auth_identity(user["email"]),
-                user["full_name"],
-                user["role"],
-                user["role_display"],
-                password_hash,
-                must_change_password,
-                now_text,
-                int(get_row_value(existing, "id", 0) or 0),
-            ),
-        )
-
-    conn.commit()
-
-
-def create_auth_session(conn: sqlite3.Connection, username: str) -> str:
-    cleanup_auth_sessions(conn)
-    token = secrets.token_urlsafe(32)
-    created_at = datetime.utcnow()
-    expires_at = created_at + timedelta(days=AUTH_SESSION_DAYS)
-    conn.execute(
-        "INSERT INTO auth_sessions (token, username, created_at, expires_at) VALUES (?, ?, ?, ?)",
-        (
-            token,
-            username,
-            created_at.isoformat(timespec="seconds"),
-            expires_at.isoformat(timespec="seconds"),
-        ),
-    )
-    conn.commit()
-    return token
-
-
-def restore_auth_session(conn: sqlite3.Connection) -> bool:
-    if st.session_state.get("authenticated"):
-        return True
-
-    cleanup_auth_sessions(conn)
-    token = get_query_param(AUTH_QUERY_KEY)
-    if not token:
-        return False
-
-    row = conn.execute(
-        "SELECT username, expires_at FROM auth_sessions WHERE token = ?",
-        (token,),
-    ).fetchone()
-    if not row:
-        set_query_param(AUTH_QUERY_KEY, None)
-        return False
-
-    auth_user = get_auth_user(conn, str(row["username"] or ""))
-    if not auth_user or safe_int(get_row_value(auth_user, "is_active", 0), 0) != 1:
-        conn.execute("DELETE FROM auth_sessions WHERE token = ?", (token,))
-        conn.commit()
-        set_query_param(AUTH_QUERY_KEY, None)
-        return False
-
-    set_authenticated_user(auth_user, token)
-    return True
-
-
-def revoke_current_auth_session(conn: sqlite3.Connection) -> None:
-    token = st.session_state.get("auth_token") or get_query_param(AUTH_QUERY_KEY)
-    if token:
-        conn.execute("DELETE FROM auth_sessions WHERE token = ?", (token,))
-        conn.commit()
-    set_query_param(AUTH_QUERY_KEY, None)
-    clear_authenticated_user()
 
 
 def get_conn() -> CompatConnection:
@@ -3290,6 +3043,19 @@ def sync_all_personnel_business_rules(conn: CompatConnection, full_history: bool
         sync_person_auto_onboarding(conn, row, create_missing=False)
 
 
+configure_auth_engine(
+    get_row_value_fn=get_row_value,
+    safe_int_fn=safe_int,
+    default_auth_users=DEFAULT_AUTH_USERS,
+    default_auth_password=DEFAULT_AUTH_PASSWORD,
+    legacy_auth_identities=LEGACY_AUTH_IDENTITIES,
+    password_hash_iterations=PASSWORD_HASH_ITERATIONS,
+    login_logo_candidates=LOGIN_LOGO_CANDIDATES,
+    auth_query_key=AUTH_QUERY_KEY,
+    auth_session_days=AUTH_SESSION_DAYS,
+)
+
+
 configure_bootstrap_engine(
     first_row_value_fn=first_row_value,
     legacy_db_paths=LEGACY_DB_PATHS,
@@ -3489,62 +3255,6 @@ def format_motor_rental_summary(row: Any) -> str:
         return "-"
     monthly_amount = safe_float(get_row_value(row, "motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
     return f"{fmt_try(monthly_amount)} / ay"
-
-
-def build_table_backup_zip(conn: CompatConnection) -> bytes:
-    buffer = BytesIO()
-    with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for table in TABLE_EXPORT_ORDER:
-            df = fetch_df(conn, f"SELECT * FROM {table}")
-            archive.writestr(f"{table}.csv", df.to_csv(index=False).encode("utf-8-sig"))
-    buffer.seek(0)
-    return buffer.getvalue()
-
-
-def render_backup_tools_content(conn: CompatConnection) -> None:
-    backend_text = "Harici veritabanı" if conn.backend == "postgres" else "Yerel veritabanı"
-    st.caption(f"Aktif kayıt altyapısı: {backend_text}")
-
-    backup_zip = build_table_backup_zip(conn)
-    st.download_button(
-        "Tüm tabloları yedek olarak indir",
-        data=backup_zip,
-        file_name=f"catkapinda_tam_yedek_{date.today().isoformat()}.zip",
-        mime="application/zip",
-        use_container_width=True,
-    )
-
-    if conn.backend == "sqlite" and DB_PATH.exists():
-        st.download_button(
-            "SQLite veritabanı dosyasını indir",
-            data=DB_PATH.read_bytes(),
-            file_name=f"catkapinda_crm_{date.today().isoformat()}.db",
-            mime="application/octet-stream",
-            use_container_width=True,
-        )
-        st.info("Harici veritabanına geçmeden önce bu dosyayı indirmen en güvenli adım olur.")
-
-    if conn.backend == "postgres" and not database_has_operational_data(conn):
-        st.markdown("#### SQLite yedeğini içe aktar")
-        upload = st.file_uploader("Daha önce indirdiğin `.db` yedeğini seç", type=["db"], key="sqlite_backup_import")
-        if st.button("Yedeği içe aktar", key="sqlite_backup_import_btn", use_container_width=True, disabled=upload is None):
-            if upload is None:
-                st.warning("Önce bir `.db` dosyası seçmelisin.")
-            else:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-                    temp_db.write(upload.getvalue())
-                    temp_path = Path(temp_db.name)
-                try:
-                    imported = import_sqlite_into_current_db(conn, temp_path)
-                    if imported:
-                        st.success("SQLite yedeği başarıyla harici veritabanına aktarıldı.")
-                        st.rerun()
-                    st.info("Yedek dosyasında aktarılacak veri bulunamadı.")
-                finally:
-                    try:
-                        temp_path.unlink()
-                    except OSError:
-                        pass
 
 
 def inject_global_styles() -> None:
@@ -4794,6 +4504,15 @@ def fetch_df(conn: CompatConnection, query: str, params: tuple = ()) -> pd.DataF
         normalized_rows.append(dict(enumerate(row)))
 
     return pd.DataFrame(normalized_rows)
+
+
+configure_backup_sections(
+    fetch_df_fn=fetch_df,
+    table_export_order=TABLE_EXPORT_ORDER,
+    db_path=DB_PATH,
+    database_has_operational_data_fn=database_has_operational_data,
+    import_sqlite_into_current_db_fn=import_sqlite_into_current_db,
+)
 
 
 configure_equipment_rules(
