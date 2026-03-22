@@ -219,6 +219,13 @@ from services.equipment_service import (
     load_equipment_workspace_payload,
 )
 from services.dashboard_service import build_dashboard_workspace_payload
+from services.restaurant_service import (
+    create_restaurant_and_commit,
+    delete_restaurant_with_guards,
+    load_restaurant_workspace_payload,
+    toggle_restaurant_status_and_commit,
+    update_restaurant_and_commit,
+)
 from services.personnel_service import (
     build_personnel_code_display_values,
     build_new_person_form_defaults,
@@ -4480,16 +4487,8 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
 
 
 def restaurants_tab(conn: sqlite3.Connection) -> None:
-    df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
-    df = ensure_dataframe_columns(df, {
-        "company_title": "",
-        "address": "",
-        "contact_name": "",
-        "contact_phone": "",
-        "contact_email": "",
-        "tax_office": "",
-        "tax_number": "",
-    })
+    restaurant_payload = load_restaurant_workspace_payload(conn, ensure_dataframe_columns_fn=ensure_dataframe_columns)
+    df = restaurant_payload.df
     render_management_hero(
         "RESTORAN YÖNETİMİ",
         "Şube kartları, fiyat anlaşmaları ve operasyon durumu",
@@ -4533,7 +4532,8 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             render_dashboard_data_grid_fn=render_dashboard_data_grid,
             render_record_snapshot_fn=render_record_snapshot,
             set_flash_message_fn=set_flash_message,
-            first_row_value_fn=first_row_value,
+            toggle_restaurant_status_and_commit_fn=toggle_restaurant_status_and_commit,
+            delete_restaurant_with_guards_fn=delete_restaurant_with_guards,
         )
 
     elif workspace_mode == "add":
@@ -4544,6 +4544,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             render_field_label_fn=render_field_label,
             validate_restaurant_form_fn=validate_restaurant_form,
             set_flash_message_fn=set_flash_message,
+            create_restaurant_and_commit_fn=create_restaurant_and_commit,
         )
 
     else:
@@ -4559,6 +4560,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             render_field_label_fn=render_field_label,
             render_record_snapshot_fn=render_record_snapshot,
             set_flash_message_fn=set_flash_message,
+            update_restaurant_and_commit_fn=update_restaurant_and_commit,
         )
 
 
