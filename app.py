@@ -32,7 +32,7 @@ from reportlab.pdfgen import canvas
 DEFAULT_AUTH_PASSWORD = "123456"
 APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
 APP_PAGE_ICON = "🧭"
-RUNTIME_BOOTSTRAP_VERSION = "2026-03-21-auto-motor-deductions-2"
+RUNTIME_BOOTSTRAP_VERSION = "2026-03-22-manual-motor-deductions"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
     "assets/catkapinda_logo.jpg",
@@ -98,8 +98,6 @@ MOTOR_USAGE_MODE_OPTIONS = ["Kendi Motoru", "Çat Kapında Motor Kirası", "Çat
 DEDUCTION_SOURCE_FILTER_OPTIONS = [
     "Tümü",
     "Manuel Kayıtlar",
-    "Otomatik Motor Kirası",
-    "Otomatik Motor Satışı",
 ]
 SYSTEM_PERSONNEL_AUTO_DEDUCTION_PREFIXES = (
     "auto:motor_rental:",
@@ -139,7 +137,7 @@ MENU_DISPLAY_LABELS = {
     "Personel Yönetimi": "Personel Yönetimi",
     "Puantaj": "Puantaj",
     "Satın Alma": "Satın Alma",
-    "Ekipman & Zimmet": "Ekipman ve Zimmet",
+    "Ekipman & Zimmet": "Ekipman Hareketleri",
     "Kesinti Yönetimi": "Kesinti Yönetimi",
     "Aylık Hakediş": "Aylık Hakediş",
     "Raporlar ve Karlılık": "Raporlar ve Karlılık",
@@ -2786,21 +2784,35 @@ def get_default_issue_installment_count(item_name: str) -> int:
     return AUTO_EQUIPMENT_INSTALLMENT_COUNT
 
 
+def normalize_equipment_issue_installment_count(sale_type: str, installment_count: int) -> int:
+    if str(sale_type or "Satış").strip() != "Satış":
+        return 1
+    return max(safe_int(installment_count, 1), 1)
+
+
+def equipment_issue_generates_installments(sale_type: str, total_sale_amount: float, installment_count: int) -> bool:
+    return (
+        str(sale_type or "Satış").strip() == "Satış"
+        and safe_float(total_sale_amount, 0.0) > 0
+        and normalize_equipment_issue_installment_count(sale_type, installment_count) > 0
+    )
+
+
 def describe_auto_source_key(auto_source_key: Any) -> str:
     key = str(auto_source_key or "").strip()
     if not key:
         return "Manuel"
     if key.startswith("auto:motor_rental:"):
-        return "Otomatik | Motor kirası"
+        return "Eski sistem | Motor kirası"
     if key.startswith("auto:motor_purchase:"):
-        return "Otomatik | Motor satış taksiti"
+        return "Eski sistem | Motor satış taksiti"
     if key.startswith("auto:accounting:"):
-        return "Otomatik | Muhasebe"
+        return "Eski sistem | Muhasebe"
     if key.startswith("auto:company_setup"):
-        return "Otomatik | Şirket açılışı"
+        return "Eski sistem | Şirket açılışı"
     if key.startswith("auto:onboarding:"):
-        return "Otomatik | İşe giriş zimmeti"
-    return "Otomatik"
+        return "Eski sistem | İşe giriş zimmeti"
+    return "Eski sistem"
 
 
 def is_system_personnel_auto_deduction_key(auto_source_key: Any) -> bool:
@@ -2816,9 +2828,11 @@ def post_equipment_installments(
     item_name: str,
     total_sale_amount: float,
     installment_count: int,
+    sale_type: str = "Satış",
     auto_source_key_prefix: str | None = None,
 ) -> None:
-    if installment_count <= 0 or total_sale_amount <= 0:
+    installment_count = normalize_equipment_issue_installment_count(sale_type, installment_count)
+    if not equipment_issue_generates_installments(sale_type, total_sale_amount, installment_count):
         return
     issue_date_value = parse_date_value(issue_date) or date.today()
     installment_amount = round(total_sale_amount / installment_count, 2)
@@ -3850,8 +3864,11 @@ def bulk_update_equipment_issue_records(
         resolved_unit_cost = unit_cost_value if unit_cost_value is not None else safe_float(row["unit_cost"], 0.0)
         resolved_unit_sale_price = unit_sale_price_value if unit_sale_price_value is not None else safe_float(row["unit_sale_price"], 0.0)
         resolved_vat_rate = vat_rate_value if vat_rate_value is not None else safe_float(row["vat_rate"], VAT_RATE_DEFAULT)
-        resolved_installment_count = installment_count_value if installment_count_value is not None else max(safe_int(row["installment_count"], 1), 1)
         resolved_sale_type = sale_type_value if sale_type_value is not None else str(row["sale_type"] or "Satış")
+        resolved_installment_count = normalize_equipment_issue_installment_count(
+            resolved_sale_type,
+            installment_count_value if installment_count_value is not None else safe_int(row["installment_count"], 1),
+        )
         existing_notes = str(row["notes"] or "").strip()
         resolved_notes = existing_notes
         if normalized_note_text:
@@ -3884,6 +3901,7 @@ def bulk_update_equipment_issue_records(
             str(row["item_name"] or ""),
             total_sale_amount,
             resolved_installment_count,
+            resolved_sale_type,
         )
         updated_count += 1
 
@@ -3945,115 +3963,8 @@ def sync_person_auto_deductions(
     if person_id <= 0:
         return
 
-    ensure_person_vehicle_history_baseline(conn, person_row)
     conn.execute("DELETE FROM deductions WHERE personnel_id = ? AND auto_source_key LIKE ?", (person_id, "auto:motor_rental:%"))
     conn.execute("DELETE FROM deductions WHERE personnel_id = ? AND auto_source_key LIKE ?", (person_id, "auto:motor_purchase:%"))
-
-    start_date_value = parse_date_value(get_row_value(person_row, "start_date")) or date.today()
-    exit_date_value = parse_date_value(get_row_value(person_row, "exit_date"))
-    end_date_value = exit_date_value or (as_of or date.today())
-    if end_date_value < start_date_value:
-        conn.commit()
-        return
-
-    month_start_value = start_date_value.replace(day=1) if full_history else (as_of or date.today()).replace(day=1)
-    period_end_value = end_date_value
-    if month_start_value > period_end_value:
-        month_start_value = period_end_value.replace(day=1)
-
-    vehicle_history_df = fetch_df(
-        conn,
-        """
-        SELECT personnel_id, vehicle_type, motor_rental, motor_rental_monthly_amount, motor_purchase, motor_purchase_commitment_months, motor_purchase_sale_price, motor_purchase_monthly_amount, effective_date
-        FROM personnel_vehicle_history
-        WHERE personnel_id = ?
-        ORDER BY effective_date, id
-        """,
-        (person_id,),
-    )
-
-    for month_cursor in iter_month_starts(month_start_value, period_end_value):
-        segment_period_start = max(start_date_value, month_cursor)
-        segment_period_end = min(end_of_month(month_cursor), period_end_value)
-        if segment_period_end < segment_period_start:
-            continue
-
-        rental_amount_total = 0.0
-        rental_days_total = 0
-        sale_amount_total = 0.0
-        sale_days_total = 0
-        sale_commitment_months = 0
-        sale_installment_no = 0
-        sale_multiple_segments = False
-        sale_segment_count = 0
-
-        for vehicle_segment in build_person_vehicle_segments(person_row, vehicle_history_df, segment_period_start, segment_period_end):
-            normalized_vehicle_type = resolve_vehicle_type_value(
-                str(vehicle_segment.get("vehicle_type", "") or ""),
-                str(vehicle_segment.get("motor_rental", "Hayır") or "Hayır"),
-            )
-            segment_start = vehicle_segment["start_date"]
-            segment_end = vehicle_segment["end_date"]
-            segment_days = (segment_end - segment_start).days + 1
-            if segment_days <= 0:
-                continue
-
-            segment_motor_purchase = str(vehicle_segment.get("motor_purchase", "Hayır") or "Hayır")
-            if segment_motor_purchase == "Evet":
-                segment_monthly_amount = safe_float(vehicle_segment.get("motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), 0.0)
-                segment_commitment_months = safe_int(vehicle_segment.get("motor_purchase_commitment_months", 0), 0)
-                if segment_monthly_amount > 0 and segment_commitment_months > 0:
-                    sale_segment_count += 1
-                    sale_days_total += segment_days
-                    sale_amount_total += calculate_prorated_monthly_deduction_amount(segment_monthly_amount, segment_days)
-                    sale_commitment_months = segment_commitment_months
-                    month_offset = ((month_cursor.year - segment_start.year) * 12) + (month_cursor.month - segment_start.month)
-                    sale_installment_no = max(sale_installment_no, month_offset + 1)
-                continue
-
-            if normalized_vehicle_type != "Çat Kapında":
-                continue
-            segment_rental_monthly_amount = safe_float(vehicle_segment.get("motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
-            rental_days_total += segment_days
-            rental_amount_total += calculate_prorated_motor_rental_amount(segment_days, segment_rental_monthly_amount)
-
-        deduction_date_value = build_monthly_deduction_date(segment_period_start, month_cursor)
-        if rental_amount_total > 0:
-            conn.execute(
-                """
-                INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, auto_source_key)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    person_id,
-                    deduction_date_value.isoformat(),
-                    "Motor Kirası",
-                    round(rental_amount_total, 2),
-                    f"Sistem: {rental_days_total} gün Çat Kapında motor kullanımı | bu ay toplam kira kesintisi.",
-                    f"auto:motor_rental:{person_id}:{month_cursor.strftime('%Y-%m')}",
-                ),
-            )
-        if sale_amount_total > 0:
-            sale_multiple_segments = sale_segment_count > 1
-            installment_text = (
-                f"{sale_installment_no}/{sale_commitment_months} taksit"
-                if sale_commitment_months > 0 and not sale_multiple_segments
-                else "çoklu motor satış geçişi"
-            )
-            conn.execute(
-                """
-                INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, auto_source_key)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    person_id,
-                    deduction_date_value.isoformat(),
-                    "Motor Satın Alım",
-                    round(sale_amount_total, 2),
-                    f"Sistem: {installment_text} | {sale_days_total} gün aktif satış dönemi üzerinden otomatik hesaplandı.",
-                    f"auto:motor_purchase:{person_id}:{month_cursor.strftime('%Y-%m')}",
-                ),
-            )
     conn.commit()
 
 
@@ -4420,7 +4331,7 @@ def format_motor_rental_summary(row: Any) -> str:
 def render_vehicle_transition_caption() -> None:
     st.caption(
         "Motor düzeni değiştiyse bu tarih, yeni kullanım modelinin geçerli olduğu ilk günü temsil eder. "
-        "Kira, satış ve kendi motoru geçişleri ay sonu kesintilerine otomatik yansır."
+        "Kesintiler bu bilgiye göre manuel takip edilir."
     )
 
 
@@ -4451,10 +4362,10 @@ def render_motor_deduction_snapshot(
         items.append(("Motor Kirası", "Uygulanmaz"))
     if not items:
         return
-    render_record_snapshot("Otomatik Motor Kesinti Özeti", items)
+    render_record_snapshot("Motor Kesinti Referansı", items)
     st.caption(
-        "Motor kira ve motor satış tutarları tam ayda tam kesilir. Sadece işe giriş, işten çıkış, "
-        "motor tipi değişimi veya motor satış başlangıcı ay içinde ise /30 bazlı prorate edilir."
+        "Bu özet yalnızca referans amaçlıdır. Motor kira ve motor satış kesintilerini bu kurala göre "
+        "manuel girebilirsin."
     )
 
 
@@ -4534,6 +4445,85 @@ def render_motor_deduction_snapshot_from_payload(payload: dict[str, Any]) -> Non
     )
 
 
+def onboarding_equipment_state_key(item_name: str, field_name: str) -> str:
+    normalized_item = re.sub(r"[^a-z0-9]+", "_", str(item_name or "").lower()).strip("_")
+    normalized_field = re.sub(r"[^a-z0-9]+", "_", str(field_name or "").lower()).strip("_")
+    return f"new_person_onboarding_{normalized_item}_{normalized_field}"
+
+
+def clear_new_person_onboarding_state() -> None:
+    st.session_state["new_person_onboarding_items"] = []
+    for item_name in EQUIPMENT_ITEMS:
+        for field_name in ["issue_date", "quantity", "sale_price", "vat_rate", "installment_count", "notes"]:
+            st.session_state.pop(onboarding_equipment_state_key(item_name, field_name), None)
+
+
+def initialize_onboarding_equipment_state(conn: CompatConnection, item_name: str, default_issue_date: date | None) -> None:
+    issue_date_key = onboarding_equipment_state_key(item_name, "issue_date")
+    quantity_key = onboarding_equipment_state_key(item_name, "quantity")
+    sale_price_key = onboarding_equipment_state_key(item_name, "sale_price")
+    vat_rate_key = onboarding_equipment_state_key(item_name, "vat_rate")
+    installment_key = onboarding_equipment_state_key(item_name, "installment_count")
+    notes_key = onboarding_equipment_state_key(item_name, "notes")
+
+    resolved_issue_date = default_issue_date if isinstance(default_issue_date, date) else date.today()
+    default_vat_rate = get_equipment_vat_rate(item_name, resolved_issue_date)
+    default_sale_price = get_default_equipment_sale_price(item_name)
+    default_installment_count = get_default_issue_installment_count(item_name)
+
+    if issue_date_key not in st.session_state or not isinstance(st.session_state.get(issue_date_key), date):
+        st.session_state[issue_date_key] = resolved_issue_date
+    if quantity_key not in st.session_state:
+        st.session_state[quantity_key] = 1
+    if sale_price_key not in st.session_state:
+        st.session_state[sale_price_key] = float(default_sale_price)
+    if vat_rate_key not in st.session_state or safe_float(st.session_state.get(vat_rate_key), 0.0) not in {10.0, 20.0}:
+        st.session_state[vat_rate_key] = float(default_vat_rate if default_vat_rate in {10.0, 20.0} else 10.0)
+    if installment_key not in st.session_state:
+        st.session_state[installment_key] = int(default_installment_count if default_installment_count in [1, 2, 3, 6, 12] else 2)
+    if notes_key not in st.session_state:
+        st.session_state[notes_key] = ""
+
+
+def collect_onboarding_equipment_payloads(conn: CompatConnection, selected_items: list[str]) -> list[dict[str, Any]]:
+    payloads: list[dict[str, Any]] = []
+    for item_name in selected_items:
+        quantity_key = onboarding_equipment_state_key(item_name, "quantity")
+        issue_date_key = onboarding_equipment_state_key(item_name, "issue_date")
+        sale_price_key = onboarding_equipment_state_key(item_name, "sale_price")
+        vat_rate_key = onboarding_equipment_state_key(item_name, "vat_rate")
+        installment_key = onboarding_equipment_state_key(item_name, "installment_count")
+        notes_key = onboarding_equipment_state_key(item_name, "notes")
+        payloads.append(
+            {
+                "item_name": item_name,
+                "issue_date": st.session_state.get(issue_date_key),
+                "quantity": max(safe_int(st.session_state.get(quantity_key), 1), 1),
+                "unit_sale_price": max(safe_float(st.session_state.get(sale_price_key), 0.0), 0.0),
+                "vat_rate": 20.0 if safe_float(st.session_state.get(vat_rate_key), 10.0) >= 20.0 else 10.0,
+                "installment_count": max(safe_int(st.session_state.get(installment_key), 1), 1),
+                "unit_cost": max(get_default_equipment_unit_cost(conn, item_name), 0.0),
+                "notes": str(st.session_state.get(notes_key, "") or "").strip(),
+            }
+        )
+    return payloads
+
+
+def validate_onboarding_equipment_payloads(payloads: list[dict[str, Any]]) -> list[str]:
+    errors: list[str] = []
+    for payload in payloads:
+        item_name = str(payload.get("item_name") or "").strip() or "Ürün"
+        if not isinstance(payload.get("issue_date"), date):
+            errors.append(f"{item_name} için teslim tarihi zorunlu.")
+        if safe_int(payload.get("quantity"), 0) <= 0:
+            errors.append(f"{item_name} için adet en az 1 olmalı.")
+        if safe_int(payload.get("installment_count"), 0) <= 0:
+            errors.append(f"{item_name} için taksit sayısı zorunlu.")
+        if safe_float(payload.get("vat_rate"), 0.0) not in {10.0, 20.0}:
+            errors.append(f"{item_name} için KDV oranı %10 veya %20 olmalı.")
+    return errors
+
+
 def filter_deductions_by_source(raw_df: pd.DataFrame, source_filter: str) -> pd.DataFrame:
     filtered_raw_df = raw_df.copy()
     if filtered_raw_df.empty:
@@ -4550,17 +4540,14 @@ def filter_deductions_by_source(raw_df: pd.DataFrame, source_filter: str) -> pd.
 def get_deduction_source_filter_caption(source_filter: str) -> str:
     captions = {
         "Manuel Kayıtlar": "Yalnızca manuel girilmiş kesintiler gösteriliyor.",
-        "Otomatik Motor Kirası": "Personel kartındaki motor tipi ve tarih bilgisine göre oluşan otomatik motor kira kesintileri gösteriliyor.",
-        "Otomatik Motor Satışı": "Personel kartındaki motor satış tarihi, fiyatı ve taahhüt süresine göre oluşan otomatik taksitler gösteriliyor.",
     }
     return captions.get(source_filter, "")
 
 
 def build_auto_deduction_warning_text(auto_source_key: Any) -> str:
     return (
-        f"Bu kayıt {describe_auto_source_key(auto_source_key)} akışından otomatik üretildi. "
-        "Değişiklik için ilgili personel kartındaki motor tipi, motor satış tarihi, fiyatı veya "
-        "başlangıç/çıkış tarihini güncelle."
+        f"Bu kayıt {describe_auto_source_key(auto_source_key)} akışından kalan eski otomatik kayıttır. "
+        "Bu dönem için kesintileri manuel yönetin; gerekirse bu kaydı silip doğru tutarı yeniden girin."
     )
 
 
@@ -6965,7 +6952,7 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
                 ("Yeni Personel Kartı", "Personel Yönetimi", "Yeni kurye veya yönetici ekle."),
                 ("Yeni Şube Kartı", "Restoran Yönetimi", "Restoran anlaşma kartını aç."),
                 ("Kesinti Kaydı Gir", "Kesinti Yönetimi", "Ay sonu kesintisini işle."),
-                ("Zimmet Kaydını Aç", "Ekipman & Zimmet", "Ekipman hareketini kaydet."),
+                ("Ekipman Hareketini Aç", "Ekipman & Zimmet", "Sonradan verilen ekipman, iade ve düzeltmeleri kaydet."),
                 ("Aylık Raporu Aç", "Raporlar ve Karlılık", "Bu ayın kârlılık ekranına geç."),
             ]
             for index, (button_label, target_menu, subtitle) in enumerate(quick_actions):
@@ -7884,7 +7871,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 st.info("Kartı düzenlemek, pasife almak veya görev bilgilerini değiştirmek için “Personel Düzenle” sekmesini kullan.")
 
     elif workspace_mode == "add":
-        render_tab_header("Yeni Personel Kartı", "Kimlik, muhasebe, maliyet ve araç alanlarını bloklar halinde doldurarak yeni kart oluştur.")
+        render_tab_header("Yeni Personel Kartı", "Kimlik, muhasebe, motor ve işe giriş ekipmanlarını aynı onboarding akışında tamamlayarak yeni kart oluştur.")
         if recently_created_id > 0 and not df.empty:
             recent_match = df[df["id"] == recently_created_id]
             if not recent_match.empty:
@@ -7930,8 +7917,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "new_person_monthly_fixed_cost": 0.0,
             "new_person_current_plate": "",
             "new_person_notes": "",
+            "new_person_onboarding_items": [],
         }
         if st.session_state.pop("personnel_form_reset_pending", False):
+            clear_new_person_onboarding_state()
             for key, value in new_person_defaults.items():
                 st.session_state[key] = value
         for key, value in new_person_defaults.items():
@@ -7941,65 +7930,16 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             st.session_state["new_person_accounting_type"] = "Kendi Muhasebecisi"
 
         st.markdown("##### Kimlik ve Görev")
-        c1, c2, c3 = st.columns(3)
+        selected_cost_model = resolve_cost_role_option("", st.session_state.get("new_person_role", PERSONNEL_ROLE_OPTIONS[0]))
+        c1, c2, c3, c4 = st.columns(4)
         with c1:
             render_field_label("Ad Soyad", required=True)
             full_name = st.text_input("Ad Soyad", key="new_person_full_name", label_visibility="collapsed")
         with c2:
             render_field_label("Rol")
             role = st.selectbox("Rol", PERSONNEL_ROLE_OPTIONS, key="new_person_role", label_visibility="collapsed")
-        code_preview = next_person_code(conn, role)
-        with c3:
-            render_field_label("Otomatik Personel Kodu")
-            st.text_input("Otomatik Personel Kodu", value=code_preview, disabled=True, label_visibility="collapsed")
-
-        c4, c5 = st.columns(2)
-        with c4:
-            render_field_label("Telefon", required=True)
-            phone = st.text_input("Telefon", key="new_person_phone", label_visibility="collapsed")
-        with c5:
-            render_field_label("Ana Restoran", required=role_requires_primary_restaurant(role))
-            assigned_label = st.selectbox(
-                "Ana Restoran",
-                list(rest_opts_with_blank.keys()),
-                key="new_person_assigned_label",
-                disabled=not role_requires_primary_restaurant(role),
-                label_visibility="collapsed",
-            )
-
-        c7, c8, c9 = st.columns(3)
-        with c7:
-            render_field_label("TC Kimlik No", required=True)
-            tc_no = st.text_input("TC Kimlik No", key="new_person_tc_no", label_visibility="collapsed")
-        with c8:
-            render_field_label("IBAN", required=True)
-            iban = st.text_input("IBAN", key="new_person_iban", label_visibility="collapsed")
-        with c9:
-            render_field_label("İşe Giriş Tarihi", required=True)
-            start_date = st.date_input("İşe Giriş Tarihi", key="new_person_start_date", label_visibility="collapsed")
-
-        render_field_label("Adres")
-        address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address", label_visibility="collapsed")
-
-        st.markdown("##### Acil Durum İletişimi")
-        c9a, c9b = st.columns(2)
-        with c9a:
-            render_field_label("Acil Durum İletişim Adı Soyadı")
-            emergency_contact_name = st.text_input("Acil Durum İletişim Adı Soyadı", key="new_person_emergency_contact_name", label_visibility="collapsed")
-        with c9b:
-            render_field_label("Acil Durum İletişim Telefonu")
-            emergency_contact_phone = st.text_input("Acil Durum İletişim Telefonu", key="new_person_emergency_contact_phone", label_visibility="collapsed")
-
-        st.markdown("##### Muhasebe ve Şirket")
-        c10, c11, c12 = st.columns(3)
-        with c10:
-            render_field_label("Muhasebe")
-            accounting_type = st.selectbox("Muhasebe", ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"], key="new_person_accounting_type", label_visibility="collapsed")
-        with c11:
-            render_field_label("Yeni Şirket Açılışı")
-            new_company_setup = st.selectbox("Yeni Şirket Açılışı", ["Hayır", "Evet"], key="new_person_new_company_setup", label_visibility="collapsed")
         selected_cost_model = resolve_cost_role_option("", role)
-        with c12:
+        with c3:
             render_field_label("Maliyet Modeli")
             cost_model = st.selectbox(
                 "Maliyet Modeli",
@@ -8009,6 +7949,55 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 format_func=lambda x: COST_MODEL_LABELS.get(x, x),
                 label_visibility="collapsed",
             )
+        code_preview = next_person_code(conn, role)
+        with c4:
+            render_field_label("Otomatik Personel Kodu")
+            st.text_input("Otomatik Personel Kodu", value=code_preview, disabled=True, label_visibility="collapsed")
+
+        c5, c6, c7 = st.columns(3)
+        with c5:
+            render_field_label("Telefon", required=True)
+            phone = st.text_input("Telefon", key="new_person_phone", label_visibility="collapsed")
+        with c6:
+            render_field_label("Ana Restoran", required=role_requires_primary_restaurant(role))
+            assigned_label = st.selectbox(
+                "Ana Restoran",
+                list(rest_opts_with_blank.keys()),
+                key="new_person_assigned_label",
+                disabled=not role_requires_primary_restaurant(role),
+                label_visibility="collapsed",
+            )
+        with c7:
+            render_field_label("İşe Giriş Tarihi", required=True)
+            start_date = st.date_input("İşe Giriş Tarihi", key="new_person_start_date", label_visibility="collapsed")
+
+        c8, c9, c10 = st.columns(3)
+        with c8:
+            render_field_label("TC Kimlik No", required=True)
+            tc_no = st.text_input("TC Kimlik No", key="new_person_tc_no", label_visibility="collapsed")
+        with c9:
+            render_field_label("IBAN", required=True)
+            iban = st.text_input("IBAN", key="new_person_iban", label_visibility="collapsed")
+        with c10:
+            render_field_label("Acil Durum İletişim Telefonu")
+            emergency_contact_phone = st.text_input("Acil Durum İletişim Telefonu", key="new_person_emergency_contact_phone", label_visibility="collapsed")
+
+        c11, c12 = st.columns(2)
+        with c11:
+            render_field_label("Acil Durum İletişim Adı Soyadı")
+            emergency_contact_name = st.text_input("Acil Durum İletişim Adı Soyadı", key="new_person_emergency_contact_name", label_visibility="collapsed")
+        with c12:
+            render_field_label("Adres")
+            address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address", label_visibility="collapsed")
+
+        st.markdown("##### Muhasebe ve Şirket")
+        c10, c11 = st.columns(2)
+        with c10:
+            render_field_label("Muhasebe")
+            accounting_type = st.selectbox("Muhasebe", ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"], key="new_person_accounting_type", label_visibility="collapsed")
+        with c11:
+            render_field_label("Yeni Şirket Açılışı")
+            new_company_setup = st.selectbox("Yeni Şirket Açılışı", ["Hayır", "Evet"], key="new_person_new_company_setup", label_visibility="collapsed")
         if "new_person_accounting_revenue" not in st.session_state:
             st.session_state["new_person_accounting_revenue"] = float(resolve_accounting_defaults(accounting_type)[0])
         if "new_person_accountant_cost" not in st.session_state:
@@ -8083,7 +8072,6 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 )
             motor_rental_monthly_amount = 0.0
 
-        st.markdown("##### Çat Kapında Motor Satış Bilgisi")
         c21, c22, c23 = st.columns(3)
         with c21:
             render_field_label("Motor Satın Alım Tarihi", required=sale_mode_enabled)
@@ -8126,6 +8114,60 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         vehicle_type = str(motor_usage_payload["vehicle_type"] or "")
         motor_purchase = str(motor_usage_payload["motor_purchase"] or "Hayır")
         render_motor_deduction_snapshot_from_payload(motor_usage_payload)
+
+        st.markdown("##### İşe Giriş Ekipmanları")
+        onboarding_items = st.multiselect(
+            "İşe girişte verilen ekipmanlar",
+            EQUIPMENT_ITEMS,
+            key="new_person_onboarding_items",
+            help="İşe girişte satılan veya personele teslim edilen ekipmanları burada kaydet. Sonradan eklenen hareketleri Ekipman Hareketleri ekranından yönetebilirsin.",
+        )
+        onboarding_issue_payloads: list[dict[str, Any]] = []
+        if onboarding_items:
+            st.caption("Satın alma kayıtlarındaki ortalama maliyet arka planda kullanılır. Burada yalnızca kuryeye satış fiyatını, KDV'yi ve taksit bilgisini girmen yeterli.")
+            for item_name in onboarding_items:
+                initialize_onboarding_equipment_state(conn, item_name, start_date if isinstance(start_date, date) else None)
+                issue_date_key = onboarding_equipment_state_key(item_name, "issue_date")
+                quantity_key = onboarding_equipment_state_key(item_name, "quantity")
+                sale_price_key = onboarding_equipment_state_key(item_name, "sale_price")
+                vat_rate_key = onboarding_equipment_state_key(item_name, "vat_rate")
+                installment_key = onboarding_equipment_state_key(item_name, "installment_count")
+                notes_key = onboarding_equipment_state_key(item_name, "notes")
+                cost_snapshot = get_equipment_cost_snapshot(conn, item_name)
+                average_cost = safe_float(cost_snapshot[3], 0.0)
+                st.markdown(f"###### {item_name}")
+                item_c1, item_c2, item_c3 = st.columns(3)
+                with item_c1:
+                    render_field_label("Teslim Tarihi", required=True)
+                    st.date_input("Teslim Tarihi", key=issue_date_key, label_visibility="collapsed")
+                with item_c2:
+                    render_field_label("Adet", required=True)
+                    st.number_input("Adet", min_value=1, step=1, key=quantity_key, label_visibility="collapsed")
+                with item_c3:
+                    render_field_label("Kuryeye Satış Fiyatı | KDV dahil")
+                    st.number_input("Kuryeye Satış Fiyatı | KDV dahil", min_value=0.0, step=50.0, key=sale_price_key, label_visibility="collapsed")
+                item_c4, item_c5, item_c6 = st.columns(3)
+                with item_c4:
+                    render_field_label("KDV")
+                    st.selectbox(
+                        "KDV",
+                        [10.0, 20.0],
+                        key=vat_rate_key,
+                        format_func=lambda x: f"%{fmt_number(x)}",
+                        label_visibility="collapsed",
+                    )
+                with item_c5:
+                    render_field_label("Taksit Sayısı")
+                    st.selectbox("Taksit Sayısı", [1, 2, 3, 6, 12], key=installment_key, label_visibility="collapsed")
+                with item_c6:
+                    render_field_label("Not")
+                    st.text_input("Not", key=notes_key, label_visibility="collapsed")
+                if average_cost > 0:
+                    st.caption(f"Ortalama birim maliyet: {fmt_try(average_cost)}")
+            onboarding_issue_payloads = collect_onboarding_equipment_payloads(conn, onboarding_items)
+        else:
+            onboarding_issue_payloads = []
+
         notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar", key="new_person_notes")
 
         create_clicked = st.button("Personel Kartını Oluştur", use_container_width=True, key="new_person_create")
@@ -8152,6 +8194,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 motor_purchase_commitment_months=safe_int(motor_purchase_commitment_months, 0),
                 motor_purchase_sale_price=safe_float(motor_purchase_sale_price, 0.0),
             )
+            validation_errors.extend(validate_onboarding_equipment_payloads(onboarding_issue_payloads))
             if validation_errors:
                 for error_text in validation_errors:
                     st.error(error_text)
@@ -8208,6 +8251,36 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     created_person = conn.execute("SELECT * FROM personnel WHERE person_code = ? ORDER BY id DESC", (auto_code,)).fetchone()
                     if not created_person:
                         raise RuntimeError("Personel kaydı oluşturuldu ancak kayıt tekrar okunamadı.")
+                    created_person_id = safe_int(get_row_value(created_person, "id"), 0)
+                    for payload in onboarding_issue_payloads:
+                        issue_date_value = payload["issue_date"]
+                        quantity_value = safe_int(payload["quantity"], 1)
+                        sale_price_value = safe_float(payload["unit_sale_price"], 0.0)
+                        installment_count_value = safe_int(payload["installment_count"], 1)
+                        vat_rate_value = safe_float(payload["vat_rate"], 10.0)
+                        issue_id = insert_equipment_issue_and_get_id(
+                            conn,
+                            created_person_id,
+                            issue_date_value.isoformat(),
+                            str(payload["item_name"] or ""),
+                            quantity_value,
+                            safe_float(payload["unit_cost"], 0.0),
+                            sale_price_value,
+                            installment_count_value,
+                            "Satış",
+                            str(payload.get("notes", "") or ""),
+                            vat_rate=vat_rate_value,
+                        )
+                        post_equipment_installments(
+                            conn,
+                            issue_id,
+                            created_person_id,
+                            issue_date_value,
+                            str(payload["item_name"] or ""),
+                            float(quantity_value) * float(sale_price_value),
+                            installment_count_value,
+                            "Satış",
+                        )
                     sync_person_current_role_snapshot(conn, created_person)
                     conn.commit()
                     sync_person_business_rules(conn, created_person)
@@ -8215,8 +8288,12 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     conn.rollback()
                     st.error(f"Personel kartı oluşturulamadı: {exc}")
                 else:
-                    created_person_id = safe_int(get_row_value(created_person, "id"), 0)
-                    success_text = f"{full_name} başarıyla eklendi. Kod: {auto_code}"
+                    equipment_summary = (
+                        f" | {len(onboarding_issue_payloads)} onboarding ekipmanı kaydedildi"
+                        if onboarding_issue_payloads
+                        else ""
+                    )
+                    success_text = f"{full_name} başarıyla eklendi. Kod: {auto_code}{equipment_summary}"
                     st.session_state[workspace_key] = "add"
                     st.session_state["person_search"] = ""
                     st.session_state["person_role_filter"] = "Tümü"
@@ -9044,7 +9121,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
 
 def deductions_tab(conn: sqlite3.Connection) -> None:
-    section_intro("💸 Kesinti Yönetimi | Motor kira, bakım, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan kaydet; otomatik motor kesintileri de aynı tabloda görünür.")
+    section_intro("💸 Kesinti Yönetimi | Motor kira, bakım, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan manuel kaydet ve yönet.")
     person_opts = get_person_options(conn, active_only=False)
     deduction_types = ["Bakım", "Yakıt", "HGS", "İdari ceza", "Hasar", "Fatura Edilmeyen Tutar"]
 
@@ -9526,8 +9603,8 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
 
 def equipment_tab(conn: sqlite3.Connection) -> None:
     section_intro(
-        "📦 Ekipman & Zimmet | Kurye satışı, taksit kesintisi ve box geri alım",
-        "Kurye zimmetlerini, oluşan taksit kesintilerini, box geri alımlarını ve ekipman kârlılığını bu panelden yönet.",
+        "📦 Ekipman Hareketleri | Sonradan satış, düzeltme, iade ve box geri alım",
+        "İşe girişten sonra oluşan tüm ekipman hareketlerini, düzeltmeleri, box geri alımlarını ve ekipman kârlılığını bu panelden yönet.",
     )
     person_opts = get_person_options(conn, active_only=False)
     tab1, tab2, tab3 = st.tabs([
@@ -9537,7 +9614,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
     ])
 
     with tab1:
-        st.markdown("#### Kurye zimmet / satış kaydı")
+        st.markdown("#### Sonradan ekipman hareketi")
         if not person_opts:
             st.info("Önce personel eklenmeli.")
         else:
@@ -9583,18 +9660,28 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             unit_cost = c5.number_input("Birim maliyet", min_value=0.0, step=50.0, key="issue_cost")
             unit_sale_price = c6.number_input("Kuryeye satış fiyatı | KDV dahil", min_value=0.0, step=50.0, key="issue_sale")
             c7, c8, c9 = st.columns(3)
+            sale_type = c7.selectbox("İşlem tipi", ["Satış", "Depozit / Teslim"], key="issue_sale_type")
             installment_count_options = [1, 2, 3, 6, 12]
             issue_installment_value = safe_int(st.session_state.get("issue_installment"), get_default_issue_installment_count(item_name))
             if issue_installment_value not in installment_count_options:
                 issue_installment_value = get_default_issue_installment_count(item_name)
                 st.session_state["issue_installment"] = issue_installment_value
-            installment_count = c7.selectbox(
-                "Taksit sayısı",
-                installment_count_options,
-                index=installment_count_options.index(issue_installment_value),
-                key="issue_installment",
-            )
-            sale_type = c8.selectbox("İşlem tipi", ["Satış", "Depozit / Teslim"], key="issue_sale_type")
+            if sale_type == "Satış":
+                installment_count = c8.selectbox(
+                    "Taksit sayısı",
+                    installment_count_options,
+                    index=installment_count_options.index(issue_installment_value),
+                    key="issue_installment",
+                )
+            else:
+                c8.selectbox(
+                    "Taksit sayısı",
+                    [1],
+                    index=0,
+                    disabled=True,
+                    key="issue_installment_disabled_display",
+                )
+                installment_count = 1
             notes = c9.text_input("Not", key="issue_notes")
             st.caption(f"Bu ürün için varsayılan KDV oranı: %{fmt_number(vat_rate)}")
             if active_average_cost > 0:
@@ -9603,7 +9690,13 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                 st.caption("Motor Kirası seçildiğinde varsayılan satış fiyatı 13.000₺ ve taksit sayısı 1 olarak gelir.")
             elif item_name == "Motor Satın Alım":
                 st.caption("Motor Satın Alım seçildiğinde varsayılan satış fiyatı 135.000₺ ve taksit sayısı 12 olarak gelir.")
-            submitted = st.button("Zimmet Kaydet ve Taksit Oluştur", use_container_width=True, key="issue_submit")
+            effective_installment_count = normalize_equipment_issue_installment_count(sale_type, installment_count)
+            total_sale_amount = float(quantity) * float(unit_sale_price)
+            generates_installments = equipment_issue_generates_installments(sale_type, total_sale_amount, effective_installment_count)
+            if sale_type != "Satış":
+                st.caption("Depozit / Teslim seçildiğinde bağlı zimmet taksiti oluşturulmaz.")
+            submit_label = "Zimmet Kaydet ve Taksit Oluştur" if generates_installments else "Zimmet Kaydet"
+            submitted = st.button(submit_label, use_container_width=True, key="issue_submit")
             if submitted:
                 person_id = person_opts[person_label]
                 issue_id = insert_equipment_issue_and_get_id(
@@ -9614,16 +9707,27 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                     int(quantity),
                     unit_cost,
                     unit_sale_price,
-                    int(installment_count),
+                    int(effective_installment_count),
                     sale_type,
                     notes,
                     vat_rate=vat_rate,
                 )
-                total_sale_amount = float(quantity) * float(unit_sale_price)
-                post_equipment_installments(conn, issue_id, person_id, issue_date, item_name, total_sale_amount, int(installment_count))
+                post_equipment_installments(
+                    conn,
+                    issue_id,
+                    person_id,
+                    issue_date,
+                    item_name,
+                    total_sale_amount,
+                    int(effective_installment_count),
+                    sale_type,
+                )
                 st.session_state["issue_qty"] = 1
                 st.session_state["issue_notes"] = ""
-                st.success(f"Zimmet kaydedildi. Toplam satış: {fmt_try(total_sale_amount)} | {installment_count} taksit oluşturuldu.")
+                if generates_installments:
+                    st.success(f"Zimmet kaydedildi. Toplam satış: {fmt_try(total_sale_amount)} | {effective_installment_count} taksit oluşturuldu.")
+                else:
+                    st.success(f"Zimmet kaydedildi. Toplam işlem tutarı: {fmt_try(total_sale_amount)}")
                 st.rerun()
 
         issues = fetch_df(
@@ -9664,7 +9768,26 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                     "notes": "Not",
                 },
             )
-            st.dataframe(issues_display, use_container_width=True, hide_index=True)
+            issue_columns = [
+                "Tarih",
+                "Personel",
+                "Ürün",
+                "Adet",
+                "Birim Maliyet",
+                "Birim Satış",
+                "Toplam Satış",
+                "Taksit",
+                "İşlem Tipi",
+                "Kaynak",
+            ]
+            render_dashboard_data_grid(
+                "Zimmet Kayıtları",
+                "Kurye bazlı satış ve teslim kayıtlarını düzenli satırlarda izle.",
+                issue_columns,
+                build_grid_rows(issues_display, issue_columns),
+                "Henüz zimmet kaydı yok.",
+                muted_columns={"Kaynak"},
+            )
 
             st.markdown("#### Toplu güncelle / sil")
             bulk_issue_options = {
@@ -9766,7 +9889,15 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                     "notes": "Açıklama",
                 },
             )
-            st.dataframe(installment_display, use_container_width=True, hide_index=True)
+            installment_columns = ["Tarih", "Personel", "Tür", "Tutar", "Kaynak", "Açıklama"]
+            render_dashboard_data_grid(
+                "Zimmet Taksitleri",
+                "Zimmet kayıtlarından doğan kesintileri ay sonu planıyla takip et.",
+                installment_columns,
+                build_grid_rows(installment_display, installment_columns),
+                "Henüz zimmet taksiti oluşmadı.",
+                muted_columns={"Kaynak", "Açıklama"},
+            )
 
     with tab2:
         st.markdown("#### Box geri alım")
@@ -9819,7 +9950,14 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                 },
             )
             cols = ["Tarih", "Personel", "Adet", "Durum", "Geri Ödeme", "Parasını İstemedi", "Not"]
-            st.dataframe(returns_display[cols], use_container_width=True, hide_index=True)
+            render_dashboard_data_grid(
+                "Box Geri Alım Kayıtları",
+                "İade edilen box kayıtlarını durum ve geri ödeme bazında izle.",
+                cols,
+                build_grid_rows(returns_display[cols], cols),
+                "Henüz box geri alım kaydı yok.",
+                muted_columns={"Not"},
+            )
 
     with tab3:
         st.markdown("#### Ekipman satış ve kârlılık özeti")
@@ -9832,6 +9970,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                    SUM(quantity * unit_sale_price) AS total_sale,
                    SUM((quantity * unit_sale_price) - (quantity * unit_cost)) AS gross_profit
             FROM courier_equipment_issues
+            WHERE sale_type = 'Satış'
             GROUP BY item_name
             ORDER BY total_sale DESC
             """,
@@ -9856,6 +9995,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
         c1.metric("Toplam satın alma", fmt_try(total_purchase))
         c2.metric("Kuryeye toplam satış", fmt_try(total_sale))
         c3.metric("Brüt ekipman kârı", fmt_try(total_profit))
+        st.caption("Bu özet yalnızca `Satış` tipindeki zimmet kayıtlarını gelir ve kârlılık hesabına dahil eder. `Depozit / Teslim` kayıtları bu satış özetine girmez.")
 
         if not sales_profit.empty:
             sales_display = format_display_df(
@@ -9870,7 +10010,14 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                     "gross_profit": "Brüt Kâr",
                 },
             )
-            st.dataframe(sales_display, use_container_width=True, hide_index=True)
+            sales_columns = ["Ürün", "Satılan Adet", "Toplam Maliyet", "Toplam Satış", "Brüt Kâr"]
+            render_dashboard_data_grid(
+                "Satış Özeti",
+                "Yalnızca satış tipindeki zimmet kayıtlarının kârlılık kırılımı.",
+                sales_columns,
+                build_grid_rows(sales_display, sales_columns),
+                "Henüz satış tipinde zimmet kaydı yok.",
+            )
 
         if not stock_purchase.empty:
             st.markdown("#### Satın alma özeti")
@@ -9885,7 +10032,14 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                     "weighted_unit_cost": "Ağırlıklı Birim Maliyet",
                 },
             )
-            st.dataframe(stock_display, use_container_width=True, hide_index=True)
+            stock_columns = ["Ürün", "Alınan Adet", "Toplam Fatura", "Ağırlıklı Birim Maliyet"]
+            render_dashboard_data_grid(
+                "Satın Alma Özeti",
+                "Satın alma faturalarının ürün bazlı maliyet ortalaması.",
+                stock_columns,
+                build_grid_rows(stock_display, stock_columns),
+                "Henüz satın alma özeti yok.",
+            )
 
 def build_branch_profitability(
     month_df: pd.DataFrame,
