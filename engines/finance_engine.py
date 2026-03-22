@@ -5,7 +5,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
-from reporting_rules import (
+from rules.reporting_rules import (
     build_person_role_segments,
     calculate_standard_courier_cost,
     calculate_standard_package_cost,

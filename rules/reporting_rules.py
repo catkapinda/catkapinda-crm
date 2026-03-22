@@ -237,6 +237,33 @@ def describe_cost_model_segments(segments: list[dict[str, Any]], fallback_cost_m
     return "Geçişli"
 
 
+def _calculate_threshold_package_subtotal(total_hours: float, total_packages: float, rule: Any) -> float:
+    raw_threshold = _SAFE_INT(getattr(rule, "package_threshold", 0), 0)
+    package_threshold = float(raw_threshold if raw_threshold > 0 else _PACKAGE_THRESHOLD_DEFAULT)
+    package_rate = rule.package_rate_low if float(total_packages or 0) <= package_threshold else rule.package_rate_high
+    return float(total_hours or 0) * rule.hourly_rate + float(total_packages or 0) * package_rate
+
+
+def _build_invoice_actor_keys(group: pd.DataFrame) -> pd.Series:
+    actor_keys = pd.Series([""] * len(group), index=group.index, dtype="object")
+
+    if "actual_personnel_id" in group.columns:
+        actual_ids = pd.to_numeric(group["actual_personnel_id"], errors="coerce").astype("Int64").astype("string").fillna("")
+        actor_keys = actual_ids.astype(str)
+        actor_keys = actor_keys.replace("<NA>", "")
+
+    if "planned_personnel_id" in group.columns:
+        planned_ids = pd.to_numeric(group["planned_personnel_id"], errors="coerce").astype("Int64").astype("string").fillna("")
+        planned_keys = planned_ids.astype(str).replace("<NA>", "")
+        actor_keys = actor_keys.mask(actor_keys.astype(str).str.strip() == "", planned_keys)
+
+    if "personel" in group.columns:
+        person_names = group["personel"].fillna("").astype(str).str.strip()
+        actor_keys = actor_keys.mask(actor_keys.astype(str).str.strip() == "", person_names)
+
+    return actor_keys.fillna("").astype(str)
+
+
 def calculate_customer_invoice(group: pd.DataFrame, rule: Any) -> tuple[float, float, float, float]:
     total_hours = float(group["worked_hours"].fillna(0).sum())
     total_packages = float(group["package_count"].fillna(0).sum())
@@ -244,9 +271,28 @@ def calculate_customer_invoice(group: pd.DataFrame, rule: Any) -> tuple[float, f
     if rule.pricing_model == "hourly_plus_package":
         subtotal = total_hours * rule.hourly_rate + total_packages * rule.package_rate
     elif rule.pricing_model == "threshold_package":
-        package_threshold = float(rule.package_threshold or 0)
-        package_rate = rule.package_rate_low if total_packages <= package_threshold else rule.package_rate_high
-        subtotal = total_hours * rule.hourly_rate + total_packages * package_rate
+        actor_keys = _build_invoice_actor_keys(group)
+        if actor_keys.astype(str).str.strip().eq("").all():
+            subtotal = _calculate_threshold_package_subtotal(total_hours, total_packages, rule)
+        else:
+            threshold_work = group.copy()
+            threshold_work["invoice_actor_key"] = actor_keys
+            grouped = (
+                threshold_work.groupby("invoice_actor_key", dropna=False)
+                .agg(worked_hours=("worked_hours", "sum"), package_count=("package_count", "sum"))
+                .reset_index()
+            )
+            grouped = grouped[(grouped["worked_hours"] > 0) | (grouped["package_count"] > 0)].copy()
+            subtotal = float(
+                grouped.apply(
+                    lambda row: _calculate_threshold_package_subtotal(
+                        _SAFE_FLOAT(row.get("worked_hours"), 0.0),
+                        _SAFE_FLOAT(row.get("package_count"), 0.0),
+                        rule,
+                    ),
+                    axis=1,
+                ).sum()
+            )
     elif rule.pricing_model == "hourly_only":
         subtotal = total_hours * rule.hourly_rate
     elif rule.pricing_model == "fixed_monthly":
@@ -299,7 +345,7 @@ def build_invoice_summary_df(month_df: pd.DataFrame) -> pd.DataFrame:
             pricing_model=str(first.get("pricing_model", "") or ""),
             hourly_rate=_SAFE_FLOAT(first.get("hourly_rate"), 0.0),
             package_rate=_SAFE_FLOAT(first.get("package_rate"), 0.0),
-            package_threshold=_SAFE_INT(first.get("package_threshold"), 0),
+            package_threshold=_SAFE_INT(first.get("package_threshold"), _PACKAGE_THRESHOLD_DEFAULT),
             package_rate_low=_SAFE_FLOAT(first.get("package_rate_low"), 0.0),
             package_rate_high=_SAFE_FLOAT(first.get("package_rate_high"), 0.0),
             fixed_monthly_fee=_SAFE_FLOAT(first.get("fixed_monthly_fee"), 0.0),
@@ -341,7 +387,7 @@ def build_restaurant_invoice_drilldown_map(
         "pricing_model": "",
         "hourly_rate": 0.0,
         "package_rate": 0.0,
-        "package_threshold": 0,
+        "package_threshold": _PACKAGE_THRESHOLD_DEFAULT,
         "package_rate_low": 0.0,
         "package_rate_high": 0.0,
         "fixed_monthly_fee": 0.0,
@@ -389,17 +435,13 @@ def build_restaurant_invoice_drilldown_map(
             pricing_model=str(first.get("pricing_model", "") or ""),
             hourly_rate=_SAFE_FLOAT(first.get("hourly_rate"), 0.0),
             package_rate=_SAFE_FLOAT(first.get("package_rate"), 0.0),
-            package_threshold=_SAFE_INT(first.get("package_threshold"), 0),
+            package_threshold=_SAFE_INT(first.get("package_threshold"), _PACKAGE_THRESHOLD_DEFAULT),
             package_rate_low=_SAFE_FLOAT(first.get("package_rate_low"), 0.0),
             package_rate_high=_SAFE_FLOAT(first.get("package_rate_high"), 0.0),
             fixed_monthly_fee=_SAFE_FLOAT(first.get("fixed_monthly_fee"), 0.0),
             vat_rate=_SAFE_FLOAT(first.get("vat_rate"), _VAT_RATE_DEFAULT),
         )
         restaurant_total_hours, restaurant_total_packages, _, _ = calculate_customer_invoice(restaurant_entries, rule)
-        if rule.pricing_model == "threshold_package":
-            threshold_rate = rule.package_rate_low if restaurant_total_packages <= float(rule.package_threshold or 0) else rule.package_rate_high
-        else:
-            threshold_rate = rule.package_rate
 
         grouped = (
             restaurant_entries.groupby(["personel", "rol"], dropna=False)
@@ -418,7 +460,7 @@ def build_restaurant_invoice_drilldown_map(
             if rule.pricing_model == "hourly_plus_package":
                 courier_subtotal = courier_hours * rule.hourly_rate + courier_packages * rule.package_rate
             elif rule.pricing_model == "threshold_package":
-                courier_subtotal = courier_hours * rule.hourly_rate + courier_packages * threshold_rate
+                courier_subtotal = _calculate_threshold_package_subtotal(courier_hours, courier_packages, rule)
             elif rule.pricing_model == "hourly_only":
                 courier_subtotal = courier_hours * rule.hourly_rate
             elif rule.pricing_model == "fixed_monthly":

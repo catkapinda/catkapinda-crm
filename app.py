@@ -20,14 +20,14 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
-from analytics_builders import (
+from builders.analytics_builders import (
     build_dashboard_brand_summary,
     build_dashboard_priority_alerts,
     build_dashboard_profit_snapshots,
     build_side_income_summary_df,
     split_equipment_profit_categories,
 )
-from dashboard_sections import (
+from ui.dashboard_sections import (
     render_dashboard_action_sections,
     render_dashboard_activity_sections,
     render_dashboard_finance_and_hygiene_sections,
@@ -41,7 +41,7 @@ from infrastructure.db_engine import (
     connect_database,
     fetch_df,
 )
-from entity_builders import (
+from builders.entity_builders import (
     build_personnel_hero_stats,
     build_personnel_list_rows,
     build_personnel_preview_options,
@@ -52,7 +52,7 @@ from entity_builders import (
     build_restaurant_snapshot_items,
     ensure_dataframe_columns,
 )
-from form_rules import (
+from rules.form_rules import (
     build_motor_usage_payload,
     clear_new_person_onboarding_state,
     collect_onboarding_equipment_payloads,
@@ -66,7 +66,7 @@ from form_rules import (
     validate_personnel_form,
     validate_restaurant_form,
 )
-from ops_builders import (
+from builders.ops_builders import (
     build_auto_deduction_warning_text,
     build_bulk_deduction_option_map,
     build_deduction_grid_rows,
@@ -76,7 +76,7 @@ from ops_builders import (
     filter_deductions_by_source,
     get_deduction_source_filter_caption,
 )
-from personnel_rules import (
+from rules.personnel_rules import (
     configure_personnel_rules,
     get_role_fixed_cost_label,
     initialize_edit_person_transition_state,
@@ -94,13 +94,13 @@ from personnel_rules import (
     role_requires_primary_restaurant,
     validate_role_transition_inputs,
 )
-from personnel_sections import (
+from ui.personnel_sections import (
     render_personnel_add_workspace,
     render_personnel_edit_workspace,
     render_personnel_list_workspace,
     render_personnel_plate_workspace,
 )
-from equipment_rules import (
+from rules.equipment_rules import (
     build_equipment_profitability_frames,
     configure_equipment_rules,
     describe_auto_source_key,
@@ -113,7 +113,7 @@ from equipment_rules import (
     latest_average_cost,
     normalize_equipment_issue_installment_count,
 )
-from reporting_rules import (
+from rules.reporting_rules import (
     build_invoice_summary_df,
     build_restaurant_attendance_export_map,
     build_restaurant_export_filename,
@@ -123,7 +123,7 @@ from reporting_rules import (
     get_operational_restaurant_names_for_period,
     month_bounds,
 )
-from finance_engine import (
+from engines.finance_engine import (
     build_branch_profitability,
     calculate_personnel_cost,
     configure_finance_engine,
@@ -152,11 +152,11 @@ from infrastructure.auth_engine import (
     sync_default_auth_users,
     verify_auth_password,
 )
-from backup_sections import (
+from ui.backup_sections import (
     configure_backup_sections,
     render_backup_tools_content,
 )
-from report_sections import (
+from ui.report_sections import (
     render_cost_report_tab,
     render_distribution_report_tab,
     render_invoice_report_tab,
@@ -164,12 +164,12 @@ from report_sections import (
     render_shared_overhead_report_tab,
     render_side_income_report_tab,
 )
-from restaurant_sections import (
+from ui.restaurant_sections import (
     render_restaurant_add_workspace,
     render_restaurant_edit_workspace,
     render_restaurant_list_workspace,
 )
-from ui_helpers import (
+from ui.ui_helpers import (
     apply_text_search,
     build_grid_rows,
     fmt_number,
@@ -6431,7 +6431,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
             pricing_model=first["pricing_model"],
             hourly_rate=float(first["hourly_rate"] or 0),
             package_rate=float(first["package_rate"] or 0),
-            package_threshold=int(first["package_threshold"] or 0) if pd.notna(first["package_threshold"]) else 0,
+            package_threshold=int(first["package_threshold"] or PACKAGE_THRESHOLD_DEFAULT) if pd.notna(first["package_threshold"]) else PACKAGE_THRESHOLD_DEFAULT,
             package_rate_low=float(first["package_rate_low"] or 0),
             package_rate_high=float(first["package_rate_high"] or 0),
             fixed_monthly_fee=float(first["fixed_monthly_fee"] or 0),
