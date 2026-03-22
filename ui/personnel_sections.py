@@ -87,6 +87,7 @@ def render_personnel_add_workspace(
     conn: Any,
     df: pd.DataFrame,
     *,
+    can_create_personnel: bool,
     recently_created_id: int,
     workspace_key: str,
     rest_opts_with_blank: dict[str, Any],
@@ -389,7 +390,14 @@ def render_personnel_add_workspace(
 
     notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar", key="new_person_notes")
 
-    create_clicked = st.button("Personel Kartını Oluştur", use_container_width=True, key="new_person_create")
+    if not can_create_personnel:
+        st.caption("Personel olusturma yetkin olmadigi icin kaydetme butonu pasif.")
+    create_clicked = st.button(
+        "Personel Kartını Oluştur",
+        use_container_width=True,
+        key="new_person_create",
+        disabled=not can_create_personnel,
+    )
     if not create_clicked:
         if create_success_message := str(st.session_state.get("personnel_create_success_message", "") or "").strip():
             st.success(f"Personel kartı oluşturuldu. {create_success_message}")
@@ -487,6 +495,13 @@ def render_personnel_edit_workspace(
     conn: Any,
     df: pd.DataFrame,
     *,
+    can_update_personnel: bool,
+    can_toggle_personnel_status: bool,
+    can_delete_personnel: bool,
+    can_create_equipment: bool,
+    can_update_equipment: bool,
+    can_delete_equipment: bool,
+    can_box_return: bool,
     rest_opts: dict[str, Any],
     rest_opts_with_blank: dict[str, Any],
     personnel_role_options: list[str],
@@ -948,9 +963,26 @@ def render_personnel_edit_workspace(
             edit_notes = st.text_area("Notlar", value=row["notes"] or "")
 
             c24, c25, c26 = st.columns(3)
-            update_clicked = c24.button("Personeli Güncelle", use_container_width=True, key=f"edit_person_update_{selected_id}")
-            toggle_clicked = c25.button("Aktif/Pasif Durumunu Değiştir", use_container_width=True, key=f"edit_person_toggle_{selected_id}")
-            delete_clicked = c26.button("Kalıcı Sil", use_container_width=True, key=f"edit_person_delete_{selected_id}")
+            if not can_update_personnel or not can_toggle_personnel_status or not can_delete_personnel:
+                st.caption("Yetkine gore bazi personel aksiyonlari pasif.")
+            update_clicked = c24.button(
+                "Personeli Güncelle",
+                use_container_width=True,
+                key=f"edit_person_update_{selected_id}",
+                disabled=not can_update_personnel,
+            )
+            toggle_clicked = c25.button(
+                "Aktif/Pasif Durumunu Değiştir",
+                use_container_width=True,
+                key=f"edit_person_toggle_{selected_id}",
+                disabled=not can_toggle_personnel_status,
+            )
+            delete_clicked = c26.button(
+                "Kalıcı Sil",
+                use_container_width=True,
+                key=f"edit_person_delete_{selected_id}",
+                disabled=not can_delete_personnel,
+            )
 
             if update_clicked:
                 assigned_id = rest_opts_with_blank.get(edit_restaurant) if role_requires_primary_restaurant_fn(effective_role) else None
@@ -1089,6 +1121,9 @@ def render_personnel_edit_workspace(
             render_personnel_equipment_section(
                 conn,
                 selected_id,
+                can_create_equipment=can_create_equipment,
+                can_update_equipment=can_update_equipment,
+                can_delete_equipment=can_delete_equipment,
                 issue_items=issue_items,
                 get_equipment_cost_snapshot_fn=get_equipment_cost_snapshot_fn,
                 get_default_equipment_unit_cost_fn=get_default_equipment_unit_cost_fn,
@@ -1117,6 +1152,7 @@ def render_personnel_edit_workspace(
             render_personnel_box_return_section(
                 conn,
                 selected_id,
+                can_box_return=can_box_return,
                 fetch_df_fn=fetch_df_fn,
                 safe_int_fn=safe_int_fn,
                 format_display_df_fn=format_display_df_fn,
@@ -1129,6 +1165,7 @@ def render_personnel_edit_workspace(
 def render_personnel_plate_workspace(
     conn: Any,
     *,
+    can_update_personnel: bool,
     get_person_options_fn: Callable[[Any, bool], dict[str, int]],
     fetch_df_fn: Callable[[Any, str, tuple], pd.DataFrame],
     safe_int_fn: Callable[[Any, int], int],
@@ -1149,7 +1186,13 @@ def render_personnel_plate_workspace(
         c4, c5 = st.columns(2)
         start_dt = c4.date_input("Başlangıç", value=date.today())
         end_dt = c5.date_input("Bitiş", value=None)
-        submitted = st.form_submit_button("Plaka Geçmişine Ekle", use_container_width=True)
+        if not can_update_personnel:
+            st.caption("Personel guncelleme yetkin olmadigi icin plaka ekleme pasif.")
+        submitted = st.form_submit_button(
+            "Plaka Geçmişine Ekle",
+            use_container_width=True,
+            disabled=not can_update_personnel,
+        )
         if submitted and plate:
             pid = person_opts[person_label]
             conn.execute("UPDATE plate_history SET active=0, end_date=? WHERE personnel_id=? AND active=1", (start_dt.isoformat(), pid))
@@ -1242,6 +1285,7 @@ def render_personnel_box_return_section(
     conn: Any,
     selected_id: int,
     *,
+    can_box_return: bool,
     fetch_df_fn: Callable[[Any, str, tuple], pd.DataFrame],
     safe_int_fn: Callable[[Any, int], int],
     format_display_df_fn: Callable[..., pd.DataFrame],
@@ -1258,7 +1302,13 @@ def render_personnel_box_return_section(
         r4, r5 = st.columns(2)
         payout_amount = r4.number_input("Ödenen Tutar", min_value=0.0, value=0.0, step=100.0)
         return_notes = r5.text_input("İade Notu")
-        save_box_return_clicked = st.form_submit_button("Box Geri Alımını Kaydet", use_container_width=True)
+        if not can_box_return:
+            st.caption("Box geri alim kaydetme yetkin olmadigi icin buton pasif.")
+        save_box_return_clicked = st.form_submit_button(
+            "Box Geri Alımını Kaydet",
+            use_container_width=True,
+            disabled=not can_box_return,
+        )
         if save_box_return_clicked:
             waived = 1 if condition_status == "Parasını istemedi" else 0
             conn.execute(
@@ -1314,6 +1364,9 @@ def render_personnel_equipment_section(
     conn: Any,
     selected_id: int,
     *,
+    can_create_equipment: bool,
+    can_update_equipment: bool,
+    can_delete_equipment: bool,
     issue_items: list[str],
     get_equipment_cost_snapshot_fn: Callable[[Any, str], tuple[Any, Any, Any, float]],
     get_default_equipment_unit_cost_fn: Callable[[Any, str], float],
@@ -1438,7 +1491,14 @@ def render_personnel_equipment_section(
     if new_issue_sale_type != "Satış":
         st.caption("Depozit / Teslim seçildiğinde bağlı zimmet taksiti oluşturulmaz.")
     add_issue_label = "Ekipman Hareketini Kaydet ve Taksit Oluştur" if generates_new_issue_installments else "Ekipman Hareketini Kaydet"
-    if st.button(add_issue_label, key=f"{new_issue_prefix}_submit", use_container_width=True):
+    if not can_create_equipment:
+        st.caption("Ekipman hareketi olusturma yetkin olmadigi icin kaydetme butonu pasif.")
+    if st.button(
+        add_issue_label,
+        key=f"{new_issue_prefix}_submit",
+        use_container_width=True,
+        disabled=not can_create_equipment,
+    ):
         new_issue_id = insert_equipment_issue_and_get_id_fn(
             conn,
             selected_id,
@@ -1552,8 +1612,20 @@ def render_personnel_equipment_section(
         edit_issue_installment = 1
     edit_issue_notes = d9.text_input("Ekipman Notu", value=str(selected_issue_row["notes"] or ""))
     e1, e2 = st.columns(2)
-    issue_update_clicked = e1.button("Ekipman Kaydını Güncelle", use_container_width=True, key=f"edit_person_issue_update_{selected_issue_id}")
-    issue_delete_clicked = e2.button("Ekipman Kaydını Sil", use_container_width=True, key=f"edit_person_issue_delete_{selected_issue_id}")
+    if not can_update_equipment or not can_delete_equipment:
+        st.caption("Yetkine gore bazi ekipman aksiyonlari pasif.")
+    issue_update_clicked = e1.button(
+        "Ekipman Kaydını Güncelle",
+        use_container_width=True,
+        key=f"edit_person_issue_update_{selected_issue_id}",
+        disabled=not can_update_equipment,
+    )
+    issue_delete_clicked = e2.button(
+        "Ekipman Kaydını Sil",
+        use_container_width=True,
+        key=f"edit_person_issue_delete_{selected_issue_id}",
+        disabled=not can_delete_equipment,
+    )
     if issue_update_clicked:
         updated = update_equipment_issue_record_fn(
             conn,

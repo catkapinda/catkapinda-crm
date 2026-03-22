@@ -11,6 +11,8 @@ def render_restaurant_list_workspace(
     conn: Any,
     df: pd.DataFrame,
     *,
+    can_toggle_restaurant_status: bool,
+    can_delete_restaurant: bool,
     pricing_model_labels: dict[str, str],
     active_status_labels: dict[Any, str],
     safe_int_fn: Callable[[Any, int], int],
@@ -87,7 +89,12 @@ def render_restaurant_list_workspace(
         st.markdown("##### Hızlı Aksiyonlar")
         b1, b2 = st.columns(2)
         current_active = safe_int_fn(selected_row["active"], 1)
-        if b1.button("Pasife Al" if current_active == 1 else "Aktifleştir", use_container_width=True, key="restaurant_toggle_btn"):
+        if b1.button(
+            "Pasife Al" if current_active == 1 else "Aktifleştir",
+            use_container_width=True,
+            key="restaurant_toggle_btn",
+            disabled=not can_toggle_restaurant_status,
+        ):
             try:
                 success_message = toggle_restaurant_status_and_commit_fn(conn, restaurant_id=selected_id, current_active=current_active)
             except Exception as exc:
@@ -95,7 +102,12 @@ def render_restaurant_list_workspace(
             else:
                 set_flash_message_fn("success", success_message)
                 st.rerun()
-        if b2.button("Kalıcı Sil", use_container_width=True, key="restaurant_delete_btn"):
+        if b2.button(
+            "Kalıcı Sil",
+            use_container_width=True,
+            key="restaurant_delete_btn",
+            disabled=not can_delete_restaurant,
+        ):
             try:
                 success_message = delete_restaurant_with_guards_fn(conn, restaurant_id=selected_id)
             except ValueError as exc:
@@ -105,6 +117,8 @@ def render_restaurant_list_workspace(
             else:
                 set_flash_message_fn("success", success_message)
                 st.rerun()
+        if not can_toggle_restaurant_status or not can_delete_restaurant:
+            st.caption("Yetkine gore bazi hizli aksiyonlar pasif.")
         st.caption("Kalıcı silme işlemi yalnızca test veya yanlış açılmış kayıtlar için kullanılmalı.")
 
 
@@ -206,6 +220,7 @@ def _render_pricing_fields(
 def render_restaurant_add_workspace(
     conn: Any,
     *,
+    can_create_restaurant: bool,
     pricing_model_labels: dict[str, str],
     render_tab_header_fn: Callable[[str, str], None],
     render_field_label_fn: Callable[[str, bool], None],
@@ -292,7 +307,14 @@ def render_restaurant_add_workspace(
             tax_number = st.text_input("Vergi Numarası", label_visibility="collapsed")
 
         notes = st.text_area("Notlar", placeholder="Şube içi önemli notlar, çalışma düzeni veya anlaşma detayı")
-        submitted = st.button("Şube Kartını Oluştur", use_container_width=True, key="restaurant_create_submit")
+        if not can_create_restaurant:
+            st.caption("Restoran olusturma yetkin olmadigi icin kaydetme butonu pasif.")
+        submitted = st.button(
+            "Şube Kartını Oluştur",
+            use_container_width=True,
+            key="restaurant_create_submit",
+            disabled=not can_create_restaurant,
+        )
         if not submitted:
             return
 
@@ -369,6 +391,7 @@ def render_restaurant_edit_workspace(
     conn: Any,
     df: pd.DataFrame,
     *,
+    can_update_restaurant: bool,
     pricing_model_labels: dict[str, str],
     active_status_labels: dict[Any, str],
     safe_int_fn: Callable[[Any, int], int],
@@ -489,7 +512,14 @@ def render_restaurant_edit_workspace(
                 edit_tax_number = st.text_input("Vergi Numarası", value=selected_row["tax_number"] or "", label_visibility="collapsed")
 
             edit_notes = st.text_area("Notlar", value=selected_row["notes"] or "")
-            submitted_edit = st.button("Şube Kartını Güncelle", use_container_width=True, key="restaurant_edit_submit")
+            if not can_update_restaurant:
+                st.caption("Restoran guncelleme yetkin olmadigi icin kaydetme butonu pasif.")
+            submitted_edit = st.button(
+                "Şube Kartını Güncelle",
+                use_container_width=True,
+                key="restaurant_edit_submit",
+                disabled=not can_update_restaurant,
+            )
             if not submitted_edit:
                 return
 
