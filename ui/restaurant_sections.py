@@ -22,7 +22,8 @@ def render_restaurant_list_workspace(
     render_dashboard_data_grid_fn: Callable[..., None],
     render_record_snapshot_fn: Callable[[str, list[tuple[str, Any]]], None],
     set_flash_message_fn: Callable[[str, str], None],
-    first_row_value_fn: Callable[[Any, Any], Any],
+    toggle_restaurant_status_and_commit_fn: Callable[..., str],
+    delete_restaurant_with_guards_fn: Callable[..., str],
 ) -> None:
     render_tab_header_fn("Şube Listesi", "Marka, fiyat modeli ve durum filtresi ile kayıtları daralt; sağ panelden seçili şube üzerinde hızlı işlem yap.")
     f1, f2, f3, f4 = st.columns([2.2, 1, 1.2, 1])
@@ -87,34 +88,22 @@ def render_restaurant_list_workspace(
         b1, b2 = st.columns(2)
         current_active = safe_int_fn(selected_row["active"], 1)
         if b1.button("Pasife Al" if current_active == 1 else "Aktifleştir", use_container_width=True, key="restaurant_toggle_btn"):
-            conn.execute("UPDATE restaurants SET active = ? WHERE id = ?", (0 if current_active == 1 else 1, selected_id))
-            conn.commit()
-            set_flash_message_fn("success", "Restoran başarıyla pasife alındı." if current_active == 1 else "Restoran başarıyla aktifleştirildi.")
-            st.rerun()
-        if b2.button("Kalıcı Sil", use_container_width=True, key="restaurant_delete_btn"):
-            linked_people = int(first_row_value_fn(conn.execute("SELECT COUNT(*) FROM personnel WHERE assigned_restaurant_id = ?", (selected_id,)).fetchone(), 0) or 0)
-            linked_puantaj = int(first_row_value_fn(conn.execute("SELECT COUNT(*) FROM daily_entries WHERE restaurant_id = ?", (selected_id,)).fetchone(), 0) or 0)
-            linked_deductions = int(
-                first_row_value_fn(
-                    conn.execute(
-                        """
-                        SELECT COUNT(*)
-                        FROM deductions d
-                        JOIN personnel p ON p.id = d.personnel_id
-                        WHERE p.assigned_restaurant_id = ?
-                        """,
-                        (selected_id,),
-                    ).fetchone(),
-                    0,
-                )
-                or 0
-            )
-            if linked_people or linked_puantaj or linked_deductions:
-                st.error("Bu restorana bağlı personel, puantaj veya kesinti kaydı var. Önce pasife alman daha doğru olur.")
+            try:
+                success_message = toggle_restaurant_status_and_commit_fn(conn, restaurant_id=selected_id, current_active=current_active)
+            except Exception as exc:
+                st.error(f"Restoran durumu güncellenemedi: {exc}")
             else:
-                conn.execute("DELETE FROM restaurants WHERE id = ?", (selected_id,))
-                conn.commit()
-                set_flash_message_fn("success", "Restoran kaydı kalıcı olarak silindi.")
+                set_flash_message_fn("success", success_message)
+                st.rerun()
+        if b2.button("Kalıcı Sil", use_container_width=True, key="restaurant_delete_btn"):
+            try:
+                success_message = delete_restaurant_with_guards_fn(conn, restaurant_id=selected_id)
+            except ValueError as exc:
+                st.error(str(exc))
+            except Exception as exc:
+                st.error(f"Restoran silinemedi: {exc}")
+            else:
+                set_flash_message_fn("success", success_message)
                 st.rerun()
         st.caption("Kalıcı silme işlemi yalnızca test veya yanlış açılmış kayıtlar için kullanılmalı.")
 
@@ -222,6 +211,7 @@ def render_restaurant_add_workspace(
     render_field_label_fn: Callable[[str, bool], None],
     validate_restaurant_form_fn: Callable[..., list[str]],
     set_flash_message_fn: Callable[[str, str], None],
+    create_restaurant_and_commit_fn: Callable[..., str],
 ) -> None:
     render_tab_header_fn("Yeni Şube Kartı", "Temel bilgiler, fiyatlandırma, operasyon ve iletişim alanlarını daha düzenli bloklar halinde gir.")
     with st.container():
@@ -336,50 +326,43 @@ def render_restaurant_add_workspace(
                 st.error(error_text)
             return
 
-        conn.execute(
-            """
-            INSERT INTO restaurants (
-                brand, branch, billing_group, pricing_model, hourly_rate, package_rate,
-                package_threshold, package_rate_low, package_rate_high, fixed_monthly_fee,
-                vat_rate, target_headcount, start_date, end_date,
-                extra_headcount_request, extra_headcount_request_date,
-                reduce_headcount_request, reduce_headcount_request_date,
-                contact_name, contact_phone, contact_email, company_title, address, tax_office, tax_number,
-                active, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-            """,
-            (
-                brand,
-                branch,
-                None,
-                pricing_model,
-                hourly_rate,
-                package_rate,
-                package_threshold if pricing_model == "threshold_package" else None,
-                package_rate_low,
-                package_rate_high,
-                fixed_fee,
-                vat_rate,
-                headcount,
-                start_date_val.isoformat() if isinstance(start_date_val, date) else None,
-                end_date_val.isoformat() if isinstance(end_date_val, date) else None,
-                extra_req,
-                extra_req_date.isoformat() if isinstance(extra_req_date, date) else None,
-                reduce_req,
-                reduce_req_date.isoformat() if isinstance(reduce_req_date, date) else None,
-                contact_name,
-                contact_phone,
-                contact_email,
-                company_title,
-                address,
-                tax_office,
-                tax_number,
-                notes,
-            ),
-        )
-        conn.commit()
-        set_flash_message_fn("success", "Restoran başarıyla eklendi.")
-        st.rerun()
+        try:
+            success_message = create_restaurant_and_commit_fn(
+                conn,
+                restaurant_values={
+                    "brand": brand,
+                    "branch": branch,
+                    "billing_group": None,
+                    "pricing_model": pricing_model,
+                    "hourly_rate": hourly_rate,
+                    "package_rate": package_rate,
+                    "package_threshold": package_threshold if pricing_model == "threshold_package" else None,
+                    "package_rate_low": package_rate_low,
+                    "package_rate_high": package_rate_high,
+                    "fixed_monthly_fee": fixed_fee,
+                    "vat_rate": vat_rate,
+                    "target_headcount": headcount,
+                    "start_date": start_date_val.isoformat() if isinstance(start_date_val, date) else None,
+                    "end_date": end_date_val.isoformat() if isinstance(end_date_val, date) else None,
+                    "extra_headcount_request": extra_req,
+                    "extra_headcount_request_date": extra_req_date.isoformat() if isinstance(extra_req_date, date) else None,
+                    "reduce_headcount_request": reduce_req,
+                    "reduce_headcount_request_date": reduce_req_date.isoformat() if isinstance(reduce_req_date, date) else None,
+                    "contact_name": contact_name,
+                    "contact_phone": contact_phone,
+                    "contact_email": contact_email,
+                    "company_title": company_title,
+                    "address": address,
+                    "tax_office": tax_office,
+                    "tax_number": tax_number,
+                    "notes": notes,
+                },
+            )
+        except Exception as exc:
+            st.error(f"Restoran kartı oluşturulamadı: {exc}")
+        else:
+            set_flash_message_fn("success", success_message)
+            st.rerun()
 
 
 def render_restaurant_edit_workspace(
@@ -395,6 +378,7 @@ def render_restaurant_edit_workspace(
     render_field_label_fn: Callable[[str, bool], None],
     render_record_snapshot_fn: Callable[[str, list[tuple[str, Any]]], None],
     set_flash_message_fn: Callable[[str, str], None],
+    update_restaurant_and_commit_fn: Callable[..., str],
 ) -> None:
     if df.empty:
         st.info("Güncellenecek restoran kaydı bulunmuyor.")
@@ -539,46 +523,40 @@ def render_restaurant_edit_workspace(
                     st.error(error_text)
                 return
 
-            conn.execute(
-                """
-                UPDATE restaurants
-                SET brand=?, branch=?, pricing_model=?, hourly_rate=?, package_rate=?,
-                    package_threshold=?, package_rate_low=?, package_rate_high=?, fixed_monthly_fee=?,
-                    vat_rate=?, target_headcount=?, start_date=?, end_date=?,
-                    extra_headcount_request=?, extra_headcount_request_date=?,
-                    reduce_headcount_request=?, reduce_headcount_request_date=?,
-                    contact_name=?, contact_phone=?, contact_email=?, company_title=?, address=?, tax_office=?, tax_number=?, notes=?
-                WHERE id=?
-                """,
-                (
-                    edit_brand,
-                    edit_branch,
-                    edit_pricing_model,
-                    edit_hourly_rate,
-                    edit_package_rate,
-                    edit_package_threshold if edit_pricing_model == "threshold_package" else None,
-                    edit_package_rate_low,
-                    edit_package_rate_high,
-                    edit_fixed_fee,
-                    edit_vat_rate,
-                    edit_headcount,
-                    edit_start_date.isoformat() if isinstance(edit_start_date, date) else None,
-                    edit_end_date.isoformat() if isinstance(edit_end_date, date) else None,
-                    edit_extra_req,
-                    edit_extra_req_date.isoformat() if isinstance(edit_extra_req_date, date) else None,
-                    edit_reduce_req,
-                    edit_reduce_req_date.isoformat() if isinstance(edit_reduce_req_date, date) else None,
-                    edit_contact_name,
-                    edit_contact_phone,
-                    edit_contact_email,
-                    edit_company_title,
-                    edit_address,
-                    edit_tax_office,
-                    edit_tax_number,
-                    edit_notes,
-                    selected_id,
-                ),
-            )
-            conn.commit()
-            set_flash_message_fn("success", "Restoran kartı başarıyla güncellendi.")
-            st.rerun()
+            try:
+                success_message = update_restaurant_and_commit_fn(
+                    conn,
+                    restaurant_id=selected_id,
+                    restaurant_values={
+                        "brand": edit_brand,
+                        "branch": edit_branch,
+                        "pricing_model": edit_pricing_model,
+                        "hourly_rate": edit_hourly_rate,
+                        "package_rate": edit_package_rate,
+                        "package_threshold": edit_package_threshold if edit_pricing_model == "threshold_package" else None,
+                        "package_rate_low": edit_package_rate_low,
+                        "package_rate_high": edit_package_rate_high,
+                        "fixed_monthly_fee": edit_fixed_fee,
+                        "vat_rate": edit_vat_rate,
+                        "target_headcount": edit_headcount,
+                        "start_date": edit_start_date.isoformat() if isinstance(edit_start_date, date) else None,
+                        "end_date": edit_end_date.isoformat() if isinstance(edit_end_date, date) else None,
+                        "extra_headcount_request": edit_extra_req,
+                        "extra_headcount_request_date": edit_extra_req_date.isoformat() if isinstance(edit_extra_req_date, date) else None,
+                        "reduce_headcount_request": edit_reduce_req,
+                        "reduce_headcount_request_date": edit_reduce_req_date.isoformat() if isinstance(edit_reduce_req_date, date) else None,
+                        "contact_name": edit_contact_name,
+                        "contact_phone": edit_contact_phone,
+                        "contact_email": edit_contact_email,
+                        "company_title": edit_company_title,
+                        "address": edit_address,
+                        "tax_office": edit_tax_office,
+                        "tax_number": edit_tax_number,
+                        "notes": edit_notes,
+                    },
+                )
+            except Exception as exc:
+                st.error(f"Restoran kartı güncellenemedi: {exc}")
+            else:
+                set_flash_message_fn("success", success_message)
+                st.rerun()
