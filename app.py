@@ -24,8 +24,6 @@ from builders.analytics_builders import (
     build_dashboard_brand_summary,
     build_dashboard_priority_alerts,
     build_dashboard_profit_snapshots,
-    build_side_income_summary_df,
-    split_equipment_profit_categories,
 )
 from ui.dashboard_sections import (
     render_dashboard_action_sections,
@@ -101,7 +99,6 @@ from ui.personnel_sections import (
     render_personnel_plate_workspace,
 )
 from rules.equipment_rules import (
-    build_equipment_profitability_frames,
     configure_equipment_rules,
     describe_auto_source_key,
     equipment_issue_generates_installments,
@@ -115,9 +112,7 @@ from rules.equipment_rules import (
 )
 from rules.reporting_rules import (
     build_invoice_summary_df,
-    build_restaurant_attendance_export_map,
     build_restaurant_export_filename,
-    build_restaurant_invoice_drilldown_map,
     calculate_customer_invoice,
     configure_reporting_rules,
     get_operational_restaurant_names_for_period,
@@ -186,6 +181,45 @@ from ui.ui_helpers import (
     render_tab_header,
     render_workspace_loading_shell,
     section_intro,
+)
+from services.reporting_service import (
+    build_reports_workspace_payload,
+    load_reporting_entries_and_month_options,
+)
+from services.attendance_service import (
+    build_bulk_attendance_context,
+    build_bulk_rows_from_parsed,
+    build_daily_entry_selection_payload,
+    create_daily_entry_and_sync,
+    delete_daily_entry_and_sync,
+    load_daily_entry_workspace_payload,
+    save_bulk_entries_and_sync,
+    update_daily_entry_and_sync,
+)
+from services.deductions_service import (
+    build_deduction_selection_payload,
+    bulk_delete_deductions_and_commit,
+    create_deduction_and_commit,
+    delete_deduction_and_commit,
+    load_deductions_workspace_payload,
+    update_deduction_and_commit,
+)
+from services.personnel_service import (
+    build_personnel_code_display_values,
+    build_new_person_form_defaults,
+    build_next_person_code,
+    build_personnel_edit_selection_payload,
+    create_person_with_onboarding,
+    delete_person_with_dependencies,
+    load_personnel_workspace_payload,
+    prepare_new_person_form_state,
+    role_code_prefix,
+    toggle_person_status_and_sync,
+    update_person_and_sync,
+)
+from repositories.personnel_repository import (
+    fetch_active_restaurant_options,
+    fetch_person_options_map,
 )
 
 
@@ -4336,46 +4370,11 @@ configure_equipment_rules(
 
 
 def get_restaurant_options(conn: sqlite3.Connection) -> dict[str, int]:
-    rows = conn.execute("SELECT id, brand, branch FROM restaurants WHERE active=1 ORDER BY brand, branch").fetchall()
-    return {f"{r['brand']} - {r['branch']}": r['id'] for r in rows}
+    return fetch_active_restaurant_options(conn)
 
 
 def get_person_options(conn: sqlite3.Connection, active_only: bool = True) -> dict[str, int]:
-    sql = "SELECT id, full_name, role, status FROM personnel"
-    if active_only:
-        sql += " WHERE status='Aktif'"
-    sql += " ORDER BY full_name"
-    rows = conn.execute(sql).fetchall()
-    return {f"{r['full_name']} ({r['role']})": r['id'] for r in rows}
-
-
-def role_code_prefix(role: str) -> str:
-    mapping = {
-        "Kurye": "K",
-        "Bölge Müdürü": "BM",
-        "Saha Denetmen Şefi": "SDS",
-        "Restoran Takım Şefi": "RTS",
-        "Joker": "J",
-        "Şef": "TŞ",
-    }
-    return mapping.get(role or "Kurye", "K")
-
-
-def next_person_code(conn: sqlite3.Connection, role: str, exclude_id: int | None = None) -> str:
-    prefix = role_code_prefix(role)
-    sql = "SELECT person_code FROM personnel WHERE person_code LIKE ?"
-    params = [f"CK-{prefix}%"]
-    if exclude_id is not None:
-        sql += " AND id != ?"
-        params.append(exclude_id)
-    rows = conn.execute(sql, tuple(params)).fetchall()
-    max_num = 0
-    for row in rows:
-        code = row["person_code"] or ""
-        match = re.search(rf"^CK-{re.escape(prefix)}(\d+)$", code)
-        if match:
-            max_num = max(max_num, int(match.group(1)))
-    return f"CK-{prefix}{max_num + 1:02d}"
+    return fetch_person_options_map(conn, active_only=active_only)
 
 
 def dashboard_tab(conn: sqlite3.Connection) -> None:
@@ -4770,27 +4769,20 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
 
 def personnel_tab(conn: sqlite3.Connection) -> None:
-    q = """
-    SELECT p.*, r.brand || ' - ' || r.branch AS restoran
-    FROM personnel p
-    LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
-    ORDER BY p.full_name
-    """
-    df = fetch_df(conn, q)
-    df = ensure_dataframe_columns(df, {
-        "emergency_contact_name": "",
-        "emergency_contact_phone": "",
-        "motor_rental_monthly_amount": AUTO_MOTOR_RENTAL_DEDUCTION,
-        "motor_purchase": "Hayır",
-        "motor_purchase_start_date": "",
-        "motor_purchase_commitment_months": None,
-        "motor_purchase_sale_price": 0.0,
-        "motor_purchase_monthly_amount": AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
-        "motor_purchase_installment_count": AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,
-    })
-    rest_opts = get_restaurant_options(conn)
-    rest_opts_with_blank = {"-": None, **rest_opts}
-    passive_count = int((df["status"] == "Pasif").sum()) if not df.empty else 0
+    personnel_payload = load_personnel_workspace_payload(
+        conn,
+        recently_created_payload=st.session_state.get("personnel_recently_created"),
+        ensure_dataframe_columns_fn=ensure_dataframe_columns,
+        safe_int_fn=safe_int,
+        get_row_value_fn=get_row_value,
+        auto_motor_rental_deduction=AUTO_MOTOR_RENTAL_DEDUCTION,
+        auto_motor_purchase_monthly_deduction=AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
+        auto_motor_purchase_installment_count=AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,
+    )
+    df = personnel_payload.df
+    rest_opts = personnel_payload.rest_opts
+    rest_opts_with_blank = personnel_payload.rest_opts_with_blank
+    passive_count = personnel_payload.passive_count
 
     render_management_hero(
         "PERSONEL YÖNETİMİ",
@@ -4801,8 +4793,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     render_flash_message()
     create_success_message = str(st.session_state.get("personnel_create_success_message", "") or "").strip()
 
-    recently_created_payload = st.session_state.get("personnel_recently_created")
-    recently_created_id = safe_int(get_row_value(recently_created_payload, "personnel_id"), 0) if recently_created_payload else 0
+    recently_created_id = personnel_payload.recently_created_id
 
     if recently_created_id > 0 and not df.empty:
         recent_match = df[df["id"] == recently_created_id]
@@ -4896,7 +4887,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             resolve_cost_role_option_fn=resolve_cost_role_option,
             is_fixed_cost_model_fn=is_fixed_cost_model,
             get_role_fixed_cost_label_fn=get_role_fixed_cost_label,
-            next_person_code_fn=next_person_code,
+            next_person_code_fn=build_next_person_code,
+            build_new_person_form_defaults_fn=build_new_person_form_defaults,
+            prepare_new_person_form_state_fn=prepare_new_person_form_state,
+            create_person_with_onboarding_fn=create_person_with_onboarding,
             clear_new_person_onboarding_state_fn=clear_new_person_onboarding_state,
             initialize_onboarding_equipment_state_fn=initialize_onboarding_equipment_state,
             onboarding_equipment_state_key_fn=onboarding_equipment_state_key,
@@ -4937,6 +4931,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             parse_date_value_fn=parse_date_value,
             resolve_vehicle_type_value_fn=resolve_vehicle_type_value,
             resolve_motor_usage_mode_fn=resolve_motor_usage_mode,
+            build_personnel_edit_selection_payload_fn=build_personnel_edit_selection_payload,
             initialize_edit_person_transition_state_fn=initialize_edit_person_transition_state,
             role_requires_primary_restaurant_fn=role_requires_primary_restaurant,
             format_motor_rental_summary_fn=format_motor_rental_summary,
@@ -4948,8 +4943,10 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             resolve_effective_role_from_transition_fn=resolve_effective_role_from_transition,
             is_fixed_cost_model_fn=is_fixed_cost_model,
             get_role_fixed_cost_label_fn=get_role_fixed_cost_label,
-            next_person_code_fn=next_person_code,
-            role_code_prefix_fn=role_code_prefix,
+            build_personnel_code_display_values_fn=build_personnel_code_display_values,
+            update_person_and_sync_fn=update_person_and_sync,
+            toggle_person_status_and_sync_fn=toggle_person_status_and_sync,
+            delete_person_with_dependencies_fn=delete_person_with_dependencies,
             build_motor_usage_payload_fn=build_motor_usage_payload,
             render_vehicle_transition_caption_fn=render_vehicle_transition_caption,
             render_motor_purchase_proration_caption_fn=render_motor_purchase_proration_caption,
@@ -5059,62 +5056,47 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         if submitted:
             planned_id = person_opts[planned_label] if planned_label != "-" else None
             actual_id = person_opts[actual_label] if actual_label != "-" else None
-            conn.execute(
-                """
-                INSERT INTO daily_entries (
-                    entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
-                    status, worked_hours, package_count, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (entry_date.isoformat(), rest_opts[rest_label], planned_id, actual_id, status, worked_hours, package_count, notes),
-            )
-            conn.commit()
-            sync_personnel_business_rules_for_ids(conn, [actual_id], create_onboarding=False, full_history=True)
-            st.success("Günlük kayıt eklendi.")
-            st.rerun()
+            try:
+                success_text = create_daily_entry_and_sync(
+                    conn,
+                    entry_values={
+                        "entry_date": entry_date.isoformat(),
+                        "restaurant_id": rest_opts[rest_label],
+                        "planned_personnel_id": planned_id,
+                        "actual_personnel_id": actual_id,
+                        "status": status,
+                        "worked_hours": worked_hours,
+                        "package_count": package_count,
+                        "notes": notes,
+                    },
+                    affected_person_id=actual_id,
+                    sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                )
+            except Exception as exc:
+                st.error(f"Günlük kayıt eklenemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
 
     st.markdown("### Günlük kayıtları yönet")
-    q = """
-    SELECT d.id, d.entry_date, r.brand || ' - ' || r.branch AS restoran,
-           COALESCE(pp.full_name, '-') AS planlanan, COALESCE(ap.full_name, '-') AS calisan,
-           d.status, d.worked_hours, d.package_count, COALESCE(d.notes, '') AS notes
-    FROM daily_entries d
-    JOIN restaurants r ON r.id = d.restaurant_id
-    LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
-    LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
-    ORDER BY d.entry_date DESC, restoran, d.id DESC
-    LIMIT 500
-    """
-    df = fetch_df(conn, q)
+    daily_entry_payload = load_daily_entry_workspace_payload(conn)
+    df = daily_entry_payload.df
     st.dataframe(df, use_container_width=True, hide_index=True)
 
     if not df.empty:
-        entry_map = {
-            f"{row['entry_date']} | {row['restoran']} | {row['calisan']} | {row['package_count']} paket | ID:{row['id']}": int(row["id"])
-            for _, row in df.iterrows()
-        }
-
         st.markdown("#### Kayıt düzelt / sil")
-        selected_label = st.selectbox("Düzeltmek veya silmek istediğin kaydı seç", list(entry_map.keys()), key="daily_entry_manage_select")
-        selected_id = entry_map[selected_label]
-        selected = conn.execute(
-            """
-            SELECT id, entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
-                   status, worked_hours, package_count, COALESCE(notes, '') AS notes
-            FROM daily_entries
-            WHERE id = ?
-            """,
-            (selected_id,),
-        ).fetchone()
-
-        current_rest_label = next((label for label, rid in rest_opts.items() if rid == selected["restaurant_id"]), list(rest_opts.keys())[0])
-        planned_default = "-"
-        actual_default = "-"
-        for label, pid in person_opts.items():
-            if selected["planned_personnel_id"] == pid:
-                planned_default = label
-            if selected["actual_personnel_id"] == pid:
-                actual_default = label
+        selected_label = st.selectbox("Düzeltmek veya silmek istediğin kaydı seç", list(daily_entry_payload.entry_map.keys()), key="daily_entry_manage_select")
+        selected_id = daily_entry_payload.entry_map[selected_label]
+        selection_payload = build_daily_entry_selection_payload(
+            conn,
+            selected_id=selected_id,
+            rest_opts=rest_opts,
+            person_opts=person_opts,
+        )
+        selected = selection_payload.selected_row
+        current_rest_label = selection_payload.current_rest_label
+        planned_default = selection_payload.planned_default
+        actual_default = selection_payload.actual_default
 
         with st.form(f"daily_entry_edit_form_{selected_id}"):
             e1, e2, e3 = st.columns(3)
@@ -5142,37 +5124,44 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 previous_actual_id = safe_int(selected["actual_personnel_id"], 0)
                 planned_id = person_opts[edit_planned_label] if edit_planned_label != "-" else None
                 actual_id = person_opts[edit_actual_label] if edit_actual_label != "-" else None
-                conn.execute(
-                    """
-                    UPDATE daily_entries
-                    SET entry_date = ?, restaurant_id = ?, planned_personnel_id = ?, actual_personnel_id = ?,
-                        status = ?, worked_hours = ?, package_count = ?, notes = ?
-                    WHERE id = ?
-                    """,
-                    (
-                        edit_date.isoformat(),
-                        rest_opts[edit_rest_label],
-                        planned_id,
-                        actual_id,
-                        edit_status,
-                        edit_hours,
-                        edit_package,
-                        edit_notes,
-                        selected_id,
-                    ),
-                )
-                conn.commit()
-                sync_personnel_business_rules_for_ids(conn, [previous_actual_id, actual_id], create_onboarding=False, full_history=True)
-                st.success("Günlük puantaj kaydı güncellendi.")
-                st.rerun()
+                try:
+                    success_text = update_daily_entry_and_sync(
+                        conn,
+                        entry_id=selected_id,
+                        entry_values={
+                            "entry_date": edit_date.isoformat(),
+                            "restaurant_id": rest_opts[edit_rest_label],
+                            "planned_personnel_id": planned_id,
+                            "actual_personnel_id": actual_id,
+                            "status": edit_status,
+                            "worked_hours": edit_hours,
+                            "package_count": edit_package,
+                            "notes": edit_notes,
+                        },
+                        previous_actual_id=previous_actual_id,
+                        actual_id=actual_id,
+                        sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                    )
+                except Exception as exc:
+                    st.error(f"Günlük puantaj kaydı güncellenemedi: {exc}")
+                else:
+                    st.success(success_text)
+                    st.rerun()
 
             if delete_clicked:
                 deleted_actual_id = safe_int(selected["actual_personnel_id"], 0)
-                conn.execute("DELETE FROM daily_entries WHERE id = ?", (selected_id,))
-                conn.commit()
-                sync_personnel_business_rules_for_ids(conn, [deleted_actual_id], create_onboarding=False, full_history=True)
-                st.success("Günlük puantaj kaydı silindi.")
-                st.rerun()
+                try:
+                    success_text = delete_daily_entry_and_sync(
+                        conn,
+                        entry_id=selected_id,
+                        deleted_actual_id=deleted_actual_id,
+                        sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                    )
+                except Exception as exc:
+                    st.error(f"Günlük puantaj kaydı silinemedi: {exc}")
+                else:
+                    st.success(success_text)
+                    st.rerun()
     else:
         st.info("Henüz günlük puantaj kaydı yok.")
 
@@ -5192,25 +5181,27 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         submitted = st.form_submit_button("Kesinti ekle", use_container_width=True)
         if submitted and amount > 0:
             deduction_due_date = normalize_deduction_date(ded_date)
-            conn.execute(
-                "INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes) VALUES (?, ?, ?, ?, ?)",
-                (person_opts[person_label], deduction_due_date.isoformat(), ded_type, amount, notes),
-            )
-            conn.commit()
-            st.success(f"Kesinti ay sonuna kaydedildi: {deduction_due_date.isoformat()}")
-            st.rerun()
+            try:
+                success_text = create_deduction_and_commit(
+                    conn,
+                    deduction_values={
+                        "personnel_id": person_opts[person_label],
+                        "deduction_date": deduction_due_date.isoformat(),
+                        "deduction_type": ded_type,
+                        "amount": amount,
+                        "notes": notes,
+                    },
+                )
+            except Exception as exc:
+                st.error(f"Kesinti kaydedilemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
 
     st.caption("Girilen kesinti hangi aya aitse, kayıt o ayın son gününe yazılır ve hakedişten ay sonu düşülür.")
 
-    raw_df = fetch_df(
-        conn,
-        """
-        SELECT d.id, d.personnel_id, d.deduction_date, p.full_name AS personel, d.deduction_type, d.amount, d.notes, d.auto_source_key
-        FROM deductions d
-        JOIN personnel p ON p.id = d.personnel_id
-        ORDER BY d.deduction_date DESC, d.id DESC
-        """,
-    )
+    deductions_payload = load_deductions_workspace_payload(conn)
+    raw_df = deductions_payload.raw_df
     raw_df["source_text"] = raw_df["auto_source_key"].apply(describe_auto_source_key) if not raw_df.empty else []
     source_filter = st.selectbox("Kesinti Kaynağı", DEDUCTION_SOURCE_FILTER_OPTIONS, key="deduction_source_filter")
     filtered_raw_df = filter_deductions_by_source(raw_df, source_filter)
@@ -5240,7 +5231,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     )
 
     st.markdown("### Toplu kesinti sil")
-    manual_deductions_df = raw_df[raw_df["auto_source_key"].fillna("").astype(str).str.strip() == ""].copy() if not raw_df.empty else pd.DataFrame()
+    manual_deductions_df = deductions_payload.manual_deductions_df
     if manual_deductions_df.empty:
         st.info("Toplu silme için uygun manuel kesinti kaydı görünmüyor.")
     else:
@@ -5255,14 +5246,16 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
             if not selected_bulk_deduction_ids:
                 st.error("Önce en az bir manuel kesinti kaydı seçmelisin.")
             else:
-                placeholders = ", ".join(["?"] * len(selected_bulk_deduction_ids))
-                conn.execute(
-                    f"DELETE FROM deductions WHERE id IN ({placeholders})",
-                    tuple(selected_bulk_deduction_ids),
-                )
-                conn.commit()
-                st.success(f"{len(selected_bulk_deduction_ids)} manuel kesinti kaydı toplu olarak silindi.")
-                st.rerun()
+                try:
+                    success_text = bulk_delete_deductions_and_commit(
+                        conn,
+                        deduction_ids=selected_bulk_deduction_ids,
+                    )
+                except Exception as exc:
+                    st.error(f"Toplu kesinti silinemedi: {exc}")
+                else:
+                    st.success(success_text)
+                    st.rerun()
 
     st.markdown("### Kesinti düzenle / sil")
     if raw_df.empty:
@@ -5272,14 +5265,19 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     deduction_options = build_deduction_option_map(raw_df, fmt_try_fn=fmt_try)
     selected_label = st.selectbox("Kayıt seç", list(deduction_options.keys()))
     selected_id = deduction_options[selected_label]
-    row = raw_df.loc[raw_df["id"] == selected_id].iloc[0]
-
-    reverse_person = {v: k for k, v in person_opts.items()}
-    current_person = reverse_person.get(int(row["personnel_id"]), list(person_opts.keys())[0])
-    person_index = list(person_opts.keys()).index(current_person) if current_person in person_opts else 0
-    type_index = deduction_types.index(row["deduction_type"]) if row["deduction_type"] in deduction_types else len(deduction_types) - 1
-    current_date = datetime.strptime(str(row["deduction_date"]), "%Y-%m-%d").date()
-    is_auto_record = is_system_personnel_auto_deduction_key(row.get("auto_source_key"))
+    selection_payload = build_deduction_selection_payload(
+        raw_df,
+        selected_id=selected_id,
+        person_opts=person_opts,
+        deduction_types=deduction_types,
+        safe_float_fn=safe_float,
+        is_system_personnel_auto_deduction_key_fn=is_system_personnel_auto_deduction_key,
+    )
+    row = selection_payload.row
+    person_index = selection_payload.person_index
+    type_index = selection_payload.type_index
+    current_date = selection_payload.current_date
+    is_auto_record = selection_payload.is_auto_record
     if is_auto_record:
         st.warning(
             build_auto_deduction_warning_text(
@@ -5301,23 +5299,32 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
 
         if update_clicked and edit_amount > 0:
             deduction_due_date = normalize_deduction_date(edit_date)
-            conn.execute(
-                """
-                UPDATE deductions
-                SET personnel_id = ?, deduction_date = ?, deduction_type = ?, amount = ?, notes = ?
-                WHERE id = ?
-                """,
-                (person_opts[edit_person], deduction_due_date.isoformat(), edit_type, edit_amount, edit_notes, selected_id),
-            )
-            conn.commit()
-            st.success(f"Kesinti ay sonuna güncellendi: {deduction_due_date.isoformat()}")
-            st.rerun()
+            try:
+                success_text = update_deduction_and_commit(
+                    conn,
+                    deduction_id=selected_id,
+                    deduction_values={
+                        "personnel_id": person_opts[edit_person],
+                        "deduction_date": deduction_due_date.isoformat(),
+                        "deduction_type": edit_type,
+                        "amount": edit_amount,
+                        "notes": edit_notes,
+                    },
+                )
+            except Exception as exc:
+                st.error(f"Kesinti güncellenemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
 
         if delete_clicked:
-            conn.execute("DELETE FROM deductions WHERE id = ?", (selected_id,))
-            conn.commit()
-            st.success("Kesinti silindi.")
-            st.rerun()
+            try:
+                success_text = delete_deduction_and_commit(conn, deduction_id=selected_id)
+            except Exception as exc:
+                st.error(f"Kesinti silinemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
 
 
 def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
@@ -5335,62 +5342,29 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
     include_all_active = c3.checkbox("Tüm aktif personeli göster", value=False, key="bulk_all_people")
     restaurant_id = restaurant_opts[restaurant_label]
 
-    people_rows = conn.execute(
-        """
-        SELECT id, full_name, role
-        FROM personnel
-        WHERE status='Aktif'
-          AND (? = 1 OR assigned_restaurant_id = ? OR role IN ('Joker', 'Bölge Müdürü', 'Saha Denetmen Şefi', 'Restoran Takım Şefi'))
-        ORDER BY
-            CASE
-                WHEN role='Restoran Takım Şefi' THEN 1
-                WHEN role='Saha Denetmen Şefi' THEN 2
-                WHEN role='Bölge Müdürü' THEN 3
-                WHEN role='Joker' THEN 4
-                ELSE 5
-            END,
-            full_name
-        """,
-        (1 if include_all_active else 0, restaurant_id),
-    ).fetchall()
-
-    person_label_map = {f"{r['full_name']} ({r['role']})": r["id"] for r in people_rows}
-    name_to_label = {r["full_name"].strip().lower(): f"{r['full_name']} ({r['role']})" for r in people_rows}
-
     if "bulk_editor_rows" not in st.session_state:
         st.session_state.bulk_editor_rows = None
 
-    if st.session_state.bulk_editor_rows:
-        default_rows = st.session_state.bulk_editor_rows
-    else:
-        default_rows = [
-            {
-                "Personel": label,
-                "Saat": 0.0,
-                "Paket": 0,
-                "Durum": "Normal",
-                "Not": "",
-            }
-            for label in person_label_map.keys()
-        ]
+    bulk_context = build_bulk_attendance_context(
+        conn,
+        restaurant_id=restaurant_id,
+        include_all_active=include_all_active,
+        session_rows=st.session_state.bulk_editor_rows,
+    )
+    person_label_map = bulk_context.person_label_map
+    name_to_label = bulk_context.name_to_label
+    default_rows = bulk_context.default_rows
 
     with st.expander("WhatsApp metninden tablo oluştur", expanded=False):
         st.caption("Örnek satır formatı: Ali Yılmaz - 10 saat - 38 paket - Normal")
         raw_text = st.text_area("Mesajı yapıştır", height=160, key="bulk_whatsapp_text")
         if st.button("Metni tabloya aktar", key="bulk_parse_btn", use_container_width=True):
             parsed = parse_whatsapp_bulk(raw_text)
-            rows = []
-            for row in parsed:
-                guess = name_to_label.get(str(row["person_label"]).strip().lower())
-                rows.append(
-                    {
-                        "Personel": guess or row["person_label"],
-                        "Saat": float(row["worked_hours"] or 0),
-                        "Paket": int(row["package_count"] or 0),
-                        "Durum": normalize_entry_status(row["entry_status"] or "Normal"),
-                        "Not": row.get("notes", ""),
-                    }
-                )
+            rows = build_bulk_rows_from_parsed(
+                parsed,
+                name_to_label=name_to_label,
+                normalize_entry_status_fn=normalize_entry_status,
+            )
             if rows:
                 st.session_state.bulk_editor_rows = rows
                 st.success(f"{len(rows)} satır tabloya aktarıldı. Kaydetmeden önce düzenleyebilirsin.")
@@ -5417,45 +5391,23 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
 
     csave, cclear = st.columns([1, 1])
     if csave.button("Tümünü Kaydet", key="bulk_save_btn", use_container_width=True):
-        inserted = 0
-        affected_person_ids = []
-        for _, row in edited_df.iterrows():
-            person_label = str(row.get("Personel", "")).strip()
-            if not person_label or person_label not in person_label_map:
-                continue
-            hours = float(row.get("Saat") or 0)
-            packages = int(row.get("Paket") or 0)
-            status = normalize_entry_status(str(row.get("Durum") or "Normal").strip())
-            notes = str(row.get("Not") or "").strip()
-            if hours == 0 and packages == 0 and status == "Normal":
-                continue
-            person_id = person_label_map[person_label]
-            note_parts = [part for part in [notes, "Kaynak: Toplu Puantaj", f"Kaydeden: {st.session_state.get('username', 'sistem')}"] if part]
-            conn.execute(
-                """
-                INSERT INTO daily_entries (
-                    entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
-                    status, worked_hours, package_count, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    selected_date.isoformat(),
-                    restaurant_id,
-                    person_id,
-                    person_id,
-                    status,
-                    hours,
-                    packages,
-                    " | ".join(note_parts),
-                ),
+        try:
+            inserted = save_bulk_entries_and_sync(
+                conn,
+                edited_df=edited_df,
+                selected_date_iso=selected_date.isoformat(),
+                restaurant_id=restaurant_id,
+                person_label_map=person_label_map,
+                username=str(st.session_state.get("username", "sistem")),
+                normalize_entry_status_fn=normalize_entry_status,
+                sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
             )
-            inserted += 1
-            affected_person_ids.append(person_id)
-        conn.commit()
-        sync_personnel_business_rules_for_ids(conn, affected_person_ids, create_onboarding=False, full_history=True)
-        st.session_state.bulk_editor_rows = None
-        st.success(f"{inserted} satır kaydedildi.")
-        st.rerun()
+        except Exception as exc:
+            st.error(f"Toplu puantaj kaydedilemedi: {exc}")
+        else:
+            st.session_state.bulk_editor_rows = None
+            st.success(f"{inserted} satır kaydedildi.")
+            st.rerun()
 
     if cclear.button("Tabloyu Sıfırla", key="bulk_clear_btn", use_container_width=True):
         st.session_state.bulk_editor_rows = None
@@ -6400,132 +6352,48 @@ def announcements_tab() -> None:
 def reports_tab(conn: sqlite3.Connection) -> None:
     section_intro("📊 Raporlar ve Karlılık | Fatura, personel maliyeti, yan gelir ve restoran kârlılığı", "Aylık müşteri faturası, personel maliyeti, restoran bazlı kârlılık, ekipman satış kârlılığı, yan gelir analizi ve personel-şube dağılımı.")
 
-    entries = fetch_df(
-        conn,
-        """
-        SELECT d.*, r.brand, r.branch, r.pricing_model, r.hourly_rate, r.package_rate,
-               r.package_threshold, r.package_rate_low, r.package_rate_high,
-               r.fixed_monthly_fee, r.vat_rate
-        FROM daily_entries d
-        JOIN restaurants r ON r.id = d.restaurant_id
-        """,
-    )
+    entries, month_options = load_reporting_entries_and_month_options(conn)
     if entries.empty:
         st.info("Rapor üretebilmek için önce günlük puantaj girişi yap.")
         return
 
-    entries["entry_date"] = pd.to_datetime(entries["entry_date"])
-    month_options = sorted(entries["entry_date"].dt.strftime("%Y-%m").unique(), reverse=True)
     selected_month = st.selectbox("Rapor Ayı", month_options)
-    start_date, end_date = month_bounds(selected_month)
-
-    month_df = entries[(entries["entry_date"] >= start_date) & (entries["entry_date"] <= end_date)].copy()
-    if month_df.empty:
+    report_payload = build_reports_workspace_payload(conn, entries, selected_month)
+    if report_payload.month_df.empty:
         st.warning("Bu ay için kayıt yok.")
         return
-
-    invoicing_rows = []
-    for (restaurant_id, brand, branch), group in month_df.groupby(["restaurant_id", "brand", "branch"]):
-        first = group.iloc[0]
-        rule = PricingRule(
-            pricing_model=first["pricing_model"],
-            hourly_rate=float(first["hourly_rate"] or 0),
-            package_rate=float(first["package_rate"] or 0),
-            package_threshold=int(first["package_threshold"] or PACKAGE_THRESHOLD_DEFAULT) if pd.notna(first["package_threshold"]) else PACKAGE_THRESHOLD_DEFAULT,
-            package_rate_low=float(first["package_rate_low"] or 0),
-            package_rate_high=float(first["package_rate_high"] or 0),
-            fixed_monthly_fee=float(first["fixed_monthly_fee"] or 0),
-            vat_rate=float(first["vat_rate"] or VAT_RATE_DEFAULT),
-        )
-        hours, packages, subtotal, grand_total = calculate_customer_invoice(group, rule)
-        invoicing_rows.append(
-            {
-                "restoran": f"{brand} - {branch}",
-                "model": rule.pricing_model,
-                "saat": hours,
-                "paket": packages,
-                "kdv_haric": subtotal,
-                "kdv_dahil": grand_total,
-            }
-        )
-    restaurants_df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
-    operational_restaurant_names = get_operational_restaurant_names_for_period(
-        restaurants_df,
-        parse_date_value(start_date) or date.today(),
-        parse_date_value(end_date) or date.today(),
-    )
-    invoice_df = pd.DataFrame(invoicing_rows).sort_values("restoran")
-    personnel_df = fetch_df(conn, "SELECT * FROM personnel")
-    role_history_df = fetch_df(conn, "SELECT * FROM personnel_role_history ORDER BY personnel_id, effective_date, id")
-    deductions_df = fetch_df(conn, "SELECT * FROM deductions WHERE deduction_date BETWEEN ? AND ?", (start_date, end_date))
-    invoice_drilldown_map = build_restaurant_invoice_drilldown_map(month_df, personnel_df)
-    invoice_attendance_export_map = build_restaurant_attendance_export_map(
-        month_df,
-        personnel_df,
-        selected_month,
-        invoice_drilldown_map=invoice_drilldown_map,
-    )
-    cost_df = calculate_personnel_cost(month_df, personnel_df, deductions_df, role_history_df=role_history_df)
-
-    revenue = float(invoice_df["kdv_dahil"].sum()) if not invoice_df.empty else 0.0
-    personnel_cost = float(cost_df["net_maliyet"].sum()) if not cost_df.empty else 0.0
-    gross_profit = revenue - personnel_cost
-
-    equipment_profit_df, equipment_purchase_df = build_equipment_profitability_frames(conn, start_date, end_date)
-    accounting_ded = deductions_df[deductions_df["deduction_type"] == "Muhasebe Ücreti"].copy() if not deductions_df.empty else pd.DataFrame()
-    setup_ded = deductions_df[deductions_df["deduction_type"] == "Şirket Açılış Ücreti"].copy() if not deductions_df.empty else pd.DataFrame()
-
-    accounting_rev = float(accounting_ded["amount"].sum()) if not accounting_ded.empty else 0.0
-    setup_rev = float(setup_ded["amount"].sum()) if not setup_ded.empty else 0.0
-
-    accounting_person_ids = accounting_ded["personnel_id"].dropna().astype(int).unique().tolist() if not accounting_ded.empty else []
-    setup_person_ids = setup_ded["personnel_id"].dropna().astype(int).unique().tolist() if not setup_ded.empty else []
-
-    accountant_cost_total = float(personnel_df.loc[personnel_df["id"].isin(accounting_person_ids), "accountant_cost"].fillna(0).sum()) if accounting_person_ids and "accountant_cost" in personnel_df.columns else 0.0
-    setup_cost = float(personnel_df.loc[personnel_df["id"].isin(setup_person_ids), "company_setup_cost"].fillna(0).sum()) if setup_person_ids and "company_setup_cost" in personnel_df.columns else 0.0
-
-    motor_rental_profit_df, motor_sale_profit_df, equipment_only_profit_df = split_equipment_profit_categories(equipment_profit_df)
-    motor_rental_rev = float(motor_rental_profit_df["total_sale"].sum()) if not motor_rental_profit_df.empty else 0.0
-    motor_rental_cost = float(motor_rental_profit_df["total_cost"].sum()) if not motor_rental_profit_df.empty else 0.0
-    motor_sale_rev = float(motor_sale_profit_df["total_sale"].sum()) if not motor_sale_profit_df.empty else 0.0
-    motor_sale_cost = float(motor_sale_profit_df["total_cost"].sum()) if not motor_sale_profit_df.empty else 0.0
-    equipment_rev = float(equipment_only_profit_df["total_sale"].sum()) if not equipment_only_profit_df.empty else 0.0
-    equipment_cost = float(equipment_only_profit_df["total_cost"].sum()) if not equipment_only_profit_df.empty else 0.0
-    fuel_reflection_amount = float(deductions_df.loc[deductions_df["deduction_type"] == "Yakıt", "amount"].sum()) if not deductions_df.empty else 0.0
-    side_income_net = (accounting_rev - accountant_cost_total) + (setup_rev - setup_cost) + (equipment_rev - equipment_cost)
-    side_income_net += (motor_rental_rev - motor_rental_cost) + (motor_sale_rev - motor_sale_cost)
 
     render_executive_metrics(
         [
             {
                 "label": "Aylık Restoran Faturası",
-                "value": fmt_try(revenue),
+                "value": fmt_try(report_payload.revenue),
                 "note": f"{selected_month} | KDV dahil",
             },
             {
                 "label": "Toplam Kurye Maliyeti",
-                "value": fmt_try(personnel_cost),
+                "value": fmt_try(report_payload.personnel_cost),
                 "note": "Net maliyet toplamı",
             },
             {
                 "label": "Brüt Operasyon Farkı",
-                "value": fmt_try(gross_profit),
+                "value": fmt_try(report_payload.gross_profit),
                 "note": "Fatura ve personel maliyeti farkı",
-                "tone": "positive" if gross_profit >= 0 else "critical",
+                "tone": "positive" if report_payload.gross_profit >= 0 else "critical",
             },
             {
                 "label": "Yan Gelir Neti",
-                "value": fmt_try(side_income_net),
+                "value": fmt_try(report_payload.side_income_net),
                 "note": "Muhasebe, motor ve ekipman katkısı",
-                "tone": "positive" if side_income_net >= 0 else "warning",
+                "tone": "positive" if report_payload.side_income_net >= 0 else "warning",
             },
         ],
         title="Rapor Yönetim Özeti",
         subtitle="Seçilen ayın gelir, maliyet ve ek katkılarını aynı bakışta özetler.",
     )
 
-    covered_restaurant_count = int(invoice_df["restoran"].dropna().astype(str).nunique()) if not invoice_df.empty else 0
-    operational_restaurant_count = len(operational_restaurant_names)
+    covered_restaurant_count = int(report_payload.invoice_df["restoran"].dropna().astype(str).nunique()) if not report_payload.invoice_df.empty else 0
+    operational_restaurant_count = len(report_payload.operational_restaurant_names)
     if operational_restaurant_count > 0 and covered_restaurant_count < operational_restaurant_count:
         st.warning(
             f"{selected_month} için rapor şu an kısmi veriyle çalışıyor: {covered_restaurant_count} restoranın puantaj/fatura verisi var, "
@@ -6536,21 +6404,12 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         "Bu dağıtım restoran faturalarını değiştirmez; yalnızca kârlılık hesabına yansır."
     )
 
-    profit_df, person_distribution_df, shared_overhead_df = build_branch_profitability(
-        month_df,
-        personnel_df,
-        deductions_df,
-        invoice_df,
-        role_history_df=role_history_df,
-        restaurants_df=restaurants_df,
-    )
-
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🧾 Restoran Faturası", "👥 Kurye Maliyeti", "📈 Restoran Karlılığı", "🧩 Ortak Operasyon Payı", "🔀 Personel-Şube Dağılımı", "💼 Yan Gelir Analizi"])
     with tab1:
         render_invoice_report_tab(
-            invoice_df,
-            invoice_drilldown_map,
-            invoice_attendance_export_map,
+            report_payload.invoice_df,
+            report_payload.invoice_drilldown_map,
+            report_payload.invoice_attendance_export_map,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
@@ -6562,7 +6421,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
     with tab2:
         render_cost_report_tab(
-            cost_df,
+            report_payload.cost_df,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
@@ -6571,7 +6430,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
     with tab3:
         render_profit_report_tab(
-            profit_df,
+            report_payload.profit_df,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
@@ -6582,7 +6441,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
     with tab4:
         render_shared_overhead_report_tab(
-            shared_overhead_df,
+            report_payload.shared_overhead_df,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
@@ -6593,7 +6452,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
 
     with tab5:
         render_distribution_report_tab(
-            person_distribution_df,
+            report_payload.person_distribution_df,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
@@ -6602,23 +6461,11 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
 
     with tab6:
-        side_df = build_side_income_summary_df(
-            accounting_rev=accounting_rev,
-            accountant_cost_total=accountant_cost_total,
-            setup_rev=setup_rev,
-            setup_cost=setup_cost,
-            motor_rental_rev=motor_rental_rev,
-            motor_rental_cost=motor_rental_cost,
-            motor_sale_rev=motor_sale_rev,
-            motor_sale_cost=motor_sale_cost,
-            equipment_rev=equipment_rev,
-            equipment_cost=equipment_cost,
-        )
         render_side_income_report_tab(
-            side_df,
-            equipment_profit_df,
-            equipment_purchase_df,
-            fuel_reflection_amount,
+            report_payload.side_df,
+            report_payload.equipment_profit_df,
+            report_payload.equipment_purchase_df,
+            report_payload.fuel_reflection_amount,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
             render_dashboard_data_grid_fn=render_dashboard_data_grid,
