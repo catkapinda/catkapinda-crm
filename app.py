@@ -24,8 +24,6 @@ from builders.analytics_builders import (
     build_dashboard_brand_summary,
     build_dashboard_priority_alerts,
     build_dashboard_profit_snapshots,
-    build_side_income_summary_df,
-    split_equipment_profit_categories,
 )
 from ui.dashboard_sections import (
     render_dashboard_action_sections,
@@ -101,7 +99,6 @@ from ui.personnel_sections import (
     render_personnel_plate_workspace,
 )
 from rules.equipment_rules import (
-    build_equipment_profitability_frames,
     configure_equipment_rules,
     describe_auto_source_key,
     equipment_issue_generates_installments,
@@ -115,9 +112,7 @@ from rules.equipment_rules import (
 )
 from rules.reporting_rules import (
     build_invoice_summary_df,
-    build_restaurant_attendance_export_map,
     build_restaurant_export_filename,
-    build_restaurant_invoice_drilldown_map,
     calculate_customer_invoice,
     configure_reporting_rules,
     get_operational_restaurant_names_for_period,
@@ -186,6 +181,10 @@ from ui.ui_helpers import (
     render_tab_header,
     render_workspace_loading_shell,
     section_intro,
+)
+from services.reporting_service import (
+    build_reports_workspace_payload,
+    load_reporting_entries_and_month_options,
 )
 
 
@@ -6400,132 +6399,48 @@ def announcements_tab() -> None:
 def reports_tab(conn: sqlite3.Connection) -> None:
     section_intro("📊 Raporlar ve Karlılık | Fatura, personel maliyeti, yan gelir ve restoran kârlılığı", "Aylık müşteri faturası, personel maliyeti, restoran bazlı kârlılık, ekipman satış kârlılığı, yan gelir analizi ve personel-şube dağılımı.")
 
-    entries = fetch_df(
-        conn,
-        """
-        SELECT d.*, r.brand, r.branch, r.pricing_model, r.hourly_rate, r.package_rate,
-               r.package_threshold, r.package_rate_low, r.package_rate_high,
-               r.fixed_monthly_fee, r.vat_rate
-        FROM daily_entries d
-        JOIN restaurants r ON r.id = d.restaurant_id
-        """,
-    )
+    entries, month_options = load_reporting_entries_and_month_options(conn)
     if entries.empty:
         st.info("Rapor üretebilmek için önce günlük puantaj girişi yap.")
         return
 
-    entries["entry_date"] = pd.to_datetime(entries["entry_date"])
-    month_options = sorted(entries["entry_date"].dt.strftime("%Y-%m").unique(), reverse=True)
     selected_month = st.selectbox("Rapor Ayı", month_options)
-    start_date, end_date = month_bounds(selected_month)
-
-    month_df = entries[(entries["entry_date"] >= start_date) & (entries["entry_date"] <= end_date)].copy()
-    if month_df.empty:
+    report_payload = build_reports_workspace_payload(conn, entries, selected_month)
+    if report_payload.month_df.empty:
         st.warning("Bu ay için kayıt yok.")
         return
-
-    invoicing_rows = []
-    for (restaurant_id, brand, branch), group in month_df.groupby(["restaurant_id", "brand", "branch"]):
-        first = group.iloc[0]
-        rule = PricingRule(
-            pricing_model=first["pricing_model"],
-            hourly_rate=float(first["hourly_rate"] or 0),
-            package_rate=float(first["package_rate"] or 0),
-            package_threshold=int(first["package_threshold"] or PACKAGE_THRESHOLD_DEFAULT) if pd.notna(first["package_threshold"]) else PACKAGE_THRESHOLD_DEFAULT,
-            package_rate_low=float(first["package_rate_low"] or 0),
-            package_rate_high=float(first["package_rate_high"] or 0),
-            fixed_monthly_fee=float(first["fixed_monthly_fee"] or 0),
-            vat_rate=float(first["vat_rate"] or VAT_RATE_DEFAULT),
-        )
-        hours, packages, subtotal, grand_total = calculate_customer_invoice(group, rule)
-        invoicing_rows.append(
-            {
-                "restoran": f"{brand} - {branch}",
-                "model": rule.pricing_model,
-                "saat": hours,
-                "paket": packages,
-                "kdv_haric": subtotal,
-                "kdv_dahil": grand_total,
-            }
-        )
-    restaurants_df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
-    operational_restaurant_names = get_operational_restaurant_names_for_period(
-        restaurants_df,
-        parse_date_value(start_date) or date.today(),
-        parse_date_value(end_date) or date.today(),
-    )
-    invoice_df = pd.DataFrame(invoicing_rows).sort_values("restoran")
-    personnel_df = fetch_df(conn, "SELECT * FROM personnel")
-    role_history_df = fetch_df(conn, "SELECT * FROM personnel_role_history ORDER BY personnel_id, effective_date, id")
-    deductions_df = fetch_df(conn, "SELECT * FROM deductions WHERE deduction_date BETWEEN ? AND ?", (start_date, end_date))
-    invoice_drilldown_map = build_restaurant_invoice_drilldown_map(month_df, personnel_df)
-    invoice_attendance_export_map = build_restaurant_attendance_export_map(
-        month_df,
-        personnel_df,
-        selected_month,
-        invoice_drilldown_map=invoice_drilldown_map,
-    )
-    cost_df = calculate_personnel_cost(month_df, personnel_df, deductions_df, role_history_df=role_history_df)
-
-    revenue = float(invoice_df["kdv_dahil"].sum()) if not invoice_df.empty else 0.0
-    personnel_cost = float(cost_df["net_maliyet"].sum()) if not cost_df.empty else 0.0
-    gross_profit = revenue - personnel_cost
-
-    equipment_profit_df, equipment_purchase_df = build_equipment_profitability_frames(conn, start_date, end_date)
-    accounting_ded = deductions_df[deductions_df["deduction_type"] == "Muhasebe Ücreti"].copy() if not deductions_df.empty else pd.DataFrame()
-    setup_ded = deductions_df[deductions_df["deduction_type"] == "Şirket Açılış Ücreti"].copy() if not deductions_df.empty else pd.DataFrame()
-
-    accounting_rev = float(accounting_ded["amount"].sum()) if not accounting_ded.empty else 0.0
-    setup_rev = float(setup_ded["amount"].sum()) if not setup_ded.empty else 0.0
-
-    accounting_person_ids = accounting_ded["personnel_id"].dropna().astype(int).unique().tolist() if not accounting_ded.empty else []
-    setup_person_ids = setup_ded["personnel_id"].dropna().astype(int).unique().tolist() if not setup_ded.empty else []
-
-    accountant_cost_total = float(personnel_df.loc[personnel_df["id"].isin(accounting_person_ids), "accountant_cost"].fillna(0).sum()) if accounting_person_ids and "accountant_cost" in personnel_df.columns else 0.0
-    setup_cost = float(personnel_df.loc[personnel_df["id"].isin(setup_person_ids), "company_setup_cost"].fillna(0).sum()) if setup_person_ids and "company_setup_cost" in personnel_df.columns else 0.0
-
-    motor_rental_profit_df, motor_sale_profit_df, equipment_only_profit_df = split_equipment_profit_categories(equipment_profit_df)
-    motor_rental_rev = float(motor_rental_profit_df["total_sale"].sum()) if not motor_rental_profit_df.empty else 0.0
-    motor_rental_cost = float(motor_rental_profit_df["total_cost"].sum()) if not motor_rental_profit_df.empty else 0.0
-    motor_sale_rev = float(motor_sale_profit_df["total_sale"].sum()) if not motor_sale_profit_df.empty else 0.0
-    motor_sale_cost = float(motor_sale_profit_df["total_cost"].sum()) if not motor_sale_profit_df.empty else 0.0
-    equipment_rev = float(equipment_only_profit_df["total_sale"].sum()) if not equipment_only_profit_df.empty else 0.0
-    equipment_cost = float(equipment_only_profit_df["total_cost"].sum()) if not equipment_only_profit_df.empty else 0.0
-    fuel_reflection_amount = float(deductions_df.loc[deductions_df["deduction_type"] == "Yakıt", "amount"].sum()) if not deductions_df.empty else 0.0
-    side_income_net = (accounting_rev - accountant_cost_total) + (setup_rev - setup_cost) + (equipment_rev - equipment_cost)
-    side_income_net += (motor_rental_rev - motor_rental_cost) + (motor_sale_rev - motor_sale_cost)
 
     render_executive_metrics(
         [
             {
                 "label": "Aylık Restoran Faturası",
-                "value": fmt_try(revenue),
+                "value": fmt_try(report_payload.revenue),
                 "note": f"{selected_month} | KDV dahil",
             },
             {
                 "label": "Toplam Kurye Maliyeti",
-                "value": fmt_try(personnel_cost),
+                "value": fmt_try(report_payload.personnel_cost),
                 "note": "Net maliyet toplamı",
             },
             {
                 "label": "Brüt Operasyon Farkı",
-                "value": fmt_try(gross_profit),
+                "value": fmt_try(report_payload.gross_profit),
                 "note": "Fatura ve personel maliyeti farkı",
-                "tone": "positive" if gross_profit >= 0 else "critical",
+                "tone": "positive" if report_payload.gross_profit >= 0 else "critical",
             },
             {
                 "label": "Yan Gelir Neti",
-                "value": fmt_try(side_income_net),
+                "value": fmt_try(report_payload.side_income_net),
                 "note": "Muhasebe, motor ve ekipman katkısı",
-                "tone": "positive" if side_income_net >= 0 else "warning",
+                "tone": "positive" if report_payload.side_income_net >= 0 else "warning",
             },
         ],
         title="Rapor Yönetim Özeti",
         subtitle="Seçilen ayın gelir, maliyet ve ek katkılarını aynı bakışta özetler.",
     )
 
-    covered_restaurant_count = int(invoice_df["restoran"].dropna().astype(str).nunique()) if not invoice_df.empty else 0
-    operational_restaurant_count = len(operational_restaurant_names)
+    covered_restaurant_count = int(report_payload.invoice_df["restoran"].dropna().astype(str).nunique()) if not report_payload.invoice_df.empty else 0
+    operational_restaurant_count = len(report_payload.operational_restaurant_names)
     if operational_restaurant_count > 0 and covered_restaurant_count < operational_restaurant_count:
         st.warning(
             f"{selected_month} için rapor şu an kısmi veriyle çalışıyor: {covered_restaurant_count} restoranın puantaj/fatura verisi var, "
@@ -6536,21 +6451,12 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         "Bu dağıtım restoran faturalarını değiştirmez; yalnızca kârlılık hesabına yansır."
     )
 
-    profit_df, person_distribution_df, shared_overhead_df = build_branch_profitability(
-        month_df,
-        personnel_df,
-        deductions_df,
-        invoice_df,
-        role_history_df=role_history_df,
-        restaurants_df=restaurants_df,
-    )
-
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🧾 Restoran Faturası", "👥 Kurye Maliyeti", "📈 Restoran Karlılığı", "🧩 Ortak Operasyon Payı", "🔀 Personel-Şube Dağılımı", "💼 Yan Gelir Analizi"])
     with tab1:
         render_invoice_report_tab(
-            invoice_df,
-            invoice_drilldown_map,
-            invoice_attendance_export_map,
+            report_payload.invoice_df,
+            report_payload.invoice_drilldown_map,
+            report_payload.invoice_attendance_export_map,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
@@ -6562,7 +6468,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
     with tab2:
         render_cost_report_tab(
-            cost_df,
+            report_payload.cost_df,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
@@ -6571,7 +6477,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
     with tab3:
         render_profit_report_tab(
-            profit_df,
+            report_payload.profit_df,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
@@ -6582,7 +6488,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
     with tab4:
         render_shared_overhead_report_tab(
-            shared_overhead_df,
+            report_payload.shared_overhead_df,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
@@ -6593,7 +6499,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
 
     with tab5:
         render_distribution_report_tab(
-            person_distribution_df,
+            report_payload.person_distribution_df,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
@@ -6602,23 +6508,11 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
 
     with tab6:
-        side_df = build_side_income_summary_df(
-            accounting_rev=accounting_rev,
-            accountant_cost_total=accountant_cost_total,
-            setup_rev=setup_rev,
-            setup_cost=setup_cost,
-            motor_rental_rev=motor_rental_rev,
-            motor_rental_cost=motor_rental_cost,
-            motor_sale_rev=motor_sale_rev,
-            motor_sale_cost=motor_sale_cost,
-            equipment_rev=equipment_rev,
-            equipment_cost=equipment_cost,
-        )
         render_side_income_report_tab(
-            side_df,
-            equipment_profit_df,
-            equipment_purchase_df,
-            fuel_reflection_amount,
+            report_payload.side_df,
+            report_payload.equipment_profit_df,
+            report_payload.equipment_purchase_df,
+            report_payload.fuel_reflection_amount,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
             render_dashboard_data_grid_fn=render_dashboard_data_grid,
