@@ -44,6 +44,12 @@ def _format_currency(value: Any, fmt_number_fn: Callable[[Any], str]) -> str:
     return f"{formatted}₺" if formatted else "-"
 
 
+def _coalesce_number(value: Any, fallback: Any) -> Any:
+    if value is None or pd.isna(value):
+        return fallback
+    return value
+
+
 def build_restaurant_pricing_summary(
     row: Any,
     *,
@@ -55,7 +61,7 @@ def build_restaurant_pricing_summary(
     package_rate_low = _format_currency(row.get("package_rate_low"), fmt_number_fn)
     package_rate_high = _format_currency(row.get("package_rate_high"), fmt_number_fn)
     fixed_monthly_fee = _format_currency(row.get("fixed_monthly_fee"), fmt_number_fn)
-    package_threshold = fmt_number_fn(row.get("package_threshold") or 390)
+    package_threshold = fmt_number_fn(_coalesce_number(row.get("package_threshold"), 390))
 
     if pricing_model == "hourly_plus_package":
         return f"{hourly_rate}/saat + {package_rate}/paket"
