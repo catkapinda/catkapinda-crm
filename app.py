@@ -95,6 +95,7 @@ from personnel_rules import (
     validate_role_transition_inputs,
 )
 from personnel_sections import (
+    render_personnel_equipment_section,
     render_personnel_box_return_section,
     render_personnel_edit_sidebar,
     render_personnel_list_workspace,
@@ -7604,245 +7605,33 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             set_flash_message("success", "Personel kaydı kalıcı olarak silindi.")
                         st.rerun()
 
-                    st.markdown("##### Ekipman ve İade")
-                    st.caption("Seçili personele ait ekipman satışlarını burada düzenleyebilir, box geri alımını aynı karttan kaydedebilirsin.")
-
-                    new_issue_prefix = f"edit_person_new_issue_{selected_id}"
-                    new_issue_item_key = f"{new_issue_prefix}_item"
-                    new_issue_last_item_key = f"{new_issue_prefix}_last_item"
-                    new_issue_qty_key = f"{new_issue_prefix}_quantity"
-                    new_issue_date_key = f"{new_issue_prefix}_date"
-                    new_issue_cost_key = f"{new_issue_prefix}_cost"
-                    new_issue_cost_snapshot_key = f"{new_issue_prefix}_cost_snapshot"
-                    new_issue_sale_key = f"{new_issue_prefix}_sale"
-                    new_issue_sale_type_key = f"{new_issue_prefix}_sale_type"
-                    new_issue_installment_key = f"{new_issue_prefix}_installment"
-                    new_issue_notes_key = f"{new_issue_prefix}_notes"
-
-                    if st.session_state.get(new_issue_item_key) not in ISSUE_ITEMS:
-                        st.session_state[new_issue_item_key] = ISSUE_ITEMS[0]
-                    if st.session_state.get(new_issue_last_item_key) not in ISSUE_ITEMS:
-                        st.session_state[new_issue_last_item_key] = st.session_state.get(new_issue_item_key, ISSUE_ITEMS[0])
-                    current_new_issue_item = st.session_state.get(new_issue_item_key, ISSUE_ITEMS[0])
-                    current_new_issue_snapshot = get_equipment_cost_snapshot(conn, current_new_issue_item)
-                    current_new_issue_average_cost = current_new_issue_snapshot[3]
-                    if new_issue_date_key not in st.session_state or not isinstance(st.session_state.get(new_issue_date_key), date):
-                        st.session_state[new_issue_date_key] = date.today()
-                    if new_issue_qty_key not in st.session_state:
-                        st.session_state[new_issue_qty_key] = 1
-                    if new_issue_cost_key not in st.session_state:
-                        st.session_state[new_issue_cost_key] = float(get_default_equipment_unit_cost(conn, current_new_issue_item))
-                        st.session_state[new_issue_cost_snapshot_key] = current_new_issue_snapshot
-                    if new_issue_sale_key not in st.session_state:
-                        default_sale = get_default_equipment_sale_price(current_new_issue_item) or st.session_state[new_issue_cost_key]
-                        st.session_state[new_issue_sale_key] = float(default_sale)
-                    if new_issue_sale_type_key not in st.session_state:
-                        st.session_state[new_issue_sale_type_key] = "Satış"
-                    if new_issue_installment_key not in st.session_state:
-                        st.session_state[new_issue_installment_key] = int(get_default_issue_installment_count(current_new_issue_item))
-                    if new_issue_notes_key not in st.session_state:
-                        st.session_state[new_issue_notes_key] = ""
-                    if tuple(st.session_state.get(new_issue_cost_snapshot_key) or ()) != tuple(current_new_issue_snapshot):
-                        st.session_state[new_issue_cost_key] = float(current_new_issue_average_cost)
-                        st.session_state[new_issue_cost_snapshot_key] = current_new_issue_snapshot
-
-                    st.markdown("###### Yeni ekipman hareketi ekle")
-                    add1, add2, add3 = st.columns(3)
-                    new_issue_date = add1.date_input("Teslim / satış tarihi", key=new_issue_date_key)
-                    new_issue_item = add2.selectbox("Ürün", ISSUE_ITEMS, key=new_issue_item_key)
-                    if st.session_state.get(new_issue_last_item_key) != new_issue_item:
-                        refreshed_snapshot = get_equipment_cost_snapshot(conn, new_issue_item)
-                        refreshed_cost = refreshed_snapshot[3]
-                        if refreshed_cost <= 0:
-                            refreshed_cost = latest_average_cost(conn, new_issue_item)
-                        refreshed_sale = get_default_equipment_sale_price(new_issue_item) or refreshed_cost
-                        st.session_state[new_issue_cost_key] = float(refreshed_cost)
-                        st.session_state[new_issue_sale_key] = float(refreshed_sale)
-                        st.session_state[new_issue_cost_snapshot_key] = refreshed_snapshot
-                        st.session_state[new_issue_installment_key] = int(get_default_issue_installment_count(new_issue_item))
-                        st.session_state[new_issue_last_item_key] = new_issue_item
-                    active_new_issue_snapshot = get_equipment_cost_snapshot(conn, new_issue_item)
-                    active_new_issue_average_cost = active_new_issue_snapshot[3]
-                    new_issue_qty = add3.number_input("Adet", min_value=1, step=1, key=new_issue_qty_key)
-                    new_issue_vat_rate = get_equipment_vat_rate(new_issue_item, new_issue_date)
-                    add4, add5, add6 = st.columns(3)
-                    new_issue_cost = add4.number_input("Birim maliyet", min_value=0.0, step=50.0, key=new_issue_cost_key)
-                    new_issue_sale = add5.number_input("Kuryeye satış fiyatı | KDV dahil", min_value=0.0, step=50.0, key=new_issue_sale_key)
-                    new_issue_sale_type = add6.selectbox("İşlem tipi", ["Satış", "Depozit / Teslim"], key=new_issue_sale_type_key)
-                    add7, add8, add9 = st.columns(3)
-                    installment_options = [1, 2, 3, 6, 12]
-                    new_issue_installment_value = safe_int(
-                        st.session_state.get(new_issue_installment_key),
-                        get_default_issue_installment_count(new_issue_item),
-                    )
-                    if new_issue_installment_value not in installment_options:
-                        new_issue_installment_value = get_default_issue_installment_count(new_issue_item)
-                        st.session_state[new_issue_installment_key] = new_issue_installment_value
-                    if new_issue_sale_type == "Satış":
-                        add7.selectbox("Taksit sayısı", installment_options, key=new_issue_installment_key)
-                        new_issue_installment = safe_int(st.session_state.get(new_issue_installment_key), new_issue_installment_value)
-                    else:
-                        add7.selectbox("Taksit sayısı", [1], index=0, disabled=True, key=f"{new_issue_prefix}_installment_disabled")
-                        new_issue_installment = 1
-                    add8.markdown(
-                        f"<div class='ck-inline-note'>Varsayılan KDV: %{fmt_number(new_issue_vat_rate)}</div>",
-                        unsafe_allow_html=True,
-                    )
-                    if active_new_issue_average_cost > 0:
-                        add9.markdown(
-                            f"<div class='ck-inline-note'>Ağırlıklı maliyet referansı: {fmt_try(active_new_issue_average_cost)}</div>",
-                            unsafe_allow_html=True,
-                        )
-                    new_issue_notes = st.text_input("Not", key=new_issue_notes_key)
-                    effective_new_issue_installment = normalize_equipment_issue_installment_count(new_issue_sale_type, new_issue_installment)
-                    new_issue_total_sale = float(new_issue_qty) * float(new_issue_sale)
-                    generates_new_issue_installments = equipment_issue_generates_installments(
-                        new_issue_sale_type,
-                        new_issue_total_sale,
-                        effective_new_issue_installment,
-                    )
-                    if new_issue_sale_type != "Satış":
-                        st.caption("Depozit / Teslim seçildiğinde bağlı zimmet taksiti oluşturulmaz.")
-                    add_issue_label = "Ekipman Hareketini Kaydet ve Taksit Oluştur" if generates_new_issue_installments else "Ekipman Hareketini Kaydet"
-                    if st.button(add_issue_label, key=f"{new_issue_prefix}_submit", use_container_width=True):
-                        new_issue_id = insert_equipment_issue_and_get_id(
-                            conn,
-                            selected_id,
-                            new_issue_date.isoformat(),
-                            new_issue_item,
-                            int(new_issue_qty),
-                            new_issue_cost,
-                            new_issue_sale,
-                            int(effective_new_issue_installment),
-                            new_issue_sale_type,
-                            new_issue_notes,
-                            vat_rate=new_issue_vat_rate,
-                        )
-                        post_equipment_installments(
-                            conn,
-                            new_issue_id,
-                            selected_id,
-                            new_issue_date,
-                            new_issue_item,
-                            new_issue_total_sale,
-                            int(effective_new_issue_installment),
-                            new_issue_sale_type,
-                        )
-                        st.session_state[new_issue_qty_key] = 1
-                        st.session_state[new_issue_notes_key] = ""
-                        if generates_new_issue_installments:
-                            set_flash_message(
-                                "success",
-                                f"Ekipman hareketi kaydedildi. Toplam satış: {fmt_try(new_issue_total_sale)} | {effective_new_issue_installment} taksit oluşturuldu.",
-                            )
-                        else:
-                            set_flash_message("success", f"Ekipman hareketi kaydedildi. Toplam işlem tutarı: {fmt_try(new_issue_total_sale)}")
-                        st.rerun()
-
-                    person_issue_df = fetch_df(
+                    render_personnel_equipment_section(
                         conn,
-                        """
-                        SELECT id, issue_date, item_name, quantity, unit_cost, unit_sale_price, vat_rate, installment_count, sale_type, notes
-                        FROM courier_equipment_issues
-                        WHERE personnel_id = ?
-                        ORDER BY issue_date DESC, id DESC
-                        """,
-                        (selected_id,),
+                        selected_id,
+                        issue_items=ISSUE_ITEMS,
+                        get_equipment_cost_snapshot_fn=get_equipment_cost_snapshot,
+                        get_default_equipment_unit_cost_fn=get_default_equipment_unit_cost,
+                        get_default_equipment_sale_price_fn=get_default_equipment_sale_price,
+                        get_default_issue_installment_count_fn=get_default_issue_installment_count,
+                        latest_average_cost_fn=latest_average_cost,
+                        get_equipment_vat_rate_fn=get_equipment_vat_rate,
+                        safe_int_fn=safe_int,
+                        safe_float_fn=safe_float,
+                        fmt_number_fn=fmt_number,
+                        fmt_try_fn=fmt_try,
+                        normalize_equipment_issue_installment_count_fn=normalize_equipment_issue_installment_count,
+                        equipment_issue_generates_installments_fn=equipment_issue_generates_installments,
+                        insert_equipment_issue_and_get_id_fn=insert_equipment_issue_and_get_id,
+                        post_equipment_installments_fn=post_equipment_installments,
+                        set_flash_message_fn=set_flash_message,
+                        fetch_df_fn=fetch_df,
+                        format_display_df_fn=format_display_df,
+                        build_grid_rows_fn=build_grid_rows,
+                        render_dashboard_data_grid_fn=render_dashboard_data_grid,
+                        update_equipment_issue_record_fn=update_equipment_issue_record,
+                        delete_equipment_issue_records_fn=delete_equipment_issue_records,
+                        parse_date_value_fn=parse_date_value,
                     )
-                    if not person_issue_df.empty:
-                        person_issue_display = format_display_df(
-                            person_issue_df,
-                            currency_cols=["unit_cost", "unit_sale_price"],
-                            number_cols=["quantity", "installment_count"],
-                            percent_cols=["vat_rate"],
-                            rename_map={
-                                "issue_date": "Tarih",
-                                "item_name": "Ürün",
-                                "quantity": "Adet",
-                                "unit_cost": "Birim Maliyet",
-                                "unit_sale_price": "Birim Satış",
-                                "vat_rate": "KDV",
-                                "installment_count": "Taksit",
-                                "sale_type": "İşlem Tipi",
-                                "notes": "Not",
-                            },
-                        )
-                        person_issue_columns = ["Tarih", "Ürün", "Adet", "Birim Satış", "Taksit", "İşlem Tipi"]
-                        render_dashboard_data_grid(
-                            "Seçili Personelin Ekipman Hareketleri",
-                            "Bu kartta yalnızca seçili personele ait ekipman kayıtları görünür.",
-                            person_issue_columns,
-                            build_grid_rows(person_issue_display[person_issue_columns], person_issue_columns),
-                            "Bu personele ait ekipman kaydı yok.",
-                            muted_columns={"İşlem Tipi"},
-                        )
-
-                        person_issue_options = {
-                            f"{issue_row['issue_date']} | {issue_row['item_name']} | {safe_int(issue_row['quantity'], 0)} adet | ID:{safe_int(issue_row['id'], 0)}": int(issue_row["id"])
-                            for _, issue_row in person_issue_df.iterrows()
-                        }
-                        selected_issue_label = st.selectbox(
-                            "Düzenlenecek ekipman kaydı",
-                            list(person_issue_options.keys()),
-                            key=f"edit_person_issue_select_{selected_id}",
-                        )
-                        selected_issue_id = person_issue_options[selected_issue_label]
-                        selected_issue_row = person_issue_df.loc[person_issue_df["id"] == selected_issue_id].iloc[0]
-                        issue_date_value = parse_date_value(selected_issue_row["issue_date"]) or date.today()
-                        current_issue_item = str(selected_issue_row["item_name"] or "")
-                        current_issue_item_options = ISSUE_ITEMS
-                        current_issue_item_index = current_issue_item_options.index(current_issue_item) if current_issue_item in current_issue_item_options else 0
-                        issue_sale_type_value = str(selected_issue_row["sale_type"] or "Satış")
-                        issue_installment_options = [1, 2, 3, 6, 12]
-                        issue_installment_value = safe_int(selected_issue_row["installment_count"], 1)
-                        if issue_installment_value not in issue_installment_options:
-                            issue_installment_value = 1
-
-                        d1, d2, d3 = st.columns(3)
-                        edit_issue_date = d1.date_input("Ekipman Tarihi", value=issue_date_value)
-                        edit_issue_item = d2.selectbox("Ekipman Ürünü", current_issue_item_options, index=current_issue_item_index)
-                        edit_issue_quantity = d3.number_input("Ekipman Adedi", min_value=1, value=max(safe_int(selected_issue_row["quantity"], 1), 1), step=1)
-                        d4, d5, d6 = st.columns(3)
-                        edit_issue_cost = d4.number_input("Ekipman Birim Maliyeti", min_value=0.0, value=max(safe_float(selected_issue_row["unit_cost"]), 0.0), step=50.0)
-                        edit_issue_sale = d5.number_input("Ekipman Birim Satışı", min_value=0.0, value=max(safe_float(selected_issue_row["unit_sale_price"]), 0.0), step=50.0)
-                        edit_issue_vat = d6.selectbox("Ekipman KDV", [10.0, 20.0], index=0 if safe_float(selected_issue_row["vat_rate"], 10.0) < 20 else 1, format_func=lambda x: f"%{fmt_number(x)}")
-                        d7, d8, d9 = st.columns(3)
-                        edit_issue_sale_type = d7.selectbox("Ekipman İşlem Tipi", ["Satış", "Depozit / Teslim"], index=0 if issue_sale_type_value == "Satış" else 1)
-                        if edit_issue_sale_type == "Satış":
-                            edit_issue_installment = d8.selectbox("Ekipman Taksit Sayısı", issue_installment_options, index=issue_installment_options.index(issue_installment_value))
-                        else:
-                            d8.selectbox("Ekipman Taksit Sayısı", [1], index=0, disabled=True)
-                            edit_issue_installment = 1
-                        edit_issue_notes = d9.text_input("Ekipman Notu", value=str(selected_issue_row["notes"] or ""))
-                        e1, e2 = st.columns(2)
-                        issue_update_clicked = e1.button("Ekipman Kaydını Güncelle", use_container_width=True, key=f"edit_person_issue_update_{selected_issue_id}")
-                        issue_delete_clicked = e2.button("Ekipman Kaydını Sil", use_container_width=True, key=f"edit_person_issue_delete_{selected_issue_id}")
-                        if issue_update_clicked:
-                            updated = update_equipment_issue_record(
-                                conn,
-                                selected_issue_id,
-                                issue_date_value=edit_issue_date,
-                                item_name=edit_issue_item,
-                                quantity=edit_issue_quantity,
-                                unit_cost=edit_issue_cost,
-                                unit_sale_price=edit_issue_sale,
-                                vat_rate=edit_issue_vat,
-                                installment_count=edit_issue_installment,
-                                sale_type=edit_issue_sale_type,
-                                notes=edit_issue_notes,
-                            )
-                            if updated:
-                                set_flash_message("success", "Ekipman kaydı güncellendi.")
-                                st.rerun()
-                            st.error("Ekipman kaydı güncellenemedi.")
-                        if issue_delete_clicked:
-                            deleted_count = delete_equipment_issue_records(conn, [selected_issue_id])
-                            if deleted_count > 0:
-                                set_flash_message("success", "Ekipman kaydı ve bağlı taksitleri silindi.")
-                                st.rerun()
-                            st.error("Ekipman kaydı silinemedi.")
-                    else:
-                        st.info("Bu personele ait ekipman kaydı henüz yok. İşe girişte verilen ekipmanları personel kartından, sonraki hareketleri bu düzenleme alanından ekleyebilirsin.")
 
                     render_personnel_box_return_section(
                         conn,
