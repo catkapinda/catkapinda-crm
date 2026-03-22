@@ -79,3 +79,24 @@ def update_daily_entry(conn: CompatConnection, entry_id: int, values: dict[str, 
 
 def delete_daily_entry(conn: CompatConnection, entry_id: int) -> None:
     conn.execute("DELETE FROM daily_entries WHERE id = ?", (entry_id,))
+
+
+def fetch_bulk_attendance_people_rows(conn: CompatConnection, restaurant_id: int, include_all_active: bool):
+    return conn.execute(
+        """
+        SELECT id, full_name, role
+        FROM personnel
+        WHERE status='Aktif'
+          AND (? = 1 OR assigned_restaurant_id = ? OR role IN ('Joker', 'Bölge Müdürü', 'Saha Denetmen Şefi', 'Restoran Takım Şefi'))
+        ORDER BY
+            CASE
+                WHEN role='Restoran Takım Şefi' THEN 1
+                WHEN role='Saha Denetmen Şefi' THEN 2
+                WHEN role='Bölge Müdürü' THEN 3
+                WHEN role='Joker' THEN 4
+                ELSE 5
+            END,
+            full_name
+        """,
+        (1 if include_all_active else 0, restaurant_id),
+    ).fetchall()
