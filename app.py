@@ -4482,6 +4482,10 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
 
 def restaurants_tab(conn: sqlite3.Connection) -> None:
     actor_role = str(st.session_state.get("role") or "")
+    can_create_restaurant = can_perform_action(actor_role, "restaurant.create")
+    can_update_restaurant = can_perform_action(actor_role, "restaurant.update")
+    can_toggle_restaurant_status = can_perform_action(actor_role, "restaurant.status_change")
+    can_delete_restaurant = can_perform_action(actor_role, "restaurant.delete")
     restaurant_payload = load_restaurant_workspace_payload(conn, ensure_dataframe_columns_fn=ensure_dataframe_columns)
     df = restaurant_payload.df
     render_management_hero(
@@ -4499,7 +4503,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
     c1, c2, c3 = st.columns(3)
     with c1:
         render_action_card("Yeni Şube Oluştur", "Yeni restoran ya da yeni şube açılışını ana form üzerinden başlat.", highlight=st.session_state[workspace_key] == "add")
-        if st.button("Yeni Şube Formunu Aç", key="restaurant_workspace_add", use_container_width=True):
+        if st.button("Yeni Şube Formunu Aç", key="restaurant_workspace_add", use_container_width=True, disabled=not can_create_restaurant):
             st.session_state[workspace_key] = "add"
     with c2:
         render_action_card("Şube Listesini Gör", "Tüm restoran kartlarını filtrele, ara ve seçili kayıt üzerinde işlem yap.", highlight=st.session_state[workspace_key] == "list")
@@ -4507,15 +4511,23 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             st.session_state[workspace_key] = "list"
     with c3:
         render_action_card("Şube Kartını Güncelle", "Mevcut anlaşmaları, fiyatları ve iletişim bilgilerini düzenle.", highlight=st.session_state[workspace_key] == "edit")
-        if st.button("Güncelleme Alanını Aç", key="restaurant_workspace_edit", use_container_width=True):
+        if st.button("Güncelleme Alanını Aç", key="restaurant_workspace_edit", use_container_width=True, disabled=not can_update_restaurant):
             st.session_state[workspace_key] = "edit"
 
     workspace_mode = st.session_state[workspace_key]
+    if workspace_mode == "add" and not can_create_restaurant:
+        workspace_mode = "list"
+        st.session_state[workspace_key] = "list"
+    elif workspace_mode == "edit" and not can_update_restaurant:
+        workspace_mode = "list"
+        st.session_state[workspace_key] = "list"
 
     if workspace_mode == "list":
         render_restaurant_list_workspace(
             conn,
             df,
+            can_toggle_restaurant_status=can_toggle_restaurant_status,
+            can_delete_restaurant=can_delete_restaurant,
             pricing_model_labels=PRICING_MODEL_LABELS,
             active_status_labels=ACTIVE_STATUS_LABELS,
             safe_int_fn=safe_int,
@@ -4534,6 +4546,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
     elif workspace_mode == "add":
         render_restaurant_add_workspace(
             conn,
+            can_create_restaurant=can_create_restaurant,
             pricing_model_labels=PRICING_MODEL_LABELS,
             render_tab_header_fn=render_tab_header,
             render_field_label_fn=render_field_label,
@@ -4546,6 +4559,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
         render_restaurant_edit_workspace(
             conn,
             df,
+            can_update_restaurant=can_update_restaurant,
             pricing_model_labels=PRICING_MODEL_LABELS,
             active_status_labels=ACTIVE_STATUS_LABELS,
             safe_int_fn=safe_int,
@@ -4561,6 +4575,25 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
 def personnel_tab(conn: sqlite3.Connection) -> None:
     actor_role = str(st.session_state.get("role") or "")
+    can_create_personnel = can_perform_action(actor_role, "personnel.create")
+    can_update_personnel = can_perform_action(actor_role, "personnel.update")
+    can_toggle_personnel_status = can_perform_action(actor_role, "personnel.status_change")
+    can_delete_personnel = can_perform_action(actor_role, "personnel.delete")
+    can_create_equipment = can_perform_action(actor_role, "equipment.create")
+    can_update_equipment = can_perform_action(actor_role, "equipment.bulk_update")
+    can_delete_equipment = can_perform_action(actor_role, "equipment.bulk_delete")
+    can_box_return = can_perform_action(actor_role, "equipment.box_return")
+    can_open_personnel_edit = any(
+        [
+            can_update_personnel,
+            can_toggle_personnel_status,
+            can_delete_personnel,
+            can_create_equipment,
+            can_update_equipment,
+            can_delete_equipment,
+            can_box_return,
+        ]
+    )
     personnel_payload = load_personnel_workspace_payload(
         conn,
         recently_created_payload=st.session_state.get("personnel_recently_created"),
@@ -4613,7 +4646,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         render_action_card("Yeni Personel Ekle", "Kurye, yönetim ya da operasyon kartını görünür ana form üzerinden oluştur.", highlight=st.session_state[workspace_key] == "add")
-        if st.button("Yeni Personel Formunu Aç", key="personnel_workspace_add", use_container_width=True):
+        if st.button("Yeni Personel Formunu Aç", key="personnel_workspace_add", use_container_width=True, disabled=not can_create_personnel):
             st.session_state.pop("personnel_create_success_message", None)
             st.session_state.pop("personnel_recently_created", None)
             st.session_state[workspace_key] = "add"
@@ -4625,18 +4658,27 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             st.session_state[workspace_key] = "list"
     with c3:
         render_action_card("Personel Düzenle", "Kart bilgilerini, görev rolünü ve maliyet ayarlarını güncelle.", highlight=st.session_state[workspace_key] == "edit")
-        if st.button("Düzenleme Alanını Aç", key="personnel_workspace_edit", use_container_width=True):
+        if st.button("Düzenleme Alanını Aç", key="personnel_workspace_edit", use_container_width=True, disabled=not can_open_personnel_edit):
             st.session_state.pop("personnel_create_success_message", None)
             st.session_state.pop("personnel_recently_created", None)
             st.session_state[workspace_key] = "edit"
     with c4:
         render_action_card("Plaka / Motor", "Araç, plaka ve zimmet geçmişini ayrı çalışma alanında yönet.", highlight=st.session_state[workspace_key] == "plate")
-        if st.button("Plaka Alanını Aç", key="personnel_workspace_plate", use_container_width=True):
+        if st.button("Plaka Alanını Aç", key="personnel_workspace_plate", use_container_width=True, disabled=not can_update_personnel):
             st.session_state.pop("personnel_create_success_message", None)
             st.session_state.pop("personnel_recently_created", None)
             st.session_state[workspace_key] = "plate"
 
     workspace_mode = st.session_state[workspace_key]
+    if workspace_mode == "add" and not can_create_personnel:
+        workspace_mode = "list"
+        st.session_state[workspace_key] = "list"
+    elif workspace_mode == "edit" and not can_open_personnel_edit:
+        workspace_mode = "list"
+        st.session_state[workspace_key] = "list"
+    elif workspace_mode == "plate" and not can_update_personnel:
+        workspace_mode = "list"
+        st.session_state[workspace_key] = "list"
 
     if workspace_mode == "list":
         render_personnel_list_workspace(
@@ -4658,6 +4700,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         render_personnel_add_workspace(
             conn,
             df,
+            can_create_personnel=can_create_personnel,
             recently_created_id=recently_created_id,
             workspace_key=workspace_key,
             rest_opts_with_blank=rest_opts_with_blank,
@@ -4709,6 +4752,13 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         render_personnel_edit_workspace(
             conn,
             df,
+            can_update_personnel=can_update_personnel,
+            can_toggle_personnel_status=can_toggle_personnel_status,
+            can_delete_personnel=can_delete_personnel,
+            can_create_equipment=can_create_equipment,
+            can_update_equipment=can_update_equipment,
+            can_delete_equipment=can_delete_equipment,
+            can_box_return=can_box_return,
             rest_opts=rest_opts,
             rest_opts_with_blank=rest_opts_with_blank,
             personnel_role_options=PERSONNEL_ROLE_OPTIONS,
@@ -4777,6 +4827,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     else:
         render_personnel_plate_workspace(
             conn,
+            can_update_personnel=can_update_personnel,
             get_person_options_fn=get_person_options,
             fetch_df_fn=fetch_df,
             safe_int_fn=safe_int,
@@ -4785,6 +4836,8 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         )
 
 def attendance_tab(conn: sqlite3.Connection) -> None:
+    actor_role = str(st.session_state.get("role") or "")
+    can_bulk_attendance_create = can_perform_action(actor_role, "attendance.bulk_create")
     today_value = date.today()
     month_start = today_value.replace(day=1).isoformat()
     today_count = int(first_row_value(conn.execute("SELECT COUNT(*) FROM daily_entries WHERE entry_date = ?", (today_value.isoformat(),)).fetchone(), 0) or 0)
@@ -4815,8 +4868,11 @@ def attendance_tab(conn: sqlite3.Connection) -> None:
             st.session_state[workspace_key] = "daily"
     with c2:
         render_action_card("Toplu Puantaj", "Bir şubedeki çoklu personel kaydını tablo halinde veya WhatsApp metniyle içeri al.", highlight=st.session_state[workspace_key] == "bulk")
-        if st.button("Toplu Alanı Aç", key="attendance_workspace_bulk", use_container_width=True):
+        if st.button("Toplu Alanı Aç", key="attendance_workspace_bulk", use_container_width=True, disabled=not can_bulk_attendance_create):
             st.session_state[workspace_key] = "bulk"
+
+    if st.session_state[workspace_key] == "bulk" and not can_bulk_attendance_create:
+        st.session_state[workspace_key] = "daily"
 
     if st.session_state[workspace_key] == "daily":
         render_tab_header("Günlük Puantaj", "Şube bazlı tekil puantaj kayıtlarını gir, düzelt ve yönet.")
@@ -4828,6 +4884,9 @@ def attendance_tab(conn: sqlite3.Connection) -> None:
 
 def daily_entries_tab(conn: sqlite3.Connection) -> None:
     actor_role = str(st.session_state.get("role") or "")
+    can_create_attendance = can_perform_action(actor_role, "attendance.create")
+    can_update_attendance = can_perform_action(actor_role, "attendance.update")
+    can_delete_attendance = can_perform_action(actor_role, "attendance.delete")
     status_options = ["Normal", "Joker", "İzin", "Gelmedi", "Çıkış yaptı", "Şef"]
     st.subheader("Günlük Puantaj | Saat, paket ve fiilen çalışan personel kaydı")
     st.caption("WhatsApp teyidi sonrası şube bazlı günlük saat ve paket girişlerini bu ekrandan yap.")
@@ -4845,7 +4904,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         worked_hours = c6.number_input("Çalışılan saat", min_value=0.0, value=10.0, step=0.5)
         package_count = c7.number_input("Paket", min_value=0.0, value=0.0, step=1.0)
         notes = st.text_area("Not")
-        submitted = st.form_submit_button("Kaydet", use_container_width=True)
+        submitted = st.form_submit_button("Kaydet", use_container_width=True, disabled=not can_create_attendance)
         if submitted:
             planned_id = person_opts[planned_label] if planned_label != "-" else None
             actual_id = person_opts[actual_label] if actual_label != "-" else None
@@ -4911,8 +4970,8 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             edit_package = e7.number_input("Paket", min_value=0.0, value=float(selected["package_count"] or 0), step=1.0)
             edit_notes = st.text_area("Not", value=selected["notes"])
             u1, u2 = st.columns(2)
-            update_clicked = u1.form_submit_button("Kaydı güncelle", use_container_width=True)
-            delete_clicked = u2.form_submit_button("Kaydı sil", use_container_width=True)
+            update_clicked = u1.form_submit_button("Kaydı güncelle", use_container_width=True, disabled=not can_update_attendance)
+            delete_clicked = u2.form_submit_button("Kaydı sil", use_container_width=True, disabled=not can_delete_attendance)
 
             if update_clicked:
                 previous_actual_id = safe_int(selected["actual_personnel_id"], 0)
@@ -4964,6 +5023,10 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
 def deductions_tab(conn: sqlite3.Connection) -> None:
     actor_role = str(st.session_state.get("role") or "")
+    can_create_deduction = can_perform_action(actor_role, "deduction.create")
+    can_update_deduction = can_perform_action(actor_role, "deduction.update")
+    can_delete_deduction = can_perform_action(actor_role, "deduction.delete")
+    can_bulk_delete_deductions = can_perform_action(actor_role, "deduction.bulk_delete")
     section_intro("💸 Kesinti Yönetimi | Motor kira, bakım, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan manuel kaydet ve yönet.")
     person_opts = get_person_options(conn, active_only=False)
     deduction_types = ["Bakım", "Yakıt", "HGS", "İdari ceza", "Hasar", "Fatura Edilmeyen Tutar"]
@@ -4975,7 +5038,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         ded_type = c3.selectbox("Kesinti türü", deduction_types)
         amount = st.number_input("Tutar", min_value=0.0, value=0.0, step=50.0)
         notes = st.text_input("Açıklama")
-        submitted = st.form_submit_button("Kesinti ekle", use_container_width=True)
+        submitted = st.form_submit_button("Kesinti ekle", use_container_width=True, disabled=not can_create_deduction)
         if submitted and amount > 0:
             deduction_due_date = normalize_deduction_date(ded_date)
             try:
@@ -5039,7 +5102,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
             list(bulk_deduction_options.keys()),
             key="bulk_deduction_delete_select",
         )
-        if st.button("Seçili Kesintileri Toplu Sil", use_container_width=True, key="bulk_deduction_delete_button"):
+        if st.button("Seçili Kesintileri Toplu Sil", use_container_width=True, key="bulk_deduction_delete_button", disabled=not can_bulk_delete_deductions):
             selected_bulk_deduction_ids = [bulk_deduction_options[label] for label in selected_bulk_deduction_labels]
             if not selected_bulk_deduction_ids:
                 st.error("Önce en az bir manuel kesinti kaydı seçmelisin.")
@@ -5093,8 +5156,8 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         edit_amount = st.number_input("Tutar", min_value=0.0, value=safe_float(row["amount"]), step=50.0)
         edit_notes = st.text_input("Açıklama", value=row["notes"] or "")
         c4, c5 = st.columns(2)
-        update_clicked = c4.form_submit_button("Kesinti güncelle", use_container_width=True, disabled=is_auto_record)
-        delete_clicked = c5.form_submit_button("Kesinti sil", use_container_width=True, disabled=is_auto_record)
+        update_clicked = c4.form_submit_button("Kesinti güncelle", use_container_width=True, disabled=is_auto_record or not can_update_deduction)
+        delete_clicked = c5.form_submit_button("Kesinti sil", use_container_width=True, disabled=is_auto_record or not can_delete_deduction)
 
         if update_clicked and edit_amount > 0:
             deduction_due_date = normalize_deduction_date(edit_date)
@@ -5129,6 +5192,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
 
 def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
     actor_role = str(st.session_state.get("role") or "")
+    can_bulk_attendance_create = can_perform_action(actor_role, "attendance.bulk_create")
     section_intro("🗂 Toplu Puantaj | Şube bazlı hızlı satır girişi ve WhatsApp metni aktarımı", "Bir şubedeki birden fazla kurye için saat, paket ve durumu Excel gibi tek ekranda gir. İstersen WhatsApp metnini yapıştırıp tabloya aktar.")
 
     restaurant_opts = get_restaurant_options(conn)
@@ -5191,7 +5255,7 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
     )
 
     csave, cclear = st.columns([1, 1])
-    if csave.button("Tümünü Kaydet", key="bulk_save_btn", use_container_width=True):
+    if csave.button("Tümünü Kaydet", key="bulk_save_btn", use_container_width=True, disabled=not can_bulk_attendance_create):
         try:
             inserted = save_bulk_entries_and_sync(
                 conn,
@@ -5275,6 +5339,9 @@ configure_form_rules(
 
 def purchases_tab(conn: sqlite3.Connection) -> None:
     actor_role = str(st.session_state.get("role") or "")
+    can_create_purchase = can_perform_action(actor_role, "purchase.create")
+    can_update_purchase = can_perform_action(actor_role, "purchase.update")
+    can_delete_purchase = can_perform_action(actor_role, "purchase.delete")
     section_intro(
         "🛒 Satın Alma | Fatura girişi ve birim maliyet takibi",
         "Ekipman satın alma faturalarını ayrı ekranda yönet; ürün bazlı birim maliyeti ve geçmiş alımları tek listede takip et.",
@@ -5293,7 +5360,7 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
         supplier = c5.text_input("Tedarikçi", key="purchase_supplier")
         invoice_no = c6.text_input("Fatura No", key="purchase_invoice_no")
         notes = st.text_input("Not", key="purchase_notes")
-        submitted = st.form_submit_button("Satın Alma Kaydet", use_container_width=True)
+        submitted = st.form_submit_button("Satın Alma Kaydet", use_container_width=True, disabled=not can_create_purchase)
         if submitted and quantity > 0 and total_invoice_amount > 0:
             unit_cost = round(total_invoice_amount / quantity, 2)
             try:
@@ -5376,8 +5443,8 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
         recalculated_unit_cost = round(edit_total_invoice_amount / edit_quantity, 2) if edit_quantity > 0 and edit_total_invoice_amount > 0 else 0.0
         st.caption(f"Yeni birim maliyet: {fmt_try(recalculated_unit_cost)}")
         b1, b2 = st.columns(2)
-        update_clicked = b1.form_submit_button("Satın Alma Kaydını Güncelle", use_container_width=True)
-        delete_clicked = b2.form_submit_button("Satın Alma Kaydını Sil", use_container_width=True)
+        update_clicked = b1.form_submit_button("Satın Alma Kaydını Güncelle", use_container_width=True, disabled=not can_update_purchase)
+        delete_clicked = b2.form_submit_button("Satın Alma Kaydını Sil", use_container_width=True, disabled=not can_delete_purchase)
 
         if update_clicked:
             if edit_quantity <= 0:
@@ -5420,6 +5487,10 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
 
 def equipment_tab(conn: sqlite3.Connection) -> None:
     actor_role = str(st.session_state.get("role") or "")
+    can_create_equipment = can_perform_action(actor_role, "equipment.create")
+    can_update_equipment = can_perform_action(actor_role, "equipment.bulk_update")
+    can_delete_equipment = can_perform_action(actor_role, "equipment.bulk_delete")
+    can_box_return = can_perform_action(actor_role, "equipment.box_return")
     section_intro(
         "📦 Ekipman Hareketleri | Sonradan satış, düzeltme, iade ve box geri alım",
         "İşe girişten sonra oluşan tüm ekipman hareketlerini, düzeltmeleri, box geri alımlarını ve ekipman kârlılığını bu panelden yönet.",
@@ -5515,7 +5586,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             if sale_type != "Satış":
                 st.caption("Depozit / Teslim seçildiğinde bağlı zimmet taksiti oluşturulmaz.")
             submit_label = "Zimmet Kaydet ve Taksit Oluştur" if generates_installments else "Zimmet Kaydet"
-            submitted = st.button(submit_label, use_container_width=True, key="issue_submit")
+            submitted = st.button(submit_label, use_container_width=True, key="issue_submit", disabled=not can_create_equipment)
             if submitted:
                 person_id = person_opts[person_label]
                 try:
@@ -5629,8 +5700,8 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                 bulk_note_text = st.text_input("Seçili kayıtlara eklenecek not", placeholder="Örn: Mart revizyonu")
 
                 a1, a2 = st.columns(2)
-                bulk_update_clicked = a1.form_submit_button("Seçili Kayıtları Güncelle", use_container_width=True)
-                bulk_delete_clicked = a2.form_submit_button("Seçili Kayıtları Sil", use_container_width=True)
+                bulk_update_clicked = a1.form_submit_button("Seçili Kayıtları Güncelle", use_container_width=True, disabled=not can_update_equipment)
+                bulk_delete_clicked = a2.form_submit_button("Seçili Kayıtları Sil", use_container_width=True, disabled=not can_delete_equipment)
 
                 if bulk_update_clicked:
                     if not selected_bulk_issue_ids:
@@ -5724,7 +5795,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             quantity = c4.number_input("Adet", min_value=1, value=1, step=1, key="box_qty")
             payout_amount = c5.number_input("Kurye geri ödeme tutarı", min_value=0.0, value=0.0, step=100.0, key="box_payout")
             notes = c6.text_input("Not", key="box_notes")
-            submitted = st.form_submit_button("Box geri alımı kaydet", use_container_width=True)
+            submitted = st.form_submit_button("Box geri alımı kaydet", use_container_width=True, disabled=not can_box_return)
             if submitted:
                 person_id = person_opts[person_label]
                 waived = 1 if condition_status == "Parasını istemedi" else 0
