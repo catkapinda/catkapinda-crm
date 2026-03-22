@@ -115,6 +115,7 @@ from equipment_rules import (
 )
 from reporting_rules import (
     build_invoice_summary_df,
+    build_restaurant_invoice_drilldown_map,
     calculate_customer_invoice,
     configure_reporting_rules,
     get_operational_restaurant_names_for_period,
@@ -6455,6 +6456,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
     personnel_df = fetch_df(conn, "SELECT * FROM personnel")
     role_history_df = fetch_df(conn, "SELECT * FROM personnel_role_history ORDER BY personnel_id, effective_date, id")
     deductions_df = fetch_df(conn, "SELECT * FROM deductions WHERE deduction_date BETWEEN ? AND ?", (start_date, end_date))
+    invoice_drilldown_map = build_restaurant_invoice_drilldown_map(month_df, personnel_df)
     cost_df = calculate_personnel_cost(month_df, personnel_df, deductions_df, role_history_df=role_history_df)
 
     revenue = float(invoice_df["kdv_dahil"].sum()) if not invoice_df.empty else 0.0
@@ -6539,6 +6541,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
     with tab1:
         render_invoice_report_tab(
             invoice_df,
+            invoice_drilldown_map,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
