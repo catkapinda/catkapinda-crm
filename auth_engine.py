@@ -105,7 +105,7 @@ def build_login_logo_markup() -> str:
         ".jpeg": "image/jpeg",
         ".svg": "image/svg+xml",
     }
-    app_dir = Path(__file__).resolve().parent
+    app_dir = Path(__file__).resolve().parent.parent
 
     for candidate in _LOGIN_LOGO_CANDIDATES:
         logo_path = app_dir / candidate
