@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import calendar
+import re
 from datetime import date, timedelta
 from typing import Any, Callable
 
@@ -20,6 +21,18 @@ _COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
 _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
 _PACKAGE_THRESHOLD_DEFAULT = 390
+
+
+def _format_compact_number(value: Any) -> str:
+    numeric_value = _SAFE_FLOAT(value, 0.0)
+    if abs(numeric_value - round(numeric_value)) < 0.005:
+        return f"{int(round(numeric_value))}"
+    text = f"{numeric_value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    if text.endswith(",00"):
+        text = text[:-3]
+    elif text.endswith("0"):
+        text = text[:-1]
+    return text
 
 
 def configure_reporting_rules(
@@ -324,6 +337,15 @@ def build_restaurant_invoice_drilldown_map(
         "worked_hours": 0.0,
         "package_count": 0.0,
         "actual_personnel_id": None,
+        "planned_personnel_id": None,
+        "pricing_model": "",
+        "hourly_rate": 0.0,
+        "package_rate": 0.0,
+        "package_threshold": 0,
+        "package_rate_low": 0.0,
+        "package_rate_high": 0.0,
+        "fixed_monthly_fee": 0.0,
+        "vat_rate": _VAT_RATE_DEFAULT,
     }.items():
         if column_name not in work.columns:
             work[column_name] = default_value
@@ -336,32 +358,208 @@ def build_restaurant_invoice_drilldown_map(
     if personnel_df is not None and not personnel_df.empty and "id" in personnel_df.columns:
         people_lookup = personnel_df[["id", "full_name", "role"]].copy()
         people_lookup["id"] = pd.to_numeric(people_lookup["id"], errors="coerce")
-        people_lookup = people_lookup.rename(columns={"id": "actual_personnel_id", "full_name": "personel", "role": "rol"})
-        work = work.merge(people_lookup, how="left", on="actual_personnel_id")
+        actual_lookup = people_lookup.rename(columns={"id": "actual_personnel_id", "full_name": "actual_personel", "role": "actual_rol"})
+        planned_lookup = people_lookup.rename(columns={"id": "planned_personnel_id", "full_name": "planned_personel", "role": "planned_rol"})
+        work = work.merge(actual_lookup, how="left", on="actual_personnel_id")
+        work = work.merge(planned_lookup, how="left", on="planned_personnel_id")
     else:
-        work["personel"] = None
-        work["rol"] = None
+        work["actual_personel"] = None
+        work["actual_rol"] = None
+        work["planned_personel"] = None
+        work["planned_rol"] = None
 
-    work["personel"] = work["personel"].fillna("")
-    work["rol"] = work["rol"].fillna("")
-    work.loc[(work["personel"].astype(str).str.strip() == "") & work["actual_personnel_id"].notna(), "personel"] = (
-        "Personel #" + work["actual_personnel_id"].fillna(0).astype(int).astype(str)
+    work["courier_id"] = work["actual_personnel_id"].where(work["actual_personnel_id"].notna(), work["planned_personnel_id"])
+    work["personel"] = work["actual_personel"].fillna("").astype(str)
+    work.loc[work["personel"].str.strip() == "", "personel"] = work["planned_personel"].fillna("").astype(str)
+    work["rol"] = work["actual_rol"].fillna("").astype(str)
+    work.loc[work["rol"].str.strip() == "", "rol"] = work["planned_rol"].fillna("").astype(str)
+    work.loc[(work["personel"].astype(str).str.strip() == "") & work["courier_id"].notna(), "personel"] = (
+        "Personel #" + work["courier_id"].fillna(0).astype(int).astype(str)
     )
     work.loc[work["personel"].astype(str).str.strip() == "", "personel"] = "Belirsiz Personel"
     work.loc[work["rol"].astype(str).str.strip() == "", "rol"] = "-"
 
-    grouped = (
-        work.groupby(["restoran", "personel", "rol"], dropna=False)
-        .agg(calisma_saati=("worked_hours", "sum"), paket=("package_count", "sum"))
-        .reset_index()
-    )
-    grouped = grouped[(grouped["calisma_saati"] > 0) | (grouped["paket"] > 0)].copy()
-    if grouped.empty:
-        return {}
-
     drilldown_map: dict[str, pd.DataFrame] = {}
-    for restoran_name, restaurant_group in grouped.groupby("restoran", dropna=False):
-        detail_df = restaurant_group[["personel", "rol", "calisma_saati", "paket"]].copy()
+    for (restaurant_id, brand, branch), restaurant_entries in work.groupby(["restaurant_id", "brand", "branch"], dropna=False):
+        if restaurant_entries.empty:
+            continue
+        first = restaurant_entries.iloc[0]
+        rule = _PRICING_RULE_CLS(
+            pricing_model=str(first.get("pricing_model", "") or ""),
+            hourly_rate=_SAFE_FLOAT(first.get("hourly_rate"), 0.0),
+            package_rate=_SAFE_FLOAT(first.get("package_rate"), 0.0),
+            package_threshold=_SAFE_INT(first.get("package_threshold"), 0),
+            package_rate_low=_SAFE_FLOAT(first.get("package_rate_low"), 0.0),
+            package_rate_high=_SAFE_FLOAT(first.get("package_rate_high"), 0.0),
+            fixed_monthly_fee=_SAFE_FLOAT(first.get("fixed_monthly_fee"), 0.0),
+            vat_rate=_SAFE_FLOAT(first.get("vat_rate"), _VAT_RATE_DEFAULT),
+        )
+        restaurant_total_hours, restaurant_total_packages, _, _ = calculate_customer_invoice(restaurant_entries, rule)
+        if rule.pricing_model == "threshold_package":
+            threshold_rate = rule.package_rate_low if restaurant_total_packages <= float(rule.package_threshold or 0) else rule.package_rate_high
+        else:
+            threshold_rate = rule.package_rate
+
+        grouped = (
+            restaurant_entries.groupby(["personel", "rol"], dropna=False)
+            .agg(calisma_saati=("worked_hours", "sum"), paket=("package_count", "sum"))
+            .reset_index()
+        )
+        grouped = grouped[(grouped["calisma_saati"] > 0) | (grouped["paket"] > 0)].copy()
+        if grouped.empty:
+            continue
+
+        courier_count = len(grouped)
+        subtotal_values = []
+        for _, courier_row in grouped.iterrows():
+            courier_hours = _SAFE_FLOAT(courier_row.get("calisma_saati"), 0.0)
+            courier_packages = _SAFE_FLOAT(courier_row.get("paket"), 0.0)
+            if rule.pricing_model == "hourly_plus_package":
+                courier_subtotal = courier_hours * rule.hourly_rate + courier_packages * rule.package_rate
+            elif rule.pricing_model == "threshold_package":
+                courier_subtotal = courier_hours * rule.hourly_rate + courier_packages * threshold_rate
+            elif rule.pricing_model == "hourly_only":
+                courier_subtotal = courier_hours * rule.hourly_rate
+            elif rule.pricing_model == "fixed_monthly":
+                if restaurant_total_hours > 0:
+                    courier_subtotal = rule.fixed_monthly_fee * (courier_hours / restaurant_total_hours)
+                elif restaurant_total_packages > 0:
+                    courier_subtotal = rule.fixed_monthly_fee * (courier_packages / restaurant_total_packages)
+                else:
+                    courier_subtotal = rule.fixed_monthly_fee / max(courier_count, 1)
+            else:
+                courier_subtotal = 0.0
+            subtotal_values.append(courier_subtotal)
+
+        grouped["kdv_haric"] = subtotal_values
+        grouped["kdv_dahil"] = grouped["kdv_haric"].apply(lambda value: float(value) * (1 + (rule.vat_rate / 100.0)))
+        restoran_name = f"{brand} - {branch}"
+        detail_df = grouped[["personel", "rol", "calisma_saati", "paket", "kdv_haric", "kdv_dahil"]].copy()
         detail_df = detail_df.sort_values(["paket", "calisma_saati", "personel"], ascending=[False, False, True]).reset_index(drop=True)
         drilldown_map[str(restoran_name or "")] = detail_df
     return drilldown_map
+
+
+def build_restaurant_attendance_export_map(
+    month_df: pd.DataFrame,
+    personnel_df: pd.DataFrame | None,
+    selected_month: str,
+    invoice_drilldown_map: dict[str, pd.DataFrame] | None = None,
+) -> dict[str, pd.DataFrame]:
+    if month_df is None or month_df.empty:
+        return {}
+
+    year, month = map(int, selected_month.split("-"))
+    total_days = calendar.monthrange(year, month)[1]
+    day_columns = [f"{day:02d}" for day in range(1, total_days + 1)]
+
+    work = month_df.copy()
+    for column_name, default_value in {
+        "brand": "",
+        "branch": "",
+        "entry_date": None,
+        "status": "Normal",
+        "worked_hours": 0.0,
+        "package_count": 0.0,
+        "planned_personnel_id": None,
+        "actual_personnel_id": None,
+    }.items():
+        if column_name not in work.columns:
+            work[column_name] = default_value
+
+    work["restoran"] = work["brand"].fillna("").astype(str) + " - " + work["branch"].fillna("").astype(str)
+    work["entry_date_value"] = pd.to_datetime(work["entry_date"], errors="coerce").dt.date
+    work = work[work["entry_date_value"].notna()].copy()
+    if work.empty:
+        return {}
+    work["day_key"] = pd.to_datetime(work["entry_date"], errors="coerce").dt.day.apply(lambda day: f"{int(day):02d}" if pd.notna(day) else "")
+    work["worked_hours"] = pd.to_numeric(work["worked_hours"], errors="coerce").fillna(0.0)
+    work["package_count"] = pd.to_numeric(work["package_count"], errors="coerce").fillna(0.0)
+    work["planned_personnel_id"] = pd.to_numeric(work["planned_personnel_id"], errors="coerce")
+    work["actual_personnel_id"] = pd.to_numeric(work["actual_personnel_id"], errors="coerce")
+
+    if personnel_df is not None and not personnel_df.empty and "id" in personnel_df.columns:
+        people_lookup = personnel_df[["id", "full_name", "role"]].copy()
+        people_lookup["id"] = pd.to_numeric(people_lookup["id"], errors="coerce")
+        actual_lookup = people_lookup.rename(columns={"id": "actual_personnel_id", "full_name": "actual_personel", "role": "actual_rol"})
+        planned_lookup = people_lookup.rename(columns={"id": "planned_personnel_id", "full_name": "planned_personel", "role": "planned_rol"})
+        work = work.merge(actual_lookup, how="left", on="actual_personnel_id")
+        work = work.merge(planned_lookup, how="left", on="planned_personnel_id")
+    else:
+        work["actual_personel"] = None
+        work["actual_rol"] = None
+        work["planned_personel"] = None
+        work["planned_rol"] = None
+
+    export_map: dict[str, pd.DataFrame] = {}
+    invoice_drilldown_map = invoice_drilldown_map or {}
+
+    for restaurant_name, restaurant_group in work.groupby("restoran", dropna=False):
+        if restaurant_group.empty:
+            continue
+        row_store: dict[str, dict[str, Any]] = {}
+        row_order: list[str] = []
+        for _, entry_row in restaurant_group.iterrows():
+            planned_name = str(entry_row.get("planned_personel") or "").strip()
+            actual_name = str(entry_row.get("actual_personel") or "").strip()
+            role_name = str(entry_row.get("planned_rol") or entry_row.get("actual_rol") or "-").strip() or "-"
+            row_key = planned_name or actual_name or "Belirsiz Personel"
+            if row_key not in row_store:
+                row_store[row_key] = {"Kurye": row_key, "Rol": role_name, **{day_col: "" for day_col in day_columns}}
+                row_order.append(row_key)
+
+            day_key = str(entry_row.get("day_key") or "")
+            if not day_key:
+                continue
+            status_text = str(entry_row.get("status") or "Normal").strip() or "Normal"
+            hours = _SAFE_FLOAT(entry_row.get("worked_hours"), 0.0)
+            packages = _SAFE_FLOAT(entry_row.get("package_count"), 0.0)
+            detail_parts: list[str] = []
+            if status_text and status_text != "Normal":
+                detail_parts.append(status_text)
+            if planned_name and actual_name and planned_name != actual_name:
+                detail_parts.append(f"Yerine {actual_name}")
+            stat_parts: list[str] = []
+            if hours > 0:
+                stat_parts.append(f"{_format_compact_number(hours)} saat")
+            if packages > 0:
+                stat_parts.append(f"{_format_compact_number(packages)} paket")
+            if stat_parts:
+                detail_parts.append(" | ".join(stat_parts))
+            if not detail_parts:
+                detail_parts.append("-")
+
+            current_value = str(row_store[row_key].get(day_key, "") or "").strip()
+            next_value = " / ".join(detail_parts)
+            row_store[row_key][day_key] = f"{current_value} || {next_value}" if current_value else next_value
+
+        summary_df = invoice_drilldown_map.get(str(restaurant_name or ""), pd.DataFrame())
+        summary_map = {}
+        if summary_df is not None and not summary_df.empty:
+            for _, summary_row in summary_df.iterrows():
+                summary_map[str(summary_row.get("personel") or "")] = summary_row
+
+        export_rows = []
+        for row_key in row_order:
+            export_row = row_store[row_key]
+            summary_row = summary_map.get(row_key)
+            export_row["Toplam Saat"] = _SAFE_FLOAT(summary_row.get("calisma_saati"), 0.0) if summary_row is not None else 0.0
+            export_row["Toplam Paket"] = _SAFE_FLOAT(summary_row.get("paket"), 0.0) if summary_row is not None else 0.0
+            export_row["KDV Hariç"] = _SAFE_FLOAT(summary_row.get("kdv_haric"), 0.0) if summary_row is not None else 0.0
+            export_row["KDV Dahil"] = _SAFE_FLOAT(summary_row.get("kdv_dahil"), 0.0) if summary_row is not None else 0.0
+            export_rows.append(export_row)
+
+        export_df = pd.DataFrame(export_rows)
+        if export_df.empty:
+            continue
+        ordered_columns = ["Kurye", "Rol", "Toplam Saat", "Toplam Paket", "KDV Hariç", "KDV Dahil", *day_columns]
+        export_df = export_df.reindex(columns=ordered_columns)
+        export_map[str(restaurant_name or "")] = export_df
+
+    return export_map
+
+
+def build_restaurant_export_filename(restaurant_name: str, selected_month: str) -> str:
+    normalized = re.sub(r"[^a-zA-Z0-9]+", "_", str(restaurant_name or "").strip()).strip("_").lower()
+    normalized = normalized or "restoran"
+    return f"catkapinda_{normalized}_{selected_month}_puantaj.csv"
