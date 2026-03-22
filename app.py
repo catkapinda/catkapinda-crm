@@ -34,7 +34,7 @@ from dashboard_sections import (
     render_dashboard_focus_sections,
     render_dashboard_summary_cards,
 )
-from db_engine import (
+from infrastructure.db_engine import (
     CompatConnection,
     adapt_sql,
     configure_db_engine,
@@ -128,13 +128,13 @@ from finance_engine import (
     calculate_personnel_cost,
     configure_finance_engine,
 )
-from bootstrap_engine import (
+from infrastructure.bootstrap_engine import (
     configure_bootstrap_engine,
     database_has_operational_data,
     ensure_runtime_bootstrap,
     import_sqlite_into_current_db,
 )
-from auth_engine import (
+from infrastructure.auth_engine import (
     build_login_logo_markup,
     cleanup_auth_sessions,
     clear_authenticated_user,
