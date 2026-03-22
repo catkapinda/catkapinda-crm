@@ -204,6 +204,13 @@ from services.deductions_service import (
     load_deductions_workspace_payload,
     update_deduction_and_commit,
 )
+from services.purchases_service import (
+    build_purchase_selection_payload,
+    create_purchase_and_commit,
+    delete_purchase_and_commit,
+    load_purchases_workspace_payload,
+    update_purchase_and_commit,
+)
 from services.personnel_service import (
     build_personnel_code_display_values,
     build_new_person_form_defaults,
@@ -5493,26 +5500,29 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
         submitted = st.form_submit_button("Satın Alma Kaydet", use_container_width=True)
         if submitted and quantity > 0 and total_invoice_amount > 0:
             unit_cost = round(total_invoice_amount / quantity, 2)
-            conn.execute(
-                """
-                INSERT INTO inventory_purchases
-                (purchase_date, item_name, quantity, total_invoice_amount, unit_cost, supplier, invoice_no, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (purchase_date.isoformat(), item_name, int(quantity), total_invoice_amount, unit_cost, supplier, invoice_no, notes),
-            )
-            conn.commit()
-            st.success(f"Satın alma kaydedildi. Birim maliyet: {fmt_try(unit_cost)}")
-            st.rerun()
+            try:
+                success_text = create_purchase_and_commit(
+                    conn,
+                    purchase_values={
+                        "purchase_date": purchase_date.isoformat(),
+                        "item_name": item_name,
+                        "quantity": int(quantity),
+                        "total_invoice_amount": total_invoice_amount,
+                        "unit_cost": unit_cost,
+                        "supplier": supplier,
+                        "invoice_no": invoice_no,
+                        "notes": notes,
+                    },
+                    fmt_try_fn=fmt_try,
+                )
+            except Exception as exc:
+                st.error(f"Satın alma kaydedilemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
 
-    purchases = fetch_df(
-        conn,
-        """
-        SELECT id, purchase_date, item_name, quantity, total_invoice_amount, unit_cost, supplier, invoice_no, notes
-        FROM inventory_purchases
-        ORDER BY purchase_date DESC, id DESC
-        """,
-    )
+    purchases_payload = load_purchases_workspace_payload(conn)
+    purchases = purchases_payload.purchases
     if purchases.empty:
         st.info("Henüz satın alma faturası kaydı yok.")
         return
@@ -5546,11 +5556,15 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
     purchase_options = build_purchase_option_map(purchases, fmt_try_fn=fmt_try)
     selected_label = st.selectbox("Düzenlenecek kayıt", list(purchase_options.keys()), key="purchase_manage_select")
     selected_id = purchase_options[selected_label]
-    row = purchases.loc[purchases["id"] == selected_id].iloc[0]
-    current_date = datetime.strptime(str(row["purchase_date"]), "%Y-%m-%d").date()
     item_options = PURCHASE_ITEMS
-    current_item = str(row["item_name"] or "")
-    item_index = item_options.index(current_item) if current_item in item_options else 0
+    selection_payload = build_purchase_selection_payload(
+        purchases,
+        selected_id=selected_id,
+        item_options=item_options,
+    )
+    row = selection_payload.row
+    current_date = selection_payload.current_date
+    item_index = selection_payload.item_index
 
     with st.form("purchase_edit_form"):
         c1, c2, c3 = st.columns(3)
@@ -5574,33 +5588,36 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
             elif edit_total_invoice_amount <= 0:
                 st.error("Toplam fatura tutarı 0'dan büyük olmalı.")
             else:
-                conn.execute(
-                    """
-                    UPDATE inventory_purchases
-                    SET purchase_date = ?, item_name = ?, quantity = ?, total_invoice_amount = ?, unit_cost = ?, supplier = ?, invoice_no = ?, notes = ?
-                    WHERE id = ?
-                    """,
-                    (
-                        edit_purchase_date.isoformat(),
-                        edit_item_name,
-                        int(edit_quantity),
-                        edit_total_invoice_amount,
-                        recalculated_unit_cost,
-                        edit_supplier,
-                        edit_invoice_no,
-                        edit_notes,
-                        selected_id,
-                    ),
-                )
-                conn.commit()
-                st.success(f"Satın alma kaydı güncellendi. Yeni birim maliyet: {fmt_try(recalculated_unit_cost)}")
-                st.rerun()
+                try:
+                    success_text = update_purchase_and_commit(
+                        conn,
+                        purchase_id=selected_id,
+                        purchase_values={
+                            "purchase_date": edit_purchase_date.isoformat(),
+                            "item_name": edit_item_name,
+                            "quantity": int(edit_quantity),
+                            "total_invoice_amount": edit_total_invoice_amount,
+                            "unit_cost": recalculated_unit_cost,
+                            "supplier": edit_supplier,
+                            "invoice_no": edit_invoice_no,
+                            "notes": edit_notes,
+                        },
+                        fmt_try_fn=fmt_try,
+                    )
+                except Exception as exc:
+                    st.error(f"Satın alma kaydı güncellenemedi: {exc}")
+                else:
+                    st.success(success_text)
+                    st.rerun()
 
         if delete_clicked:
-            conn.execute("DELETE FROM inventory_purchases WHERE id = ?", (selected_id,))
-            conn.commit()
-            st.success("Satın alma kaydı silindi.")
-            st.rerun()
+            try:
+                success_text = delete_purchase_and_commit(conn, purchase_id=selected_id)
+            except Exception as exc:
+                st.error(f"Satın alma kaydı silinemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
 
 
 def equipment_tab(conn: sqlite3.Connection) -> None:
