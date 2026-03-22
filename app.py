@@ -11,6 +11,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from email.message import EmailMessage
+from functools import partial
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -147,6 +148,7 @@ from infrastructure.auth_engine import (
     sync_default_auth_users,
     verify_auth_password,
 )
+from infrastructure.audit_engine import build_audit_actor_payload
 from ui.backup_sections import (
     configure_backup_sections,
     render_backup_tools_content,
@@ -186,6 +188,7 @@ from services.reporting_service import (
     build_reports_workspace_payload,
     load_reporting_entries_and_month_options,
 )
+from services.audit_service import load_audit_workspace_payload
 from services.attendance_service import (
     build_bulk_attendance_context,
     build_bulk_rows_from_parsed,
@@ -238,6 +241,12 @@ from services.personnel_service import (
     role_code_prefix,
     toggle_person_status_and_sync,
     update_person_and_sync,
+)
+from services.permission_service import (
+    PermissionDeniedError,
+    can_perform_action,
+    get_allowed_menu_items as get_allowed_menu_items_by_role,
+    require_menu_access as require_menu_access_by_role,
 )
 from repositories.personnel_repository import (
     fetch_active_restaurant_options,
@@ -361,6 +370,7 @@ MENU_DISPLAY_LABELS = {
     "Kesinti Yönetimi": "Kesinti Yönetimi",
     "Aylık Hakediş": "Aylık Hakediş",
     "Raporlar ve Karlılık": "Raporlar ve Karlılık",
+    "Sistem Kayıtları": "Sistem Kayıtları",
     "Güncellemeler ve Duyurular": "Güncellemeler ve Duyurular",
 }
 MENU_SECTIONS = [
@@ -368,7 +378,7 @@ MENU_SECTIONS = [
     ("Operasyon", ["Puantaj", "Kesinti Yönetimi"]),
     ("Kayıtlar", ["Restoran Yönetimi", "Personel Yönetimi", "Satın Alma"]),
     ("Finans", ["Aylık Hakediş", "Raporlar ve Karlılık"]),
-    ("Kurumsal", ["Güncellemeler ve Duyurular"]),
+    ("Kurumsal", ["Sistem Kayıtları", "Güncellemeler ve Duyurular"]),
 ]
 FIXED_COST_MODEL_BY_ROLE = {
     "Kurye": "fixed_kurye",
@@ -426,6 +436,7 @@ TABLE_EXPORT_ORDER = [
     "box_returns",
     "auth_users",
     "auth_sessions",
+    "audit_logs",
 ]
 
 
@@ -1626,7 +1637,7 @@ def render_top_profile(conn: CompatConnection) -> None:
                     st.success("Şifren güncellendi.")
                     st.rerun()
 
-            if st.session_state.get("role") == "admin":
+            if can_perform_action(str(st.session_state.get("role") or ""), "backup.manage"):
                 st.divider()
                 with st.expander("Veri Yönetimi ve Yedekleme", expanded=False):
                     st.caption("Yedek alma, dışa aktarma ve gerekirse veri aktarma işlemlerini bu alandan yönetebilirsin.")
@@ -1638,31 +1649,14 @@ def render_top_profile(conn: CompatConnection) -> None:
 
 
 def allowed_menu_items(role: str) -> list[str]:
-    if role == "admin":
-        return [
-            "Genel Bakış",
-            "Restoran Yönetimi",
-            "Personel Yönetimi",
-            "Puantaj",
-            "Satın Alma",
-            "Kesinti Yönetimi",
-            "Aylık Hakediş",
-            "Raporlar ve Karlılık",
-            "Güncellemeler ve Duyurular",
-        ]
-    if role == "sef":
-        return [
-            "Personel Yönetimi",
-            "Puantaj",
-            "Kesinti Yönetimi",
-            "Güncellemeler ve Duyurular",
-        ]
-    return []
+    return get_allowed_menu_items_by_role(role)
 
 
 def ensure_role_access(menu: str, role: str) -> None:
-    if menu not in allowed_menu_items(role):
-        st.error("Bu sayfaya erişim yetkiniz yok.")
+    try:
+        require_menu_access_by_role(role, menu)
+    except PermissionDeniedError as exc:
+        st.error(str(exc))
         st.stop()
 
 
@@ -4487,6 +4481,7 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
 
 
 def restaurants_tab(conn: sqlite3.Connection) -> None:
+    actor_role = str(st.session_state.get("role") or "")
     restaurant_payload = load_restaurant_workspace_payload(conn, ensure_dataframe_columns_fn=ensure_dataframe_columns)
     df = restaurant_payload.df
     render_management_hero(
@@ -4532,8 +4527,8 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             render_dashboard_data_grid_fn=render_dashboard_data_grid,
             render_record_snapshot_fn=render_record_snapshot,
             set_flash_message_fn=set_flash_message,
-            toggle_restaurant_status_and_commit_fn=toggle_restaurant_status_and_commit,
-            delete_restaurant_with_guards_fn=delete_restaurant_with_guards,
+            toggle_restaurant_status_and_commit_fn=partial(toggle_restaurant_status_and_commit, actor_role=actor_role),
+            delete_restaurant_with_guards_fn=partial(delete_restaurant_with_guards, actor_role=actor_role),
         )
 
     elif workspace_mode == "add":
@@ -4544,7 +4539,7 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             render_field_label_fn=render_field_label,
             validate_restaurant_form_fn=validate_restaurant_form,
             set_flash_message_fn=set_flash_message,
-            create_restaurant_and_commit_fn=create_restaurant_and_commit,
+            create_restaurant_and_commit_fn=partial(create_restaurant_and_commit, actor_role=actor_role),
         )
 
     else:
@@ -4560,11 +4555,12 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             render_field_label_fn=render_field_label,
             render_record_snapshot_fn=render_record_snapshot,
             set_flash_message_fn=set_flash_message,
-            update_restaurant_and_commit_fn=update_restaurant_and_commit,
+            update_restaurant_and_commit_fn=partial(update_restaurant_and_commit, actor_role=actor_role),
         )
 
 
 def personnel_tab(conn: sqlite3.Connection) -> None:
+    actor_role = str(st.session_state.get("role") or "")
     personnel_payload = load_personnel_workspace_payload(
         conn,
         recently_created_payload=st.session_state.get("personnel_recently_created"),
@@ -4686,7 +4682,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             next_person_code_fn=build_next_person_code,
             build_new_person_form_defaults_fn=build_new_person_form_defaults,
             prepare_new_person_form_state_fn=prepare_new_person_form_state,
-            create_person_with_onboarding_fn=create_person_with_onboarding,
+            create_person_with_onboarding_fn=partial(create_person_with_onboarding, actor_role=actor_role),
             clear_new_person_onboarding_state_fn=clear_new_person_onboarding_state,
             initialize_onboarding_equipment_state_fn=initialize_onboarding_equipment_state,
             onboarding_equipment_state_key_fn=onboarding_equipment_state_key,
@@ -4740,9 +4736,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             is_fixed_cost_model_fn=is_fixed_cost_model,
             get_role_fixed_cost_label_fn=get_role_fixed_cost_label,
             build_personnel_code_display_values_fn=build_personnel_code_display_values,
-            update_person_and_sync_fn=update_person_and_sync,
-            toggle_person_status_and_sync_fn=toggle_person_status_and_sync,
-            delete_person_with_dependencies_fn=delete_person_with_dependencies,
+            update_person_and_sync_fn=partial(update_person_and_sync, actor_role=actor_role),
+            toggle_person_status_and_sync_fn=partial(toggle_person_status_and_sync, actor_role=actor_role),
+            delete_person_with_dependencies_fn=partial(delete_person_with_dependencies, actor_role=actor_role),
             build_motor_usage_payload_fn=build_motor_usage_payload,
             render_vehicle_transition_caption_fn=render_vehicle_transition_caption,
             render_motor_purchase_proration_caption_fn=render_motor_purchase_proration_caption,
@@ -4831,6 +4827,7 @@ def attendance_tab(conn: sqlite3.Connection) -> None:
 
 
 def daily_entries_tab(conn: sqlite3.Connection) -> None:
+    actor_role = str(st.session_state.get("role") or "")
     status_options = ["Normal", "Joker", "İzin", "Gelmedi", "Çıkış yaptı", "Şef"]
     st.subheader("Günlük Puantaj | Saat, paket ve fiilen çalışan personel kaydı")
     st.caption("WhatsApp teyidi sonrası şube bazlı günlük saat ve paket girişlerini bu ekrandan yap.")
@@ -4867,6 +4864,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     },
                     affected_person_id=actual_id,
                     sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                    actor_role=actor_role,
                 )
             except Exception as exc:
                 st.error(f"Günlük kayıt eklenemedi: {exc}")
@@ -4937,6 +4935,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                         previous_actual_id=previous_actual_id,
                         actual_id=actual_id,
                         sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                        actor_role=actor_role,
                     )
                 except Exception as exc:
                     st.error(f"Günlük puantaj kaydı güncellenemedi: {exc}")
@@ -4952,6 +4951,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                         entry_id=selected_id,
                         deleted_actual_id=deleted_actual_id,
                         sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                        actor_role=actor_role,
                     )
                 except Exception as exc:
                     st.error(f"Günlük puantaj kaydı silinemedi: {exc}")
@@ -4963,6 +4963,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
 
 def deductions_tab(conn: sqlite3.Connection) -> None:
+    actor_role = str(st.session_state.get("role") or "")
     section_intro("💸 Kesinti Yönetimi | Motor kira, bakım, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan manuel kaydet ve yönet.")
     person_opts = get_person_options(conn, active_only=False)
     deduction_types = ["Bakım", "Yakıt", "HGS", "İdari ceza", "Hasar", "Fatura Edilmeyen Tutar"]
@@ -4987,6 +4988,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
                         "amount": amount,
                         "notes": notes,
                     },
+                    actor_role=actor_role,
                 )
             except Exception as exc:
                 st.error(f"Kesinti kaydedilemedi: {exc}")
@@ -5046,6 +5048,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
                     success_text = bulk_delete_deductions_and_commit(
                         conn,
                         deduction_ids=selected_bulk_deduction_ids,
+                        actor_role=actor_role,
                     )
                 except Exception as exc:
                     st.error(f"Toplu kesinti silinemedi: {exc}")
@@ -5106,6 +5109,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
                         "amount": edit_amount,
                         "notes": edit_notes,
                     },
+                    actor_role=actor_role,
                 )
             except Exception as exc:
                 st.error(f"Kesinti güncellenemedi: {exc}")
@@ -5115,7 +5119,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
 
         if delete_clicked:
             try:
-                success_text = delete_deduction_and_commit(conn, deduction_id=selected_id)
+                success_text = delete_deduction_and_commit(conn, deduction_id=selected_id, actor_role=actor_role)
             except Exception as exc:
                 st.error(f"Kesinti silinemedi: {exc}")
             else:
@@ -5124,6 +5128,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
 
 
 def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
+    actor_role = str(st.session_state.get("role") or "")
     section_intro("🗂 Toplu Puantaj | Şube bazlı hızlı satır girişi ve WhatsApp metni aktarımı", "Bir şubedeki birden fazla kurye için saat, paket ve durumu Excel gibi tek ekranda gir. İstersen WhatsApp metnini yapıştırıp tabloya aktar.")
 
     restaurant_opts = get_restaurant_options(conn)
@@ -5197,6 +5202,7 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
                 username=str(st.session_state.get("username", "sistem")),
                 normalize_entry_status_fn=normalize_entry_status,
                 sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                actor_role=actor_role,
             )
         except Exception as exc:
             st.error(f"Toplu puantaj kaydedilemedi: {exc}")
@@ -5268,6 +5274,7 @@ configure_form_rules(
 
 
 def purchases_tab(conn: sqlite3.Connection) -> None:
+    actor_role = str(st.session_state.get("role") or "")
     section_intro(
         "🛒 Satın Alma | Fatura girişi ve birim maliyet takibi",
         "Ekipman satın alma faturalarını ayrı ekranda yönet; ürün bazlı birim maliyeti ve geçmiş alımları tek listede takip et.",
@@ -5303,6 +5310,7 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
                         "notes": notes,
                     },
                     fmt_try_fn=fmt_try,
+                    actor_role=actor_role,
                 )
             except Exception as exc:
                 st.error(f"Satın alma kaydedilemedi: {exc}")
@@ -5392,6 +5400,7 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
                             "notes": edit_notes,
                         },
                         fmt_try_fn=fmt_try,
+                        actor_role=actor_role,
                     )
                 except Exception as exc:
                     st.error(f"Satın alma kaydı güncellenemedi: {exc}")
@@ -5401,7 +5410,7 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
 
         if delete_clicked:
             try:
-                success_text = delete_purchase_and_commit(conn, purchase_id=selected_id)
+                success_text = delete_purchase_and_commit(conn, purchase_id=selected_id, actor_role=actor_role)
             except Exception as exc:
                 st.error(f"Satın alma kaydı silinemedi: {exc}")
             else:
@@ -5410,6 +5419,7 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
 
 
 def equipment_tab(conn: sqlite3.Connection) -> None:
+    actor_role = str(st.session_state.get("role") or "")
     section_intro(
         "📦 Ekipman Hareketleri | Sonradan satış, düzeltme, iade ve box geri alım",
         "İşe girişten sonra oluşan tüm ekipman hareketlerini, düzeltmeleri, box geri alımlarını ve ekipman kârlılığını bu panelden yönet.",
@@ -5528,6 +5538,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                         insert_equipment_issue_and_get_id_fn=insert_equipment_issue_and_get_id,
                         post_equipment_installments_fn=post_equipment_installments,
                         fmt_try_fn=fmt_try,
+                        actor_role=actor_role,
                     )
                 except Exception as exc:
                     st.error(f"Zimmet kaydı oluşturulamadı: {exc}")
@@ -5651,6 +5662,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                                     "sale_type_value": bulk_sale_type if bulk_update_sale_type_enabled else None,
                                     "note_append_text": bulk_note_text,
                                 },
+                                actor_role=actor_role,
                             )
                         except Exception as exc:
                             st.error(f"Toplu zimmet güncellemesi yapılamadı: {exc}")
@@ -5667,6 +5679,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                                 conn,
                                 issue_ids=selected_bulk_issue_ids,
                                 delete_equipment_issue_records_fn=delete_equipment_issue_records,
+                                actor_role=actor_role,
                             )
                         except Exception as exc:
                             st.error(f"Zimmet kayıtları silinemedi: {exc}")
@@ -5727,6 +5740,7 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                             "waived": waived,
                             "notes": notes,
                         },
+                        actor_role=actor_role,
                     )
                 except Exception as exc:
                     st.error(f"Box geri alım kaydı oluşturulamadı: {exc}")
@@ -6251,6 +6265,70 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
 
 
+def audit_trail_tab(conn: sqlite3.Connection) -> None:
+    actor_role = str(st.session_state.get("role") or "")
+    section_intro(
+        "🧾 Sistem Kayıtları | Kritik create, update, delete ve toplu işlemler",
+        "Kim, hangi kaydı, ne zaman değiştirdi sorusunu tek yerde cevaplayan audit trail görünümü.",
+    )
+    current_actor = build_audit_actor_payload()
+    search_query = st.text_input("Ara", placeholder="Özet, detay veya kayıt ID ara", key="audit_search")
+
+    base_payload = load_audit_workspace_payload(conn, actor_role=actor_role, search_query=search_query)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        action_filter = st.selectbox("Aksiyon", base_payload.action_options, key="audit_action_filter")
+    with c2:
+        entity_filter = st.selectbox("Kayıt Türü", base_payload.entity_options, key="audit_entity_filter")
+    with c3:
+        actor_filter = st.selectbox("Kullanıcı", base_payload.actor_options, key="audit_actor_filter")
+
+    payload = load_audit_workspace_payload(
+        conn,
+        actor_role=actor_role,
+        search_query=search_query,
+        action_filter=action_filter,
+        entity_filter=entity_filter,
+        actor_filter=actor_filter,
+    )
+
+    st.caption(
+        f"Oturum: {current_actor['actor_full_name']} | Son {len(payload.raw_df)} kayıt içinden {len(payload.filtered_df)} kayıt gösteriliyor."
+    )
+    if payload.filtered_df.empty:
+        st.info("Filtreye uyan sistem kaydı bulunmuyor.")
+        return
+
+    display_df = format_display_df(
+        payload.filtered_df,
+        rename_map={
+            "created_at": "Zaman",
+            "actor_full_name": "Kullanıcı",
+            "actor_role": "Rol",
+            "entity_type": "Kayıt Türü",
+            "entity_id": "Kayıt ID",
+            "action_type": "Aksiyon",
+            "summary": "Özet",
+            "details_json": "Detay",
+        },
+    )
+    columns = ["Zaman", "Kullanıcı", "Rol", "Kayıt Türü", "Kayıt ID", "Aksiyon", "Özet"]
+    render_dashboard_data_grid(
+        "Audit Trail",
+        "Kritik servis işlemleri burada sistem kaydı olarak tutulur.",
+        columns,
+        build_grid_rows(display_df[columns], columns),
+        "Gösterilecek audit kaydı yok.",
+        muted_columns={"Rol", "Kayıt Türü"},
+    )
+    with st.expander("Ham Detaylar"):
+        st.dataframe(
+            display_df[["Zaman", "Kullanıcı", "Aksiyon", "Kayıt Türü", "Kayıt ID", "Özet", "Detay"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
 def main() -> None:
     st.set_page_config(page_title=APP_PAGE_TITLE, page_icon=APP_PAGE_ICON, layout="wide", initial_sidebar_state="expanded")
     inject_global_styles()
@@ -6303,6 +6381,8 @@ def main() -> None:
         with content_placeholder.container():
             if menu == "Genel Bakış":
                 dashboard_tab(conn)
+            elif menu == "Sistem Kayıtları":
+                audit_trail_tab(conn)
             elif menu == "Güncellemeler ve Duyurular":
                 announcements_tab()
             elif menu == "Restoran Yönetimi":

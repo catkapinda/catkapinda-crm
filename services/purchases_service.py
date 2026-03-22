@@ -10,6 +10,8 @@ from repositories.purchases_repository import (
     insert_purchase_record,
     update_purchase_record,
 )
+from services.audit_service import record_audit_event
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -50,14 +52,24 @@ def create_purchase_and_commit(
     *,
     purchase_values: dict[str, Any],
     fmt_try_fn: Callable[[Any], str],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "purchase.create")
     try:
         insert_purchase_record(conn, purchase_values)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return f"Satın alma kaydedildi. Birim maliyet: {fmt_try_fn(purchase_values['unit_cost'])}"
+    success_text = f"Satın alma kaydedildi. Birim maliyet: {fmt_try_fn(purchase_values['unit_cost'])}"
+    record_audit_event(
+        conn,
+        entity_type="purchase",
+        action_type="create",
+        summary=success_text,
+        details=purchase_values,
+    )
+    return success_text
 
 
 def update_purchase_and_commit(
@@ -66,21 +78,41 @@ def update_purchase_and_commit(
     purchase_id: int,
     purchase_values: dict[str, Any],
     fmt_try_fn: Callable[[Any], str],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "purchase.update")
     try:
         update_purchase_record(conn, purchase_id, purchase_values)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return f"Satın alma kaydı güncellendi. Yeni birim maliyet: {fmt_try_fn(purchase_values['unit_cost'])}"
+    success_text = f"Satın alma kaydı güncellendi. Yeni birim maliyet: {fmt_try_fn(purchase_values['unit_cost'])}"
+    record_audit_event(
+        conn,
+        entity_type="purchase",
+        entity_id=purchase_id,
+        action_type="update",
+        summary=success_text,
+        details=purchase_values,
+    )
+    return success_text
 
 
-def delete_purchase_and_commit(conn, *, purchase_id: int) -> str:
+def delete_purchase_and_commit(conn, *, purchase_id: int, actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "purchase.delete")
     try:
         delete_purchase_record(conn, purchase_id)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return "Satın alma kaydı silindi."
+    success_text = "Satın alma kaydı silindi."
+    record_audit_event(
+        conn,
+        entity_type="purchase",
+        entity_id=purchase_id,
+        action_type="delete",
+        summary=success_text,
+    )
+    return success_text

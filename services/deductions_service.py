@@ -11,6 +11,8 @@ from repositories.deductions_repository import (
     insert_deduction_record,
     update_deduction_record,
 )
+from services.audit_service import record_audit_event
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -66,14 +68,24 @@ def create_deduction_and_commit(
     conn,
     *,
     deduction_values: dict[str, Any],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "deduction.create")
     try:
         insert_deduction_record(conn, deduction_values)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return f"Kesinti ay sonuna kaydedildi: {deduction_values['deduction_date']}"
+    success_text = f"Kesinti ay sonuna kaydedildi: {deduction_values['deduction_date']}"
+    record_audit_event(
+        conn,
+        entity_type="deduction",
+        action_type="create",
+        summary=success_text,
+        details=deduction_values,
+    )
+    return success_text
 
 
 def update_deduction_and_commit(
@@ -81,31 +93,60 @@ def update_deduction_and_commit(
     *,
     deduction_id: int,
     deduction_values: dict[str, Any],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "deduction.update")
     try:
         update_deduction_record(conn, deduction_id, deduction_values)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return f"Kesinti ay sonuna güncellendi: {deduction_values['deduction_date']}"
+    success_text = f"Kesinti ay sonuna güncellendi: {deduction_values['deduction_date']}"
+    record_audit_event(
+        conn,
+        entity_type="deduction",
+        entity_id=deduction_id,
+        action_type="update",
+        summary=success_text,
+        details=deduction_values,
+    )
+    return success_text
 
 
-def delete_deduction_and_commit(conn, *, deduction_id: int) -> str:
+def delete_deduction_and_commit(conn, *, deduction_id: int, actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "deduction.delete")
     try:
         delete_deduction_record(conn, deduction_id)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return "Kesinti silindi."
+    success_text = "Kesinti silindi."
+    record_audit_event(
+        conn,
+        entity_type="deduction",
+        entity_id=deduction_id,
+        action_type="delete",
+        summary=success_text,
+    )
+    return success_text
 
 
-def bulk_delete_deductions_and_commit(conn, *, deduction_ids: list[int]) -> str:
+def bulk_delete_deductions_and_commit(conn, *, deduction_ids: list[int], actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "deduction.bulk_delete")
     try:
         deleted_count = delete_deduction_records(conn, deduction_ids)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return f"{deleted_count} manuel kesinti kaydı toplu olarak silindi."
+    success_text = f"{deleted_count} manuel kesinti kaydı toplu olarak silindi."
+    record_audit_event(
+        conn,
+        entity_type="deduction",
+        action_type="bulk_delete",
+        summary=success_text,
+        details={"deduction_ids": deduction_ids, "deleted_count": deleted_count},
+    )
+    return success_text

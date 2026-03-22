@@ -15,6 +15,8 @@ from repositories.personnel_repository import (
     update_personnel_record,
     update_personnel_status,
 )
+from services.audit_service import record_audit_event
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -270,7 +272,9 @@ def create_person_with_onboarding(
     post_equipment_installments_fn: Callable[..., None],
     sync_person_current_role_snapshot_fn: Callable[[Any, Any], None],
     sync_person_business_rules_fn: Callable[[Any, Any], None],
+    actor_role: str = "admin",
 ) -> PersonnelCreateResult:
+    require_action_access(actor_role, "personnel.create")
     auto_code = build_next_person_code(conn, role)
     values = {**person_values, "person_code": auto_code, "status": "Aktif"}
     try:
@@ -322,6 +326,19 @@ def create_person_with_onboarding(
         else ""
     )
     success_text = f"{values['full_name']} başarıyla eklendi. Kod: {auto_code}{equipment_summary}"
+    record_audit_event(
+        conn,
+        entity_type="personnel",
+        entity_id=created_person_id,
+        action_type="create",
+        summary=success_text,
+        details={
+            "full_name": values.get("full_name"),
+            "role": values.get("role"),
+            "assigned_restaurant_id": values.get("assigned_restaurant_id"),
+            "onboarding_item_count": len(onboarding_issue_payloads),
+        },
+    )
     return PersonnelCreateResult(
         created_person_id=created_person_id,
         auto_code=auto_code,
@@ -354,7 +371,9 @@ def update_person_and_sync(
     record_person_vehicle_transition_fn: Callable[..., None],
     sync_person_current_vehicle_snapshot_fn: Callable[[Any, Any], None],
     sync_person_business_rules_fn: Callable[[Any, Any], None],
+    actor_role: str = "admin",
 ) -> PersonnelUpdateResult:
+    require_action_access(actor_role, "personnel.update")
     try:
         update_personnel_record(conn, person_id, person_values)
         conn.commit()
@@ -395,7 +414,22 @@ def update_person_and_sync(
     except Exception:
         conn.rollback()
         raise
-    return PersonnelUpdateResult(updated_person=updated_person, success_text="Personel kartı başarıyla güncellendi.")
+    success_text = "Personel kartı başarıyla güncellendi."
+    record_audit_event(
+        conn,
+        entity_type="personnel",
+        entity_id=person_id,
+        action_type="update",
+        summary=success_text,
+        details={
+            "full_name": person_values.get("full_name"),
+            "role": person_values.get("role"),
+            "status": person_values.get("status"),
+            "role_changed": role_changed,
+            "motor_mode_changed": motor_mode_changed,
+        },
+    )
+    return PersonnelUpdateResult(updated_person=updated_person, success_text=success_text)
 
 
 def toggle_person_status_and_sync(
@@ -404,7 +438,9 @@ def toggle_person_status_and_sync(
     person_id: int,
     current_status: str,
     sync_person_business_rules_fn: Callable[[Any, Any], None],
+    actor_role: str = "admin",
 ) -> PersonnelToggleResult:
+    require_action_access(actor_role, "personnel.status_change")
     new_status = "Pasif" if current_status == "Aktif" else "Aktif"
     exit_date = date.today().isoformat() if new_status == "Pasif" else None
     try:
@@ -415,9 +451,18 @@ def toggle_person_status_and_sync(
     except Exception:
         conn.rollback()
         raise
+    success_text = "Personel başarıyla pasife alındı." if new_status == "Pasif" else "Personel başarıyla aktifleştirildi."
+    record_audit_event(
+        conn,
+        entity_type="personnel",
+        entity_id=person_id,
+        action_type="status_change",
+        summary=success_text,
+        details={"new_status": new_status, "exit_date": exit_date},
+    )
     return PersonnelToggleResult(
         updated_person=updated_person,
-        success_text="Personel başarıyla pasife alındı." if new_status == "Pasif" else "Personel başarıyla aktifleştirildi.",
+        success_text=success_text,
     )
 
 
@@ -427,7 +472,9 @@ def delete_person_with_dependencies(
     person_id: int,
     get_personnel_dependency_counts_fn: Callable[[Any, int], dict[str, int]],
     delete_personnel_and_dependencies_fn: Callable[[Any, int], None],
+    actor_role: str = "admin",
 ) -> PersonnelDeleteResult:
+    require_action_access(actor_role, "personnel.delete")
     dependency_counts = get_personnel_dependency_counts_fn(conn, person_id)
     delete_personnel_and_dependencies_fn(conn, person_id)
     detail_parts = [
@@ -443,5 +490,23 @@ def delete_person_with_dependencies(
         if count
     ]
     if detail_parts:
-        return PersonnelDeleteResult(success_text="Personel ve bağlı kayıtlar kalıcı olarak silindi. " + " | ".join(detail_parts))
-    return PersonnelDeleteResult(success_text="Personel kaydı kalıcı olarak silindi.")
+        success_text = "Personel ve bağlı kayıtlar kalıcı olarak silindi. " + " | ".join(detail_parts)
+        record_audit_event(
+            conn,
+            entity_type="personnel",
+            entity_id=person_id,
+            action_type="delete",
+            summary=success_text,
+            details=dependency_counts,
+        )
+        return PersonnelDeleteResult(success_text=success_text)
+    success_text = "Personel kaydı kalıcı olarak silindi."
+    record_audit_event(
+        conn,
+        entity_type="personnel",
+        entity_id=person_id,
+        action_type="delete",
+        summary=success_text,
+        details=dependency_counts,
+    )
+    return PersonnelDeleteResult(success_text=success_text)

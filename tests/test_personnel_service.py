@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import ANY, MagicMock, patch
 
 from services import personnel_service
+from services.permission_service import PermissionDeniedError
 
 
 class _DummyConn:
@@ -144,6 +145,23 @@ class PersonnelServiceTests(unittest.TestCase):
         sync_business_rules_mock.assert_called_once_with(conn, {"id": 5}, create_onboarding=False)
         self.assertEqual(conn.commit_calls, 1)
         self.assertIn("pasife", result.success_text)
+
+    def test_delete_person_with_dependencies_rejects_sef_role(self):
+        conn = _DummyConn()
+        dependency_mock = MagicMock(return_value={"puantaj": 0, "kesinti": 0, "rol_gecmisi": 0, "plaka": 0, "zimmet": 0, "box_iade": 0})
+        delete_mock = MagicMock()
+
+        with self.assertRaises(PermissionDeniedError):
+            personnel_service.delete_person_with_dependencies(
+                conn,
+                person_id=4,
+                get_personnel_dependency_counts_fn=dependency_mock,
+                delete_personnel_and_dependencies_fn=delete_mock,
+                actor_role="sef",
+            )
+
+        dependency_mock.assert_not_called()
+        delete_mock.assert_not_called()
 
 
 if __name__ == "__main__":

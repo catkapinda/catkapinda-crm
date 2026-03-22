@@ -11,6 +11,8 @@ from repositories.attendance_repository import (
     insert_daily_entry,
     update_daily_entry,
 )
+from services.audit_service import record_audit_event
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -75,7 +77,9 @@ def create_daily_entry_and_sync(
     entry_values: dict[str, Any],
     affected_person_id: int | None,
     sync_personnel_business_rules_for_ids_fn: Callable[..., None],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "attendance.create")
     try:
         insert_daily_entry(conn, entry_values)
         conn.commit()
@@ -83,7 +87,22 @@ def create_daily_entry_and_sync(
     except Exception:
         conn.rollback()
         raise
-    return "Günlük kayıt eklendi."
+    success_text = "Günlük kayıt eklendi."
+    record_audit_event(
+        conn,
+        entity_type="attendance",
+        action_type="create",
+        summary=success_text,
+        details={
+            "entry_date": entry_values.get("entry_date"),
+            "restaurant_id": entry_values.get("restaurant_id"),
+            "actual_personnel_id": entry_values.get("actual_personnel_id"),
+            "status": entry_values.get("status"),
+            "worked_hours": entry_values.get("worked_hours"),
+            "package_count": entry_values.get("package_count"),
+        },
+    )
+    return success_text
 
 
 def update_daily_entry_and_sync(
@@ -94,7 +113,9 @@ def update_daily_entry_and_sync(
     previous_actual_id: int,
     actual_id: int | None,
     sync_personnel_business_rules_for_ids_fn: Callable[..., None],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "attendance.update")
     try:
         update_daily_entry(conn, entry_id, entry_values)
         conn.commit()
@@ -102,7 +123,22 @@ def update_daily_entry_and_sync(
     except Exception:
         conn.rollback()
         raise
-    return "Günlük puantaj kaydı güncellendi."
+    success_text = "Günlük puantaj kaydı güncellendi."
+    record_audit_event(
+        conn,
+        entity_type="attendance",
+        entity_id=entry_id,
+        action_type="update",
+        summary=success_text,
+        details={
+            "entry_date": entry_values.get("entry_date"),
+            "restaurant_id": entry_values.get("restaurant_id"),
+            "previous_actual_id": previous_actual_id,
+            "actual_personnel_id": actual_id,
+            "status": entry_values.get("status"),
+        },
+    )
+    return success_text
 
 
 def delete_daily_entry_and_sync(
@@ -111,7 +147,9 @@ def delete_daily_entry_and_sync(
     entry_id: int,
     deleted_actual_id: int,
     sync_personnel_business_rules_for_ids_fn: Callable[..., None],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "attendance.delete")
     try:
         delete_daily_entry(conn, entry_id)
         conn.commit()
@@ -119,7 +157,16 @@ def delete_daily_entry_and_sync(
     except Exception:
         conn.rollback()
         raise
-    return "Günlük puantaj kaydı silindi."
+    success_text = "Günlük puantaj kaydı silindi."
+    record_audit_event(
+        conn,
+        entity_type="attendance",
+        entity_id=entry_id,
+        action_type="delete",
+        summary=success_text,
+        details={"deleted_actual_id": deleted_actual_id},
+    )
+    return success_text
 
 
 def build_bulk_attendance_context(
@@ -183,7 +230,9 @@ def save_bulk_entries_and_sync(
     username: str,
     normalize_entry_status_fn: Callable[[str], str],
     sync_personnel_business_rules_for_ids_fn: Callable[..., None],
+    actor_role: str = "admin",
 ) -> int:
+    require_action_access(actor_role, "attendance.bulk_create")
     inserted = 0
     affected_person_ids: list[int] = []
     try:
@@ -219,4 +268,17 @@ def save_bulk_entries_and_sync(
     except Exception:
         conn.rollback()
         raise
+    if inserted:
+        record_audit_event(
+            conn,
+            entity_type="attendance",
+            entity_id=restaurant_id,
+            action_type="bulk_create",
+            summary=f"{inserted} toplu puantaj kaydı oluşturuldu.",
+            details={
+                "entry_date": selected_date_iso,
+                "restaurant_id": restaurant_id,
+                "inserted_count": inserted,
+            },
+        )
     return inserted

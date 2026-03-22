@@ -12,6 +12,8 @@ from repositories.equipment_repository import (
     insert_box_return_record,
 )
 from repositories.personnel_repository import fetch_person_options_map
+from services.audit_service import record_audit_event
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -42,7 +44,9 @@ def create_equipment_issue_and_commit(
     insert_equipment_issue_and_get_id_fn: Callable[..., int],
     post_equipment_installments_fn: Callable[..., None],
     fmt_try_fn: Callable[[Any], str],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "equipment.create")
     try:
         issue_id = insert_equipment_issue_and_get_id_fn(
             conn,
@@ -73,11 +77,28 @@ def create_equipment_issue_and_commit(
         raise
 
     if issue_values["generates_installments"]:
-        return (
+        success_text = (
             f"Zimmet kaydedildi. Toplam satış: {fmt_try_fn(issue_values['total_sale_amount'])} | "
             f"{issue_values['installment_count']} taksit oluşturuldu."
         )
-    return f"Zimmet kaydedildi. Toplam işlem tutarı: {fmt_try_fn(issue_values['total_sale_amount'])}"
+    else:
+        success_text = f"Zimmet kaydedildi. Toplam işlem tutarı: {fmt_try_fn(issue_values['total_sale_amount'])}"
+    record_audit_event(
+        conn,
+        entity_type="equipment_issue",
+        entity_id=issue_id,
+        action_type="create",
+        summary=success_text,
+        details={
+            "personnel_id": issue_values["personnel_id"],
+            "item_name": issue_values["item_name"],
+            "quantity": issue_values["quantity"],
+            "sale_type": issue_values["sale_type"],
+            "installment_count": issue_values["installment_count"],
+            "generates_installments": issue_values["generates_installments"],
+        },
+    )
+    return success_text
 
 
 def bulk_update_equipment_issues_and_commit(
@@ -86,7 +107,9 @@ def bulk_update_equipment_issues_and_commit(
     issue_ids: list[int],
     bulk_update_equipment_issue_records_fn: Callable[..., int],
     update_values: dict[str, Any],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "equipment.bulk_update")
     try:
         updated_count = bulk_update_equipment_issue_records_fn(
             conn,
@@ -102,7 +125,15 @@ def bulk_update_equipment_issues_and_commit(
     except Exception:
         conn.rollback()
         raise
-    return f"{updated_count} zimmet kaydı toplu olarak güncellendi."
+    success_text = f"{updated_count} zimmet kaydı toplu olarak güncellendi."
+    record_audit_event(
+        conn,
+        entity_type="equipment_issue",
+        action_type="bulk_update",
+        summary=success_text,
+        details={"issue_ids": issue_ids, "updated_count": updated_count, **update_values},
+    )
+    return success_text
 
 
 def delete_equipment_issues_and_commit(
@@ -110,20 +141,40 @@ def delete_equipment_issues_and_commit(
     *,
     issue_ids: list[int],
     delete_equipment_issue_records_fn: Callable[[Any, list[int]], int],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "equipment.bulk_delete")
     try:
         deleted_count = delete_equipment_issue_records_fn(conn, issue_ids)
     except Exception:
         conn.rollback()
         raise
-    return f"{deleted_count} zimmet kaydı ve bağlı taksitleri silindi."
+    success_text = f"{deleted_count} zimmet kaydı ve bağlı taksitleri silindi."
+    record_audit_event(
+        conn,
+        entity_type="equipment_issue",
+        action_type="bulk_delete",
+        summary=success_text,
+        details={"issue_ids": issue_ids, "deleted_count": deleted_count},
+    )
+    return success_text
 
 
-def create_box_return_and_commit(conn, *, box_return_values: dict[str, Any]) -> str:
+def create_box_return_and_commit(conn, *, box_return_values: dict[str, Any], actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "equipment.box_return")
     try:
         insert_box_return_record(conn, box_return_values)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return "Box geri alım kaydı oluşturuldu."
+    success_text = "Box geri alım kaydı oluşturuldu."
+    record_audit_event(
+        conn,
+        entity_type="box_return",
+        entity_id=box_return_values["personnel_id"],
+        action_type="create",
+        summary=success_text,
+        details=box_return_values,
+    )
+    return success_text
