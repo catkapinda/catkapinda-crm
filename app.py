@@ -11026,9 +11026,22 @@ def reports_tab(conn: sqlite3.Connection) -> None:
     accountant_cost_total = float(personnel_df.loc[personnel_df["id"].isin(accounting_person_ids), "accountant_cost"].fillna(0).sum()) if accounting_person_ids and "accountant_cost" in personnel_df.columns else 0.0
     setup_cost = float(personnel_df.loc[personnel_df["id"].isin(setup_person_ids), "company_setup_cost"].fillna(0).sum()) if setup_person_ids and "company_setup_cost" in personnel_df.columns else 0.0
 
-    equipment_rev = float(equipment_profit_df["total_sale"].sum()) if not equipment_profit_df.empty else 0.0
-    equipment_cost = float(equipment_profit_df["total_cost"].sum()) if not equipment_profit_df.empty else 0.0
+    motor_rental_profit_df = equipment_profit_df[equipment_profit_df["item_name"] == "Motor Kirası"].copy() if not equipment_profit_df.empty else pd.DataFrame()
+    motor_sale_profit_df = equipment_profit_df[equipment_profit_df["item_name"] == "Motor Satın Alım"].copy() if not equipment_profit_df.empty else pd.DataFrame()
+    equipment_only_profit_df = (
+        equipment_profit_df[~equipment_profit_df["item_name"].isin(["Motor Kirası", "Motor Satın Alım"])].copy()
+        if not equipment_profit_df.empty
+        else pd.DataFrame()
+    )
+    motor_rental_rev = float(motor_rental_profit_df["total_sale"].sum()) if not motor_rental_profit_df.empty else 0.0
+    motor_rental_cost = float(motor_rental_profit_df["total_cost"].sum()) if not motor_rental_profit_df.empty else 0.0
+    motor_sale_rev = float(motor_sale_profit_df["total_sale"].sum()) if not motor_sale_profit_df.empty else 0.0
+    motor_sale_cost = float(motor_sale_profit_df["total_cost"].sum()) if not motor_sale_profit_df.empty else 0.0
+    equipment_rev = float(equipment_only_profit_df["total_sale"].sum()) if not equipment_only_profit_df.empty else 0.0
+    equipment_cost = float(equipment_only_profit_df["total_cost"].sum()) if not equipment_only_profit_df.empty else 0.0
+    fuel_reflection_amount = float(deductions_df.loc[deductions_df["deduction_type"] == "Yakıt", "amount"].sum()) if not deductions_df.empty else 0.0
     side_income_net = (accounting_rev - accountant_cost_total) + (setup_rev - setup_cost) + (equipment_rev - equipment_cost)
+    side_income_net += (motor_rental_rev - motor_rental_cost) + (motor_sale_rev - motor_sale_cost)
 
     render_executive_metrics(
         [
@@ -11051,7 +11064,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
             {
                 "label": "Yan Gelir Neti",
                 "value": fmt_try(side_income_net),
-                "note": "Muhasebe, açılış ve ekipman katkısı",
+                "note": "Muhasebe, motor ve ekipman katkısı",
                 "tone": "positive" if side_income_net >= 0 else "warning",
             },
         ],
@@ -11080,7 +11093,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         restaurants_df=restaurants_df,
     )
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🧾 Restoran Faturası", "👥 Kurye Maliyeti", "📈 Restoran Karlılığı", "🧩 Ortak Operasyon Payı", "🔀 Personel-Şube Dağılımı", "📦 Ekipman Kârlılığı", "💼 Yan Gelir Analizi"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🧾 Restoran Faturası", "👥 Kurye Maliyeti", "📈 Restoran Karlılığı", "🧩 Ortak Operasyon Payı", "🔀 Personel-Şube Dağılımı", "💼 Yan Gelir Analizi"])
     with tab1:
         invoice_display_df = format_display_df(
             invoice_df,
@@ -11313,85 +11326,13 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 )
 
     with tab6:
-        render_executive_metrics(
-            [
-                {
-                    "label": "Dönem Ekipman Satışı",
-                    "value": fmt_try(equipment_rev),
-                    "note": f"{selected_month} | yalnızca satış tipindeki hareketler",
-                },
-                {
-                    "label": "Dönem Ekipman Maliyeti",
-                    "value": fmt_try(equipment_cost),
-                    "note": "Seçilen ayda satışa konu olan maliyet",
-                    "tone": "warning",
-                },
-                {
-                    "label": "Dönem Brüt Ekipman Kârı",
-                    "value": fmt_try(equipment_rev - equipment_cost),
-                    "note": "Satış ve maliyet farkı",
-                    "tone": "positive" if (equipment_rev - equipment_cost) >= 0 else "critical",
-                },
-            ],
-            title="Ekipman Satış Özeti",
-            subtitle="İlk onboarding ve sonradan yapılan satışların seçilen ay içindeki brüt katkısını gösterir.",
-        )
-        st.caption("Bu özet yalnızca `Satış` tipindeki ekipman hareketlerini kârlılık hesabına dahil eder. `Depozit / Teslim` kayıtları burada yer almaz.")
-        if not equipment_profit_df.empty:
-            equipment_sales_display = format_display_df(
-                equipment_profit_df,
-                currency_cols=["total_cost", "total_sale", "gross_profit"],
-                number_cols=["sold_qty"],
-                rename_map={
-                    "item_name": "Ürün",
-                    "sold_qty": "Satılan Adet",
-                    "total_cost": "Toplam Maliyet",
-                    "total_sale": "Toplam Satış",
-                    "gross_profit": "Brüt Kâr",
-                },
-            )
-            equipment_sales_columns = ["Ürün", "Satılan Adet", "Toplam Maliyet", "Toplam Satış", "Brüt Kâr"]
-            with st.container(border=True):
-                render_dashboard_data_grid(
-                    "Ekipman Satış Kârlılığı",
-                    "Seçilen ay içinde yapılan ekipman satışlarının ürün bazlı katkısını incele.",
-                    equipment_sales_columns,
-                    build_grid_rows(equipment_sales_display, equipment_sales_columns),
-                    "Bu ay ekipman satış kaydı yok.",
-                )
-        else:
-            st.info("Seçilen ay için satış tipinde ekipman hareketi görünmüyor.")
-
-        if not equipment_purchase_df.empty:
-            purchase_display_df = format_display_df(
-                equipment_purchase_df,
-                currency_cols=["purchased_total", "weighted_unit_cost"],
-                number_cols=["purchased_qty"],
-                rename_map={
-                    "item_name": "Ürün",
-                    "purchased_qty": "Alınan Adet",
-                    "purchased_total": "Toplam Fatura",
-                    "weighted_unit_cost": "Ağırlıklı Birim Maliyet",
-                },
-            )
-            purchase_columns = ["Ürün", "Alınan Adet", "Toplam Fatura", "Ağırlıklı Birim Maliyet"]
-            with st.container(border=True):
-                render_dashboard_data_grid(
-                    "Satın Alma Maliyet Referansı",
-                    "Tüm satın alma geçmişine göre oluşan ağırlıklı maliyetleri ekipman kârlılığıyla birlikte değerlendir.",
-                    purchase_columns,
-                    build_grid_rows(purchase_display_df, purchase_columns),
-                    "Henüz satın alma özeti yok.",
-                )
-        else:
-            st.info("Satın alma maliyet referansı için ürün kaydı bulunmuyor.")
-
-    with tab7:
         side_df = pd.DataFrame(
             [
                 {"kalem": "Muhasebe Hizmeti", "gelir": accounting_rev, "maliyet": accountant_cost_total, "net_kar": accounting_rev - accountant_cost_total},
                 {"kalem": "Şirket Açılışı", "gelir": setup_rev, "maliyet": setup_cost, "net_kar": setup_rev - setup_cost},
-                {"kalem": "Ekipman Satışı", "gelir": equipment_rev, "maliyet": equipment_cost, "net_kar": equipment_rev - equipment_cost},
+                {"kalem": "Motor Kirası", "gelir": motor_rental_rev, "maliyet": motor_rental_cost, "net_kar": motor_rental_rev - motor_rental_cost},
+                {"kalem": "Motor Satışı", "gelir": motor_sale_rev, "maliyet": motor_sale_cost, "net_kar": motor_sale_rev - motor_sale_cost},
+                {"kalem": "Ekipman Satışları", "gelir": equipment_rev, "maliyet": equipment_cost, "net_kar": equipment_rev - equipment_cost},
             ]
         )
         s1, s2, s3 = st.columns(3)
@@ -11424,7 +11365,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 },
             ],
             title="Yan Gelir Özeti",
-            subtitle="Muhasebe, açılış ve ekipman kaynaklı katkının üst görünümünü verir.",
+            subtitle="Muhasebe, motor ve ekipman kaynaklı katkının üst görünümünü verir.",
         )
         with st.container(border=True):
             side_columns = ["Kalem", "Gelir", "Maliyet", "Net Kâr"]
@@ -11435,6 +11376,62 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 build_grid_rows(side_display_df, side_columns),
                 "Yan gelir analizi için veri yok.",
             )
+        if fuel_reflection_amount > 0:
+            render_record_snapshot(
+                "Yakıt Yansıtma Notu",
+                [
+                    ("Toplam Yakıt Tahsilatı", fmt_try(fuel_reflection_amount)),
+                    ("Durum", "Net yakıt marjı bu sürümde ayrı izlenmiyor"),
+                ],
+            )
+        with st.expander("Ekipman ve Motor Detayı", expanded=False):
+            st.caption("Detay görünümünde yalnızca `Satış` tipindeki ekipman ve motor hareketleri yer alır. `Depozit / Teslim` kayıtları bu kârlılık hesabına girmez.")
+            if not equipment_profit_df.empty:
+                equipment_sales_display = format_display_df(
+                    equipment_profit_df,
+                    currency_cols=["total_cost", "total_sale", "gross_profit"],
+                    number_cols=["sold_qty"],
+                    rename_map={
+                        "item_name": "Ürün",
+                        "sold_qty": "Satılan Adet",
+                        "total_cost": "Toplam Maliyet",
+                        "total_sale": "Toplam Satış",
+                        "gross_profit": "Brüt Kâr",
+                    },
+                )
+                equipment_sales_columns = ["Ürün", "Satılan Adet", "Toplam Maliyet", "Toplam Satış", "Brüt Kâr"]
+                render_dashboard_data_grid(
+                    "Ekipman ve Motor Satış Detayı",
+                    "Seçilen ay içinde satışa dönüşen ürünlerin detay katkısı.",
+                    equipment_sales_columns,
+                    build_grid_rows(equipment_sales_display, equipment_sales_columns),
+                    "Bu ay satış tipinde ekipman veya motor hareketi görünmüyor.",
+                )
+            else:
+                st.info("Seçilen ay için satış tipinde ekipman veya motor hareketi görünmüyor.")
+
+            if not equipment_purchase_df.empty:
+                purchase_display_df = format_display_df(
+                    equipment_purchase_df,
+                    currency_cols=["purchased_total", "weighted_unit_cost"],
+                    number_cols=["purchased_qty"],
+                    rename_map={
+                        "item_name": "Ürün",
+                        "purchased_qty": "Alınan Adet",
+                        "purchased_total": "Toplam Fatura",
+                        "weighted_unit_cost": "Ağırlıklı Birim Maliyet",
+                    },
+                )
+                purchase_columns = ["Ürün", "Alınan Adet", "Toplam Fatura", "Ağırlıklı Birim Maliyet"]
+                render_dashboard_data_grid(
+                    "Satın Alma Maliyet Referansı",
+                    "Tüm satın alma geçmişine göre oluşan ağırlıklı maliyetleri yan gelir detayıyla birlikte değerlendir.",
+                    purchase_columns,
+                    build_grid_rows(purchase_display_df, purchase_columns),
+                    "Henüz satın alma özeti yok.",
+                )
+            else:
+                st.info("Satın alma maliyet referansı için ürün kaydı bulunmuyor.")
 
 
 def main() -> None:
