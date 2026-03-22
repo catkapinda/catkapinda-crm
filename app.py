@@ -59,6 +59,16 @@ from form_rules import (
     validate_personnel_form,
     validate_restaurant_form,
 )
+from ops_builders import (
+    build_auto_deduction_warning_text,
+    build_bulk_deduction_option_map,
+    build_deduction_grid_rows,
+    build_deduction_option_map,
+    build_purchase_grid_rows,
+    build_purchase_option_map,
+    filter_deductions_by_source,
+    get_deduction_source_filter_caption,
+)
 from personnel_rules import (
     configure_personnel_rules,
     get_role_fixed_cost_label,
@@ -4190,33 +4200,6 @@ def format_motor_rental_summary(row: Any) -> str:
         return "-"
     monthly_amount = safe_float(get_row_value(row, "motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
     return f"{fmt_try(monthly_amount)} / ay"
-
-
-def filter_deductions_by_source(raw_df: pd.DataFrame, source_filter: str) -> pd.DataFrame:
-    filtered_raw_df = raw_df.copy()
-    if filtered_raw_df.empty:
-        return filtered_raw_df
-    if source_filter == "Manuel Kayıtlar":
-        return filtered_raw_df[filtered_raw_df["auto_source_key"].fillna("").astype(str).str.strip() == ""].copy()
-    if source_filter == "Otomatik Motor Kirası":
-        return filtered_raw_df[filtered_raw_df["auto_source_key"].fillna("").astype(str).str.startswith("auto:motor_rental:")].copy()
-    if source_filter == "Otomatik Motor Satışı":
-        return filtered_raw_df[filtered_raw_df["auto_source_key"].fillna("").astype(str).str.startswith("auto:motor_purchase:")].copy()
-    return filtered_raw_df
-
-
-def get_deduction_source_filter_caption(source_filter: str) -> str:
-    captions = {
-        "Manuel Kayıtlar": "Yalnızca manuel girilmiş kesintiler gösteriliyor.",
-    }
-    return captions.get(source_filter, "")
-
-
-def build_auto_deduction_warning_text(auto_source_key: Any) -> str:
-    return (
-        f"Bu kayıt {describe_auto_source_key(auto_source_key)} akışından kalan eski otomatik kayıttır. "
-        "Bu dönem için kesintileri manuel yönetin; gerekirse bu kaydı silip doğru tutarı yeniden girin."
-    )
 
 
 def build_table_backup_zip(conn: CompatConnection) -> bytes:
@@ -8416,17 +8399,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
             "notes": "Açıklama",
         },
     )
-    deduction_rows = [
-        {
-            "Tarih": row["Tarih"],
-            "Personel": row["Personel"],
-            "Tür": row["Kesinti Türü"],
-            "Tutar": row["Tutar"],
-            "Kaynak": row["Kaynak"],
-            "Açıklama": row["Açıklama"] or "-",
-        }
-        for _, row in deductions_display_df.iterrows()
-    ]
+    deduction_rows = build_deduction_grid_rows(deductions_display_df)
     render_dashboard_data_grid(
         "Kesinti Listesi",
         "Manuel ve sistem kaynaklı kesintileri daha düzenli satırlarda izle.",
@@ -8441,10 +8414,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     if manual_deductions_df.empty:
         st.info("Toplu silme için uygun manuel kesinti kaydı görünmüyor.")
     else:
-        bulk_deduction_options = {
-            f"{row['deduction_date']} | {row['personel']} | {row['deduction_type']} | {fmt_try(row['amount'])} | ID:{int(row['id'])}": int(row["id"])
-            for _, row in manual_deductions_df.iterrows()
-        }
+        bulk_deduction_options = build_bulk_deduction_option_map(manual_deductions_df, fmt_try_fn=fmt_try)
         selected_bulk_deduction_labels = st.multiselect(
             "Toplu silinecek kesinti kayıtları",
             list(bulk_deduction_options.keys()),
@@ -8469,10 +8439,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         st.info("Henüz kesinti kaydı yok.")
         return
 
-    deduction_options = {
-        f"{row['deduction_date']} | {row['personel']} | {row['deduction_type']} | {fmt_try(row['amount'])} | ID:{int(row['id'])}": int(row["id"])
-        for _, row in raw_df.iterrows()
-    }
+    deduction_options = build_deduction_option_map(raw_df, fmt_try_fn=fmt_try)
     selected_label = st.selectbox("Kayıt seç", list(deduction_options.keys()))
     selected_id = deduction_options[selected_label]
     row = raw_df.loc[raw_df["id"] == selected_id].iloc[0]
@@ -8484,7 +8451,12 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     current_date = datetime.strptime(str(row["deduction_date"]), "%Y-%m-%d").date()
     is_auto_record = is_system_personnel_auto_deduction_key(row.get("auto_source_key"))
     if is_auto_record:
-        st.warning(build_auto_deduction_warning_text(row.get("auto_source_key")))
+        st.warning(
+            build_auto_deduction_warning_text(
+                row.get("auto_source_key"),
+                describe_auto_source_key_fn=describe_auto_source_key,
+            )
+        )
 
     with st.form("deduction_edit_form"):
         c1, c2, c3 = st.columns(3)
@@ -8778,17 +8750,7 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
             "notes": "Not",
         },
     )
-    purchase_rows = [
-        {
-            "Tarih": row["Tarih"],
-            "Ürün": row["Ürün"],
-            "Adet": row["Adet"],
-            "Toplam Fatura": row["Toplam Fatura"],
-            "Birim Maliyet": row["Birim Maliyet"],
-            "Tedarikçi": row["Tedarikçi"] or "-",
-        }
-        for _, row in purchases_display.iterrows()
-    ]
+    purchase_rows = build_purchase_grid_rows(purchases_display)
     render_dashboard_data_grid(
         "Satın Alma Listesi",
         "Fatura kayıtlarını ürün, maliyet ve tedarikçi bazında daha şık satırlarda takip et.",
@@ -8799,10 +8761,7 @@ def purchases_tab(conn: sqlite3.Connection) -> None:
     )
 
     st.markdown("### Satın alma kaydı düzenle / sil")
-    purchase_options = {
-        f"{row['purchase_date']} | {row['item_name']} | {fmt_try(row['total_invoice_amount'])} | ID:{int(row['id'])}": int(row["id"])
-        for _, row in purchases.iterrows()
-    }
+    purchase_options = build_purchase_option_map(purchases, fmt_try_fn=fmt_try)
     selected_label = st.selectbox("Düzenlenecek kayıt", list(purchase_options.keys()), key="purchase_manage_select")
     selected_id = purchase_options[selected_label]
     row = purchases.loc[purchases["id"] == selected_id].iloc[0]
