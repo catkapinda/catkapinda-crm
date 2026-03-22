@@ -96,9 +96,7 @@ from personnel_rules import (
 )
 from personnel_sections import (
     render_personnel_add_workspace,
-    render_personnel_equipment_section,
-    render_personnel_box_return_section,
-    render_personnel_edit_sidebar,
+    render_personnel_edit_workspace,
     render_personnel_list_workspace,
     render_personnel_plate_workspace,
 )
@@ -6230,597 +6228,70 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         )
 
     elif workspace_mode == "edit":
-        if df.empty:
-            st.info("Güncellenecek personel kaydı bulunmuyor.")
-        else:
-            render_tab_header("Personel Düzenleme", "Solda düzenleme formu, sağda mevcut kart özeti bulunur. Rol değiştiğinde sistem uygun kod önerisini gösterir.")
-            person_labels = {
-                f"{row['full_name']} | {row['role']} | Kod: {row['person_code'] or '-'} | ID: {row['id']}": int(row["id"])
-                for _, row in df.iterrows()
-            }
-            selected_label = st.selectbox("Düzenlenecek Personel", list(person_labels.keys()), key="edit_person_select")
-            selected_id = person_labels[selected_label]
-            row = df.loc[df["id"] == selected_id].iloc[0]
-            row_role_value = str(row["role"] or "Kurye")
-            row_status_value = str(row["status"] or "Aktif")
-            row_accounting_value = str(row["accounting_type"] or "Kendi Muhasebecisi")
-            row_new_company_value = str(row["new_company_setup"] or "Hayır")
-            row_vehicle_value = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
-            row_motor_purchase_value = str(row["motor_purchase"] or "Hayır") if pd.notna(row["motor_purchase"]) else "Hayır"
-            row_motor_usage_mode = resolve_motor_usage_mode(row_vehicle_value, row_motor_purchase_value, row["motor_rental"] or "Hayır")
-            start_val = parse_date_value(row["start_date"])
-            edit_form_signature = (
-                selected_id,
-                row_role_value,
-                row_status_value,
-                row_accounting_value,
-                row_new_company_value,
-                row_motor_usage_mode,
-            )
-            if st.session_state.get("_edit_person_form_signature") != edit_form_signature:
-                st.session_state[f"edit_person_role_{selected_id}"] = row_role_value if row_role_value in PERSONNEL_ROLE_OPTIONS else "Kurye"
-                st.session_state[f"edit_person_status_{selected_id}"] = row_status_value if row_status_value in ["Aktif", "Pasif"] else "Aktif"
-                st.session_state[f"edit_person_accounting_{selected_id}"] = (
-                    row_accounting_value if row_accounting_value in ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"] else "Kendi Muhasebecisi"
-                )
-                st.session_state[f"edit_person_new_company_{selected_id}"] = (
-                    row_new_company_value if row_new_company_value in ["Hayır", "Evet"] else "Hayır"
-                )
-                st.session_state[f"edit_person_motor_usage_mode_{selected_id}"] = (
-                    row_motor_usage_mode if row_motor_usage_mode in MOTOR_USAGE_MODE_OPTIONS else "Kendi Motoru"
-                )
-                initialize_edit_person_transition_state(
-                    selected_id,
-                    row_role_value,
-                    float(row.get("monthly_fixed_cost") or 0.0),
-                    start_val,
-                )
-                st.session_state["_edit_person_form_signature"] = edit_form_signature
-            role_history_rows = fetch_df(
-                conn,
-                """
-                SELECT role, cost_model, monthly_fixed_cost, effective_date, notes
-                FROM personnel_role_history
-                WHERE personnel_id = ?
-                ORDER BY effective_date DESC, id DESC
-                """,
-                (selected_id,),
-            )
-
-            assigned_value = row["restoran"] if pd.notna(row["restoran"]) and row["restoran"] in rest_opts else "-"
-            status_options = ["Aktif", "Pasif"]
-            role_options = PERSONNEL_ROLE_OPTIONS
-
-            left, right = st.columns([2.2, 1])
-            with right:
-                render_personnel_edit_sidebar(
-                    row,
-                    role_history_rows,
-                    role_requires_primary_restaurant_fn=role_requires_primary_restaurant,
-                    format_motor_rental_summary_fn=format_motor_rental_summary,
-                    format_motor_purchase_summary_fn=format_motor_purchase_summary,
-                    resolve_cost_role_option_fn=resolve_cost_role_option,
-                    format_display_df_fn=format_display_df,
-                    render_record_snapshot_fn=render_record_snapshot,
-                    cost_model_labels=COST_MODEL_LABELS,
-                )
-            with left:
-                transition_enabled = st.checkbox(
-                    "Rol değişikliği kaydı ekle",
-                    key=f"edit_person_transition_enabled_{selected_id}",
-                )
-                transition_previous_role = row_role_value
-                transition_new_role = row_role_value
-                transition_effective_date = None
-                transition_monthly_cost = float(row.get("monthly_fixed_cost") or 0.0)
-                if transition_enabled:
-                    st.markdown("##### Rol Değişikliği")
-                    st.caption("Örnek: 15'ine kadar kurye, 16'sından itibaren joker ise başlangıç tarihine 16'sını gir.")
-                    role_change_cols = st.columns(4)
-                    with role_change_cols[0]:
-                        render_field_label("Geçiş Öncesi Rol", required=True)
-                        transition_previous_role = st.selectbox(
-                            "Geçiş Öncesi Rol",
-                            role_options,
-                            key=f"edit_person_previous_role_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                    with role_change_cols[1]:
-                        render_field_label("Yeni Rol", required=True)
-                        transition_new_role = st.selectbox(
-                            "Yeni Rol",
-                            role_options,
-                            key=f"edit_person_transition_new_role_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                    with role_change_cols[2]:
-                        render_field_label("Rol Başlangıç Tarihi", required=True)
-                        transition_effective_date = st.date_input(
-                            "Rol Başlangıç Tarihi",
-                            key=f"edit_person_transition_date_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                    transition_cost_model = resolve_cost_role_option("", transition_new_role)
-                    with role_change_cols[3]:
-                        if is_fixed_cost_model(transition_cost_model):
-                            transition_cost_label = get_role_fixed_cost_label(transition_new_role, transition=True)
-                            render_field_label(transition_cost_label, required=True)
-                            transition_monthly_cost = st.number_input(
-                                transition_cost_label,
-                                min_value=0.0,
-                                step=100.0,
-                                key=f"edit_person_transition_monthly_cost_{selected_id}",
-                                label_visibility="collapsed",
-                            )
-                        else:
-                            render_field_label("Yeni Rol Maliyet Modeli")
-                            st.text_input(
-                                "Yeni Rol Maliyet Modeli",
-                                value=COST_MODEL_LABELS.get(transition_cost_model, transition_cost_model),
-                                disabled=True,
-                                key=f"edit_person_transition_cost_model_display_{selected_id}",
-                                label_visibility="collapsed",
-                            )
-                    if transition_new_role == "Joker":
-                        st.caption("Joker rolüne geçildiğinde bu personel artık paket primi almaz; yalnızca sabit maaşı gün bazlı prorate edilir.")
-                effective_role, role_changed = resolve_effective_role_from_transition(
-                    row_role_value,
-                    transition_enabled,
-                    transition_new_role,
-                )
-
-                with st.container():
-                    st.markdown("##### Kimlik ve Görev")
-                    c1, c2, c3 = st.columns(3)
-                    with c1:
-                        render_field_label("Rol")
-                        st.text_input(
-                            "Rol",
-                            value=effective_role,
-                            disabled=True,
-                            key=f"edit_person_role_display_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                    suggested_code = next_person_code(conn, effective_role, exclude_id=selected_id)
-                    new_prefix = role_code_prefix(effective_role)
-                    existing_num = ""
-                    match = re.search(rf"^CK-{re.escape(new_prefix)}(\d+)$", row["person_code"] or "")
-                    if match:
-                        existing_num = match.group(1)
-                    code_default = row["person_code"] if row["role"] == effective_role and row["person_code"] else f"CK-{new_prefix}{existing_num or suggested_code.split(new_prefix)[1]}"
-                    with c2:
-                        render_field_label("Personel Kodu")
-                        edit_code = st.text_input("Personel Kodu", value=code_default or suggested_code, label_visibility="collapsed")
-                    with c3:
-                        render_field_label("Önerilen Kod")
-                        st.caption(suggested_code)
-
-                    c4, c5, c6 = st.columns(3)
-                    with c4:
-                        render_field_label("Ad Soyad", required=True)
-                        edit_name = st.text_input("Ad Soyad", value=row["full_name"] or "", label_visibility="collapsed")
-                    with c5:
-                        render_field_label("Durum")
-                        edit_status = st.selectbox(
-                            "Durum",
-                            status_options,
-                            key=f"edit_person_status_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                    with c6:
-                        render_field_label("Telefon", required=True)
-                        edit_phone = st.text_input("Telefon", value=row["phone"] or "", label_visibility="collapsed")
-
-                    c7, c8, c9 = st.columns(3)
-                    with c7:
-                        render_field_label("TC Kimlik No", required=True)
-                        edit_tc = st.text_input("TC Kimlik No", value=row["tc_no"] or "", label_visibility="collapsed")
-                    with c8:
-                        render_field_label("IBAN", required=True)
-                        edit_iban = st.text_input("IBAN", value=row["iban"] or "", label_visibility="collapsed")
-                    with c9:
-                        render_field_label("İşe Giriş Tarihi", required=True)
-                        edit_start_date = st.date_input("İşe Giriş Tarihi", value=start_val, label_visibility="collapsed")
-
-                    render_field_label("Adres")
-                    edit_address = st.text_area("Adres", value=row["address"] or "", label_visibility="collapsed")
-
-                    st.markdown("##### Acil Durum İletişimi")
-                    c9a, c9b = st.columns(2)
-                    with c9a:
-                        render_field_label("Acil Durum İletişim Adı Soyadı")
-                        edit_emergency_contact_name = st.text_input(
-                            "Acil Durum İletişim Adı Soyadı",
-                            value=row["emergency_contact_name"] or "",
-                            label_visibility="collapsed",
-                        )
-                    with c9b:
-                        render_field_label("Acil Durum İletişim Telefonu")
-                        edit_emergency_contact_phone = st.text_input(
-                            "Acil Durum İletişim Telefonu",
-                            value=row["emergency_contact_phone"] or "",
-                            label_visibility="collapsed",
-                        )
-
-                    st.markdown("##### Muhasebe ve Şirket")
-                    c10, c11, c12 = st.columns(3)
-                    accounting_options = ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"]
-                    with c10:
-                        render_field_label("Muhasebe")
-                        edit_accounting = st.selectbox(
-                            "Muhasebe",
-                            accounting_options,
-                            key=f"edit_person_accounting_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                    new_company_options = ["Hayır", "Evet"]
-                    with c11:
-                        render_field_label("Yeni Şirket Açılışı")
-                        edit_new_company = st.selectbox(
-                            "Yeni Şirket Açılışı",
-                            new_company_options,
-                            key=f"edit_person_new_company_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                    edit_cost_model = resolve_cost_role_option("", effective_role)
-                    with c12:
-                        render_field_label("Maliyet Modeli")
-                        st.selectbox(
-                            "Maliyet Modeli",
-                            [edit_cost_model],
-                            index=0,
-                            disabled=True,
-                            format_func=lambda x: COST_MODEL_LABELS.get(x, x),
-                            key=f"edit_person_cost_model_display_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                    c13, c14, c15 = st.columns(3)
-                    with c13:
-                        render_field_label("Muhasebeden Aldığımız Ücret")
-                        edit_accounting_revenue = st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, value=float(row["accounting_revenue"] or 0.0), step=100.0, label_visibility="collapsed")
-                    with c14:
-                        render_field_label("Muhasebeciye Ödediğimiz")
-                        edit_accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, value=float(row["accountant_cost"] or 0.0), step=100.0, label_visibility="collapsed")
-                    if is_fixed_cost_model(edit_cost_model) and not transition_enabled:
-                        edit_fixed_cost_label = get_role_fixed_cost_label(effective_role)
-                        with c15:
-                            render_field_label(edit_fixed_cost_label, required=True)
-                            edit_monthly_cost = st.number_input(edit_fixed_cost_label, min_value=0.0, value=float(row["monthly_fixed_cost"] or 0.0), step=100.0, label_visibility="collapsed")
-                    else:
-                        c15.markdown("")
-                        edit_monthly_cost = float(row["monthly_fixed_cost"] or 0.0)
-
-                    c16, c17 = st.columns(2)
-                    with c16:
-                        render_field_label("Şirket Açılışından Aldığımız Ücret")
-                        edit_company_setup_revenue = st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, value=float(row["company_setup_revenue"] or 0.0), step=100.0, label_visibility="collapsed")
-                    with c17:
-                        render_field_label("Şirket Açılış Maliyeti")
-                        edit_company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, value=float(row["company_setup_cost"] or 0.0), step=100.0, label_visibility="collapsed")
-
-                    st.markdown("##### Araç ve Operasyon")
-                    current_vehicle = resolve_vehicle_type_value(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
-                    current_motor_usage_mode = resolve_motor_usage_mode(current_vehicle, row["motor_purchase"] or "Hayır", row["motor_rental"] or "Hayır")
-                    edit_restaurant = "-"
-                    if role_requires_primary_restaurant(effective_role):
-                        c18, c19, c20 = st.columns(3)
-                        with c18:
-                            render_field_label("Ana Restoran", required=True)
-                            edit_restaurant_default = assigned_value if assigned_value in rest_opts_with_blank else "-"
-                            edit_restaurant = st.selectbox(
-                                "Ana Restoran",
-                                list(rest_opts_with_blank.keys()),
-                                index=list(rest_opts_with_blank.keys()).index(edit_restaurant_default),
-                                key=f"edit_person_restaurant_{selected_id}_{effective_role}",
-                                label_visibility="collapsed",
-                            )
-                        with c19:
-                            render_field_label("Motor Kullanım Modeli")
-                            edit_motor_usage_mode = st.selectbox(
-                                "Motor Kullanım Modeli",
-                                MOTOR_USAGE_MODE_OPTIONS,
-                                key=f"edit_person_motor_usage_mode_{selected_id}",
-                                label_visibility="collapsed",
-                            )
-                        with c20:
-                            render_field_label("Güncel Plaka", required=True)
-                            edit_plate = st.text_input("Güncel Plaka", value=row["current_plate"] or "", label_visibility="collapsed")
-                    else:
-                        c18, c19 = st.columns(2)
-                        with c18:
-                            render_field_label("Motor Kullanım Modeli")
-                            edit_motor_usage_mode = st.selectbox(
-                                "Motor Kullanım Modeli",
-                                MOTOR_USAGE_MODE_OPTIONS,
-                                key=f"edit_person_motor_usage_mode_{selected_id}",
-                                label_visibility="collapsed",
-                            )
-                        with c19:
-                            render_field_label("Güncel Plaka", required=True)
-                            edit_plate = st.text_input("Güncel Plaka", value=row["current_plate"] or "", label_visibility="collapsed")
-                    current_motor_rental_monthly_amount = safe_float(row.get("motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION)
-                    if edit_motor_usage_mode == "Çat Kapında Motor Kirası":
-                        render_field_label("Aylık Motor Kira Tutarı", required=True)
-                        edit_motor_rental_monthly_amount = st.number_input(
-                            "Aylık Motor Kira Tutarı",
-                            min_value=0.0,
-                            value=max(current_motor_rental_monthly_amount, 0.0),
-                            step=100.0,
-                            key=f"edit_person_motor_rental_monthly_amount_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                        st.caption("Bu personel Çat Kapında motorunu kiralıyorsa aylık kira tutarı buradan yönetilir.")
-                    else:
-                        edit_motor_rental_monthly_amount = 0.0
-                    motor_mode_changed = edit_motor_usage_mode != current_motor_usage_mode
-                    c20a, c20b = st.columns(2)
-                    with c20a:
-                        render_field_label("Motor Düzeni Başlangıç Tarihi", required=motor_mode_changed)
-                        edit_vehicle_transition_date = st.date_input(
-                            "Motor Düzeni Başlangıç Tarihi",
-                            value=start_val or date.today(),
-                            key=f"edit_person_vehicle_transition_date_{selected_id}",
-                            label_visibility="collapsed",
-                        )
-                    with c20b:
-                        render_vehicle_transition_caption()
-                    c21, c22, c23 = st.columns(3)
-                    with c21:
-                        render_field_label("Motor Satın Alım Tarihi", required=edit_motor_usage_mode == "Çat Kapında Motor Satışı")
-                        default_motor_purchase_date = parse_date_value(row["motor_purchase_start_date"]) or date.today()
-                        edit_motor_purchase_start_date = st.date_input(
-                            "Motor Satın Alım Tarihi",
-                            value=default_motor_purchase_date,
-                            key=f"edit_person_motor_purchase_start_date_{selected_id}",
-                            disabled=edit_motor_usage_mode != "Çat Kapında Motor Satışı",
-                            label_visibility="collapsed",
-                        )
-                    if edit_motor_usage_mode == "Çat Kapında Motor Satışı":
-                        render_motor_purchase_proration_caption()
-                    current_commitment_months = safe_int(row["motor_purchase_commitment_months"], 12)
-                    if current_commitment_months not in MOTOR_PURCHASE_COMMITMENT_OPTIONS:
-                        current_commitment_months = 12
-                    with c22:
-                        render_field_label("Taahhüt Süresi (Ay)", required=edit_motor_usage_mode == "Çat Kapında Motor Satışı")
-                        edit_motor_purchase_commitment_months = st.selectbox(
-                            "Taahhüt Süresi (Ay)",
-                            MOTOR_PURCHASE_COMMITMENT_OPTIONS,
-                            index=MOTOR_PURCHASE_COMMITMENT_OPTIONS.index(current_commitment_months),
-                            key=f"edit_person_motor_purchase_commitment_months_{selected_id}",
-                            disabled=edit_motor_usage_mode != "Çat Kapında Motor Satışı",
-                            label_visibility="collapsed",
-                        )
-                    current_motor_purchase_sale_price = safe_float(
-                        row["motor_purchase_monthly_amount"],
-                        safe_float(row["motor_purchase_sale_price"], 0.0),
-                    )
-                    with c23:
-                        render_field_label("Aylık Motor Satış Taksiti", required=edit_motor_usage_mode == "Çat Kapında Motor Satışı")
-                        edit_motor_purchase_sale_price = st.number_input(
-                            "Aylık Motor Satış Taksiti",
-                            min_value=0.0,
-                            value=max(current_motor_purchase_sale_price, 0.0),
-                            step=100.0,
-                            key=f"edit_person_motor_purchase_sale_price_{selected_id}",
-                            disabled=edit_motor_usage_mode != "Çat Kapında Motor Satışı",
-                            label_visibility="collapsed",
-                        )
-                    edit_motor_usage_payload = build_motor_usage_payload(
-                        motor_usage_mode=edit_motor_usage_mode,
-                        motor_rental_monthly_amount=safe_float(edit_motor_rental_monthly_amount, 0.0),
-                        motor_purchase_start_date_value=edit_motor_purchase_start_date if isinstance(edit_motor_purchase_start_date, date) else None,
-                        motor_purchase_commitment_months=safe_int(edit_motor_purchase_commitment_months, 0),
-                        motor_purchase_sale_price=safe_float(edit_motor_purchase_sale_price, 0.0),
-                    )
-                    edit_vehicle = str(edit_motor_usage_payload["vehicle_type"] or "")
-                    edit_motor_purchase = str(edit_motor_usage_payload["motor_purchase"] or "Hayır")
-                    current_motor_purchase = str(row["motor_purchase"] or "Hayır") if pd.notna(row["motor_purchase"]) else "Hayır"
-                    effective_edit_motor_rental = str(edit_motor_usage_payload["motor_rental"] or "Hayır")
-                    if edit_motor_usage_mode == "Çat Kapında Motor Satışı":
-                        st.info("Motor satış modeli seçildi. Bu personelde ayrıca motor kirası uygulanmaz.")
-                    render_motor_deduction_snapshot_from_payload(edit_motor_usage_payload)
-                    edit_notes = st.text_area("Notlar", value=row["notes"] or "")
-
-                    c24, c25, c26 = st.columns(3)
-                    update_clicked = c24.button("Personeli Güncelle", use_container_width=True, key=f"edit_person_update_{selected_id}")
-                    toggle_clicked = c25.button("Aktif/Pasif Durumunu Değiştir", use_container_width=True, key=f"edit_person_toggle_{selected_id}")
-                    delete_clicked = c26.button("Kalıcı Sil", use_container_width=True, key=f"edit_person_delete_{selected_id}")
-
-                    if update_clicked:
-                        assigned_id = rest_opts_with_blank.get(edit_restaurant) if role_requires_primary_restaurant(effective_role) else None
-                        effective_monthly_cost = (
-                            safe_float(transition_monthly_cost, 0.0)
-                            if role_changed and transition_enabled and is_fixed_cost_model(edit_cost_model)
-                            else safe_float(edit_monthly_cost, 0.0)
-                        )
-                        validation_errors = validate_personnel_form(
-                            full_name=edit_name,
-                            phone=edit_phone,
-                            tc_no=edit_tc,
-                            iban=edit_iban,
-                            address=edit_address,
-                            current_plate=edit_plate,
-                            role=effective_role,
-                            assigned_restaurant_id=assigned_id,
-                            start_date_value=edit_start_date if isinstance(edit_start_date, date) else None,
-                            vehicle_type=edit_vehicle,
-                            motor_rental_monthly_amount=safe_float(edit_motor_usage_payload["motor_rental_monthly_amount"], 0.0),
-                            cost_model=edit_cost_model,
-                            monthly_fixed_cost=effective_monthly_cost,
-                            motor_purchase=edit_motor_purchase,
-                            motor_purchase_start_date_value=edit_motor_purchase_start_date if isinstance(edit_motor_purchase_start_date, date) else None,
-                            motor_purchase_commitment_months=safe_int(edit_motor_purchase_commitment_months, 0),
-                            motor_purchase_sale_price=safe_float(edit_motor_purchase_sale_price, 0.0),
-                        )
-                        validation_errors.extend(
-                            validate_role_transition_inputs(
-                                role_changed=role_changed,
-                                transition_enabled=transition_enabled,
-                                transition_previous_role=transition_previous_role,
-                                effective_role=effective_role,
-                                transition_effective_date=transition_effective_date if isinstance(transition_effective_date, date) else None,
-                                start_date_value=edit_start_date if isinstance(edit_start_date, date) else None,
-                            )
-                        )
-                        if motor_mode_changed and isinstance(edit_start_date, date) and edit_vehicle_transition_date < edit_start_date:
-                            validation_errors.append("Motor düzeni başlangıç tarihi işe giriş tarihinden önce olamaz.")
-                        if validation_errors:
-                            for error_text in validation_errors:
-                                st.error(error_text)
-                        else:
-                            start_date_str = edit_start_date.isoformat() if isinstance(edit_start_date, date) else None
-                            conn.execute(
-                                """
-                                UPDATE personnel
-                                SET person_code=?, full_name=?, role=?, status=?, phone=?, address=?, tc_no=?, iban=?,
-                                    emergency_contact_name=?, emergency_contact_phone=?,
-                                    accounting_type=?, new_company_setup=?, accounting_revenue=?, accountant_cost=?, company_setup_revenue=?, company_setup_cost=?, assigned_restaurant_id=?,
-                                    vehicle_type=?, motor_rental=?, motor_purchase=?, motor_purchase_start_date=?, motor_purchase_commitment_months=?, motor_rental_monthly_amount=?, motor_purchase_sale_price=?, motor_purchase_monthly_amount=?, motor_purchase_installment_count=?, current_plate=?, start_date=?,
-                                    cost_model=?, monthly_fixed_cost=?, notes=?
-                                WHERE id=?
-                                """,
-                                (
-                                    edit_code,
-                                    edit_name,
-                                    effective_role,
-                                    edit_status,
-                                    edit_phone,
-                                    edit_address,
-                                    edit_tc,
-                                    edit_iban,
-                                    edit_emergency_contact_name,
-                                    edit_emergency_contact_phone,
-                                    edit_accounting,
-                                    edit_new_company,
-                                    edit_accounting_revenue,
-                                    edit_accountant_cost,
-                                    edit_company_setup_revenue,
-                                    edit_company_setup_cost,
-                                    assigned_id,
-                                    edit_motor_usage_payload["vehicle_type"],
-                                    edit_motor_usage_payload["motor_rental"],
-                                    edit_motor_usage_payload["motor_purchase"],
-                                    edit_motor_usage_payload["motor_purchase_start_date_str"],
-                                    edit_motor_usage_payload["motor_purchase_commitment_months"],
-                                    edit_motor_usage_payload["motor_rental_monthly_amount"],
-                                    edit_motor_usage_payload["motor_purchase_sale_price"],
-                                    edit_motor_usage_payload["motor_purchase_monthly_amount"],
-                                    edit_motor_usage_payload["motor_purchase_installment_count"],
-                                    edit_plate,
-                                    start_date_str,
-                                    normalize_cost_model_value(edit_cost_model, effective_role),
-                                    effective_monthly_cost,
-                                    edit_notes,
-                                    selected_id,
-                                ),
-                            )
-                            conn.commit()
-                            updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
-                            if role_changed and transition_enabled:
-                                previous_fixed_cost = 0.0
-                                previous_cost_model = normalize_cost_model_value("", transition_previous_role)
-                                if is_fixed_cost_model(previous_cost_model) and transition_previous_role == row_role_value:
-                                    previous_fixed_cost = safe_float(row["monthly_fixed_cost"], 0.0)
-                                record_person_role_transition(
-                                    conn,
-                                    row.to_dict(),
-                                    updated_person,
-                                    transition_previous_role,
-                                    transition_effective_date,
-                                    previous_monthly_fixed_cost=previous_fixed_cost,
-                                )
-                            else:
-                                sync_person_current_role_snapshot(conn, updated_person)
-                            if motor_mode_changed:
-                                record_person_vehicle_transition(
-                                    conn,
-                                    row.to_dict(),
-                                    updated_person,
-                                    current_vehicle,
-                                    edit_vehicle_transition_date,
-                                    previous_motor_rental=str(row["motor_rental"] or "Hayır"),
-                                    previous_motor_rental_monthly_amount=safe_float(row.get("motor_rental_monthly_amount", AUTO_MOTOR_RENTAL_DEDUCTION), AUTO_MOTOR_RENTAL_DEDUCTION),
-                                    previous_motor_purchase=current_motor_purchase,
-                                    previous_motor_purchase_commitment_months=safe_int(row.get("motor_purchase_commitment_months", 0), 0),
-                                    previous_motor_purchase_sale_price=safe_float(row.get("motor_purchase_sale_price", 0.0), 0.0),
-                                    previous_motor_purchase_monthly_amount=safe_float(row.get("motor_purchase_monthly_amount", AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION), AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION),
-                                )
-                            else:
-                                sync_person_current_vehicle_snapshot(conn, updated_person)
-                            conn.commit()
-                            sync_person_business_rules(conn, updated_person, create_onboarding=False)
-                            set_flash_message("success", "Personel kartı başarıyla güncellendi.")
-                            st.rerun()
-
-                    if toggle_clicked:
-                        new_status = "Pasif" if row["status"] == "Aktif" else "Aktif"
-                        exit_date = date.today().isoformat() if new_status == "Pasif" else None
-                        conn.execute("UPDATE personnel SET status=?, exit_date=? WHERE id=?", (new_status, exit_date, selected_id))
-                        conn.commit()
-                        updated_person = conn.execute("SELECT * FROM personnel WHERE id = ?", (selected_id,)).fetchone()
-                        sync_person_business_rules(conn, updated_person, create_onboarding=False)
-                        set_flash_message("success", "Personel başarıyla pasife alındı." if new_status == "Pasif" else "Personel başarıyla aktifleştirildi.")
-                        st.rerun()
-
-                    if delete_clicked:
-                        dependency_counts = get_personnel_dependency_counts(conn, selected_id)
-                        delete_personnel_and_dependencies(conn, selected_id)
-                        detail_parts = [
-                            f"{label}: {count}"
-                            for label, count in [
-                                ("Puantaj", dependency_counts["puantaj"]),
-                                ("Kesinti", dependency_counts["kesinti"]),
-                                ("Rol geçmişi", dependency_counts["rol_gecmisi"]),
-                                ("Plaka geçmişi", dependency_counts["plaka"]),
-                                ("Zimmet", dependency_counts["zimmet"]),
-                                ("Box iade", dependency_counts["box_iade"]),
-                            ]
-                            if count
-                        ]
-                        if detail_parts:
-                            set_flash_message("success", "Personel ve bağlı kayıtlar kalıcı olarak silindi. " + " | ".join(detail_parts))
-                        else:
-                            set_flash_message("success", "Personel kaydı kalıcı olarak silindi.")
-                        st.rerun()
-
-                    render_personnel_equipment_section(
-                        conn,
-                        selected_id,
-                        issue_items=ISSUE_ITEMS,
-                        get_equipment_cost_snapshot_fn=get_equipment_cost_snapshot,
-                        get_default_equipment_unit_cost_fn=get_default_equipment_unit_cost,
-                        get_default_equipment_sale_price_fn=get_default_equipment_sale_price,
-                        get_default_issue_installment_count_fn=get_default_issue_installment_count,
-                        latest_average_cost_fn=latest_average_cost,
-                        get_equipment_vat_rate_fn=get_equipment_vat_rate,
-                        safe_int_fn=safe_int,
-                        safe_float_fn=safe_float,
-                        fmt_number_fn=fmt_number,
-                        fmt_try_fn=fmt_try,
-                        normalize_equipment_issue_installment_count_fn=normalize_equipment_issue_installment_count,
-                        equipment_issue_generates_installments_fn=equipment_issue_generates_installments,
-                        insert_equipment_issue_and_get_id_fn=insert_equipment_issue_and_get_id,
-                        post_equipment_installments_fn=post_equipment_installments,
-                        set_flash_message_fn=set_flash_message,
-                        fetch_df_fn=fetch_df,
-                        format_display_df_fn=format_display_df,
-                        build_grid_rows_fn=build_grid_rows,
-                        render_dashboard_data_grid_fn=render_dashboard_data_grid,
-                        update_equipment_issue_record_fn=update_equipment_issue_record,
-                        delete_equipment_issue_records_fn=delete_equipment_issue_records,
-                        parse_date_value_fn=parse_date_value,
-                    )
-
-                    render_personnel_box_return_section(
-                        conn,
-                        selected_id,
-                        fetch_df_fn=fetch_df,
-                        safe_int_fn=safe_int,
-                        format_display_df_fn=format_display_df,
-                        build_grid_rows_fn=build_grid_rows,
-                        render_dashboard_data_grid_fn=render_dashboard_data_grid,
-                        set_flash_message_fn=set_flash_message,
-                    )
+        render_personnel_edit_workspace(
+            conn,
+            df,
+            rest_opts=rest_opts,
+            rest_opts_with_blank=rest_opts_with_blank,
+            personnel_role_options=PERSONNEL_ROLE_OPTIONS,
+            motor_usage_mode_options=MOTOR_USAGE_MODE_OPTIONS,
+            motor_purchase_commitment_options=MOTOR_PURCHASE_COMMITMENT_OPTIONS,
+            issue_items=ISSUE_ITEMS,
+            cost_model_labels=COST_MODEL_LABELS,
+            auto_motor_rental_deduction=AUTO_MOTOR_RENTAL_DEDUCTION,
+            auto_motor_purchase_monthly_deduction=AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
+            render_tab_header_fn=render_tab_header,
+            fetch_df_fn=fetch_df,
+            parse_date_value_fn=parse_date_value,
+            resolve_vehicle_type_value_fn=resolve_vehicle_type_value,
+            resolve_motor_usage_mode_fn=resolve_motor_usage_mode,
+            initialize_edit_person_transition_state_fn=initialize_edit_person_transition_state,
+            role_requires_primary_restaurant_fn=role_requires_primary_restaurant,
+            format_motor_rental_summary_fn=format_motor_rental_summary,
+            format_motor_purchase_summary_fn=format_motor_purchase_summary,
+            resolve_cost_role_option_fn=resolve_cost_role_option,
+            format_display_df_fn=format_display_df,
+            render_record_snapshot_fn=render_record_snapshot,
+            render_field_label_fn=render_field_label,
+            resolve_effective_role_from_transition_fn=resolve_effective_role_from_transition,
+            is_fixed_cost_model_fn=is_fixed_cost_model,
+            get_role_fixed_cost_label_fn=get_role_fixed_cost_label,
+            next_person_code_fn=next_person_code,
+            role_code_prefix_fn=role_code_prefix,
+            build_motor_usage_payload_fn=build_motor_usage_payload,
+            render_vehicle_transition_caption_fn=render_vehicle_transition_caption,
+            render_motor_purchase_proration_caption_fn=render_motor_purchase_proration_caption,
+            render_motor_deduction_snapshot_from_payload_fn=render_motor_deduction_snapshot_from_payload,
+            safe_float_fn=safe_float,
+            safe_int_fn=safe_int,
+            validate_personnel_form_fn=validate_personnel_form,
+            validate_role_transition_inputs_fn=validate_role_transition_inputs,
+            normalize_cost_model_value_fn=normalize_cost_model_value,
+            record_person_role_transition_fn=record_person_role_transition,
+            sync_person_current_role_snapshot_fn=sync_person_current_role_snapshot,
+            record_person_vehicle_transition_fn=record_person_vehicle_transition,
+            sync_person_current_vehicle_snapshot_fn=sync_person_current_vehicle_snapshot,
+            sync_person_business_rules_fn=sync_person_business_rules,
+            set_flash_message_fn=set_flash_message,
+            get_personnel_dependency_counts_fn=get_personnel_dependency_counts,
+            delete_personnel_and_dependencies_fn=delete_personnel_and_dependencies,
+            get_equipment_cost_snapshot_fn=get_equipment_cost_snapshot,
+            get_default_equipment_unit_cost_fn=get_default_equipment_unit_cost,
+            get_default_equipment_sale_price_fn=get_default_equipment_sale_price,
+            get_default_issue_installment_count_fn=get_default_issue_installment_count,
+            latest_average_cost_fn=latest_average_cost,
+            get_equipment_vat_rate_fn=get_equipment_vat_rate,
+            fmt_number_fn=fmt_number,
+            fmt_try_fn=fmt_try,
+            normalize_equipment_issue_installment_count_fn=normalize_equipment_issue_installment_count,
+            equipment_issue_generates_installments_fn=equipment_issue_generates_installments,
+            insert_equipment_issue_and_get_id_fn=insert_equipment_issue_and_get_id,
+            post_equipment_installments_fn=post_equipment_installments,
+            build_grid_rows_fn=build_grid_rows,
+            render_dashboard_data_grid_fn=render_dashboard_data_grid,
+            update_equipment_issue_record_fn=update_equipment_issue_record,
+            delete_equipment_issue_records_fn=delete_equipment_issue_records,
+        )
 
     else:
         render_personnel_plate_workspace(
