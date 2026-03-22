@@ -9,12 +9,16 @@ import streamlit as st
 def render_invoice_report_tab(
     invoice_df: pd.DataFrame,
     invoice_drilldown_map: dict[str, pd.DataFrame],
+    invoice_attendance_export_map: dict[str, pd.DataFrame],
     selected_month: str,
     *,
     format_display_df_fn: Callable[..., pd.DataFrame],
     build_grid_rows_fn: Callable[[pd.DataFrame, list[str]], list[dict[str, Any]]],
     render_dashboard_data_grid_fn: Callable[..., None],
     pricing_model_labels: dict[str, str],
+    fmt_number_fn: Callable[[Any], str],
+    fmt_try_fn: Callable[[Any], str],
+    build_restaurant_export_filename_fn: Callable[[str, str], str],
 ) -> None:
     open_restaurant = str(st.session_state.get("invoice_report_open_restaurant", "") or "")
     invoice_display_df = format_display_df_fn(
@@ -42,11 +46,10 @@ def render_invoice_report_tab(
                 model_name = str(row.get("Fiyat Modeli", "-") or "-")
                 total_hours = str(row.get("Toplam Saat", "-") or "-")
                 total_packages = str(row.get("Toplam Paket", "-") or "-")
-                net_invoice = str(row.get("Restoran KDV Hariç", "-") or "-")
                 gross_invoice = str(row.get("Restoran KDV Dahil", "-") or "-")
                 is_open = open_restaurant == restaurant_name
                 with st.container(border=True):
-                    head_col, state_col = st.columns([4.8, 1.2])
+                    head_col, metric1, metric2, metric3 = st.columns([3.8, 1.1, 1.1, 1.6])
                     if head_col.button(
                         restaurant_name,
                         key=f"invoice_toggle_{row_index}",
@@ -55,17 +58,14 @@ def render_invoice_report_tab(
                     ):
                         st.session_state["invoice_report_open_restaurant"] = "" if is_open else restaurant_name
                         st.rerun()
-                    state_col.markdown(f"**{'Açık' if is_open else 'Kapalı'}**")
                     st.caption(model_name)
-                    metric1, metric2, metric3, metric4 = st.columns(4)
                     metric1.markdown("**Toplam Saat**")
                     metric1.markdown(total_hours)
                     metric2.markdown("**Toplam Paket**")
                     metric2.markdown(total_packages)
-                    metric3.markdown("**KDV Hariç**")
-                    metric3.markdown(net_invoice)
-                    metric4.markdown("**KDV Dahil**")
-                    metric4.markdown(gross_invoice)
+                    metric3.markdown("**Restoran Faturası**")
+                    metric3.markdown(gross_invoice)
+                    metric3.caption("KDV dahil")
                     if not is_open:
                         continue
                     detail_df = invoice_drilldown_map.get(restaurant_name, pd.DataFrame())
@@ -74,22 +74,42 @@ def render_invoice_report_tab(
                     else:
                         detail_display_df = format_display_df_fn(
                             detail_df,
+                            currency_cols=["KDV Hariç", "KDV Dahil"],
                             number_cols=["Toplam Saat", "Toplam Paket"],
                             rename_map={
                                 "personel": "Kurye",
-                                "rol": "Rol",
                                 "calisma_saati": "Toplam Saat",
                                 "paket": "Toplam Paket",
+                                "kdv_haric": "KDV Hariç",
+                                "kdv_dahil": "KDV Dahil",
                             },
                         )
-                        detail_columns = ["Kurye", "Rol", "Toplam Saat", "Toplam Paket"]
+                        detail_columns = ["Kurye", "Toplam Saat", "Toplam Paket", "KDV Hariç", "KDV Dahil"]
                         render_dashboard_data_grid_fn(
                             f"{restaurant_name} Kurye Dağılımı",
-                            "Bu şubede seçilen ay boyunca çalışılan toplam saat ve atılan toplam paket kırılımı.",
+                            "Bu şubede seçilen ay boyunca kurye bazında toplam saat, paket ve fatura katkısı.",
                             detail_columns,
                             build_grid_rows_fn(detail_display_df, detail_columns),
                             "Bu restoran için detay kırılımı yok.",
-                            muted_columns={"Rol"},
+                        )
+                    export_df = invoice_attendance_export_map.get(restaurant_name, pd.DataFrame())
+                    if export_df is not None and not export_df.empty:
+                        export_df = export_df.copy()
+                        for number_column in ["Toplam Saat", "Toplam Paket"]:
+                            if number_column in export_df.columns:
+                                export_df[number_column] = export_df[number_column].apply(
+                                    lambda value: fmt_number_fn(value) if pd.notna(value) else ""
+                                )
+                        for currency_column in ["KDV Hariç", "KDV Dahil"]:
+                            if currency_column in export_df.columns:
+                                export_df[currency_column] = export_df[currency_column].apply(fmt_try_fn)
+                        st.download_button(
+                            f"{restaurant_name} puantajını indir",
+                            data=export_df.to_csv(index=False).encode("utf-8-sig"),
+                            file_name=build_restaurant_export_filename_fn(restaurant_name, selected_month),
+                            mime="text/csv",
+                            key=f"invoice_export_{row_index}",
+                            use_container_width=True,
                         )
         st.download_button(
             "Fatura raporunu indir",
