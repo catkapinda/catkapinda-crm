@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
 import streamlit as st
+
+from infrastructure.migrations import MigrationStep, get_latest_migration_version, get_pending_migrations
 
 
 _FIRST_ROW_VALUE: Callable[[Any, Any], Any] | None = None
@@ -859,6 +862,52 @@ def migrate_data(conn: Any) -> None:
     conn.commit()
 
 
+def _run_bootstrap_data_migration(conn: Any) -> None:
+    migrate_data(conn)
+    _NORMALIZE_EXISTING_DEDUCTION_DATES(conn)
+    _NORMALIZE_EQUIPMENT_ISSUE_COSTS_AND_VAT(conn)
+    _CLEANUP_AUTO_ONBOARDING_RECORDS(conn)
+    _CLEANUP_AUTO_PERSONNEL_DEDUCTION_RECORDS(conn)
+    _ENSURE_ALL_PERSON_ROLE_HISTORIES(conn)
+    _ENSURE_ALL_PERSON_VEHICLE_HISTORIES(conn)
+    _SYNC_ALL_PERSONNEL_BUSINESS_RULES(conn, full_history=True)
+
+
+def get_registered_migrations() -> list[MigrationStep]:
+    return [
+        MigrationStep(
+            version="2026-03-22-manual-motor-deductions",
+            apply_fn=_run_bootstrap_data_migration,
+            description="Bootstrap veri düzeltmeleri ve tam personel senkronizasyonu",
+        ),
+    ]
+
+
+def _mark_current_schema_version(conn: Any, version: str) -> None:
+    set_app_meta_value(conn, "schema_migration_version", version)
+    set_app_meta_value(conn, "schema_migration_applied_at", datetime.now(timezone.utc).isoformat())
+
+
+def apply_versioned_migrations(conn: Any) -> None:
+    migrations = get_registered_migrations()
+    latest_version = get_latest_migration_version(migrations)
+    if not latest_version:
+        return
+
+    applied_schema_version = get_app_meta_value(conn, "schema_migration_version")
+    applied_bootstrap_version = get_app_meta_value(conn, "runtime_bootstrap_version")
+
+    # Existing live databases may already have the old monolithic bootstrap applied.
+    # In that case we baseline the current schema migration version without rerunning it.
+    if not applied_schema_version and applied_bootstrap_version == _RUNTIME_BOOTSTRAP_VERSION:
+        _mark_current_schema_version(conn, latest_version)
+        return
+
+    for migration in get_pending_migrations(applied_schema_version, migrations):
+        migration.apply_fn(conn)
+        _mark_current_schema_version(conn, migration.version)
+
+
 def ensure_runtime_bootstrap(conn: Any) -> None:
     bootstrap_key = f"_crm_bootstrap_done_{conn.backend}"
     if st.session_state.get(bootstrap_key):
@@ -868,15 +917,10 @@ def ensure_runtime_bootstrap(conn: Any) -> None:
     seed_initial_data(conn)
     applied_bootstrap_version = get_app_meta_value(conn, "runtime_bootstrap_version")
     if applied_bootstrap_version != _RUNTIME_BOOTSTRAP_VERSION:
-        migrate_data(conn)
-        _NORMALIZE_EXISTING_DEDUCTION_DATES(conn)
-        _NORMALIZE_EQUIPMENT_ISSUE_COSTS_AND_VAT(conn)
-        _CLEANUP_AUTO_ONBOARDING_RECORDS(conn)
-        _CLEANUP_AUTO_PERSONNEL_DEDUCTION_RECORDS(conn)
-        _ENSURE_ALL_PERSON_ROLE_HISTORIES(conn)
-        _ENSURE_ALL_PERSON_VEHICLE_HISTORIES(conn)
-        _SYNC_ALL_PERSONNEL_BUSINESS_RULES(conn, full_history=True)
+        apply_versioned_migrations(conn)
         set_app_meta_value(conn, "runtime_bootstrap_version", _RUNTIME_BOOTSTRAP_VERSION)
+    else:
+        apply_versioned_migrations(conn)
     _SYNC_DEFAULT_AUTH_USERS(conn)
     _CLEANUP_AUTH_SESSIONS(conn)
     st.session_state[bootstrap_key] = True
