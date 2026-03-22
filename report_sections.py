@@ -8,6 +8,7 @@ import streamlit as st
 
 def render_invoice_report_tab(
     invoice_df: pd.DataFrame,
+    invoice_drilldown_map: dict[str, pd.DataFrame],
     selected_month: str,
     *,
     format_display_df_fn: Callable[..., pd.DataFrame],
@@ -30,15 +31,42 @@ def render_invoice_report_tab(
         value_maps={"model": pricing_model_labels},
     )
     with st.container(border=True):
-        invoice_columns = ["Restoran / Şube", "Fiyat Modeli", "Toplam Saat", "Toplam Paket", "Restoran KDV Hariç", "Restoran KDV Dahil"]
-        render_dashboard_data_grid_fn(
-            "Restoran Faturası",
-            "Aylık fatura görünümünü şube bazında daha okunur satırlarda incele.",
-            invoice_columns,
-            build_grid_rows_fn(invoice_display_df, invoice_columns),
-            "Fatura görünümü için veri yok.",
-            muted_columns={"Fiyat Modeli"},
-        )
+        if invoice_display_df is None or invoice_display_df.empty:
+            st.info("Fatura görünümü için veri yok.")
+        else:
+            st.markdown("##### Restoran Faturası")
+            st.caption("Restoran satırına tıklayarak hangi kurye kaç saat çalıştı, kaç paket attı detayını açıp kapatabilirsin.")
+            for _, row in invoice_display_df.iterrows():
+                restaurant_name = str(row.get("Restoran / Şube", "-") or "-")
+                model_name = str(row.get("Fiyat Modeli", "-") or "-")
+                total_hours = str(row.get("Toplam Saat", "-") or "-")
+                total_packages = str(row.get("Toplam Paket", "-") or "-")
+                gross_invoice = str(row.get("Restoran KDV Dahil", "-") or "-")
+                expander_label = f"{restaurant_name} | {model_name} | {total_hours} saat | {total_packages} paket | {gross_invoice}"
+                with st.expander(expander_label, expanded=False):
+                    detail_df = invoice_drilldown_map.get(restaurant_name, pd.DataFrame())
+                    if detail_df.empty:
+                        st.info("Bu restoran için kurye saat/paket kırılımı bulunamadı.")
+                    else:
+                        detail_display_df = format_display_df_fn(
+                            detail_df,
+                            number_cols=["Toplam Saat", "Toplam Paket"],
+                            rename_map={
+                                "personel": "Kurye",
+                                "rol": "Rol",
+                                "calisma_saati": "Toplam Saat",
+                                "paket": "Toplam Paket",
+                            },
+                        )
+                        detail_columns = ["Kurye", "Rol", "Toplam Saat", "Toplam Paket"]
+                        render_dashboard_data_grid_fn(
+                            f"{restaurant_name} Kurye Dağılımı",
+                            "Bu şubede seçilen ay boyunca çalışılan toplam saat ve atılan toplam paket kırılımı.",
+                            detail_columns,
+                            build_grid_rows_fn(detail_display_df, detail_columns),
+                            "Bu restoran için detay kırılımı yok.",
+                            muted_columns={"Rol"},
+                        )
         st.download_button(
             "Fatura raporunu indir",
             data=invoice_df.to_csv(index=False).encode("utf-8-sig"),
