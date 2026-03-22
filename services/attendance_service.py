@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 from repositories.attendance_repository import (
     delete_daily_entry,
+    fetch_bulk_attendance_people_rows,
     fetch_daily_entry_by_id,
     fetch_daily_entry_management_df,
     insert_daily_entry,
@@ -25,6 +26,13 @@ class DailyEntrySelectionPayload:
     current_rest_label: str
     planned_default: str
     actual_default: str
+
+
+@dataclass
+class BulkAttendanceContext:
+    person_label_map: dict[str, int]
+    name_to_label: dict[str, str]
+    default_rows: list[dict[str, Any]]
 
 
 def load_daily_entry_workspace_payload(conn) -> DailyEntryWorkspacePayload:
@@ -112,3 +120,103 @@ def delete_daily_entry_and_sync(
         conn.rollback()
         raise
     return "Günlük puantaj kaydı silindi."
+
+
+def build_bulk_attendance_context(
+    conn,
+    *,
+    restaurant_id: int,
+    include_all_active: bool,
+    session_rows: Any,
+) -> BulkAttendanceContext:
+    people_rows = fetch_bulk_attendance_people_rows(conn, restaurant_id, include_all_active)
+    person_label_map = {f"{r['full_name']} ({r['role']})": r["id"] for r in people_rows}
+    name_to_label = {str(r["full_name"]).strip().lower(): f"{r['full_name']} ({r['role']})" for r in people_rows}
+    if session_rows:
+        default_rows = session_rows
+    else:
+        default_rows = [
+            {
+                "Personel": label,
+                "Saat": 0.0,
+                "Paket": 0,
+                "Durum": "Normal",
+                "Not": "",
+            }
+            for label in person_label_map.keys()
+        ]
+    return BulkAttendanceContext(
+        person_label_map=person_label_map,
+        name_to_label=name_to_label,
+        default_rows=default_rows,
+    )
+
+
+def build_bulk_rows_from_parsed(
+    parsed_rows: list[dict[str, Any]],
+    *,
+    name_to_label: dict[str, str],
+    normalize_entry_status_fn: Callable[[str], str],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for row in parsed_rows:
+        guess = name_to_label.get(str(row["person_label"]).strip().lower())
+        rows.append(
+            {
+                "Personel": guess or row["person_label"],
+                "Saat": float(row["worked_hours"] or 0),
+                "Paket": int(row["package_count"] or 0),
+                "Durum": normalize_entry_status_fn(str(row["entry_status"] or "Normal")),
+                "Not": row.get("notes", ""),
+            }
+        )
+    return rows
+
+
+def save_bulk_entries_and_sync(
+    conn,
+    *,
+    edited_df: Any,
+    selected_date_iso: str,
+    restaurant_id: int,
+    person_label_map: dict[str, int],
+    username: str,
+    normalize_entry_status_fn: Callable[[str], str],
+    sync_personnel_business_rules_for_ids_fn: Callable[..., None],
+) -> int:
+    inserted = 0
+    affected_person_ids: list[int] = []
+    try:
+        for _, row in edited_df.iterrows():
+            person_label = str(row.get("Personel", "")).strip()
+            if not person_label or person_label not in person_label_map:
+                continue
+            hours = float(row.get("Saat") or 0)
+            packages = int(row.get("Paket") or 0)
+            status = normalize_entry_status_fn(str(row.get("Durum") or "Normal").strip())
+            notes = str(row.get("Not") or "").strip()
+            if hours == 0 and packages == 0 and status == "Normal":
+                continue
+            person_id = person_label_map[person_label]
+            note_parts = [part for part in [notes, "Kaynak: Toplu Puantaj", f"Kaydeden: {username}"] if part]
+            insert_daily_entry(
+                conn,
+                {
+                    "entry_date": selected_date_iso,
+                    "restaurant_id": restaurant_id,
+                    "planned_personnel_id": person_id,
+                    "actual_personnel_id": person_id,
+                    "status": status,
+                    "worked_hours": hours,
+                    "package_count": packages,
+                    "notes": " | ".join(note_parts),
+                },
+            )
+            inserted += 1
+            affected_person_ids.append(person_id)
+        conn.commit()
+        sync_personnel_business_rules_for_ids_fn(conn, affected_person_ids, create_onboarding=False, full_history=True)
+    except Exception:
+        conn.rollback()
+        raise
+    return inserted
