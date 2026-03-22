@@ -16,6 +16,7 @@ def render_invoice_report_tab(
     render_dashboard_data_grid_fn: Callable[..., None],
     pricing_model_labels: dict[str, str],
 ) -> None:
+    open_restaurant = str(st.session_state.get("invoice_report_open_restaurant", "") or "")
     invoice_display_df = format_display_df_fn(
         invoice_df,
         currency_cols=["Restoran KDV Hariç", "Restoran KDV Dahil"],
@@ -35,15 +36,38 @@ def render_invoice_report_tab(
             st.info("Fatura görünümü için veri yok.")
         else:
             st.markdown("##### Restoran Faturası")
-            st.caption("Restoran satırına tıklayarak hangi kurye kaç saat çalıştı, kaç paket attı detayını açıp kapatabilirsin.")
-            for _, row in invoice_display_df.iterrows():
+            st.caption("Restoran kartındaki şube adına tıklayarak hangi kurye kaç saat çalıştı, kaç paket attı detayını açıp kapatabilirsin.")
+            for row_index, row in invoice_display_df.iterrows():
                 restaurant_name = str(row.get("Restoran / Şube", "-") or "-")
                 model_name = str(row.get("Fiyat Modeli", "-") or "-")
                 total_hours = str(row.get("Toplam Saat", "-") or "-")
                 total_packages = str(row.get("Toplam Paket", "-") or "-")
+                net_invoice = str(row.get("Restoran KDV Hariç", "-") or "-")
                 gross_invoice = str(row.get("Restoran KDV Dahil", "-") or "-")
-                expander_label = f"{restaurant_name} | {model_name} | {total_hours} saat | {total_packages} paket | {gross_invoice}"
-                with st.expander(expander_label, expanded=False):
+                is_open = open_restaurant == restaurant_name
+                with st.container(border=True):
+                    head_col, state_col = st.columns([4.8, 1.2])
+                    if head_col.button(
+                        restaurant_name,
+                        key=f"invoice_toggle_{row_index}",
+                        use_container_width=True,
+                        type="primary" if is_open else "secondary",
+                    ):
+                        st.session_state["invoice_report_open_restaurant"] = "" if is_open else restaurant_name
+                        st.rerun()
+                    state_col.markdown(f"**{'Açık' if is_open else 'Kapalı'}**")
+                    st.caption(model_name)
+                    metric1, metric2, metric3, metric4 = st.columns(4)
+                    metric1.markdown("**Toplam Saat**")
+                    metric1.markdown(total_hours)
+                    metric2.markdown("**Toplam Paket**")
+                    metric2.markdown(total_packages)
+                    metric3.markdown("**KDV Hariç**")
+                    metric3.markdown(net_invoice)
+                    metric4.markdown("**KDV Dahil**")
+                    metric4.markdown(gross_invoice)
+                    if not is_open:
+                        continue
                     detail_df = invoice_drilldown_map.get(restaurant_name, pd.DataFrame())
                     if detail_df.empty:
                         st.info("Bu restoran için kurye saat/paket kırılımı bulunamadı.")
