@@ -186,6 +186,13 @@ from services.reporting_service import (
     build_reports_workspace_payload,
     load_reporting_entries_and_month_options,
 )
+from services.attendance_service import (
+    build_daily_entry_selection_payload,
+    create_daily_entry_and_sync,
+    delete_daily_entry_and_sync,
+    load_daily_entry_workspace_payload,
+    update_daily_entry_and_sync,
+)
 from services.personnel_service import (
     build_personnel_code_display_values,
     build_new_person_form_defaults,
@@ -5038,62 +5045,47 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         if submitted:
             planned_id = person_opts[planned_label] if planned_label != "-" else None
             actual_id = person_opts[actual_label] if actual_label != "-" else None
-            conn.execute(
-                """
-                INSERT INTO daily_entries (
-                    entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
-                    status, worked_hours, package_count, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (entry_date.isoformat(), rest_opts[rest_label], planned_id, actual_id, status, worked_hours, package_count, notes),
-            )
-            conn.commit()
-            sync_personnel_business_rules_for_ids(conn, [actual_id], create_onboarding=False, full_history=True)
-            st.success("Günlük kayıt eklendi.")
-            st.rerun()
+            try:
+                success_text = create_daily_entry_and_sync(
+                    conn,
+                    entry_values={
+                        "entry_date": entry_date.isoformat(),
+                        "restaurant_id": rest_opts[rest_label],
+                        "planned_personnel_id": planned_id,
+                        "actual_personnel_id": actual_id,
+                        "status": status,
+                        "worked_hours": worked_hours,
+                        "package_count": package_count,
+                        "notes": notes,
+                    },
+                    affected_person_id=actual_id,
+                    sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                )
+            except Exception as exc:
+                st.error(f"Günlük kayıt eklenemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
 
     st.markdown("### Günlük kayıtları yönet")
-    q = """
-    SELECT d.id, d.entry_date, r.brand || ' - ' || r.branch AS restoran,
-           COALESCE(pp.full_name, '-') AS planlanan, COALESCE(ap.full_name, '-') AS calisan,
-           d.status, d.worked_hours, d.package_count, COALESCE(d.notes, '') AS notes
-    FROM daily_entries d
-    JOIN restaurants r ON r.id = d.restaurant_id
-    LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
-    LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
-    ORDER BY d.entry_date DESC, restoran, d.id DESC
-    LIMIT 500
-    """
-    df = fetch_df(conn, q)
+    daily_entry_payload = load_daily_entry_workspace_payload(conn)
+    df = daily_entry_payload.df
     st.dataframe(df, use_container_width=True, hide_index=True)
 
     if not df.empty:
-        entry_map = {
-            f"{row['entry_date']} | {row['restoran']} | {row['calisan']} | {row['package_count']} paket | ID:{row['id']}": int(row["id"])
-            for _, row in df.iterrows()
-        }
-
         st.markdown("#### Kayıt düzelt / sil")
-        selected_label = st.selectbox("Düzeltmek veya silmek istediğin kaydı seç", list(entry_map.keys()), key="daily_entry_manage_select")
-        selected_id = entry_map[selected_label]
-        selected = conn.execute(
-            """
-            SELECT id, entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
-                   status, worked_hours, package_count, COALESCE(notes, '') AS notes
-            FROM daily_entries
-            WHERE id = ?
-            """,
-            (selected_id,),
-        ).fetchone()
-
-        current_rest_label = next((label for label, rid in rest_opts.items() if rid == selected["restaurant_id"]), list(rest_opts.keys())[0])
-        planned_default = "-"
-        actual_default = "-"
-        for label, pid in person_opts.items():
-            if selected["planned_personnel_id"] == pid:
-                planned_default = label
-            if selected["actual_personnel_id"] == pid:
-                actual_default = label
+        selected_label = st.selectbox("Düzeltmek veya silmek istediğin kaydı seç", list(daily_entry_payload.entry_map.keys()), key="daily_entry_manage_select")
+        selected_id = daily_entry_payload.entry_map[selected_label]
+        selection_payload = build_daily_entry_selection_payload(
+            conn,
+            selected_id=selected_id,
+            rest_opts=rest_opts,
+            person_opts=person_opts,
+        )
+        selected = selection_payload.selected_row
+        current_rest_label = selection_payload.current_rest_label
+        planned_default = selection_payload.planned_default
+        actual_default = selection_payload.actual_default
 
         with st.form(f"daily_entry_edit_form_{selected_id}"):
             e1, e2, e3 = st.columns(3)
@@ -5121,37 +5113,44 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 previous_actual_id = safe_int(selected["actual_personnel_id"], 0)
                 planned_id = person_opts[edit_planned_label] if edit_planned_label != "-" else None
                 actual_id = person_opts[edit_actual_label] if edit_actual_label != "-" else None
-                conn.execute(
-                    """
-                    UPDATE daily_entries
-                    SET entry_date = ?, restaurant_id = ?, planned_personnel_id = ?, actual_personnel_id = ?,
-                        status = ?, worked_hours = ?, package_count = ?, notes = ?
-                    WHERE id = ?
-                    """,
-                    (
-                        edit_date.isoformat(),
-                        rest_opts[edit_rest_label],
-                        planned_id,
-                        actual_id,
-                        edit_status,
-                        edit_hours,
-                        edit_package,
-                        edit_notes,
-                        selected_id,
-                    ),
-                )
-                conn.commit()
-                sync_personnel_business_rules_for_ids(conn, [previous_actual_id, actual_id], create_onboarding=False, full_history=True)
-                st.success("Günlük puantaj kaydı güncellendi.")
-                st.rerun()
+                try:
+                    success_text = update_daily_entry_and_sync(
+                        conn,
+                        entry_id=selected_id,
+                        entry_values={
+                            "entry_date": edit_date.isoformat(),
+                            "restaurant_id": rest_opts[edit_rest_label],
+                            "planned_personnel_id": planned_id,
+                            "actual_personnel_id": actual_id,
+                            "status": edit_status,
+                            "worked_hours": edit_hours,
+                            "package_count": edit_package,
+                            "notes": edit_notes,
+                        },
+                        previous_actual_id=previous_actual_id,
+                        actual_id=actual_id,
+                        sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                    )
+                except Exception as exc:
+                    st.error(f"Günlük puantaj kaydı güncellenemedi: {exc}")
+                else:
+                    st.success(success_text)
+                    st.rerun()
 
             if delete_clicked:
                 deleted_actual_id = safe_int(selected["actual_personnel_id"], 0)
-                conn.execute("DELETE FROM daily_entries WHERE id = ?", (selected_id,))
-                conn.commit()
-                sync_personnel_business_rules_for_ids(conn, [deleted_actual_id], create_onboarding=False, full_history=True)
-                st.success("Günlük puantaj kaydı silindi.")
-                st.rerun()
+                try:
+                    success_text = delete_daily_entry_and_sync(
+                        conn,
+                        entry_id=selected_id,
+                        deleted_actual_id=deleted_actual_id,
+                        sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                    )
+                except Exception as exc:
+                    st.error(f"Günlük puantaj kaydı silinemedi: {exc}")
+                else:
+                    st.success(success_text)
+                    st.rerun()
     else:
         st.info("Henüz günlük puantaj kaydı yok.")
 
