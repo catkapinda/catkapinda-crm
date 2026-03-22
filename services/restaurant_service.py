@@ -14,6 +14,7 @@ from repositories.restaurant_repository import (
     update_restaurant_status,
 )
 from services.audit_service import record_audit_event
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -38,7 +39,8 @@ def load_restaurant_workspace_payload(conn, *, ensure_dataframe_columns_fn: Call
     return RestaurantWorkspacePayload(df=df)
 
 
-def create_restaurant_and_commit(conn, *, restaurant_values: dict[str, Any]) -> str:
+def create_restaurant_and_commit(conn, *, restaurant_values: dict[str, Any], actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "restaurant.create")
     try:
         insert_restaurant_record(conn, restaurant_values)
         conn.commit()
@@ -60,7 +62,8 @@ def create_restaurant_and_commit(conn, *, restaurant_values: dict[str, Any]) -> 
     return success_text
 
 
-def update_restaurant_and_commit(conn, *, restaurant_id: int, restaurant_values: dict[str, Any]) -> str:
+def update_restaurant_and_commit(conn, *, restaurant_id: int, restaurant_values: dict[str, Any], actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "restaurant.update")
     try:
         update_restaurant_record(conn, restaurant_id, restaurant_values)
         conn.commit()
@@ -83,7 +86,8 @@ def update_restaurant_and_commit(conn, *, restaurant_id: int, restaurant_values:
     return success_text
 
 
-def toggle_restaurant_status_and_commit(conn, *, restaurant_id: int, current_active: int) -> str:
+def toggle_restaurant_status_and_commit(conn, *, restaurant_id: int, current_active: int, actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "restaurant.status_change")
     next_active = 0 if int(current_active or 0) == 1 else 1
     try:
         update_restaurant_status(conn, restaurant_id, next_active)
@@ -103,7 +107,8 @@ def toggle_restaurant_status_and_commit(conn, *, restaurant_id: int, current_act
     return success_text
 
 
-def delete_restaurant_with_guards(conn, *, restaurant_id: int) -> str:
+def delete_restaurant_with_guards(conn, *, restaurant_id: int, actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "restaurant.delete")
     linked_people = count_restaurant_linked_personnel(conn, restaurant_id)
     linked_entries = count_restaurant_linked_daily_entries(conn, restaurant_id)
     linked_deductions = count_restaurant_linked_deductions(conn, restaurant_id)
