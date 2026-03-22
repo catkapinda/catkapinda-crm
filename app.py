@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import calendar
 import html
+from io import BytesIO
 import os
 import re
 import secrets
