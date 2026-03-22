@@ -45,6 +45,19 @@ from personnel_rules import (
     role_requires_primary_restaurant,
     validate_role_transition_inputs,
 )
+from equipment_rules import (
+    build_equipment_profitability_frames,
+    configure_equipment_rules,
+    describe_auto_source_key,
+    equipment_issue_generates_installments,
+    get_default_equipment_sale_price,
+    get_default_equipment_unit_cost,
+    get_default_issue_installment_count,
+    get_equipment_cost_snapshot,
+    get_equipment_vat_rate,
+    latest_average_cost,
+    normalize_equipment_issue_installment_count,
+)
 from ui_helpers import (
     apply_text_search,
     build_grid_rows,
@@ -2756,106 +2769,6 @@ def parse_whatsapp_bulk(text_value: str) -> list[dict]:
     return rows
 
 
-def latest_average_cost(conn: sqlite3.Connection, item_name: str) -> float:
-    row = conn.execute(
-        """
-        SELECT CASE WHEN SUM(quantity) > 0 THEN SUM(total_invoice_amount) / SUM(quantity) ELSE 0 END AS avg_cost
-        FROM inventory_purchases
-        WHERE item_name = ?
-        """,
-        (item_name,),
-    ).fetchone()
-    return float(first_row_value(row, 0) or 0)
-
-
-def get_equipment_cost_snapshot(conn: sqlite3.Connection, item_name: str) -> tuple[int, float, int, float]:
-    row = conn.execute(
-        """
-        SELECT COUNT(*) AS row_count, COALESCE(SUM(total_invoice_amount), 0) AS total_invoice_amount, COALESCE(SUM(quantity), 0) AS total_quantity, COALESCE(MAX(id), 0) AS max_id
-        FROM inventory_purchases
-        WHERE item_name = ?
-        """,
-        ((item_name or "").strip(),),
-    ).fetchone()
-    row_count = safe_int(get_row_value(row, "row_count", 0), 0)
-    total_invoice_amount = safe_float(get_row_value(row, "total_invoice_amount", 0.0), 0.0)
-    total_quantity = safe_int(get_row_value(row, "total_quantity", 0), 0)
-    weighted_average = round(total_invoice_amount / total_quantity, 2) if total_quantity > 0 else 0.0
-    max_id = safe_int(get_row_value(row, "max_id", 0), 0)
-    return row_count, total_invoice_amount, max_id, weighted_average
-
-
-def get_default_equipment_unit_cost(conn: sqlite3.Connection, item_name: str) -> float:
-    *_, weighted_average = get_equipment_cost_snapshot(conn, item_name)
-    if weighted_average > 0:
-        return weighted_average
-    return latest_average_cost(conn, item_name)
-
-
-def get_equipment_vat_rate(item_name: str, issue_date: date | str | None = None) -> float:
-    normalized_item_name = str(item_name or "").strip()
-    if normalized_item_name in EQUIPMENT_ALWAYS_STANDARD_VAT_ITEMS:
-        return EQUIPMENT_VAT_RATE_BEFORE_REDUCTION
-    effective_date = parse_date_value(issue_date) or date.today()
-    if effective_date >= EQUIPMENT_REDUCED_VAT_START_DATE:
-        return EQUIPMENT_VAT_RATE_AFTER_REDUCTION
-    return EQUIPMENT_VAT_RATE_BEFORE_REDUCTION
-
-
-def get_default_equipment_sale_price(item_name: str) -> float:
-    manual_item_defaults = {
-        "Motor Kirası": AUTO_MOTOR_RENTAL_DEDUCTION,
-        "Motor Satın Alım": AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION * AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,
-    }
-    normalized_item_name = (item_name or "").strip()
-    if normalized_item_name in manual_item_defaults:
-        return float(manual_item_defaults[normalized_item_name])
-    for item in AUTO_ONBOARDING_ITEMS:
-        if item["item_name"] == normalized_item_name:
-            return float(item["unit_sale_price"])
-    return 0.0
-
-
-def get_default_issue_installment_count(item_name: str) -> int:
-    normalized_item_name = (item_name or "").strip()
-    if normalized_item_name == "Motor Satın Alım":
-        return AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT
-    if normalized_item_name == "Motor Kirası":
-        return 1
-    return AUTO_EQUIPMENT_INSTALLMENT_COUNT
-
-
-def normalize_equipment_issue_installment_count(sale_type: str, installment_count: int) -> int:
-    if str(sale_type or "Satış").strip() != "Satış":
-        return 1
-    return max(safe_int(installment_count, 1), 1)
-
-
-def equipment_issue_generates_installments(sale_type: str, total_sale_amount: float, installment_count: int) -> bool:
-    return (
-        str(sale_type or "Satış").strip() == "Satış"
-        and safe_float(total_sale_amount, 0.0) > 0
-        and normalize_equipment_issue_installment_count(sale_type, installment_count) > 0
-    )
-
-
-def describe_auto_source_key(auto_source_key: Any) -> str:
-    key = str(auto_source_key or "").strip()
-    if not key:
-        return "Manuel"
-    if key.startswith("auto:motor_rental:"):
-        return "Eski sistem | Motor kirası"
-    if key.startswith("auto:motor_purchase:"):
-        return "Eski sistem | Motor satış taksiti"
-    if key.startswith("auto:accounting:"):
-        return "Eski sistem | Muhasebe"
-    if key.startswith("auto:company_setup"):
-        return "Eski sistem | Şirket açılışı"
-    if key.startswith("auto:onboarding:"):
-        return "Eski sistem | İşe giriş zimmeti"
-    return "Eski sistem"
-
-
 def is_system_personnel_auto_deduction_key(auto_source_key: Any) -> bool:
     key = str(auto_source_key or "").strip()
     return any(key.startswith(prefix) for prefix in SYSTEM_PERSONNEL_AUTO_DEDUCTION_PREFIXES)
@@ -4598,44 +4511,6 @@ def build_auto_deduction_warning_text(auto_source_key: Any) -> str:
     )
 
 
-def build_equipment_profitability_frames(
-    conn: CompatConnection,
-    start_date: date | str | None = None,
-    end_date: date | str | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    start_value = parse_date_value(start_date)
-    end_value = parse_date_value(end_date)
-    sales_query = """
-        SELECT item_name,
-               SUM(quantity) AS sold_qty,
-               SUM(quantity * unit_cost) AS total_cost,
-               SUM(quantity * unit_sale_price) AS total_sale,
-               SUM((quantity * unit_sale_price) - (quantity * unit_cost)) AS gross_profit
-        FROM courier_equipment_issues
-        WHERE sale_type = 'Satış'
-    """
-    sales_params: tuple[Any, ...] = ()
-    if start_value and end_value:
-        sales_query += " AND issue_date BETWEEN ? AND ?"
-        sales_params = (start_value.isoformat(), end_value.isoformat())
-    sales_query += " GROUP BY item_name ORDER BY total_sale DESC"
-    sales_profit = fetch_df(conn, sales_query, sales_params)
-
-    stock_purchase = fetch_df(
-        conn,
-        """
-        SELECT item_name,
-               SUM(quantity) AS purchased_qty,
-               SUM(total_invoice_amount) AS purchased_total,
-               CASE WHEN SUM(quantity) > 0 THEN SUM(total_invoice_amount)/SUM(quantity) ELSE 0 END AS weighted_unit_cost
-        FROM inventory_purchases
-        GROUP BY item_name
-        ORDER BY item_name
-        """,
-    )
-    return sales_profit, stock_purchase
-
-
 def build_table_backup_zip(conn: CompatConnection) -> bytes:
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -5939,6 +5814,25 @@ def fetch_df(conn: CompatConnection, query: str, params: tuple = ()) -> pd.DataF
         normalized_rows.append(dict(enumerate(row)))
 
     return pd.DataFrame(normalized_rows)
+
+
+configure_equipment_rules(
+    first_row_value_fn=first_row_value,
+    get_row_value_fn=get_row_value,
+    safe_int_fn=safe_int,
+    safe_float_fn=safe_float,
+    parse_date_value_fn=parse_date_value,
+    fetch_df_fn=fetch_df,
+    equipment_always_standard_vat_items=EQUIPMENT_ALWAYS_STANDARD_VAT_ITEMS,
+    equipment_vat_rate_before_reduction=EQUIPMENT_VAT_RATE_BEFORE_REDUCTION,
+    equipment_vat_rate_after_reduction=EQUIPMENT_VAT_RATE_AFTER_REDUCTION,
+    equipment_reduced_vat_start_date=EQUIPMENT_REDUCED_VAT_START_DATE,
+    auto_motor_rental_deduction=AUTO_MOTOR_RENTAL_DEDUCTION,
+    auto_motor_purchase_monthly_deduction=AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
+    auto_motor_purchase_installment_count=AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,
+    auto_equipment_installment_count=AUTO_EQUIPMENT_INSTALLMENT_COUNT,
+    auto_onboarding_items=AUTO_ONBOARDING_ITEMS,
+)
 
 
 def get_restaurant_options(conn: sqlite3.Connection) -> dict[str, int]:
