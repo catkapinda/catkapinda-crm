@@ -34,7 +34,7 @@ from dashboard_sections import (
     render_dashboard_focus_sections,
     render_dashboard_summary_cards,
 )
-from db_engine import (
+from infrastructure.db_engine import (
     CompatConnection,
     adapt_sql,
     configure_db_engine,
@@ -115,6 +115,8 @@ from equipment_rules import (
 )
 from reporting_rules import (
     build_invoice_summary_df,
+    build_restaurant_attendance_export_map,
+    build_restaurant_export_filename,
     build_restaurant_invoice_drilldown_map,
     calculate_customer_invoice,
     configure_reporting_rules,
@@ -126,13 +128,13 @@ from finance_engine import (
     calculate_personnel_cost,
     configure_finance_engine,
 )
-from bootstrap_engine import (
+from infrastructure.bootstrap_engine import (
     configure_bootstrap_engine,
     database_has_operational_data,
     ensure_runtime_bootstrap,
     import_sqlite_into_current_db,
 )
-from auth_engine import (
+from infrastructure.auth_engine import (
     build_login_logo_markup,
     cleanup_auth_sessions,
     clear_authenticated_user,
@@ -6457,6 +6459,12 @@ def reports_tab(conn: sqlite3.Connection) -> None:
     role_history_df = fetch_df(conn, "SELECT * FROM personnel_role_history ORDER BY personnel_id, effective_date, id")
     deductions_df = fetch_df(conn, "SELECT * FROM deductions WHERE deduction_date BETWEEN ? AND ?", (start_date, end_date))
     invoice_drilldown_map = build_restaurant_invoice_drilldown_map(month_df, personnel_df)
+    invoice_attendance_export_map = build_restaurant_attendance_export_map(
+        month_df,
+        personnel_df,
+        selected_month,
+        invoice_drilldown_map=invoice_drilldown_map,
+    )
     cost_df = calculate_personnel_cost(month_df, personnel_df, deductions_df, role_history_df=role_history_df)
 
     revenue = float(invoice_df["kdv_dahil"].sum()) if not invoice_df.empty else 0.0
@@ -6542,11 +6550,15 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         render_invoice_report_tab(
             invoice_df,
             invoice_drilldown_map,
+            invoice_attendance_export_map,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
             render_dashboard_data_grid_fn=render_dashboard_data_grid,
             pricing_model_labels=PRICING_MODEL_LABELS,
+            fmt_number_fn=fmt_number,
+            fmt_try_fn=fmt_try,
+            build_restaurant_export_filename_fn=build_restaurant_export_filename,
         )
     with tab2:
         render_cost_report_tab(
