@@ -187,7 +187,13 @@ from services.reporting_service import (
     load_reporting_entries_and_month_options,
 )
 from services.personnel_service import (
+    build_personnel_code_display_values,
+    build_new_person_form_defaults,
+    build_next_person_code,
+    build_personnel_edit_selection_payload,
     load_personnel_workspace_payload,
+    prepare_new_person_form_state,
+    role_code_prefix,
 )
 from repositories.personnel_repository import (
     fetch_active_restaurant_options,
@@ -4349,35 +4355,6 @@ def get_person_options(conn: sqlite3.Connection, active_only: bool = True) -> di
     return fetch_person_options_map(conn, active_only=active_only)
 
 
-def role_code_prefix(role: str) -> str:
-    mapping = {
-        "Kurye": "K",
-        "Bölge Müdürü": "BM",
-        "Saha Denetmen Şefi": "SDS",
-        "Restoran Takım Şefi": "RTS",
-        "Joker": "J",
-        "Şef": "TŞ",
-    }
-    return mapping.get(role or "Kurye", "K")
-
-
-def next_person_code(conn: sqlite3.Connection, role: str, exclude_id: int | None = None) -> str:
-    prefix = role_code_prefix(role)
-    sql = "SELECT person_code FROM personnel WHERE person_code LIKE ?"
-    params = [f"CK-{prefix}%"]
-    if exclude_id is not None:
-        sql += " AND id != ?"
-        params.append(exclude_id)
-    rows = conn.execute(sql, tuple(params)).fetchall()
-    max_num = 0
-    for row in rows:
-        code = row["person_code"] or ""
-        match = re.search(rf"^CK-{re.escape(prefix)}(\d+)$", code)
-        if match:
-            max_num = max(max_num, int(match.group(1)))
-    return f"CK-{prefix}{max_num + 1:02d}"
-
-
 def dashboard_tab(conn: sqlite3.Connection) -> None:
     today_value = date.today()
     selected_month = today_value.strftime("%Y-%m")
@@ -4888,7 +4865,9 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             resolve_cost_role_option_fn=resolve_cost_role_option,
             is_fixed_cost_model_fn=is_fixed_cost_model,
             get_role_fixed_cost_label_fn=get_role_fixed_cost_label,
-            next_person_code_fn=next_person_code,
+            next_person_code_fn=build_next_person_code,
+            build_new_person_form_defaults_fn=build_new_person_form_defaults,
+            prepare_new_person_form_state_fn=prepare_new_person_form_state,
             clear_new_person_onboarding_state_fn=clear_new_person_onboarding_state,
             initialize_onboarding_equipment_state_fn=initialize_onboarding_equipment_state,
             onboarding_equipment_state_key_fn=onboarding_equipment_state_key,
@@ -4929,6 +4908,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             parse_date_value_fn=parse_date_value,
             resolve_vehicle_type_value_fn=resolve_vehicle_type_value,
             resolve_motor_usage_mode_fn=resolve_motor_usage_mode,
+            build_personnel_edit_selection_payload_fn=build_personnel_edit_selection_payload,
             initialize_edit_person_transition_state_fn=initialize_edit_person_transition_state,
             role_requires_primary_restaurant_fn=role_requires_primary_restaurant,
             format_motor_rental_summary_fn=format_motor_rental_summary,
@@ -4940,8 +4920,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             resolve_effective_role_from_transition_fn=resolve_effective_role_from_transition,
             is_fixed_cost_model_fn=is_fixed_cost_model,
             get_role_fixed_cost_label_fn=get_role_fixed_cost_label,
-            next_person_code_fn=next_person_code,
-            role_code_prefix_fn=role_code_prefix,
+            build_personnel_code_display_values_fn=build_personnel_code_display_values,
             build_motor_usage_payload_fn=build_motor_usage_payload,
             render_vehicle_transition_caption_fn=render_vehicle_transition_caption,
             render_motor_purchase_proration_caption_fn=render_motor_purchase_proration_caption,
