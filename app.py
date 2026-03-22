@@ -186,6 +186,13 @@ from services.reporting_service import (
     build_reports_workspace_payload,
     load_reporting_entries_and_month_options,
 )
+from services.personnel_service import (
+    load_personnel_workspace_payload,
+)
+from repositories.personnel_repository import (
+    fetch_active_restaurant_options,
+    fetch_person_options_map,
+)
 
 
 DEFAULT_AUTH_PASSWORD = "123456"
@@ -4335,17 +4342,11 @@ configure_equipment_rules(
 
 
 def get_restaurant_options(conn: sqlite3.Connection) -> dict[str, int]:
-    rows = conn.execute("SELECT id, brand, branch FROM restaurants WHERE active=1 ORDER BY brand, branch").fetchall()
-    return {f"{r['brand']} - {r['branch']}": r['id'] for r in rows}
+    return fetch_active_restaurant_options(conn)
 
 
 def get_person_options(conn: sqlite3.Connection, active_only: bool = True) -> dict[str, int]:
-    sql = "SELECT id, full_name, role, status FROM personnel"
-    if active_only:
-        sql += " WHERE status='Aktif'"
-    sql += " ORDER BY full_name"
-    rows = conn.execute(sql).fetchall()
-    return {f"{r['full_name']} ({r['role']})": r['id'] for r in rows}
+    return fetch_person_options_map(conn, active_only=active_only)
 
 
 def role_code_prefix(role: str) -> str:
@@ -4769,27 +4770,20 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
 
 
 def personnel_tab(conn: sqlite3.Connection) -> None:
-    q = """
-    SELECT p.*, r.brand || ' - ' || r.branch AS restoran
-    FROM personnel p
-    LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
-    ORDER BY p.full_name
-    """
-    df = fetch_df(conn, q)
-    df = ensure_dataframe_columns(df, {
-        "emergency_contact_name": "",
-        "emergency_contact_phone": "",
-        "motor_rental_monthly_amount": AUTO_MOTOR_RENTAL_DEDUCTION,
-        "motor_purchase": "Hayır",
-        "motor_purchase_start_date": "",
-        "motor_purchase_commitment_months": None,
-        "motor_purchase_sale_price": 0.0,
-        "motor_purchase_monthly_amount": AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
-        "motor_purchase_installment_count": AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,
-    })
-    rest_opts = get_restaurant_options(conn)
-    rest_opts_with_blank = {"-": None, **rest_opts}
-    passive_count = int((df["status"] == "Pasif").sum()) if not df.empty else 0
+    personnel_payload = load_personnel_workspace_payload(
+        conn,
+        recently_created_payload=st.session_state.get("personnel_recently_created"),
+        ensure_dataframe_columns_fn=ensure_dataframe_columns,
+        safe_int_fn=safe_int,
+        get_row_value_fn=get_row_value,
+        auto_motor_rental_deduction=AUTO_MOTOR_RENTAL_DEDUCTION,
+        auto_motor_purchase_monthly_deduction=AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
+        auto_motor_purchase_installment_count=AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,
+    )
+    df = personnel_payload.df
+    rest_opts = personnel_payload.rest_opts
+    rest_opts_with_blank = personnel_payload.rest_opts_with_blank
+    passive_count = personnel_payload.passive_count
 
     render_management_hero(
         "PERSONEL YÖNETİMİ",
@@ -4800,8 +4794,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     render_flash_message()
     create_success_message = str(st.session_state.get("personnel_create_success_message", "") or "").strip()
 
-    recently_created_payload = st.session_state.get("personnel_recently_created")
-    recently_created_id = safe_int(get_row_value(recently_created_payload, "personnel_id"), 0) if recently_created_payload else 0
+    recently_created_id = personnel_payload.recently_created_id
 
     if recently_created_id > 0 and not df.empty:
         recent_match = df[df["id"] == recently_created_id]
