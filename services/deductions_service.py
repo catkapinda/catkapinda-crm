@@ -11,6 +11,7 @@ from repositories.deductions_repository import (
     insert_deduction_record,
     update_deduction_record,
 )
+from services.audit_service import record_audit_event
 
 
 @dataclass
@@ -73,7 +74,15 @@ def create_deduction_and_commit(
     except Exception:
         conn.rollback()
         raise
-    return f"Kesinti ay sonuna kaydedildi: {deduction_values['deduction_date']}"
+    success_text = f"Kesinti ay sonuna kaydedildi: {deduction_values['deduction_date']}"
+    record_audit_event(
+        conn,
+        entity_type="deduction",
+        action_type="create",
+        summary=success_text,
+        details=deduction_values,
+    )
+    return success_text
 
 
 def update_deduction_and_commit(
@@ -88,7 +97,16 @@ def update_deduction_and_commit(
     except Exception:
         conn.rollback()
         raise
-    return f"Kesinti ay sonuna güncellendi: {deduction_values['deduction_date']}"
+    success_text = f"Kesinti ay sonuna güncellendi: {deduction_values['deduction_date']}"
+    record_audit_event(
+        conn,
+        entity_type="deduction",
+        entity_id=deduction_id,
+        action_type="update",
+        summary=success_text,
+        details=deduction_values,
+    )
+    return success_text
 
 
 def delete_deduction_and_commit(conn, *, deduction_id: int) -> str:
@@ -98,7 +116,15 @@ def delete_deduction_and_commit(conn, *, deduction_id: int) -> str:
     except Exception:
         conn.rollback()
         raise
-    return "Kesinti silindi."
+    success_text = "Kesinti silindi."
+    record_audit_event(
+        conn,
+        entity_type="deduction",
+        entity_id=deduction_id,
+        action_type="delete",
+        summary=success_text,
+    )
+    return success_text
 
 
 def bulk_delete_deductions_and_commit(conn, *, deduction_ids: list[int]) -> str:
@@ -108,4 +134,12 @@ def bulk_delete_deductions_and_commit(conn, *, deduction_ids: list[int]) -> str:
     except Exception:
         conn.rollback()
         raise
-    return f"{deleted_count} manuel kesinti kaydı toplu olarak silindi."
+    success_text = f"{deleted_count} manuel kesinti kaydı toplu olarak silindi."
+    record_audit_event(
+        conn,
+        entity_type="deduction",
+        action_type="bulk_delete",
+        summary=success_text,
+        details={"deduction_ids": deduction_ids, "deleted_count": deleted_count},
+    )
+    return success_text
