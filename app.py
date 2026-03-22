@@ -34,6 +34,13 @@ from analytics_builders import (
     build_side_income_summary_df,
     split_equipment_profit_categories,
 )
+from dashboard_sections import (
+    render_dashboard_action_sections,
+    render_dashboard_activity_sections,
+    render_dashboard_finance_and_hygiene_sections,
+    render_dashboard_focus_sections,
+    render_dashboard_summary_cards,
+)
 from entity_builders import (
     build_personnel_hero_stats,
     build_personnel_list_rows,
@@ -5903,64 +5910,28 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
         safe_float_fn=safe_float,
     )
 
-    c_top_1, c_top_2 = st.columns([1.2, 1])
-    with c_top_1:
-        render_record_snapshot(
-            "Kritik Uyarılar",
-            [
-                ("Bugün puantaj bekleyen şube", len(missing_attendance_df)),
-                ("Hedef kadro altında kalan şube", len(under_target_df)),
-                ("Bugün joker kullanılan şube", len(joker_usage_df)),
-                ("Eksik personel kartı", len(missing_personnel_df)),
-                ("Eksik restoran kartı", len(missing_restaurant_df)),
-            ],
-        )
-    with c_top_2:
-        render_record_snapshot(
-            "Bu Ay Yönetim Özeti",
-            [
-                ("Restoran faturası", fmt_try(month_revenue)),
-                ("Operasyon farkı", fmt_try(month_operation_gap)),
-                ("Ortak Operasyon Payı", fmt_try(float(shared_overhead_df["aylik_net_maliyet"].sum()) if not shared_overhead_df.empty else 0.0)),
-                ("Kârlı restoran", len(profit_df[profit_df["brut_fark"] >= 0]) if not profit_df.empty else 0),
-                ("Riskli restoran", len(profit_df[profit_df["brut_fark"] < 0]) if not profit_df.empty else 0),
-            ],
-        )
-
-    focus_col, brand_col = st.columns([1.05, 1.15], gap="large")
-    with focus_col:
-        render_alert_stack("Bugün Acil Aksiyon", priority_alerts)
-    with brand_col:
-        with st.container(border=True):
-            if brand_summary_df.empty:
-                render_dashboard_data_grid(
-                    "Marka Bazlı Özet",
-                    "Markaların bu ayki operasyon ve gelir fotoğrafını daha okunur kart satırlarında gör.",
-                    ["Marka", "Şube", "Hacim", "Fatura", "Operasyon Farkı", "Durum"],
-                    [],
-                    "Marka bazlı özet için bu ay puantaj verisi oluşmadı.",
-                    badge_columns={"Durum"},
-                )
-            else:
-                brand_rows = [
-                    {
-                        "Marka": row["brand"],
-                        "Şube": fmt_number(row["restoran_sayisi"]),
-                        "Hacim": f"{fmt_number(row['paket'])} Paket | {fmt_number(row['saat'])} Saat",
-                        "Fatura": fmt_try(row["toplam_fatura"]),
-                        "Operasyon Farkı": fmt_try(row["operasyon_farki"]),
-                        "Durum": row["durum"],
-                    }
-                    for _, row in brand_summary_df.head(8).iterrows()
-                ]
-                render_dashboard_data_grid(
-                    "Marka Bazlı Özet",
-                    "Markaların bu ayki operasyon ve gelir fotoğrafını daha okunur kart satırlarında gör.",
-                    ["Marka", "Şube", "Hacim", "Fatura", "Operasyon Farkı", "Durum"],
-                    brand_rows,
-                    "Marka bazlı özet için bu ay puantaj verisi oluşmadı.",
-                    badge_columns={"Durum"},
-                )
+    shared_overhead_total = float(shared_overhead_df["aylik_net_maliyet"].sum()) if not shared_overhead_df.empty else 0.0
+    render_dashboard_summary_cards(
+        missing_attendance_count=len(missing_attendance_df),
+        under_target_count=len(under_target_df),
+        joker_usage_count=len(joker_usage_df),
+        missing_personnel_count=len(missing_personnel_df),
+        missing_restaurant_count=len(missing_restaurant_df),
+        month_revenue=month_revenue,
+        month_operation_gap=month_operation_gap,
+        shared_overhead_total=shared_overhead_total,
+        profit_df=profit_df,
+        render_record_snapshot_fn=render_record_snapshot,
+        fmt_try_fn=fmt_try,
+    )
+    render_dashboard_focus_sections(
+        priority_alerts=priority_alerts,
+        brand_summary_df=brand_summary_df,
+        render_alert_stack_fn=render_alert_stack,
+        render_dashboard_data_grid_fn=render_dashboard_data_grid,
+        fmt_number_fn=fmt_number,
+        fmt_try_fn=fmt_try,
+    )
 
     if entries.empty:
         st.info("Henüz günlük puantaj kaydı yok. İlk kayıtlar geldikçe dashboard operasyon akışını burada gösterecek.")
@@ -5979,165 +5950,37 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
         month_perf["restoran"] = month_perf["brand"] + " - " + month_perf["branch"]
         month_perf = month_perf[["restoran", "paket", "saat"]].sort_values(["paket", "saat"], ascending=[False, False])
 
-    c1, c2 = st.columns([1.45, 1], gap="large")
-    with c1:
-        with st.container(border=True):
-            render_dashboard_section_header("Son 14 Gün Paket Akışı", "Paket ritmindeki artış ve düşüşleri son iki haftada izle.")
-            if daily_trend.empty:
-                st.info("Grafik için son 14 günde puantaj verisi oluşmadı.")
-            else:
-                try:
-                    import altair as alt
-
-                    area = alt.Chart(daily_trend).mark_area(color="#9FD4FF", opacity=0.38).encode(
-                        x=alt.X("gun:T", axis=alt.Axis(title=None, format="%d %b", labelColor="#6B7A90", tickColor="#DCE6F5")),
-                        y=alt.Y("paket:Q", axis=alt.Axis(title=None, gridColor="#E6EEF9", labelColor="#6B7A90")),
-                        tooltip=[alt.Tooltip("gun:T", title="Tarih"), alt.Tooltip("paket:Q", title="Paket", format=",.0f")],
-                    )
-                    line = alt.Chart(daily_trend).mark_line(color="#0C4BCB", strokeWidth=3, point=alt.OverlayMarkDef(color="#0C4BCB", filled=True, size=64)).encode(
-                        x="gun:T",
-                        y="paket:Q",
-                        tooltip=[alt.Tooltip("gun:T", title="Tarih"), alt.Tooltip("paket:Q", title="Paket", format=",.0f"), alt.Tooltip("saat:Q", title="Saat", format=",.1f")],
-                    )
-                    chart = (area + line).properties(height=300).configure_view(strokeWidth=0)
-                    st.altair_chart(chart, use_container_width=True)
-                except Exception:
-                    fallback = daily_trend[["gun_label", "paket"]].set_index("gun_label")
-                    st.line_chart(fallback)
-                st.caption("Grafik son 14 günlük toplam paket hareketini gösterir.")
-
-    with c2:
-        top_rows = []
-        for _, row in month_perf.head(6).iterrows():
-            top_rows.append((row["restoran"], f"{fmt_number(row['paket'])} Paket | {fmt_number(row['saat'])} Saat"))
-        render_record_snapshot("Bu Ay En Yoğun Şubeler", top_rows or [("-", "Henüz veri yok")])
-
-    alerts_col, actions_col = st.columns([1.25, 1], gap="large")
-    with alerts_col:
-        with st.container(border=True):
-            action_alerts = []
-            for _, row in missing_attendance_df.head(5).iterrows():
-                action_alerts.append(
-                    {
-                        "tone": "critical",
-                        "badge": "Bugün",
-                        "title": f"{row['brand']} - {row['branch']}",
-                        "detail": "Bugün puantaj bekleniyor. Günlük kayıt henüz girilmedi.",
-                    }
-                )
-            for _, row in under_target_df.head(5).iterrows():
-                action_alerts.append(
-                    {
-                        "tone": "warning" if safe_int(row["acik_kadro"], 0) < 2 else "critical",
-                        "badge": "Kadro",
-                        "title": f"{row['brand']} - {row['branch']}",
-                        "detail": f"Hedef kadronun altında. Açık kadro: {safe_int(row['acik_kadro'])}",
-                    }
-                )
-            render_alert_stack(
-                "Aksiyon Gerektiren Şubeler",
-                action_alerts,
-                border=False,
-            )
-
-            if not joker_usage_df.empty:
-                st.markdown("<div class='ck-dashboard-spacer-sm'></div>", unsafe_allow_html=True)
-                joker_rows = [
-                    {
-                        "Şube": row["restoran"],
-                        "Joker": fmt_number(row["joker_sayisi"]),
-                        "Paket": fmt_number(row["paket"]),
-                    }
-                    for _, row in joker_usage_df.head(6).iterrows()
-                ]
-                render_dashboard_data_grid(
-                    "Bugün Joker Kullanılan Şubeler",
-                    "Joker desteği alan şubeleri ve gün içi yükünü öne çıkar.",
-                    ["Şube", "Joker", "Paket"],
-                    joker_rows,
-                    "Bugün joker kullanılan şube görünmüyor.",
-                )
-
-    with actions_col:
-        with st.container(border=True):
-            render_dashboard_section_header("Hızlı Komuta Alanı", "Sık kullanılan ekranlara tek dokunuşla geç.")
-            quick_actions = [
-                ("Bugünkü Puantajı Aç", "Puantaj", "Günlük saha kaydına geç.", None),
-                ("Yeni Personel Kartı", "Personel Yönetimi", "Yeni kurye veya yönetici ekle.", "add"),
-                ("Yeni Şube Kartı", "Restoran Yönetimi", "Restoran anlaşma kartını aç.", None),
-                ("Kesinti Kaydı Gir", "Kesinti Yönetimi", "Ay sonu kesintisini işle.", None),
-                ("Personel Düzenlemeyi Aç", "Personel Yönetimi", "Sonradan verilen ekipman, iade ve düzeltmeleri personel kartından yönet.", "edit"),
-                ("Aylık Raporu Aç", "Raporlar ve Karlılık", "Bu ayın kârlılık ekranına geç.", None),
-            ]
-            for index, (button_label, target_menu, subtitle, target_workspace) in enumerate(quick_actions):
-                if st.button(button_label, key=f"dashboard_quick_action_{index}", use_container_width=True):
-                    if target_workspace:
-                        st.session_state["personnel_workspace_mode"] = target_workspace
-                    st.session_state["ck_sidebar_target_menu"] = target_menu
-                    st.rerun()
-                st.caption(subtitle)
-
-    finance_col, hygiene_col = st.columns([1.15, 0.85], gap="large")
-    with finance_col:
-        with st.container(border=True):
-            render_dashboard_section_header("Bu Ay Karlılık Özeti", "Gelir, operasyon farkı ve ortak destek maliyetini birlikte değerlendir.")
-            metric_cols = st.columns(3)
-            metric_cols[0].metric("Restoran Faturası", fmt_try(month_revenue))
-            metric_cols[1].metric("Operasyon Farkı", fmt_try(month_operation_gap))
-            metric_cols[2].metric(
-                "Ortak Operasyon Payı",
-                fmt_try(float(shared_overhead_df["aylik_net_maliyet"].sum()) if not shared_overhead_df.empty else 0.0),
-            )
-            c_profit, c_risk = st.columns(2)
-            with c_profit:
-                render_record_snapshot("En Kârlı 5 Restoran", top_profit_items)
-            with c_risk:
-                render_record_snapshot("En Riskli 5 Restoran", risk_items)
-
-    with hygiene_col:
-        with st.container(border=True):
-            render_dashboard_section_header("Kart ve Zimmet Kontrolü", "Eksik alanlı personel ve restoran kartlarını düzenli tut.")
-            hygiene_rows = [
-                ("Eksik personel kartı", len(missing_personnel_df)),
-                ("Eksik restoran kartı", len(missing_restaurant_df)),
-            ]
-            render_record_snapshot("Veri Hijyeni", hygiene_rows)
-
-            if not missing_personnel_df.empty:
-                personnel_rows = [
-                    {
-                        "Personel": row["personel"],
-                        "Rol": row["rol"],
-                        "Eksik Alanlar": row["eksik_alanlar"],
-                    }
-                    for _, row in missing_personnel_df.head(6).iterrows()
-                ]
-                render_dashboard_data_grid(
-                    "Eksik Personel Kartları",
-                    "Tamamlanması gereken aktif personel alanlarını hızlıca gör.",
-                    ["Personel", "Rol", "Eksik Alanlar"],
-                    personnel_rows,
-                    "Eksik personel kartı görünmüyor.",
-                    muted_columns={"Eksik Alanlar"},
-                )
-            elif not missing_restaurant_df.empty:
-                restaurant_rows = [
-                    {
-                        "Restoran / Şube": row["restoran"],
-                        "Eksik Alanlar": row["eksik_alanlar"],
-                    }
-                    for _, row in missing_restaurant_df.head(6).iterrows()
-                ]
-                render_dashboard_data_grid(
-                    "Eksik Restoran Kartları",
-                    "İletişim ve vergi alanı eksik kalan şubeleri düzenle.",
-                    ["Restoran / Şube", "Eksik Alanlar"],
-                    restaurant_rows,
-                    "Eksik restoran kartı görünmüyor.",
-                    muted_columns={"Eksik Alanlar"},
-                )
-            else:
-                st.success("Aktif kartlar tarafında öne çıkan kritik eksik görünmüyor.")
+    render_dashboard_activity_sections(
+        entries_empty=entries.empty,
+        daily_trend=daily_trend,
+        month_perf=month_perf,
+        render_dashboard_section_header_fn=render_dashboard_section_header,
+        render_record_snapshot_fn=render_record_snapshot,
+        fmt_number_fn=fmt_number,
+    )
+    render_dashboard_action_sections(
+        missing_attendance_df=missing_attendance_df,
+        under_target_df=under_target_df,
+        joker_usage_df=joker_usage_df,
+        safe_int_fn=safe_int,
+        fmt_number_fn=fmt_number,
+        render_alert_stack_fn=render_alert_stack,
+        render_dashboard_data_grid_fn=render_dashboard_data_grid,
+        render_dashboard_section_header_fn=render_dashboard_section_header,
+    )
+    render_dashboard_finance_and_hygiene_sections(
+        month_revenue=month_revenue,
+        month_operation_gap=month_operation_gap,
+        shared_overhead_total=shared_overhead_total,
+        top_profit_items=top_profit_items,
+        risk_items=risk_items,
+        missing_personnel_df=missing_personnel_df,
+        missing_restaurant_df=missing_restaurant_df,
+        render_dashboard_section_header_fn=render_dashboard_section_header,
+        render_record_snapshot_fn=render_record_snapshot,
+        render_dashboard_data_grid_fn=render_dashboard_data_grid,
+        fmt_try_fn=fmt_try,
+    )
 
 
 def restaurants_tab(conn: sqlite3.Connection) -> None:
