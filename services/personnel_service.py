@@ -16,6 +16,7 @@ from repositories.personnel_repository import (
     update_personnel_status,
 )
 from services.audit_service import record_audit_event
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -271,7 +272,9 @@ def create_person_with_onboarding(
     post_equipment_installments_fn: Callable[..., None],
     sync_person_current_role_snapshot_fn: Callable[[Any, Any], None],
     sync_person_business_rules_fn: Callable[[Any, Any], None],
+    actor_role: str = "admin",
 ) -> PersonnelCreateResult:
+    require_action_access(actor_role, "personnel.create")
     auto_code = build_next_person_code(conn, role)
     values = {**person_values, "person_code": auto_code, "status": "Aktif"}
     try:
@@ -368,7 +371,9 @@ def update_person_and_sync(
     record_person_vehicle_transition_fn: Callable[..., None],
     sync_person_current_vehicle_snapshot_fn: Callable[[Any, Any], None],
     sync_person_business_rules_fn: Callable[[Any, Any], None],
+    actor_role: str = "admin",
 ) -> PersonnelUpdateResult:
+    require_action_access(actor_role, "personnel.update")
     try:
         update_personnel_record(conn, person_id, person_values)
         conn.commit()
@@ -433,7 +438,9 @@ def toggle_person_status_and_sync(
     person_id: int,
     current_status: str,
     sync_person_business_rules_fn: Callable[[Any, Any], None],
+    actor_role: str = "admin",
 ) -> PersonnelToggleResult:
+    require_action_access(actor_role, "personnel.status_change")
     new_status = "Pasif" if current_status == "Aktif" else "Aktif"
     exit_date = date.today().isoformat() if new_status == "Pasif" else None
     try:
@@ -465,7 +472,9 @@ def delete_person_with_dependencies(
     person_id: int,
     get_personnel_dependency_counts_fn: Callable[[Any, int], dict[str, int]],
     delete_personnel_and_dependencies_fn: Callable[[Any, int], None],
+    actor_role: str = "admin",
 ) -> PersonnelDeleteResult:
+    require_action_access(actor_role, "personnel.delete")
     dependency_counts = get_personnel_dependency_counts_fn(conn, person_id)
     delete_personnel_and_dependencies_fn(conn, person_id)
     detail_parts = [
