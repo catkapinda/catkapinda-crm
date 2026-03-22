@@ -146,3 +146,122 @@ def render_personnel_plate_workspace(
     )
     cols = ["Başlangıç", "Bitiş", "Personel", "Plaka", "Sebep", "Durum"]
     st.dataframe(plate_display[cols], use_container_width=True, hide_index=True)
+
+
+def render_personnel_edit_sidebar(
+    row: Any,
+    role_history_rows: pd.DataFrame,
+    *,
+    role_requires_primary_restaurant_fn: Callable[[str], bool],
+    format_motor_rental_summary_fn: Callable[[Any], str],
+    format_motor_purchase_summary_fn: Callable[[Any], str],
+    resolve_cost_role_option_fn: Callable[[str, str], str],
+    format_display_df_fn: Callable[..., pd.DataFrame],
+    render_record_snapshot_fn: Callable[[str, list[tuple[str, Any]]], None],
+    cost_model_labels: dict[str, str],
+) -> None:
+    current_snapshot_items = [
+        ("Kod", row["person_code"] or "-"),
+        ("Durum", row["status"] or "-"),
+    ]
+    if role_requires_primary_restaurant_fn(str(row["role"] or "")):
+        current_snapshot_items.append(("Restoran", row["restoran"] or "-"))
+    current_snapshot_items.extend(
+        [
+            ("Motor", row["vehicle_type"] or "-"),
+            ("Motor Kirası", format_motor_rental_summary_fn(row)),
+            ("Çat Kapında Motor Satışı", format_motor_purchase_summary_fn(row)),
+            ("Rol", resolve_cost_role_option_fn(str(row["cost_model"] or ""), str(row["role"] or "Kurye"))),
+            ("Acil Durum Kişisi", row["emergency_contact_name"] or "-"),
+        ]
+    )
+    render_record_snapshot_fn("Mevcut Kart", current_snapshot_items)
+    if role_history_rows.empty:
+        return
+
+    st.markdown("##### Rol Geçmişi")
+    role_history_display = format_display_df_fn(
+        role_history_rows,
+        currency_cols=["monthly_fixed_cost"],
+        rename_map={
+            "role": "Rol",
+            "cost_model": "Maliyet Modeli",
+            "monthly_fixed_cost": "Aylık Sabit Maliyet",
+            "effective_date": "Başlangıç Tarihi",
+            "notes": "Not",
+        },
+        value_maps={"cost_model": cost_model_labels},
+    )
+    st.dataframe(role_history_display, use_container_width=True, hide_index=True)
+
+
+def render_personnel_box_return_section(
+    conn: Any,
+    selected_id: int,
+    *,
+    fetch_df_fn: Callable[[Any, str, tuple], pd.DataFrame],
+    safe_int_fn: Callable[[Any, int], int],
+    format_display_df_fn: Callable[..., pd.DataFrame],
+    build_grid_rows_fn: Callable[[pd.DataFrame, list[str]], list[dict[str, Any]]],
+    render_dashboard_data_grid_fn: Callable[..., None],
+    set_flash_message_fn: Callable[[str, str], None],
+) -> None:
+    st.markdown("##### Box Geri Alım")
+    with st.form(f"edit_person_box_return_form_{selected_id}", clear_on_submit=True):
+        r1, r2, r3 = st.columns(3)
+        return_date = r1.date_input("Box Geri Alım Tarihi", value=date.today())
+        condition_status = r2.selectbox("Box Durumu", ["Temiz", "Hasarlı", "Parasını istemedi"])
+        return_quantity = r3.number_input("Box Adedi", min_value=1, value=1, step=1)
+        r4, r5 = st.columns(2)
+        payout_amount = r4.number_input("Ödenen Tutar", min_value=0.0, value=0.0, step=100.0)
+        return_notes = r5.text_input("İade Notu")
+        save_box_return_clicked = st.form_submit_button("Box Geri Alımını Kaydet", use_container_width=True)
+        if save_box_return_clicked:
+            waived = 1 if condition_status == "Parasını istemedi" else 0
+            conn.execute(
+                """
+                INSERT INTO box_returns (personnel_id, return_date, quantity, condition_status, payout_amount, waived, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (selected_id, return_date.isoformat(), int(return_quantity), condition_status, payout_amount, waived, return_notes),
+            )
+            conn.commit()
+            set_flash_message_fn("success", "Box geri alımı personel kartından kaydedildi.")
+            st.rerun()
+
+    person_box_returns_df = fetch_df_fn(
+        conn,
+        """
+        SELECT return_date, quantity, condition_status, payout_amount, waived, notes
+        FROM box_returns
+        WHERE personnel_id = ?
+        ORDER BY return_date DESC, id DESC
+        """,
+        (selected_id,),
+    )
+    if person_box_returns_df.empty:
+        return
+
+    person_box_returns_df["waived_text"] = person_box_returns_df["waived"].apply(lambda x: "Evet" if safe_int_fn(x, 0) == 1 else "Hayır")
+    box_return_display = format_display_df_fn(
+        person_box_returns_df,
+        currency_cols=["payout_amount"],
+        number_cols=["quantity"],
+        rename_map={
+            "return_date": "Tarih",
+            "quantity": "Adet",
+            "condition_status": "Durum",
+            "payout_amount": "Ödenen Tutar",
+            "waived_text": "Parasını İstemedi",
+            "notes": "Not",
+        },
+    )
+    box_return_columns = ["Tarih", "Adet", "Durum", "Ödenen Tutar", "Parasını İstemedi", "Not"]
+    render_dashboard_data_grid_fn(
+        "Seçili Personelin Box İade Geçmişi",
+        "Bu kart yalnızca seçili personelin box geri alım hareketlerini gösterir.",
+        box_return_columns,
+        build_grid_rows_fn(box_return_display[box_return_columns], box_return_columns),
+        "Bu personele ait box geri alım kaydı yok.",
+        muted_columns={"Not"},
+    )
