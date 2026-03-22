@@ -113,6 +113,14 @@ from reporting_rules import (
     infer_reporting_period,
     month_bounds,
 )
+from report_sections import (
+    render_cost_report_tab,
+    render_distribution_report_tab,
+    render_invoice_report_tab,
+    render_profit_report_tab,
+    render_shared_overhead_report_tab,
+    render_side_income_report_tab,
+)
 from ui_helpers import (
     apply_text_search,
     build_grid_rows,
@@ -9901,235 +9909,54 @@ def reports_tab(conn: sqlite3.Connection) -> None:
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🧾 Restoran Faturası", "👥 Kurye Maliyeti", "📈 Restoran Karlılığı", "🧩 Ortak Operasyon Payı", "🔀 Personel-Şube Dağılımı", "💼 Yan Gelir Analizi"])
     with tab1:
-        invoice_display_df = format_display_df(
+        render_invoice_report_tab(
             invoice_df,
-            currency_cols=["Restoran KDV Hariç", "Restoran KDV Dahil"],
-            number_cols=["Toplam Saat", "Toplam Paket"],
-            rename_map={
-                "restoran": "Restoran / Şube",
-                "model": "Fiyat Modeli",
-                "saat": "Toplam Saat",
-                "paket": "Toplam Paket",
-                "kdv_haric": "Restoran KDV Hariç",
-                "kdv_dahil": "Restoran KDV Dahil",
-            },
-            value_maps={
-                "model": PRICING_MODEL_LABELS,
-            },
+            selected_month,
+            format_display_df_fn=format_display_df,
+            build_grid_rows_fn=build_grid_rows,
+            render_dashboard_data_grid_fn=render_dashboard_data_grid,
+            pricing_model_labels=PRICING_MODEL_LABELS,
         )
-        with st.container(border=True):
-            invoice_columns = ["Restoran / Şube", "Fiyat Modeli", "Toplam Saat", "Toplam Paket", "Restoran KDV Hariç", "Restoran KDV Dahil"]
-            render_dashboard_data_grid(
-                "Restoran Faturası",
-                "Aylık fatura görünümünü şube bazında daha okunur satırlarda incele.",
-                invoice_columns,
-                build_grid_rows(invoice_display_df, invoice_columns),
-                "Fatura görünümü için veri yok.",
-                muted_columns={"Fiyat Modeli"},
-            )
-            st.download_button(
-                "Fatura raporunu indir",
-                data=invoice_df.to_csv(index=False).encode("utf-8-sig"),
-                file_name=f"catkapinda_fatura_{selected_month}.csv",
-                mime="text/csv",
-            )
     with tab2:
-        cost_display_df = format_display_df(
+        render_cost_report_tab(
             cost_df,
-            currency_cols=["Brüt Kurye Maliyeti", "Toplam Kesinti", "Net Kurye Maliyeti"],
-            number_cols=["Toplam Saat", "Toplam Paket"],
-            rename_map={
-                "personel": "Personel",
-                "rol": "Rol",
-                "durum": "Durum",
-                "calisma_saati": "Toplam Saat",
-                "paket": "Toplam Paket",
-                "brut_maliyet": "Brüt Kurye Maliyeti",
-                "kesinti": "Toplam Kesinti",
-                "net_maliyet": "Net Kurye Maliyeti",
-                "maliyet_modeli": "Maliyet Modeli",
-            },
-            value_maps={
-                "maliyet_modeli": COST_MODEL_LABELS,
-            },
+            selected_month,
+            format_display_df_fn=format_display_df,
+            build_grid_rows_fn=build_grid_rows,
+            render_dashboard_data_grid_fn=render_dashboard_data_grid,
+            cost_model_labels=COST_MODEL_LABELS,
         )
-        with st.container(border=True):
-            cost_columns = ["Personel", "Rol", "Toplam Saat", "Toplam Paket", "Toplam Kesinti", "Net Kurye Maliyeti", "Maliyet Modeli"]
-            render_dashboard_data_grid(
-                "Kurye Maliyeti",
-                "Personel maliyetini, çalışma hacmi ve maliyet modeliyle birlikte daha güçlü bir listede gör.",
-                cost_columns,
-                build_grid_rows(cost_display_df, cost_columns),
-                "Kurye maliyet verisi bulunamadı.",
-                muted_columns={"Maliyet Modeli"},
-            )
-            st.download_button(
-                "Personel maliyet raporunu indir",
-                data=cost_df.to_csv(index=False).encode("utf-8-sig"),
-                file_name=f"catkapinda_personel_maliyet_{selected_month}.csv",
-                mime="text/csv",
-            )
     with tab3:
-        if profit_df.empty:
-            st.info("Restoran kârlılığı için veri yok.")
-        else:
-            render_executive_metrics(
-                [
-                    {
-                        "label": "En Yüksek Restoran Faturası",
-                        "value": fmt_try(float(profit_df["kdv_dahil"].max())),
-                        "note": "KDV dahil en yüksek şube",
-                    },
-                    {
-                        "label": "En Yüksek Toplam Maliyet",
-                        "value": fmt_try(float(profit_df["toplam_personel_maliyeti"].max())),
-                        "note": "Şube bazlı toplam yük",
-                        "tone": "warning",
-                    },
-                    {
-                        "label": "En Yüksek Brüt Fark",
-                        "value": fmt_try(float(profit_df["brut_fark"].max())),
-                        "note": "En güçlü operasyon çıktısı",
-                        "tone": "positive",
-                    },
-                ],
-                title="Karlılık Nabzı",
-                subtitle="Restoran kârlılık tablosundaki en güçlü öne çıkan üç sinyali izler.",
-            )
-            profit_display_df = format_display_df(
-                profit_df,
-                currency_cols=["Restoran KDV Hariç", "Restoran KDV Dahil", "Doğrudan Personel Maliyeti", "Ortak Operasyon Payı", "Toplam Personel Maliyeti", "Brüt Fark"],
-                percent_cols=["Kâr Marjı"],
-                number_cols=["Toplam Saat", "Toplam Paket"],
-                rename_map={
-                    "restoran": "Restoran / Şube",
-                    "saat": "Toplam Saat",
-                    "paket": "Toplam Paket",
-                    "kdv_haric": "Restoran KDV Hariç",
-                    "kdv_dahil": "Restoran KDV Dahil",
-                    "dogrudan_personel_maliyeti": "Doğrudan Personel Maliyeti",
-                    "paylasilan_yonetim_maliyeti": "Ortak Operasyon Payı",
-                    "toplam_personel_maliyeti": "Toplam Personel Maliyeti",
-                    "brut_fark": "Brüt Fark",
-                    "kar_marji_%": "Kâr Marjı",
-                    "model": "Fiyat Modeli",
-                },
-                value_maps={
-                    "model": PRICING_MODEL_LABELS,
-                },
-            )
-            with st.container(border=True):
-                profit_columns = ["Restoran / Şube", "Restoran KDV Dahil", "Doğrudan Personel Maliyeti", "Ortak Operasyon Payı", "Brüt Fark", "Kâr Marjı"]
-                render_dashboard_data_grid(
-                    "Restoran Karlılığı",
-                    "Fatura ve maliyet tarafını aynı satırda görerek hangi şubenin gerçekten güçlü çalıştığını daha hızlı yorumla.",
-                    profit_columns,
-                    build_grid_rows(profit_display_df, profit_columns),
-                    "Restoran kârlılığı için veri yok.",
-                    muted_columns={"Ortak Operasyon Payı"},
-                )
-                st.download_button(
-                    "Restoran kârlılık raporunu indir",
-                    data=profit_df.to_csv(index=False).encode("utf-8-sig"),
-                    file_name=f"catkapinda_restoran_karlilik_{selected_month}.csv",
-                    mime="text/csv",
-                )
+        render_profit_report_tab(
+            profit_df,
+            selected_month,
+            format_display_df_fn=format_display_df,
+            build_grid_rows_fn=build_grid_rows,
+            render_dashboard_data_grid_fn=render_dashboard_data_grid,
+            render_executive_metrics_fn=render_executive_metrics,
+            fmt_try_fn=fmt_try,
+            pricing_model_labels=PRICING_MODEL_LABELS,
+        )
     with tab4:
-        if shared_overhead_df.empty:
-            st.info("Bu ay ortak operasyon payı bulunmuyor.")
-        else:
-            shared_total = float(shared_overhead_df["aylik_net_maliyet"].sum())
-            allocated_count = int(shared_overhead_df["paylastirilan_restoran_sayisi"].max()) if not shared_overhead_df.empty else 0
-            restaurant_share = (shared_total / allocated_count) if allocated_count > 0 else 0.0
-            render_executive_metrics(
-                [
-                    {
-                        "label": "Toplam Ortak Operasyon Maliyeti",
-                        "value": fmt_try(shared_total),
-                        "note": "Joker ve yönetim desteği toplamı",
-                    },
-                    {
-                        "label": "Paylaştırılan Restoran Sayısı",
-                        "value": allocated_count,
-                        "note": "Dönem içinde operasyonel kabul edilen şubeler",
-                    },
-                    {
-                        "label": "Restoran Başına Ortak Pay",
-                        "value": fmt_try(restaurant_share),
-                        "note": "Şube başı ortak operasyon yükü",
-                        "tone": "warning",
-                    },
-                ],
-                title="Ortak Operasyon Özeti",
-                subtitle="Joker ve Bölge Müdürü maliyetinin operasyonel restoran havuzuna nasıl dağıldığını özetler.",
-            )
-            shared_display_df = format_display_df(
-                shared_overhead_df,
-                currency_cols=["Aylık Brüt Maliyet", "Toplam Kesinti", "Aylık Net Maliyet", "Restoran Başına Pay"],
-                number_cols=["Paylaştırılan Restoran Sayısı"],
-                rename_map={
-                    "personel": "Personel",
-                    "rol": "Rol",
-                    "aylik_brut_maliyet": "Aylık Brüt Maliyet",
-                    "toplam_kesinti": "Toplam Kesinti",
-                    "aylik_net_maliyet": "Aylık Net Maliyet",
-                    "paylastirilan_restoran_sayisi": "Paylaştırılan Restoran Sayısı",
-                    "restoran_basina_pay": "Restoran Başına Pay",
-                },
-            )
-            with st.container(border=True):
-                shared_columns = ["Personel", "Rol", "Aylık Net Maliyet", "Paylaştırılan Restoran Sayısı", "Restoran Başına Pay"]
-                render_dashboard_data_grid(
-                    "Ortak Operasyon Payı",
-                    "Paylaşılan yönetim yükünü kişi bazında ve restoran başına düşen etkiyle birlikte gör.",
-                    shared_columns,
-                    build_grid_rows(shared_display_df, shared_columns),
-                    "Bu ay ortak operasyon payı bulunmuyor.",
-                )
-                st.download_button(
-                    "Ortak operasyon payını indir",
-                    data=shared_overhead_df.to_csv(index=False).encode("utf-8-sig"),
-                    file_name=f"catkapinda_paylasilan_yonetim_{selected_month}.csv",
-                    mime="text/csv",
-                )
+        render_shared_overhead_report_tab(
+            shared_overhead_df,
+            selected_month,
+            format_display_df_fn=format_display_df,
+            build_grid_rows_fn=build_grid_rows,
+            render_dashboard_data_grid_fn=render_dashboard_data_grid,
+            render_executive_metrics_fn=render_executive_metrics,
+            fmt_try_fn=fmt_try,
+        )
 
     with tab5:
-        if person_distribution_df.empty:
-            st.info("Personel-şube dağılımı için veri yok.")
-        else:
-            distribution_display_df = format_display_df(
-                person_distribution_df,
-                currency_cols=["Maliyet Payı"],
-                number_cols=["Saat", "Paket"],
-                rename_map={
-                    "restoran": "Restoran / Şube",
-                    "personel": "Personel",
-                    "rol": "Rol",
-                    "saat": "Saat",
-                    "paket": "Paket",
-                    "maliyet": "Maliyet Payı",
-                    "kaynak": "Maliyet Kaynağı",
-                },
-                value_maps={
-                    "kaynak": ALLOCATION_SOURCE_LABELS,
-                },
-            )
-            with st.container(border=True):
-                distribution_columns = ["Restoran / Şube", "Personel", "Rol", "Saat", "Paket", "Maliyet Payı", "Maliyet Kaynağı"]
-                render_dashboard_data_grid(
-                    "Personel-Şube Dağılımı",
-                    "Personel maliyetinin şubelere nasıl dağıldığını daha seçilebilir bir yüzeyde incele.",
-                    distribution_columns,
-                    build_grid_rows(distribution_display_df, distribution_columns),
-                    "Personel-şube dağılımı için veri yok.",
-                    muted_columns={"Maliyet Kaynağı"},
-                )
-                st.download_button(
-                    "Personel-şube dağılımını indir",
-                    data=person_distribution_df.to_csv(index=False).encode("utf-8-sig"),
-                    file_name=f"catkapinda_personel_sube_dagilim_{selected_month}.csv",
-                    mime="text/csv",
-                )
+        render_distribution_report_tab(
+            person_distribution_df,
+            selected_month,
+            format_display_df_fn=format_display_df,
+            build_grid_rows_fn=build_grid_rows,
+            render_dashboard_data_grid_fn=render_dashboard_data_grid,
+            allocation_source_labels=ALLOCATION_SOURCE_LABELS,
+        )
 
     with tab6:
         side_df = build_side_income_summary_df(
@@ -10144,103 +9971,18 @@ def reports_tab(conn: sqlite3.Connection) -> None:
             equipment_rev=equipment_rev,
             equipment_cost=equipment_cost,
         )
-        s1, s2, s3 = st.columns(3)
-        s1.metric("Toplam Yan Gelir", fmt_try(float(side_df["gelir"].sum())))
-        s2.metric("Toplam Yan Gelir Maliyeti", fmt_try(float(side_df["maliyet"].sum())))
-        s3.metric("Toplam Yan Gelir Neti", fmt_try(float(side_df["net_kar"].sum())))
-        side_display_df = format_display_df(
+        render_side_income_report_tab(
             side_df,
-            currency_cols=["Gelir", "Maliyet", "Net Kâr"],
-            rename_map={"kalem": "Kalem", "gelir": "Gelir", "maliyet": "Maliyet", "net_kar": "Net Kâr"},
+            equipment_profit_df,
+            equipment_purchase_df,
+            fuel_reflection_amount,
+            format_display_df_fn=format_display_df,
+            build_grid_rows_fn=build_grid_rows,
+            render_dashboard_data_grid_fn=render_dashboard_data_grid,
+            render_executive_metrics_fn=render_executive_metrics,
+            render_record_snapshot_fn=render_record_snapshot,
+            fmt_try_fn=fmt_try,
         )
-        render_executive_metrics(
-            [
-                {
-                    "label": "Toplam Yan Gelir",
-                    "value": fmt_try(float(side_df["gelir"].sum())),
-                    "note": "Yan gelir kalemleri toplamı",
-                },
-                {
-                    "label": "Toplam Yan Gelir Maliyeti",
-                    "value": fmt_try(float(side_df["maliyet"].sum())),
-                    "note": "Eşlik eden toplam maliyet",
-                    "tone": "warning",
-                },
-                {
-                    "label": "Toplam Yan Gelir Neti",
-                    "value": fmt_try(float(side_df["net_kar"].sum())),
-                    "note": "Net katkı görünümü",
-                    "tone": "positive" if float(side_df["net_kar"].sum()) >= 0 else "critical",
-                },
-            ],
-            title="Yan Gelir Özeti",
-            subtitle="Muhasebe, motor ve ekipman kaynaklı katkının üst görünümünü verir.",
-        )
-        with st.container(border=True):
-            side_columns = ["Kalem", "Gelir", "Maliyet", "Net Kâr"]
-            render_dashboard_data_grid(
-                "Yan Gelir Analizi",
-                "Yan gelir kalemlerini maliyet ve net katkı ile birlikte daha şık satırlarda gör.",
-                side_columns,
-                build_grid_rows(side_display_df, side_columns),
-                "Yan gelir analizi için veri yok.",
-            )
-        if fuel_reflection_amount > 0:
-            render_record_snapshot(
-                "Yakıt Yansıtma Notu",
-                [
-                    ("Toplam Yakıt Tahsilatı", fmt_try(fuel_reflection_amount)),
-                    ("Durum", "Net yakıt marjı bu sürümde ayrı izlenmiyor"),
-                ],
-            )
-        with st.expander("Ekipman ve Motor Detayı", expanded=False):
-            st.caption("Detay görünümünde yalnızca `Satış` tipindeki ekipman ve motor hareketleri yer alır. `Depozit / Teslim` kayıtları bu kârlılık hesabına girmez.")
-            if not equipment_profit_df.empty:
-                equipment_sales_display = format_display_df(
-                    equipment_profit_df,
-                    currency_cols=["total_cost", "total_sale", "gross_profit"],
-                    number_cols=["sold_qty"],
-                    rename_map={
-                        "item_name": "Ürün",
-                        "sold_qty": "Satılan Adet",
-                        "total_cost": "Toplam Maliyet",
-                        "total_sale": "Toplam Satış",
-                        "gross_profit": "Brüt Kâr",
-                    },
-                )
-                equipment_sales_columns = ["Ürün", "Satılan Adet", "Toplam Maliyet", "Toplam Satış", "Brüt Kâr"]
-                render_dashboard_data_grid(
-                    "Ekipman ve Motor Satış Detayı",
-                    "Seçilen ay içinde satışa dönüşen ürünlerin detay katkısı.",
-                    equipment_sales_columns,
-                    build_grid_rows(equipment_sales_display, equipment_sales_columns),
-                    "Bu ay satış tipinde ekipman veya motor hareketi görünmüyor.",
-                )
-            else:
-                st.info("Seçilen ay için satış tipinde ekipman veya motor hareketi görünmüyor.")
-
-            if not equipment_purchase_df.empty:
-                purchase_display_df = format_display_df(
-                    equipment_purchase_df,
-                    currency_cols=["purchased_total", "weighted_unit_cost"],
-                    number_cols=["purchased_qty"],
-                    rename_map={
-                        "item_name": "Ürün",
-                        "purchased_qty": "Alınan Adet",
-                        "purchased_total": "Toplam Fatura",
-                        "weighted_unit_cost": "Ağırlıklı Birim Maliyet",
-                    },
-                )
-                purchase_columns = ["Ürün", "Alınan Adet", "Toplam Fatura", "Ağırlıklı Birim Maliyet"]
-                render_dashboard_data_grid(
-                    "Satın Alma Maliyet Referansı",
-                    "Tüm satın alma geçmişine göre oluşan ağırlıklı maliyetleri yan gelir detayıyla birlikte değerlendir.",
-                    purchase_columns,
-                    build_grid_rows(purchase_display_df, purchase_columns),
-                    "Henüz satın alma özeti yok.",
-                )
-            else:
-                st.info("Satın alma maliyet referansı için ürün kaydı bulunmuyor.")
 
 
 def main() -> None:
