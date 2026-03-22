@@ -58,6 +58,19 @@ from equipment_rules import (
     latest_average_cost,
     normalize_equipment_issue_installment_count,
 )
+from reporting_rules import (
+    build_invoice_summary_df,
+    build_person_role_segments,
+    calculate_customer_invoice,
+    calculate_standard_courier_cost,
+    calculate_standard_package_cost,
+    configure_reporting_rules,
+    describe_cost_model_segments,
+    describe_role_segments,
+    get_operational_restaurant_names_for_period,
+    infer_reporting_period,
+    month_bounds,
+)
 from ui_helpers import (
     apply_text_search,
     build_grid_rows,
@@ -2910,6 +2923,22 @@ def end_of_month(value: date) -> date:
     return date(value.year, value.month, last_day)
 
 
+configure_reporting_rules(
+    safe_int_fn=safe_int,
+    safe_float_fn=safe_float,
+    parse_date_value_fn=parse_date_value,
+    end_of_month_fn=end_of_month,
+    normalize_cost_model_value_fn=normalize_cost_model_value,
+    pricing_rule_cls=PricingRule,
+    vat_rate_default=VAT_RATE_DEFAULT,
+    courier_hourly_cost=COURIER_HOURLY_COST,
+    courier_package_cost_default_low=COURIER_PACKAGE_COST_DEFAULT_LOW,
+    courier_package_cost_default_high=COURIER_PACKAGE_COST_DEFAULT_HIGH,
+    courier_package_cost_qc=COURIER_PACKAGE_COST_QC,
+    package_threshold_default=PACKAGE_THRESHOLD_DEFAULT,
+)
+
+
 def normalize_deduction_date(value: date | str | None) -> date:
     base_value = parse_date_value(value) or date.today()
     return end_of_month(base_value)
@@ -3564,156 +3593,6 @@ def build_person_vehicle_segments(
             }
         )
     return segments
-
-
-def infer_reporting_period(month_df: pd.DataFrame, deductions_df: pd.DataFrame) -> tuple[date, date]:
-    candidate_dates: list[date] = []
-    if month_df is not None and not month_df.empty and "entry_date" in month_df.columns:
-        parsed_entries = pd.to_datetime(month_df["entry_date"], errors="coerce").dropna()
-        candidate_dates.extend(parsed_entries.dt.date.tolist())
-    if deductions_df is not None and not deductions_df.empty and "deduction_date" in deductions_df.columns:
-        parsed_deductions = pd.to_datetime(deductions_df["deduction_date"], errors="coerce").dropna()
-        candidate_dates.extend(parsed_deductions.dt.date.tolist())
-    if not candidate_dates:
-        today_value = date.today()
-        return today_value.replace(day=1), end_of_month(today_value)
-    first_date = min(candidate_dates)
-    month_start_value = first_date.replace(day=1)
-    return month_start_value, end_of_month(month_start_value)
-
-
-def get_operational_restaurant_names_for_period(
-    restaurants_df: pd.DataFrame | None,
-    period_start: date,
-    period_end: date,
-) -> list[str]:
-    if restaurants_df is None or restaurants_df.empty:
-        return []
-
-    work = restaurants_df.copy()
-    for column_name, default_value in {
-        "brand": "",
-        "branch": "",
-        "active": 1,
-        "start_date": None,
-        "end_date": None,
-    }.items():
-        if column_name not in work.columns:
-            work[column_name] = default_value
-
-    operational_names: set[str] = set()
-    for _, row in work.iterrows():
-        brand = str(row.get("brand") or "").strip()
-        branch = str(row.get("branch") or "").strip()
-        if not brand or not branch:
-            continue
-
-        start_date_value = parse_date_value(row.get("start_date"))
-        end_date_value = parse_date_value(row.get("end_date"))
-        has_dates = start_date_value is not None or end_date_value is not None
-        if has_dates:
-            overlaps_period = (
-                (start_date_value is None or start_date_value <= period_end)
-                and (end_date_value is None or end_date_value >= period_start)
-            )
-            if not overlaps_period:
-                continue
-        elif safe_int(row.get("active"), 0) != 1:
-            continue
-
-        operational_names.add(f"{brand} - {branch}")
-
-    return sorted(operational_names)
-
-
-def build_person_role_segments(
-    person_row: Any,
-    role_history_df: pd.DataFrame,
-    period_start: date,
-    period_end: date,
-) -> list[dict[str, Any]]:
-    person_id = safe_int(get_row_value(person_row, "id"))
-    if person_id <= 0 or period_end < period_start:
-        return []
-
-    if role_history_df is None or role_history_df.empty or "personnel_id" not in role_history_df.columns:
-        history_rows = pd.DataFrame()
-    else:
-        history_rows = role_history_df[role_history_df["personnel_id"] == person_id].copy()
-
-    snapshots: list[dict[str, Any]] = []
-    if not history_rows.empty:
-        history_rows["effective_date_value"] = history_rows["effective_date"].apply(parse_date_value)
-        history_rows = history_rows[history_rows["effective_date_value"].notna()].sort_values(["effective_date_value"])
-        for _, row in history_rows.iterrows():
-            effective_date_value = parse_date_value(row.get("effective_date_value"))
-            if effective_date_value is None or effective_date_value > period_end:
-                continue
-            snapshots.append(
-                {
-                    "effective_date": effective_date_value,
-                    "role": str(row.get("role", "Kurye") or "Kurye"),
-                    "cost_model": normalize_cost_model_value(str(row.get("cost_model", "standard_courier") or "standard_courier"), str(row.get("role", "Kurye") or "Kurye")),
-                    "monthly_fixed_cost": safe_float(row.get("monthly_fixed_cost"), 0.0),
-                }
-            )
-
-    if not snapshots:
-        snapshots.append(
-            {
-                "effective_date": parse_date_value(get_row_value(person_row, "start_date")) or period_start,
-                "role": str(get_row_value(person_row, "role", "Kurye") or "Kurye"),
-                "cost_model": normalize_cost_model_value(
-                    str(get_row_value(person_row, "cost_model", "standard_courier") or "standard_courier"),
-                    str(get_row_value(person_row, "role", "Kurye") or "Kurye"),
-                ),
-                "monthly_fixed_cost": safe_float(get_row_value(person_row, "monthly_fixed_cost"), 0.0),
-            }
-        )
-
-    segments: list[dict[str, Any]] = []
-    for index, snapshot in enumerate(snapshots):
-        next_snapshot = snapshots[index + 1] if index + 1 < len(snapshots) else None
-        segment_start = max(snapshot["effective_date"], period_start)
-        segment_end = period_end if next_snapshot is None else min(period_end, next_snapshot["effective_date"] - timedelta(days=1))
-        if segment_end < period_start or segment_start > period_end or segment_end < segment_start:
-            continue
-        segments.append(
-            {
-                "role": snapshot["role"],
-                "cost_model": snapshot["cost_model"],
-                "monthly_fixed_cost": snapshot["monthly_fixed_cost"],
-                "start_date": segment_start,
-                "end_date": segment_end,
-            }
-        )
-    return segments
-
-
-def describe_role_segments(segments: list[dict[str, Any]], fallback_role: str) -> str:
-    ordered_roles: list[str] = []
-    for segment in segments:
-        role_name = str(segment.get("role") or "").strip()
-        if role_name and role_name not in ordered_roles:
-            ordered_roles.append(role_name)
-    if not ordered_roles:
-        return fallback_role
-    if len(ordered_roles) == 1:
-        return ordered_roles[0]
-    return " -> ".join(ordered_roles)
-
-
-def describe_cost_model_segments(segments: list[dict[str, Any]], fallback_cost_model: str) -> str:
-    ordered_models: list[str] = []
-    for segment in segments:
-        model_name = str(segment.get("cost_model") or "").strip()
-        if model_name and model_name not in ordered_models:
-            ordered_models.append(model_name)
-    if not ordered_models:
-        return fallback_cost_model
-    if len(ordered_models) == 1:
-        return ordered_models[0]
-    return "Geçişli"
 
 
 def normalize_equipment_issue_costs_and_vat(conn: CompatConnection) -> None:
@@ -5878,50 +5757,6 @@ def next_person_code(conn: sqlite3.Connection, role: str, exclude_id: int | None
     return f"CK-{prefix}{max_num + 1:02d}"
 
 
-def calculate_customer_invoice(group: pd.DataFrame, rule: PricingRule) -> tuple[float, float, float, float]:
-    total_hours = float(group["worked_hours"].fillna(0).sum())
-    total_packages = float(group["package_count"].fillna(0).sum())
-
-    if rule.pricing_model == "hourly_plus_package":
-        subtotal = total_hours * rule.hourly_rate + total_packages * rule.package_rate
-    elif rule.pricing_model == "threshold_package":
-        package_threshold = float(rule.package_threshold or 0)
-        package_rate = rule.package_rate_low if total_packages <= package_threshold else rule.package_rate_high
-        subtotal = total_hours * rule.hourly_rate + total_packages * package_rate
-    elif rule.pricing_model == "hourly_only":
-        subtotal = total_hours * rule.hourly_rate
-    elif rule.pricing_model == "fixed_monthly":
-        subtotal = rule.fixed_monthly_fee
-    else:
-        subtotal = 0.0
-
-    vat = subtotal * (rule.vat_rate / 100.0)
-    grand_total = subtotal + vat
-    return total_hours, total_packages, subtotal, grand_total
-
-
-def calculate_standard_package_cost(total_packages: float, brand: str = "", pricing_model: str = "") -> float:
-    package_total = float(total_packages or 0)
-    if (brand or "").strip() == "Quick China":
-        return package_total * COURIER_PACKAGE_COST_QC
-    if pricing_model == "threshold_package":
-        package_rate = COURIER_PACKAGE_COST_DEFAULT_LOW if package_total <= PACKAGE_THRESHOLD_DEFAULT else COURIER_PACKAGE_COST_DEFAULT_HIGH
-        return package_total * package_rate
-    return 0.0
-
-
-def calculate_standard_courier_cost(
-    total_hours: float,
-    total_packages: float = 0.0,
-    brand: str = "",
-    pricing_model: str = "",
-) -> float:
-    # Standart kurye maliyeti saatlik 250 TL (KDV dahil) baz alınır.
-    cost = float(total_hours or 0) * COURIER_HOURLY_COST
-    cost += calculate_standard_package_cost(total_packages, brand=brand, pricing_model=pricing_model)
-    return cost
-
-
 def calculate_personnel_cost(
     month_df: pd.DataFrame,
     personnel_df: pd.DataFrame,
@@ -6011,49 +5846,6 @@ def calculate_personnel_cost(
             }
         )
     return pd.DataFrame(results).sort_values(["rol", "personel"])
-
-
-def month_bounds(selected_month: str) -> tuple[str, str]:
-    year, month = map(int, selected_month.split("-"))
-    last_day = calendar.monthrange(year, month)[1]
-    return f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{last_day:02d}"
-
-
-def build_invoice_summary_df(month_df: pd.DataFrame) -> pd.DataFrame:
-    if month_df is None or month_df.empty:
-        return pd.DataFrame()
-
-    invoicing_rows = []
-    for (restaurant_id, brand, branch), group in month_df.groupby(["restaurant_id", "brand", "branch"], dropna=False):
-        if group.empty:
-            continue
-        first = group.iloc[0]
-        rule = PricingRule(
-            pricing_model=str(first.get("pricing_model", "") or ""),
-            hourly_rate=safe_float(first.get("hourly_rate"), 0.0),
-            package_rate=safe_float(first.get("package_rate"), 0.0),
-            package_threshold=safe_int(first.get("package_threshold"), 0),
-            package_rate_low=safe_float(first.get("package_rate_low"), 0.0),
-            package_rate_high=safe_float(first.get("package_rate_high"), 0.0),
-            fixed_monthly_fee=safe_float(first.get("fixed_monthly_fee"), 0.0),
-            vat_rate=safe_float(first.get("vat_rate"), VAT_RATE_DEFAULT),
-        )
-        hours, packages, subtotal, grand_total = calculate_customer_invoice(group, rule)
-        invoicing_rows.append(
-            {
-                "restaurant_id": restaurant_id,
-                "restoran": f"{brand} - {branch}",
-                "model": rule.pricing_model,
-                "saat": hours,
-                "paket": packages,
-                "kdv_haric": subtotal,
-                "kdv_dahil": grand_total,
-            }
-        )
-
-    if not invoicing_rows:
-        return pd.DataFrame()
-    return pd.DataFrame(invoicing_rows).sort_values(["kdv_dahil", "restoran"], ascending=[False, True]).reset_index(drop=True)
 
 
 def dashboard_tab(conn: sqlite3.Connection) -> None:
