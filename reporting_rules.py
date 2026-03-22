@@ -353,11 +353,12 @@ def build_restaurant_invoice_drilldown_map(
     work["restoran"] = work["brand"].fillna("").astype(str) + " - " + work["branch"].fillna("").astype(str)
     work["worked_hours"] = pd.to_numeric(work["worked_hours"], errors="coerce").fillna(0.0)
     work["package_count"] = pd.to_numeric(work["package_count"], errors="coerce").fillna(0.0)
-    work["actual_personnel_id"] = pd.to_numeric(work["actual_personnel_id"], errors="coerce")
+    work["actual_personnel_id"] = pd.to_numeric(work["actual_personnel_id"], errors="coerce").astype("Int64")
+    work["planned_personnel_id"] = pd.to_numeric(work["planned_personnel_id"], errors="coerce").astype("Int64")
 
     if personnel_df is not None and not personnel_df.empty and "id" in personnel_df.columns:
         people_lookup = personnel_df[["id", "full_name", "role"]].copy()
-        people_lookup["id"] = pd.to_numeric(people_lookup["id"], errors="coerce")
+        people_lookup["id"] = pd.to_numeric(people_lookup["id"], errors="coerce").astype("Int64")
         actual_lookup = people_lookup.rename(columns={"id": "actual_personnel_id", "full_name": "actual_personel", "role": "actual_rol"})
         planned_lookup = people_lookup.rename(columns={"id": "planned_personnel_id", "full_name": "planned_personel", "role": "planned_rol"})
         work = work.merge(actual_lookup, how="left", on="actual_personnel_id")
@@ -475,12 +476,12 @@ def build_restaurant_attendance_export_map(
     work["day_key"] = pd.to_datetime(work["entry_date"], errors="coerce").dt.day.apply(lambda day: f"{int(day):02d}" if pd.notna(day) else "")
     work["worked_hours"] = pd.to_numeric(work["worked_hours"], errors="coerce").fillna(0.0)
     work["package_count"] = pd.to_numeric(work["package_count"], errors="coerce").fillna(0.0)
-    work["planned_personnel_id"] = pd.to_numeric(work["planned_personnel_id"], errors="coerce")
-    work["actual_personnel_id"] = pd.to_numeric(work["actual_personnel_id"], errors="coerce")
+    work["planned_personnel_id"] = pd.to_numeric(work["planned_personnel_id"], errors="coerce").astype("Int64")
+    work["actual_personnel_id"] = pd.to_numeric(work["actual_personnel_id"], errors="coerce").astype("Int64")
 
     if personnel_df is not None and not personnel_df.empty and "id" in personnel_df.columns:
         people_lookup = personnel_df[["id", "full_name", "role"]].copy()
-        people_lookup["id"] = pd.to_numeric(people_lookup["id"], errors="coerce")
+        people_lookup["id"] = pd.to_numeric(people_lookup["id"], errors="coerce").astype("Int64")
         actual_lookup = people_lookup.rename(columns={"id": "actual_personnel_id", "full_name": "actual_personel", "role": "actual_rol"})
         planned_lookup = people_lookup.rename(columns={"id": "planned_personnel_id", "full_name": "planned_personel", "role": "planned_rol"})
         work = work.merge(actual_lookup, how="left", on="actual_personnel_id")
