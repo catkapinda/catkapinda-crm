@@ -196,6 +196,14 @@ from services.attendance_service import (
     save_bulk_entries_and_sync,
     update_daily_entry_and_sync,
 )
+from services.deductions_service import (
+    build_deduction_selection_payload,
+    bulk_delete_deductions_and_commit,
+    create_deduction_and_commit,
+    delete_deduction_and_commit,
+    load_deductions_workspace_payload,
+    update_deduction_and_commit,
+)
 from services.personnel_service import (
     build_personnel_code_display_values,
     build_new_person_form_defaults,
@@ -5173,25 +5181,27 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         submitted = st.form_submit_button("Kesinti ekle", use_container_width=True)
         if submitted and amount > 0:
             deduction_due_date = normalize_deduction_date(ded_date)
-            conn.execute(
-                "INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes) VALUES (?, ?, ?, ?, ?)",
-                (person_opts[person_label], deduction_due_date.isoformat(), ded_type, amount, notes),
-            )
-            conn.commit()
-            st.success(f"Kesinti ay sonuna kaydedildi: {deduction_due_date.isoformat()}")
-            st.rerun()
+            try:
+                success_text = create_deduction_and_commit(
+                    conn,
+                    deduction_values={
+                        "personnel_id": person_opts[person_label],
+                        "deduction_date": deduction_due_date.isoformat(),
+                        "deduction_type": ded_type,
+                        "amount": amount,
+                        "notes": notes,
+                    },
+                )
+            except Exception as exc:
+                st.error(f"Kesinti kaydedilemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
 
     st.caption("Girilen kesinti hangi aya aitse, kayıt o ayın son gününe yazılır ve hakedişten ay sonu düşülür.")
 
-    raw_df = fetch_df(
-        conn,
-        """
-        SELECT d.id, d.personnel_id, d.deduction_date, p.full_name AS personel, d.deduction_type, d.amount, d.notes, d.auto_source_key
-        FROM deductions d
-        JOIN personnel p ON p.id = d.personnel_id
-        ORDER BY d.deduction_date DESC, d.id DESC
-        """,
-    )
+    deductions_payload = load_deductions_workspace_payload(conn)
+    raw_df = deductions_payload.raw_df
     raw_df["source_text"] = raw_df["auto_source_key"].apply(describe_auto_source_key) if not raw_df.empty else []
     source_filter = st.selectbox("Kesinti Kaynağı", DEDUCTION_SOURCE_FILTER_OPTIONS, key="deduction_source_filter")
     filtered_raw_df = filter_deductions_by_source(raw_df, source_filter)
@@ -5221,7 +5231,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     )
 
     st.markdown("### Toplu kesinti sil")
-    manual_deductions_df = raw_df[raw_df["auto_source_key"].fillna("").astype(str).str.strip() == ""].copy() if not raw_df.empty else pd.DataFrame()
+    manual_deductions_df = deductions_payload.manual_deductions_df
     if manual_deductions_df.empty:
         st.info("Toplu silme için uygun manuel kesinti kaydı görünmüyor.")
     else:
@@ -5236,14 +5246,16 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
             if not selected_bulk_deduction_ids:
                 st.error("Önce en az bir manuel kesinti kaydı seçmelisin.")
             else:
-                placeholders = ", ".join(["?"] * len(selected_bulk_deduction_ids))
-                conn.execute(
-                    f"DELETE FROM deductions WHERE id IN ({placeholders})",
-                    tuple(selected_bulk_deduction_ids),
-                )
-                conn.commit()
-                st.success(f"{len(selected_bulk_deduction_ids)} manuel kesinti kaydı toplu olarak silindi.")
-                st.rerun()
+                try:
+                    success_text = bulk_delete_deductions_and_commit(
+                        conn,
+                        deduction_ids=selected_bulk_deduction_ids,
+                    )
+                except Exception as exc:
+                    st.error(f"Toplu kesinti silinemedi: {exc}")
+                else:
+                    st.success(success_text)
+                    st.rerun()
 
     st.markdown("### Kesinti düzenle / sil")
     if raw_df.empty:
@@ -5253,14 +5265,19 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     deduction_options = build_deduction_option_map(raw_df, fmt_try_fn=fmt_try)
     selected_label = st.selectbox("Kayıt seç", list(deduction_options.keys()))
     selected_id = deduction_options[selected_label]
-    row = raw_df.loc[raw_df["id"] == selected_id].iloc[0]
-
-    reverse_person = {v: k for k, v in person_opts.items()}
-    current_person = reverse_person.get(int(row["personnel_id"]), list(person_opts.keys())[0])
-    person_index = list(person_opts.keys()).index(current_person) if current_person in person_opts else 0
-    type_index = deduction_types.index(row["deduction_type"]) if row["deduction_type"] in deduction_types else len(deduction_types) - 1
-    current_date = datetime.strptime(str(row["deduction_date"]), "%Y-%m-%d").date()
-    is_auto_record = is_system_personnel_auto_deduction_key(row.get("auto_source_key"))
+    selection_payload = build_deduction_selection_payload(
+        raw_df,
+        selected_id=selected_id,
+        person_opts=person_opts,
+        deduction_types=deduction_types,
+        safe_float_fn=safe_float,
+        is_system_personnel_auto_deduction_key_fn=is_system_personnel_auto_deduction_key,
+    )
+    row = selection_payload.row
+    person_index = selection_payload.person_index
+    type_index = selection_payload.type_index
+    current_date = selection_payload.current_date
+    is_auto_record = selection_payload.is_auto_record
     if is_auto_record:
         st.warning(
             build_auto_deduction_warning_text(
@@ -5282,23 +5299,32 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
 
         if update_clicked and edit_amount > 0:
             deduction_due_date = normalize_deduction_date(edit_date)
-            conn.execute(
-                """
-                UPDATE deductions
-                SET personnel_id = ?, deduction_date = ?, deduction_type = ?, amount = ?, notes = ?
-                WHERE id = ?
-                """,
-                (person_opts[edit_person], deduction_due_date.isoformat(), edit_type, edit_amount, edit_notes, selected_id),
-            )
-            conn.commit()
-            st.success(f"Kesinti ay sonuna güncellendi: {deduction_due_date.isoformat()}")
-            st.rerun()
+            try:
+                success_text = update_deduction_and_commit(
+                    conn,
+                    deduction_id=selected_id,
+                    deduction_values={
+                        "personnel_id": person_opts[edit_person],
+                        "deduction_date": deduction_due_date.isoformat(),
+                        "deduction_type": edit_type,
+                        "amount": edit_amount,
+                        "notes": edit_notes,
+                    },
+                )
+            except Exception as exc:
+                st.error(f"Kesinti güncellenemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
 
         if delete_clicked:
-            conn.execute("DELETE FROM deductions WHERE id = ?", (selected_id,))
-            conn.commit()
-            st.success("Kesinti silindi.")
-            st.rerun()
+            try:
+                success_text = delete_deduction_and_commit(conn, deduction_id=selected_id)
+            except Exception as exc:
+                st.error(f"Kesinti silinemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
 
 
 def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
