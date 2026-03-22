@@ -83,6 +83,479 @@ def render_personnel_list_workspace(
         st.info("Kartı düzenlemek, pasife almak veya görev bilgilerini değiştirmek için “Personel Düzenle” sekmesini kullan.")
 
 
+def render_personnel_add_workspace(
+    conn: Any,
+    df: pd.DataFrame,
+    *,
+    recently_created_id: int,
+    workspace_key: str,
+    rest_opts_with_blank: dict[str, Any],
+    personnel_role_options: list[str],
+    motor_usage_mode_options: list[str],
+    motor_purchase_commitment_options: list[int],
+    equipment_items: list[str],
+    cost_model_labels: dict[str, str],
+    auto_motor_rental_deduction: float,
+    auto_motor_purchase_monthly_deduction: float,
+    auto_motor_purchase_installment_count: int,
+    render_tab_header_fn: Callable[[str, str], None],
+    render_record_snapshot_fn: Callable[[str, list[tuple[str, Any]]], None],
+    build_personnel_recent_snapshot_items_fn: Callable[..., list[tuple[str, Any]]],
+    format_motor_rental_summary_fn: Callable[[Any], str],
+    format_motor_purchase_summary_fn: Callable[[Any], str],
+    render_field_label_fn: Callable[[str, bool], None],
+    role_requires_primary_restaurant_fn: Callable[[str], bool],
+    resolve_cost_role_option_fn: Callable[[str, str], str],
+    is_fixed_cost_model_fn: Callable[[str], bool],
+    get_role_fixed_cost_label_fn: Callable[..., str],
+    next_person_code_fn: Callable[..., str],
+    clear_new_person_onboarding_state_fn: Callable[[], None],
+    initialize_onboarding_equipment_state_fn: Callable[[Any, str, date | None], None],
+    onboarding_equipment_state_key_fn: Callable[[str, str], str],
+    collect_onboarding_equipment_payloads_fn: Callable[[Any, list[str]], list[dict[str, Any]]],
+    validate_onboarding_equipment_payloads_fn: Callable[[list[dict[str, Any]]], list[str]],
+    build_motor_usage_payload_fn: Callable[..., dict[str, Any]],
+    render_motor_deduction_snapshot_from_payload_fn: Callable[[dict[str, Any]], None],
+    render_motor_purchase_proration_caption_fn: Callable[[], None],
+    get_equipment_cost_snapshot_fn: Callable[[Any, str], tuple[Any, ...]],
+    validate_personnel_form_fn: Callable[..., list[str]],
+    safe_int_fn: Callable[[Any, int], int],
+    safe_float_fn: Callable[[Any, float], float],
+    fmt_number_fn: Callable[[Any], str],
+    fmt_try_fn: Callable[[Any], str],
+    normalize_cost_model_value_fn: Callable[[str, str], str],
+    insert_equipment_issue_and_get_id_fn: Callable[..., int],
+    post_equipment_installments_fn: Callable[..., None],
+    sync_person_current_role_snapshot_fn: Callable[[Any, Any], None],
+    sync_person_business_rules_fn: Callable[[Any, Any], None],
+    set_flash_message_fn: Callable[[str, str], None],
+) -> None:
+    render_tab_header_fn("Yeni Personel Kartı", "Kimlik, muhasebe, motor ve işe giriş ekipmanlarını aynı onboarding akışında tamamlayarak yeni kart oluştur.")
+    if recently_created_id > 0 and not df.empty:
+        recent_match = df[df["id"] == recently_created_id]
+        if not recent_match.empty:
+            recent_row = recent_match.iloc[0]
+            render_record_snapshot_fn(
+                "Az Önce Oluşturulan Personel",
+                build_personnel_recent_snapshot_items_fn(
+                    recent_row,
+                    motor_rental_summary_fn=format_motor_rental_summary_fn,
+                    motor_purchase_summary_fn=format_motor_purchase_summary_fn,
+                ),
+            )
+
+    new_person_defaults = {
+        "new_person_full_name": "",
+        "new_person_role": personnel_role_options[0],
+        "new_person_phone": "",
+        "new_person_assigned_label": "-",
+        "new_person_tc_no": "",
+        "new_person_iban": "",
+        "new_person_address": "",
+        "new_person_emergency_contact_name": "",
+        "new_person_emergency_contact_phone": "",
+        "new_person_accounting_type": "Kendi Muhasebecisi",
+        "new_person_new_company_setup": "Hayır",
+        "new_person_start_date": date.today(),
+        "new_person_vehicle_type": "Çat Kapında",
+        "new_person_motor_usage_mode": "Çat Kapında Motor Kirası",
+        "new_person_motor_rental_monthly_amount": auto_motor_rental_deduction,
+        "new_person_motor_purchase": "Hayır",
+        "new_person_motor_purchase_start_date": date.today(),
+        "new_person_motor_purchase_commitment_months": 12,
+        "new_person_motor_purchase_sale_price": auto_motor_purchase_monthly_deduction,
+        "new_person_accounting_revenue": 0.0,
+        "new_person_accountant_cost": 0.0,
+        "new_person_company_setup_revenue": 0.0,
+        "new_person_company_setup_cost": 0.0,
+        "new_person_monthly_fixed_cost": 0.0,
+        "new_person_current_plate": "",
+        "new_person_notes": "",
+        "new_person_onboarding_items": [],
+    }
+    if st.session_state.pop("personnel_form_reset_pending", False):
+        clear_new_person_onboarding_state_fn()
+        for key, value in new_person_defaults.items():
+            st.session_state[key] = value
+    for key, value in new_person_defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+    if st.session_state.get("new_person_accounting_type") not in ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"]:
+        st.session_state["new_person_accounting_type"] = "Kendi Muhasebecisi"
+
+    st.markdown("##### Kimlik ve Görev")
+    selected_cost_model = resolve_cost_role_option_fn("", st.session_state.get("new_person_role", personnel_role_options[0]))
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        render_field_label_fn("Ad Soyad", required=True)
+        full_name = st.text_input("Ad Soyad", key="new_person_full_name", label_visibility="collapsed")
+    with c2:
+        render_field_label_fn("Rol")
+        role = st.selectbox("Rol", personnel_role_options, key="new_person_role", label_visibility="collapsed")
+    selected_cost_model = resolve_cost_role_option_fn("", role)
+    with c3:
+        render_field_label_fn("Maliyet Modeli")
+        cost_model = st.selectbox(
+            "Maliyet Modeli",
+            [selected_cost_model],
+            index=0,
+            disabled=True,
+            format_func=lambda x: cost_model_labels.get(x, x),
+            label_visibility="collapsed",
+        )
+    code_preview = next_person_code_fn(conn, role)
+    with c4:
+        render_field_label_fn("Otomatik Personel Kodu")
+        st.text_input("Otomatik Personel Kodu", value=code_preview, disabled=True, label_visibility="collapsed")
+
+    c5, c6, c7 = st.columns(3)
+    with c5:
+        render_field_label_fn("Telefon", required=True)
+        phone = st.text_input("Telefon", key="new_person_phone", label_visibility="collapsed")
+    with c6:
+        render_field_label_fn("Ana Restoran", required=role_requires_primary_restaurant_fn(role))
+        assigned_label = st.selectbox(
+            "Ana Restoran",
+            list(rest_opts_with_blank.keys()),
+            key="new_person_assigned_label",
+            disabled=not role_requires_primary_restaurant_fn(role),
+            label_visibility="collapsed",
+        )
+    with c7:
+        render_field_label_fn("İşe Giriş Tarihi", required=True)
+        start_date = st.date_input("İşe Giriş Tarihi", key="new_person_start_date", label_visibility="collapsed")
+
+    c8, c9, c10 = st.columns(3)
+    with c8:
+        render_field_label_fn("TC Kimlik No", required=True)
+        tc_no = st.text_input("TC Kimlik No", key="new_person_tc_no", label_visibility="collapsed")
+    with c9:
+        render_field_label_fn("IBAN", required=True)
+        iban = st.text_input("IBAN", key="new_person_iban", label_visibility="collapsed")
+    with c10:
+        render_field_label_fn("Acil Durum İletişim Telefonu")
+        emergency_contact_phone = st.text_input("Acil Durum İletişim Telefonu", key="new_person_emergency_contact_phone", label_visibility="collapsed")
+
+    c11, c12 = st.columns(2)
+    with c11:
+        render_field_label_fn("Acil Durum İletişim Adı Soyadı")
+        emergency_contact_name = st.text_input("Acil Durum İletişim Adı Soyadı", key="new_person_emergency_contact_name", label_visibility="collapsed")
+    with c12:
+        render_field_label_fn("Adres")
+        address = st.text_area("Adres", placeholder="Açık Adres", key="new_person_address", label_visibility="collapsed")
+
+    st.markdown("##### Muhasebe ve Şirket")
+    c10, c11 = st.columns(2)
+    with c10:
+        render_field_label_fn("Muhasebe")
+        accounting_type = st.selectbox("Muhasebe", ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"], key="new_person_accounting_type", label_visibility="collapsed")
+    with c11:
+        render_field_label_fn("Yeni Şirket Açılışı")
+        new_company_setup = st.selectbox("Yeni Şirket Açılışı", ["Hayır", "Evet"], key="new_person_new_company_setup", label_visibility="collapsed")
+
+    c13, c14, c15 = st.columns(3)
+    with c13:
+        render_field_label_fn("Muhasebeden Aldığımız Ücret")
+        accounting_revenue = st.number_input("Muhasebeden Aldığımız Ücret", min_value=0.0, step=100.0, key="new_person_accounting_revenue", label_visibility="collapsed")
+    with c14:
+        render_field_label_fn("Muhasebeciye Ödediğimiz")
+        accountant_cost = st.number_input("Muhasebeciye Ödediğimiz", min_value=0.0, step=100.0, key="new_person_accountant_cost", label_visibility="collapsed")
+    if is_fixed_cost_model_fn(cost_model):
+        fixed_cost_label = get_role_fixed_cost_label_fn(role)
+        with c15:
+            render_field_label_fn(fixed_cost_label, required=True)
+            monthly_fixed_cost = st.number_input(fixed_cost_label, min_value=0.0, step=100.0, key="new_person_monthly_fixed_cost", label_visibility="collapsed")
+    else:
+        c15.markdown("")
+        monthly_fixed_cost = 0.0
+    if role == "Joker":
+        st.caption("Joker rolünde personel artık paket primi almaz; aylık sabit maaşı gün bazlı prorate edilerek hakedişe yansır.")
+
+    c16, c17 = st.columns(2)
+    with c16:
+        render_field_label_fn("Şirket Açılışından Aldığımız Ücret")
+        company_setup_revenue = st.number_input("Şirket Açılışından Aldığımız Ücret", min_value=0.0, step=100.0, key="new_person_company_setup_revenue", label_visibility="collapsed")
+    with c17:
+        render_field_label_fn("Şirket Açılış Maliyeti")
+        company_setup_cost = st.number_input("Şirket Açılış Maliyeti", min_value=0.0, step=100.0, key="new_person_company_setup_cost", label_visibility="collapsed")
+
+    st.markdown("##### Araç ve Operasyon")
+    c18, c19, c20 = st.columns(3)
+    with c18:
+        render_field_label_fn("Motor Kullanım Modeli")
+        motor_usage_mode = st.selectbox(
+            "Motor Kullanım Modeli",
+            motor_usage_mode_options,
+            key="new_person_motor_usage_mode",
+            label_visibility="collapsed",
+        )
+    with c19:
+        render_field_label_fn("Güncel Plaka", required=True)
+        current_plate = st.text_input("Güncel Plaka", key="new_person_current_plate", label_visibility="collapsed")
+    sale_mode_enabled = motor_usage_mode == "Çat Kapında Motor Satışı"
+    if motor_usage_mode == "Çat Kapında Motor Kirası":
+        with c20:
+            render_field_label_fn("Aylık Motor Kira Tutarı", required=True)
+            motor_rental_monthly_amount = st.number_input(
+                "Aylık Motor Kira Tutarı",
+                min_value=0.0,
+                step=100.0,
+                key="new_person_motor_rental_monthly_amount",
+                label_visibility="collapsed",
+            )
+        st.caption("Bu personel Çat Kapında motorunu kiralıyorsa aylık kira tutarı buradan yönetilir.")
+    else:
+        with c20:
+            render_field_label_fn("Aylık Motor Kira Tutarı")
+            st.number_input(
+                "Aylık Motor Kira Tutarı",
+                min_value=0.0,
+                step=100.0,
+                value=0.0,
+                disabled=True,
+                key="new_person_motor_rental_monthly_amount_disabled",
+                label_visibility="collapsed",
+            )
+        motor_rental_monthly_amount = 0.0
+
+    c21, c22, c23 = st.columns(3)
+    with c21:
+        render_field_label_fn("Motor Satın Alım Tarihi", required=sale_mode_enabled)
+        motor_purchase_start_date = st.date_input(
+            "Motor Satın Alım Tarihi",
+            key="new_person_motor_purchase_start_date",
+            disabled=not sale_mode_enabled,
+            label_visibility="collapsed",
+        )
+    if sale_mode_enabled:
+        render_motor_purchase_proration_caption_fn()
+    with c22:
+        render_field_label_fn("Taahhüt Süresi (Ay)", required=sale_mode_enabled)
+        motor_purchase_commitment_months = st.selectbox(
+            "Taahhüt Süresi (Ay)",
+            motor_purchase_commitment_options,
+            key="new_person_motor_purchase_commitment_months",
+            disabled=not sale_mode_enabled,
+            label_visibility="collapsed",
+        )
+    with c23:
+        render_field_label_fn("Aylık Motor Satış Taksiti", required=sale_mode_enabled)
+        motor_purchase_sale_price = st.number_input(
+            "Aylık Motor Satış Taksiti",
+            min_value=0.0,
+            step=100.0,
+            key="new_person_motor_purchase_sale_price",
+            disabled=not sale_mode_enabled,
+            label_visibility="collapsed",
+        )
+    if sale_mode_enabled:
+        st.info("Motor satış modeli seçildi. Bu personelde ayrıca motor kirası uygulanmaz.")
+    motor_usage_payload = build_motor_usage_payload_fn(
+        motor_usage_mode=motor_usage_mode,
+        motor_rental_monthly_amount=safe_float_fn(motor_rental_monthly_amount, 0.0),
+        motor_purchase_start_date_value=motor_purchase_start_date if isinstance(motor_purchase_start_date, date) else None,
+        motor_purchase_commitment_months=safe_int_fn(motor_purchase_commitment_months, 0),
+        motor_purchase_sale_price=safe_float_fn(motor_purchase_sale_price, 0.0),
+    )
+    vehicle_type = str(motor_usage_payload["vehicle_type"] or "")
+    motor_purchase = str(motor_usage_payload["motor_purchase"] or "Hayır")
+    render_motor_deduction_snapshot_from_payload_fn(motor_usage_payload)
+
+    st.markdown("##### İşe Giriş Ekipmanları")
+    onboarding_items = st.multiselect(
+        "İşe girişte verilen ekipmanlar",
+        equipment_items,
+        key="new_person_onboarding_items",
+        help="İşe girişte satılan veya personele teslim edilen ekipmanları burada kaydet. Sonradan eklenen hareketleri seçili personelin düzenleme kartından yönetebilirsin.",
+    )
+    onboarding_issue_payloads: list[dict[str, Any]] = []
+    if onboarding_items:
+        st.caption("Satın alma kayıtlarındaki ortalama maliyet arka planda kullanılır. Burada yalnızca kuryeye satış fiyatını, KDV'yi ve taksit bilgisini girmen yeterli.")
+        for item_name in onboarding_items:
+            initialize_onboarding_equipment_state_fn(conn, item_name, start_date if isinstance(start_date, date) else None)
+            issue_date_key = onboarding_equipment_state_key_fn(item_name, "issue_date")
+            quantity_key = onboarding_equipment_state_key_fn(item_name, "quantity")
+            sale_price_key = onboarding_equipment_state_key_fn(item_name, "sale_price")
+            vat_rate_key = onboarding_equipment_state_key_fn(item_name, "vat_rate")
+            installment_key = onboarding_equipment_state_key_fn(item_name, "installment_count")
+            notes_key = onboarding_equipment_state_key_fn(item_name, "notes")
+            cost_snapshot = get_equipment_cost_snapshot_fn(conn, item_name)
+            average_cost = safe_float_fn(cost_snapshot[3], 0.0)
+            st.markdown(f"###### {item_name}")
+            item_c1, item_c2, item_c3 = st.columns(3)
+            with item_c1:
+                render_field_label_fn("Teslim Tarihi", required=True)
+                st.date_input("Teslim Tarihi", key=issue_date_key, label_visibility="collapsed")
+            with item_c2:
+                render_field_label_fn("Adet", required=True)
+                st.number_input("Adet", min_value=1, step=1, key=quantity_key, label_visibility="collapsed")
+            with item_c3:
+                render_field_label_fn("Kuryeye Satış Fiyatı | KDV dahil")
+                st.number_input("Kuryeye Satış Fiyatı | KDV dahil", min_value=0.0, step=50.0, key=sale_price_key, label_visibility="collapsed")
+            item_c4, item_c5, item_c6 = st.columns(3)
+            with item_c4:
+                render_field_label_fn("KDV")
+                st.selectbox(
+                    "KDV",
+                    [10.0, 20.0],
+                    key=vat_rate_key,
+                    format_func=lambda x: f"%{fmt_number_fn(x)}",
+                    label_visibility="collapsed",
+                )
+            with item_c5:
+                render_field_label_fn("Taksit Sayısı")
+                st.selectbox("Taksit Sayısı", [1, 2, 3, 6, 12], key=installment_key, label_visibility="collapsed")
+            with item_c6:
+                render_field_label_fn("Not")
+                st.text_input("Not", key=notes_key, label_visibility="collapsed")
+            if average_cost > 0:
+                st.caption(f"Ortalama birim maliyet: {fmt_try_fn(average_cost)}")
+        onboarding_issue_payloads = collect_onboarding_equipment_payloads_fn(conn, onboarding_items)
+
+    notes = st.text_area("Notlar", placeholder="Personel hakkında operasyonel notlar", key="new_person_notes")
+
+    create_clicked = st.button("Personel Kartını Oluştur", use_container_width=True, key="new_person_create")
+    if not create_clicked:
+        if create_success_message := str(st.session_state.get("personnel_create_success_message", "") or "").strip():
+            st.success(f"Personel kartı oluşturuldu. {create_success_message}")
+        return
+
+    st.session_state.pop("personnel_create_success_message", None)
+    st.session_state.pop("personnel_recently_created", None)
+    assigned_id = rest_opts_with_blank.get(assigned_label) if role_requires_primary_restaurant_fn(role) else None
+    validation_errors = validate_personnel_form_fn(
+        full_name=full_name,
+        phone=phone,
+        tc_no=tc_no,
+        iban=iban,
+        address=address,
+        current_plate=current_plate,
+        role=role,
+        assigned_restaurant_id=assigned_id,
+        start_date_value=start_date if isinstance(start_date, date) else None,
+        vehicle_type=vehicle_type,
+        motor_rental_monthly_amount=safe_float_fn(motor_rental_monthly_amount, 0.0),
+        cost_model=cost_model,
+        monthly_fixed_cost=monthly_fixed_cost,
+        motor_purchase=motor_purchase,
+        motor_purchase_start_date_value=motor_purchase_start_date if isinstance(motor_purchase_start_date, date) else None,
+        motor_purchase_commitment_months=safe_int_fn(motor_purchase_commitment_months, 0),
+        motor_purchase_sale_price=safe_float_fn(motor_purchase_sale_price, 0.0),
+    )
+    validation_errors.extend(validate_onboarding_equipment_payloads_fn(onboarding_issue_payloads))
+    if validation_errors:
+        for error_text in validation_errors:
+            st.error(error_text)
+        return
+
+    try:
+        start_date_str = start_date.isoformat() if isinstance(start_date, date) else None
+        auto_code = next_person_code_fn(conn, role)
+        conn.execute(
+            """
+            INSERT INTO personnel (
+                person_code, full_name, role, status, phone, address, tc_no, iban,
+                emergency_contact_name, emergency_contact_phone,
+                accounting_type, new_company_setup, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
+                assigned_restaurant_id, vehicle_type, motor_rental, motor_purchase, motor_purchase_start_date, motor_purchase_commitment_months,
+                motor_rental_monthly_amount, motor_purchase_sale_price, motor_purchase_monthly_amount, motor_purchase_installment_count, current_plate, start_date,
+                cost_model, monthly_fixed_cost, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                auto_code,
+                full_name,
+                role,
+                "Aktif",
+                phone,
+                address,
+                tc_no,
+                iban,
+                emergency_contact_name,
+                emergency_contact_phone,
+                accounting_type,
+                new_company_setup,
+                accounting_revenue,
+                accountant_cost,
+                company_setup_revenue,
+                company_setup_cost,
+                assigned_id,
+                motor_usage_payload["vehicle_type"],
+                motor_usage_payload["motor_rental"],
+                motor_usage_payload["motor_purchase"],
+                motor_usage_payload["motor_purchase_start_date_str"],
+                motor_usage_payload["motor_purchase_commitment_months"],
+                motor_usage_payload["motor_rental_monthly_amount"],
+                motor_usage_payload["motor_purchase_sale_price"],
+                motor_usage_payload["motor_purchase_monthly_amount"],
+                motor_usage_payload["motor_purchase_installment_count"],
+                current_plate,
+                start_date_str,
+                normalize_cost_model_value_fn(cost_model, role),
+                monthly_fixed_cost,
+                notes,
+            ),
+        )
+        conn.commit()
+        created_person = conn.execute("SELECT * FROM personnel WHERE person_code = ? ORDER BY id DESC", (auto_code,)).fetchone()
+        if not created_person:
+            raise RuntimeError("Personel kaydı oluşturuldu ancak kayıt tekrar okunamadı.")
+        created_person_id = safe_int_fn(created_person["id"], 0)
+        for payload in onboarding_issue_payloads:
+            issue_date_value = payload["issue_date"]
+            quantity_value = safe_int_fn(payload["quantity"], 1)
+            sale_price_value = safe_float_fn(payload["unit_sale_price"], 0.0)
+            installment_count_value = safe_int_fn(payload["installment_count"], 1)
+            vat_rate_value = safe_float_fn(payload["vat_rate"], 10.0)
+            issue_id = insert_equipment_issue_and_get_id_fn(
+                conn,
+                created_person_id,
+                issue_date_value.isoformat(),
+                str(payload["item_name"] or ""),
+                quantity_value,
+                safe_float_fn(payload["unit_cost"], 0.0),
+                sale_price_value,
+                installment_count_value,
+                "Satış",
+                str(payload.get("notes", "") or ""),
+                vat_rate=vat_rate_value,
+            )
+            post_equipment_installments_fn(
+                conn,
+                issue_id,
+                created_person_id,
+                issue_date_value,
+                str(payload["item_name"] or ""),
+                float(quantity_value) * float(sale_price_value),
+                installment_count_value,
+                "Satış",
+            )
+        sync_person_current_role_snapshot_fn(conn, created_person)
+        conn.commit()
+        sync_person_business_rules_fn(conn, created_person)
+    except Exception as exc:
+        conn.rollback()
+        st.error(f"Personel kartı oluşturulamadı: {exc}")
+        return
+
+    equipment_summary = (
+        f" | {len(onboarding_issue_payloads)} onboarding ekipmanı kaydedildi"
+        if onboarding_issue_payloads
+        else ""
+    )
+    success_text = f"{full_name} başarıyla eklendi. Kod: {auto_code}{equipment_summary}"
+    st.session_state[workspace_key] = "add"
+    st.session_state["person_search"] = ""
+    st.session_state["person_role_filter"] = "Tümü"
+    st.session_state["person_status_filter"] = "Tümü"
+    st.session_state["person_rest_filter"] = "Tümü"
+    st.session_state["personnel_recently_created"] = {"personnel_id": created_person_id}
+    st.session_state["personnel_create_success_message"] = success_text
+    st.session_state["personnel_form_reset_pending"] = True
+    set_flash_message_fn("success", success_text)
+    st.rerun()
+
+
 def render_personnel_plate_workspace(
     conn: Any,
     *,
