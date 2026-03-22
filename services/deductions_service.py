@@ -12,6 +12,7 @@ from repositories.deductions_repository import (
     update_deduction_record,
 )
 from services.audit_service import record_audit_event
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -67,7 +68,9 @@ def create_deduction_and_commit(
     conn,
     *,
     deduction_values: dict[str, Any],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "deduction.create")
     try:
         insert_deduction_record(conn, deduction_values)
         conn.commit()
@@ -90,7 +93,9 @@ def update_deduction_and_commit(
     *,
     deduction_id: int,
     deduction_values: dict[str, Any],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "deduction.update")
     try:
         update_deduction_record(conn, deduction_id, deduction_values)
         conn.commit()
@@ -109,7 +114,8 @@ def update_deduction_and_commit(
     return success_text
 
 
-def delete_deduction_and_commit(conn, *, deduction_id: int) -> str:
+def delete_deduction_and_commit(conn, *, deduction_id: int, actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "deduction.delete")
     try:
         delete_deduction_record(conn, deduction_id)
         conn.commit()
@@ -127,7 +133,8 @@ def delete_deduction_and_commit(conn, *, deduction_id: int) -> str:
     return success_text
 
 
-def bulk_delete_deductions_and_commit(conn, *, deduction_ids: list[int]) -> str:
+def bulk_delete_deductions_and_commit(conn, *, deduction_ids: list[int], actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "deduction.bulk_delete")
     try:
         deleted_count = delete_deduction_records(conn, deduction_ids)
         conn.commit()
