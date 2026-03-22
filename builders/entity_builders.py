@@ -39,6 +39,35 @@ def build_restaurant_hero_stats(
     ]
 
 
+def _format_currency(value: Any, fmt_number_fn: Callable[[Any], str]) -> str:
+    formatted = str(fmt_number_fn(value) or "").strip()
+    return f"{formatted}₺" if formatted else "-"
+
+
+def build_restaurant_pricing_summary(
+    row: Any,
+    *,
+    fmt_number_fn: Callable[[Any], str],
+) -> str:
+    pricing_model = str(row["pricing_model"] or "").strip()
+    hourly_rate = _format_currency(row.get("hourly_rate"), fmt_number_fn)
+    package_rate = _format_currency(row.get("package_rate"), fmt_number_fn)
+    package_rate_low = _format_currency(row.get("package_rate_low"), fmt_number_fn)
+    package_rate_high = _format_currency(row.get("package_rate_high"), fmt_number_fn)
+    fixed_monthly_fee = _format_currency(row.get("fixed_monthly_fee"), fmt_number_fn)
+    package_threshold = fmt_number_fn(row.get("package_threshold") or 390)
+
+    if pricing_model == "hourly_plus_package":
+        return f"{hourly_rate}/saat + {package_rate}/paket"
+    if pricing_model == "threshold_package":
+        return f"{hourly_rate}/saat | {package_threshold} altı {package_rate_low} | üstü {package_rate_high}"
+    if pricing_model == "hourly_only":
+        return f"{hourly_rate}/saat"
+    if pricing_model == "fixed_monthly":
+        return f"{fixed_monthly_fee}/ay"
+    return "-"
+
+
 def build_restaurant_list_rows(
     filtered_df: pd.DataFrame,
     *,
@@ -51,6 +80,7 @@ def build_restaurant_list_rows(
             "Şube": f"{row['brand']} - {row['branch']}",
             "Fiyat Modeli": pricing_model_labels.get(row["pricing_model"], row["pricing_model"]),
             "Kadro": fmt_number_fn(row["target_headcount"]),
+            "Anlaşma": build_restaurant_pricing_summary(row, fmt_number_fn=fmt_number_fn),
             "Yetkili": row["contact_name"] or "-",
             "Durum": active_status_labels.get(row["active"], row["active"]),
         }
@@ -64,11 +94,13 @@ def build_restaurant_snapshot_items(
     pricing_model_labels: dict[str, str],
     active_status_labels: dict[Any, str],
     safe_int_fn: Callable[[Any, int], int],
+    fmt_number_fn: Callable[[Any], str],
 ) -> list[tuple[str, Any]]:
     return [
         ("Marka", selected_row["brand"] or "-"),
         ("Şube", selected_row["branch"] or "-"),
         ("Fiyat Modeli", pricing_model_labels.get(selected_row["pricing_model"], selected_row["pricing_model"])),
+        ("Anlaşma", build_restaurant_pricing_summary(selected_row, fmt_number_fn=fmt_number_fn)),
         ("Durum", active_status_labels.get(selected_row["active"], selected_row["active"])),
         ("Hedef Kadro", safe_int_fn(selected_row["target_headcount"], 0)),
         ("Yetkili", selected_row["contact_name"] or "-"),

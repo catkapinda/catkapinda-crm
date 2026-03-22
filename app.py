@@ -4023,12 +4023,17 @@ def inject_global_styles() -> None:
             .ck-list-row {
                 display: flex;
                 justify-content: space-between;
-                align-items: center;
+                align-items: flex-start;
                 gap: 12px;
                 padding: 11px 0;
                 border-bottom: 1px solid #EEF2F7;
                 font-size: 0.92rem;
                 color: var(--ck-text);
+            }
+
+            .ck-list-row > span:first-child {
+                flex: 0 0 96px;
+                min-width: 96px;
             }
 
             .ck-list-row:last-child {
@@ -4043,7 +4048,11 @@ def inject_global_styles() -> None:
                 padding: 6px 10px;
                 font-size: 0.78rem;
                 font-weight: 800;
-                white-space: nowrap;
+                white-space: normal;
+                overflow-wrap: anywhere;
+                text-align: right;
+                max-width: 70%;
+                display: inline-block;
             }
 
             .ck-alert-stack {

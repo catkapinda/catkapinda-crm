@@ -66,11 +66,11 @@ def render_restaurant_list_workspace(
         render_dashboard_data_grid_fn(
             "Şube Kartları",
             "Marka, fiyat modeli ve yönetim bilgisini daha okunur kart satırlarında izle.",
-            ["Şube", "Fiyat Modeli", "Kadro", "Yetkili", "Durum"],
+            ["Şube", "Fiyat Modeli", "Anlaşma", "Kadro", "Yetkili", "Durum"],
             restaurant_rows,
             "Filtreye uyan restoran kaydı görünmüyor.",
             badge_columns={"Durum"},
-            muted_columns={"Fiyat Modeli"},
+            muted_columns={"Fiyat Modeli", "Anlaşma"},
         )
         st.caption(f"{len(filtered_df)} kayıt gösteriliyor.")
     with right:
@@ -84,6 +84,7 @@ def render_restaurant_list_workspace(
                 pricing_model_labels=pricing_model_labels,
                 active_status_labels=active_status_labels,
                 safe_int_fn=safe_int_fn,
+                fmt_number_fn=fmt_number_fn,
             ),
         )
         st.markdown("##### Hızlı Aksiyonlar")
