@@ -115,6 +115,8 @@ from equipment_rules import (
 )
 from reporting_rules import (
     build_invoice_summary_df,
+    build_restaurant_attendance_export_map,
+    build_restaurant_export_filename,
     build_restaurant_invoice_drilldown_map,
     calculate_customer_invoice,
     configure_reporting_rules,
@@ -6457,6 +6459,12 @@ def reports_tab(conn: sqlite3.Connection) -> None:
     role_history_df = fetch_df(conn, "SELECT * FROM personnel_role_history ORDER BY personnel_id, effective_date, id")
     deductions_df = fetch_df(conn, "SELECT * FROM deductions WHERE deduction_date BETWEEN ? AND ?", (start_date, end_date))
     invoice_drilldown_map = build_restaurant_invoice_drilldown_map(month_df, personnel_df)
+    invoice_attendance_export_map = build_restaurant_attendance_export_map(
+        month_df,
+        personnel_df,
+        selected_month,
+        invoice_drilldown_map=invoice_drilldown_map,
+    )
     cost_df = calculate_personnel_cost(month_df, personnel_df, deductions_df, role_history_df=role_history_df)
 
     revenue = float(invoice_df["kdv_dahil"].sum()) if not invoice_df.empty else 0.0
@@ -6542,11 +6550,15 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         render_invoice_report_tab(
             invoice_df,
             invoice_drilldown_map,
+            invoice_attendance_export_map,
             selected_month,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
             render_dashboard_data_grid_fn=render_dashboard_data_grid,
             pricing_model_labels=PRICING_MODEL_LABELS,
+            fmt_number_fn=fmt_number,
+            fmt_try_fn=fmt_try,
+            build_restaurant_export_filename_fn=build_restaurant_export_filename,
         )
     with tab2:
         render_cost_report_tab(
