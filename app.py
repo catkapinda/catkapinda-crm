@@ -211,6 +211,13 @@ from services.purchases_service import (
     load_purchases_workspace_payload,
     update_purchase_and_commit,
 )
+from services.equipment_service import (
+    bulk_update_equipment_issues_and_commit,
+    create_box_return_and_commit,
+    create_equipment_issue_and_commit,
+    delete_equipment_issues_and_commit,
+    load_equipment_workspace_payload,
+)
 from services.personnel_service import (
     build_personnel_code_display_values,
     build_new_person_form_defaults,
@@ -5625,7 +5632,8 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
         "📦 Ekipman Hareketleri | Sonradan satış, düzeltme, iade ve box geri alım",
         "İşe girişten sonra oluşan tüm ekipman hareketlerini, düzeltmeleri, box geri alımlarını ve ekipman kârlılığını bu panelden yönet.",
     )
-    person_opts = get_person_options(conn, active_only=False)
+    equipment_payload = load_equipment_workspace_payload(conn)
+    person_opts = equipment_payload.person_opts
     tab1, tab2, tab3 = st.tabs([
         "👷 Kurye Zimmet / Satış",
         "🔄 Box Geri Alım",
@@ -5718,50 +5726,36 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             submitted = st.button(submit_label, use_container_width=True, key="issue_submit")
             if submitted:
                 person_id = person_opts[person_label]
-                issue_id = insert_equipment_issue_and_get_id(
-                    conn,
-                    person_id,
-                    issue_date.isoformat(),
-                    item_name,
-                    int(quantity),
-                    unit_cost,
-                    unit_sale_price,
-                    int(effective_installment_count),
-                    sale_type,
-                    notes,
-                    vat_rate=vat_rate,
-                )
-                post_equipment_installments(
-                    conn,
-                    issue_id,
-                    person_id,
-                    issue_date,
-                    item_name,
-                    total_sale_amount,
-                    int(effective_installment_count),
-                    sale_type,
-                )
-                st.session_state["issue_qty"] = 1
-                st.session_state["issue_notes"] = ""
-                if generates_installments:
-                    st.success(f"Zimmet kaydedildi. Toplam satış: {fmt_try(total_sale_amount)} | {effective_installment_count} taksit oluşturuldu.")
+                try:
+                    success_message = create_equipment_issue_and_commit(
+                        conn,
+                        issue_values={
+                            "personnel_id": person_id,
+                            "issue_date": issue_date,
+                            "item_name": item_name,
+                            "quantity": int(quantity),
+                            "unit_cost": unit_cost,
+                            "unit_sale_price": unit_sale_price,
+                            "installment_count": int(effective_installment_count),
+                            "sale_type": sale_type,
+                            "notes": notes,
+                            "vat_rate": vat_rate,
+                            "total_sale_amount": total_sale_amount,
+                            "generates_installments": generates_installments,
+                        },
+                        insert_equipment_issue_and_get_id_fn=insert_equipment_issue_and_get_id,
+                        post_equipment_installments_fn=post_equipment_installments,
+                        fmt_try_fn=fmt_try,
+                    )
+                except Exception as exc:
+                    st.error(f"Zimmet kaydı oluşturulamadı: {exc}")
                 else:
-                    st.success(f"Zimmet kaydedildi. Toplam işlem tutarı: {fmt_try(total_sale_amount)}")
-                st.rerun()
+                    st.session_state["issue_qty"] = 1
+                    st.session_state["issue_notes"] = ""
+                    st.success(success_message)
+                    st.rerun()
 
-        issues = fetch_df(
-            conn,
-            """
-            SELECT i.id, i.issue_date, p.full_name, i.item_name, i.quantity, i.unit_cost, i.unit_sale_price, i.vat_rate, i.auto_source_key,
-                   (i.quantity * i.unit_cost) AS total_cost,
-                   (i.quantity * i.unit_sale_price) AS total_sale,
-                   ((i.quantity * i.unit_sale_price) - (i.quantity * i.unit_cost)) AS gross_profit,
-                   i.installment_count, i.sale_type, i.notes
-            FROM courier_equipment_issues i
-            JOIN personnel p ON p.id = i.personnel_id
-            ORDER BY i.issue_date DESC, i.id DESC
-            """,
-        )
+        issues = equipment_payload.issues
         if not issues.empty:
             issues["source_text"] = issues["auto_source_key"].apply(describe_auto_source_key)
             issues_display = format_display_df(
@@ -5861,38 +5855,44 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                     ):
                         st.error("Toplu güncelleme için en az bir alan seçmeli veya not eklemelisin.")
                     else:
-                        updated_count = bulk_update_equipment_issue_records(
-                            conn,
-                            selected_bulk_issue_ids,
-                            issue_date_value=bulk_issue_date if bulk_update_date_enabled else None,
-                            unit_cost_value=bulk_unit_cost if bulk_update_cost_enabled else None,
-                            unit_sale_price_value=bulk_unit_sale_price if bulk_update_sale_enabled else None,
-                            vat_rate_value=bulk_vat_rate if bulk_update_vat_enabled else None,
-                            installment_count_value=bulk_installment_count if bulk_update_installment_enabled else None,
-                            sale_type_value=bulk_sale_type if bulk_update_sale_type_enabled else None,
-                            note_append_text=bulk_note_text,
-                        )
-                        st.success(f"{updated_count} zimmet kaydı toplu olarak güncellendi.")
-                        st.rerun()
+                        try:
+                            success_message = bulk_update_equipment_issues_and_commit(
+                                conn,
+                                issue_ids=selected_bulk_issue_ids,
+                                bulk_update_equipment_issue_records_fn=bulk_update_equipment_issue_records,
+                                update_values={
+                                    "issue_date_value": bulk_issue_date if bulk_update_date_enabled else None,
+                                    "unit_cost_value": bulk_unit_cost if bulk_update_cost_enabled else None,
+                                    "unit_sale_price_value": bulk_unit_sale_price if bulk_update_sale_enabled else None,
+                                    "vat_rate_value": bulk_vat_rate if bulk_update_vat_enabled else None,
+                                    "installment_count_value": bulk_installment_count if bulk_update_installment_enabled else None,
+                                    "sale_type_value": bulk_sale_type if bulk_update_sale_type_enabled else None,
+                                    "note_append_text": bulk_note_text,
+                                },
+                            )
+                        except Exception as exc:
+                            st.error(f"Toplu zimmet güncellemesi yapılamadı: {exc}")
+                        else:
+                            st.success(success_message)
+                            st.rerun()
 
                 if bulk_delete_clicked:
                     if not selected_bulk_issue_ids:
                         st.error("Önce en az bir zimmet kaydı seçmelisin.")
                     else:
-                        deleted_count = delete_equipment_issue_records(conn, selected_bulk_issue_ids)
-                        st.success(f"{deleted_count} zimmet kaydı ve bağlı taksitleri silindi.")
-                        st.rerun()
+                        try:
+                            success_message = delete_equipment_issues_and_commit(
+                                conn,
+                                issue_ids=selected_bulk_issue_ids,
+                                delete_equipment_issue_records_fn=delete_equipment_issue_records,
+                            )
+                        except Exception as exc:
+                            st.error(f"Zimmet kayıtları silinemedi: {exc}")
+                        else:
+                            st.success(success_message)
+                            st.rerun()
 
-        installment_df = fetch_df(
-            conn,
-            """
-            SELECT d.deduction_date, p.full_name, d.deduction_type, d.amount, d.notes, d.auto_source_key
-            FROM deductions d
-            JOIN personnel p ON p.id = d.personnel_id
-            WHERE d.equipment_issue_id IS NOT NULL
-            ORDER BY d.deduction_date DESC, d.id DESC
-            """,
-        )
+        installment_df = equipment_payload.installment_df
         if not installment_df.empty:
             st.markdown("#### Oluşan zimmet taksitleri")
             installment_df["source_text"] = installment_df["auto_source_key"].apply(describe_auto_source_key)
@@ -5933,25 +5933,26 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
             if submitted:
                 person_id = person_opts[person_label]
                 waived = 1 if condition_status == "Parasını istemedi" else 0
-                conn.execute(
-                    """
-                    INSERT INTO box_returns (personnel_id, return_date, quantity, condition_status, payout_amount, waived, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (person_id, return_date.isoformat(), int(quantity), condition_status, payout_amount, waived, notes),
-                )
-                conn.commit()
-                st.success("Box geri alım kaydı oluşturuldu.")
+                try:
+                    success_message = create_box_return_and_commit(
+                        conn,
+                        box_return_values={
+                            "personnel_id": person_id,
+                            "return_date": return_date.isoformat(),
+                            "quantity": int(quantity),
+                            "condition_status": condition_status,
+                            "payout_amount": payout_amount,
+                            "waived": waived,
+                            "notes": notes,
+                        },
+                    )
+                except Exception as exc:
+                    st.error(f"Box geri alım kaydı oluşturulamadı: {exc}")
+                else:
+                    st.success(success_message)
+                    st.rerun()
 
-        returns_df = fetch_df(
-            conn,
-            """
-            SELECT b.return_date, p.full_name, b.quantity, b.condition_status, b.payout_amount, b.waived, b.notes
-            FROM box_returns b
-            JOIN personnel p ON p.id = b.personnel_id
-            ORDER BY b.return_date DESC, b.id DESC
-            """,
-        )
+        returns_df = equipment_payload.returns_df
         if not returns_df.empty:
             returns_df["waived_text"] = returns_df["waived"].apply(lambda x: "Evet" if x else "Hayır")
             returns_display = format_display_df(
@@ -5980,32 +5981,8 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
 
     with tab3:
         st.markdown("#### Ekipman satış ve kârlılık özeti")
-        sales_profit = fetch_df(
-            conn,
-            """
-            SELECT item_name,
-                   SUM(quantity) AS sold_qty,
-                   SUM(quantity * unit_cost) AS total_cost,
-                   SUM(quantity * unit_sale_price) AS total_sale,
-                   SUM((quantity * unit_sale_price) - (quantity * unit_cost)) AS gross_profit
-            FROM courier_equipment_issues
-            WHERE sale_type = 'Satış'
-            GROUP BY item_name
-            ORDER BY total_sale DESC
-            """,
-        )
-        stock_purchase = fetch_df(
-            conn,
-            """
-            SELECT item_name,
-                   SUM(quantity) AS purchased_qty,
-                   SUM(total_invoice_amount) AS purchased_total,
-                   CASE WHEN SUM(quantity) > 0 THEN SUM(total_invoice_amount)/SUM(quantity) ELSE 0 END AS weighted_unit_cost
-            FROM inventory_purchases
-            GROUP BY item_name
-            ORDER BY item_name
-            """,
-        )
+        sales_profit = equipment_payload.sales_profit
+        stock_purchase = equipment_payload.stock_purchase
 
         c1, c2, c3 = st.columns(3)
         total_purchase = float(stock_purchase["purchased_total"].sum()) if not stock_purchase.empty else 0.0
