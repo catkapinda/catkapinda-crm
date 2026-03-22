@@ -27,3 +27,13 @@ def fetch_person_options_map(conn: CompatConnection, active_only: bool = True) -
     sql += " ORDER BY full_name"
     rows = conn.execute(sql).fetchall()
     return {f"{r['full_name']} ({r['role']})": r['id'] for r in rows}
+
+
+def fetch_person_code_values(conn: CompatConnection, prefix: str, exclude_id: int | None = None) -> list[str]:
+    sql = "SELECT person_code FROM personnel WHERE person_code LIKE ?"
+    params: list[object] = [f"CK-{prefix}%"]
+    if exclude_id is not None:
+        sql += " AND id != ?"
+        params.append(exclude_id)
+    rows = conn.execute(sql, tuple(params)).fetchall()
+    return [str(row["person_code"] or "") for row in rows]
