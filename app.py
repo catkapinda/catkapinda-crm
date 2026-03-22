@@ -3909,6 +3909,78 @@ def bulk_update_equipment_issue_records(
     return updated_count
 
 
+def update_equipment_issue_record(
+    conn: CompatConnection,
+    issue_id: int,
+    *,
+    issue_date_value: date,
+    item_name: str,
+    quantity: int,
+    unit_cost: float,
+    unit_sale_price: float,
+    vat_rate: float,
+    installment_count: int,
+    sale_type: str,
+    notes: str,
+) -> bool:
+    resolved_issue_id = safe_int(issue_id, 0)
+    if resolved_issue_id <= 0:
+        return False
+
+    existing_row = conn.execute(
+        """
+        SELECT id, personnel_id
+        FROM courier_equipment_issues
+        WHERE id = ?
+        LIMIT 1
+        """,
+        (resolved_issue_id,),
+    ).fetchone()
+    if not existing_row:
+        return False
+
+    personnel_id = safe_int(get_row_value(existing_row, "personnel_id"), 0)
+    if personnel_id <= 0:
+        return False
+
+    resolved_sale_type = str(sale_type or "Satış").strip() or "Satış"
+    resolved_installment_count = normalize_equipment_issue_installment_count(resolved_sale_type, installment_count)
+
+    conn.execute(
+        """
+        UPDATE courier_equipment_issues
+        SET issue_date = ?, item_name = ?, quantity = ?, unit_cost = ?, unit_sale_price = ?, vat_rate = ?, installment_count = ?, sale_type = ?, notes = ?
+        WHERE id = ?
+        """,
+        (
+            issue_date_value.isoformat(),
+            str(item_name or "").strip(),
+            max(safe_int(quantity, 1), 1),
+            safe_float(unit_cost, 0.0),
+            safe_float(unit_sale_price, 0.0),
+            safe_float(vat_rate, VAT_RATE_DEFAULT),
+            resolved_installment_count,
+            resolved_sale_type,
+            str(notes or "").strip(),
+            resolved_issue_id,
+        ),
+    )
+    conn.execute("DELETE FROM deductions WHERE equipment_issue_id = ?", (resolved_issue_id,))
+    total_sale_amount = max(safe_int(quantity, 1), 1) * safe_float(unit_sale_price, 0.0)
+    post_equipment_installments(
+        conn,
+        resolved_issue_id,
+        personnel_id,
+        issue_date_value,
+        str(item_name or "").strip(),
+        total_sale_amount,
+        resolved_installment_count,
+        resolved_sale_type,
+    )
+    conn.commit()
+    return True
+
+
 def count_person_worked_days_in_range(
     conn: CompatConnection,
     personnel_id: int,
@@ -8886,6 +8958,172 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                             set_flash_message("success", "Personel kaydı kalıcı olarak silindi.")
                         st.rerun()
 
+                    st.markdown("##### Ekipman ve İade")
+                    st.caption("Seçili personele ait ekipman satışlarını burada düzenleyebilir, box geri alımını aynı karttan kaydedebilirsin.")
+
+                    person_issue_df = fetch_df(
+                        conn,
+                        """
+                        SELECT id, issue_date, item_name, quantity, unit_cost, unit_sale_price, vat_rate, installment_count, sale_type, notes
+                        FROM courier_equipment_issues
+                        WHERE personnel_id = ?
+                        ORDER BY issue_date DESC, id DESC
+                        """,
+                        (selected_id,),
+                    )
+                    if not person_issue_df.empty:
+                        person_issue_display = format_display_df(
+                            person_issue_df,
+                            currency_cols=["unit_cost", "unit_sale_price"],
+                            number_cols=["quantity", "installment_count"],
+                            percent_cols=["vat_rate"],
+                            rename_map={
+                                "issue_date": "Tarih",
+                                "item_name": "Ürün",
+                                "quantity": "Adet",
+                                "unit_cost": "Birim Maliyet",
+                                "unit_sale_price": "Birim Satış",
+                                "vat_rate": "KDV",
+                                "installment_count": "Taksit",
+                                "sale_type": "İşlem Tipi",
+                                "notes": "Not",
+                            },
+                        )
+                        person_issue_columns = ["Tarih", "Ürün", "Adet", "Birim Satış", "Taksit", "İşlem Tipi"]
+                        render_dashboard_data_grid(
+                            "Seçili Personelin Ekipman Hareketleri",
+                            "Bu kartta yalnızca seçili personele ait ekipman kayıtları görünür.",
+                            person_issue_columns,
+                            build_grid_rows(person_issue_display[person_issue_columns], person_issue_columns),
+                            "Bu personele ait ekipman kaydı yok.",
+                            muted_columns={"İşlem Tipi"},
+                        )
+
+                        person_issue_options = {
+                            f"{issue_row['issue_date']} | {issue_row['item_name']} | {safe_int(issue_row['quantity'], 0)} adet | ID:{safe_int(issue_row['id'], 0)}": int(issue_row["id"])
+                            for _, issue_row in person_issue_df.iterrows()
+                        }
+                        selected_issue_label = st.selectbox(
+                            "Düzenlenecek ekipman kaydı",
+                            list(person_issue_options.keys()),
+                            key=f"edit_person_issue_select_{selected_id}",
+                        )
+                        selected_issue_id = person_issue_options[selected_issue_label]
+                        selected_issue_row = person_issue_df.loc[person_issue_df["id"] == selected_issue_id].iloc[0]
+                        issue_date_value = parse_date_value(selected_issue_row["issue_date"]) or date.today()
+                        current_issue_item = str(selected_issue_row["item_name"] or "")
+                        current_issue_item_options = ISSUE_ITEMS
+                        current_issue_item_index = current_issue_item_options.index(current_issue_item) if current_issue_item in current_issue_item_options else 0
+                        issue_sale_type_value = str(selected_issue_row["sale_type"] or "Satış")
+                        issue_installment_options = [1, 2, 3, 6, 12]
+                        issue_installment_value = safe_int(selected_issue_row["installment_count"], 1)
+                        if issue_installment_value not in issue_installment_options:
+                            issue_installment_value = 1
+
+                        d1, d2, d3 = st.columns(3)
+                        edit_issue_date = d1.date_input("Ekipman Tarihi", value=issue_date_value)
+                        edit_issue_item = d2.selectbox("Ekipman Ürünü", current_issue_item_options, index=current_issue_item_index)
+                        edit_issue_quantity = d3.number_input("Ekipman Adedi", min_value=1, value=max(safe_int(selected_issue_row["quantity"], 1), 1), step=1)
+                        d4, d5, d6 = st.columns(3)
+                        edit_issue_cost = d4.number_input("Ekipman Birim Maliyeti", min_value=0.0, value=max(safe_float(selected_issue_row["unit_cost"]), 0.0), step=50.0)
+                        edit_issue_sale = d5.number_input("Ekipman Birim Satışı", min_value=0.0, value=max(safe_float(selected_issue_row["unit_sale_price"]), 0.0), step=50.0)
+                        edit_issue_vat = d6.selectbox("Ekipman KDV", [10.0, 20.0], index=0 if safe_float(selected_issue_row["vat_rate"], 10.0) < 20 else 1, format_func=lambda x: f"%{fmt_number(x)}")
+                        d7, d8, d9 = st.columns(3)
+                        edit_issue_sale_type = d7.selectbox("Ekipman İşlem Tipi", ["Satış", "Depozit / Teslim"], index=0 if issue_sale_type_value == "Satış" else 1)
+                        if edit_issue_sale_type == "Satış":
+                            edit_issue_installment = d8.selectbox("Ekipman Taksit Sayısı", issue_installment_options, index=issue_installment_options.index(issue_installment_value))
+                        else:
+                            d8.selectbox("Ekipman Taksit Sayısı", [1], index=0, disabled=True)
+                            edit_issue_installment = 1
+                        edit_issue_notes = d9.text_input("Ekipman Notu", value=str(selected_issue_row["notes"] or ""))
+                        e1, e2 = st.columns(2)
+                        issue_update_clicked = e1.button("Ekipman Kaydını Güncelle", use_container_width=True, key=f"edit_person_issue_update_{selected_issue_id}")
+                        issue_delete_clicked = e2.button("Ekipman Kaydını Sil", use_container_width=True, key=f"edit_person_issue_delete_{selected_issue_id}")
+                        if issue_update_clicked:
+                            updated = update_equipment_issue_record(
+                                conn,
+                                selected_issue_id,
+                                issue_date_value=edit_issue_date,
+                                item_name=edit_issue_item,
+                                quantity=edit_issue_quantity,
+                                unit_cost=edit_issue_cost,
+                                unit_sale_price=edit_issue_sale,
+                                vat_rate=edit_issue_vat,
+                                installment_count=edit_issue_installment,
+                                sale_type=edit_issue_sale_type,
+                                notes=edit_issue_notes,
+                            )
+                            if updated:
+                                set_flash_message("success", "Ekipman kaydı güncellendi.")
+                                st.rerun()
+                            st.error("Ekipman kaydı güncellenemedi.")
+                        if issue_delete_clicked:
+                            deleted_count = delete_equipment_issue_records(conn, [selected_issue_id])
+                            if deleted_count > 0:
+                                set_flash_message("success", "Ekipman kaydı ve bağlı taksitleri silindi.")
+                                st.rerun()
+                            st.error("Ekipman kaydı silinemedi.")
+                    else:
+                        st.info("Bu personele ait ekipman kaydı henüz yok. İşe girişte verilen ekipmanları personel kartından, sonradan olan hareketleri Ekipman Hareketleri ekranından ekleyebilirsin.")
+
+                    st.markdown("##### Box Geri Alım")
+                    with st.form(f"edit_person_box_return_form_{selected_id}", clear_on_submit=True):
+                        r1, r2, r3 = st.columns(3)
+                        return_date = r1.date_input("Box Geri Alım Tarihi", value=date.today())
+                        condition_status = r2.selectbox("Box Durumu", ["Temiz", "Hasarlı", "Parasını istemedi"])
+                        return_quantity = r3.number_input("Box Adedi", min_value=1, value=1, step=1)
+                        r4, r5 = st.columns(2)
+                        payout_amount = r4.number_input("Ödenen Tutar", min_value=0.0, value=0.0, step=100.0)
+                        return_notes = r5.text_input("İade Notu")
+                        save_box_return_clicked = st.form_submit_button("Box Geri Alımını Kaydet", use_container_width=True)
+                        if save_box_return_clicked:
+                            waived = 1 if condition_status == "Parasını istemedi" else 0
+                            conn.execute(
+                                """
+                                INSERT INTO box_returns (personnel_id, return_date, quantity, condition_status, payout_amount, waived, notes)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                (selected_id, return_date.isoformat(), int(return_quantity), condition_status, payout_amount, waived, return_notes),
+                            )
+                            conn.commit()
+                            set_flash_message("success", "Box geri alımı personel kartından kaydedildi.")
+                            st.rerun()
+
+                    person_box_returns_df = fetch_df(
+                        conn,
+                        """
+                        SELECT return_date, quantity, condition_status, payout_amount, waived, notes
+                        FROM box_returns
+                        WHERE personnel_id = ?
+                        ORDER BY return_date DESC, id DESC
+                        """,
+                        (selected_id,),
+                    )
+                    if not person_box_returns_df.empty:
+                        person_box_returns_df["waived_text"] = person_box_returns_df["waived"].apply(lambda x: "Evet" if safe_int(x, 0) == 1 else "Hayır")
+                        box_return_display = format_display_df(
+                            person_box_returns_df,
+                            currency_cols=["payout_amount"],
+                            number_cols=["quantity"],
+                            rename_map={
+                                "return_date": "Tarih",
+                                "quantity": "Adet",
+                                "condition_status": "Durum",
+                                "payout_amount": "Ödenen Tutar",
+                                "waived_text": "Parasını İstemedi",
+                                "notes": "Not",
+                            },
+                        )
+                        box_return_columns = ["Tarih", "Adet", "Durum", "Ödenen Tutar", "Parasını İstemedi", "Not"]
+                        render_dashboard_data_grid(
+                            "Seçili Personelin Box İade Geçmişi",
+                            "Bu kart yalnızca seçili personelin box geri alım hareketlerini gösterir.",
+                            box_return_columns,
+                            build_grid_rows(box_return_display[box_return_columns], box_return_columns),
+                            "Bu personele ait box geri alım kaydı yok.",
+                            muted_columns={"Not"},
+                        )
+
     else:
         render_tab_header("Plaka ve Motor Geçmişi", "Aktif plaka değişimlerini kayıt altına al, geçmiş zimmet hareketlerini alttaki tabloda takip et.")
         person_opts = get_person_options(conn, active_only=False)
@@ -9667,12 +9905,12 @@ def equipment_tab(conn: sqlite3.Connection) -> None:
                 issue_installment_value = get_default_issue_installment_count(item_name)
                 st.session_state["issue_installment"] = issue_installment_value
             if sale_type == "Satış":
-                installment_count = c8.selectbox(
+                c8.selectbox(
                     "Taksit sayısı",
                     installment_count_options,
-                    index=installment_count_options.index(issue_installment_value),
                     key="issue_installment",
                 )
+                installment_count = safe_int(st.session_state.get("issue_installment"), issue_installment_value)
             else:
                 c8.selectbox(
                     "Taksit sayısı",
