@@ -34,6 +34,17 @@ from analytics_builders import (
     build_side_income_summary_df,
     split_equipment_profit_categories,
 )
+from entity_builders import (
+    build_personnel_hero_stats,
+    build_personnel_list_rows,
+    build_personnel_preview_options,
+    build_personnel_preview_snapshot_items,
+    build_personnel_recent_snapshot_items,
+    build_restaurant_hero_stats,
+    build_restaurant_list_rows,
+    build_restaurant_snapshot_items,
+    ensure_dataframe_columns,
+)
 from personnel_rules import (
     configure_personnel_rules,
     get_role_fixed_cost_label,
@@ -6451,7 +6462,7 @@ def validate_personnel_form(
 
 def restaurants_tab(conn: sqlite3.Connection) -> None:
     df = fetch_df(conn, "SELECT * FROM restaurants ORDER BY brand, branch")
-    for optional_column, default_value in {
+    df = ensure_dataframe_columns(df, {
         "company_title": "",
         "address": "",
         "contact_name": "",
@@ -6459,26 +6470,12 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
         "contact_email": "",
         "tax_office": "",
         "tax_number": "",
-    }.items():
-        if optional_column not in df.columns:
-            df[optional_column] = default_value
-    active_count = int(df["active"].apply(lambda x: safe_int(x, 0)).sum()) if not df.empty else 0
-    hourly_plus_count = int((df["pricing_model"] == "hourly_plus_package").sum()) if not df.empty else 0
-    threshold_count = int((df["pricing_model"] == "threshold_package").sum()) if not df.empty else 0
-    hourly_only_count = int((df["pricing_model"] == "hourly_only").sum()) if not df.empty else 0
-    fixed_count = int((df["pricing_model"] == "fixed_monthly").sum()) if not df.empty else 0
+    })
     render_management_hero(
         "RESTORAN YÖNETİMİ",
         "Şube kartları, fiyat anlaşmaları ve operasyon durumu",
         "Filtrelenebilir liste, hızlı aksiyon paneli ve tüm fiyat modeli dağılımını aynı alanda net biçimde görerek yeni şube ekleme ya da güncelleme işlemlerini daha rahat yönet.",
-        [
-            ("Toplam Şube", len(df)),
-            ("Aktif Şube", active_count),
-            ("Saatlik + Paket", hourly_plus_count),
-            ("Eşikli Paket", threshold_count),
-            ("Sadece Saatlik", hourly_only_count),
-            ("Sabit Aylık", fixed_count),
-        ],
+        build_restaurant_hero_stats(df, safe_int_fn=safe_int),
     )
     render_flash_message()
 
@@ -6532,16 +6529,12 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
             action_labels = {f"{row['brand']} - {row['branch']} (ID: {row['id']})": int(row["id"]) for _, row in df.iterrows()}
             left, right = st.columns([2.35, 1])
             with left:
-                restaurant_rows = [
-                    {
-                        "Şube": f"{row['brand']} - {row['branch']}",
-                        "Fiyat Modeli": PRICING_MODEL_LABELS.get(row["pricing_model"], row["pricing_model"]),
-                        "Kadro": fmt_number(row["target_headcount"]),
-                        "Yetkili": row["contact_name"] or "-",
-                        "Durum": ACTIVE_STATUS_LABELS.get(row["active"], row["active"]),
-                    }
-                    for _, row in filtered_df.iterrows()
-                ]
+                restaurant_rows = build_restaurant_list_rows(
+                    filtered_df,
+                    pricing_model_labels=PRICING_MODEL_LABELS,
+                    active_status_labels=ACTIVE_STATUS_LABELS,
+                    fmt_number_fn=fmt_number,
+                )
                 render_dashboard_data_grid(
                     "Şube Kartları",
                     "Marka, fiyat modeli ve yönetim bilgisini daha okunur kart satırlarında izle.",
@@ -6558,15 +6551,12 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
                 selected_row = df.loc[df["id"] == selected_id].iloc[0]
                 render_record_snapshot(
                     "Seçili Şube",
-                    [
-                        ("Marka", selected_row["brand"] or "-"),
-                        ("Şube", selected_row["branch"] or "-"),
-                        ("Fiyat Modeli", PRICING_MODEL_LABELS.get(selected_row["pricing_model"], selected_row["pricing_model"])),
-                        ("Durum", ACTIVE_STATUS_LABELS.get(selected_row["active"], selected_row["active"])),
-                        ("Hedef Kadro", safe_int(selected_row["target_headcount"])),
-                        ("Yetkili", selected_row["contact_name"] or "-"),
-                        ("Ünvan", selected_row["company_title"] or "-"),
-                    ],
+                    build_restaurant_snapshot_items(
+                        selected_row,
+                        pricing_model_labels=PRICING_MODEL_LABELS,
+                        active_status_labels=ACTIVE_STATUS_LABELS,
+                        safe_int_fn=safe_int,
+                    ),
                 )
                 st.markdown("##### Hızlı Aksiyonlar")
                 b1, b2 = st.columns(2)
@@ -7005,7 +6995,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     ORDER BY p.full_name
     """
     df = fetch_df(conn, q)
-    for optional_column, default_value in {
+    df = ensure_dataframe_columns(df, {
         "emergency_contact_name": "",
         "emergency_contact_phone": "",
         "motor_rental_monthly_amount": AUTO_MOTOR_RENTAL_DEDUCTION,
@@ -7015,26 +7005,16 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
         "motor_purchase_sale_price": 0.0,
         "motor_purchase_monthly_amount": AUTO_MOTOR_PURCHASE_MONTHLY_DEDUCTION,
         "motor_purchase_installment_count": AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT,
-    }.items():
-        if optional_column not in df.columns:
-            df[optional_column] = default_value
+    })
     rest_opts = get_restaurant_options(conn)
     rest_opts_with_blank = {"-": None, **rest_opts}
-    active_count = int((df["status"] == "Aktif").sum()) if not df.empty else 0
     passive_count = int((df["status"] == "Pasif").sum()) if not df.empty else 0
-    courier_count = int((df["role"] == "Kurye").sum()) if not df.empty else 0
-    management_count = int(df["role"].isin(["Joker", *MANAGEMENT_ROLE_OPTIONS]).sum()) if not df.empty else 0
 
     render_management_hero(
         "PERSONEL YÖNETİMİ",
         "Kurye, yönetim ve operasyon kartları",
         "Filtrelenebilir personel listesi, daha belirgin sekmeler ve düzenli kart yapısı ile yeni personel ekleme ve düzenleme akışlarını sadeleştir.",
-        [
-            ("Toplam Personel", len(df)),
-            ("Aktif Personel", active_count),
-            ("Kurye", courier_count),
-            ("Joker + Yönetim", management_count),
-        ],
+        build_personnel_hero_stats(df, management_role_options=MANAGEMENT_ROLE_OPTIONS),
     )
     render_flash_message()
     create_success_message = str(st.session_state.get("personnel_create_success_message", "") or "").strip()
@@ -7048,16 +7028,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             recent_row = recent_match.iloc[0]
             render_record_snapshot(
                 "Son Eklenen Personel",
-                [
-                    ("Ad Soyad", recent_row["full_name"] or "-"),
-                    ("Kod", recent_row["person_code"] or "-"),
-                    ("Rol", recent_row["role"] or "-"),
-                    ("Durum", recent_row["status"] or "-"),
-                    ("Ana Restoran", recent_row["restoran"] or "-"),
-                    ("Motor Kirası", format_motor_rental_summary(recent_row)),
-                    ("Çat Kapında Motor Satışı", format_motor_purchase_summary(recent_row)),
-                    ("Acil Durum Kişisi", recent_row["emergency_contact_name"] or "-"),
-                ],
+                build_personnel_recent_snapshot_items(
+                    recent_row,
+                    motor_rental_summary_fn=format_motor_rental_summary,
+                    motor_purchase_summary_fn=format_motor_purchase_summary,
+                ),
             )
         else:
             st.session_state.pop("personnel_recently_created", None)
@@ -7124,10 +7099,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             st.info("Henüz personel kaydı yok.")
         else:
             preview_source = filtered_df if not filtered_df.empty else df
-            preview_labels = {
-                f"{row['full_name']} | {row['role']} | Kod: {row['person_code'] or '-'}": int(row["id"])
-                for _, row in preview_source.iterrows()
-            }
+            preview_labels = build_personnel_preview_options(preview_source)
             if recently_created_id > 0:
                 for label, person_id in preview_labels.items():
                     if person_id == recently_created_id:
@@ -7135,16 +7107,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                         break
             left, right = st.columns([2.35, 1])
             with left:
-                personnel_rows = [
-                    {
-                        "Personel": row["full_name"] or "-",
-                        "Rol": row["role"] or "-",
-                        "Ana Restoran": row["restoran"] or "-",
-                        "Motor": row["vehicle_type"] or "-",
-                        "Durum": row["status"] or "-",
-                    }
-                    for _, row in filtered_df.iterrows()
-                ]
+                personnel_rows = build_personnel_list_rows(filtered_df)
                 render_dashboard_data_grid(
                     "Personel Kartları",
                     "Personel kayıtlarını rol, restoran ve operasyon durumu ile birlikte daha temiz satırlarda takip et.",
@@ -7161,16 +7124,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 preview_row = df.loc[df["id"] == preview_id].iloc[0]
                 render_record_snapshot(
                     "Seçili Personel",
-                    [
-                        ("Kod", preview_row["person_code"] or "-"),
-                        ("Rol", preview_row["role"] or "-"),
-                        ("Durum", preview_row["status"] or "-"),
-                        ("Ana Restoran", preview_row["restoran"] or "-"),
-                        ("Plaka", preview_row["current_plate"] or "-"),
-                        ("Motor Kirası", format_motor_rental_summary(preview_row)),
-                        ("Çat Kapında Motor Satışı", format_motor_purchase_summary(preview_row)),
-                        ("Acil Durum Kişisi", preview_row["emergency_contact_name"] or "-"),
-                    ],
+                    build_personnel_preview_snapshot_items(
+                        preview_row,
+                        motor_rental_summary_fn=format_motor_rental_summary,
+                        motor_purchase_summary_fn=format_motor_purchase_summary,
+                    ),
                 )
                 st.info("Kartı düzenlemek, pasife almak veya görev bilgilerini değiştirmek için “Personel Düzenle” sekmesini kullan.")
 
@@ -7182,16 +7140,11 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                 recent_row = recent_match.iloc[0]
                 render_record_snapshot(
                     "Az Önce Oluşturulan Personel",
-                    [
-                        ("Ad Soyad", recent_row["full_name"] or "-"),
-                        ("Kod", recent_row["person_code"] or "-"),
-                        ("Rol", recent_row["role"] or "-"),
-                        ("Durum", recent_row["status"] or "-"),
-                        ("Ana Restoran", recent_row["restoran"] or "-"),
-                        ("Motor Kirası", format_motor_rental_summary(recent_row)),
-                        ("Çat Kapında Motor Satışı", format_motor_purchase_summary(recent_row)),
-                        ("Acil Durum Kişisi", recent_row["emergency_contact_name"] or "-"),
-                    ],
+                    build_personnel_recent_snapshot_items(
+                        recent_row,
+                        motor_rental_summary_fn=format_motor_rental_summary,
+                        motor_purchase_summary_fn=format_motor_purchase_summary,
+                    ),
                 )
 
         new_person_defaults = {
