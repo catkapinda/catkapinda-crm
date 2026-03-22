@@ -15,6 +15,7 @@ from repositories.personnel_repository import (
     update_personnel_record,
     update_personnel_status,
 )
+from services.audit_service import record_audit_event
 
 
 @dataclass
@@ -322,6 +323,19 @@ def create_person_with_onboarding(
         else ""
     )
     success_text = f"{values['full_name']} başarıyla eklendi. Kod: {auto_code}{equipment_summary}"
+    record_audit_event(
+        conn,
+        entity_type="personnel",
+        entity_id=created_person_id,
+        action_type="create",
+        summary=success_text,
+        details={
+            "full_name": values.get("full_name"),
+            "role": values.get("role"),
+            "assigned_restaurant_id": values.get("assigned_restaurant_id"),
+            "onboarding_item_count": len(onboarding_issue_payloads),
+        },
+    )
     return PersonnelCreateResult(
         created_person_id=created_person_id,
         auto_code=auto_code,
@@ -395,7 +409,22 @@ def update_person_and_sync(
     except Exception:
         conn.rollback()
         raise
-    return PersonnelUpdateResult(updated_person=updated_person, success_text="Personel kartı başarıyla güncellendi.")
+    success_text = "Personel kartı başarıyla güncellendi."
+    record_audit_event(
+        conn,
+        entity_type="personnel",
+        entity_id=person_id,
+        action_type="update",
+        summary=success_text,
+        details={
+            "full_name": person_values.get("full_name"),
+            "role": person_values.get("role"),
+            "status": person_values.get("status"),
+            "role_changed": role_changed,
+            "motor_mode_changed": motor_mode_changed,
+        },
+    )
+    return PersonnelUpdateResult(updated_person=updated_person, success_text=success_text)
 
 
 def toggle_person_status_and_sync(
@@ -415,9 +444,18 @@ def toggle_person_status_and_sync(
     except Exception:
         conn.rollback()
         raise
+    success_text = "Personel başarıyla pasife alındı." if new_status == "Pasif" else "Personel başarıyla aktifleştirildi."
+    record_audit_event(
+        conn,
+        entity_type="personnel",
+        entity_id=person_id,
+        action_type="status_change",
+        summary=success_text,
+        details={"new_status": new_status, "exit_date": exit_date},
+    )
     return PersonnelToggleResult(
         updated_person=updated_person,
-        success_text="Personel başarıyla pasife alındı." if new_status == "Pasif" else "Personel başarıyla aktifleştirildi.",
+        success_text=success_text,
     )
 
 
@@ -443,5 +481,23 @@ def delete_person_with_dependencies(
         if count
     ]
     if detail_parts:
-        return PersonnelDeleteResult(success_text="Personel ve bağlı kayıtlar kalıcı olarak silindi. " + " | ".join(detail_parts))
-    return PersonnelDeleteResult(success_text="Personel kaydı kalıcı olarak silindi.")
+        success_text = "Personel ve bağlı kayıtlar kalıcı olarak silindi. " + " | ".join(detail_parts)
+        record_audit_event(
+            conn,
+            entity_type="personnel",
+            entity_id=person_id,
+            action_type="delete",
+            summary=success_text,
+            details=dependency_counts,
+        )
+        return PersonnelDeleteResult(success_text=success_text)
+    success_text = "Personel kaydı kalıcı olarak silindi."
+    record_audit_event(
+        conn,
+        entity_type="personnel",
+        entity_id=person_id,
+        action_type="delete",
+        summary=success_text,
+        details=dependency_counts,
+    )
+    return PersonnelDeleteResult(success_text=success_text)
