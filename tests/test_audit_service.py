@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from services.audit_service import load_audit_workspace_payload, record_audit_event
+from services.permission_service import PermissionDeniedError
 
 
 class _DummyConn:
@@ -100,3 +101,7 @@ class AuditServiceTests(TestCase):
         self.assertIn("create", payload.action_options)
         self.assertIn("personnel", payload.entity_options)
         self.assertIn("Ebru Aslan", payload.actor_options)
+
+    def test_load_audit_workspace_payload_rejects_sef_role(self) -> None:
+        with self.assertRaises(PermissionDeniedError):
+            load_audit_workspace_payload(object(), actor_role="sef")
