@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from datetime import date
 from typing import Any, Callable
 
@@ -110,6 +109,8 @@ def render_personnel_add_workspace(
     is_fixed_cost_model_fn: Callable[[str], bool],
     get_role_fixed_cost_label_fn: Callable[..., str],
     next_person_code_fn: Callable[..., str],
+    build_new_person_form_defaults_fn: Callable[..., dict[str, Any]],
+    prepare_new_person_form_state_fn: Callable[..., None],
     clear_new_person_onboarding_state_fn: Callable[[], None],
     initialize_onboarding_equipment_state_fn: Callable[[Any, str, date | None], None],
     onboarding_equipment_state_key_fn: Callable[[str, str], str],
@@ -145,44 +146,16 @@ def render_personnel_add_workspace(
                 ),
             )
 
-    new_person_defaults = {
-        "new_person_full_name": "",
-        "new_person_role": personnel_role_options[0],
-        "new_person_phone": "",
-        "new_person_assigned_label": "-",
-        "new_person_tc_no": "",
-        "new_person_iban": "",
-        "new_person_address": "",
-        "new_person_emergency_contact_name": "",
-        "new_person_emergency_contact_phone": "",
-        "new_person_accounting_type": "Kendi Muhasebecisi",
-        "new_person_new_company_setup": "Hayır",
-        "new_person_start_date": date.today(),
-        "new_person_vehicle_type": "Çat Kapında",
-        "new_person_motor_usage_mode": "Çat Kapında Motor Kirası",
-        "new_person_motor_rental_monthly_amount": auto_motor_rental_deduction,
-        "new_person_motor_purchase": "Hayır",
-        "new_person_motor_purchase_start_date": date.today(),
-        "new_person_motor_purchase_commitment_months": 12,
-        "new_person_motor_purchase_sale_price": auto_motor_purchase_monthly_deduction,
-        "new_person_accounting_revenue": 0.0,
-        "new_person_accountant_cost": 0.0,
-        "new_person_company_setup_revenue": 0.0,
-        "new_person_company_setup_cost": 0.0,
-        "new_person_monthly_fixed_cost": 0.0,
-        "new_person_current_plate": "",
-        "new_person_notes": "",
-        "new_person_onboarding_items": [],
-    }
-    if st.session_state.pop("personnel_form_reset_pending", False):
-        clear_new_person_onboarding_state_fn()
-        for key, value in new_person_defaults.items():
-            st.session_state[key] = value
-    for key, value in new_person_defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
-    if st.session_state.get("new_person_accounting_type") not in ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"]:
-        st.session_state["new_person_accounting_type"] = "Kendi Muhasebecisi"
+    new_person_defaults = build_new_person_form_defaults_fn(
+        default_role=personnel_role_options[0],
+        auto_motor_rental_deduction=auto_motor_rental_deduction,
+        auto_motor_purchase_monthly_deduction=auto_motor_purchase_monthly_deduction,
+    )
+    prepare_new_person_form_state_fn(
+        st.session_state,
+        defaults=new_person_defaults,
+        clear_new_person_onboarding_state_fn=clear_new_person_onboarding_state_fn,
+    )
 
     st.markdown("##### Kimlik ve Görev")
     selected_cost_model = resolve_cost_role_option_fn("", st.session_state.get("new_person_role", personnel_role_options[0]))
@@ -575,6 +548,7 @@ def render_personnel_edit_workspace(
     parse_date_value_fn: Callable[[Any], date | None],
     resolve_vehicle_type_value_fn: Callable[[str, str], str],
     resolve_motor_usage_mode_fn: Callable[[str, str, str], str],
+    build_personnel_edit_selection_payload_fn: Callable[..., Any],
     initialize_edit_person_transition_state_fn: Callable[[int, str, float, date | None], None],
     role_requires_primary_restaurant_fn: Callable[[str], bool],
     format_motor_rental_summary_fn: Callable[[Any], str],
@@ -586,8 +560,7 @@ def render_personnel_edit_workspace(
     resolve_effective_role_from_transition_fn: Callable[[str, bool, str], tuple[str, bool]],
     is_fixed_cost_model_fn: Callable[[str], bool],
     get_role_fixed_cost_label_fn: Callable[..., str],
-    next_person_code_fn: Callable[..., str],
-    role_code_prefix_fn: Callable[[str], str],
+    build_personnel_code_display_values_fn: Callable[..., tuple[str, str]],
     build_motor_usage_payload_fn: Callable[..., dict[str, Any]],
     render_vehicle_transition_caption_fn: Callable[[], None],
     render_motor_purchase_proration_caption_fn: Callable[[], None],
@@ -632,35 +605,40 @@ def render_personnel_edit_workspace(
         for _, row in df.iterrows()
     }
     selected_label = st.selectbox("Düzenlenecek Personel", list(person_labels.keys()), key="edit_person_select")
-    selected_id = person_labels[selected_label]
-    row = df.loc[df["id"] == selected_id].iloc[0]
-    row_role_value = str(row["role"] or "Kurye")
-    row_status_value = str(row["status"] or "Aktif")
-    row_accounting_value = str(row["accounting_type"] or "Kendi Muhasebecisi")
-    row_new_company_value = str(row["new_company_setup"] or "Hayır")
-    row_vehicle_value = resolve_vehicle_type_value_fn(row["vehicle_type"] or "", row["motor_rental"] or "Hayır")
-    row_motor_purchase_value = str(row["motor_purchase"] or "Hayır") if pd.notna(row["motor_purchase"]) else "Hayır"
-    row_motor_usage_mode = resolve_motor_usage_mode_fn(row_vehicle_value, row_motor_purchase_value, row["motor_rental"] or "Hayır")
-    start_val = parse_date_value_fn(row["start_date"])
-    edit_form_signature = (
-        selected_id,
-        row_role_value,
-        row_status_value,
-        row_accounting_value,
-        row_new_company_value,
-        row_motor_usage_mode,
+    edit_selection = build_personnel_edit_selection_payload_fn(
+        df,
+        selected_label=selected_label,
+        personnel_role_options=personnel_role_options,
+        motor_usage_mode_options=motor_usage_mode_options,
+        rest_opts=rest_opts,
+        parse_date_value_fn=parse_date_value_fn,
+        resolve_vehicle_type_value_fn=resolve_vehicle_type_value_fn,
+        resolve_motor_usage_mode_fn=resolve_motor_usage_mode_fn,
     )
+    person_labels = edit_selection.person_labels
+    selected_id = edit_selection.selected_id
+    row = edit_selection.row
+    row_role_value = edit_selection.row_role_value
+    row_status_value = edit_selection.row_status_value
+    row_accounting_value = edit_selection.row_accounting_value
+    row_new_company_value = edit_selection.row_new_company_value
+    row_vehicle_value = edit_selection.row_vehicle_value
+    row_motor_purchase_value = edit_selection.row_motor_purchase_value
+    row_motor_usage_mode = edit_selection.row_motor_usage_mode
+    start_val = edit_selection.start_date_value
+    assigned_value = edit_selection.assigned_value
+    edit_form_signature = edit_selection.edit_form_signature
     if st.session_state.get("_edit_person_form_signature") != edit_form_signature:
-        st.session_state[f"edit_person_role_{selected_id}"] = row_role_value if row_role_value in personnel_role_options else "Kurye"
-        st.session_state[f"edit_person_status_{selected_id}"] = row_status_value if row_status_value in ["Aktif", "Pasif"] else "Aktif"
+        st.session_state[f"edit_person_role_{selected_id}"] = row_role_value
+        st.session_state[f"edit_person_status_{selected_id}"] = row_status_value
         st.session_state[f"edit_person_accounting_{selected_id}"] = (
-            row_accounting_value if row_accounting_value in ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"] else "Kendi Muhasebecisi"
+            row_accounting_value
         )
         st.session_state[f"edit_person_new_company_{selected_id}"] = (
-            row_new_company_value if row_new_company_value in ["Hayır", "Evet"] else "Hayır"
+            row_new_company_value
         )
         st.session_state[f"edit_person_motor_usage_mode_{selected_id}"] = (
-            row_motor_usage_mode if row_motor_usage_mode in motor_usage_mode_options else "Kendi Motoru"
+            row_motor_usage_mode
         )
         initialize_edit_person_transition_state_fn(
             selected_id,
@@ -680,7 +658,6 @@ def render_personnel_edit_workspace(
         """,
         (selected_id,),
     )
-    assigned_value = row["restoran"] if pd.notna(row["restoran"]) and row["restoran"] in rest_opts else "-"
     status_options = ["Aktif", "Pasif"]
     role_options = personnel_role_options
 
@@ -775,13 +752,13 @@ def render_personnel_edit_workspace(
                     key=f"edit_person_role_display_{selected_id}",
                     label_visibility="collapsed",
                 )
-            suggested_code = next_person_code_fn(conn, effective_role, exclude_id=selected_id)
-            new_prefix = role_code_prefix_fn(effective_role)
-            existing_num = ""
-            match = re.search(rf"^CK-{re.escape(new_prefix)}(\d+)$", row["person_code"] or "")
-            if match:
-                existing_num = match.group(1)
-            code_default = row["person_code"] if row["role"] == effective_role and row["person_code"] else f"CK-{new_prefix}{existing_num or suggested_code.split(new_prefix)[1]}"
+            suggested_code, code_default = build_personnel_code_display_values_fn(
+                conn,
+                current_person_code=row["person_code"],
+                original_role=row_role_value,
+                effective_role=effective_role,
+                exclude_id=selected_id,
+            )
             with c2:
                 render_field_label_fn("Personel Kodu")
                 edit_code = st.text_input("Personel Kodu", value=code_default or suggested_code, label_visibility="collapsed")
