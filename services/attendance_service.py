@@ -12,6 +12,7 @@ from repositories.attendance_repository import (
     update_daily_entry,
 )
 from services.audit_service import record_audit_event
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -76,7 +77,9 @@ def create_daily_entry_and_sync(
     entry_values: dict[str, Any],
     affected_person_id: int | None,
     sync_personnel_business_rules_for_ids_fn: Callable[..., None],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "attendance.create")
     try:
         insert_daily_entry(conn, entry_values)
         conn.commit()
@@ -110,7 +113,9 @@ def update_daily_entry_and_sync(
     previous_actual_id: int,
     actual_id: int | None,
     sync_personnel_business_rules_for_ids_fn: Callable[..., None],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "attendance.update")
     try:
         update_daily_entry(conn, entry_id, entry_values)
         conn.commit()
@@ -142,7 +147,9 @@ def delete_daily_entry_and_sync(
     entry_id: int,
     deleted_actual_id: int,
     sync_personnel_business_rules_for_ids_fn: Callable[..., None],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "attendance.delete")
     try:
         delete_daily_entry(conn, entry_id)
         conn.commit()
@@ -223,7 +230,9 @@ def save_bulk_entries_and_sync(
     username: str,
     normalize_entry_status_fn: Callable[[str], str],
     sync_personnel_business_rules_for_ids_fn: Callable[..., None],
+    actor_role: str = "admin",
 ) -> int:
+    require_action_access(actor_role, "attendance.bulk_create")
     inserted = 0
     affected_person_ids: list[int] = []
     try:
