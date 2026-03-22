@@ -5,6 +5,7 @@ from typing import Any
 
 from infrastructure.audit_engine import build_audit_actor_payload, serialize_audit_details, utc_now_iso
 from repositories.audit_repository import fetch_audit_log_df, insert_audit_log_record
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -56,12 +57,14 @@ def record_audit_event(
 def load_audit_workspace_payload(
     conn,
     *,
+    actor_role: str = "admin",
     search_query: str = "",
     action_filter: str = "Tümü",
     entity_filter: str = "Tümü",
     actor_filter: str = "Tümü",
     limit: int = 500,
 ) -> AuditWorkspacePayload:
+    require_action_access(actor_role, "audit.view")
     raw_df = fetch_audit_log_df(conn, limit=limit)
     if raw_df.empty:
         return AuditWorkspacePayload(
