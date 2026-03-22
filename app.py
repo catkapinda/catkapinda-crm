@@ -147,6 +147,7 @@ from infrastructure.auth_engine import (
     sync_default_auth_users,
     verify_auth_password,
 )
+from infrastructure.audit_engine import build_audit_actor_payload
 from ui.backup_sections import (
     configure_backup_sections,
     render_backup_tools_content,
@@ -186,6 +187,7 @@ from services.reporting_service import (
     build_reports_workspace_payload,
     load_reporting_entries_and_month_options,
 )
+from services.audit_service import load_audit_workspace_payload
 from services.attendance_service import (
     build_bulk_attendance_context,
     build_bulk_rows_from_parsed,
@@ -361,6 +363,7 @@ MENU_DISPLAY_LABELS = {
     "Kesinti Yönetimi": "Kesinti Yönetimi",
     "Aylık Hakediş": "Aylık Hakediş",
     "Raporlar ve Karlılık": "Raporlar ve Karlılık",
+    "Sistem Kayıtları": "Sistem Kayıtları",
     "Güncellemeler ve Duyurular": "Güncellemeler ve Duyurular",
 }
 MENU_SECTIONS = [
@@ -368,7 +371,7 @@ MENU_SECTIONS = [
     ("Operasyon", ["Puantaj", "Kesinti Yönetimi"]),
     ("Kayıtlar", ["Restoran Yönetimi", "Personel Yönetimi", "Satın Alma"]),
     ("Finans", ["Aylık Hakediş", "Raporlar ve Karlılık"]),
-    ("Kurumsal", ["Güncellemeler ve Duyurular"]),
+    ("Kurumsal", ["Sistem Kayıtları", "Güncellemeler ve Duyurular"]),
 ]
 FIXED_COST_MODEL_BY_ROLE = {
     "Kurye": "fixed_kurye",
@@ -426,6 +429,7 @@ TABLE_EXPORT_ORDER = [
     "box_returns",
     "auth_users",
     "auth_sessions",
+    "audit_logs",
 ]
 
 
@@ -1648,6 +1652,7 @@ def allowed_menu_items(role: str) -> list[str]:
             "Kesinti Yönetimi",
             "Aylık Hakediş",
             "Raporlar ve Karlılık",
+            "Sistem Kayıtları",
             "Güncellemeler ve Duyurular",
         ]
     if role == "sef":
@@ -6251,6 +6256,68 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         )
 
 
+def audit_trail_tab(conn: sqlite3.Connection) -> None:
+    section_intro(
+        "🧾 Sistem Kayıtları | Kritik create, update, delete ve toplu işlemler",
+        "Kim, hangi kaydı, ne zaman değiştirdi sorusunu tek yerde cevaplayan audit trail görünümü.",
+    )
+    current_actor = build_audit_actor_payload()
+    search_query = st.text_input("Ara", placeholder="Özet, detay veya kayıt ID ara", key="audit_search")
+
+    base_payload = load_audit_workspace_payload(conn, search_query=search_query)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        action_filter = st.selectbox("Aksiyon", base_payload.action_options, key="audit_action_filter")
+    with c2:
+        entity_filter = st.selectbox("Kayıt Türü", base_payload.entity_options, key="audit_entity_filter")
+    with c3:
+        actor_filter = st.selectbox("Kullanıcı", base_payload.actor_options, key="audit_actor_filter")
+
+    payload = load_audit_workspace_payload(
+        conn,
+        search_query=search_query,
+        action_filter=action_filter,
+        entity_filter=entity_filter,
+        actor_filter=actor_filter,
+    )
+
+    st.caption(
+        f"Oturum: {current_actor['actor_full_name']} | Son {len(payload.raw_df)} kayıt içinden {len(payload.filtered_df)} kayıt gösteriliyor."
+    )
+    if payload.filtered_df.empty:
+        st.info("Filtreye uyan sistem kaydı bulunmuyor.")
+        return
+
+    display_df = format_display_df(
+        payload.filtered_df,
+        rename_map={
+            "created_at": "Zaman",
+            "actor_full_name": "Kullanıcı",
+            "actor_role": "Rol",
+            "entity_type": "Kayıt Türü",
+            "entity_id": "Kayıt ID",
+            "action_type": "Aksiyon",
+            "summary": "Özet",
+            "details_json": "Detay",
+        },
+    )
+    columns = ["Zaman", "Kullanıcı", "Rol", "Kayıt Türü", "Kayıt ID", "Aksiyon", "Özet"]
+    render_dashboard_data_grid(
+        "Audit Trail",
+        "Kritik servis işlemleri burada sistem kaydı olarak tutulur.",
+        columns,
+        build_grid_rows(display_df[columns], columns),
+        "Gösterilecek audit kaydı yok.",
+        muted_columns={"Rol", "Kayıt Türü"},
+    )
+    with st.expander("Ham Detaylar"):
+        st.dataframe(
+            display_df[["Zaman", "Kullanıcı", "Aksiyon", "Kayıt Türü", "Kayıt ID", "Özet", "Detay"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
 def main() -> None:
     st.set_page_config(page_title=APP_PAGE_TITLE, page_icon=APP_PAGE_ICON, layout="wide", initial_sidebar_state="expanded")
     inject_global_styles()
@@ -6303,6 +6370,8 @@ def main() -> None:
         with content_placeholder.container():
             if menu == "Genel Bakış":
                 dashboard_tab(conn)
+            elif menu == "Sistem Kayıtları":
+                audit_trail_tab(conn)
             elif menu == "Güncellemeler ve Duyurular":
                 announcements_tab()
             elif menu == "Restoran Yönetimi":
