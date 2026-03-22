@@ -27,6 +27,13 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
+from analytics_builders import (
+    build_dashboard_brand_summary,
+    build_dashboard_priority_alerts,
+    build_dashboard_profit_snapshots,
+    build_side_income_summary_df,
+    split_equipment_profit_categories,
+)
 from personnel_rules import (
     configure_personnel_rules,
     get_role_fixed_cost_label,
@@ -6069,86 +6076,20 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
         ],
     )
 
-    top_profit_items = [
-        (row["restoran"], fmt_try(row["brut_fark"]))
-        for _, row in profit_df.head(5).iterrows()
-    ] if not profit_df.empty else [("-", "Henüz veri yok")]
-    risk_items = [
-        (row["restoran"], fmt_try(row["brut_fark"]))
-        for _, row in profit_df.sort_values("brut_fark", ascending=True).head(5).iterrows()
-    ] if not profit_df.empty else [("-", "Henüz veri yok")]
-
-    priority_alerts = []
-    for _, row in missing_attendance_df.head(3).iterrows():
-        priority_alerts.append(
-            {
-                "tone": "critical",
-                "badge": "Bugün",
-                "title": f"{row['brand']} - {row['branch']}",
-                "detail": "Günlük puantaj kaydı henüz açılmadı. Gün sonu kapanışını geciktirebilir.",
-            }
-        )
-    for _, row in under_target_df.head(3).iterrows():
-        open_headcount = safe_int(row["acik_kadro"], 0)
-        priority_alerts.append(
-            {
-                "tone": "critical" if open_headcount >= 2 else "warning",
-                "badge": "Kadro",
-                "title": f"{row['brand']} - {row['branch']}",
-                "detail": f"Hedef kadroya göre {open_headcount} kişilik açık görünüyor.",
-            }
-        )
-    if not profit_df.empty:
-        negative_profit_df = profit_df[profit_df["brut_fark"] < 0].sort_values("brut_fark", ascending=True).head(3)
-        for _, row in negative_profit_df.iterrows():
-            priority_alerts.append(
-                {
-                    "tone": "warning",
-                    "badge": "Finans",
-                    "title": str(row["restoran"] or "-"),
-                    "detail": f"Bu ay operasyon farkı {fmt_try(row['brut_fark'])} seviyesinde.",
-                }
-            )
-    brand_summary_df = pd.DataFrame()
-    if not month_entries.empty:
-        restaurant_brand_df = month_entries[["brand", "branch"]].drop_duplicates().copy()
-        restaurant_brand_df["restoran"] = restaurant_brand_df["brand"] + " - " + restaurant_brand_df["branch"]
-        brand_ops_df = (
-            month_entries.groupby("brand", dropna=False)
-            .agg(
-                restoran_sayisi=("restaurant_id", "nunique"),
-                paket=("package_count", "sum"),
-                saat=("worked_hours", "sum"),
-            )
-            .reset_index()
-        )
-        brand_revenue_df = (
-            invoice_df.merge(restaurant_brand_df[["restoran", "brand"]], how="left", on="restoran")
-            .groupby("brand", dropna=False)
-            .agg(toplam_fatura=("kdv_dahil", "sum"))
-            .reset_index()
-        ) if not invoice_df.empty else pd.DataFrame(columns=["brand", "toplam_fatura"])
-        brand_profit_agg_df = (
-            profit_df.merge(restaurant_brand_df[["restoran", "brand"]], how="left", on="restoran")
-            .groupby("brand", dropna=False)
-            .agg(
-                operasyon_farki=("brut_fark", "sum"),
-                ortalama_marj=("kar_marji_%", "mean"),
-            )
-            .reset_index()
-        ) if not profit_df.empty else pd.DataFrame(columns=["brand", "operasyon_farki", "ortalama_marj"])
-        brand_summary_df = (
-            brand_ops_df.merge(brand_revenue_df, how="left", on="brand")
-            .merge(brand_profit_agg_df, how="left", on="brand")
-            .fillna({"toplam_fatura": 0, "operasyon_farki": 0, "ortalama_marj": 0})
-        )
-        brand_summary_df["durum"] = brand_summary_df.apply(
-            lambda row: "Kritik"
-            if safe_float(row["operasyon_farki"], 0.0) < 0
-            else ("İzleme" if safe_float(row["ortalama_marj"], 0.0) < 8 else "Sağlam"),
-            axis=1,
-        )
-        brand_summary_df = brand_summary_df.sort_values(["operasyon_farki", "paket"], ascending=[False, False]).reset_index(drop=True)
+    top_profit_items, risk_items = build_dashboard_profit_snapshots(profit_df, fmt_try_fn=fmt_try)
+    priority_alerts = build_dashboard_priority_alerts(
+        missing_attendance_df,
+        under_target_df,
+        profit_df,
+        safe_int_fn=safe_int,
+        fmt_try_fn=fmt_try,
+    )
+    brand_summary_df = build_dashboard_brand_summary(
+        month_entries,
+        invoice_df,
+        profit_df,
+        safe_float_fn=safe_float,
+    )
 
     c_top_1, c_top_2 = st.columns([1.2, 1])
     with c_top_1:
@@ -10279,13 +10220,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
     accountant_cost_total = float(personnel_df.loc[personnel_df["id"].isin(accounting_person_ids), "accountant_cost"].fillna(0).sum()) if accounting_person_ids and "accountant_cost" in personnel_df.columns else 0.0
     setup_cost = float(personnel_df.loc[personnel_df["id"].isin(setup_person_ids), "company_setup_cost"].fillna(0).sum()) if setup_person_ids and "company_setup_cost" in personnel_df.columns else 0.0
 
-    motor_rental_profit_df = equipment_profit_df[equipment_profit_df["item_name"] == "Motor Kirası"].copy() if not equipment_profit_df.empty else pd.DataFrame()
-    motor_sale_profit_df = equipment_profit_df[equipment_profit_df["item_name"] == "Motor Satın Alım"].copy() if not equipment_profit_df.empty else pd.DataFrame()
-    equipment_only_profit_df = (
-        equipment_profit_df[~equipment_profit_df["item_name"].isin(["Motor Kirası", "Motor Satın Alım"])].copy()
-        if not equipment_profit_df.empty
-        else pd.DataFrame()
-    )
+    motor_rental_profit_df, motor_sale_profit_df, equipment_only_profit_df = split_equipment_profit_categories(equipment_profit_df)
     motor_rental_rev = float(motor_rental_profit_df["total_sale"].sum()) if not motor_rental_profit_df.empty else 0.0
     motor_rental_cost = float(motor_rental_profit_df["total_cost"].sum()) if not motor_rental_profit_df.empty else 0.0
     motor_sale_rev = float(motor_sale_profit_df["total_sale"].sum()) if not motor_sale_profit_df.empty else 0.0
@@ -10579,14 +10514,17 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 )
 
     with tab6:
-        side_df = pd.DataFrame(
-            [
-                {"kalem": "Muhasebe Hizmeti", "gelir": accounting_rev, "maliyet": accountant_cost_total, "net_kar": accounting_rev - accountant_cost_total},
-                {"kalem": "Şirket Açılışı", "gelir": setup_rev, "maliyet": setup_cost, "net_kar": setup_rev - setup_cost},
-                {"kalem": "Motor Kirası", "gelir": motor_rental_rev, "maliyet": motor_rental_cost, "net_kar": motor_rental_rev - motor_rental_cost},
-                {"kalem": "Motor Satışı", "gelir": motor_sale_rev, "maliyet": motor_sale_cost, "net_kar": motor_sale_rev - motor_sale_cost},
-                {"kalem": "Ekipman Satışları", "gelir": equipment_rev, "maliyet": equipment_cost, "net_kar": equipment_rev - equipment_cost},
-            ]
+        side_df = build_side_income_summary_df(
+            accounting_rev=accounting_rev,
+            accountant_cost_total=accountant_cost_total,
+            setup_rev=setup_rev,
+            setup_cost=setup_cost,
+            motor_rental_rev=motor_rental_rev,
+            motor_rental_cost=motor_rental_cost,
+            motor_sale_rev=motor_sale_rev,
+            motor_sale_cost=motor_sale_cost,
+            equipment_rev=equipment_rev,
+            equipment_cost=equipment_cost,
         )
         s1, s2, s3 = st.columns(3)
         s1.metric("Toplam Yan Gelir", fmt_try(float(side_df["gelir"].sum())))
