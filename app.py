@@ -187,10 +187,13 @@ from services.reporting_service import (
     load_reporting_entries_and_month_options,
 )
 from services.attendance_service import (
+    build_bulk_attendance_context,
+    build_bulk_rows_from_parsed,
     build_daily_entry_selection_payload,
     create_daily_entry_and_sync,
     delete_daily_entry_and_sync,
     load_daily_entry_workspace_payload,
+    save_bulk_entries_and_sync,
     update_daily_entry_and_sync,
 )
 from services.personnel_service import (
@@ -5313,62 +5316,29 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
     include_all_active = c3.checkbox("Tüm aktif personeli göster", value=False, key="bulk_all_people")
     restaurant_id = restaurant_opts[restaurant_label]
 
-    people_rows = conn.execute(
-        """
-        SELECT id, full_name, role
-        FROM personnel
-        WHERE status='Aktif'
-          AND (? = 1 OR assigned_restaurant_id = ? OR role IN ('Joker', 'Bölge Müdürü', 'Saha Denetmen Şefi', 'Restoran Takım Şefi'))
-        ORDER BY
-            CASE
-                WHEN role='Restoran Takım Şefi' THEN 1
-                WHEN role='Saha Denetmen Şefi' THEN 2
-                WHEN role='Bölge Müdürü' THEN 3
-                WHEN role='Joker' THEN 4
-                ELSE 5
-            END,
-            full_name
-        """,
-        (1 if include_all_active else 0, restaurant_id),
-    ).fetchall()
-
-    person_label_map = {f"{r['full_name']} ({r['role']})": r["id"] for r in people_rows}
-    name_to_label = {r["full_name"].strip().lower(): f"{r['full_name']} ({r['role']})" for r in people_rows}
-
     if "bulk_editor_rows" not in st.session_state:
         st.session_state.bulk_editor_rows = None
 
-    if st.session_state.bulk_editor_rows:
-        default_rows = st.session_state.bulk_editor_rows
-    else:
-        default_rows = [
-            {
-                "Personel": label,
-                "Saat": 0.0,
-                "Paket": 0,
-                "Durum": "Normal",
-                "Not": "",
-            }
-            for label in person_label_map.keys()
-        ]
+    bulk_context = build_bulk_attendance_context(
+        conn,
+        restaurant_id=restaurant_id,
+        include_all_active=include_all_active,
+        session_rows=st.session_state.bulk_editor_rows,
+    )
+    person_label_map = bulk_context.person_label_map
+    name_to_label = bulk_context.name_to_label
+    default_rows = bulk_context.default_rows
 
     with st.expander("WhatsApp metninden tablo oluştur", expanded=False):
         st.caption("Örnek satır formatı: Ali Yılmaz - 10 saat - 38 paket - Normal")
         raw_text = st.text_area("Mesajı yapıştır", height=160, key="bulk_whatsapp_text")
         if st.button("Metni tabloya aktar", key="bulk_parse_btn", use_container_width=True):
             parsed = parse_whatsapp_bulk(raw_text)
-            rows = []
-            for row in parsed:
-                guess = name_to_label.get(str(row["person_label"]).strip().lower())
-                rows.append(
-                    {
-                        "Personel": guess or row["person_label"],
-                        "Saat": float(row["worked_hours"] or 0),
-                        "Paket": int(row["package_count"] or 0),
-                        "Durum": normalize_entry_status(row["entry_status"] or "Normal"),
-                        "Not": row.get("notes", ""),
-                    }
-                )
+            rows = build_bulk_rows_from_parsed(
+                parsed,
+                name_to_label=name_to_label,
+                normalize_entry_status_fn=normalize_entry_status,
+            )
             if rows:
                 st.session_state.bulk_editor_rows = rows
                 st.success(f"{len(rows)} satır tabloya aktarıldı. Kaydetmeden önce düzenleyebilirsin.")
@@ -5395,45 +5365,23 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
 
     csave, cclear = st.columns([1, 1])
     if csave.button("Tümünü Kaydet", key="bulk_save_btn", use_container_width=True):
-        inserted = 0
-        affected_person_ids = []
-        for _, row in edited_df.iterrows():
-            person_label = str(row.get("Personel", "")).strip()
-            if not person_label or person_label not in person_label_map:
-                continue
-            hours = float(row.get("Saat") or 0)
-            packages = int(row.get("Paket") or 0)
-            status = normalize_entry_status(str(row.get("Durum") or "Normal").strip())
-            notes = str(row.get("Not") or "").strip()
-            if hours == 0 and packages == 0 and status == "Normal":
-                continue
-            person_id = person_label_map[person_label]
-            note_parts = [part for part in [notes, "Kaynak: Toplu Puantaj", f"Kaydeden: {st.session_state.get('username', 'sistem')}"] if part]
-            conn.execute(
-                """
-                INSERT INTO daily_entries (
-                    entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
-                    status, worked_hours, package_count, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    selected_date.isoformat(),
-                    restaurant_id,
-                    person_id,
-                    person_id,
-                    status,
-                    hours,
-                    packages,
-                    " | ".join(note_parts),
-                ),
+        try:
+            inserted = save_bulk_entries_and_sync(
+                conn,
+                edited_df=edited_df,
+                selected_date_iso=selected_date.isoformat(),
+                restaurant_id=restaurant_id,
+                person_label_map=person_label_map,
+                username=str(st.session_state.get("username", "sistem")),
+                normalize_entry_status_fn=normalize_entry_status,
+                sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
             )
-            inserted += 1
-            affected_person_ids.append(person_id)
-        conn.commit()
-        sync_personnel_business_rules_for_ids(conn, affected_person_ids, create_onboarding=False, full_history=True)
-        st.session_state.bulk_editor_rows = None
-        st.success(f"{inserted} satır kaydedildi.")
-        st.rerun()
+        except Exception as exc:
+            st.error(f"Toplu puantaj kaydedilemedi: {exc}")
+        else:
+            st.session_state.bulk_editor_rows = None
+            st.success(f"{inserted} satır kaydedildi.")
+            st.rerun()
 
     if cclear.button("Tabloyu Sıfırla", key="bulk_clear_btn", use_container_width=True):
         st.session_state.bulk_editor_rows = None
