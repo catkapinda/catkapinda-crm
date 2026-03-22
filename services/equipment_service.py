@@ -13,6 +13,7 @@ from repositories.equipment_repository import (
 )
 from repositories.personnel_repository import fetch_person_options_map
 from services.audit_service import record_audit_event
+from services.permission_service import require_action_access
 
 
 @dataclass
@@ -43,7 +44,9 @@ def create_equipment_issue_and_commit(
     insert_equipment_issue_and_get_id_fn: Callable[..., int],
     post_equipment_installments_fn: Callable[..., None],
     fmt_try_fn: Callable[[Any], str],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "equipment.create")
     try:
         issue_id = insert_equipment_issue_and_get_id_fn(
             conn,
@@ -104,7 +107,9 @@ def bulk_update_equipment_issues_and_commit(
     issue_ids: list[int],
     bulk_update_equipment_issue_records_fn: Callable[..., int],
     update_values: dict[str, Any],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "equipment.bulk_update")
     try:
         updated_count = bulk_update_equipment_issue_records_fn(
             conn,
@@ -136,7 +141,9 @@ def delete_equipment_issues_and_commit(
     *,
     issue_ids: list[int],
     delete_equipment_issue_records_fn: Callable[[Any, list[int]], int],
+    actor_role: str = "admin",
 ) -> str:
+    require_action_access(actor_role, "equipment.bulk_delete")
     try:
         deleted_count = delete_equipment_issue_records_fn(conn, issue_ids)
     except Exception:
@@ -153,7 +160,8 @@ def delete_equipment_issues_and_commit(
     return success_text
 
 
-def create_box_return_and_commit(conn, *, box_return_values: dict[str, Any]) -> str:
+def create_box_return_and_commit(conn, *, box_return_values: dict[str, Any], actor_role: str = "admin") -> str:
+    require_action_access(actor_role, "equipment.box_return")
     try:
         insert_box_return_record(conn, box_return_values)
         conn.commit()
