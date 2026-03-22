@@ -8,7 +8,12 @@ from typing import Any, Callable, MutableMapping
 from repositories.personnel_repository import (
     fetch_active_restaurant_options,
     fetch_person_code_values,
+    fetch_personnel_by_code,
+    fetch_personnel_by_id,
     fetch_personnel_management_df,
+    insert_personnel_record,
+    update_personnel_record,
+    update_personnel_status,
 )
 
 
@@ -36,6 +41,30 @@ class PersonnelEditSelectionPayload:
     start_date_value: date | None
     assigned_value: str
     edit_form_signature: tuple[Any, ...]
+
+
+@dataclass
+class PersonnelCreateResult:
+    created_person_id: int
+    auto_code: str
+    success_text: str
+
+
+@dataclass
+class PersonnelUpdateResult:
+    updated_person: Any
+    success_text: str
+
+
+@dataclass
+class PersonnelToggleResult:
+    updated_person: Any
+    success_text: str
+
+
+@dataclass
+class PersonnelDeleteResult:
+    success_text: str
 
 
 def role_code_prefix(role: str) -> str:
@@ -227,3 +256,192 @@ def load_personnel_workspace_payload(
         passive_count=passive_count,
         recently_created_id=recently_created_id,
     )
+
+
+def create_person_with_onboarding(
+    conn,
+    *,
+    role: str,
+    person_values: dict[str, Any],
+    onboarding_issue_payloads: list[dict[str, Any]],
+    safe_int_fn: Callable[[Any, int], int],
+    safe_float_fn: Callable[[Any, float], float],
+    insert_equipment_issue_and_get_id_fn: Callable[..., int],
+    post_equipment_installments_fn: Callable[..., None],
+    sync_person_current_role_snapshot_fn: Callable[[Any, Any], None],
+    sync_person_business_rules_fn: Callable[[Any, Any], None],
+) -> PersonnelCreateResult:
+    auto_code = build_next_person_code(conn, role)
+    values = {**person_values, "person_code": auto_code, "status": "Aktif"}
+    try:
+        insert_personnel_record(conn, values)
+        conn.commit()
+        created_person = fetch_personnel_by_code(conn, auto_code)
+        if not created_person:
+            raise RuntimeError("Personel kaydı oluşturuldu ancak kayıt tekrar okunamadı.")
+        created_person_id = safe_int_fn(created_person["id"], 0)
+        for payload in onboarding_issue_payloads:
+            issue_date_value = payload["issue_date"]
+            quantity_value = safe_int_fn(payload["quantity"], 1)
+            sale_price_value = safe_float_fn(payload["unit_sale_price"], 0.0)
+            installment_count_value = safe_int_fn(payload["installment_count"], 1)
+            vat_rate_value = safe_float_fn(payload["vat_rate"], 10.0)
+            issue_id = insert_equipment_issue_and_get_id_fn(
+                conn,
+                created_person_id,
+                issue_date_value.isoformat(),
+                str(payload["item_name"] or ""),
+                quantity_value,
+                safe_float_fn(payload["unit_cost"], 0.0),
+                sale_price_value,
+                installment_count_value,
+                "Satış",
+                str(payload.get("notes", "") or ""),
+                vat_rate=vat_rate_value,
+            )
+            post_equipment_installments_fn(
+                conn,
+                issue_id,
+                created_person_id,
+                issue_date_value,
+                str(payload["item_name"] or ""),
+                float(quantity_value) * float(sale_price_value),
+                installment_count_value,
+                "Satış",
+            )
+        sync_person_current_role_snapshot_fn(conn, created_person)
+        conn.commit()
+        sync_person_business_rules_fn(conn, created_person)
+    except Exception:
+        conn.rollback()
+        raise
+
+    equipment_summary = (
+        f" | {len(onboarding_issue_payloads)} onboarding ekipmanı kaydedildi"
+        if onboarding_issue_payloads
+        else ""
+    )
+    success_text = f"{values['full_name']} başarıyla eklendi. Kod: {auto_code}{equipment_summary}"
+    return PersonnelCreateResult(
+        created_person_id=created_person_id,
+        auto_code=auto_code,
+        success_text=success_text,
+    )
+
+
+def update_person_and_sync(
+    conn,
+    *,
+    person_id: int,
+    original_row: Any,
+    person_values: dict[str, Any],
+    role_changed: bool,
+    transition_enabled: bool,
+    transition_previous_role: str,
+    transition_effective_date: date | None,
+    is_fixed_cost_model_fn: Callable[[str], bool],
+    safe_float_fn: Callable[[Any, float], float],
+    safe_int_fn: Callable[[Any, int], int],
+    normalize_cost_model_value_fn: Callable[[str, str], str],
+    record_person_role_transition_fn: Callable[..., None],
+    sync_person_current_role_snapshot_fn: Callable[[Any, Any], None],
+    motor_mode_changed: bool,
+    current_vehicle: str,
+    current_motor_purchase: str,
+    edit_vehicle_transition_date: date,
+    auto_motor_rental_deduction: float,
+    auto_motor_purchase_monthly_deduction: float,
+    record_person_vehicle_transition_fn: Callable[..., None],
+    sync_person_current_vehicle_snapshot_fn: Callable[[Any, Any], None],
+    sync_person_business_rules_fn: Callable[[Any, Any], None],
+) -> PersonnelUpdateResult:
+    try:
+        update_personnel_record(conn, person_id, person_values)
+        conn.commit()
+        updated_person = fetch_personnel_by_id(conn, person_id)
+        if role_changed and transition_enabled:
+            previous_fixed_cost = 0.0
+            previous_cost_model = normalize_cost_model_value_fn("", transition_previous_role)
+            if is_fixed_cost_model_fn(previous_cost_model) and transition_previous_role == str(original_row["role"] or ""):
+                previous_fixed_cost = safe_float_fn(original_row["monthly_fixed_cost"], 0.0)
+            record_person_role_transition_fn(
+                conn,
+                original_row.to_dict(),
+                updated_person,
+                transition_previous_role,
+                transition_effective_date,
+                previous_monthly_fixed_cost=previous_fixed_cost,
+            )
+        else:
+            sync_person_current_role_snapshot_fn(conn, updated_person)
+        if motor_mode_changed:
+            record_person_vehicle_transition_fn(
+                conn,
+                original_row.to_dict(),
+                updated_person,
+                current_vehicle,
+                edit_vehicle_transition_date,
+                previous_motor_rental=str(original_row["motor_rental"] or "Hayır"),
+                previous_motor_rental_monthly_amount=safe_float_fn(original_row.get("motor_rental_monthly_amount", auto_motor_rental_deduction), auto_motor_rental_deduction),
+                previous_motor_purchase=current_motor_purchase,
+                previous_motor_purchase_commitment_months=safe_int_fn(original_row.get("motor_purchase_commitment_months", 0), 0),
+                previous_motor_purchase_sale_price=safe_float_fn(original_row.get("motor_purchase_sale_price", 0.0), 0.0),
+                previous_motor_purchase_monthly_amount=safe_float_fn(original_row.get("motor_purchase_monthly_amount", auto_motor_purchase_monthly_deduction), auto_motor_purchase_monthly_deduction),
+            )
+        else:
+            sync_person_current_vehicle_snapshot_fn(conn, updated_person)
+        conn.commit()
+        sync_person_business_rules_fn(conn, updated_person, create_onboarding=False)
+    except Exception:
+        conn.rollback()
+        raise
+    return PersonnelUpdateResult(updated_person=updated_person, success_text="Personel kartı başarıyla güncellendi.")
+
+
+def toggle_person_status_and_sync(
+    conn,
+    *,
+    person_id: int,
+    current_status: str,
+    sync_person_business_rules_fn: Callable[[Any, Any], None],
+) -> PersonnelToggleResult:
+    new_status = "Pasif" if current_status == "Aktif" else "Aktif"
+    exit_date = date.today().isoformat() if new_status == "Pasif" else None
+    try:
+        update_personnel_status(conn, person_id, new_status, exit_date)
+        conn.commit()
+        updated_person = fetch_personnel_by_id(conn, person_id)
+        sync_person_business_rules_fn(conn, updated_person, create_onboarding=False)
+    except Exception:
+        conn.rollback()
+        raise
+    return PersonnelToggleResult(
+        updated_person=updated_person,
+        success_text="Personel başarıyla pasife alındı." if new_status == "Pasif" else "Personel başarıyla aktifleştirildi.",
+    )
+
+
+def delete_person_with_dependencies(
+    conn,
+    *,
+    person_id: int,
+    get_personnel_dependency_counts_fn: Callable[[Any, int], dict[str, int]],
+    delete_personnel_and_dependencies_fn: Callable[[Any, int], None],
+) -> PersonnelDeleteResult:
+    dependency_counts = get_personnel_dependency_counts_fn(conn, person_id)
+    delete_personnel_and_dependencies_fn(conn, person_id)
+    detail_parts = [
+        f"{label}: {count}"
+        for label, count in [
+            ("Puantaj", dependency_counts["puantaj"]),
+            ("Kesinti", dependency_counts["kesinti"]),
+            ("Rol geçmişi", dependency_counts["rol_gecmisi"]),
+            ("Plaka geçmişi", dependency_counts["plaka"]),
+            ("Zimmet", dependency_counts["zimmet"]),
+            ("Box iade", dependency_counts["box_iade"]),
+        ]
+        if count
+    ]
+    if detail_parts:
+        return PersonnelDeleteResult(success_text="Personel ve bağlı kayıtlar kalıcı olarak silindi. " + " | ".join(detail_parts))
+    return PersonnelDeleteResult(success_text="Personel kaydı kalıcı olarak silindi.")
