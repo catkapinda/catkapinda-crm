@@ -137,7 +137,6 @@ MENU_DISPLAY_LABELS = {
     "Personel Yönetimi": "Personel Yönetimi",
     "Puantaj": "Puantaj",
     "Satın Alma": "Satın Alma",
-    "Ekipman & Zimmet": "Ekipman Hareketleri",
     "Kesinti Yönetimi": "Kesinti Yönetimi",
     "Aylık Hakediş": "Aylık Hakediş",
     "Raporlar ve Karlılık": "Raporlar ve Karlılık",
@@ -145,7 +144,7 @@ MENU_DISPLAY_LABELS = {
 }
 MENU_SECTIONS = [
     ("Kontrol", ["Genel Bakış"]),
-    ("Operasyon", ["Puantaj", "Ekipman & Zimmet", "Kesinti Yönetimi"]),
+    ("Operasyon", ["Puantaj", "Kesinti Yönetimi"]),
     ("Kayıtlar", ["Restoran Yönetimi", "Personel Yönetimi", "Satın Alma"]),
     ("Finans", ["Aylık Hakediş", "Raporlar ve Karlılık"]),
     ("Kurumsal", ["Güncellemeler ve Duyurular"]),
@@ -2632,7 +2631,6 @@ def allowed_menu_items(role: str) -> list[str]:
             "Personel Yönetimi",
             "Puantaj",
             "Satın Alma",
-            "Ekipman & Zimmet",
             "Kesinti Yönetimi",
             "Aylık Hakediş",
             "Raporlar ve Karlılık",
@@ -4621,6 +4619,44 @@ def build_auto_deduction_warning_text(auto_source_key: Any) -> str:
         f"Bu kayıt {describe_auto_source_key(auto_source_key)} akışından kalan eski otomatik kayıttır. "
         "Bu dönem için kesintileri manuel yönetin; gerekirse bu kaydı silip doğru tutarı yeniden girin."
     )
+
+
+def build_equipment_profitability_frames(
+    conn: CompatConnection,
+    start_date: date | str | None = None,
+    end_date: date | str | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    start_value = parse_date_value(start_date)
+    end_value = parse_date_value(end_date)
+    sales_query = """
+        SELECT item_name,
+               SUM(quantity) AS sold_qty,
+               SUM(quantity * unit_cost) AS total_cost,
+               SUM(quantity * unit_sale_price) AS total_sale,
+               SUM((quantity * unit_sale_price) - (quantity * unit_cost)) AS gross_profit
+        FROM courier_equipment_issues
+        WHERE sale_type = 'Satış'
+    """
+    sales_params: tuple[Any, ...] = ()
+    if start_value and end_value:
+        sales_query += " AND issue_date BETWEEN ? AND ?"
+        sales_params = (start_value.isoformat(), end_value.isoformat())
+    sales_query += " GROUP BY item_name ORDER BY total_sale DESC"
+    sales_profit = fetch_df(conn, sales_query, sales_params)
+
+    stock_purchase = fetch_df(
+        conn,
+        """
+        SELECT item_name,
+               SUM(quantity) AS purchased_qty,
+               SUM(total_invoice_amount) AS purchased_total,
+               CASE WHEN SUM(quantity) > 0 THEN SUM(total_invoice_amount)/SUM(quantity) ELSE 0 END AS weighted_unit_cost
+        FROM inventory_purchases
+        GROUP BY item_name
+        ORDER BY item_name
+        """,
+    )
+    return sales_profit, stock_purchase
 
 
 def build_table_backup_zip(conn: CompatConnection) -> bytes:
@@ -7020,15 +7056,17 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
         with st.container(border=True):
             render_dashboard_section_header("Hızlı Komuta Alanı", "Sık kullanılan ekranlara tek dokunuşla geç.")
             quick_actions = [
-                ("Bugünkü Puantajı Aç", "Puantaj", "Günlük saha kaydına geç."),
-                ("Yeni Personel Kartı", "Personel Yönetimi", "Yeni kurye veya yönetici ekle."),
-                ("Yeni Şube Kartı", "Restoran Yönetimi", "Restoran anlaşma kartını aç."),
-                ("Kesinti Kaydı Gir", "Kesinti Yönetimi", "Ay sonu kesintisini işle."),
-                ("Ekipman Hareketini Aç", "Ekipman & Zimmet", "Sonradan verilen ekipman, iade ve düzeltmeleri kaydet."),
-                ("Aylık Raporu Aç", "Raporlar ve Karlılık", "Bu ayın kârlılık ekranına geç."),
+                ("Bugünkü Puantajı Aç", "Puantaj", "Günlük saha kaydına geç.", None),
+                ("Yeni Personel Kartı", "Personel Yönetimi", "Yeni kurye veya yönetici ekle.", "add"),
+                ("Yeni Şube Kartı", "Restoran Yönetimi", "Restoran anlaşma kartını aç.", None),
+                ("Kesinti Kaydı Gir", "Kesinti Yönetimi", "Ay sonu kesintisini işle.", None),
+                ("Personel Düzenlemeyi Aç", "Personel Yönetimi", "Sonradan verilen ekipman, iade ve düzeltmeleri personel kartından yönet.", "edit"),
+                ("Aylık Raporu Aç", "Raporlar ve Karlılık", "Bu ayın kârlılık ekranına geç.", None),
             ]
-            for index, (button_label, target_menu, subtitle) in enumerate(quick_actions):
+            for index, (button_label, target_menu, subtitle, target_workspace) in enumerate(quick_actions):
                 if st.button(button_label, key=f"dashboard_quick_action_{index}", use_container_width=True):
+                    if target_workspace:
+                        st.session_state["personnel_workspace_mode"] = target_workspace
                     st.session_state["ck_sidebar_target_menu"] = target_menu
                     st.rerun()
                 st.caption(subtitle)
@@ -8192,7 +8230,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
             "İşe girişte verilen ekipmanlar",
             EQUIPMENT_ITEMS,
             key="new_person_onboarding_items",
-            help="İşe girişte satılan veya personele teslim edilen ekipmanları burada kaydet. Sonradan eklenen hareketleri Ekipman Hareketleri ekranından yönetebilirsin.",
+            help="İşe girişte satılan veya personele teslim edilen ekipmanları burada kaydet. Sonradan eklenen hareketleri seçili personelin düzenleme kartından yönetebilirsin.",
         )
         onboarding_issue_payloads: list[dict[str, Any]] = []
         if onboarding_items:
@@ -8961,6 +8999,138 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                     st.markdown("##### Ekipman ve İade")
                     st.caption("Seçili personele ait ekipman satışlarını burada düzenleyebilir, box geri alımını aynı karttan kaydedebilirsin.")
 
+                    new_issue_prefix = f"edit_person_new_issue_{selected_id}"
+                    new_issue_item_key = f"{new_issue_prefix}_item"
+                    new_issue_last_item_key = f"{new_issue_prefix}_last_item"
+                    new_issue_qty_key = f"{new_issue_prefix}_quantity"
+                    new_issue_date_key = f"{new_issue_prefix}_date"
+                    new_issue_cost_key = f"{new_issue_prefix}_cost"
+                    new_issue_cost_snapshot_key = f"{new_issue_prefix}_cost_snapshot"
+                    new_issue_sale_key = f"{new_issue_prefix}_sale"
+                    new_issue_sale_type_key = f"{new_issue_prefix}_sale_type"
+                    new_issue_installment_key = f"{new_issue_prefix}_installment"
+                    new_issue_notes_key = f"{new_issue_prefix}_notes"
+
+                    if st.session_state.get(new_issue_item_key) not in ISSUE_ITEMS:
+                        st.session_state[new_issue_item_key] = ISSUE_ITEMS[0]
+                    if st.session_state.get(new_issue_last_item_key) not in ISSUE_ITEMS:
+                        st.session_state[new_issue_last_item_key] = st.session_state.get(new_issue_item_key, ISSUE_ITEMS[0])
+                    current_new_issue_item = st.session_state.get(new_issue_item_key, ISSUE_ITEMS[0])
+                    current_new_issue_snapshot = get_equipment_cost_snapshot(conn, current_new_issue_item)
+                    current_new_issue_average_cost = current_new_issue_snapshot[3]
+                    if new_issue_date_key not in st.session_state or not isinstance(st.session_state.get(new_issue_date_key), date):
+                        st.session_state[new_issue_date_key] = date.today()
+                    if new_issue_qty_key not in st.session_state:
+                        st.session_state[new_issue_qty_key] = 1
+                    if new_issue_cost_key not in st.session_state:
+                        st.session_state[new_issue_cost_key] = float(get_default_equipment_unit_cost(conn, current_new_issue_item))
+                        st.session_state[new_issue_cost_snapshot_key] = current_new_issue_snapshot
+                    if new_issue_sale_key not in st.session_state:
+                        default_sale = get_default_equipment_sale_price(current_new_issue_item) or st.session_state[new_issue_cost_key]
+                        st.session_state[new_issue_sale_key] = float(default_sale)
+                    if new_issue_sale_type_key not in st.session_state:
+                        st.session_state[new_issue_sale_type_key] = "Satış"
+                    if new_issue_installment_key not in st.session_state:
+                        st.session_state[new_issue_installment_key] = int(get_default_issue_installment_count(current_new_issue_item))
+                    if new_issue_notes_key not in st.session_state:
+                        st.session_state[new_issue_notes_key] = ""
+                    if tuple(st.session_state.get(new_issue_cost_snapshot_key) or ()) != tuple(current_new_issue_snapshot):
+                        st.session_state[new_issue_cost_key] = float(current_new_issue_average_cost)
+                        st.session_state[new_issue_cost_snapshot_key] = current_new_issue_snapshot
+
+                    st.markdown("###### Yeni ekipman hareketi ekle")
+                    add1, add2, add3 = st.columns(3)
+                    new_issue_date = add1.date_input("Teslim / satış tarihi", key=new_issue_date_key)
+                    new_issue_item = add2.selectbox("Ürün", ISSUE_ITEMS, key=new_issue_item_key)
+                    if st.session_state.get(new_issue_last_item_key) != new_issue_item:
+                        refreshed_snapshot = get_equipment_cost_snapshot(conn, new_issue_item)
+                        refreshed_cost = refreshed_snapshot[3]
+                        if refreshed_cost <= 0:
+                            refreshed_cost = latest_average_cost(conn, new_issue_item)
+                        refreshed_sale = get_default_equipment_sale_price(new_issue_item) or refreshed_cost
+                        st.session_state[new_issue_cost_key] = float(refreshed_cost)
+                        st.session_state[new_issue_sale_key] = float(refreshed_sale)
+                        st.session_state[new_issue_cost_snapshot_key] = refreshed_snapshot
+                        st.session_state[new_issue_installment_key] = int(get_default_issue_installment_count(new_issue_item))
+                        st.session_state[new_issue_last_item_key] = new_issue_item
+                    active_new_issue_snapshot = get_equipment_cost_snapshot(conn, new_issue_item)
+                    active_new_issue_average_cost = active_new_issue_snapshot[3]
+                    new_issue_qty = add3.number_input("Adet", min_value=1, step=1, key=new_issue_qty_key)
+                    new_issue_vat_rate = get_equipment_vat_rate(new_issue_item, new_issue_date)
+                    add4, add5, add6 = st.columns(3)
+                    new_issue_cost = add4.number_input("Birim maliyet", min_value=0.0, step=50.0, key=new_issue_cost_key)
+                    new_issue_sale = add5.number_input("Kuryeye satış fiyatı | KDV dahil", min_value=0.0, step=50.0, key=new_issue_sale_key)
+                    new_issue_sale_type = add6.selectbox("İşlem tipi", ["Satış", "Depozit / Teslim"], key=new_issue_sale_type_key)
+                    add7, add8, add9 = st.columns(3)
+                    installment_options = [1, 2, 3, 6, 12]
+                    new_issue_installment_value = safe_int(
+                        st.session_state.get(new_issue_installment_key),
+                        get_default_issue_installment_count(new_issue_item),
+                    )
+                    if new_issue_installment_value not in installment_options:
+                        new_issue_installment_value = get_default_issue_installment_count(new_issue_item)
+                        st.session_state[new_issue_installment_key] = new_issue_installment_value
+                    if new_issue_sale_type == "Satış":
+                        add7.selectbox("Taksit sayısı", installment_options, key=new_issue_installment_key)
+                        new_issue_installment = safe_int(st.session_state.get(new_issue_installment_key), new_issue_installment_value)
+                    else:
+                        add7.selectbox("Taksit sayısı", [1], index=0, disabled=True, key=f"{new_issue_prefix}_installment_disabled")
+                        new_issue_installment = 1
+                    add8.markdown(
+                        f"<div class='ck-inline-note'>Varsayılan KDV: %{fmt_number(new_issue_vat_rate)}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    if active_new_issue_average_cost > 0:
+                        add9.markdown(
+                            f"<div class='ck-inline-note'>Ağırlıklı maliyet referansı: {fmt_try(active_new_issue_average_cost)}</div>",
+                            unsafe_allow_html=True,
+                        )
+                    new_issue_notes = st.text_input("Not", key=new_issue_notes_key)
+                    effective_new_issue_installment = normalize_equipment_issue_installment_count(new_issue_sale_type, new_issue_installment)
+                    new_issue_total_sale = float(new_issue_qty) * float(new_issue_sale)
+                    generates_new_issue_installments = equipment_issue_generates_installments(
+                        new_issue_sale_type,
+                        new_issue_total_sale,
+                        effective_new_issue_installment,
+                    )
+                    if new_issue_sale_type != "Satış":
+                        st.caption("Depozit / Teslim seçildiğinde bağlı zimmet taksiti oluşturulmaz.")
+                    add_issue_label = "Ekipman Hareketini Kaydet ve Taksit Oluştur" if generates_new_issue_installments else "Ekipman Hareketini Kaydet"
+                    if st.button(add_issue_label, key=f"{new_issue_prefix}_submit", use_container_width=True):
+                        new_issue_id = insert_equipment_issue_and_get_id(
+                            conn,
+                            selected_id,
+                            new_issue_date.isoformat(),
+                            new_issue_item,
+                            int(new_issue_qty),
+                            new_issue_cost,
+                            new_issue_sale,
+                            int(effective_new_issue_installment),
+                            new_issue_sale_type,
+                            new_issue_notes,
+                            vat_rate=new_issue_vat_rate,
+                        )
+                        post_equipment_installments(
+                            conn,
+                            new_issue_id,
+                            selected_id,
+                            new_issue_date,
+                            new_issue_item,
+                            new_issue_total_sale,
+                            int(effective_new_issue_installment),
+                            new_issue_sale_type,
+                        )
+                        st.session_state[new_issue_qty_key] = 1
+                        st.session_state[new_issue_notes_key] = ""
+                        if generates_new_issue_installments:
+                            set_flash_message(
+                                "success",
+                                f"Ekipman hareketi kaydedildi. Toplam satış: {fmt_try(new_issue_total_sale)} | {effective_new_issue_installment} taksit oluşturuldu.",
+                            )
+                        else:
+                            set_flash_message("success", f"Ekipman hareketi kaydedildi. Toplam işlem tutarı: {fmt_try(new_issue_total_sale)}")
+                        st.rerun()
+
                     person_issue_df = fetch_df(
                         conn,
                         """
@@ -9064,7 +9234,7 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
                                 st.rerun()
                             st.error("Ekipman kaydı silinemedi.")
                     else:
-                        st.info("Bu personele ait ekipman kaydı henüz yok. İşe girişte verilen ekipmanları personel kartından, sonradan olan hareketleri Ekipman Hareketleri ekranından ekleyebilirsin.")
+                        st.info("Bu personele ait ekipman kaydı henüz yok. İşe girişte verilen ekipmanları personel kartından, sonraki hareketleri bu düzenleme alanından ekleyebilirsin.")
 
                     st.markdown("##### Box Geri Alım")
                     with st.form(f"edit_person_box_return_form_{selected_id}", clear_on_submit=True):
@@ -10777,7 +10947,7 @@ def announcements_tab() -> None:
 
 
 def reports_tab(conn: sqlite3.Connection) -> None:
-    section_intro("📊 Raporlar ve Karlılık | Fatura, personel maliyeti, yan gelir ve restoran kârlılığı", "Aylık müşteri faturası, personel maliyeti, restoran bazlı kârlılık, yan gelir analizi ve personel-şube dağılımı.")
+    section_intro("📊 Raporlar ve Karlılık | Fatura, personel maliyeti, yan gelir ve restoran kârlılığı", "Aylık müşteri faturası, personel maliyeti, restoran bazlı kârlılık, ekipman satış kârlılığı, yan gelir analizi ve personel-şube dağılımı.")
 
     entries = fetch_df(
         conn,
@@ -10843,12 +11013,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
     personnel_cost = float(cost_df["net_maliyet"].sum()) if not cost_df.empty else 0.0
     gross_profit = revenue - personnel_cost
 
-    equipment_sales_df = fetch_df(conn, "SELECT * FROM courier_equipment_issues")
-    if not equipment_sales_df.empty:
-        equipment_sales_df["issue_date"] = pd.to_datetime(equipment_sales_df["issue_date"])
-        equipment_sales_df = equipment_sales_df[(equipment_sales_df["issue_date"] >= start_date) & (equipment_sales_df["issue_date"] <= end_date)].copy()
-        equipment_sales_df["toplam_satis"] = equipment_sales_df["quantity"] * equipment_sales_df["unit_sale_price"]
-        equipment_sales_df["toplam_maliyet"] = equipment_sales_df["quantity"] * equipment_sales_df["unit_cost"]
+    equipment_profit_df, equipment_purchase_df = build_equipment_profitability_frames(conn, start_date, end_date)
     accounting_ded = deductions_df[deductions_df["deduction_type"] == "Muhasebe Ücreti"].copy() if not deductions_df.empty else pd.DataFrame()
     setup_ded = deductions_df[deductions_df["deduction_type"] == "Şirket Açılış Ücreti"].copy() if not deductions_df.empty else pd.DataFrame()
 
@@ -10861,8 +11026,8 @@ def reports_tab(conn: sqlite3.Connection) -> None:
     accountant_cost_total = float(personnel_df.loc[personnel_df["id"].isin(accounting_person_ids), "accountant_cost"].fillna(0).sum()) if accounting_person_ids and "accountant_cost" in personnel_df.columns else 0.0
     setup_cost = float(personnel_df.loc[personnel_df["id"].isin(setup_person_ids), "company_setup_cost"].fillna(0).sum()) if setup_person_ids and "company_setup_cost" in personnel_df.columns else 0.0
 
-    equipment_rev = float(equipment_sales_df["toplam_satis"].sum()) if not equipment_sales_df.empty else 0.0
-    equipment_cost = float(equipment_sales_df["toplam_maliyet"].sum()) if not equipment_sales_df.empty else 0.0
+    equipment_rev = float(equipment_profit_df["total_sale"].sum()) if not equipment_profit_df.empty else 0.0
+    equipment_cost = float(equipment_profit_df["total_cost"].sum()) if not equipment_profit_df.empty else 0.0
     side_income_net = (accounting_rev - accountant_cost_total) + (setup_rev - setup_cost) + (equipment_rev - equipment_cost)
 
     render_executive_metrics(
@@ -10915,7 +11080,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
         restaurants_df=restaurants_df,
     )
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🧾 Restoran Faturası", "👥 Kurye Maliyeti", "📈 Restoran Karlılığı", "🧩 Ortak Operasyon Payı", "🔀 Personel-Şube Dağılımı", "💼 Yan Gelir Analizi"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🧾 Restoran Faturası", "👥 Kurye Maliyeti", "📈 Restoran Karlılığı", "🧩 Ortak Operasyon Payı", "🔀 Personel-Şube Dağılımı", "📦 Ekipman Kârlılığı", "💼 Yan Gelir Analizi"])
     with tab1:
         invoice_display_df = format_display_df(
             invoice_df,
@@ -11148,6 +11313,80 @@ def reports_tab(conn: sqlite3.Connection) -> None:
                 )
 
     with tab6:
+        render_executive_metrics(
+            [
+                {
+                    "label": "Dönem Ekipman Satışı",
+                    "value": fmt_try(equipment_rev),
+                    "note": f"{selected_month} | yalnızca satış tipindeki hareketler",
+                },
+                {
+                    "label": "Dönem Ekipman Maliyeti",
+                    "value": fmt_try(equipment_cost),
+                    "note": "Seçilen ayda satışa konu olan maliyet",
+                    "tone": "warning",
+                },
+                {
+                    "label": "Dönem Brüt Ekipman Kârı",
+                    "value": fmt_try(equipment_rev - equipment_cost),
+                    "note": "Satış ve maliyet farkı",
+                    "tone": "positive" if (equipment_rev - equipment_cost) >= 0 else "critical",
+                },
+            ],
+            title="Ekipman Satış Özeti",
+            subtitle="İlk onboarding ve sonradan yapılan satışların seçilen ay içindeki brüt katkısını gösterir.",
+        )
+        st.caption("Bu özet yalnızca `Satış` tipindeki ekipman hareketlerini kârlılık hesabına dahil eder. `Depozit / Teslim` kayıtları burada yer almaz.")
+        if not equipment_profit_df.empty:
+            equipment_sales_display = format_display_df(
+                equipment_profit_df,
+                currency_cols=["total_cost", "total_sale", "gross_profit"],
+                number_cols=["sold_qty"],
+                rename_map={
+                    "item_name": "Ürün",
+                    "sold_qty": "Satılan Adet",
+                    "total_cost": "Toplam Maliyet",
+                    "total_sale": "Toplam Satış",
+                    "gross_profit": "Brüt Kâr",
+                },
+            )
+            equipment_sales_columns = ["Ürün", "Satılan Adet", "Toplam Maliyet", "Toplam Satış", "Brüt Kâr"]
+            with st.container(border=True):
+                render_dashboard_data_grid(
+                    "Ekipman Satış Kârlılığı",
+                    "Seçilen ay içinde yapılan ekipman satışlarının ürün bazlı katkısını incele.",
+                    equipment_sales_columns,
+                    build_grid_rows(equipment_sales_display, equipment_sales_columns),
+                    "Bu ay ekipman satış kaydı yok.",
+                )
+        else:
+            st.info("Seçilen ay için satış tipinde ekipman hareketi görünmüyor.")
+
+        if not equipment_purchase_df.empty:
+            purchase_display_df = format_display_df(
+                equipment_purchase_df,
+                currency_cols=["purchased_total", "weighted_unit_cost"],
+                number_cols=["purchased_qty"],
+                rename_map={
+                    "item_name": "Ürün",
+                    "purchased_qty": "Alınan Adet",
+                    "purchased_total": "Toplam Fatura",
+                    "weighted_unit_cost": "Ağırlıklı Birim Maliyet",
+                },
+            )
+            purchase_columns = ["Ürün", "Alınan Adet", "Toplam Fatura", "Ağırlıklı Birim Maliyet"]
+            with st.container(border=True):
+                render_dashboard_data_grid(
+                    "Satın Alma Maliyet Referansı",
+                    "Tüm satın alma geçmişine göre oluşan ağırlıklı maliyetleri ekipman kârlılığıyla birlikte değerlendir.",
+                    purchase_columns,
+                    build_grid_rows(purchase_display_df, purchase_columns),
+                    "Henüz satın alma özeti yok.",
+                )
+        else:
+            st.info("Satın alma maliyet referansı için ürün kaydı bulunmuyor.")
+
+    with tab7:
         side_df = pd.DataFrame(
             [
                 {"kalem": "Muhasebe Hizmeti", "gelir": accounting_rev, "maliyet": accountant_cost_total, "net_kar": accounting_rev - accountant_cost_total},
@@ -11260,8 +11499,6 @@ def main() -> None:
                 attendance_tab(conn)
             elif menu == "Satın Alma":
                 purchases_tab(conn)
-            elif menu == "Ekipman & Zimmet":
-                equipment_tab(conn)
             elif menu == "Kesinti Yönetimi":
                 deductions_tab(conn)
             elif menu == "Aylık Hakediş":
