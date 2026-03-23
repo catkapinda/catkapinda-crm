@@ -951,12 +951,26 @@ def _run_bootstrap_data_migration(conn: Any) -> None:
     _SYNC_ALL_PERSONNEL_BUSINESS_RULES(conn, full_history=True)
 
 
+def _run_attendance_coverage_column_migration(conn: Any) -> None:
+    daily_entry_cols = get_table_columns(conn, "daily_entries")
+    if "absence_reason" not in daily_entry_cols:
+        conn.execute("ALTER TABLE daily_entries ADD COLUMN absence_reason TEXT")
+    if "coverage_type" not in daily_entry_cols:
+        conn.execute("ALTER TABLE daily_entries ADD COLUMN coverage_type TEXT")
+    conn.commit()
+
+
 def get_registered_migrations() -> list[MigrationStep]:
     return [
         MigrationStep(
             version="2026-03-22-manual-motor-deductions",
             apply_fn=_run_bootstrap_data_migration,
             description="Bootstrap veri düzeltmeleri ve tam personel senkronizasyonu",
+        ),
+        MigrationStep(
+            version="2026-03-23-attendance-coverage-columns",
+            apply_fn=_run_attendance_coverage_column_migration,
+            description="Günlük puantaj için devamsızlık nedeni ve yerine giriş tipi alanlarını ekle",
         ),
     ]
 
