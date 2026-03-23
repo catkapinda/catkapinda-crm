@@ -8,6 +8,7 @@ import pandas as pd
 from builders.analytics_builders import build_side_income_summary_df, split_equipment_profit_categories
 from engines.finance_engine import build_branch_profitability, calculate_personnel_cost
 from repositories.reporting_repository import (
+    fetch_reporting_all_deductions,
     fetch_reporting_deductions_for_period,
     fetch_reporting_entries,
     fetch_reporting_personnel,
@@ -49,6 +50,15 @@ class ReportsWorkspacePayload:
     operational_restaurant_names: list[str]
 
 
+@dataclass
+class MonthlyPayrollSourcePayload:
+    entries: pd.DataFrame
+    deductions: pd.DataFrame
+    personnel_df: pd.DataFrame
+    role_history_df: pd.DataFrame
+    month_options: list[str]
+
+
 def load_reporting_entries_and_month_options(conn) -> tuple[pd.DataFrame, list[str]]:
     entries = fetch_reporting_entries(conn)
     if entries.empty:
@@ -57,6 +67,33 @@ def load_reporting_entries_and_month_options(conn) -> tuple[pd.DataFrame, list[s
     entries["entry_date"] = pd.to_datetime(entries["entry_date"])
     month_options = sorted(entries["entry_date"].dt.strftime("%Y-%m").unique(), reverse=True)
     return entries, month_options
+
+
+def load_monthly_payroll_source_payload(conn) -> MonthlyPayrollSourcePayload:
+    entries = fetch_reporting_entries(conn)
+    deductions = fetch_reporting_all_deductions(conn)
+    personnel_df = fetch_reporting_personnel(conn)
+    role_history_df = fetch_reporting_role_history(conn)
+
+    entries = entries.copy() if not entries.empty else pd.DataFrame()
+    deductions = deductions.copy() if not deductions.empty else pd.DataFrame()
+
+    date_series: list[str] = []
+    if not entries.empty:
+        entries["entry_date"] = pd.to_datetime(entries["entry_date"])
+        date_series.extend(entries["entry_date"].dt.strftime("%Y-%m").dropna().tolist())
+    if not deductions.empty:
+        deductions["deduction_date"] = pd.to_datetime(deductions["deduction_date"])
+        date_series.extend(deductions["deduction_date"].dt.strftime("%Y-%m").dropna().tolist())
+
+    month_options = sorted(pd.Series(date_series).dropna().unique().tolist(), reverse=True) if date_series else []
+    return MonthlyPayrollSourcePayload(
+        entries=entries,
+        deductions=deductions,
+        personnel_df=personnel_df,
+        role_history_df=role_history_df,
+        month_options=month_options,
+    )
 
 
 def build_reports_workspace_payload(conn, entries: pd.DataFrame, selected_month: str) -> ReportsWorkspacePayload:

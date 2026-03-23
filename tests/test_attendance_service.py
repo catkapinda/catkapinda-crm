@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -21,6 +22,22 @@ class _DummyConn:
 
 
 class AttendanceServiceTests(unittest.TestCase):
+    @patch("services.attendance_service.fetch_attendance_hero_stats")
+    def test_load_attendance_hero_stats_returns_typed_summary(self, hero_stats_mock):
+        hero_stats_mock.return_value = {
+            "today_count": 3,
+            "month_count": 27,
+            "total_count": 240,
+            "active_restaurants": 9,
+        }
+
+        stats = attendance_service.load_attendance_hero_stats(MagicMock(), date(2026, 3, 23))
+
+        self.assertEqual(stats.today_count, 3)
+        self.assertEqual(stats.month_count, 27)
+        self.assertEqual(stats.total_count, 240)
+        self.assertEqual(stats.active_restaurants, 9)
+
     def test_resolve_daily_entry_values_builds_replacement_payload(self):
         values = attendance_service.resolve_daily_entry_values(
             entry_mode="Joker",

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Callable
 
 from repositories.attendance_repository import (
     delete_daily_entry,
+    fetch_attendance_hero_stats,
     fetch_bulk_attendance_people_rows,
     fetch_daily_entry_by_id,
     fetch_daily_entry_management_df,
@@ -48,6 +50,28 @@ class BulkAttendanceContext:
     person_label_map: dict[str, int]
     name_to_label: dict[str, str]
     default_rows: list[dict[str, Any]]
+
+
+@dataclass
+class AttendanceHeroStats:
+    total_count: int
+    today_count: int
+    month_count: int
+    active_restaurants: int
+
+
+def load_attendance_hero_stats(conn, today_value: date) -> AttendanceHeroStats:
+    stats = fetch_attendance_hero_stats(
+        conn,
+        today_iso=today_value.isoformat(),
+        month_start_iso=today_value.replace(day=1).isoformat(),
+    )
+    return AttendanceHeroStats(
+        total_count=int(stats.get("total_count", 0) or 0),
+        today_count=int(stats.get("today_count", 0) or 0),
+        month_count=int(stats.get("month_count", 0) or 0),
+        active_restaurants=int(stats.get("active_restaurants", 0) or 0),
+    )
 
 
 def load_daily_entry_workspace_payload(conn) -> DailyEntryWorkspacePayload:
