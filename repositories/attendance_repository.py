@@ -38,8 +38,7 @@ def fetch_daily_entry_management_df(conn: CompatConnection):
         conn,
         """
         SELECT d.id, d.entry_date, r.brand || ' - ' || r.branch AS restoran,
-               COALESCE(pp.full_name, '-') AS normalde_girecek,
-               COALESCE(ap.full_name, '-') AS fiilen_calisan,
+               COALESCE(ap.full_name, pp.full_name, '-') AS calisan_personel,
                CASE
                    WHEN d.planned_personnel_id IS NOT NULL
                         AND d.actual_personnel_id IS NOT NULL

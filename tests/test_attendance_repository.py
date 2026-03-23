@@ -104,8 +104,7 @@ class AttendanceRepositoryTests(TestCase):
         df = fetch_daily_entry_management_df(self.conn)
         self.assertEqual(len(df), 1)
         self.assertEqual(df.iloc[0]["restoran"], "Fasuli - Beyoglu")
-        self.assertEqual(df.iloc[0]["normalde_girecek"], "Ali Veli")
-        self.assertEqual(df.iloc[0]["fiilen_calisan"], "Mehmet Kaya")
+        self.assertEqual(df.iloc[0]["calisan_personel"], "Mehmet Kaya")
         self.assertEqual(df.iloc[0]["neden_girmedi"], "İzin")
         self.assertEqual(df.iloc[0]["yerine_giren_tipi"], "Joker")
 
