@@ -12,6 +12,8 @@ from services.deductions_service import (
     create_deduction_and_commit,
     delete_deduction_and_commit,
     load_deductions_workspace_payload,
+    normalize_deduction_amount_for_form,
+    normalize_deduction_amount_for_storage,
     update_deduction_and_commit,
 )
 
@@ -71,6 +73,31 @@ class DeductionsServiceTests(TestCase):
         self.assertEqual(payload.current_date, date(2026, 3, 22))
         self.assertFalse(payload.is_auto_record)
         self.assertEqual(payload.row["amount"], 1250.50)
+        self.assertEqual(payload.display_amount, 1250.50)
+
+    def test_build_selection_payload_returns_base_amount_for_hgs(self) -> None:
+        raw_df = pd.DataFrame(
+            [
+                {
+                    "id": 22,
+                    "personnel_id": 6,
+                    "deduction_type": "HGS",
+                    "deduction_date": "2026-03-22",
+                    "amount": 1200.0,
+                    "auto_source_key": "",
+                }
+            ]
+        )
+        payload = build_deduction_selection_payload(
+            raw_df,
+            selected_id=22,
+            person_opts={"Ayse Yilmaz": 6},
+            deduction_types=["Yakıt", "HGS", "İdari Ceza"],
+            safe_float_fn=lambda value, default=0.0: float(value or default),
+            is_system_personnel_auto_deduction_key_fn=lambda value: str(value or "").startswith("auto:"),
+        )
+
+        self.assertEqual(payload.display_amount, 1000.0)
 
     def test_create_deduction_commits_and_returns_message(self) -> None:
         conn = _DummyConn()
@@ -83,6 +110,26 @@ class DeductionsServiceTests(TestCase):
         self.assertEqual(conn.commit_count, 1)
         self.assertEqual(conn.rollback_count, 0)
         self.assertIn("2026-03-31", message)
+
+    def test_create_hgs_deduction_stores_vat_included_amount(self) -> None:
+        conn = _DummyConn()
+        deduction_values = {"deduction_date": "2026-03-31", "deduction_type": "HGS", "amount": 1000.0}
+
+        with patch("services.deductions_service.insert_deduction_record") as insert_mock:
+            create_deduction_and_commit(conn, deduction_values=deduction_values)
+
+        inserted_payload = insert_mock.call_args.args[1]
+        self.assertEqual(inserted_payload["amount"], 1200.0)
+
+    def test_update_hgs_deduction_stores_vat_included_amount(self) -> None:
+        conn = _DummyConn()
+        deduction_values = {"deduction_date": "2026-03-31", "deduction_type": "HGS", "amount": 250.0}
+
+        with patch("services.deductions_service.update_deduction_record") as update_mock:
+            update_deduction_and_commit(conn, deduction_id=8, deduction_values=deduction_values)
+
+        updated_payload = update_mock.call_args.args[2]
+        self.assertEqual(updated_payload["amount"], 300.0)
 
     def test_update_deduction_rolls_back_on_failure(self) -> None:
         conn = _DummyConn()
@@ -115,3 +162,13 @@ class DeductionsServiceTests(TestCase):
         delete_mock.assert_called_once_with(conn, [1, 2, 3])
         self.assertEqual(conn.commit_count, 1)
         self.assertEqual(message, "3 manuel kesinti kaydı toplu olarak silindi.")
+
+    def test_hgs_amount_helpers_round_trip(self) -> None:
+        self.assertEqual(
+            normalize_deduction_amount_for_storage("HGS", 100.0, safe_float_fn=lambda value, default=0.0: float(value or default)),
+            120.0,
+        )
+        self.assertEqual(
+            normalize_deduction_amount_for_form("HGS", 120.0, safe_float_fn=lambda value, default=0.0: float(value or default)),
+            100.0,
+        )

@@ -17,6 +17,7 @@ from typing import Any, Iterable, Sequence
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -256,7 +257,8 @@ from repositories.personnel_repository import (
 
 DEFAULT_AUTH_PASSWORD = "123456"
 APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
-APP_PAGE_ICON = "🧭"
+APP_PAGE_ICON = "🚚"
+MENU_QUERY_KEY = "menu"
 RUNTIME_BOOTSTRAP_VERSION = "2026-03-22-manual-motor-deductions"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
@@ -1350,6 +1352,59 @@ def render_sidebar_navigation(menu_items: list[str], current_menu: str) -> str:
                 st.session_state["ck_main_menu"] = item
                 st.rerun()
     return resolved_menu
+
+
+def resolve_menu_state(menu_items: list[str]) -> str:
+    session_menu = str(st.session_state.get("ck_main_menu") or "").strip()
+    requested_menu = str(get_query_param(MENU_QUERY_KEY) or "").strip()
+    if session_menu in menu_items:
+        resolved_menu = session_menu
+    elif requested_menu in menu_items:
+        resolved_menu = requested_menu
+    else:
+        resolved_menu = menu_items[0] if menu_items else ""
+    if resolved_menu:
+        st.session_state["ck_main_menu"] = resolved_menu
+        if requested_menu != resolved_menu:
+            set_query_param(MENU_QUERY_KEY, resolved_menu)
+    return resolved_menu
+
+
+def render_menu_scroll_reset(menu_label: str) -> None:
+    resolved_label = str(menu_label or "").strip()
+    if not resolved_label:
+        return
+    if st.session_state.get("_ck_last_scroll_menu") == resolved_label:
+        return
+    st.session_state["_ck_last_scroll_menu"] = resolved_label
+    components.html(
+        """
+        <script>
+        (() => {
+          const root = window.parent;
+          if (!root) return;
+          try { root.history.scrollRestoration = "manual"; } catch (error) {}
+          const targets = [
+            root,
+            root.document.documentElement,
+            root.document.body,
+            root.document.querySelector('[data-testid="stAppViewContainer"]'),
+            root.document.querySelector('section.main'),
+          ].filter(Boolean);
+          targets.forEach((target) => {
+            try {
+              if (typeof target.scrollTo === "function") {
+                target.scrollTo({ top: 0, left: 0, behavior: "auto" });
+              } else {
+                target.scrollTop = 0;
+              }
+            } catch (error) {}
+          });
+        })();
+        </script>
+        """,
+        height=0,
+    )
 
 
 def render_boot_shell() -> Any:
@@ -5046,6 +5101,8 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         ded_date = c2.date_input("Tarih", value=date.today())
         ded_type = c3.selectbox("Kesinti türü", deduction_types)
         amount = st.number_input("Tutar", min_value=0.0, value=0.0, step=50.0)
+        if ded_type == "HGS":
+            st.caption("HGS tutarını net gider olarak gir; sistem hakedişe %20 KDV dahil kesinti yazar.")
         notes = st.text_input("Açıklama")
         submitted = st.form_submit_button("Kesinti ekle", use_container_width=True, disabled=not can_create_deduction)
         if submitted and amount > 0:
@@ -5149,6 +5206,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     type_index = selection_payload.type_index
     current_date = selection_payload.current_date
     is_auto_record = selection_payload.is_auto_record
+    display_amount = selection_payload.display_amount
     if is_auto_record:
         st.warning(
             build_auto_deduction_warning_text(
@@ -5162,7 +5220,9 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         edit_person = c1.selectbox("Personel", list(person_opts.keys()), index=person_index)
         edit_date = c2.date_input("Tarih", value=current_date)
         edit_type = c3.selectbox("Kesinti türü", deduction_types, index=type_index)
-        edit_amount = st.number_input("Tutar", min_value=0.0, value=safe_float(row["amount"]), step=50.0)
+        edit_amount = st.number_input("Tutar", min_value=0.0, value=display_amount, step=50.0)
+        if edit_type == "HGS":
+            st.caption("HGS düzenlemesinde girdiğin tutara %20 KDV eklenerek kesinti kaydı güncellenir.")
         edit_notes = st.text_input("Açıklama", value=row["notes"] or "")
         c4, c5 = st.columns(2)
         update_clicked = c4.form_submit_button("Kesinti güncelle", use_container_width=True, disabled=is_auto_record or not can_update_deduction)
@@ -6445,13 +6505,15 @@ def main() -> None:
         role = st.session_state.get("role", "")
         render_sidebar_brand()
         menu_items = allowed_menu_items(role)
+        menu = resolve_menu_state(menu_items)
         target_menu = st.session_state.pop("ck_sidebar_target_menu", None)
         if target_menu in menu_items:
             st.session_state["ck_main_menu"] = target_menu
-        if st.session_state.get("ck_main_menu") not in menu_items:
-            st.session_state["ck_main_menu"] = menu_items[0]
-        menu = render_sidebar_navigation(menu_items, st.session_state.get("ck_main_menu", menu_items[0]))
-        st.session_state["ck_main_menu"] = menu
+            set_query_param(MENU_QUERY_KEY, target_menu)
+            menu = target_menu
+        menu = render_sidebar_navigation(menu_items, menu)
+        menu = resolve_menu_state(menu_items)
+        render_menu_scroll_reset(menu)
 
         ensure_role_access(menu, role)
         render_top_profile(conn)
