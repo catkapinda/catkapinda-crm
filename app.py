@@ -4252,11 +4252,32 @@ def inject_global_styles() -> None:
                 margin-top: 0.35rem;
             }
 
+            .ck-data-grid-scroll {
+                max-height: 460px;
+                overflow-y: auto;
+                padding-right: 4px;
+                margin-top: 0.35rem;
+            }
+
+            .ck-data-grid-scroll::-webkit-scrollbar {
+                width: 10px;
+            }
+
+            .ck-data-grid-scroll::-webkit-scrollbar-thumb {
+                background: rgba(116, 131, 155, 0.28);
+                border-radius: 999px;
+            }
+
             .ck-data-grid-head {
                 display: grid;
                 grid-template-columns: repeat(var(--ck-cols), minmax(0, 1fr));
                 gap: 12px;
                 padding: 0 6px;
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                background: linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 100%);
+                backdrop-filter: blur(10px);
             }
 
             .ck-data-grid-head-item {
@@ -5248,6 +5269,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             "Filtreye uyan günlük puantaj kaydı görünmüyor.",
             badge_columns={"Akış"},
             muted_columns={"Neden Girmedi", "Not"},
+            max_height_px=430,
         )
         st.caption(f"{len(filtered_mgmt_df)} kayıt gösteriliyor.")
     if not df.empty:

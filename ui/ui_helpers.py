@@ -144,6 +144,7 @@ def render_dashboard_data_grid(
     empty_message: str,
     badge_columns: set[str] | None = None,
     muted_columns: set[str] | None = None,
+    max_height_px: int | None = None,
 ) -> None:
     render_dashboard_section_header(title, subtitle)
     badge_columns = badge_columns or set()
@@ -178,15 +179,20 @@ def render_dashboard_data_grid(
             )
         row_html.append(f"<div class='ck-data-grid-row'>{''.join(cell_html)}</div>")
 
-    st.markdown(
-        (
-            f"<div class='ck-data-grid-table' style='--ck-cols:{len(columns)};'>"
-            f"<div class='ck-data-grid-head'>{head_html}</div>"
-            f"{''.join(row_html)}"
-            "</div>"
-        ),
-        unsafe_allow_html=True,
+    table_html = (
+        f"<div class='ck-data-grid-table' style='--ck-cols:{len(columns)};'>"
+        f"<div class='ck-data-grid-head'>{head_html}</div>"
+        f"{''.join(row_html)}"
+        "</div>"
     )
+    if max_height_px:
+        table_html = (
+            f"<div class='ck-data-grid-scroll' style='max-height:{int(max_height_px)}px;'>"
+            f"{table_html}"
+            "</div>"
+        )
+
+    st.markdown(table_html, unsafe_allow_html=True)
 
 
 def build_grid_rows(display_df: pd.DataFrame, columns: list[str]) -> list[dict[str, Any]]:
