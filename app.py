@@ -5163,34 +5163,102 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 st.rerun()
 
     st.markdown("### Kayıt Yönetimi")
-    st.caption("Günlük puantaj kayıtlarını tarih, şube ve vardiya akışına göre seçip güncelleyebilir veya silebilirsin.")
+    st.caption("Günlük puantaj kayıtlarını filtreleyip seç, ardından aynı alandan güncelle veya sil.")
     daily_entry_payload = load_daily_entry_workspace_payload(conn)
     df = daily_entry_payload.df
     if not df.empty:
-        display_df = df[
+        today_iso = date.today().isoformat()
+        render_executive_metrics(
+            [
+                {"label": "Toplam Kayıt", "value": fmt_number(len(df))},
+                {
+                    "label": "Yerine Giriş",
+                    "value": fmt_number(int(df["vardiya_akisi"].isin(["Joker", "Destek"]).sum())),
+                    "tone": "warning",
+                },
+                {
+                    "label": "Haftalık İzin",
+                    "value": fmt_number(int((df["vardiya_akisi"] == "Haftalık İzin").sum())),
+                    "tone": "warning",
+                },
+                {
+                    "label": "Bugün",
+                    "value": fmt_number(int((df["entry_date"] == today_iso).sum())),
+                    "tone": "positive",
+                },
+            ],
+            title="Kayıt Özeti",
+            subtitle="Şube, vardiya akışı ve gün içi yoğunluğu tek bakışta izle.",
+        )
+
+        filter_c1, filter_c2, filter_c3 = st.columns([2.1, 1.2, 1.2])
+        management_search = filter_c1.text_input(
+            "Kayıt Ara",
+            placeholder="Şube, personel, neden ya da not ara",
+            key="attendance_manage_search",
+        )
+        restaurant_filter_options = ["Tümü"] + sorted(df["restoran"].fillna("").astype(str).unique().tolist())
+        management_restaurant_filter = filter_c2.selectbox(
+            "Şube",
+            restaurant_filter_options,
+            key="attendance_manage_restaurant_filter",
+        )
+        management_flow_filter = filter_c3.selectbox(
+            "Vardiya Akışı",
+            ["Tümü", *entry_mode_options],
+            key="attendance_manage_flow_filter",
+        )
+
+        filtered_mgmt_df = df.copy()
+        if management_restaurant_filter != "Tümü":
+            filtered_mgmt_df = filtered_mgmt_df[filtered_mgmt_df["restoran"] == management_restaurant_filter].copy()
+        if management_flow_filter != "Tümü":
+            filtered_mgmt_df = filtered_mgmt_df[filtered_mgmt_df["vardiya_akisi"] == management_flow_filter].copy()
+        filtered_mgmt_df = apply_text_search(
+            filtered_mgmt_df,
+            ["restoran", "calisan_personel", "neden_girmedi", "notes"],
+            management_search,
+        )
+
+        display_df = filtered_mgmt_df[
             ["entry_date", "restoran", "calisan_personel", "vardiya_akisi", "neden_girmedi", "worked_hours", "package_count", "notes"]
         ].rename(
             columns={
                 "entry_date": "Tarih",
-                "restoran": "Restoran / Şube",
+                "restoran": "Şube",
                 "calisan_personel": "Çalışan Personel",
-                "vardiya_akisi": "Vardiya Akışı",
+                "vardiya_akisi": "Akış",
                 "neden_girmedi": "Neden Girmedi",
-                "worked_hours": "Saat",
-                "package_count": "Paket",
                 "notes": "Not",
             }
         )
-        display_df["Neden Girmedi"] = display_df["Neden Girmedi"].replace("", "-")
-        display_df["Not"] = display_df["Not"].replace("", "-")
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
-    else:
-        st.dataframe(df, use_container_width=True, hide_index=True)
-
+        if not display_df.empty:
+            display_df["Neden Girmedi"] = display_df["Neden Girmedi"].replace("", "-")
+            display_df["Not"] = display_df["Not"].replace("", "-")
+            display_df["Mesai"] = display_df.apply(
+                lambda row: f"{fmt_number(row['worked_hours'])} saat | {fmt_number(row['package_count'])} paket",
+                axis=1,
+            )
+            display_df = display_df[["Tarih", "Şube", "Çalışan Personel", "Akış", "Neden Girmedi", "Mesai", "Not"]].fillna("-")
+        render_dashboard_data_grid(
+            "Günlük Kayıtlar",
+            "Puantaj kayıtlarını daha okunur satırlarda incele; ardından alttan seçip düzenle.",
+            ["Tarih", "Şube", "Çalışan Personel", "Akış", "Neden Girmedi", "Mesai", "Not"],
+            build_grid_rows(display_df, ["Tarih", "Şube", "Çalışan Personel", "Akış", "Neden Girmedi", "Mesai", "Not"]),
+            "Filtreye uyan günlük puantaj kaydı görünmüyor.",
+            badge_columns={"Akış"},
+            muted_columns={"Neden Girmedi", "Not"},
+        )
+        st.caption(f"{len(filtered_mgmt_df)} kayıt gösteriliyor.")
     if not df.empty:
         st.markdown("#### Kayıt Düzelt / Sil")
-        selected_label = st.selectbox("Kayıt seç", list(daily_entry_payload.entry_map.keys()), key="daily_entry_manage_select")
-        selected_id = daily_entry_payload.entry_map[selected_label]
+        selection_source_df = filtered_mgmt_df if "filtered_mgmt_df" in locals() and not filtered_mgmt_df.empty else df
+        selection_entry_map = {
+            f"{row['entry_date']} | {row['restoran']} | {row['calisan_personel']} | {fmt_number(row['package_count'])} paket | ID:{row['id']}": int(row["id"])
+            for _, row in selection_source_df.iterrows()
+        }
+        selected_label = st.selectbox("Kayıt seç", list(selection_entry_map.keys()), key="daily_entry_manage_select")
+        selected_id = selection_entry_map[selected_label]
         selection_payload = build_daily_entry_selection_payload(
             conn,
             selected_id=selected_id,
@@ -5203,6 +5271,18 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         planned_default = selection_payload.planned_default
         actual_default = selection_payload.actual_default
         absence_reason_default = selection_payload.absence_reason_default
+        render_record_snapshot(
+            "Seçili Kayıt",
+            [
+                ("Tarih", selected["entry_date"] or "-"),
+                ("Şube", current_rest_label or "-"),
+                ("Çalışan Personel", actual_default if actual_default != "-" else planned_default),
+                ("Akış", entry_mode_default or "-"),
+                ("Neden Girmedi", absence_reason_default or "-"),
+                ("Saat", fmt_number(selected["worked_hours"] or 0)),
+                ("Paket", fmt_number(selected["package_count"] or 0)),
+            ],
+        )
         with st.form(f"daily_entry_edit_form_{selected_id}"):
             e1, e2, e3 = st.columns(3)
             edit_date = e1.date_input("Tarih", value=datetime.fromisoformat(selected["entry_date"]).date())
