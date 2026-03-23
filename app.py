@@ -4734,7 +4734,7 @@ def sales_tab(conn: sqlite3.Connection) -> None:
             render_dashboard_data_grid_fn=render_dashboard_data_grid,
             render_record_snapshot_fn=render_record_snapshot,
             set_flash_message_fn=set_flash_message,
-            delete_sales_lead_and_commit_fn=partial(delete_sales_lead_and_commit, actor_role=actor_role),
+            delete_sales_lead_and_commit_fn=partial(delete_sales_lead_and_commit, conn, actor_role=actor_role),
             can_delete_sales=can_delete_sales,
         )
     elif workspace_mode == "add":
@@ -4745,7 +4745,7 @@ def sales_tab(conn: sqlite3.Connection) -> None:
             render_tab_header_fn=render_tab_header,
             render_field_label_fn=render_field_label,
             validate_sales_lead_values_fn=validate_sales_lead_values,
-            create_sales_lead_and_commit_fn=partial(create_sales_lead_and_commit, actor_role=actor_role),
+            create_sales_lead_and_commit_fn=partial(create_sales_lead_and_commit, conn, actor_role=actor_role),
             set_flash_message_fn=set_flash_message,
         )
     else:
@@ -4763,7 +4763,7 @@ def sales_tab(conn: sqlite3.Connection) -> None:
             render_record_snapshot_fn=render_record_snapshot,
             build_sales_selection_payload_fn=build_sales_selection_payload,
             validate_sales_lead_values_fn=validate_sales_lead_values,
-            update_sales_lead_and_commit_fn=partial(update_sales_lead_and_commit, actor_role=actor_role),
+            update_sales_lead_and_commit_fn=partial(update_sales_lead_and_commit, conn, actor_role=actor_role),
             set_flash_message_fn=set_flash_message,
         )
 
