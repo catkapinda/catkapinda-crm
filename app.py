@@ -5141,12 +5141,12 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         .ck-attendance-preview-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
+            gap: 8px;
         }
 
         .ck-attendance-preview-item {
-            padding: 10px 11px;
-            border-radius: 14px;
+            padding: 9px 10px;
+            border-radius: 12px;
             background: rgba(255, 255, 255, 0.84);
             border: 1px solid rgba(214, 225, 243, 0.92);
         }
@@ -5164,10 +5164,19 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         .ck-attendance-preview-item strong {
             display: block;
             color: #102443;
-            font-size: 0.88rem;
+            font-size: 0.84rem;
             line-height: 1.35;
             font-weight: 700;
             word-break: break-word;
+        }
+
+        .ck-attendance-manage-shell {
+            margin-top: 0.8rem;
+            padding: 18px 18px 16px;
+            border-radius: 22px;
+            border: 1px solid rgba(193, 208, 231, 0.9);
+            background: linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(244, 248, 254, 0.96));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
         }
         </style>
         """,
@@ -5182,6 +5191,27 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
     person_opts = get_person_options(conn)
     absence_reason_options = ["-"] + ABSENCE_REASON_OPTIONS
     entry_mode_options = ATTENDANCE_ENTRY_MODE_OPTIONS
+
+    def render_attendance_preview_card(title: str, items: list[tuple[str, Any]]) -> None:
+        preview_html = "".join(
+            (
+                "<div class='ck-attendance-preview-item'>"
+                f"<span>{html.escape(label)}</span>"
+                f"<strong>{html.escape(str(value if value not in [None, ''] else '-'))}</strong>"
+                "</div>"
+            )
+            for label, value in items
+        )
+        st.markdown(
+            (
+                "<div class='ck-attendance-preview-card'>"
+                f"<div class='ck-attendance-preview-title'>{html.escape(title)}</div>"
+                f"<div class='ck-attendance-preview-grid'>{preview_html}</div>"
+                "</div>"
+            ),
+            unsafe_allow_html=True,
+        )
+
     with st.form("daily_entry_form", clear_on_submit=True):
         form_left, form_right = st.columns([2.15, 1])
         with form_left:
@@ -5229,34 +5259,21 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
             notes = c8.text_input("Not", placeholder="Kısa operasyon notu")
         with form_right:
+            replacement_summary = (
+                f"{entry_mode} | {actual_label}"
+                if entry_mode in ["Joker", "Destek"] and actual_label != "-"
+                else "-"
+            )
             preview_items = [
                 ("Tarih", entry_date.isoformat() if entry_date else "-"),
                 ("Şube", rest_label or "-"),
                 ("Akış", entry_mode or "-"),
                 ("Çalışan", primary_label or "-"),
-                ("Yerine Giren", actual_label if entry_mode in ["Joker", "Destek"] else "-"),
-                ("Neden", absence_reason or "-"),
+                ("Yerine Giren", replacement_summary),
                 ("Mesai", f"{fmt_number(worked_hours)} saat"),
                 ("Paket", fmt_number(package_count)),
             ]
-            preview_html = "".join(
-                (
-                    "<div class='ck-attendance-preview-item'>"
-                    f"<span>{html.escape(label)}</span>"
-                    f"<strong>{html.escape(str(value if value not in [None, ''] else '-'))}</strong>"
-                    "</div>"
-                )
-                for label, value in preview_items
-            )
-            st.markdown(
-                (
-                    "<div class='ck-attendance-preview-card'>"
-                    "<div class='ck-attendance-preview-title'>Kayıt Özeti</div>"
-                    f"<div class='ck-attendance-preview-grid'>{preview_html}</div>"
-                    "</div>"
-                ),
-                unsafe_allow_html=True,
-            )
+            render_attendance_preview_card("Kayıt Özeti", preview_items)
         submitted = st.form_submit_button("Kaydet", use_container_width=True, disabled=not can_create_attendance)
         if submitted:
             try:
@@ -5381,7 +5398,12 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         )
         st.caption(f"{len(filtered_mgmt_df)} kayıt gösteriliyor.")
     if not df.empty:
-        st.markdown("#### Kayıt Düzelt / Sil")
+        st.markdown("<div class='ck-attendance-manage-shell'>", unsafe_allow_html=True)
+        st.markdown("<div class='ck-attendance-form-kicker'>Kayıt Düzelt / Sil</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='ck-attendance-form-copy'>Düzeltmek veya kaldırmak istediğin kaydı seç, ardından formu aynı blok içinde güncelle.</div>",
+            unsafe_allow_html=True,
+        )
         selection_source_df = filtered_mgmt_df if "filtered_mgmt_df" in locals() and not filtered_mgmt_df.empty else df
         selection_entry_map = {
             f"{row['entry_date']} | {row['restoran']} | {row['calisan_personel']} | {fmt_number(row['package_count'])} paket | ID:{row['id']}": int(row["id"])
@@ -5401,87 +5423,100 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         planned_default = selection_payload.planned_default
         actual_default = selection_payload.actual_default
         absence_reason_default = selection_payload.absence_reason_default
-        render_record_snapshot(
-            "Seçili Kayıt",
-            [
-                ("Tarih", selected["entry_date"] or "-"),
-                ("Şube", current_rest_label or "-"),
-                ("Çalışan Personel", actual_default if actual_default != "-" else planned_default),
-                ("Akış", entry_mode_default or "-"),
-                ("Neden Girmedi", absence_reason_default or "-"),
-                ("Saat", fmt_number(selected["worked_hours"] or 0)),
-                ("Paket", fmt_number(selected["package_count"] or 0)),
-            ],
-        )
+        selected_person_label = actual_default if actual_default != "-" else planned_default
         with st.form(f"daily_entry_edit_form_{selected_id}"):
-            e1, e2, e3 = st.columns(3)
-            edit_date = e1.date_input("Tarih", value=datetime.fromisoformat(selected["entry_date"]).date())
-            rest_labels = list(rest_opts.keys())
-            edit_rest_label = e2.selectbox("Restoran / şube", rest_labels, index=rest_labels.index(current_rest_label))
-            edit_entry_mode = e3.selectbox(
-                "Vardiya Akışı",
-                entry_mode_options,
-                index=entry_mode_options.index(entry_mode_default) if entry_mode_default in entry_mode_options else 0,
-            )
+            edit_left, edit_right = st.columns([2.15, 1])
+            with edit_left:
+                st.markdown("<div class='ck-attendance-form-kicker'>Vardiya Bilgisi</div>", unsafe_allow_html=True)
+                e1, e2, e3 = st.columns(3)
+                edit_date = e1.date_input("Tarih", value=datetime.fromisoformat(selected["entry_date"]).date())
+                rest_labels = list(rest_opts.keys())
+                edit_rest_label = e2.selectbox("Restoran / şube", rest_labels, index=rest_labels.index(current_rest_label))
+                edit_entry_mode = e3.selectbox(
+                    "Vardiya Akışı",
+                    entry_mode_options,
+                    index=entry_mode_options.index(entry_mode_default) if entry_mode_default in entry_mode_options else 0,
+                )
             person_labels = ["-"] + list(person_opts.keys())
             edit_primary_label = actual_default if actual_default != "-" else planned_default
             edit_actual_label = actual_default
             edit_absence_reason = "-"
-            if edit_entry_mode == "Restoran Kuryesi":
-                edit_primary_label = st.selectbox(
-                    "Çalışan Personel",
-                    person_labels,
-                    index=person_labels.index(edit_primary_label) if edit_primary_label in person_labels else 0,
-                )
-            elif edit_entry_mode in ["Joker", "Destek"]:
-                e4, e5 = st.columns(2)
-                replacement_primary_default = planned_default if planned_default != "-" else edit_primary_label
-                edit_primary_label = e4.selectbox(
-                    "Çalışan Personel",
-                    person_labels,
-                    index=person_labels.index(replacement_primary_default) if replacement_primary_default in person_labels else 0,
-                )
-                edit_actual_label = e5.selectbox(
-                    "Yerine Giren Personel",
-                    person_labels,
-                    index=person_labels.index(actual_default) if actual_default in person_labels else 0,
-                )
-                edit_absence_reason = st.selectbox(
-                    "Neden Girmedi?",
-                    absence_reason_options,
-                    index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
-                )
-            else:
-                e4, e5 = st.columns(2)
-                weekly_off_primary_default = planned_default if planned_default != "-" else edit_primary_label
-                edit_primary_label = e4.selectbox(
-                    "Çalışan Personel",
-                    person_labels,
-                    index=person_labels.index(weekly_off_primary_default) if weekly_off_primary_default in person_labels else 0,
-                )
-                edit_absence_reason = e5.selectbox(
-                    "Neden Girmedi?",
-                    absence_reason_options,
-                    index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
-                )
+            with edit_left:
+                st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
+                if edit_entry_mode == "Restoran Kuryesi":
+                    edit_primary_label = st.selectbox(
+                        "Çalışan Personel",
+                        person_labels,
+                        index=person_labels.index(edit_primary_label) if edit_primary_label in person_labels else 0,
+                    )
+                elif edit_entry_mode in ["Joker", "Destek"]:
+                    e4, e5 = st.columns(2)
+                    replacement_primary_default = planned_default if planned_default != "-" else edit_primary_label
+                    edit_primary_label = e4.selectbox(
+                        "Çalışan Personel",
+                        person_labels,
+                        index=person_labels.index(replacement_primary_default) if replacement_primary_default in person_labels else 0,
+                    )
+                    edit_actual_label = e5.selectbox(
+                        "Yerine Giren Personel",
+                        person_labels,
+                        index=person_labels.index(actual_default) if actual_default in person_labels else 0,
+                    )
+                    edit_absence_reason = st.selectbox(
+                        "Neden Girmedi?",
+                        absence_reason_options,
+                        index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
+                    )
+                else:
+                    e4, e5 = st.columns(2)
+                    weekly_off_primary_default = planned_default if planned_default != "-" else edit_primary_label
+                    edit_primary_label = e4.selectbox(
+                        "Çalışan Personel",
+                        person_labels,
+                        index=person_labels.index(weekly_off_primary_default) if weekly_off_primary_default in person_labels else 0,
+                    )
+                    edit_absence_reason = e5.selectbox(
+                        "Neden Girmedi?",
+                        absence_reason_options,
+                        index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
+                    )
 
-            e6, e7 = st.columns(2)
-            edit_input_disabled = edit_entry_mode == "Haftalık İzin"
-            edit_hours = e6.number_input(
-                "Çalışılan saat",
-                min_value=0.0,
-                value=0.0 if edit_input_disabled else float(selected["worked_hours"] or 0),
-                step=0.5,
-                disabled=edit_input_disabled,
-            )
-            edit_package = e7.number_input(
-                "Paket",
-                min_value=0.0,
-                value=0.0 if edit_input_disabled else float(selected["package_count"] or 0),
-                step=1.0,
-                disabled=edit_input_disabled,
-            )
-            edit_notes = st.text_area("Not", value=selected["notes"])
+                st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
+                e6, e7, e8 = st.columns([0.9, 0.9, 1.2])
+                edit_input_disabled = edit_entry_mode == "Haftalık İzin"
+                edit_hours = e6.number_input(
+                    "Çalışılan saat",
+                    min_value=0.0,
+                    value=0.0 if edit_input_disabled else float(selected["worked_hours"] or 0),
+                    step=0.5,
+                    disabled=edit_input_disabled,
+                )
+                edit_package = e7.number_input(
+                    "Paket",
+                    min_value=0.0,
+                    value=0.0 if edit_input_disabled else float(selected["package_count"] or 0),
+                    step=1.0,
+                    disabled=edit_input_disabled,
+                )
+                edit_notes = e8.text_input("Not", value=selected["notes"] or "", placeholder="Kısa operasyon notu")
+            with edit_right:
+                edit_replacement_summary = (
+                    f"{edit_entry_mode} | {edit_actual_label}"
+                    if edit_entry_mode in ["Joker", "Destek"] and edit_actual_label != "-"
+                    else "-"
+                )
+                render_attendance_preview_card(
+                    "Seçili Kayıt",
+                    [
+                        ("Tarih", edit_date.isoformat() if edit_date else selected["entry_date"] or "-"),
+                        ("Şube", edit_rest_label or current_rest_label or "-"),
+                        ("Akış", edit_entry_mode or entry_mode_default or "-"),
+                        ("Çalışan", edit_primary_label or selected_person_label or "-"),
+                        ("Yerine Giren", edit_replacement_summary),
+                        ("Mesai", f"{fmt_number(edit_hours)} saat"),
+                        ("Paket", fmt_number(edit_package)),
+                    ],
+                )
             u1, u2 = st.columns(2)
             update_clicked = u1.form_submit_button("Kaydı güncelle", use_container_width=True, disabled=not can_update_attendance)
             delete_clicked = u2.form_submit_button("Kaydı sil", use_container_width=True, disabled=not can_delete_attendance)
@@ -5537,6 +5572,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 else:
                     st.success(success_text)
                     st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info("Henüz günlük puantaj kaydı yok.")
 
