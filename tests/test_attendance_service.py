@@ -21,6 +21,45 @@ class _DummyConn:
 
 
 class AttendanceServiceTests(unittest.TestCase):
+    def test_resolve_daily_entry_values_builds_replacement_payload(self):
+        values = attendance_service.resolve_daily_entry_values(
+            entry_mode="Yerine Giriş",
+            primary_person_id=None,
+            planned_personnel_id=11,
+            actual_personnel_id=42,
+            absence_reason="İzin",
+            coverage_type="Joker",
+            worked_hours=10.0,
+            package_count=24.0,
+            notes="Destek edildi",
+        )
+
+        self.assertEqual(values["planned_personnel_id"], 11)
+        self.assertEqual(values["actual_personnel_id"], 42)
+        self.assertEqual(values["status"], "Normal")
+        self.assertEqual(values["absence_reason"], "İzin")
+        self.assertEqual(values["coverage_type"], "Joker")
+        self.assertEqual(values["package_count"], 24.0)
+
+    def test_resolve_daily_entry_values_builds_empty_shift_payload(self):
+        values = attendance_service.resolve_daily_entry_values(
+            entry_mode="Boş Vardiya",
+            primary_person_id=None,
+            planned_personnel_id=11,
+            actual_personnel_id=None,
+            absence_reason="Raporlu",
+            coverage_type="",
+            worked_hours=10.0,
+            package_count=24.0,
+            notes="Doktor raporu",
+        )
+
+        self.assertEqual(values["planned_personnel_id"], 11)
+        self.assertIsNone(values["actual_personnel_id"])
+        self.assertEqual(values["status"], "Raporlu")
+        self.assertEqual(values["worked_hours"], 0.0)
+        self.assertEqual(values["package_count"], 0.0)
+
     def test_build_bulk_rows_from_parsed_maps_known_names_and_normalizes_status(self):
         rows = attendance_service.build_bulk_rows_from_parsed(
             [
@@ -112,6 +151,8 @@ class AttendanceServiceTests(unittest.TestCase):
         self.assertEqual(inserted_payload["planned_personnel_id"], 2)
         self.assertEqual(inserted_payload["actual_personnel_id"], 2)
         self.assertEqual(inserted_payload["status"], "Normal")
+        self.assertEqual(inserted_payload["absence_reason"], "")
+        self.assertEqual(inserted_payload["coverage_type"], "")
         self.assertIn("Kaynak: Toplu Puantaj", inserted_payload["notes"])
         sync_mock.assert_called_once_with(conn, [2], create_onboarding=False, full_history=True)
         self.assertEqual(conn.commit_calls, 1)

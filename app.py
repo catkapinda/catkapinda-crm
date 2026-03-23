@@ -196,12 +196,17 @@ from services.reporting_service import (
 )
 from services.audit_service import load_audit_workspace_payload
 from services.attendance_service import (
+    ABSENCE_REASON_OPTIONS,
+    ATTENDANCE_ENTRY_MODE_OPTIONS,
+    COVERAGE_TYPE_OPTIONS,
+    NON_WORKING_ATTENDANCE_STATUSES,
     build_bulk_attendance_context,
     build_bulk_rows_from_parsed,
     build_daily_entry_selection_payload,
     create_daily_entry_and_sync,
     delete_daily_entry_and_sync,
     load_daily_entry_workspace_payload,
+    resolve_daily_entry_values,
     save_bulk_entries_and_sync,
     update_daily_entry_and_sync,
 )
@@ -1749,6 +1754,11 @@ def normalize_entry_status(value: str) -> str:
         "joker": "Joker",
         "izin": "İzin",
         "i̇zin": "İzin",
+        "raporlu": "Raporlu",
+        "ihbarsız çıkış": "İhbarsız Çıkış",
+        "ihbarsiz cikis": "İhbarsız Çıkış",
+        "ihbarsiz çıkış": "İhbarsız Çıkış",
+        "ihbarsız cikis": "İhbarsız Çıkış",
         "gelmedi": "Gelmedi",
         "çıkış": "Çıkış yaptı",
         "cikis": "Çıkış yaptı",
@@ -1784,7 +1794,7 @@ def parse_whatsapp_bulk(text_value: str) -> list[dict]:
                 hours = float(nums[0].replace(",", "."))
             elif "paket" in low and nums:
                 packages = int(float(nums[0].replace(",", ".")))
-            elif normalize_entry_status(p) in ["Normal", "Joker", "İzin", "Gelmedi", "Çıkış yaptı", "Şef"]:
+            elif normalize_entry_status(p) in ["Normal", "Joker", "İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Çıkış yaptı", "Şef"]:
                 status = normalize_entry_status(p)
             elif nums and hours == 0:
                 hours = float(nums[0].replace(",", "."))
@@ -2861,7 +2871,7 @@ def count_person_worked_days_in_range(
         WHERE actual_personnel_id = ?
           AND entry_date BETWEEN ? AND ?
           AND (
-              status NOT IN ('İzin', 'Gelmedi')
+              status NOT IN ('İzin', 'Gelmedi', 'Raporlu', 'İhbarsız Çıkış')
               OR worked_hours > 0
               OR package_count > 0
           )
@@ -5067,41 +5077,93 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
     can_create_attendance = can_perform_action(actor_role, "attendance.create")
     can_update_attendance = can_perform_action(actor_role, "attendance.update")
     can_delete_attendance = can_perform_action(actor_role, "attendance.delete")
-    status_options = ["Normal", "Joker", "İzin", "Gelmedi", "Çıkış yaptı", "Şef"]
-    st.subheader("Günlük Puantaj | Saat, paket ve fiilen çalışan personel kaydı")
-    st.caption("WhatsApp teyidi sonrası şube bazlı günlük saat ve paket girişlerini bu ekrandan yap.")
+    status_options = ["Normal", "Joker", "İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Çıkış yaptı", "Şef"]
+    st.subheader("Günlük Puantaj | Kim girecekti, neden girmedi, yerine kim girdi?")
+    st.caption("Ofisin planlanan personel ile fiilen çalışan kişiyi karıştırmaması için günlük vardiya akışını ayrı alanlarla yönet.")
     rest_opts = get_restaurant_options(conn)
     person_opts = get_person_options(conn)
+    absence_reason_options = ["-"] + ABSENCE_REASON_OPTIONS
+    coverage_type_options = ["-"] + COVERAGE_TYPE_OPTIONS
+    entry_mode_options = ATTENDANCE_ENTRY_MODE_OPTIONS
     with st.form("daily_entry_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
         entry_date = c1.date_input("Tarih", value=date.today())
         rest_label = c2.selectbox("Restoran / şube", list(rest_opts.keys()))
-        status = c3.selectbox("Durum", status_options)
-        c4, c5 = st.columns(2)
-        planned_label = c4.selectbox("Planlanan personel", ["-"] + list(person_opts.keys()))
-        actual_label = c5.selectbox("Fiilen çalışan personel", ["-"] + list(person_opts.keys()))
+        entry_mode = c3.selectbox("Vardiya akışı", entry_mode_options)
+        primary_label = "-"
+        planned_label = "-"
+        actual_label = "-"
+        absence_reason = "-"
+        coverage_type = "-"
+
+        person_labels = ["-"] + list(person_opts.keys())
+        if entry_mode in ["Normal Çalışma", "Şef Vardiyası"]:
+            field_label = "Normalde ve fiilen çalışan kişi" if entry_mode == "Normal Çalışma" else "Fiilen çalışan şef"
+            primary_label = st.selectbox(field_label, person_labels)
+            st.caption("Bu akışta planlanan kişi ile fiilen çalışan kişi aynıdır.")
+        elif entry_mode == "Yerine Giriş":
+            c4, c5 = st.columns(2)
+            planned_label = c4.selectbox("Normalde girecek personel", person_labels)
+            actual_label = c5.selectbox("Fiilen çalışan / yerine giren", person_labels)
+            c6, c7 = st.columns(2)
+            absence_reason = c6.selectbox("Neden girmedi?", absence_reason_options)
+            coverage_default = "-"
+            if actual_label != "-":
+                coverage_default = "Joker" if "(Joker)" in actual_label else "Destek"
+            coverage_type = c7.selectbox(
+                "Yerine kim girdi?",
+                coverage_type_options,
+                index=coverage_type_options.index(coverage_default),
+                help="Joker kendi sabit maaşında kalır; Destek farklı restorandan gelen fiili çalışanı ifade eder.",
+            )
+        else:
+            c4, c5 = st.columns(2)
+            planned_label = c4.selectbox("Normalde girecek personel", person_labels)
+            absence_reason = c5.selectbox("Neden girmedi?", absence_reason_options)
+            st.caption("Bu vardiyada yerine kimse girmediyse saat ve paket 0 olarak kaydedilir.")
+
         c6, c7 = st.columns(2)
-        worked_hours = c6.number_input("Çalışılan saat", min_value=0.0, value=10.0, step=0.5)
-        package_count = c7.number_input("Paket", min_value=0.0, value=0.0, step=1.0)
+        input_disabled = entry_mode == "Boş Vardiya"
+        worked_hours = c6.number_input(
+            "Çalışılan saat",
+            min_value=0.0,
+            value=0.0 if input_disabled else 10.0,
+            step=0.5,
+            disabled=input_disabled,
+        )
+        package_count = c7.number_input(
+            "Paket",
+            min_value=0.0,
+            value=0.0,
+            step=1.0,
+            disabled=input_disabled,
+        )
         notes = st.text_area("Not")
         submitted = st.form_submit_button("Kaydet", use_container_width=True, disabled=not can_create_attendance)
         if submitted:
-            planned_id = person_opts[planned_label] if planned_label != "-" else None
-            actual_id = person_opts[actual_label] if actual_label != "-" else None
             try:
+                primary_id = person_opts[primary_label] if primary_label != "-" else None
+                planned_id = person_opts[planned_label] if planned_label != "-" else None
+                actual_id = person_opts[actual_label] if actual_label != "-" else None
+                resolved_values = resolve_daily_entry_values(
+                    entry_mode=entry_mode,
+                    primary_person_id=primary_id,
+                    planned_personnel_id=planned_id,
+                    actual_personnel_id=actual_id,
+                    absence_reason="" if absence_reason == "-" else absence_reason,
+                    coverage_type="" if coverage_type == "-" else coverage_type,
+                    worked_hours=worked_hours,
+                    package_count=package_count,
+                    notes=notes,
+                )
                 success_text = create_daily_entry_and_sync(
                     conn,
                     entry_values={
                         "entry_date": entry_date.isoformat(),
                         "restaurant_id": rest_opts[rest_label],
-                        "planned_personnel_id": planned_id,
-                        "actual_personnel_id": actual_id,
-                        "status": status,
-                        "worked_hours": worked_hours,
-                        "package_count": package_count,
-                        "notes": notes,
+                        **resolved_values,
                     },
-                    affected_person_id=actual_id,
+                    affected_person_id=resolved_values.get("actual_personnel_id"),
                     sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
                     actor_role=actor_role,
                 )
@@ -5128,26 +5190,90 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         )
         selected = selection_payload.selected_row
         current_rest_label = selection_payload.current_rest_label
+        entry_mode_default = selection_payload.entry_mode
         planned_default = selection_payload.planned_default
         actual_default = selection_payload.actual_default
+        absence_reason_default = selection_payload.absence_reason_default
+        coverage_type_default = selection_payload.coverage_type_default
 
         with st.form(f"daily_entry_edit_form_{selected_id}"):
             e1, e2, e3 = st.columns(3)
             edit_date = e1.date_input("Tarih", value=datetime.fromisoformat(selected["entry_date"]).date())
             rest_labels = list(rest_opts.keys())
             edit_rest_label = e2.selectbox("Restoran / şube", rest_labels, index=rest_labels.index(current_rest_label))
-            edit_status = e3.selectbox(
-                "Durum",
-                status_options,
-                index=status_options.index(selected["status"]) if selected["status"] in status_options else 0,
+            edit_entry_mode = e3.selectbox(
+                "Vardiya akışı",
+                entry_mode_options,
+                index=entry_mode_options.index(entry_mode_default) if entry_mode_default in entry_mode_options else 0,
             )
-            e4, e5 = st.columns(2)
             person_labels = ["-"] + list(person_opts.keys())
-            edit_planned_label = e4.selectbox("Planlanan personel", person_labels, index=person_labels.index(planned_default))
-            edit_actual_label = e5.selectbox("Fiilen çalışan personel", person_labels, index=person_labels.index(actual_default))
+            edit_primary_label = actual_default if actual_default != "-" else planned_default
+            edit_planned_label = planned_default
+            edit_actual_label = actual_default
+            edit_absence_reason = "-"
+            edit_coverage_type = "-"
+            if edit_entry_mode in ["Normal Çalışma", "Şef Vardiyası"]:
+                edit_field_label = "Normalde ve fiilen çalışan kişi" if edit_entry_mode == "Normal Çalışma" else "Fiilen çalışan şef"
+                edit_primary_label = st.selectbox(
+                    edit_field_label,
+                    person_labels,
+                    index=person_labels.index(edit_primary_label) if edit_primary_label in person_labels else 0,
+                )
+                st.caption("Bu akışta planlanan kişi ile fiilen çalışan kişi aynıdır.")
+            elif edit_entry_mode == "Yerine Giriş":
+                e4, e5 = st.columns(2)
+                edit_planned_label = e4.selectbox(
+                    "Normalde girecek personel",
+                    person_labels,
+                    index=person_labels.index(planned_default) if planned_default in person_labels else 0,
+                )
+                edit_actual_label = e5.selectbox(
+                    "Fiilen çalışan / yerine giren",
+                    person_labels,
+                    index=person_labels.index(actual_default) if actual_default in person_labels else 0,
+                )
+                e6, e7 = st.columns(2)
+                coverage_default = coverage_type_default or ("Joker" if "(Joker)" in edit_actual_label else "Destek")
+                edit_absence_reason = e6.selectbox(
+                    "Neden girmedi?",
+                    absence_reason_options,
+                    index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
+                )
+                edit_coverage_type = e7.selectbox(
+                    "Yerine kim girdi?",
+                    coverage_type_options,
+                    index=coverage_type_options.index(coverage_default) if coverage_default in coverage_type_options else 0,
+                )
+            else:
+                e4, e5 = st.columns(2)
+                edit_planned_label = e4.selectbox(
+                    "Normalde girecek personel",
+                    person_labels,
+                    index=person_labels.index(planned_default) if planned_default in person_labels else 0,
+                )
+                edit_absence_reason = e5.selectbox(
+                    "Neden girmedi?",
+                    absence_reason_options,
+                    index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
+                )
+                st.caption("Bu vardiyada yerine kimse girmediyse saat ve paket 0 olarak kaydedilir.")
+
             e6, e7 = st.columns(2)
-            edit_hours = e6.number_input("Çalışılan saat", min_value=0.0, value=float(selected["worked_hours"] or 0), step=0.5)
-            edit_package = e7.number_input("Paket", min_value=0.0, value=float(selected["package_count"] or 0), step=1.0)
+            edit_input_disabled = edit_entry_mode == "Boş Vardiya"
+            edit_hours = e6.number_input(
+                "Çalışılan saat",
+                min_value=0.0,
+                value=0.0 if edit_input_disabled else float(selected["worked_hours"] or 0),
+                step=0.5,
+                disabled=edit_input_disabled,
+            )
+            edit_package = e7.number_input(
+                "Paket",
+                min_value=0.0,
+                value=0.0 if edit_input_disabled else float(selected["package_count"] or 0),
+                step=1.0,
+                disabled=edit_input_disabled,
+            )
             edit_notes = st.text_area("Not", value=selected["notes"])
             u1, u2 = st.columns(2)
             update_clicked = u1.form_submit_button("Kaydı güncelle", use_container_width=True, disabled=not can_update_attendance)
@@ -5155,24 +5281,31 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
             if update_clicked:
                 previous_actual_id = safe_int(selected["actual_personnel_id"], 0)
-                planned_id = person_opts[edit_planned_label] if edit_planned_label != "-" else None
-                actual_id = person_opts[edit_actual_label] if edit_actual_label != "-" else None
                 try:
+                    edit_primary_id = person_opts[edit_primary_label] if edit_primary_label != "-" else None
+                    planned_id = person_opts[edit_planned_label] if edit_planned_label != "-" else None
+                    actual_id = person_opts[edit_actual_label] if edit_actual_label != "-" else None
+                    resolved_values = resolve_daily_entry_values(
+                        entry_mode=edit_entry_mode,
+                        primary_person_id=edit_primary_id,
+                        planned_personnel_id=planned_id,
+                        actual_personnel_id=actual_id,
+                        absence_reason="" if edit_absence_reason == "-" else edit_absence_reason,
+                        coverage_type="" if edit_coverage_type == "-" else edit_coverage_type,
+                        worked_hours=edit_hours,
+                        package_count=edit_package,
+                        notes=edit_notes,
+                    )
                     success_text = update_daily_entry_and_sync(
                         conn,
                         entry_id=selected_id,
                         entry_values={
                             "entry_date": edit_date.isoformat(),
                             "restaurant_id": rest_opts[edit_rest_label],
-                            "planned_personnel_id": planned_id,
-                            "actual_personnel_id": actual_id,
-                            "status": edit_status,
-                            "worked_hours": edit_hours,
-                            "package_count": edit_package,
-                            "notes": edit_notes,
+                            **resolved_values,
                         },
                         previous_actual_id=previous_actual_id,
-                        actual_id=actual_id,
+                        actual_id=resolved_values.get("actual_personnel_id"),
                         sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
                         actor_role=actor_role,
                     )
@@ -5434,7 +5567,7 @@ def toplu_puantaj_tab(conn: sqlite3.Connection) -> None:
             "Personel": st.column_config.SelectboxColumn("Personel", options=list(person_label_map.keys()), required=False),
             "Saat": st.column_config.NumberColumn("Saat", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
             "Paket": st.column_config.NumberColumn("Paket", min_value=0, step=1),
-            "Durum": st.column_config.SelectboxColumn("Durum", options=["Normal", "Joker", "İzin", "Gelmedi", "Çıkış yaptı", "Şef"]),
+            "Durum": st.column_config.SelectboxColumn("Durum", options=["Normal", "Joker", "İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Çıkış yaptı", "Şef"]),
             "Not": st.column_config.TextColumn("Not"),
         },
     )

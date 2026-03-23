@@ -208,6 +208,43 @@ class ReportingRulesTests(unittest.TestCase):
         self.assertAlmostEqual(eyup_row["kdv_haric"], 50418.0)
         self.assertAlmostEqual(eyup_row["kdv_dahil"], 60501.6)
 
+    def test_attendance_export_includes_absence_reason_and_coverage_type(self):
+        month_df = pd.DataFrame(
+            [
+                {
+                    "brand": "Quick China",
+                    "branch": "Ataşehir",
+                    "entry_date": "2026-03-05",
+                    "status": "Normal",
+                    "worked_hours": 10.0,
+                    "package_count": 24.0,
+                    "planned_personnel_id": 1,
+                    "actual_personnel_id": 2,
+                    "absence_reason": "İzin",
+                    "coverage_type": "Joker",
+                }
+            ]
+        )
+        personnel_df = pd.DataFrame(
+            [
+                {"id": 1, "full_name": "Emine Ebru Aslan", "role": "Kurye"},
+                {"id": 2, "full_name": "Recep Joker", "role": "Joker"},
+            ]
+        )
+
+        export_map = reporting_rules.build_restaurant_attendance_export_map(
+            month_df,
+            personnel_df,
+            "2026-03",
+            {},
+        )
+        export_df = export_map["Quick China - Ataşehir"]
+        emine_row = export_df.loc[export_df["Kurye"] == "Emine Ebru Aslan"].iloc[0]
+
+        self.assertIn("İzin", emine_row["05"])
+        self.assertIn("Joker: Recep Joker", emine_row["05"])
+        self.assertIn("10 saat | 24 paket", emine_row["05"])
+
 
 if __name__ == "__main__":
     unittest.main()

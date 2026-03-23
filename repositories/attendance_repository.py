@@ -10,7 +10,19 @@ def fetch_daily_entry_management_df(conn: CompatConnection):
         conn,
         """
         SELECT d.id, d.entry_date, r.brand || ' - ' || r.branch AS restoran,
-               COALESCE(pp.full_name, '-') AS planlanan, COALESCE(ap.full_name, '-') AS calisan,
+               COALESCE(pp.full_name, '-') AS normalde_girecek,
+               COALESCE(ap.full_name, '-') AS fiilen_calisan,
+               CASE
+                   WHEN d.status = 'Şef' THEN 'Şef Vardiyası'
+                   WHEN d.planned_personnel_id IS NOT NULL
+                        AND d.actual_personnel_id IS NOT NULL
+                        AND d.planned_personnel_id != d.actual_personnel_id THEN 'Yerine Giriş'
+                   WHEN d.planned_personnel_id IS NOT NULL
+                        AND d.actual_personnel_id IS NULL THEN 'Boş Vardiya'
+                   ELSE 'Normal Çalışma'
+               END AS vardiya_akisi,
+               COALESCE(d.absence_reason, '') AS neden_girmedi,
+               COALESCE(d.coverage_type, '') AS yerine_giren_tipi,
                d.status, d.worked_hours, d.package_count, COALESCE(d.notes, '') AS notes
         FROM daily_entries d
         JOIN restaurants r ON r.id = d.restaurant_id
@@ -26,7 +38,10 @@ def fetch_daily_entry_by_id(conn: CompatConnection, entry_id: int):
     return conn.execute(
         """
         SELECT id, entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
-               status, worked_hours, package_count, COALESCE(notes, '') AS notes
+               status, worked_hours, package_count,
+               COALESCE(absence_reason, '') AS absence_reason,
+               COALESCE(coverage_type, '') AS coverage_type,
+               COALESCE(notes, '') AS notes
         FROM daily_entries
         WHERE id = ?
         """,
@@ -39,8 +54,8 @@ def insert_daily_entry(conn: CompatConnection, values: dict[str, Any]) -> None:
         """
         INSERT INTO daily_entries (
             entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
-            status, worked_hours, package_count, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            status, worked_hours, package_count, absence_reason, coverage_type, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             values["entry_date"],
@@ -50,6 +65,8 @@ def insert_daily_entry(conn: CompatConnection, values: dict[str, Any]) -> None:
             values["status"],
             values["worked_hours"],
             values["package_count"],
+            values.get("absence_reason", ""),
+            values.get("coverage_type", ""),
             values["notes"],
         ),
     )
@@ -60,7 +77,7 @@ def update_daily_entry(conn: CompatConnection, entry_id: int, values: dict[str, 
         """
         UPDATE daily_entries
         SET entry_date = ?, restaurant_id = ?, planned_personnel_id = ?, actual_personnel_id = ?,
-            status = ?, worked_hours = ?, package_count = ?, notes = ?
+            status = ?, worked_hours = ?, package_count = ?, absence_reason = ?, coverage_type = ?, notes = ?
         WHERE id = ?
         """,
         (
@@ -71,6 +88,8 @@ def update_daily_entry(conn: CompatConnection, entry_id: int, values: dict[str, 
             values["status"],
             values["worked_hours"],
             values["package_count"],
+            values.get("absence_reason", ""),
+            values.get("coverage_type", ""),
             values["notes"],
             entry_id,
         ),

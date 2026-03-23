@@ -384,6 +384,8 @@ def build_restaurant_invoice_drilldown_map(
         "package_count": 0.0,
         "actual_personnel_id": None,
         "planned_personnel_id": None,
+        "absence_reason": "",
+        "coverage_type": "",
         "pricing_model": "",
         "hourly_rate": 0.0,
         "package_rate": 0.0,
@@ -506,6 +508,8 @@ def build_restaurant_attendance_export_map(
         "package_count": 0.0,
         "planned_personnel_id": None,
         "actual_personnel_id": None,
+        "absence_reason": "",
+        "coverage_type": "",
     }.items():
         if column_name not in work.columns:
             work[column_name] = default_value
@@ -555,13 +559,22 @@ def build_restaurant_attendance_export_map(
             if not day_key:
                 continue
             status_text = str(entry_row.get("status") or "Normal").strip() or "Normal"
+            absence_reason = str(entry_row.get("absence_reason") or "").strip()
+            coverage_type = str(entry_row.get("coverage_type") or "").strip()
             hours = _SAFE_FLOAT(entry_row.get("worked_hours"), 0.0)
             packages = _SAFE_FLOAT(entry_row.get("package_count"), 0.0)
             detail_parts: list[str] = []
-            if status_text and status_text != "Normal":
+            if absence_reason:
+                detail_parts.append(absence_reason)
+            elif status_text and status_text != "Normal":
                 detail_parts.append(status_text)
             if planned_name and actual_name and planned_name != actual_name:
-                detail_parts.append(f"Yerine {actual_name}")
+                if coverage_type:
+                    detail_parts.append(f"{coverage_type}: {actual_name}")
+                else:
+                    detail_parts.append(f"Yerine {actual_name}")
+            elif coverage_type:
+                detail_parts.append(coverage_type)
             stat_parts: list[str] = []
             if hours > 0:
                 stat_parts.append(f"{_format_compact_number(hours)} saat")
