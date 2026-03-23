@@ -5190,29 +5190,29 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             edit_rest_label = e2.selectbox("Restoran / şube", rest_labels, index=rest_labels.index(current_rest_label))
             edit_entry_mode = e3.selectbox(
                 "Vardiya Akışı",
-            entry_mode_options,
-            index=entry_mode_options.index(entry_mode_default) if entry_mode_default in entry_mode_options else 0,
-        )
-        person_labels = ["-"] + list(person_opts.keys())
-        edit_primary_label = actual_default if actual_default != "-" else planned_default
-        edit_actual_label = actual_default
-        edit_absence_reason = "-"
-        if edit_entry_mode == "Restoran Kuryesi":
-            edit_primary_label = st.selectbox(
-                "Çalışan Personel",
-                person_labels,
-                index=person_labels.index(edit_primary_label) if edit_primary_label in person_labels else 0,
+                entry_mode_options,
+                index=entry_mode_options.index(entry_mode_default) if entry_mode_default in entry_mode_options else 0,
             )
-        elif edit_entry_mode in ["Joker", "Destek"]:
-            e4, e5 = st.columns(2)
-            replacement_primary_default = planned_default if planned_default != "-" else edit_primary_label
-            edit_primary_label = e4.selectbox(
-                "Çalışan Personel",
-                person_labels,
-                index=person_labels.index(replacement_primary_default) if replacement_primary_default in person_labels else 0,
-            )
-            edit_actual_label = e5.selectbox(
-                "Fiilen Çalışan Personel",
+            person_labels = ["-"] + list(person_opts.keys())
+            edit_primary_label = actual_default if actual_default != "-" else planned_default
+            edit_actual_label = actual_default
+            edit_absence_reason = "-"
+            if edit_entry_mode == "Restoran Kuryesi":
+                edit_primary_label = st.selectbox(
+                    "Çalışan Personel",
+                    person_labels,
+                    index=person_labels.index(edit_primary_label) if edit_primary_label in person_labels else 0,
+                )
+            elif edit_entry_mode in ["Joker", "Destek"]:
+                e4, e5 = st.columns(2)
+                replacement_primary_default = planned_default if planned_default != "-" else edit_primary_label
+                edit_primary_label = e4.selectbox(
+                    "Çalışan Personel",
+                    person_labels,
+                    index=person_labels.index(replacement_primary_default) if replacement_primary_default in person_labels else 0,
+                )
+                edit_actual_label = e5.selectbox(
+                    "Fiilen Çalışan Personel",
                     person_labels,
                     index=person_labels.index(actual_default) if actual_default in person_labels else 0,
                 )
@@ -5221,16 +5221,16 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     absence_reason_options,
                     index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
                 )
-        else:
-            e4, e5 = st.columns(2)
-            weekly_off_primary_default = planned_default if planned_default != "-" else edit_primary_label
-            edit_primary_label = e4.selectbox(
-                "Çalışan Personel",
-                person_labels,
-                index=person_labels.index(weekly_off_primary_default) if weekly_off_primary_default in person_labels else 0,
-            )
-            edit_absence_reason = e5.selectbox(
-                "Neden Girmedi?",
+            else:
+                e4, e5 = st.columns(2)
+                weekly_off_primary_default = planned_default if planned_default != "-" else edit_primary_label
+                edit_primary_label = e4.selectbox(
+                    "Çalışan Personel",
+                    person_labels,
+                    index=person_labels.index(weekly_off_primary_default) if weekly_off_primary_default in person_labels else 0,
+                )
+                edit_absence_reason = e5.selectbox(
+                    "Neden Girmedi?",
                     absence_reason_options,
                     index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
                 )
