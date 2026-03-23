@@ -277,9 +277,9 @@ def create_person_with_onboarding(
     require_action_access(actor_role, "personnel.create")
     auto_code = build_next_person_code(conn, role)
     values = {**person_values, "person_code": auto_code, "status": "Aktif"}
+    created_person_id = 0
     try:
         insert_personnel_record(conn, values)
-        conn.commit()
         created_person = fetch_personnel_by_code(conn, auto_code)
         if not created_person:
             raise RuntimeError("Personel kaydı oluşturuldu ancak kayıt tekrar okunamadı.")
@@ -314,31 +314,32 @@ def create_person_with_onboarding(
                 "Satış",
             )
         sync_person_current_role_snapshot_fn(conn, created_person)
-        conn.commit()
         sync_person_business_rules_fn(conn, created_person)
+        equipment_summary = (
+            f" | {len(onboarding_issue_payloads)} onboarding ekipmanı kaydedildi"
+            if onboarding_issue_payloads
+            else ""
+        )
+        success_text = f"{values['full_name']} başarıyla eklendi. Kod: {auto_code}{equipment_summary}"
+        record_audit_event(
+            conn,
+            entity_type="personnel",
+            entity_id=created_person_id,
+            action_type="create",
+            summary=success_text,
+            details={
+                "full_name": values.get("full_name"),
+                "role": values.get("role"),
+                "assigned_restaurant_id": values.get("assigned_restaurant_id"),
+                "onboarding_item_count": len(onboarding_issue_payloads),
+            },
+            commit=False,
+        )
+        conn.commit()
     except Exception:
         conn.rollback()
         raise
 
-    equipment_summary = (
-        f" | {len(onboarding_issue_payloads)} onboarding ekipmanı kaydedildi"
-        if onboarding_issue_payloads
-        else ""
-    )
-    success_text = f"{values['full_name']} başarıyla eklendi. Kod: {auto_code}{equipment_summary}"
-    record_audit_event(
-        conn,
-        entity_type="personnel",
-        entity_id=created_person_id,
-        action_type="create",
-        summary=success_text,
-        details={
-            "full_name": values.get("full_name"),
-            "role": values.get("role"),
-            "assigned_restaurant_id": values.get("assigned_restaurant_id"),
-            "onboarding_item_count": len(onboarding_issue_payloads),
-        },
-    )
     return PersonnelCreateResult(
         created_person_id=created_person_id,
         auto_code=auto_code,
@@ -376,7 +377,6 @@ def update_person_and_sync(
     require_action_access(actor_role, "personnel.update")
     try:
         update_personnel_record(conn, person_id, person_values)
-        conn.commit()
         updated_person = fetch_personnel_by_id(conn, person_id)
         if role_changed and transition_enabled:
             previous_fixed_cost = 0.0
@@ -409,26 +409,27 @@ def update_person_and_sync(
             )
         else:
             sync_person_current_vehicle_snapshot_fn(conn, updated_person)
-        conn.commit()
         sync_person_business_rules_fn(conn, updated_person, create_onboarding=False)
+        success_text = "Personel kartı başarıyla güncellendi."
+        record_audit_event(
+            conn,
+            entity_type="personnel",
+            entity_id=person_id,
+            action_type="update",
+            summary=success_text,
+            details={
+                "full_name": person_values.get("full_name"),
+                "role": person_values.get("role"),
+                "status": person_values.get("status"),
+                "role_changed": role_changed,
+                "motor_mode_changed": motor_mode_changed,
+            },
+            commit=False,
+        )
+        conn.commit()
     except Exception:
         conn.rollback()
         raise
-    success_text = "Personel kartı başarıyla güncellendi."
-    record_audit_event(
-        conn,
-        entity_type="personnel",
-        entity_id=person_id,
-        action_type="update",
-        summary=success_text,
-        details={
-            "full_name": person_values.get("full_name"),
-            "role": person_values.get("role"),
-            "status": person_values.get("status"),
-            "role_changed": role_changed,
-            "motor_mode_changed": motor_mode_changed,
-        },
-    )
     return PersonnelUpdateResult(updated_person=updated_person, success_text=success_text)
 
 
@@ -445,21 +446,22 @@ def toggle_person_status_and_sync(
     exit_date = date.today().isoformat() if new_status == "Pasif" else None
     try:
         update_personnel_status(conn, person_id, new_status, exit_date)
-        conn.commit()
         updated_person = fetch_personnel_by_id(conn, person_id)
         sync_person_business_rules_fn(conn, updated_person, create_onboarding=False)
+        success_text = "Personel başarıyla pasife alındı." if new_status == "Pasif" else "Personel başarıyla aktifleştirildi."
+        record_audit_event(
+            conn,
+            entity_type="personnel",
+            entity_id=person_id,
+            action_type="status_change",
+            summary=success_text,
+            details={"new_status": new_status, "exit_date": exit_date},
+            commit=False,
+        )
+        conn.commit()
     except Exception:
         conn.rollback()
         raise
-    success_text = "Personel başarıyla pasife alındı." if new_status == "Pasif" else "Personel başarıyla aktifleştirildi."
-    record_audit_event(
-        conn,
-        entity_type="personnel",
-        entity_id=person_id,
-        action_type="status_change",
-        summary=success_text,
-        details={"new_status": new_status, "exit_date": exit_date},
-    )
     return PersonnelToggleResult(
         updated_person=updated_person,
         success_text=success_text,

@@ -2906,7 +2906,6 @@ def sync_person_auto_deductions(
 
     conn.execute("DELETE FROM deductions WHERE personnel_id = ? AND auto_source_key LIKE ?", (person_id, "auto:motor_rental:%"))
     conn.execute("DELETE FROM deductions WHERE personnel_id = ? AND auto_source_key LIKE ?", (person_id, "auto:motor_purchase:%"))
-    conn.commit()
 
 
 def sync_person_auto_onboarding(conn: CompatConnection, person_row: Any, create_missing: bool = True) -> None:
@@ -2985,6 +2984,7 @@ def sync_all_personnel_business_rules(conn: CompatConnection, full_history: bool
     people_df = fetch_df(conn, "SELECT * FROM personnel")
     if people_df.empty:
         return
+    changed = False
     for _, row in people_df.iterrows():
         resolved_vehicle_type = resolve_vehicle_type_value(
             str(row.get("vehicle_type", "") or ""),
@@ -3015,13 +3015,16 @@ def sync_all_personnel_business_rules(conn: CompatConnection, full_history: bool
                     int(row["id"]),
                 ),
             )
-            conn.commit()
+            changed = True
             row["vehicle_type"] = resolved_vehicle_type
             row["motor_rental"] = effective_motor_rental
             row["cost_model"] = normalized_cost_model
         sync_person_current_vehicle_snapshot(conn, row)
         sync_person_auto_deductions(conn, row, full_history=full_history)
         sync_person_auto_onboarding(conn, row, create_missing=False)
+        changed = True
+    if changed:
+        conn.commit()
 
 
 configure_auth_engine(
