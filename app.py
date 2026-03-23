@@ -5104,16 +5104,88 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
     can_create_attendance = can_perform_action(actor_role, "attendance.create")
     can_update_attendance = can_perform_action(actor_role, "attendance.update")
     can_delete_attendance = can_perform_action(actor_role, "attendance.delete")
+    st.markdown(
+        """
+        <style>
+        .ck-attendance-form-copy {
+            margin: 0 0 0.85rem 0;
+            color: #5E7394;
+            font-size: 0.95rem;
+            line-height: 1.45;
+        }
+
+        .ck-attendance-form-kicker {
+            margin: 0 0 0.45rem 0;
+            color: #17345D;
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .ck-attendance-preview-card {
+            padding: 16px 16px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(191, 208, 234, 0.92);
+            background: linear-gradient(180deg, rgba(251, 253, 255, 0.98), rgba(245, 249, 255, 0.96));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+        }
+
+        .ck-attendance-preview-title {
+            margin: 0 0 0.7rem 0;
+            color: #17345D;
+            font-size: 0.92rem;
+            font-weight: 800;
+        }
+
+        .ck-attendance-preview-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .ck-attendance-preview-item {
+            padding: 10px 11px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.84);
+            border: 1px solid rgba(214, 225, 243, 0.92);
+        }
+
+        .ck-attendance-preview-item span {
+            display: block;
+            margin-bottom: 0.22rem;
+            color: #6B7F9E;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .ck-attendance-preview-item strong {
+            display: block;
+            color: #102443;
+            font-size: 0.88rem;
+            line-height: 1.35;
+            font-weight: 700;
+            word-break: break-word;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     st.subheader("Günlük Puantaj")
-    st.caption("Şube bazlı günlük vardiya, mesai ve paket akışını tek kart üzerinden yönet.")
+    st.markdown(
+        "<div class='ck-attendance-form-copy'>Şube bazlı günlük vardiya, mesai ve paket akışını tek kart üzerinden yönet.</div>",
+        unsafe_allow_html=True,
+    )
     rest_opts = get_restaurant_options(conn)
     person_opts = get_person_options(conn)
     absence_reason_options = ["-"] + ABSENCE_REASON_OPTIONS
     entry_mode_options = ATTENDANCE_ENTRY_MODE_OPTIONS
     with st.form("daily_entry_form", clear_on_submit=True):
-        form_left, form_right = st.columns([1.75, 1])
+        form_left, form_right = st.columns([2.15, 1])
         with form_left:
-            st.markdown("#### Vardiya Bilgisi")
+            st.markdown("<div class='ck-attendance-form-kicker'>Vardiya Bilgisi</div>", unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
             entry_date = c1.date_input("Tarih", value=date.today())
             rest_label = c2.selectbox("Restoran / şube", list(rest_opts.keys()))
@@ -5123,7 +5195,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         absence_reason = "-"
         person_labels = ["-"] + list(person_opts.keys())
         with form_left:
-            st.markdown("#### Personel Akışı")
+            st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
             if entry_mode == "Restoran Kuryesi":
                 primary_label = st.selectbox("Çalışan Personel", person_labels)
             elif entry_mode in ["Joker", "Destek"]:
@@ -5136,8 +5208,8 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 primary_label = c4.selectbox("Çalışan Personel", person_labels)
                 absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options)
 
-            st.markdown("#### Mesai ve Paket")
-            c6, c7 = st.columns(2)
+            st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
+            c6, c7, c8 = st.columns([0.9, 0.9, 1.2])
             input_disabled = entry_mode == "Haftalık İzin"
             worked_hours = c6.number_input(
                 "Çalışılan saat",
@@ -5155,22 +5227,36 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             )
             if input_disabled:
                 st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
-            notes = st.text_area("Not", placeholder="Vardiya ile ilgili kısa operasyon notu")
+            notes = c8.text_input("Not", placeholder="Kısa operasyon notu")
         with form_right:
-            render_record_snapshot(
-                "Kayıt Önizleme",
-                [
-                    ("Tarih", entry_date.isoformat() if entry_date else "-"),
-                    ("Şube", rest_label or "-"),
-                    ("Akış", entry_mode or "-"),
-                    ("Çalışan", primary_label or "-"),
-                    ("Yerine Giren", actual_label if entry_mode in ["Joker", "Destek"] else "-"),
-                    ("Neden", absence_reason or "-"),
-                    ("Mesai", f"{fmt_number(worked_hours)} saat"),
-                    ("Paket", fmt_number(package_count)),
-                ],
+            preview_items = [
+                ("Tarih", entry_date.isoformat() if entry_date else "-"),
+                ("Şube", rest_label or "-"),
+                ("Akış", entry_mode or "-"),
+                ("Çalışan", primary_label or "-"),
+                ("Yerine Giren", actual_label if entry_mode in ["Joker", "Destek"] else "-"),
+                ("Neden", absence_reason or "-"),
+                ("Mesai", f"{fmt_number(worked_hours)} saat"),
+                ("Paket", fmt_number(package_count)),
+            ]
+            preview_html = "".join(
+                (
+                    "<div class='ck-attendance-preview-item'>"
+                    f"<span>{html.escape(label)}</span>"
+                    f"<strong>{html.escape(str(value if value not in [None, ''] else '-'))}</strong>"
+                    "</div>"
+                )
+                for label, value in preview_items
             )
-            st.info("Kaydı oluşturmadan önce şube, akış ve personel eşleşmesini burada hızlıca kontrol edebilirsin.")
+            st.markdown(
+                (
+                    "<div class='ck-attendance-preview-card'>"
+                    "<div class='ck-attendance-preview-title'>Kayıt Özeti</div>"
+                    f"<div class='ck-attendance-preview-grid'>{preview_html}</div>"
+                    "</div>"
+                ),
+                unsafe_allow_html=True,
+            )
         submitted = st.form_submit_button("Kaydet", use_container_width=True, disabled=not can_create_attendance)
         if submitted:
             try:
