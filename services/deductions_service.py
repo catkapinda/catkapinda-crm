@@ -29,6 +29,26 @@ class DeductionSelectionPayload:
     type_index: int
     current_date: Any
     is_auto_record: bool
+    display_amount: float
+
+
+HGS_VAT_RATE = 0.20
+
+
+def normalize_deduction_amount_for_storage(deduction_type: Any, amount: Any, *, safe_float_fn: Callable[[Any, float], float]) -> float:
+    resolved_amount = safe_float_fn(amount)
+    if str(deduction_type or "").strip().lower() != "hgs":
+        return resolved_amount
+    return round(resolved_amount * (1 + HGS_VAT_RATE), 2)
+
+
+def normalize_deduction_amount_for_form(deduction_type: Any, amount: Any, *, safe_float_fn: Callable[[Any, float], float]) -> float:
+    resolved_amount = safe_float_fn(amount)
+    if str(deduction_type or "").strip().lower() != "hgs":
+        return resolved_amount
+    if resolved_amount <= 0:
+        return 0.0
+    return round(resolved_amount / (1 + HGS_VAT_RATE), 2)
 
 
 def load_deductions_workspace_payload(conn) -> DeductionsWorkspacePayload:
@@ -54,6 +74,11 @@ def build_deduction_selection_payload(
     current_date = datetime.strptime(str(row["deduction_date"]), "%Y-%m-%d").date()
     is_auto_record = is_system_personnel_auto_deduction_key_fn(row.get("auto_source_key"))
     row["amount"] = safe_float_fn(row["amount"])
+    display_amount = normalize_deduction_amount_for_form(
+        row["deduction_type"],
+        row["amount"],
+        safe_float_fn=safe_float_fn,
+    )
     return DeductionSelectionPayload(
         row=row,
         current_person=current_person,
@@ -61,6 +86,7 @@ def build_deduction_selection_payload(
         type_index=type_index,
         current_date=current_date,
         is_auto_record=is_auto_record,
+        display_amount=display_amount,
     )
 
 
@@ -71,19 +97,25 @@ def create_deduction_and_commit(
     actor_role: str = "admin",
 ) -> str:
     require_action_access(actor_role, "deduction.create")
+    deduction_payload = dict(deduction_values)
+    deduction_payload["amount"] = normalize_deduction_amount_for_storage(
+        deduction_payload.get("deduction_type"),
+        deduction_payload.get("amount"),
+        safe_float_fn=lambda value, default=0.0: float(value or default),
+    )
     try:
-        insert_deduction_record(conn, deduction_values)
+        insert_deduction_record(conn, deduction_payload)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    success_text = f"Kesinti ay sonuna kaydedildi: {deduction_values['deduction_date']}"
+    success_text = f"Kesinti ay sonuna kaydedildi: {deduction_payload['deduction_date']}"
     record_audit_event(
         conn,
         entity_type="deduction",
         action_type="create",
         summary=success_text,
-        details=deduction_values,
+        details=deduction_payload,
     )
     return success_text
 
@@ -96,20 +128,26 @@ def update_deduction_and_commit(
     actor_role: str = "admin",
 ) -> str:
     require_action_access(actor_role, "deduction.update")
+    deduction_payload = dict(deduction_values)
+    deduction_payload["amount"] = normalize_deduction_amount_for_storage(
+        deduction_payload.get("deduction_type"),
+        deduction_payload.get("amount"),
+        safe_float_fn=lambda value, default=0.0: float(value or default),
+    )
     try:
-        update_deduction_record(conn, deduction_id, deduction_values)
+        update_deduction_record(conn, deduction_id, deduction_payload)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    success_text = f"Kesinti ay sonuna güncellendi: {deduction_values['deduction_date']}"
+    success_text = f"Kesinti ay sonuna güncellendi: {deduction_payload['deduction_date']}"
     record_audit_event(
         conn,
         entity_type="deduction",
         entity_id=deduction_id,
         action_type="update",
         summary=success_text,
-        details=deduction_values,
+        details=deduction_payload,
     )
     return success_text
 

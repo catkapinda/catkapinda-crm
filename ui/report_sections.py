@@ -35,39 +35,98 @@ def render_invoice_report_tab(
         },
         value_maps={"model": pricing_model_labels},
     )
+    st.markdown(
+        """
+        <style>
+        .invoice-report-shell {
+            display: grid;
+            gap: 14px;
+        }
+        .invoice-report-card {
+            border: 1px solid rgba(207, 218, 238, 0.9);
+            border-radius: 24px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,250,255,0.98));
+            box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
+            padding: 14px 16px 10px;
+        }
+        .invoice-model-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            background: #EEF4FF;
+            color: #0E4ACF;
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+        }
+        .invoice-metric-label {
+            color: #62748E;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .invoice-metric-value {
+            color: #12203A;
+            font-size: 1.08rem;
+            font-weight: 860;
+            letter-spacing: -0.02em;
+        }
+        .invoice-metric-value.-strong {
+            color: #0D4CCD;
+            font-size: 1.2rem;
+        }
+        .invoice-detail-shell {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(222, 230, 244, 0.92);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     with st.container(border=True):
         if invoice_display_df is None or invoice_display_df.empty:
             st.info("Fatura görünümü için veri yok.")
         else:
             st.markdown("##### Restoran Faturası")
             st.caption("Restoran kartındaki şube adına tıklayarak hangi kurye kaç saat çalıştı, kaç paket attı detayını açıp kapatabilirsin.")
+            st.markdown("<div class='invoice-report-shell'>", unsafe_allow_html=True)
             for row_index, row in invoice_display_df.iterrows():
                 restaurant_name = str(row.get("Restoran / Şube", "-") or "-")
                 model_name = str(row.get("Fiyat Modeli", "-") or "-")
                 total_hours = str(row.get("Toplam Saat", "-") or "-")
                 total_packages = str(row.get("Toplam Paket", "-") or "-")
+                net_invoice = str(row.get("Restoran KDV Hariç", "-") or "-")
                 gross_invoice = str(row.get("Restoran KDV Dahil", "-") or "-")
                 is_open = open_restaurant == restaurant_name
                 with st.container(border=True):
-                    head_col, metric1, metric2, metric3 = st.columns([3.8, 1.1, 1.1, 1.6])
+                    st.markdown("<div class='invoice-report-card'>", unsafe_allow_html=True)
+                    head_col, metric1, metric2, metric3, metric4 = st.columns([3.2, 1, 1, 1.15, 1.25])
                     if head_col.button(
-                        restaurant_name,
+                        f"{'▾' if is_open else '▸'} {restaurant_name}",
                         key=f"invoice_toggle_{row_index}",
                         use_container_width=True,
                         type="primary" if is_open else "secondary",
                     ):
                         st.session_state["invoice_report_open_restaurant"] = "" if is_open else restaurant_name
                         st.rerun()
-                    st.caption(model_name)
-                    metric1.markdown("**Toplam Saat**")
-                    metric1.markdown(total_hours)
-                    metric2.markdown("**Toplam Paket**")
-                    metric2.markdown(total_packages)
-                    metric3.markdown("**Restoran Faturası**")
-                    metric3.markdown(gross_invoice)
-                    metric3.caption("KDV dahil")
+                    head_col.markdown(f"<div class='invoice-model-pill'>{model_name}</div>", unsafe_allow_html=True)
+                    metric1.markdown("<div class='invoice-metric-label'>Toplam Saat</div>", unsafe_allow_html=True)
+                    metric1.markdown(f"<div class='invoice-metric-value'>{total_hours}</div>", unsafe_allow_html=True)
+                    metric2.markdown("<div class='invoice-metric-label'>Toplam Paket</div>", unsafe_allow_html=True)
+                    metric2.markdown(f"<div class='invoice-metric-value'>{total_packages}</div>", unsafe_allow_html=True)
+                    metric3.markdown("<div class='invoice-metric-label'>KDV Hariç</div>", unsafe_allow_html=True)
+                    metric3.markdown(f"<div class='invoice-metric-value'>{net_invoice}</div>", unsafe_allow_html=True)
+                    metric4.markdown("<div class='invoice-metric-label'>Restoran Faturası</div>", unsafe_allow_html=True)
+                    metric4.markdown(f"<div class='invoice-metric-value -strong'>{gross_invoice}</div>", unsafe_allow_html=True)
                     if not is_open:
+                        st.markdown("</div>", unsafe_allow_html=True)
                         continue
+                    st.markdown("<div class='invoice-detail-shell'>", unsafe_allow_html=True)
                     detail_df = invoice_drilldown_map.get(restaurant_name, pd.DataFrame())
                     if detail_df.empty:
                         st.info("Bu restoran için kurye saat/paket kırılımı bulunamadı.")
@@ -111,6 +170,9 @@ def render_invoice_report_tab(
                             key=f"invoice_export_{row_index}",
                             use_container_width=True,
                         )
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
         st.download_button(
             "Fatura raporunu indir",
             data=invoice_df.to_csv(index=False).encode("utf-8-sig"),

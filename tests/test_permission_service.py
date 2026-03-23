@@ -23,6 +23,7 @@ class PermissionServiceTests(TestCase):
     def test_sef_menu_is_limited(self) -> None:
         menu_items = get_allowed_menu_items("sef")
 
+        self.assertIn("Satış", menu_items)
         self.assertIn("Personel Yönetimi", menu_items)
         self.assertIn("Puantaj", menu_items)
         self.assertNotIn("Restoran Yönetimi", menu_items)
@@ -40,3 +41,12 @@ class PermissionServiceTests(TestCase):
         self.assertFalse(can_access_menu("sef", "Raporlar ve Karlılık"))
         with self.assertRaises(PermissionDeniedError):
             require_menu_access("sef", "Raporlar ve Karlılık")
+
+    def test_mobile_ops_menu_only_contains_operational_items(self) -> None:
+        menu_items = get_allowed_menu_items("mobile_ops")
+
+        self.assertEqual(menu_items, ["Personel Yönetimi", "Puantaj"])
+
+    def test_sef_cannot_delete_sales_lead(self) -> None:
+        with self.assertRaises(PermissionDeniedError):
+            require_action_access("sef", "sales.delete")

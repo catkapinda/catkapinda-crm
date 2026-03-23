@@ -17,6 +17,7 @@ from typing import Any, Iterable, Sequence
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -166,6 +167,11 @@ from ui.restaurant_sections import (
     render_restaurant_edit_workspace,
     render_restaurant_list_workspace,
 )
+from ui.sales_sections import (
+    render_sales_add_workspace,
+    render_sales_edit_workspace,
+    render_sales_list_workspace,
+)
 from ui.ui_helpers import (
     apply_text_search,
     build_grid_rows,
@@ -229,6 +235,15 @@ from services.restaurant_service import (
     toggle_restaurant_status_and_commit,
     update_restaurant_and_commit,
 )
+from services.sales_service import (
+    build_sales_hero_stats,
+    build_sales_selection_payload,
+    create_sales_lead_and_commit,
+    delete_sales_lead_and_commit,
+    load_sales_workspace_payload,
+    update_sales_lead_and_commit,
+    validate_sales_lead_values,
+)
 from services.personnel_service import (
     build_personnel_code_display_values,
     build_new_person_form_defaults,
@@ -256,7 +271,8 @@ from repositories.personnel_repository import (
 
 DEFAULT_AUTH_PASSWORD = "123456"
 APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
-APP_PAGE_ICON = "🧭"
+APP_PAGE_ICON = "🚚"
+MENU_QUERY_KEY = "menu"
 RUNTIME_BOOTSTRAP_VERSION = "2026-03-22-manual-motor-deductions"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
@@ -361,8 +377,20 @@ PRICING_MODEL_LABELS = {
     "hourly_only": "Sadece Saatlik",
     "fixed_monthly": "Sabit Aylık Ücret",
 }
+SALES_STATUS_OPTIONS = [
+    "Yeni Talep",
+    "İlk Görüşme Yapıldı",
+    "Teklif Hazırlanıyor",
+    "Teklif İletildi",
+    "Toplantı Planlandı",
+    "Tekrar Aranacak",
+    "Olumsuz",
+    "Sözleşme İmzalandı",
+]
+SALES_SOURCE_OPTIONS = ["Mail", "Telefon", "Referans", "Çat Kapı Ziyaret", "WhatsApp"]
 MENU_DISPLAY_LABELS = {
     "Genel Bakış": "Genel Bakış",
+    "Satış": "Satış",
     "Restoran Yönetimi": "Restoran Yönetimi",
     "Personel Yönetimi": "Personel Yönetimi",
     "Puantaj": "Puantaj",
@@ -375,6 +403,7 @@ MENU_DISPLAY_LABELS = {
 }
 MENU_SECTIONS = [
     ("Kontrol", ["Genel Bakış"]),
+    ("Ticari", ["Satış"]),
     ("Operasyon", ["Puantaj", "Kesinti Yönetimi"]),
     ("Kayıtlar", ["Restoran Yönetimi", "Personel Yönetimi", "Satın Alma"]),
     ("Finans", ["Aylık Hakediş", "Raporlar ve Karlılık"]),
@@ -425,6 +454,7 @@ ALLOCATION_SOURCE_LABELS = {
 SHARED_OVERHEAD_ROLES = {"Joker", "Bölge Müdürü"}
 TABLE_EXPORT_ORDER = [
     "restaurants",
+    "sales_leads",
     "personnel",
     "personnel_role_history",
     "personnel_vehicle_history",
@@ -1350,6 +1380,59 @@ def render_sidebar_navigation(menu_items: list[str], current_menu: str) -> str:
                 st.session_state["ck_main_menu"] = item
                 st.rerun()
     return resolved_menu
+
+
+def resolve_menu_state(menu_items: list[str]) -> str:
+    session_menu = str(st.session_state.get("ck_main_menu") or "").strip()
+    requested_menu = str(get_query_param(MENU_QUERY_KEY) or "").strip()
+    if session_menu in menu_items:
+        resolved_menu = session_menu
+    elif requested_menu in menu_items:
+        resolved_menu = requested_menu
+    else:
+        resolved_menu = menu_items[0] if menu_items else ""
+    if resolved_menu:
+        st.session_state["ck_main_menu"] = resolved_menu
+        if requested_menu != resolved_menu:
+            set_query_param(MENU_QUERY_KEY, resolved_menu)
+    return resolved_menu
+
+
+def render_menu_scroll_reset(menu_label: str) -> None:
+    resolved_label = str(menu_label or "").strip()
+    if not resolved_label:
+        return
+    if st.session_state.get("_ck_last_scroll_menu") == resolved_label:
+        return
+    st.session_state["_ck_last_scroll_menu"] = resolved_label
+    components.html(
+        """
+        <script>
+        (() => {
+          const root = window.parent;
+          if (!root) return;
+          try { root.history.scrollRestoration = "manual"; } catch (error) {}
+          const targets = [
+            root,
+            root.document.documentElement,
+            root.document.body,
+            root.document.querySelector('[data-testid="stAppViewContainer"]'),
+            root.document.querySelector('section.main'),
+          ].filter(Boolean);
+          targets.forEach((target) => {
+            try {
+              if (typeof target.scrollTo === "function") {
+                target.scrollTo({ top: 0, left: 0, behavior: "auto" });
+              } else {
+                target.scrollTop = 0;
+              }
+            } catch (error) {}
+          });
+        })();
+        </script>
+        """,
+        height=0,
+    )
 
 
 def render_boot_shell() -> Any:
@@ -4582,6 +4665,94 @@ def restaurants_tab(conn: sqlite3.Connection) -> None:
         )
 
 
+def sales_tab(conn: sqlite3.Connection) -> None:
+    actor_role = str(st.session_state.get("role") or "")
+    can_create_sales = can_perform_action(actor_role, "sales.create")
+    can_update_sales = can_perform_action(actor_role, "sales.update")
+    can_delete_sales = can_perform_action(actor_role, "sales.delete")
+    sales_payload = load_sales_workspace_payload(conn, ensure_dataframe_columns_fn=ensure_dataframe_columns)
+    df = sales_payload.df
+
+    render_management_hero(
+        "SATIŞ",
+        "Yeni restoran fırsatları ve ticari takip akışı",
+        "Talep kanalı, yetkili bilgisi, önerilen teklif ve takip durumunu aynı iş akışında yöneterek yeni restoran fırsatlarını operasyon açılışına hazırlayın.",
+        build_sales_hero_stats(df, safe_int_fn=safe_int),
+    )
+    render_flash_message()
+
+    workspace_key = "sales_workspace_mode"
+    if workspace_key not in st.session_state:
+        st.session_state[workspace_key] = "add"
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        render_action_card("Yeni Fırsat Ekle", "Yeni restoran talebini temel ticari bilgiler ve ilk teklif ile kaydet.", highlight=st.session_state[workspace_key] == "add")
+        if st.button("Yeni Fırsat Formunu Aç", key="sales_workspace_add", use_container_width=True, disabled=not can_create_sales):
+            st.session_state[workspace_key] = "add"
+    with c2:
+        render_action_card("Fırsat Havuzunu Gör", "Tüm talepleri durum, kaynak ve takip tarihine göre filtrele.", highlight=st.session_state[workspace_key] == "list")
+        if st.button("Fırsat Listesini Aç", key="sales_workspace_list", use_container_width=True):
+            st.session_state[workspace_key] = "list"
+    with c3:
+        render_action_card("Fırsatı Güncelle", "Teklif, not ve takip aksiyonlarını seçili fırsat üzerinden ilerlet.", highlight=st.session_state[workspace_key] == "edit")
+        if st.button("Güncelleme Alanını Aç", key="sales_workspace_edit", use_container_width=True, disabled=not can_update_sales):
+            st.session_state[workspace_key] = "edit"
+
+    workspace_mode = st.session_state[workspace_key]
+    if workspace_mode == "add" and not can_create_sales:
+        workspace_mode = "list"
+        st.session_state[workspace_key] = "list"
+    elif workspace_mode == "edit" and not can_update_sales:
+        workspace_mode = "list"
+        st.session_state[workspace_key] = "list"
+
+    if workspace_mode == "list":
+        render_sales_list_workspace(
+            df,
+            status_options=SALES_STATUS_OPTIONS,
+            source_options=SALES_SOURCE_OPTIONS,
+            safe_int_fn=safe_int,
+            fmt_try_fn=fmt_try,
+            apply_text_search_fn=apply_text_search,
+            render_tab_header_fn=render_tab_header,
+            render_dashboard_data_grid_fn=render_dashboard_data_grid,
+            render_record_snapshot_fn=render_record_snapshot,
+            set_flash_message_fn=set_flash_message,
+            delete_sales_lead_and_commit_fn=partial(delete_sales_lead_and_commit, actor_role=actor_role),
+            can_delete_sales=can_delete_sales,
+        )
+    elif workspace_mode == "add":
+        render_sales_add_workspace(
+            can_create_sales=can_create_sales,
+            status_options=SALES_STATUS_OPTIONS,
+            source_options=SALES_SOURCE_OPTIONS,
+            render_tab_header_fn=render_tab_header,
+            render_field_label_fn=render_field_label,
+            validate_sales_lead_values_fn=validate_sales_lead_values,
+            create_sales_lead_and_commit_fn=partial(create_sales_lead_and_commit, actor_role=actor_role),
+            set_flash_message_fn=set_flash_message,
+        )
+    else:
+        render_sales_edit_workspace(
+            df,
+            can_update_sales=can_update_sales,
+            status_options=SALES_STATUS_OPTIONS,
+            source_options=SALES_SOURCE_OPTIONS,
+            safe_int_fn=safe_int,
+            safe_float_fn=safe_float,
+            fmt_try_fn=fmt_try,
+            parse_date_value_fn=parse_date_value,
+            render_tab_header_fn=render_tab_header,
+            render_field_label_fn=render_field_label,
+            render_record_snapshot_fn=render_record_snapshot,
+            build_sales_selection_payload_fn=build_sales_selection_payload,
+            validate_sales_lead_values_fn=validate_sales_lead_values,
+            update_sales_lead_and_commit_fn=partial(update_sales_lead_and_commit, actor_role=actor_role),
+            set_flash_message_fn=set_flash_message,
+        )
+
+
 def personnel_tab(conn: sqlite3.Connection) -> None:
     actor_role = str(st.session_state.get("role") or "")
     can_create_personnel = can_perform_action(actor_role, "personnel.create")
@@ -5046,6 +5217,8 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         ded_date = c2.date_input("Tarih", value=date.today())
         ded_type = c3.selectbox("Kesinti türü", deduction_types)
         amount = st.number_input("Tutar", min_value=0.0, value=0.0, step=50.0)
+        if ded_type == "HGS":
+            st.caption("HGS tutarını net gider olarak gir; sistem hakedişe %20 KDV dahil kesinti yazar.")
         notes = st.text_input("Açıklama")
         submitted = st.form_submit_button("Kesinti ekle", use_container_width=True, disabled=not can_create_deduction)
         if submitted and amount > 0:
@@ -5149,6 +5322,7 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     type_index = selection_payload.type_index
     current_date = selection_payload.current_date
     is_auto_record = selection_payload.is_auto_record
+    display_amount = selection_payload.display_amount
     if is_auto_record:
         st.warning(
             build_auto_deduction_warning_text(
@@ -5162,7 +5336,9 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         edit_person = c1.selectbox("Personel", list(person_opts.keys()), index=person_index)
         edit_date = c2.date_input("Tarih", value=current_date)
         edit_type = c3.selectbox("Kesinti türü", deduction_types, index=type_index)
-        edit_amount = st.number_input("Tutar", min_value=0.0, value=safe_float(row["amount"]), step=50.0)
+        edit_amount = st.number_input("Tutar", min_value=0.0, value=display_amount, step=50.0)
+        if edit_type == "HGS":
+            st.caption("HGS düzenlemesinde girdiğin tutara %20 KDV eklenerek kesinti kaydı güncellenir.")
         edit_notes = st.text_input("Açıklama", value=row["notes"] or "")
         c4, c5 = st.columns(2)
         update_clicked = c4.form_submit_button("Kesinti güncelle", use_container_width=True, disabled=is_auto_record or not can_update_deduction)
@@ -6445,13 +6621,15 @@ def main() -> None:
         role = st.session_state.get("role", "")
         render_sidebar_brand()
         menu_items = allowed_menu_items(role)
+        menu = resolve_menu_state(menu_items)
         target_menu = st.session_state.pop("ck_sidebar_target_menu", None)
         if target_menu in menu_items:
             st.session_state["ck_main_menu"] = target_menu
-        if st.session_state.get("ck_main_menu") not in menu_items:
-            st.session_state["ck_main_menu"] = menu_items[0]
-        menu = render_sidebar_navigation(menu_items, st.session_state.get("ck_main_menu", menu_items[0]))
-        st.session_state["ck_main_menu"] = menu
+            set_query_param(MENU_QUERY_KEY, target_menu)
+            menu = target_menu
+        menu = render_sidebar_navigation(menu_items, menu)
+        menu = resolve_menu_state(menu_items)
+        render_menu_scroll_reset(menu)
 
         ensure_role_access(menu, role)
         render_top_profile(conn)
@@ -6461,6 +6639,8 @@ def main() -> None:
         with content_placeholder.container():
             if menu == "Genel Bakış":
                 dashboard_tab(conn)
+            elif menu == "Satış":
+                sales_tab(conn)
             elif menu == "Sistem Kayıtları":
                 audit_trail_tab(conn)
             elif menu == "Güncellemeler ve Duyurular":

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 MENU_TO_ACTION = {
     "Genel Bakış": "dashboard.view",
+    "Satış": "sales.view",
     "Restoran Yönetimi": "restaurant.view",
     "Personel Yönetimi": "personnel.view",
     "Puantaj": "attendance.view",
@@ -16,6 +17,10 @@ MENU_TO_ACTION = {
 
 ACTION_LABELS = {
     "dashboard.view": "Genel Bakış ekranını görüntüleme",
+    "sales.view": "satış ekranını görüntüleme",
+    "sales.create": "satış talebi oluşturma",
+    "sales.update": "satış talebi güncelleme",
+    "sales.delete": "satış talebi silme",
     "restaurant.view": "Restoran ekranını görüntüleme",
     "restaurant.create": "restoran oluşturma",
     "restaurant.update": "restoran güncelleme",
@@ -56,6 +61,9 @@ ACTION_LABELS = {
 ROLE_ACTIONS = {
     "admin": set(ACTION_LABELS.keys()),
     "sef": {
+        "sales.view",
+        "sales.create",
+        "sales.update",
         "personnel.view",
         "personnel.create",
         "personnel.update",
@@ -71,5 +79,12 @@ ROLE_ACTIONS = {
         "deduction.delete",
         "deduction.bulk_delete",
         "announcements.view",
+    },
+    "mobile_ops": {
+        "personnel.view",
+        "personnel.create",
+        "attendance.view",
+        "attendance.create",
+        "attendance.update",
     },
 }
