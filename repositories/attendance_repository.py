@@ -13,13 +13,13 @@ def fetch_daily_entry_management_df(conn: CompatConnection):
                COALESCE(pp.full_name, '-') AS normalde_girecek,
                COALESCE(ap.full_name, '-') AS fiilen_calisan,
                CASE
-                   WHEN d.status = 'Şef' THEN 'Şef Vardiyası'
                    WHEN d.planned_personnel_id IS NOT NULL
                         AND d.actual_personnel_id IS NOT NULL
-                        AND d.planned_personnel_id != d.actual_personnel_id THEN 'Yerine Giriş'
+                        AND d.planned_personnel_id != d.actual_personnel_id
+                        THEN COALESCE(NULLIF(d.coverage_type, ''), 'Destek')
                    WHEN d.planned_personnel_id IS NOT NULL
-                        AND d.actual_personnel_id IS NULL THEN 'Boş Vardiya'
-                   ELSE 'Normal Çalışma'
+                        AND d.actual_personnel_id IS NULL THEN 'Haftalık İzin'
+                   ELSE 'Restoran Kuryesi'
                END AS vardiya_akisi,
                COALESCE(d.absence_reason, '') AS neden_girmedi,
                COALESCE(d.coverage_type, '') AS yerine_giren_tipi,
