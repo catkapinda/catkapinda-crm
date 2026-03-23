@@ -77,7 +77,7 @@ def load_attendance_hero_stats(conn, today_value: date) -> AttendanceHeroStats:
 def load_daily_entry_workspace_payload(conn) -> DailyEntryWorkspacePayload:
     df = fetch_daily_entry_management_df(conn)
     entry_map = {
-        f"{row['entry_date']} | {row['restoran']} | {row['fiilen_calisan']} | {row['package_count']} paket | ID:{row['id']}": int(row["id"])
+        f"{row['entry_date']} | {row['restoran']} | {row['calisan_personel']} | {row['package_count']} paket | ID:{row['id']}": int(row["id"])
         for _, row in df.iterrows()
     } if not df.empty else {}
     return DailyEntryWorkspacePayload(df=df, entry_map=entry_map)

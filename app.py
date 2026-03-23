@@ -5104,7 +5104,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         elif entry_mode in ["Joker", "Destek"]:
             c4, c5 = st.columns(2)
             primary_label = c4.selectbox("Çalışan Personel", person_labels)
-            actual_label = c5.selectbox("Fiilen Çalışan Personel", person_labels)
+            actual_label = c5.selectbox("Yerine Giren Personel", person_labels)
             absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options)
         else:
             c4, c5 = st.columns(2)
@@ -5162,14 +5162,34 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 st.success(success_text)
                 st.rerun()
 
-    st.markdown("### Günlük kayıtları yönet")
+    st.markdown("### Kayıt Yönetimi")
+    st.caption("Günlük puantaj kayıtlarını tarih, şube ve vardiya akışına göre seçip güncelleyebilir veya silebilirsin.")
     daily_entry_payload = load_daily_entry_workspace_payload(conn)
     df = daily_entry_payload.df
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    if not df.empty:
+        display_df = df[
+            ["entry_date", "restoran", "calisan_personel", "vardiya_akisi", "neden_girmedi", "worked_hours", "package_count", "notes"]
+        ].rename(
+            columns={
+                "entry_date": "Tarih",
+                "restoran": "Restoran / Şube",
+                "calisan_personel": "Çalışan Personel",
+                "vardiya_akisi": "Vardiya Akışı",
+                "neden_girmedi": "Neden Girmedi",
+                "worked_hours": "Saat",
+                "package_count": "Paket",
+                "notes": "Not",
+            }
+        )
+        display_df["Neden Girmedi"] = display_df["Neden Girmedi"].replace("", "-")
+        display_df["Not"] = display_df["Not"].replace("", "-")
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+    else:
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
     if not df.empty:
-        st.markdown("#### Kayıt düzelt / sil")
-        selected_label = st.selectbox("Düzeltmek veya silmek istediğin kaydı seç", list(daily_entry_payload.entry_map.keys()), key="daily_entry_manage_select")
+        st.markdown("#### Kayıt Düzelt / Sil")
+        selected_label = st.selectbox("Kayıt seç", list(daily_entry_payload.entry_map.keys()), key="daily_entry_manage_select")
         selected_id = daily_entry_payload.entry_map[selected_label]
         selection_payload = build_daily_entry_selection_payload(
             conn,
@@ -5212,7 +5232,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     index=person_labels.index(replacement_primary_default) if replacement_primary_default in person_labels else 0,
                 )
                 edit_actual_label = e5.selectbox(
-                    "Fiilen Çalışan Personel",
+                    "Yerine Giren Personel",
                     person_labels,
                     index=person_labels.index(actual_default) if actual_default in person_labels else 0,
                 )
