@@ -6,6 +6,33 @@ from infrastructure.db_engine import CompatConnection, cache_db_read, fetch_df
 
 
 @cache_db_read(ttl=30)
+def fetch_attendance_hero_stats(conn: CompatConnection, today_iso: str, month_start_iso: str):
+    row = conn.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM daily_entries WHERE entry_date = ?) AS today_count,
+            (SELECT COUNT(*) FROM daily_entries WHERE entry_date BETWEEN ? AND ?) AS month_count,
+            (SELECT COUNT(*) FROM daily_entries) AS total_count,
+            (SELECT COUNT(*) FROM restaurants WHERE active = 1) AS active_restaurants
+        """,
+        (today_iso, month_start_iso, today_iso),
+    ).fetchone()
+    if row is None:
+        return {
+            "today_count": 0,
+            "month_count": 0,
+            "total_count": 0,
+            "active_restaurants": 0,
+        }
+    return {
+        "today_count": int(row["today_count"] or 0),
+        "month_count": int(row["month_count"] or 0),
+        "total_count": int(row["total_count"] or 0),
+        "active_restaurants": int(row["active_restaurants"] or 0),
+    }
+
+
+@cache_db_read(ttl=30)
 def fetch_daily_entry_management_df(conn: CompatConnection):
     return fetch_df(
         conn,

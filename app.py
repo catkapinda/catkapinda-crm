@@ -193,6 +193,7 @@ from ui.ui_helpers import (
 from services.reporting_service import (
     build_reports_workspace_payload,
     load_reporting_entries_and_month_options,
+    load_monthly_payroll_source_payload,
 )
 from services.audit_service import load_audit_workspace_payload
 from services.attendance_service import (
@@ -200,6 +201,7 @@ from services.attendance_service import (
     ATTENDANCE_ENTRY_MODE_OPTIONS,
     COVERAGE_TYPE_OPTIONS,
     NON_WORKING_ATTENDANCE_STATUSES,
+    load_attendance_hero_stats,
     build_bulk_attendance_context,
     build_bulk_rows_from_parsed,
     build_daily_entry_selection_payload,
@@ -5029,21 +5031,17 @@ def attendance_tab(conn: sqlite3.Connection) -> None:
     actor_role = str(st.session_state.get("role") or "")
     can_bulk_attendance_create = can_perform_action(actor_role, "attendance.bulk_create")
     today_value = date.today()
-    month_start = today_value.replace(day=1).isoformat()
-    today_count = int(first_row_value(conn.execute("SELECT COUNT(*) FROM daily_entries WHERE entry_date = ?", (today_value.isoformat(),)).fetchone(), 0) or 0)
-    month_count = int(first_row_value(conn.execute("SELECT COUNT(*) FROM daily_entries WHERE entry_date BETWEEN ? AND ?", (month_start, today_value.isoformat())).fetchone(), 0) or 0)
-    total_count = int(first_row_value(conn.execute("SELECT COUNT(*) FROM daily_entries").fetchone(), 0) or 0)
-    active_restaurants = int(first_row_value(conn.execute("SELECT COUNT(*) FROM restaurants WHERE active=1").fetchone(), 0) or 0)
+    hero_stats = load_attendance_hero_stats(conn, today_value)
 
     render_management_hero(
         "PUANTAJ",
         "Günlük ve toplu giriş akışları",
         "Tek menü altında günlük puantaj ve toplu puantaj ekranlarını aç; operasyon ekibi için daha temiz bir giriş alanı kullan.",
         [
-            ("Toplam Kayıt", total_count),
-            ("Bugünkü Kayıt", today_count),
-            ("Bu Ay Kayıt", month_count),
-            ("Aktif Restoran", active_restaurants),
+            ("Toplam Kayıt", hero_stats.total_count),
+            ("Bugünkü Kayıt", hero_stats.today_count),
+            ("Bu Ay Kayıt", hero_stats.month_count),
+            ("Aktif Restoran", hero_stats.active_restaurants),
         ],
     )
 
@@ -6292,33 +6290,17 @@ def build_payroll_pdf(selected_month: str, payroll_row: dict, deduction_rows: pd
 def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
     section_intro("🧾 Aylık Hakediş | Personel bazlı brüt, kesinti ve net ödeme özeti", "Aylık puantaj ve kesinti verilerini personel bazında hesaplar; tablo dosyası olarak dışa aktarma sağlar.")
 
-    entries = fetch_df(
-        conn,
-        """
-        SELECT d.*, r.brand, r.branch, r.pricing_model, r.hourly_rate, r.package_rate,
-               r.package_threshold, r.package_rate_low, r.package_rate_high,
-               r.fixed_monthly_fee, r.vat_rate
-        FROM daily_entries d
-        JOIN restaurants r ON r.id = d.restaurant_id
-        """,
-    )
-    deductions = fetch_df(conn, "SELECT * FROM deductions")
-    personnel_df = fetch_df(conn, "SELECT * FROM personnel")
-    role_history_df = fetch_df(conn, "SELECT * FROM personnel_role_history ORDER BY personnel_id, effective_date, id")
+    payroll_source_payload = load_monthly_payroll_source_payload(conn)
+    entries = payroll_source_payload.entries
+    deductions = payroll_source_payload.deductions
+    personnel_df = payroll_source_payload.personnel_df
+    role_history_df = payroll_source_payload.role_history_df
 
     if entries.empty and deductions.empty:
         st.info("Hakediş hesabı için günlük puantaj veya kesinti verisi bulunamadı.")
         return
 
-    date_series = []
-    if not entries.empty:
-        entries["entry_date"] = pd.to_datetime(entries["entry_date"])
-        date_series.extend(entries["entry_date"].dt.strftime("%Y-%m").tolist())
-    if not deductions.empty:
-        deductions["deduction_date"] = pd.to_datetime(deductions["deduction_date"])
-        date_series.extend(deductions["deduction_date"].dt.strftime("%Y-%m").tolist())
-
-    month_options = sorted(pd.Series(date_series).dropna().unique().tolist(), reverse=True)
+    month_options = payroll_source_payload.month_options
     if not month_options:
         st.warning("Ay seçeneği bulunamadı.")
         return

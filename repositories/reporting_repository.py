@@ -33,5 +33,10 @@ def fetch_reporting_role_history(conn: CompatConnection):
 
 
 @cache_db_read(ttl=60)
+def fetch_reporting_all_deductions(conn: CompatConnection):
+    return fetch_df(conn, "SELECT * FROM deductions")
+
+
+@cache_db_read(ttl=60)
 def fetch_reporting_deductions_for_period(conn: CompatConnection, start_date: str, end_date: str):
     return fetch_df(conn, "SELECT * FROM deductions WHERE deduction_date BETWEEN ? AND ?", (start_date, end_date))
