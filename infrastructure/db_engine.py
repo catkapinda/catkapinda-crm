@@ -41,6 +41,25 @@ def adapt_sql(query: str, backend: str) -> str:
     return query
 
 
+def _derive_default_cache_key(raw_conn: Any, backend: str) -> str:
+    if backend == "sqlite":
+        try:
+            rows = raw_conn.execute("PRAGMA database_list").fetchall()
+            for row in rows:
+                row_values = tuple(row)
+                if len(row_values) < 3:
+                    continue
+                db_name = str(row_values[1] or "")
+                db_path = str(row_values[2] or "").strip()
+                if db_name != "main":
+                    continue
+                if db_path:
+                    return f"sqlite:{Path(db_path).expanduser().resolve()}"
+        except Exception:
+            pass
+    return f"{backend}:{id(raw_conn)}"
+
+
 class CompatCursor:
     def __init__(self, cursor: Any):
         self.cursor = cursor
@@ -62,9 +81,10 @@ class CompatCursor:
 
 
 class CompatConnection:
-    def __init__(self, raw_conn: Any, backend: str):
+    def __init__(self, raw_conn: Any, backend: str, *, cache_key: str | None = None):
         self.raw_conn = raw_conn
         self.backend = backend
+        self.cache_key = cache_key or _derive_default_cache_key(raw_conn, backend)
 
     def execute(self, query: str, params: Sequence[Any] = ()):
         sql = adapt_sql(query, self.backend)
@@ -97,6 +117,7 @@ class CompatConnection:
 
     def commit(self) -> None:
         self.raw_conn.commit()
+        clear_runtime_data_cache()
 
     def rollback(self) -> None:
         self.raw_conn.rollback()
@@ -141,8 +162,12 @@ def connect_postgres(database_config: str | dict[str, Any]) -> CompatConnection:
     import psycopg
     from psycopg.rows import dict_row
 
+    safe_target = "?"
+    safe_user = "?"
     try:
         if isinstance(database_config, dict):
+            safe_target = f"{database_config.get('host', '?')}:{database_config.get('port', 5432)}/{database_config.get('dbname', 'postgres')}"
+            safe_user = str(database_config.get("user", "?") or "?")
             raw_conn = psycopg.connect(
                 host=database_config["host"],
                 port=int(database_config.get("port", 5432)),
@@ -158,6 +183,13 @@ def connect_postgres(database_config: str | dict[str, Any]) -> CompatConnection:
             if "sslmode=" not in cleaned_url:
                 separator = "&" if "?" in cleaned_url else "?"
                 cleaned_url = f"{cleaned_url}{separator}sslmode=require"
+            try:
+                parsed = urlsplit(cleaned_url)
+                safe_target = f"{parsed.hostname or '?'}:{parsed.port or 5432}/{(parsed.path or '').lstrip('/') or 'postgres'}"
+                safe_user = parsed.username or "?"
+            except Exception:
+                safe_target = "?"
+                safe_user = "?"
             raw_conn = psycopg.connect(cleaned_url, row_factory=dict_row, connect_timeout=10)
     except Exception as exc:
         if isinstance(database_config, dict):
@@ -177,7 +209,11 @@ def connect_postgres(database_config: str | dict[str, Any]) -> CompatConnection:
             f"Hedef: {safe_target} | Kullanici: {safe_user}. "
             "Supabase bilgilerini yeniden kopyalayip Streamlit Secrets'e kaydet."
         ) from exc
-    return CompatConnection(raw_conn, "postgres")
+    return CompatConnection(
+        raw_conn,
+        "postgres",
+        cache_key=f"postgres:{safe_target}:{safe_user}",
+    )
 
 
 def ensure_data_storage() -> Path | None:
@@ -204,7 +240,7 @@ def connect_sqlite() -> CompatConnection:
     ensure_data_storage()
     raw_conn = sqlite3.connect(_DB_PATH)
     raw_conn.row_factory = sqlite3.Row
-    return CompatConnection(raw_conn, "sqlite")
+    return CompatConnection(raw_conn, "sqlite", cache_key=f"sqlite:{_DB_PATH.expanduser().resolve()}")
 
 
 def connect_database() -> CompatConnection:
@@ -212,6 +248,25 @@ def connect_database() -> CompatConnection:
     if database_config:
         return connect_postgres(database_config)
     return connect_sqlite()
+
+
+def compat_connection_cache_key(conn: CompatConnection) -> str:
+    return str(getattr(conn, "cache_key", f"{getattr(conn, 'backend', 'unknown')}:{id(conn)}"))
+
+
+def cache_db_read(*, ttl: int = 30):
+    return st.cache_data(
+        show_spinner=False,
+        ttl=ttl,
+        hash_funcs={CompatConnection: compat_connection_cache_key},
+    )
+
+
+def clear_runtime_data_cache() -> None:
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
 
 
 def fetch_df(conn: CompatConnection, query: str, params: tuple = ()) -> pd.DataFrame:

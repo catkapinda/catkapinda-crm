@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from infrastructure.db_engine import CompatConnection, fetch_df
+from infrastructure.db_engine import CompatConnection, cache_db_read, fetch_df
 
 
+@cache_db_read(ttl=30)
 def fetch_equipment_issue_management_df(conn: CompatConnection):
     return fetch_df(
         conn,
@@ -21,6 +22,7 @@ def fetch_equipment_issue_management_df(conn: CompatConnection):
     )
 
 
+@cache_db_read(ttl=30)
 def fetch_equipment_installment_df(conn: CompatConnection):
     return fetch_df(
         conn,
@@ -52,6 +54,7 @@ def insert_box_return_record(conn: CompatConnection, values: dict[str, Any]) -> 
     )
 
 
+@cache_db_read(ttl=30)
 def fetch_box_return_management_df(conn: CompatConnection):
     return fetch_df(
         conn,
@@ -64,6 +67,7 @@ def fetch_box_return_management_df(conn: CompatConnection):
     )
 
 
+@cache_db_read(ttl=30)
 def fetch_equipment_sales_profit_df(conn: CompatConnection):
     return fetch_df(
         conn,
@@ -81,6 +85,7 @@ def fetch_equipment_sales_profit_df(conn: CompatConnection):
     )
 
 
+@cache_db_read(ttl=30)
 def fetch_equipment_purchase_summary_df(conn: CompatConnection):
     return fetch_df(
         conn,

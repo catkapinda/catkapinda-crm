@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from infrastructure.db_engine import CompatConnection, fetch_df
+from infrastructure.db_engine import CompatConnection, cache_db_read, fetch_df
 
 
+@cache_db_read(ttl=30)
 def fetch_sales_leads_df(conn: CompatConnection):
     return fetch_df(conn, "SELECT * FROM sales_leads ORDER BY updated_at DESC, id DESC")
 

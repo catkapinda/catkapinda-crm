@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from infrastructure.db_engine import CompatConnection, fetch_df
+from infrastructure.db_engine import CompatConnection, cache_db_read, fetch_df
 
 
+@cache_db_read(ttl=30)
 def fetch_daily_entry_management_df(conn: CompatConnection):
     return fetch_df(
         conn,
@@ -34,8 +35,9 @@ def fetch_daily_entry_management_df(conn: CompatConnection):
     )
 
 
+@cache_db_read(ttl=30)
 def fetch_daily_entry_by_id(conn: CompatConnection, entry_id: int):
-    return conn.execute(
+    row = conn.execute(
         """
         SELECT id, entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
                status, worked_hours, package_count,
@@ -47,6 +49,9 @@ def fetch_daily_entry_by_id(conn: CompatConnection, entry_id: int):
         """,
         (entry_id,),
     ).fetchone()
+    if row is None:
+        return None
+    return dict(row)
 
 
 def insert_daily_entry(conn: CompatConnection, values: dict[str, Any]) -> None:
@@ -100,8 +105,9 @@ def delete_daily_entry(conn: CompatConnection, entry_id: int) -> None:
     conn.execute("DELETE FROM daily_entries WHERE id = ?", (entry_id,))
 
 
+@cache_db_read(ttl=30)
 def fetch_bulk_attendance_people_rows(conn: CompatConnection, restaurant_id: int, include_all_active: bool):
-    return conn.execute(
+    rows = conn.execute(
         """
         SELECT id, full_name, role
         FROM personnel
@@ -119,3 +125,4 @@ def fetch_bulk_attendance_people_rows(conn: CompatConnection, restaurant_id: int
         """,
         (1 if include_all_active else 0, restaurant_id),
     ).fetchall()
+    return [dict(row) for row in rows]

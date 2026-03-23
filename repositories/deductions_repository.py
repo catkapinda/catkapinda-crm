@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from infrastructure.db_engine import CompatConnection, fetch_df
+from infrastructure.db_engine import CompatConnection, cache_db_read, fetch_df
 
 
+@cache_db_read(ttl=30)
 def fetch_deduction_management_df(conn: CompatConnection):
     return fetch_df(
         conn,
