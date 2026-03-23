@@ -25,11 +25,17 @@ def record_audit_event(
     summary: str,
     entity_id: Any = None,
     details: dict[str, Any] | None = None,
+    commit: bool = True,
 ) -> bool:
     if not hasattr(conn, "execute"):
         return False
     actor = build_audit_actor_payload()
+    savepoint_created = False
+    savepoint_name = "audit_event_write"
     try:
+        if not commit:
+            conn.execute(f"SAVEPOINT {savepoint_name}")
+            savepoint_created = True
         insert_audit_log_record(
             conn,
             {
@@ -44,11 +50,18 @@ def record_audit_event(
                 "details_json": serialize_audit_details(details),
             },
         )
-        conn.commit()
+        if commit:
+            conn.commit()
+        elif savepoint_created:
+            conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
         return True
     except Exception:
         try:
-            conn.rollback()
+            if commit:
+                conn.rollback()
+            elif savepoint_created:
+                conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
+                conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
         except Exception:
             pass
         return False

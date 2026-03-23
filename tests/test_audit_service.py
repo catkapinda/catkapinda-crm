@@ -58,6 +58,26 @@ class AuditServiceTests(TestCase):
         self.assertFalse(result)
         self.assertEqual(conn.rollback_count, 1)
 
+    def test_record_audit_event_with_commit_false_avoids_outer_commit(self) -> None:
+        conn = _DummyConn()
+        with patch("services.audit_service.insert_audit_log_record") as insert_mock, \
+             patch("services.audit_service.build_audit_actor_payload", return_value={"actor_username": "ebru", "actor_full_name": "Ebru Aslan", "actor_role": "admin"}), \
+             patch("services.audit_service.utc_now_iso", return_value="2026-03-22T18:00:00+00:00"):
+            result = record_audit_event(
+                conn,
+                entity_type="attendance",
+                entity_id=3,
+                action_type="update",
+                summary="Puantaj güncellendi.",
+                details={"status": "Normal"},
+                commit=False,
+            )
+
+        self.assertTrue(result)
+        insert_mock.assert_called_once()
+        self.assertEqual(conn.commit_count, 0)
+        self.assertEqual(conn.rollback_count, 0)
+
     def test_load_audit_workspace_payload_filters_rows(self) -> None:
         raw_df = pd.DataFrame(
             [

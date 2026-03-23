@@ -117,7 +117,7 @@ class PersonnelServiceTests(unittest.TestCase):
         post_installments_mock.assert_called_once()
         sync_role_snapshot_mock.assert_called_once()
         sync_business_rules_mock.assert_called_once()
-        self.assertEqual(conn.commit_calls, 2)
+        self.assertEqual(conn.commit_calls, 1)
         self.assertEqual(result.created_person_id, 9)
         self.assertEqual(result.auto_code, "CK-K99")
         self.assertIn("1 onboarding ekipmanı kaydedildi", result.success_text)

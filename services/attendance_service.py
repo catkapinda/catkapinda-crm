@@ -229,29 +229,30 @@ def create_daily_entry_and_sync(
     require_action_access(actor_role, "attendance.create")
     try:
         insert_daily_entry(conn, entry_values)
-        conn.commit()
         sync_personnel_business_rules_for_ids_fn(conn, [affected_person_id], create_onboarding=False, full_history=True)
+        success_text = "Günlük kayıt eklendi."
+        record_audit_event(
+            conn,
+            entity_type="attendance",
+            action_type="create",
+            summary=success_text,
+            details={
+                "entry_date": entry_values.get("entry_date"),
+                "restaurant_id": entry_values.get("restaurant_id"),
+                "planned_personnel_id": entry_values.get("planned_personnel_id"),
+                "actual_personnel_id": entry_values.get("actual_personnel_id"),
+                "status": entry_values.get("status"),
+                "absence_reason": entry_values.get("absence_reason"),
+                "coverage_type": entry_values.get("coverage_type"),
+                "worked_hours": entry_values.get("worked_hours"),
+                "package_count": entry_values.get("package_count"),
+            },
+            commit=False,
+        )
+        conn.commit()
     except Exception:
         conn.rollback()
         raise
-    success_text = "Günlük kayıt eklendi."
-    record_audit_event(
-        conn,
-        entity_type="attendance",
-        action_type="create",
-        summary=success_text,
-        details={
-            "entry_date": entry_values.get("entry_date"),
-            "restaurant_id": entry_values.get("restaurant_id"),
-            "planned_personnel_id": entry_values.get("planned_personnel_id"),
-            "actual_personnel_id": entry_values.get("actual_personnel_id"),
-            "status": entry_values.get("status"),
-            "absence_reason": entry_values.get("absence_reason"),
-            "coverage_type": entry_values.get("coverage_type"),
-            "worked_hours": entry_values.get("worked_hours"),
-            "package_count": entry_values.get("package_count"),
-        },
-    )
     return success_text
 
 
@@ -268,29 +269,30 @@ def update_daily_entry_and_sync(
     require_action_access(actor_role, "attendance.update")
     try:
         update_daily_entry(conn, entry_id, entry_values)
-        conn.commit()
         sync_personnel_business_rules_for_ids_fn(conn, [previous_actual_id, actual_id], create_onboarding=False, full_history=True)
+        success_text = "Günlük puantaj kaydı güncellendi."
+        record_audit_event(
+            conn,
+            entity_type="attendance",
+            entity_id=entry_id,
+            action_type="update",
+            summary=success_text,
+            details={
+                "entry_date": entry_values.get("entry_date"),
+                "restaurant_id": entry_values.get("restaurant_id"),
+                "planned_personnel_id": entry_values.get("planned_personnel_id"),
+                "previous_actual_id": previous_actual_id,
+                "actual_personnel_id": actual_id,
+                "status": entry_values.get("status"),
+                "absence_reason": entry_values.get("absence_reason"),
+                "coverage_type": entry_values.get("coverage_type"),
+            },
+            commit=False,
+        )
+        conn.commit()
     except Exception:
         conn.rollback()
         raise
-    success_text = "Günlük puantaj kaydı güncellendi."
-    record_audit_event(
-        conn,
-        entity_type="attendance",
-        entity_id=entry_id,
-        action_type="update",
-        summary=success_text,
-        details={
-            "entry_date": entry_values.get("entry_date"),
-            "restaurant_id": entry_values.get("restaurant_id"),
-            "planned_personnel_id": entry_values.get("planned_personnel_id"),
-            "previous_actual_id": previous_actual_id,
-            "actual_personnel_id": actual_id,
-            "status": entry_values.get("status"),
-            "absence_reason": entry_values.get("absence_reason"),
-            "coverage_type": entry_values.get("coverage_type"),
-        },
-    )
     return success_text
 
 
@@ -305,20 +307,21 @@ def delete_daily_entry_and_sync(
     require_action_access(actor_role, "attendance.delete")
     try:
         delete_daily_entry(conn, entry_id)
-        conn.commit()
         sync_personnel_business_rules_for_ids_fn(conn, [deleted_actual_id], create_onboarding=False, full_history=True)
+        success_text = "Günlük puantaj kaydı silindi."
+        record_audit_event(
+            conn,
+            entity_type="attendance",
+            entity_id=entry_id,
+            action_type="delete",
+            summary=success_text,
+            details={"deleted_actual_id": deleted_actual_id},
+            commit=False,
+        )
+        conn.commit()
     except Exception:
         conn.rollback()
         raise
-    success_text = "Günlük puantaj kaydı silindi."
-    record_audit_event(
-        conn,
-        entity_type="attendance",
-        entity_id=entry_id,
-        action_type="delete",
-        summary=success_text,
-        details={"deleted_actual_id": deleted_actual_id},
-    )
     return success_text
 
 
@@ -418,22 +421,23 @@ def save_bulk_entries_and_sync(
             )
             inserted += 1
             affected_person_ids.append(person_id)
-        conn.commit()
         sync_personnel_business_rules_for_ids_fn(conn, affected_person_ids, create_onboarding=False, full_history=True)
+        if inserted:
+            record_audit_event(
+                conn,
+                entity_type="attendance",
+                entity_id=restaurant_id,
+                action_type="bulk_create",
+                summary=f"{inserted} toplu puantaj kaydı oluşturuldu.",
+                details={
+                    "entry_date": selected_date_iso,
+                    "restaurant_id": restaurant_id,
+                    "inserted_count": inserted,
+                },
+                commit=False,
+            )
+        conn.commit()
     except Exception:
         conn.rollback()
         raise
-    if inserted:
-        record_audit_event(
-            conn,
-            entity_type="attendance",
-            entity_id=restaurant_id,
-            action_type="bulk_create",
-            summary=f"{inserted} toplu puantaj kaydı oluşturuldu.",
-            details={
-                "entry_date": selected_date_iso,
-                "restaurant_id": restaurant_id,
-                "inserted_count": inserted,
-            },
-        )
     return inserted
