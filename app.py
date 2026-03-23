@@ -5105,50 +5105,72 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
     can_update_attendance = can_perform_action(actor_role, "attendance.update")
     can_delete_attendance = can_perform_action(actor_role, "attendance.delete")
     st.subheader("Günlük Puantaj")
-    st.caption("Şube bazlı günlük vardiya, saat ve paket akışını yönetin.")
+    st.caption("Şube bazlı günlük vardiya, mesai ve paket akışını tek kart üzerinden yönet.")
     rest_opts = get_restaurant_options(conn)
     person_opts = get_person_options(conn)
     absence_reason_options = ["-"] + ABSENCE_REASON_OPTIONS
     entry_mode_options = ATTENDANCE_ENTRY_MODE_OPTIONS
     with st.form("daily_entry_form", clear_on_submit=True):
-        c1, c2, c3 = st.columns(3)
-        entry_date = c1.date_input("Tarih", value=date.today())
-        rest_label = c2.selectbox("Restoran / şube", list(rest_opts.keys()))
-        entry_mode = c3.selectbox("Vardiya Akışı", entry_mode_options)
+        form_left, form_right = st.columns([1.75, 1])
+        with form_left:
+            st.markdown("#### Vardiya Bilgisi")
+            c1, c2, c3 = st.columns(3)
+            entry_date = c1.date_input("Tarih", value=date.today())
+            rest_label = c2.selectbox("Restoran / şube", list(rest_opts.keys()))
+            entry_mode = c3.selectbox("Vardiya Akışı", entry_mode_options)
         primary_label = "-"
         actual_label = "-"
         absence_reason = "-"
-
         person_labels = ["-"] + list(person_opts.keys())
-        if entry_mode == "Restoran Kuryesi":
-            primary_label = st.selectbox("Çalışan Personel", person_labels)
-        elif entry_mode in ["Joker", "Destek"]:
-            c4, c5 = st.columns(2)
-            primary_label = c4.selectbox("Çalışan Personel", person_labels)
-            actual_label = c5.selectbox("Yerine Giren Personel", person_labels)
-            absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options)
-        else:
-            c4, c5 = st.columns(2)
-            primary_label = c4.selectbox("Çalışan Personel", person_labels)
-            absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options)
+        with form_left:
+            st.markdown("#### Personel Akışı")
+            if entry_mode == "Restoran Kuryesi":
+                primary_label = st.selectbox("Çalışan Personel", person_labels)
+            elif entry_mode in ["Joker", "Destek"]:
+                c4, c5 = st.columns(2)
+                primary_label = c4.selectbox("Çalışan Personel", person_labels)
+                actual_label = c5.selectbox("Yerine Giren Personel", person_labels)
+                absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options)
+            else:
+                c4, c5 = st.columns(2)
+                primary_label = c4.selectbox("Çalışan Personel", person_labels)
+                absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options)
 
-        c6, c7 = st.columns(2)
-        input_disabled = entry_mode == "Haftalık İzin"
-        worked_hours = c6.number_input(
-            "Çalışılan saat",
-            min_value=0.0,
-            value=0.0 if input_disabled else 10.0,
-            step=0.5,
-            disabled=input_disabled,
-        )
-        package_count = c7.number_input(
-            "Paket",
-            min_value=0.0,
-            value=0.0,
-            step=1.0,
-            disabled=input_disabled,
-        )
-        notes = st.text_area("Not")
+            st.markdown("#### Mesai ve Paket")
+            c6, c7 = st.columns(2)
+            input_disabled = entry_mode == "Haftalık İzin"
+            worked_hours = c6.number_input(
+                "Çalışılan saat",
+                min_value=0.0,
+                value=0.0 if input_disabled else 10.0,
+                step=0.5,
+                disabled=input_disabled,
+            )
+            package_count = c7.number_input(
+                "Paket",
+                min_value=0.0,
+                value=0.0,
+                step=1.0,
+                disabled=input_disabled,
+            )
+            if input_disabled:
+                st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
+            notes = st.text_area("Not", placeholder="Vardiya ile ilgili kısa operasyon notu")
+        with form_right:
+            render_record_snapshot(
+                "Kayıt Önizleme",
+                [
+                    ("Tarih", entry_date.isoformat() if entry_date else "-"),
+                    ("Şube", rest_label or "-"),
+                    ("Akış", entry_mode or "-"),
+                    ("Çalışan", primary_label or "-"),
+                    ("Yerine Giren", actual_label if entry_mode in ["Joker", "Destek"] else "-"),
+                    ("Neden", absence_reason or "-"),
+                    ("Mesai", f"{fmt_number(worked_hours)} saat"),
+                    ("Paket", fmt_number(package_count)),
+                ],
+            )
+            st.info("Kaydı oluşturmadan önce şube, akış ve personel eşleşmesini burada hızlıca kontrol edebilirsin.")
         submitted = st.form_submit_button("Kaydet", use_container_width=True, disabled=not can_create_attendance)
         if submitted:
             try:
