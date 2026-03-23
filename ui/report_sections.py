@@ -422,6 +422,9 @@ def render_side_income_report_tab(
     equipment_profit_df: pd.DataFrame,
     equipment_purchase_df: pd.DataFrame,
     fuel_reflection_amount: float,
+    company_fuel_reflection_amount: float,
+    utts_fuel_discount_amount: float,
+    partner_card_discount_amount: float,
     *,
     format_display_df_fn: Callable[..., pd.DataFrame],
     build_grid_rows_fn: Callable[[pd.DataFrame, list[str]], list[dict[str, Any]]],
@@ -467,12 +470,15 @@ def render_side_income_report_tab(
             build_grid_rows_fn(side_display_df, side_columns),
             "Yan gelir analizi için veri yok.",
         )
-    if fuel_reflection_amount > 0:
+    if fuel_reflection_amount > 0 or partner_card_discount_amount > 0:
         render_record_snapshot_fn(
-            "Yakıt Yansıtma Notu",
+            "Yakıt ve Kart İndirimi",
             [
                 ("Toplam Yakıt Tahsilatı", fmt_try_fn(fuel_reflection_amount)),
-                ("Durum", "Net yakıt marjı bu sürümde ayrı izlenmiyor"),
+                ("Çat Kapında Motor Yakıtı", fmt_try_fn(company_fuel_reflection_amount)),
+                ("UTTS İndirimi (%7)", fmt_try_fn(utts_fuel_discount_amount)),
+                ("Partner Kart İndirimi", fmt_try_fn(partner_card_discount_amount)),
+                ("Toplam Yakıt Yan Geliri", fmt_try_fn(utts_fuel_discount_amount + partner_card_discount_amount)),
             ],
         )
     with st.expander("Ekipman ve Motor Detayı", expanded=False):

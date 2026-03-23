@@ -11,6 +11,7 @@ from repositories.deductions_repository import (
     insert_deduction_record,
     update_deduction_record,
 )
+from rules.deduction_rules import HGS_VAT_RATE, is_hgs_deduction_type
 from services.audit_service import record_audit_event
 from services.permission_service import require_action_access
 
@@ -32,19 +33,16 @@ class DeductionSelectionPayload:
     display_amount: float
 
 
-HGS_VAT_RATE = 0.20
-
-
 def normalize_deduction_amount_for_storage(deduction_type: Any, amount: Any, *, safe_float_fn: Callable[[Any, float], float]) -> float:
     resolved_amount = safe_float_fn(amount)
-    if str(deduction_type or "").strip().lower() != "hgs":
+    if not is_hgs_deduction_type(deduction_type):
         return resolved_amount
     return round(resolved_amount * (1 + HGS_VAT_RATE), 2)
 
 
 def normalize_deduction_amount_for_form(deduction_type: Any, amount: Any, *, safe_float_fn: Callable[[Any, float], float]) -> float:
     resolved_amount = safe_float_fn(amount)
-    if str(deduction_type or "").strip().lower() != "hgs":
+    if not is_hgs_deduction_type(deduction_type):
         return resolved_amount
     if resolved_amount <= 0:
         return 0.0

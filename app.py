@@ -112,6 +112,11 @@ from rules.equipment_rules import (
     latest_average_cost,
     normalize_equipment_issue_installment_count,
 )
+from rules.deduction_rules import (
+    DEDUCTION_TYPE_OPTIONS,
+    filter_payroll_effective_deductions_df,
+    get_deduction_type_caption,
+)
 from rules.reporting_rules import (
     build_invoice_summary_df,
     build_restaurant_export_filename,
@@ -5312,9 +5317,9 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
     can_update_deduction = can_perform_action(actor_role, "deduction.update")
     can_delete_deduction = can_perform_action(actor_role, "deduction.delete")
     can_bulk_delete_deductions = can_perform_action(actor_role, "deduction.bulk_delete")
-    section_intro("💸 Kesinti Yönetimi | Motor kira, bakım, yakıt, HGS, ceza, muhasebe ve şirket açılış ücretleri", "Personel bazlı düşülecek tutarları buradan manuel kaydet ve yönet.")
+    section_intro("💸 Kesinti Yönetimi | Motor kira, bakım, yakıt, HGS, ceza, muhasebe, şirket açılış ve avans kalemleri", "Personel bazlı düşülecek tutarları buradan manuel kaydet ve yönet.")
     person_opts = get_person_options(conn, active_only=False)
-    deduction_types = ["Bakım", "Yakıt", "HGS", "İdari ceza", "Hasar", "Fatura Edilmeyen Tutar"]
+    deduction_types = list(DEDUCTION_TYPE_OPTIONS)
 
     with st.form("deduction_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
@@ -5322,8 +5327,9 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         ded_date = c2.date_input("Tarih", value=date.today())
         ded_type = c3.selectbox("Kesinti türü", deduction_types)
         amount = st.number_input("Tutar", min_value=0.0, value=0.0, step=50.0)
-        if ded_type == "HGS":
-            st.caption("HGS tutarını net gider olarak gir; sistem hakedişe %20 KDV dahil kesinti yazar.")
+        deduction_caption = get_deduction_type_caption(ded_type)
+        if deduction_caption:
+            st.caption(deduction_caption)
         notes = st.text_input("Açıklama")
         submitted = st.form_submit_button("Kesinti ekle", use_container_width=True, disabled=not can_create_deduction)
         if submitted and amount > 0:
@@ -5442,8 +5448,9 @@ def deductions_tab(conn: sqlite3.Connection) -> None:
         edit_date = c2.date_input("Tarih", value=current_date)
         edit_type = c3.selectbox("Kesinti türü", deduction_types, index=type_index)
         edit_amount = st.number_input("Tutar", min_value=0.0, value=display_amount, step=50.0)
-        if edit_type == "HGS":
-            st.caption("HGS düzenlemesinde girdiğin tutara %20 KDV eklenerek kesinti kaydı güncellenir.")
+        edit_deduction_caption = get_deduction_type_caption(edit_type)
+        if edit_deduction_caption:
+            st.caption(edit_deduction_caption)
         edit_notes = st.text_input("Açıklama", value=row["notes"] or "")
         c4, c5 = st.columns(2)
         update_clicked = c4.form_submit_button("Kesinti güncelle", use_container_width=True, disabled=is_auto_record or not can_update_deduction)
@@ -6319,6 +6326,7 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
     start_date, end_date = month_bounds(selected_month)
     month_entries = entries[(entries["entry_date"] >= start_date) & (entries["entry_date"] <= end_date)].copy() if not entries.empty else pd.DataFrame()
     month_deductions = deductions[(deductions["deduction_date"] >= start_date) & (deductions["deduction_date"] <= end_date)].copy() if not deductions.empty else pd.DataFrame()
+    payroll_deductions = filter_payroll_effective_deductions_df(month_deductions)
 
     st.caption(
         "Hakediş notu: Kesintiler seçilen ayın son gününe yazılır. Bu ekrandaki net ödeme, ay kapanışına göre hesaplanır; ödeme akışı ayın 15'inde yapılır."
@@ -6327,7 +6335,7 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
     if restaurant_filter != "Tümü" and not month_entries.empty:
         month_entries = month_entries[(month_entries["brand"] + " - " + month_entries["branch"]) == restaurant_filter].copy()
 
-    cost_df = calculate_personnel_cost(month_entries, personnel_df, month_deductions, role_history_df=role_history_df)
+    cost_df = calculate_personnel_cost(month_entries, personnel_df, payroll_deductions, role_history_df=role_history_df)
     if cost_df.empty:
         st.warning("Seçilen filtre için hakediş verisi bulunamadı.")
         return
@@ -6415,7 +6423,7 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
         person_match = personnel_df[personnel_df["id"] == selected_pdf_id]
         payroll_row["person_code"] = person_match.iloc[0]["person_code"] if not person_match.empty else ""
 
-        deduction_rows = month_deductions[month_deductions["personnel_id"] == selected_pdf_id].copy() if not month_deductions.empty else pd.DataFrame()
+        deduction_rows = payroll_deductions[payroll_deductions["personnel_id"] == selected_pdf_id].copy() if not payroll_deductions.empty else pd.DataFrame()
         worked_restaurants = []
         if not month_entries.empty:
             rest_series = (
@@ -6601,6 +6609,9 @@ def reports_tab(conn: sqlite3.Connection) -> None:
             report_payload.equipment_profit_df,
             report_payload.equipment_purchase_df,
             report_payload.fuel_reflection_amount,
+            report_payload.company_fuel_reflection_amount,
+            report_payload.utts_fuel_discount_amount,
+            report_payload.partner_card_discount_amount,
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
             render_dashboard_data_grid_fn=render_dashboard_data_grid,

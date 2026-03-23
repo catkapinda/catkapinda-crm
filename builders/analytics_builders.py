@@ -149,6 +149,8 @@ def build_side_income_summary_df(
     motor_sale_cost: float,
     equipment_rev: float,
     equipment_cost: float,
+    utts_fuel_discount_amount: float = 0.0,
+    partner_card_discount_amount: float = 0.0,
 ) -> pd.DataFrame:
     return pd.DataFrame(
         [
@@ -157,5 +159,7 @@ def build_side_income_summary_df(
             {"kalem": "Motor Kirası", "gelir": motor_rental_rev, "maliyet": motor_rental_cost, "net_kar": motor_rental_rev - motor_rental_cost},
             {"kalem": "Motor Satışı", "gelir": motor_sale_rev, "maliyet": motor_sale_cost, "net_kar": motor_sale_rev - motor_sale_cost},
             {"kalem": "Ekipman Satışları", "gelir": equipment_rev, "maliyet": equipment_cost, "net_kar": equipment_rev - equipment_cost},
+            {"kalem": "UTTS Yakıt İndirimi", "gelir": utts_fuel_discount_amount, "maliyet": 0.0, "net_kar": utts_fuel_discount_amount},
+            {"kalem": "Partner Kart İndirimi", "gelir": partner_card_discount_amount, "maliyet": 0.0, "net_kar": partner_card_discount_amount},
         ]
     )
