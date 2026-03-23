@@ -15,6 +15,7 @@ from repositories.reporting_repository import (
     fetch_reporting_restaurants,
     fetch_reporting_role_history,
 )
+from rules.deduction_rules import calculate_fuel_discount_summary, filter_payroll_effective_deductions_df
 from rules.equipment_rules import build_equipment_profitability_frames
 from rules.reporting_rules import (
     build_invoice_summary_df,
@@ -47,6 +48,9 @@ class ReportsWorkspacePayload:
     gross_profit: float
     side_income_net: float
     fuel_reflection_amount: float
+    company_fuel_reflection_amount: float
+    utts_fuel_discount_amount: float
+    partner_card_discount_amount: float
     operational_restaurant_names: list[str]
 
 
@@ -104,6 +108,7 @@ def build_reports_workspace_payload(conn, entries: pd.DataFrame, selected_month:
     personnel_df = fetch_reporting_personnel(conn)
     role_history_df = fetch_reporting_role_history(conn)
     deductions_df = fetch_reporting_deductions_for_period(conn, start_date, end_date)
+    payroll_deductions_df = filter_payroll_effective_deductions_df(deductions_df)
 
     invoice_df = build_invoice_summary_df(month_df).sort_values("restoran").reset_index(drop=True)
     invoice_drilldown_map = build_restaurant_invoice_drilldown_map(month_df, personnel_df)
@@ -114,7 +119,7 @@ def build_reports_workspace_payload(conn, entries: pd.DataFrame, selected_month:
         invoice_drilldown_map=invoice_drilldown_map,
     )
 
-    cost_df = calculate_personnel_cost(month_df, personnel_df, deductions_df, role_history_df=role_history_df)
+    cost_df = calculate_personnel_cost(month_df, personnel_df, payroll_deductions_df, role_history_df=role_history_df)
     revenue = float(invoice_df["kdv_dahil"].sum()) if not invoice_df.empty else 0.0
     personnel_cost = float(cost_df["net_maliyet"].sum()) if not cost_df.empty else 0.0
     gross_profit = revenue - personnel_cost
@@ -138,10 +143,15 @@ def build_reports_workspace_payload(conn, entries: pd.DataFrame, selected_month:
     motor_sale_cost = float(motor_sale_profit_df["total_cost"].sum()) if not motor_sale_profit_df.empty else 0.0
     equipment_rev = float(equipment_only_profit_df["total_sale"].sum()) if not equipment_only_profit_df.empty else 0.0
     equipment_cost = float(equipment_only_profit_df["total_cost"].sum()) if not equipment_only_profit_df.empty else 0.0
-    fuel_reflection_amount = float(deductions_df.loc[deductions_df["deduction_type"] == "Yakıt", "amount"].sum()) if not deductions_df.empty else 0.0
+    fuel_discount_summary = calculate_fuel_discount_summary(deductions_df, personnel_df)
+    fuel_reflection_amount = fuel_discount_summary["fuel_reflection_amount"]
+    company_fuel_reflection_amount = fuel_discount_summary["company_fuel_reflection_amount"]
+    utts_fuel_discount_amount = fuel_discount_summary["utts_fuel_discount_amount"]
+    partner_card_discount_amount = fuel_discount_summary["partner_card_discount_amount"]
 
     side_income_net = (accounting_rev - accountant_cost_total) + (setup_rev - setup_cost) + (equipment_rev - equipment_cost)
     side_income_net += (motor_rental_rev - motor_rental_cost) + (motor_sale_rev - motor_sale_cost)
+    side_income_net += utts_fuel_discount_amount + partner_card_discount_amount
     side_df = build_side_income_summary_df(
         accounting_rev=accounting_rev,
         accountant_cost_total=accountant_cost_total,
@@ -153,12 +163,14 @@ def build_reports_workspace_payload(conn, entries: pd.DataFrame, selected_month:
         motor_sale_cost=motor_sale_cost,
         equipment_rev=equipment_rev,
         equipment_cost=equipment_cost,
+        utts_fuel_discount_amount=utts_fuel_discount_amount,
+        partner_card_discount_amount=partner_card_discount_amount,
     )
 
     profit_df, person_distribution_df, shared_overhead_df = build_branch_profitability(
         month_df,
         personnel_df,
-        deductions_df,
+        payroll_deductions_df,
         invoice_df,
         role_history_df=role_history_df,
         restaurants_df=restaurants_df,
@@ -191,5 +203,8 @@ def build_reports_workspace_payload(conn, entries: pd.DataFrame, selected_month:
         gross_profit=gross_profit,
         side_income_net=side_income_net,
         fuel_reflection_amount=fuel_reflection_amount,
+        company_fuel_reflection_amount=company_fuel_reflection_amount,
+        utts_fuel_discount_amount=utts_fuel_discount_amount,
+        partner_card_discount_amount=partner_card_discount_amount,
         operational_restaurant_names=operational_restaurant_names,
     )
