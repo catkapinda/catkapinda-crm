@@ -5095,7 +5095,6 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         rest_label = c2.selectbox("Restoran / şube", list(rest_opts.keys()))
         entry_mode = c3.selectbox("Vardiya Akışı", entry_mode_options)
         primary_label = "-"
-        planned_label = "-"
         actual_label = "-"
         absence_reason = "-"
 
@@ -5104,12 +5103,12 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             primary_label = st.selectbox("Çalışan Personel", person_labels)
         elif entry_mode in ["Joker", "Destek"]:
             c4, c5 = st.columns(2)
-            planned_label = c4.selectbox("Planlanan Personel", person_labels)
+            primary_label = c4.selectbox("Çalışan Personel", person_labels)
             actual_label = c5.selectbox("Fiilen Çalışan Personel", person_labels)
             absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options)
         else:
             c4, c5 = st.columns(2)
-            planned_label = c4.selectbox("Planlanan Personel", person_labels)
+            primary_label = c4.selectbox("Çalışan Personel", person_labels)
             absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options)
 
         c6, c7 = st.columns(2)
@@ -5133,7 +5132,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         if submitted:
             try:
                 primary_id = person_opts[primary_label] if primary_label != "-" else None
-                planned_id = person_opts[planned_label] if planned_label != "-" else None
+                planned_id = primary_id if entry_mode in ["Joker", "Destek", "Haftalık İzin"] else None
                 actual_id = person_opts[actual_label] if actual_label != "-" else None
                 resolved_values = resolve_daily_entry_values(
                     entry_mode=entry_mode,
@@ -5191,29 +5190,29 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             edit_rest_label = e2.selectbox("Restoran / şube", rest_labels, index=rest_labels.index(current_rest_label))
             edit_entry_mode = e3.selectbox(
                 "Vardiya Akışı",
-                entry_mode_options,
-                index=entry_mode_options.index(entry_mode_default) if entry_mode_default in entry_mode_options else 0,
+            entry_mode_options,
+            index=entry_mode_options.index(entry_mode_default) if entry_mode_default in entry_mode_options else 0,
+        )
+        person_labels = ["-"] + list(person_opts.keys())
+        edit_primary_label = actual_default if actual_default != "-" else planned_default
+        edit_actual_label = actual_default
+        edit_absence_reason = "-"
+        if edit_entry_mode == "Restoran Kuryesi":
+            edit_primary_label = st.selectbox(
+                "Çalışan Personel",
+                person_labels,
+                index=person_labels.index(edit_primary_label) if edit_primary_label in person_labels else 0,
             )
-            person_labels = ["-"] + list(person_opts.keys())
-            edit_primary_label = actual_default if actual_default != "-" else planned_default
-            edit_planned_label = planned_default
-            edit_actual_label = actual_default
-            edit_absence_reason = "-"
-            if edit_entry_mode == "Restoran Kuryesi":
-                edit_primary_label = st.selectbox(
-                    "Çalışan Personel",
-                    person_labels,
-                    index=person_labels.index(edit_primary_label) if edit_primary_label in person_labels else 0,
-                )
-            elif edit_entry_mode in ["Joker", "Destek"]:
-                e4, e5 = st.columns(2)
-                edit_planned_label = e4.selectbox(
-                    "Planlanan Personel",
-                    person_labels,
-                    index=person_labels.index(planned_default) if planned_default in person_labels else 0,
-                )
-                edit_actual_label = e5.selectbox(
-                    "Fiilen Çalışan Personel",
+        elif edit_entry_mode in ["Joker", "Destek"]:
+            e4, e5 = st.columns(2)
+            replacement_primary_default = planned_default if planned_default != "-" else edit_primary_label
+            edit_primary_label = e4.selectbox(
+                "Çalışan Personel",
+                person_labels,
+                index=person_labels.index(replacement_primary_default) if replacement_primary_default in person_labels else 0,
+            )
+            edit_actual_label = e5.selectbox(
+                "Fiilen Çalışan Personel",
                     person_labels,
                     index=person_labels.index(actual_default) if actual_default in person_labels else 0,
                 )
@@ -5222,15 +5221,16 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     absence_reason_options,
                     index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
                 )
-            else:
-                e4, e5 = st.columns(2)
-                edit_planned_label = e4.selectbox(
-                    "Planlanan Personel",
-                    person_labels,
-                    index=person_labels.index(planned_default) if planned_default in person_labels else 0,
-                )
-                edit_absence_reason = e5.selectbox(
-                    "Neden Girmedi?",
+        else:
+            e4, e5 = st.columns(2)
+            weekly_off_primary_default = planned_default if planned_default != "-" else edit_primary_label
+            edit_primary_label = e4.selectbox(
+                "Çalışan Personel",
+                person_labels,
+                index=person_labels.index(weekly_off_primary_default) if weekly_off_primary_default in person_labels else 0,
+            )
+            edit_absence_reason = e5.selectbox(
+                "Neden Girmedi?",
                     absence_reason_options,
                     index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
                 )
@@ -5260,7 +5260,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 previous_actual_id = safe_int(selected["actual_personnel_id"], 0)
                 try:
                     edit_primary_id = person_opts[edit_primary_label] if edit_primary_label != "-" else None
-                    planned_id = person_opts[edit_planned_label] if edit_planned_label != "-" else None
+                    planned_id = edit_primary_id if edit_entry_mode in ["Joker", "Destek", "Haftalık İzin"] else None
                     actual_id = person_opts[edit_actual_label] if edit_actual_label != "-" else None
                     resolved_values = resolve_daily_entry_values(
                         entry_mode=edit_entry_mode,

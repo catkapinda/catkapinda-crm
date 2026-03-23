@@ -97,6 +97,25 @@ class AttendanceServiceTests(unittest.TestCase):
         self.assertEqual(values["worked_hours"], 0.0)
         self.assertEqual(values["package_count"], 0.0)
 
+    def test_resolve_daily_entry_values_uses_primary_person_for_weekly_off_when_planned_missing(self):
+        values = attendance_service.resolve_daily_entry_values(
+            entry_mode="Haftalık İzin",
+            primary_person_id=17,
+            planned_personnel_id=None,
+            actual_personnel_id=None,
+            absence_reason="İzin",
+            coverage_type="",
+            worked_hours=9.5,
+            package_count=18.0,
+            notes="Haftalık izin",
+        )
+
+        self.assertEqual(values["planned_personnel_id"], 17)
+        self.assertIsNone(values["actual_personnel_id"])
+        self.assertEqual(values["status"], "İzin")
+        self.assertEqual(values["worked_hours"], 0.0)
+        self.assertEqual(values["package_count"], 0.0)
+
     def test_build_bulk_rows_from_parsed_maps_known_names_and_normalizes_status(self):
         rows = attendance_service.build_bulk_rows_from_parsed(
             [

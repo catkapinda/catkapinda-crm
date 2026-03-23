@@ -120,6 +120,7 @@ def resolve_daily_entry_values(
     notes_text = str(notes or "").strip()
     reason_text = str(absence_reason or "").strip()
     coverage_text = str(coverage_type or "").strip()
+    resolved_planned_id = planned_personnel_id or primary_person_id
 
     if entry_mode == "Restoran Kuryesi":
         if not primary_person_id:
@@ -136,16 +137,16 @@ def resolve_daily_entry_values(
         }
 
     if entry_mode in {"Joker", "Destek"}:
-        if not planned_personnel_id:
-            raise ValueError("Yerine girişte normalde girecek kuryeyi seçmelisin.")
+        if not resolved_planned_id:
+            raise ValueError("Yerine girişte çalışan personeli seçmelisin.")
         if not actual_personnel_id:
             raise ValueError("Yerine girişte giren kuryeyi seçmelisin.")
-        if planned_personnel_id == actual_personnel_id:
+        if resolved_planned_id == actual_personnel_id:
             raise ValueError("Yerine girişte giren kurye, normalde girecek kişiden farklı olmalı.")
         if not reason_text:
             raise ValueError("Yerine girişte neden girmedi bilgisini seçmelisin.")
         return {
-            "planned_personnel_id": planned_personnel_id,
+            "planned_personnel_id": resolved_planned_id,
             "actual_personnel_id": actual_personnel_id,
             "status": "Normal",
             "worked_hours": float(worked_hours or 0),
@@ -156,13 +157,13 @@ def resolve_daily_entry_values(
         }
 
     if entry_mode == "Haftalık İzin":
-        if not planned_personnel_id:
-            raise ValueError("Haftalık izinde planlanan personeli seçmelisin.")
+        if not resolved_planned_id:
+            raise ValueError("Haftalık izinde çalışan personeli seçmelisin.")
         if not reason_text:
             raise ValueError("Haftalık izinde neden girmedi bilgisini seçmelisin.")
         status_text = reason_text if reason_text in NON_WORKING_ATTENDANCE_STATUSES else "Gelmedi"
         return {
-            "planned_personnel_id": planned_personnel_id,
+            "planned_personnel_id": resolved_planned_id,
             "actual_personnel_id": None,
             "status": status_text,
             "worked_hours": 0.0,
