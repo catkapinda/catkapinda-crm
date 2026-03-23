@@ -15,10 +15,11 @@ from services.audit_service import record_audit_event
 from services.permission_service import require_action_access
 
 ATTENDANCE_ENTRY_MODE_OPTIONS = [
-    "Normal Çalışma",
-    "Yerine Giriş",
+    "Restoran Kuryesi",
+    "Joker",
+    "Destek",
     "Boş Vardiya",
-    "Şef Vardiyası",
+    "Şef",
 ]
 ABSENCE_REASON_OPTIONS = ["İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Diğer"]
 COVERAGE_TYPE_OPTIONS = ["Joker", "Destek"]
@@ -64,17 +65,23 @@ def infer_daily_entry_mode(
     status: Any,
     planned_personnel_id: Any,
     actual_personnel_id: Any,
+    coverage_type: Any = None,
 ) -> str:
     status_text = str(status or "").strip()
+    coverage_text = str(coverage_type or "").strip()
     planned_id = int(planned_personnel_id or 0) if planned_personnel_id else 0
     actual_id = int(actual_personnel_id or 0) if actual_personnel_id else 0
     if status_text == "Şef":
-        return "Şef Vardiyası"
+        return "Şef"
     if planned_id > 0 and actual_id > 0 and planned_id != actual_id:
-        return "Yerine Giriş"
+        if coverage_text in COVERAGE_TYPE_OPTIONS:
+            return coverage_text
+        if status_text == "Joker":
+            return "Joker"
+        return "Destek"
     if planned_id > 0 and actual_id <= 0:
         return "Boş Vardiya"
-    return "Normal Çalışma"
+    return "Restoran Kuryesi"
 
 
 def resolve_daily_entry_values(
@@ -93,9 +100,9 @@ def resolve_daily_entry_values(
     reason_text = str(absence_reason or "").strip()
     coverage_text = str(coverage_type or "").strip()
 
-    if entry_mode == "Normal Çalışma":
+    if entry_mode == "Restoran Kuryesi":
         if not primary_person_id:
-            raise ValueError("Normal çalışmada fiilen çalışan personeli seçmelisin.")
+            raise ValueError("Restoran kuryesi akışında giren kuryeyi seçmelisin.")
         return {
             "planned_personnel_id": primary_person_id,
             "actual_personnel_id": primary_person_id,
@@ -107,17 +114,15 @@ def resolve_daily_entry_values(
             "notes": notes_text,
         }
 
-    if entry_mode == "Yerine Giriş":
+    if entry_mode in {"Joker", "Destek"}:
         if not planned_personnel_id:
-            raise ValueError("Yerine girişte normalde girecek personeli seçmelisin.")
+            raise ValueError("Yerine girişte normalde girecek kuryeyi seçmelisin.")
         if not actual_personnel_id:
-            raise ValueError("Yerine girişte fiilen çalışan personeli seçmelisin.")
+            raise ValueError("Yerine girişte giren kuryeyi seçmelisin.")
         if planned_personnel_id == actual_personnel_id:
-            raise ValueError("Yerine girişte fiilen çalışan kişi, normalde girecek kişiden farklı olmalı.")
+            raise ValueError("Yerine girişte giren kurye, normalde girecek kişiden farklı olmalı.")
         if not reason_text:
             raise ValueError("Yerine girişte neden girmedi bilgisini seçmelisin.")
-        if coverage_text not in COVERAGE_TYPE_OPTIONS:
-            raise ValueError("Yerine girişte yerine giren tipini seçmelisin.")
         return {
             "planned_personnel_id": planned_personnel_id,
             "actual_personnel_id": actual_personnel_id,
@@ -125,7 +130,7 @@ def resolve_daily_entry_values(
             "worked_hours": float(worked_hours or 0),
             "package_count": float(package_count or 0),
             "absence_reason": reason_text,
-            "coverage_type": coverage_text,
+            "coverage_type": entry_mode,
             "notes": notes_text,
         }
 
@@ -146,9 +151,9 @@ def resolve_daily_entry_values(
             "notes": notes_text,
         }
 
-    if entry_mode == "Şef Vardiyası":
+    if entry_mode == "Şef":
         if not primary_person_id:
-            raise ValueError("Şef vardiyasında fiilen çalışan kişiyi seçmelisin.")
+            raise ValueError("Şef vardiyasında giren şefi seçmelisin.")
         return {
             "planned_personnel_id": primary_person_id,
             "actual_personnel_id": primary_person_id,
@@ -176,6 +181,7 @@ def build_daily_entry_selection_payload(
         status=selected_row["status"],
         planned_personnel_id=selected_row["planned_personnel_id"],
         actual_personnel_id=selected_row["actual_personnel_id"],
+        coverage_type=selected_row["coverage_type"],
     )
     planned_default = "-"
     actual_default = "-"

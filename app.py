@@ -278,7 +278,7 @@ DEFAULT_AUTH_PASSWORD = "123456"
 APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
 APP_PAGE_ICON = "🚚"
 MENU_QUERY_KEY = "menu"
-RUNTIME_BOOTSTRAP_VERSION = "2026-03-22-manual-motor-deductions"
+RUNTIME_BOOTSTRAP_VERSION = "2026-03-23-attendance-coverage-columns"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
     "assets/catkapinda_logo.jpg",
@@ -5078,49 +5078,35 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
     can_update_attendance = can_perform_action(actor_role, "attendance.update")
     can_delete_attendance = can_perform_action(actor_role, "attendance.delete")
     status_options = ["Normal", "Joker", "İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Çıkış yaptı", "Şef"]
-    st.subheader("Günlük Puantaj | Kim girecekti, neden girmedi, yerine kim girdi?")
-    st.caption("Ofisin planlanan personel ile fiilen çalışan kişiyi karıştırmaması için günlük vardiya akışını ayrı alanlarla yönet.")
+    st.subheader("Günlük Puantaj")
+    st.caption("Şube bazlı vardiya, saat ve paket kayıtlarını planlanan ve fiilen çalışan kurye ayrımıyla yönetin.")
     rest_opts = get_restaurant_options(conn)
     person_opts = get_person_options(conn)
     absence_reason_options = ["-"] + ABSENCE_REASON_OPTIONS
-    coverage_type_options = ["-"] + COVERAGE_TYPE_OPTIONS
     entry_mode_options = ATTENDANCE_ENTRY_MODE_OPTIONS
     with st.form("daily_entry_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
         entry_date = c1.date_input("Tarih", value=date.today())
         rest_label = c2.selectbox("Restoran / şube", list(rest_opts.keys()))
-        entry_mode = c3.selectbox("Vardiya akışı", entry_mode_options)
+        entry_mode = c3.selectbox("Vardiya Akışı", entry_mode_options)
         primary_label = "-"
         planned_label = "-"
         actual_label = "-"
         absence_reason = "-"
-        coverage_type = "-"
 
         person_labels = ["-"] + list(person_opts.keys())
-        if entry_mode in ["Normal Çalışma", "Şef Vardiyası"]:
-            field_label = "Normalde ve fiilen çalışan kişi" if entry_mode == "Normal Çalışma" else "Fiilen çalışan şef"
+        if entry_mode in ["Restoran Kuryesi", "Şef"]:
+            field_label = "Giren Kurye" if entry_mode == "Restoran Kuryesi" else "Giren Şef"
             primary_label = st.selectbox(field_label, person_labels)
-            st.caption("Bu akışta planlanan kişi ile fiilen çalışan kişi aynıdır.")
-        elif entry_mode == "Yerine Giriş":
+        elif entry_mode in ["Joker", "Destek"]:
             c4, c5 = st.columns(2)
-            planned_label = c4.selectbox("Normalde girecek personel", person_labels)
-            actual_label = c5.selectbox("Fiilen çalışan / yerine giren", person_labels)
-            c6, c7 = st.columns(2)
-            absence_reason = c6.selectbox("Neden girmedi?", absence_reason_options)
-            coverage_default = "-"
-            if actual_label != "-":
-                coverage_default = "Joker" if "(Joker)" in actual_label else "Destek"
-            coverage_type = c7.selectbox(
-                "Yerine kim girdi?",
-                coverage_type_options,
-                index=coverage_type_options.index(coverage_default),
-                help="Joker kendi sabit maaşında kalır; Destek farklı restorandan gelen fiili çalışanı ifade eder.",
-            )
+            planned_label = c4.selectbox("Normalde Girecek Kurye", person_labels)
+            actual_label = c5.selectbox("Giren Kurye", person_labels)
+            absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options)
         else:
             c4, c5 = st.columns(2)
-            planned_label = c4.selectbox("Normalde girecek personel", person_labels)
-            absence_reason = c5.selectbox("Neden girmedi?", absence_reason_options)
-            st.caption("Bu vardiyada yerine kimse girmediyse saat ve paket 0 olarak kaydedilir.")
+            planned_label = c4.selectbox("Normalde Girecek Kurye", person_labels)
+            absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options)
 
         c6, c7 = st.columns(2)
         input_disabled = entry_mode == "Boş Vardiya"
@@ -5151,7 +5137,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     planned_personnel_id=planned_id,
                     actual_personnel_id=actual_id,
                     absence_reason="" if absence_reason == "-" else absence_reason,
-                    coverage_type="" if coverage_type == "-" else coverage_type,
+                    coverage_type=entry_mode if entry_mode in COVERAGE_TYPE_OPTIONS else "",
                     worked_hours=worked_hours,
                     package_count=package_count,
                     notes=notes,
@@ -5194,15 +5180,13 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         planned_default = selection_payload.planned_default
         actual_default = selection_payload.actual_default
         absence_reason_default = selection_payload.absence_reason_default
-        coverage_type_default = selection_payload.coverage_type_default
-
         with st.form(f"daily_entry_edit_form_{selected_id}"):
             e1, e2, e3 = st.columns(3)
             edit_date = e1.date_input("Tarih", value=datetime.fromisoformat(selected["entry_date"]).date())
             rest_labels = list(rest_opts.keys())
             edit_rest_label = e2.selectbox("Restoran / şube", rest_labels, index=rest_labels.index(current_rest_label))
             edit_entry_mode = e3.selectbox(
-                "Vardiya akışı",
+                "Vardiya Akışı",
                 entry_mode_options,
                 index=entry_mode_options.index(entry_mode_default) if entry_mode_default in entry_mode_options else 0,
             )
@@ -5211,52 +5195,42 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             edit_planned_label = planned_default
             edit_actual_label = actual_default
             edit_absence_reason = "-"
-            edit_coverage_type = "-"
-            if edit_entry_mode in ["Normal Çalışma", "Şef Vardiyası"]:
-                edit_field_label = "Normalde ve fiilen çalışan kişi" if edit_entry_mode == "Normal Çalışma" else "Fiilen çalışan şef"
+            if edit_entry_mode in ["Restoran Kuryesi", "Şef"]:
+                edit_field_label = "Giren Kurye" if edit_entry_mode == "Restoran Kuryesi" else "Giren Şef"
                 edit_primary_label = st.selectbox(
                     edit_field_label,
                     person_labels,
                     index=person_labels.index(edit_primary_label) if edit_primary_label in person_labels else 0,
                 )
-                st.caption("Bu akışta planlanan kişi ile fiilen çalışan kişi aynıdır.")
-            elif edit_entry_mode == "Yerine Giriş":
+            elif edit_entry_mode in ["Joker", "Destek"]:
                 e4, e5 = st.columns(2)
                 edit_planned_label = e4.selectbox(
-                    "Normalde girecek personel",
+                    "Normalde Girecek Kurye",
                     person_labels,
                     index=person_labels.index(planned_default) if planned_default in person_labels else 0,
                 )
                 edit_actual_label = e5.selectbox(
-                    "Fiilen çalışan / yerine giren",
+                    "Giren Kurye",
                     person_labels,
                     index=person_labels.index(actual_default) if actual_default in person_labels else 0,
                 )
-                e6, e7 = st.columns(2)
-                coverage_default = coverage_type_default or ("Joker" if "(Joker)" in edit_actual_label else "Destek")
-                edit_absence_reason = e6.selectbox(
-                    "Neden girmedi?",
+                edit_absence_reason = st.selectbox(
+                    "Neden Girmedi?",
                     absence_reason_options,
                     index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
-                )
-                edit_coverage_type = e7.selectbox(
-                    "Yerine kim girdi?",
-                    coverage_type_options,
-                    index=coverage_type_options.index(coverage_default) if coverage_default in coverage_type_options else 0,
                 )
             else:
                 e4, e5 = st.columns(2)
                 edit_planned_label = e4.selectbox(
-                    "Normalde girecek personel",
+                    "Normalde Girecek Kurye",
                     person_labels,
                     index=person_labels.index(planned_default) if planned_default in person_labels else 0,
                 )
                 edit_absence_reason = e5.selectbox(
-                    "Neden girmedi?",
+                    "Neden Girmedi?",
                     absence_reason_options,
                     index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
                 )
-                st.caption("Bu vardiyada yerine kimse girmediyse saat ve paket 0 olarak kaydedilir.")
 
             e6, e7 = st.columns(2)
             edit_input_disabled = edit_entry_mode == "Boş Vardiya"
@@ -5291,7 +5265,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                         planned_personnel_id=planned_id,
                         actual_personnel_id=actual_id,
                         absence_reason="" if edit_absence_reason == "-" else edit_absence_reason,
-                        coverage_type="" if edit_coverage_type == "-" else edit_coverage_type,
+                        coverage_type=edit_entry_mode if edit_entry_mode in COVERAGE_TYPE_OPTIONS else "",
                         worked_hours=edit_hours,
                         package_count=edit_package,
                         notes=edit_notes,

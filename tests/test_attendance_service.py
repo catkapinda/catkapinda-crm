@@ -23,7 +23,7 @@ class _DummyConn:
 class AttendanceServiceTests(unittest.TestCase):
     def test_resolve_daily_entry_values_builds_replacement_payload(self):
         values = attendance_service.resolve_daily_entry_values(
-            entry_mode="Yerine Giriş",
+            entry_mode="Joker",
             primary_person_id=None,
             planned_personnel_id=11,
             actual_personnel_id=42,
@@ -40,6 +40,16 @@ class AttendanceServiceTests(unittest.TestCase):
         self.assertEqual(values["absence_reason"], "İzin")
         self.assertEqual(values["coverage_type"], "Joker")
         self.assertEqual(values["package_count"], 24.0)
+
+    def test_infer_daily_entry_mode_prefers_coverage_type_for_replacement_rows(self):
+        entry_mode = attendance_service.infer_daily_entry_mode(
+            status="Normal",
+            planned_personnel_id=11,
+            actual_personnel_id=42,
+            coverage_type="Destek",
+        )
+
+        self.assertEqual(entry_mode, "Destek")
 
     def test_resolve_daily_entry_values_builds_empty_shift_payload(self):
         values = attendance_service.resolve_daily_entry_values(
