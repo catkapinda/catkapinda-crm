@@ -6,6 +6,8 @@ from typing import Any, Callable
 
 import pandas as pd
 
+from services.attendance_service import NON_WORKING_ATTENDANCE_STATUSES
+
 from repositories.dashboard_repository import (
     fetch_dashboard_active_restaurants,
     fetch_dashboard_deductions_for_period,
@@ -125,7 +127,7 @@ def build_dashboard_workspace_payload(
     today_entries = entries[entries["entry_date_value"] == today_value].copy() if not entries.empty else pd.DataFrame(columns=entries.columns)
     working_today_entries = (
         today_entries[
-            (~today_entries["status"].fillna("").isin(["İzin", "Gelmedi"]))
+            (~today_entries["status"].fillna("").isin(list(NON_WORKING_ATTENDANCE_STATUSES)))
             | (today_entries["worked_hours"].fillna(0) > 0)
             | (today_entries["package_count"].fillna(0) > 0)
         ].copy()

@@ -168,6 +168,8 @@ _SQLITE_SCHEMA = """
         status TEXT NOT NULL,
         worked_hours REAL DEFAULT 0,
         package_count REAL DEFAULT 0,
+        absence_reason TEXT,
+        coverage_type TEXT,
         notes TEXT,
         FOREIGN KEY (restaurant_id) REFERENCES restaurants(id),
         FOREIGN KEY (planned_personnel_id) REFERENCES personnel(id),
@@ -398,6 +400,8 @@ _POSTGRES_SCHEMA = """
         status TEXT NOT NULL,
         worked_hours DOUBLE PRECISION DEFAULT 0,
         package_count DOUBLE PRECISION DEFAULT 0,
+        absence_reason TEXT,
+        coverage_type TEXT,
         notes TEXT
     );
 
@@ -914,6 +918,12 @@ def migrate_data(conn: Any) -> None:
         conn.execute("ALTER TABLE restaurants ADD COLUMN tax_office TEXT")
     if "tax_number" not in restaurant_cols:
         conn.execute("ALTER TABLE restaurants ADD COLUMN tax_number TEXT")
+
+    daily_entry_cols = get_table_columns(conn, "daily_entries")
+    if "absence_reason" not in daily_entry_cols:
+        conn.execute("ALTER TABLE daily_entries ADD COLUMN absence_reason TEXT")
+    if "coverage_type" not in daily_entry_cols:
+        conn.execute("ALTER TABLE daily_entries ADD COLUMN coverage_type TEXT")
 
     existing = get_table_columns(conn, "deductions")
     if "equipment_issue_id" not in existing:

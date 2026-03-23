@@ -43,6 +43,8 @@ def _make_conn() -> CompatConnection:
             status TEXT NOT NULL,
             worked_hours REAL,
             package_count REAL,
+            absence_reason TEXT,
+            coverage_type TEXT,
             notes TEXT
         );
         """
@@ -59,6 +61,8 @@ def _entry_values() -> dict[str, object]:
         "status": "Çalıştı",
         "worked_hours": 8.0,
         "package_count": 22.0,
+        "absence_reason": "İzin",
+        "coverage_type": "Joker",
         "notes": "Not",
     }
 
@@ -100,8 +104,10 @@ class AttendanceRepositoryTests(TestCase):
         df = fetch_daily_entry_management_df(self.conn)
         self.assertEqual(len(df), 1)
         self.assertEqual(df.iloc[0]["restoran"], "Fasuli - Beyoglu")
-        self.assertEqual(df.iloc[0]["planlanan"], "Ali Veli")
-        self.assertEqual(df.iloc[0]["calisan"], "Mehmet Kaya")
+        self.assertEqual(df.iloc[0]["normalde_girecek"], "Ali Veli")
+        self.assertEqual(df.iloc[0]["fiilen_calisan"], "Mehmet Kaya")
+        self.assertEqual(df.iloc[0]["neden_girmedi"], "İzin")
+        self.assertEqual(df.iloc[0]["yerine_giren_tipi"], "Joker")
 
     def test_fetch_daily_entry_by_id(self) -> None:
         insert_daily_entry(self.conn, _entry_values())
@@ -111,6 +117,8 @@ class AttendanceRepositoryTests(TestCase):
         self.assertEqual(row["entry_date"], "2026-03-22")
         self.assertEqual(row["status"], "Çalıştı")
         self.assertEqual(float(row["worked_hours"]), 8.0)
+        self.assertEqual(row["absence_reason"], "İzin")
+        self.assertEqual(row["coverage_type"], "Joker")
 
     def test_update_daily_entry(self) -> None:
         insert_daily_entry(self.conn, _entry_values())
@@ -121,17 +129,20 @@ class AttendanceRepositoryTests(TestCase):
         updated["status"] = "İzin"
         updated["worked_hours"] = 0.0
         updated["package_count"] = 0.0
+        updated["absence_reason"] = "Raporlu"
+        updated["coverage_type"] = ""
         updated["notes"] = "Guncel"
         update_daily_entry(self.conn, 1, updated)
         self.conn.commit()
 
         row = self.conn.execute(
-            "SELECT actual_personnel_id, status, worked_hours, package_count, notes FROM daily_entries WHERE id = ?",
+            "SELECT actual_personnel_id, status, worked_hours, package_count, absence_reason, coverage_type, notes FROM daily_entries WHERE id = ?",
             (1,),
         ).fetchone()
         self.assertEqual(row["actual_personnel_id"], 1)
         self.assertEqual(row["status"], "İzin")
         self.assertEqual(float(row["worked_hours"]), 0.0)
+        self.assertEqual(row["absence_reason"], "Raporlu")
         self.assertEqual(row["notes"], "Guncel")
 
     def test_delete_daily_entry(self) -> None:

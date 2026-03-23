@@ -14,6 +14,16 @@ from repositories.attendance_repository import (
 from services.audit_service import record_audit_event
 from services.permission_service import require_action_access
 
+ATTENDANCE_ENTRY_MODE_OPTIONS = [
+    "Normal Çalışma",
+    "Yerine Giriş",
+    "Boş Vardiya",
+    "Şef Vardiyası",
+]
+ABSENCE_REASON_OPTIONS = ["İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Diğer"]
+COVERAGE_TYPE_OPTIONS = ["Joker", "Destek"]
+NON_WORKING_ATTENDANCE_STATUSES = {"İzin", "Gelmedi", "Raporlu", "İhbarsız Çıkış"}
+
 
 @dataclass
 class DailyEntryWorkspacePayload:
@@ -26,8 +36,11 @@ class DailyEntrySelectionPayload:
     selected_id: int
     selected_row: Any
     current_rest_label: str
+    entry_mode: str
     planned_default: str
     actual_default: str
+    absence_reason_default: str
+    coverage_type_default: str
 
 
 @dataclass
@@ -40,10 +53,114 @@ class BulkAttendanceContext:
 def load_daily_entry_workspace_payload(conn) -> DailyEntryWorkspacePayload:
     df = fetch_daily_entry_management_df(conn)
     entry_map = {
-        f"{row['entry_date']} | {row['restoran']} | {row['calisan']} | {row['package_count']} paket | ID:{row['id']}": int(row["id"])
+        f"{row['entry_date']} | {row['restoran']} | {row['fiilen_calisan']} | {row['package_count']} paket | ID:{row['id']}": int(row["id"])
         for _, row in df.iterrows()
     } if not df.empty else {}
     return DailyEntryWorkspacePayload(df=df, entry_map=entry_map)
+
+
+def infer_daily_entry_mode(
+    *,
+    status: Any,
+    planned_personnel_id: Any,
+    actual_personnel_id: Any,
+) -> str:
+    status_text = str(status or "").strip()
+    planned_id = int(planned_personnel_id or 0) if planned_personnel_id else 0
+    actual_id = int(actual_personnel_id or 0) if actual_personnel_id else 0
+    if status_text == "Şef":
+        return "Şef Vardiyası"
+    if planned_id > 0 and actual_id > 0 and planned_id != actual_id:
+        return "Yerine Giriş"
+    if planned_id > 0 and actual_id <= 0:
+        return "Boş Vardiya"
+    return "Normal Çalışma"
+
+
+def resolve_daily_entry_values(
+    *,
+    entry_mode: str,
+    primary_person_id: int | None,
+    planned_personnel_id: int | None,
+    actual_personnel_id: int | None,
+    absence_reason: str,
+    coverage_type: str,
+    worked_hours: float,
+    package_count: float,
+    notes: str,
+) -> dict[str, Any]:
+    notes_text = str(notes or "").strip()
+    reason_text = str(absence_reason or "").strip()
+    coverage_text = str(coverage_type or "").strip()
+
+    if entry_mode == "Normal Çalışma":
+        if not primary_person_id:
+            raise ValueError("Normal çalışmada fiilen çalışan personeli seçmelisin.")
+        return {
+            "planned_personnel_id": primary_person_id,
+            "actual_personnel_id": primary_person_id,
+            "status": "Normal",
+            "worked_hours": float(worked_hours or 0),
+            "package_count": float(package_count or 0),
+            "absence_reason": "",
+            "coverage_type": "",
+            "notes": notes_text,
+        }
+
+    if entry_mode == "Yerine Giriş":
+        if not planned_personnel_id:
+            raise ValueError("Yerine girişte normalde girecek personeli seçmelisin.")
+        if not actual_personnel_id:
+            raise ValueError("Yerine girişte fiilen çalışan personeli seçmelisin.")
+        if planned_personnel_id == actual_personnel_id:
+            raise ValueError("Yerine girişte fiilen çalışan kişi, normalde girecek kişiden farklı olmalı.")
+        if not reason_text:
+            raise ValueError("Yerine girişte neden girmedi bilgisini seçmelisin.")
+        if coverage_text not in COVERAGE_TYPE_OPTIONS:
+            raise ValueError("Yerine girişte yerine giren tipini seçmelisin.")
+        return {
+            "planned_personnel_id": planned_personnel_id,
+            "actual_personnel_id": actual_personnel_id,
+            "status": "Normal",
+            "worked_hours": float(worked_hours or 0),
+            "package_count": float(package_count or 0),
+            "absence_reason": reason_text,
+            "coverage_type": coverage_text,
+            "notes": notes_text,
+        }
+
+    if entry_mode == "Boş Vardiya":
+        if not planned_personnel_id:
+            raise ValueError("Boş vardiyada normalde girecek personeli seçmelisin.")
+        if not reason_text:
+            raise ValueError("Boş vardiyada neden girmedi bilgisini seçmelisin.")
+        status_text = reason_text if reason_text in NON_WORKING_ATTENDANCE_STATUSES else "Gelmedi"
+        return {
+            "planned_personnel_id": planned_personnel_id,
+            "actual_personnel_id": None,
+            "status": status_text,
+            "worked_hours": 0.0,
+            "package_count": 0.0,
+            "absence_reason": reason_text,
+            "coverage_type": "",
+            "notes": notes_text,
+        }
+
+    if entry_mode == "Şef Vardiyası":
+        if not primary_person_id:
+            raise ValueError("Şef vardiyasında fiilen çalışan kişiyi seçmelisin.")
+        return {
+            "planned_personnel_id": primary_person_id,
+            "actual_personnel_id": primary_person_id,
+            "status": "Şef",
+            "worked_hours": float(worked_hours or 0),
+            "package_count": float(package_count or 0),
+            "absence_reason": "",
+            "coverage_type": "",
+            "notes": notes_text,
+        }
+
+    raise ValueError("Geçersiz puantaj akışı.")
 
 
 def build_daily_entry_selection_payload(
@@ -55,6 +172,11 @@ def build_daily_entry_selection_payload(
 ) -> DailyEntrySelectionPayload:
     selected_row = fetch_daily_entry_by_id(conn, selected_id)
     current_rest_label = next((label for label, rid in rest_opts.items() if rid == selected_row["restaurant_id"]), list(rest_opts.keys())[0])
+    entry_mode = infer_daily_entry_mode(
+        status=selected_row["status"],
+        planned_personnel_id=selected_row["planned_personnel_id"],
+        actual_personnel_id=selected_row["actual_personnel_id"],
+    )
     planned_default = "-"
     actual_default = "-"
     for label, pid in person_opts.items():
@@ -62,12 +184,24 @@ def build_daily_entry_selection_payload(
             planned_default = label
         if selected_row["actual_personnel_id"] == pid:
             actual_default = label
+    absence_reason_default = str(selected_row["absence_reason"] or "").strip()
+    if not absence_reason_default and str(selected_row["status"] or "").strip() in NON_WORKING_ATTENDANCE_STATUSES:
+        absence_reason_default = str(selected_row["status"] or "").strip()
+    coverage_type_default = str(selected_row["coverage_type"] or "").strip()
+    if not coverage_type_default and planned_default != "-" and actual_default != "-" and planned_default != actual_default:
+        if str(selected_row["status"] or "").strip() == "Joker" or "(Joker)" in actual_default:
+            coverage_type_default = "Joker"
+        else:
+            coverage_type_default = "Destek"
     return DailyEntrySelectionPayload(
         selected_id=selected_id,
         selected_row=selected_row,
         current_rest_label=current_rest_label,
+        entry_mode=entry_mode,
         planned_default=planned_default,
         actual_default=actual_default,
+        absence_reason_default=absence_reason_default,
+        coverage_type_default=coverage_type_default,
     )
 
 
@@ -96,8 +230,11 @@ def create_daily_entry_and_sync(
         details={
             "entry_date": entry_values.get("entry_date"),
             "restaurant_id": entry_values.get("restaurant_id"),
+            "planned_personnel_id": entry_values.get("planned_personnel_id"),
             "actual_personnel_id": entry_values.get("actual_personnel_id"),
             "status": entry_values.get("status"),
+            "absence_reason": entry_values.get("absence_reason"),
+            "coverage_type": entry_values.get("coverage_type"),
             "worked_hours": entry_values.get("worked_hours"),
             "package_count": entry_values.get("package_count"),
         },
@@ -133,9 +270,12 @@ def update_daily_entry_and_sync(
         details={
             "entry_date": entry_values.get("entry_date"),
             "restaurant_id": entry_values.get("restaurant_id"),
+            "planned_personnel_id": entry_values.get("planned_personnel_id"),
             "previous_actual_id": previous_actual_id,
             "actual_personnel_id": actual_id,
             "status": entry_values.get("status"),
+            "absence_reason": entry_values.get("absence_reason"),
+            "coverage_type": entry_values.get("coverage_type"),
         },
     )
     return success_text
@@ -258,6 +398,8 @@ def save_bulk_entries_and_sync(
                     "status": status,
                     "worked_hours": hours,
                     "package_count": packages,
+                    "absence_reason": "",
+                    "coverage_type": "",
                     "notes": " | ".join(note_parts),
                 },
             )
