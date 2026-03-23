@@ -18,8 +18,7 @@ ATTENDANCE_ENTRY_MODE_OPTIONS = [
     "Restoran Kuryesi",
     "Joker",
     "Destek",
-    "Boş Vardiya",
-    "Şef",
+    "Haftalık İzin",
 ]
 ABSENCE_REASON_OPTIONS = ["İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Diğer"]
 COVERAGE_TYPE_OPTIONS = ["Joker", "Destek"]
@@ -71,8 +70,6 @@ def infer_daily_entry_mode(
     coverage_text = str(coverage_type or "").strip()
     planned_id = int(planned_personnel_id or 0) if planned_personnel_id else 0
     actual_id = int(actual_personnel_id or 0) if actual_personnel_id else 0
-    if status_text == "Şef":
-        return "Şef"
     if planned_id > 0 and actual_id > 0 and planned_id != actual_id:
         if coverage_text in COVERAGE_TYPE_OPTIONS:
             return coverage_text
@@ -80,7 +77,7 @@ def infer_daily_entry_mode(
             return "Joker"
         return "Destek"
     if planned_id > 0 and actual_id <= 0:
-        return "Boş Vardiya"
+        return "Haftalık İzin"
     return "Restoran Kuryesi"
 
 
@@ -134,11 +131,11 @@ def resolve_daily_entry_values(
             "notes": notes_text,
         }
 
-    if entry_mode == "Boş Vardiya":
+    if entry_mode == "Haftalık İzin":
         if not planned_personnel_id:
-            raise ValueError("Boş vardiyada normalde girecek personeli seçmelisin.")
+            raise ValueError("Haftalık izinde planlanan personeli seçmelisin.")
         if not reason_text:
-            raise ValueError("Boş vardiyada neden girmedi bilgisini seçmelisin.")
+            raise ValueError("Haftalık izinde neden girmedi bilgisini seçmelisin.")
         status_text = reason_text if reason_text in NON_WORKING_ATTENDANCE_STATUSES else "Gelmedi"
         return {
             "planned_personnel_id": planned_personnel_id,
@@ -147,20 +144,6 @@ def resolve_daily_entry_values(
             "worked_hours": 0.0,
             "package_count": 0.0,
             "absence_reason": reason_text,
-            "coverage_type": "",
-            "notes": notes_text,
-        }
-
-    if entry_mode == "Şef":
-        if not primary_person_id:
-            raise ValueError("Şef vardiyasında giren şefi seçmelisin.")
-        return {
-            "planned_personnel_id": primary_person_id,
-            "actual_personnel_id": primary_person_id,
-            "status": "Şef",
-            "worked_hours": float(worked_hours or 0),
-            "package_count": float(package_count or 0),
-            "absence_reason": "",
             "coverage_type": "",
             "notes": notes_text,
         }

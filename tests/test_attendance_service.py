@@ -51,9 +51,19 @@ class AttendanceServiceTests(unittest.TestCase):
 
         self.assertEqual(entry_mode, "Destek")
 
-    def test_resolve_daily_entry_values_builds_empty_shift_payload(self):
+    def test_infer_daily_entry_mode_maps_missing_actual_to_weekly_off(self):
+        entry_mode = attendance_service.infer_daily_entry_mode(
+            status="İzin",
+            planned_personnel_id=11,
+            actual_personnel_id=None,
+            coverage_type="",
+        )
+
+        self.assertEqual(entry_mode, "Haftalık İzin")
+
+    def test_resolve_daily_entry_values_builds_weekly_off_payload(self):
         values = attendance_service.resolve_daily_entry_values(
-            entry_mode="Boş Vardiya",
+            entry_mode="Haftalık İzin",
             primary_person_id=None,
             planned_personnel_id=11,
             actual_personnel_id=None,
