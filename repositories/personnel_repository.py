@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from infrastructure.db_engine import CompatConnection, fetch_df
+from infrastructure.db_engine import CompatConnection, cache_db_read, fetch_df
 
 
+@cache_db_read(ttl=30)
 def fetch_personnel_management_df(conn: CompatConnection):
     return fetch_df(
         conn,
@@ -17,11 +18,13 @@ def fetch_personnel_management_df(conn: CompatConnection):
     )
 
 
+@cache_db_read(ttl=30)
 def fetch_active_restaurant_options(conn: CompatConnection) -> dict[str, int]:
     rows = conn.execute("SELECT id, brand, branch FROM restaurants WHERE active=1 ORDER BY brand, branch").fetchall()
     return {f"{r['brand']} - {r['branch']}": r['id'] for r in rows}
 
 
+@cache_db_read(ttl=30)
 def fetch_person_options_map(conn: CompatConnection, active_only: bool = True) -> dict[str, int]:
     sql = "SELECT id, full_name, role, status FROM personnel"
     if active_only:

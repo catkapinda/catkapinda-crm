@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from infrastructure.db_engine import CompatConnection, fetch_df
+from infrastructure.db_engine import CompatConnection, cache_db_read, fetch_df
 
 
 def insert_audit_log_record(conn: CompatConnection, values: dict[str, Any]) -> None:
@@ -27,6 +27,7 @@ def insert_audit_log_record(conn: CompatConnection, values: dict[str, Any]) -> N
     )
 
 
+@cache_db_read(ttl=15)
 def fetch_audit_log_df(conn: CompatConnection, *, limit: int = 500):
     return fetch_df(
         conn,
