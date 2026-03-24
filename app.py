@@ -5314,6 +5314,15 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
     create_rest_labels = list(rest_opts.keys())
     create_person_labels = ["-"] + list(person_opts.keys())
+    if st.session_state.pop("attendance_create_reset_pending", False):
+        st.session_state["attendance_create_entry_date"] = date.today()
+        st.session_state["attendance_create_primary_label"] = "-"
+        st.session_state["attendance_create_actual_label"] = "-"
+        st.session_state["attendance_create_absence_reason"] = "-"
+        st.session_state["attendance_create_hours"] = 10.0
+        st.session_state["attendance_create_package_count"] = 0.0
+        st.session_state["attendance_create_monthly_invoice_amount"] = 0.0
+        st.session_state["attendance_create_notes"] = ""
     if "attendance_create_entry_date" not in st.session_state or not isinstance(st.session_state.get("attendance_create_entry_date"), date):
         st.session_state["attendance_create_entry_date"] = date.today()
     if "attendance_create_rest_label" not in st.session_state or st.session_state.get("attendance_create_rest_label") not in create_rest_labels:
@@ -5457,14 +5466,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             st.error(f"Günlük kayıt eklenemedi: {exc}")
         else:
             st.success(success_text)
-            st.session_state["attendance_create_entry_date"] = date.today()
-            st.session_state["attendance_create_primary_label"] = "-"
-            st.session_state["attendance_create_actual_label"] = "-"
-            st.session_state["attendance_create_absence_reason"] = "-"
-            st.session_state["attendance_create_hours"] = 10.0
-            st.session_state["attendance_create_package_count"] = 0.0
-            st.session_state["attendance_create_monthly_invoice_amount"] = 0.0
-            st.session_state["attendance_create_notes"] = ""
+            st.session_state["attendance_create_reset_pending"] = True
             st.rerun()
 
     st.markdown("### Kayıt Yönetimi")
