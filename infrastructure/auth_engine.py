@@ -137,16 +137,31 @@ def get_auth_user(conn: Any, identity: str) -> Any:
     normalized_identity = normalize_auth_identity(identity)
     if not normalized_identity:
         return None
-    return conn.execute(
-        """
-        SELECT *
-        FROM auth_users
-        WHERE lower(COALESCE(email, '')) = lower(?)
-           OR COALESCE(phone, '') = ?
-        LIMIT 1
-        """,
-        (normalized_identity, normalized_identity),
-    ).fetchone()
+    try:
+        return conn.execute(
+            """
+            SELECT *
+            FROM auth_users
+            WHERE lower(COALESCE(email, '')) = lower(?)
+               OR COALESCE(phone, '') = ?
+            LIMIT 1
+            """,
+            (normalized_identity, normalized_identity),
+        ).fetchone()
+    except Exception as exc:
+        # Older live databases may not have the phone column yet; allow bootstrap
+        # and auth sync to continue using email-only lookup until schema is healed.
+        if "phone" not in str(exc).lower():
+            raise
+        return conn.execute(
+            """
+            SELECT *
+            FROM auth_users
+            WHERE lower(COALESCE(email, '')) = lower(?)
+            LIMIT 1
+            """,
+            (normalized_identity,),
+        ).fetchone()
 
 
 def build_login_logo_markup() -> str:

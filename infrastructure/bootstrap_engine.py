@@ -1116,6 +1116,14 @@ def _run_auth_phone_code_login_migration(conn: Any) -> None:
     conn.commit()
 
 
+def _ensure_auth_login_schema(conn: Any) -> None:
+    auth_user_cols = get_table_columns(conn, "auth_users")
+    if "phone" not in auth_user_cols:
+        conn.execute("ALTER TABLE auth_users ADD COLUMN phone TEXT")
+    conn.execute(_auth_phone_codes_create_sql(conn.backend))
+    conn.commit()
+
+
 def get_registered_migrations() -> list[MigrationStep]:
     return [
         MigrationStep(
@@ -1184,6 +1192,7 @@ def ensure_runtime_bootstrap(conn: Any) -> None:
         set_app_meta_value(conn, "runtime_bootstrap_version", _RUNTIME_BOOTSTRAP_VERSION)
     else:
         apply_versioned_migrations(conn)
+    _ensure_auth_login_schema(conn)
     _SYNC_DEFAULT_AUTH_USERS(conn)
     if _SYNC_MOBILE_AUTH_USERS is not None:
         _SYNC_MOBILE_AUTH_USERS(conn)
