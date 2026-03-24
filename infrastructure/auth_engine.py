@@ -461,13 +461,15 @@ def sync_default_auth_users(conn: Any) -> None:
 def sync_mobile_auth_users(conn: Any) -> None:
     now_text = datetime.utcnow().isoformat(timespec="seconds")
     placeholder_emails: set[str] = set()
+    mobile_email_pattern = f"mobile.personnel.%@{_MOBILE_AUTH_EMAIL_DOMAIN}".lower()
     existing_mobile_users = conn.execute(
         """
         SELECT id, email, phone
         FROM auth_users
         WHERE role = 'mobile_ops'
-          AND lower(COALESCE(email, '')) LIKE 'mobile.personnel.%@auth.catkapinda.local'
-        """
+          AND lower(COALESCE(email, '')) LIKE ?
+        """,
+        (mobile_email_pattern,),
     ).fetchall()
 
     personnel_rows = conn.execute(
