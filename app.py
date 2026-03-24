@@ -140,6 +140,7 @@ from infrastructure.auth_engine import (
     PHONE_LOGIN_CODE_MINUTES,
     build_login_logo_markup,
     can_email_temporary_password_for_user,
+    can_issue_phone_login_code,
     can_phone_login_for_user,
     cleanup_auth_sessions,
     cleanup_auth_phone_codes,
@@ -1370,7 +1371,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     except Exception:
                         conn.rollback()
                         st.error("Şifre sıfırlama işlemi tamamlanamadı. Birkaç dakika sonra tekrar dene.")
-                elif can_phone_login_for_user(reset_user):
+                elif can_issue_phone_login_code(conn, reset_user):
                     if not sms_delivery_enabled():
                         st.info("Telefonla giriş kodu gönderebilmek için SMS sağlayıcısı ayarları henüz tanımlı değil.")
                     else:
@@ -1392,6 +1393,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                         except Exception:
                             conn.rollback()
                             st.error("SMS giriş kodu gönderilemedi. Birkaç dakika sonra tekrar dene.")
+                elif can_phone_login_for_user(reset_user):
+                    st.info("Bu hesap için SMS ile giriş desteği yalnızca Bölge Müdürü rolünde açık.")
                 else:
                     st.info("Bu hesap için e-posta veya telefon tabanlı giriş desteği kullanılamıyor.")
 

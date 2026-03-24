@@ -23,6 +23,7 @@ _AUTH_QUERY_KEY = ""
 _AUTH_SESSION_DAYS = 30
 _MOBILE_AUTH_PERSONNEL_ROLES: tuple[str, ...] = ("Joker", "Bölge Müdürü")
 _MOBILE_AUTH_EMAIL_DOMAIN = "auth.catkapinda.local"
+_SMS_PHONE_AUTH_PERSONNEL_ROLES: tuple[str, ...] = ("Bölge Müdürü",)
 PHONE_LOGIN_CODE_MINUTES = 10
 _PHONE_LOGIN_CODE_ATTEMPT_LIMIT = 5
 
@@ -88,6 +89,17 @@ def is_mobile_auth_email(email: str) -> bool:
     return normalized_email.startswith("mobile.personnel.") and normalized_email.endswith(f"@{_MOBILE_AUTH_EMAIL_DOMAIN}")
 
 
+def extract_mobile_auth_personnel_id(email: str) -> int:
+    normalized_email = normalize_auth_identity(email)
+    match = re.fullmatch(rf"mobile\.personnel\.(\d+)@{re.escape(_MOBILE_AUTH_EMAIL_DOMAIN)}", normalized_email)
+    if not match:
+        return 0
+    try:
+        return int(match.group(1))
+    except Exception:
+        return 0
+
+
 def can_email_temporary_password_for_user(user_row: Any) -> bool:
     email_value = str(_GET_ROW_VALUE(user_row, "email", "") or "")
     return bool(email_value and not is_mobile_auth_email(email_value))
@@ -95,6 +107,31 @@ def can_email_temporary_password_for_user(user_row: Any) -> bool:
 
 def can_phone_login_for_user(user_row: Any) -> bool:
     return bool(normalize_auth_phone(str(_GET_ROW_VALUE(user_row, "phone", "") or "")))
+
+
+def can_issue_phone_login_code(conn: Any, user_row: Any) -> bool:
+    if not can_phone_login_for_user(user_row):
+        return False
+    email_value = str(_GET_ROW_VALUE(user_row, "email", "") or "")
+    if not is_mobile_auth_email(email_value):
+        return False
+    personnel_id = extract_mobile_auth_personnel_id(email_value)
+    if personnel_id <= 0:
+        return False
+    personnel_row = conn.execute(
+        """
+        SELECT role, status
+        FROM personnel
+        WHERE id = ?
+        LIMIT 1
+        """,
+        (personnel_id,),
+    ).fetchone()
+    if not personnel_row:
+        return False
+    personnel_role = str(_GET_ROW_VALUE(personnel_row, "role", "") or "").strip()
+    personnel_status = str(_GET_ROW_VALUE(personnel_row, "status", "") or "").strip()
+    return personnel_status == "Aktif" and personnel_role in _SMS_PHONE_AUTH_PERSONNEL_ROLES
 
 
 def mask_auth_phone(value: str) -> str:
