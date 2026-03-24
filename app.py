@@ -138,6 +138,7 @@ from infrastructure.bootstrap_engine import (
 )
 from infrastructure.auth_engine import (
     build_login_logo_markup,
+    can_email_temporary_password_for_user,
     cleanup_auth_sessions,
     clear_authenticated_user,
     configure_auth_engine,
@@ -146,12 +147,15 @@ from infrastructure.auth_engine import (
     get_query_param,
     hash_auth_password,
     init_auth_state,
+    is_mobile_auth_email,
     normalize_auth_identity,
+    normalize_auth_phone,
     restore_auth_session,
     revoke_current_auth_session,
     set_authenticated_user,
     set_query_param,
     sync_default_auth_users,
+    sync_mobile_auth_users,
     verify_auth_password,
 )
 from infrastructure.audit_engine import build_audit_actor_payload
@@ -286,7 +290,7 @@ DEFAULT_AUTH_PASSWORD = "123456"
 APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
 APP_PAGE_ICON = "🚚"
 MENU_QUERY_KEY = "menu"
-RUNTIME_BOOTSTRAP_VERSION = "2026-03-23-attendance-coverage-columns"
+RUNTIME_BOOTSTRAP_VERSION = "2026-03-24-auth-phone-login"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
     "assets/catkapinda_logo.jpg",
@@ -1261,25 +1265,25 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     </div>
                 </div>
                 <div class="ck-login-form-title">Hesap Bilgileri</div>
-                <div class="ck-login-form-subtitle">Kurumsal e-posta adresin ve güncel şifrenle girişini tamamla.</div>
+                <div class="ck-login-form-subtitle">Kurumsal e-posta adresin veya telefon numaran ve güncel şifrenle girişini tamamla.</div>
                 """,
                 unsafe_allow_html=True,
             )
 
             with st.form("login_form", clear_on_submit=False):
-                username = st.text_input("E-posta Adresi", placeholder="ornek@catkapinda.com")
+                username = st.text_input("E-posta veya Telefon", placeholder="ornek@catkapinda.com / 0532 000 00 00")
                 password = st.text_input("Şifre", type="password", placeholder="Şifreni gir")
                 remember_me = st.checkbox("Bu Cihazı Hatırla", value=True, help="Kişisel cihazlarda açık bırakabilirsin.")
                 submitted = st.form_submit_button("Panele Gir", use_container_width=True)
 
             st.markdown(
                 """
-                <div class="ck-login-footer-note">Giriş bilgilerin kurumsal e-posta hesabına tanımlıdır. Parolan unutulursa sistem yeni geçici şifreni e-posta kutuna otomatik iletir; panele girdikten sonra Profil alanından şifreni hemen güncelleyebilirsin.</div>
+                <div class="ck-login-footer-note">Kurumsal e-posta hesabınla ya da telefon numaranla giriş yapabilirsin. E-posta tanımlı hesaplarda geçici şifre e-posta ile iletilir; telefonla giriş yapan saha kullanıcıları ilk girişten sonra Profil alanından şifresini güncelleyebilir.</div>
                 """,
                 unsafe_allow_html=True,
             )
 
-            forgot_email = ""
+            forgot_identity = ""
             forgot_submitted = False
 
             if st.button("Şifremi Unuttum", key="login_help_toggle", use_container_width=True):
@@ -1290,9 +1294,9 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     """
                     <div class="ck-login-help-card">
                         <div class="ck-login-help-title">Sifre Destegi</div>
-                        <div class="ck-login-help-text">Kurumsal e-posta adresini gir. Sistem, aktif hesabina yeni bir gecici sifre uretip e-posta ile iletsin.</div>
+                        <div class="ck-login-help-text">Kurumsal e-posta adresini veya telefon numarani gir. E-posta tanimli aktif hesaplarda sistem yeni bir gecici sifre uretip e-posta ile iletsin.</div>
                         <div class="ck-login-help-steps">
-                            <div class="ck-login-help-step"><span class="ck-login-help-step-badge">1</span><span>Kurumsal e-posta adresini yaz ve yeni gecici sifreyi talep et.</span></div>
+                            <div class="ck-login-help-step"><span class="ck-login-help-step-badge">1</span><span>Kurumsal e-posta adresini veya telefon numarani yaz ve yeni gecici sifreyi talep et.</span></div>
                             <div class="ck-login-help-step"><span class="ck-login-help-step-badge">2</span><span>Gecici sifre e-posta adresine gelsin ve bu sifreyle giris yap.</span></div>
                             <div class="ck-login-help-step"><span class="ck-login-help-step-badge">3</span><span>Panele girdikten sonra sag ustteki <strong>Profil</strong> alanindan sifreni hemen degistir.</span></div>
                         </div>
@@ -1302,14 +1306,16 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 )
 
                 with st.form("forgot_password_form", clear_on_submit=True):
-                    forgot_email = st.text_input("Kurumsal E-Posta Adresi", placeholder="ornek@catkapinda.com")
+                    forgot_identity = st.text_input("Kurumsal E-Posta veya Telefon", placeholder="ornek@catkapinda.com / 0532 000 00 00")
                     forgot_submitted = st.form_submit_button("Yeni Geçici Şifre Gönder", use_container_width=True)
 
             if forgot_submitted:
-                reset_identity = normalize_auth_identity(forgot_email)
+                reset_identity = normalize_auth_identity(forgot_identity)
                 reset_user = get_auth_user(conn, reset_identity)
                 if not reset_user or safe_int(get_row_value(reset_user, "is_active", 0), 0) != 1:
-                    st.error("Bu e-posta adresi için aktif bir hesap bulunamadı.")
+                    st.error("Bu e-posta adresi veya telefon numarası için aktif bir hesap bulunamadı.")
+                elif not can_email_temporary_password_for_user(reset_user):
+                    st.info("Telefon numarasıyla giriş yapan mobil operasyon kullanıcıları için SMS ile geçici şifre gönderimi henüz aktif değil. İlk şifre operasyon tarafından tanımlanır; giriş yaptıktan sonra Profil alanından şifreni değiştirebilirsin.")
                 else:
                     temporary_password = generate_temporary_password()
                     try:
@@ -1326,7 +1332,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                             ),
                         )
                         send_temporary_password_email(
-                            reset_identity,
+                            str(get_row_value(reset_user, "email", "") or ""),
                             str(get_row_value(reset_user, "full_name", "") or ""),
                             temporary_password,
                         )
@@ -1354,7 +1360,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 st.session_state.login_transition_active = True
                 st.rerun()
             else:
-                st.error("E-posta adresi veya şifre hatalı.")
+                st.error("E-posta adresi, telefon numarası veya şifre hatalı.")
     return False
 
 
@@ -1663,6 +1669,10 @@ def render_top_profile(conn: CompatConnection) -> None:
     with right_col:
         full_name = str(get_row_value(current_user, "full_name", "") or st.session_state.get("user_full_name") or "Kullanıcı")
         email = str(get_row_value(current_user, "email", "") or st.session_state.get("username") or "")
+        phone = normalize_auth_phone(str(get_row_value(current_user, "phone", "") or ""))
+        is_phone_login_user = is_mobile_auth_email(email)
+        primary_identity_label = "Telefon" if is_phone_login_user and phone else "E-posta"
+        primary_identity_value = phone if is_phone_login_user and phone else email
         role_display = str(get_row_value(current_user, "role_display", "") or st.session_state.get("user_role_display") or "")
         password_status = "Geçici Şifre" if st.session_state.get("must_change_password") else "Güncel Şifre"
         name_parts = [part for part in full_name.split() if part.strip()]
@@ -1677,7 +1687,7 @@ def render_top_profile(conn: CompatConnection) -> None:
                         <div>
                             <div class="ck-profile-kicker">Hesap Merkezi</div>
                             <div class="ck-profile-name">{html.escape(full_name)}</div>
-                            <div class="ck-profile-mail">{html.escape(email)}</div>
+                            <div class="ck-profile-mail">{html.escape(primary_identity_value)}</div>
                         </div>
                     </div>
                     <div class="ck-profile-chip-row">
@@ -1695,7 +1705,9 @@ def render_top_profile(conn: CompatConnection) -> None:
 
             st.markdown("##### Hesap Özeti")
             st.markdown(f"**Ad Soyad:** {full_name}")
-            st.markdown(f"**E-posta:** {email}")
+            st.markdown(f"**{primary_identity_label}:** {primary_identity_value}")
+            if phone and not is_phone_login_user:
+                st.markdown(f"**Telefon:** {phone}")
             st.markdown(f"**Yetki:** {role_display}")
             st.markdown(f"**Şifre Durumu:** {password_status}")
             st.divider()
@@ -3064,6 +3076,7 @@ configure_bootstrap_engine(
     ensure_all_person_vehicle_histories_fn=ensure_all_person_vehicle_histories,
     sync_all_personnel_business_rules_fn=sync_all_personnel_business_rules,
     sync_default_auth_users_fn=sync_default_auth_users,
+    sync_mobile_auth_users_fn=sync_mobile_auth_users,
     cleanup_auth_sessions_fn=cleanup_auth_sessions,
 )
 
@@ -4800,9 +4813,11 @@ def sales_tab(conn: sqlite3.Connection) -> None:
 def personnel_tab(conn: sqlite3.Connection) -> None:
     actor_role = str(st.session_state.get("role") or "")
     can_create_personnel = can_perform_action(actor_role, "personnel.create")
+    can_view_personnel_list = can_perform_action(actor_role, "personnel.list")
     can_update_personnel = can_perform_action(actor_role, "personnel.update")
     can_toggle_personnel_status = can_perform_action(actor_role, "personnel.status_change")
     can_delete_personnel = can_perform_action(actor_role, "personnel.delete")
+    can_view_personnel_plate = can_perform_action(actor_role, "personnel.plate")
     can_create_equipment = can_perform_action(actor_role, "equipment.create")
     can_update_equipment = can_perform_action(actor_role, "equipment.bulk_update")
     can_delete_equipment = can_perform_action(actor_role, "equipment.bulk_delete")
@@ -4867,42 +4882,50 @@ def personnel_tab(conn: sqlite3.Connection) -> None:
     if workspace_key not in st.session_state:
         st.session_state[workspace_key] = "add"
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        render_action_card("Yeni Personel Ekle", "Kurye, yönetim ya da operasyon kartını görünür ana form üzerinden oluştur.", highlight=st.session_state[workspace_key] == "add")
-        if st.button("Yeni Personel Formunu Aç", key="personnel_workspace_add", use_container_width=True, disabled=not can_create_personnel):
-            st.session_state.pop("personnel_create_success_message", None)
-            st.session_state.pop("personnel_recently_created", None)
-            st.session_state[workspace_key] = "add"
-    with c2:
-        render_action_card("Personel Listesi", "Tüm kayıtları filtrele, ara ve seçili personeli tek bakışta incele.", highlight=st.session_state[workspace_key] == "list")
-        if st.button("Listeyi Aç", key="personnel_workspace_list", use_container_width=True):
-            st.session_state.pop("personnel_create_success_message", None)
-            st.session_state.pop("personnel_recently_created", None)
-            st.session_state[workspace_key] = "list"
-    with c3:
-        render_action_card("Personel Düzenle", "Kart bilgilerini, görev rolünü ve maliyet ayarlarını güncelle.", highlight=st.session_state[workspace_key] == "edit")
-        if st.button("Düzenleme Alanını Aç", key="personnel_workspace_edit", use_container_width=True, disabled=not can_open_personnel_edit):
-            st.session_state.pop("personnel_create_success_message", None)
-            st.session_state.pop("personnel_recently_created", None)
-            st.session_state[workspace_key] = "edit"
-    with c4:
-        render_action_card("Plaka / Motor", "Araç, plaka ve zimmet geçmişini ayrı çalışma alanında yönet.", highlight=st.session_state[workspace_key] == "plate")
-        if st.button("Plaka Alanını Aç", key="personnel_workspace_plate", use_container_width=True, disabled=not can_update_personnel):
-            st.session_state.pop("personnel_create_success_message", None)
-            st.session_state.pop("personnel_recently_created", None)
-            st.session_state[workspace_key] = "plate"
+    workspace_cards: list[tuple[str, str, str, str, bool]] = []
+    if can_create_personnel:
+        workspace_cards.append(("add", "Yeni Personel Ekle", "Kurye, yönetim ya da operasyon kartını görünür ana form üzerinden oluştur.", "Yeni Personel Formunu Aç", False))
+    if can_view_personnel_list:
+        workspace_cards.append(("list", "Personel Listesi", "Tüm kayıtları filtrele, ara ve seçili personeli tek bakışta incele.", "Listeyi Aç", False))
+    if can_open_personnel_edit:
+        workspace_cards.append(("edit", "Personel Düzenle", "Kart bilgilerini, görev rolünü ve maliyet ayarlarını güncelle.", "Düzenleme Alanını Aç", False))
+    if can_view_personnel_plate:
+        workspace_cards.append(("plate", "Plaka / Motor", "Araç, plaka ve zimmet geçmişini ayrı çalışma alanında yönet.", "Plaka Alanını Aç", False))
+
+    if not workspace_cards:
+        st.info("Bu alanda görüntüleme yetkin yok.")
+        return
+
+    valid_workspaces = {card[0] for card in workspace_cards}
+    if st.session_state[workspace_key] not in valid_workspaces:
+        st.session_state[workspace_key] = workspace_cards[0][0]
+
+    card_columns = st.columns(len(workspace_cards))
+    for column, (mode_key, title, description, button_label, disabled) in zip(card_columns, workspace_cards):
+        with column:
+            render_action_card(title, description, highlight=st.session_state[workspace_key] == mode_key)
+            if st.button(button_label, key=f"personnel_workspace_{mode_key}", use_container_width=True, disabled=disabled):
+                st.session_state.pop("personnel_create_success_message", None)
+                st.session_state.pop("personnel_recently_created", None)
+                st.session_state[workspace_key] = mode_key
 
     workspace_mode = st.session_state[workspace_key]
     if workspace_mode == "add" and not can_create_personnel:
-        workspace_mode = "list"
-        st.session_state[workspace_key] = "list"
+        fallback_mode = "list" if can_view_personnel_list else workspace_cards[0][0]
+        workspace_mode = fallback_mode
+        st.session_state[workspace_key] = fallback_mode
+    elif workspace_mode == "list" and not can_view_personnel_list:
+        fallback_mode = "add" if can_create_personnel else workspace_cards[0][0]
+        workspace_mode = fallback_mode
+        st.session_state[workspace_key] = fallback_mode
     elif workspace_mode == "edit" and not can_open_personnel_edit:
-        workspace_mode = "list"
-        st.session_state[workspace_key] = "list"
-    elif workspace_mode == "plate" and not can_update_personnel:
-        workspace_mode = "list"
-        st.session_state[workspace_key] = "list"
+        fallback_mode = "list" if can_view_personnel_list else ("add" if can_create_personnel else workspace_cards[0][0])
+        workspace_mode = fallback_mode
+        st.session_state[workspace_key] = fallback_mode
+    elif workspace_mode == "plate" and not can_view_personnel_plate:
+        fallback_mode = "list" if can_view_personnel_list else ("add" if can_create_personnel else workspace_cards[0][0])
+        workspace_mode = fallback_mode
+        st.session_state[workspace_key] = fallback_mode
 
     if workspace_mode == "list":
         render_personnel_list_workspace(
@@ -5081,15 +5104,21 @@ def attendance_tab(conn: sqlite3.Connection) -> None:
     if workspace_key not in st.session_state:
         st.session_state[workspace_key] = "daily"
 
-    c1, c2 = st.columns(2)
-    with c1:
-        render_action_card("Günlük Puantaj", "Şube, saat, paket ve fiilen çalışan personel bilgisini tek kayıt olarak gir.", highlight=st.session_state[workspace_key] == "daily")
-        if st.button("Günlük Alanını Aç", key="attendance_workspace_daily", use_container_width=True):
-            st.session_state[workspace_key] = "daily"
-    with c2:
-        render_action_card("Toplu Puantaj", "Bir şubedeki çoklu personel kaydını tablo halinde veya WhatsApp metniyle içeri al.", highlight=st.session_state[workspace_key] == "bulk")
-        if st.button("Toplu Alanı Aç", key="attendance_workspace_bulk", use_container_width=True, disabled=not can_bulk_attendance_create):
-            st.session_state[workspace_key] = "bulk"
+    attendance_cards: list[tuple[str, str, str, str]] = [
+        ("daily", "Günlük Puantaj", "Şube, saat, paket ve fiilen çalışan personel bilgisini tek kayıt olarak gir.", "Günlük Alanını Aç"),
+    ]
+    if can_bulk_attendance_create:
+        attendance_cards.append(("bulk", "Toplu Puantaj", "Bir şubedeki çoklu personel kaydını tablo halinde veya WhatsApp metniyle içeri al.", "Toplu Alanı Aç"))
+
+    if st.session_state[workspace_key] not in {card[0] for card in attendance_cards}:
+        st.session_state[workspace_key] = "daily"
+
+    attendance_columns = st.columns(len(attendance_cards))
+    for column, (mode_key, title, description, button_label) in zip(attendance_columns, attendance_cards):
+        with column:
+            render_action_card(title, description, highlight=st.session_state[workspace_key] == mode_key)
+            if st.button(button_label, key=f"attendance_workspace_{mode_key}", use_container_width=True):
+                st.session_state[workspace_key] = mode_key
 
     if st.session_state[workspace_key] == "bulk" and not can_bulk_attendance_create:
         st.session_state[workspace_key] = "daily"
