@@ -5,8 +5,10 @@ from unittest import TestCase
 
 from infrastructure.auth_engine import (
     can_email_temporary_password_for_user,
+    can_issue_phone_login_code,
     can_phone_login_for_user,
     configure_auth_engine,
+    extract_mobile_auth_personnel_id,
     get_auth_user,
     issue_phone_login_code,
     mask_auth_phone,
@@ -202,6 +204,13 @@ class AuthEngineTests(TestCase):
         self.assertEqual(row["role_display"], "Mobil Operasyon")
         self.assertEqual(row["must_change_password"], 1)
 
+    def test_extract_mobile_auth_personnel_id_parses_placeholder_email(self) -> None:
+        self.assertEqual(
+            extract_mobile_auth_personnel_id("mobile.personnel.17@auth.catkapinda.local"),
+            17,
+        )
+        self.assertEqual(extract_mobile_auth_personnel_id("ebru@catkapinda.com"), 0)
+
     def test_can_email_temporary_password_for_user_rejects_mobile_placeholder_emails(self) -> None:
         self.assertFalse(
             can_email_temporary_password_for_user(
@@ -216,29 +225,15 @@ class AuthEngineTests(TestCase):
 
     def test_phone_login_helpers_issue_and_verify_code(self) -> None:
         self.conn.execute(
-            """
-            INSERT INTO auth_users (
-                email, phone, full_name, role, role_display, password_hash,
-                is_active, must_change_password, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                "mobile.personnel.9@auth.catkapinda.local",
-                "5327654321",
-                "Ali Veli",
-                "mobile_ops",
-                "Mobil Operasyon",
-                "hash",
-                1,
-                1,
-                "2026-03-24T10:00:00",
-                "2026-03-24T10:00:00",
-            ),
+            "INSERT INTO personnel (id, full_name, role, phone, status) VALUES (?, ?, ?, ?, ?)",
+            (9, "Ali Veli", "Bölge Müdürü", "0532 765 43 21", "Aktif"),
         )
+        sync_mobile_auth_users(self.conn)
         self.conn.commit()
 
         user_row = get_auth_user(self.conn, "0532 765 43 21")
         self.assertTrue(can_phone_login_for_user(user_row))
+        self.assertTrue(can_issue_phone_login_code(self.conn, user_row))
         self.assertEqual(mask_auth_phone("0532 765 43 21"), "0532 *** ** 21")
 
         login_code = issue_phone_login_code(self.conn, user_row)
@@ -248,3 +243,16 @@ class AuthEngineTests(TestCase):
         self.assertIsNotNone(verified_user)
         self.assertEqual(verified_user["full_name"], "Ali Veli")
         self.assertIsNone(verify_phone_login_code(self.conn, "0532 765 43 21", login_code))
+
+    def test_joker_cannot_receive_phone_login_code(self) -> None:
+        self.conn.execute(
+            "INSERT INTO personnel (id, full_name, role, phone, status) VALUES (?, ?, ?, ?, ?)",
+            (12, "Joker Kullanici", "Joker", "0532 999 88 77", "Aktif"),
+        )
+        sync_mobile_auth_users(self.conn)
+        self.conn.commit()
+
+        user_row = get_auth_user(self.conn, "0532 999 88 77")
+        self.assertIsNotNone(user_row)
+        self.assertTrue(can_phone_login_for_user(user_row))
+        self.assertFalse(can_issue_phone_login_code(self.conn, user_row))
