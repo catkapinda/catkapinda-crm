@@ -76,6 +76,13 @@ _SQLITE_SCHEMA = """
         requested_courier_count INTEGER DEFAULT 0,
         lead_source TEXT,
         proposed_quote REAL DEFAULT 0,
+        pricing_model TEXT,
+        hourly_rate REAL DEFAULT 0,
+        package_rate REAL DEFAULT 0,
+        package_threshold INTEGER,
+        package_rate_low REAL DEFAULT 0,
+        package_rate_high REAL DEFAULT 0,
+        fixed_monthly_fee REAL DEFAULT 0,
         pricing_model_hint TEXT,
         status TEXT NOT NULL,
         next_follow_up_date TEXT,
@@ -168,6 +175,7 @@ _SQLITE_SCHEMA = """
         status TEXT NOT NULL,
         worked_hours REAL DEFAULT 0,
         package_count REAL DEFAULT 0,
+        monthly_invoice_amount REAL DEFAULT 0,
         absence_reason TEXT,
         coverage_type TEXT,
         notes TEXT,
@@ -312,6 +320,13 @@ _POSTGRES_SCHEMA = """
         requested_courier_count BIGINT DEFAULT 0,
         lead_source TEXT,
         proposed_quote DOUBLE PRECISION DEFAULT 0,
+        pricing_model TEXT,
+        hourly_rate DOUBLE PRECISION DEFAULT 0,
+        package_rate DOUBLE PRECISION DEFAULT 0,
+        package_threshold BIGINT,
+        package_rate_low DOUBLE PRECISION DEFAULT 0,
+        package_rate_high DOUBLE PRECISION DEFAULT 0,
+        fixed_monthly_fee DOUBLE PRECISION DEFAULT 0,
         pricing_model_hint TEXT,
         status TEXT NOT NULL,
         next_follow_up_date TEXT,
@@ -400,6 +415,7 @@ _POSTGRES_SCHEMA = """
         status TEXT NOT NULL,
         worked_hours DOUBLE PRECISION DEFAULT 0,
         package_count DOUBLE PRECISION DEFAULT 0,
+        monthly_invoice_amount DOUBLE PRECISION DEFAULT 0,
         absence_reason TEXT,
         coverage_type TEXT,
         notes TEXT
@@ -920,10 +936,35 @@ def migrate_data(conn: Any) -> None:
         conn.execute("ALTER TABLE restaurants ADD COLUMN tax_number TEXT")
 
     daily_entry_cols = get_table_columns(conn, "daily_entries")
+    if "monthly_invoice_amount" not in daily_entry_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE daily_entries ADD COLUMN monthly_invoice_amount {amount_type} DEFAULT 0")
     if "absence_reason" not in daily_entry_cols:
         conn.execute("ALTER TABLE daily_entries ADD COLUMN absence_reason TEXT")
     if "coverage_type" not in daily_entry_cols:
         conn.execute("ALTER TABLE daily_entries ADD COLUMN coverage_type TEXT")
+
+    sales_lead_cols = get_table_columns(conn, "sales_leads")
+    if "pricing_model" not in sales_lead_cols:
+        conn.execute("ALTER TABLE sales_leads ADD COLUMN pricing_model TEXT")
+    if "hourly_rate" not in sales_lead_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN hourly_rate {amount_type} DEFAULT 0")
+    if "package_rate" not in sales_lead_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN package_rate {amount_type} DEFAULT 0")
+    if "package_threshold" not in sales_lead_cols:
+        threshold_type = "BIGINT" if conn.backend == "postgres" else "INTEGER"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN package_threshold {threshold_type}")
+    if "package_rate_low" not in sales_lead_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN package_rate_low {amount_type} DEFAULT 0")
+    if "package_rate_high" not in sales_lead_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN package_rate_high {amount_type} DEFAULT 0")
+    if "fixed_monthly_fee" not in sales_lead_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN fixed_monthly_fee {amount_type} DEFAULT 0")
 
     existing = get_table_columns(conn, "deductions")
     if "equipment_issue_id" not in existing:
@@ -953,10 +994,43 @@ def _run_bootstrap_data_migration(conn: Any) -> None:
 
 def _run_attendance_coverage_column_migration(conn: Any) -> None:
     daily_entry_cols = get_table_columns(conn, "daily_entries")
+    if "monthly_invoice_amount" not in daily_entry_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE daily_entries ADD COLUMN monthly_invoice_amount {amount_type} DEFAULT 0")
     if "absence_reason" not in daily_entry_cols:
         conn.execute("ALTER TABLE daily_entries ADD COLUMN absence_reason TEXT")
     if "coverage_type" not in daily_entry_cols:
         conn.execute("ALTER TABLE daily_entries ADD COLUMN coverage_type TEXT")
+    conn.commit()
+
+
+def _run_sales_pricing_and_monthly_invoice_migration(conn: Any) -> None:
+    sales_lead_cols = get_table_columns(conn, "sales_leads")
+    if "pricing_model" not in sales_lead_cols:
+        conn.execute("ALTER TABLE sales_leads ADD COLUMN pricing_model TEXT")
+    if "hourly_rate" not in sales_lead_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN hourly_rate {amount_type} DEFAULT 0")
+    if "package_rate" not in sales_lead_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN package_rate {amount_type} DEFAULT 0")
+    if "package_threshold" not in sales_lead_cols:
+        threshold_type = "BIGINT" if conn.backend == "postgres" else "INTEGER"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN package_threshold {threshold_type}")
+    if "package_rate_low" not in sales_lead_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN package_rate_low {amount_type} DEFAULT 0")
+    if "package_rate_high" not in sales_lead_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN package_rate_high {amount_type} DEFAULT 0")
+    if "fixed_monthly_fee" not in sales_lead_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE sales_leads ADD COLUMN fixed_monthly_fee {amount_type} DEFAULT 0")
+
+    daily_entry_cols = get_table_columns(conn, "daily_entries")
+    if "monthly_invoice_amount" not in daily_entry_cols:
+        amount_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
+        conn.execute(f"ALTER TABLE daily_entries ADD COLUMN monthly_invoice_amount {amount_type} DEFAULT 0")
     conn.commit()
 
 
@@ -971,6 +1045,11 @@ def get_registered_migrations() -> list[MigrationStep]:
             version="2026-03-23-attendance-coverage-columns",
             apply_fn=_run_attendance_coverage_column_migration,
             description="Günlük puantaj için devamsızlık nedeni ve yerine giriş tipi alanlarını ekle",
+        ),
+        MigrationStep(
+            version="2026-03-24-sales-pricing-and-monthly-invoice",
+            apply_fn=_run_sales_pricing_and_monthly_invoice_migration,
+            description="Satış teklif modeli alanları ve sabit aylık restoran fatura override kolonu",
         ),
     ]
 

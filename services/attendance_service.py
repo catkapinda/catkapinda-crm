@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 from repositories.attendance_repository import (
     delete_daily_entry,
+    fetch_attendance_restaurant_pricing_rows,
     fetch_attendance_hero_stats,
     fetch_bulk_attendance_people_rows,
     fetch_daily_entry_by_id,
@@ -58,6 +59,18 @@ class AttendanceHeroStats:
     today_count: int
     month_count: int
     active_restaurants: int
+
+
+def load_attendance_restaurant_pricing_lookup(conn) -> dict[str, dict[str, Any]]:
+    rows = fetch_attendance_restaurant_pricing_rows(conn)
+    return {
+        f"{str(row.get('brand') or '').strip()} - {str(row.get('branch') or '').strip()}": {
+            "restaurant_id": int(row.get("id") or 0),
+            "pricing_model": str(row.get("pricing_model") or "").strip(),
+            "fixed_monthly_fee": float(row.get("fixed_monthly_fee") or 0.0),
+        }
+        for row in rows
+    }
 
 
 def load_attendance_hero_stats(conn, today_value: date) -> AttendanceHeroStats:
@@ -115,12 +128,13 @@ def resolve_daily_entry_values(
     coverage_type: str,
     worked_hours: float,
     package_count: float,
+    monthly_invoice_amount: float,
     notes: str,
 ) -> dict[str, Any]:
     notes_text = str(notes or "").strip()
     reason_text = str(absence_reason or "").strip()
-    coverage_text = str(coverage_type or "").strip()
     resolved_planned_id = planned_personnel_id or primary_person_id
+    invoice_amount = float(monthly_invoice_amount or 0.0)
 
     if entry_mode == "Restoran Kuryesi":
         if not primary_person_id:
@@ -131,6 +145,7 @@ def resolve_daily_entry_values(
             "status": "Normal",
             "worked_hours": float(worked_hours or 0),
             "package_count": float(package_count or 0),
+            "monthly_invoice_amount": invoice_amount,
             "absence_reason": "",
             "coverage_type": "",
             "notes": notes_text,
@@ -151,6 +166,7 @@ def resolve_daily_entry_values(
             "status": "Normal",
             "worked_hours": float(worked_hours or 0),
             "package_count": float(package_count or 0),
+            "monthly_invoice_amount": invoice_amount,
             "absence_reason": reason_text,
             "coverage_type": entry_mode,
             "notes": notes_text,
@@ -168,6 +184,7 @@ def resolve_daily_entry_values(
             "status": status_text,
             "worked_hours": 0.0,
             "package_count": 0.0,
+            "monthly_invoice_amount": invoice_amount,
             "absence_reason": reason_text,
             "coverage_type": "",
             "notes": notes_text,
@@ -247,6 +264,7 @@ def create_daily_entry_and_sync(
                 "coverage_type": entry_values.get("coverage_type"),
                 "worked_hours": entry_values.get("worked_hours"),
                 "package_count": entry_values.get("package_count"),
+                "monthly_invoice_amount": entry_values.get("monthly_invoice_amount"),
             },
             commit=False,
         )
@@ -287,6 +305,7 @@ def update_daily_entry_and_sync(
                 "status": entry_values.get("status"),
                 "absence_reason": entry_values.get("absence_reason"),
                 "coverage_type": entry_values.get("coverage_type"),
+                "monthly_invoice_amount": entry_values.get("monthly_invoice_amount"),
             },
             commit=False,
         )

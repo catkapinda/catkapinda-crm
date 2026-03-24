@@ -244,6 +244,30 @@ def _calculate_threshold_package_subtotal(total_hours: float, total_packages: fl
     return float(total_hours or 0) * rule.hourly_rate + float(total_packages or 0) * package_rate
 
 
+def _resolve_fixed_monthly_fee_from_group(group: pd.DataFrame, fallback_fee: float) -> float:
+    resolved_fallback = _SAFE_FLOAT(fallback_fee, 0.0)
+    if group is None or group.empty or "monthly_invoice_amount" not in group.columns:
+        return resolved_fallback
+
+    work = group.copy()
+    work["monthly_invoice_amount"] = pd.to_numeric(work["monthly_invoice_amount"], errors="coerce").fillna(0.0)
+    work = work[work["monthly_invoice_amount"] > 0].copy()
+    if work.empty:
+        return resolved_fallback
+
+    if "entry_date" in work.columns:
+        work["entry_date_sort"] = pd.to_datetime(work["entry_date"], errors="coerce")
+    else:
+        work["entry_date_sort"] = pd.NaT
+    if "id" in work.columns:
+        work["id_sort"] = pd.to_numeric(work["id"], errors="coerce").fillna(0)
+    else:
+        work["id_sort"] = 0
+
+    work = work.sort_values(["entry_date_sort", "id_sort"], ascending=[True, True])
+    return _SAFE_FLOAT(work.iloc[-1].get("monthly_invoice_amount"), resolved_fallback)
+
+
 def _build_invoice_actor_keys(group: pd.DataFrame) -> pd.Series:
     actor_keys = pd.Series([""] * len(group), index=group.index, dtype="object")
 
@@ -296,7 +320,7 @@ def calculate_customer_invoice(group: pd.DataFrame, rule: Any) -> tuple[float, f
     elif rule.pricing_model == "hourly_only":
         subtotal = total_hours * rule.hourly_rate
     elif rule.pricing_model == "fixed_monthly":
-        subtotal = rule.fixed_monthly_fee
+        subtotal = _resolve_fixed_monthly_fee_from_group(group, rule.fixed_monthly_fee)
     else:
         subtotal = 0.0
 
@@ -393,6 +417,7 @@ def build_restaurant_invoice_drilldown_map(
         "package_rate_low": 0.0,
         "package_rate_high": 0.0,
         "fixed_monthly_fee": 0.0,
+        "monthly_invoice_amount": 0.0,
         "vat_rate": _VAT_RATE_DEFAULT,
     }.items():
         if column_name not in work.columns:
@@ -443,6 +468,7 @@ def build_restaurant_invoice_drilldown_map(
             fixed_monthly_fee=_SAFE_FLOAT(first.get("fixed_monthly_fee"), 0.0),
             vat_rate=_SAFE_FLOAT(first.get("vat_rate"), _VAT_RATE_DEFAULT),
         )
+        resolved_fixed_monthly_fee = _resolve_fixed_monthly_fee_from_group(restaurant_entries, rule.fixed_monthly_fee)
         restaurant_total_hours, restaurant_total_packages, _, _ = calculate_customer_invoice(restaurant_entries, rule)
 
         grouped = (
@@ -467,11 +493,11 @@ def build_restaurant_invoice_drilldown_map(
                 courier_subtotal = courier_hours * rule.hourly_rate
             elif rule.pricing_model == "fixed_monthly":
                 if restaurant_total_hours > 0:
-                    courier_subtotal = rule.fixed_monthly_fee * (courier_hours / restaurant_total_hours)
+                    courier_subtotal = resolved_fixed_monthly_fee * (courier_hours / restaurant_total_hours)
                 elif restaurant_total_packages > 0:
-                    courier_subtotal = rule.fixed_monthly_fee * (courier_packages / restaurant_total_packages)
+                    courier_subtotal = resolved_fixed_monthly_fee * (courier_packages / restaurant_total_packages)
                 else:
-                    courier_subtotal = rule.fixed_monthly_fee / max(courier_count, 1)
+                    courier_subtotal = resolved_fixed_monthly_fee / max(courier_count, 1)
             else:
                 courier_subtotal = 0.0
             subtotal_values.append(courier_subtotal)

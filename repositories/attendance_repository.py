@@ -50,7 +50,8 @@ def fetch_daily_entry_management_df(conn: CompatConnection):
                END AS vardiya_akisi,
                COALESCE(d.absence_reason, '') AS neden_girmedi,
                COALESCE(d.coverage_type, '') AS yerine_giren_tipi,
-               d.status, d.worked_hours, d.package_count, COALESCE(d.notes, '') AS notes
+               d.status, d.worked_hours, d.package_count, COALESCE(d.monthly_invoice_amount, 0) AS monthly_invoice_amount,
+               COALESCE(d.notes, '') AS notes
         FROM daily_entries d
         JOIN restaurants r ON r.id = d.restaurant_id
         LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
@@ -66,7 +67,7 @@ def fetch_daily_entry_by_id(conn: CompatConnection, entry_id: int):
     row = conn.execute(
         """
         SELECT id, entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
-               status, worked_hours, package_count,
+               status, worked_hours, package_count, COALESCE(monthly_invoice_amount, 0) AS monthly_invoice_amount,
                COALESCE(absence_reason, '') AS absence_reason,
                COALESCE(coverage_type, '') AS coverage_type,
                COALESCE(notes, '') AS notes
@@ -85,8 +86,8 @@ def insert_daily_entry(conn: CompatConnection, values: dict[str, Any]) -> None:
         """
         INSERT INTO daily_entries (
             entry_date, restaurant_id, planned_personnel_id, actual_personnel_id,
-            status, worked_hours, package_count, absence_reason, coverage_type, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            status, worked_hours, package_count, monthly_invoice_amount, absence_reason, coverage_type, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             values["entry_date"],
@@ -96,6 +97,7 @@ def insert_daily_entry(conn: CompatConnection, values: dict[str, Any]) -> None:
             values["status"],
             values["worked_hours"],
             values["package_count"],
+            values.get("monthly_invoice_amount", 0.0),
             values.get("absence_reason", ""),
             values.get("coverage_type", ""),
             values["notes"],
@@ -108,7 +110,7 @@ def update_daily_entry(conn: CompatConnection, entry_id: int, values: dict[str, 
         """
         UPDATE daily_entries
         SET entry_date = ?, restaurant_id = ?, planned_personnel_id = ?, actual_personnel_id = ?,
-            status = ?, worked_hours = ?, package_count = ?, absence_reason = ?, coverage_type = ?, notes = ?
+            status = ?, worked_hours = ?, package_count = ?, monthly_invoice_amount = ?, absence_reason = ?, coverage_type = ?, notes = ?
         WHERE id = ?
         """,
         (
@@ -119,6 +121,7 @@ def update_daily_entry(conn: CompatConnection, entry_id: int, values: dict[str, 
             values["status"],
             values["worked_hours"],
             values["package_count"],
+            values.get("monthly_invoice_amount", 0.0),
             values.get("absence_reason", ""),
             values.get("coverage_type", ""),
             values["notes"],
@@ -129,6 +132,19 @@ def update_daily_entry(conn: CompatConnection, entry_id: int, values: dict[str, 
 
 def delete_daily_entry(conn: CompatConnection, entry_id: int) -> None:
     conn.execute("DELETE FROM daily_entries WHERE id = ?", (entry_id,))
+
+
+@cache_db_read(ttl=30)
+def fetch_attendance_restaurant_pricing_rows(conn: CompatConnection):
+    rows = conn.execute(
+        """
+        SELECT id, brand, branch, pricing_model, fixed_monthly_fee
+        FROM restaurants
+        WHERE active = 1
+        ORDER BY brand, branch
+        """
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 @cache_db_read(ttl=30)

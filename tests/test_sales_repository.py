@@ -30,6 +30,13 @@ def _make_conn() -> CompatConnection:
             requested_courier_count INTEGER DEFAULT 0,
             lead_source TEXT,
             proposed_quote REAL DEFAULT 0,
+            pricing_model TEXT,
+            hourly_rate REAL DEFAULT 0,
+            package_rate REAL DEFAULT 0,
+            package_threshold INTEGER,
+            package_rate_low REAL DEFAULT 0,
+            package_rate_high REAL DEFAULT 0,
+            fixed_monthly_fee REAL DEFAULT 0,
             pricing_model_hint TEXT,
             status TEXT NOT NULL,
             next_follow_up_date TEXT,
@@ -55,6 +62,13 @@ def _lead_values() -> dict[str, object]:
         "requested_courier_count": 3,
         "lead_source": "Telefon",
         "proposed_quote": 25000.0,
+        "pricing_model": "threshold_package",
+        "hourly_rate": 273.0,
+        "package_rate": 0.0,
+        "package_threshold": 390,
+        "package_rate_low": 33.75,
+        "package_rate_high": 44.25,
+        "fixed_monthly_fee": 0.0,
         "pricing_model_hint": "273₺/saat + 33,75₺/paket",
         "status": "Yeni Talep",
         "next_follow_up_date": "2026-03-25",
@@ -91,9 +105,14 @@ class SalesRepositoryTests(TestCase):
         update_sales_lead_record(self.conn, 1, values)
         self.conn.commit()
 
-        row = self.conn.execute("SELECT status, requested_courier_count FROM sales_leads WHERE id = 1").fetchone()
+        row = self.conn.execute(
+            "SELECT status, requested_courier_count, pricing_model, hourly_rate, package_rate_low FROM sales_leads WHERE id = 1"
+        ).fetchone()
         self.assertEqual(row["status"], "Teklif İletildi")
         self.assertEqual(int(row["requested_courier_count"]), 5)
+        self.assertEqual(row["pricing_model"], "threshold_package")
+        self.assertEqual(float(row["hourly_rate"]), 273.0)
+        self.assertEqual(float(row["package_rate_low"]), 33.75)
 
     def test_delete_sales_lead(self) -> None:
         insert_sales_lead_record(self.conn, _lead_values())

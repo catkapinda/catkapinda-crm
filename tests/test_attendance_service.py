@@ -48,6 +48,7 @@ class AttendanceServiceTests(unittest.TestCase):
             coverage_type="Joker",
             worked_hours=10.0,
             package_count=24.0,
+            monthly_invoice_amount=145000.0,
             notes="Destek edildi",
         )
 
@@ -57,6 +58,7 @@ class AttendanceServiceTests(unittest.TestCase):
         self.assertEqual(values["absence_reason"], "İzin")
         self.assertEqual(values["coverage_type"], "Joker")
         self.assertEqual(values["package_count"], 24.0)
+        self.assertEqual(values["monthly_invoice_amount"], 145000.0)
 
     def test_infer_daily_entry_mode_prefers_coverage_type_for_replacement_rows(self):
         entry_mode = attendance_service.infer_daily_entry_mode(
@@ -88,6 +90,7 @@ class AttendanceServiceTests(unittest.TestCase):
             coverage_type="",
             worked_hours=10.0,
             package_count=24.0,
+            monthly_invoice_amount=98000.0,
             notes="Doktor raporu",
         )
 
@@ -96,6 +99,7 @@ class AttendanceServiceTests(unittest.TestCase):
         self.assertEqual(values["status"], "Raporlu")
         self.assertEqual(values["worked_hours"], 0.0)
         self.assertEqual(values["package_count"], 0.0)
+        self.assertEqual(values["monthly_invoice_amount"], 98000.0)
 
     def test_resolve_daily_entry_values_uses_primary_person_for_weekly_off_when_planned_missing(self):
         values = attendance_service.resolve_daily_entry_values(
@@ -107,6 +111,7 @@ class AttendanceServiceTests(unittest.TestCase):
             coverage_type="",
             worked_hours=9.5,
             package_count=18.0,
+            monthly_invoice_amount=110000.0,
             notes="Haftalık izin",
         )
 
@@ -115,6 +120,7 @@ class AttendanceServiceTests(unittest.TestCase):
         self.assertEqual(values["status"], "İzin")
         self.assertEqual(values["worked_hours"], 0.0)
         self.assertEqual(values["package_count"], 0.0)
+        self.assertEqual(values["monthly_invoice_amount"], 110000.0)
 
     def test_build_bulk_rows_from_parsed_maps_known_names_and_normalizes_status(self):
         rows = attendance_service.build_bulk_rows_from_parsed(
