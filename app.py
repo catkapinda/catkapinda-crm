@@ -1292,6 +1292,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
             forgot_identity = ""
             forgot_submitted = False
+            phone_login_code = ""
+            phone_code_submitted = False
 
             if st.button("Şifremi Unuttum", key="login_help_toggle", use_container_width=True):
                 st.session_state.login_help_visible = not st.session_state.get("login_help_visible", False)
@@ -1331,10 +1333,6 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     with st.form("phone_code_login_form", clear_on_submit=True):
                         phone_login_code = st.text_input("SMS Giriş Kodu", placeholder="6 haneli kod")
                         phone_code_submitted = st.form_submit_button("Kod ile Giriş Yap", use_container_width=True)
-                else:
-                    phone_login_code = ""
-                    phone_code_submitted = False
-
             if forgot_submitted:
                 reset_identity = normalize_auth_identity(forgot_identity)
                 reset_user = get_auth_user(conn, reset_identity)
@@ -1409,7 +1407,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     st.session_state.pending_phone_code_masked = None
                     st.session_state.login_transition_active = True
                     st.rerun()
-                st.error("SMS giriş kodu hatalı veya süresi dolmuş.")
+                else:
+                    st.error("SMS giriş kodu hatalı veya süresi dolmuş.")
 
         if submitted:
             entered_username = normalize_auth_identity(username)
