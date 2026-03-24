@@ -64,6 +64,13 @@ class SalesServiceTests(TestCase):
             contact_name="",
             contact_phone="",
             status="",
+            pricing_model="hourly_plus_package",
+            hourly_rate=0.0,
+            package_rate=0.0,
+            package_threshold=390,
+            package_rate_low=0.0,
+            package_rate_high=0.0,
+            fixed_monthly_fee=0.0,
         )
         self.assertGreaterEqual(len(errors), 5)
 
@@ -88,7 +95,18 @@ class SalesServiceTests(TestCase):
 
     def test_create_sales_lead_commits(self) -> None:
         conn = _DummyConn()
-        values = {"restaurant_name": "Burger House", "status": "Yeni Talep", "lead_source": "Telefon"}
+        values = {
+            "restaurant_name": "Burger House",
+            "status": "Yeni Talep",
+            "lead_source": "Telefon",
+            "pricing_model": "threshold_package",
+            "hourly_rate": 273.0,
+            "package_rate": 0.0,
+            "package_threshold": 390,
+            "package_rate_low": 33.75,
+            "package_rate_high": 44.25,
+            "fixed_monthly_fee": 0.0,
+        }
 
         with patch("services.sales_service.insert_sales_lead_record") as insert_mock:
             message = create_sales_lead_and_commit(conn, sales_values=values)
@@ -96,12 +114,24 @@ class SalesServiceTests(TestCase):
         insert_mock.assert_called_once()
         inserted_payload = insert_mock.call_args.args[1]
         self.assertEqual(inserted_payload["restaurant_name"], "Burger House")
+        self.assertEqual(inserted_payload["pricing_model_hint"], "273₺/saat | 390 altı 33,75₺ | üstü 44,25₺")
         self.assertEqual(conn.commit_count, 1)
         self.assertEqual(message, "Satış fırsatı başarıyla eklendi.")
 
     def test_update_sales_lead_rolls_back_on_failure(self) -> None:
         conn = _DummyConn()
-        values = {"restaurant_name": "Burger House", "status": "Teklif İletildi", "lead_source": "Telefon"}
+        values = {
+            "restaurant_name": "Burger House",
+            "status": "Teklif İletildi",
+            "lead_source": "Telefon",
+            "pricing_model": "fixed_monthly",
+            "hourly_rate": 0.0,
+            "package_rate": 0.0,
+            "package_threshold": 390,
+            "package_rate_low": 0.0,
+            "package_rate_high": 0.0,
+            "fixed_monthly_fee": 98000.0,
+        }
 
         with patch("services.sales_service.update_sales_lead_record", side_effect=RuntimeError("boom")):
             with self.assertRaises(RuntimeError):
@@ -119,3 +149,38 @@ class SalesServiceTests(TestCase):
         delete_mock.assert_called_once_with(conn, 9)
         self.assertEqual(conn.commit_count, 1)
         self.assertEqual(message, "Satış fırsatı silindi.")
+
+    def test_validate_sales_lead_values_requires_model_specific_fields(self) -> None:
+        hourly_only_errors = validate_sales_lead_values(
+            restaurant_name="Cafe A",
+            city="İstanbul",
+            district="Kadıköy",
+            contact_name="Yetkili",
+            contact_phone="05550000000",
+            status="Yeni Talep",
+            pricing_model="hourly_only",
+            hourly_rate=0.0,
+            package_rate=0.0,
+            package_threshold=390,
+            package_rate_low=0.0,
+            package_rate_high=0.0,
+            fixed_monthly_fee=0.0,
+        )
+        fixed_errors = validate_sales_lead_values(
+            restaurant_name="Cafe A",
+            city="İstanbul",
+            district="Kadıköy",
+            contact_name="Yetkili",
+            contact_phone="05550000000",
+            status="Yeni Talep",
+            pricing_model="fixed_monthly",
+            hourly_rate=0.0,
+            package_rate=0.0,
+            package_threshold=390,
+            package_rate_low=0.0,
+            package_rate_high=0.0,
+            fixed_monthly_fee=0.0,
+        )
+
+        self.assertIn("Sadece saatlik teklifte saatlik ücret zorunlu.", hourly_only_errors)
+        self.assertIn("Sabit aylık ücretli teklifte aylık tutar zorunlu.", fixed_errors)

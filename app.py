@@ -207,6 +207,7 @@ from services.attendance_service import (
     COVERAGE_TYPE_OPTIONS,
     NON_WORKING_ATTENDANCE_STATUSES,
     load_attendance_hero_stats,
+    load_attendance_restaurant_pricing_lookup,
     build_bulk_attendance_context,
     build_bulk_rows_from_parsed,
     build_daily_entry_selection_payload,
@@ -4768,6 +4769,7 @@ def sales_tab(conn: sqlite3.Connection) -> None:
             can_create_sales=can_create_sales,
             status_options=SALES_STATUS_OPTIONS,
             source_options=SALES_SOURCE_OPTIONS,
+            pricing_model_labels=PRICING_MODEL_LABELS,
             render_tab_header_fn=render_tab_header,
             render_field_label_fn=render_field_label,
             validate_sales_lead_values_fn=validate_sales_lead_values,
@@ -4780,6 +4782,7 @@ def sales_tab(conn: sqlite3.Connection) -> None:
             can_update_sales=can_update_sales,
             status_options=SALES_STATUS_OPTIONS,
             source_options=SALES_SOURCE_OPTIONS,
+            pricing_model_labels=PRICING_MODEL_LABELS,
             safe_int_fn=safe_int,
             safe_float_fn=safe_float,
             fmt_try_fn=fmt_try,
@@ -5188,6 +5191,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         unsafe_allow_html=True,
     )
     rest_opts = get_restaurant_options(conn)
+    attendance_restaurant_pricing_lookup = load_attendance_restaurant_pricing_lookup(conn)
     person_opts = get_person_options(conn)
     absence_reason_options = ["-"] + ABSENCE_REASON_OPTIONS
     entry_mode_options = ATTENDANCE_ENTRY_MODE_OPTIONS
@@ -5220,9 +5224,13 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             entry_date = c1.date_input("Tarih", value=date.today())
             rest_label = c2.selectbox("Restoran / şube", list(rest_opts.keys()))
             entry_mode = c3.selectbox("Vardiya Akışı", entry_mode_options)
+        selected_restaurant_pricing = attendance_restaurant_pricing_lookup.get(rest_label, {})
+        is_fixed_monthly_restaurant = str(selected_restaurant_pricing.get("pricing_model") or "").strip() == "fixed_monthly"
+        default_monthly_invoice_amount = safe_float(selected_restaurant_pricing.get("fixed_monthly_fee"), 0.0)
         primary_label = "-"
         actual_label = "-"
         absence_reason = "-"
+        monthly_invoice_amount = 0.0
         person_labels = ["-"] + list(person_opts.keys())
         with form_left:
             st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
@@ -5239,7 +5247,8 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options)
 
             st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
-            c6, c7, c8 = st.columns([0.9, 0.9, 1.2])
+            metric_columns = st.columns([0.85, 0.85, 1.2] if is_fixed_monthly_restaurant else [1, 1])
+            c6, c7 = metric_columns[0], metric_columns[1]
             input_disabled = entry_mode == "Haftalık İzin"
             worked_hours = c6.number_input(
                 "Çalışılan saat",
@@ -5255,9 +5264,17 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 step=1.0,
                 disabled=input_disabled,
             )
+            if is_fixed_monthly_restaurant:
+                monthly_invoice_amount = metric_columns[2].number_input(
+                    "Aylık Fatura Tutarı",
+                    min_value=0.0,
+                    value=default_monthly_invoice_amount,
+                    step=100.0,
+                )
+                st.caption(f"Bu şube sabit aylık ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(default_monthly_invoice_amount)}")
             if input_disabled:
                 st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
-            notes = c8.text_input("Not", placeholder="Kısa operasyon notu")
+            notes = st.text_input("Not", placeholder="Kısa operasyon notu")
         with form_right:
             replacement_summary = (
                 f"{entry_mode} | {actual_label}"
@@ -5273,6 +5290,8 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 ("Mesai", f"{fmt_number(worked_hours)} saat"),
                 ("Paket", fmt_number(package_count)),
             ]
+            if is_fixed_monthly_restaurant:
+                preview_items.append(("Aylık Fatura", fmt_try(monthly_invoice_amount)))
             render_attendance_preview_card("Kayıt Özeti", preview_items)
         submitted = st.form_submit_button("Kaydet", use_container_width=True, disabled=not can_create_attendance)
         if submitted:
@@ -5289,6 +5308,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     coverage_type=entry_mode if entry_mode in COVERAGE_TYPE_OPTIONS else "",
                     worked_hours=worked_hours,
                     package_count=package_count,
+                    monthly_invoice_amount=monthly_invoice_amount if is_fixed_monthly_restaurant else 0.0,
                     notes=notes,
                 )
                 success_text = create_daily_entry_and_sync(
@@ -5437,10 +5457,16 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     entry_mode_options,
                     index=entry_mode_options.index(entry_mode_default) if entry_mode_default in entry_mode_options else 0,
                 )
+            edit_restaurant_pricing = attendance_restaurant_pricing_lookup.get(edit_rest_label, {})
+            edit_is_fixed_monthly_restaurant = str(edit_restaurant_pricing.get("pricing_model") or "").strip() == "fixed_monthly"
+            edit_monthly_invoice_default = safe_float(selected.get("monthly_invoice_amount"), 0.0)
+            if edit_monthly_invoice_default <= 0:
+                edit_monthly_invoice_default = safe_float(edit_restaurant_pricing.get("fixed_monthly_fee"), 0.0)
             person_labels = ["-"] + list(person_opts.keys())
             edit_primary_label = actual_default if actual_default != "-" else planned_default
             edit_actual_label = actual_default
             edit_absence_reason = "-"
+            edit_monthly_invoice_amount = 0.0
             with edit_left:
                 st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
                 if edit_entry_mode == "Restoran Kuryesi":
@@ -5482,7 +5508,8 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     )
 
                 st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
-                e6, e7, e8 = st.columns([0.9, 0.9, 1.2])
+                edit_metric_columns = st.columns([0.85, 0.85, 1.2] if edit_is_fixed_monthly_restaurant else [1, 1])
+                e6, e7 = edit_metric_columns[0], edit_metric_columns[1]
                 edit_input_disabled = edit_entry_mode == "Haftalık İzin"
                 edit_hours = e6.number_input(
                     "Çalışılan saat",
@@ -5498,24 +5525,35 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     step=1.0,
                     disabled=edit_input_disabled,
                 )
-                edit_notes = e8.text_input("Not", value=selected["notes"] or "", placeholder="Kısa operasyon notu")
+                if edit_is_fixed_monthly_restaurant:
+                    edit_monthly_invoice_amount = edit_metric_columns[2].number_input(
+                        "Aylık Fatura Tutarı",
+                        min_value=0.0,
+                        value=edit_monthly_invoice_default,
+                        step=100.0,
+                    )
+                    st.caption(f"Bu şube sabit aylık ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(edit_monthly_invoice_default)}")
+                edit_notes = st.text_input("Not", value=selected["notes"] or "", placeholder="Kısa operasyon notu")
             with edit_right:
                 edit_replacement_summary = (
                     f"{edit_entry_mode} | {edit_actual_label}"
                     if edit_entry_mode in ["Joker", "Destek"] and edit_actual_label != "-"
                     else "-"
                 )
+                edit_preview_items = [
+                    ("Tarih", edit_date.isoformat() if edit_date else selected["entry_date"] or "-"),
+                    ("Şube", edit_rest_label or current_rest_label or "-"),
+                    ("Akış", edit_entry_mode or entry_mode_default or "-"),
+                    ("Çalışan", edit_primary_label or selected_person_label or "-"),
+                    ("Yerine Giren", edit_replacement_summary),
+                    ("Mesai", f"{fmt_number(edit_hours)} saat"),
+                    ("Paket", fmt_number(edit_package)),
+                ]
+                if edit_is_fixed_monthly_restaurant:
+                    edit_preview_items.append(("Aylık Fatura", fmt_try(edit_monthly_invoice_amount)))
                 render_attendance_preview_card(
                     "Seçili Kayıt",
-                    [
-                        ("Tarih", edit_date.isoformat() if edit_date else selected["entry_date"] or "-"),
-                        ("Şube", edit_rest_label or current_rest_label or "-"),
-                        ("Akış", edit_entry_mode or entry_mode_default or "-"),
-                        ("Çalışan", edit_primary_label or selected_person_label or "-"),
-                        ("Yerine Giren", edit_replacement_summary),
-                        ("Mesai", f"{fmt_number(edit_hours)} saat"),
-                        ("Paket", fmt_number(edit_package)),
-                    ],
+                    edit_preview_items,
                 )
             u1, u2 = st.columns(2)
             update_clicked = u1.form_submit_button("Kaydı güncelle", use_container_width=True, disabled=not can_update_attendance)
@@ -5536,6 +5574,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                         coverage_type=edit_entry_mode if edit_entry_mode in COVERAGE_TYPE_OPTIONS else "",
                         worked_hours=edit_hours,
                         package_count=edit_package,
+                        monthly_invoice_amount=edit_monthly_invoice_amount if edit_is_fixed_monthly_restaurant else 0.0,
                         notes=edit_notes,
                     )
                     success_text = update_daily_entry_and_sync(

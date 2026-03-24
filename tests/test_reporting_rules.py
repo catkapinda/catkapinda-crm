@@ -245,6 +245,56 @@ class ReportingRulesTests(unittest.TestCase):
         self.assertIn("Joker: Recep Joker", emine_row["05"])
         self.assertIn("10 saat | 24 paket", emine_row["05"])
 
+    def test_fixed_monthly_manual_override_supersedes_restaurant_fee(self):
+        month_df = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "restaurant_id": 20,
+                    "brand": "Burger@",
+                    "branch": "Kavacık",
+                    "entry_date": "2026-03-05",
+                    "pricing_model": "fixed_monthly",
+                    "hourly_rate": 0.0,
+                    "package_rate": 0.0,
+                    "package_threshold": 390,
+                    "package_rate_low": 0.0,
+                    "package_rate_high": 0.0,
+                    "fixed_monthly_fee": 85000.0,
+                    "monthly_invoice_amount": 0.0,
+                    "vat_rate": 20.0,
+                    "worked_hours": 160.0,
+                    "package_count": 0.0,
+                    "actual_personnel_id": 1,
+                },
+                {
+                    "id": 2,
+                    "restaurant_id": 20,
+                    "brand": "Burger@",
+                    "branch": "Kavacık",
+                    "entry_date": "2026-03-20",
+                    "pricing_model": "fixed_monthly",
+                    "hourly_rate": 0.0,
+                    "package_rate": 0.0,
+                    "package_threshold": 390,
+                    "package_rate_low": 0.0,
+                    "package_rate_high": 0.0,
+                    "fixed_monthly_fee": 85000.0,
+                    "monthly_invoice_amount": 92000.0,
+                    "vat_rate": 20.0,
+                    "worked_hours": 168.0,
+                    "package_count": 0.0,
+                    "actual_personnel_id": 1,
+                },
+            ]
+        )
+
+        invoice_df = reporting_rules.build_invoice_summary_df(month_df)
+        self.assertEqual(len(invoice_df), 1)
+        row = invoice_df.iloc[0]
+        self.assertAlmostEqual(row["kdv_haric"], 92000.0)
+        self.assertAlmostEqual(row["kdv_dahil"], 110400.0)
+
 
 if __name__ == "__main__":
     unittest.main()

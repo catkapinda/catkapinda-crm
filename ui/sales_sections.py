@@ -7,6 +7,16 @@ import pandas as pd
 import streamlit as st
 
 
+def _resolve_sales_offer_text(row: Any, *, fmt_try_fn: Callable[[Any], str]) -> str:
+    pricing_summary = str(row.get("pricing_model_hint") or "").strip()
+    if pricing_summary:
+        return pricing_summary
+    proposed_quote = row.get("proposed_quote")
+    if proposed_quote in [None, ""]:
+        return "-"
+    return fmt_try_fn(proposed_quote)
+
+
 def _build_sales_snapshot_items(
     row: Any,
     *,
@@ -22,7 +32,7 @@ def _build_sales_snapshot_items(
         ("Yetkili", row.get("contact_name") or "-"),
         ("Telefon", row.get("contact_phone") or "-"),
         ("Kaynak", row.get("lead_source") or "-"),
-        ("Teklif", fmt_try_fn(row.get("proposed_quote")) if row.get("proposed_quote") not in [None, ""] else "-"),
+        ("Teklif", _resolve_sales_offer_text(row, fmt_try_fn=fmt_try_fn)),
     ]
 
 
@@ -39,12 +49,107 @@ def _build_sales_rows(filtered_df: pd.DataFrame, *, safe_int_fn: Callable[[Any, 
                 "Yetkili": row.get("contact_name") or "-",
                 "Talep": f"{safe_int_fn(row.get('requested_courier_count'), 0)} kurye",
                 "Kaynak": row.get("lead_source") or "-",
-                "Teklif": fmt_try_fn(row.get("proposed_quote")) if row.get("proposed_quote") not in [None, ""] else "-",
+                "Teklif": _resolve_sales_offer_text(row, fmt_try_fn=fmt_try_fn),
                 "Durum": row.get("status") or "-",
                 "Takip": row.get("next_follow_up_date") or "-",
             }
         )
     return rows
+
+
+def _render_sales_pricing_fields(
+    *,
+    pricing_model: str,
+    render_field_label_fn: Callable[[str, bool], None],
+    safe_float_fn: Callable[[Any, float], float] | None = None,
+    safe_int_fn: Callable[[Any, int], int] | None = None,
+    row: Any | None = None,
+) -> tuple[float, float, int, float, float, float]:
+    hourly_rate = 0.0
+    package_rate = 0.0
+    package_threshold = 390
+    package_rate_low = 0.0
+    package_rate_high = 0.0
+    fixed_fee = 0.0
+
+    if pricing_model == "hourly_plus_package":
+        p1, p2 = st.columns(2)
+        with p1:
+            render_field_label_fn("Saatlik Ücret", required=True)
+            hourly_rate = st.number_input(
+                "Saatlik Ücret",
+                min_value=0.0,
+                value=safe_float_fn(row.get("hourly_rate"), 0.0) if row is not None and safe_float_fn else 0.0,
+                step=1.0,
+                label_visibility="collapsed",
+            )
+        with p2:
+            render_field_label_fn("Paket Primi", required=True)
+            package_rate = st.number_input(
+                "Paket Primi",
+                min_value=0.0,
+                value=safe_float_fn(row.get("package_rate"), 0.0) if row is not None and safe_float_fn else 0.0,
+                step=0.25,
+                label_visibility="collapsed",
+            )
+    elif pricing_model == "threshold_package":
+        p1, p2, p3, p4 = st.columns(4)
+        with p1:
+            render_field_label_fn("Saatlik Ücret", required=True)
+            hourly_rate = st.number_input(
+                "Saatlik Ücret",
+                min_value=0.0,
+                value=safe_float_fn(row.get("hourly_rate"), 0.0) if row is not None and safe_float_fn else 0.0,
+                step=1.0,
+                label_visibility="collapsed",
+            )
+        with p2:
+            render_field_label_fn("Paket Eşiği", required=True)
+            package_threshold = st.number_input(
+                "Paket Eşiği",
+                min_value=0,
+                value=safe_int_fn(row.get("package_threshold"), 390) if row is not None and safe_int_fn else 390,
+                step=1,
+                label_visibility="collapsed",
+            )
+        with p3:
+            render_field_label_fn("390 Altı Prim", required=True)
+            package_rate_low = st.number_input(
+                "390 Altı Prim",
+                min_value=0.0,
+                value=safe_float_fn(row.get("package_rate_low"), 0.0) if row is not None and safe_float_fn else 0.0,
+                step=0.25,
+                label_visibility="collapsed",
+            )
+        with p4:
+            render_field_label_fn("390 Üstü Prim", required=True)
+            package_rate_high = st.number_input(
+                "390 Üstü Prim",
+                min_value=0.0,
+                value=safe_float_fn(row.get("package_rate_high"), 0.0) if row is not None and safe_float_fn else 0.0,
+                step=0.25,
+                label_visibility="collapsed",
+            )
+    elif pricing_model == "hourly_only":
+        render_field_label_fn("Saatlik Ücret", required=True)
+        hourly_rate = st.number_input(
+            "Saatlik Ücret",
+            min_value=0.0,
+            value=safe_float_fn(row.get("hourly_rate"), 0.0) if row is not None and safe_float_fn else 0.0,
+            step=1.0,
+            label_visibility="collapsed",
+        )
+    elif pricing_model == "fixed_monthly":
+        render_field_label_fn("Sabit Aylık Ücret", required=True)
+        fixed_fee = st.number_input(
+            "Sabit Aylık Ücret",
+            min_value=0.0,
+            value=safe_float_fn(row.get("fixed_monthly_fee"), 0.0) if row is not None and safe_float_fn else 0.0,
+            step=100.0,
+            label_visibility="collapsed",
+        )
+
+    return hourly_rate, package_rate, package_threshold, package_rate_low, package_rate_high, fixed_fee
 
 
 def render_sales_list_workspace(
@@ -121,6 +226,7 @@ def render_sales_add_workspace(
     can_create_sales: bool,
     status_options: list[str],
     source_options: list[str],
+    pricing_model_labels: dict[str, str],
     render_tab_header_fn: Callable[[str, str], None],
     render_field_label_fn: Callable[[str, bool], None],
     validate_sales_lead_values_fn: Callable[..., list[str]],
@@ -161,19 +267,26 @@ def render_sales_add_workspace(
         render_field_label_fn("Mail")
         contact_email = st.text_input("Mail", label_visibility="collapsed")
 
-    c9, c10, c11, c12 = st.columns(4)
+    c9, c10, c11 = st.columns(3)
     with c9:
-        render_field_label_fn("Önerilen Teklif")
-        proposed_quote = st.number_input("Önerilen Teklif", min_value=0.0, value=0.0, step=250.0, label_visibility="collapsed")
-    with c10:
         render_field_label_fn("Teklif Modeli")
-        pricing_model_hint = st.text_input("Teklif Modeli", placeholder="273₺/saat + 33,75₺/paket", label_visibility="collapsed")
-    with c11:
+        pricing_model = st.selectbox(
+            "Teklif Modeli",
+            list(pricing_model_labels.keys()),
+            format_func=lambda value: pricing_model_labels.get(value, value),
+            label_visibility="collapsed",
+        )
+    with c10:
         render_field_label_fn("Durum", required=True)
         status = st.selectbox("Durum", status_options, label_visibility="collapsed")
-    with c12:
+    with c11:
         render_field_label_fn("Takip Tarihi")
         next_follow_up_date = st.date_input("Takip Tarihi", value=None, label_visibility="collapsed")
+
+    hourly_rate, package_rate, package_threshold, package_rate_low, package_rate_high, fixed_monthly_fee = _render_sales_pricing_fields(
+        pricing_model=pricing_model,
+        render_field_label_fn=render_field_label_fn,
+    )
 
     c13, c14 = st.columns(2)
     with c13:
@@ -195,6 +308,13 @@ def render_sales_add_workspace(
         contact_name=contact_name,
         contact_phone=contact_phone,
         status=status,
+        pricing_model=pricing_model,
+        hourly_rate=hourly_rate,
+        package_rate=package_rate,
+        package_threshold=package_threshold,
+        package_rate_low=package_rate_low,
+        package_rate_high=package_rate_high,
+        fixed_monthly_fee=fixed_monthly_fee,
     )
     if validation_errors:
         for error_text in validation_errors:
@@ -213,8 +333,15 @@ def render_sales_add_workspace(
                 "contact_email": contact_email,
                 "requested_courier_count": requested_courier_count,
                 "lead_source": lead_source,
-                "proposed_quote": proposed_quote,
-                "pricing_model_hint": pricing_model_hint,
+                "proposed_quote": 0.0,
+                "pricing_model": pricing_model,
+                "hourly_rate": hourly_rate,
+                "package_rate": package_rate,
+                "package_threshold": package_threshold,
+                "package_rate_low": package_rate_low,
+                "package_rate_high": package_rate_high,
+                "fixed_monthly_fee": fixed_monthly_fee,
+                "pricing_model_hint": "",
                 "status": status,
                 "next_follow_up_date": next_follow_up_date.isoformat() if isinstance(next_follow_up_date, date) else "",
                 "assigned_owner": assigned_owner,
@@ -234,6 +361,7 @@ def render_sales_edit_workspace(
     can_update_sales: bool,
     status_options: list[str],
     source_options: list[str],
+    pricing_model_labels: dict[str, str],
     safe_int_fn: Callable[[Any, int], int],
     safe_float_fn: Callable[[Any, float], float],
     fmt_try_fn: Callable[[Any], str],
@@ -302,27 +430,34 @@ def render_sales_edit_workspace(
 
     c9, c10, c11, c12 = st.columns(4)
     with c9:
-        render_field_label_fn("Önerilen Teklif")
-        proposed_quote = st.number_input(
-            "Önerilen Teklif",
-            min_value=0.0,
-            value=max(safe_float_fn(row.get("proposed_quote")), 0.0),
-            step=250.0,
+        render_field_label_fn("Teklif Modeli")
+        pricing_model = st.selectbox(
+            "Teklif Modeli",
+            list(pricing_model_labels.keys()),
+            index=list(pricing_model_labels.keys()).index(selection_payload.pricing_model_value)
+            if selection_payload.pricing_model_value in pricing_model_labels
+            else 0,
+            format_func=lambda value: pricing_model_labels.get(value, value),
             label_visibility="collapsed",
         )
     with c10:
-        render_field_label_fn("Teklif Modeli")
-        pricing_model_hint = st.text_input("Teklif Modeli", value=row.get("pricing_model_hint") or "", label_visibility="collapsed")
-    with c11:
         render_field_label_fn("Durum", required=True)
         status = st.selectbox("Durum", status_options, index=selection_payload.status_index, label_visibility="collapsed")
-    with c12:
+    with c11:
         render_field_label_fn("Takip Tarihi")
         next_follow_up_date = st.date_input(
             "Takip Tarihi",
             value=parse_date_value_fn(row.get("next_follow_up_date")),
             label_visibility="collapsed",
         )
+
+    hourly_rate, package_rate, package_threshold, package_rate_low, package_rate_high, fixed_monthly_fee = _render_sales_pricing_fields(
+        pricing_model=pricing_model,
+        render_field_label_fn=render_field_label_fn,
+        safe_float_fn=safe_float_fn,
+        safe_int_fn=safe_int_fn,
+        row=row,
+    )
 
     c13, c14 = st.columns(2)
     with c13:
@@ -344,6 +479,13 @@ def render_sales_edit_workspace(
         contact_name=contact_name,
         contact_phone=contact_phone,
         status=status,
+        pricing_model=pricing_model,
+        hourly_rate=hourly_rate,
+        package_rate=package_rate,
+        package_threshold=package_threshold,
+        package_rate_low=package_rate_low,
+        package_rate_high=package_rate_high,
+        fixed_monthly_fee=fixed_monthly_fee,
     )
     if validation_errors:
         for error_text in validation_errors:
@@ -363,8 +505,15 @@ def render_sales_edit_workspace(
                 "contact_email": contact_email,
                 "requested_courier_count": requested_courier_count,
                 "lead_source": lead_source,
-                "proposed_quote": proposed_quote,
-                "pricing_model_hint": pricing_model_hint,
+                "proposed_quote": 0.0,
+                "pricing_model": pricing_model,
+                "hourly_rate": hourly_rate,
+                "package_rate": package_rate,
+                "package_threshold": package_threshold,
+                "package_rate_low": package_rate_low,
+                "package_rate_high": package_rate_high,
+                "fixed_monthly_fee": fixed_monthly_fee,
+                "pricing_model_hint": "",
                 "status": status,
                 "next_follow_up_date": next_follow_up_date.isoformat() if isinstance(next_follow_up_date, date) else "",
                 "assigned_owner": assigned_owner,
