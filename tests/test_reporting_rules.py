@@ -85,6 +85,26 @@ class ReportingRulesTests(unittest.TestCase):
     def test_month_bounds_returns_month_limits(self):
         self.assertEqual(reporting_rules.month_bounds("2026-02"), ("2026-02-01", "2026-02-28"))
 
+    def test_hourly_plus_package_standard_cost_uses_default_package_rate(self):
+        cost = reporting_rules.calculate_standard_courier_cost(
+            total_hours=218.0,
+            total_packages=263.0,
+            brand="Burger@",
+            pricing_model="hourly_plus_package",
+        )
+
+        self.assertAlmostEqual(cost, 59760.0)
+
+    def test_quick_china_hourly_plus_package_uses_qc_package_rate(self):
+        cost = reporting_rules.calculate_standard_courier_cost(
+            total_hours=100.0,
+            total_packages=40.0,
+            brand="Quick China",
+            pricing_model="hourly_plus_package",
+        )
+
+        self.assertAlmostEqual(cost, 26000.0)
+
     def test_threshold_package_uses_per_courier_threshold_in_invoice_summary(self):
         month_df = pd.DataFrame(
             [

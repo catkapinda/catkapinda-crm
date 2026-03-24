@@ -62,16 +62,32 @@ def calculate_personnel_cost(
         "actual_personnel_id",
         "entry_date",
         "brand",
+        "branch",
         "pricing_model",
         "worked_hours",
         "package_count",
     }
     if month_df is None or month_df.empty or not required_entry_columns.issubset(set(month_df.columns)):
-        entry_rows = pd.DataFrame(columns=["actual_personnel_id", "entry_date_value", "brand", "pricing_model", "worked_hours", "package_count"])
+        entry_rows = pd.DataFrame(
+            columns=[
+                "actual_personnel_id",
+                "restaurant_id",
+                "entry_date_value",
+                "brand",
+                "branch",
+                "pricing_model",
+                "worked_hours",
+                "package_count",
+            ]
+        )
     else:
         entry_rows = month_df.copy()
         entry_rows["entry_date_value"] = pd.to_datetime(entry_rows["entry_date"], errors="coerce").dt.date
         entry_rows = entry_rows.dropna(subset=["entry_date_value"]).copy()
+        if "restaurant_id" not in entry_rows.columns:
+            entry_rows["restaurant_id"] = 0
+        if "branch" not in entry_rows.columns:
+            entry_rows["branch"] = ""
 
     if deductions_df is None or deductions_df.empty or not {"personnel_id", "amount"}.issubset(set(deductions_df.columns)):
         deduction_by_person = pd.DataFrame(columns=["personnel_id", "deduction_total"])
@@ -111,7 +127,11 @@ def calculate_personnel_cost(
             segment_hours = float(segment_entries["worked_hours"].sum()) if not segment_entries.empty else 0.0
             gross_cost += segment_hours * _COURIER_HOURLY_COST
             if not segment_entries.empty:
-                package_groups = segment_entries.groupby(["brand", "pricing_model"], dropna=False)["package_count"].sum().reset_index()
+                package_groups = (
+                    segment_entries.groupby(["restaurant_id", "brand", "branch", "pricing_model"], dropna=False)["package_count"]
+                    .sum()
+                    .reset_index()
+                )
                 for _, package_row in package_groups.iterrows():
                     gross_cost += calculate_standard_package_cost(
                         package_row["package_count"],

@@ -333,10 +333,8 @@ def calculate_standard_package_cost(total_packages: float, brand: str = "", pric
     package_total = float(total_packages or 0)
     if (brand or "").strip() == "Quick China":
         return package_total * _COURIER_PACKAGE_COST_QC
-    if pricing_model == "threshold_package":
-        package_rate = _COURIER_PACKAGE_COST_DEFAULT_LOW if package_total <= _PACKAGE_THRESHOLD_DEFAULT else _COURIER_PACKAGE_COST_DEFAULT_HIGH
-        return package_total * package_rate
-    return 0.0
+    package_rate = _COURIER_PACKAGE_COST_DEFAULT_LOW if package_total <= _PACKAGE_THRESHOLD_DEFAULT else _COURIER_PACKAGE_COST_DEFAULT_HIGH
+    return package_total * package_rate
 
 
 def calculate_standard_courier_cost(
