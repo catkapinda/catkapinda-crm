@@ -5216,120 +5216,160 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             unsafe_allow_html=True,
         )
 
-    with st.form("daily_entry_form", clear_on_submit=True):
-        form_left, form_right = st.columns([2.15, 1])
-        with form_left:
-            st.markdown("<div class='ck-attendance-form-kicker'>Vardiya Bilgisi</div>", unsafe_allow_html=True)
-            c1, c2, c3 = st.columns(3)
-            entry_date = c1.date_input("Tarih", value=date.today())
-            rest_label = c2.selectbox("Restoran / şube", list(rest_opts.keys()))
-            entry_mode = c3.selectbox("Vardiya Akışı", entry_mode_options)
-        selected_restaurant_pricing = attendance_restaurant_pricing_lookup.get(rest_label, {})
-        is_fixed_monthly_restaurant = str(selected_restaurant_pricing.get("pricing_model") or "").strip() == "fixed_monthly"
-        default_monthly_invoice_amount = safe_float(selected_restaurant_pricing.get("fixed_monthly_fee"), 0.0)
-        primary_label = "-"
-        actual_label = "-"
-        absence_reason = "-"
-        monthly_invoice_amount = 0.0
-        person_labels = ["-"] + list(person_opts.keys())
-        with form_left:
-            st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
-            if entry_mode == "Restoran Kuryesi":
-                primary_label = st.selectbox("Çalışan Personel", person_labels)
-            elif entry_mode in ["Joker", "Destek"]:
-                c4, c5 = st.columns(2)
-                primary_label = c4.selectbox("Çalışan Personel", person_labels)
-                actual_label = c5.selectbox("Yerine Giren Personel", person_labels)
-                absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options)
-            else:
-                c4, c5 = st.columns(2)
-                primary_label = c4.selectbox("Çalışan Personel", person_labels)
-                absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options)
+    create_rest_labels = list(rest_opts.keys())
+    create_person_labels = ["-"] + list(person_opts.keys())
+    if "attendance_create_entry_date" not in st.session_state or not isinstance(st.session_state.get("attendance_create_entry_date"), date):
+        st.session_state["attendance_create_entry_date"] = date.today()
+    if "attendance_create_rest_label" not in st.session_state or st.session_state.get("attendance_create_rest_label") not in create_rest_labels:
+        st.session_state["attendance_create_rest_label"] = create_rest_labels[0] if create_rest_labels else "-"
+    if "attendance_create_mode" not in st.session_state or st.session_state.get("attendance_create_mode") not in entry_mode_options:
+        st.session_state["attendance_create_mode"] = entry_mode_options[0]
+    if "attendance_create_primary_label" not in st.session_state or st.session_state.get("attendance_create_primary_label") not in create_person_labels:
+        st.session_state["attendance_create_primary_label"] = "-"
+    if "attendance_create_actual_label" not in st.session_state or st.session_state.get("attendance_create_actual_label") not in create_person_labels:
+        st.session_state["attendance_create_actual_label"] = "-"
+    if "attendance_create_absence_reason" not in st.session_state or st.session_state.get("attendance_create_absence_reason") not in absence_reason_options:
+        st.session_state["attendance_create_absence_reason"] = "-"
+    if "attendance_create_hours" not in st.session_state:
+        st.session_state["attendance_create_hours"] = 10.0
+    if "attendance_create_package_count" not in st.session_state:
+        st.session_state["attendance_create_package_count"] = 0.0
+    if "attendance_create_monthly_invoice_amount" not in st.session_state:
+        st.session_state["attendance_create_monthly_invoice_amount"] = 0.0
+    if "attendance_create_notes" not in st.session_state:
+        st.session_state["attendance_create_notes"] = ""
 
-            st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
-            metric_columns = st.columns(2)
-            c6, c7 = metric_columns[0], metric_columns[1]
-            input_disabled = entry_mode == "Haftalık İzin"
-            worked_hours = c6.number_input(
-                "Çalışılan saat",
+    form_left, form_right = st.columns([2.15, 1])
+    with form_left:
+        st.markdown("<div class='ck-attendance-form-kicker'>Vardiya Bilgisi</div>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3)
+        entry_date = c1.date_input("Tarih", key="attendance_create_entry_date")
+        rest_label = c2.selectbox("Restoran / şube", create_rest_labels, key="attendance_create_rest_label")
+        entry_mode = c3.selectbox("Vardiya Akışı", entry_mode_options, key="attendance_create_mode")
+
+    selected_restaurant_pricing = attendance_restaurant_pricing_lookup.get(rest_label, {})
+    is_fixed_monthly_restaurant = str(selected_restaurant_pricing.get("pricing_model") or "").strip() == "fixed_monthly"
+    default_monthly_invoice_amount = safe_float(selected_restaurant_pricing.get("fixed_monthly_fee"), 0.0)
+    if is_fixed_monthly_restaurant and safe_float(st.session_state.get("attendance_create_monthly_invoice_amount"), 0.0) <= 0:
+        st.session_state["attendance_create_monthly_invoice_amount"] = default_monthly_invoice_amount
+
+    input_disabled = entry_mode == "Haftalık İzin"
+    if input_disabled:
+        st.session_state["attendance_create_hours"] = 0.0
+        st.session_state["attendance_create_package_count"] = 0.0
+
+    primary_label = "-"
+    actual_label = "-"
+    absence_reason = "-"
+    monthly_invoice_amount = 0.0
+    with form_left:
+        st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
+        if entry_mode == "Restoran Kuryesi":
+            primary_label = st.selectbox("Çalışan Personel", create_person_labels, key="attendance_create_primary_label")
+        elif entry_mode in ["Joker", "Destek"]:
+            c4, c5 = st.columns(2)
+            primary_label = c4.selectbox("Çalışan Personel", create_person_labels, key="attendance_create_primary_label")
+            actual_label = c5.selectbox("Yerine Giren Personel", create_person_labels, key="attendance_create_actual_label")
+            absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options, key="attendance_create_absence_reason")
+        else:
+            c4, c5 = st.columns(2)
+            primary_label = c4.selectbox("Çalışan Personel", create_person_labels, key="attendance_create_primary_label")
+            absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options, key="attendance_create_absence_reason")
+
+        st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
+        metric_columns = st.columns(2)
+        c6, c7 = metric_columns[0], metric_columns[1]
+        worked_hours = c6.number_input(
+            "Çalışılan saat",
+            min_value=0.0,
+            step=0.5,
+            key="attendance_create_hours",
+            disabled=input_disabled,
+        )
+        package_count = c7.number_input(
+            "Paket",
+            min_value=0.0,
+            step=1.0,
+            key="attendance_create_package_count",
+            disabled=input_disabled,
+        )
+        if input_disabled:
+            worked_hours = 0.0
+            package_count = 0.0
+        if is_fixed_monthly_restaurant:
+            st.markdown("<div class='ck-attendance-form-kicker'>Faturalama</div>", unsafe_allow_html=True)
+            monthly_invoice_amount = st.number_input(
+                "Aylık Fatura Tutarı",
                 min_value=0.0,
-                value=0.0 if input_disabled else 10.0,
-                step=0.5,
-                disabled=input_disabled,
+                step=100.0,
+                key="attendance_create_monthly_invoice_amount",
             )
-            package_count = c7.number_input(
-                "Paket",
-                min_value=0.0,
-                value=0.0,
-                step=1.0,
-                disabled=input_disabled,
+            st.caption(
+                f"Bu şube Sabit Aylık Ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(default_monthly_invoice_amount)}"
             )
-            if is_fixed_monthly_restaurant:
-                st.markdown("<div class='ck-attendance-form-kicker'>Faturalama</div>", unsafe_allow_html=True)
-                monthly_invoice_amount = st.number_input(
-                    "Aylık Fatura Tutarı",
-                    min_value=0.0,
-                    value=default_monthly_invoice_amount,
-                    step=100.0,
-                )
-                st.caption(
-                    f"Bu şube Sabit Aylık Ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(default_monthly_invoice_amount)}"
-                )
-            if input_disabled:
-                st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
-            notes = st.text_input("Not", placeholder="Kısa operasyon notu")
-        with form_right:
-            replacement_summary = (
-                f"{entry_mode} | {actual_label}"
-                if entry_mode in ["Joker", "Destek"] and actual_label != "-"
-                else "-"
+        if input_disabled:
+            st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
+        notes = st.text_input("Not", placeholder="Kısa operasyon notu", key="attendance_create_notes")
+    with form_right:
+        replacement_summary = (
+            f"{entry_mode} | {actual_label}"
+            if entry_mode in ["Joker", "Destek"] and actual_label != "-"
+            else "-"
+        )
+        preview_items = [
+            ("Tarih", entry_date.isoformat() if entry_date else "-"),
+            ("Şube", rest_label or "-"),
+            ("Akış", entry_mode or "-"),
+            ("Çalışan", primary_label or "-"),
+            ("Yerine Giren", replacement_summary),
+            ("Mesai", f"{fmt_number(worked_hours)} saat"),
+            ("Paket", fmt_number(package_count)),
+        ]
+        if is_fixed_monthly_restaurant:
+            preview_items.append(("Aylık Fatura", fmt_try(monthly_invoice_amount)))
+        render_attendance_preview_card("Kayıt Özeti", preview_items)
+    submitted = st.button("Kaydet", use_container_width=True, disabled=not can_create_attendance, key="attendance_create_submit")
+    if submitted:
+        try:
+            primary_id = person_opts[primary_label] if primary_label != "-" else None
+            planned_id = primary_id if entry_mode in ["Joker", "Destek", "Haftalık İzin"] else None
+            actual_id = person_opts[actual_label] if actual_label != "-" else None
+            resolved_values = resolve_daily_entry_values(
+                entry_mode=entry_mode,
+                primary_person_id=primary_id,
+                planned_personnel_id=planned_id,
+                actual_personnel_id=actual_id,
+                absence_reason="" if absence_reason == "-" else absence_reason,
+                coverage_type=entry_mode if entry_mode in COVERAGE_TYPE_OPTIONS else "",
+                worked_hours=worked_hours,
+                package_count=package_count,
+                monthly_invoice_amount=monthly_invoice_amount if is_fixed_monthly_restaurant else 0.0,
+                notes=notes,
             )
-            preview_items = [
-                ("Tarih", entry_date.isoformat() if entry_date else "-"),
-                ("Şube", rest_label or "-"),
-                ("Akış", entry_mode or "-"),
-                ("Çalışan", primary_label or "-"),
-                ("Yerine Giren", replacement_summary),
-                ("Mesai", f"{fmt_number(worked_hours)} saat"),
-                ("Paket", fmt_number(package_count)),
-            ]
-            if is_fixed_monthly_restaurant:
-                preview_items.append(("Aylık Fatura", fmt_try(monthly_invoice_amount)))
-            render_attendance_preview_card("Kayıt Özeti", preview_items)
-        submitted = st.form_submit_button("Kaydet", use_container_width=True, disabled=not can_create_attendance)
-        if submitted:
-            try:
-                primary_id = person_opts[primary_label] if primary_label != "-" else None
-                planned_id = primary_id if entry_mode in ["Joker", "Destek", "Haftalık İzin"] else None
-                actual_id = person_opts[actual_label] if actual_label != "-" else None
-                resolved_values = resolve_daily_entry_values(
-                    entry_mode=entry_mode,
-                    primary_person_id=primary_id,
-                    planned_personnel_id=planned_id,
-                    actual_personnel_id=actual_id,
-                    absence_reason="" if absence_reason == "-" else absence_reason,
-                    coverage_type=entry_mode if entry_mode in COVERAGE_TYPE_OPTIONS else "",
-                    worked_hours=worked_hours,
-                    package_count=package_count,
-                    monthly_invoice_amount=monthly_invoice_amount if is_fixed_monthly_restaurant else 0.0,
-                    notes=notes,
-                )
-                success_text = create_daily_entry_and_sync(
-                    conn,
-                    entry_values={
-                        "entry_date": entry_date.isoformat(),
-                        "restaurant_id": rest_opts[rest_label],
-                        **resolved_values,
-                    },
-                    affected_person_id=resolved_values.get("actual_personnel_id"),
-                    sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
-                    actor_role=actor_role,
-                )
-            except Exception as exc:
-                st.error(f"Günlük kayıt eklenemedi: {exc}")
-            else:
-                st.success(success_text)
-                st.rerun()
+            success_text = create_daily_entry_and_sync(
+                conn,
+                entry_values={
+                    "entry_date": entry_date.isoformat(),
+                    "restaurant_id": rest_opts[rest_label],
+                    **resolved_values,
+                },
+                affected_person_id=resolved_values.get("actual_personnel_id"),
+                sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                actor_role=actor_role,
+            )
+        except Exception as exc:
+            st.error(f"Günlük kayıt eklenemedi: {exc}")
+        else:
+            st.success(success_text)
+            st.session_state["attendance_create_entry_date"] = date.today()
+            st.session_state["attendance_create_primary_label"] = "-"
+            st.session_state["attendance_create_actual_label"] = "-"
+            st.session_state["attendance_create_absence_reason"] = "-"
+            st.session_state["attendance_create_hours"] = 10.0
+            st.session_state["attendance_create_package_count"] = 0.0
+            st.session_state["attendance_create_monthly_invoice_amount"] = 0.0
+            st.session_state["attendance_create_notes"] = ""
+            st.rerun()
 
     st.markdown("### Kayıt Yönetimi")
     st.caption("Günlük puantaj kayıtlarını filtreleyip seç, ardından aynı alandan güncelle veya sil.")
@@ -5447,176 +5487,205 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         actual_default = selection_payload.actual_default
         absence_reason_default = selection_payload.absence_reason_default
         selected_person_label = actual_default if actual_default != "-" else planned_default
-        with st.form(f"daily_entry_edit_form_{selected_id}"):
-            edit_left, edit_right = st.columns([2.15, 1])
-            with edit_left:
-                st.markdown("<div class='ck-attendance-form-kicker'>Vardiya Bilgisi</div>", unsafe_allow_html=True)
-                e1, e2, e3 = st.columns(3)
-                edit_date = e1.date_input("Tarih", value=datetime.fromisoformat(selected["entry_date"]).date())
-                rest_labels = list(rest_opts.keys())
-                edit_rest_label = e2.selectbox("Restoran / şube", rest_labels, index=rest_labels.index(current_rest_label))
-                edit_entry_mode = e3.selectbox(
-                    "Vardiya Akışı",
-                    entry_mode_options,
-                    index=entry_mode_options.index(entry_mode_default) if entry_mode_default in entry_mode_options else 0,
-                )
-            edit_restaurant_pricing = attendance_restaurant_pricing_lookup.get(edit_rest_label, {})
-            edit_is_fixed_monthly_restaurant = str(edit_restaurant_pricing.get("pricing_model") or "").strip() == "fixed_monthly"
-            edit_monthly_invoice_default = safe_float(selected.get("monthly_invoice_amount"), 0.0)
-            if edit_monthly_invoice_default <= 0:
-                edit_monthly_invoice_default = safe_float(edit_restaurant_pricing.get("fixed_monthly_fee"), 0.0)
-            person_labels = ["-"] + list(person_opts.keys())
-            edit_primary_label = actual_default if actual_default != "-" else planned_default
-            edit_actual_label = actual_default
-            edit_absence_reason = "-"
-            edit_monthly_invoice_amount = 0.0
-            with edit_left:
-                st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
-                if edit_entry_mode == "Restoran Kuryesi":
-                    edit_primary_label = st.selectbox(
-                        "Çalışan Personel",
-                        person_labels,
-                        index=person_labels.index(edit_primary_label) if edit_primary_label in person_labels else 0,
-                    )
-                elif edit_entry_mode in ["Joker", "Destek"]:
-                    e4, e5 = st.columns(2)
-                    replacement_primary_default = planned_default if planned_default != "-" else edit_primary_label
-                    edit_primary_label = e4.selectbox(
-                        "Çalışan Personel",
-                        person_labels,
-                        index=person_labels.index(replacement_primary_default) if replacement_primary_default in person_labels else 0,
-                    )
-                    edit_actual_label = e5.selectbox(
-                        "Yerine Giren Personel",
-                        person_labels,
-                        index=person_labels.index(actual_default) if actual_default in person_labels else 0,
-                    )
-                    edit_absence_reason = st.selectbox(
-                        "Neden Girmedi?",
-                        absence_reason_options,
-                        index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
-                    )
-                else:
-                    e4, e5 = st.columns(2)
-                    weekly_off_primary_default = planned_default if planned_default != "-" else edit_primary_label
-                    edit_primary_label = e4.selectbox(
-                        "Çalışan Personel",
-                        person_labels,
-                        index=person_labels.index(weekly_off_primary_default) if weekly_off_primary_default in person_labels else 0,
-                    )
-                    edit_absence_reason = e5.selectbox(
-                        "Neden Girmedi?",
-                        absence_reason_options,
-                        index=absence_reason_options.index(absence_reason_default) if absence_reason_default in absence_reason_options else 0,
-                    )
+        rest_labels = list(rest_opts.keys())
+        person_labels = ["-"] + list(person_opts.keys())
+        edit_prefix = f"attendance_edit_{selected_id}"
+        edit_loaded_key = f"{edit_prefix}_loaded_id"
+        edit_date_key = f"{edit_prefix}_date"
+        edit_rest_key = f"{edit_prefix}_rest_label"
+        edit_mode_key = f"{edit_prefix}_entry_mode"
+        edit_primary_key = f"{edit_prefix}_primary_label"
+        edit_actual_key = f"{edit_prefix}_actual_label"
+        edit_absence_key = f"{edit_prefix}_absence_reason"
+        edit_hours_key = f"{edit_prefix}_hours"
+        edit_package_key = f"{edit_prefix}_package_count"
+        edit_monthly_key = f"{edit_prefix}_monthly_invoice_amount"
+        edit_notes_key = f"{edit_prefix}_notes"
 
-                st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
-                edit_metric_columns = st.columns(2)
-                e6, e7 = edit_metric_columns[0], edit_metric_columns[1]
-                edit_input_disabled = edit_entry_mode == "Haftalık İzin"
-                edit_hours = e6.number_input(
-                    "Çalışılan saat",
+        if st.session_state.get(edit_loaded_key) != selected_id:
+            st.session_state[edit_loaded_key] = selected_id
+            st.session_state[edit_date_key] = datetime.fromisoformat(selected["entry_date"]).date()
+            st.session_state[edit_rest_key] = current_rest_label if current_rest_label in rest_labels else (rest_labels[0] if rest_labels else "-")
+            st.session_state[edit_mode_key] = entry_mode_default if entry_mode_default in entry_mode_options else entry_mode_options[0]
+            st.session_state[edit_primary_key] = selected_person_label if selected_person_label in person_labels else "-"
+            st.session_state[edit_actual_key] = actual_default if actual_default in person_labels else "-"
+            st.session_state[edit_absence_key] = absence_reason_default if absence_reason_default in absence_reason_options else "-"
+            st.session_state[edit_hours_key] = float(selected["worked_hours"] or 0.0)
+            st.session_state[edit_package_key] = float(selected["package_count"] or 0.0)
+            st.session_state[edit_notes_key] = selected["notes"] or ""
+            existing_monthly_invoice = safe_float(selected.get("monthly_invoice_amount"), 0.0)
+            st.session_state[edit_monthly_key] = existing_monthly_invoice
+
+        if st.session_state.get(edit_rest_key) not in rest_labels:
+            st.session_state[edit_rest_key] = rest_labels[0] if rest_labels else "-"
+        if st.session_state.get(edit_mode_key) not in entry_mode_options:
+            st.session_state[edit_mode_key] = entry_mode_options[0]
+        if st.session_state.get(edit_primary_key) not in person_labels:
+            st.session_state[edit_primary_key] = "-"
+        if st.session_state.get(edit_actual_key) not in person_labels:
+            st.session_state[edit_actual_key] = "-"
+        if st.session_state.get(edit_absence_key) not in absence_reason_options:
+            st.session_state[edit_absence_key] = "-"
+
+        edit_left, edit_right = st.columns([2.15, 1])
+        with edit_left:
+            st.markdown("<div class='ck-attendance-form-kicker'>Vardiya Bilgisi</div>", unsafe_allow_html=True)
+            e1, e2, e3 = st.columns(3)
+            edit_date = e1.date_input("Tarih", key=edit_date_key)
+            edit_rest_label = e2.selectbox("Restoran / şube", rest_labels, key=edit_rest_key)
+            edit_entry_mode = e3.selectbox("Vardiya Akışı", entry_mode_options, key=edit_mode_key)
+
+        edit_restaurant_pricing = attendance_restaurant_pricing_lookup.get(edit_rest_label, {})
+        edit_is_fixed_monthly_restaurant = str(edit_restaurant_pricing.get("pricing_model") or "").strip() == "fixed_monthly"
+        edit_monthly_invoice_default = safe_float(selected.get("monthly_invoice_amount"), 0.0)
+        if edit_monthly_invoice_default <= 0:
+            edit_monthly_invoice_default = safe_float(edit_restaurant_pricing.get("fixed_monthly_fee"), 0.0)
+        if edit_is_fixed_monthly_restaurant and safe_float(st.session_state.get(edit_monthly_key), 0.0) <= 0:
+            st.session_state[edit_monthly_key] = edit_monthly_invoice_default
+
+        edit_input_disabled = edit_entry_mode == "Haftalık İzin"
+        if edit_input_disabled:
+            st.session_state[edit_hours_key] = 0.0
+            st.session_state[edit_package_key] = 0.0
+
+        edit_primary_label = "-"
+        edit_actual_label = "-"
+        edit_absence_reason = "-"
+        edit_monthly_invoice_amount = 0.0
+        with edit_left:
+            st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
+            if edit_entry_mode == "Restoran Kuryesi":
+                edit_primary_label = st.selectbox("Çalışan Personel", person_labels, key=edit_primary_key)
+            elif edit_entry_mode in ["Joker", "Destek"]:
+                e4, e5 = st.columns(2)
+                edit_primary_label = e4.selectbox("Çalışan Personel", person_labels, key=edit_primary_key)
+                edit_actual_label = e5.selectbox("Yerine Giren Personel", person_labels, key=edit_actual_key)
+                edit_absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options, key=edit_absence_key)
+            else:
+                e4, e5 = st.columns(2)
+                edit_primary_label = e4.selectbox("Çalışan Personel", person_labels, key=edit_primary_key)
+                edit_absence_reason = e5.selectbox("Neden Girmedi?", absence_reason_options, key=edit_absence_key)
+
+            st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
+            edit_metric_columns = st.columns(2)
+            e6, e7 = edit_metric_columns[0], edit_metric_columns[1]
+            edit_hours = e6.number_input(
+                "Çalışılan saat",
+                min_value=0.0,
+                step=0.5,
+                key=edit_hours_key,
+                disabled=edit_input_disabled,
+            )
+            edit_package = e7.number_input(
+                "Paket",
+                min_value=0.0,
+                step=1.0,
+                key=edit_package_key,
+                disabled=edit_input_disabled,
+            )
+            if edit_input_disabled:
+                edit_hours = 0.0
+                edit_package = 0.0
+            if edit_is_fixed_monthly_restaurant:
+                st.markdown("<div class='ck-attendance-form-kicker'>Faturalama</div>", unsafe_allow_html=True)
+                edit_monthly_invoice_amount = st.number_input(
+                    "Aylık Fatura Tutarı",
                     min_value=0.0,
-                    value=0.0 if edit_input_disabled else float(selected["worked_hours"] or 0),
-                    step=0.5,
-                    disabled=edit_input_disabled,
+                    step=100.0,
+                    key=edit_monthly_key,
                 )
-                edit_package = e7.number_input(
-                    "Paket",
-                    min_value=0.0,
-                    value=0.0 if edit_input_disabled else float(selected["package_count"] or 0),
-                    step=1.0,
-                    disabled=edit_input_disabled,
+                st.caption(
+                    f"Bu şube Sabit Aylık Ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(edit_monthly_invoice_default)}"
                 )
-                if edit_is_fixed_monthly_restaurant:
-                    st.markdown("<div class='ck-attendance-form-kicker'>Faturalama</div>", unsafe_allow_html=True)
-                    edit_monthly_invoice_amount = st.number_input(
-                        "Aylık Fatura Tutarı",
-                        min_value=0.0,
-                        value=edit_monthly_invoice_default,
-                        step=100.0,
-                    )
-                    st.caption(
-                        f"Bu şube Sabit Aylık Ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(edit_monthly_invoice_default)}"
-                    )
-                edit_notes = st.text_input("Not", value=selected["notes"] or "", placeholder="Kısa operasyon notu")
-            with edit_right:
-                edit_replacement_summary = (
-                    f"{edit_entry_mode} | {edit_actual_label}"
-                    if edit_entry_mode in ["Joker", "Destek"] and edit_actual_label != "-"
-                    else "-"
-                )
-                edit_preview_items = [
-                    ("Tarih", edit_date.isoformat() if edit_date else selected["entry_date"] or "-"),
-                    ("Şube", edit_rest_label or current_rest_label or "-"),
-                    ("Akış", edit_entry_mode or entry_mode_default or "-"),
-                    ("Çalışan", edit_primary_label or selected_person_label or "-"),
-                    ("Yerine Giren", edit_replacement_summary),
-                    ("Mesai", f"{fmt_number(edit_hours)} saat"),
-                    ("Paket", fmt_number(edit_package)),
-                ]
-                if edit_is_fixed_monthly_restaurant:
-                    edit_preview_items.append(("Aylık Fatura", fmt_try(edit_monthly_invoice_amount)))
-                render_attendance_preview_card(
-                    "Seçili Kayıt",
-                    edit_preview_items,
-                )
-            u1, u2 = st.columns(2)
-            update_clicked = u1.form_submit_button("Kaydı güncelle", use_container_width=True, disabled=not can_update_attendance)
-            delete_clicked = u2.form_submit_button("Kaydı sil", use_container_width=True, disabled=not can_delete_attendance)
+            if edit_input_disabled:
+                st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
+            edit_notes = st.text_input("Not", placeholder="Kısa operasyon notu", key=edit_notes_key)
 
-            if update_clicked:
-                previous_actual_id = safe_int(selected["actual_personnel_id"], 0)
-                try:
-                    edit_primary_id = person_opts[edit_primary_label] if edit_primary_label != "-" else None
-                    planned_id = edit_primary_id if edit_entry_mode in ["Joker", "Destek", "Haftalık İzin"] else None
-                    actual_id = person_opts[edit_actual_label] if edit_actual_label != "-" else None
-                    resolved_values = resolve_daily_entry_values(
-                        entry_mode=edit_entry_mode,
-                        primary_person_id=edit_primary_id,
-                        planned_personnel_id=planned_id,
-                        actual_personnel_id=actual_id,
-                        absence_reason="" if edit_absence_reason == "-" else edit_absence_reason,
-                        coverage_type=edit_entry_mode if edit_entry_mode in COVERAGE_TYPE_OPTIONS else "",
-                        worked_hours=edit_hours,
-                        package_count=edit_package,
-                        monthly_invoice_amount=edit_monthly_invoice_amount if edit_is_fixed_monthly_restaurant else 0.0,
-                        notes=edit_notes,
-                    )
-                    success_text = update_daily_entry_and_sync(
-                        conn,
-                        entry_id=selected_id,
-                        entry_values={
-                            "entry_date": edit_date.isoformat(),
-                            "restaurant_id": rest_opts[edit_rest_label],
-                            **resolved_values,
-                        },
-                        previous_actual_id=previous_actual_id,
-                        actual_id=resolved_values.get("actual_personnel_id"),
-                        sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
-                        actor_role=actor_role,
-                    )
-                except Exception as exc:
-                    st.error(f"Günlük puantaj kaydı güncellenemedi: {exc}")
-                else:
-                    st.success(success_text)
-                    st.rerun()
+        with edit_right:
+            edit_replacement_summary = (
+                f"{edit_entry_mode} | {edit_actual_label}"
+                if edit_entry_mode in ["Joker", "Destek"] and edit_actual_label != "-"
+                else "-"
+            )
+            edit_preview_items = [
+                ("Tarih", edit_date.isoformat() if edit_date else selected["entry_date"] or "-"),
+                ("Şube", edit_rest_label or current_rest_label or "-"),
+                ("Akış", edit_entry_mode or entry_mode_default or "-"),
+                ("Çalışan", edit_primary_label or selected_person_label or "-"),
+                ("Yerine Giren", edit_replacement_summary),
+                ("Mesai", f"{fmt_number(edit_hours)} saat"),
+                ("Paket", fmt_number(edit_package)),
+            ]
+            if edit_is_fixed_monthly_restaurant:
+                edit_preview_items.append(("Aylık Fatura", fmt_try(edit_monthly_invoice_amount)))
+            render_attendance_preview_card("Seçili Kayıt", edit_preview_items)
 
-            if delete_clicked:
-                deleted_actual_id = safe_int(selected["actual_personnel_id"], 0)
-                try:
-                    success_text = delete_daily_entry_and_sync(
-                        conn,
-                        entry_id=selected_id,
-                        deleted_actual_id=deleted_actual_id,
-                        sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
-                        actor_role=actor_role,
-                    )
-                except Exception as exc:
-                    st.error(f"Günlük puantaj kaydı silinemedi: {exc}")
-                else:
-                    st.success(success_text)
-                    st.rerun()
+        u1, u2 = st.columns(2)
+        update_clicked = u1.button(
+            "Kaydı güncelle",
+            use_container_width=True,
+            disabled=not can_update_attendance,
+            key=f"{edit_prefix}_update",
+        )
+        delete_clicked = u2.button(
+            "Kaydı sil",
+            use_container_width=True,
+            disabled=not can_delete_attendance,
+            key=f"{edit_prefix}_delete",
+        )
+
+        if update_clicked:
+            previous_actual_id = safe_int(selected["actual_personnel_id"], 0)
+            try:
+                edit_primary_id = person_opts[edit_primary_label] if edit_primary_label != "-" else None
+                planned_id = edit_primary_id if edit_entry_mode in ["Joker", "Destek", "Haftalık İzin"] else None
+                actual_id = person_opts[edit_actual_label] if edit_actual_label != "-" else None
+                resolved_values = resolve_daily_entry_values(
+                    entry_mode=edit_entry_mode,
+                    primary_person_id=edit_primary_id,
+                    planned_personnel_id=planned_id,
+                    actual_personnel_id=actual_id,
+                    absence_reason="" if edit_absence_reason == "-" else edit_absence_reason,
+                    coverage_type=edit_entry_mode if edit_entry_mode in COVERAGE_TYPE_OPTIONS else "",
+                    worked_hours=edit_hours,
+                    package_count=edit_package,
+                    monthly_invoice_amount=edit_monthly_invoice_amount if edit_is_fixed_monthly_restaurant else 0.0,
+                    notes=edit_notes,
+                )
+                success_text = update_daily_entry_and_sync(
+                    conn,
+                    entry_id=selected_id,
+                    entry_values={
+                        "entry_date": edit_date.isoformat(),
+                        "restaurant_id": rest_opts[edit_rest_label],
+                        **resolved_values,
+                    },
+                    previous_actual_id=previous_actual_id,
+                    actual_id=resolved_values.get("actual_personnel_id"),
+                    sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                    actor_role=actor_role,
+                )
+            except Exception as exc:
+                st.error(f"Günlük puantaj kaydı güncellenemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
+
+        if delete_clicked:
+            deleted_actual_id = safe_int(selected["actual_personnel_id"], 0)
+            try:
+                success_text = delete_daily_entry_and_sync(
+                    conn,
+                    entry_id=selected_id,
+                    deleted_actual_id=deleted_actual_id,
+                    sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                    actor_role=actor_role,
+                )
+            except Exception as exc:
+                st.error(f"Günlük puantaj kaydı silinemedi: {exc}")
+            else:
+                st.success(success_text)
+                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info("Henüz günlük puantaj kaydı yok.")
