@@ -6881,6 +6881,7 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
             build_grid_rows(payroll_display, payroll_columns),
             "Seçilen filtre için hakediş verisi bulunamadı.",
             muted_columns={"Maliyet Modeli"},
+            max_height_px=520,
         )
         st.download_button(
             "Aylık hakediş tablosunu indir",
