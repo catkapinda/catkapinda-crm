@@ -137,6 +137,52 @@ class AuthEngineTests(TestCase):
         self.assertIsNotNone(row)
         self.assertEqual(row["full_name"], "Emine Ebru Aslan")
 
+    def test_get_auth_user_falls_back_to_email_when_phone_column_is_missing(self) -> None:
+        raw_conn = sqlite3.connect(":memory:")
+        raw_conn.row_factory = sqlite3.Row
+        conn = CompatConnection(raw_conn, "sqlite")
+        conn.executescript(
+            """
+            CREATE TABLE auth_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                full_name TEXT NOT NULL,
+                role TEXT NOT NULL,
+                role_display TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                must_change_password INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT,
+                updated_at TEXT
+            );
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO auth_users (
+                email, full_name, role, role_display, password_hash,
+                is_active, must_change_password, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "ebru@catkapinda.com",
+                "Emine Ebru Aslan",
+                "admin",
+                "Yönetici",
+                "hash",
+                1,
+                0,
+                "2026-03-24T10:00:00",
+                "2026-03-24T10:00:00",
+            ),
+        )
+        conn.commit()
+
+        row = get_auth_user(conn, "ebru@catkapinda.com")
+        self.assertIsNotNone(row)
+        self.assertEqual(row["full_name"], "Emine Ebru Aslan")
+        conn.close()
+
     def test_sync_mobile_auth_users_creates_mobile_ops_auth_rows(self) -> None:
         self.conn.execute(
             "INSERT INTO personnel (full_name, role, phone, status) VALUES (?, ?, ?, ?)",
