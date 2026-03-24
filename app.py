@@ -137,9 +137,12 @@ from infrastructure.bootstrap_engine import (
     import_sqlite_into_current_db,
 )
 from infrastructure.auth_engine import (
+    PHONE_LOGIN_CODE_MINUTES,
     build_login_logo_markup,
     can_email_temporary_password_for_user,
+    can_phone_login_for_user,
     cleanup_auth_sessions,
+    cleanup_auth_phone_codes,
     clear_authenticated_user,
     configure_auth_engine,
     create_auth_session,
@@ -147,7 +150,9 @@ from infrastructure.auth_engine import (
     get_query_param,
     hash_auth_password,
     init_auth_state,
+    issue_phone_login_code,
     is_mobile_auth_email,
+    mask_auth_phone,
     normalize_auth_identity,
     normalize_auth_phone,
     restore_auth_session,
@@ -156,8 +161,10 @@ from infrastructure.auth_engine import (
     set_query_param,
     sync_default_auth_users,
     sync_mobile_auth_users,
+    verify_phone_login_code,
     verify_auth_password,
 )
+from infrastructure.sms_engine import send_phone_login_code_sms, sms_delivery_enabled
 from infrastructure.audit_engine import build_audit_actor_payload
 from ui.backup_sections import (
     configure_backup_sections,
@@ -290,7 +297,7 @@ DEFAULT_AUTH_PASSWORD = "123456"
 APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
 APP_PAGE_ICON = "🚚"
 MENU_QUERY_KEY = "menu"
-RUNTIME_BOOTSTRAP_VERSION = "2026-03-24-auth-phone-login"
+RUNTIME_BOOTSTRAP_VERSION = "2026-03-24-auth-phone-codes"
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
     "assets/catkapinda_logo.jpg",
@@ -1265,7 +1272,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     </div>
                 </div>
                 <div class="ck-login-form-title">Hesap Bilgileri</div>
-                <div class="ck-login-form-subtitle">Kurumsal e-posta adresin veya telefon numaran ve güncel şifrenle girişini tamamla.</div>
+                <div class="ck-login-form-subtitle">Kurumsal e-posta adresin veya telefon numaran ve güncel şifrenle girişini tamamla. Telefon kullanıcıları için SMS ile giriş kodu da desteklenir.</div>
                 """,
                 unsafe_allow_html=True,
             )
@@ -1278,7 +1285,7 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
             st.markdown(
                 """
-                <div class="ck-login-footer-note">Kurumsal e-posta hesabınla ya da telefon numaranla giriş yapabilirsin. E-posta tanımlı hesaplarda geçici şifre e-posta ile iletilir; telefonla giriş yapan saha kullanıcıları ilk girişten sonra Profil alanından şifresini güncelleyebilir.</div>
+                <div class="ck-login-footer-note">Kurumsal e-posta hesabınla ya da telefon numaranla giriş yapabilirsin. E-posta tanımlı hesaplarda geçici şifre e-posta ile iletilir; telefon kullanıcıları için SMS ile tek kullanımlık giriş kodu üretilebilir.</div>
                 """,
                 unsafe_allow_html=True,
             )
@@ -1293,12 +1300,12 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                 st.markdown(
                     """
                     <div class="ck-login-help-card">
-                        <div class="ck-login-help-title">Sifre Destegi</div>
-                        <div class="ck-login-help-text">Kurumsal e-posta adresini veya telefon numarani gir. E-posta tanimli aktif hesaplarda sistem yeni bir gecici sifre uretip e-posta ile iletsin.</div>
+                        <div class="ck-login-help-title">Sifre ve Telefon Kodu Destegi</div>
+                        <div class="ck-login-help-text">Kurumsal e-posta adresini veya telefon numarani gir. E-posta tanimli aktif hesaplarda sistem yeni bir gecici sifre uretsin; telefon kullanicilarinda ise SMS ile tek kullanimlik giris kodu gondersin.</div>
                         <div class="ck-login-help-steps">
-                            <div class="ck-login-help-step"><span class="ck-login-help-step-badge">1</span><span>Kurumsal e-posta adresini veya telefon numarani yaz ve yeni gecici sifreyi talep et.</span></div>
-                            <div class="ck-login-help-step"><span class="ck-login-help-step-badge">2</span><span>Gecici sifre e-posta adresine gelsin ve bu sifreyle giris yap.</span></div>
-                            <div class="ck-login-help-step"><span class="ck-login-help-step-badge">3</span><span>Panele girdikten sonra sag ustteki <strong>Profil</strong> alanindan sifreni hemen degistir.</span></div>
+                            <div class="ck-login-help-step"><span class="ck-login-help-step-badge">1</span><span>Kurumsal e-posta adresini veya telefon numarani yaz ve giris destegi talep et.</span></div>
+                            <div class="ck-login-help-step"><span class="ck-login-help-step-badge">2</span><span>E-posta kullanicilarina gecici sifre, telefon kullanicilarina SMS giris kodu gonderilsin.</span></div>
+                            <div class="ck-login-help-step"><span class="ck-login-help-step-badge">3</span><span>Panele girdikten sonra sag ustteki <strong>Profil</strong> alanindan sifreni hemen guncelle.</span></div>
                         </div>
                     </div>
                     """,
@@ -1307,16 +1314,33 @@ def login_gate(conn: sqlite3.Connection) -> bool:
 
                 with st.form("forgot_password_form", clear_on_submit=True):
                     forgot_identity = st.text_input("Kurumsal E-Posta veya Telefon", placeholder="ornek@catkapinda.com / 0532 000 00 00")
-                    forgot_submitted = st.form_submit_button("Yeni Geçici Şifre Gönder", use_container_width=True)
+                    forgot_submitted = st.form_submit_button("Geçici Şifre / SMS Kodu Gönder", use_container_width=True)
+
+                pending_phone_code_identity = str(st.session_state.get("pending_phone_code_identity") or "").strip()
+                if pending_phone_code_identity:
+                    pending_phone_code_masked = str(st.session_state.get("pending_phone_code_masked") or mask_auth_phone(pending_phone_code_identity))
+                    st.markdown(
+                        f"""
+                        <div class="ck-login-help-card">
+                            <div class="ck-login-help-title">SMS Giriş Kodu</div>
+                            <div class="ck-login-help-text">{html.escape(pending_phone_code_masked)} numarasina gonderilen 6 haneli kodu gir. Kod {PHONE_LOGIN_CODE_MINUTES} dakika gecerlidir.</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    with st.form("phone_code_login_form", clear_on_submit=True):
+                        phone_login_code = st.text_input("SMS Giriş Kodu", placeholder="6 haneli kod")
+                        phone_code_submitted = st.form_submit_button("Kod ile Giriş Yap", use_container_width=True)
+                else:
+                    phone_login_code = ""
+                    phone_code_submitted = False
 
             if forgot_submitted:
                 reset_identity = normalize_auth_identity(forgot_identity)
                 reset_user = get_auth_user(conn, reset_identity)
                 if not reset_user or safe_int(get_row_value(reset_user, "is_active", 0), 0) != 1:
                     st.error("Bu e-posta adresi veya telefon numarası için aktif bir hesap bulunamadı.")
-                elif not can_email_temporary_password_for_user(reset_user):
-                    st.info("Telefon numarasıyla giriş yapan mobil operasyon kullanıcıları için SMS ile geçici şifre gönderimi henüz aktif değil. İlk şifre operasyon tarafından tanımlanır; giriş yaptıktan sonra Profil alanından şifreni değiştirebilirsin.")
-                else:
+                elif "@" in reset_identity and can_email_temporary_password_for_user(reset_user):
                     temporary_password = generate_temporary_password()
                     try:
                         conn.execute(
@@ -1336,8 +1360,11 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                             str(get_row_value(reset_user, "full_name", "") or ""),
                             temporary_password,
                         )
+                        cleanup_auth_phone_codes(conn)
                         conn.commit()
                         st.session_state.login_help_visible = False
+                        st.session_state.pending_phone_code_identity = None
+                        st.session_state.pending_phone_code_masked = None
                         st.success("Yeni geçici şifren e-posta adresine gönderildi. Giriş yaptıktan sonra Profil alanından şifreni güncelle.")
                     except RuntimeError as exc:
                         conn.rollback()
@@ -1345,6 +1372,44 @@ def login_gate(conn: sqlite3.Connection) -> bool:
                     except Exception:
                         conn.rollback()
                         st.error("Şifre sıfırlama işlemi tamamlanamadı. Birkaç dakika sonra tekrar dene.")
+                elif can_phone_login_for_user(reset_user):
+                    if not sms_delivery_enabled():
+                        st.info("Telefonla giriş kodu gönderebilmek için SMS sağlayıcısı ayarları henüz tanımlı değil.")
+                    else:
+                        try:
+                            login_code = issue_phone_login_code(conn, reset_user)
+                            send_phone_login_code_sms(
+                                normalize_auth_phone(str(get_row_value(reset_user, "phone", "") or "")),
+                                str(get_row_value(reset_user, "full_name", "") or ""),
+                                login_code,
+                                expires_in_minutes=PHONE_LOGIN_CODE_MINUTES,
+                            )
+                            conn.commit()
+                            st.session_state.pending_phone_code_identity = normalize_auth_phone(str(get_row_value(reset_user, "phone", "") or ""))
+                            st.session_state.pending_phone_code_masked = mask_auth_phone(str(get_row_value(reset_user, "phone", "") or ""))
+                            st.success("SMS giriş kodu telefon numarana gönderildi.")
+                        except RuntimeError as exc:
+                            conn.rollback()
+                            st.error(str(exc))
+                        except Exception:
+                            conn.rollback()
+                            st.error("SMS giriş kodu gönderilemedi. Birkaç dakika sonra tekrar dene.")
+                else:
+                    st.info("Bu hesap için e-posta veya telefon tabanlı giriş desteği kullanılamıyor.")
+
+            if phone_code_submitted:
+                pending_phone = str(st.session_state.get("pending_phone_code_identity") or "").strip()
+                phone_user = verify_phone_login_code(conn, pending_phone, phone_login_code)
+                if phone_user and safe_int(get_row_value(phone_user, "is_active", 0), 0) == 1:
+                    token = create_auth_session(conn, pending_phone)
+                    set_query_param(AUTH_QUERY_KEY, token)
+                    set_authenticated_user(phone_user, token)
+                    st.session_state.login_help_visible = False
+                    st.session_state.pending_phone_code_identity = None
+                    st.session_state.pending_phone_code_masked = None
+                    st.session_state.login_transition_active = True
+                    st.rerun()
+                st.error("SMS giriş kodu hatalı veya süresi dolmuş.")
 
         if submitted:
             entered_username = normalize_auth_identity(username)
