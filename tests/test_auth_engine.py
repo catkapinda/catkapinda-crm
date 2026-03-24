@@ -5,11 +5,15 @@ from unittest import TestCase
 
 from infrastructure.auth_engine import (
     can_email_temporary_password_for_user,
+    can_phone_login_for_user,
     configure_auth_engine,
     get_auth_user,
+    issue_phone_login_code,
+    mask_auth_phone,
     normalize_auth_identity,
     normalize_auth_phone,
     sync_mobile_auth_users,
+    verify_phone_login_code,
 )
 from infrastructure.db_engine import CompatConnection
 
@@ -56,6 +60,19 @@ def _make_conn() -> CompatConnection:
             username TEXT NOT NULL,
             created_at TEXT NOT NULL,
             expires_at TEXT NOT NULL
+        );
+
+        CREATE TABLE auth_phone_codes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            auth_user_id INTEGER NOT NULL,
+            phone TEXT NOT NULL,
+            code_hash TEXT NOT NULL,
+            purpose TEXT NOT NULL DEFAULT 'login',
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            consumed_at TEXT,
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            last_attempt_at TEXT
         );
 
         CREATE TABLE personnel (
@@ -150,3 +167,38 @@ class AuthEngineTests(TestCase):
                 {"email": "ebru@catkapinda.com"}
             )
         )
+
+    def test_phone_login_helpers_issue_and_verify_code(self) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO auth_users (
+                email, phone, full_name, role, role_display, password_hash,
+                is_active, must_change_password, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "mobile.personnel.9@auth.catkapinda.local",
+                "5327654321",
+                "Ali Veli",
+                "mobile_ops",
+                "Mobil Operasyon",
+                "hash",
+                1,
+                1,
+                "2026-03-24T10:00:00",
+                "2026-03-24T10:00:00",
+            ),
+        )
+        self.conn.commit()
+
+        user_row = get_auth_user(self.conn, "0532 765 43 21")
+        self.assertTrue(can_phone_login_for_user(user_row))
+        self.assertEqual(mask_auth_phone("0532 765 43 21"), "0532 *** ** 21")
+
+        login_code = issue_phone_login_code(self.conn, user_row)
+        self.assertEqual(len(login_code), 6)
+
+        verified_user = verify_phone_login_code(self.conn, "0532 765 43 21", login_code)
+        self.assertIsNotNone(verified_user)
+        self.assertEqual(verified_user["full_name"], "Ali Veli")
+        self.assertIsNone(verify_phone_login_code(self.conn, "0532 765 43 21", login_code))

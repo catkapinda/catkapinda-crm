@@ -23,6 +23,8 @@ _AUTH_QUERY_KEY = ""
 _AUTH_SESSION_DAYS = 30
 _MOBILE_AUTH_PERSONNEL_ROLES: tuple[str, ...] = ("Joker", "Bölge Müdürü")
 _MOBILE_AUTH_EMAIL_DOMAIN = "auth.catkapinda.local"
+PHONE_LOGIN_CODE_MINUTES = 10
+_PHONE_LOGIN_CODE_ATTEMPT_LIMIT = 5
 
 
 def configure_auth_engine(
@@ -89,6 +91,17 @@ def is_mobile_auth_email(email: str) -> bool:
 def can_email_temporary_password_for_user(user_row: Any) -> bool:
     email_value = str(_GET_ROW_VALUE(user_row, "email", "") or "")
     return bool(email_value and not is_mobile_auth_email(email_value))
+
+
+def can_phone_login_for_user(user_row: Any) -> bool:
+    return bool(normalize_auth_phone(str(_GET_ROW_VALUE(user_row, "phone", "") or "")))
+
+
+def mask_auth_phone(value: str) -> str:
+    normalized_phone = normalize_auth_phone(value)
+    if not normalized_phone:
+        return str(value or "").strip()
+    return f"0{normalized_phone[:3]} *** ** {normalized_phone[-2:]}"
 
 
 def hash_auth_password(password: str, salt: str | None = None) -> str:
@@ -174,6 +187,8 @@ def init_auth_state() -> None:
         "must_change_password": False,
         "login_help_visible": False,
         "login_transition_active": False,
+        "pending_phone_code_identity": None,
+        "pending_phone_code_masked": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -204,8 +219,131 @@ def clear_authenticated_user() -> None:
         "user_role_display",
         "must_change_password",
         "login_transition_active",
+        "pending_phone_code_identity",
+        "pending_phone_code_masked",
     ]:
         st.session_state.pop(key, None)
+
+
+def cleanup_auth_phone_codes(conn: Any) -> None:
+    now_text = datetime.utcnow().isoformat(timespec="seconds")
+    stale_consumed_before = (datetime.utcnow() - timedelta(days=1)).isoformat(timespec="seconds")
+    conn.execute(
+        """
+        DELETE FROM auth_phone_codes
+        WHERE expires_at <= ?
+           OR (consumed_at IS NOT NULL AND consumed_at <= ?)
+        """,
+        (now_text, stale_consumed_before),
+    )
+    conn.commit()
+
+
+def generate_phone_login_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def issue_phone_login_code(conn: Any, user_row: Any, *, purpose: str = "login") -> str:
+    cleanup_auth_phone_codes(conn)
+    auth_user_id = int(_GET_ROW_VALUE(user_row, "id", 0) or 0)
+    phone_value = normalize_auth_phone(str(_GET_ROW_VALUE(user_row, "phone", "") or ""))
+    if auth_user_id <= 0 or not phone_value:
+        raise RuntimeError("Bu hesap için kullanılabilir bir telefon numarası bulunamadı.")
+
+    now_text = datetime.utcnow().isoformat(timespec="seconds")
+    expires_at = (datetime.utcnow() + timedelta(minutes=PHONE_LOGIN_CODE_MINUTES)).isoformat(timespec="seconds")
+    login_code = generate_phone_login_code()
+    conn.execute(
+        """
+        DELETE FROM auth_phone_codes
+        WHERE auth_user_id = ?
+          AND purpose = ?
+          AND consumed_at IS NULL
+        """,
+        (auth_user_id, purpose),
+    )
+    conn.execute(
+        """
+        INSERT INTO auth_phone_codes (
+            auth_user_id, phone, code_hash, purpose, created_at, expires_at, consumed_at, attempt_count, last_attempt_at
+        ) VALUES (?, ?, ?, ?, ?, ?, NULL, 0, NULL)
+        """,
+        (
+            auth_user_id,
+            phone_value,
+            hash_auth_password(login_code),
+            purpose,
+            now_text,
+            expires_at,
+        ),
+    )
+    return login_code
+
+
+def verify_phone_login_code(conn: Any, phone: str, login_code: str, *, purpose: str = "login") -> Any:
+    normalized_phone = normalize_auth_phone(phone)
+    if not normalized_phone or not str(login_code or "").strip():
+        return None
+
+    cleanup_auth_phone_codes(conn)
+    row = conn.execute(
+        """
+        SELECT
+            c.id AS code_row_id,
+            c.auth_user_id AS code_auth_user_id,
+            c.code_hash AS code_hash,
+            c.attempt_count AS code_attempt_count,
+            u.*
+        FROM auth_phone_codes c
+        JOIN auth_users u ON u.id = c.auth_user_id
+        WHERE c.phone = ?
+          AND c.purpose = ?
+          AND c.consumed_at IS NULL
+          AND c.expires_at > ?
+        ORDER BY c.created_at DESC, c.id DESC
+        LIMIT 1
+        """,
+        (normalized_phone, purpose, datetime.utcnow().isoformat(timespec="seconds")),
+    ).fetchone()
+    if not row:
+        return None
+
+    code_row_id = int(_GET_ROW_VALUE(row, "code_row_id", 0) or 0)
+    attempt_count = _SAFE_INT(_GET_ROW_VALUE(row, "code_attempt_count", 0), 0)
+    if attempt_count >= _PHONE_LOGIN_CODE_ATTEMPT_LIMIT:
+        return None
+
+    if not verify_auth_password(str(login_code or "").strip(), str(_GET_ROW_VALUE(row, "code_hash", "") or "")):
+        conn.execute(
+            """
+            UPDATE auth_phone_codes
+            SET attempt_count = ?, last_attempt_at = ?
+            WHERE id = ?
+            """,
+            (
+                attempt_count + 1,
+                datetime.utcnow().isoformat(timespec="seconds"),
+                code_row_id,
+            ),
+        )
+        conn.commit()
+        return None
+
+    conn.execute(
+        """
+        UPDATE auth_phone_codes
+        SET consumed_at = ?, last_attempt_at = ?, attempt_count = ?
+        WHERE id = ?
+        """,
+        (
+            datetime.utcnow().isoformat(timespec="seconds"),
+            datetime.utcnow().isoformat(timespec="seconds"),
+            attempt_count + 1,
+            code_row_id,
+        ),
+    )
+    conn.commit()
+    return row
 
 
 def get_query_param(name: str) -> str | None:
