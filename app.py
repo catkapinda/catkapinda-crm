@@ -5247,7 +5247,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options)
 
             st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
-            metric_columns = st.columns([0.85, 0.85, 1.2] if is_fixed_monthly_restaurant else [1, 1])
+            metric_columns = st.columns(2)
             c6, c7 = metric_columns[0], metric_columns[1]
             input_disabled = entry_mode == "Haftalık İzin"
             worked_hours = c6.number_input(
@@ -5265,13 +5265,16 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                 disabled=input_disabled,
             )
             if is_fixed_monthly_restaurant:
-                monthly_invoice_amount = metric_columns[2].number_input(
+                st.markdown("<div class='ck-attendance-form-kicker'>Faturalama</div>", unsafe_allow_html=True)
+                monthly_invoice_amount = st.number_input(
                     "Aylık Fatura Tutarı",
                     min_value=0.0,
                     value=default_monthly_invoice_amount,
                     step=100.0,
                 )
-                st.caption(f"Bu şube sabit aylık ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(default_monthly_invoice_amount)}")
+                st.caption(
+                    f"Bu şube Sabit Aylık Ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(default_monthly_invoice_amount)}"
+                )
             if input_disabled:
                 st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
             notes = st.text_input("Not", placeholder="Kısa operasyon notu")
@@ -5508,7 +5511,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     )
 
                 st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
-                edit_metric_columns = st.columns([0.85, 0.85, 1.2] if edit_is_fixed_monthly_restaurant else [1, 1])
+                edit_metric_columns = st.columns(2)
                 e6, e7 = edit_metric_columns[0], edit_metric_columns[1]
                 edit_input_disabled = edit_entry_mode == "Haftalık İzin"
                 edit_hours = e6.number_input(
@@ -5526,13 +5529,16 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
                     disabled=edit_input_disabled,
                 )
                 if edit_is_fixed_monthly_restaurant:
-                    edit_monthly_invoice_amount = edit_metric_columns[2].number_input(
+                    st.markdown("<div class='ck-attendance-form-kicker'>Faturalama</div>", unsafe_allow_html=True)
+                    edit_monthly_invoice_amount = st.number_input(
                         "Aylık Fatura Tutarı",
                         min_value=0.0,
                         value=edit_monthly_invoice_default,
                         step=100.0,
                     )
-                    st.caption(f"Bu şube sabit aylık ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(edit_monthly_invoice_default)}")
+                    st.caption(
+                        f"Bu şube Sabit Aylık Ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(edit_monthly_invoice_default)}"
+                    )
                 edit_notes = st.text_input("Not", value=selected["notes"] or "", placeholder="Kısa operasyon notu")
             with edit_right:
                 edit_replacement_summary = (
