@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 from typing import Any
@@ -9,6 +10,7 @@ import streamlit as st
 
 
 SMS_PROVIDER_GENERIC_JSON = "generic_json"
+SMS_PROVIDER_NETGSM = "netgsm"
 
 
 def get_sms_config() -> dict[str, Any] | None:
@@ -23,6 +25,8 @@ def get_sms_config() -> dict[str, Any] | None:
 
     provider = str(sms_secrets.get("provider", "") or os.getenv("SMS_PROVIDER", "") or "").strip().lower()
     api_url = str(sms_secrets.get("api_url", "") or os.getenv("SMS_API_URL", "") or "").strip()
+    if provider == SMS_PROVIDER_NETGSM and not api_url:
+        api_url = "https://api.netgsm.com.tr/sms/rest/v2/send"
     if not provider or not api_url:
         return None
 
@@ -32,7 +36,7 @@ def get_sms_config() -> dict[str, Any] | None:
     except Exception:
         timeout_seconds = 20
 
-    return {
+    config = {
         "provider": provider,
         "api_url": api_url,
         "api_token": str(sms_secrets.get("api_token", "") or os.getenv("SMS_API_TOKEN", "") or ""),
@@ -49,6 +53,15 @@ def get_sms_config() -> dict[str, Any] | None:
         ).strip(),
         "timeout_seconds": timeout_seconds,
     }
+    if provider == SMS_PROVIDER_NETGSM:
+        config["username"] = str(sms_secrets.get("username", "") or os.getenv("SMS_NETGSM_USERNAME", "") or "").strip()
+        config["password"] = str(sms_secrets.get("password", "") or os.getenv("SMS_NETGSM_PASSWORD", "") or "").strip()
+        config["encoding"] = str(sms_secrets.get("encoding", "") or os.getenv("SMS_NETGSM_ENCODING", "TR") or "TR").strip() or "TR"
+        config["iysfilter"] = str(sms_secrets.get("iysfilter", "") or os.getenv("SMS_NETGSM_IYSFILTER", "") or "").strip()
+        config["partnercode"] = str(sms_secrets.get("partnercode", "") or os.getenv("SMS_NETGSM_PARTNERCODE", "") or "").strip()
+        if not config["username"] or not config["password"]:
+            return None
+    return config
 
 
 def sms_delivery_enabled() -> bool:
@@ -60,29 +73,47 @@ def send_phone_login_code_sms(phone: str, full_name: str, code: str, *, expires_
     if not sms_config:
         raise RuntimeError("SMS ile giriş kodu gönderimi için SMS ayarları henüz tanımlı değil.")
 
-    if sms_config["provider"] != SMS_PROVIDER_GENERIC_JSON:
-        raise RuntimeError("Tanımlı SMS sağlayıcısı bu sürümde desteklenmiyor.")
-
     message = sms_config["message_template"].format(
         full_name=(full_name or "ekip arkadasi").strip() or "ekip arkadasi",
         code=str(code or "").strip(),
         minutes=int(expires_in_minutes or 0),
     )
-    payload = {
-        "to": str(phone or "").strip(),
-        "sender": sms_config["sender"],
-        "message": message,
-        "channel": "sms",
-    }
     headers = {
         "Content-Type": "application/json; charset=utf-8",
         "Accept": "application/json",
     }
-    if sms_config["api_token"]:
-        auth_value = sms_config["api_token"]
-        if sms_config["token_prefix"]:
-            auth_value = f"{sms_config['token_prefix']} {auth_value}"
-        headers[sms_config["auth_header"]] = auth_value
+    payload: dict[str, Any]
+    if sms_config["provider"] == SMS_PROVIDER_GENERIC_JSON:
+        payload = {
+            "to": str(phone or "").strip(),
+            "sender": sms_config["sender"],
+            "message": message,
+            "channel": "sms",
+        }
+        if sms_config["api_token"]:
+            auth_value = sms_config["api_token"]
+            if sms_config["token_prefix"]:
+                auth_value = f"{sms_config['token_prefix']} {auth_value}"
+            headers[sms_config["auth_header"]] = auth_value
+    elif sms_config["provider"] == SMS_PROVIDER_NETGSM:
+        basic_value = base64.b64encode(
+            f"{sms_config['username']}:{sms_config['password']}".encode("utf-8")
+        ).decode("ascii")
+        headers["Authorization"] = f"Basic {basic_value}"
+        payload = {
+            "msgheader": sms_config["sender"],
+            "messages": [
+                {
+                    "msg": message,
+                    "no": str(phone or "").strip(),
+                }
+            ],
+            "encoding": sms_config["encoding"],
+            "iysfilter": sms_config["iysfilter"],
+            "partnercode": sms_config["partnercode"],
+        }
+    else:
+        raise RuntimeError("Tanımlı SMS sağlayıcısı bu sürümde desteklenmiyor.")
 
     req = request.Request(
         sms_config["api_url"],
