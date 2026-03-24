@@ -47,6 +47,14 @@ class PermissionServiceTests(TestCase):
 
         self.assertEqual(menu_items, ["Personel Yönetimi", "Puantaj"])
 
+    def test_mobile_ops_cannot_view_personnel_list_or_plate_workspace(self) -> None:
+        self.assertFalse(can_perform_action("mobile_ops", "personnel.list"))
+        self.assertFalse(can_perform_action("mobile_ops", "personnel.plate"))
+
+    def test_sef_can_view_personnel_list_and_plate_workspace(self) -> None:
+        self.assertTrue(can_perform_action("sef", "personnel.list"))
+        self.assertTrue(can_perform_action("sef", "personnel.plate"))
+
     def test_sef_cannot_delete_sales_lead(self) -> None:
         with self.assertRaises(PermissionDeniedError):
             require_action_access("sef", "sales.delete")

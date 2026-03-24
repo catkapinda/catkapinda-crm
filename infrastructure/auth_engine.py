@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import re
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -20,6 +21,8 @@ _PASSWORD_HASH_ITERATIONS = 200_000
 _LOGIN_LOGO_CANDIDATES: list[str] = []
 _AUTH_QUERY_KEY = ""
 _AUTH_SESSION_DAYS = 30
+_MOBILE_AUTH_PERSONNEL_ROLES: tuple[str, ...] = ("Joker", "Bölge Müdürü")
+_MOBILE_AUTH_EMAIL_DOMAIN = "auth.catkapinda.local"
 
 
 def configure_auth_engine(
@@ -56,7 +59,36 @@ def configure_auth_engine(
 
 
 def normalize_auth_identity(value: str) -> str:
-    return (value or "").strip().lower()
+    raw_value = (value or "").strip()
+    if not raw_value:
+        return ""
+    if "@" in raw_value:
+        return raw_value.lower()
+    normalized_phone = normalize_auth_phone(raw_value)
+    return normalized_phone or raw_value.lower()
+
+
+def normalize_auth_phone(value: str) -> str:
+    digits = re.sub(r"\D+", "", value or "")
+    if digits.startswith("90") and len(digits) == 12:
+        digits = digits[2:]
+    if digits.startswith("0") and len(digits) == 11:
+        digits = digits[1:]
+    return digits if len(digits) == 10 else ""
+
+
+def build_mobile_auth_email(personnel_id: int) -> str:
+    return f"mobile.personnel.{int(personnel_id)}@{_MOBILE_AUTH_EMAIL_DOMAIN}"
+
+
+def is_mobile_auth_email(email: str) -> bool:
+    normalized_email = normalize_auth_identity(email)
+    return normalized_email.startswith("mobile.personnel.") and normalized_email.endswith(f"@{_MOBILE_AUTH_EMAIL_DOMAIN}")
+
+
+def can_email_temporary_password_for_user(user_row: Any) -> bool:
+    email_value = str(_GET_ROW_VALUE(user_row, "email", "") or "")
+    return bool(email_value and not is_mobile_auth_email(email_value))
 
 
 def hash_auth_password(password: str, salt: str | None = None) -> str:
@@ -93,8 +125,14 @@ def get_auth_user(conn: Any, identity: str) -> Any:
     if not normalized_identity:
         return None
     return conn.execute(
-        "SELECT * FROM auth_users WHERE lower(email) = lower(?) LIMIT 1",
-        (normalized_identity,),
+        """
+        SELECT *
+        FROM auth_users
+        WHERE lower(COALESCE(email, '')) = lower(?)
+           OR COALESCE(phone, '') = ?
+        LIMIT 1
+        """,
+        (normalized_identity, normalized_identity),
     ).fetchone()
 
 
@@ -145,8 +183,10 @@ def init_auth_state() -> None:
 def set_authenticated_user(user_row: Any, token: str | None = None) -> None:
     if not user_row:
         return
+    phone_identity = normalize_auth_phone(str(_GET_ROW_VALUE(user_row, "phone", "") or ""))
+    email_identity = str(_GET_ROW_VALUE(user_row, "email", "") or "")
     st.session_state.authenticated = True
-    st.session_state.username = str(_GET_ROW_VALUE(user_row, "email", "") or "")
+    st.session_state.username = phone_identity or email_identity
     st.session_state.role = str(_GET_ROW_VALUE(user_row, "role", "") or "")
     st.session_state.auth_token = token
     st.session_state.user_full_name = str(_GET_ROW_VALUE(user_row, "full_name", "") or "")
@@ -218,12 +258,13 @@ def sync_default_auth_users(conn: Any) -> None:
             conn.execute(
                 """
                 INSERT INTO auth_users (
-                    email, full_name, role, role_display, password_hash,
+                    email, phone, full_name, role, role_display, password_hash,
                     is_active, must_change_password, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     normalize_auth_identity(user["email"]),
+                    normalize_auth_phone(str(user.get("phone", "") or "")),
                     user["full_name"],
                     user["role"],
                     user["role_display"],
@@ -244,12 +285,13 @@ def sync_default_auth_users(conn: Any) -> None:
         conn.execute(
             """
             UPDATE auth_users
-            SET email = ?, full_name = ?, role = ?, role_display = ?, password_hash = ?,
+            SET email = ?, phone = ?, full_name = ?, role = ?, role_display = ?, password_hash = ?,
                 is_active = 1, must_change_password = ?, updated_at = ?
             WHERE id = ?
             """,
             (
                 normalize_auth_identity(user["email"]),
+                normalize_auth_phone(str(user.get("phone", "") or "")),
                 user["full_name"],
                 user["role"],
                 user["role_display"],
@@ -259,6 +301,118 @@ def sync_default_auth_users(conn: Any) -> None:
                 int(_GET_ROW_VALUE(existing, "id", 0) or 0),
             ),
         )
+
+    conn.commit()
+
+
+def sync_mobile_auth_users(conn: Any) -> None:
+    now_text = datetime.utcnow().isoformat(timespec="seconds")
+    placeholder_emails: set[str] = set()
+    existing_mobile_users = conn.execute(
+        """
+        SELECT id, email, phone
+        FROM auth_users
+        WHERE role = 'mobile_ops'
+          AND lower(COALESCE(email, '')) LIKE 'mobile.personnel.%@auth.catkapinda.local'
+        """
+    ).fetchall()
+
+    personnel_rows = conn.execute(
+        f"""
+        SELECT id, full_name, role, phone, status
+        FROM personnel
+        WHERE status = 'Aktif'
+          AND role IN ({", ".join(["?"] * len(_MOBILE_AUTH_PERSONNEL_ROLES))})
+        ORDER BY full_name
+        """,
+        _MOBILE_AUTH_PERSONNEL_ROLES,
+    ).fetchall()
+
+    for row in personnel_rows:
+        personnel_id = int(_GET_ROW_VALUE(row, "id", 0) or 0)
+        normalized_phone = normalize_auth_phone(str(_GET_ROW_VALUE(row, "phone", "") or ""))
+        if personnel_id <= 0 or not normalized_phone:
+            continue
+        placeholder_email = build_mobile_auth_email(personnel_id)
+        placeholder_emails.add(placeholder_email)
+        existing = conn.execute(
+            """
+            SELECT *
+            FROM auth_users
+            WHERE lower(COALESCE(email, '')) = lower(?)
+               OR COALESCE(phone, '') = ?
+            LIMIT 1
+            """,
+            (placeholder_email, normalized_phone),
+        ).fetchone()
+
+        if existing is None:
+            conn.execute(
+                """
+                INSERT INTO auth_users (
+                    email, phone, full_name, role, role_display, password_hash,
+                    is_active, must_change_password, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    placeholder_email,
+                    normalized_phone,
+                    str(_GET_ROW_VALUE(row, "full_name", "") or ""),
+                    "mobile_ops",
+                    "Mobil Operasyon",
+                    hash_auth_password(_DEFAULT_AUTH_PASSWORD),
+                    1,
+                    1,
+                    now_text,
+                    now_text,
+                ),
+            )
+            continue
+
+        password_hash = str(_GET_ROW_VALUE(existing, "password_hash", "") or "")
+        must_change_password = _SAFE_INT(_GET_ROW_VALUE(existing, "must_change_password", 0), 0)
+        if not password_hash:
+            password_hash = hash_auth_password(_DEFAULT_AUTH_PASSWORD)
+            must_change_password = 1
+        old_phone = normalize_auth_phone(str(_GET_ROW_VALUE(existing, "phone", "") or ""))
+        conn.execute(
+            """
+            UPDATE auth_users
+            SET email = ?, phone = ?, full_name = ?, role = 'mobile_ops', role_display = ?,
+                password_hash = ?, is_active = 1, must_change_password = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                placeholder_email,
+                normalized_phone,
+                str(_GET_ROW_VALUE(row, "full_name", "") or ""),
+                "Mobil Operasyon",
+                password_hash,
+                must_change_password,
+                now_text,
+                int(_GET_ROW_VALUE(existing, "id", 0) or 0),
+            ),
+        )
+        if old_phone and old_phone != normalized_phone:
+            conn.execute("DELETE FROM auth_sessions WHERE username = ?", (old_phone,))
+
+    for row in existing_mobile_users:
+        auth_user_id = int(_GET_ROW_VALUE(row, "id", 0) or 0)
+        auth_email = str(_GET_ROW_VALUE(row, "email", "") or "")
+        auth_phone = normalize_auth_phone(str(_GET_ROW_VALUE(row, "phone", "") or ""))
+        if not auth_email or auth_email in placeholder_emails:
+            continue
+        conn.execute(
+            """
+            UPDATE auth_users
+            SET is_active = 0, updated_at = ?
+            WHERE id = ?
+            """,
+            (now_text, auth_user_id),
+        )
+        conn.execute("DELETE FROM auth_sessions WHERE username = ?", (auth_email,))
+        if auth_phone:
+            conn.execute("DELETE FROM auth_sessions WHERE username = ?", (auth_phone,))
 
     conn.commit()
 
