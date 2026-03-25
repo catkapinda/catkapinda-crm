@@ -74,3 +74,87 @@ def fetch_recent_attendance_entries(
         (limit,),
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+def fetch_attendance_restaurants(conn: psycopg.Connection) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            id,
+            brand,
+            branch,
+            pricing_model,
+            COALESCE(fixed_monthly_fee, 0) AS fixed_monthly_fee
+        FROM restaurants
+        WHERE active = TRUE
+        ORDER BY brand, branch
+        """
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def fetch_attendance_people(
+    conn: psycopg.Connection,
+    *,
+    restaurant_id: int,
+    include_all_active: bool = False,
+) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT id, full_name, role
+        FROM personnel
+        WHERE status = 'Aktif'
+          AND (
+            %s = TRUE
+            OR assigned_restaurant_id = %s
+            OR role IN ('Joker', 'Bölge Müdürü', 'Saha Denetmen Şefi', 'Restoran Takım Şefi')
+          )
+        ORDER BY
+            CASE
+                WHEN role = 'Restoran Takım Şefi' THEN 1
+                WHEN role = 'Saha Denetmen Şefi' THEN 2
+                WHEN role = 'Bölge Müdürü' THEN 3
+                WHEN role = 'Joker' THEN 4
+                ELSE 5
+            END,
+            full_name
+        """,
+        (include_all_active, restaurant_id),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def insert_attendance_entry(conn: psycopg.Connection, values: dict) -> int:
+    row = conn.execute(
+        """
+        INSERT INTO daily_entries (
+            entry_date,
+            restaurant_id,
+            planned_personnel_id,
+            actual_personnel_id,
+            status,
+            worked_hours,
+            package_count,
+            monthly_invoice_amount,
+            absence_reason,
+            coverage_type,
+            notes
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
+        """,
+        (
+            values["entry_date"],
+            values["restaurant_id"],
+            values["planned_personnel_id"],
+            values["actual_personnel_id"],
+            values["status"],
+            values["worked_hours"],
+            values["package_count"],
+            values["monthly_invoice_amount"],
+            values["absence_reason"],
+            values["coverage_type"],
+            values["notes"],
+        ),
+    ).fetchone()
+    return int(row["id"])

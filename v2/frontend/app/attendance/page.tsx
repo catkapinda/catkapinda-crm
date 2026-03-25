@@ -1,4 +1,5 @@
 import { AppShell } from "../../components/shell/app-shell";
+import { AttendanceEntryWorkspace } from "../../components/attendance/attendance-entry-workspace";
 
 type AttendanceDashboard = {
   module: string;
@@ -156,6 +157,8 @@ export default async function AttendancePage() {
           </div>
         ) : (
           <>
+            <AttendanceEntryWorkspace />
+
             <div
               style={{
                 display: "grid",
