@@ -4515,6 +4515,23 @@ def inject_global_styles() -> None:
                 filter: none !important;
             }
 
+            [data-stale="true"],
+            [data-stale="true"] *,
+            .stApp [data-stale="true"],
+            .stApp [data-stale="true"] * {
+                opacity: 1 !important;
+                filter: none !important;
+                backdrop-filter: none !important;
+            }
+
+            [data-testid="stElementContainer"],
+            [data-testid="stElementContainer"] *,
+            .element-container,
+            .element-container * {
+                opacity: 1 !important;
+                filter: none !important;
+            }
+
             div[data-baseweb="layer"],
             div[data-baseweb="layer"] > div,
             div[data-baseweb="portal"],
@@ -4540,12 +4557,20 @@ def inject_global_styles() -> None:
                 opacity: 1 !important;
             }
 
+            body:has(div[data-baseweb="popover"]) .stApp,
+            body:has(div[data-baseweb="popover"]) .stApp *,
             body:has(div[data-baseweb="popover"]) [data-testid="stAppViewContainer"],
             body:has(div[data-baseweb="popover"]) section.main,
             body:has(div[data-baseweb="popover"]) .main .block-container,
+            body:has(div[data-baseweb="popover"]) [data-testid="stSidebar"],
+            body:has(div[data-baseweb="popover"]) [data-testid="stSidebar"] *,
+            body:has(ul[role="listbox"]) .stApp,
+            body:has(ul[role="listbox"]) .stApp *,
             body:has(ul[role="listbox"]) [data-testid="stAppViewContainer"],
             body:has(ul[role="listbox"]) section.main,
-            body:has(ul[role="listbox"]) .main .block-container {
+            body:has(ul[role="listbox"]) .main .block-container,
+            body:has(ul[role="listbox"]) [data-testid="stSidebar"],
+            body:has(ul[role="listbox"]) [data-testid="stSidebar"] * {
                 opacity: 1 !important;
                 filter: none !important;
                 backdrop-filter: none !important;
