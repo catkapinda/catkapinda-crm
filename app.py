@@ -4532,6 +4532,35 @@ def inject_global_styles() -> None:
                 filter: none !important;
             }
 
+            [data-testid="stAppViewContainer"] [style*="opacity: 0"],
+            [data-testid="stAppViewContainer"] [style*="opacity:0"],
+            [data-testid="stSidebar"] [style*="opacity: 0"],
+            [data-testid="stSidebar"] [style*="opacity:0"],
+            [data-testid="stAppViewContainer"] [style*="filter: blur"],
+            [data-testid="stAppViewContainer"] [style*="filter:blur"],
+            [data-testid="stSidebar"] [style*="filter: blur"],
+            [data-testid="stSidebar"] [style*="filter:blur"] {
+                opacity: 1 !important;
+                filter: none !important;
+                backdrop-filter: none !important;
+            }
+
+            [data-testid="stAppViewContainer"]::before,
+            [data-testid="stAppViewContainer"]::after,
+            section.main::before,
+            section.main::after,
+            .main .block-container::before,
+            .main .block-container::after,
+            [data-testid="stSidebar"]::before,
+            [data-testid="stSidebar"]::after {
+                opacity: 0 !important;
+                filter: none !important;
+                backdrop-filter: none !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                display: none !important;
+            }
+
             div[data-baseweb="layer"],
             div[data-baseweb="layer"] > div,
             div[data-baseweb="portal"],
@@ -4571,6 +4600,19 @@ def inject_global_styles() -> None:
             body:has(ul[role="listbox"]) .main .block-container,
             body:has(ul[role="listbox"]) [data-testid="stSidebar"],
             body:has(ul[role="listbox"]) [data-testid="stSidebar"] * {
+                opacity: 1 !important;
+                filter: none !important;
+                backdrop-filter: none !important;
+            }
+
+            body:has(div[data-baseweb="popover"]) [data-testid="stAppViewContainer"] [style*="opacity"],
+            body:has(ul[role="listbox"]) [data-testid="stAppViewContainer"] [style*="opacity"],
+            body:has(div[data-baseweb="popover"]) [data-testid="stSidebar"] [style*="opacity"],
+            body:has(ul[role="listbox"]) [data-testid="stSidebar"] [style*="opacity"],
+            body:has(div[data-baseweb="popover"]) [data-testid="stAppViewContainer"] [style*="filter"],
+            body:has(ul[role="listbox"]) [data-testid="stAppViewContainer"] [style*="filter"],
+            body:has(div[data-baseweb="popover"]) [data-testid="stSidebar"] [style*="filter"],
+            body:has(ul[role="listbox"]) [data-testid="stSidebar"] [style*="filter"] {
                 opacity: 1 !important;
                 filter: none !important;
                 backdrop-filter: none !important;
