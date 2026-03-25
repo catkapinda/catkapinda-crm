@@ -17,7 +17,7 @@ const migrationCards = [
 
 export default function HomePage() {
   return (
-    <AppShell>
+    <AppShell activeItem="Genel Bakış">
       <section
         style={{
           display: "grid",
@@ -71,11 +71,11 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: "16px",
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "16px",
           }}
         >
           {migrationCards.map((card) => (
@@ -109,6 +109,24 @@ export default function HomePage() {
             </article>
           ))}
         </div>
+
+        <a
+          href="/attendance"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "fit-content",
+            padding: "14px 18px",
+            borderRadius: "16px",
+            background: "var(--accent)",
+            color: "#fff",
+            fontWeight: 800,
+            letterSpacing: "0.01em",
+          }}
+        >
+          Attendance slice ekranini ac
+        </a>
       </section>
     </AppShell>
   );

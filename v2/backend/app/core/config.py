@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     api_prefix: str = "/api"
     app_env: str = "development"
+    database_url: str | None = None
+    frontend_app_name: str = "Cat Kapinda CRM v2"
 
     model_config = SettingsConfigDict(
         env_prefix="CK_V2_",
