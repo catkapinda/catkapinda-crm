@@ -274,7 +274,7 @@ def connect_database() -> CompatConnection:
     database_config = get_database_config()
     if database_config:
         last_error: RuntimeError | None = None
-        retry_delays = (0.6, 1.4, 2.5)
+        retry_delays = (0.75, 1.5, 2.5, 4.0)
         for attempt, delay in enumerate(retry_delays, start=1):
             try:
                 return connect_postgres(database_config)

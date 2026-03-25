@@ -8,6 +8,7 @@ import re
 import secrets
 import smtplib
 import sqlite3
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from email.message import EmailMessage
@@ -375,6 +376,8 @@ configure_db_engine(
 )
 AUTH_QUERY_KEY = "ck_session"
 SESSION_CONN_KEY = "_ck_active_conn"
+SESSION_CONN_CREATED_AT_KEY = "_ck_active_conn_created_at"
+SESSION_CONN_MAX_AGE_SECONDS = 75
 AUTH_SESSION_DAYS = 30
 VAT_RATE_DEFAULT = 20.0
 COURIER_HOURLY_COST = 250.0  # KDV dahil
@@ -756,23 +759,34 @@ def insert_equipment_issue_and_get_id(
 
 
 def get_conn() -> CompatConnection:
-    existing = st.session_state.get(SESSION_CONN_KEY)
-    if isinstance(existing, CompatConnection):
-        try:
-            probe = existing.execute("SELECT 1")
-            probe.fetchone()
-            probe.close()
-            return existing
-        except Exception:
+    def drop_existing_conn() -> None:
+        stale_conn = st.session_state.get(SESSION_CONN_KEY)
+        if isinstance(stale_conn, CompatConnection):
             try:
-                existing.close()
+                stale_conn.close()
             except Exception:
                 pass
-            st.session_state.pop(SESSION_CONN_KEY, None)
+        st.session_state.pop(SESSION_CONN_KEY, None)
+        st.session_state.pop(SESSION_CONN_CREATED_AT_KEY, None)
+
+    existing = st.session_state.get(SESSION_CONN_KEY)
+    created_at = float(st.session_state.get(SESSION_CONN_CREATED_AT_KEY, 0.0) or 0.0)
+    if isinstance(existing, CompatConnection):
+        if created_at and (time.monotonic() - created_at) > SESSION_CONN_MAX_AGE_SECONDS:
+            drop_existing_conn()
+        else:
+            try:
+                probe = existing.execute("SELECT 1")
+                probe.fetchone()
+                probe.close()
+                return existing
+            except Exception:
+                drop_existing_conn()
 
     conn = connect_database()
     ensure_runtime_bootstrap(conn)
     st.session_state[SESSION_CONN_KEY] = conn
+    st.session_state[SESSION_CONN_CREATED_AT_KEY] = time.monotonic()
     return conn
 
 

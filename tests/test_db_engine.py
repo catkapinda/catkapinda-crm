@@ -97,12 +97,16 @@ class DbEngineConfigTests(TestCase):
         expected_error = RuntimeError("temp fail")
         with (
             patch.object(db_engine, "get_database_config", return_value="postgresql://demo"),
-            patch.object(db_engine, "connect_postgres", side_effect=[expected_error, expected_error, expected_error]) as connect_mock,
+            patch.object(
+                db_engine,
+                "connect_postgres",
+                side_effect=[expected_error, expected_error, expected_error, expected_error],
+            ) as connect_mock,
             patch.object(db_engine.time, "sleep") as sleep_mock,
         ):
             with self.assertRaises(RuntimeError) as ctx:
                 db_engine.connect_database()
 
         self.assertIn("Veritabanina su an ulasilamiyor", str(ctx.exception))
-        self.assertEqual(connect_mock.call_count, 3)
-        self.assertEqual(sleep_mock.call_count, 2)
+        self.assertEqual(connect_mock.call_count, 4)
+        self.assertEqual(sleep_mock.call_count, 3)
