@@ -117,6 +117,8 @@ class ReportingServiceTests(unittest.TestCase):
             [
                 {"personnel_id": 1, "deduction_type": "Yakıt", "amount": 1200.0},
                 {"personnel_id": 2, "deduction_type": "Yakıt", "amount": 800.0},
+                {"personnel_id": 1, "deduction_type": "Avans", "amount": 15000.0},
+                {"personnel_id": 1, "deduction_type": "İdari ceza", "amount": 2000.0},
                 {"personnel_id": 2, "deduction_type": "Partner Kart İndirimi", "amount": 55.0},
             ]
         )

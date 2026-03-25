@@ -172,3 +172,29 @@ class DeductionsServiceTests(TestCase):
             normalize_deduction_amount_for_form("HGS", 120.0, safe_float_fn=lambda value, default=0.0: float(value or default)),
             120.0,
         )
+
+    def test_reduced_vat_and_non_invoiced_amount_helpers_keep_entered_gross_values(self) -> None:
+        self.assertEqual(
+            normalize_deduction_amount_for_storage(
+                "Korumalı Mont",
+                550.0,
+                safe_float_fn=lambda value, default=0.0: float(value or default),
+            ),
+            550.0,
+        )
+        self.assertEqual(
+            normalize_deduction_amount_for_form(
+                "Korumalı Mont",
+                550.0,
+                safe_float_fn=lambda value, default=0.0: float(value or default),
+            ),
+            550.0,
+        )
+        self.assertEqual(
+            normalize_deduction_amount_for_storage(
+                "Avans",
+                15000.0,
+                safe_float_fn=lambda value, default=0.0: float(value or default),
+            ),
+            15000.0,
+        )
