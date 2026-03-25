@@ -3388,7 +3388,7 @@ def inject_global_styles() -> None:
             }
 
             header[data-testid="stHeader"] {
-                background: rgba(245, 248, 253, 0.72);
+                background: #F5F8FD;
             }
 
             [data-testid="stDecoration"],
@@ -3677,7 +3677,6 @@ def inject_global_styles() -> None:
                 border: 1px solid rgba(255,255,255,0.16);
                 border-radius: 18px;
                 padding: 14px 14px 12px;
-                backdrop-filter: blur(8px);
             }
 
             .ck-hero-value {
@@ -3927,12 +3926,11 @@ def inject_global_styles() -> None:
             .ck-login-card {
                 position: relative;
                 overflow: hidden;
-                background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%);
+                background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%);
                 border: 1px solid rgba(231, 237, 246, 0.92);
                 border-radius: 32px;
                 padding: 28px 28px 24px;
                 box-shadow: 0 24px 60px rgba(15, 23, 42, 0.10);
-                backdrop-filter: blur(10px);
             }
 
             .ck-login-card::before {
@@ -4397,8 +4395,7 @@ def inject_global_styles() -> None:
                 position: sticky;
                 top: 0;
                 z-index: 2;
-                background: linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 100%);
-                backdrop-filter: blur(10px);
+                background: linear-gradient(180deg, #F8FBFF 0%, #F8FBFF 100%);
             }
 
             .ck-data-grid-head-item {
@@ -4495,10 +4492,39 @@ def inject_global_styles() -> None:
 
             .stTextInput input, .stNumberInput input, .stTextArea textarea {
                 border-radius: 14px;
+                background: #FFFFFF !important;
             }
 
             .stSelectbox [data-baseweb="select"] > div, .stDateInput > div > div {
                 border-radius: 14px;
+                background: #FFFFFF !important;
+            }
+
+            div[data-testid="stForm"] {
+                background: linear-gradient(180deg, #FFFFFF 0%, #F9FCFF 100%);
+                backdrop-filter: none !important;
+            }
+
+            [data-testid="stAppViewContainer"],
+            section.main,
+            .main .block-container {
+                opacity: 1 !important;
+                filter: none !important;
+            }
+
+            div[data-baseweb="popover"],
+            div[data-baseweb="popover"] > div,
+            div[data-baseweb="menu"],
+            ul[role="listbox"] {
+                background: #FFFFFF !important;
+                opacity: 1 !important;
+                filter: none !important;
+                backdrop-filter: none !important;
+                box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14) !important;
+            }
+
+            div[data-baseweb="popover"] * {
+                opacity: 1 !important;
             }
 
             div[data-baseweb="tab-list"] {
