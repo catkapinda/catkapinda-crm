@@ -57,7 +57,6 @@ def fetch_daily_entry_management_df(conn: CompatConnection):
         LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
         LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
         ORDER BY d.entry_date DESC, restoran, d.id DESC
-        LIMIT 500
         """,
     )
 

@@ -186,3 +186,15 @@ class AttendanceRepositoryTests(TestCase):
                 "Ayse Yilmaz (Kurye)",
             ],
         )
+
+    def test_fetch_daily_entry_management_df_returns_more_than_500_rows(self) -> None:
+        for index in range(550):
+            values = _entry_values()
+            values["entry_date"] = f"2026-03-{(index % 28) + 1:02d}"
+            values["notes"] = f"Kayit {index}"
+            insert_daily_entry(self.conn, values)
+        self.conn.commit()
+
+        df = fetch_daily_entry_management_df(self.conn)
+
+        self.assertEqual(len(df), 550)

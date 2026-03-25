@@ -75,7 +75,7 @@ class DeductionsServiceTests(TestCase):
         self.assertEqual(payload.row["amount"], 1250.50)
         self.assertEqual(payload.display_amount, 1250.50)
 
-    def test_build_selection_payload_returns_base_amount_for_hgs(self) -> None:
+    def test_build_selection_payload_returns_stored_amount_for_hgs(self) -> None:
         raw_df = pd.DataFrame(
             [
                 {
@@ -97,7 +97,7 @@ class DeductionsServiceTests(TestCase):
             is_system_personnel_auto_deduction_key_fn=lambda value: str(value or "").startswith("auto:"),
         )
 
-        self.assertEqual(payload.display_amount, 1000.0)
+        self.assertEqual(payload.display_amount, 1200.0)
 
     def test_create_deduction_commits_and_returns_message(self) -> None:
         conn = _DummyConn()
@@ -111,7 +111,7 @@ class DeductionsServiceTests(TestCase):
         self.assertEqual(conn.rollback_count, 0)
         self.assertIn("2026-03-31", message)
 
-    def test_create_hgs_deduction_stores_vat_included_amount(self) -> None:
+    def test_create_hgs_deduction_stores_entered_amount_without_extra_vat(self) -> None:
         conn = _DummyConn()
         deduction_values = {"deduction_date": "2026-03-31", "deduction_type": "HGS", "amount": 1000.0}
 
@@ -119,9 +119,9 @@ class DeductionsServiceTests(TestCase):
             create_deduction_and_commit(conn, deduction_values=deduction_values)
 
         inserted_payload = insert_mock.call_args.args[1]
-        self.assertEqual(inserted_payload["amount"], 1200.0)
+        self.assertEqual(inserted_payload["amount"], 1000.0)
 
-    def test_update_hgs_deduction_stores_vat_included_amount(self) -> None:
+    def test_update_hgs_deduction_stores_entered_amount_without_extra_vat(self) -> None:
         conn = _DummyConn()
         deduction_values = {"deduction_date": "2026-03-31", "deduction_type": "HGS", "amount": 250.0}
 
@@ -129,7 +129,7 @@ class DeductionsServiceTests(TestCase):
             update_deduction_and_commit(conn, deduction_id=8, deduction_values=deduction_values)
 
         updated_payload = update_mock.call_args.args[2]
-        self.assertEqual(updated_payload["amount"], 300.0)
+        self.assertEqual(updated_payload["amount"], 250.0)
 
     def test_update_deduction_rolls_back_on_failure(self) -> None:
         conn = _DummyConn()
@@ -166,9 +166,9 @@ class DeductionsServiceTests(TestCase):
     def test_hgs_amount_helpers_round_trip(self) -> None:
         self.assertEqual(
             normalize_deduction_amount_for_storage("HGS", 100.0, safe_float_fn=lambda value, default=0.0: float(value or default)),
-            120.0,
+            100.0,
         )
         self.assertEqual(
             normalize_deduction_amount_for_form("HGS", 120.0, safe_float_fn=lambda value, default=0.0: float(value or default)),
-            100.0,
+            120.0,
         )
