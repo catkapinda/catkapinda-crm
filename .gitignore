@@ -6,3 +6,7 @@ __pycache__/
 .DS_Store
 catkapinda_crm.db
 .streamlit/
+v2/frontend/node_modules/
+v2/frontend/.next/
+v2/frontend/out/
+v2/backend/.venv/
