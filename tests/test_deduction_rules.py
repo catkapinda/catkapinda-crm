@@ -1,38 +1,68 @@
 from __future__ import annotations
 
+from datetime import date
 import unittest
 
 import pandas as pd
 
 from rules.deduction_rules import (
+    ADMINISTRATIVE_FINE_DEDUCTION_TYPE,
+    ADVANCE_DEDUCTION_TYPE,
+    BOX_DEDUCTION_TYPE,
+    CHEST_BAG_DEDUCTION_TYPE,
     DEDUCTION_TYPE_OPTIONS,
+    FUEL_DEDUCTION_TYPE,
+    HELMET_DEDUCTION_TYPE,
+    HGS_DEDUCTION_TYPE,
     MOTOR_DAMAGE_DEDUCTION_TYPE,
     MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
+    PHONE_MOUNT_DEDUCTION_TYPE,
+    POLAR_DEDUCTION_TYPE,
+    PROTECTIVE_JACKET_DEDUCTION_TYPE,
+    PUNCH_DEDUCTION_TYPE,
+    RAINCOAT_DEDUCTION_TYPE,
+    TSHIRT_DEDUCTION_TYPE,
+    VEST_DEDUCTION_TYPE,
     calculate_fuel_discount_summary,
     filter_payroll_effective_deductions_df,
     get_deduction_type_caption,
+    get_deduction_vat_rate,
 )
 
 
 class DeductionRulesTests(unittest.TestCase):
-    def test_deduction_type_options_include_avans_and_partner_discount(self) -> None:
-        self.assertIn("Avans", DEDUCTION_TYPE_OPTIONS)
+    def test_deduction_type_options_include_expected_manual_types(self) -> None:
+        self.assertIn(ADVANCE_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(ADMINISTRATIVE_FINE_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(FUEL_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(HGS_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(HELMET_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(PHONE_MOUNT_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(PROTECTIVE_JACKET_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(RAINCOAT_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(BOX_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(PUNCH_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(TSHIRT_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(POLAR_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(VEST_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
+        self.assertIn(CHEST_BAG_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
         self.assertIn("Partner Kart İndirimi", DEDUCTION_TYPE_OPTIONS)
         self.assertIn(MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
         self.assertIn(MOTOR_DAMAGE_DEDUCTION_TYPE, DEDUCTION_TYPE_OPTIONS)
 
-    def test_filter_payroll_effective_deductions_excludes_side_income_only_rows(self) -> None:
+    def test_filter_payroll_effective_deductions_excludes_non_invoice_and_side_income_rows(self) -> None:
         deductions_df = pd.DataFrame(
             [
                 {"deduction_type": "Yakıt", "amount": 1200.0},
                 {"deduction_type": "Avans", "amount": 800.0},
+                {"deduction_type": "İdari ceza", "amount": 450.0},
                 {"deduction_type": "Partner Kart İndirimi", "amount": 95.0},
             ]
         )
 
         filtered_df = filter_payroll_effective_deductions_df(deductions_df)
 
-        self.assertEqual(filtered_df["deduction_type"].tolist(), ["Yakıt", "Avans"])
+        self.assertEqual(filtered_df["deduction_type"].tolist(), ["Yakıt"])
 
     def test_filter_payroll_effective_deductions_excludes_maintenance_for_company_rental_motor(self) -> None:
         deductions_df = pd.DataFrame(
@@ -86,6 +116,37 @@ class DeductionRulesTests(unittest.TestCase):
         caption = get_deduction_type_caption(MOTOR_DAMAGE_DEDUCTION_TYPE)
 
         self.assertIn("tüm motor tiplerinde kuryeye yansıtılır", caption)
+
+    def test_get_deduction_vat_rate_returns_twenty_percent_for_core_invoice_types(self) -> None:
+        for deduction_type in [
+            MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
+            FUEL_DEDUCTION_TYPE,
+            HGS_DEDUCTION_TYPE,
+            MOTOR_DAMAGE_DEDUCTION_TYPE,
+            HELMET_DEDUCTION_TYPE,
+            PHONE_MOUNT_DEDUCTION_TYPE,
+        ]:
+            with self.subTest(deduction_type=deduction_type):
+                self.assertEqual(get_deduction_vat_rate(deduction_type), 0.20)
+
+    def test_get_deduction_vat_rate_returns_ten_percent_for_reduced_types_from_march_2026(self) -> None:
+        for deduction_type in [
+            PROTECTIVE_JACKET_DEDUCTION_TYPE,
+            RAINCOAT_DEDUCTION_TYPE,
+            BOX_DEDUCTION_TYPE,
+            PUNCH_DEDUCTION_TYPE,
+            TSHIRT_DEDUCTION_TYPE,
+            POLAR_DEDUCTION_TYPE,
+            VEST_DEDUCTION_TYPE,
+            CHEST_BAG_DEDUCTION_TYPE,
+        ]:
+            with self.subTest(deduction_type=deduction_type):
+                self.assertEqual(get_deduction_vat_rate(deduction_type, date(2026, 2, 28)), 0.20)
+                self.assertEqual(get_deduction_vat_rate(deduction_type, date(2026, 3, 1)), 0.10)
+
+    def test_get_deduction_vat_rate_returns_zero_for_non_invoiced_types(self) -> None:
+        self.assertEqual(get_deduction_vat_rate(ADVANCE_DEDUCTION_TYPE), 0.0)
+        self.assertEqual(get_deduction_vat_rate(ADMINISTRATIVE_FINE_DEDUCTION_TYPE), 0.0)
 
     def test_calculate_fuel_discount_summary_uses_company_motor_rows_only_for_utts_discount(self) -> None:
         deductions_df = pd.DataFrame(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any
 
 import pandas as pd
@@ -7,6 +8,23 @@ import pandas as pd
 
 MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE = "Motor Servis Bakım"
 MOTOR_DAMAGE_DEDUCTION_TYPE = "Motor Hasar"
+HELMET_DEDUCTION_TYPE = "Kask"
+PHONE_MOUNT_DEDUCTION_TYPE = "Telefon Tutacağı"
+PROTECTIVE_JACKET_DEDUCTION_TYPE = "Korumalı Mont"
+RAINCOAT_DEDUCTION_TYPE = "Yağmurluk"
+BOX_DEDUCTION_TYPE = "Box"
+PUNCH_DEDUCTION_TYPE = "Punch"
+TSHIRT_DEDUCTION_TYPE = "Tişört"
+POLAR_DEDUCTION_TYPE = "Polar"
+VEST_DEDUCTION_TYPE = "Yelek"
+CHEST_BAG_DEDUCTION_TYPE = "Göğüs Çantası"
+ADVANCE_DEDUCTION_TYPE = "Avans"
+ADMINISTRATIVE_FINE_DEDUCTION_TYPE = "İdari ceza"
+NON_INVOICED_AMOUNT_DEDUCTION_TYPE = "Fatura Edilmeyen Tutar"
+FUEL_DEDUCTION_TYPE = "Yakıt"
+HGS_DEDUCTION_TYPE = "HGS"
+PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE = "Partner Kart İndirimi"
+REDUCED_DEDUCTION_VAT_START_DATE = date(2026, 3, 1)
 
 LEGACY_DEDUCTION_TYPE_MAP = {
     "Bakım": MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
@@ -15,19 +33,52 @@ LEGACY_DEDUCTION_TYPE_MAP = {
 
 DEDUCTION_TYPE_OPTIONS = [
     MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
-    "Yakıt",
-    "HGS",
-    "İdari ceza",
+    FUEL_DEDUCTION_TYPE,
+    HGS_DEDUCTION_TYPE,
+    HELMET_DEDUCTION_TYPE,
+    PHONE_MOUNT_DEDUCTION_TYPE,
     MOTOR_DAMAGE_DEDUCTION_TYPE,
-    "Fatura Edilmeyen Tutar",
-    "Avans",
-    "Partner Kart İndirimi",
+    PROTECTIVE_JACKET_DEDUCTION_TYPE,
+    RAINCOAT_DEDUCTION_TYPE,
+    BOX_DEDUCTION_TYPE,
+    PUNCH_DEDUCTION_TYPE,
+    TSHIRT_DEDUCTION_TYPE,
+    POLAR_DEDUCTION_TYPE,
+    VEST_DEDUCTION_TYPE,
+    CHEST_BAG_DEDUCTION_TYPE,
+    ADMINISTRATIVE_FINE_DEDUCTION_TYPE,
+    NON_INVOICED_AMOUNT_DEDUCTION_TYPE,
+    ADVANCE_DEDUCTION_TYPE,
+    PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE,
 ]
 
 HGS_VAT_RATE = 0.20
 COMPANY_FUEL_DISCOUNT_RATE = 0.07
 COMPANY_VEHICLE_TYPE = "Çat Kapında"
-SIDE_INCOME_ONLY_DEDUCTION_TYPES = {"Partner Kart İndirimi"}
+TWENTY_PERCENT_VAT_INCLUDED_DEDUCTION_TYPES = {
+    MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
+    FUEL_DEDUCTION_TYPE,
+    HGS_DEDUCTION_TYPE,
+    MOTOR_DAMAGE_DEDUCTION_TYPE,
+    HELMET_DEDUCTION_TYPE,
+    PHONE_MOUNT_DEDUCTION_TYPE,
+}
+TEN_PERCENT_VAT_INCLUDED_DEDUCTION_TYPES = {
+    PROTECTIVE_JACKET_DEDUCTION_TYPE,
+    RAINCOAT_DEDUCTION_TYPE,
+    BOX_DEDUCTION_TYPE,
+    PUNCH_DEDUCTION_TYPE,
+    TSHIRT_DEDUCTION_TYPE,
+    POLAR_DEDUCTION_TYPE,
+    VEST_DEDUCTION_TYPE,
+    CHEST_BAG_DEDUCTION_TYPE,
+}
+NON_INVOICED_DEDUCTION_TYPES = {
+    ADMINISTRATIVE_FINE_DEDUCTION_TYPE,
+    ADVANCE_DEDUCTION_TYPE,
+}
+SIDE_INCOME_ONLY_DEDUCTION_TYPES = {PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE}
+PAYROLL_EXCLUDED_DEDUCTION_TYPES = SIDE_INCOME_ONLY_DEDUCTION_TYPES | NON_INVOICED_DEDUCTION_TYPES
 
 
 def normalize_deduction_type(value: Any) -> str:
@@ -36,15 +87,45 @@ def normalize_deduction_type(value: Any) -> str:
 
 
 def is_hgs_deduction_type(deduction_type: Any) -> bool:
-    return normalize_deduction_type(deduction_type).lower() == "hgs"
+    return normalize_deduction_type(deduction_type) == HGS_DEDUCTION_TYPE
 
 
 def is_side_income_only_deduction_type(deduction_type: Any) -> bool:
     return normalize_deduction_type(deduction_type) in SIDE_INCOME_ONLY_DEDUCTION_TYPES
 
 
+def is_non_invoiced_deduction_type(deduction_type: Any) -> bool:
+    return normalize_deduction_type(deduction_type) in NON_INVOICED_DEDUCTION_TYPES
+
+
 def _is_yes_value(value: Any) -> bool:
     return str(value or "").strip().lower() == "evet"
+
+
+def _parse_deduction_date(value: Any) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    normalized_value = str(value).strip()
+    if not normalized_value:
+        return None
+    try:
+        return datetime.fromisoformat(normalized_value).date()
+    except ValueError:
+        return None
+
+
+def get_deduction_vat_rate(deduction_type: Any, deduction_date: Any = None) -> float:
+    normalized_type = normalize_deduction_type(deduction_type)
+    if normalized_type in TWENTY_PERCENT_VAT_INCLUDED_DEDUCTION_TYPES:
+        return 0.20
+    if normalized_type in TEN_PERCENT_VAT_INCLUDED_DEDUCTION_TYPES:
+        resolved_date = _parse_deduction_date(deduction_date)
+        if resolved_date is not None and resolved_date >= REDUCED_DEDUCTION_VAT_START_DATE:
+            return 0.10
+        return 0.20
+    return 0.0
 
 
 def get_deduction_type_caption(deduction_type: Any) -> str:
@@ -52,15 +133,25 @@ def get_deduction_type_caption(deduction_type: Any) -> str:
     if normalized_type == MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE:
         return "Motor servis bakımında Çat Kapında kiralık motorları şirket öder. Çat Kapında satılık motor ve kendi motorunda bakım kuryeden kesilir."
     if normalized_type == MOTOR_DAMAGE_DEDUCTION_TYPE:
-        return "Motor hasar bedeli tüm motor tiplerinde kuryeye yansıtılır."
-    if normalized_type == "HGS":
+        return "Motor hasar bedeli tüm motor tiplerinde kuryeye yansıtılır ve %20 KDV dahil fatura tutarı olarak girilir."
+    if normalized_type == HGS_DEDUCTION_TYPE:
         return "HGS tutarını zaten KDV dahil ödediğin toplam olarak gir. Sistem hakedişe aynı tutarı yazar, ekstra KDV eklemez."
-    if normalized_type == "Yakıt":
+    if normalized_type == FUEL_DEDUCTION_TYPE:
         return "Yakıt tutarını kuryeye yansıtılacak %20 KDV dahil fatura toplamı olarak gir. Çat Kapında motorlarında %7 UTTS indirimi yan gelire otomatik eklenir."
-    if normalized_type == "Partner Kart İndirimi":
+    if normalized_type == HELMET_DEDUCTION_TYPE:
+        return "Kask bedelini kuryeye yansıtılacak %20 KDV dahil toplam olarak gir."
+    if normalized_type == PHONE_MOUNT_DEDUCTION_TYPE:
+        return "Telefon tutacağı bedelini kuryeye yansıtılacak %20 KDV dahil toplam olarak gir."
+    if normalized_type in TEN_PERCENT_VAT_INCLUDED_DEDUCTION_TYPES:
+        return "Bu kalem Mart 2026'dan itibaren %10 KDV dahil fatura toplamı olarak girilir. Ocak-Şubat 2026 kayıtlarında %20 mantığı korunur."
+    if normalized_type == PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE:
         return "Kendi motoruyla çalışan kuryelerin ay sonu kart indirim gelirini manuel gir. Bu kalem hakedişten düşülmez, sadece yan gelirde görünür."
-    if normalized_type == "Avans":
-        return "Personele verilen avansı ay sonu hakedişinden düşmek için kaydet."
+    if normalized_type == ADVANCE_DEDUCTION_TYPE:
+        return "Personele verilen avansı tahsilat takibi için kaydet. Ödeme düşer ama kurye fatura matrahı bu kalemden etkilenmez."
+    if normalized_type == ADMINISTRATIVE_FINE_DEDUCTION_TYPE:
+        return "İdari ceza ödeme tahsilatı için kaydedilir. Bu kalem için ayrıca fatura KDV hesabı yapılmaz."
+    if normalized_type == NON_INVOICED_AMOUNT_DEDUCTION_TYPE:
+        return "Fatura edilmeyen tutarı kuryeden tahsilat takibi için kaydet."
     return ""
 
 
@@ -73,7 +164,7 @@ def filter_payroll_effective_deductions_df(
     if deductions_df.empty or "deduction_type" not in deductions_df.columns:
         return deductions_df.copy()
     normalized_types = deductions_df["deduction_type"].apply(normalize_deduction_type)
-    filtered_df = deductions_df[~normalized_types.isin(SIDE_INCOME_ONLY_DEDUCTION_TYPES)].copy()
+    filtered_df = deductions_df[~normalized_types.isin(PAYROLL_EXCLUDED_DEDUCTION_TYPES)].copy()
     if filtered_df.empty:
         return filtered_df
     if (
