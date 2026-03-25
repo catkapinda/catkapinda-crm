@@ -4507,9 +4507,22 @@ def inject_global_styles() -> None:
 
             [data-testid="stAppViewContainer"],
             section.main,
-            .main .block-container {
+            .main .block-container,
+            [data-testid="stAppViewContainer"] *,
+            section.main *,
+            .main .block-container * {
                 opacity: 1 !important;
                 filter: none !important;
+            }
+
+            div[data-baseweb="layer"],
+            div[data-baseweb="layer"] > div,
+            div[data-baseweb="portal"],
+            div[data-baseweb="portal"] > div {
+                background: transparent !important;
+                backdrop-filter: none !important;
+                filter: none !important;
+                opacity: 1 !important;
             }
 
             div[data-baseweb="popover"],
@@ -4525,6 +4538,17 @@ def inject_global_styles() -> None:
 
             div[data-baseweb="popover"] * {
                 opacity: 1 !important;
+            }
+
+            body:has(div[data-baseweb="popover"]) [data-testid="stAppViewContainer"],
+            body:has(div[data-baseweb="popover"]) section.main,
+            body:has(div[data-baseweb="popover"]) .main .block-container,
+            body:has(ul[role="listbox"]) [data-testid="stAppViewContainer"],
+            body:has(ul[role="listbox"]) section.main,
+            body:has(ul[role="listbox"]) .main .block-container {
+                opacity: 1 !important;
+                filter: none !important;
+                backdrop-filter: none !important;
             }
 
             div[data-baseweb="tab-list"] {
