@@ -15,6 +15,7 @@ def render_invoice_report_tab(
     format_display_df_fn: Callable[..., pd.DataFrame],
     build_grid_rows_fn: Callable[[pd.DataFrame, list[str]], list[dict[str, Any]]],
     render_dashboard_data_grid_fn: Callable[..., None],
+    render_executive_metrics_fn: Callable[..., None],
     pricing_model_labels: dict[str, str],
     fmt_number_fn: Callable[[Any], str],
     fmt_try_fn: Callable[[Any], str],
@@ -38,9 +39,66 @@ def render_invoice_report_tab(
     st.markdown(
         """
         <style>
+        .invoice-report-overview {
+            display: grid;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+        .invoice-report-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 14px 16px;
+            border: 1px solid rgba(221, 230, 244, 0.92);
+            border-radius: 22px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,251,255,0.98));
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+        }
+        .invoice-report-toolbar-copy {
+            display: grid;
+            gap: 4px;
+        }
+        .invoice-report-toolbar-title {
+            color: #10203A;
+            font-size: 1rem;
+            font-weight: 860;
+            letter-spacing: -0.03em;
+        }
+        .invoice-report-toolbar-subtitle {
+            color: #63748E;
+            font-size: 0.84rem;
+            line-height: 1.55;
+        }
+        .invoice-report-toolbar-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 9px 12px;
+            border-radius: 999px;
+            background: #EEF4FF;
+            border: 1px solid #D6E4FF;
+            color: #0D4CCD;
+            font-size: 0.78rem;
+            font-weight: 860;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
         .invoice-report-shell {
             display: grid;
             gap: 14px;
+        }
+        .invoice-report-scroll {
+            max-height: 620px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+        .invoice-report-scroll::-webkit-scrollbar {
+            width: 10px;
+        }
+        .invoice-report-scroll::-webkit-scrollbar-thumb {
+            background: rgba(116, 131, 155, 0.28);
+            border-radius: 999px;
         }
         .invoice-report-card {
             border: 1px solid rgba(207, 218, 238, 0.9);
@@ -88,12 +146,56 @@ def render_invoice_report_tab(
         """,
         unsafe_allow_html=True,
     )
+    restaurant_count = int(invoice_df["restoran"].dropna().astype(str).nunique()) if not invoice_df.empty and "restoran" in invoice_df.columns else 0
+    total_hours_value = float(invoice_df["saat"].sum()) if not invoice_df.empty and "saat" in invoice_df.columns else 0.0
+    total_gross_invoice = float(invoice_df["kdv_dahil"].sum()) if not invoice_df.empty and "kdv_dahil" in invoice_df.columns else 0.0
+    average_invoice = (total_gross_invoice / restaurant_count) if restaurant_count > 0 else 0.0
+    render_executive_metrics_fn(
+        [
+            {
+                "label": "Toplam Restoran Faturası",
+                "value": fmt_try_fn(total_gross_invoice),
+                "note": f"{selected_month} | KDV dahil toplam",
+            },
+            {
+                "label": "Faturalanan Şube",
+                "value": restaurant_count,
+                "note": "Bu ay faturası oluşan restoran sayısı",
+            },
+            {
+                "label": "Ortalama Şube Faturası",
+                "value": fmt_try_fn(average_invoice),
+                "note": "Restoran başına ortalama çıktı",
+                "tone": "positive" if average_invoice > 0 else "warning",
+            },
+            {
+                "label": "Toplam Çalışma Saati",
+                "value": fmt_number_fn(total_hours_value),
+                "note": "Fatura havuzundaki saat toplamı",
+            },
+        ],
+        title="Fatura Görünümü",
+        subtitle="Restoran kartlarını daha kısa, daha okunur bir yüzeyde incele; detay ihtiyacında ilgili kartı aç.",
+    )
     with st.container(border=True):
         if invoice_display_df is None or invoice_display_df.empty:
             st.info("Fatura görünümü için veri yok.")
         else:
-            st.markdown("##### Restoran Faturası")
-            st.caption("Restoran kartındaki şube adına tıklayarak hangi kurye kaç saat çalıştı, kaç paket attı detayını açıp kapatabilirsin.")
+            st.markdown(
+                f"""
+                <div class='invoice-report-overview'>
+                    <div class='invoice-report-toolbar'>
+                        <div class='invoice-report-toolbar-copy'>
+                            <div class='invoice-report-toolbar-title'>Restoran Faturası</div>
+                            <div class='invoice-report-toolbar-subtitle'>Şube kartını açıp kurye saat, paket ve katkı detayını tek yüzeyde inceleyebilirsin.</div>
+                        </div>
+                        <div class='invoice-report-toolbar-badge'>{restaurant_count} şube</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown("<div class='invoice-report-scroll'>", unsafe_allow_html=True)
             st.markdown("<div class='invoice-report-shell'>", unsafe_allow_html=True)
             for row_index, row in invoice_display_df.iterrows():
                 restaurant_name = str(row.get("Restoran / Şube", "-") or "-")
@@ -103,7 +205,7 @@ def render_invoice_report_tab(
                 net_invoice = str(row.get("Restoran KDV Hariç", "-") or "-")
                 gross_invoice = str(row.get("Restoran KDV Dahil", "-") or "-")
                 is_open = open_restaurant == restaurant_name
-                with st.container(border=True):
+                with st.container():
                     st.markdown("<div class='invoice-report-card'>", unsafe_allow_html=True)
                     head_col, metric1, metric2, metric3, metric4 = st.columns([3.2, 1, 1, 1.15, 1.25])
                     if head_col.button(
@@ -173,6 +275,7 @@ def render_invoice_report_tab(
                     st.markdown("</div>", unsafe_allow_html=True)
                     st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
         st.download_button(
             "Fatura raporunu indir",
             data=invoice_df.to_csv(index=False).encode("utf-8-sig"),
@@ -188,7 +291,10 @@ def render_cost_report_tab(
     format_display_df_fn: Callable[..., pd.DataFrame],
     build_grid_rows_fn: Callable[[pd.DataFrame, list[str]], list[dict[str, Any]]],
     render_dashboard_data_grid_fn: Callable[..., None],
+    render_executive_metrics_fn: Callable[..., None],
     cost_model_labels: dict[str, str],
+    fmt_number_fn: Callable[[Any], str],
+    fmt_try_fn: Callable[[Any], str],
 ) -> None:
     cost_display_df = format_display_df_fn(
         cost_df,
@@ -207,6 +313,37 @@ def render_cost_report_tab(
         },
         value_maps={"maliyet_modeli": cost_model_labels},
     )
+    personnel_count = int(cost_df["personel"].dropna().astype(str).nunique()) if not cost_df.empty and "personel" in cost_df.columns else 0
+    total_hours_value = float(cost_df["calisma_saati"].sum()) if not cost_df.empty and "calisma_saati" in cost_df.columns else 0.0
+    total_net_cost = float(cost_df["net_maliyet"].sum()) if not cost_df.empty and "net_maliyet" in cost_df.columns else 0.0
+    total_deductions = float(cost_df["kesinti"].sum()) if not cost_df.empty and "kesinti" in cost_df.columns else 0.0
+    render_executive_metrics_fn(
+        [
+            {
+                "label": "Toplam Net Kurye Maliyeti",
+                "value": fmt_try_fn(total_net_cost),
+                "note": f"{selected_month} | Net maliyet toplamı",
+            },
+            {
+                "label": "Toplam Kesinti",
+                "value": fmt_try_fn(total_deductions),
+                "note": "Seçilen ayda personele yansıyan kesinti",
+                "tone": "warning" if total_deductions > 0 else "neutral",
+            },
+            {
+                "label": "Çalışan Personel",
+                "value": personnel_count,
+                "note": "Maliyet tablosuna giren kişi sayısı",
+            },
+            {
+                "label": "Toplam Çalışma Saati",
+                "value": fmt_number_fn(total_hours_value),
+                "note": "Aynı dönemde kayda geçen saat toplamı",
+            },
+        ],
+        title="Kurye Maliyet Görünümü",
+        subtitle="Personel maliyetlerini aşağı doğru uzayan bir Excel tablosu yerine daha kontrollü bir rapor yüzeyinden takip et.",
+    )
     with st.container(border=True):
         cost_columns = ["Personel", "Rol", "Toplam Saat", "Toplam Paket", "Toplam Kesinti", "Net Kurye Maliyeti", "Maliyet Modeli"]
         render_dashboard_data_grid_fn(
@@ -216,6 +353,7 @@ def render_cost_report_tab(
             build_grid_rows_fn(cost_display_df, cost_columns),
             "Kurye maliyet verisi bulunamadı.",
             muted_columns={"Maliyet Modeli"},
+            max_height_px=620,
         )
         st.download_button(
             "Personel maliyet raporunu indir",
