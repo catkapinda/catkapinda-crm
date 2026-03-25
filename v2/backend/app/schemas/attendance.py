@@ -35,3 +35,44 @@ class AttendanceDashboardResponse(BaseModel):
     status: str
     summary: AttendanceSummary
     recent_entries: list[AttendanceEntrySummary]
+
+
+class AttendanceRestaurantOption(BaseModel):
+    id: int
+    label: str
+    pricing_model: str
+    fixed_monthly_fee: float
+
+
+class AttendancePersonOption(BaseModel):
+    id: int
+    label: str
+    role: str
+
+
+class AttendanceFormOptionsResponse(BaseModel):
+    restaurants: list[AttendanceRestaurantOption]
+    people: list[AttendancePersonOption]
+    entry_modes: list[str]
+    absence_reasons: list[str]
+    selected_restaurant_id: int | None
+    selected_pricing_model: str | None
+    selected_fixed_monthly_fee: float
+
+
+class AttendanceCreateRequest(BaseModel):
+    entry_date: date
+    restaurant_id: int
+    entry_mode: str
+    primary_person_id: int | None = None
+    replacement_person_id: int | None = None
+    absence_reason: str = ""
+    worked_hours: float = 0.0
+    package_count: float = 0.0
+    monthly_invoice_amount: float = 0.0
+    notes: str = ""
+
+
+class AttendanceCreateResponse(BaseModel):
+    entry_id: int
+    message: str

@@ -5,20 +5,36 @@ from datetime import date
 import psycopg
 
 from app.repositories.attendance import (
+    fetch_attendance_people,
+    fetch_attendance_restaurants,
     fetch_attendance_summary,
+    insert_attendance_entry,
     fetch_recent_attendance_entries,
 )
 from app.schemas.attendance import (
+    AttendanceCreateRequest,
+    AttendanceCreateResponse,
     AttendanceDashboardResponse,
     AttendanceEntrySummary,
+    AttendanceFormOptionsResponse,
     AttendanceModuleStatus,
+    AttendancePersonOption,
+    AttendanceRestaurantOption,
     AttendanceSummary,
 )
 
+ATTENDANCE_ENTRY_MODE_OPTIONS = [
+    "Restoran Kuryesi",
+    "Joker",
+    "Destek",
+    "Haftalık İzin",
+]
+ABSENCE_REASON_OPTIONS = ["İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Diğer"]
 ENTRY_MODE_ALIASES = {
     "Haftalik Buyume": "Haftalik Izin",
     "Haftalık Büyüme": "Haftalik Izin",
 }
+NON_WORKING_STATUSES = {"İzin", "Gelmedi", "Raporlu", "İhbarsız Çıkış"}
 
 
 def _normalize_entry_mode(value: str) -> str:
@@ -67,4 +83,130 @@ def build_attendance_dashboard(
             )
             for row in recent_entry_rows
         ],
+    )
+
+
+def build_attendance_form_options(
+    conn: psycopg.Connection,
+    *,
+    restaurant_id: int | None,
+) -> AttendanceFormOptionsResponse:
+    restaurants = fetch_attendance_restaurants(conn)
+    selected_restaurant = None
+    if restaurant_id is not None:
+        selected_restaurant = next((row for row in restaurants if int(row["id"]) == restaurant_id), None)
+    if selected_restaurant is None and restaurants:
+        selected_restaurant = restaurants[0]
+    selected_restaurant_id = int(selected_restaurant["id"]) if selected_restaurant else None
+    selected_pricing_model = str(selected_restaurant["pricing_model"]) if selected_restaurant else None
+    selected_fixed_monthly_fee = (
+        float(selected_restaurant["fixed_monthly_fee"] or 0) if selected_restaurant else 0.0
+    )
+    people_rows = (
+        fetch_attendance_people(conn, restaurant_id=selected_restaurant_id, include_all_active=False)
+        if selected_restaurant_id is not None
+        else []
+    )
+    return AttendanceFormOptionsResponse(
+        restaurants=[
+            AttendanceRestaurantOption(
+                id=int(row["id"]),
+                label=f"{str(row['brand']).strip()} - {str(row['branch']).strip()}",
+                pricing_model=str(row["pricing_model"] or ""),
+                fixed_monthly_fee=float(row["fixed_monthly_fee"] or 0),
+            )
+            for row in restaurants
+        ],
+        people=[
+            AttendancePersonOption(
+                id=int(row["id"]),
+                label=f"{str(row['full_name']).strip()} ({str(row['role']).strip()})",
+                role=str(row["role"] or ""),
+            )
+            for row in people_rows
+        ],
+        entry_modes=ATTENDANCE_ENTRY_MODE_OPTIONS,
+        absence_reasons=ABSENCE_REASON_OPTIONS,
+        selected_restaurant_id=selected_restaurant_id,
+        selected_pricing_model=selected_pricing_model,
+        selected_fixed_monthly_fee=selected_fixed_monthly_fee,
+    )
+
+
+def create_attendance_entry(
+    conn: psycopg.Connection,
+    *,
+    payload: AttendanceCreateRequest,
+) -> AttendanceCreateResponse:
+    entry_mode = _normalize_entry_mode(payload.entry_mode)
+    notes_text = str(payload.notes or "").strip()
+    absence_reason = str(payload.absence_reason or "").strip()
+    monthly_invoice_amount = float(payload.monthly_invoice_amount or 0.0)
+    primary_person_id = payload.primary_person_id
+    replacement_person_id = payload.replacement_person_id
+
+    if entry_mode == "Restoran Kuryesi":
+        if not primary_person_id:
+            raise ValueError("Restoran kuryesi akışında çalışan personeli seçmelisin.")
+        values = {
+            "entry_date": payload.entry_date,
+            "restaurant_id": payload.restaurant_id,
+            "planned_personnel_id": primary_person_id,
+            "actual_personnel_id": primary_person_id,
+            "status": "Normal",
+            "worked_hours": float(payload.worked_hours or 0),
+            "package_count": float(payload.package_count or 0),
+            "monthly_invoice_amount": monthly_invoice_amount,
+            "absence_reason": "",
+            "coverage_type": "",
+            "notes": notes_text,
+        }
+    elif entry_mode in {"Joker", "Destek"}:
+        if not primary_person_id:
+            raise ValueError("Yerine girişte normalde girecek personeli seçmelisin.")
+        if not replacement_person_id:
+            raise ValueError("Yerine girişte yerine giren personeli seçmelisin.")
+        if primary_person_id == replacement_person_id:
+            raise ValueError("Yerine girişte iki personel farklı olmalı.")
+        if not absence_reason:
+            raise ValueError("Yerine girişte neden girmedi bilgisini seçmelisin.")
+        values = {
+            "entry_date": payload.entry_date,
+            "restaurant_id": payload.restaurant_id,
+            "planned_personnel_id": primary_person_id,
+            "actual_personnel_id": replacement_person_id,
+            "status": "Normal",
+            "worked_hours": float(payload.worked_hours or 0),
+            "package_count": float(payload.package_count or 0),
+            "monthly_invoice_amount": monthly_invoice_amount,
+            "absence_reason": absence_reason,
+            "coverage_type": entry_mode,
+            "notes": notes_text,
+        }
+    elif entry_mode == "Haftalık İzin":
+        if not primary_person_id:
+            raise ValueError("Haftalık izinde çalışan personeli seçmelisin.")
+        if not absence_reason:
+            raise ValueError("Haftalık izinde neden girmedi bilgisini seçmelisin.")
+        values = {
+            "entry_date": payload.entry_date,
+            "restaurant_id": payload.restaurant_id,
+            "planned_personnel_id": primary_person_id,
+            "actual_personnel_id": None,
+            "status": absence_reason if absence_reason in NON_WORKING_STATUSES else "Gelmedi",
+            "worked_hours": 0.0,
+            "package_count": 0.0,
+            "monthly_invoice_amount": monthly_invoice_amount,
+            "absence_reason": absence_reason,
+            "coverage_type": "",
+            "notes": notes_text,
+        }
+    else:
+        raise ValueError("Gecersiz attendance akisi.")
+
+    entry_id = insert_attendance_entry(conn, values)
+    conn.commit()
+    return AttendanceCreateResponse(
+        entry_id=entry_id,
+        message="Günlük puantaj kaydı oluşturuldu.",
     )
