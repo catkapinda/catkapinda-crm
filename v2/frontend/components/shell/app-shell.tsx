@@ -7,7 +7,13 @@ const sidebarItems = [
   "Raporlar",
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  activeItem = "Genel Bakış",
+}: {
+  children: React.ReactNode;
+  activeItem?: string;
+}) {
   return (
     <div
       style={{
@@ -58,8 +64,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 padding: "14px 16px",
                 borderRadius: "18px",
                 border: "1px solid var(--line)",
-                background: index === 1 ? "var(--accent-soft)" : "rgba(255, 255, 255, 0.82)",
-                color: index === 1 ? "var(--accent)" : "var(--text)",
+                background: item === activeItem ? "var(--accent-soft)" : "rgba(255, 255, 255, 0.82)",
+                color: item === activeItem ? "var(--accent)" : "var(--text)",
                 fontWeight: 700,
               }}
             >
