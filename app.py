@@ -313,24 +313,43 @@ LOGIN_LOGO_CANDIDATES = [
     "logo.jpeg",
     "logo.svg",
 ]
+
+
+def _default_auth_phone(env_key: str, secret_key: str) -> str:
+    if "auth" in st.secrets:
+        auth_secrets = st.secrets["auth"]
+        if secret_key in auth_secrets:
+            return str(auth_secrets.get(secret_key, "") or "").strip()
+    return str(os.getenv(env_key, "") or "").strip()
+
+
+SMS_PHONE_AUTH_EMAIL_ALLOWLIST = {
+    "ebru@catkapinda.com",
+    "mert.kurtulus@catkapinda.com",
+    "muhammed.terim@catkapinda.com",
+}
+
 DEFAULT_AUTH_USERS = [
     {
         "email": "ebru@catkapinda.com",
         "full_name": "Ebru Aslan",
         "role": "admin",
         "role_display": "Yönetim Kurulu / Yönetici",
+        "phone": _default_auth_phone("AUTH_EBRU_PHONE", "ebru_phone"),
     },
     {
         "email": "mert.kurtulus@catkapinda.com",
         "full_name": "Mert Kurtuluş",
         "role": "admin",
         "role_display": "Yönetim Kurulu / Yönetici",
+        "phone": _default_auth_phone("AUTH_MERT_PHONE", "mert_phone"),
     },
     {
         "email": "muhammed.terim@catkapinda.com",
         "full_name": "Muhammed Terim",
         "role": "admin",
         "role_display": "Yönetim Kurulu / Yönetici",
+        "phone": _default_auth_phone("AUTH_MUHAMMED_PHONE", "muhammed_phone"),
     },
 ]
 LEGACY_AUTH_IDENTITIES = {"catkapinda", "chef"}
@@ -3122,6 +3141,7 @@ configure_auth_engine(
     login_logo_candidates=LOGIN_LOGO_CANDIDATES,
     auth_query_key=AUTH_QUERY_KEY,
     auth_session_days=AUTH_SESSION_DAYS,
+    sms_phone_auth_email_allowlist=SMS_PHONE_AUTH_EMAIL_ALLOWLIST,
 )
 
 

@@ -101,6 +101,7 @@ class AuthEngineTests(TestCase):
             login_logo_candidates=[],
             auth_query_key="ck_session",
             auth_session_days=30,
+            sms_phone_auth_email_allowlist={"ebru@catkapinda.com", "mert.kurtulus@catkapinda.com", "muhammed.terim@catkapinda.com"},
         )
         self.conn = _make_conn()
 
@@ -253,6 +254,62 @@ class AuthEngineTests(TestCase):
         self.conn.commit()
 
         user_row = get_auth_user(self.conn, "0532 999 88 77")
+        self.assertIsNotNone(user_row)
+        self.assertTrue(can_phone_login_for_user(user_row))
+        self.assertFalse(can_issue_phone_login_code(self.conn, user_row))
+
+    def test_allowlisted_admin_can_receive_phone_login_code(self) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO auth_users (
+                email, phone, full_name, role, role_display, password_hash,
+                is_active, must_change_password, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "mert.kurtulus@catkapinda.com",
+                "05335557788",
+                "Mert Kurtuluş",
+                "admin",
+                "Yönetim Kurulu / Yönetici",
+                "hash",
+                1,
+                0,
+                "2026-03-25T10:00:00",
+                "2026-03-25T10:00:00",
+            ),
+        )
+        self.conn.commit()
+
+        user_row = get_auth_user(self.conn, "0533 555 77 88")
+        self.assertIsNotNone(user_row)
+        self.assertTrue(can_phone_login_for_user(user_row))
+        self.assertTrue(can_issue_phone_login_code(self.conn, user_row))
+
+    def test_non_allowlisted_admin_cannot_receive_phone_login_code(self) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO auth_users (
+                email, phone, full_name, role, role_display, password_hash,
+                is_active, must_change_password, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "baska.yonetici@catkapinda.com",
+                "05335557799",
+                "Başka Yönetici",
+                "admin",
+                "Yönetim Kurulu / Yönetici",
+                "hash",
+                1,
+                0,
+                "2026-03-25T10:00:00",
+                "2026-03-25T10:00:00",
+            ),
+        )
+        self.conn.commit()
+
+        user_row = get_auth_user(self.conn, "0533 555 77 99")
         self.assertIsNotNone(user_row)
         self.assertTrue(can_phone_login_for_user(user_row))
         self.assertFalse(can_issue_phone_login_code(self.conn, user_row))
