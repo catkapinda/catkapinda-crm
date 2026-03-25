@@ -8,6 +8,7 @@ from rules.deduction_rules import (
     DEDUCTION_TYPE_OPTIONS,
     calculate_fuel_discount_summary,
     filter_payroll_effective_deductions_df,
+    get_deduction_type_caption,
 )
 
 
@@ -28,6 +29,37 @@ class DeductionRulesTests(unittest.TestCase):
         filtered_df = filter_payroll_effective_deductions_df(deductions_df)
 
         self.assertEqual(filtered_df["deduction_type"].tolist(), ["Yakıt", "Avans"])
+
+    def test_filter_payroll_effective_deductions_excludes_maintenance_for_company_rental_motor(self) -> None:
+        deductions_df = pd.DataFrame(
+            [
+                {"personnel_id": 1, "deduction_type": "Bakım", "amount": 900.0},
+                {"personnel_id": 1, "deduction_type": "Hasar", "amount": 350.0},
+                {"personnel_id": 2, "deduction_type": "Bakım", "amount": 1200.0},
+            ]
+        )
+        personnel_df = pd.DataFrame(
+            [
+                {"id": 1, "vehicle_type": "Çat Kapında", "motor_purchase": "Hayır"},
+                {"id": 2, "vehicle_type": "Çat Kapında", "motor_purchase": "Evet"},
+            ]
+        )
+
+        filtered_df = filter_payroll_effective_deductions_df(deductions_df, personnel_df)
+
+        self.assertEqual(
+            filtered_df[["personnel_id", "deduction_type"]].to_dict("records"),
+            [
+                {"personnel_id": 1, "deduction_type": "Hasar"},
+                {"personnel_id": 2, "deduction_type": "Bakım"},
+            ],
+        )
+
+    def test_get_deduction_type_caption_explains_maintenance_rule(self) -> None:
+        caption = get_deduction_type_caption("Bakım")
+
+        self.assertIn("Satılık motorda bakım kuryeden kesilir", caption)
+        self.assertIn("Kiralık Çat Kapında motorlarında bakım kesilmez", caption)
 
     def test_calculate_fuel_discount_summary_uses_company_motor_rows_only_for_utts_discount(self) -> None:
         deductions_df = pd.DataFrame(
