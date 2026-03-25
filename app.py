@@ -7169,6 +7169,7 @@ def reports_tab(conn: sqlite3.Connection) -> None:
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
             render_dashboard_data_grid_fn=render_dashboard_data_grid,
+            render_executive_metrics_fn=render_executive_metrics,
             pricing_model_labels=PRICING_MODEL_LABELS,
             fmt_number_fn=fmt_number,
             fmt_try_fn=fmt_try,
@@ -7181,7 +7182,10 @@ def reports_tab(conn: sqlite3.Connection) -> None:
             format_display_df_fn=format_display_df,
             build_grid_rows_fn=build_grid_rows,
             render_dashboard_data_grid_fn=render_dashboard_data_grid,
+            render_executive_metrics_fn=render_executive_metrics,
             cost_model_labels=COST_MODEL_LABELS,
+            fmt_number_fn=fmt_number,
+            fmt_try_fn=fmt_try,
         )
     with tab3:
         render_profit_report_tab(
