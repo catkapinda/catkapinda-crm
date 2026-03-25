@@ -5,12 +5,20 @@ from typing import Any
 import pandas as pd
 
 
+MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE = "Motor Servis Bakım"
+MOTOR_DAMAGE_DEDUCTION_TYPE = "Motor Hasar"
+
+LEGACY_DEDUCTION_TYPE_MAP = {
+    "Bakım": MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
+    "Hasar": MOTOR_DAMAGE_DEDUCTION_TYPE,
+}
+
 DEDUCTION_TYPE_OPTIONS = [
-    "Bakım",
+    MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
     "Yakıt",
     "HGS",
     "İdari ceza",
-    "Hasar",
+    MOTOR_DAMAGE_DEDUCTION_TYPE,
     "Fatura Edilmeyen Tutar",
     "Avans",
     "Partner Kart İndirimi",
@@ -20,11 +28,11 @@ HGS_VAT_RATE = 0.20
 COMPANY_FUEL_DISCOUNT_RATE = 0.07
 COMPANY_VEHICLE_TYPE = "Çat Kapında"
 SIDE_INCOME_ONLY_DEDUCTION_TYPES = {"Partner Kart İndirimi"}
-MAINTENANCE_DEDUCTION_TYPE = "Bakım"
 
 
 def normalize_deduction_type(value: Any) -> str:
-    return str(value or "").strip()
+    normalized_value = str(value or "").strip()
+    return LEGACY_DEDUCTION_TYPE_MAP.get(normalized_value, normalized_value)
 
 
 def is_hgs_deduction_type(deduction_type: Any) -> bool:
@@ -41,8 +49,10 @@ def _is_yes_value(value: Any) -> bool:
 
 def get_deduction_type_caption(deduction_type: Any) -> str:
     normalized_type = normalize_deduction_type(deduction_type)
-    if normalized_type == MAINTENANCE_DEDUCTION_TYPE:
-        return "Satılık motorda bakım kuryeden kesilir. Kiralık Çat Kapında motorlarında bakım kesilmez; şirket öder. Hasar gibi diğer kalemler ayrıca kesilebilir."
+    if normalized_type == MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE:
+        return "Motor servis bakımında Çat Kapında kiralık motorları şirket öder. Çat Kapında satılık motor ve kendi motorunda bakım kuryeden kesilir."
+    if normalized_type == MOTOR_DAMAGE_DEDUCTION_TYPE:
+        return "Motor hasar bedeli tüm motor tiplerinde kuryeye yansıtılır."
     if normalized_type == "HGS":
         return "HGS tutarını zaten KDV dahil ödediğin toplam olarak gir. Sistem hakedişe aynı tutarı yazar, ekstra KDV eklemez."
     if normalized_type == "Yakıt":
@@ -62,9 +72,8 @@ def filter_payroll_effective_deductions_df(
         return pd.DataFrame()
     if deductions_df.empty or "deduction_type" not in deductions_df.columns:
         return deductions_df.copy()
-    filtered_df = deductions_df[
-        ~deductions_df["deduction_type"].fillna("").astype(str).isin(SIDE_INCOME_ONLY_DEDUCTION_TYPES)
-    ].copy()
+    normalized_types = deductions_df["deduction_type"].apply(normalize_deduction_type)
+    filtered_df = deductions_df[~normalized_types.isin(SIDE_INCOME_ONLY_DEDUCTION_TYPES)].copy()
     if filtered_df.empty:
         return filtered_df
     if (
@@ -93,12 +102,14 @@ def filter_payroll_effective_deductions_df(
         return filtered_df
 
     filtered_df["personnel_id"] = pd.to_numeric(filtered_df["personnel_id"], errors="coerce")
-    return filtered_df[
+    filtered_df["_normalized_deduction_type"] = filtered_df["deduction_type"].apply(normalize_deduction_type)
+    payroll_df = filtered_df[
         ~(
-            filtered_df["deduction_type"].fillna("").astype(str).eq(MAINTENANCE_DEDUCTION_TYPE)
+            filtered_df["_normalized_deduction_type"].eq(MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE)
             & filtered_df["personnel_id"].isin(rental_company_person_ids)
         )
     ].copy()
+    return payroll_df.drop(columns=["_normalized_deduction_type"], errors="ignore")
 
 
 def calculate_fuel_discount_summary(
