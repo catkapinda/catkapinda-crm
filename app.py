@@ -6979,7 +6979,7 @@ def monthly_payroll_tab(conn: sqlite3.Connection) -> None:
     start_date, end_date = month_bounds(selected_month)
     month_entries = entries[(entries["entry_date"] >= start_date) & (entries["entry_date"] <= end_date)].copy() if not entries.empty else pd.DataFrame()
     month_deductions = deductions[(deductions["deduction_date"] >= start_date) & (deductions["deduction_date"] <= end_date)].copy() if not deductions.empty else pd.DataFrame()
-    payroll_deductions = filter_payroll_effective_deductions_df(month_deductions)
+    payroll_deductions = filter_payroll_effective_deductions_df(month_deductions, personnel_df)
 
     st.caption(
         "Hakediş notu: Kesintiler seçilen ayın son gününe yazılır. Bu ekrandaki net ödeme, ay kapanışına göre hesaplanır; ödeme akışı ayın 15'inde yapılır."

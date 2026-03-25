@@ -20,6 +20,7 @@ HGS_VAT_RATE = 0.20
 COMPANY_FUEL_DISCOUNT_RATE = 0.07
 COMPANY_VEHICLE_TYPE = "Çat Kapında"
 SIDE_INCOME_ONLY_DEDUCTION_TYPES = {"Partner Kart İndirimi"}
+MAINTENANCE_DEDUCTION_TYPE = "Bakım"
 
 
 def normalize_deduction_type(value: Any) -> str:
@@ -34,8 +35,14 @@ def is_side_income_only_deduction_type(deduction_type: Any) -> bool:
     return normalize_deduction_type(deduction_type) in SIDE_INCOME_ONLY_DEDUCTION_TYPES
 
 
+def _is_yes_value(value: Any) -> bool:
+    return str(value or "").strip().lower() == "evet"
+
+
 def get_deduction_type_caption(deduction_type: Any) -> str:
     normalized_type = normalize_deduction_type(deduction_type)
+    if normalized_type == MAINTENANCE_DEDUCTION_TYPE:
+        return "Satılık motorda bakım kuryeden kesilir. Kiralık Çat Kapında motorlarında bakım kesilmez; şirket öder. Hasar gibi diğer kalemler ayrıca kesilebilir."
     if normalized_type == "HGS":
         return "HGS tutarını zaten KDV dahil ödediğin toplam olarak gir. Sistem hakedişe aynı tutarı yazar, ekstra KDV eklemez."
     if normalized_type == "Yakıt":
@@ -47,13 +54,50 @@ def get_deduction_type_caption(deduction_type: Any) -> str:
     return ""
 
 
-def filter_payroll_effective_deductions_df(deductions_df: pd.DataFrame | None) -> pd.DataFrame:
+def filter_payroll_effective_deductions_df(
+    deductions_df: pd.DataFrame | None,
+    personnel_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
     if deductions_df is None:
         return pd.DataFrame()
     if deductions_df.empty or "deduction_type" not in deductions_df.columns:
         return deductions_df.copy()
-    return deductions_df[
+    filtered_df = deductions_df[
         ~deductions_df["deduction_type"].fillna("").astype(str).isin(SIDE_INCOME_ONLY_DEDUCTION_TYPES)
+    ].copy()
+    if filtered_df.empty:
+        return filtered_df
+    if (
+        personnel_df is None
+        or personnel_df.empty
+        or "personnel_id" not in filtered_df.columns
+        or not {"id", "vehicle_type", "motor_purchase"}.issubset(set(personnel_df.columns))
+    ):
+        return filtered_df
+
+    personnel_work = personnel_df[["id", "vehicle_type", "motor_purchase"]].copy()
+    personnel_work["id"] = pd.to_numeric(personnel_work["id"], errors="coerce")
+    personnel_work = personnel_work.dropna(subset=["id"]).copy()
+    if personnel_work.empty:
+        return filtered_df
+
+    rental_company_person_ids = (
+        personnel_work[
+            (personnel_work["vehicle_type"].fillna("").astype(str).str.strip() == COMPANY_VEHICLE_TYPE)
+            & (~personnel_work["motor_purchase"].map(_is_yes_value))
+        ]["id"]
+        .astype(int)
+        .tolist()
+    )
+    if not rental_company_person_ids:
+        return filtered_df
+
+    filtered_df["personnel_id"] = pd.to_numeric(filtered_df["personnel_id"], errors="coerce")
+    return filtered_df[
+        ~(
+            filtered_df["deduction_type"].fillna("").astype(str).eq(MAINTENANCE_DEDUCTION_TYPE)
+            & filtered_df["personnel_id"].isin(rental_company_person_ids)
+        )
     ].copy()
 
 
