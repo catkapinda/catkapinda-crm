@@ -7403,22 +7403,21 @@ def main() -> None:
             boot_placeholder.empty()
             st.session_state["_ck_boot_shell_rendered"] = True
     except RuntimeError as exc:
-        st.error(str(exc))
-        st.info(
-            "Supabase baglantisi kurulamadigi icin uygulama acilmadi. "
-            "Streamlit Secrets icindeki [database] bilgilerini Supabase Connect ekranindaki host/user "
-            "alanlariyla tekrar karsilastir."
-        )
-        st.code(
-            '[database]\n'
-            'host = "..." \n'
-            'port = 5432\n'
-            'dbname = "postgres"\n'
-            'user = "..." \n'
-            'password = "..." \n'
-            'sslmode = "require"\n',
-            language="toml",
-        )
+        st.error("Veritabanina su an ulasilamadi. Sistem baglantiyi otomatik olarak yeniden denedi.")
+        st.info("Birkaç saniye sonra sayfayi yenileyip tekrar deneyin. Sorun devam ederse teknik detaylari kontrol edelim.")
+        with st.expander("Teknik detay"):
+            st.write(str(exc))
+            st.code(
+                'DATABASE_URL = "postgresql://..."\n\n'
+                '[database]\n'
+                'host = "..." \n'
+                'port = 5432\n'
+                'dbname = "postgres"\n'
+                'user = "..." \n'
+                'password = "..." \n'
+                'sslmode = "require"\n',
+                language="toml",
+            )
         return
     if not login_gate(conn):
         return

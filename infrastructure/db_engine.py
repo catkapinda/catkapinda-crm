@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 from urllib.parse import urlsplit
@@ -14,6 +15,13 @@ import streamlit as st
 _APP_DATA_DIR: Path | None = None
 _DB_PATH: Path | None = None
 _LEGACY_DB_PATHS: list[Path] = []
+
+
+def _get_streamlit_secrets_mapping() -> Any | None:
+    try:
+        return st.secrets
+    except Exception:
+        return None
 
 
 def configure_db_engine(
@@ -132,9 +140,32 @@ class CompatConnection:
 
 
 def get_database_config() -> str | dict[str, Any] | None:
+    env_value = os.getenv("DATABASE_URL")
+    if env_value:
+        return env_value
+
+    env_host = (os.getenv("DB_HOST") or os.getenv("DATABASE_HOST") or "").strip()
+    env_user = (os.getenv("DB_USER") or os.getenv("DATABASE_USER") or "").strip()
+    env_password = os.getenv("DB_PASSWORD") or os.getenv("DATABASE_PASSWORD")
+    if env_host and env_user and env_password:
+        return {
+            "host": env_host,
+            "port": int(os.getenv("DB_PORT") or os.getenv("DATABASE_PORT") or 5432),
+            "dbname": (
+                os.getenv("DB_NAME")
+                or os.getenv("DATABASE_NAME")
+                or os.getenv("DB_DATABASE")
+                or "postgres"
+            ).strip(),
+            "user": env_user,
+            "password": str(env_password),
+            "sslmode": (os.getenv("DB_SSLMODE") or os.getenv("DATABASE_SSLMODE") or "require").strip() or "require",
+        }
+
+    secrets_mapping = _get_streamlit_secrets_mapping()
     try:
-        if "database" in st.secrets:
-            db_secrets = st.secrets["database"]
+        if secrets_mapping and "database" in secrets_mapping:
+            db_secrets = secrets_mapping["database"]
             if "url" in db_secrets:
                 return db_secrets["url"]
             required = {"host", "user", "password"}
@@ -147,14 +178,10 @@ def get_database_config() -> str | dict[str, Any] | None:
                     "password": str(db_secrets["password"]),
                     "sslmode": str(db_secrets.get("sslmode", "require")).strip() or "require",
                 }
-        if "DATABASE_URL" in st.secrets:
-            return st.secrets["DATABASE_URL"]
+        if secrets_mapping and "DATABASE_URL" in secrets_mapping:
+            return secrets_mapping["DATABASE_URL"]
     except Exception:
         pass
-
-    env_value = os.getenv("DATABASE_URL")
-    if env_value:
-        return env_value
     return None
 
 
@@ -207,7 +234,7 @@ def connect_postgres(database_config: str | dict[str, Any]) -> CompatConnection:
         raise RuntimeError(
             "PostgreSQL baglantisi kurulamadi. "
             f"Hedef: {safe_target} | Kullanici: {safe_user}. "
-            "Supabase bilgilerini yeniden kopyalayip Streamlit Secrets'e kaydet."
+            "Render Environment veya Streamlit secrets icindeki veritabani bilgilerini kontrol et."
         ) from exc
     return CompatConnection(
         raw_conn,
@@ -246,7 +273,22 @@ def connect_sqlite() -> CompatConnection:
 def connect_database() -> CompatConnection:
     database_config = get_database_config()
     if database_config:
-        return connect_postgres(database_config)
+        last_error: RuntimeError | None = None
+        retry_delays = (0.6, 1.4, 2.5)
+        for attempt, delay in enumerate(retry_delays, start=1):
+            try:
+                return connect_postgres(database_config)
+            except RuntimeError as exc:
+                last_error = exc
+                if attempt == len(retry_delays):
+                    break
+                time.sleep(delay)
+        if last_error is not None:
+            raise RuntimeError(
+                "Veritabanina su an ulasilamiyor. Baglanti otomatik olarak yeniden denendi ama kurulamadı. "
+                "Lutfen kisa bir sure sonra tekrar deneyin. Sorun devam ederse Render Environment veya Streamlit secrets "
+                "icindeki veritabani ayarlarini kontrol edin."
+            ) from last_error
     return connect_sqlite()
 
 
