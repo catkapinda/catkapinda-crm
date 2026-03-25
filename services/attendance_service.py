@@ -23,6 +23,10 @@ ATTENDANCE_ENTRY_MODE_OPTIONS = [
     "Destek",
     "Haftalık İzin",
 ]
+ATTENDANCE_ENTRY_MODE_ALIASES = {
+    "Haftalık Büyüme": "Haftalık İzin",
+    "Haftalık Buyume": "Haftalık İzin",
+}
 ABSENCE_REASON_OPTIONS = ["İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Diğer"]
 COVERAGE_TYPE_OPTIONS = ["Joker", "Destek"]
 NON_WORKING_ATTENDANCE_STATUSES = {"İzin", "Gelmedi", "Raporlu", "İhbarsız Çıkış"}
@@ -59,6 +63,15 @@ class AttendanceHeroStats:
     today_count: int
     month_count: int
     active_restaurants: int
+
+
+def normalize_attendance_entry_mode(value: Any, *, default: str = "Restoran Kuryesi") -> str:
+    normalized_value = str(value or "").strip()
+    if normalized_value in ATTENDANCE_ENTRY_MODE_ALIASES:
+        return ATTENDANCE_ENTRY_MODE_ALIASES[normalized_value]
+    if normalized_value in ATTENDANCE_ENTRY_MODE_OPTIONS:
+        return normalized_value
+    return default
 
 
 def load_attendance_restaurant_pricing_lookup(conn) -> dict[str, dict[str, Any]]:
@@ -109,7 +122,7 @@ def infer_daily_entry_mode(
     actual_id = int(actual_personnel_id or 0) if actual_personnel_id else 0
     if planned_id > 0 and actual_id > 0 and planned_id != actual_id:
         if coverage_text in COVERAGE_TYPE_OPTIONS:
-            return coverage_text
+            return normalize_attendance_entry_mode(coverage_text)
         if status_text == "Joker":
             return "Joker"
         return "Destek"
@@ -131,6 +144,7 @@ def resolve_daily_entry_values(
     monthly_invoice_amount: float,
     notes: str,
 ) -> dict[str, Any]:
+    entry_mode = normalize_attendance_entry_mode(entry_mode)
     notes_text = str(notes or "").strip()
     reason_text = str(absence_reason or "").strip()
     resolved_planned_id = planned_personnel_id or primary_person_id

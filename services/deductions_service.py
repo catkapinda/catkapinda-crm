@@ -35,18 +35,12 @@ class DeductionSelectionPayload:
 
 def normalize_deduction_amount_for_storage(deduction_type: Any, amount: Any, *, safe_float_fn: Callable[[Any, float], float]) -> float:
     resolved_amount = safe_float_fn(amount)
-    if not is_hgs_deduction_type(deduction_type):
-        return resolved_amount
-    return round(resolved_amount * (1 + HGS_VAT_RATE), 2)
+    return resolved_amount
 
 
 def normalize_deduction_amount_for_form(deduction_type: Any, amount: Any, *, safe_float_fn: Callable[[Any, float], float]) -> float:
     resolved_amount = safe_float_fn(amount)
-    if not is_hgs_deduction_type(deduction_type):
-        return resolved_amount
-    if resolved_amount <= 0:
-        return 0.0
-    return round(resolved_amount / (1 + HGS_VAT_RATE), 2)
+    return resolved_amount
 
 
 def load_deductions_workspace_payload(conn) -> DeductionsWorkspacePayload:

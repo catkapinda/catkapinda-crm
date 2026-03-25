@@ -227,6 +227,7 @@ from services.attendance_service import (
     create_daily_entry_and_sync,
     delete_daily_entry_and_sync,
     load_daily_entry_workspace_payload,
+    normalize_attendance_entry_mode,
     resolve_daily_entry_values,
     save_bulk_entries_and_sync,
     update_daily_entry_and_sync,
@@ -5351,8 +5352,13 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         st.session_state["attendance_create_entry_date"] = date.today()
     if "attendance_create_rest_label" not in st.session_state or st.session_state.get("attendance_create_rest_label") not in create_rest_labels:
         st.session_state["attendance_create_rest_label"] = create_rest_labels[0] if create_rest_labels else "-"
-    if "attendance_create_mode" not in st.session_state or st.session_state.get("attendance_create_mode") not in entry_mode_options:
+    if "attendance_create_mode" not in st.session_state:
         st.session_state["attendance_create_mode"] = entry_mode_options[0]
+    else:
+        st.session_state["attendance_create_mode"] = normalize_attendance_entry_mode(
+            st.session_state.get("attendance_create_mode"),
+            default=entry_mode_options[0],
+        )
     if "attendance_create_primary_label" not in st.session_state or st.session_state.get("attendance_create_primary_label") not in create_person_labels:
         st.session_state["attendance_create_primary_label"] = "-"
     if "attendance_create_actual_label" not in st.session_state or st.session_state.get("attendance_create_actual_label") not in create_person_labels:
@@ -5375,6 +5381,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         entry_date = c1.date_input("Tarih", key="attendance_create_entry_date")
         rest_label = c2.selectbox("Restoran / şube", create_rest_labels, key="attendance_create_rest_label")
         entry_mode = c3.selectbox("Vardiya Akışı", entry_mode_options, key="attendance_create_mode")
+        entry_mode = normalize_attendance_entry_mode(entry_mode, default=entry_mode_options[0])
 
     selected_restaurant_pricing = attendance_restaurant_pricing_lookup.get(rest_label, {})
     is_fixed_monthly_restaurant = str(selected_restaurant_pricing.get("pricing_model") or "").strip() == "fixed_monthly"
@@ -5392,53 +5399,59 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
     absence_reason = "-"
     monthly_invoice_amount = 0.0
     with form_left:
-        st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
-        if entry_mode == "Restoran Kuryesi":
-            primary_label = st.selectbox("Çalışan Personel", create_person_labels, key="attendance_create_primary_label")
-        elif entry_mode in ["Joker", "Destek"]:
-            c4, c5 = st.columns(2)
-            primary_label = c4.selectbox("Çalışan Personel", create_person_labels, key="attendance_create_primary_label")
-            actual_label = c5.selectbox("Yerine Giren Personel", create_person_labels, key="attendance_create_actual_label")
-            absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options, key="attendance_create_absence_reason")
-        else:
-            c4, c5 = st.columns(2)
-            primary_label = c4.selectbox("Çalışan Personel", create_person_labels, key="attendance_create_primary_label")
-            absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options, key="attendance_create_absence_reason")
+        with st.form("attendance_create_detail_form", border=False):
+            st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
+            if entry_mode == "Restoran Kuryesi":
+                primary_label = st.selectbox("Çalışan Personel", create_person_labels, key="attendance_create_primary_label")
+            elif entry_mode in ["Joker", "Destek"]:
+                c4, c5 = st.columns(2)
+                primary_label = c4.selectbox("Çalışan Personel", create_person_labels, key="attendance_create_primary_label")
+                actual_label = c5.selectbox("Yerine Giren Personel", create_person_labels, key="attendance_create_actual_label")
+                absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options, key="attendance_create_absence_reason")
+            else:
+                c4, c5 = st.columns(2)
+                primary_label = c4.selectbox("Çalışan Personel", create_person_labels, key="attendance_create_primary_label")
+                absence_reason = c5.selectbox("Neden Girmedi?", absence_reason_options, key="attendance_create_absence_reason")
 
-        st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
-        metric_columns = st.columns(2)
-        c6, c7 = metric_columns[0], metric_columns[1]
-        worked_hours = c6.number_input(
-            "Çalışılan saat",
-            min_value=0.0,
-            step=0.5,
-            key="attendance_create_hours",
-            disabled=input_disabled,
-        )
-        package_count = c7.number_input(
-            "Paket",
-            min_value=0.0,
-            step=1.0,
-            key="attendance_create_package_count",
-            disabled=input_disabled,
-        )
-        if input_disabled:
-            worked_hours = 0.0
-            package_count = 0.0
-        if is_fixed_monthly_restaurant:
-            st.markdown("<div class='ck-attendance-form-kicker'>Faturalama</div>", unsafe_allow_html=True)
-            monthly_invoice_amount = st.number_input(
-                "Aylık Fatura Tutarı",
+            st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
+            metric_columns = st.columns(2)
+            c6, c7 = metric_columns[0], metric_columns[1]
+            worked_hours = c6.number_input(
+                "Çalışılan saat",
                 min_value=0.0,
-                step=100.0,
-                key="attendance_create_monthly_invoice_amount",
+                step=0.5,
+                key="attendance_create_hours",
+                disabled=input_disabled,
             )
-            st.caption(
-                f"Bu şube Sabit Aylık Ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(default_monthly_invoice_amount)}"
+            package_count = c7.number_input(
+                "Paket",
+                min_value=0.0,
+                step=1.0,
+                key="attendance_create_package_count",
+                disabled=input_disabled,
             )
-        if input_disabled:
-            st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
-        notes = st.text_input("Not", placeholder="Kısa operasyon notu", key="attendance_create_notes")
+            if input_disabled:
+                worked_hours = 0.0
+                package_count = 0.0
+            if is_fixed_monthly_restaurant:
+                st.markdown("<div class='ck-attendance-form-kicker'>Faturalama</div>", unsafe_allow_html=True)
+                monthly_invoice_amount = st.number_input(
+                    "Aylık Fatura Tutarı",
+                    min_value=0.0,
+                    step=100.0,
+                    key="attendance_create_monthly_invoice_amount",
+                )
+                st.caption(
+                    f"Bu şube Sabit Aylık Ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(default_monthly_invoice_amount)}"
+                )
+            if input_disabled:
+                st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
+            notes = st.text_input("Not", placeholder="Kısa operasyon notu", key="attendance_create_notes")
+            submitted = st.form_submit_button(
+                "Kaydet",
+                use_container_width=True,
+                disabled=not can_create_attendance,
+            )
     with form_right:
         replacement_summary = (
             f"{entry_mode} | {actual_label}"
@@ -5457,7 +5470,6 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         if is_fixed_monthly_restaurant:
             preview_items.append(("Aylık Fatura", fmt_try(monthly_invoice_amount)))
         render_attendance_preview_card("Kayıt Özeti", preview_items)
-    submitted = st.button("Kaydet", use_container_width=True, disabled=not can_create_attendance, key="attendance_create_submit")
     if submitted:
         try:
             primary_id = person_opts[primary_label] if primary_label != "-" else None
@@ -5628,7 +5640,10 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             st.session_state[edit_loaded_key] = selected_id
             st.session_state[edit_date_key] = datetime.fromisoformat(selected["entry_date"]).date()
             st.session_state[edit_rest_key] = current_rest_label if current_rest_label in rest_labels else (rest_labels[0] if rest_labels else "-")
-            st.session_state[edit_mode_key] = entry_mode_default if entry_mode_default in entry_mode_options else entry_mode_options[0]
+            st.session_state[edit_mode_key] = normalize_attendance_entry_mode(
+                entry_mode_default,
+                default=entry_mode_options[0],
+            )
             st.session_state[edit_primary_key] = selected_person_label if selected_person_label in person_labels else "-"
             st.session_state[edit_actual_key] = actual_default if actual_default in person_labels else "-"
             st.session_state[edit_absence_key] = absence_reason_default if absence_reason_default in absence_reason_options else "-"
@@ -5640,8 +5655,10 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
 
         if st.session_state.get(edit_rest_key) not in rest_labels:
             st.session_state[edit_rest_key] = rest_labels[0] if rest_labels else "-"
-        if st.session_state.get(edit_mode_key) not in entry_mode_options:
-            st.session_state[edit_mode_key] = entry_mode_options[0]
+        st.session_state[edit_mode_key] = normalize_attendance_entry_mode(
+            st.session_state.get(edit_mode_key),
+            default=entry_mode_options[0],
+        )
         if st.session_state.get(edit_primary_key) not in person_labels:
             st.session_state[edit_primary_key] = "-"
         if st.session_state.get(edit_actual_key) not in person_labels:
@@ -5656,6 +5673,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             edit_date = e1.date_input("Tarih", key=edit_date_key)
             edit_rest_label = e2.selectbox("Restoran / şube", rest_labels, key=edit_rest_key)
             edit_entry_mode = e3.selectbox("Vardiya Akışı", entry_mode_options, key=edit_mode_key)
+            edit_entry_mode = normalize_attendance_entry_mode(edit_entry_mode, default=entry_mode_options[0])
 
         edit_restaurant_pricing = attendance_restaurant_pricing_lookup.get(edit_rest_label, {})
         edit_is_fixed_monthly_restaurant = str(edit_restaurant_pricing.get("pricing_model") or "").strip() == "fixed_monthly"
@@ -5675,53 +5693,59 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
         edit_absence_reason = "-"
         edit_monthly_invoice_amount = 0.0
         with edit_left:
-            st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
-            if edit_entry_mode == "Restoran Kuryesi":
-                edit_primary_label = st.selectbox("Çalışan Personel", person_labels, key=edit_primary_key)
-            elif edit_entry_mode in ["Joker", "Destek"]:
-                e4, e5 = st.columns(2)
-                edit_primary_label = e4.selectbox("Çalışan Personel", person_labels, key=edit_primary_key)
-                edit_actual_label = e5.selectbox("Yerine Giren Personel", person_labels, key=edit_actual_key)
-                edit_absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options, key=edit_absence_key)
-            else:
-                e4, e5 = st.columns(2)
-                edit_primary_label = e4.selectbox("Çalışan Personel", person_labels, key=edit_primary_key)
-                edit_absence_reason = e5.selectbox("Neden Girmedi?", absence_reason_options, key=edit_absence_key)
+            with st.form(f"{edit_prefix}_detail_form", border=False):
+                st.markdown("<div class='ck-attendance-form-kicker'>Personel Akışı</div>", unsafe_allow_html=True)
+                if edit_entry_mode == "Restoran Kuryesi":
+                    edit_primary_label = st.selectbox("Çalışan Personel", person_labels, key=edit_primary_key)
+                elif edit_entry_mode in ["Joker", "Destek"]:
+                    e4, e5 = st.columns(2)
+                    edit_primary_label = e4.selectbox("Çalışan Personel", person_labels, key=edit_primary_key)
+                    edit_actual_label = e5.selectbox("Yerine Giren Personel", person_labels, key=edit_actual_key)
+                    edit_absence_reason = st.selectbox("Neden Girmedi?", absence_reason_options, key=edit_absence_key)
+                else:
+                    e4, e5 = st.columns(2)
+                    edit_primary_label = e4.selectbox("Çalışan Personel", person_labels, key=edit_primary_key)
+                    edit_absence_reason = e5.selectbox("Neden Girmedi?", absence_reason_options, key=edit_absence_key)
 
-            st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
-            edit_metric_columns = st.columns(2)
-            e6, e7 = edit_metric_columns[0], edit_metric_columns[1]
-            edit_hours = e6.number_input(
-                "Çalışılan saat",
-                min_value=0.0,
-                step=0.5,
-                key=edit_hours_key,
-                disabled=edit_input_disabled,
-            )
-            edit_package = e7.number_input(
-                "Paket",
-                min_value=0.0,
-                step=1.0,
-                key=edit_package_key,
-                disabled=edit_input_disabled,
-            )
-            if edit_input_disabled:
-                edit_hours = 0.0
-                edit_package = 0.0
-            if edit_is_fixed_monthly_restaurant:
-                st.markdown("<div class='ck-attendance-form-kicker'>Faturalama</div>", unsafe_allow_html=True)
-                edit_monthly_invoice_amount = st.number_input(
-                    "Aylık Fatura Tutarı",
+                st.markdown("<div class='ck-attendance-form-kicker'>Mesai ve Paket</div>", unsafe_allow_html=True)
+                edit_metric_columns = st.columns(2)
+                e6, e7 = edit_metric_columns[0], edit_metric_columns[1]
+                edit_hours = e6.number_input(
+                    "Çalışılan saat",
                     min_value=0.0,
-                    step=100.0,
-                    key=edit_monthly_key,
+                    step=0.5,
+                    key=edit_hours_key,
+                    disabled=edit_input_disabled,
                 )
-                st.caption(
-                    f"Bu şube Sabit Aylık Ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(edit_monthly_invoice_default)}"
+                edit_package = e7.number_input(
+                    "Paket",
+                    min_value=0.0,
+                    step=1.0,
+                    key=edit_package_key,
+                    disabled=edit_input_disabled,
                 )
-            if edit_input_disabled:
-                st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
-            edit_notes = st.text_input("Not", placeholder="Kısa operasyon notu", key=edit_notes_key)
+                if edit_input_disabled:
+                    edit_hours = 0.0
+                    edit_package = 0.0
+                if edit_is_fixed_monthly_restaurant:
+                    st.markdown("<div class='ck-attendance-form-kicker'>Faturalama</div>", unsafe_allow_html=True)
+                    edit_monthly_invoice_amount = st.number_input(
+                        "Aylık Fatura Tutarı",
+                        min_value=0.0,
+                        step=100.0,
+                        key=edit_monthly_key,
+                    )
+                    st.caption(
+                        f"Bu şube Sabit Aylık Ücret modeliyle çalışıyor. Varsayılan anlaşma: {fmt_try(edit_monthly_invoice_default)}"
+                    )
+                if edit_input_disabled:
+                    st.caption("Haftalık izin kaydında saat ve paket alanları otomatik olarak 0 tutulur.")
+                edit_notes = st.text_input("Not", placeholder="Kısa operasyon notu", key=edit_notes_key)
+                update_clicked = st.form_submit_button(
+                    "Kaydı güncelle",
+                    use_container_width=True,
+                    disabled=not can_update_attendance,
+                )
 
         with edit_right:
             edit_replacement_summary = (
@@ -5743,12 +5767,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             render_attendance_preview_card("Seçili Kayıt", edit_preview_items)
 
         u1, u2 = st.columns(2)
-        update_clicked = u1.button(
-            "Kaydı güncelle",
-            use_container_width=True,
-            disabled=not can_update_attendance,
-            key=f"{edit_prefix}_update",
-        )
+        u1.markdown("<div style='height: 0.2rem'></div>", unsafe_allow_html=True)
         delete_clicked = u2.button(
             "Kaydı sil",
             use_container_width=True,

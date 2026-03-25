@@ -37,7 +37,7 @@ def is_side_income_only_deduction_type(deduction_type: Any) -> bool:
 def get_deduction_type_caption(deduction_type: Any) -> str:
     normalized_type = normalize_deduction_type(deduction_type)
     if normalized_type == "HGS":
-        return "HGS tutarını net gider olarak gir; sistem hakedişe %20 KDV dahil kesinti yazar."
+        return "HGS tutarını zaten KDV dahil ödediğin toplam olarak gir. Sistem hakedişe aynı tutarı yazar, ekstra KDV eklemez."
     if normalized_type == "Yakıt":
         return "Yakıt tutarını kuryeye yansıtılacak %20 KDV dahil fatura toplamı olarak gir. Çat Kapında motorlarında %7 UTTS indirimi yan gelire otomatik eklenir."
     if normalized_type == "Partner Kart İndirimi":

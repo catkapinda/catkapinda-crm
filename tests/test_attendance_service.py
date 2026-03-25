@@ -80,6 +80,12 @@ class AttendanceServiceTests(unittest.TestCase):
 
         self.assertEqual(entry_mode, "Haftalık İzin")
 
+    def test_normalize_attendance_entry_mode_maps_legacy_label(self):
+        self.assertEqual(
+            attendance_service.normalize_attendance_entry_mode("Haftalık Büyüme"),
+            "Haftalık İzin",
+        )
+
     def test_resolve_daily_entry_values_builds_weekly_off_payload(self):
         values = attendance_service.resolve_daily_entry_values(
             entry_mode="Haftalık İzin",
