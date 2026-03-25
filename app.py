@@ -18,6 +18,7 @@ from typing import Any, Iterable, Sequence
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit.errors import StreamlitSecretNotFoundError
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -316,10 +317,13 @@ LOGIN_LOGO_CANDIDATES = [
 
 
 def _default_auth_phone(env_key: str, secret_key: str) -> str:
-    if "auth" in st.secrets:
-        auth_secrets = st.secrets["auth"]
-        if secret_key in auth_secrets:
-            return str(auth_secrets.get(secret_key, "") or "").strip()
+    try:
+        if "auth" in st.secrets:
+            auth_secrets = st.secrets["auth"]
+            if secret_key in auth_secrets:
+                return str(auth_secrets.get(secret_key, "") or "").strip()
+    except StreamlitSecretNotFoundError:
+        pass
     return str(os.getenv(env_key, "") or "").strip()
 
 
