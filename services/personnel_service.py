@@ -482,12 +482,13 @@ def delete_person_with_dependencies(
     detail_parts = [
         f"{label}: {count}"
         for label, count in [
-            ("Puantaj", dependency_counts["puantaj"]),
-            ("Kesinti", dependency_counts["kesinti"]),
-            ("Rol geçmişi", dependency_counts["rol_gecmisi"]),
-            ("Plaka geçmişi", dependency_counts["plaka"]),
-            ("Zimmet", dependency_counts["zimmet"]),
-            ("Box iade", dependency_counts["box_iade"]),
+            ("Puantaj", dependency_counts.get("puantaj", 0)),
+            ("Kesinti", dependency_counts.get("kesinti", 0)),
+            ("Rol geçmişi", dependency_counts.get("rol_gecmisi", 0)),
+            ("Araç geçmişi", dependency_counts.get("arac_gecmisi", 0)),
+            ("Plaka geçmişi", dependency_counts.get("plaka", 0)),
+            ("Zimmet", dependency_counts.get("zimmet", 0)),
+            ("Box iade", dependency_counts.get("box_iade", 0)),
         ]
         if count
     ]

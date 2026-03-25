@@ -3209,6 +3209,13 @@ def get_personnel_dependency_counts(conn: CompatConnection, personnel_id: int) -
         ),
         "kesinti": int(first_row_value(conn.execute("SELECT COUNT(*) FROM deductions WHERE personnel_id = ?", (personnel_id,)).fetchone(), 0) or 0),
         "rol_gecmisi": int(first_row_value(conn.execute("SELECT COUNT(*) FROM personnel_role_history WHERE personnel_id = ?", (personnel_id,)).fetchone(), 0) or 0),
+        "arac_gecmisi": int(
+            first_row_value(
+                conn.execute("SELECT COUNT(*) FROM personnel_vehicle_history WHERE personnel_id = ?", (personnel_id,)).fetchone(),
+                0,
+            )
+            or 0
+        ),
         "plaka": int(first_row_value(conn.execute("SELECT COUNT(*) FROM plate_history WHERE personnel_id = ?", (personnel_id,)).fetchone(), 0) or 0),
         "zimmet": int(
             first_row_value(
@@ -3232,6 +3239,7 @@ def delete_personnel_and_dependencies(conn: CompatConnection, personnel_id: int)
         conn.execute("DELETE FROM deductions WHERE personnel_id = ?", (personnel_id,))
         conn.execute("DELETE FROM box_returns WHERE personnel_id = ?", (personnel_id,))
         conn.execute("DELETE FROM personnel_role_history WHERE personnel_id = ?", (personnel_id,))
+        conn.execute("DELETE FROM personnel_vehicle_history WHERE personnel_id = ?", (personnel_id,))
         conn.execute("DELETE FROM plate_history WHERE personnel_id = ?", (personnel_id,))
         conn.execute("DELETE FROM daily_entries WHERE planned_personnel_id = ? OR actual_personnel_id = ?", (personnel_id, personnel_id))
         conn.execute("DELETE FROM courier_equipment_issues WHERE personnel_id = ?", (personnel_id,))
