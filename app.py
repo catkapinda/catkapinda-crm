@@ -205,7 +205,6 @@ from ui.ui_helpers import (
     render_management_hero,
     render_record_snapshot,
     render_tab_header,
-    render_workspace_loading_shell,
     section_intro,
 )
 from services.reporting_service import (
@@ -375,6 +374,7 @@ configure_db_engine(
     legacy_db_paths=LEGACY_DB_PATHS,
 )
 AUTH_QUERY_KEY = "ck_session"
+SESSION_CONN_KEY = "_ck_active_conn"
 AUTH_SESSION_DAYS = 30
 VAT_RATE_DEFAULT = 20.0
 COURIER_HOURLY_COST = 250.0  # KDV dahil
@@ -756,8 +756,23 @@ def insert_equipment_issue_and_get_id(
 
 
 def get_conn() -> CompatConnection:
+    existing = st.session_state.get(SESSION_CONN_KEY)
+    if isinstance(existing, CompatConnection):
+        try:
+            probe = existing.execute("SELECT 1")
+            probe.fetchone()
+            probe.close()
+            return existing
+        except Exception:
+            try:
+                existing.close()
+            except Exception:
+                pass
+            st.session_state.pop(SESSION_CONN_KEY, None)
+
     conn = connect_database()
     ensure_runtime_bootstrap(conn)
+    st.session_state[SESSION_CONN_KEY] = conn
     return conn
 
 
@@ -7236,53 +7251,46 @@ def main() -> None:
             language="toml",
         )
         return
-    try:
-        if not login_gate(conn):
-            return
+    if not login_gate(conn):
+        return
 
-        role = st.session_state.get("role", "")
-        render_sidebar_brand()
-        menu_items = allowed_menu_items(role)
-        menu = resolve_menu_state(menu_items)
-        target_menu = st.session_state.pop("ck_sidebar_target_menu", None)
-        if target_menu in menu_items:
-            st.session_state["ck_main_menu"] = target_menu
-            set_query_param(MENU_QUERY_KEY, target_menu)
-            menu = target_menu
-        menu = render_sidebar_navigation(menu_items, menu)
-        menu = resolve_menu_state(menu_items)
-        render_menu_scroll_reset(menu)
+    role = st.session_state.get("role", "")
+    render_sidebar_brand()
+    menu_items = allowed_menu_items(role)
+    menu = resolve_menu_state(menu_items)
+    target_menu = st.session_state.pop("ck_sidebar_target_menu", None)
+    if target_menu in menu_items:
+        st.session_state["ck_main_menu"] = target_menu
+        set_query_param(MENU_QUERY_KEY, target_menu)
+        menu = target_menu
+    menu = render_sidebar_navigation(menu_items, menu)
+    menu = resolve_menu_state(menu_items)
+    render_menu_scroll_reset(menu)
 
-        ensure_role_access(menu, role)
-        render_top_profile(conn)
-        content_placeholder = st.empty()
-        with content_placeholder.container():
-            render_workspace_loading_shell(MENU_DISPLAY_LABELS.get(menu, menu))
-        with content_placeholder.container():
-            if menu == "Genel Bakış":
-                dashboard_tab(conn)
-            elif menu == "Satış":
-                sales_tab(conn)
-            elif menu == "Sistem Kayıtları":
-                audit_trail_tab(conn)
-            elif menu == "Güncellemeler ve Duyurular":
-                announcements_tab()
-            elif menu == "Restoran Yönetimi":
-                restaurants_tab(conn)
-            elif menu == "Personel Yönetimi":
-                personnel_tab(conn)
-            elif menu == "Puantaj":
-                attendance_tab(conn)
-            elif menu == "Satın Alma":
-                purchases_tab(conn)
-            elif menu == "Kesinti Yönetimi":
-                deductions_tab(conn)
-            elif menu == "Aylık Hakediş":
-                monthly_payroll_tab(conn)
-            elif menu == "Raporlar ve Karlılık":
-                reports_tab(conn)
-    finally:
-        conn.close()
+    ensure_role_access(menu, role)
+    render_top_profile(conn)
+    if menu == "Genel Bakış":
+        dashboard_tab(conn)
+    elif menu == "Satış":
+        sales_tab(conn)
+    elif menu == "Sistem Kayıtları":
+        audit_trail_tab(conn)
+    elif menu == "Güncellemeler ve Duyurular":
+        announcements_tab()
+    elif menu == "Restoran Yönetimi":
+        restaurants_tab(conn)
+    elif menu == "Personel Yönetimi":
+        personnel_tab(conn)
+    elif menu == "Puantaj":
+        attendance_tab(conn)
+    elif menu == "Satın Alma":
+        purchases_tab(conn)
+    elif menu == "Kesinti Yönetimi":
+        deductions_tab(conn)
+    elif menu == "Aylık Hakediş":
+        monthly_payroll_tab(conn)
+    elif menu == "Raporlar ve Karlılık":
+        reports_tab(conn)
 
 
 if __name__ == "__main__":
