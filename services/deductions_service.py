@@ -11,7 +11,7 @@ from repositories.deductions_repository import (
     insert_deduction_record,
     update_deduction_record,
 )
-from rules.deduction_rules import HGS_VAT_RATE, is_hgs_deduction_type
+from rules.deduction_rules import HGS_VAT_RATE, is_hgs_deduction_type, normalize_deduction_type
 from services.audit_service import record_audit_event
 from services.permission_service import require_action_access
 
@@ -45,6 +45,9 @@ def normalize_deduction_amount_for_form(deduction_type: Any, amount: Any, *, saf
 
 def load_deductions_workspace_payload(conn) -> DeductionsWorkspacePayload:
     raw_df = fetch_deduction_management_df(conn)
+    if not raw_df.empty and "deduction_type" in raw_df.columns:
+        raw_df = raw_df.copy()
+        raw_df["deduction_type"] = raw_df["deduction_type"].apply(normalize_deduction_type)
     manual_deductions_df = raw_df[raw_df["auto_source_key"].fillna("").astype(str).str.strip() == ""].copy() if not raw_df.empty else raw_df
     return DeductionsWorkspacePayload(raw_df=raw_df, manual_deductions_df=manual_deductions_df)
 
@@ -62,15 +65,17 @@ def build_deduction_selection_payload(
     reverse_person = {v: k for k, v in person_opts.items()}
     current_person = reverse_person.get(int(row["personnel_id"]), list(person_opts.keys())[0])
     person_index = list(person_opts.keys()).index(current_person) if current_person in person_opts else 0
-    type_index = deduction_types.index(row["deduction_type"]) if row["deduction_type"] in deduction_types else len(deduction_types) - 1
+    normalized_type = normalize_deduction_type(row["deduction_type"])
+    type_index = deduction_types.index(normalized_type) if normalized_type in deduction_types else len(deduction_types) - 1
     current_date = datetime.strptime(str(row["deduction_date"]), "%Y-%m-%d").date()
     is_auto_record = is_system_personnel_auto_deduction_key_fn(row.get("auto_source_key"))
     row["amount"] = safe_float_fn(row["amount"])
     display_amount = normalize_deduction_amount_for_form(
-        row["deduction_type"],
+        normalized_type,
         row["amount"],
         safe_float_fn=safe_float_fn,
     )
+    row["deduction_type"] = normalized_type
     return DeductionSelectionPayload(
         row=row,
         current_person=current_person,
@@ -90,6 +95,8 @@ def create_deduction_and_commit(
 ) -> str:
     require_action_access(actor_role, "deduction.create")
     deduction_payload = dict(deduction_values)
+    if "deduction_type" in deduction_payload:
+        deduction_payload["deduction_type"] = normalize_deduction_type(deduction_payload.get("deduction_type"))
     deduction_payload["amount"] = normalize_deduction_amount_for_storage(
         deduction_payload.get("deduction_type"),
         deduction_payload.get("amount"),
@@ -121,6 +128,8 @@ def update_deduction_and_commit(
 ) -> str:
     require_action_access(actor_role, "deduction.update")
     deduction_payload = dict(deduction_values)
+    if "deduction_type" in deduction_payload:
+        deduction_payload["deduction_type"] = normalize_deduction_type(deduction_payload.get("deduction_type"))
     deduction_payload["amount"] = normalize_deduction_amount_for_storage(
         deduction_payload.get("deduction_type"),
         deduction_payload.get("amount"),
