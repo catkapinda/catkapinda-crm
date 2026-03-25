@@ -1089,6 +1089,9 @@ def login_gate(conn: sqlite3.Connection) -> bool:
             line-height: 1.2 !important;
             display: flex;
             align-items: center;
+            color: #13233D !important;
+            -webkit-text-fill-color: #13233D !important;
+            caret-color: #13233D !important;
         }
 
         div[data-testid="stForm"] [data-baseweb="input"] {
@@ -4493,11 +4496,48 @@ def inject_global_styles() -> None:
             .stTextInput input, .stNumberInput input, .stTextArea textarea {
                 border-radius: 14px;
                 background: #FFFFFF !important;
+                color: #13233D !important;
+                -webkit-text-fill-color: #13233D !important;
+                caret-color: #13233D !important;
             }
 
             .stSelectbox [data-baseweb="select"] > div, .stDateInput > div > div {
                 border-radius: 14px;
                 background: #FFFFFF !important;
+                color: #13233D !important;
+            }
+
+            .stTextInput input::placeholder,
+            .stNumberInput input::placeholder,
+            .stTextArea textarea::placeholder,
+            div[data-testid="stForm"] [data-testid="stTextInputRootElement"] input::placeholder {
+                color: #7A889E !important;
+                -webkit-text-fill-color: #7A889E !important;
+                opacity: 1 !important;
+            }
+
+            .stTextInput input:-webkit-autofill,
+            .stTextInput input:-webkit-autofill:hover,
+            .stTextInput input:-webkit-autofill:focus,
+            .stNumberInput input:-webkit-autofill,
+            .stNumberInput input:-webkit-autofill:hover,
+            .stNumberInput input:-webkit-autofill:focus,
+            .stTextArea textarea:-webkit-autofill,
+            .stTextArea textarea:-webkit-autofill:hover,
+            .stTextArea textarea:-webkit-autofill:focus {
+                -webkit-text-fill-color: #13233D !important;
+                caret-color: #13233D !important;
+                box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+                transition: background-color 9999s ease-in-out 0s !important;
+            }
+
+            .stSelectbox [data-baseweb="select"] span,
+            .stSelectbox [data-baseweb="select"] input,
+            .stSelectbox [data-baseweb="select"] div,
+            .stDateInput input,
+            ul[role="listbox"] li {
+                color: #13233D !important;
+                -webkit-text-fill-color: #13233D !important;
             }
 
             div[data-testid="stForm"] {
