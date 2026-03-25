@@ -24,6 +24,7 @@ _AUTH_SESSION_DAYS = 30
 _MOBILE_AUTH_PERSONNEL_ROLES: tuple[str, ...] = ("Joker", "Bölge Müdürü")
 _MOBILE_AUTH_EMAIL_DOMAIN = "auth.catkapinda.local"
 _SMS_PHONE_AUTH_PERSONNEL_ROLES: tuple[str, ...] = ("Bölge Müdürü",)
+_SMS_PHONE_AUTH_EMAIL_ALLOWLIST: set[str] = set()
 PHONE_LOGIN_CODE_MINUTES = 10
 _PHONE_LOGIN_CODE_ATTEMPT_LIMIT = 5
 
@@ -39,6 +40,7 @@ def configure_auth_engine(
     login_logo_candidates: list[str],
     auth_query_key: str,
     auth_session_days: int,
+    sms_phone_auth_email_allowlist: set[str] | None = None,
 ) -> None:
     global _GET_ROW_VALUE
     global _SAFE_INT
@@ -49,6 +51,7 @@ def configure_auth_engine(
     global _LOGIN_LOGO_CANDIDATES
     global _AUTH_QUERY_KEY
     global _AUTH_SESSION_DAYS
+    global _SMS_PHONE_AUTH_EMAIL_ALLOWLIST
 
     _GET_ROW_VALUE = get_row_value_fn
     _SAFE_INT = safe_int_fn
@@ -59,6 +62,11 @@ def configure_auth_engine(
     _LOGIN_LOGO_CANDIDATES = list(login_logo_candidates)
     _AUTH_QUERY_KEY = str(auth_query_key or "")
     _AUTH_SESSION_DAYS = int(auth_session_days or 30)
+    _SMS_PHONE_AUTH_EMAIL_ALLOWLIST = {
+        normalize_auth_identity(email)
+        for email in (sms_phone_auth_email_allowlist or set())
+        if normalize_auth_identity(email)
+    }
 
 
 def normalize_auth_identity(value: str) -> str:
@@ -113,6 +121,10 @@ def can_issue_phone_login_code(conn: Any, user_row: Any) -> bool:
     if not can_phone_login_for_user(user_row):
         return False
     email_value = str(_GET_ROW_VALUE(user_row, "email", "") or "")
+    normalized_email = normalize_auth_identity(email_value)
+    user_is_active = _SAFE_INT(_GET_ROW_VALUE(user_row, "is_active", 0), 0) == 1
+    if normalized_email in _SMS_PHONE_AUTH_EMAIL_ALLOWLIST:
+        return user_is_active
     if not is_mobile_auth_email(email_value):
         return False
     personnel_id = extract_mobile_auth_personnel_id(email_value)
@@ -175,7 +187,7 @@ def get_auth_user(conn: Any, identity: str) -> Any:
     if not normalized_identity:
         return None
     try:
-        return conn.execute(
+        row = conn.execute(
             """
             SELECT *
             FROM auth_users
@@ -185,12 +197,14 @@ def get_auth_user(conn: Any, identity: str) -> Any:
             """,
             (normalized_identity, normalized_identity),
         ).fetchone()
+        if row is not None:
+            return row
     except Exception as exc:
         # Older live databases may not have the phone column yet; allow bootstrap
         # and auth sync to continue using email-only lookup until schema is healed.
         if "phone" not in str(exc).lower():
             raise
-        return conn.execute(
+        row = conn.execute(
             """
             SELECT *
             FROM auth_users
@@ -199,6 +213,25 @@ def get_auth_user(conn: Any, identity: str) -> Any:
             """,
             (normalized_identity,),
         ).fetchone()
+        if row is not None:
+            return row
+
+    normalized_phone = normalize_auth_phone(normalized_identity)
+    if not normalized_phone:
+        return None
+
+    # Some older rows may still store raw phone formats like 0532..., 90532...,
+    # or values with punctuation. Normalize in Python as a compatibility fallback.
+    for row in conn.execute(
+        """
+        SELECT *
+        FROM auth_users
+        WHERE COALESCE(phone, '') <> ''
+        """
+    ).fetchall():
+        if normalize_auth_phone(str(_GET_ROW_VALUE(row, "phone", "") or "")) == normalized_phone:
+            return row
+    return None
 
 
 def build_login_logo_markup() -> str:
