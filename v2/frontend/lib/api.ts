@@ -4,7 +4,7 @@ export function resolveApiBaseUrl() {
   const configuredBaseUrl =
     process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
     process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
+    "/v2-api";
   return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
 }
 

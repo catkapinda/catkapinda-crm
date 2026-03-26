@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: crmcatkapinda-v2-api
+    runtime: python
+    rootDir: v2/backend
+    buildCommand: pip install --upgrade pip && pip install .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.9
+      - key: CK_V2_DATABASE_URL
+        sync: false
+      - key: CK_V2_FRONTEND_BASE_URL
+        sync: false
+      - key: CK_V2_PUBLIC_APP_URL
+        sync: false
+
+  - type: web
+    name: crmcatkapinda-v2
+    runtime: node
+    rootDir: v2/frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start -- --hostname 0.0.0.0 --port $PORT
+    autoDeploy: false
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: NEXT_PUBLIC_V2_API_BASE_URL
+        value: /v2-api
+      - key: CK_V2_INTERNAL_API_HOSTPORT
+        fromService:
+          type: web
+          name: crmcatkapinda-v2-api
+          property: hostport

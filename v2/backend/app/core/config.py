@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     database_url: str | None = None
     frontend_app_name: str = "Cat Kapinda CRM v2"
     auth_session_days: int = 30
+    frontend_base_url: str = "http://127.0.0.1:3000"
+    public_app_url: str = "http://127.0.0.1:3000"
 
     model_config = SettingsConfigDict(
         env_prefix="CK_V2_",
@@ -16,6 +18,14 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        allowed = {
+            self.frontend_base_url.rstrip("/"),
+            self.public_app_url.rstrip("/"),
+        }
+        return [origin for origin in allowed if origin]
 
 
 settings = Settings()
