@@ -1,10 +1,12 @@
+import Link from "next/link";
+
 const sidebarItems = [
-  "Genel Bakış",
-  "Puantaj",
-  "Personel",
-  "Restoranlar",
-  "Satış",
-  "Raporlar",
+  { label: "Genel Bakış", href: "/" },
+  { label: "Puantaj", href: "/attendance" },
+  { label: "Personel", href: "/personnel" },
+  { label: "Restoranlar", href: "#" },
+  { label: "Satış", href: "#" },
+  { label: "Raporlar", href: "#" },
 ];
 
 export function AppShell({
@@ -57,20 +59,21 @@ export function AppShell({
             gap: "10px",
           }}
         >
-          {sidebarItems.map((item, index) => (
-            <div
-              key={item}
+          {sidebarItems.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
               style={{
                 padding: "14px 16px",
                 borderRadius: "18px",
                 border: "1px solid var(--line)",
-                background: item === activeItem ? "var(--accent-soft)" : "rgba(255, 255, 255, 0.82)",
-                color: item === activeItem ? "var(--accent)" : "var(--text)",
+                background: item.label === activeItem ? "var(--accent-soft)" : "rgba(255, 255, 255, 0.82)",
+                color: item.label === activeItem ? "var(--accent)" : "var(--text)",
                 fontWeight: 700,
               }}
             >
-              {item}
-            </div>
+              {item.label}
+            </Link>
           ))}
         </nav>
       </aside>
