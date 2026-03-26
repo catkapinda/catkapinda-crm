@@ -6,6 +6,84 @@ import pandas as pd
 import streamlit as st
 
 
+def _inject_dashboard_workspace_styles() -> None:
+    st.markdown(
+        """
+        <style>
+        .ck-overview-shell {
+            display: grid;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+        .ck-overview-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 15px 16px;
+            border: 1px solid rgba(221, 230, 244, 0.96);
+            border-radius: 24px;
+            background:
+                radial-gradient(circle at top right, rgba(42, 132, 255, 0.08), transparent 30%),
+                linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.98));
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.05);
+        }
+        .ck-overview-copy {
+            display: grid;
+            gap: 5px;
+            min-width: 0;
+        }
+        .ck-overview-kicker {
+            color: #7B8BA2;
+            font-size: 0.72rem;
+            font-weight: 860;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+        }
+        .ck-overview-title {
+            color: #10203A;
+            font-size: 1.04rem;
+            font-weight: 860;
+            letter-spacing: -0.03em;
+        }
+        .ck-overview-subtitle {
+            color: #63748E;
+            font-size: 0.84rem;
+            line-height: 1.55;
+        }
+        .ck-overview-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(13, 76, 205, 0.1);
+            color: #0D4CCD;
+            font-size: 0.76rem;
+            font-weight: 860;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .ck-dashboard-surface {
+            border: 1px solid rgba(221, 230, 244, 0.96);
+            border-radius: 24px;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,255,0.98));
+            padding: 10px;
+        }
+        .ck-dashboard-note {
+            color: #65758E;
+            font-size: 0.8rem;
+            line-height: 1.55;
+            margin: 2px 0 8px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_dashboard_summary_cards(
     *,
     missing_attendance_count: int,
@@ -18,8 +96,76 @@ def render_dashboard_summary_cards(
     shared_overhead_total: float,
     profit_df: pd.DataFrame,
     render_record_snapshot_fn: Callable[[str, list[tuple[str, Any]]], None],
+    render_executive_metrics_fn: Callable[..., None],
     fmt_try_fn: Callable[[Any], str],
 ) -> None:
+    _inject_dashboard_workspace_styles()
+    profitable_count = len(profit_df[profit_df["brut_fark"] >= 0]) if not profit_df.empty else 0
+    risky_count = len(profit_df[profit_df["brut_fark"] < 0]) if not profit_df.empty else 0
+    critical_total = (
+        int(missing_attendance_count)
+        + int(under_target_count)
+        + int(joker_usage_count)
+        + int(missing_personnel_count)
+        + int(missing_restaurant_count)
+    )
+    st.markdown(
+        f"""
+        <div class='ck-overview-shell'>
+            <div class='ck-overview-toolbar'>
+                <div class='ck-overview-copy'>
+                    <div class='ck-overview-kicker'>Operasyon Özeti</div>
+                    <div class='ck-overview-title'>Bugünün kritik görünümü</div>
+                    <div class='ck-overview-subtitle'>Ana operasyon sinyallerini, finansal ritmi ve veri hijyenini daha kısa, daha net bir yönetim yüzeyinden takip et.</div>
+                </div>
+                <div class='ck-overview-badge'>{critical_total} kritik sinyal</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    render_executive_metrics_fn(
+        [
+            {
+                "label": "Puantaj Bekleyen",
+                "value": missing_attendance_count,
+                "note": "Bugün kayıt bekleyen şube",
+                "tone": "critical" if missing_attendance_count else "positive",
+            },
+            {
+                "label": "Kadro Riski",
+                "value": under_target_count,
+                "note": "Hedef altında kalan şube",
+                "tone": "warning" if under_target_count else "positive",
+            },
+            {
+                "label": "Joker Kullanımı",
+                "value": joker_usage_count,
+                "note": "Bugün destek verilen şube",
+                "tone": "warning" if joker_usage_count else "positive",
+            },
+            {
+                "label": "Bu Ay Fatura",
+                "value": fmt_try_fn(month_revenue),
+                "note": "KDV dahil restoran toplamı",
+                "tone": "positive",
+            },
+            {
+                "label": "Operasyon Farkı",
+                "value": fmt_try_fn(month_operation_gap),
+                "note": "Ay içi brüt operasyon farkı",
+                "tone": "warning" if month_operation_gap < 0 else "positive",
+            },
+            {
+                "label": "Riskli Şube",
+                "value": risky_count,
+                "note": f"{profitable_count} karlı şube ile birlikte",
+                "tone": "critical" if risky_count else "positive",
+            },
+        ],
+        title="Yönetim Kartları",
+        subtitle="Hızlı karar için öne çıkan operasyon ve finans sinyalleri",
+    )
     c_top_1, c_top_2 = st.columns([1.2, 1])
     with c_top_1:
         render_record_snapshot_fn(
@@ -39,8 +185,8 @@ def render_dashboard_summary_cards(
                 ("Restoran faturası", fmt_try_fn(month_revenue)),
                 ("Operasyon farkı", fmt_try_fn(month_operation_gap)),
                 ("Ortak Operasyon Payı", fmt_try_fn(shared_overhead_total)),
-                ("Kârlı restoran", len(profit_df[profit_df["brut_fark"] >= 0]) if not profit_df.empty else 0),
-                ("Riskli restoran", len(profit_df[profit_df["brut_fark"] < 0]) if not profit_df.empty else 0),
+                ("Kârlı restoran", profitable_count),
+                ("Riskli restoran", risky_count),
             ],
         )
 
@@ -59,6 +205,10 @@ def render_dashboard_focus_sections(
         render_alert_stack_fn("Bugün Acil Aksiyon", priority_alerts)
     with brand_col:
         with st.container(border=True):
+            st.markdown(
+                "<div class='ck-dashboard-note'>Marka kırılımı kontrollü bir alan içinde listelenir; yüksek hacim ve risk aynı yüzeyde okunur.</div>",
+                unsafe_allow_html=True,
+            )
             if brand_summary_df.empty:
                 render_dashboard_data_grid_fn(
                     "Marka Bazlı Özet",
@@ -67,6 +217,7 @@ def render_dashboard_focus_sections(
                     [],
                     "Marka bazlı özet için bu ay puantaj verisi oluşmadı.",
                     badge_columns={"Durum"},
+                    max_height_px=340,
                 )
             else:
                 brand_rows = [
@@ -87,6 +238,7 @@ def render_dashboard_focus_sections(
                     brand_rows,
                     "Marka bazlı özet için bu ay puantaj verisi oluşmadı.",
                     badge_columns={"Durum"},
+                    max_height_px=340,
                 )
 
 
@@ -174,6 +326,10 @@ def render_dashboard_action_sections(
 
             if not joker_usage_df.empty:
                 st.markdown("<div class='ck-dashboard-spacer-sm'></div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div class='ck-dashboard-note'>Joker kullanılan şubeler ayrı bir alan içinde sabit kalır; tüm ekran aşağı uzamaz.</div>",
+                    unsafe_allow_html=True,
+                )
                 joker_rows = [
                     {
                         "Şube": row["restoran"],
@@ -188,6 +344,7 @@ def render_dashboard_action_sections(
                     ["Şube", "Joker", "Paket"],
                     joker_rows,
                     "Bugün joker kullanılan şube görünmüyor.",
+                    max_height_px=250,
                 )
 
     with actions_col:
@@ -265,6 +422,7 @@ def render_dashboard_finance_and_hygiene_sections(
                     personnel_rows,
                     "Eksik personel kartı görünmüyor.",
                     muted_columns={"Eksik Alanlar"},
+                    max_height_px=250,
                 )
             elif not missing_restaurant_df.empty:
                 restaurant_rows = [
@@ -281,6 +439,7 @@ def render_dashboard_finance_and_hygiene_sections(
                     restaurant_rows,
                     "Eksik restoran kartı görünmüyor.",
                     muted_columns={"Eksik Alanlar"},
+                    max_height_px=250,
                 )
             else:
                 st.success("Aktif kartlar tarafında öne çıkan kritik eksik görünmüyor.")
