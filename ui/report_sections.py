@@ -6,71 +6,52 @@ import pandas as pd
 import streamlit as st
 
 
-def render_invoice_report_tab(
-    invoice_df: pd.DataFrame,
-    invoice_drilldown_map: dict[str, pd.DataFrame],
-    invoice_attendance_export_map: dict[str, pd.DataFrame],
-    selected_month: str,
-    *,
-    format_display_df_fn: Callable[..., pd.DataFrame],
-    build_grid_rows_fn: Callable[[pd.DataFrame, list[str]], list[dict[str, Any]]],
-    render_dashboard_data_grid_fn: Callable[..., None],
-    render_executive_metrics_fn: Callable[..., None],
-    pricing_model_labels: dict[str, str],
-    fmt_number_fn: Callable[[Any], str],
-    fmt_try_fn: Callable[[Any], str],
-    build_restaurant_export_filename_fn: Callable[[str, str], str],
-) -> None:
-    open_restaurant = str(st.session_state.get("invoice_report_open_restaurant", "") or "")
-    invoice_display_df = format_display_df_fn(
-        invoice_df,
-        currency_cols=["Restoran KDV Hariç", "Restoran KDV Dahil"],
-        number_cols=["Toplam Saat", "Toplam Paket"],
-        rename_map={
-            "restoran": "Restoran / Şube",
-            "model": "Fiyat Modeli",
-            "saat": "Toplam Saat",
-            "paket": "Toplam Paket",
-            "kdv_haric": "Restoran KDV Hariç",
-            "kdv_dahil": "Restoran KDV Dahil",
-        },
-        value_maps={"model": pricing_model_labels},
-    )
+def _inject_report_workspace_styles() -> None:
     st.markdown(
         """
         <style>
-        .invoice-report-overview {
+        .ck-report-overview {
             display: grid;
             gap: 14px;
             margin-bottom: 14px;
         }
-        .invoice-report-toolbar {
+        .ck-report-toolbar {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 14px;
-            padding: 14px 16px;
+            padding: 15px 16px;
             border: 1px solid rgba(221, 230, 244, 0.92);
             border-radius: 22px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,251,255,0.98));
+            background:
+                radial-gradient(circle at top right, rgba(42, 132, 255, 0.08), transparent 30%),
+                linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,251,255,0.98));
             box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
         }
-        .invoice-report-toolbar-copy {
+        .ck-report-toolbar-copy {
             display: grid;
-            gap: 4px;
+            gap: 5px;
+            min-width: 0;
         }
-        .invoice-report-toolbar-title {
+        .ck-report-toolbar-kicker {
+            color: #7B8BA2;
+            font-size: 0.72rem;
+            font-weight: 860;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+        }
+        .ck-report-toolbar-title {
             color: #10203A;
-            font-size: 1rem;
+            font-size: 1.02rem;
             font-weight: 860;
             letter-spacing: -0.03em;
         }
-        .invoice-report-toolbar-subtitle {
+        .ck-report-toolbar-subtitle {
             color: #63748E;
             font-size: 0.84rem;
             line-height: 1.55;
         }
-        .invoice-report-toolbar-badge {
+        .ck-report-toolbar-badge {
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -83,22 +64,18 @@ def render_invoice_report_tab(
             font-weight: 860;
             letter-spacing: 0.04em;
             white-space: nowrap;
+            flex-shrink: 0;
         }
-        .invoice-report-shell {
+        .ck-report-shell {
             display: grid;
             gap: 14px;
         }
-        .invoice-report-scroll {
-            max-height: 620px;
-            overflow-y: auto;
-            padding-right: 6px;
-        }
-        .invoice-report-scroll::-webkit-scrollbar {
-            width: 10px;
-        }
-        .invoice-report-scroll::-webkit-scrollbar-thumb {
-            background: rgba(116, 131, 155, 0.28);
-            border-radius: 999px;
+        .ck-report-scroll-frame {
+            border: 1px solid rgba(221, 230, 244, 0.96);
+            border-radius: 24px;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,255,0.98));
+            padding: 8px;
         }
         .invoice-report-card {
             border: 1px solid rgba(207, 218, 238, 0.9);
@@ -142,9 +119,48 @@ def render_invoice_report_tab(
             padding-top: 12px;
             border-top: 1px solid rgba(222, 230, 244, 0.92);
         }
+        .ck-report-inline-note {
+            color: #65758E;
+            font-size: 0.8rem;
+            line-height: 1.55;
+            margin: 2px 0 8px;
+        }
         </style>
         """,
         unsafe_allow_html=True,
+    )
+
+
+def render_invoice_report_tab(
+    invoice_df: pd.DataFrame,
+    invoice_drilldown_map: dict[str, pd.DataFrame],
+    invoice_attendance_export_map: dict[str, pd.DataFrame],
+    selected_month: str,
+    *,
+    format_display_df_fn: Callable[..., pd.DataFrame],
+    build_grid_rows_fn: Callable[[pd.DataFrame, list[str]], list[dict[str, Any]]],
+    render_dashboard_data_grid_fn: Callable[..., None],
+    render_executive_metrics_fn: Callable[..., None],
+    pricing_model_labels: dict[str, str],
+    fmt_number_fn: Callable[[Any], str],
+    fmt_try_fn: Callable[[Any], str],
+    build_restaurant_export_filename_fn: Callable[[str, str], str],
+) -> None:
+    _inject_report_workspace_styles()
+    open_restaurant = str(st.session_state.get("invoice_report_open_restaurant", "") or "")
+    invoice_display_df = format_display_df_fn(
+        invoice_df,
+        currency_cols=["Restoran KDV Hariç", "Restoran KDV Dahil"],
+        number_cols=["Toplam Saat", "Toplam Paket"],
+        rename_map={
+            "restoran": "Restoran / Şube",
+            "model": "Fiyat Modeli",
+            "saat": "Toplam Saat",
+            "paket": "Toplam Paket",
+            "kdv_haric": "Restoran KDV Hariç",
+            "kdv_dahil": "Restoran KDV Dahil",
+        },
+        value_maps={"model": pricing_model_labels},
     )
     restaurant_count = int(invoice_df["restoran"].dropna().astype(str).nunique()) if not invoice_df.empty and "restoran" in invoice_df.columns else 0
     total_hours_value = float(invoice_df["saat"].sum()) if not invoice_df.empty and "saat" in invoice_df.columns else 0.0
@@ -181,107 +197,116 @@ def render_invoice_report_tab(
         if invoice_display_df is None or invoice_display_df.empty:
             st.info("Fatura görünümü için veri yok.")
         else:
-            st.markdown(
-                f"""
-                <div class='invoice-report-overview'>
-                    <div class='invoice-report-toolbar'>
-                        <div class='invoice-report-toolbar-copy'>
-                            <div class='invoice-report-toolbar-title'>Restoran Faturası</div>
-                            <div class='invoice-report-toolbar-subtitle'>Şube kartını açıp kurye saat, paket ve katkı detayını tek yüzeyde inceleyebilirsin.</div>
+            toolbar_col, action_col = st.columns([4.6, 1.3], vertical_alignment="center")
+            with toolbar_col:
+                st.markdown(
+                    f"""
+                    <div class='ck-report-overview'>
+                        <div class='ck-report-toolbar'>
+                            <div class='ck-report-toolbar-copy'>
+                                <div class='ck-report-toolbar-kicker'>Finans Raporu</div>
+                                <div class='ck-report-toolbar-title'>Restoran Faturası</div>
+                                <div class='ck-report-toolbar-subtitle'>Şube kartını açıp kurye saat, paket ve katkı detayını daha kısa ve kontrollü bir yüzeyde inceleyebilirsin.</div>
+                            </div>
+                            <div class='ck-report-toolbar-badge'>{restaurant_count} şube</div>
                         </div>
-                        <div class='invoice-report-toolbar-badge'>{restaurant_count} şube</div>
                     </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.markdown("<div class='invoice-report-scroll'>", unsafe_allow_html=True)
-            st.markdown("<div class='invoice-report-shell'>", unsafe_allow_html=True)
-            for row_index, row in invoice_display_df.iterrows():
-                restaurant_name = str(row.get("Restoran / Şube", "-") or "-")
-                model_name = str(row.get("Fiyat Modeli", "-") or "-")
-                total_hours = str(row.get("Toplam Saat", "-") or "-")
-                total_packages = str(row.get("Toplam Paket", "-") or "-")
-                net_invoice = str(row.get("Restoran KDV Hariç", "-") or "-")
-                gross_invoice = str(row.get("Restoran KDV Dahil", "-") or "-")
-                is_open = open_restaurant == restaurant_name
-                with st.container():
-                    st.markdown("<div class='invoice-report-card'>", unsafe_allow_html=True)
-                    head_col, metric1, metric2, metric3, metric4 = st.columns([3.2, 1, 1, 1.15, 1.25])
-                    if head_col.button(
-                        f"{'▾' if is_open else '▸'} {restaurant_name}",
-                        key=f"invoice_toggle_{row_index}",
-                        use_container_width=True,
-                        type="primary" if is_open else "secondary",
-                    ):
-                        st.session_state["invoice_report_open_restaurant"] = "" if is_open else restaurant_name
-                        st.rerun()
-                    head_col.markdown(f"<div class='invoice-model-pill'>{model_name}</div>", unsafe_allow_html=True)
-                    metric1.markdown("<div class='invoice-metric-label'>Toplam Saat</div>", unsafe_allow_html=True)
-                    metric1.markdown(f"<div class='invoice-metric-value'>{total_hours}</div>", unsafe_allow_html=True)
-                    metric2.markdown("<div class='invoice-metric-label'>Toplam Paket</div>", unsafe_allow_html=True)
-                    metric2.markdown(f"<div class='invoice-metric-value'>{total_packages}</div>", unsafe_allow_html=True)
-                    metric3.markdown("<div class='invoice-metric-label'>KDV Hariç</div>", unsafe_allow_html=True)
-                    metric3.markdown(f"<div class='invoice-metric-value'>{net_invoice}</div>", unsafe_allow_html=True)
-                    metric4.markdown("<div class='invoice-metric-label'>Restoran Faturası</div>", unsafe_allow_html=True)
-                    metric4.markdown(f"<div class='invoice-metric-value -strong'>{gross_invoice}</div>", unsafe_allow_html=True)
-                    if not is_open:
-                        st.markdown("</div>", unsafe_allow_html=True)
-                        continue
-                    st.markdown("<div class='invoice-detail-shell'>", unsafe_allow_html=True)
-                    detail_df = invoice_drilldown_map.get(restaurant_name, pd.DataFrame())
-                    if detail_df.empty:
-                        st.info("Bu restoran için kurye saat/paket kırılımı bulunamadı.")
-                    else:
-                        detail_display_df = format_display_df_fn(
-                            detail_df,
-                            currency_cols=["KDV Hariç", "KDV Dahil"],
-                            number_cols=["Toplam Saat", "Toplam Paket"],
-                            rename_map={
-                                "personel": "Kurye",
-                                "calisma_saati": "Toplam Saat",
-                                "paket": "Toplam Paket",
-                                "kdv_haric": "KDV Hariç",
-                                "kdv_dahil": "KDV Dahil",
-                            },
-                        )
-                        detail_columns = ["Kurye", "Toplam Saat", "Toplam Paket", "KDV Hariç", "KDV Dahil"]
-                        render_dashboard_data_grid_fn(
-                            f"{restaurant_name} Kurye Dağılımı",
-                            "Bu şubede seçilen ay boyunca kurye bazında toplam saat, paket ve fatura katkısı.",
-                            detail_columns,
-                            build_grid_rows_fn(detail_display_df, detail_columns),
-                            "Bu restoran için detay kırılımı yok.",
-                        )
-                    export_df = invoice_attendance_export_map.get(restaurant_name, pd.DataFrame())
-                    if export_df is not None and not export_df.empty:
-                        export_df = export_df.copy()
-                        for number_column in ["Toplam Saat", "Toplam Paket"]:
-                            if number_column in export_df.columns:
-                                export_df[number_column] = export_df[number_column].apply(
-                                    lambda value: fmt_number_fn(value) if pd.notna(value) else ""
-                                )
-                        for currency_column in ["KDV Hariç", "KDV Dahil"]:
-                            if currency_column in export_df.columns:
-                                export_df[currency_column] = export_df[currency_column].apply(fmt_try_fn)
-                        st.download_button(
-                            f"{restaurant_name} puantajını indir",
-                            data=export_df.to_csv(index=False).encode("utf-8-sig"),
-                            file_name=build_restaurant_export_filename_fn(restaurant_name, selected_month),
-                            mime="text/csv",
-                            key=f"invoice_export_{row_index}",
+                    """,
+                    unsafe_allow_html=True,
+                )
+            with action_col:
+                st.download_button(
+                    "Fatura raporunu indir",
+                    data=invoice_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"catkapinda_fatura_{selected_month}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
+            st.markdown("<div class='ck-report-inline-note'>Kartlar sabit bir rapor alanı içinde scroll eder; detay açıldığında bile sayfa boyu kontrolsüz uzamaz.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='ck-report-scroll-frame'>", unsafe_allow_html=True)
+            with st.container(height=540, border=False):
+                st.markdown("<div class='ck-report-shell'>", unsafe_allow_html=True)
+                for row_index, row in invoice_display_df.iterrows():
+                    restaurant_name = str(row.get("Restoran / Şube", "-") or "-")
+                    model_name = str(row.get("Fiyat Modeli", "-") or "-")
+                    total_hours = str(row.get("Toplam Saat", "-") or "-")
+                    total_packages = str(row.get("Toplam Paket", "-") or "-")
+                    net_invoice = str(row.get("Restoran KDV Hariç", "-") or "-")
+                    gross_invoice = str(row.get("Restoran KDV Dahil", "-") or "-")
+                    is_open = open_restaurant == restaurant_name
+                    with st.container():
+                        st.markdown("<div class='invoice-report-card'>", unsafe_allow_html=True)
+                        head_col, metric1, metric2, metric3, metric4 = st.columns([3.2, 1, 1, 1.15, 1.25])
+                        if head_col.button(
+                            f"{'▾' if is_open else '▸'} {restaurant_name}",
+                            key=f"invoice_toggle_{row_index}",
                             use_container_width=True,
-                        )
-                    st.markdown("</div>", unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
+                            type="primary" if is_open else "secondary",
+                        ):
+                            st.session_state["invoice_report_open_restaurant"] = "" if is_open else restaurant_name
+                            st.rerun()
+                        head_col.markdown(f"<div class='invoice-model-pill'>{model_name}</div>", unsafe_allow_html=True)
+                        metric1.markdown("<div class='invoice-metric-label'>Toplam Saat</div>", unsafe_allow_html=True)
+                        metric1.markdown(f"<div class='invoice-metric-value'>{total_hours}</div>", unsafe_allow_html=True)
+                        metric2.markdown("<div class='invoice-metric-label'>Toplam Paket</div>", unsafe_allow_html=True)
+                        metric2.markdown(f"<div class='invoice-metric-value'>{total_packages}</div>", unsafe_allow_html=True)
+                        metric3.markdown("<div class='invoice-metric-label'>KDV Hariç</div>", unsafe_allow_html=True)
+                        metric3.markdown(f"<div class='invoice-metric-value'>{net_invoice}</div>", unsafe_allow_html=True)
+                        metric4.markdown("<div class='invoice-metric-label'>Restoran Faturası</div>", unsafe_allow_html=True)
+                        metric4.markdown(f"<div class='invoice-metric-value -strong'>{gross_invoice}</div>", unsafe_allow_html=True)
+                        if not is_open:
+                            st.markdown("</div>", unsafe_allow_html=True)
+                            continue
+                        st.markdown("<div class='invoice-detail-shell'>", unsafe_allow_html=True)
+                        detail_df = invoice_drilldown_map.get(restaurant_name, pd.DataFrame())
+                        if detail_df.empty:
+                            st.info("Bu restoran için kurye saat/paket kırılımı bulunamadı.")
+                        else:
+                            detail_display_df = format_display_df_fn(
+                                detail_df,
+                                currency_cols=["KDV Hariç", "KDV Dahil"],
+                                number_cols=["Toplam Saat", "Toplam Paket"],
+                                rename_map={
+                                    "personel": "Kurye",
+                                    "calisma_saati": "Toplam Saat",
+                                    "paket": "Toplam Paket",
+                                    "kdv_haric": "KDV Hariç",
+                                    "kdv_dahil": "KDV Dahil",
+                                },
+                            )
+                            detail_columns = ["Kurye", "Toplam Saat", "Toplam Paket", "KDV Hariç", "KDV Dahil"]
+                            render_dashboard_data_grid_fn(
+                                f"{restaurant_name} Kurye Dağılımı",
+                                "Bu şubede seçilen ay boyunca kurye bazında toplam saat, paket ve fatura katkısı.",
+                                detail_columns,
+                                build_grid_rows_fn(detail_display_df, detail_columns),
+                                "Bu restoran için detay kırılımı yok.",
+                                max_height_px=250,
+                            )
+                        export_df = invoice_attendance_export_map.get(restaurant_name, pd.DataFrame())
+                        if export_df is not None and not export_df.empty:
+                            export_df = export_df.copy()
+                            for number_column in ["Toplam Saat", "Toplam Paket"]:
+                                if number_column in export_df.columns:
+                                    export_df[number_column] = export_df[number_column].apply(
+                                        lambda value: fmt_number_fn(value) if pd.notna(value) else ""
+                                    )
+                            for currency_column in ["KDV Hariç", "KDV Dahil"]:
+                                if currency_column in export_df.columns:
+                                    export_df[currency_column] = export_df[currency_column].apply(fmt_try_fn)
+                            st.download_button(
+                                f"{restaurant_name} puantajını indir",
+                                data=export_df.to_csv(index=False).encode("utf-8-sig"),
+                                file_name=build_restaurant_export_filename_fn(restaurant_name, selected_month),
+                                mime="text/csv",
+                                key=f"invoice_export_{row_index}",
+                                use_container_width=True,
+                            )
+                        st.markdown("</div>", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.download_button(
-            "Fatura raporunu indir",
-            data=invoice_df.to_csv(index=False).encode("utf-8-sig"),
-            file_name=f"catkapinda_fatura_{selected_month}.csv",
-            mime="text/csv",
-        )
 
 
 def render_cost_report_tab(
@@ -296,6 +321,7 @@ def render_cost_report_tab(
     fmt_number_fn: Callable[[Any], str],
     fmt_try_fn: Callable[[Any], str],
 ) -> None:
+    _inject_report_workspace_styles()
     cost_display_df = format_display_df_fn(
         cost_df,
         currency_cols=["Brüt Kurye Maliyeti", "Toplam Kesinti", "Net Kurye Maliyeti"],
@@ -345,22 +371,44 @@ def render_cost_report_tab(
         subtitle="Personel maliyetlerini aşağı doğru uzayan bir Excel tablosu yerine daha kontrollü bir rapor yüzeyinden takip et.",
     )
     with st.container(border=True):
-        cost_columns = ["Personel", "Rol", "Toplam Saat", "Toplam Paket", "Toplam Kesinti", "Net Kurye Maliyeti", "Maliyet Modeli"]
-        render_dashboard_data_grid_fn(
-            "Kurye Maliyeti",
-            "Personel maliyetini, çalışma hacmi ve maliyet modeliyle birlikte daha güçlü bir listede gör.",
-            cost_columns,
-            build_grid_rows_fn(cost_display_df, cost_columns),
-            "Kurye maliyet verisi bulunamadı.",
-            muted_columns={"Maliyet Modeli"},
-            max_height_px=620,
-        )
-        st.download_button(
-            "Personel maliyet raporunu indir",
-            data=cost_df.to_csv(index=False).encode("utf-8-sig"),
-            file_name=f"catkapinda_personel_maliyet_{selected_month}.csv",
-            mime="text/csv",
-        )
+        toolbar_col, action_col = st.columns([4.6, 1.3], vertical_alignment="center")
+        with toolbar_col:
+            st.markdown(
+                f"""
+                <div class='ck-report-overview'>
+                    <div class='ck-report-toolbar'>
+                        <div class='ck-report-toolbar-copy'>
+                            <div class='ck-report-toolbar-kicker'>Operasyon Maliyeti</div>
+                            <div class='ck-report-toolbar-title'>Kurye Maliyeti</div>
+                            <div class='ck-report-toolbar-subtitle'>Saat, paket, kesinti ve net maliyeti aynı görünümde takip et; tablo kendi içinde scroll olduğu için sayfa boyu uzamaz.</div>
+                        </div>
+                        <div class='ck-report-toolbar-badge'>{personnel_count} personel</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with action_col:
+            st.download_button(
+                "Maliyet raporunu indir",
+                data=cost_df.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"catkapinda_personel_maliyet_{selected_month}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+        st.markdown("<div class='ck-report-inline-note'>Maliyet tablosu kendi kart alanında scroll eder; özetler üstte sabit kalır ve uzun listeler sayfayı aşağı itmez.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ck-report-scroll-frame'>", unsafe_allow_html=True)
+        with st.container(height=520, border=False):
+            cost_columns = ["Personel", "Rol", "Toplam Saat", "Toplam Paket", "Toplam Kesinti", "Net Kurye Maliyeti", "Maliyet Modeli"]
+            render_dashboard_data_grid_fn(
+                "Kurye Maliyeti",
+                "Personel maliyetini, çalışma hacmi ve maliyet modeliyle birlikte daha güçlü bir listede gör.",
+                cost_columns,
+                build_grid_rows_fn(cost_display_df, cost_columns),
+                "Kurye maliyet verisi bulunamadı.",
+                muted_columns={"Maliyet Modeli"},
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_profit_report_tab(
