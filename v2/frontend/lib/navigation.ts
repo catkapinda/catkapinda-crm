@@ -9,6 +9,7 @@ export const sidebarItems: SidebarItem[] = [
   { label: "Puantaj", href: "/attendance", action: "attendance.view" },
   { label: "Personel", href: "/personnel", action: "personnel.view" },
   { label: "Kesintiler", href: "/deductions", action: "deduction.view" },
+  { label: "Satın Alma", href: "/purchases", action: "purchase.view" },
   { label: "Satış", href: "/sales", action: "sales.view" },
   { label: "Restoranlar", href: "/restaurants", action: "restaurant.view" },
   { label: "Raporlar", href: "/reports", action: "reporting.view" },
