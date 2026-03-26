@@ -9,14 +9,23 @@ from app.schemas.attendance import (
     AttendanceCreateRequest,
     AttendanceCreateResponse,
     AttendanceDashboardResponse,
+    AttendanceDeleteResponse,
+    AttendanceEntryDetailResponse,
     AttendanceFormOptionsResponse,
+    AttendanceManagementResponse,
     AttendanceModuleStatus,
+    AttendanceUpdateRequest,
+    AttendanceUpdateResponse,
 )
 from app.services.attendance import (
+    build_attendance_entry_detail,
+    build_attendance_management,
     build_attendance_dashboard,
     build_attendance_form_options,
     build_attendance_status,
     create_attendance_entry,
+    delete_attendance_entry_record,
+    update_attendance_entry_record,
 )
 
 router = APIRouter()
@@ -58,3 +67,57 @@ def create_attendance_entry_route(
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/entries", response_model=AttendanceManagementResponse)
+def get_attendance_entries(
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+    limit: int = Query(default=60, ge=1, le=300),
+    restaurant_id: int | None = None,
+    search: str | None = None,
+) -> AttendanceManagementResponse:
+    return build_attendance_management(
+        conn,
+        limit=limit,
+        restaurant_id=restaurant_id,
+        search=search,
+    )
+
+
+@router.get("/entries/{entry_id}", response_model=AttendanceEntryDetailResponse)
+def get_attendance_entry_detail(
+    entry_id: int,
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AttendanceEntryDetailResponse:
+    try:
+        return build_attendance_entry_detail(conn, entry_id=entry_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.put("/entries/{entry_id}", response_model=AttendanceUpdateResponse)
+def update_attendance_entry_route(
+    entry_id: int,
+    payload: AttendanceUpdateRequest,
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AttendanceUpdateResponse:
+    try:
+        return update_attendance_entry_record(conn, entry_id=entry_id, payload=payload)
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/entries/{entry_id}", response_model=AttendanceDeleteResponse)
+def delete_attendance_entry_route(
+    entry_id: int,
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AttendanceDeleteResponse:
+    try:
+        return delete_attendance_entry_record(conn, entry_id=entry_id)
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

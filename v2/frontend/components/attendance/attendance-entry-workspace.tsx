@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -106,7 +107,7 @@ export function AttendanceEntryWorkspace() {
     await loadOptions(nextRestaurantId);
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitError("");
     setSubmitSuccess("");
@@ -465,7 +466,7 @@ export function AttendanceEntryWorkspace() {
   );
 }
 
-const fieldStyle: React.CSSProperties = {
+const fieldStyle: CSSProperties = {
   borderRadius: "16px",
   border: "1px solid var(--line)",
   background: "rgba(255, 255, 255, 0.9)",
