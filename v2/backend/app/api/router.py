@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import attendance, auth, deductions, health, overview, personnel, reports, restaurants
+from app.api.routes import attendance, auth, deductions, health, overview, personnel, reports, restaurants, sales
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
@@ -11,3 +11,4 @@ api_router.include_router(deductions.router, prefix="/deductions", tags=["deduct
 api_router.include_router(personnel.router, prefix="/personnel", tags=["personnel"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(restaurants.router, prefix="/restaurants", tags=["restaurants"])
+api_router.include_router(sales.router, prefix="/sales", tags=["sales"])
