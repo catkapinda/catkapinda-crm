@@ -10,6 +10,7 @@ export const sidebarItems: SidebarItem[] = [
   { label: "Personel", href: "/personnel", action: "personnel.view" },
   { label: "Kesintiler", href: "/deductions", action: "deduction.view" },
   { label: "Restoranlar", href: "/restaurants", action: "restaurant.view" },
+  { label: "Raporlar", href: "/reports", action: "reporting.view" },
 ];
 
 export function filterSidebarItems(allowedActions: string[]) {
