@@ -76,3 +76,53 @@ class AttendanceCreateRequest(BaseModel):
 class AttendanceCreateResponse(BaseModel):
     entry_id: int
     message: str
+
+
+class AttendanceManagementEntry(BaseModel):
+    id: int
+    entry_date: date
+    restaurant_id: int
+    restaurant: str
+    entry_mode: str
+    primary_person_id: int | None
+    primary_person_label: str
+    replacement_person_id: int | None
+    replacement_person_label: str
+    absence_reason: str
+    coverage_type: str
+    worked_hours: float
+    package_count: float
+    monthly_invoice_amount: float
+    notes: str
+
+
+class AttendanceManagementResponse(BaseModel):
+    total_entries: int
+    entries: list[AttendanceManagementEntry]
+
+
+class AttendanceEntryDetailResponse(BaseModel):
+    entry: AttendanceManagementEntry
+
+
+class AttendanceUpdateRequest(BaseModel):
+    entry_date: date
+    restaurant_id: int
+    entry_mode: str
+    primary_person_id: int | None = None
+    replacement_person_id: int | None = None
+    absence_reason: str = ""
+    worked_hours: float = 0.0
+    package_count: float = 0.0
+    monthly_invoice_amount: float = 0.0
+    notes: str = ""
+
+
+class AttendanceUpdateResponse(BaseModel):
+    entry_id: int
+    message: str
+
+
+class AttendanceDeleteResponse(BaseModel):
+    entry_id: int
+    message: str
