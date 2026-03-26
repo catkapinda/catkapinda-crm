@@ -36,12 +36,12 @@ export function AppShell({
       router.replace(`/login${nextValue}`);
       return;
     }
-    if (activeItem !== "Genel Bakış" && !canViewActiveItem) {
+    if (!canViewActiveItem) {
       router.replace(resolveDefaultPath(user.allowed_actions));
     }
-  }, [activeItem, canViewActiveItem, loading, pathname, router, user]);
+  }, [canViewActiveItem, loading, pathname, router, user]);
 
-  if (loading || !user || (activeItem !== "Genel Bakış" && !canViewActiveItem)) {
+  if (loading || !user || !canViewActiveItem) {
     return (
       <div
         style={{
