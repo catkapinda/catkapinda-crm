@@ -4,6 +4,8 @@ import type { CSSProperties, FormEvent } from "react";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiFetch } from "../../lib/api";
+
 type DeductionEntry = {
   id: number;
   personnel_id: number;
@@ -35,14 +37,6 @@ type DeductionsFormOptions = {
 type DeductionDetailResponse = {
   entry: DeductionEntry;
 };
-
-function resolveApiBaseUrl() {
-  const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
-}
 
 function pill(kind: "accent" | "muted" | "warn"): CSSProperties {
   const palette = {
@@ -116,10 +110,8 @@ export function DeductionManagementWorkspace() {
   const [editNotes, setEditNotes] = useState("");
   const [editIsAuto, setEditIsAuto] = useState(false);
 
-  const apiBaseUrl = resolveApiBaseUrl();
-
   async function loadOptions() {
-    const response = await fetch(`${apiBaseUrl}/deductions/form-options`, { cache: "no-store" });
+    const response = await apiFetch("/deductions/form-options");
     if (!response.ok) {
       throw new Error("Kesinti referans verileri yuklenemedi.");
     }
@@ -145,9 +137,7 @@ export function DeductionManagementWorkspace() {
       if (deferredSearch.trim()) {
         query.set("search", deferredSearch.trim());
       }
-      const response = await fetch(`${apiBaseUrl}/deductions/records?${query.toString()}`, {
-        cache: "no-store",
-      });
+      const response = await apiFetch(`/deductions/records?${query.toString()}`);
       if (!response.ok) {
         throw new Error("Kesinti listesi yuklenemedi.");
       }
@@ -178,9 +168,7 @@ export function DeductionManagementWorkspace() {
     setSaveError("");
     setSaveSuccess("");
     try {
-      const response = await fetch(`${apiBaseUrl}/deductions/records/${entryId}`, {
-        cache: "no-store",
-      });
+      const response = await apiFetch(`/deductions/records/${entryId}`);
       if (!response.ok) {
         throw new Error("Kesinti detayi yuklenemedi.");
       }
@@ -239,7 +227,7 @@ export function DeductionManagementWorkspace() {
     setSaveError("");
     setSaveSuccess("");
 
-    const response = await fetch(`${apiBaseUrl}/deductions/records/${selectedEntryId}`, {
+    const response = await apiFetch(`/deductions/records/${selectedEntryId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -277,7 +265,7 @@ export function DeductionManagementWorkspace() {
     setSaveError("");
     setSaveSuccess("");
 
-    const response = await fetch(`${apiBaseUrl}/deductions/records/${selectedEntryId}`, {
+    const response = await apiFetch(`/deductions/records/${selectedEntryId}`, {
       method: "DELETE",
     });
     const payload = (await response.json().catch(() => null)) as

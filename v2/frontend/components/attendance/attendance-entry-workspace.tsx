@@ -4,6 +4,8 @@ import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiFetch } from "../../lib/api";
+
 type AttendanceFormOptions = {
   restaurants: Array<{
     id: number;
@@ -22,14 +24,6 @@ type AttendanceFormOptions = {
   selected_pricing_model: string | null;
   selected_fixed_monthly_fee: number;
 };
-
-function resolveApiBaseUrl() {
-  const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
-}
 
 export function AttendanceEntryWorkspace() {
   const router = useRouter();
@@ -52,14 +46,11 @@ export function AttendanceEntryWorkspace() {
   async function loadOptions(nextRestaurantId?: number | "") {
     setLoadingOptions(true);
     try {
-      const apiBaseUrl = resolveApiBaseUrl();
       const query =
         typeof nextRestaurantId === "number"
           ? `?restaurant_id=${encodeURIComponent(String(nextRestaurantId))}`
           : "";
-      const response = await fetch(`${apiBaseUrl}/attendance/form-options${query}`, {
-        cache: "no-store",
-      });
+      const response = await apiFetch(`/attendance/form-options${query}`);
       if (!response.ok) {
         throw new Error("Attendance form options could not be loaded.");
       }
@@ -117,8 +108,7 @@ export function AttendanceEntryWorkspace() {
       return;
     }
 
-    const apiBaseUrl = resolveApiBaseUrl();
-    const response = await fetch(`${apiBaseUrl}/attendance/entries`, {
+    const response = await apiFetch("/attendance/entries", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

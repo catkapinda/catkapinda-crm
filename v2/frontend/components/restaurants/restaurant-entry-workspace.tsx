@@ -4,6 +4,8 @@ import type { CSSProperties, FormEvent } from "react";
 import { useMemo, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiFetch } from "../../lib/api";
+
 type RestaurantPricingModelOption = {
   value: string;
   label: string;
@@ -14,14 +16,6 @@ type RestaurantsFormOptions = {
   status_options: string[];
   selected_pricing_model: string;
 };
-
-function resolveApiBaseUrl() {
-  const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
-}
 
 const fieldStyle: CSSProperties = {
   width: "100%",
@@ -80,9 +74,7 @@ export function RestaurantEntryWorkspace() {
     async function loadOptions() {
       setLoadingOptions(true);
       try {
-        const response = await fetch(`${resolveApiBaseUrl()}/restaurants/form-options`, {
-          cache: "no-store",
-        });
+        const response = await apiFetch("/restaurants/form-options");
         if (!response.ok) {
           throw new Error("Restoran form secenekleri yuklenemedi.");
         }
@@ -102,7 +94,6 @@ export function RestaurantEntryWorkspace() {
     void loadOptions();
   }, []);
 
-  const apiBaseUrl = resolveApiBaseUrl();
   const pricingLabel = useMemo(
     () => options?.pricing_models.find((item) => item.value === pricingModel)?.label ?? pricingModel,
     [options, pricingModel],
@@ -113,7 +104,7 @@ export function RestaurantEntryWorkspace() {
     setSubmitError("");
     setSubmitSuccess("");
 
-    const response = await fetch(`${apiBaseUrl}/restaurants/records`, {
+    const response = await apiFetch("/restaurants/records", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

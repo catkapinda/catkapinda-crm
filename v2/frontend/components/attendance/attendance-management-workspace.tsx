@@ -4,6 +4,8 @@ import type { CSSProperties, FormEvent } from "react";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiFetch } from "../../lib/api";
+
 type AttendanceEntry = {
   id: number;
   entry_date: string;
@@ -49,14 +51,6 @@ type AttendanceFormOptions = {
 type AttendanceEntryDetailResponse = {
   entry: AttendanceEntry;
 };
-
-function resolveApiBaseUrl() {
-  const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
-}
 
 function badgeStyle(kind: "accent" | "soft" | "warn" | "muted"): CSSProperties {
   const palette = {
@@ -144,8 +138,6 @@ export function AttendanceManagementWorkspace() {
   const [editMonthlyInvoiceAmount, setEditMonthlyInvoiceAmount] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
-  const apiBaseUrl = resolveApiBaseUrl();
-
   const selectedRestaurant = useMemo(() => {
     if (typeof editRestaurantId !== "number") {
       return null;
@@ -158,9 +150,7 @@ export function AttendanceManagementWorkspace() {
   const needsAbsenceReason = editEntryMode !== "Restoran Kuryesi";
 
   async function loadReferenceOptions() {
-    const response = await fetch(`${apiBaseUrl}/attendance/form-options`, {
-      cache: "no-store",
-    });
+    const response = await apiFetch("/attendance/form-options");
     if (!response.ok) {
       throw new Error("Puantaj referans verileri yuklenemedi.");
     }
@@ -182,9 +172,7 @@ export function AttendanceManagementWorkspace() {
       if (deferredSearch.trim()) {
         query.set("search", deferredSearch.trim());
       }
-      const response = await fetch(`${apiBaseUrl}/attendance/entries?${query.toString()}`, {
-        cache: "no-store",
-      });
+      const response = await apiFetch(`/attendance/entries?${query.toString()}`);
       if (!response.ok) {
         throw new Error("Puantaj kayitlari yuklenemedi.");
       }
@@ -211,11 +199,8 @@ export function AttendanceManagementWorkspace() {
   }
 
   async function loadPeopleOptions(restaurantId: number) {
-    const response = await fetch(
-      `${apiBaseUrl}/attendance/form-options?restaurant_id=${encodeURIComponent(String(restaurantId))}`,
-      {
-        cache: "no-store",
-      },
+    const response = await apiFetch(
+      `/attendance/form-options?restaurant_id=${encodeURIComponent(String(restaurantId))}`,
     );
     if (!response.ok) {
       throw new Error("Personel secenekleri yuklenemedi.");
@@ -230,9 +215,7 @@ export function AttendanceManagementWorkspace() {
     setSaveError("");
     setSaveSuccess("");
     try {
-      const response = await fetch(`${apiBaseUrl}/attendance/entries/${entryId}`, {
-        cache: "no-store",
-      });
+      const response = await apiFetch(`/attendance/entries/${entryId}`);
       if (!response.ok) {
         throw new Error("Kayit detayi yuklenemedi.");
       }
@@ -308,7 +291,7 @@ export function AttendanceManagementWorkspace() {
     setSaveError("");
     setSaveSuccess("");
 
-    const response = await fetch(`${apiBaseUrl}/attendance/entries/${selectedEntryId}`, {
+    const response = await apiFetch(`/attendance/entries/${selectedEntryId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -358,7 +341,7 @@ export function AttendanceManagementWorkspace() {
     setSaveError("");
     setSaveSuccess("");
 
-    const response = await fetch(`${apiBaseUrl}/attendance/entries/${selectedEntryId}`, {
+    const response = await apiFetch(`/attendance/entries/${selectedEntryId}`, {
       method: "DELETE",
     });
     const payload = (await response.json().catch(() => null)) as

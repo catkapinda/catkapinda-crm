@@ -1,6 +1,12 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import { useAuth } from "../../components/auth/auth-provider";
 import { DeductionEntryWorkspace } from "../../components/deductions/deduction-entry-workspace";
 import { DeductionManagementWorkspace } from "../../components/deductions/deduction-management-workspace";
 import { AppShell } from "../../components/shell/app-shell";
+import { apiFetch } from "../../lib/api";
 
 type DeductionsDashboard = {
   module: string;
@@ -24,29 +30,6 @@ type DeductionsDashboard = {
     is_auto_record: boolean;
   }>;
 };
-
-function resolveApiBaseUrl() {
-  const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
-}
-
-async function getDeductionsDashboard(): Promise<DeductionsDashboard | null> {
-  const apiBaseUrl = resolveApiBaseUrl();
-  try {
-    const response = await fetch(`${apiBaseUrl}/deductions/dashboard?limit=12`, {
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      return null;
-    }
-    return (await response.json()) as DeductionsDashboard;
-  } catch {
-    return null;
-  }
-}
 
 function metricCard(label: string, value: string, tone: "accent" | "soft" = "soft") {
   return (
@@ -84,8 +67,55 @@ function metricCard(label: string, value: string, tone: "accent" | "soft" = "sof
   );
 }
 
-export default async function DeductionsPage() {
-  const dashboard = await getDeductionsDashboard();
+export default function DeductionsPage() {
+  const { user, loading } = useAuth();
+  const [dashboard, setDashboard] = useState<DeductionsDashboard | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDashboard() {
+      if (loading) {
+        return;
+      }
+      if (!user) {
+        if (active) {
+          setDashboard(null);
+          setDashboardLoading(false);
+        }
+        return;
+      }
+
+      setDashboardLoading(true);
+      try {
+        const response = await apiFetch("/deductions/dashboard?limit=12");
+        if (!response.ok) {
+          if (active) {
+            setDashboard(null);
+          }
+          return;
+        }
+        const payload = (await response.json()) as DeductionsDashboard;
+        if (active) {
+          setDashboard(payload);
+        }
+      } catch {
+        if (active) {
+          setDashboard(null);
+        }
+      } finally {
+        if (active) {
+          setDashboardLoading(false);
+        }
+      }
+    }
+
+    void loadDashboard();
+    return () => {
+      active = false;
+    };
+  }, [loading, user]);
 
   return (
     <AppShell activeItem="Kesintiler">
@@ -142,7 +172,19 @@ export default async function DeductionsPage() {
           </p>
         </div>
 
-        {!dashboard ? (
+        {dashboardLoading ? (
+          <div
+            style={{
+              padding: "18px 20px",
+              borderRadius: "22px",
+              border: "1px solid rgba(15, 95, 215, 0.14)",
+              background: "rgba(15, 95, 215, 0.06)",
+              color: "var(--muted)",
+            }}
+          >
+            Deductions dashboard yukleniyor...
+          </div>
+        ) : !dashboard ? (
           <div
             style={{
               padding: "18px 20px",
