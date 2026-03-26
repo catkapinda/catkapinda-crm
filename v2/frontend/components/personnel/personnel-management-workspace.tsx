@@ -4,6 +4,8 @@ import type { CSSProperties, FormEvent } from "react";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiFetch } from "../../lib/api";
+
 type PersonnelEntry = {
   id: number;
   person_code: string;
@@ -39,14 +41,6 @@ type PersonnelManagementResponse = {
 type PersonnelDetailResponse = {
   entry: PersonnelEntry;
 };
-
-function resolveApiBaseUrl() {
-  const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
-}
 
 function pill(kind: "accent" | "soft"): CSSProperties {
   return {
@@ -109,10 +103,8 @@ export function PersonnelManagementWorkspace() {
   const [editNotes, setEditNotes] = useState("");
   const [editPersonCode, setEditPersonCode] = useState("");
 
-  const apiBaseUrl = resolveApiBaseUrl();
-
   async function loadOptions() {
-    const response = await fetch(`${apiBaseUrl}/personnel/form-options`, { cache: "no-store" });
+    const response = await apiFetch("/personnel/form-options");
     if (!response.ok) {
       throw new Error("Personel referans verileri yuklenemedi.");
     }
@@ -138,9 +130,7 @@ export function PersonnelManagementWorkspace() {
       if (deferredSearch.trim()) {
         query.set("search", deferredSearch.trim());
       }
-      const response = await fetch(`${apiBaseUrl}/personnel/records?${query.toString()}`, {
-        cache: "no-store",
-      });
+      const response = await apiFetch(`/personnel/records?${query.toString()}`);
       if (!response.ok) {
         throw new Error("Personel listesi yuklenemedi.");
       }
@@ -171,9 +161,7 @@ export function PersonnelManagementWorkspace() {
     setError("");
     setSuccess("");
     try {
-      const response = await fetch(`${apiBaseUrl}/personnel/records/${entryId}`, {
-        cache: "no-store",
-      });
+      const response = await apiFetch(`/personnel/records/${entryId}`);
       if (!response.ok) {
         throw new Error("Personel detayi yuklenemedi.");
       }
@@ -229,7 +217,7 @@ export function PersonnelManagementWorkspace() {
     setError("");
     setSuccess("");
 
-    const response = await fetch(`${apiBaseUrl}/personnel/records/${selectedEntryId}`, {
+    const response = await apiFetch(`/personnel/records/${selectedEntryId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",

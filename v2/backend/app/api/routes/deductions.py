@@ -4,7 +4,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 import psycopg
 
+from app.api.deps.auth import require_action
 from app.core.database import get_db
+from app.core.security import AuthenticatedUser
 from app.schemas.deductions import (
     DeductionCreateRequest,
     DeductionCreateResponse,
@@ -38,6 +40,7 @@ def get_deductions_status() -> DeductionsModuleStatus:
 
 @router.get("/dashboard", response_model=DeductionsDashboardResponse)
 def get_deductions_dashboard(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("deduction.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     reference_date: date | None = None,
     limit: int = Query(default=12, ge=1, le=100),
@@ -51,6 +54,7 @@ def get_deductions_dashboard(
 
 @router.get("/form-options", response_model=DeductionsFormOptionsResponse)
 def get_deductions_form_options(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("deduction.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     personnel_id: int | None = None,
 ) -> DeductionsFormOptionsResponse:
@@ -60,6 +64,7 @@ def get_deductions_form_options(
 @router.post("/records", response_model=DeductionCreateResponse, status_code=201)
 def create_deduction_record_route(
     payload: DeductionCreateRequest,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("deduction.create"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> DeductionCreateResponse:
     try:
@@ -71,6 +76,7 @@ def create_deduction_record_route(
 
 @router.get("/records", response_model=DeductionsManagementResponse)
 def get_deduction_records(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("deduction.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     limit: int = Query(default=100, ge=1, le=400),
     personnel_id: int | None = None,
@@ -89,6 +95,7 @@ def get_deduction_records(
 @router.get("/records/{deduction_id}", response_model=DeductionDetailResponse)
 def get_deduction_record_detail(
     deduction_id: int,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("deduction.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> DeductionDetailResponse:
     try:
@@ -101,6 +108,7 @@ def get_deduction_record_detail(
 def update_deduction_record_route(
     deduction_id: int,
     payload: DeductionUpdateRequest,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("deduction.update"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> DeductionUpdateResponse:
     try:
@@ -116,6 +124,7 @@ def update_deduction_record_route(
 @router.delete("/records/{deduction_id}", response_model=DeductionDeleteResponse)
 def delete_deduction_record_route(
     deduction_id: int,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("deduction.delete"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> DeductionDeleteResponse:
     try:

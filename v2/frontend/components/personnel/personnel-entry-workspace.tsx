@@ -4,6 +4,8 @@ import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiFetch } from "../../lib/api";
+
 type PersonnelFormOptions = {
   restaurants: Array<{
     id: number;
@@ -14,14 +16,6 @@ type PersonnelFormOptions = {
   vehicle_mode_options: string[];
   selected_restaurant_id: number | null;
 };
-
-function resolveApiBaseUrl() {
-  const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
-}
 
 const fieldStyle: CSSProperties = {
   width: "100%",
@@ -57,9 +51,7 @@ export function PersonnelEntryWorkspace() {
     async function loadOptions() {
       setLoadingOptions(true);
       try {
-        const response = await fetch(`${resolveApiBaseUrl()}/personnel/form-options`, {
-          cache: "no-store",
-        });
+        const response = await apiFetch("/personnel/form-options");
         if (!response.ok) {
           throw new Error("Personel form secenekleri yuklenemedi.");
         }
@@ -99,7 +91,7 @@ export function PersonnelEntryWorkspace() {
       return;
     }
 
-    const response = await fetch(`${resolveApiBaseUrl()}/personnel/records`, {
+    const response = await apiFetch("/personnel/records", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

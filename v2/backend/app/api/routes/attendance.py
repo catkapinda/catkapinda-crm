@@ -4,7 +4,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 import psycopg
 
+from app.api.deps.auth import require_action
 from app.core.database import get_db
+from app.core.security import AuthenticatedUser
 from app.schemas.attendance import (
     AttendanceCreateRequest,
     AttendanceCreateResponse,
@@ -38,6 +40,7 @@ def get_attendance_status() -> AttendanceModuleStatus:
 
 @router.get("/dashboard", response_model=AttendanceDashboardResponse)
 def get_attendance_dashboard(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     reference_date: date | None = None,
     limit: int = Query(default=12, ge=1, le=100),
@@ -51,6 +54,7 @@ def get_attendance_dashboard(
 
 @router.get("/form-options", response_model=AttendanceFormOptionsResponse)
 def get_attendance_form_options(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     restaurant_id: int | None = None,
 ) -> AttendanceFormOptionsResponse:
@@ -60,6 +64,7 @@ def get_attendance_form_options(
 @router.post("/entries", response_model=AttendanceCreateResponse, status_code=201)
 def create_attendance_entry_route(
     payload: AttendanceCreateRequest,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.create"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AttendanceCreateResponse:
     try:
@@ -71,6 +76,7 @@ def create_attendance_entry_route(
 
 @router.get("/entries", response_model=AttendanceManagementResponse)
 def get_attendance_entries(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     limit: int = Query(default=60, ge=1, le=300),
     restaurant_id: int | None = None,
@@ -87,6 +93,7 @@ def get_attendance_entries(
 @router.get("/entries/{entry_id}", response_model=AttendanceEntryDetailResponse)
 def get_attendance_entry_detail(
     entry_id: int,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AttendanceEntryDetailResponse:
     try:
@@ -99,6 +106,7 @@ def get_attendance_entry_detail(
 def update_attendance_entry_route(
     entry_id: int,
     payload: AttendanceUpdateRequest,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.update"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AttendanceUpdateResponse:
     try:
@@ -114,6 +122,7 @@ def update_attendance_entry_route(
 @router.delete("/entries/{entry_id}", response_model=AttendanceDeleteResponse)
 def delete_attendance_entry_route(
     entry_id: int,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.delete"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AttendanceDeleteResponse:
     try:

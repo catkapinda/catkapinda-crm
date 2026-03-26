@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     database_url: str | None = None
     frontend_app_name: str = "Cat Kapinda CRM v2"
+    auth_session_days: int = 30
 
     model_config = SettingsConfigDict(
         env_prefix="CK_V2_",

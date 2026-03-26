@@ -4,6 +4,8 @@ import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiFetch } from "../../lib/api";
+
 type DeductionsFormOptions = {
   personnel: Array<{
     id: number;
@@ -13,14 +15,6 @@ type DeductionsFormOptions = {
   type_captions: Record<string, string>;
   selected_personnel_id: number | null;
 };
-
-function resolveApiBaseUrl() {
-  const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
-}
 
 const fieldStyle: CSSProperties = {
   width: "100%",
@@ -45,14 +39,10 @@ export function DeductionEntryWorkspace() {
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
 
-  const apiBaseUrl = resolveApiBaseUrl();
-
   async function loadOptions() {
     setLoadingOptions(true);
     try {
-      const response = await fetch(`${apiBaseUrl}/deductions/form-options`, {
-        cache: "no-store",
-      });
+      const response = await apiFetch("/deductions/form-options");
       if (!response.ok) {
         throw new Error("Kesinti secenekleri yuklenemedi.");
       }
@@ -92,7 +82,7 @@ export function DeductionEntryWorkspace() {
       return;
     }
 
-    const response = await fetch(`${apiBaseUrl}/deductions/records`, {
+    const response = await apiFetch("/deductions/records", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

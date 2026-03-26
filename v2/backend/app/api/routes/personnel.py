@@ -3,7 +3,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 import psycopg
 
+from app.api.deps.auth import require_action
 from app.core.database import get_db
+from app.core.security import AuthenticatedUser
 from app.schemas.personnel import (
     PersonnelCreateRequest,
     PersonnelCreateResponse,
@@ -35,6 +37,7 @@ def get_personnel_status() -> PersonnelModuleStatus:
 
 @router.get("/dashboard", response_model=PersonnelDashboardResponse)
 def get_personnel_dashboard(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     limit: int = Query(default=12, ge=1, le=100),
 ) -> PersonnelDashboardResponse:
@@ -43,6 +46,7 @@ def get_personnel_dashboard(
 
 @router.get("/form-options", response_model=PersonnelFormOptionsResponse)
 def get_personnel_form_options(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     restaurant_id: int | None = None,
 ) -> PersonnelFormOptionsResponse:
@@ -52,6 +56,7 @@ def get_personnel_form_options(
 @router.post("/records", response_model=PersonnelCreateResponse, status_code=201)
 def create_personnel_record_route(
     payload: PersonnelCreateRequest,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.create"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> PersonnelCreateResponse:
     try:
@@ -63,6 +68,7 @@ def create_personnel_record_route(
 
 @router.get("/records", response_model=PersonnelManagementResponse)
 def get_personnel_records(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.list"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     limit: int = Query(default=80, ge=1, le=300),
     restaurant_id: int | None = None,
@@ -81,6 +87,7 @@ def get_personnel_records(
 @router.get("/records/{person_id}", response_model=PersonnelDetailResponse)
 def get_personnel_record_detail(
     person_id: int,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.list"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> PersonnelDetailResponse:
     try:
@@ -93,6 +100,7 @@ def get_personnel_record_detail(
 def update_personnel_record_route(
     person_id: int,
     payload: PersonnelUpdateRequest,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.update"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> PersonnelUpdateResponse:
     try:

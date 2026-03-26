@@ -4,6 +4,8 @@ import type { CSSProperties, FormEvent } from "react";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiFetch } from "../../lib/api";
+
 type RestaurantEntry = {
   id: number;
   brand: string;
@@ -49,14 +51,6 @@ type RestaurantsFormOptions = {
   status_options: string[];
   selected_pricing_model: string;
 };
-
-function resolveApiBaseUrl() {
-  const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
-}
 
 const fieldStyle: CSSProperties = {
   width: "100%",
@@ -120,10 +114,8 @@ export function RestaurantManagementWorkspace() {
   const [editTaxNumber, setEditTaxNumber] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
-  const apiBaseUrl = resolveApiBaseUrl();
-
   async function loadOptions() {
-    const response = await fetch(`${apiBaseUrl}/restaurants/form-options`, { cache: "no-store" });
+    const response = await apiFetch("/restaurants/form-options");
     if (!response.ok) {
       throw new Error("Restoran referans verileri yuklenemedi.");
     }
@@ -146,9 +138,7 @@ export function RestaurantManagementWorkspace() {
       if (deferredSearch.trim()) {
         query.set("search", deferredSearch.trim());
       }
-      const response = await fetch(`${apiBaseUrl}/restaurants/records?${query.toString()}`, {
-        cache: "no-store",
-      });
+      const response = await apiFetch(`/restaurants/records?${query.toString()}`);
       if (!response.ok) {
         throw new Error("Restoran listesi yuklenemedi.");
       }
@@ -179,9 +169,7 @@ export function RestaurantManagementWorkspace() {
     setSaveError("");
     setSaveSuccess("");
     try {
-      const response = await fetch(`${apiBaseUrl}/restaurants/records/${entryId}`, {
-        cache: "no-store",
-      });
+      const response = await apiFetch(`/restaurants/records/${entryId}`);
       if (!response.ok) {
         throw new Error("Restoran detayi yuklenemedi.");
       }
@@ -258,7 +246,7 @@ export function RestaurantManagementWorkspace() {
     setSaveError("");
     setSaveSuccess("");
 
-    const response = await fetch(`${apiBaseUrl}/restaurants/records/${selectedEntryId}`, {
+    const response = await apiFetch(`/restaurants/records/${selectedEntryId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -317,7 +305,7 @@ export function RestaurantManagementWorkspace() {
     setSaveError("");
     setSaveSuccess("");
 
-    const response = await fetch(`${apiBaseUrl}/restaurants/records/${selectedEntryId}/toggle-status`, {
+    const response = await apiFetch(`/restaurants/records/${selectedEntryId}/toggle-status`, {
       method: "POST",
     });
     const payload = (await response.json().catch(() => null)) as
@@ -343,7 +331,7 @@ export function RestaurantManagementWorkspace() {
     setSaveError("");
     setSaveSuccess("");
 
-    const response = await fetch(`${apiBaseUrl}/restaurants/records/${selectedEntryId}`, {
+    const response = await apiFetch(`/restaurants/records/${selectedEntryId}`, {
       method: "DELETE",
     });
     const payload = (await response.json().catch(() => null)) as

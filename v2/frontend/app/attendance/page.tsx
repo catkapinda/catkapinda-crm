@@ -1,6 +1,12 @@
-import { AppShell } from "../../components/shell/app-shell";
+"use client";
+
+import { useEffect, useState } from "react";
+
 import { AttendanceEntryWorkspace } from "../../components/attendance/attendance-entry-workspace";
 import { AttendanceManagementWorkspace } from "../../components/attendance/attendance-management-workspace";
+import { useAuth } from "../../components/auth/auth-provider";
+import { AppShell } from "../../components/shell/app-shell";
+import { apiFetch } from "../../lib/api";
 
 type AttendanceDashboard = {
   module: string;
@@ -25,29 +31,6 @@ type AttendanceDashboard = {
     notes: string;
   }>;
 };
-
-function resolveApiBaseUrl() {
-  const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000";
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
-}
-
-async function getAttendanceDashboard(): Promise<AttendanceDashboard | null> {
-  const apiBaseUrl = resolveApiBaseUrl();
-  try {
-    const response = await fetch(`${apiBaseUrl}/attendance/dashboard?limit=14`, {
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      return null;
-    }
-    return (await response.json()) as AttendanceDashboard;
-  } catch {
-    return null;
-  }
-}
 
 function metricCard(label: string, value: string) {
   return (
@@ -85,8 +68,55 @@ function metricCard(label: string, value: string) {
   );
 }
 
-export default async function AttendancePage() {
-  const dashboard = await getAttendanceDashboard();
+export default function AttendancePage() {
+  const { user, loading } = useAuth();
+  const [dashboard, setDashboard] = useState<AttendanceDashboard | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDashboard() {
+      if (loading) {
+        return;
+      }
+      if (!user) {
+        if (active) {
+          setDashboard(null);
+          setDashboardLoading(false);
+        }
+        return;
+      }
+
+      setDashboardLoading(true);
+      try {
+        const response = await apiFetch("/attendance/dashboard?limit=14");
+        if (!response.ok) {
+          if (active) {
+            setDashboard(null);
+          }
+          return;
+        }
+        const payload = (await response.json()) as AttendanceDashboard;
+        if (active) {
+          setDashboard(payload);
+        }
+      } catch {
+        if (active) {
+          setDashboard(null);
+        }
+      } finally {
+        if (active) {
+          setDashboardLoading(false);
+        }
+      }
+    }
+
+    void loadDashboard();
+    return () => {
+      active = false;
+    };
+  }, [loading, user]);
 
   return (
     <AppShell activeItem="Puantaj">
@@ -142,7 +172,19 @@ export default async function AttendancePage() {
           </p>
         </div>
 
-        {!dashboard ? (
+        {dashboardLoading ? (
+          <div
+            style={{
+              padding: "18px 20px",
+              borderRadius: "22px",
+              border: "1px solid rgba(15, 95, 215, 0.14)",
+              background: "rgba(15, 95, 215, 0.06)",
+              color: "var(--muted)",
+            }}
+          >
+            Attendance dashboard yukleniyor...
+          </div>
+        ) : !dashboard ? (
           <div
             style={{
               padding: "18px 20px",
@@ -224,7 +266,7 @@ export default async function AttendancePage() {
                         background: "rgba(236, 243, 252, 0.86)",
                       }}
                     >
-                      {["Tarih", "Sube", "Calisan", "Akis", "Saat", "Paket", "Not"].map((header) => (
+                      {["Tarih", "Sube", "Calisan", "Akis", "Saat", "Paket"].map((header) => (
                         <th
                           key={header}
                           style={{
@@ -245,18 +287,15 @@ export default async function AttendancePage() {
                       <tr
                         key={entry.id}
                         style={{
-                          borderTop: "1px solid rgba(222, 231, 244, 0.92)",
+                          borderTop: "1px solid rgba(193, 209, 232, 0.56)",
                         }}
                       >
-                        <td style={{ padding: "14px 16px", fontWeight: 700 }}>{entry.entry_date}</td>
-                        <td style={{ padding: "14px 16px" }}>{entry.restaurant}</td>
-                        <td style={{ padding: "14px 16px" }}>{entry.employee_name}</td>
-                        <td style={{ padding: "14px 16px" }}>{entry.entry_mode}</td>
-                        <td style={{ padding: "14px 16px" }}>{entry.worked_hours}</td>
-                        <td style={{ padding: "14px 16px" }}>{entry.package_count}</td>
-                        <td style={{ padding: "14px 16px", color: "var(--muted)" }}>
-                          {entry.notes || "-"}
-                        </td>
+                        <td style={tableCellStyle}>{entry.entry_date}</td>
+                        <td style={tableCellStyle}>{entry.restaurant}</td>
+                        <td style={tableCellStyle}>{entry.employee_name || "-"}</td>
+                        <td style={tableCellStyle}>{entry.entry_mode}</td>
+                        <td style={tableCellStyle}>{entry.worked_hours.toFixed(1)}</td>
+                        <td style={tableCellStyle}>{entry.package_count.toFixed(0)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -269,3 +308,9 @@ export default async function AttendancePage() {
     </AppShell>
   );
 }
+
+const tableCellStyle = {
+  padding: "14px 16px",
+  fontSize: "0.95rem",
+  color: "var(--text)",
+};
