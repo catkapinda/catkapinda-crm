@@ -4867,6 +4867,7 @@ def dashboard_tab(conn: sqlite3.Connection) -> None:
         shared_overhead_total=dashboard_payload.shared_overhead_total,
         profit_df=dashboard_payload.profit_df,
         render_record_snapshot_fn=render_record_snapshot,
+        render_executive_metrics_fn=render_executive_metrics,
         fmt_try_fn=fmt_try,
     )
     render_dashboard_focus_sections(
