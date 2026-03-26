@@ -5,7 +5,7 @@ const sidebarItems = [
   { label: "Puantaj", href: "/attendance" },
   { label: "Personel", href: "/personnel" },
   { label: "Kesintiler", href: "/deductions" },
-  { label: "Restoranlar", href: "#" },
+  { label: "Restoranlar", href: "/restaurants" },
   { label: "Satış", href: "#" },
   { label: "Raporlar", href: "#" },
 ];
