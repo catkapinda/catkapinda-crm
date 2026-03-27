@@ -9,11 +9,13 @@ from app.core.security import AuthenticatedUser
 from app.schemas.personnel import (
     PersonnelCreateRequest,
     PersonnelCreateResponse,
+    PersonnelDeleteResponse,
     PersonnelDashboardResponse,
     PersonnelDetailResponse,
     PersonnelFormOptionsResponse,
     PersonnelManagementResponse,
     PersonnelModuleStatus,
+    PersonnelStatusUpdateResponse,
     PersonnelUpdateRequest,
     PersonnelUpdateResponse,
 )
@@ -24,6 +26,8 @@ from app.services.personnel import (
     build_personnel_management,
     build_personnel_status,
     create_personnel_record,
+    delete_personnel_record_entry,
+    toggle_personnel_record_status,
     update_personnel_record_entry,
 )
 
@@ -111,3 +115,29 @@ def update_personnel_record_route(
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/records/{person_id}/toggle-status", response_model=PersonnelStatusUpdateResponse)
+def toggle_personnel_status_route(
+    person_id: int,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.status_change"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> PersonnelStatusUpdateResponse:
+    try:
+        return toggle_personnel_record_status(conn, person_id=person_id)
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/records/{person_id}", response_model=PersonnelDeleteResponse)
+def delete_personnel_record_route(
+    person_id: int,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.delete"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> PersonnelDeleteResponse:
+    try:
+        return delete_personnel_record_entry(conn, person_id=person_id)
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

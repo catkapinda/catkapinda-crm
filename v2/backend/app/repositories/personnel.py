@@ -237,11 +237,12 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             motor_purchase,
             current_plate,
             start_date,
+            exit_date,
             cost_model,
             monthly_fixed_cost,
             notes
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
         """,
         (
@@ -258,6 +259,7 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             values["motor_purchase"],
             values["current_plate"],
             values["start_date"],
+            values["exit_date"],
             values["cost_model"],
             values["monthly_fixed_cost"],
             values["notes"],
@@ -286,6 +288,7 @@ def update_personnel_record(
             motor_purchase = %s,
             current_plate = %s,
             start_date = %s,
+            exit_date = %s,
             cost_model = %s,
             monthly_fixed_cost = %s,
             notes = %s
@@ -303,9 +306,125 @@ def update_personnel_record(
             values["motor_purchase"],
             values["current_plate"],
             values["start_date"],
+            values["exit_date"],
             values["cost_model"],
             values["monthly_fixed_cost"],
             values["notes"],
             person_id,
         ),
     )
+
+
+def update_personnel_status(
+    conn: psycopg.Connection,
+    person_id: int,
+    *,
+    status: str,
+    exit_date: str | None,
+) -> None:
+    conn.execute(
+        """
+        UPDATE personnel
+        SET status = %s, exit_date = %s
+        WHERE id = %s
+        """,
+        (status, exit_date, person_id),
+    )
+
+
+def count_personnel_linked_daily_entries(conn: psycopg.Connection, person_id: int) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM daily_entries
+        WHERE planned_personnel_id = %s OR actual_personnel_id = %s
+        """,
+        (person_id, person_id),
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_personnel_linked_deductions(conn: psycopg.Connection, person_id: int) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM deductions
+        WHERE personnel_id = %s
+           OR equipment_issue_id IN (
+                SELECT id
+                FROM courier_equipment_issues
+                WHERE personnel_id = %s
+           )
+        """,
+        (person_id, person_id),
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_personnel_linked_role_history(conn: psycopg.Connection, person_id: int) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) AS total_count FROM personnel_role_history WHERE personnel_id = %s",
+        (person_id,),
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_personnel_linked_vehicle_history(conn: psycopg.Connection, person_id: int) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) AS total_count FROM personnel_vehicle_history WHERE personnel_id = %s",
+        (person_id,),
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_personnel_linked_plate_history(conn: psycopg.Connection, person_id: int) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) AS total_count FROM plate_history WHERE personnel_id = %s",
+        (person_id,),
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_personnel_linked_equipment_issues(conn: psycopg.Connection, person_id: int) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) AS total_count FROM courier_equipment_issues WHERE personnel_id = %s",
+        (person_id,),
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_personnel_linked_box_returns(conn: psycopg.Connection, person_id: int) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) AS total_count FROM box_returns WHERE personnel_id = %s",
+        (person_id,),
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def fetch_personnel_equipment_issue_ids(conn: psycopg.Connection, person_id: int) -> list[int]:
+    rows = conn.execute(
+        "SELECT id FROM courier_equipment_issues WHERE personnel_id = %s",
+        (person_id,),
+    ).fetchall()
+    return [int(row["id"]) for row in rows]
+
+
+def delete_personnel_and_dependencies(conn: psycopg.Connection, person_id: int) -> None:
+    equipment_issue_ids = fetch_personnel_equipment_issue_ids(conn, person_id)
+    if equipment_issue_ids:
+        placeholders = ", ".join(["%s"] * len(equipment_issue_ids))
+        conn.execute(
+            f"DELETE FROM deductions WHERE equipment_issue_id IN ({placeholders})",
+            tuple(equipment_issue_ids),
+        )
+    conn.execute("DELETE FROM deductions WHERE personnel_id = %s", (person_id,))
+    conn.execute("DELETE FROM box_returns WHERE personnel_id = %s", (person_id,))
+    conn.execute("DELETE FROM personnel_role_history WHERE personnel_id = %s", (person_id,))
+    conn.execute("DELETE FROM personnel_vehicle_history WHERE personnel_id = %s", (person_id,))
+    conn.execute("DELETE FROM plate_history WHERE personnel_id = %s", (person_id,))
+    conn.execute(
+        "DELETE FROM daily_entries WHERE planned_personnel_id = %s OR actual_personnel_id = %s",
+        (person_id, person_id),
+    )
+    conn.execute("DELETE FROM courier_equipment_issues WHERE personnel_id = %s", (person_id,))
+    conn.execute("DELETE FROM personnel WHERE id = %s", (person_id,))

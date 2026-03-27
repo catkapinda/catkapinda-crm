@@ -5,6 +5,7 @@ import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "r
 import { useRouter } from "next/navigation";
 
 import { apiFetch } from "../../lib/api";
+import { useAuth } from "../../components/auth/auth-provider";
 
 type PersonnelEntry = {
   id: number;
@@ -76,6 +77,7 @@ const fieldStyle: CSSProperties = {
 
 export function PersonnelManagementWorkspace() {
   const router = useRouter();
+  const { user } = useAuth();
   const [isPending, startTransition] = useTransition();
 
   const [options, setOptions] = useState<PersonnelFormOptions | null>(null);
@@ -207,6 +209,8 @@ export function PersonnelManagementWorkspace() {
     () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
     [entries, selectedEntryId],
   );
+  const canToggleStatus = user?.allowed_actions.includes("personnel.status_change") ?? false;
+  const canDeletePersonnel = user?.allowed_actions.includes("personnel.delete") ?? false;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -247,6 +251,67 @@ export function PersonnelManagementWorkspace() {
     if (payload?.person_code) {
       setEditPersonCode(payload.person_code);
     }
+    await loadEntries();
+    startTransition(() => {
+      router.refresh();
+    });
+  }
+
+  async function handleToggleStatus() {
+    if (!selectedEntryId) {
+      setError("Durumu degistirilecek personel sec.");
+      return;
+    }
+    setError("");
+    setSuccess("");
+
+    const response = await apiFetch(`/personnel/records/${selectedEntryId}/toggle-status`, {
+      method: "POST",
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { detail?: string; message?: string }
+      | null;
+    if (!response.ok) {
+      setError(payload?.detail || "Personel durumu degistirilemedi.");
+      return;
+    }
+
+    setSuccess(payload?.message || "Personel durumu guncellendi.");
+    await loadEntries();
+    await loadEntryDetail(selectedEntryId);
+    startTransition(() => {
+      router.refresh();
+    });
+  }
+
+  async function handleDelete() {
+    if (!selectedEntryId) {
+      setError("Silinecek personel sec.");
+      return;
+    }
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        "Bu personel kaydini ve bagli gecmislerini kalici olarak silmek istedigine emin misin?",
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    setError("");
+    setSuccess("");
+
+    const response = await apiFetch(`/personnel/records/${selectedEntryId}`, {
+      method: "DELETE",
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { detail?: string; message?: string }
+      | null;
+    if (!response.ok) {
+      setError(payload?.detail || "Personel kaydi silinemedi.");
+      return;
+    }
+
+    setSuccess(payload?.message || "Personel kaydi silindi.");
     await loadEntries();
     startTransition(() => {
       router.refresh();
@@ -537,6 +602,29 @@ export function PersonnelManagementWorkspace() {
                 >
                   {isPending ? "Guncelleniyor..." : "Personel Kaydini Guncelle"}
                 </button>
+                {(canToggleStatus || canDeletePersonnel) && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        canToggleStatus && canDeletePersonnel
+                          ? "repeat(2, minmax(0, 1fr))"
+                          : "minmax(0, 1fr)",
+                      gap: "10px",
+                    }}
+                  >
+                    {canToggleStatus ? (
+                      <button type="button" onClick={handleToggleStatus} style={actionButton("soft")}>
+                        {selectedEntry.status === "Aktif" ? "Pasife Al" : "Aktiflestir"}
+                      </button>
+                    ) : null}
+                    {canDeletePersonnel ? (
+                      <button type="button" onClick={handleDelete} style={actionButton("danger")}>
+                        Kalici Sil
+                      </button>
+                    ) : null}
+                  </div>
+                )}
                 {error ? <InlineMessage tone="error" message={error} /> : null}
                 {success ? <InlineMessage tone="success" message={success} /> : null}
               </form>
@@ -566,6 +654,28 @@ export function PersonnelManagementWorkspace() {
       </div>
     </section>
   );
+}
+
+function actionButton(kind: "soft" | "danger"): CSSProperties {
+  const palette =
+    kind === "soft"
+      ? {
+          background: "rgba(15, 95, 215, 0.08)",
+          color: "var(--accent)",
+          border: "1px solid rgba(15, 95, 215, 0.16)",
+        }
+      : {
+          background: "rgba(205, 70, 66, 0.08)",
+          color: "#b53632",
+          border: "1px solid rgba(205, 70, 66, 0.16)",
+        };
+  return {
+    padding: "14px 16px",
+    borderRadius: "16px",
+    fontWeight: 800,
+    cursor: "pointer",
+    ...palette,
+  };
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
