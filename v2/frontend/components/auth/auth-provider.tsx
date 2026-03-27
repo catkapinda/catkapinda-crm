@@ -10,7 +10,13 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 
-import { apiFetch, buildApiUrl, writeStoredAuthToken } from "../../lib/api";
+import {
+  AUTH_UNAUTHORIZED_EVENT,
+  apiFetch,
+  buildApiUrl,
+  writeStoredAuthNotice,
+  writeStoredAuthToken,
+} from "../../lib/api";
 
 export type AuthUser = {
   id: number;
@@ -74,6 +80,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false;
     };
   }, [refreshUser]);
+
+  useEffect(() => {
+    function handleUnauthorized() {
+      writeStoredAuthToken("");
+      setUser(null);
+      setLoading(false);
+    }
+
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => {
+      window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    };
+  }, []);
 
   const login = useCallback(async (identity: string, password: string) => {
     const response = await fetch(buildApiUrl("/auth/login"), {
@@ -144,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiFetch("/auth/logout", { method: "POST" });
     } finally {
       writeStoredAuthToken("");
+      writeStoredAuthNotice("");
       setUser(null);
     }
   }, []);
