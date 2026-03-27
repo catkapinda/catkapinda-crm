@@ -71,6 +71,8 @@ type EquipmentFormOptions = {
       default_vat_rate: number;
     }
   >;
+  selected_personnel_id: number | null;
+  selected_item: string;
 };
 
 const fieldStyle: CSSProperties = {

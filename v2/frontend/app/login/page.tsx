@@ -1,13 +1,13 @@
 "use client";
 
 import type { CSSProperties, FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
 import { resolveDefaultPath } from "../../lib/navigation";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading, login } = useAuth();
@@ -159,6 +159,41 @@ export default function LoginPage() {
         </form>
       </section>
     </main>
+  );
+}
+
+function LoginPageFallback() {
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        padding: "24px",
+      }}
+    >
+      <section
+        style={{
+          width: "min(520px, 100%)",
+          padding: "32px",
+          borderRadius: "28px",
+          background: "var(--surface-strong)",
+          border: "1px solid var(--line)",
+          boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
+          color: "var(--muted)",
+        }}
+      >
+        Giris hazirlaniyor...
+      </section>
+    </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
 
