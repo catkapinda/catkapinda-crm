@@ -14,6 +14,7 @@ export const sidebarItems: SidebarItem[] = [
   { label: "Satış", href: "/sales", action: "sales.view" },
   { label: "Restoranlar", href: "/restaurants", action: "restaurant.view" },
   { label: "Raporlar", href: "/reports", action: "reporting.view" },
+  { label: "Profil", href: "/account" },
 ];
 
 export function filterSidebarItems(allowedActions: string[]) {

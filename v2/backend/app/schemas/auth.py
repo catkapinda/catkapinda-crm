@@ -12,6 +12,11 @@ class AuthLoginRequest(BaseModel):
     password: str
 
 
+class AuthChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class AuthCurrentUserResponse(BaseModel):
     id: int
     identity: str
@@ -34,3 +39,8 @@ class AuthLoginResponse(BaseModel):
 
 class AuthLogoutResponse(BaseModel):
     message: str
+
+
+class AuthChangePasswordResponse(BaseModel):
+    message: str
+    user: AuthCurrentUserResponse
