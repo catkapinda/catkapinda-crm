@@ -21,6 +21,9 @@ class Settings(BaseSettings):
         default="http://127.0.0.1:3000",
         validation_alias=AliasChoices("CK_V2_PUBLIC_APP_URL", "PUBLIC_APP_URL"),
     )
+    auth_ebru_phone: str = Field(default="", validation_alias=AliasChoices("AUTH_EBRU_PHONE"))
+    auth_mert_phone: str = Field(default="", validation_alias=AliasChoices("AUTH_MERT_PHONE"))
+    auth_muhammed_phone: str = Field(default="", validation_alias=AliasChoices("AUTH_MUHAMMED_PHONE"))
 
     model_config = SettingsConfigDict(
         env_prefix="CK_V2_",
@@ -36,6 +39,23 @@ class Settings(BaseSettings):
             self.public_app_url.rstrip("/"),
         }
         return [origin for origin in allowed if origin]
+
+    @property
+    def sms_phone_allowlist(self) -> list[str]:
+        def normalize(value: str) -> str:
+            digits = "".join(ch for ch in str(value or "") if ch.isdigit())
+            if digits.startswith("90") and len(digits) == 12:
+                digits = digits[2:]
+            if digits.startswith("0") and len(digits) == 11:
+                digits = digits[1:]
+            return digits if len(digits) == 10 else ""
+
+        phones = {
+            normalize(self.auth_ebru_phone),
+            normalize(self.auth_mert_phone),
+            normalize(self.auth_muhammed_phone),
+        }
+        return sorted(phone for phone in phones if phone)
 
 
 settings = Settings()

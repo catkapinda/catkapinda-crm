@@ -29,6 +29,8 @@ type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   login: (identity: string, password: string) => Promise<AuthUser>;
+  requestPhoneCode: (phone: string) => Promise<{ message: string; masked_phone: string }>;
+  verifyPhoneCode: (phone: string, code: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateUser: (user: AuthUser) => void;
@@ -94,6 +96,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return payload.user;
   }, []);
 
+  const requestPhoneCode = useCallback(async (phone: string) => {
+    const response = await fetch(buildApiUrl("/auth/request-phone-code"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ phone }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { detail?: string; message?: string; masked_phone?: string }
+      | null;
+
+    if (!response.ok || !payload?.message || !payload?.masked_phone) {
+      throw new Error(payload?.detail || "SMS kodu gonderilemedi.");
+    }
+
+    return {
+      message: payload.message,
+      masked_phone: payload.masked_phone,
+    };
+  }, []);
+
+  const verifyPhoneCode = useCallback(async (phone: string, code: string) => {
+    const response = await fetch(buildApiUrl("/auth/verify-phone-code"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ phone, code }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { detail?: string; access_token?: string; user?: AuthUser }
+      | null;
+
+    if (!response.ok || !payload?.access_token || !payload.user) {
+      throw new Error(payload?.detail || "SMS kodu dogrulanamadi.");
+    }
+
+    writeStoredAuthToken(payload.access_token);
+    setUser(payload.user);
+    return payload.user;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await apiFetch("/auth/logout", { method: "POST" });
@@ -112,11 +157,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
+      requestPhoneCode,
+      verifyPhoneCode,
       logout,
       refreshUser,
       updateUser,
     }),
-    [user, loading, login, logout, refreshUser, updateUser],
+    [user, loading, login, requestPhoneCode, verifyPhoneCode, logout, refreshUser, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -10,6 +10,7 @@ import secrets
 from app.core.config import settings
 
 PASSWORD_HASH_ITERATIONS = 200_000
+MOBILE_AUTH_EMAIL_DOMAIN = "auth.catkapinda.local"
 
 ROLE_ACTIONS = {
     "admin": {
@@ -85,6 +86,13 @@ def normalize_auth_phone(value: str) -> str:
     return digits if len(digits) == 10 else ""
 
 
+def mask_auth_phone(value: str) -> str:
+    normalized_phone = normalize_auth_phone(value)
+    if not normalized_phone:
+        return str(value or "").strip()
+    return f"0{normalized_phone[:3]} *** ** {normalized_phone[-2:]}"
+
+
 def normalize_auth_identity(value: str) -> str:
     raw_value = (value or "").strip()
     if not raw_value:
@@ -93,6 +101,31 @@ def normalize_auth_identity(value: str) -> str:
         return raw_value.lower()
     normalized_phone = normalize_auth_phone(raw_value)
     return normalized_phone or raw_value.lower()
+
+
+def build_mobile_auth_email(personnel_id: int) -> str:
+    return f"mobile.personnel.{int(personnel_id)}@{MOBILE_AUTH_EMAIL_DOMAIN}"
+
+
+def is_mobile_auth_email(email: str) -> bool:
+    normalized_email = normalize_auth_identity(email)
+    return normalized_email.startswith("mobile.personnel.") and normalized_email.endswith(
+        f"@{MOBILE_AUTH_EMAIL_DOMAIN}"
+    )
+
+
+def extract_mobile_auth_personnel_id(email: str) -> int:
+    normalized_email = normalize_auth_identity(email)
+    match = re.fullmatch(
+        rf"mobile\.personnel\.(\d+)@{re.escape(MOBILE_AUTH_EMAIL_DOMAIN)}",
+        normalized_email,
+    )
+    if not match:
+        return 0
+    try:
+        return int(match.group(1))
+    except Exception:
+        return 0
 
 
 def verify_auth_password(password: str, stored_hash: str) -> bool:
@@ -126,6 +159,10 @@ def hash_auth_password(password: str, *, salt: str | None = None) -> str:
 
 def build_session_token() -> str:
     return secrets.token_urlsafe(32)
+
+
+def generate_phone_login_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
 
 
 def build_session_window() -> tuple[str, str]:

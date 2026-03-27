@@ -12,6 +12,20 @@ class AuthLoginRequest(BaseModel):
     password: str
 
 
+class AuthPhoneCodeRequest(BaseModel):
+    phone: str
+
+
+class AuthPhoneCodeVerifyRequest(BaseModel):
+    phone: str
+    code: str
+
+
+class AuthPhoneCodeRequestResponse(BaseModel):
+    message: str
+    masked_phone: str
+
+
 class AuthChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
