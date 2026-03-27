@@ -26,6 +26,15 @@ Bu runbook, Streamlit sistemi kapatmadan v2'yi paralel pilot olarak açmak icin 
   - v2 frontend public URL'si
 - `CK_V2_PUBLIC_APP_URL`
   - v2 frontend public URL'si
+- `AUTH_EBRU_PHONE`
+- `AUTH_MERT_PHONE`
+- `AUTH_MUHAMMED_PHONE`
+- `SMS_PROVIDER=netgsm`
+- `SMS_API_URL=https://api.netgsm.com.tr/sms/rest/v2/send`
+- `SMS_NETGSM_USERNAME`
+- `SMS_NETGSM_PASSWORD`
+- `SMS_SENDER=CATKAPINDA`
+- `SMS_NETGSM_ENCODING=TR`
 
 ### Frontend
 
@@ -47,6 +56,7 @@ Asagidaki ekranlar calisir olmali:
 - `Satis`
 - `Restoranlar`
 - `Raporlar`
+- `Telefon / SMS kodlu giris`
 
 ## Cikis Anini Nasil Anlariz
 

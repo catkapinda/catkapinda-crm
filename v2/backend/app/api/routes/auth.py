@@ -14,14 +14,19 @@ from app.schemas.auth import (
     AuthLoginResponse,
     AuthLogoutResponse,
     AuthModesResponse,
+    AuthPhoneCodeRequest,
+    AuthPhoneCodeRequestResponse,
+    AuthPhoneCodeVerifyRequest,
 )
 from app.services.auth import (
     authenticate_user,
     build_auth_modes,
     build_login_response,
     change_authenticated_user_password,
+    request_phone_login_code,
     revoke_authenticated_session,
     serialize_authenticated_user,
+    verify_phone_login_code_and_login,
 )
 
 router = APIRouter()
@@ -42,6 +47,38 @@ def login_route(
             conn,
             identity=payload.identity,
             password=payload.password,
+        )
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    return build_login_response(user)
+
+
+@router.post("/request-phone-code", response_model=AuthPhoneCodeRequestResponse)
+def request_phone_code_route(
+    payload: AuthPhoneCodeRequest,
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AuthPhoneCodeRequestResponse:
+    try:
+        return request_phone_login_code(conn, phone=payload.phone)
+    except RuntimeError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/verify-phone-code", response_model=AuthLoginResponse)
+def verify_phone_code_route(
+    payload: AuthPhoneCodeVerifyRequest,
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AuthLoginResponse:
+    try:
+        user = verify_phone_login_code_and_login(
+            conn,
+            phone=payload.phone,
+            login_code=payload.code,
         )
     except ValueError as exc:
         conn.rollback()

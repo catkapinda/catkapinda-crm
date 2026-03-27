@@ -33,4 +33,14 @@ Deploy:
 - Set these two env vars on the API service after deploy:
   - `CK_V2_FRONTEND_BASE_URL=https://<frontend-domain>`
   - `CK_V2_PUBLIC_APP_URL=https://<frontend-domain>`
+- Optional but recommended for phone/SMS login on the API service:
+  - `AUTH_EBRU_PHONE`
+  - `AUTH_MERT_PHONE`
+  - `AUTH_MUHAMMED_PHONE`
+  - `SMS_PROVIDER=netgsm`
+  - `SMS_API_URL=https://api.netgsm.com.tr/sms/rest/v2/send`
+  - `SMS_NETGSM_USERNAME`
+  - `SMS_NETGSM_PASSWORD`
+  - `SMS_SENDER=CATKAPINDA`
+  - `SMS_NETGSM_ENCODING=TR`
 - Keep the current Streamlit app live during pilot rollout; v2 is intended to run in parallel first.
