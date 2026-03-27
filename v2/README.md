@@ -12,6 +12,7 @@ Structure:
 - `backend/`: FastAPI application for auth, attendance, personnel, reporting.
 - `frontend/`: Next.js application for the browser UI.
 - `MIGRATION_PLAN.md`: phased migration roadmap.
+- `PILOT_DEPLOY.md`: Render pilot acilisi icin kisa runbook.
 
 Run locally:
 - Backend:

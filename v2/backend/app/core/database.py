@@ -15,7 +15,12 @@ def get_db() -> Generator[psycopg.Connection, None, None]:
             status_code=503,
             detail="DATABASE_URL tanimli olmadigi icin v2 backend veritabanina baglanamiyor.",
         )
-    conn = psycopg.connect(settings.database_url, row_factory=dict_row)
+    conn = psycopg.connect(
+        settings.database_url,
+        row_factory=dict_row,
+        connect_timeout=5,
+        application_name="catkapinda-crm-v2",
+    )
     try:
         yield conn
     finally:
