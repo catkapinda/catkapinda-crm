@@ -6,6 +6,7 @@ from app.core.security import (
     AuthenticatedUser,
     build_session_token,
     build_session_window,
+    hash_auth_password,
     normalize_auth_identity,
     resolve_allowed_actions,
     verify_auth_password,
@@ -16,6 +17,7 @@ from app.repositories.auth import (
     fetch_auth_session,
     fetch_auth_user_by_identity,
     insert_auth_session,
+    update_auth_user_password,
 )
 from app.schemas.auth import AuthCurrentUserResponse, AuthLoginResponse, AuthModesResponse
 
@@ -136,4 +138,42 @@ def build_login_response(user: AuthenticatedUser) -> AuthLoginResponse:
         token_type="bearer",
         expires_at=user.expires_at,
         user=serialize_authenticated_user(user),
+    )
+
+
+def change_authenticated_user_password(
+    conn: psycopg.Connection,
+    *,
+    user: AuthenticatedUser,
+    current_password: str,
+    new_password: str,
+) -> AuthenticatedUser:
+    normalized_current = str(current_password or "")
+    normalized_new = str(new_password or "")
+    if len(normalized_new) < 6:
+        raise ValueError("Yeni sifre en az 6 karakter olmali.")
+    if normalized_current == normalized_new:
+        raise ValueError("Yeni sifre mevcut sifreden farkli olmali.")
+
+    user_row = fetch_auth_user_by_identity(conn, identity=user.identity)
+    if not user_row:
+        raise LookupError("Kullanici bulunamadi.")
+    stored_hash = str(user_row.get("password_hash") or "")
+    if not verify_auth_password(normalized_current, stored_hash):
+        raise ValueError("Mevcut sifre dogru degil.")
+
+    update_auth_user_password(
+        conn,
+        user_id=int(user_row.get("id") or 0),
+        password_hash=hash_auth_password(normalized_new),
+    )
+    conn.commit()
+
+    refreshed = fetch_auth_user_by_identity(conn, identity=user.identity)
+    if not refreshed:
+        raise LookupError("Kullanici güncellenemedi.")
+    return build_authenticated_user(
+        user_row=refreshed,
+        token=user.token,
+        expires_at=user.expires_at,
     )

@@ -83,6 +83,24 @@ def delete_auth_session(conn: psycopg.Connection, *, token: str) -> None:
     conn.execute("DELETE FROM auth_sessions WHERE token = %s", (token,))
 
 
+def update_auth_user_password(
+    conn: psycopg.Connection,
+    *,
+    user_id: int,
+    password_hash: str,
+) -> None:
+    conn.execute(
+        """
+        UPDATE auth_users
+        SET password_hash = %s,
+            must_change_password = 0,
+            updated_at = NOW()
+        WHERE id = %s
+        """,
+        (password_hash, user_id),
+    )
+
+
 def build_current_timestamp() -> str:
     from datetime import datetime
 

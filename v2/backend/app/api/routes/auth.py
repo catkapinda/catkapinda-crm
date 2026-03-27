@@ -7,6 +7,8 @@ from app.api.deps.auth import get_current_user
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.auth import (
+    AuthChangePasswordRequest,
+    AuthChangePasswordResponse,
     AuthCurrentUserResponse,
     AuthLoginRequest,
     AuthLoginResponse,
@@ -17,6 +19,7 @@ from app.services.auth import (
     authenticate_user,
     build_auth_modes,
     build_login_response,
+    change_authenticated_user_password,
     revoke_authenticated_session,
     serialize_authenticated_user,
 )
@@ -60,3 +63,28 @@ def logout_route(
 ) -> AuthLogoutResponse:
     revoke_authenticated_session(conn, token=user.token)
     return AuthLogoutResponse(message="Oturum kapatildi.")
+
+
+@router.post("/change-password", response_model=AuthChangePasswordResponse)
+def change_password_route(
+    payload: AuthChangePasswordRequest,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AuthChangePasswordResponse:
+    try:
+        refreshed_user = change_authenticated_user_password(
+            conn,
+            user=user,
+            current_password=payload.current_password,
+            new_password=payload.new_password,
+        )
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return AuthChangePasswordResponse(
+        message="Sifre guncellendi.",
+        user=serialize_authenticated_user(refreshed_user),
+    )

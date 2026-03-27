@@ -36,6 +36,10 @@ export function AppShell({
       router.replace(`/login${nextValue}`);
       return;
     }
+    if (user.must_change_password && pathname !== "/account") {
+      router.replace("/account");
+      return;
+    }
     if (!canViewActiveItem) {
       router.replace(resolveDefaultPath(user.allowed_actions));
     }

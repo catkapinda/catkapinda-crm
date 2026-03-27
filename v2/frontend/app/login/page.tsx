@@ -30,7 +30,8 @@ export default function LoginPage() {
     setSubmitting(true);
     setError("");
     try {
-      await login(identity, password);
+      const loggedInUser = await login(identity, password);
+      router.replace(loggedInUser.must_change_password ? "/account" : nextPath || resolveDefaultPath(loggedInUser.allowed_actions));
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : "Giris yapilamadi.");
     } finally {

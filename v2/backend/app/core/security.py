@@ -108,6 +108,17 @@ def verify_auth_password(password: str, stored_hash: str) -> bool:
     return hmac.compare_digest(candidate, digest)
 
 
+def hash_auth_password(password: str, *, salt: str | None = None) -> str:
+    resolved_salt = salt or secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        (password or "").encode("utf-8"),
+        resolved_salt.encode("utf-8"),
+        PASSWORD_HASH_ITERATIONS,
+    ).hex()
+    return f"pbkdf2_sha256${PASSWORD_HASH_ITERATIONS}${resolved_salt}${digest}"
+
+
 def build_session_token() -> str:
     return secrets.token_urlsafe(32)
 
@@ -123,4 +134,3 @@ def build_session_window() -> tuple[str, str]:
 
 def resolve_allowed_actions(role: str) -> list[str]:
     return sorted(ROLE_ACTIONS.get(str(role or "").strip(), set()))
-
