@@ -38,6 +38,31 @@ class ReportCostEntry(BaseModel):
     cost_model: str
 
 
+class ReportModelBreakdownEntry(BaseModel):
+    pricing_model: str
+    restaurant_count: int
+    total_hours: float
+    total_packages: float
+    gross_invoice: float
+
+
+class ReportTopRestaurantEntry(BaseModel):
+    restaurant: str
+    pricing_model: str
+    total_hours: float
+    total_packages: float
+    gross_invoice: float
+
+
+class ReportTopCourierEntry(BaseModel):
+    personnel: str
+    role: str
+    total_hours: float
+    total_deductions: float
+    net_cost: float
+    cost_model: str
+
+
 class ReportsDashboardResponse(BaseModel):
     module: str
     status: str
@@ -46,3 +71,6 @@ class ReportsDashboardResponse(BaseModel):
     summary: ReportsSummary | None
     invoice_entries: list[ReportInvoiceEntry]
     cost_entries: list[ReportCostEntry]
+    model_breakdown: list[ReportModelBreakdownEntry]
+    top_restaurants: list[ReportTopRestaurantEntry]
+    top_couriers: list[ReportTopCourierEntry]

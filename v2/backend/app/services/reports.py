@@ -9,6 +9,9 @@ import psycopg
 from app.schemas.reports import (
     ReportCostEntry,
     ReportInvoiceEntry,
+    ReportModelBreakdownEntry,
+    ReportTopCourierEntry,
+    ReportTopRestaurantEntry,
     ReportsDashboardResponse,
     ReportsModuleStatus,
     ReportsSummary,
@@ -81,6 +84,9 @@ def build_reports_dashboard(
             summary=None,
             invoice_entries=[],
             cost_entries=[],
+            model_breakdown=[],
+            top_restaurants=[],
+            top_couriers=[],
         )
 
     resolved_month = selected_month if selected_month in month_options else month_options[0]
@@ -111,6 +117,52 @@ def build_reports_dashboard(
         for _, row in payload.cost_df.head(limit).iterrows()
     ] if not payload.cost_df.empty else []
 
+    model_breakdown = []
+    if not payload.invoice_df.empty:
+        model_df = (
+            payload.invoice_df.groupby("model", dropna=False, as_index=False)
+            .agg(
+                restoran=("restoran", "nunique"),
+                saat=("saat", "sum"),
+                paket=("paket", "sum"),
+                kdv_dahil=("kdv_dahil", "sum"),
+            )
+            .sort_values("kdv_dahil", ascending=False)
+        )
+        model_breakdown = [
+            ReportModelBreakdownEntry(
+                pricing_model=str(row.get("model") or "-"),
+                restaurant_count=int(row.get("restoran") or 0),
+                total_hours=_safe_float(row.get("saat")),
+                total_packages=_safe_float(row.get("paket")),
+                gross_invoice=_safe_float(row.get("kdv_dahil")),
+            )
+            for _, row in model_df.iterrows()
+        ]
+
+    top_restaurants = [
+        ReportTopRestaurantEntry(
+            restaurant=str(row.get("restoran") or "-"),
+            pricing_model=str(row.get("model") or "-"),
+            total_hours=_safe_float(row.get("saat")),
+            total_packages=_safe_float(row.get("paket")),
+            gross_invoice=_safe_float(row.get("kdv_dahil")),
+        )
+        for _, row in payload.invoice_df.sort_values("kdv_dahil", ascending=False).head(6).iterrows()
+    ] if not payload.invoice_df.empty and "kdv_dahil" in payload.invoice_df.columns else []
+
+    top_couriers = [
+        ReportTopCourierEntry(
+            personnel=str(row.get("personel") or "-"),
+            role=str(row.get("rol") or "-"),
+            total_hours=_safe_float(row.get("calisma_saati")),
+            total_deductions=_safe_float(row.get("kesinti")),
+            net_cost=_safe_float(row.get("net_maliyet")),
+            cost_model=str(row.get("maliyet_modeli") or "-"),
+        )
+        for _, row in payload.cost_df.sort_values("net_maliyet", ascending=False).head(6).iterrows()
+    ] if not payload.cost_df.empty and "net_maliyet" in payload.cost_df.columns else []
+
     summary = ReportsSummary(
         selected_month=resolved_month,
         restaurant_count=int(payload.invoice_df["restoran"].dropna().astype(str).nunique()) if not payload.invoice_df.empty and "restoran" in payload.invoice_df.columns else 0,
@@ -131,4 +183,7 @@ def build_reports_dashboard(
         summary=summary,
         invoice_entries=invoice_entries,
         cost_entries=cost_entries,
+        model_breakdown=model_breakdown,
+        top_restaurants=top_restaurants,
+        top_couriers=top_couriers,
     )
