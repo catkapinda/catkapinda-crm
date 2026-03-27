@@ -22,7 +22,7 @@ def get_reports_dashboard(
     _user: Annotated[AuthenticatedUser, Depends(require_action("reporting.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     month: str | None = Query(default=None),
-    limit: int = Query(default=24, ge=1, le=200),
+    limit: int = Query(default=100, ge=1, le=500),
 ) -> ReportsDashboardResponse:
     return build_reports_dashboard(
         conn,

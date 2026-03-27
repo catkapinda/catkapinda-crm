@@ -39,6 +39,28 @@ type ReportsDashboard = {
     net_cost: number;
     cost_model: string;
   }>;
+  model_breakdown: Array<{
+    pricing_model: string;
+    restaurant_count: number;
+    total_hours: number;
+    total_packages: number;
+    gross_invoice: number;
+  }>;
+  top_restaurants: Array<{
+    restaurant: string;
+    pricing_model: string;
+    total_hours: number;
+    total_packages: number;
+    gross_invoice: number;
+  }>;
+  top_couriers: Array<{
+    personnel: string;
+    role: string;
+    total_hours: number;
+    total_deductions: number;
+    net_cost: number;
+    cost_model: string;
+  }>;
 };
 
 function formatMoney(value: number) {
@@ -145,10 +167,12 @@ function tableCell(value: string, align: "left" | "right" = "left", muted = fals
 function ScrollCard({
   title,
   subtitle,
+  actions,
   children,
 }: {
   title: string;
   subtitle: string;
+  actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -165,10 +189,18 @@ function ScrollCard({
         style={{
           padding: "18px 20px",
           borderBottom: "1px solid var(--line)",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "16px",
+          flexWrap: "wrap",
         }}
       >
-        <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{title}</h2>
-        <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>{subtitle}</p>
+        <div>
+          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{title}</h2>
+          <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>{subtitle}</p>
+        </div>
+        {actions}
       </div>
       <div
         style={{
@@ -187,6 +219,8 @@ export default function ReportsPage() {
   const [dashboard, setDashboard] = useState<ReportsDashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState("");
+  const [invoiceQuery, setInvoiceQuery] = useState("");
+  const [costQuery, setCostQuery] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -251,6 +285,52 @@ export default function ReportsPage() {
     ];
   }, [dashboard]);
 
+  const signalCards = useMemo(() => {
+    if (!dashboard?.summary) {
+      return [];
+    }
+    const revenuePerHour =
+      dashboard.summary.total_hours > 0
+        ? dashboard.summary.total_revenue / dashboard.summary.total_hours
+        : 0;
+    const averageCourierCost =
+      dashboard.summary.courier_count > 0
+        ? dashboard.summary.total_personnel_cost / dashboard.summary.courier_count
+        : 0;
+    const marginRatio =
+      dashboard.summary.total_revenue > 0
+        ? (dashboard.summary.gross_profit / dashboard.summary.total_revenue) * 100
+        : 0;
+
+    return [
+      metricCard("Saat Başına Fatura", formatMoney(revenuePerHour), "Toplam fatura / toplam saat"),
+      metricCard("Kurye Başına Maliyet", formatMoney(averageCourierCost), "Net maliyet / kurye"),
+      metricCard("Marj", `%${formatNumber(marginRatio, 1)}`, "Brüt fark / toplam fatura"),
+    ];
+  }, [dashboard]);
+
+  const filteredInvoiceEntries = useMemo(() => {
+    const rows = dashboard?.invoice_entries ?? [];
+    const query = invoiceQuery.trim().toLocaleLowerCase("tr-TR");
+    if (!query) {
+      return rows;
+    }
+    return rows.filter((row) =>
+      `${row.restaurant} ${row.pricing_model}`.toLocaleLowerCase("tr-TR").includes(query),
+    );
+  }, [dashboard?.invoice_entries, invoiceQuery]);
+
+  const filteredCostEntries = useMemo(() => {
+    const rows = dashboard?.cost_entries ?? [];
+    const query = costQuery.trim().toLocaleLowerCase("tr-TR");
+    if (!query) {
+      return rows;
+    }
+    return rows.filter((row) =>
+      `${row.personnel} ${row.role} ${row.cost_model}`.toLocaleLowerCase("tr-TR").includes(query),
+    );
+  }, [dashboard?.cost_entries, costQuery]);
+
   return (
     <AppShell activeItem="Raporlar">
       <section
@@ -302,7 +382,7 @@ export default function ReportsPage() {
                   lineHeight: 1.03,
                 }}
               >
-                Restoran faturası ve kurye maliyetini yeni sistemde açıyoruz.
+                Finans yüzeyini yeni sistemde daha okunur ve daha hızlı hale getiriyoruz.
               </h1>
               <p
                 style={{
@@ -399,6 +479,16 @@ export default function ReportsPage() {
             <div
               style={{
                 display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {signalCards}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
                 gap: "18px",
               }}
@@ -406,6 +496,21 @@ export default function ReportsPage() {
               <ScrollCard
                 title="Restoran Faturası"
                 subtitle="Şube bazlı toplam saat, paket ve restoran faturası. Liste kendi içinde scroll eder."
+                actions={
+                  <input
+                    value={invoiceQuery}
+                    onChange={(event) => setInvoiceQuery(event.target.value)}
+                    placeholder="Şube veya model ara"
+                    style={{
+                      minWidth: "220px",
+                      padding: "12px 14px",
+                      borderRadius: "14px",
+                      border: "1px solid var(--line)",
+                      background: "rgba(255,255,255,0.96)",
+                      color: "var(--text)",
+                    }}
+                  />
+                }
               >
                 <table
                   style={{
@@ -419,7 +524,7 @@ export default function ReportsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {dashboard.invoice_entries.map((row) => (
+                    {filteredInvoiceEntries.map((row) => (
                       <tr key={`${row.restaurant}-${row.pricing_model}`}>
                         {tableCell(row.restaurant)}
                         {tableCell(row.pricing_model, "left", true)}
@@ -436,6 +541,21 @@ export default function ReportsPage() {
               <ScrollCard
                 title="Kurye Maliyeti"
                 subtitle="Personel bazlı saat, paket, kesinti ve net maliyet görünümü. Liste kendi içinde scroll eder."
+                actions={
+                  <input
+                    value={costQuery}
+                    onChange={(event) => setCostQuery(event.target.value)}
+                    placeholder="Personel veya rol ara"
+                    style={{
+                      minWidth: "220px",
+                      padding: "12px 14px",
+                      borderRadius: "14px",
+                      border: "1px solid var(--line)",
+                      background: "rgba(255,255,255,0.96)",
+                      color: "var(--text)",
+                    }}
+                  />
+                }
               >
                 <table
                   style={{
@@ -449,7 +569,7 @@ export default function ReportsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {dashboard.cost_entries.map((row) => (
+                    {filteredCostEntries.map((row) => (
                       <tr key={`${row.personnel}-${row.role}`}>
                         {tableCell(row.personnel)}
                         {tableCell(row.role, "left", true)}
@@ -461,6 +581,117 @@ export default function ReportsPage() {
                     ))}
                   </tbody>
                 </table>
+              </ScrollCard>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "18px",
+              }}
+            >
+              <ScrollCard
+                title="Model Dağılımı"
+                subtitle="Aynı ayda hangi anlaşma modelinin ne kadar hacim ürettiğini tek bakışta izle."
+              >
+                <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                  {dashboard.model_breakdown.map((row) => (
+                    <article
+                      key={row.pricing_model}
+                      style={{
+                        display: "grid",
+                        gap: "8px",
+                        padding: "14px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.8)",
+                        background: "rgba(248, 250, 255, 0.9)",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                        <strong>{row.pricing_model}</strong>
+                        <span style={{ color: "var(--muted)" }}>{formatMoney(row.gross_invoice)}</span>
+                      </div>
+                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                        {formatNumber(row.restaurant_count)} şube • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </ScrollCard>
+
+              <ScrollCard
+                title="En Yüksek Fatura Şubeler"
+                subtitle="Ay içindeki en büyük restoran faturalarını hızlıca kontrol et."
+              >
+                <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                  {dashboard.top_restaurants.map((row) => (
+                    <article
+                      key={`${row.restaurant}-${row.pricing_model}`}
+                      style={{
+                        display: "grid",
+                        gap: "6px",
+                        padding: "14px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.8)",
+                        background: "rgba(248, 250, 255, 0.9)",
+                      }}
+                    >
+                      <strong>{row.restaurant}</strong>
+                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>{row.pricing_model}</div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "12px",
+                          color: "var(--muted)",
+                          fontSize: "0.92rem",
+                        }}
+                      >
+                        <span>{formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket</span>
+                        <strong style={{ color: "var(--text)" }}>{formatMoney(row.gross_invoice)}</strong>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </ScrollCard>
+
+              <ScrollCard
+                title="En Yüksek Maliyetli Kuryeler"
+                subtitle="Net maliyeti en yüksek personelleri ve kesinti etkisini bir arada gör."
+              >
+                <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                  {dashboard.top_couriers.map((row) => (
+                    <article
+                      key={`${row.personnel}-${row.role}`}
+                      style={{
+                        display: "grid",
+                        gap: "6px",
+                        padding: "14px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.8)",
+                        background: "rgba(248, 250, 255, 0.9)",
+                      }}
+                    >
+                      <strong>{row.personnel}</strong>
+                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                        {row.role} • {row.cost_model}
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "12px",
+                          color: "var(--muted)",
+                          fontSize: "0.92rem",
+                        }}
+                      >
+                        <span>{formatNumber(row.total_hours, 1)} saat • {formatMoney(row.total_deductions)} kesinti</span>
+                        <strong style={{ color: "var(--text)" }}>{formatMoney(row.net_cost)}</strong>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </ScrollCard>
             </div>
           </>
