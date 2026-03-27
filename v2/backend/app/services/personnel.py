@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+from datetime import date
 import re
 
 import psycopg
 
 from app.repositories.personnel import (
+    count_personnel_linked_box_returns,
+    count_personnel_linked_daily_entries,
+    count_personnel_linked_deductions,
+    count_personnel_linked_equipment_issues,
+    count_personnel_linked_plate_history,
+    count_personnel_linked_role_history,
+    count_personnel_linked_vehicle_history,
     count_personnel_management_records,
+    delete_personnel_and_dependencies,
     fetch_person_code_values,
     fetch_personnel_management_records,
     fetch_personnel_record_by_id,
@@ -13,11 +22,13 @@ from app.repositories.personnel import (
     fetch_personnel_summary,
     fetch_recent_personnel_records,
     insert_personnel_record,
+    update_personnel_status,
     update_personnel_record,
 )
 from app.schemas.personnel import (
     PersonnelCreateRequest,
     PersonnelCreateResponse,
+    PersonnelDeleteResponse,
     PersonnelDashboardResponse,
     PersonnelDetailResponse,
     PersonnelFormOptionsResponse,
@@ -25,6 +36,7 @@ from app.schemas.personnel import (
     PersonnelManagementResponse,
     PersonnelModuleStatus,
     PersonnelRestaurantOption,
+    PersonnelStatusUpdateResponse,
     PersonnelSummary,
     PersonnelUpdateRequest,
     PersonnelUpdateResponse,
@@ -163,6 +175,25 @@ def _build_management_entry(row: dict[str, object]) -> PersonnelManagementEntry:
     )
 
 
+def _build_personnel_delete_message(dependency_counts: dict[str, int]) -> str:
+    detail_parts = [
+        f"{label}: {count}"
+        for label, count in [
+            ("Puantaj", dependency_counts.get("puantaj", 0)),
+            ("Kesinti", dependency_counts.get("kesinti", 0)),
+            ("Rol gecmisi", dependency_counts.get("rol_gecmisi", 0)),
+            ("Arac gecmisi", dependency_counts.get("arac_gecmisi", 0)),
+            ("Plaka gecmisi", dependency_counts.get("plaka", 0)),
+            ("Zimmet", dependency_counts.get("zimmet", 0)),
+            ("Box iade", dependency_counts.get("box_iade", 0)),
+        ]
+        if count
+    ]
+    if detail_parts:
+        return "Personel ve bagli kayitlar kalici olarak silindi. " + " | ".join(detail_parts)
+    return "Personel kaydi kalici olarak silindi."
+
+
 def build_personnel_status() -> PersonnelModuleStatus:
     return PersonnelModuleStatus(
         module="personnel",
@@ -259,6 +290,7 @@ def create_personnel_record(
 
     normalized_role = _normalize_role(payload.role)
     normalized_vehicle_mode = _normalize_vehicle_mode(payload.vehicle_mode)
+    normalized_status = payload.status if payload.status in PERSONNEL_STATUS_OPTIONS else "Aktif"
     person_code = _build_next_person_code(conn, role=normalized_role)
     vehicle_fields = _resolve_vehicle_fields(normalized_vehicle_mode)
     person_id = insert_personnel_record(
@@ -267,7 +299,7 @@ def create_personnel_record(
             "person_code": person_code,
             "full_name": full_name,
             "role": _display_role(normalized_role),
-            "status": payload.status if payload.status in PERSONNEL_STATUS_OPTIONS else "Aktif",
+            "status": normalized_status,
             "phone": str(payload.phone or "").strip(),
             "accounting_type": "Kendi Muhasebecisi",
             "new_company_setup": "Hayır",
@@ -277,6 +309,7 @@ def create_personnel_record(
             "motor_purchase": vehicle_fields["motor_purchase"],
             "current_plate": str(payload.current_plate or "").strip(),
             "start_date": payload.start_date,
+            "exit_date": date.today().isoformat() if normalized_status == "Pasif" else None,
             "cost_model": _resolve_cost_model_for_role(normalized_role),
             "monthly_fixed_cost": float(payload.monthly_fixed_cost or 0),
             "notes": str(payload.notes or "").strip(),
@@ -306,6 +339,7 @@ def update_personnel_record_entry(
 
     normalized_role = _normalize_role(payload.role)
     normalized_vehicle_mode = _normalize_vehicle_mode(payload.vehicle_mode)
+    normalized_status = payload.status if payload.status in PERSONNEL_STATUS_OPTIONS else "Aktif"
     next_person_code = _build_next_person_code(conn, role=normalized_role, exclude_id=person_id)
     current_code = str(existing_row.get("person_code") or "").strip()
     person_code = current_code or next_person_code
@@ -320,7 +354,7 @@ def update_personnel_record_entry(
             "person_code": person_code,
             "full_name": full_name,
             "role": _display_role(normalized_role),
-            "status": payload.status if payload.status in PERSONNEL_STATUS_OPTIONS else "Aktif",
+            "status": normalized_status,
             "phone": str(payload.phone or "").strip(),
             "assigned_restaurant_id": payload.assigned_restaurant_id,
             "vehicle_type": vehicle_fields["vehicle_type"],
@@ -328,6 +362,7 @@ def update_personnel_record_entry(
             "motor_purchase": vehicle_fields["motor_purchase"],
             "current_plate": str(payload.current_plate or "").strip(),
             "start_date": payload.start_date,
+            "exit_date": date.today().isoformat() if normalized_status == "Pasif" else None,
             "cost_model": _resolve_cost_model_for_role(normalized_role),
             "monthly_fixed_cost": float(payload.monthly_fixed_cost or 0),
             "notes": str(payload.notes or "").strip(),
@@ -338,4 +373,53 @@ def update_personnel_record_entry(
         person_id=person_id,
         person_code=person_code,
         message="Personel kaydi guncellendi.",
+    )
+
+
+def toggle_personnel_record_status(
+    conn: psycopg.Connection,
+    *,
+    person_id: int,
+) -> PersonnelStatusUpdateResponse:
+    existing_row = fetch_personnel_record_by_id(conn, person_id)
+    if existing_row is None:
+        raise LookupError("Personel kaydi bulunamadi.")
+    next_status = "Pasif" if str(existing_row.get("status") or "") == "Aktif" else "Aktif"
+    update_personnel_status(
+        conn,
+        person_id,
+        status=next_status,
+        exit_date=date.today().isoformat() if next_status == "Pasif" else None,
+    )
+    conn.commit()
+    return PersonnelStatusUpdateResponse(
+        person_id=person_id,
+        status=next_status,
+        message="Personel pasife alindi." if next_status == "Pasif" else "Personel aktiflestirildi.",
+    )
+
+
+def delete_personnel_record_entry(
+    conn: psycopg.Connection,
+    *,
+    person_id: int,
+) -> PersonnelDeleteResponse:
+    existing_row = fetch_personnel_record_by_id(conn, person_id)
+    if existing_row is None:
+        raise LookupError("Personel kaydi bulunamadi.")
+
+    dependency_counts = {
+        "puantaj": count_personnel_linked_daily_entries(conn, person_id),
+        "kesinti": count_personnel_linked_deductions(conn, person_id),
+        "rol_gecmisi": count_personnel_linked_role_history(conn, person_id),
+        "arac_gecmisi": count_personnel_linked_vehicle_history(conn, person_id),
+        "plaka": count_personnel_linked_plate_history(conn, person_id),
+        "zimmet": count_personnel_linked_equipment_issues(conn, person_id),
+        "box_iade": count_personnel_linked_box_returns(conn, person_id),
+    }
+    delete_personnel_and_dependencies(conn, person_id)
+    conn.commit()
+    return PersonnelDeleteResponse(
+        person_id=person_id,
+        message=_build_personnel_delete_message(dependency_counts),
     )

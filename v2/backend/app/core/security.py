@@ -32,6 +32,8 @@ ROLE_ACTIONS = {
         "personnel.list",
         "personnel.create",
         "personnel.update",
+        "personnel.status_change",
+        "personnel.delete",
         "restaurant.view",
         "restaurant.create",
         "restaurant.update",

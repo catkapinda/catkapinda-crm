@@ -97,3 +97,14 @@ class PersonnelUpdateResponse(BaseModel):
     person_id: int
     person_code: str
     message: str
+
+
+class PersonnelStatusUpdateResponse(BaseModel):
+    person_id: int
+    status: str
+    message: str
+
+
+class PersonnelDeleteResponse(BaseModel):
+    person_id: int
+    message: str
