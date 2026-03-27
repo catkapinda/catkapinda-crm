@@ -16,6 +16,24 @@ services:
         sync: false
       - key: CK_V2_PUBLIC_APP_URL
         sync: false
+      - key: AUTH_EBRU_PHONE
+        sync: false
+      - key: AUTH_MERT_PHONE
+        sync: false
+      - key: AUTH_MUHAMMED_PHONE
+        sync: false
+      - key: SMS_PROVIDER
+        sync: false
+      - key: SMS_API_URL
+        sync: false
+      - key: SMS_NETGSM_USERNAME
+        sync: false
+      - key: SMS_NETGSM_PASSWORD
+        sync: false
+      - key: SMS_SENDER
+        sync: false
+      - key: SMS_NETGSM_ENCODING
+        sync: false
 
   - type: web
     name: crmcatkapinda-v2
@@ -23,6 +41,7 @@ services:
     rootDir: v2/frontend
     buildCommand: npm install && npm run build
     startCommand: npm run start -- --hostname 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
     autoDeploy: false
     envVars:
       - key: NODE_VERSION
@@ -34,3 +53,5 @@ services:
           type: web
           name: crmcatkapinda-v2-api
           property: hostport
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"

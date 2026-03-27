@@ -15,6 +15,12 @@ Bu runbook, Streamlit sistemi kapatmadan v2'yi paralel pilot olarak açmak icin 
 - `crmcatkapinda-v2-api`
 - `crmcatkapinda-v2`
 
+Frontend health check:
+- `https://<v2-frontend-domain>/api/health`
+
+Backend health check:
+- `https://<v2-api-domain>/api/health`
+
 ## Zorunlu Ayarlar
 
 ### Backend
@@ -74,3 +80,11 @@ Pilot stabil oldugunda:
 1. kullanicilar yeni v2 linkine yonlendirilir
 2. Streamlit yalnizca yedek/geri donus yolu olarak tutulur
 3. sonra ana domain v2'ye gecirilir
+
+## Pilot Acildiginda Ilk Kontrol
+
+1. frontend `api/health` 200 donmeli
+2. backend `api/health` 200 donmeli
+3. `login` ekrani acilmali
+4. e-posta/sifre girisi calismali
+5. SMS login env'leri girildiyse telefon kodu akisi da calismali
