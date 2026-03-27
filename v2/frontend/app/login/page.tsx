@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
-import { buildApiUrl } from "../../lib/api";
+import { buildApiUrl, readStoredAuthNotice, writeStoredAuthNotice } from "../../lib/api";
 import { resolveDefaultPath } from "../../lib/navigation";
 
 function LoginPageContent() {
@@ -17,6 +17,7 @@ function LoginPageContent() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const [smsLoginEnabled, setSmsLoginEnabled] = useState(false);
   const [phone, setPhone] = useState("");
@@ -57,10 +58,20 @@ function LoginPageContent() {
     };
   }, []);
 
+  useEffect(() => {
+    const nextNotice = readStoredAuthNotice();
+    if (!nextNotice) {
+      return;
+    }
+    setNotice(nextNotice);
+    writeStoredAuthNotice("");
+  }, []);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     setError("");
+    setNotice("");
     try {
       const loggedInUser = await login(identity, password);
       router.replace(
@@ -77,6 +88,7 @@ function LoginPageContent() {
     event.preventDefault();
     setSmsSubmitting(true);
     setSmsError("");
+    setNotice("");
     try {
       const payload = await requestPhoneCode(phone);
       setMaskedPhone(payload.masked_phone);
@@ -92,6 +104,7 @@ function LoginPageContent() {
     event.preventDefault();
     setSmsSubmitting(true);
     setSmsError("");
+    setNotice("");
     try {
       const loggedInUser = await verifyPhoneCode(phone, loginCode);
       router.replace(
@@ -217,6 +230,20 @@ function LoginPageContent() {
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
+              {notice ? (
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: "16px",
+                    background: "rgba(15, 95, 215, 0.08)",
+                    border: "1px solid rgba(15, 95, 215, 0.18)",
+                    color: "var(--accent)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {notice}
+                </div>
+              ) : null}
               <label style={{ display: "grid", gap: "8px" }}>
                 <span style={{ fontWeight: 700 }}>E-posta veya Telefon</span>
                 <input
