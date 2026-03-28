@@ -44,3 +44,14 @@ Deploy:
   - `SMS_SENDER=CATKAPINDA`
   - `SMS_NETGSM_ENCODING=TR`
 - Keep the current Streamlit app live during pilot rollout; v2 is intended to run in parallel first.
+
+Pilot smoke check:
+- After deploy, run:
+  - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
+- This verifies:
+  - frontend health
+  - frontend readiness
+  - status page
+  - login page
+  - backend health
+  - backend readiness
