@@ -41,7 +41,10 @@ jobs:
           python-version: "3.13"
 
       - name: Verify v2 backend
-        run: python -m compileall v2/backend/app
+        run: |
+          python -m compileall v2/backend/app
+          pip install -e "./v2/backend[dev]"
+          pytest v2/backend/tests
 
       - name: Set up Node
         uses: actions/setup-node@v4
