@@ -22,6 +22,7 @@ Frontend health check:
 Backend health check:
 - `https://<v2-api-domain>/api/health`
 - `https://<v2-api-domain>/api/health/ready`
+- `https://<v2-api-domain>/api/health/pilot`
 
 Pilot durum sayfasi:
 - `https://<v2-frontend-domain>/status`
@@ -95,9 +96,10 @@ Pilot stabil oldugunda:
 2. frontend `api/ready` 200 donmeli
 3. backend `api/health` 200 donmeli
 4. backend `api/health/ready` 200 donmeli
-5. `status` sayfasi acilip kontrolleri gostermeli
-6. `login` ekrani acilmali
-7. e-posta/sifre girisi calismali
-8. SMS login env'leri girildiyse telefon kodu akisi da calismali
-9. smoke script temiz donmeli:
+5. backend `api/health/pilot` 200 donmeli
+6. `status` sayfasi acilip kontrolleri gostermeli
+7. `login` ekrani acilmali
+8. e-posta/sifre girisi calismali
+9. SMS login env'leri girildiyse telefon kodu akisi da calismali
+10. smoke script temiz donmeli:
    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
