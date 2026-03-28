@@ -27,3 +27,33 @@ jobs:
 
       - name: Run tests
         run: make test
+
+  v2-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Verify v2 backend
+        run: python -m compileall v2/backend/app
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: v2/frontend/package-lock.json
+
+      - name: Install v2 frontend dependencies
+        working-directory: v2/frontend
+        run: npm ci
+
+      - name: Build v2 frontend
+        working-directory: v2/frontend
+        run: npm run build

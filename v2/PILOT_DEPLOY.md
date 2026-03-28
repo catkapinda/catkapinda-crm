@@ -26,6 +26,9 @@ Backend health check:
 Pilot durum sayfasi:
 - `https://<v2-frontend-domain>/status`
 
+Yerel smoke check:
+- `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
+
 ## Zorunlu Ayarlar
 
 ### Backend
@@ -96,3 +99,5 @@ Pilot stabil oldugunda:
 6. `login` ekrani acilmali
 7. e-posta/sifre girisi calismali
 8. SMS login env'leri girildiyse telefon kodu akisi da calismali
+9. smoke script temiz donmeli:
+   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
