@@ -5,7 +5,24 @@ import psycopg
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.schemas.health import HealthCheckEntry, HealthResponse, ReadinessResponse
+from app.schemas.health import (
+    HealthCheckEntry,
+    HealthResponse,
+    PilotAuthStatus,
+    PilotModuleEntry,
+    PilotReadinessResponse,
+    ReadinessResponse,
+)
+from app.services.attendance import build_attendance_status
+from app.services.auth import build_auth_modes
+from app.services.deductions import build_deductions_status
+from app.services.equipment import build_equipment_status
+from app.services.payroll import build_payroll_status
+from app.services.personnel import build_personnel_status
+from app.services.purchases import build_purchases_status
+from app.services.reports import build_reports_status
+from app.services.restaurants import build_restaurants_status
+from app.services.sales import build_sales_status
 
 router = APIRouter()
 
@@ -24,6 +41,53 @@ def healthcheck() -> HealthResponse:
 def readiness(
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> ReadinessResponse:
+    return _build_readiness_response(conn)
+
+
+@router.get("/health/pilot", response_model=PilotReadinessResponse)
+def pilot_readiness(
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> PilotReadinessResponse:
+    readiness_response = _build_readiness_response(conn)
+    auth_modes = build_auth_modes()
+
+    modules = [
+        PilotModuleEntry(
+            module="overview",
+            label="Genel Bakış",
+            status="active",
+            next_slice="overview-dashboard",
+            href="/",
+        ),
+        PilotModuleEntry(label="Puantaj", href="/attendance", **build_attendance_status().model_dump()),
+        PilotModuleEntry(label="Personel", href="/personnel", **build_personnel_status().model_dump()),
+        PilotModuleEntry(label="Kesintiler", href="/deductions", **build_deductions_status().model_dump()),
+        PilotModuleEntry(label="Ekipman", href="/equipment", **build_equipment_status().model_dump()),
+        PilotModuleEntry(label="Aylık Hakediş", href="/payroll", **build_payroll_status().model_dump()),
+        PilotModuleEntry(label="Satın Alma", href="/purchases", **build_purchases_status().model_dump()),
+        PilotModuleEntry(label="Satış", href="/sales", **build_sales_status().model_dump()),
+        PilotModuleEntry(label="Restoranlar", href="/restaurants", **build_restaurants_status().model_dump()),
+        PilotModuleEntry(label="Raporlar", href="/reports", **build_reports_status().model_dump()),
+    ]
+
+    overall_ok = readiness_response.status == "ok" and all(entry.status == "active" for entry in modules)
+    return PilotReadinessResponse(
+        status="ok" if overall_ok else "degraded",
+        service=readiness_response.service,
+        version=readiness_response.version,
+        environment=readiness_response.environment,
+        checks=readiness_response.checks,
+        auth=PilotAuthStatus(
+            email_login=auth_modes.email_login,
+            phone_login=auth_modes.phone_login,
+            sms_login=auth_modes.sms_login,
+            sms_allowlist_count=len(settings.sms_phone_allowlist),
+        ),
+        modules=modules,
+    )
+
+
+def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
     checks: list[HealthCheckEntry] = []
 
     checks.append(

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type FrontendStatus = {
@@ -17,6 +18,19 @@ type BackendReadiness = {
     name: string;
     ok: boolean;
     detail: string | null;
+  }>;
+  auth: {
+    email_login: boolean;
+    phone_login: boolean;
+    sms_login: boolean;
+    sms_allowlist_count: number;
+  };
+  modules: Array<{
+    module: string;
+    label: string;
+    status: string;
+    next_slice: string;
+    href: string;
   }>;
 };
 
@@ -57,7 +71,7 @@ export default function StatusPage() {
       try {
         const [frontendRes, backendRes] = await Promise.all([
           fetch("/api/ready", { cache: "no-store" }),
-          fetch("/v2-api/health/ready", { cache: "no-store" }),
+          fetch("/v2-api/health/pilot", { cache: "no-store" }),
         ]);
 
         const frontendPayload = frontendRes.ok ? ((await frontendRes.json()) as FrontendStatus) : null;
@@ -86,6 +100,7 @@ export default function StatusPage() {
   }, []);
 
   const backendChecks = useMemo(() => backend?.checks ?? [], [backend]);
+  const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
   const overallOk = Boolean(frontend?.proxyConfigured) && backend?.status === "ok";
 
   return (
@@ -145,18 +160,103 @@ export default function StatusPage() {
 
               <article style={cardStyle()}>
                 <div style={{ color: "#5f7294", fontSize: "0.82rem", textTransform: "uppercase", fontWeight: 800 }}>
-                  Backend
+                  Backend ve Auth
                 </div>
                 <h2 style={{ margin: "12px 0 8px", fontSize: "1.4rem" }}>{backend?.service ?? "Erisilemiyor"}</h2>
                 <div style={statusPill(backend?.status === "ok")}>
                   {backend?.status === "ok" ? "Backend Hazır" : "Backend Kontrol Gerekli"}
                 </div>
                 {backend ? (
-                  <p style={{ margin: "12px 0 0", color: "#5f7294" }}>
+                  <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
+                    <p style={{ margin: 0, color: "#5f7294" }}>
                     {backend.environment} • v{backend.version}
-                  </p>
+                    </p>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <div style={statusPill(backend.auth.email_login)}>E-posta</div>
+                      <div style={statusPill(backend.auth.phone_login)}>Telefon</div>
+                      <div style={statusPill(backend.auth.sms_login)}>
+                        SMS {backend.auth.sms_allowlist_count ? `(${backend.auth.sms_allowlist_count})` : ""}
+                      </div>
+                    </div>
+                  </div>
                 ) : null}
               </article>
+            </section>
+
+            <section style={cardStyle()}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "18px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Modülleri</h2>
+                  <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+                    Pilot açıldığında ekip doğrudan bu modülleri test edecek. Hazır modüller yeni sistemden açılabilir.
+                  </p>
+                </div>
+                <div style={statusPill(backendModules.every((entry) => entry.status === "active") && backendModules.length > 0)}>
+                  {backendModules.filter((entry) => entry.status === "active").length}/{backendModules.length || 0} modül hazır
+                </div>
+              </div>
+              <div
+                style={{
+                  marginTop: "18px",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "12px",
+                }}
+              >
+                {backendModules.map((module) => (
+                  <article
+                    key={module.module}
+                    style={{
+                      padding: "16px",
+                      borderRadius: "18px",
+                      border: "1px solid rgba(219, 228, 243, 0.9)",
+                      background: "rgba(248, 250, 255, 0.86)",
+                      display: "grid",
+                      gap: "10px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                      }}
+                    >
+                      <strong>{module.label}</strong>
+                      <div style={statusPill(module.status === "active")}>
+                        {module.status === "active" ? "Hazır" : module.status}
+                      </div>
+                    </div>
+                    <div style={{ color: "#5f7294", fontSize: "0.92rem" }}>{module.next_slice}</div>
+                    <Link
+                      href={module.href}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "10px 12px",
+                        borderRadius: "14px",
+                        border: "1px solid rgba(15, 95, 215, 0.18)",
+                        background: "rgba(15, 95, 215, 0.06)",
+                        color: "#0f5fd7",
+                        fontWeight: 800,
+                        textDecoration: "none",
+                      }}
+                    >
+                      Modülü Aç
+                    </Link>
+                  </article>
+                ))}
+              </div>
             </section>
 
             <section style={cardStyle()}>
