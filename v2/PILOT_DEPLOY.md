@@ -17,9 +17,14 @@ Bu runbook, Streamlit sistemi kapatmadan v2'yi paralel pilot olarak açmak icin 
 
 Frontend health check:
 - `https://<v2-frontend-domain>/api/health`
+- `https://<v2-frontend-domain>/api/ready`
 
 Backend health check:
 - `https://<v2-api-domain>/api/health`
+- `https://<v2-api-domain>/api/health/ready`
+
+Pilot durum sayfasi:
+- `https://<v2-frontend-domain>/status`
 
 ## Zorunlu Ayarlar
 
@@ -84,7 +89,10 @@ Pilot stabil oldugunda:
 ## Pilot Acildiginda Ilk Kontrol
 
 1. frontend `api/health` 200 donmeli
-2. backend `api/health` 200 donmeli
-3. `login` ekrani acilmali
-4. e-posta/sifre girisi calismali
-5. SMS login env'leri girildiyse telefon kodu akisi da calismali
+2. frontend `api/ready` 200 donmeli
+3. backend `api/health` 200 donmeli
+4. backend `api/health/ready` 200 donmeli
+5. `status` sayfasi acilip kontrolleri gostermeli
+6. `login` ekrani acilmali
+7. e-posta/sifre girisi calismali
+8. SMS login env'leri girildiyse telefon kodu akisi da calismali
