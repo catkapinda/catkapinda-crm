@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 import psycopg
 
+from app.core.bootstrap import get_runtime_bootstrap_state
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.sms import describe_sms_config
@@ -171,12 +172,21 @@ def pilot_readiness(
 
 def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
     checks: list[HealthCheckEntry] = []
+    bootstrap_state = get_runtime_bootstrap_state()
 
     checks.append(
         HealthCheckEntry(
             name="database_url",
             ok=bool(settings.database_url),
             detail="DATABASE_URL tanimli" if settings.database_url else "DATABASE_URL eksik",
+        )
+    )
+
+    checks.append(
+        HealthCheckEntry(
+            name="runtime_bootstrap",
+            ok=bootstrap_state["ok"] is not False,
+            detail=str(bootstrap_state["detail"] or ""),
         )
     )
 

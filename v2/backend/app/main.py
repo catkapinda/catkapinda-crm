@@ -1,17 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.core.bootstrap import ensure_runtime_bootstrap
 from app.core.config import settings
 
 
-def create_app() -> FastAPI:
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    ensure_runtime_bootstrap()
+    yield
+
+
+def create_app(*, enable_bootstrap: bool = True) -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan if enable_bootstrap else None,
     )
     app.add_middleware(
         CORSMiddleware,

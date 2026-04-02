@@ -1,0 +1,51 @@
+from app.core import bootstrap
+from app.core.config import settings
+
+
+class FakeConnection:
+    def __init__(self):
+        self.executed: list[str] = []
+        self.committed = False
+
+    def execute(self, sql: str):
+        self.executed.append(sql.strip())
+
+    def commit(self):
+        self.committed = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+def test_runtime_bootstrap_executes_auth_schema_sql(monkeypatch):
+    fake_conn = FakeConnection()
+    bootstrap.reset_runtime_bootstrap_state()
+    monkeypatch.setattr(settings, "database_url", "postgresql://pilot")
+    monkeypatch.setattr("app.core.bootstrap.psycopg.connect", lambda *args, **kwargs: fake_conn)
+
+    bootstrap.ensure_runtime_bootstrap()
+
+    state = bootstrap.get_runtime_bootstrap_state()
+    assert state["ok"] is True
+    assert fake_conn.committed is True
+    assert any("CREATE TABLE IF NOT EXISTS auth_users" in sql for sql in fake_conn.executed)
+    assert any("CREATE TABLE IF NOT EXISTS auth_phone_codes" in sql for sql in fake_conn.executed)
+
+
+def test_runtime_bootstrap_marks_failure_when_connection_breaks(monkeypatch):
+    bootstrap.reset_runtime_bootstrap_state()
+    monkeypatch.setattr(settings, "database_url", "postgresql://pilot")
+
+    def raise_connect(*args, **kwargs):
+        raise RuntimeError("db offline")
+
+    monkeypatch.setattr("app.core.bootstrap.psycopg.connect", raise_connect)
+
+    bootstrap.ensure_runtime_bootstrap()
+
+    state = bootstrap.get_runtime_bootstrap_state()
+    assert state["ok"] is False
+    assert "db offline" in str(state["detail"])
