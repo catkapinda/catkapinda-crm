@@ -42,6 +42,8 @@ class PilotModuleEntry(BaseModel):
     status: str
     next_slice: str
     href: str
+    detail: str | None = None
+    missing_tables: list[str] = []
 
 
 class PilotReadinessResponse(BaseModel):

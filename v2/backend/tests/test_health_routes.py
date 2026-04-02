@@ -6,14 +6,26 @@ from app.main import create_app
 
 
 class HealthyConnection:
-    def execute(self, query: str):
-        assert query == "SELECT 1"
-        return 1
+    def execute(self, query: str, params: tuple[str, ...] | None = None):
+        if query == "SELECT 1":
+            return 1
+
+        assert query == "SELECT to_regclass(%s) AS table_name"
+        assert params is not None
+        return HealthyCursor(params[0])
 
 
 class BrokenConnection:
     def execute(self, query: str):
         raise RuntimeError("database offline")
+
+
+class HealthyCursor:
+    def __init__(self, table_name: str):
+        self.table_name = table_name
+
+    def fetchone(self):
+        return {"table_name": self.table_name}
 
 
 def test_health_route_returns_service_metadata():
@@ -90,4 +102,6 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     modules = {entry["module"]: entry for entry in payload["modules"]}
     assert modules["overview"]["href"] == "/"
     assert modules["attendance"]["status"] == "active"
+    assert "detail" in modules["attendance"]
+    assert "missing_tables" in modules["attendance"]
     assert modules["reports"]["href"] == "/reports"
