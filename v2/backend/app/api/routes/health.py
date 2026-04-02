@@ -5,10 +5,12 @@ import psycopg
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.sms import describe_sms_config
 from app.schemas.health import (
     HealthCheckEntry,
     HealthResponse,
     PilotAuthStatus,
+    PilotConfigEntry,
     PilotModuleEntry,
     PilotReadinessResponse,
     ReadinessResponse,
@@ -50,6 +52,7 @@ def pilot_readiness(
 ) -> PilotReadinessResponse:
     readiness_response = _build_readiness_response(conn)
     auth_modes = build_auth_modes()
+    config_entries, missing_env_vars, next_actions = _build_pilot_config_summary()
 
     modules = [
         PilotModuleEntry(
@@ -83,6 +86,9 @@ def pilot_readiness(
             sms_login=auth_modes.sms_login,
             sms_allowlist_count=len(settings.sms_phone_allowlist),
         ),
+        config=config_entries,
+        missing_env_vars=missing_env_vars,
+        next_actions=next_actions,
         modules=modules,
     )
 
@@ -155,3 +161,67 @@ def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
         environment=settings.app_env,
         checks=checks,
     )
+
+
+def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], list[str]]:
+    sms_setup = describe_sms_config()
+    config_entries: list[PilotConfigEntry] = [
+        PilotConfigEntry(
+            name="database",
+            ok=bool(settings.database_url),
+            detail="Veritabanı URL tanımlı" if settings.database_url else "CK_V2_DATABASE_URL veya DATABASE_URL eksik",
+            missing_envs=[] if settings.database_url else ["CK_V2_DATABASE_URL"],
+        ),
+        PilotConfigEntry(
+            name="frontend_base_url",
+            ok=bool(settings.frontend_base_url),
+            detail=settings.frontend_base_url or "CK_V2_FRONTEND_BASE_URL eksik",
+            missing_envs=[] if settings.frontend_base_url else ["CK_V2_FRONTEND_BASE_URL"],
+        ),
+        PilotConfigEntry(
+            name="public_app_url",
+            ok=bool(settings.public_app_url),
+            detail=settings.public_app_url or "CK_V2_PUBLIC_APP_URL eksik",
+            missing_envs=[] if settings.public_app_url else ["CK_V2_PUBLIC_APP_URL"],
+        ),
+        PilotConfigEntry(
+            name="sms_allowlist",
+            ok=bool(settings.sms_phone_allowlist),
+            detail=f"{len(settings.sms_phone_allowlist)} izinli telefon",
+            missing_envs=(
+                []
+                if settings.sms_phone_allowlist
+                else ["AUTH_EBRU_PHONE", "AUTH_MERT_PHONE", "AUTH_MUHAMMED_PHONE"]
+            ),
+        ),
+        PilotConfigEntry(
+            name="sms_provider",
+            ok=bool(sms_setup["configured"]),
+            detail=(
+                f"{sms_setup['provider']} hazır"
+                if sms_setup["configured"]
+                else (sms_setup["provider"] or "SMS sağlayıcısı ayarsız")
+            ),
+            missing_envs=list(sms_setup["missing_envs"]),
+        ),
+    ]
+
+    missing_env_vars: list[str] = []
+    for entry in config_entries:
+        for env_name in entry.missing_envs:
+            if env_name not in missing_env_vars:
+                missing_env_vars.append(env_name)
+
+    next_actions: list[str] = []
+    if any(name in missing_env_vars for name in {"CK_V2_DATABASE_URL"}):
+        next_actions.append("Backend servisine veritabanı URL'sini gir.")
+    if any(name in missing_env_vars for name in {"CK_V2_FRONTEND_BASE_URL", "CK_V2_PUBLIC_APP_URL"}):
+        next_actions.append("Backend frontend/public URL ayarlarını pilot domain ile eşleştir.")
+    if any(name in missing_env_vars for name in {"AUTH_EBRU_PHONE", "AUTH_MERT_PHONE", "AUTH_MUHAMMED_PHONE"}):
+        next_actions.append("SMS giriş için yönetici telefon allowlist değerlerini gir.")
+    if sms_setup["missing_envs"]:
+        next_actions.append("NetGSM/SMS environment değişkenlerini tamamla.")
+    if not next_actions:
+        next_actions.append("Pilot açılışı için zorunlu environment ayarları tamam.")
+
+    return config_entries, missing_env_vars, next_actions

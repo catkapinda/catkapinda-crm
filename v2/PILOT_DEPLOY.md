@@ -26,6 +26,10 @@ Backend health check:
 
 Pilot durum sayfasi:
 - `https://<v2-frontend-domain>/status`
+  - deploy hazirligi
+  - eksik env listesi
+  - siradaki adimlar
+  - modül hazirlik durumu
 
 Yerel smoke check:
 - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
@@ -103,3 +107,4 @@ Pilot stabil oldugunda:
 9. SMS login env'leri girildiyse telefon kodu akisi da calismali
 10. smoke script temiz donmeli:
    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
+11. `status` ekranindaki `eksik env` sayisi `0` olmali

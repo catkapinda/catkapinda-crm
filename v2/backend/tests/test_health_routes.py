@@ -81,6 +81,12 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["auth"]["phone_login"] is True
     assert payload["auth"]["sms_login"] is True
     assert payload["auth"]["sms_allowlist_count"] == 1
+    assert "config" in payload
+    assert "missing_env_vars" in payload
+    assert "next_actions" in payload
+    assert isinstance(payload["config"], list)
+    assert isinstance(payload["missing_env_vars"], list)
+    assert isinstance(payload["next_actions"], list)
     modules = {entry["module"]: entry for entry in payload["modules"]}
     assert modules["overview"]["href"] == "/"
     assert modules["attendance"]["status"] == "active"

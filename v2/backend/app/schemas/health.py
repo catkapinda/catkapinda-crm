@@ -29,6 +29,13 @@ class PilotAuthStatus(BaseModel):
     sms_allowlist_count: int
 
 
+class PilotConfigEntry(BaseModel):
+    name: str
+    ok: bool
+    detail: str | None = None
+    missing_envs: list[str] = []
+
+
 class PilotModuleEntry(BaseModel):
     module: str
     label: str
@@ -44,4 +51,7 @@ class PilotReadinessResponse(BaseModel):
     environment: str
     checks: list[HealthCheckEntry]
     auth: PilotAuthStatus
+    config: list[PilotConfigEntry]
+    missing_env_vars: list[str]
+    next_actions: list[str]
     modules: list[PilotModuleEntry]
