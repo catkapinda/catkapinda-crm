@@ -25,6 +25,14 @@ type BackendReadiness = {
     sms_login: boolean;
     sms_allowlist_count: number;
   };
+  config: Array<{
+    name: string;
+    ok: boolean;
+    detail: string | null;
+    missing_envs: string[];
+  }>;
+  missing_env_vars: string[];
+  next_actions: string[];
   modules: Array<{
     module: string;
     label: string;
@@ -100,6 +108,7 @@ export default function StatusPage() {
   }, []);
 
   const backendChecks = useMemo(() => backend?.checks ?? [], [backend]);
+  const backendConfig = useMemo(() => backend?.config ?? [], [backend]);
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
   const overallOk = Boolean(frontend?.proxyConfigured) && backend?.status === "ok";
 
@@ -256,6 +265,105 @@ export default function StatusPage() {
                     </Link>
                   </article>
                 ))}
+              </div>
+            </section>
+
+            <section style={cardStyle()}>
+              <div
+                style={{
+                  display: "grid",
+                  gap: "18px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "18px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Deploy Hazırlığı</h2>
+                    <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+                      Pilotu açmadan önce hangi environment değerlerinin eksik olduğunu ve sıradaki adımları burada gör.
+                    </p>
+                  </div>
+                  <div style={statusPill((backend?.missing_env_vars?.length ?? 0) === 0)}>
+                    {(backend?.missing_env_vars?.length ?? 0) === 0 ? "Env Tamam" : `${backend?.missing_env_vars?.length ?? 0} eksik env`}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                    gap: "12px",
+                  }}
+                >
+                  {backendConfig.map((entry) => (
+                    <article
+                      key={entry.name}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 250, 255, 0.86)",
+                        display: "grid",
+                        gap: "8px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                        }}
+                      >
+                        <strong style={{ textTransform: "capitalize" }}>{entry.name.replaceAll("_", " ")}</strong>
+                        <div style={statusPill(entry.ok)}>{entry.ok ? "Hazır" : "Eksik"}</div>
+                      </div>
+                      <div style={{ color: "#5f7294", lineHeight: 1.5 }}>{entry.detail ?? "-"}</div>
+                      {entry.missing_envs.length ? (
+                        <div style={{ color: "#c24141", fontSize: "0.9rem", lineHeight: 1.5 }}>
+                          Eksik: {entry.missing_envs.join(", ")}
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    padding: "18px",
+                    borderRadius: "18px",
+                    border: "1px solid rgba(219, 228, 243, 0.9)",
+                    background: "rgba(248, 250, 255, 0.86)",
+                    display: "grid",
+                    gap: "10px",
+                  }}
+                >
+                  <strong>Sıradaki Adımlar</strong>
+                  <div style={{ display: "grid", gap: "8px" }}>
+                    {(backend?.next_actions ?? []).map((step) => (
+                      <div
+                        key={step}
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: "10px",
+                          color: "#35507d",
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        <span style={{ color: "#0f5fd7", fontWeight: 900 }}>•</span>
+                        <span>{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </section>
 
