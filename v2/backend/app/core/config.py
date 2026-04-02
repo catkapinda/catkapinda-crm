@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     auth_ebru_phone: str = Field(default="", validation_alias=AliasChoices("AUTH_EBRU_PHONE"))
     auth_mert_phone: str = Field(default="", validation_alias=AliasChoices("AUTH_MERT_PHONE"))
     auth_muhammed_phone: str = Field(default="", validation_alias=AliasChoices("AUTH_MUHAMMED_PHONE"))
+    default_auth_password: str = Field(
+        default="123456",
+        validation_alias=AliasChoices("CK_V2_DEFAULT_AUTH_PASSWORD", "DEFAULT_AUTH_PASSWORD"),
+    )
 
     model_config = SettingsConfigDict(
         env_prefix="CK_V2_",
@@ -56,6 +60,36 @@ class Settings(BaseSettings):
             normalize(self.auth_muhammed_phone),
         }
         return sorted(phone for phone in phones if phone)
+
+    @property
+    def default_auth_users(self) -> list[dict[str, str]]:
+        return [
+            {
+                "email": "ebru@catkapinda.com",
+                "full_name": "Ebru Aslan",
+                "role": "admin",
+                "role_display": "Yönetim Kurulu / Yönetici",
+                "phone": self.auth_ebru_phone,
+            },
+            {
+                "email": "mert.kurtulus@catkapinda.com",
+                "full_name": "Mert Kurtuluş",
+                "role": "admin",
+                "role_display": "Yönetim Kurulu / Yönetici",
+                "phone": self.auth_mert_phone,
+            },
+            {
+                "email": "muhammed.terim@catkapinda.com",
+                "full_name": "Muhammed Terim",
+                "role": "admin",
+                "role_display": "Yönetim Kurulu / Yönetici",
+                "phone": self.auth_muhammed_phone,
+            },
+        ]
+
+    @property
+    def legacy_auth_identities(self) -> set[str]:
+        return {"catkapinda", "chef"}
 
 
 settings = Settings()

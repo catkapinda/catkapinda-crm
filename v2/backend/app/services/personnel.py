@@ -5,6 +5,7 @@ import re
 
 import psycopg
 
+from app.core.auth_sync import sync_mobile_auth_user_for_personnel
 from app.repositories.personnel import (
     count_personnel_linked_box_returns,
     count_personnel_linked_daily_entries,
@@ -315,6 +316,7 @@ def create_personnel_record(
             "notes": str(payload.notes or "").strip(),
         },
     )
+    sync_mobile_auth_user_for_personnel(conn, personnel_id=person_id)
     conn.commit()
     return PersonnelCreateResponse(
         person_id=person_id,
@@ -368,6 +370,7 @@ def update_personnel_record_entry(
             "notes": str(payload.notes or "").strip(),
         },
     )
+    sync_mobile_auth_user_for_personnel(conn, personnel_id=person_id)
     conn.commit()
     return PersonnelUpdateResponse(
         person_id=person_id,
@@ -391,6 +394,7 @@ def toggle_personnel_record_status(
         status=next_status,
         exit_date=date.today().isoformat() if next_status == "Pasif" else None,
     )
+    sync_mobile_auth_user_for_personnel(conn, personnel_id=person_id)
     conn.commit()
     return PersonnelStatusUpdateResponse(
         person_id=person_id,
@@ -417,6 +421,11 @@ def delete_personnel_record_entry(
         "zimmet": count_personnel_linked_equipment_issues(conn, person_id),
         "box_iade": count_personnel_linked_box_returns(conn, person_id),
     }
+    sync_mobile_auth_user_for_personnel(
+        conn,
+        personnel_id=person_id,
+        fallback_row={**existing_row, "status": "Pasif"},
+    )
     delete_personnel_and_dependencies(conn, person_id)
     conn.commit()
     return PersonnelDeleteResponse(
