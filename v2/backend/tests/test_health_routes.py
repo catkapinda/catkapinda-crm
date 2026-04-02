@@ -109,6 +109,8 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert isinstance(payload["next_actions"], list)
     modules = {entry["module"]: entry for entry in payload["modules"]}
     assert modules["overview"]["href"] == "/"
+    assert modules["audit"]["href"] == "/audit"
+    assert modules["audit"]["status"] == "active"
     assert modules["attendance"]["status"] == "active"
     assert "detail" in modules["attendance"]
     assert "missing_tables" in modules["attendance"]

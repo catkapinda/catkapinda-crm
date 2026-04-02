@@ -17,6 +17,7 @@ from app.schemas.health import (
     ReadinessResponse,
 )
 from app.services.attendance import build_attendance_status
+from app.services.audit import build_audit_status
 from app.services.auth import build_auth_modes
 from app.services.deductions import build_deductions_status
 from app.services.equipment import build_equipment_status
@@ -32,6 +33,7 @@ router = APIRouter()
 MODULE_TABLES: dict[str, tuple[str, ...]] = {
     "overview": ("restaurants", "personnel", "daily_entries"),
     "attendance": ("daily_entries", "restaurants", "personnel"),
+    "audit": ("audit_logs",),
     "personnel": (
         "personnel",
         "restaurants",
@@ -84,6 +86,13 @@ def pilot_readiness(
             href="/",
             detail=module_table_status["overview"]["detail"],
             missing_tables=module_table_status["overview"]["missing_tables"],
+        ),
+        PilotModuleEntry(
+            label="Sistem Kayıtları",
+            href="/audit",
+            detail=module_table_status["audit"]["detail"],
+            missing_tables=module_table_status["audit"]["missing_tables"],
+            **{**build_audit_status().model_dump(), "status": module_table_status["audit"]["status"]},
         ),
         PilotModuleEntry(
             label="Puantaj",
