@@ -7,6 +7,10 @@ type FrontendStatus = {
   status: string;
   service: string;
   proxyConfigured: boolean;
+  backendReachable: boolean;
+  backendStatus: string;
+  targetBaseUrl: string | null;
+  detail: string;
 };
 
 type BackendReadiness = {
@@ -110,7 +114,7 @@ export default function StatusPage() {
   const backendChecks = useMemo(() => backend?.checks ?? [], [backend]);
   const backendConfig = useMemo(() => backend?.config ?? [], [backend]);
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
-  const overallOk = Boolean(frontend?.proxyConfigured) && backend?.status === "ok";
+  const overallOk = Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable) && backend?.status === "ok";
 
   return (
     <main
@@ -162,9 +166,27 @@ export default function StatusPage() {
                   Frontend
                 </div>
                 <h2 style={{ margin: "12px 0 8px", fontSize: "1.4rem" }}>{frontend?.service ?? "Erisilemiyor"}</h2>
-                <div style={statusPill(Boolean(frontend?.proxyConfigured))}>
-                  {frontend?.proxyConfigured ? "Proxy Hazır" : "Proxy Eksik"}
+                <div style={statusPill(Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable))}>
+                  {frontend?.proxyConfigured && frontend?.backendReachable
+                    ? "Frontend Hazır"
+                    : frontend?.proxyConfigured
+                      ? "Backend Erişimi Eksik"
+                      : "Proxy Eksik"}
                 </div>
+                {frontend ? (
+                  <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
+                    <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.6 }}>{frontend.detail}</p>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <div style={statusPill(Boolean(frontend.proxyConfigured))}>Proxy</div>
+                      <div style={statusPill(Boolean(frontend.backendReachable))}>
+                        Backend {frontend.backendStatus !== "unknown" ? `(${frontend.backendStatus})` : ""}
+                      </div>
+                    </div>
+                    {frontend.targetBaseUrl ? (
+                      <div style={{ color: "#5f7294", fontSize: "0.92rem" }}>İç hedef: {frontend.targetBaseUrl}</div>
+                    ) : null}
+                  </div>
+                ) : null}
               </article>
 
               <article style={cardStyle()}>

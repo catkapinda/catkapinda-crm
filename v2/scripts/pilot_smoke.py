@@ -66,12 +66,15 @@ def run_smoke_checks(base_url: str, timeout: int) -> list[CheckResult]:
 
     try:
         status, payload = fetch_json(base_url, "/api/ready", timeout)
-        ok = status == 200 and bool(payload.get("proxyConfigured"))
+        ok = status == 200 and bool(payload.get("proxyConfigured")) and bool(payload.get("backendReachable"))
         results.append(
             CheckResult(
                 name="frontend_ready",
                 ok=ok,
-                detail=f"HTTP {status} • proxyConfigured={payload.get('proxyConfigured')}",
+                detail=(
+                    f"HTTP {status} • proxyConfigured={payload.get('proxyConfigured')} • "
+                    f"backendReachable={payload.get('backendReachable')} • backendStatus={payload.get('backendStatus')}"
+                ),
             )
         )
     except (urllib.error.URLError, json.JSONDecodeError) as exc:

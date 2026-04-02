@@ -97,7 +97,7 @@ Pilot stabil oldugunda:
 ## Pilot Acildiginda Ilk Kontrol
 
 1. frontend `api/health` 200 donmeli
-2. frontend `api/ready` 200 donmeli
+2. frontend `api/ready` 200 donmeli ve backend erisimi `true` olmali
 3. backend `api/health` 200 donmeli
 4. backend `api/health/ready` 200 donmeli
 5. backend `api/health/pilot` 200 donmeli
