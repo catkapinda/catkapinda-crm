@@ -11,49 +11,12 @@ SMS_PROVIDER_GENERIC_JSON = "generic_json"
 SMS_PROVIDER_NETGSM = "netgsm"
 
 
-def describe_sms_config() -> dict[str, Any]:
+def get_sms_config() -> dict[str, Any] | None:
     provider = str(os.getenv("SMS_PROVIDER", "") or "").strip().lower()
     api_url = str(os.getenv("SMS_API_URL", "") or "").strip()
-    sender = str(os.getenv("SMS_SENDER", "CatKapinda") or "CatKapinda").strip()
-    missing_envs: list[str] = []
-
-    if not provider:
-        missing_envs.append("SMS_PROVIDER")
     if provider == SMS_PROVIDER_NETGSM and not api_url:
         api_url = "https://api.netgsm.com.tr/sms/rest/v2/send"
-    if not api_url:
-        missing_envs.append("SMS_API_URL")
-    if not sender:
-        missing_envs.append("SMS_SENDER")
-
-    supported = provider in {"", SMS_PROVIDER_GENERIC_JSON, SMS_PROVIDER_NETGSM}
-
-    if provider == SMS_PROVIDER_GENERIC_JSON:
-        if not str(os.getenv("SMS_API_TOKEN", "") or "").strip():
-            missing_envs.append("SMS_API_TOKEN")
-    elif provider == SMS_PROVIDER_NETGSM:
-        if not str(os.getenv("SMS_NETGSM_USERNAME", "") or "").strip():
-            missing_envs.append("SMS_NETGSM_USERNAME")
-        if not str(os.getenv("SMS_NETGSM_PASSWORD", "") or "").strip():
-            missing_envs.append("SMS_NETGSM_PASSWORD")
-    elif provider:
-        missing_envs.append("UNSUPPORTED_SMS_PROVIDER")
-
-    configured = supported and not missing_envs and bool(provider)
-    return {
-        "provider": provider or None,
-        "api_url": api_url or None,
-        "sender": sender or None,
-        "configured": configured,
-        "missing_envs": missing_envs,
-    }
-
-
-def get_sms_config() -> dict[str, Any] | None:
-    sms_setup = describe_sms_config()
-    provider = str(sms_setup.get("provider") or "").strip().lower()
-    api_url = str(sms_setup.get("api_url") or "").strip()
-    if not provider or not api_url or not sms_setup.get("configured"):
+    if not provider or not api_url:
         return None
 
     timeout_text = str(os.getenv("SMS_TIMEOUT_SECONDS", "20") or "20")

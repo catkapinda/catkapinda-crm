@@ -5,7 +5,7 @@ from app.main import create_app
 
 def test_auth_modes_reflect_sms_state(monkeypatch):
     monkeypatch.setattr("app.services.auth.sms_delivery_enabled", lambda: True)
-    client = TestClient(create_app(enable_bootstrap=False))
+    client = TestClient(create_app())
 
     response = client.get("/api/auth/modes")
 
@@ -19,7 +19,7 @@ def test_auth_modes_reflect_sms_state(monkeypatch):
 
 def test_auth_modes_disable_sms_when_provider_missing(monkeypatch):
     monkeypatch.setattr("app.services.auth.sms_delivery_enabled", lambda: False)
-    client = TestClient(create_app(enable_bootstrap=False))
+    client = TestClient(create_app())
 
     response = client.get("/api/auth/modes")
 

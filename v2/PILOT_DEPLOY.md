@@ -26,10 +26,6 @@ Backend health check:
 
 Pilot durum sayfasi:
 - `https://<v2-frontend-domain>/status`
-  - deploy hazirligi
-  - eksik env listesi
-  - siradaki adimlar
-  - modül hazirlik durumu
 
 Yerel smoke check:
 - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
@@ -54,11 +50,6 @@ Yerel smoke check:
 - `SMS_NETGSM_PASSWORD`
 - `SMS_SENDER=CATKAPINDA`
 - `SMS_NETGSM_ENCODING=TR`
-
-Not:
-- v2 backend acilisinda auth tarafindaki temel tablolar/kolonlar (`auth_users`, `auth_sessions`, `auth_phone_codes`) icin runtime bootstrap dener.
-- Bu sayede eski veritabani varyasyonlarinda login katmani daha dayanikli acilir.
-- Yine de ana operasyon tablolari (`daily_entries`, `restaurants`, `personnel`, vb.) mevcut CRM veritabaninda bulunmali; `/status` ekrani bunlari ayrica gosterir.
 
 ### Frontend
 
@@ -102,7 +93,7 @@ Pilot stabil oldugunda:
 ## Pilot Acildiginda Ilk Kontrol
 
 1. frontend `api/health` 200 donmeli
-2. frontend `api/ready` 200 donmeli ve backend erisimi `true` olmali
+2. frontend `api/ready` 200 donmeli
 3. backend `api/health` 200 donmeli
 4. backend `api/health/ready` 200 donmeli
 5. backend `api/health/pilot` 200 donmeli
@@ -112,4 +103,3 @@ Pilot stabil oldugunda:
 9. SMS login env'leri girildiyse telefon kodu akisi da calismali
 10. smoke script temiz donmeli:
    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
-11. `status` ekranindaki `eksik env` sayisi `0` olmali
