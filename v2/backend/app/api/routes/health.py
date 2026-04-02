@@ -28,6 +28,25 @@ from app.services.sales import build_sales_status
 
 router = APIRouter()
 
+MODULE_TABLES: dict[str, tuple[str, ...]] = {
+    "overview": ("restaurants", "personnel", "daily_entries"),
+    "attendance": ("daily_entries", "restaurants", "personnel"),
+    "personnel": (
+        "personnel",
+        "restaurants",
+        "personnel_role_history",
+        "personnel_vehicle_history",
+        "plate_history",
+    ),
+    "deductions": ("deductions", "personnel"),
+    "equipment": ("courier_equipment_issues", "box_returns", "inventory_purchases", "deductions", "personnel"),
+    "payroll": ("personnel", "daily_entries", "deductions", "restaurants"),
+    "purchases": ("inventory_purchases",),
+    "sales": ("sales_leads",),
+    "restaurants": ("restaurants", "personnel", "daily_entries", "deductions"),
+    "reports": ("daily_entries", "personnel", "restaurants", "deductions"),
+}
+
 
 @router.get("/health", response_model=HealthResponse)
 def healthcheck() -> HealthResponse:
@@ -53,24 +72,81 @@ def pilot_readiness(
     readiness_response = _build_readiness_response(conn)
     auth_modes = build_auth_modes()
     config_entries, missing_env_vars, next_actions = _build_pilot_config_summary()
+    module_table_status = _build_module_table_status(conn)
 
     modules = [
         PilotModuleEntry(
             module="overview",
             label="Genel Bakış",
-            status="active",
+            status=module_table_status["overview"]["status"],
             next_slice="overview-dashboard",
             href="/",
+            detail=module_table_status["overview"]["detail"],
+            missing_tables=module_table_status["overview"]["missing_tables"],
         ),
-        PilotModuleEntry(label="Puantaj", href="/attendance", **build_attendance_status().model_dump()),
-        PilotModuleEntry(label="Personel", href="/personnel", **build_personnel_status().model_dump()),
-        PilotModuleEntry(label="Kesintiler", href="/deductions", **build_deductions_status().model_dump()),
-        PilotModuleEntry(label="Ekipman", href="/equipment", **build_equipment_status().model_dump()),
-        PilotModuleEntry(label="Aylık Hakediş", href="/payroll", **build_payroll_status().model_dump()),
-        PilotModuleEntry(label="Satın Alma", href="/purchases", **build_purchases_status().model_dump()),
-        PilotModuleEntry(label="Satış", href="/sales", **build_sales_status().model_dump()),
-        PilotModuleEntry(label="Restoranlar", href="/restaurants", **build_restaurants_status().model_dump()),
-        PilotModuleEntry(label="Raporlar", href="/reports", **build_reports_status().model_dump()),
+        PilotModuleEntry(
+            label="Puantaj",
+            href="/attendance",
+            detail=module_table_status["attendance"]["detail"],
+            missing_tables=module_table_status["attendance"]["missing_tables"],
+            **{**build_attendance_status().model_dump(), "status": module_table_status["attendance"]["status"]},
+        ),
+        PilotModuleEntry(
+            label="Personel",
+            href="/personnel",
+            detail=module_table_status["personnel"]["detail"],
+            missing_tables=module_table_status["personnel"]["missing_tables"],
+            **{**build_personnel_status().model_dump(), "status": module_table_status["personnel"]["status"]},
+        ),
+        PilotModuleEntry(
+            label="Kesintiler",
+            href="/deductions",
+            detail=module_table_status["deductions"]["detail"],
+            missing_tables=module_table_status["deductions"]["missing_tables"],
+            **{**build_deductions_status().model_dump(), "status": module_table_status["deductions"]["status"]},
+        ),
+        PilotModuleEntry(
+            label="Ekipman",
+            href="/equipment",
+            detail=module_table_status["equipment"]["detail"],
+            missing_tables=module_table_status["equipment"]["missing_tables"],
+            **{**build_equipment_status().model_dump(), "status": module_table_status["equipment"]["status"]},
+        ),
+        PilotModuleEntry(
+            label="Aylık Hakediş",
+            href="/payroll",
+            detail=module_table_status["payroll"]["detail"],
+            missing_tables=module_table_status["payroll"]["missing_tables"],
+            **{**build_payroll_status().model_dump(), "status": module_table_status["payroll"]["status"]},
+        ),
+        PilotModuleEntry(
+            label="Satın Alma",
+            href="/purchases",
+            detail=module_table_status["purchases"]["detail"],
+            missing_tables=module_table_status["purchases"]["missing_tables"],
+            **{**build_purchases_status().model_dump(), "status": module_table_status["purchases"]["status"]},
+        ),
+        PilotModuleEntry(
+            label="Satış",
+            href="/sales",
+            detail=module_table_status["sales"]["detail"],
+            missing_tables=module_table_status["sales"]["missing_tables"],
+            **{**build_sales_status().model_dump(), "status": module_table_status["sales"]["status"]},
+        ),
+        PilotModuleEntry(
+            label="Restoranlar",
+            href="/restaurants",
+            detail=module_table_status["restaurants"]["detail"],
+            missing_tables=module_table_status["restaurants"]["missing_tables"],
+            **{**build_restaurants_status().model_dump(), "status": module_table_status["restaurants"]["status"]},
+        ),
+        PilotModuleEntry(
+            label="Raporlar",
+            href="/reports",
+            detail=module_table_status["reports"]["detail"],
+            missing_tables=module_table_status["reports"]["missing_tables"],
+            **{**build_reports_status().model_dump(), "status": module_table_status["reports"]["status"]},
+        ),
     ]
 
     overall_ok = readiness_response.status == "ok" and all(entry.status == "active" for entry in modules)
@@ -225,3 +301,24 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         next_actions.append("Pilot açılışı için zorunlu environment ayarları tamam.")
 
     return config_entries, missing_env_vars, next_actions
+
+
+def _build_module_table_status(conn: psycopg.Connection) -> dict[str, dict[str, object]]:
+    status_map: dict[str, dict[str, object]] = {}
+    for module, tables in MODULE_TABLES.items():
+        missing_tables: list[str] = []
+        for table_name in tables:
+            row = conn.execute("SELECT to_regclass(%s) AS table_name", (f"public.{table_name}",)).fetchone()
+            if not row or not row.get("table_name"):
+                missing_tables.append(table_name)
+
+        status_map[module] = {
+            "status": "active" if not missing_tables else "degraded",
+            "detail": (
+                f"{len(tables) - len(missing_tables)}/{len(tables)} temel tablo hazır"
+                if not missing_tables
+                else f"Eksik tablolar: {', '.join(missing_tables)}"
+            ),
+            "missing_tables": missing_tables,
+        }
+    return status_map

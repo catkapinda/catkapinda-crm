@@ -43,6 +43,8 @@ type BackendReadiness = {
     status: string;
     next_slice: string;
     href: string;
+    detail: string | null;
+    missing_tables: string[];
   }>;
 };
 
@@ -268,6 +270,14 @@ export default function StatusPage() {
                       </div>
                     </div>
                     <div style={{ color: "#5f7294", fontSize: "0.92rem" }}>{module.next_slice}</div>
+                    {module.detail ? (
+                      <div style={{ color: "#5f7294", fontSize: "0.9rem", lineHeight: 1.5 }}>{module.detail}</div>
+                    ) : null}
+                    {module.missing_tables.length ? (
+                      <div style={{ color: "#c24141", fontSize: "0.88rem", lineHeight: 1.5 }}>
+                        Eksik tablolar: {module.missing_tables.join(", ")}
+                      </div>
+                    ) : null}
                     <Link
                       href={module.href}
                       style={{
