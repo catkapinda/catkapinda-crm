@@ -6,6 +6,7 @@ export type SidebarItem = {
 
 export const sidebarItems: SidebarItem[] = [
   { label: "Genel Bakış", href: "/", action: "dashboard.view" },
+  { label: "Sistem Kayıtları", href: "/audit", action: "audit.view" },
   { label: "Puantaj", href: "/attendance", action: "attendance.view" },
   { label: "Personel", href: "/personnel", action: "personnel.view" },
   { label: "Kesintiler", href: "/deductions", action: "deduction.view" },
