@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import psycopg
 
+from app.core.config import settings
 from app.core.security import (
     build_mobile_auth_email,
     hash_auth_password,
@@ -141,7 +142,7 @@ def _upsert_mobile_auth_user(
                 full_name,
                 MOBILE_AUTH_ROLE,
                 MOBILE_AUTH_ROLE_DISPLAY,
-                hash_auth_password(DEFAULT_MOBILE_AUTH_PASSWORD),
+                hash_auth_password(settings.default_auth_password or DEFAULT_MOBILE_AUTH_PASSWORD),
                 now_text,
                 now_text,
             ),
@@ -154,7 +155,7 @@ def _upsert_mobile_auth_user(
     password_hash = str(auth_user.get("password_hash") or "")
     must_change_password = int(auth_user.get("must_change_password") or 0)
     if not password_hash:
-        password_hash = hash_auth_password(DEFAULT_MOBILE_AUTH_PASSWORD)
+        password_hash = hash_auth_password(settings.default_auth_password or DEFAULT_MOBILE_AUTH_PASSWORD)
         must_change_password = 1
 
     conn.execute(

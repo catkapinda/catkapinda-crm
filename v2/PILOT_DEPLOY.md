@@ -45,6 +45,8 @@ Yerel smoke check:
   - v2 frontend public URL'si
 - `CK_V2_PUBLIC_APP_URL`
   - v2 frontend public URL'si
+- `CK_V2_DEFAULT_AUTH_PASSWORD`
+  - yonetici ve mobil operasyon kullanicilarinin ilk sifresi
 - `AUTH_EBRU_PHONE`
 - `AUTH_MERT_PHONE`
 - `AUTH_MUHAMMED_PHONE`

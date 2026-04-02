@@ -33,6 +33,8 @@ Deploy:
 - Set these two env vars on the API service after deploy:
   - `CK_V2_FRONTEND_BASE_URL=https://<frontend-domain>`
   - `CK_V2_PUBLIC_APP_URL=https://<frontend-domain>`
+- Required for first management/mobile auth bootstrap on the API service:
+  - `CK_V2_DEFAULT_AUTH_PASSWORD`
 - Optional but recommended for phone/SMS login on the API service:
   - `AUTH_EBRU_PHONE`
   - `AUTH_MERT_PHONE`
