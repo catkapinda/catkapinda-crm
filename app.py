@@ -301,6 +301,7 @@ APP_PAGE_TITLE = "Çat Kapında | Operasyon Paneli"
 APP_PAGE_ICON = "🚚"
 MENU_QUERY_KEY = "menu"
 RUNTIME_BOOTSTRAP_VERSION = "2026-03-24-auth-phone-codes"
+V2_CUTOVER_MODE_OPTIONS = {"off", "banner", "redirect"}
 LOGIN_LOGO_CANDIDATES = [
     "assets/catkapinda_logo.png",
     "assets/catkapinda_logo.jpg",
@@ -326,6 +327,112 @@ def _default_auth_phone(env_key: str, secret_key: str) -> str:
     except StreamlitSecretNotFoundError:
         pass
     return str(os.getenv(env_key, "") or "").strip()
+
+
+def _read_optional_secret_value(section_key: str, value_key: str) -> str:
+    try:
+        if section_key in st.secrets:
+            section = st.secrets[section_key]
+            if value_key in section:
+                return str(section.get(value_key, "") or "").strip()
+    except StreamlitSecretNotFoundError:
+        pass
+    return ""
+
+
+def resolve_v2_cutover_url() -> str:
+    return (
+        str(os.getenv("CK_V2_PILOT_URL", "") or "").strip()
+        or _read_optional_secret_value("v2", "pilot_url")
+    )
+
+
+def resolve_v2_cutover_mode() -> str:
+    raw_mode = (
+        str(os.getenv("CK_V2_CUTOVER_MODE", "") or "").strip().lower()
+        or _read_optional_secret_value("v2", "cutover_mode").lower()
+    )
+    return raw_mode if raw_mode in V2_CUTOVER_MODE_OPTIONS else "off"
+
+
+def render_v2_cutover_surface(*, mode: str, url: str) -> bool:
+    resolved_mode = str(mode or "off").strip().lower()
+    target_url = str(url or "").strip()
+    if resolved_mode not in {"banner", "redirect"} or not target_url:
+        return False
+
+    if resolved_mode == "redirect":
+        components.html(
+            f"""
+            <script>
+            (() => {{
+              const target = {target_url!r};
+              if (!target) return;
+              const root = window.parent || window;
+              try {{
+                root.location.replace(target);
+              }} catch (error) {{
+                root.location.href = target;
+              }}
+            }})();
+            </script>
+            """,
+            height=0,
+        )
+        st.markdown(
+            """
+            <div style="
+                max-width: 680px;
+                margin: 12vh auto 0;
+                padding: 28px;
+                border-radius: 28px;
+                background: rgba(255,255,255,0.96);
+                border: 1px solid rgba(193, 209, 232, 0.9);
+                box-shadow: 0 24px 60px rgba(20, 39, 67, 0.08);
+            ">
+                <div style="
+                    display:inline-flex;
+                    align-items:center;
+                    gap:10px;
+                    padding:8px 14px;
+                    border-radius:999px;
+                    background:rgba(15,95,215,0.08);
+                    color:#0f5fd7;
+                    font-size:0.84rem;
+                    font-weight:800;
+                ">YENI SISTEM ACILIYOR</div>
+                <h1 style="margin:18px 0 10px; color:#16345d;">Cat Kapinda CRM v2'ye geciliyor</h1>
+                <p style="margin:0; color:#5f7294; line-height:1.7;">
+                    Yeni operasyon paneli aciliyor. Yönlendirme otomatik baslamadiysa asagidaki butondan devam edebilirsin.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.link_button("Yeni panele git", target_url, use_container_width=True, type="primary")
+        return True
+
+    st.markdown(
+        """
+        <div style="
+            margin: 0 0 18px 0;
+            padding: 18px 20px;
+            border-radius: 22px;
+            background: linear-gradient(135deg, rgba(15,95,215,0.08), rgba(30,144,255,0.05));
+            border: 1px solid rgba(193, 209, 232, 0.9);
+            box-shadow: 0 16px 34px rgba(20, 39, 67, 0.06);
+        ">
+            <div style="font-size:0.84rem; font-weight:800; color:#0f5fd7; text-transform:uppercase;">v2 pilot hazir</div>
+            <div style="margin-top:8px; font-size:1.18rem; font-weight:800; color:#16345d;">Yeni sisteme gecis basladi</div>
+            <div style="margin-top:8px; color:#5f7294; line-height:1.7;">
+                Yeni panel artik test edilmeye hazir. Bu ekrandan devam etmek yerine yeni linkten ilerleyebilirsin.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.link_button("v2 pilotu ac", target_url, use_container_width=True, type="primary")
+    return False
 
 
 SMS_PHONE_AUTH_EMAIL_ALLOWLIST = {
@@ -7409,6 +7516,12 @@ def audit_trail_tab(conn: sqlite3.Connection) -> None:
 def main() -> None:
     st.set_page_config(page_title=APP_PAGE_TITLE, page_icon=APP_PAGE_ICON, layout="wide", initial_sidebar_state="expanded")
     inject_global_styles()
+
+    v2_cutover_mode = resolve_v2_cutover_mode()
+    v2_cutover_url = resolve_v2_cutover_url()
+    if v2_cutover_mode == "redirect" and render_v2_cutover_surface(mode=v2_cutover_mode, url=v2_cutover_url):
+        return
+
     render_login_transition_overlay()
     boot_placeholder = render_boot_shell()
 
@@ -7436,6 +7549,9 @@ def main() -> None:
         return
     if not login_gate(conn):
         return
+
+    if v2_cutover_mode == "banner" and v2_cutover_url:
+        render_v2_cutover_surface(mode="banner", url=v2_cutover_url)
 
     role = st.session_state.get("role", "")
     render_sidebar_brand()

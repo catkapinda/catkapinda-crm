@@ -101,6 +101,18 @@ Pilot stabil oldugunda:
 2. Streamlit yalnizca yedek/geri donus yolu olarak tutulur
 3. sonra ana domain v2'ye gecirilir
 
+## Streamlit Cutover Switch
+
+Ana Streamlit panelde yeni sisteme gecisi kod degistirmeden acmak icin:
+
+- `CK_V2_PILOT_URL=https://<v2-frontend-domain>`
+- `CK_V2_CUTOVER_MODE=banner`
+  - eski panel acilir ama ustte yeni sisteme gecis butonu gosterir
+- `CK_V2_CUTOVER_MODE=redirect`
+  - eski panel yerine kullaniciyi dogrudan v2'ye yonlendirir
+
+Bu iki alan Render Environment veya `secrets.toml` icindeki `[v2]` bolumu ile de verilebilir.
+
 ## Pilot Acildiginda Ilk Kontrol
 
 1. frontend `api/health` 200 donmeli
