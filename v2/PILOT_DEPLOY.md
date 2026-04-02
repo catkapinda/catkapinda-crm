@@ -55,6 +55,11 @@ Yerel smoke check:
 - `SMS_SENDER=CATKAPINDA`
 - `SMS_NETGSM_ENCODING=TR`
 
+Not:
+- v2 backend acilisinda auth tarafindaki temel tablolar/kolonlar (`auth_users`, `auth_sessions`, `auth_phone_codes`) icin runtime bootstrap dener.
+- Bu sayede eski veritabani varyasyonlarinda login katmani daha dayanikli acilir.
+- Yine de ana operasyon tablolari (`daily_entries`, `restaurants`, `personnel`, vb.) mevcut CRM veritabaninda bulunmali; `/status` ekrani bunlari ayrica gosterir.
+
 ### Frontend
 
 - `NEXT_PUBLIC_V2_API_BASE_URL`
