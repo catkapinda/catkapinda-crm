@@ -82,9 +82,9 @@ export function AppShell({
               }}
             />
           </div>
-          <h2 style={{ margin: "18px 0 10px" }}>v2 oturum hazırlanıyor</h2>
+          <h2 style={{ margin: "18px 0 10px" }}>v2 oturumu aciliyor</h2>
           <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
-            Kimlik ve yetki bilgileri kontrol ediliyor. Bu sayfa sadece ilgili modülleri açacak.
+            Yetki ve oturum bilgileri kontrol ediliyor. Hazir oldugunda seni dogrudan ilgili module alacagiz.
           </p>
         </div>
       </div>

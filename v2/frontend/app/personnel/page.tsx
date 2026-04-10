@@ -150,7 +150,7 @@ export default function PersonnelPage() {
               textTransform: "uppercase",
             }}
           >
-            Personnel v2
+            Personel Akisi
           </div>
           <h1
             style={{
@@ -159,7 +159,7 @@ export default function PersonnelPage() {
               lineHeight: 1.05,
             }}
           >
-            Personel kayitlarini parcali veri akisi ve daha kontrollu yonetim kartlariyla tasiyoruz.
+            Personel yonetimi yeni hatta hazir.
           </h1>
           <p
             style={{
@@ -169,8 +169,9 @@ export default function PersonnelPage() {
               lineHeight: 1.7,
             }}
           >
-            Attendance sonrasinda ikinci gercek v2 dikey dilim personel oldu. Burada amac, Streamlit
-            rerun yerine liste, form ve detay akisini birbirinden ayirmak.
+            Personel ekleme, guncelleme, aktiflik ve kart ozetleri artik daha kontrollu bir
+            yonetim akisinda ilerliyor. Pilot acildiginda ofisin personel islemlerini yeni sistemde
+            yurutebilmesi icin bu yuz tasarlandi.
           </p>
         </div>
 
@@ -184,7 +185,7 @@ export default function PersonnelPage() {
               color: "var(--muted)",
             }}
           >
-            Personnel dashboard yukleniyor...
+            Personel verileri yukleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -197,8 +198,8 @@ export default function PersonnelPage() {
               lineHeight: 1.7,
             }}
           >
-            Personnel API su anda erisilebilir degil. V2 backend ayaga kalktiginda burada personel
-            ozeti ve son kayitlar gercek veriden calisacak.
+            Personel servisine su anda erisilemiyor. Pilot backend ayaga kalktiginda burada personel
+            ozeti ve son hareketler gercek veriden calisacak.
           </div>
         ) : (
           <>
@@ -234,7 +235,7 @@ export default function PersonnelPage() {
               >
                 <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Son Personel Kayitlari</h2>
                 <p style={{ margin: "6px 0 0", color: "var(--muted)" }}>
-                  Personel slice icin read-only hizli ozet panosu.
+                  Son acilan ve guncellenen kartlari hizli sekilde kontrol et.
                 </p>
               </div>
               <div style={{ overflowX: "auto" }}>

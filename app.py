@@ -355,9 +355,17 @@ def resolve_v2_cutover_mode() -> str:
     return raw_mode if raw_mode in V2_CUTOVER_MODE_OPTIONS else "off"
 
 
+def resolve_v2_status_url(url: str) -> str:
+    target_url = str(url or "").strip().rstrip("/")
+    if not target_url:
+        return ""
+    return f"{target_url}/status"
+
+
 def render_v2_cutover_surface(*, mode: str, url: str) -> bool:
     resolved_mode = str(mode or "off").strip().lower()
     target_url = str(url or "").strip()
+    status_url = resolve_v2_status_url(target_url)
     if resolved_mode not in {"banner", "redirect"} or not target_url:
         return False
 
@@ -409,7 +417,10 @@ def render_v2_cutover_surface(*, mode: str, url: str) -> bool:
             """,
             unsafe_allow_html=True,
         )
-        st.link_button("Yeni panele git", target_url, use_container_width=True, type="primary")
+        c1, c2 = st.columns(2)
+        c1.link_button("Yeni panele git", target_url, use_container_width=True, type="primary")
+        if status_url:
+            c2.link_button("v2 durum ekranini ac", status_url, use_container_width=True)
         return True
 
     st.markdown(
@@ -431,7 +442,10 @@ def render_v2_cutover_surface(*, mode: str, url: str) -> bool:
         """,
         unsafe_allow_html=True,
     )
-    st.link_button("v2 pilotu ac", target_url, use_container_width=True, type="primary")
+    c1, c2 = st.columns(2)
+    c1.link_button("v2 pilotu ac", target_url, use_container_width=True, type="primary")
+    if status_url:
+        c2.link_button("v2 durum ekranini ac", status_url, use_container_width=True)
     return False
 
 
