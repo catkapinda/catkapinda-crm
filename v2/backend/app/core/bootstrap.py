@@ -6,6 +6,7 @@ import logging
 
 import psycopg
 
+from app.core.auth_sync import sync_mobile_auth_users
 from app.core.config import settings
 from app.core.security import hash_auth_password, normalize_auth_identity, normalize_auth_phone
 
@@ -91,6 +92,7 @@ def ensure_runtime_bootstrap() -> None:
             for statement in AUTH_BOOTSTRAP_STATEMENTS:
                 conn.execute(statement)
             sync_default_auth_users(conn)
+            sync_mobile_auth_users(conn)
             conn.commit()
         BOOTSTRAP_STATE["ok"] = True
         BOOTSTRAP_STATE["detail"] = "Auth runtime bootstrap basarili."

@@ -7,6 +7,7 @@ import psycopg
 from app.core.config import settings
 from app.core.security import (
     build_mobile_auth_email,
+    extract_mobile_auth_personnel_id,
     hash_auth_password,
     normalize_auth_identity,
     normalize_auth_phone,
@@ -51,6 +52,42 @@ def sync_mobile_auth_user_for_personnel(
     )
 
 
+def sync_mobile_auth_users(conn: psycopg.Connection) -> None:
+    personnel_rows = _fetch_mobile_auth_candidate_rows(conn)
+    seen_personnel_ids: set[int] = set()
+
+    for personnel_row in personnel_rows:
+        personnel_id = int(personnel_row.get("id") or 0)
+        if personnel_id <= 0:
+            continue
+        seen_personnel_ids.add(personnel_id)
+        sync_mobile_auth_user_for_personnel(
+            conn,
+            personnel_id=personnel_id,
+            fallback_row=personnel_row,
+        )
+
+    orphan_rows = conn.execute(
+        """
+        SELECT id, email, phone
+        FROM auth_users
+        WHERE role = %s
+        """,
+        (MOBILE_AUTH_ROLE,),
+    ).fetchall()
+    for row in orphan_rows:
+        auth_user = dict(row)
+        personnel_id = extract_mobile_auth_personnel_id(str(auth_user.get("email") or ""))
+        if personnel_id in seen_personnel_ids:
+            continue
+        _deactivate_mobile_auth_user(
+            conn,
+            auth_user=auth_user,
+            placeholder_email=str(auth_user.get("email") or ""),
+            normalized_phone=normalize_auth_phone(str(auth_user.get("phone") or "")),
+        )
+
+
 def _fetch_personnel_auth_row(
     conn: psycopg.Connection,
     *,
@@ -66,6 +103,18 @@ def _fetch_personnel_auth_row(
         (personnel_id,),
     ).fetchone()
     return dict(row) if row else None
+
+
+def _fetch_mobile_auth_candidate_rows(conn: psycopg.Connection) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT id, full_name, role, status, phone
+        FROM personnel
+        WHERE role IN %s
+        """,
+        (tuple(MOBILE_AUTH_PERSONNEL_ROLES),),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def _fetch_existing_mobile_auth_user(

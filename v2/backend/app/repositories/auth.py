@@ -133,7 +133,7 @@ def cleanup_expired_phone_codes(conn: psycopg.Connection) -> None:
         WHERE expires_at <= %s
            OR (consumed_at IS NOT NULL AND consumed_at <= %s)
         """,
-        (now_text, (stale_consumed_before).isoformat(timespec="seconds")),
+        (now_text, stale_consumed_before),
     )
 
 

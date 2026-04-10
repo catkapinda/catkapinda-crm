@@ -39,12 +39,18 @@ def test_runtime_bootstrap_executes_auth_schema_sql(monkeypatch):
     bootstrap.reset_runtime_bootstrap_state()
     monkeypatch.setattr(settings, "database_url", "postgresql://pilot")
     monkeypatch.setattr("app.core.bootstrap.psycopg.connect", lambda *args, **kwargs: fake_conn)
+    mobile_sync_called = {"value": False}
+    monkeypatch.setattr(
+        "app.core.bootstrap.sync_mobile_auth_users",
+        lambda conn: mobile_sync_called.__setitem__("value", True),
+    )
 
     bootstrap.ensure_runtime_bootstrap()
 
     state = bootstrap.get_runtime_bootstrap_state()
     assert state["ok"] is True
     assert fake_conn.committed is True
+    assert mobile_sync_called["value"] is True
     assert any("CREATE TABLE IF NOT EXISTS auth_users" in sql for sql in fake_conn.executed)
     assert any("CREATE TABLE IF NOT EXISTS auth_phone_codes" in sql for sql in fake_conn.executed)
     assert any("INSERT INTO auth_users" in sql for sql in fake_conn.executed)

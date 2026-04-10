@@ -1,4 +1,4 @@
-from app.core.auth_sync import sync_mobile_auth_user_for_personnel
+from app.core.auth_sync import sync_mobile_auth_user_for_personnel, sync_mobile_auth_users
 from app.core.security import build_mobile_auth_email
 
 
@@ -30,6 +30,15 @@ class FakeConnection:
             row = self.personnel_rows.get(int(params[0]))
             return FakeResult([dict(row)] if row else [])
 
+        if "FROM personnel WHERE role IN %s" in normalized:
+            roles = {str(value) for value in params[0]}
+            rows = [
+                dict(row)
+                for row in self.personnel_rows.values()
+                if str(row.get("role") or "") in roles
+            ]
+            return FakeResult(rows)
+
         if "FROM auth_users WHERE lower(COALESCE(email, '')) = lower(%s) LIMIT 1" in normalized:
             target = str(params[0]).lower()
             row = next(
@@ -37,6 +46,19 @@ class FakeConnection:
                 None,
             )
             return FakeResult([dict(row)] if row else [])
+
+        if "SELECT id, email, phone FROM auth_users WHERE role = %s" in normalized:
+            role = str(params[0])
+            rows = [
+                {
+                    "id": row.get("id"),
+                    "email": row.get("email"),
+                    "phone": row.get("phone"),
+                }
+                for row in self.auth_users
+                if str(row.get("role") or "") == role
+            ]
+            return FakeResult(rows)
 
         if "FROM auth_users WHERE role = %s AND phone = %s LIMIT 1" in normalized:
             role, phone = params
@@ -173,3 +195,38 @@ def test_sync_mobile_auth_user_deactivates_when_personnel_becomes_ineligible():
     assert build_mobile_auth_email(7) in conn.deleted_sessions
     assert "5321112233" in conn.deleted_sessions
     assert conn.deleted_phone_codes == [11]
+
+
+def test_sync_mobile_auth_users_creates_and_deactivates_across_bootstrap_pass():
+    conn = FakeConnection(
+        personnel_rows={
+            7: {
+                "id": 7,
+                "full_name": "Cihan Yildiz",
+                "role": "Bölge Müdürü",
+                "status": "Aktif",
+                "phone": "0532 111 22 33",
+            }
+        },
+        auth_users=[
+            {
+                "id": 21,
+                "email": build_mobile_auth_email(9),
+                "phone": "5329998877",
+                "full_name": "Eski Kullanici",
+                "role": "mobile_ops",
+                "role_display": "Mobil Operasyon",
+                "password_hash": "hashed",
+                "is_active": 1,
+                "must_change_password": 0,
+            }
+        ],
+    )
+
+    sync_mobile_auth_users(conn)
+
+    created = next(row for row in conn.auth_users if row["email"] == build_mobile_auth_email(7))
+    orphan = next(row for row in conn.auth_users if row["email"] == build_mobile_auth_email(9))
+    assert created["is_active"] == 1
+    assert created["phone"] == "5321112233"
+    assert orphan["is_active"] == 0
