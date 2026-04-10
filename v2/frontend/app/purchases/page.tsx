@@ -149,7 +149,7 @@ export default function PurchasesPage() {
               textTransform: "uppercase",
             }}
           >
-            Purchases v2
+            Satin Alma Akisi
           </div>
           <h1
             style={{
@@ -158,7 +158,7 @@ export default function PurchasesPage() {
               lineHeight: 1.05,
             }}
           >
-            Fatura girişi ve birim maliyet takibi yeni shell&apos;e taşınıyor.
+            Satin alma ve maliyet kaydi yeni hatta hazir.
           </h1>
           <p
             style={{
@@ -168,8 +168,8 @@ export default function PurchasesPage() {
               lineHeight: 1.7,
             }}
           >
-            Ekipman ve filo satın alma kayıtları artık daha hızlı ve daha kontrollü bir
-            operasyon ekranında tutulacak.
+            Faturalar, tedarikciler ve birim maliyet hareketleri tek akis icinde daha
+            hizli ve daha kontrollu sekilde yonetilecek.
           </p>
         </div>
 
@@ -183,7 +183,7 @@ export default function PurchasesPage() {
               color: "var(--muted)",
             }}
           >
-            Satın alma dashboard yükleniyor...
+            Satin alma verileri yukleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -196,8 +196,8 @@ export default function PurchasesPage() {
               lineHeight: 1.7,
             }}
           >
-            Purchases API şu anda erişilebilir değil. Backend ayakta olduğunda bu ekran
-            satın alma özetini ve son kayıtları gösterecek.
+            Satin alma servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran
+            satin alma ozetini ve son kayitlari gosterecek.
           </div>
         ) : (
           <>

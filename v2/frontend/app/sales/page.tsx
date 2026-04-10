@@ -143,7 +143,7 @@ export default function SalesPage() {
               textTransform: "uppercase",
             }}
           >
-            Sales v2
+            Ticari Akis
           </div>
           <h1
             style={{
@@ -152,7 +152,7 @@ export default function SalesPage() {
               lineHeight: 1.05,
             }}
           >
-            Ticari takip ve teklif akisi yeni shell'e tasiniyor.
+            Satis ve teklif takibi yeni hatta hazir.
           </h1>
           <p
             style={{
@@ -162,8 +162,8 @@ export default function SalesPage() {
               lineHeight: 1.7,
             }}
           >
-            Firsat havuzu, teklif modeli ve takip aksiyonlari artik parcali ve daha hizli
-            bir arayuzde yonetilecek.
+            Firsat havuzu, teklif modeli ve takip aksiyonlari artik daha temiz ve hizli
+            bir ticari yuzeyde yonetilecek.
           </p>
         </div>
 
@@ -177,7 +177,7 @@ export default function SalesPage() {
               color: "var(--muted)",
             }}
           >
-            Sales dashboard yukleniyor...
+            Satis verileri yukleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -190,7 +190,7 @@ export default function SalesPage() {
               lineHeight: 1.7,
             }}
           >
-            Sales API su anda erisilebilir degil. Backend ayaga kalktiginda bu ekran
+            Satis servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran
             canli firsat ozetini gosterecek.
           </div>
         ) : (

@@ -367,7 +367,7 @@ export default function PayrollPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Finans v2
+                Hakedis ve Bordro
               </div>
               <h1
                 style={{
@@ -376,7 +376,7 @@ export default function PayrollPage() {
                   lineHeight: 1.03,
                 }}
               >
-                Aylık hakediş yönetimini yeni sistemde çalıştırıyoruz.
+                Aylik hakedis yeni hatta hazir.
               </h1>
               <p
                 style={{
@@ -387,7 +387,8 @@ export default function PayrollPage() {
                   lineHeight: 1.7,
                 }}
               >
-                Personel bazlı brüt, kesinti ve net ödeme görünümünü ay, rol ve restoran filtresiyle tek yüzeyde takip et.
+                Net odeme, kesinti, saat ve paket dagilimlarini artik daha hizli ve daha
+                okunur bir bordro yuzeyinde takip edebilirsin.
               </p>
             </div>
             <div
@@ -496,7 +497,7 @@ export default function PayrollPage() {
               color: "var(--muted)",
             }}
           >
-            Hakediş ekranı hazırlanıyor...
+            Hakedis verileri yukleniyor...
           </div>
         ) : !dashboard || !dashboard.summary ? (
           <div
@@ -509,7 +510,8 @@ export default function PayrollPage() {
               lineHeight: 1.7,
             }}
           >
-            Bu ekran için uygun hakediş verisi bulunamadı. v2 hakediş servisi ay verisi geldiğinde personel bazlı ödeme görünümü burada çalışacak.
+            Hakedis servisine su anda erisilemiyor. Backend hazir oldugunda burada
+            aylik odeme ozeti ve bordro dagilimlari gorunecek.
           </div>
         ) : (
           <>

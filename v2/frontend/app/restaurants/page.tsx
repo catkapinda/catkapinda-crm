@@ -152,7 +152,7 @@ export default function RestaurantsPage() {
               textTransform: "uppercase",
             }}
           >
-            Restaurants v2
+            Sube Akisi
           </div>
           <h1
             style={{
@@ -161,7 +161,7 @@ export default function RestaurantsPage() {
               lineHeight: 1.05,
             }}
           >
-            Sube kayitlarini daha hizli ve daha kararlı bir yonetim yuzeyine tasiyoruz.
+            Restoran ve sube yonetimi yeni hatta hazir.
           </h1>
           <p
             style={{
@@ -171,8 +171,8 @@ export default function RestaurantsPage() {
               lineHeight: 1.7,
             }}
           >
-            Marka, fiyat modeli, kadro ve vergi bilgilerini tek akista yonet. Bu slice ile
-            restoran operasyonu Streamlit disindaki ana yapiya gecmeye basliyor.
+            Marka, fiyat modeli, kadro ve vergi bilgilerini tek akis icinde yonet.
+            Restoran operasyonu artik daha kararli ve daha hizli bir omurgaya geciyor.
           </p>
         </div>
 
@@ -186,7 +186,7 @@ export default function RestaurantsPage() {
               color: "var(--muted)",
             }}
           >
-            Restaurants dashboard yukleniyor...
+            Restoran verileri yukleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -199,7 +199,7 @@ export default function RestaurantsPage() {
               lineHeight: 1.7,
             }}
           >
-            Restaurant API su anda erisilebilir degil. Backend ayaga kalktiginda bu ekran
+            Restoran servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran
             restoran ozetini ve yonetim kayitlarini gercek veriden gosterecek.
           </div>
         ) : (

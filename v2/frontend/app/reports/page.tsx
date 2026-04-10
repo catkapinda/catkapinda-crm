@@ -373,7 +373,7 @@ export default function ReportsPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Finans v2
+                Karlilik ve Rapor
               </div>
               <h1
                 style={{
@@ -382,7 +382,7 @@ export default function ReportsPage() {
                   lineHeight: 1.03,
                 }}
               >
-                Finans yüzeyini yeni sistemde daha okunur ve daha hızlı hale getiriyoruz.
+                Restoran faturasi ve kurye maliyeti yeni hatta hazir.
               </h1>
               <p
                 style={{
@@ -393,7 +393,8 @@ export default function ReportsPage() {
                   lineHeight: 1.7,
                 }}
               >
-                Bu ilk rapor yüzeyi, günlük kullanımda en çok açılan iki finans tablosunu tek ay filtresi ve kontrollü scroll alanlarıyla sunar.
+                Fatura, maliyet, marj ve model dagilimlarini ayni yuzeyde izleyip karar
+                alabilecegin yeni rapor merkezi burada.
               </p>
             </div>
             <div
@@ -449,7 +450,7 @@ export default function ReportsPage() {
               color: "var(--muted)",
             }}
           >
-            Rapor ekranı hazırlanıyor...
+            Rapor verileri yukleniyor...
           </div>
         ) : !dashboard || !dashboard.summary ? (
           <div
@@ -462,7 +463,8 @@ export default function ReportsPage() {
               lineHeight: 1.7,
             }}
           >
-            Bu ekran için uygun rapor verisi bulunamadı. v2 rapor servisi ay verisi geldiğinde restoran faturası ve kurye maliyetini burada gösterecek.
+            Rapor servisine su anda erisilemiyor. Backend hazir oldugunda restoran
+            faturasi ve kurye maliyeti burada gercek veriden acilacak.
           </div>
         ) : (
           <>

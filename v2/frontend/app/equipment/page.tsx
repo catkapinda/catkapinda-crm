@@ -254,7 +254,7 @@ export default function EquipmentPage() {
               textTransform: "uppercase",
             }}
           >
-            Equipment v2
+            Filo ve Ekipman
           </div>
           <h1
             style={{
@@ -263,7 +263,7 @@ export default function EquipmentPage() {
               lineHeight: 1.05,
             }}
           >
-            Zimmet, taksit ve box geri alim akislarini yeni shell&apos;e tasiyoruz.
+            Ekipman ve filo akisi yeni hatta hazir.
           </h1>
           <p
             style={{
@@ -273,9 +273,8 @@ export default function EquipmentPage() {
               lineHeight: 1.7,
             }}
           >
-            Ekipman operasyonu artik tek ekranda daha hizli kayit, daha kontrollu duzenleme
-            ve daha okunur ozetlerle ilerliyor. Bu modulle Streamlit cikisi bir adim daha
-            gercek hale geliyor.
+            Zimmet, box iadesi, taksit dagilimi ve satis karliligi artik ayni operasyon
+            yuzeyinden yonetiliyor.
           </p>
         </div>
 
@@ -289,7 +288,7 @@ export default function EquipmentPage() {
               color: "var(--muted)",
             }}
           >
-            Ekipman dashboard yukleniyor...
+            Ekipman verileri yukleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -302,7 +301,7 @@ export default function EquipmentPage() {
               lineHeight: 1.7,
             }}
           >
-            Equipment API su anda erisilebilir degil. Backend ayaga kalktiginda bu ekran
+            Ekipman servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran
             son zimmetleri, box iadelerini ve taksit akislarini gercek veriden gosterecek.
           </div>
         ) : (

@@ -163,7 +163,7 @@ export default function HomePage() {
               lineHeight: 1.03,
             }}
           >
-            Cat Kapinda v2 artik gercek operasyon verisiyle aciliyor.
+            Yeni operasyon merkezi artik hazir.
           </h1>
           <p
             style={{
@@ -174,9 +174,9 @@ export default function HomePage() {
               lineHeight: 1.7,
             }}
           >
-            Puantaj, personel, kesinti ve restoran akislari artik ayni omurgada ozetleniyor.
-            Yeni ana ekran, ekiplerin gunluk isi tek bakista gormesi ve dogru module hizli
-            gecmesi icin tasarlandi.
+            Puantaj, personel, kesinti, restoran ve finans akislarini ayni omurgada
+            ozetleyen yeni merkez burasi. Ekipler gunluk isi tek bakista gorecek ve
+            dogru module hizli gececek.
           </p>
         </div>
 
@@ -190,7 +190,7 @@ export default function HomePage() {
               color: "var(--muted)",
             }}
           >
-            Genel bakis yukleniyor...
+            Operasyon ozeti yukleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -203,7 +203,7 @@ export default function HomePage() {
               lineHeight: 1.7,
             }}
           >
-            v2 overview API su anda erisilebilir degil. Backend ayaga kalktiginda bu ekran
+            Genel bakis servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran
             genel operasyon ozetini ve son hareketleri gercek veriden gosterecek.
           </div>
         ) : (
