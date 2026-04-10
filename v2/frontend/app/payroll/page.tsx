@@ -37,6 +37,24 @@ type PayrollDashboard = {
     restaurant_count: number;
     cost_model: string;
   }>;
+  cost_model_breakdown: Array<{
+    cost_model: string;
+    personnel_count: number;
+    total_hours: number;
+    total_packages: number;
+    net_payment: number;
+  }>;
+  top_personnel: Array<{
+    personnel_id: number;
+    personnel: string;
+    role: string;
+    total_hours: number;
+    total_packages: number;
+    total_deductions: number;
+    net_payment: number;
+    restaurant_count: number;
+    cost_model: string;
+  }>;
 };
 
 function formatMoney(value: number) {
@@ -140,6 +158,56 @@ function tableCell(value: string, align: "left" | "right" = "left", muted = fals
   );
 }
 
+function ScrollCard({
+  title,
+  subtitle,
+  actions,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      style={{
+        borderRadius: "24px",
+        border: "1px solid var(--line)",
+        background: "var(--surface-strong)",
+        overflow: "hidden",
+        boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+      }}
+    >
+      <div
+        style={{
+          padding: "18px 20px",
+          borderBottom: "1px solid var(--line)",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "16px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{title}</h2>
+          <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>{subtitle}</p>
+        </div>
+        {actions}
+      </div>
+      <div
+        style={{
+          maxHeight: "520px",
+          overflow: "auto",
+        }}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
 export default function PayrollPage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<PayrollDashboard | null>(null);
@@ -147,6 +215,7 @@ export default function PayrollPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedRole, setSelectedRole] = useState("Tümü");
   const [selectedRestaurant, setSelectedRestaurant] = useState("Tümü");
+  const [entryQuery, setEntryQuery] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -220,6 +289,41 @@ export default function PayrollPage() {
       metricCard("Toplam Paket", formatNumber(dashboard.summary.total_packages, 0), "Seçili filtre paket toplamı"),
     ];
   }, [dashboard]);
+
+  const signalCards = useMemo(() => {
+    if (!dashboard?.summary) {
+      return [];
+    }
+    const netPerHour =
+      dashboard.summary.total_hours > 0
+        ? dashboard.summary.net_payment / dashboard.summary.total_hours
+        : 0;
+    const netPerCourier =
+      dashboard.summary.personnel_count > 0
+        ? dashboard.summary.net_payment / dashboard.summary.personnel_count
+        : 0;
+    const deductionRatio =
+      dashboard.summary.gross_payroll > 0
+        ? (dashboard.summary.total_deductions / dashboard.summary.gross_payroll) * 100
+        : 0;
+
+    return [
+      metricCard("Saat Başına Net", formatMoney(netPerHour), "Net ödeme / toplam saat"),
+      metricCard("Kurye Başına Net", formatMoney(netPerCourier), "Net ödeme / personel"),
+      metricCard("Kesinti Oranı", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / brüt hakediş"),
+    ];
+  }, [dashboard]);
+
+  const filteredEntries = useMemo(() => {
+    const rows = dashboard?.entries ?? [];
+    const query = entryQuery.trim().toLocaleLowerCase("tr-TR");
+    if (!query) {
+      return rows;
+    }
+    return rows.filter((row) =>
+      `${row.personnel} ${row.role} ${row.cost_model}`.toLocaleLowerCase("tr-TR").includes(query),
+    );
+  }, [dashboard?.entries, entryQuery]);
 
   return (
     <AppShell activeItem="Aylık Hakediş">
@@ -419,31 +523,41 @@ export default function PayrollPage() {
               {summaryCards}
             </div>
 
-            <section
+            <div
               style={{
-                borderRadius: "24px",
-                border: "1px solid var(--line)",
-                background: "var(--surface-strong)",
-                overflow: "hidden",
-                boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "14px",
               }}
             >
-              <div
-                style={{
-                  padding: "18px 20px",
-                  borderBottom: "1px solid var(--line)",
-                }}
-              >
-                <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Hakediş Özeti</h2>
-                <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>
-                  Personel bazlı çalışma, kesinti ve net ödeme görünümü. Liste kendi içinde scroll eder.
-                </p>
-              </div>
-              <div
-                style={{
-                  maxHeight: "560px",
-                  overflow: "auto",
-                }}
+              {signalCards}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.8fr) minmax(320px, 1fr)",
+                gap: "18px",
+              }}
+            >
+              <ScrollCard
+                title="Hakediş Özeti"
+                subtitle="Personel bazlı çalışma, kesinti ve net ödeme görünümü. Liste kendi içinde scroll eder."
+                actions={
+                  <input
+                    value={entryQuery}
+                    onChange={(event) => setEntryQuery(event.target.value)}
+                    placeholder="Personel, rol veya model ara"
+                    style={{
+                      minWidth: "220px",
+                      padding: "12px 14px",
+                      borderRadius: "14px",
+                      border: "1px solid var(--line)",
+                      background: "rgba(255,255,255,0.96)",
+                      color: "var(--text)",
+                    }}
+                  />
+                }
               >
                 <table
                   style={{
@@ -468,7 +582,7 @@ export default function PayrollPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {dashboard.entries.map((row) => (
+                    {filteredEntries.map((row) => (
                       <tr key={row.personnel_id}>
                         {tableCell(row.personnel)}
                         {tableCell(row.role, "left", true)}
@@ -484,8 +598,71 @@ export default function PayrollPage() {
                     ))}
                   </tbody>
                 </table>
+              </ScrollCard>
+
+              <div style={{ display: "grid", gap: "18px" }}>
+                <ScrollCard
+                  title="Maliyet Modeli Dağılımı"
+                  subtitle="Hangi hakediş modelinin ne kadar yük taşıdığını tek bakışta izle."
+                >
+                  <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                    {dashboard.cost_model_breakdown.map((row) => (
+                      <article
+                        key={row.cost_model}
+                        style={{
+                          display: "grid",
+                          gap: "8px",
+                          padding: "14px",
+                          borderRadius: "18px",
+                          border: "1px solid rgba(219, 228, 243, 0.8)",
+                          background: "rgba(248, 250, 255, 0.9)",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                          <strong>{row.cost_model}</strong>
+                          <span style={{ color: "var(--muted)" }}>{formatMoney(row.net_payment)}</span>
+                        </div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                          {formatNumber(row.personnel_count)} personel • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </ScrollCard>
+
+                <ScrollCard
+                  title="En Yüksek Net Ödeme"
+                  subtitle="Ay içinde en yüksek net ödeme çıkan çalışanları hızlıca gör."
+                >
+                  <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                    {dashboard.top_personnel.map((row) => (
+                      <article
+                        key={`top-${row.personnel_id}`}
+                        style={{
+                          display: "grid",
+                          gap: "8px",
+                          padding: "14px",
+                          borderRadius: "18px",
+                          border: "1px solid rgba(219, 228, 243, 0.8)",
+                          background: "rgba(248, 250, 255, 0.9)",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                          <strong>{row.personnel}</strong>
+                          <span>{formatMoney(row.net_payment)}</span>
+                        </div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                          {row.role} • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
+                        </div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                          {formatNumber(row.restaurant_count, 0)} restoran • {row.cost_model}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </ScrollCard>
               </div>
-            </section>
+            </div>
           </>
         )}
       </section>
