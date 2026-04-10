@@ -97,15 +97,20 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "ok"
+    assert payload["core_ready"] is True
     assert payload["auth"]["email_login"] is True
     assert payload["auth"]["phone_login"] is True
     assert payload["auth"]["sms_login"] is True
     assert payload["auth"]["sms_allowlist_count"] == 1
     assert "config" in payload
     assert "missing_env_vars" in payload
+    assert "required_missing_env_vars" in payload
+    assert "optional_missing_env_vars" in payload
     assert "next_actions" in payload
     assert isinstance(payload["config"], list)
     assert isinstance(payload["missing_env_vars"], list)
+    assert isinstance(payload["required_missing_env_vars"], list)
+    assert isinstance(payload["optional_missing_env_vars"], list)
     assert isinstance(payload["next_actions"], list)
     modules = {entry["module"]: entry for entry in payload["modules"]}
     assert modules["overview"]["href"] == "/"
@@ -115,6 +120,32 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert "detail" in modules["attendance"]
     assert "missing_tables" in modules["attendance"]
     assert modules["reports"]["href"] == "/reports"
+
+
+def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch):
+    reset_runtime_bootstrap_state()
+    mark_runtime_bootstrap_state(ok=True, detail="Auth runtime bootstrap basarili.")
+    monkeypatch.setattr("app.services.auth.sms_delivery_enabled", lambda: False)
+    monkeypatch.setattr(settings, "database_url", "postgresql://pilot")
+    monkeypatch.setattr(settings, "frontend_base_url", "https://pilot.example.com")
+    monkeypatch.setattr(settings, "public_app_url", "")
+    monkeypatch.setattr(settings, "auth_ebru_phone", "")
+    monkeypatch.setattr(settings, "auth_mert_phone", "")
+    monkeypatch.setattr(settings, "auth_muhammed_phone", "")
+
+    app = create_app(enable_bootstrap=False)
+    app.dependency_overrides[get_db] = lambda: HealthyConnection()
+    client = TestClient(app)
+
+    response = client.get("/api/health/pilot")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["core_ready"] is True
+    assert payload["required_missing_env_vars"] == []
+    assert "AUTH_EBRU_PHONE" in payload["optional_missing_env_vars"]
+    assert "SMS_PROVIDER" in payload["optional_missing_env_vars"]
 
 
 def test_readiness_route_reports_degraded_when_runtime_bootstrap_failed():

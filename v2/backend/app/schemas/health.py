@@ -32,6 +32,7 @@ class PilotAuthStatus(BaseModel):
 class PilotConfigEntry(BaseModel):
     name: str
     ok: bool
+    required: bool = True
     detail: str | None = None
     missing_envs: list[str] = []
 
@@ -48,6 +49,7 @@ class PilotModuleEntry(BaseModel):
 
 class PilotReadinessResponse(BaseModel):
     status: str
+    core_ready: bool
     service: str
     version: str
     environment: str
@@ -55,5 +57,7 @@ class PilotReadinessResponse(BaseModel):
     auth: PilotAuthStatus
     config: list[PilotConfigEntry]
     missing_env_vars: list[str]
+    required_missing_env_vars: list[str]
+    optional_missing_env_vars: list[str]
     next_actions: list[str]
     modules: list[PilotModuleEntry]

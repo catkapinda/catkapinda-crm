@@ -13,12 +13,12 @@ class Settings(BaseSettings):
     )
     frontend_app_name: str = "Cat Kapinda CRM v2"
     auth_session_days: int = 30
-    frontend_base_url: str = Field(
-        default="http://127.0.0.1:3000",
+    frontend_base_url: str | None = Field(
+        default=None,
         validation_alias=AliasChoices("CK_V2_FRONTEND_BASE_URL", "FRONTEND_BASE_URL"),
     )
-    public_app_url: str = Field(
-        default="http://127.0.0.1:3000",
+    public_app_url: str | None = Field(
+        default=None,
         validation_alias=AliasChoices("CK_V2_PUBLIC_APP_URL", "PUBLIC_APP_URL"),
     )
     auth_ebru_phone: str = Field(default="", validation_alias=AliasChoices("AUTH_EBRU_PHONE"))
@@ -39,10 +39,18 @@ class Settings(BaseSettings):
     @property
     def cors_allowed_origins(self) -> list[str]:
         allowed = {
-            self.frontend_base_url.rstrip("/"),
-            self.public_app_url.rstrip("/"),
+            self.resolved_frontend_base_url.rstrip("/"),
+            self.resolved_public_app_url.rstrip("/"),
         }
         return [origin for origin in allowed if origin]
+
+    @property
+    def resolved_frontend_base_url(self) -> str:
+        return str(self.frontend_base_url or self.public_app_url or "http://127.0.0.1:3000").strip()
+
+    @property
+    def resolved_public_app_url(self) -> str:
+        return str(self.public_app_url or self.frontend_base_url or "http://127.0.0.1:3000").strip()
 
     @property
     def sms_phone_allowlist(self) -> list[str]:
