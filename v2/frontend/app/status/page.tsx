@@ -72,6 +72,21 @@ function cardStyle() {
   } as const;
 }
 
+function actionButtonStyle(tone: "primary" | "ghost" = "ghost") {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "12px 16px",
+    borderRadius: "16px",
+    border: tone === "primary" ? "1px solid rgba(15, 95, 215, 0.18)" : "1px solid rgba(219, 228, 243, 0.9)",
+    background: tone === "primary" ? "linear-gradient(135deg, rgba(15, 95, 215, 0.12), rgba(62, 126, 232, 0.08))" : "rgba(255,255,255,0.92)",
+    color: tone === "primary" ? "#0f5fd7" : "#35507d",
+    fontWeight: 800,
+    textDecoration: "none",
+  } as const;
+}
+
 export default function StatusPage() {
   const [frontend, setFrontend] = useState<FrontendStatus | null>(null);
   const [backend, setBackend] = useState<BackendReadiness | null>(null);
@@ -150,12 +165,55 @@ export default function StatusPage() {
             Bu sayfa yeni sistemin gerçekten ayağa kalkıp kalkmadığını tek bakışta gösterir. Frontend proxy,
             backend servis ve veritabanı erişimi burada birlikte kontrol edilir.
           </p>
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <Link href="/login" style={actionButtonStyle("primary")}>
+              Pilotu Ac
+            </Link>
+            <Link href="/" style={actionButtonStyle()}>
+              Dashboard'a Don
+            </Link>
+          </div>
         </section>
 
         {loading ? (
           <section style={cardStyle()}>Pilot durumu yükleniyor...</section>
         ) : (
           <>
+            {overallOk ? (
+              <section
+                style={{
+                  ...cardStyle(),
+                  display: "grid",
+                  gap: "12px",
+                  background: "linear-gradient(135deg, rgba(15, 95, 215, 0.05), rgba(255,255,255,0.98))",
+                }}
+              >
+                <div style={statusPill(true)}>Pilot Kullanima Hazir</div>
+                <h2 style={{ margin: 0, fontSize: "1.45rem" }}>Yeni sisteme kontrollu gecis baslayabilir.</h2>
+                <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
+                  Frontend, backend ve temel auth kontrolleri su anda olumlu gorunuyor. Ofis ekibi once login
+                  ekranindan girip puantaj, personel ve kesinti akislarini yeni sistemde test etmeye baslayabilir.
+                </p>
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                  <Link href="/login" style={actionButtonStyle("primary")}>
+                    Login Ekranini Ac
+                  </Link>
+                  <Link href="/attendance" style={actionButtonStyle()}>
+                    Puantaja Git
+                  </Link>
+                  <Link href="/personnel" style={actionButtonStyle()}>
+                    Personel'e Git
+                  </Link>
+                </div>
+              </section>
+            ) : null}
+
             <section
               style={{
                 display: "grid",

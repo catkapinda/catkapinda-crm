@@ -148,7 +148,7 @@ export default function AttendancePage() {
               textTransform: "uppercase",
             }}
           >
-            Attendance v2
+            Operasyon Akisi
           </div>
           <h1
             style={{
@@ -157,7 +157,7 @@ export default function AttendancePage() {
               lineHeight: 1.05,
             }}
           >
-            Gunluk Puantaj icin hizli ve parcali ekran hazirligi.
+            Gunluk puantaj yeni hatta hazir.
           </h1>
           <p
             style={{
@@ -167,8 +167,9 @@ export default function AttendancePage() {
               lineHeight: 1.7,
             }}
           >
-            Bu ilk v2 slice, attendance tarafinda tam sayfa rerun yerine parcali veri yukleme
-            mantigina gecis icin summary ve son kayitlar panelini ayaga kaldiriyor.
+            Gunluk puantaj girisi, kayit yonetimi ve son hareketler artik daha akici bir yapida
+            tek ekranda ilerliyor. Bu alan pilot acildiginda ofisin Streamlit'e donmeden kullanacagi
+            ana operasyon yuzlerinden biri olacak.
           </p>
         </div>
 
@@ -182,7 +183,7 @@ export default function AttendancePage() {
               color: "var(--muted)",
             }}
           >
-            Attendance dashboard yukleniyor...
+            Gunluk puantaj verileri yukleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -195,8 +196,8 @@ export default function AttendancePage() {
               lineHeight: 1.7,
             }}
           >
-            Attendance API su anda erisilebilir degil. V2 backend ayaga kalktiginda bu ekran
-            gunluk puantaj ozetini ve son kayitlari gercek veriden gosterecek.
+            Puantaj servisine su anda erisilemiyor. Pilot backend ayaga kalktiginda bu ekran
+            gunluk puantaj ozetini ve son hareketleri gercek veriden gosterecek.
           </div>
         ) : (
           <>
@@ -236,7 +237,7 @@ export default function AttendancePage() {
                     fontSize: "1.1rem",
                   }}
                 >
-                  Son Puantaj Kayitlari
+                  Son Puantaj Hareketleri
                 </h2>
                 <p
                   style={{
@@ -244,7 +245,7 @@ export default function AttendancePage() {
                     color: "var(--muted)",
                   }}
                 >
-                  Attendance v2 ilk slice icin read-only operasyon panosu.
+                  Son girilen kayitlari, sube ve calisan akisini tek bakista kontrol et.
                 </p>
               </div>
 
