@@ -28,15 +28,25 @@ def _fake_admin_user() -> AuthenticatedUser:
             "deduction.create",
             "deduction.update",
             "deduction.delete",
+            "equipment.create",
+            "equipment.bulk_update",
+            "equipment.bulk_delete",
+            "equipment.box_return",
             "personnel.create",
             "personnel.update",
             "personnel.list",
             "personnel.status_change",
             "personnel.delete",
+            "purchase.create",
+            "purchase.update",
+            "purchase.delete",
             "restaurant.create",
             "restaurant.update",
             "restaurant.status_change",
             "restaurant.delete",
+            "sales.create",
+            "sales.update",
+            "sales.delete",
         ],
         expires_at="2099-01-01T00:00:00",
         token="token",
@@ -295,3 +305,199 @@ def test_restaurants_mutation_routes(monkeypatch):
     assert toggle_response.json()["active"] is False
     assert delete_response.status_code == 200
     assert delete_response.json()["message"] == "Restoran silindi."
+
+
+def test_purchases_mutation_routes(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.purchases.create_purchase_record",
+        lambda conn, payload: {
+            "purchase_id": 88,
+            "message": "Satin alma kaydi olusturuldu.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.purchases.update_purchase_record_entry",
+        lambda conn, purchase_id, payload: {
+            "purchase_id": purchase_id,
+            "message": "Satin alma kaydi guncellendi.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.purchases.delete_purchase_record_entry",
+        lambda conn, purchase_id: {
+            "purchase_id": purchase_id,
+            "message": "Satin alma kaydi silindi.",
+        },
+    )
+    client = _build_client()
+
+    create_response = client.post(
+        "/api/purchases/records",
+        json={
+            "purchase_date": "2026-04-11",
+            "item_name": "Box",
+            "quantity": 4,
+            "total_invoice_amount": 12800,
+            "supplier": "Test Tedarikci",
+            "invoice_no": "INV-001",
+            "notes": "Test satin alma",
+        },
+    )
+    update_response = client.put(
+        "/api/purchases/records/88",
+        json={
+            "purchase_date": "2026-04-12",
+            "item_name": "Punch",
+            "quantity": 2,
+            "total_invoice_amount": 4200,
+            "supplier": "Guncel Tedarikci",
+            "invoice_no": "INV-002",
+            "notes": "Guncel satin alma",
+        },
+    )
+    delete_response = client.delete("/api/purchases/records/88")
+
+    assert create_response.status_code == 201
+    assert create_response.json()["purchase_id"] == 88
+    assert update_response.status_code == 200
+    assert update_response.json()["message"] == "Satin alma kaydi guncellendi."
+    assert delete_response.status_code == 200
+    assert delete_response.json()["purchase_id"] == 88
+
+
+def test_sales_mutation_routes(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.sales.create_sales_record",
+        lambda conn, payload: {
+            "entry_id": 55,
+            "message": "Satis firsati olusturuldu.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.sales.update_sales_record_entry",
+        lambda conn, sales_id, payload: {
+            "message": "Satis firsati guncellendi.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.sales.delete_sales_record_entry",
+        lambda conn, sales_id: {
+            "message": "Satis firsati silindi.",
+        },
+    )
+    client = _build_client()
+
+    create_payload = {
+        "restaurant_name": "Donerci Celal Usta",
+        "city": "Istanbul",
+        "district": "Maltepe",
+        "address": "Bagdat Caddesi No:1",
+        "contact_name": "Erdal Altinkaynak",
+        "contact_phone": "05325719142",
+        "pricing_model": "hourly_plus_package",
+        "status": "Teklif Iletildi",
+    }
+    update_payload = {
+        **create_payload,
+        "district": "Kadikoy",
+        "pricing_model": "fixed_monthly",
+        "fixed_monthly_fee": 90000,
+        "status": "Tekrar Aranacak",
+    }
+
+    create_response = client.post("/api/sales/records", json=create_payload)
+    update_response = client.put("/api/sales/records/55", json=update_payload)
+    delete_response = client.delete("/api/sales/records/55")
+
+    assert create_response.status_code == 201
+    assert create_response.json()["entry_id"] == 55
+    assert update_response.status_code == 200
+    assert update_response.json()["message"] == "Satis firsati guncellendi."
+    assert delete_response.status_code == 200
+    assert delete_response.json()["message"] == "Satis firsati silindi."
+
+
+def test_equipment_mutation_routes(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.equipment.create_equipment_issue_entry",
+        lambda conn, payload: {
+            "equipment_issue_id": 61,
+            "message": "Zimmet kaydi olusturuldu.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.equipment.update_equipment_issue_entry",
+        lambda conn, issue_id, payload: {
+            "equipment_issue_id": issue_id,
+            "message": "Zimmet kaydi guncellendi.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.equipment.delete_equipment_issue_entry",
+        lambda conn, issue_id: {
+            "equipment_issue_id": issue_id,
+            "message": "Zimmet kaydi silindi.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.equipment.create_box_return_entry",
+        lambda conn, payload: {
+            "box_return_id": 71,
+            "message": "Box iade kaydi olusturuldu.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.equipment.update_box_return_entry",
+        lambda conn, box_return_id, payload: {
+            "box_return_id": box_return_id,
+            "message": "Box iade kaydi guncellendi.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.equipment.delete_box_return_entry",
+        lambda conn, box_return_id: {
+            "box_return_id": box_return_id,
+            "message": "Box iade kaydi silindi.",
+        },
+    )
+    client = _build_client()
+
+    issue_payload = {
+        "personnel_id": 5,
+        "issue_date": "2026-04-11",
+        "item_name": "Box",
+        "quantity": 1,
+        "unit_cost": 2500,
+        "unit_sale_price": 3200,
+        "installment_count": 2,
+        "sale_type": "Satış",
+        "notes": "Test zimmet",
+    }
+    return_payload = {
+        "personnel_id": 5,
+        "return_date": "2026-04-12",
+        "quantity": 1,
+        "condition_status": "Temiz",
+        "payout_amount": 0,
+        "notes": "Test iade",
+    }
+
+    create_issue_response = client.post("/api/equipment/issues", json=issue_payload)
+    update_issue_response = client.put("/api/equipment/issues/61", json={**issue_payload, "quantity": 2})
+    delete_issue_response = client.delete("/api/equipment/issues/61")
+    create_return_response = client.post("/api/equipment/box-returns", json=return_payload)
+    update_return_response = client.put("/api/equipment/box-returns/71", json={**return_payload, "condition_status": "Hasarlı"})
+    delete_return_response = client.delete("/api/equipment/box-returns/71")
+
+    assert create_issue_response.status_code == 201
+    assert create_issue_response.json()["equipment_issue_id"] == 61
+    assert update_issue_response.status_code == 200
+    assert update_issue_response.json()["message"] == "Zimmet kaydi guncellendi."
+    assert delete_issue_response.status_code == 200
+    assert delete_issue_response.json()["equipment_issue_id"] == 61
+    assert create_return_response.status_code == 201
+    assert create_return_response.json()["box_return_id"] == 71
+    assert update_return_response.status_code == 200
+    assert update_return_response.json()["message"] == "Box iade kaydi guncellendi."
+    assert delete_return_response.status_code == 200
+    assert delete_return_response.json()["box_return_id"] == 71
