@@ -362,6 +362,16 @@ def resolve_v2_status_url(url: str) -> str:
     return f"{target_url}/status"
 
 
+def resolve_v2_menu_url(url: str, menu_label: str) -> str:
+    target_url = str(url or "").strip().rstrip("/")
+    if not target_url:
+        return ""
+    path = V2_MENU_PATHS.get(str(menu_label or "").strip(), "")
+    if not path:
+        return ""
+    return f"{target_url}{path}"
+
+
 def render_v2_cutover_surface(*, mode: str, url: str) -> bool:
     resolved_mode = str(mode or "off").strip().lower()
     target_url = str(url or "").strip()
@@ -447,6 +457,36 @@ def render_v2_cutover_surface(*, mode: str, url: str) -> bool:
     if status_url:
         c2.link_button("v2 durum ekranini ac", status_url, use_container_width=True)
     return False
+
+
+def render_v2_menu_shortcut(*, menu_label: str, pilot_url: str) -> None:
+    target_url = resolve_v2_menu_url(pilot_url, menu_label)
+    if not target_url:
+        return
+    status_url = resolve_v2_status_url(pilot_url)
+    label = MENU_DISPLAY_LABELS.get(menu_label, menu_label)
+    st.markdown(
+        f"""
+        <div style="
+            margin: 0 0 16px 0;
+            padding: 16px 18px;
+            border-radius: 20px;
+            background: rgba(15,95,215,0.05);
+            border: 1px solid rgba(193, 209, 232, 0.88);
+        ">
+            <div style="font-size:0.8rem; font-weight:800; color:#0f5fd7; text-transform:uppercase;">v2 modul gecisi</div>
+            <div style="margin-top:8px; font-size:1.02rem; font-weight:800; color:#16345d;">{html.escape(label)} ekraninin yeni sistem karsiligi hazir</div>
+            <div style="margin-top:6px; color:#5f7294; line-height:1.65;">
+                Bu modulu v2 pilotta dogrudan acip yeni yuzeyi eski panelden cikmadan test edebilirsin.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    cols = st.columns(2 if status_url else 1)
+    cols[0].link_button("Bu modulu v2'de ac", target_url, use_container_width=True, type="primary")
+    if status_url:
+        cols[1].link_button("v2 durum ekranini ac", status_url, use_container_width=True)
 
 
 SMS_PHONE_AUTH_EMAIL_ALLOWLIST = {
@@ -573,6 +613,18 @@ MENU_DISPLAY_LABELS = {
     "Raporlar ve Karlılık": "Raporlar ve Karlılık",
     "Sistem Kayıtları": "Sistem Kayıtları",
     "Güncellemeler ve Duyurular": "Güncellemeler ve Duyurular",
+}
+V2_MENU_PATHS = {
+    "Genel Bakış": "/",
+    "Satış": "/sales",
+    "Restoran Yönetimi": "/restaurants",
+    "Personel Yönetimi": "/personnel",
+    "Puantaj": "/attendance",
+    "Satın Alma": "/purchases",
+    "Kesinti Yönetimi": "/deductions",
+    "Aylık Hakediş": "/payroll",
+    "Raporlar ve Karlılık": "/reports",
+    "Sistem Kayıtları": "/audit",
 }
 MENU_SECTIONS = [
     ("Kontrol", ["Genel Bakış"]),
@@ -7582,6 +7634,8 @@ def main() -> None:
 
     ensure_role_access(menu, role)
     render_top_profile(conn)
+    if v2_cutover_mode == "banner" and v2_cutover_url:
+        render_v2_menu_shortcut(menu_label=menu, pilot_url=v2_cutover_url)
     if menu == "Genel Bakış":
         dashboard_tab(conn)
     elif menu == "Satış":
