@@ -74,7 +74,12 @@ def pilot_readiness(
 ) -> PilotReadinessResponse:
     readiness_response = _build_readiness_response(conn)
     auth_modes = build_auth_modes()
-    config_entries, missing_env_vars, next_actions = _build_pilot_config_summary()
+    (
+        config_entries,
+        required_missing_env_vars,
+        optional_missing_env_vars,
+        next_actions,
+    ) = _build_pilot_config_summary()
     module_table_status = _build_module_table_status(conn)
 
     modules = [
@@ -159,9 +164,12 @@ def pilot_readiness(
         ),
     ]
 
-    overall_ok = readiness_response.status == "ok" and all(entry.status == "active" for entry in modules)
+    all_modules_active = all(entry.status == "active" for entry in modules)
+    core_ready = readiness_response.status == "ok" and not required_missing_env_vars
+    overall_ok = core_ready and all_modules_active
     return PilotReadinessResponse(
         status="ok" if overall_ok else "degraded",
+        core_ready=core_ready,
         service=readiness_response.service,
         version=readiness_response.version,
         environment=readiness_response.environment,
@@ -173,7 +181,9 @@ def pilot_readiness(
             sms_allowlist_count=len(settings.sms_phone_allowlist),
         ),
         config=config_entries,
-        missing_env_vars=missing_env_vars,
+        missing_env_vars=[*required_missing_env_vars, *optional_missing_env_vars],
+        required_missing_env_vars=required_missing_env_vars,
+        optional_missing_env_vars=optional_missing_env_vars,
         next_actions=next_actions,
         modules=modules,
     )
@@ -182,6 +192,7 @@ def pilot_readiness(
 def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
     checks: list[HealthCheckEntry] = []
     bootstrap_state = get_runtime_bootstrap_state()
+    has_any_frontend_url = bool(settings.frontend_base_url or settings.public_app_url)
 
     checks.append(
         HealthCheckEntry(
@@ -202,20 +213,21 @@ def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
     checks.append(
         HealthCheckEntry(
             name="frontend_base_url",
-            ok=bool(settings.frontend_base_url),
-            detail=settings.frontend_base_url or "Frontend URL eksik",
+            ok=has_any_frontend_url,
+            detail=settings.resolved_frontend_base_url if has_any_frontend_url else "Frontend URL eksik",
         )
     )
 
     checks.append(
         HealthCheckEntry(
             name="public_app_url",
-            ok=bool(settings.public_app_url),
-            detail=settings.public_app_url or "Public app URL eksik",
+            ok=has_any_frontend_url,
+            detail=settings.resolved_public_app_url if has_any_frontend_url else "Public app URL eksik",
         )
     )
 
-    sms_configured = bool(settings.sms_phone_allowlist) and bool(settings.frontend_base_url)
+    sms_setup = describe_sms_config()
+    sms_configured = bool(settings.sms_phone_allowlist) and bool(sms_setup["configured"])
     checks.append(
         HealthCheckEntry(
             name="sms_allowlist",
@@ -227,7 +239,7 @@ def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
         HealthCheckEntry(
             name="sms_flow",
             ok=sms_configured,
-            detail="SMS giriş temel ayarları hazır" if sms_configured else "SMS giriş için allowlist eksik olabilir",
+            detail="SMS giriş temel ayarları hazır" if sms_configured else "SMS giriş pilot için opsiyonel durumda",
         )
     )
 
@@ -248,7 +260,8 @@ def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
         )
     )
 
-    overall = "ok" if all(check.ok for check in checks) else "degraded"
+    optional_check_names = {"sms_allowlist", "sms_flow"}
+    overall = "ok" if all(check.ok for check in checks if check.name not in optional_check_names) else "degraded"
     return ReadinessResponse(
         status=overall,
         service="crmcatkapinda-v2-api",
@@ -258,29 +271,34 @@ def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
     )
 
 
-def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], list[str]]:
+def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], list[str], list[str]]:
     sms_setup = describe_sms_config()
+    has_any_frontend_url = bool(settings.frontend_base_url or settings.public_app_url)
     config_entries: list[PilotConfigEntry] = [
         PilotConfigEntry(
             name="database",
             ok=bool(settings.database_url),
+            required=True,
             detail="Veritabanı URL tanımlı" if settings.database_url else "CK_V2_DATABASE_URL veya DATABASE_URL eksik",
             missing_envs=[] if settings.database_url else ["CK_V2_DATABASE_URL"],
         ),
         PilotConfigEntry(
             name="frontend_base_url",
-            ok=bool(settings.frontend_base_url),
-            detail=settings.frontend_base_url or "CK_V2_FRONTEND_BASE_URL eksik",
-            missing_envs=[] if settings.frontend_base_url else ["CK_V2_FRONTEND_BASE_URL"],
+            ok=has_any_frontend_url,
+            required=True,
+            detail=settings.resolved_frontend_base_url if has_any_frontend_url else "CK_V2_FRONTEND_BASE_URL veya CK_V2_PUBLIC_APP_URL eksik",
+            missing_envs=[] if has_any_frontend_url else ["CK_V2_FRONTEND_BASE_URL", "CK_V2_PUBLIC_APP_URL"],
         ),
         PilotConfigEntry(
             name="public_app_url",
-            ok=bool(settings.public_app_url),
-            detail=settings.public_app_url or "CK_V2_PUBLIC_APP_URL eksik",
-            missing_envs=[] if settings.public_app_url else ["CK_V2_PUBLIC_APP_URL"],
+            ok=has_any_frontend_url,
+            required=False,
+            detail=settings.resolved_public_app_url if has_any_frontend_url else "Public app URL pilot sonrasi da eklenebilir",
+            missing_envs=[] if has_any_frontend_url else ["CK_V2_PUBLIC_APP_URL"],
         ),
         PilotConfigEntry(
             name="sms_allowlist",
+            required=False,
             ok=bool(settings.sms_phone_allowlist),
             detail=f"{len(settings.sms_phone_allowlist)} izinli telefon",
             missing_envs=(
@@ -291,6 +309,7 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         ),
         PilotConfigEntry(
             name="sms_provider",
+            required=False,
             ok=bool(sms_setup["configured"]),
             detail=(
                 f"{sms_setup['provider']} hazır"
@@ -301,25 +320,27 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         ),
     ]
 
-    missing_env_vars: list[str] = []
+    required_missing_env_vars: list[str] = []
+    optional_missing_env_vars: list[str] = []
     for entry in config_entries:
         for env_name in entry.missing_envs:
-            if env_name not in missing_env_vars:
-                missing_env_vars.append(env_name)
+            target = required_missing_env_vars if entry.required else optional_missing_env_vars
+            if env_name not in target:
+                target.append(env_name)
 
     next_actions: list[str] = []
-    if any(name in missing_env_vars for name in {"CK_V2_DATABASE_URL"}):
+    if any(name in required_missing_env_vars for name in {"CK_V2_DATABASE_URL"}):
         next_actions.append("Backend servisine veritabanı URL'sini gir.")
-    if any(name in missing_env_vars for name in {"CK_V2_FRONTEND_BASE_URL", "CK_V2_PUBLIC_APP_URL"}):
-        next_actions.append("Backend frontend/public URL ayarlarını pilot domain ile eşleştir.")
-    if any(name in missing_env_vars for name in {"AUTH_EBRU_PHONE", "AUTH_MERT_PHONE", "AUTH_MUHAMMED_PHONE"}):
-        next_actions.append("SMS giriş için yönetici telefon allowlist değerlerini gir.")
+    if any(name in required_missing_env_vars for name in {"CK_V2_FRONTEND_BASE_URL", "CK_V2_PUBLIC_APP_URL"}):
+        next_actions.append("Backend tarafinda en az bir pilot uygulama URL'si tanimla.")
+    if any(name in optional_missing_env_vars for name in {"AUTH_EBRU_PHONE", "AUTH_MERT_PHONE", "AUTH_MUHAMMED_PHONE"}):
+        next_actions.append("SMS login acilacaksa yonetici telefon allowlist degerlerini gir.")
     if sms_setup["missing_envs"]:
-        next_actions.append("NetGSM/SMS environment değişkenlerini tamamla.")
+        next_actions.append("SMS login istenecekse NetGSM/SMS environment degiskenlerini tamamla.")
     if not next_actions:
-        next_actions.append("Pilot açılışı için zorunlu environment ayarları tamam.")
+        next_actions.append("Pilot acilisi icin zorunlu environment ayarlari tamam.")
 
-    return config_entries, missing_env_vars, next_actions
+    return config_entries, required_missing_env_vars, optional_missing_env_vars, next_actions
 
 
 def _build_module_table_status(conn: psycopg.Connection) -> dict[str, dict[str, object]]:

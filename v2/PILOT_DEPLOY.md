@@ -47,6 +47,13 @@ Yerel smoke check:
   - v2 frontend public URL'si
 - `CK_V2_DEFAULT_AUTH_PASSWORD`
   - yonetici ve mobil operasyon kullanicilarinin ilk sifresi
+
+Not:
+- `CK_V2_FRONTEND_BASE_URL` veya `CK_V2_PUBLIC_APP_URL` alanlarindan en az biri pilot icin yeterlidir.
+- Ikisini de girersen status ekrani ikisini de gosterebilir; ama readiness icin tek URL yeterlidir.
+
+### SMS login icin opsiyonel ayarlar
+
 - `AUTH_EBRU_PHONE`
 - `AUTH_MERT_PHONE`
 - `AUTH_MUHAMMED_PHONE`
@@ -61,6 +68,8 @@ Not:
 - v2 backend acilisinda auth tarafindaki temel tablolar/kolonlar (`auth_users`, `auth_sessions`, `auth_phone_codes`) icin runtime bootstrap dener.
 - Bu sayede eski veritabani varyasyonlarinda login katmani daha dayanikli acilir.
 - Yine de ana operasyon tablolari (`daily_entries`, `restaurants`, `personnel`, vb.) mevcut CRM veritabaninda bulunmali; `/status` ekrani bunlari ayrica gosterir.
+- SMS env alanlari ilk pilot acilisi icin zorunlu degildir.
+- Pilot e-posta/sifre ile acilip test edilebilir; SMS login sonradan da aktif edilebilir.
 
 ### Frontend
 
@@ -126,4 +135,4 @@ Bu iki alan Render Environment veya `secrets.toml` icindeki `[v2]` bolumu ile de
 9. SMS login env'leri girildiyse telefon kodu akisi da calismali
 10. smoke script temiz donmeli:
    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
-11. `status` ekranindaki `eksik env` sayisi `0` olmali
+11. `status` ekranindaki `zorunlu eksik env` sayisi `0` olmali

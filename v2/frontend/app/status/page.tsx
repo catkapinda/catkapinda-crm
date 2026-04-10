@@ -15,6 +15,7 @@ type FrontendStatus = {
 
 type BackendReadiness = {
   status: string;
+  core_ready: boolean;
   service: string;
   version: string;
   environment: string;
@@ -32,10 +33,13 @@ type BackendReadiness = {
   config: Array<{
     name: string;
     ok: boolean;
+    required: boolean;
     detail: string | null;
     missing_envs: string[];
   }>;
   missing_env_vars: string[];
+  required_missing_env_vars: string[];
+  optional_missing_env_vars: string[];
   next_actions: string[];
   modules: Array<{
     module: string;
@@ -132,6 +136,7 @@ export default function StatusPage() {
   const backendConfig = useMemo(() => backend?.config ?? [], [backend]);
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
   const overallOk = Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable) && backend?.status === "ok";
+  const coreReady = Boolean(frontend?.backendReachable) && Boolean(backend?.core_ready);
 
   return (
     <main
@@ -157,7 +162,7 @@ export default function StatusPage() {
             gap: "14px",
           }}
         >
-          <div style={statusPill(overallOk)}>Pilot Durumu: {overallOk ? "Hazır" : "Kontrol Gerekli"}</div>
+          <div style={statusPill(coreReady)}>Pilot Durumu: {overallOk ? "Hazır" : coreReady ? "Temel Olarak Hazır" : "Kontrol Gerekli"}</div>
           <h1 style={{ margin: 0, fontSize: "clamp(2rem, 4vw, 3rem)", lineHeight: 1.04 }}>
             Cat Kapında CRM v2 pilot kontrol ekranı
           </h1>
@@ -185,7 +190,7 @@ export default function StatusPage() {
           <section style={cardStyle()}>Pilot durumu yükleniyor...</section>
         ) : (
           <>
-            {overallOk ? (
+            {coreReady ? (
               <section
                 style={{
                   ...cardStyle(),
@@ -194,11 +199,14 @@ export default function StatusPage() {
                   background: "linear-gradient(135deg, rgba(15, 95, 215, 0.05), rgba(255,255,255,0.98))",
                 }}
               >
-                <div style={statusPill(true)}>Pilot Kullanima Hazir</div>
-                <h2 style={{ margin: 0, fontSize: "1.45rem" }}>Yeni sisteme kontrollu gecis baslayabilir.</h2>
+                <div style={statusPill(true)}>{overallOk ? "Pilot Kullanima Hazir" : "Temel Yuzey Hazir"}</div>
+                <h2 style={{ margin: 0, fontSize: "1.45rem" }}>
+                  {overallOk ? "Yeni sisteme kontrollu gecis baslayabilir." : "Pilot cekirdek olarak hazir, son ayarlar tamamlanabilir."}
+                </h2>
                 <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
-                  Frontend, backend ve temel auth kontrolleri su anda olumlu gorunuyor. Ofis ekibi once login
-                  ekranindan girip puantaj, personel ve kesinti akislarini yeni sistemde test etmeye baslayabilir.
+                  {overallOk
+                    ? "Frontend, backend ve temel auth kontrolleri su anda olumlu gorunuyor. Ofis ekibi once login ekranindan girip puantaj, personel ve kesinti akislarini yeni sistemde test etmeye baslayabilir."
+                    : "Frontend ve backend cekirdek olarak ayakta. SMS gibi opsiyonel ayarlar tamamlandikca pilot tam hazir seviyesine cikacak."}
                 </p>
                 <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                   <Link href="/login" style={actionButtonStyle("primary")}>
@@ -254,8 +262,8 @@ export default function StatusPage() {
                   Backend ve Auth
                 </div>
                 <h2 style={{ margin: "12px 0 8px", fontSize: "1.4rem" }}>{backend?.service ?? "Erisilemiyor"}</h2>
-                <div style={statusPill(backend?.status === "ok")}>
-                  {backend?.status === "ok" ? "Backend Hazır" : "Backend Kontrol Gerekli"}
+                  <div style={statusPill(Boolean(backend?.core_ready))}>
+                  {backend?.status === "ok" ? "Backend Hazır" : backend?.core_ready ? "Backend Temel Olarak Hazır" : "Backend Kontrol Gerekli"}
                 </div>
                 {backend ? (
                   <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
@@ -380,10 +388,27 @@ export default function StatusPage() {
                       Pilotu açmadan önce hangi environment değerlerinin eksik olduğunu ve sıradaki adımları burada gör.
                     </p>
                   </div>
-                  <div style={statusPill((backend?.missing_env_vars?.length ?? 0) === 0)}>
-                    {(backend?.missing_env_vars?.length ?? 0) === 0 ? "Env Tamam" : `${backend?.missing_env_vars?.length ?? 0} eksik env`}
+                  <div style={statusPill((backend?.required_missing_env_vars?.length ?? 0) === 0)}>
+                    {(backend?.required_missing_env_vars?.length ?? 0) === 0
+                      ? "Zorunlu Env Tamam"
+                      : `${backend?.required_missing_env_vars?.length ?? 0} zorunlu eksik`}
                   </div>
                 </div>
+
+                {(backend?.optional_missing_env_vars?.length ?? 0) > 0 ? (
+                  <div
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: "16px",
+                      border: "1px solid rgba(245, 158, 11, 0.18)",
+                      background: "rgba(245, 158, 11, 0.08)",
+                      color: "#9a6700",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Opsiyonel eksikler: {backend?.optional_missing_env_vars.join(", ")}. Bunlar pilotu durdurmaz, sadece SMS gibi ek akislar icin gerekir.
+                  </div>
+                ) : null}
 
                 <div
                   style={{
@@ -413,11 +438,19 @@ export default function StatusPage() {
                         }}
                       >
                         <strong style={{ textTransform: "capitalize" }}>{entry.name.replaceAll("_", " ")}</strong>
-                        <div style={statusPill(entry.ok)}>{entry.ok ? "Hazır" : "Eksik"}</div>
+                        <div style={statusPill(entry.ok)}>
+                          {entry.ok ? "Hazır" : entry.required ? "Zorunlu Eksik" : "İsteğe Bağlı Eksik"}
+                        </div>
                       </div>
                       <div style={{ color: "#5f7294", lineHeight: 1.5 }}>{entry.detail ?? "-"}</div>
                       {entry.missing_envs.length ? (
-                        <div style={{ color: "#c24141", fontSize: "0.9rem", lineHeight: 1.5 }}>
+                        <div
+                          style={{
+                            color: entry.required ? "#c24141" : "#9a6700",
+                            fontSize: "0.9rem",
+                            lineHeight: 1.5,
+                          }}
+                        >
                           Eksik: {entry.missing_envs.join(", ")}
                         </div>
                       ) : null}
