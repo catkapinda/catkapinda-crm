@@ -123,6 +123,10 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["auth"]["admin_user_count"] == 3
     assert payload["auth"]["mobile_ops_user_count"] == 2
     assert payload["auth"]["default_password_configured"] is False
+    assert payload["cutover"]["phase"] == "not_ready"
+    assert payload["cutover"]["ready"] is False
+    assert payload["cutover"]["modules_ready_count"] == len(payload["modules"])
+    assert any("Varsayilan v2 sifresi" in item for item in payload["cutover"]["blocking_items"])
     assert "config" in payload
     assert "missing_env_vars" in payload
     assert "required_missing_env_vars" in payload
@@ -169,6 +173,9 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     assert "AUTH_EBRU_PHONE" in payload["optional_missing_env_vars"]
     assert "SMS_PROVIDER" in payload["optional_missing_env_vars"]
     assert payload["auth"]["default_password_configured"] is True
+    assert payload["cutover"]["phase"] == "ready_for_pilot"
+    assert payload["cutover"]["ready"] is True
+    assert any("Opsiyonel env ayarlari" in item for item in payload["cutover"]["remaining_items"])
 
 
 def test_readiness_route_reports_degraded_when_runtime_bootstrap_failed():

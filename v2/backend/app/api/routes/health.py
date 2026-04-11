@@ -12,6 +12,7 @@ from app.schemas.health import (
     HealthResponse,
     PilotAuthStatus,
     PilotConfigEntry,
+    PilotCutoverSummary,
     PilotModuleEntry,
     PilotReadinessResponse,
     ReadinessResponse,
@@ -167,7 +168,22 @@ def pilot_readiness(
 
     all_modules_active = all(entry.status == "active" for entry in modules)
     core_ready = readiness_response.status == "ok" and not required_missing_env_vars
+    auth_ready = (
+        auth_modes.email_login
+        and admin_user_count > 0
+        and settings.default_auth_password != "123456"
+    )
     overall_ok = core_ready and all_modules_active
+    cutover = _build_cutover_summary(
+        core_ready=core_ready,
+        auth_ready=auth_ready,
+        phone_login_ready=auth_modes.phone_login,
+        mobile_ops_user_count=mobile_ops_user_count,
+        modules=modules,
+        required_missing_env_vars=required_missing_env_vars,
+        optional_missing_env_vars=optional_missing_env_vars,
+        default_password_configured=settings.default_auth_password != "123456",
+    )
     return PilotReadinessResponse(
         status="ok" if overall_ok else "degraded",
         core_ready=core_ready,
@@ -190,6 +206,7 @@ def pilot_readiness(
         optional_missing_env_vars=optional_missing_env_vars,
         next_actions=next_actions,
         modules=modules,
+        cutover=cutover,
     )
 
 
@@ -407,3 +424,70 @@ def _build_module_table_status(conn: psycopg.Connection) -> dict[str, dict[str, 
             "missing_tables": missing_tables,
         }
     return status_map
+
+
+def _build_cutover_summary(
+    *,
+    core_ready: bool,
+    auth_ready: bool,
+    phone_login_ready: bool,
+    mobile_ops_user_count: int,
+    modules: list[PilotModuleEntry],
+    required_missing_env_vars: list[str],
+    optional_missing_env_vars: list[str],
+    default_password_configured: bool,
+) -> PilotCutoverSummary:
+    modules_total_count = len(modules)
+    modules_ready_count = sum(1 for module in modules if module.status == "active")
+    all_modules_active = modules_ready_count == modules_total_count and modules_total_count > 0
+
+    blocking_items: list[str] = []
+    remaining_items: list[str] = []
+
+    if not core_ready:
+        if required_missing_env_vars:
+            blocking_items.append("Zorunlu deploy environment ayarlari tamamlanmamis.")
+        else:
+            blocking_items.append("Backend veya veritabani readiness kontrolleri gecemiyor.")
+
+    if not auth_ready:
+        if not default_password_configured:
+            blocking_items.append("Varsayilan v2 sifresi pilot oncesi degistirilmeli.")
+        else:
+            blocking_items.append("En az bir aktif admin hesabiyla giris akisi dogrulanmali.")
+
+    if not all_modules_active:
+        blocking_items.append(f"{modules_total_count - modules_ready_count} modul hala eksik veya degrade durumda.")
+
+    if mobile_ops_user_count <= 0:
+        remaining_items.append("Mobil operasyon kullanicilari senkronlanmali.")
+    elif not phone_login_ready:
+        remaining_items.append("Telefonla giris akisi mobil operasyon icin acilmali.")
+
+    if optional_missing_env_vars:
+        remaining_items.append("Opsiyonel env ayarlari tamamlanirsa SMS ve gecis akislari guclenir.")
+
+    if blocking_items:
+        phase = "not_ready"
+        ready = False
+        summary = "Streamlit'ten cikis icin once ana blokajlar kapanmali."
+    elif remaining_items:
+        phase = "ready_for_pilot"
+        ready = True
+        summary = "Pilot acilabilir; son opsiyonel maddeler kontrollu sekilde tamamlanabilir."
+    else:
+        phase = "ready_for_cutover"
+        ready = True
+        summary = "Yeni sistem pilot ve kontrollu cutover icin hazir gorunuyor."
+
+    return PilotCutoverSummary(
+        phase=phase,
+        ready=ready,
+        summary=summary,
+        core_checks_ready=core_ready,
+        auth_ready=auth_ready,
+        modules_ready_count=modules_ready_count,
+        modules_total_count=modules_total_count,
+        blocking_items=blocking_items,
+        remaining_items=remaining_items,
+    )

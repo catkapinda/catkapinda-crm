@@ -53,6 +53,17 @@ type BackendReadiness = {
     detail: string | null;
     missing_tables: string[];
   }>;
+  cutover: {
+    phase: string;
+    ready: boolean;
+    summary: string;
+    core_checks_ready: boolean;
+    auth_ready: boolean;
+    modules_ready_count: number;
+    modules_total_count: number;
+    blocking_items: string[];
+    remaining_items: string[];
+  };
 };
 
 function statusPill(ok: boolean) {
@@ -140,6 +151,12 @@ export default function StatusPage() {
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
   const overallOk = Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable) && backend?.status === "ok";
   const coreReady = Boolean(frontend?.backendReachable) && Boolean(backend?.core_ready);
+  const cutoverTone =
+    backend?.cutover.phase === "ready_for_cutover"
+      ? true
+      : backend?.cutover.phase === "ready_for_pilot"
+        ? true
+        : false;
 
   return (
     <main
@@ -193,6 +210,101 @@ export default function StatusPage() {
           <section style={cardStyle()}>Pilot durumu yükleniyor...</section>
         ) : (
           <>
+            {backend?.cutover ? (
+              <section
+                style={{
+                  ...cardStyle(),
+                  display: "grid",
+                  gap: "14px",
+                  background:
+                    backend.cutover.phase === "ready_for_cutover"
+                      ? "linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(255,255,255,0.98))"
+                      : backend.cutover.phase === "ready_for_pilot"
+                        ? "linear-gradient(135deg, rgba(15, 95, 215, 0.06), rgba(255,255,255,0.98))"
+                        : "linear-gradient(135deg, rgba(239, 68, 68, 0.06), rgba(255,255,255,0.98))",
+                }}
+              >
+                <div style={statusPill(cutoverTone)}>
+                  {backend.cutover.phase === "ready_for_cutover"
+                    ? "Cutover Hazir"
+                    : backend.cutover.phase === "ready_for_pilot"
+                      ? "Pilot Acilabilir"
+                      : "Once Blokajlar Kapanmali"}
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0, 1.2fr) minmax(280px, 0.8fr)",
+                    gap: "18px",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "10px" }}>
+                    <h2 style={{ margin: 0, fontSize: "1.5rem" }}>Streamlit'ten cikis ozeti</h2>
+                    <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>{backend.cutover.summary}</p>
+                    {backend.cutover.blocking_items.length ? (
+                      <div
+                        style={{
+                          padding: "14px 16px",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(239, 68, 68, 0.18)",
+                          background: "rgba(239, 68, 68, 0.06)",
+                          color: "#b42318",
+                          display: "grid",
+                          gap: "8px",
+                        }}
+                      >
+                        <strong>Blokajlar</strong>
+                        {backend.cutover.blocking_items.map((item) => (
+                          <div key={item} style={{ lineHeight: 1.6 }}>
+                            • {item}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {backend.cutover.remaining_items.length ? (
+                      <div
+                        style={{
+                          padding: "14px 16px",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(245, 158, 11, 0.18)",
+                          background: "rgba(245, 158, 11, 0.08)",
+                          color: "#9a6700",
+                          display: "grid",
+                          gap: "8px",
+                        }}
+                      >
+                        <strong>Kalan Son Maddeler</strong>
+                        {backend.cutover.remaining_items.map((item) => (
+                          <div key={item} style={{ lineHeight: 1.6 }}>
+                            • {item}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: "12px",
+                      alignContent: "start",
+                    }}
+                  >
+                    <div style={statusPill(backend.cutover.core_checks_ready)}>Core Checks</div>
+                    <div style={statusPill(backend.cutover.auth_ready)}>Auth Hazir</div>
+                    <div style={statusPill(backend.cutover.modules_ready_count === backend.cutover.modules_total_count)}>
+                      Modul {backend.cutover.modules_ready_count}/{backend.cutover.modules_total_count}
+                    </div>
+                    <Link href="/login" style={actionButtonStyle("primary")}>
+                      Login Ekranini Ac
+                    </Link>
+                    <Link href="/attendance" style={actionButtonStyle()}>
+                      Ilk Pilot Akisini Test Et
+                    </Link>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
             {coreReady ? (
               <section
                 style={{

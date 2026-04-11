@@ -50,6 +50,18 @@ class PilotModuleEntry(BaseModel):
     missing_tables: list[str] = []
 
 
+class PilotCutoverSummary(BaseModel):
+    phase: str
+    ready: bool
+    summary: str
+    core_checks_ready: bool
+    auth_ready: bool
+    modules_ready_count: int
+    modules_total_count: int
+    blocking_items: list[str]
+    remaining_items: list[str]
+
+
 class PilotReadinessResponse(BaseModel):
     status: str
     core_ready: bool
@@ -64,3 +76,4 @@ class PilotReadinessResponse(BaseModel):
     optional_missing_env_vars: list[str]
     next_actions: list[str]
     modules: list[PilotModuleEntry]
+    cutover: PilotCutoverSummary
