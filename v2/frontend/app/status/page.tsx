@@ -29,6 +29,9 @@ type BackendReadiness = {
     phone_login: boolean;
     sms_login: boolean;
     sms_allowlist_count: number;
+    admin_user_count: number;
+    mobile_ops_user_count: number;
+    default_password_configured: boolean;
   };
   config: Array<{
     name: string;
@@ -276,7 +279,28 @@ export default function StatusPage() {
                       <div style={statusPill(backend.auth.sms_login)}>
                         SMS {backend.auth.sms_allowlist_count ? `(${backend.auth.sms_allowlist_count})` : ""}
                       </div>
+                      <div style={statusPill((backend.auth.admin_user_count ?? 0) > 0)}>
+                        Admin {(backend.auth.admin_user_count ?? 0)}
+                      </div>
+                      <div style={statusPill((backend.auth.mobile_ops_user_count ?? 0) > 0)}>
+                        Mobil {(backend.auth.mobile_ops_user_count ?? 0)}
+                      </div>
                     </div>
+                    {!backend.auth.default_password_configured ? (
+                      <div
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(245, 158, 11, 0.18)",
+                          background: "rgba(245, 158, 11, 0.08)",
+                          color: "#9a6700",
+                          lineHeight: 1.6,
+                          fontSize: "0.92rem",
+                        }}
+                      >
+                        Varsayilan v2 sifresi hala aktif gorunuyor. Pilot oncesi bunu degistirmen onerilir.
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </article>

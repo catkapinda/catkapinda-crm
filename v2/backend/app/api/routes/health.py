@@ -74,6 +74,7 @@ def pilot_readiness(
 ) -> PilotReadinessResponse:
     readiness_response = _build_readiness_response(conn)
     auth_modes = build_auth_modes()
+    admin_user_count, mobile_ops_user_count = _build_auth_user_counts(conn)
     (
         config_entries,
         required_missing_env_vars,
@@ -179,6 +180,9 @@ def pilot_readiness(
             phone_login=auth_modes.phone_login,
             sms_login=auth_modes.sms_login,
             sms_allowlist_count=len(settings.sms_phone_allowlist),
+            admin_user_count=admin_user_count,
+            mobile_ops_user_count=mobile_ops_user_count,
+            default_password_configured=settings.default_auth_password != "123456",
         ),
         config=config_entries,
         missing_env_vars=[*required_missing_env_vars, *optional_missing_env_vars],
@@ -318,6 +322,17 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
             ),
             missing_envs=list(sms_setup["missing_envs"]),
         ),
+        PilotConfigEntry(
+            name="default_auth_password",
+            required=False,
+            ok=settings.default_auth_password != "123456",
+            detail=(
+                "Varsayilan sifre degistirilmis"
+                if settings.default_auth_password != "123456"
+                else "Pilot oncesi varsayilan v2 sifresini degistirmen onerilir"
+            ),
+            missing_envs=[] if settings.default_auth_password != "123456" else ["CK_V2_DEFAULT_AUTH_PASSWORD"],
+        ),
     ]
 
     required_missing_env_vars: list[str] = []
@@ -337,10 +352,40 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         next_actions.append("SMS login acilacaksa yonetici telefon allowlist degerlerini gir.")
     if sms_setup["missing_envs"]:
         next_actions.append("SMS login istenecekse NetGSM/SMS environment degiskenlerini tamamla.")
+    if settings.default_auth_password == "123456":
+        next_actions.append("Pilot oncesi varsayilan v2 sifresini degistir.")
     if not next_actions:
         next_actions.append("Pilot acilisi icin zorunlu environment ayarlari tamam.")
 
     return config_entries, required_missing_env_vars, optional_missing_env_vars, next_actions
+
+
+def _build_auth_user_counts(conn: psycopg.Connection) -> tuple[int, int]:
+    try:
+        admin_row = conn.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM auth_users
+            WHERE role = %s
+              AND is_active = 1
+            """,
+            ("admin",),
+        ).fetchone()
+        mobile_row = conn.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM auth_users
+            WHERE role = %s
+              AND is_active = 1
+            """,
+            ("mobile_ops",),
+        ).fetchone()
+        return (
+            int((admin_row or {}).get("count") or 0),
+            int((mobile_row or {}).get("count") or 0),
+        )
+    except Exception:  # pragma: no cover - defensive runtime fallback
+        return (0, 0)
 
 
 def _build_module_table_status(conn: psycopg.Connection) -> dict[str, dict[str, object]]:

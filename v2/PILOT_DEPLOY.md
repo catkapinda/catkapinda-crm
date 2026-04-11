@@ -47,6 +47,7 @@ Yerel smoke check:
   - v2 frontend public URL'si
 - `CK_V2_DEFAULT_AUTH_PASSWORD`
   - yonetici ve mobil operasyon kullanicilarinin ilk sifresi
+  - not: varsayilan `123456` yerine pilot oncesi yeni bir sifre girmen onerilir
 
 Not:
 - `CK_V2_FRONTEND_BASE_URL` veya `CK_V2_PUBLIC_APP_URL` alanlarindan en az biri pilot icin yeterlidir.

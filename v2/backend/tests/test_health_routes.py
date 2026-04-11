@@ -11,6 +11,16 @@ class HealthyConnection:
         if query == "SELECT 1":
             return 1
 
+        normalized = " ".join(query.split())
+        if normalized.startswith("SELECT COUNT(*) AS count FROM auth_users WHERE role = %s AND is_active = 1"):
+            assert params is not None
+            role = params[0]
+            if role == "admin":
+                return CountCursor(3)
+            if role == "mobile_ops":
+                return CountCursor(2)
+            return CountCursor(0)
+
         assert query == "SELECT to_regclass(%s) AS table_name"
         assert params is not None
         return HealthyCursor(params[0])
@@ -27,6 +37,14 @@ class HealthyCursor:
 
     def fetchone(self):
         return {"table_name": self.table_name}
+
+
+class CountCursor:
+    def __init__(self, count: int):
+        self.count = count
+
+    def fetchone(self):
+        return {"count": self.count}
 
 
 def test_health_route_returns_service_metadata():
@@ -102,6 +120,9 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["auth"]["phone_login"] is True
     assert payload["auth"]["sms_login"] is True
     assert payload["auth"]["sms_allowlist_count"] == 1
+    assert payload["auth"]["admin_user_count"] == 3
+    assert payload["auth"]["mobile_ops_user_count"] == 2
+    assert payload["auth"]["default_password_configured"] is False
     assert "config" in payload
     assert "missing_env_vars" in payload
     assert "required_missing_env_vars" in payload
@@ -132,6 +153,7 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     monkeypatch.setattr(settings, "auth_ebru_phone", "")
     monkeypatch.setattr(settings, "auth_mert_phone", "")
     monkeypatch.setattr(settings, "auth_muhammed_phone", "")
+    monkeypatch.setattr(settings, "default_auth_password", "gizli123")
 
     app = create_app(enable_bootstrap=False)
     app.dependency_overrides[get_db] = lambda: HealthyConnection()
@@ -146,6 +168,7 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     assert payload["required_missing_env_vars"] == []
     assert "AUTH_EBRU_PHONE" in payload["optional_missing_env_vars"]
     assert "SMS_PROVIDER" in payload["optional_missing_env_vars"]
+    assert payload["auth"]["default_password_configured"] is True
 
 
 def test_readiness_route_reports_degraded_when_runtime_bootstrap_failed():

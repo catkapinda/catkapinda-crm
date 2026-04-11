@@ -27,6 +27,9 @@ class PilotAuthStatus(BaseModel):
     phone_login: bool
     sms_login: bool
     sms_allowlist_count: int
+    admin_user_count: int
+    mobile_ops_user_count: int
+    default_password_configured: bool
 
 
 class PilotConfigEntry(BaseModel):
