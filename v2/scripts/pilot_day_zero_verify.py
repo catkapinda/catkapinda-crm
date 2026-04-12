@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import zipfile
@@ -37,6 +38,18 @@ OPTIONAL_SMOKE_FILES = (
 
 def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _sha256_bytes(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _check_guard_file(*, mode: str, guard_json_path: Path, guarded_env_path: Path) -> tuple[bool, list[str]]:
@@ -117,6 +130,50 @@ def _check_archive_members(*, archive_members: list[str], manifest: dict) -> lis
     return issues
 
 
+def _check_integrity_manifest(
+    *,
+    output_dir: Path,
+    manifest: dict,
+    archive_checksums: dict[str, str],
+) -> tuple[bool, str | None, int, list[str]]:
+    issues: list[str] = []
+    integrity = manifest.get("integrity") or {}
+    if not integrity:
+        return (False, None, 0, issues)
+
+    algorithm = integrity.get("algorithm")
+    if algorithm != "sha256":
+        issues.append(f"Desteklenmeyen integrity algoritmasi: {algorithm}")
+
+    recorded = integrity.get("files") or {}
+    if not isinstance(recorded, dict):
+        return (True, str(algorithm), 0, issues + ["Integrity files alani gecersiz"])
+
+    expected_names = {"00-START-HERE.md"}
+    for raw_path in (manifest.get("files") or {}).values():
+        expected_names.add(Path(str(raw_path)).name)
+
+    for name in sorted(expected_names):
+        expected_checksum = recorded.get(name)
+        if not expected_checksum:
+            issues.append(f"Integrity kaydi eksik: {name}")
+            continue
+
+        path = output_dir / name
+        if path.exists():
+            actual_checksum = _sha256_path(path)
+            if actual_checksum != expected_checksum:
+                issues.append(f"Integrity checksum uyusmuyor: {name}")
+
+        archive_checksum = archive_checksums.get(name)
+        if archive_checksum is None:
+            issues.append(f"Integrity icin zip kaydi eksik: {name}")
+        elif archive_checksum != expected_checksum:
+            issues.append(f"Zip icindeki checksum uyusmuyor: {name}")
+
+    return (True, str(algorithm), len(recorded), issues)
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -124,6 +181,7 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     missing_files: list[str] = []
     consistency_issues: list[str] = []
     archive_members: list[str] = []
+    archive_checksums: dict[str, str] = {}
 
     if not output_dir.exists():
         missing_files.append(str(output_dir))
@@ -195,6 +253,11 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         else:
             with zipfile.ZipFile(archive_file) as archive:
                 archive_members = archive.namelist()
+                archive_checksums = {
+                    member: _sha256_bytes(archive.read(member))
+                    for member in archive_members
+                    if not member.endswith("/")
+                }
             consistency_issues.extend(_check_archive_members(archive_members=archive_members, manifest=manifest))
 
     smoke_ok, smoke_issues, smoke_payload = _check_smoke_consistency(
@@ -203,6 +266,13 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     if not smoke_ok:
         consistency_issues.extend(smoke_issues)
+
+    integrity_checked, integrity_algorithm, integrity_entries_count, integrity_issues = _check_integrity_manifest(
+        output_dir=output_dir,
+        manifest=manifest,
+        archive_checksums=archive_checksums,
+    )
+    consistency_issues.extend(integrity_issues)
 
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
@@ -223,6 +293,10 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "smoke_checked": bool(manifest.get("smoke_included")),
         "smoke_overall_ok": (smoke_payload or {}).get("overall_ok") if smoke_payload else None,
         "smoke_failed_count": (smoke_payload or {}).get("failed_count") if smoke_payload else None,
+        "integrity_checked": integrity_checked,
+        "integrity_ok": True if integrity_checked and not integrity_issues else (False if integrity_checked else None),
+        "integrity_algorithm": integrity_algorithm,
+        "integrity_entries_count": integrity_entries_count,
         "recommended_next_step": recommended_next_step,
     }
 
@@ -230,12 +304,19 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
 def render_console_summary(result: dict) -> str:
     smoke_checked = bool(result.get("smoke_checked"))
     smoke_overall_ok = result.get("smoke_overall_ok")
+    integrity_checked = bool(result.get("integrity_checked"))
+    integrity_ok = result.get("integrity_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
         f"Status: {'PASS' if result['passed'] else 'FAIL'}",
         f"Archive: {'OK' if result['archive_exists'] else 'MISSING'}",
         f"Archive Members: {result['archive_members_count']}",
+        (
+            f"Integrity: {'PASS' if integrity_ok else 'FAIL'} ({result.get('integrity_algorithm')}, {result.get('integrity_entries_count')} kayit)"
+            if integrity_checked
+            else "Integrity: SKIPPED"
+        ),
         (
             f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
             if smoke_checked and smoke_overall_ok is not None
@@ -253,6 +334,8 @@ def render_console_summary(result: dict) -> str:
 def render_markdown_report(result: dict) -> str:
     smoke_checked = bool(result.get("smoke_checked"))
     smoke_overall_ok = result.get("smoke_overall_ok")
+    integrity_checked = bool(result.get("integrity_checked"))
+    integrity_ok = result.get("integrity_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -260,6 +343,11 @@ def render_markdown_report(result: dict) -> str:
         f"- Status: `{'PASS' if result['passed'] else 'FAIL'}`",
         f"- Archive: `{'OK' if result['archive_exists'] else 'MISSING'}`",
         f"- Archive Members: `{result['archive_members_count']}`",
+        (
+            f"- Integrity: `{'PASS' if integrity_ok else 'FAIL'}` (`{result.get('integrity_algorithm')}`, `{result.get('integrity_entries_count')}` kayit)"
+            if integrity_checked
+            else "- Integrity: `SKIPPED`"
+        ),
         (
             f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"
             if smoke_checked and smoke_overall_ok is not None

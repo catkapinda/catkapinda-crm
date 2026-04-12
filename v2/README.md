@@ -168,6 +168,7 @@ Pilot day zero kit helper:
   - smoke markdown/json dosyalarini
   - smoke sonucunun manifest ile uyumunu
   - zip arsivinin smoke dosyalarini da tasiyip tasimadigini
+  - checksum katmaniyla dosya ve zip iceriginin manifestle birebir uyumunu
   da kontrol eder
 
 Pilot smoke check:

@@ -133,6 +133,7 @@ Pilot day zero kiti icin:
   - smoke dosyalari var mi
   - smoke sonucu manifestle tutarli mi
   - zip arsivinde smoke dosyalari tasiniyor mu
+  - checksum katmaniyla dosya ve zip icerigi manifestle birebir uyusuyor mu
   kontrol eder
 
 ## Zorunlu Ayarlar

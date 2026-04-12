@@ -372,6 +372,9 @@ def test_day_zero_verify_passes_for_valid_bundle(monkeypatch, tmp_path: Path):
     assert result["passed"] is True
     assert result["archive_exists"] is True
     assert result["archive_members_count"] > 0
+    assert result["integrity_checked"] is True
+    assert result["integrity_ok"] is True
+    assert result["integrity_algorithm"] == "sha256"
     assert result["smoke_checked"] is False
     assert result["consistency_issues"] == []
 
@@ -560,6 +563,54 @@ def test_day_zero_verify_fails_when_smoke_archive_member_is_missing(monkeypatch,
     assert any("pilot-smoke-live.md" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_integrity_checksum_changes(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+
+    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
+        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
+        (output_dir / "pilot-status-live.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
+        return {
+            "pilot_gate": {"passed": True},
+            "cutover_gate": {"passed": False},
+            "files": {
+                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
+                "status_markdown": str(output_dir / "pilot-status-live.md"),
+                "status_json": str(output_dir / "pilot-status-live.json"),
+                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
+                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
+            },
+        }
+
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    (tmp_path / "pilot-launch.md").write_text("bozuldu", encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["integrity_checked"] is True
+    assert result["integrity_ok"] is False
+    assert any("pilot-launch.md" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_archive_is_missing(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
 
@@ -617,11 +668,16 @@ def test_day_zero_verify_markdown_includes_core_sections():
             "consistency_issues": [],
             "archive_exists": True,
             "archive_members_count": 18,
+            "integrity_checked": True,
+            "integrity_ok": True,
+            "integrity_algorithm": "sha256",
+            "integrity_entries_count": 12,
             "recommended_next_step": "Day-zero kiti kullanima hazir.",
         }
     )
 
     assert "# Cat Kapinda CRM v2 Day Zero Verify" in markdown
+    assert "Integrity" in markdown
     assert "## Missing Files" in markdown
     assert "## Consistency Issues" in markdown
     assert "Smoke" in markdown

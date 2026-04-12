@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import UTC, datetime
+import hashlib
 import json
 from pathlib import Path
 import zipfile
@@ -112,6 +113,32 @@ def _zip_directory(source_dir: Path, zip_path: Path) -> None:
         for path in sorted(source_dir.rglob("*")):
             if path.is_file():
                 archive.write(path, arcname=path.relative_to(source_dir))
+
+
+def _sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _build_integrity_manifest(*, output_dir: Path, manifest: dict) -> dict:
+    tracked_names = {"00-START-HERE.md"}
+    for raw_path in (manifest.get("files") or {}).values():
+        tracked_names.add(Path(str(raw_path)).name)
+
+    checksums: dict[str, str] = {}
+    for name in sorted(tracked_names):
+        path = output_dir / name
+        if path.exists():
+            checksums[name] = _sha256_path(path)
+
+    return {
+        "algorithm": "sha256",
+        "manifest_checksum_excluded": True,
+        "files": checksums,
+    }
 
 
 def build_day_zero_bundle(
@@ -342,6 +369,11 @@ def build_day_zero_bundle(
             smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,
             smoke_next_step=smoke_report["decision"]["recommended_next_step"] if smoke_report else None,
         ),
+        encoding="utf-8",
+    )
+    manifest["integrity"] = _build_integrity_manifest(output_dir=output_dir, manifest=manifest)
+    (output_dir / "pilot-day-zero-manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     _zip_directory(output_dir, archive_path)
