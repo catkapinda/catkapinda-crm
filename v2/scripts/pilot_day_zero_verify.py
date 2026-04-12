@@ -374,6 +374,73 @@ def _check_launch_packets(*, output_dir: Path, manifest: dict) -> tuple[bool, li
     return (True, issues)
 
 
+def _check_status_documents(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+    frontend_url = manifest.get("frontend_url")
+    release_snapshot = manifest.get("release_snapshot") or {}
+    smoke_included = bool(manifest.get("smoke_included"))
+
+    status_json_path = output_dir / "pilot-status-live.json"
+    status_markdown_path = output_dir / "pilot-status-live.md"
+    pilot_gate_json_path = output_dir / "pilot-gate-pilot.json"
+    cutover_gate_json_path = output_dir / "pilot-gate-cutover.json"
+    preflight_summary_path = output_dir / "pilot-preflight-summary.md"
+
+    required_paths = [
+        status_json_path,
+        status_markdown_path,
+        pilot_gate_json_path,
+        cutover_gate_json_path,
+        preflight_summary_path,
+    ]
+    if any(not path.exists() for path in required_paths):
+        return (False, ["Status/preflight dosyalari eksik oldugu icin rapor kontrolu yapilamadi"])
+
+    status_payload = _read_json(status_json_path)
+    pilot_gate_payload = _read_json(pilot_gate_json_path)
+    cutover_gate_payload = _read_json(cutover_gate_json_path)
+    status_markdown = status_markdown_path.read_text(encoding="utf-8")
+    preflight_summary = preflight_summary_path.read_text(encoding="utf-8")
+
+    backend = status_payload.get("backend") or {}
+    frontend = status_payload.get("frontend") or {}
+    cutover = backend.get("cutover") or {}
+    decision = backend.get("decision") or {}
+
+    expected_status_snippets = [
+        f"- Base URL: `{frontend_url}`",
+        f"- Frontend Release: `{frontend.get('releaseLabel') or '-'}`",
+        f"- Backend Release: `{backend.get('release_label') or '-'}`",
+        f"- Release Alignment: `{'Uyumsuz' if release_snapshot.get('release_alignment') == 'mismatch' else ('Uyumlu' if release_snapshot.get('release_alignment') == 'aligned' else 'Eksik Bilgi')}`",
+        "## Bugunun Karari",
+        f"- Title: {decision.get('title') or '-'}",
+        "## Cutover Ozet",
+        f"- Phase: `{cutover.get('phase') or '-'}`",
+    ]
+    for snippet in expected_status_snippets:
+        if snippet not in status_markdown:
+            issues.append(f"pilot-status-live.md icinde beklenen satir eksik: {snippet}")
+
+    expected_preflight_snippets = [
+        f"- Base URL: `{frontend_url}`",
+        f"- Decision: {decision.get('title') or '-'}",
+        f"- Pilot Gate: `{'PASS' if pilot_gate_payload.get('passed') else 'FAIL'}`",
+        f"- Cutover Gate: `{'PASS' if cutover_gate_payload.get('passed') else 'FAIL'}`",
+        f"- Summary: {pilot_gate_payload.get('summary') or '-'}",
+        f"- Summary: {cutover_gate_payload.get('summary') or '-'}",
+        f"- Recommended Next Step: {pilot_gate_payload.get('recommended_next_step') or '-'}",
+        f"- Recommended Next Step: {cutover_gate_payload.get('recommended_next_step') or '-'}",
+    ]
+    expected_preflight_snippets.append(
+        f"- Smoke: `{'PASS' if manifest.get('smoke_overall_ok') else 'FAIL'}`" if smoke_included else "- Smoke: `ATLANDI`"
+    )
+    for snippet in expected_preflight_snippets:
+        if snippet not in preflight_summary:
+            issues.append(f"pilot-preflight-summary.md icinde beklenen satir eksik: {snippet}")
+
+    return (True, issues)
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -498,6 +565,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(packet_issues)
 
+    reports_checked, report_issues = _check_status_documents(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(report_issues)
+
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
         "Day-zero kiti kullanima hazir."
@@ -531,6 +604,8 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "env_ok": True if env_checked and not env_issues else (False if env_checked else None),
         "packet_checked": packet_checked,
         "packet_ok": True if packet_checked and not packet_issues else (False if packet_checked else None),
+        "reports_checked": reports_checked,
+        "reports_ok": True if reports_checked and not report_issues else (False if reports_checked else None),
         "recommended_next_step": recommended_next_step,
     }
 
@@ -548,6 +623,8 @@ def render_console_summary(result: dict) -> str:
     env_ok = result.get("env_ok")
     packet_checked = bool(result.get("packet_checked"))
     packet_ok = result.get("packet_ok")
+    reports_checked = bool(result.get("reports_checked"))
+    reports_ok = result.get("reports_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
@@ -580,6 +657,11 @@ def render_console_summary(result: dict) -> str:
             else "Launch Packets: SKIPPED"
         ),
         (
+            f"Status Reports: {'PASS' if reports_ok else 'FAIL'}"
+            if reports_checked
+            else "Status Reports: SKIPPED"
+        ),
+        (
             f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
             if smoke_checked and smoke_overall_ok is not None
             else "Smoke: SKIPPED"
@@ -606,6 +688,8 @@ def render_markdown_report(result: dict) -> str:
     env_ok = result.get("env_ok")
     packet_checked = bool(result.get("packet_checked"))
     packet_ok = result.get("packet_ok")
+    reports_checked = bool(result.get("reports_checked"))
+    reports_ok = result.get("reports_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -637,6 +721,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Launch Packets: `{'PASS' if packet_ok else 'FAIL'}`"
             if packet_checked
             else "- Launch Packets: `SKIPPED`"
+        ),
+        (
+            f"- Status Reports: `{'PASS' if reports_ok else 'FAIL'}`"
+            if reports_checked
+            else "- Status Reports: `SKIPPED`"
         ),
         (
             f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"

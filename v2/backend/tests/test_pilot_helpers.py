@@ -98,6 +98,148 @@ def sample_payload(*, phase: str = "ready_for_pilot", ready: bool = False, requi
     }
 
 
+def write_valid_preflight_artifacts(
+    output_dir: Path,
+    *,
+    payload: dict | None = None,
+    pilot_gate_result: dict | None = None,
+    cutover_gate_result: dict | None = None,
+    smoke_report: dict | None = None,
+) -> dict[str, str]:
+    payload = payload or sample_payload()
+    pilot_gate_result = pilot_gate_result or {
+        "passed": True,
+        "summary": "Pilot acilabilir.",
+        "recommended_next_step": "Devam",
+        "blocking_items": [],
+    }
+    cutover_gate_result = cutover_gate_result or {
+        "passed": False,
+        "summary": "Redirect cutover'a gecilemez.",
+        "recommended_next_step": "Bekle",
+        "blocking_items": [],
+    }
+
+    base_url = "https://pilot.example.com"
+    (output_dir / "pilot-status-live.md").write_text(
+        pilot_status_report.build_markdown_report(base_url=base_url, payload=payload),
+        encoding="utf-8",
+    )
+    (output_dir / "pilot-status-live.json").write_text(json.dumps(payload), encoding="utf-8")
+    (output_dir / "pilot-gate-pilot.json").write_text(json.dumps(pilot_gate_result), encoding="utf-8")
+    (output_dir / "pilot-gate-cutover.json").write_text(json.dumps(cutover_gate_result), encoding="utf-8")
+    (output_dir / "pilot-preflight-summary.md").write_text(
+        pilot_preflight._build_summary_markdown(
+            base_url=base_url,
+            generated_at="2026-01-01T00:00:00+00:00",
+            payload=payload,
+            pilot_gate=pilot_gate_result,
+            cutover_gate=cutover_gate_result,
+            output_dir=output_dir,
+            smoke_report=smoke_report,
+        ),
+        encoding="utf-8",
+    )
+
+    files = {
+        "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
+        "status_markdown": str(output_dir / "pilot-status-live.md"),
+        "status_json": str(output_dir / "pilot-status-live.json"),
+        "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
+        "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
+    }
+    if smoke_report is not None:
+        (output_dir / "pilot-smoke-live.md").write_text(
+            pilot_smoke.build_markdown_report(
+                {
+                    "base_url": base_url,
+                    "preset": None,
+                    "generated_at": "2026-01-01T00:00:00+00:00",
+                    "timeout_seconds": 5,
+                    "identity_provided": False,
+                    "legacy_url": None,
+                    "legacy_cutover_mode": None,
+                    "overall_ok": smoke_report["overall_ok"],
+                    "passed_count": 1 if smoke_report["overall_ok"] else 0,
+                    "failed_count": smoke_report["failed_count"],
+                    "decision": {
+                        "status": "pass" if smoke_report["overall_ok"] else "blocking",
+                        "headline": "Smoke report",
+                        "primary_blocker": None,
+                        "recommended_next_step": smoke_report["decision"]["recommended_next_step"],
+                        "failing_checks": [],
+                    },
+                    "results": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        (output_dir / "pilot-smoke-live.json").write_text(json.dumps(smoke_report), encoding="utf-8")
+        files["smoke_markdown"] = str(output_dir / "pilot-smoke-live.md")
+        files["smoke_json"] = str(output_dir / "pilot-smoke-live.json")
+    return files
+
+
+def make_fake_preflight_bundle(
+    *,
+    payload: dict | None = None,
+    pilot_gate_result: dict | None = None,
+    cutover_gate_result: dict | None = None,
+    smoke_report: dict | None = None,
+):
+    payload = payload or sample_payload()
+    default_pilot_gate = {
+        "passed": True,
+        "summary": "Pilot acilabilir.",
+        "recommended_next_step": "Devam",
+        "blocking_items": [],
+    }
+    default_cutover_gate = {
+        "passed": False,
+        "summary": "Redirect cutover'a gecilemez.",
+        "recommended_next_step": "Bekle",
+        "blocking_items": [],
+    }
+    pilot_gate_result = {**default_pilot_gate, **(pilot_gate_result or {})}
+    cutover_gate_result = {**default_cutover_gate, **(cutover_gate_result or {})}
+    if smoke_report is not None:
+        smoke_report = {
+            "overall_ok": False,
+            "failed_count": 0,
+            "decision": {
+                "headline": "Smoke report",
+                "recommended_next_step": "Smoke blokajlarini kapat.",
+                "failing_checks": [],
+            },
+            **smoke_report,
+        }
+        smoke_report["decision"] = {
+            "headline": "Smoke report",
+            "recommended_next_step": "Smoke blokajlarini kapat.",
+            "failing_checks": [],
+            **(smoke_report.get("decision") or {}),
+        }
+
+    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
+        files = write_valid_preflight_artifacts(
+            output_dir,
+            payload=payload,
+            pilot_gate_result=pilot_gate_result,
+            cutover_gate_result=cutover_gate_result,
+            smoke_report=smoke_report,
+        )
+        result = {
+            "pilot_gate": json.loads(json.dumps(pilot_gate_result)),
+            "cutover_gate": json.loads(json.dumps(cutover_gate_result)),
+            "files": files,
+        }
+        if smoke_report is not None:
+            result["smoke_report"] = json.loads(json.dumps(smoke_report))
+        return result
+
+    return fake_preflight_bundle
+
+
 def test_pilot_gate_passes_when_phase_is_ready_for_pilot():
     result = pilot_gate.build_gate_result(mode="pilot", payload=sample_payload())
 
@@ -192,26 +334,7 @@ def test_preflight_bundle_can_embed_smoke_outputs(monkeypatch, tmp_path: Path):
 
 def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
 
     manifest = pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -271,37 +394,19 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
 
 def test_day_zero_bundle_can_surface_embedded_smoke_summary(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        (output_dir / "pilot-smoke-live.md").write_text("smoke", encoding="utf-8")
-        (output_dir / "pilot-smoke-live.json").write_text("{}", encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "smoke_report": {
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
                 "overall_ok": False,
                 "failed_count": 2,
                 "decision": {
                     "recommended_next_step": "Frontend ready blokajini kapat.",
                 },
-            },
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-                "smoke_markdown": str(output_dir / "pilot-smoke-live.md"),
-                "smoke_json": str(output_dir / "pilot-smoke-live.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+            }
+        ),
+    )
 
     manifest = pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -337,26 +442,7 @@ def test_day_zero_can_derive_api_url_from_status_payload():
 
 def test_day_zero_verify_passes_for_valid_bundle(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
 
     pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -390,42 +476,25 @@ def test_day_zero_verify_passes_for_valid_bundle(monkeypatch, tmp_path: Path):
     assert result["env_ok"] is True
     assert result["packet_checked"] is True
     assert result["packet_ok"] is True
+    assert result["reports_checked"] is True
+    assert result["reports_ok"] is True
     assert result["smoke_checked"] is False
     assert result["consistency_issues"] == []
 
 
 def test_day_zero_verify_checks_embedded_smoke_files(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        smoke_report = {
-            "overall_ok": True,
-            "failed_count": 0,
-            "decision": {"recommended_next_step": "Pilot login ekranini ac."},
-        }
-        (output_dir / "pilot-smoke-live.md").write_text("smoke", encoding="utf-8")
-        (output_dir / "pilot-smoke-live.json").write_text(json.dumps(smoke_report), encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "smoke_report": smoke_report,
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-                "smoke_markdown": str(output_dir / "pilot-smoke-live.md"),
-                "smoke_json": str(output_dir / "pilot-smoke-live.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
+                "overall_ok": True,
+                "failed_count": 0,
+                "decision": {"recommended_next_step": "Pilot login ekranini ac."},
+            }
+        ),
+    )
 
     pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -454,40 +523,17 @@ def test_day_zero_verify_checks_embedded_smoke_files(monkeypatch, tmp_path: Path
 
 def test_day_zero_verify_fails_when_smoke_manifest_and_file_disagree(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        smoke_report = {
-            "overall_ok": False,
-            "failed_count": 2,
-            "decision": {"recommended_next_step": "Frontend ready blokajini kapat."},
-        }
-        (output_dir / "pilot-smoke-live.md").write_text("smoke", encoding="utf-8")
-        (output_dir / "pilot-smoke-live.json").write_text(json.dumps(smoke_report), encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "smoke_report": {
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
                 "overall_ok": True,
                 "failed_count": 0,
                 "decision": {"recommended_next_step": "Pilot login ekranini ac."},
-            },
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-                "smoke_markdown": str(output_dir / "pilot-smoke-live.md"),
-                "smoke_json": str(output_dir / "pilot-smoke-live.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+            }
+        ),
+    )
 
     pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -506,6 +552,17 @@ def test_day_zero_verify_fails_when_smoke_manifest_and_file_disagree(monkeypatch
         smoke_preset="pilot",
     )
 
+    (tmp_path / "pilot-smoke-live.json").write_text(
+        json.dumps(
+            {
+                "overall_ok": False,
+                "failed_count": 2,
+                "decision": {"recommended_next_step": "Frontend ready blokajini kapat."},
+            }
+        ),
+        encoding="utf-8",
+    )
+
     result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
 
     assert result["passed"] is False
@@ -515,36 +572,17 @@ def test_day_zero_verify_fails_when_smoke_manifest_and_file_disagree(monkeypatch
 
 def test_day_zero_verify_fails_when_smoke_archive_member_is_missing(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        smoke_report = {
-            "overall_ok": True,
-            "failed_count": 0,
-            "decision": {"recommended_next_step": "Pilot login ekranini ac."},
-        }
-        (output_dir / "pilot-smoke-live.md").write_text("smoke", encoding="utf-8")
-        (output_dir / "pilot-smoke-live.json").write_text(json.dumps(smoke_report), encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "smoke_report": smoke_report,
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-                "smoke_markdown": str(output_dir / "pilot-smoke-live.md"),
-                "smoke_json": str(output_dir / "pilot-smoke-live.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
+                "overall_ok": True,
+                "failed_count": 0,
+                "decision": {"recommended_next_step": "Pilot login ekranini ac."},
+            }
+        ),
+    )
 
     manifest = pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -580,26 +618,7 @@ def test_day_zero_verify_fails_when_smoke_archive_member_is_missing(monkeypatch,
 
 def test_day_zero_verify_fails_when_integrity_checksum_changes(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
 
     pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -628,26 +647,7 @@ def test_day_zero_verify_fails_when_integrity_checksum_changes(monkeypatch, tmp_
 
 def test_day_zero_verify_fails_when_release_snapshot_disagrees(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
 
     pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -679,26 +679,7 @@ def test_day_zero_verify_fails_when_release_snapshot_disagrees(monkeypatch, tmp_
 
 def test_day_zero_verify_fails_when_start_here_markdown_is_stale(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
 
     pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -729,26 +710,7 @@ def test_day_zero_verify_fails_when_start_here_markdown_is_stale(monkeypatch, tm
 
 def test_day_zero_verify_fails_when_streamlit_banner_env_is_wrong(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
 
     pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -779,26 +741,7 @@ def test_day_zero_verify_fails_when_streamlit_banner_env_is_wrong(monkeypatch, t
 
 def test_day_zero_verify_fails_when_launch_packet_is_stale(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
 
     pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -827,28 +770,51 @@ def test_day_zero_verify_fails_when_launch_packet_is_stale(monkeypatch, tmp_path
     assert any("pilot-cutover.md" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_preflight_summary_is_stale(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            pilot_gate_result={"passed": True, "summary": "Pilot acilabilir.", "recommended_next_step": "Devam"},
+            cutover_gate_result={
+                "passed": False,
+                "summary": "Redirect cutover'a gecilemez.",
+                "recommended_next_step": "Bekle",
+            },
+        ),
+    )
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    summary_path = tmp_path / "pilot-preflight-summary.md"
+    content = summary_path.read_text(encoding="utf-8").replace("- Pilot Gate: `PASS`", "- Pilot Gate: `FAIL`")
+    summary_path.write_text(content, encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["reports_checked"] is True
+    assert result["reports_ok"] is False
+    assert any("pilot-preflight-summary.md" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_archive_is_missing(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
-
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
-        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
-        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
-        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
-        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
-        return {
-            "pilot_gate": {"passed": True},
-            "cutover_gate": {"passed": False},
-            "files": {
-                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
-                "status_markdown": str(output_dir / "pilot-status-live.md"),
-                "status_json": str(output_dir / "pilot-status-live.json"),
-                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
-                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
-            },
-        }
-
-    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
 
     manifest = pilot_day_zero.build_day_zero_bundle(
         frontend_url="https://pilot.example.com",
@@ -896,6 +862,8 @@ def test_day_zero_verify_markdown_includes_core_sections():
             "env_ok": True,
             "packet_checked": True,
             "packet_ok": True,
+            "reports_checked": True,
+            "reports_ok": True,
             "recommended_next_step": "Day-zero kiti kullanima hazir.",
         }
     )
@@ -906,6 +874,7 @@ def test_day_zero_verify_markdown_includes_core_sections():
     assert "Start Here" in markdown
     assert "Env Payloads" in markdown
     assert "Launch Packets" in markdown
+    assert "Status Reports" in markdown
     assert "## Missing Files" in markdown
     assert "## Consistency Issues" in markdown
     assert "Smoke" in markdown

@@ -138,6 +138,7 @@ Pilot day zero kiti icin:
   - `00-START-HERE.md` icindeki rehber satirlari manifest durumuyla uyusuyor mu
   - render-env-bundle / streamlit banner / streamlit redirect env dosyalari dogru URL ve mode'u tasiyor mu
   - pilot launch / cutover paketleri dogru link ve komutlari tasiyor mu
+  - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlari karar/gate/release satirlarini guncel tasiyor mu
   kontrol eder
 
 ## Zorunlu Ayarlar

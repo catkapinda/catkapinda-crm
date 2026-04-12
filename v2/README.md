@@ -173,6 +173,7 @@ Pilot day zero kit helper:
   - `00-START-HERE.md` rehberinin verify/smoke/release satirlarini guncel tutup tutmadigini
   - env dosyalarinin dogru URL ve cutover modlarini tasiyip tasimadigini
   - `pilot-launch.md` ve `pilot-cutover.md` paketlerinin dogru link ve cutover komutlarini tasiyip tasimadigini
+  - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlarinin karar/gate/release satirlarini guncel tutup tutmadigini
   da kontrol eder
 
 Pilot smoke check:
