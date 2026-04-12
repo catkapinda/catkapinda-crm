@@ -118,6 +118,7 @@ type BackendReadiness = {
   }>;
   helper_commands: Array<{
     label: string;
+    category: string;
     command: string;
   }>;
   services: Array<{
@@ -303,6 +304,14 @@ export default function StatusPage() {
   const pilotLinks = useMemo(() => backend?.pilot_links ?? [], [backend]);
   const smokeCommands = useMemo(() => backend?.smoke_commands ?? [], [backend]);
   const helperCommands = useMemo(() => backend?.helper_commands ?? [], [backend]);
+  const envHelperCommands = useMemo(
+    () => helperCommands.filter((command) => command.category === "env"),
+    [helperCommands],
+  );
+  const quickCheckCommands = useMemo(
+    () => helperCommands.filter((command) => command.category === "quick-check"),
+    [helperCommands],
+  );
   const pilotServices = useMemo(() => backend?.services ?? [], [backend]);
   const envSnippets = useMemo(() => backend?.env_snippets ?? [], [backend]);
   const backendConfigEntries = useMemo(
@@ -1184,7 +1193,7 @@ export default function StatusPage() {
                         gap: "14px",
                       }}
                     >
-                      {helperCommands.map((command) => (
+                      {envHelperCommands.map((command) => (
                         <div
                           key={command.label}
                           style={{
@@ -1232,6 +1241,71 @@ export default function StatusPage() {
                         </div>
                       ))}
                     </div>
+                    {quickCheckCommands.length ? (
+                      <div style={{ display: "grid", gap: "14px" }}>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: "1rem" }}>Hizli Kontrol Komutlari</h3>
+                          <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+                            Full smoke koşturmadan önce servislerin temel sağlık yanıtlarını hızlıca doğrulamak için kullanabiliriz.
+                          </p>
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                            gap: "14px",
+                          }}
+                        >
+                          {quickCheckCommands.map((command) => (
+                            <div
+                              key={command.label}
+                              style={{
+                                padding: "16px",
+                                borderRadius: "18px",
+                                border: "1px solid rgba(219, 228, 243, 0.9)",
+                                background: "rgba(248, 251, 255, 0.92)",
+                                display: "grid",
+                                gap: "10px",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: "10px",
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <strong>{command.label}</strong>
+                                <button
+                                  type="button"
+                                  onClick={() => void copyText(`helper-${command.label}`, command.command)}
+                                  style={{
+                                    ...actionButtonStyle(),
+                                    cursor: "pointer",
+                                    padding: "10px 12px",
+                                  }}
+                                >
+                                  {copiedKey === `helper-${command.label}` ? "Kopyalandi" : "Komutu Kopyala"}
+                                </button>
+                              </div>
+                              <code
+                                style={{
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  fontSize: "0.88rem",
+                                  lineHeight: 1.7,
+                                  color: "#25406b",
+                                }}
+                              >
+                                {command.command}
+                              </code>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </section>

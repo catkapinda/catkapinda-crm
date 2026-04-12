@@ -713,6 +713,7 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
     return [
         PilotHelperCommand(
             label="Render Env Bundle",
+            category="env",
             command=(
                 "python v2/scripts/render_env_bundle.py "
                 f"--frontend-url {frontend_url} --api-url {backend_url}"
@@ -720,6 +721,7 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
         ),
         PilotHelperCommand(
             label="Render Env Bundle JSON",
+            category="env",
             command=(
                 "python v2/scripts/render_env_bundle.py "
                 f"--frontend-url {frontend_url} --api-url {backend_url} --json"
@@ -727,6 +729,7 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
         ),
         PilotHelperCommand(
             label="Streamlit Banner Env",
+            category="env",
             command=(
                 "python v2/scripts/render_env_bundle.py "
                 f"--frontend-url {frontend_url} --api-url {backend_url} "
@@ -735,6 +738,7 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
         ),
         PilotHelperCommand(
             label="Streamlit Redirect Env",
+            category="env",
             command=(
                 "python v2/scripts/render_env_bundle.py "
                 f"--frontend-url {frontend_url} --api-url {backend_url} "
@@ -743,6 +747,7 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
         ),
         PilotHelperCommand(
             label="API Env",
+            category="env",
             command=(
                 "python v2/scripts/render_env_bundle.py "
                 f"--frontend-url {frontend_url} --api-url {backend_url} --service api"
@@ -750,10 +755,31 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
         ),
         PilotHelperCommand(
             label="Frontend Env",
+            category="env",
             command=(
                 "python v2/scripts/render_env_bundle.py "
                 f"--frontend-url {frontend_url} --api-url {backend_url} --service frontend"
             ),
+        ),
+        PilotHelperCommand(
+            label="Frontend Health Curl",
+            category="quick-check",
+            command=f"curl -fsSL {frontend_url}/api/health",
+        ),
+        PilotHelperCommand(
+            label="Frontend Ready Curl",
+            category="quick-check",
+            command=f"curl -fsSL {frontend_url}/api/ready",
+        ),
+        PilotHelperCommand(
+            label="Backend Health Curl",
+            category="quick-check",
+            command=f"curl -fsSL {backend_url}/api/health",
+        ),
+        PilotHelperCommand(
+            label="Backend Pilot Curl",
+            category="quick-check",
+            command=f"curl -fsSL {backend_url}/api/health/pilot",
         ),
     ]
 

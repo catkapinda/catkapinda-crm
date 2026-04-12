@@ -122,6 +122,7 @@ class PilotSmokeCommand(BaseModel):
 
 class PilotHelperCommand(BaseModel):
     label: str
+    category: str = "env"
     command: str
 
 

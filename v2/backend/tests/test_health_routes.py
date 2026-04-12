@@ -167,6 +167,7 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com"
     )
+    assert payload["helper_commands"][0]["category"] == "env"
     assert payload["helper_commands"][1]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --json"
@@ -189,6 +190,11 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --service frontend"
     )
+    assert payload["helper_commands"][6]["command"] == "curl -fsSL https://pilot.example.com/api/health"
+    assert payload["helper_commands"][6]["category"] == "quick-check"
+    assert payload["helper_commands"][7]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
+    assert payload["helper_commands"][8]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
+    assert payload["helper_commands"][9]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
     assert payload["services"][0]["name"] == "crmcatkapinda-v2"
     assert payload["services"][0]["service_type"] == "frontend"
     assert payload["services"][0]["public_url"] == "https://pilot.example.com"
