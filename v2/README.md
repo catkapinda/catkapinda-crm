@@ -54,6 +54,9 @@ Pilot smoke check:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
   - optional auth smoke:
     - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --identity ebru@catkapinda.com --password <sifre>`
+  - optional legacy Streamlit bridge smoke:
+    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --legacy-url https://crmcatkapinda.com --legacy-cutover-mode banner`
+    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --legacy-url https://crmcatkapinda.com --legacy-cutover-mode redirect`
 - This verifies:
   - frontend health
   - frontend readiness
@@ -68,3 +71,4 @@ Pilot smoke check:
     - `/personnel`
     - `/deductions`
     - `/reports`
+  - if legacy bridge smoke is enabled, the old Streamlit app's banner/redirect bridge

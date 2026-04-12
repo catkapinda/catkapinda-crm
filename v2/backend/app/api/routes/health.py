@@ -503,6 +503,20 @@ def _build_smoke_commands() -> list[PilotSmokeCommand]:
                 "--identity ebru@catkapinda.com --password <sifre>"
             ),
         ),
+        PilotSmokeCommand(
+            label="Legacy Banner Smoke",
+            command=(
+                f"python v2/scripts/pilot_smoke.py --base-url {base_url} "
+                "--legacy-url https://crmcatkapinda.com --legacy-cutover-mode banner"
+            ),
+        ),
+        PilotSmokeCommand(
+            label="Legacy Redirect Smoke",
+            command=(
+                f"python v2/scripts/pilot_smoke.py --base-url {base_url} "
+                "--legacy-url https://crmcatkapinda.com --legacy-cutover-mode redirect"
+            ),
+        ),
     ]
 
 

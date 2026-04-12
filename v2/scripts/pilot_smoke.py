@@ -18,6 +18,8 @@ PROTECTED_PAGES = [
     ("/deductions", "protected_deductions_page"),
     ("/reports", "protected_reports_page"),
 ]
+LEGACY_BANNER_MARKERS = ("Yeni sisteme gecis basladi", "v2 pilotu ac")
+LEGACY_REDIRECT_MARKERS = ("YENI SISTEM ACILIYOR", "Cat Kapinda CRM v2'ye geciliyor")
 
 
 @dataclass
@@ -78,7 +80,14 @@ def fetch_text_with_headers(base_url: str, path: str, timeout: int, headers: dic
         return status, content_type, payload
 
 
-def run_smoke_checks(base_url: str, timeout: int, identity: str | None = None, password: str | None = None) -> list[CheckResult]:
+def run_smoke_checks(
+    base_url: str,
+    timeout: int,
+    identity: str | None = None,
+    password: str | None = None,
+    legacy_url: str | None = None,
+    legacy_cutover_mode: str | None = None,
+) -> list[CheckResult]:
     results: list[CheckResult] = []
 
     try:
@@ -249,6 +258,21 @@ def run_smoke_checks(base_url: str, timeout: int, identity: str | None = None, p
         except (urllib.error.URLError, json.JSONDecodeError) as exc:
             results.append(CheckResult("auth_login", False, str(exc)))
 
+    if legacy_url and legacy_cutover_mode in {"banner", "redirect"}:
+        try:
+            status, content_type, payload = fetch_text(legacy_url, "/", timeout)
+            markers = LEGACY_BANNER_MARKERS if legacy_cutover_mode == "banner" else LEGACY_REDIRECT_MARKERS
+            ok = status == 200 and "text/html" in content_type.lower() and all(marker in payload for marker in markers)
+            results.append(
+                CheckResult(
+                    name=f"legacy_{legacy_cutover_mode}_bridge",
+                    ok=ok,
+                    detail=f"HTTP {status} • mode={legacy_cutover_mode} • content-type={content_type or '-'}",
+                )
+            )
+        except urllib.error.URLError as exc:
+            results.append(CheckResult(f"legacy_{legacy_cutover_mode}_bridge", False, str(exc)))
+
     return results
 
 
@@ -267,12 +291,28 @@ def main() -> int:
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help="HTTP timeout in seconds")
     parser.add_argument("--identity", default=os.getenv("CK_V2_SMOKE_IDENTITY", ""), help="Optional login identity for end-to-end auth smoke")
     parser.add_argument("--password", default=os.getenv("CK_V2_SMOKE_PASSWORD", ""), help="Optional login password for end-to-end auth smoke")
+    parser.add_argument("--legacy-url", default="", help="Optional legacy Streamlit URL for banner/redirect smoke")
+    parser.add_argument(
+        "--legacy-cutover-mode",
+        default="",
+        choices=["", "banner", "redirect"],
+        help="Optional legacy cutover mode to verify on the old Streamlit app",
+    )
     args = parser.parse_args()
 
     base_url = normalize_base_url(args.base_url)
     identity = args.identity.strip() or None
     password = args.password.strip() or None
-    results = run_smoke_checks(base_url, args.timeout, identity=identity, password=password)
+    legacy_url = normalize_base_url(args.legacy_url) if args.legacy_url.strip() else None
+    legacy_cutover_mode = args.legacy_cutover_mode.strip() or None
+    results = run_smoke_checks(
+        base_url,
+        args.timeout,
+        identity=identity,
+        password=password,
+        legacy_url=legacy_url,
+        legacy_cutover_mode=legacy_cutover_mode,
+    )
 
     print(f"v2 pilot smoke • {base_url}")
     print("-" * 72)

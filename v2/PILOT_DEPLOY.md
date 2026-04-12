@@ -35,6 +35,10 @@ Yerel smoke check:
 - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
 - opsiyonel gerçek login smoke:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --identity ebru@catkapinda.com --password <sifre>`
+- opsiyonel eski Streamlit banner smoke:
+  - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --legacy-url https://crmcatkapinda.com --legacy-cutover-mode banner`
+- opsiyonel eski Streamlit redirect smoke:
+  - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --legacy-url https://crmcatkapinda.com --legacy-cutover-mode redirect`
 
 ## Zorunlu Ayarlar
 
@@ -159,3 +163,7 @@ Not:
   - `/personnel`
   - `/deductions`
   - `/reports`
+- legacy smoke aciksa eski Streamlit panelde:
+  - `banner` modunda v2 geçiş kartını
+  - `redirect` modunda otomatik geçiş yüzeyini
+  da doğrular
