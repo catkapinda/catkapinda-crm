@@ -12,6 +12,12 @@ from dataclasses import dataclass
 
 
 DEFAULT_TIMEOUT = 12
+PROTECTED_PAGES = [
+    ("/attendance", "protected_attendance_page"),
+    ("/personnel", "protected_personnel_page"),
+    ("/deductions", "protected_deductions_page"),
+    ("/reports", "protected_reports_page"),
+]
 
 
 @dataclass
@@ -55,6 +61,16 @@ def post_json(base_url: str, path: str, payload: dict, timeout: int, headers: di
 def fetch_text(base_url: str, path: str, timeout: int) -> tuple[int, str, str]:
     url = urllib.parse.urljoin(f"{base_url}/", path.lstrip("/"))
     request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        status = response.getcode()
+        content_type = response.headers.get("Content-Type", "")
+        payload = response.read().decode("utf-8", errors="replace")
+        return status, content_type, payload
+
+
+def fetch_text_with_headers(base_url: str, path: str, timeout: int, headers: dict[str, str]) -> tuple[int, str, str]:
+    url = urllib.parse.urljoin(f"{base_url}/", path.lstrip("/"))
+    request = urllib.request.Request(url, headers={"Cache-Control": "no-cache", **headers})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         status = response.getcode()
         content_type = response.headers.get("Content-Type", "")
@@ -214,6 +230,22 @@ def run_smoke_checks(base_url: str, timeout: int, identity: str | None = None, p
                         detail=f"HTTP {me_status} • user={me_payload.get('email', '-')}",
                     )
                 )
+                cookie_headers = {"Cookie": f"ck_v2_auth_token={token}"}
+                for path, check_name in PROTECTED_PAGES:
+                    page_status, page_content_type, _ = fetch_text_with_headers(
+                        base_url,
+                        path,
+                        timeout,
+                        headers=cookie_headers,
+                    )
+                    page_ok = page_status == 200 and "text/html" in page_content_type.lower()
+                    results.append(
+                        CheckResult(
+                            name=check_name,
+                            ok=page_ok,
+                            detail=f"HTTP {page_status} • content-type={page_content_type or '-'} • path={path}",
+                        )
+                    )
         except (urllib.error.URLError, json.JSONDecodeError) as exc:
             results.append(CheckResult("auth_login", False, str(exc)))
 

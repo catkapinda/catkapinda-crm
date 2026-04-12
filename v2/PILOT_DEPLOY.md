@@ -149,3 +149,8 @@ Not:
   - `required_missing_env_vars = 0`
   - `cutover.phase = ready_for_pilot` veya `ready_for_cutover`
 - `--identity` ve `--password` verilirse script login + `/auth/me` akisini da test eder
+- login smoke aciksa ek olarak korumali v2 sayfalarini da dogrular:
+  - `/attendance`
+  - `/personnel`
+  - `/deductions`
+  - `/reports`

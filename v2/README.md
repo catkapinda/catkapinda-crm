@@ -61,3 +61,8 @@ Pilot smoke check:
   - backend readiness
   - backend pilot cutover phase (`ready_for_pilot` / `ready_for_cutover`)
   - optionally login + `/auth/me` if identity/password are provided
+  - if login smoke is enabled, protected v2 pages:
+    - `/attendance`
+    - `/personnel`
+    - `/deductions`
+    - `/reports`
