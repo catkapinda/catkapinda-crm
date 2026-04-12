@@ -582,6 +582,7 @@ def _build_pilot_links() -> list[PilotLinkEntry]:
         PilotLinkEntry(label="Pilot Login", href=f"{base_url}/login"),
         PilotLinkEntry(label="Pilot Dashboard", href=f"{base_url}/"),
         PilotLinkEntry(label="Pilot Status", href=f"{base_url}/status"),
+        PilotLinkEntry(label="Pilot Status JSON", href=f"{base_url}/api/pilot-status"),
         PilotLinkEntry(label="Pilot Puantaj", href=f"{base_url}/attendance"),
     ]
 

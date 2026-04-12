@@ -140,6 +140,7 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["rollout_steps"][3]["service_name"] == "crmcatkapinda"
     assert "CK_V2_PILOT_URL" in payload["rollout_steps"][3]["env_keys"]
     assert payload["pilot_links"][0]["href"] == "https://pilot.example.com/login"
+    assert any(link["href"] == "https://pilot.example.com/api/pilot-status" for link in payload["pilot_links"])
     assert payload["smoke_commands"][0]["command"] == "python v2/scripts/pilot_smoke.py --base-url https://pilot.example.com"
     assert "--identity ebru@catkapinda.com" in payload["smoke_commands"][1]["command"]
     assert "--legacy-cutover-mode banner" in payload["smoke_commands"][2]["command"]

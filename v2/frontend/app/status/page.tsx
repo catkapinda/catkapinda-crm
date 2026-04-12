@@ -245,6 +245,40 @@ export default function StatusPage() {
   );
   const overallOk = Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable) && backend?.status === "ok";
   const coreReady = Boolean(frontend?.backendReachable) && Boolean(backend?.core_ready);
+  const frontendRecoveryTips = useMemo(() => {
+    if (!frontend) {
+      return ["Frontend status verisi alınamadı. Önce /api/pilot-status ve /api/ready endpointlerini açıp cevap dönüyor mu kontrol et."];
+    }
+
+    if (!frontend.proxyConfigured) {
+      return [
+        "Frontend tarafında backend hedefi hiç görünmüyor. Render pilotta CK_V2_INTERNAL_API_HOSTPORT fromService bağını kontrol et.",
+        "Yerel denemede çalışıyorsan CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000 ayarının .env.local içinde olduğundan emin ol.",
+      ];
+    }
+
+    if (frontend.proxyMode === "render_hostport" && !frontend.backendReachable) {
+      return [
+        "Frontend Render hostport modunda ama backend'e ulaşamıyor. Önce crmcatkapinda-v2-api servisinin /api/health endpointini aç.",
+        "Render frontend servisinde CK_V2_INTERNAL_API_HOSTPORT değerinin gerçekten backend servisine fromService ile bağlı olduğunu kontrol et.",
+      ];
+    }
+
+    if (frontend.proxyMode === "explicit_base_url" && !frontend.backendReachable) {
+      return [
+        "Frontend explicit base URL modunda. Bu genelde yerel geliştirme içindir; pilotta yanlışlıkla bu env girildiyse kaldır.",
+        "Yereldeysen CK_V2_INTERNAL_API_BASE_URL değerinin çalışan backend adresine işaret ettiğini doğrula.",
+      ];
+    }
+
+    if (frontend.backendReachable) {
+      return [
+        "Frontend backend'i görüyor. Bundan sonraki odak /status ekranındaki cutover ve modül kartları olmalı.",
+      ];
+    }
+
+    return ["Frontend proxy katmanı kontrol edilmeli. /api/ready ve /api/pilot-status cevaplarını birlikte incele."];
+  }, [frontend]);
   const cutoverTone =
     backend?.cutover.phase === "ready_for_cutover"
       ? true
@@ -772,6 +806,45 @@ export default function StatusPage() {
                   </div>
                 ) : null}
               </article>
+            </section>
+
+            <section style={cardStyle()}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "16px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Frontend Hızlı Teşhis</h2>
+                  <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+                    Pilotta frontend tarafı tökezlerse önce bu kısa yorumlara bakacağız. Proxy modu ve backend erişimi birlikte yorumlanır.
+                  </p>
+                </div>
+                <div style={statusPill(Boolean(frontend?.backendReachable))}>
+                  {frontend?.backendReachable ? "Bağlantı Görünüyor" : "Kontrol Gerekli"}
+                </div>
+              </div>
+              <div style={{ marginTop: "18px", display: "grid", gap: "12px" }}>
+                {frontendRecoveryTips.map((tip) => (
+                  <article
+                    key={tip}
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: "18px",
+                      border: "1px solid rgba(219, 228, 243, 0.9)",
+                      background: "rgba(248, 250, 255, 0.86)",
+                      color: "#35507d",
+                      lineHeight: 1.7,
+                    }}
+                  >
+                    {tip}
+                  </article>
+                ))}
+              </div>
             </section>
 
             <section style={cardStyle()}>
