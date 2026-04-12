@@ -76,6 +76,14 @@ class PilotFlowStep(BaseModel):
     href: str
 
 
+class PilotScenarioStep(BaseModel):
+    title: str
+    module: str
+    detail: str
+    success_hint: str
+    href: str
+
+
 class PilotDeployStep(BaseModel):
     title: str
     detail: str
@@ -138,6 +146,7 @@ class PilotReadinessResponse(BaseModel):
     cutover: PilotCutoverSummary
     pilot_accounts: list[PilotAccountEntry]
     pilot_flow: list[PilotFlowStep]
+    pilot_scenarios: list[PilotScenarioStep]
     deploy_steps: list[PilotDeployStep]
     rollout_steps: list[PilotRolloutStep]
     pilot_links: list[PilotLinkEntry]

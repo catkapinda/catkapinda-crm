@@ -78,6 +78,13 @@ type BackendReadiness = {
     detail: string;
     href: string;
   }>;
+  pilot_scenarios: Array<{
+    title: string;
+    module: string;
+    detail: string;
+    success_hint: string;
+    href: string;
+  }>;
   deploy_steps: Array<{
     title: string;
     detail: string;
@@ -227,6 +234,7 @@ export default function StatusPage() {
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
   const pilotAccounts = useMemo(() => backend?.pilot_accounts ?? [], [backend]);
   const pilotFlow = useMemo(() => backend?.pilot_flow ?? [], [backend]);
+  const pilotScenarios = useMemo(() => backend?.pilot_scenarios ?? [], [backend]);
   const deploySteps = useMemo(() => backend?.deploy_steps ?? [], [backend]);
   const rolloutSteps = useMemo(() => backend?.rollout_steps ?? [], [backend]);
   const pilotLinks = useMemo(() => backend?.pilot_links ?? [], [backend]);
@@ -1086,6 +1094,81 @@ export default function StatusPage() {
                 </div>
               </article>
             </section>
+
+            {pilotScenarios.length ? (
+              <section style={cardStyle()}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Test Senaryolari</h2>
+                    <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+                      Pilotu actigimiz ilk gun ekip bunlari sirasiyla denerse yeni sistemin ana operasyon akislari hizli sekilde dogrulanir.
+                    </p>
+                  </div>
+                  <div style={statusPill(pilotScenarios.length > 0)}>{pilotScenarios.length} senaryo</div>
+                </div>
+                <div
+                  style={{
+                    marginTop: "18px",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: "12px",
+                  }}
+                >
+                  {pilotScenarios.map((scenario) => (
+                    <article
+                      key={scenario.title}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 250, 255, 0.86)",
+                        display: "grid",
+                        gap: "10px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <strong>{scenario.title}</strong>
+                        <div style={statusPill(true)}>{scenario.module}</div>
+                      </div>
+                      <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{scenario.detail}</div>
+                      <div
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(15, 95, 215, 0.12)",
+                          background: "rgba(15, 95, 215, 0.05)",
+                          color: "#35507d",
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        Basari isareti: {scenario.success_hint}
+                      </div>
+                      <div>
+                        <Link href={scenario.href} style={actionButtonStyle()}>
+                          Senaryoyu Ac
+                        </Link>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             {rolloutSteps.length ? (
               <section style={cardStyle()}>

@@ -133,6 +133,10 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["pilot_accounts"][0]["email"] == "ebru@catkapinda.com"
     assert payload["pilot_flow"][0]["href"] == "/login"
     assert any(step["href"] == "/attendance" for step in payload["pilot_flow"])
+    assert len(payload["pilot_scenarios"]) == 5
+    assert payload["pilot_scenarios"][0]["href"] == "/"
+    assert any(step["href"] == "/attendance" for step in payload["pilot_scenarios"])
+    assert any("hakedis" in step["success_hint"].lower() or "finans" in step["success_hint"].lower() for step in payload["pilot_scenarios"])
     assert payload["deploy_steps"][0]["title"].startswith("1. Render'da blueprint")
     assert payload["deploy_steps"][1]["service_name"] == "crmcatkapinda-v2-api"
     assert payload["deploy_steps"][5]["service_name"] == "crmcatkapinda"

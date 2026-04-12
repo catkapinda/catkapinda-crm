@@ -18,6 +18,7 @@ from app.schemas.health import (
     PilotEnvSnippetEntry,
     PilotFlowStep,
     PilotLinkEntry,
+    PilotScenarioStep,
     PilotRolloutStep,
     PilotServiceEntry,
     PilotServiceEnvEntry,
@@ -195,6 +196,7 @@ def pilot_readiness(
     )
     pilot_accounts = _build_pilot_accounts()
     pilot_flow = _build_pilot_flow()
+    pilot_scenarios = _build_pilot_scenarios()
     deploy_steps = _build_deploy_steps()
     rollout_steps = _build_rollout_steps(
         core_ready=core_ready,
@@ -231,6 +233,7 @@ def pilot_readiness(
         cutover=cutover,
         pilot_accounts=pilot_accounts,
         pilot_flow=pilot_flow,
+        pilot_scenarios=pilot_scenarios,
         deploy_steps=deploy_steps,
         rollout_steps=rollout_steps,
         pilot_links=pilot_links,
@@ -485,6 +488,46 @@ def _build_pilot_flow() -> list[PilotFlowStep]:
         PilotFlowStep(
             title="4. Finans yüzeylerini gözden geçir",
             detail="Aylık hakediş ve raporlar ekranında özet kartlar ile tabloların beklendiği gibi açıldığını doğrula.",
+            href="/reports",
+        ),
+    ]
+
+
+def _build_pilot_scenarios() -> list[PilotScenarioStep]:
+    return [
+        PilotScenarioStep(
+            title="Admin girisi ve ana ekran kontrolu",
+            module="Genel Bakis",
+            detail="Yonetici hesabiyla giris yap, dashboard kartlari ve hizli gecislerin hatasiz acildigini kontrol et.",
+            success_hint="Login sonrasi ana ekran aciliyor ve menudeki moduller gorunuyorsa bu adim tamam.",
+            href="/",
+        ),
+        PilotScenarioStep(
+            title="Puantaj kaydi olustur, duzenle ve sil",
+            module="Puantaj",
+            detail="Bir gunluk puantaj kaydi ekle, sonra kayit yonetiminden ayni kaydi guncelle ve sil.",
+            success_hint="Kayit listede gorunur, duzenleme kalici olur ve silince listeden dusuyorsa akıs dogru.",
+            href="/attendance",
+        ),
+        PilotScenarioStep(
+            title="Personel karti guncelle ve durum degistir",
+            module="Personel",
+            detail="Bir personelin telefon veya restoran bilgisini guncelle, sonra aktif/pasif akisini dene.",
+            success_hint="Kart verisi yenileniyor ve aktif/pasif durumu aninda degisiyorsa bu yuzey hazir.",
+            href="/personnel",
+        ),
+        PilotScenarioStep(
+            title="Kesinti ekle ve hakediste etkisini kontrol et",
+            module="Kesintiler",
+            detail="Bir personele kesinti gir, ardindan aylik hakedis veya raporda toplamlarin degistigini kontrol et.",
+            success_hint="Kesinti listede gorunuyor ve toplamlar beklenen yonde degisiyorsa bu akis tamam.",
+            href="/deductions",
+        ),
+        PilotScenarioStep(
+            title="Raporlar ve aylik hakedis yuzeylerini dogrula",
+            module="Raporlar",
+            detail="Restoran faturasi, kurye maliyeti ve aylik hakedis ekranlarinda kartlar, arama ve tablolarin davranişini kontrol et.",
+            success_hint="Kartlar doluysa, tablolar aciliyorsa ve arama/scroll akislari calisiyorsa finans yuzeyi pilot icin hazir.",
             href="/reports",
         ),
     ]
