@@ -77,6 +77,12 @@ Render env bundle helper:
 - sadece frontend env'i icin:
   - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --service frontend`
 
+Pilot launch packet helper:
+- Ekipte paylaşılabilir markdown açılış paketi üretmek için:
+  - `python v2/scripts/pilot_launch_packet.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output pilot-launch.md`
+- redirect provası için:
+  - `python v2/scripts/pilot_launch_packet.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --cutover-mode redirect --output pilot-cutover.md`
+
 Pilot smoke check:
 - After deploy, run:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`

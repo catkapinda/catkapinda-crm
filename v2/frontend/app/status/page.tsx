@@ -314,6 +314,10 @@ export default function StatusPage() {
     () => helperCommands.filter((command) => command.category === "env"),
     [helperCommands],
   );
+  const packetHelperCommands = useMemo(
+    () => helperCommands.filter((command) => command.category === "packet"),
+    [helperCommands],
+  );
   const quickCheckCommands = useMemo(
     () => helperCommands.filter((command) => command.category === "quick-check"),
     [helperCommands],
@@ -1319,6 +1323,71 @@ export default function StatusPage() {
                         </div>
                       ))}
                     </div>
+                    {packetHelperCommands.length ? (
+                      <div style={{ display: "grid", gap: "14px" }}>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: "1rem" }}>Acilis Paketi Komutlari</h3>
+                          <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+                            Ekip icin paylasilabilir markdown acilis paketi uretmek istedigimizde bu komutlari kullanabiliriz.
+                          </p>
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                            gap: "14px",
+                          }}
+                        >
+                          {packetHelperCommands.map((command) => (
+                            <div
+                              key={command.label}
+                              style={{
+                                padding: "16px",
+                                borderRadius: "18px",
+                                border: "1px solid rgba(219, 228, 243, 0.9)",
+                                background: "rgba(248, 251, 255, 0.92)",
+                                display: "grid",
+                                gap: "10px",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: "10px",
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <strong>{command.label}</strong>
+                                <button
+                                  type="button"
+                                  onClick={() => void copyText(`helper-${command.label}`, command.command)}
+                                  style={{
+                                    ...actionButtonStyle(),
+                                    cursor: "pointer",
+                                    padding: "10px 12px",
+                                  }}
+                                >
+                                  {copiedKey === `helper-${command.label}` ? "Kopyalandi" : "Komutu Kopyala"}
+                                </button>
+                              </div>
+                              <code
+                                style={{
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  fontSize: "0.88rem",
+                                  lineHeight: 1.7,
+                                  color: "#25406b",
+                                }}
+                              >
+                                {command.command}
+                              </code>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     {quickCheckCommands.length ? (
                       <div style={{ display: "grid", gap: "14px" }}>
                         <div>

@@ -62,6 +62,11 @@ Env bloklarini tek komutta hazirlamak icin:
 - sadece frontend env'i icin:
   - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --service frontend`
 
+Acilis paketi uretmek icin:
+- `python v2/scripts/pilot_launch_packet.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output pilot-launch.md`
+- redirect provasi paketi icin:
+  - `python v2/scripts/pilot_launch_packet.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --cutover-mode redirect --output pilot-cutover.md`
+
 ## Zorunlu Ayarlar
 
 ### Backend

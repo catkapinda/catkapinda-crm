@@ -765,6 +765,23 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             ),
         ),
         PilotHelperCommand(
+            label="Pilot Launch Packet",
+            category="packet",
+            command=(
+                "python v2/scripts/pilot_launch_packet.py "
+                f"--frontend-url {frontend_url} --api-url {backend_url} --output pilot-launch.md"
+            ),
+        ),
+        PilotHelperCommand(
+            label="Pilot Cutover Packet",
+            category="packet",
+            command=(
+                "python v2/scripts/pilot_launch_packet.py "
+                f"--frontend-url {frontend_url} --api-url {backend_url} "
+                "--cutover-mode redirect --output pilot-cutover.md"
+            ),
+        ),
+        PilotHelperCommand(
             label="Frontend Health Curl",
             category="quick-check",
             command=f"curl -fsSL {frontend_url}/api/health",

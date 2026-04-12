@@ -190,11 +190,22 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --service frontend"
     )
-    assert payload["helper_commands"][6]["command"] == "curl -fsSL https://pilot.example.com/api/health"
-    assert payload["helper_commands"][6]["category"] == "quick-check"
-    assert payload["helper_commands"][7]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
-    assert payload["helper_commands"][8]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
-    assert payload["helper_commands"][9]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
+    assert payload["helper_commands"][6]["command"] == (
+        "python v2/scripts/pilot_launch_packet.py "
+        "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --output pilot-launch.md"
+    )
+    assert payload["helper_commands"][6]["category"] == "packet"
+    assert payload["helper_commands"][7]["command"] == (
+        "python v2/scripts/pilot_launch_packet.py "
+        "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com "
+        "--cutover-mode redirect --output pilot-cutover.md"
+    )
+    assert payload["helper_commands"][7]["category"] == "packet"
+    assert payload["helper_commands"][8]["command"] == "curl -fsSL https://pilot.example.com/api/health"
+    assert payload["helper_commands"][8]["category"] == "quick-check"
+    assert payload["helper_commands"][9]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
+    assert payload["helper_commands"][10]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
+    assert payload["helper_commands"][11]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
     assert payload["command_pack"][0]["title"] == "1. Env bloklarini hazirla"
     assert payload["command_pack"][0]["command"] == (
         "python v2/scripts/render_env_bundle.py "
