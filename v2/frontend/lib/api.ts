@@ -1,4 +1,5 @@
 export const AUTH_TOKEN_STORAGE_KEY = "ck_v2_auth_token";
+export const AUTH_TOKEN_COOKIE_NAME = "ck_v2_auth_token";
 export const AUTH_NOTICE_STORAGE_KEY = "ck_v2_auth_notice";
 export const AUTH_UNAUTHORIZED_EVENT = "ck-v2-auth-unauthorized";
 
@@ -23,9 +24,11 @@ export function writeStoredAuthToken(token: string) {
   }
   if (token) {
     window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+    document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 12}`;
     return;
   }
   window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=; Path=/; SameSite=Lax; Max-Age=0`;
 }
 
 export function readStoredAuthNotice() {
