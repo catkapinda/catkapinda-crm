@@ -63,6 +63,12 @@ Deploy:
   - `SMS_NETGSM_ENCODING=TR`
 - Keep the current Streamlit app live during pilot rollout; v2 is intended to run in parallel first.
 
+Render env bundle helper:
+- Pilot acilisinda kopyalanabilir env bloklarini tek komutta uretmek icin:
+  - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain>`
+- istenirse JSON olarak:
+  - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --json`
+
 Pilot smoke check:
 - After deploy, run:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`

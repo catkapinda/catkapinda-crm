@@ -49,6 +49,11 @@ Yerel smoke check:
 - opsiyonel eski Streamlit redirect smoke:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --legacy-url https://crmcatkapinda.com --legacy-cutover-mode redirect`
 
+Env bloklarini tek komutta hazirlamak icin:
+- `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain>`
+- JSON cikti istenirse:
+  - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --json`
+
 ## Zorunlu Ayarlar
 
 ### Backend
