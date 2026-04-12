@@ -69,11 +69,39 @@ def _sha256_path(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _check_guard_file(*, mode: str, guard_json_path: Path, guarded_env_path: Path) -> tuple[bool, list[str]]:
+def _check_guard_file(
+    *,
+    mode: str,
+    guard_json_path: Path,
+    guarded_env_path: Path,
+    manifest: dict,
+    expected_allowed: bool | None,
+) -> tuple[bool, list[str]]:
     issues: list[str] = []
     guard_payload = _read_json(guard_json_path)
     content = guarded_env_path.read_text(encoding="utf-8")
     allowed = bool(guard_payload.get("allowed"))
+    streamlit_service_name = (manifest.get("service_names") or {}).get("streamlit")
+    expected_gate_mode = "pilot" if mode == "banner" else "cutover"
+    env_bundle = guard_payload.get("env_bundle") or {}
+    streamlit_env = env_bundle.get(streamlit_service_name or "", {})
+
+    if guard_payload.get("mode") != mode:
+        issues.append(f"{guard_json_path.name} icinde mode uyusmuyor: {mode}")
+    if guard_payload.get("base_url") != manifest.get("frontend_url"):
+        issues.append(f"{guard_json_path.name} icinde base_url uyusmuyor")
+    if guard_payload.get("streamlit_service_name") != streamlit_service_name:
+        issues.append(f"{guard_json_path.name} icinde streamlit service name uyusmuyor")
+    if guard_payload.get("gate_mode") != expected_gate_mode:
+        issues.append(f"{guard_json_path.name} icinde gate_mode uyusmuyor: {expected_gate_mode}")
+    if expected_allowed is not None and allowed != expected_allowed:
+        issues.append(f"{guard_json_path.name} icinde allowed degeri manifestle uyusmuyor")
+    if streamlit_service_name not in env_bundle:
+        issues.append(f"{guard_json_path.name} icinde env_bundle streamlit servisini icermiyor: {streamlit_service_name}")
+    if streamlit_env.get("CK_V2_PILOT_URL") != manifest.get("frontend_url"):
+        issues.append(f"{guard_json_path.name} icinde CK_V2_PILOT_URL uyusmuyor")
+    if streamlit_env.get("CK_V2_CUTOVER_MODE") != mode:
+        issues.append(f"{guard_json_path.name} icinde CK_V2_CUTOVER_MODE uyusmuyor: {mode}")
 
     if allowed:
         expected_token = f"CK_V2_CUTOVER_MODE={mode}"
@@ -535,11 +563,15 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         mode="banner",
         guard_json_path=output_dir / "streamlit-banner-guard.json",
         guarded_env_path=output_dir / "streamlit-banner-guarded.env",
+        manifest=manifest,
+        expected_allowed=manifest.get("banner_guard_allowed"),
     )
     redirect_ok, redirect_issues = _check_guard_file(
         mode="redirect",
         guard_json_path=output_dir / "streamlit-redirect-guard.json",
         guarded_env_path=output_dir / "streamlit-redirect-guarded.env",
+        manifest=manifest,
+        expected_allowed=manifest.get("redirect_guard_allowed"),
     )
     if not banner_ok:
         consistency_issues.extend(banner_issues)
