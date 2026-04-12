@@ -4,14 +4,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-
-def normalize_url(raw: str) -> str:
-    value = raw.strip()
-    if not value:
-        raise ValueError("URL bos olamaz.")
-    if not value.startswith(("http://", "https://")):
-        value = f"https://{value}"
-    return value.rstrip("/")
+from render_env_bundle import build_bundle, normalize_url, render_text
 
 
 def build_packet(
@@ -22,7 +15,22 @@ def build_packet(
     identity: str,
     password_placeholder: str,
     cutover_mode: str,
+    database_url: str,
+    default_auth_password: str,
+    api_service_name: str,
+    frontend_service_name: str,
+    streamlit_service_name: str,
 ) -> str:
+    env_bundle = build_bundle(
+        frontend_url=frontend_url,
+        api_url=api_url,
+        database_url=database_url,
+        default_auth_password=default_auth_password,
+        api_service_name=api_service_name,
+        frontend_service_name=frontend_service_name,
+        streamlit_service_name=streamlit_service_name,
+        cutover_mode=cutover_mode,
+    )
     lines = [
         "# Cat Kapinda CRM v2 Pilot Acilis Paketi",
         "",
@@ -50,6 +58,12 @@ def build_packet(
         f"python v2/scripts/render_env_bundle.py --frontend-url {frontend_url} --api-url {api_url} --service api",
         f"python v2/scripts/render_env_bundle.py --frontend-url {frontend_url} --api-url {api_url} --service frontend",
         f"python v2/scripts/render_env_bundle.py --frontend-url {frontend_url} --api-url {api_url} --service streamlit --cutover-mode {cutover_mode}",
+        "```",
+        "",
+        "## Hazır Env Blokları",
+        "",
+        "```dotenv",
+        render_text(env_bundle).rstrip(),
         "```",
         "",
         "## Hızlı Kontrol Komutları",
@@ -121,6 +135,31 @@ def main() -> int:
         help="Which Streamlit cutover mode the packet should prepare for",
     )
     parser.add_argument(
+        "--database-url",
+        default="<mevcut-postgresql-url>",
+        help="Shared PostgreSQL URL placeholder or real value to embed in env blocks",
+    )
+    parser.add_argument(
+        "--default-auth-password",
+        default="<pilot-sifresi>",
+        help="Initial admin/mobile_ops password placeholder or real value to embed in env blocks",
+    )
+    parser.add_argument(
+        "--api-service-name",
+        default="crmcatkapinda-v2-api",
+        help="Render backend service name for env blocks",
+    )
+    parser.add_argument(
+        "--frontend-service-name",
+        default="crmcatkapinda-v2",
+        help="Render frontend service name for env blocks",
+    )
+    parser.add_argument(
+        "--streamlit-service-name",
+        default="crmcatkapinda",
+        help="Current Streamlit service name for env blocks",
+    )
+    parser.add_argument(
         "--output",
         default="",
         help="Optional markdown output path",
@@ -134,6 +173,11 @@ def main() -> int:
         identity=args.identity.strip(),
         password_placeholder=args.password_placeholder.strip(),
         cutover_mode=args.cutover_mode,
+        database_url=args.database_url.strip(),
+        default_auth_password=args.default_auth_password.strip(),
+        api_service_name=args.api_service_name.strip(),
+        frontend_service_name=args.frontend_service_name.strip(),
+        streamlit_service_name=args.streamlit_service_name.strip(),
     )
 
     if args.output.strip():

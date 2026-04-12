@@ -66,6 +66,7 @@ Acilis paketi uretmek icin:
 - `python v2/scripts/pilot_launch_packet.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output pilot-launch.md`
 - redirect provasi paketi icin:
   - `python v2/scripts/pilot_launch_packet.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --cutover-mode redirect --output pilot-cutover.md`
+- bu paket artik hazir env bloklarini da icerir
 
 ## Zorunlu Ayarlar
 

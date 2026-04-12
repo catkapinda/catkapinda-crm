@@ -82,6 +82,7 @@ Pilot launch packet helper:
   - `python v2/scripts/pilot_launch_packet.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output pilot-launch.md`
 - redirect provası için:
   - `python v2/scripts/pilot_launch_packet.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --cutover-mode redirect --output pilot-cutover.md`
+- bu paket artık doğrudan hazır env bloklarını da içerir
 
 Pilot smoke check:
 - After deploy, run:
