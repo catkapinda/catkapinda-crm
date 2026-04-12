@@ -5,6 +5,7 @@ import argparse
 from datetime import UTC, datetime
 import json
 from pathlib import Path
+import zipfile
 
 from pilot_cutover_guard import build_guard_result, render_env_text as render_guard_env_text
 from pilot_launch_packet import build_packet
@@ -23,6 +24,59 @@ def _derive_api_url(payload: dict) -> str | None:
         if service.get("service_type") == "backend" and service.get("public_url"):
             return normalize_url(service["public_url"])
     return None
+
+
+def _build_start_here_markdown(
+    *,
+    generated_at: str,
+    frontend_url: str,
+    api_url: str,
+    streamlit_url: str,
+    pilot_gate_passed: bool,
+    cutover_gate_passed: bool,
+    banner_guard_allowed: bool,
+    redirect_guard_allowed: bool,
+) -> str:
+    lines = [
+        "# Cat Kapinda CRM v2 Day Zero - Start Here",
+        "",
+        f"- Generated At: `{generated_at}`",
+        f"- Frontend URL: `{frontend_url}`",
+        f"- API URL: `{api_url}`",
+        f"- Streamlit URL: `{streamlit_url}`",
+        f"- Pilot Gate: `{'PASS' if pilot_gate_passed else 'FAIL'}`",
+        f"- Cutover Gate: `{'PASS' if cutover_gate_passed else 'FAIL'}`",
+        f"- Banner Guard: `{'PASS' if banner_guard_allowed else 'BLOCK'}`",
+        f"- Redirect Guard: `{'PASS' if redirect_guard_allowed else 'BLOCK'}`",
+        "",
+        "## Nereden Baslayacagiz",
+        "",
+        "1. `pilot-preflight-summary.md` dosyasini ac.",
+        "2. `pilot-status-live.md` ile canli durumu oku.",
+        "3. Render'a yapistirmak icin `render-env-bundle.env` dosyasini kullan.",
+        "4. Eski panelde kontrollu gecis icin `streamlit-banner-guarded.env` dosyasina bak.",
+        "5. Redirect only if `streamlit-redirect-guarded.env` bos degilse ve guard PASS ise gec.",
+        "",
+        "## Onemli Dosyalar",
+        "",
+        "- `render-env-bundle.env`: tum servisler icin temel env plani",
+        "- `pilot-launch.md`: pilot acilis paketi",
+        "- `pilot-cutover.md`: redirect provasi paketi",
+        "- `pilot-status-live.md`: canli /api/pilot-status ozeti",
+        "- `pilot-gate-pilot.json`: pilot karari",
+        "- `pilot-gate-cutover.json`: redirect karari",
+        "- `streamlit-banner-guarded.env`: guvenli banner gecisi",
+        "- `streamlit-redirect-guarded.env`: guvenli redirect gecisi",
+        "",
+    ]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _zip_directory(source_dir: Path, zip_path: Path) -> None:
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(source_dir.rglob("*")):
+            if path.is_file():
+                archive.write(path, arcname=path.relative_to(source_dir))
 
 
 def build_day_zero_bundle(
@@ -180,6 +234,26 @@ def build_day_zero_bundle(
             **preflight_result["files"],
         },
     }
+    (output_dir / "pilot-day-zero-manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "00-START-HERE.md").write_text(
+        _build_start_here_markdown(
+            generated_at=generated_at,
+            frontend_url=frontend_url,
+            api_url=api_url,
+            streamlit_url=streamlit_url,
+            pilot_gate_passed=preflight_result["pilot_gate"]["passed"],
+            cutover_gate_passed=preflight_result["cutover_gate"]["passed"],
+            banner_guard_allowed=banner_guard["allowed"],
+            redirect_guard_allowed=cutover_guard["allowed"],
+        ),
+        encoding="utf-8",
+    )
+    archive_path = output_dir.parent / f"{output_dir.name}.zip"
+    _zip_directory(output_dir, archive_path)
+    manifest["archive_path"] = str(archive_path)
     (output_dir / "pilot-day-zero-manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

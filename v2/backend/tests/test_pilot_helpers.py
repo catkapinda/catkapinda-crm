@@ -202,6 +202,7 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert manifest["cutover_gate_passed"] is False
     assert manifest["banner_guard_allowed"] is True
     assert manifest["redirect_guard_allowed"] is False
+    assert "archive_path" in manifest
     assert (tmp_path / "render-env-bundle.env").exists()
     assert (tmp_path / "streamlit-banner.env").exists()
     assert (tmp_path / "streamlit-redirect.env").exists()
@@ -212,6 +213,8 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert (tmp_path / "pilot-launch.md").exists()
     assert (tmp_path / "pilot-cutover.md").exists()
     assert (tmp_path / "pilot-day-zero-manifest.json").exists()
+    assert (tmp_path / "00-START-HERE.md").exists()
+    assert (tmp_path.parent / f"{tmp_path.name}.zip").exists()
     assert "CK_V2_CUTOVER_MODE=banner" in (tmp_path / "streamlit-banner-guarded.env").read_text(encoding="utf-8")
     assert "# guard blocked redirect env" in (tmp_path / "streamlit-redirect-guarded.env").read_text(encoding="utf-8")
 

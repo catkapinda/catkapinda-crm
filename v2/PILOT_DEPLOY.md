@@ -109,7 +109,9 @@ Pilot day zero kiti icin:
   - streamlit banner/redirect env
   - streamlit banner/redirect guard json
   - streamlit banner/redirect guarded env
+  - `00-START-HERE.md`
   toplar
+- ayrica ayni isimle `.zip` arsivi de uretir
 
 ## Zorunlu Ayarlar
 
