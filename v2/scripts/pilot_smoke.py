@@ -122,6 +122,30 @@ def run_smoke_checks(
         results.append(CheckResult("frontend_ready", False, str(exc)))
 
     try:
+        status, payload = fetch_json(base_url, "/api/pilot-status", timeout)
+        frontend_payload = payload.get("frontend", {})
+        backend_payload = payload.get("backend", {})
+        ok = (
+            status == 200
+            and bool(frontend_payload.get("proxyConfigured"))
+            and bool(frontend_payload.get("backendReachable"))
+            and bool(backend_payload)
+        )
+        results.append(
+            CheckResult(
+                name="frontend_pilot_status",
+                ok=ok,
+                detail=(
+                    f"HTTP {status} • proxyMode={frontend_payload.get('proxyMode')} • "
+                    f"backend={frontend_payload.get('backendStatus')} • "
+                    f"pilotPhase={backend_payload.get('cutover', {}).get('phase') if isinstance(backend_payload, dict) else '-'}"
+                ),
+            )
+        )
+    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+        results.append(CheckResult("frontend_pilot_status", False, str(exc)))
+
+    try:
         status, content_type, _ = fetch_text(base_url, "/status", timeout)
         ok = status == 200 and "text/html" in content_type.lower()
         results.append(

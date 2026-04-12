@@ -112,6 +112,12 @@ type BackendReadiness = {
   }>;
 };
 
+type PilotStatusResponse = {
+  status: string;
+  frontend: FrontendStatus;
+  backend: BackendReadiness | null;
+};
+
 function statusPill(ok: boolean) {
   return {
     display: "inline-flex",
@@ -161,17 +167,12 @@ export default function StatusPage() {
     async function loadStatus() {
       setLoading(true);
       try {
-        const [frontendRes, backendRes] = await Promise.all([
-          fetch("/api/ready", { cache: "no-store" }),
-          fetch("/v2-api/health/pilot", { cache: "no-store" }),
-        ]);
-
-        const frontendPayload = frontendRes.ok ? ((await frontendRes.json()) as FrontendStatus) : null;
-        const backendPayload = backendRes.ok ? ((await backendRes.json()) as BackendReadiness) : null;
+        const response = await fetch("/api/pilot-status", { cache: "no-store" });
+        const payload = response.ok ? ((await response.json()) as PilotStatusResponse) : null;
 
         if (active) {
-          setFrontend(frontendPayload);
-          setBackend(backendPayload);
+          setFrontend(payload?.frontend ?? null);
+          setBackend(payload?.backend ?? null);
         }
       } catch {
         if (active) {
