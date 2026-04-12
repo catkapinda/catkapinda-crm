@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import sqlite3
@@ -139,50 +140,75 @@ class CompatConnection:
         self.raw_conn.close()
 
 
-def get_database_config() -> str | dict[str, Any] | None:
+def _iter_database_config_candidates() -> list[tuple[str, str | dict[str, Any]]]:
+    candidates: list[tuple[str, str | dict[str, Any]]] = []
+    seen: set[str] = set()
+
+    def add_candidate(label: str, value: str | dict[str, Any] | None) -> None:
+        if not value:
+            return
+        if isinstance(value, dict):
+            fingerprint = "dict:" + json.dumps(value, sort_keys=True, ensure_ascii=False)
+        else:
+            fingerprint = f"url:{str(value).strip()}"
+        if fingerprint in seen:
+            return
+        seen.add(fingerprint)
+        candidates.append((label, value))
+
     env_value = os.getenv("DATABASE_URL")
-    if env_value:
-        return env_value
+    add_candidate("render_database_url", env_value)
 
     env_host = (os.getenv("DB_HOST") or os.getenv("DATABASE_HOST") or "").strip()
     env_user = (os.getenv("DB_USER") or os.getenv("DATABASE_USER") or "").strip()
     env_password = os.getenv("DB_PASSWORD") or os.getenv("DATABASE_PASSWORD")
     if env_host and env_user and env_password:
-        return {
-            "host": env_host,
-            "port": int(os.getenv("DB_PORT") or os.getenv("DATABASE_PORT") or 5432),
-            "dbname": (
-                os.getenv("DB_NAME")
-                or os.getenv("DATABASE_NAME")
-                or os.getenv("DB_DATABASE")
-                or "postgres"
-            ).strip(),
-            "user": env_user,
-            "password": str(env_password),
-            "sslmode": (os.getenv("DB_SSLMODE") or os.getenv("DATABASE_SSLMODE") or "require").strip() or "require",
-        }
+        add_candidate(
+            "render_split_database_env",
+            {
+                "host": env_host,
+                "port": int(os.getenv("DB_PORT") or os.getenv("DATABASE_PORT") or 5432),
+                "dbname": (
+                    os.getenv("DB_NAME")
+                    or os.getenv("DATABASE_NAME")
+                    or os.getenv("DB_DATABASE")
+                    or "postgres"
+                ).strip(),
+                "user": env_user,
+                "password": str(env_password),
+                "sslmode": (os.getenv("DB_SSLMODE") or os.getenv("DATABASE_SSLMODE") or "require").strip() or "require",
+            },
+        )
 
     secrets_mapping = _get_streamlit_secrets_mapping()
     try:
         if secrets_mapping and "database" in secrets_mapping:
             db_secrets = secrets_mapping["database"]
             if "url" in db_secrets:
-                return db_secrets["url"]
+                add_candidate("streamlit_database_url", db_secrets["url"])
             required = {"host", "user", "password"}
             if required.issubset(set(db_secrets.keys())):
-                return {
-                    "host": str(db_secrets["host"]).strip(),
-                    "port": int(db_secrets.get("port", 5432)),
-                    "dbname": str(db_secrets.get("dbname", db_secrets.get("database", "postgres"))).strip(),
-                    "user": str(db_secrets["user"]).strip(),
-                    "password": str(db_secrets["password"]),
-                    "sslmode": str(db_secrets.get("sslmode", "require")).strip() or "require",
-                }
+                add_candidate(
+                    "streamlit_database_mapping",
+                    {
+                        "host": str(db_secrets["host"]).strip(),
+                        "port": int(db_secrets.get("port", 5432)),
+                        "dbname": str(db_secrets.get("dbname", db_secrets.get("database", "postgres"))).strip(),
+                        "user": str(db_secrets["user"]).strip(),
+                        "password": str(db_secrets["password"]),
+                        "sslmode": str(db_secrets.get("sslmode", "require")).strip() or "require",
+                    },
+                )
         if secrets_mapping and "DATABASE_URL" in secrets_mapping:
-            return secrets_mapping["DATABASE_URL"]
+            add_candidate("streamlit_root_database_url", secrets_mapping["DATABASE_URL"])
     except Exception:
         pass
-    return None
+    return candidates
+
+
+def get_database_config() -> str | dict[str, Any] | None:
+    candidates = _iter_database_config_candidates()
+    return candidates[0][1] if candidates else None
 
 
 def connect_postgres(database_config: str | dict[str, Any]) -> CompatConnection:
@@ -271,21 +297,25 @@ def connect_sqlite() -> CompatConnection:
 
 
 def connect_database() -> CompatConnection:
-    database_config = get_database_config()
-    if database_config:
+    database_candidates = _iter_database_config_candidates()
+    if database_candidates:
         last_error: RuntimeError | None = None
-        retry_delays = (0.75, 1.5, 2.5, 4.0)
-        for attempt, delay in enumerate(retry_delays, start=1):
-            try:
-                return connect_postgres(database_config)
-            except RuntimeError as exc:
-                last_error = exc
-                if attempt == len(retry_delays):
-                    break
+        attempted_labels: list[str] = []
+        retry_delays = (0.0, 0.75, 1.5, 2.5, 4.0)
+        for round_index, delay in enumerate(retry_delays, start=1):
+            if delay:
                 time.sleep(delay)
+            for label, database_config in database_candidates:
+                try:
+                    return connect_postgres(database_config)
+                except RuntimeError as exc:
+                    last_error = exc
+                    attempted_labels.append(label)
         if last_error is not None:
+            attempted_sources = ", ".join(dict.fromkeys(attempted_labels)) or "database_url"
             raise RuntimeError(
                 "Veritabanina su an ulasilamiyor. Baglanti otomatik olarak yeniden denendi ama kurulamadı. "
+                f"Denenen kaynaklar: {attempted_sources}. "
                 "Lutfen kisa bir sure sonra tekrar deneyin. Sorun devam ederse Render Environment veya Streamlit secrets "
                 "icindeki veritabani ayarlarini kontrol edin."
             ) from last_error

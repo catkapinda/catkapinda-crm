@@ -93,20 +93,48 @@ class DbEngineConfigTests(TestCase):
                 },
             )
 
+    @patch.dict(
+        os.environ,
+        {
+            "DATABASE_URL": "postgresql://env-user:env-pass@env-host:5432/postgres?sslmode=require",
+        },
+        clear=True,
+    )
+    def test_connect_database_falls_back_to_streamlit_secret_candidate(self) -> None:
+        secret_url = "postgresql://secret-user:secret-pass@secret-host:5432/postgres?sslmode=require"
+        with (
+            patch.object(
+                db_engine.st,
+                "secrets",
+                {"database": {"url": secret_url}},
+            ),
+            patch.object(
+                db_engine,
+                "connect_postgres",
+                side_effect=[RuntimeError("env fail"), CompatConnection(sqlite3.connect(":memory:"), "sqlite")],
+            ) as connect_mock,
+            patch.object(db_engine.time, "sleep") as sleep_mock,
+        ):
+            conn = db_engine.connect_database()
+
+        self.assertIsInstance(conn, CompatConnection)
+        self.assertEqual(connect_mock.call_count, 2)
+        self.assertEqual(connect_mock.call_args_list[0].args[0], "postgresql://env-user:env-pass@env-host:5432/postgres?sslmode=require")
+        self.assertEqual(connect_mock.call_args_list[1].args[0], secret_url)
+        self.assertEqual(sleep_mock.call_count, 0)
+
     def test_connect_database_retries_postgres_before_failing(self) -> None:
         expected_error = RuntimeError("temp fail")
         with (
             patch.object(db_engine, "get_database_config", return_value="postgresql://demo"),
-            patch.object(
-                db_engine,
-                "connect_postgres",
-                side_effect=[expected_error, expected_error, expected_error, expected_error],
-            ) as connect_mock,
+            patch.object(db_engine, "_iter_database_config_candidates", return_value=[("primary", "postgresql://demo")]),
+            patch.object(db_engine, "connect_postgres", side_effect=[expected_error] * 5) as connect_mock,
             patch.object(db_engine.time, "sleep") as sleep_mock,
         ):
             with self.assertRaises(RuntimeError) as ctx:
                 db_engine.connect_database()
 
         self.assertIn("Veritabanina su an ulasilamiyor", str(ctx.exception))
-        self.assertEqual(connect_mock.call_count, 4)
-        self.assertEqual(sleep_mock.call_count, 3)
+        self.assertIn("Denenen kaynaklar: primary", str(ctx.exception))
+        self.assertEqual(connect_mock.call_count, 5)
+        self.assertEqual(sleep_mock.call_count, 4)
