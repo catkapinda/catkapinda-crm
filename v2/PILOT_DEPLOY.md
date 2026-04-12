@@ -36,6 +36,8 @@ Yerel smoke check:
 - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
 - opsiyonel JSON rapor:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --json --output pilot-report.json`
+- opsiyonel Markdown rapor:
+  - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --markdown --output pilot-report.md`
 - opsiyonel gerçek login smoke:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --identity ebru@catkapinda.com --password <sifre>`
 - opsiyonel eski Streamlit banner smoke:
@@ -174,6 +176,8 @@ Bu iki alan Render Environment veya `secrets.toml` icindeki `[v2]` bolumu ile de
    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
    - istenirse JSON raporu da alinabilir:
      - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --json --output pilot-report.json`
+   - istenirse Markdown raporu da alinabilir:
+     - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --markdown --output pilot-report.md`
    - istenirse login de dogrulanabilir:
      - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --identity ebru@catkapinda.com --password <sifre>`
 11. `status` ekranindaki `zorunlu eksik env` sayisi `0` olmali

@@ -30,6 +30,32 @@ class CheckResult:
     detail: str
 
 
+def build_markdown_report(report: dict) -> str:
+    lines = [
+        "# v2 Pilot Smoke Report",
+        "",
+        f"- Base URL: `{report['base_url']}`",
+        f"- Generated At: `{report['generated_at']}`",
+        f"- Timeout: `{report['timeout_seconds']}s`",
+        f"- Identity Provided: `{report['identity_provided']}`",
+        f"- Legacy URL: `{report['legacy_url'] or '-'}`",
+        f"- Legacy Cutover Mode: `{report['legacy_cutover_mode'] or '-'}`",
+        f"- Overall OK: `{report['overall_ok']}`",
+        f"- Passed: `{report['passed_count']}`",
+        f"- Failed: `{report['failed_count']}`",
+        "",
+        "| Check | Result | Detail |",
+        "| --- | --- | --- |",
+    ]
+
+    for result in report["results"]:
+        result_label = "OK" if result["ok"] else "FAIL"
+        detail = str(result["detail"]).replace("\n", " ").replace("|", "\\|")
+        lines.append(f"| `{result['name']}` | **{result_label}** | {detail} |")
+
+    return "\n".join(lines) + "\n"
+
+
 def build_report(
     *,
     base_url: str,
@@ -368,6 +394,7 @@ def main() -> int:
     parser.add_argument("--password", default=os.getenv("CK_V2_SMOKE_PASSWORD", ""), help="Optional login password for end-to-end auth smoke")
     parser.add_argument("--legacy-url", default="", help="Optional legacy Streamlit URL for banner/redirect smoke")
     parser.add_argument("--json", action="store_true", help="Print the smoke result as JSON instead of a text table")
+    parser.add_argument("--markdown", action="store_true", help="Print the smoke result as Markdown instead of a text table")
     parser.add_argument("--output", default="", help="Optional file path to write the JSON smoke report")
     parser.add_argument(
         "--legacy-cutover-mode",
@@ -404,11 +431,20 @@ def main() -> int:
         failed = failed or not result.ok
 
     if args.output.strip():
-        with open(args.output.strip(), "w", encoding="utf-8") as handle:
-            json.dump(report, handle, ensure_ascii=False, indent=2)
+        output_path = args.output.strip()
+        if output_path.lower().endswith(".md"):
+            with open(output_path, "w", encoding="utf-8") as handle:
+                handle.write(build_markdown_report(report))
+        else:
+            with open(output_path, "w", encoding="utf-8") as handle:
+                json.dump(report, handle, ensure_ascii=False, indent=2)
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 1 if failed else 0
+
+    if args.markdown:
+        print(build_markdown_report(report))
         return 1 if failed else 0
 
     print(f"v2 pilot smoke • {base_url}")
