@@ -89,6 +89,17 @@ type BackendReadiness = {
     service_type: string;
     public_url: string;
     health_path: string;
+    env_vars: Array<{
+      key: string;
+      required: boolean;
+      configured: boolean;
+      detail: string | null;
+    }>;
+  }>;
+  env_snippets: Array<{
+    service_name: string;
+    title: string;
+    body: string;
   }>;
 };
 
@@ -179,6 +190,7 @@ export default function StatusPage() {
   const pilotLinks = useMemo(() => backend?.pilot_links ?? [], [backend]);
   const smokeCommands = useMemo(() => backend?.smoke_commands ?? [], [backend]);
   const pilotServices = useMemo(() => backend?.services ?? [], [backend]);
+  const envSnippets = useMemo(() => backend?.env_snippets ?? [], [backend]);
   const backendConfigEntries = useMemo(
     () => backendConfig.filter((entry) => entry.service === "backend"),
     [backendConfig],
@@ -506,7 +518,93 @@ export default function StatusPage() {
                       <div style={{ color: "#5f7294", fontSize: "0.92rem", lineHeight: 1.7 }}>
                         Health: {service.health_path}
                       </div>
+                      <div style={{ display: "grid", gap: "8px" }}>
+                        {service.env_vars.map((entry) => (
+                          <div
+                            key={`${service.name}-${entry.key}`}
+                            style={{
+                              display: "grid",
+                              gap: "4px",
+                              padding: "10px 12px",
+                              borderRadius: "14px",
+                              border: "1px solid rgba(219, 228, 243, 0.9)",
+                              background: "rgba(255,255,255,0.92)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "10px",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <strong style={{ fontSize: "0.92rem" }}>{entry.key}</strong>
+                              <div style={statusPill(entry.configured || !entry.required)}>
+                                {entry.configured ? "Hazir" : entry.required ? "Zorunlu" : "Opsiyonel"}
+                              </div>
+                            </div>
+                            {entry.detail ? (
+                              <div style={{ color: "#5f7294", fontSize: "0.86rem", lineHeight: 1.5 }}>{entry.detail}</div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {envSnippets.length ? (
+              <section
+                style={{
+                  ...cardStyle(),
+                  display: "grid",
+                  gap: "16px",
+                }}
+              >
+                <div style={{ display: "grid", gap: "6px" }}>
+                  <div style={statusPill(true)}>Kopyala-Yapistir Env Planı</div>
+                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Render'a girilecek örnek env blokları</h2>
+                  <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
+                    Pilotu açarken servis bazlı environment değerlerini buradan referans alabilirsin. Gizli alanları kendi gerçek değerlerinle doldurman yeterli.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                    gap: "14px",
+                  }}
+                >
+                  {envSnippets.map((snippet) => (
+                    <article
+                      key={snippet.service_name}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 251, 255, 0.92)",
+                        display: "grid",
+                        gap: "10px",
+                      }}
+                    >
+                      <strong>{snippet.title}</strong>
+                      <code
+                        style={{
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                          fontSize: "0.88rem",
+                          lineHeight: 1.7,
+                          color: "#25406b",
+                        }}
+                      >
+                        {snippet.body}
+                      </code>
+                    </article>
                   ))}
                 </div>
               </section>

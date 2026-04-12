@@ -14,9 +14,11 @@ from app.schemas.health import (
     PilotAuthStatus,
     PilotConfigEntry,
     PilotCutoverSummary,
+    PilotEnvSnippetEntry,
     PilotFlowStep,
     PilotLinkEntry,
     PilotServiceEntry,
+    PilotServiceEnvEntry,
     PilotModuleEntry,
     PilotReadinessResponse,
     PilotSmokeCommand,
@@ -194,6 +196,7 @@ def pilot_readiness(
     pilot_links = _build_pilot_links()
     smoke_commands = _build_smoke_commands()
     services = _build_pilot_services()
+    env_snippets = _build_env_snippets()
     return PilotReadinessResponse(
         status="ok" if overall_ok else "degraded",
         core_ready=core_ready,
@@ -222,6 +225,7 @@ def pilot_readiness(
         pilot_links=pilot_links,
         smoke_commands=smoke_commands,
         services=services,
+        env_snippets=env_snippets,
     )
 
 
@@ -505,18 +509,163 @@ def _build_smoke_commands() -> list[PilotSmokeCommand]:
 def _build_pilot_services() -> list[PilotServiceEntry]:
     frontend_url = settings.resolved_public_app_url.rstrip("/")
     backend_url = settings.resolved_api_public_url.rstrip("/")
+    sms_setup = describe_sms_config()
     return [
         PilotServiceEntry(
             name="crmcatkapinda-v2",
             service_type="frontend",
             public_url=frontend_url,
             health_path=f"{frontend_url}/api/health",
+            env_vars=[
+                PilotServiceEnvEntry(
+                    key="NEXT_PUBLIC_V2_API_BASE_URL",
+                    required=True,
+                    configured=True,
+                    detail="/v2-api (frontend proxy rewrite)",
+                ),
+                PilotServiceEnvEntry(
+                    key="CK_V2_INTERNAL_API_HOSTPORT",
+                    required=True,
+                    configured=True,
+                    detail="Render backend hostport degerinden otomatik gelir",
+                ),
+                PilotServiceEnvEntry(
+                    key="NEXT_TELEMETRY_DISABLED",
+                    required=False,
+                    configured=True,
+                    detail="1 (blueprint ile otomatik gelir)",
+                ),
+            ],
         ),
         PilotServiceEntry(
             name="crmcatkapinda-v2-api",
             service_type="backend",
             public_url=backend_url,
             health_path=f"{backend_url}/api/health",
+            env_vars=[
+                PilotServiceEnvEntry(
+                    key="CK_V2_DATABASE_URL",
+                    required=True,
+                    configured=bool(settings.database_url),
+                    detail="Mevcut CRM ile ayni PostgreSQL baglantisi",
+                ),
+                PilotServiceEnvEntry(
+                    key="CK_V2_FRONTEND_BASE_URL",
+                    required=not bool(settings.public_app_url),
+                    configured=bool(settings.frontend_base_url),
+                    detail="v2 frontend public URL'si",
+                ),
+                PilotServiceEnvEntry(
+                    key="CK_V2_PUBLIC_APP_URL",
+                    required=False,
+                    configured=bool(settings.public_app_url),
+                    detail="v2 frontend public URL'si (onerilir)",
+                ),
+                PilotServiceEnvEntry(
+                    key="CK_V2_API_PUBLIC_URL",
+                    required=False,
+                    configured=bool(settings.api_public_url),
+                    detail="v2 backend public URL'si (onerilir)",
+                ),
+                PilotServiceEnvEntry(
+                    key="CK_V2_DEFAULT_AUTH_PASSWORD",
+                    required=False,
+                    configured=settings.default_auth_password != "123456",
+                    detail="Ilk admin ve mobile_ops sifresi",
+                ),
+                PilotServiceEnvEntry(
+                    key="AUTH_EBRU_PHONE",
+                    required=False,
+                    configured=bool(settings.auth_ebru_phone),
+                    detail="Yonetici SMS allowlist",
+                ),
+                PilotServiceEnvEntry(
+                    key="AUTH_MERT_PHONE",
+                    required=False,
+                    configured=bool(settings.auth_mert_phone),
+                    detail="Yonetici SMS allowlist",
+                ),
+                PilotServiceEnvEntry(
+                    key="AUTH_MUHAMMED_PHONE",
+                    required=False,
+                    configured=bool(settings.auth_muhammed_phone),
+                    detail="Yonetici SMS allowlist",
+                ),
+                PilotServiceEnvEntry(
+                    key="SMS_PROVIDER",
+                    required=False,
+                    configured=bool(sms_setup["provider"]),
+                    detail="NetGSM icin netgsm",
+                ),
+                PilotServiceEnvEntry(
+                    key="SMS_API_URL",
+                    required=False,
+                    configured=bool(sms_setup["api_url"]),
+                    detail="NetGSM REST endpoint",
+                ),
+                PilotServiceEnvEntry(
+                    key="SMS_NETGSM_USERNAME",
+                    required=False,
+                    configured="SMS_NETGSM_USERNAME" not in sms_setup["missing_envs"],
+                    detail="NetGSM API kullanici/adone numarasi",
+                ),
+                PilotServiceEnvEntry(
+                    key="SMS_NETGSM_PASSWORD",
+                    required=False,
+                    configured="SMS_NETGSM_PASSWORD" not in sms_setup["missing_envs"],
+                    detail="NetGSM API sifresi",
+                ),
+                PilotServiceEnvEntry(
+                    key="SMS_SENDER",
+                    required=False,
+                    configured="SMS_SENDER" not in sms_setup["missing_envs"],
+                    detail="SMS gonderici basligi",
+                ),
+                PilotServiceEnvEntry(
+                    key="SMS_NETGSM_ENCODING",
+                    required=False,
+                    configured="SMS_NETGSM_ENCODING" not in sms_setup["missing_envs"],
+                    detail="TR",
+                ),
+            ],
+        ),
+    ]
+
+
+def _build_env_snippets() -> list[PilotEnvSnippetEntry]:
+    frontend_url = settings.resolved_public_app_url.rstrip("/")
+    backend_url = settings.resolved_api_public_url.rstrip("/")
+    backend_lines = [
+        "CK_V2_DATABASE_URL=<mevcut-postgresql-url>",
+        f"CK_V2_FRONTEND_BASE_URL={frontend_url}",
+        f"CK_V2_PUBLIC_APP_URL={frontend_url}",
+        f"CK_V2_API_PUBLIC_URL={backend_url}",
+        "CK_V2_DEFAULT_AUTH_PASSWORD=<pilot-sifresi>",
+        "AUTH_EBRU_PHONE=<opsiyonel>",
+        "AUTH_MERT_PHONE=<opsiyonel>",
+        "AUTH_MUHAMMED_PHONE=<opsiyonel>",
+        "SMS_PROVIDER=netgsm",
+        "SMS_API_URL=https://api.netgsm.com.tr/sms/rest/v2/send",
+        "SMS_NETGSM_USERNAME=<opsiyonel>",
+        "SMS_NETGSM_PASSWORD=<opsiyonel>",
+        "SMS_SENDER=CATKAPINDA",
+        "SMS_NETGSM_ENCODING=TR",
+    ]
+    frontend_lines = [
+        "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api",
+        "NEXT_TELEMETRY_DISABLED=1",
+        "CK_V2_INTERNAL_API_HOSTPORT=<render-backend-hostport>",
+    ]
+    return [
+        PilotEnvSnippetEntry(
+            service_name="crmcatkapinda-v2-api",
+            title="Render API Servisi Env Bloku",
+            body="\n".join(backend_lines),
+        ),
+        PilotEnvSnippetEntry(
+            service_name="crmcatkapinda-v2",
+            title="Render Frontend Servisi Env Bloku",
+            body="\n".join(frontend_lines),
         ),
     ]
 

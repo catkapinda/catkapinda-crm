@@ -86,11 +86,25 @@ class PilotSmokeCommand(BaseModel):
     command: str
 
 
+class PilotServiceEnvEntry(BaseModel):
+    key: str
+    required: bool
+    configured: bool
+    detail: str | None = None
+
+
 class PilotServiceEntry(BaseModel):
     name: str
     service_type: str
     public_url: str
     health_path: str
+    env_vars: list[PilotServiceEnvEntry] = []
+
+
+class PilotEnvSnippetEntry(BaseModel):
+    service_name: str
+    title: str
+    body: str
 
 
 class PilotReadinessResponse(BaseModel):
@@ -113,3 +127,4 @@ class PilotReadinessResponse(BaseModel):
     pilot_links: list[PilotLinkEntry]
     smoke_commands: list[PilotSmokeCommand]
     services: list[PilotServiceEntry]
+    env_snippets: list[PilotEnvSnippetEntry]
