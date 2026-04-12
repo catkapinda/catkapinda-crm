@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 type FrontendStatus = {
   status: string;
   service: string;
+  commitSha: string | null;
+  releaseLabel: string | null;
   proxyConfigured: boolean;
   proxyMode: string;
   sourceEnvKey: string | null;
@@ -21,6 +23,8 @@ type BackendReadiness = {
   service: string;
   version: string;
   environment: string;
+  commit_sha: string | null;
+  release_label: string | null;
   checks: Array<{
     name: string;
     ok: boolean;
@@ -389,6 +393,8 @@ export default function StatusPage() {
       "Cat Kapinda CRM v2 Pilot Durum Ozeti",
       `Son kontrol: ${lastUpdatedAt ?? "bekleniyor"}`,
       `Durum: ${overallOk ? "Pilot hazir" : coreReady ? "Temel olarak hazir" : "Kontrol gerekli"}`,
+      frontend?.releaseLabel ? `Frontend build: ${frontend.releaseLabel}` : null,
+      backend?.release_label ? `Backend build: ${backend.release_label}` : null,
       backend?.decision ? `Bugunun karari: ${backend.decision.title}` : null,
       `Moduller: ${readinessSummary.activeModules}/${readinessSummary.totalModules || 0}`,
       `Rollout: ${readinessSummary.readyRolloutSteps}/${readinessSummary.totalRolloutSteps || 0}`,
@@ -1321,6 +1327,11 @@ export default function StatusPage() {
                 {frontend ? (
                   <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
                     <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.6 }}>{frontend.detail}</p>
+                    {frontend.releaseLabel ? (
+                      <div style={{ color: "#35507d", fontSize: "0.92rem", fontWeight: 700 }}>
+                        Build: {frontend.releaseLabel}
+                      </div>
+                    ) : null}
                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                       <div style={statusPill(Boolean(frontend.proxyConfigured))}>Proxy</div>
                       <div style={statusPill(frontend.proxyMode !== "missing")}>
@@ -1357,6 +1368,11 @@ export default function StatusPage() {
                     <p style={{ margin: 0, color: "#5f7294" }}>
                     {backend.environment} • v{backend.version}
                     </p>
+                    {backend.release_label ? (
+                      <div style={{ color: "#35507d", fontSize: "0.92rem", fontWeight: 700 }}>
+                        Build: {backend.release_label}
+                      </div>
+                    ) : null}
                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                       <div style={statusPill(backend.auth.email_login)}>E-posta</div>
                       <div style={statusPill(backend.auth.phone_login)}>Telefon</div>

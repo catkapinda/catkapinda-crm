@@ -70,6 +70,8 @@ def healthcheck() -> HealthResponse:
         service="crmcatkapinda-v2-api",
         version=settings.app_version,
         environment=settings.app_env,
+        commit_sha=settings.release_sha,
+        release_label=settings.short_release_sha or settings.render_service_name,
     )
 
 
@@ -216,6 +218,8 @@ def pilot_readiness(
         service=readiness_response.service,
         version=readiness_response.version,
         environment=readiness_response.environment,
+        commit_sha=readiness_response.commit_sha,
+        release_label=readiness_response.release_label,
         checks=readiness_response.checks,
         auth=PilotAuthStatus(
             email_login=auth_modes.email_login,
@@ -324,6 +328,8 @@ def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
         service="crmcatkapinda-v2-api",
         version=settings.app_version,
         environment=settings.app_env,
+        commit_sha=settings.release_sha,
+        release_label=settings.short_release_sha or settings.render_service_name,
         checks=checks,
     )
 

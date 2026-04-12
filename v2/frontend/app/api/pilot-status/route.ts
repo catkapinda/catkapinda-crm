@@ -22,6 +22,10 @@ function resolveInternalTarget() {
 }
 
 export async function GET() {
+  const frontendCommitSha = process.env.CK_V2_FRONTEND_RELEASE_SHA || process.env.RENDER_GIT_COMMIT || null;
+  const frontendServiceName =
+    process.env.CK_V2_FRONTEND_SERVICE_NAME || process.env.RENDER_SERVICE_NAME || "crmcatkapinda-v2-frontend";
+  const frontendReleaseLabel = frontendCommitSha ? frontendCommitSha.slice(0, 7) : frontendServiceName;
   const target = resolveInternalTarget();
   let backendReachable = false;
   let backendStatus = "unknown";
@@ -75,7 +79,9 @@ export async function GET() {
       status: target.proxyConfigured && backendReachable && pilotPayload ? "ok" : "degraded",
       frontend: {
         status: target.proxyConfigured && backendReachable ? "ok" : "degraded",
-        service: "crmcatkapinda-v2-frontend",
+        service: frontendServiceName,
+        commitSha: frontendCommitSha,
+        releaseLabel: frontendReleaseLabel,
         proxyConfigured: target.proxyConfigured,
         proxyMode: target.proxyMode,
         sourceEnvKey: target.sourceEnvKey,

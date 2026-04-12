@@ -7,6 +7,14 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     api_prefix: str = "/api"
     app_env: str = "development"
+    release_sha: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CK_V2_RELEASE_SHA", "RENDER_GIT_COMMIT", "COMMIT_SHA"),
+    )
+    render_service_name: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CK_V2_RENDER_SERVICE_NAME", "RENDER_SERVICE_NAME", "SERVICE_NAME"),
+    )
     database_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("CK_V2_DATABASE_URL", "DATABASE_URL"),
@@ -59,6 +67,12 @@ class Settings(BaseSettings):
     @property
     def resolved_api_public_url(self) -> str:
         return str(self.api_public_url or "http://127.0.0.1:8000").strip()
+
+    @property
+    def short_release_sha(self) -> str | None:
+        if not self.release_sha:
+            return None
+        return str(self.release_sha).strip()[:7] or None
 
     @property
     def sms_phone_allowlist(self) -> list[str]:

@@ -49,6 +49,8 @@ class CountCursor:
 
 def test_health_route_returns_service_metadata():
     reset_runtime_bootstrap_state()
+    settings.release_sha = "abcdef1234567890"
+    settings.render_service_name = "crmcatkapinda-v2-api"
     client = TestClient(create_app(enable_bootstrap=False))
 
     response = client.get("/api/health")
@@ -59,6 +61,8 @@ def test_health_route_returns_service_metadata():
     assert payload["service"] == "crmcatkapinda-v2-api"
     assert "version" in payload
     assert "environment" in payload
+    assert payload["commit_sha"] == "abcdef1234567890"
+    assert payload["release_label"] == "abcdef1"
 
 
 def test_readiness_route_reports_ok_with_healthy_db():
@@ -103,6 +107,8 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     monkeypatch.setattr(settings, "frontend_base_url", "https://pilot.example.com")
     monkeypatch.setattr(settings, "public_app_url", "https://pilot.example.com")
     monkeypatch.setattr(settings, "api_public_url", "https://pilot-api.example.com")
+    monkeypatch.setattr(settings, "release_sha", "abcdef1234567890")
+    monkeypatch.setattr(settings, "render_service_name", "crmcatkapinda-v2-api")
     monkeypatch.setattr(settings, "auth_ebru_phone", "05321234567")
     monkeypatch.setattr(settings, "auth_mert_phone", "")
     monkeypatch.setattr(settings, "auth_muhammed_phone", "")
@@ -117,6 +123,8 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["core_ready"] is True
+    assert payload["commit_sha"] == "abcdef1234567890"
+    assert payload["release_label"] == "abcdef1"
     assert payload["auth"]["email_login"] is True
     assert payload["auth"]["phone_login"] is True
     assert payload["auth"]["sms_login"] is True
@@ -195,6 +203,8 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     monkeypatch.setattr(settings, "frontend_base_url", "https://pilot.example.com")
     monkeypatch.setattr(settings, "public_app_url", "")
     monkeypatch.setattr(settings, "api_public_url", "")
+    monkeypatch.setattr(settings, "release_sha", None)
+    monkeypatch.setattr(settings, "render_service_name", "crmcatkapinda-v2-api")
     monkeypatch.setattr(settings, "auth_ebru_phone", "")
     monkeypatch.setattr(settings, "auth_mert_phone", "")
     monkeypatch.setattr(settings, "auth_muhammed_phone", "")
@@ -210,6 +220,8 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["core_ready"] is True
+    assert payload["commit_sha"] is None
+    assert payload["release_label"] == "crmcatkapinda-v2-api"
     assert payload["required_missing_env_vars"] == []
     assert "AUTH_EBRU_PHONE" in payload["optional_missing_env_vars"]
     assert "SMS_PROVIDER" in payload["optional_missing_env_vars"]

@@ -6,6 +6,8 @@ class HealthResponse(BaseModel):
     service: str
     version: str
     environment: str
+    commit_sha: str | None = None
+    release_label: str | None = None
 
 
 class HealthCheckEntry(BaseModel):
@@ -19,6 +21,8 @@ class ReadinessResponse(BaseModel):
     service: str
     version: str
     environment: str
+    commit_sha: str | None = None
+    release_label: str | None = None
     checks: list[HealthCheckEntry]
 
 
@@ -143,6 +147,8 @@ class PilotReadinessResponse(BaseModel):
     service: str
     version: str
     environment: str
+    commit_sha: str | None = None
+    release_label: str | None = None
     checks: list[HealthCheckEntry]
     auth: PilotAuthStatus
     config: list[PilotConfigEntry]

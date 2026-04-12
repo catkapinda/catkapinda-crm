@@ -1,6 +1,9 @@
 const DEFAULT_TIMEOUT_MS = 4000;
 
 export async function GET() {
+  const commitSha = process.env.CK_V2_FRONTEND_RELEASE_SHA || process.env.RENDER_GIT_COMMIT || null;
+  const serviceName = process.env.CK_V2_FRONTEND_SERVICE_NAME || process.env.RENDER_SERVICE_NAME || "crmcatkapinda-v2-frontend";
+  const releaseLabel = commitSha ? commitSha.slice(0, 7) : serviceName;
   const explicitBaseUrl = process.env.CK_V2_INTERNAL_API_BASE_URL || "";
   const hostportTarget = process.env.CK_V2_INTERNAL_API_HOSTPORT || "";
   const internalTarget = explicitBaseUrl || hostportTarget;
@@ -50,7 +53,9 @@ export async function GET() {
   return Response.json(
     {
       status: proxyConfigured && backendReachable ? "ok" : "degraded",
-      service: "crmcatkapinda-v2-frontend",
+      service: serviceName,
+      commitSha,
+      releaseLabel,
       proxyConfigured,
       proxyMode,
       sourceEnvKey,
