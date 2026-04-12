@@ -15,8 +15,10 @@ from app.schemas.health import (
     PilotConfigEntry,
     PilotCutoverSummary,
     PilotFlowStep,
+    PilotLinkEntry,
     PilotModuleEntry,
     PilotReadinessResponse,
+    PilotSmokeCommand,
     ReadinessResponse,
 )
 from app.services.attendance import build_attendance_status
@@ -188,6 +190,8 @@ def pilot_readiness(
     )
     pilot_accounts = _build_pilot_accounts()
     pilot_flow = _build_pilot_flow()
+    pilot_links = _build_pilot_links()
+    smoke_commands = _build_smoke_commands()
     return PilotReadinessResponse(
         status="ok" if overall_ok else "degraded",
         core_ready=core_ready,
@@ -213,6 +217,8 @@ def pilot_readiness(
         cutover=cutover,
         pilot_accounts=pilot_accounts,
         pilot_flow=pilot_flow,
+        pilot_links=pilot_links,
+        smoke_commands=smoke_commands,
     )
 
 
@@ -452,6 +458,33 @@ def _build_pilot_flow() -> list[PilotFlowStep]:
             title="4. Finans yüzeylerini gözden geçir",
             detail="Aylık hakediş ve raporlar ekranında özet kartlar ile tabloların beklendiği gibi açıldığını doğrula.",
             href="/reports",
+        ),
+    ]
+
+
+def _build_pilot_links() -> list[PilotLinkEntry]:
+    base_url = settings.resolved_public_app_url.rstrip("/")
+    return [
+        PilotLinkEntry(label="Pilot Login", href=f"{base_url}/login"),
+        PilotLinkEntry(label="Pilot Dashboard", href=f"{base_url}/"),
+        PilotLinkEntry(label="Pilot Status", href=f"{base_url}/status"),
+        PilotLinkEntry(label="Pilot Puantaj", href=f"{base_url}/attendance"),
+    ]
+
+
+def _build_smoke_commands() -> list[PilotSmokeCommand]:
+    base_url = settings.resolved_public_app_url.rstrip("/")
+    return [
+        PilotSmokeCommand(
+            label="Normal Smoke",
+            command=f"python v2/scripts/pilot_smoke.py --base-url {base_url}",
+        ),
+        PilotSmokeCommand(
+            label="Gercek Login Smoke",
+            command=(
+                f"python v2/scripts/pilot_smoke.py --base-url {base_url} "
+                "--identity ebru@catkapinda.com --password <sifre>"
+            ),
         ),
     ]
 

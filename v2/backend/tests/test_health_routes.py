@@ -132,6 +132,9 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["pilot_accounts"][0]["email"] == "ebru@catkapinda.com"
     assert payload["pilot_flow"][0]["href"] == "/login"
     assert any(step["href"] == "/attendance" for step in payload["pilot_flow"])
+    assert payload["pilot_links"][0]["href"] == "https://pilot.example.com/login"
+    assert payload["smoke_commands"][0]["command"] == "python v2/scripts/pilot_smoke.py --base-url https://pilot.example.com"
+    assert "--identity ebru@catkapinda.com" in payload["smoke_commands"][1]["command"]
     assert "config" in payload
     assert "missing_env_vars" in payload
     assert "required_missing_env_vars" in payload
@@ -142,6 +145,8 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert isinstance(payload["required_missing_env_vars"], list)
     assert isinstance(payload["optional_missing_env_vars"], list)
     assert isinstance(payload["next_actions"], list)
+    assert isinstance(payload["pilot_links"], list)
+    assert isinstance(payload["smoke_commands"], list)
     modules = {entry["module"]: entry for entry in payload["modules"]}
     assert modules["overview"]["href"] == "/"
     assert modules["audit"]["href"] == "/audit"

@@ -76,6 +76,14 @@ type BackendReadiness = {
     detail: string;
     href: string;
   }>;
+  pilot_links: Array<{
+    label: string;
+    href: string;
+  }>;
+  smoke_commands: Array<{
+    label: string;
+    command: string;
+  }>;
 };
 
 function statusPill(ok: boolean) {
@@ -121,8 +129,6 @@ export default function StatusPage() {
   const [frontend, setFrontend] = useState<FrontendStatus | null>(null);
   const [backend, setBackend] = useState<BackendReadiness | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentBaseUrl, setCurrentBaseUrl] = useState("");
-
   useEffect(() => {
     let active = true;
 
@@ -159,18 +165,13 @@ export default function StatusPage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    setCurrentBaseUrl(window.location.origin);
-  }, []);
-
   const backendChecks = useMemo(() => backend?.checks ?? [], [backend]);
   const backendConfig = useMemo(() => backend?.config ?? [], [backend]);
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
   const pilotAccounts = useMemo(() => backend?.pilot_accounts ?? [], [backend]);
   const pilotFlow = useMemo(() => backend?.pilot_flow ?? [], [backend]);
+  const pilotLinks = useMemo(() => backend?.pilot_links ?? [], [backend]);
+  const smokeCommands = useMemo(() => backend?.smoke_commands ?? [], [backend]);
   const backendConfigEntries = useMemo(
     () => backendConfig.filter((entry) => entry.service === "backend"),
     [backendConfig],
@@ -206,32 +207,6 @@ export default function StatusPage() {
       : backend?.cutover.phase === "ready_for_pilot"
         ? true
         : false;
-  const pilotLinks = useMemo(
-    () =>
-      currentBaseUrl
-        ? [
-            { label: "Pilot Login", href: `${currentBaseUrl}/login` },
-            { label: "Pilot Dashboard", href: `${currentBaseUrl}/` },
-            { label: "Pilot Status", href: `${currentBaseUrl}/status` },
-            { label: "Pilot Puantaj", href: `${currentBaseUrl}/attendance` },
-          ]
-        : [],
-    [currentBaseUrl],
-  );
-  const smokeCommand = useMemo(
-    () =>
-      currentBaseUrl
-        ? `python v2/scripts/pilot_smoke.py --base-url ${currentBaseUrl}`
-        : "",
-    [currentBaseUrl],
-  );
-  const authSmokeCommand = useMemo(
-    () =>
-      currentBaseUrl
-        ? `python v2/scripts/pilot_smoke.py --base-url ${currentBaseUrl} --identity ebru@catkapinda.com --password <sifre>`
-        : "",
-    [currentBaseUrl],
-  );
 
   return (
     <main
@@ -412,7 +387,7 @@ export default function StatusPage() {
               </section>
             ) : null}
 
-            {currentBaseUrl ? (
+            {pilotLinks.length ? (
               <section
                 style={{
                   ...cardStyle(),
@@ -449,52 +424,32 @@ export default function StatusPage() {
                     gap: "14px",
                   }}
                 >
-                  <div
-                    style={{
-                      padding: "16px",
-                      borderRadius: "18px",
-                      border: "1px solid rgba(219, 228, 243, 0.9)",
-                      background: "rgba(248, 251, 255, 0.92)",
-                      display: "grid",
-                      gap: "10px",
-                    }}
-                  >
-                    <strong>Normal Smoke</strong>
-                    <code
+                  {smokeCommands.map((command) => (
+                    <div
+                      key={command.label}
                       style={{
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                        fontSize: "0.88rem",
-                        lineHeight: 1.7,
-                        color: "#25406b",
+                        padding: "16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 251, 255, 0.92)",
+                        display: "grid",
+                        gap: "10px",
                       }}
                     >
-                      {smokeCommand}
-                    </code>
-                  </div>
-                  <div
-                    style={{
-                      padding: "16px",
-                      borderRadius: "18px",
-                      border: "1px solid rgba(219, 228, 243, 0.9)",
-                      background: "rgba(248, 251, 255, 0.92)",
-                      display: "grid",
-                      gap: "10px",
-                    }}
-                  >
-                    <strong>Gercek Login Smoke</strong>
-                    <code
-                      style={{
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                        fontSize: "0.88rem",
-                        lineHeight: 1.7,
-                        color: "#25406b",
-                      }}
-                    >
-                      {authSmokeCommand}
-                    </code>
-                  </div>
+                      <strong>{command.label}</strong>
+                      <code
+                        style={{
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                          fontSize: "0.88rem",
+                          lineHeight: 1.7,
+                          color: "#25406b",
+                        }}
+                      >
+                        {command.command}
+                      </code>
+                    </div>
+                  ))}
                 </div>
               </section>
             ) : null}

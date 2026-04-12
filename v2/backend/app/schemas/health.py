@@ -76,6 +76,16 @@ class PilotFlowStep(BaseModel):
     href: str
 
 
+class PilotLinkEntry(BaseModel):
+    label: str
+    href: str
+
+
+class PilotSmokeCommand(BaseModel):
+    label: str
+    command: str
+
+
 class PilotReadinessResponse(BaseModel):
     status: str
     core_ready: bool
@@ -93,3 +103,5 @@ class PilotReadinessResponse(BaseModel):
     cutover: PilotCutoverSummary
     pilot_accounts: list[PilotAccountEntry]
     pilot_flow: list[PilotFlowStep]
+    pilot_links: list[PilotLinkEntry]
+    smoke_commands: list[PilotSmokeCommand]
