@@ -129,6 +129,7 @@ Pilot day zero kiti icin:
 - kit ozetinde verify ve smoke sonucu ile onerilen sonraki adimlar da yazilir
 - kit tam mi diye hizli kontrol icin:
   - `python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero`
+- `pilot_day_zero.py` bundle klasorunu canonical path ile manifestler; boylece `/var` ve `/private` alias path farklari verify tarafinda gereksiz fail uretmez
 - smoke ile uretilen kitlerde verify ayrica:
   - smoke dosyalari var mi
   - smoke sonucu manifestle tutarli mi

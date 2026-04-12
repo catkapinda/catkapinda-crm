@@ -392,6 +392,34 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert "Day-zero kiti kullanima hazir." in start_here
 
 
+def test_day_zero_bundle_normalizes_output_dir_before_manifest(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    real_output_dir = tmp_path / "real-output"
+    alias_output_dir = tmp_path / "alias-output"
+    alias_output_dir.symlink_to(real_output_dir, target_is_directory=True)
+
+    manifest = pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=alias_output_dir,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    assert manifest["output_dir"] == str(real_output_dir.resolve())
+    assert manifest["archive_path"] == str(real_output_dir.resolve().parent / "real-output.zip")
+    assert pilot_day_zero_verify.verify_day_zero_bundle(alias_output_dir)["passed"] is True
+
+
 def test_day_zero_bundle_can_surface_embedded_smoke_summary(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(

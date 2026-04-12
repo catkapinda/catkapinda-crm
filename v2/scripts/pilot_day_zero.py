@@ -195,6 +195,7 @@ def build_day_zero_bundle(
     smoke_legacy_cutover_mode: str | None = None,
 ) -> dict:
     generated_at = datetime.now(UTC).isoformat()
+    output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     status_payload = fetch_pilot_status(frontend_url, timeout)
 
