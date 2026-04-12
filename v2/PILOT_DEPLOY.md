@@ -148,6 +148,7 @@ Pilot day zero kiti icin:
   - `pilot-day-zero-manifest.json` icindeki gate/guard/verify ozet alanlari alttaki json raporlarla uyumlu mu
   - `pilot-day-zero-manifest.json` icindeki files haritasi dogru etiketleri dogru dosya adlarina bagliyor mu
   - `pilot-day-zero-manifest.json` icindeki frontend/api/streamlit URL'leri, service name'ler ve archive path cekirdek metadata'si artefaktlarla uyumlu mu
+  - output klasoru ya da zip arsivi icinde manifestte olmayan stale / beklenmeyen dosya kalmis mi
   kontrol eder
 
 ## Zorunlu Ayarlar

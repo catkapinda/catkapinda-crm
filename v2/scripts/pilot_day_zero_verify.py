@@ -93,6 +93,21 @@ def _canonicalize_manifest_payload(payload: dict) -> dict:
     return normalized
 
 
+def _expected_bundle_members(*, output_dir: Path, manifest: dict) -> set[str]:
+    output_root = output_dir.resolve()
+    expected_members = {"00-START-HERE.md", "pilot-day-zero-manifest.json"}
+
+    for raw_path in (manifest.get("files") or {}).values():
+        path = Path(str(raw_path)).expanduser()
+        try:
+            relative_path = path.resolve().relative_to(output_root)
+            expected_members.add(relative_path.as_posix())
+        except Exception:
+            expected_members.add(path.name)
+
+    return expected_members
+
+
 def _check_guard_file(
     *,
     mode: str,
@@ -184,17 +199,25 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
 
 def _check_archive_members(*, archive_members: list[str], manifest: dict) -> list[str]:
     issues: list[str] = []
-    expected_members = {"00-START-HERE.md", "pilot-day-zero-manifest.json"}
+    output_dir = Path(str(manifest.get("output_dir") or "")).expanduser().resolve()
+    expected_members = _expected_bundle_members(output_dir=output_dir, manifest=manifest)
+    actual_archive_members = set(archive_members)
 
-    for raw_path in (manifest.get("files") or {}).values():
-        expected_members.add(Path(str(raw_path)).name)
-
-    if manifest.get("smoke_included"):
-        expected_members.update(OPTIONAL_SMOKE_FILES)
+    if output_dir.exists():
+        actual_output_members = {
+            path.relative_to(output_dir).as_posix()
+            for path in output_dir.rglob("*")
+            if path.is_file()
+        }
+        for member in sorted(actual_output_members - expected_members):
+            issues.append(f"Output klasorunde beklenmeyen dosya var: {member}")
 
     for member in sorted(expected_members):
-        if member not in archive_members:
+        if member not in actual_archive_members:
             issues.append(f"Zip arsivinde {member} eksik")
+
+    for member in sorted(actual_archive_members - expected_members):
+        issues.append(f"Zip arsivinde beklenmeyen dosya var: {member}")
 
     return issues
 
