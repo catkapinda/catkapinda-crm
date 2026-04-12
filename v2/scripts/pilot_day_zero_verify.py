@@ -506,6 +506,51 @@ def _check_status_documents(*, output_dir: Path, manifest: dict) -> tuple[bool, 
     return (True, issues)
 
 
+def _check_embedded_verify_reports(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+    verify_json_path = output_dir / "pilot-day-zero-verify.json"
+    verify_markdown_path = output_dir / "pilot-day-zero-verify.md"
+
+    if not (verify_json_path.exists() and verify_markdown_path.exists()):
+        return (False, [])
+
+    verify_payload = _read_json(verify_json_path)
+    verify_markdown = verify_markdown_path.read_text(encoding="utf-8")
+
+    expected_status = "PASS" if manifest.get("verify_passed") else "FAIL"
+    expected_archive = "OK" if manifest.get("verify_archive_exists") else "MISSING"
+    expected_next_step = manifest.get("verify_recommended_next_step") or "-"
+
+    if verify_payload.get("output_dir") != manifest.get("output_dir"):
+        issues.append("pilot-day-zero-verify.json icinde output_dir manifestle uyusmuyor")
+    if verify_payload.get("archive_path") != manifest.get("archive_path"):
+        issues.append("pilot-day-zero-verify.json icinde archive_path manifestle uyusmuyor")
+    if verify_payload.get("passed") != manifest.get("verify_passed"):
+        issues.append("pilot-day-zero-verify.json icinde passed degeri manifestle uyusmuyor")
+    if verify_payload.get("archive_exists") != manifest.get("verify_archive_exists"):
+        issues.append("pilot-day-zero-verify.json icinde archive_exists manifestle uyusmuyor")
+    if verify_payload.get("recommended_next_step") != manifest.get("verify_recommended_next_step"):
+        issues.append("pilot-day-zero-verify.json icinde recommended_next_step manifestle uyusmuyor")
+
+    if manifest.get("smoke_included"):
+        if verify_payload.get("smoke_overall_ok") != manifest.get("smoke_overall_ok"):
+            issues.append("pilot-day-zero-verify.json icinde smoke_overall_ok manifestle uyusmuyor")
+        if verify_payload.get("smoke_failed_count") != manifest.get("smoke_failed_count"):
+            issues.append("pilot-day-zero-verify.json icinde smoke_failed_count manifestle uyusmuyor")
+
+    expected_markdown_snippets = [
+        f"- Output Dir: `{manifest.get('output_dir')}`",
+        f"- Status: `{expected_status}`",
+        f"- Archive: `{expected_archive}`",
+        f"- Recommended Next Step: {expected_next_step}",
+    ]
+    for snippet in expected_markdown_snippets:
+        if snippet not in verify_markdown:
+            issues.append(f"pilot-day-zero-verify.md icinde beklenen satir eksik: {snippet}")
+
+    return (True, issues)
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -640,6 +685,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(report_issues)
 
+    verify_reports_checked, verify_report_issues = _check_embedded_verify_reports(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(verify_report_issues)
+
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
         "Day-zero kiti kullanima hazir."
@@ -675,6 +726,8 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "packet_ok": True if packet_checked and not packet_issues else (False if packet_checked else None),
         "reports_checked": reports_checked,
         "reports_ok": True if reports_checked and not report_issues else (False if reports_checked else None),
+        "verify_reports_checked": verify_reports_checked,
+        "verify_reports_ok": True if verify_reports_checked and not verify_report_issues else (False if verify_reports_checked else None),
         "recommended_next_step": recommended_next_step,
     }
 
@@ -694,6 +747,8 @@ def render_console_summary(result: dict) -> str:
     packet_ok = result.get("packet_ok")
     reports_checked = bool(result.get("reports_checked"))
     reports_ok = result.get("reports_ok")
+    verify_reports_checked = bool(result.get("verify_reports_checked"))
+    verify_reports_ok = result.get("verify_reports_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
@@ -731,6 +786,11 @@ def render_console_summary(result: dict) -> str:
             else "Status Reports: SKIPPED"
         ),
         (
+            f"Embedded Verify Reports: {'PASS' if verify_reports_ok else 'FAIL'}"
+            if verify_reports_checked
+            else "Embedded Verify Reports: SKIPPED"
+        ),
+        (
             f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
             if smoke_checked and smoke_overall_ok is not None
             else "Smoke: SKIPPED"
@@ -759,6 +819,8 @@ def render_markdown_report(result: dict) -> str:
     packet_ok = result.get("packet_ok")
     reports_checked = bool(result.get("reports_checked"))
     reports_ok = result.get("reports_ok")
+    verify_reports_checked = bool(result.get("verify_reports_checked"))
+    verify_reports_ok = result.get("verify_reports_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -795,6 +857,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Status Reports: `{'PASS' if reports_ok else 'FAIL'}`"
             if reports_checked
             else "- Status Reports: `SKIPPED`"
+        ),
+        (
+            f"- Embedded Verify Reports: `{'PASS' if verify_reports_ok else 'FAIL'}`"
+            if verify_reports_checked
+            else "- Embedded Verify Reports: `SKIPPED`"
         ),
         (
             f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"

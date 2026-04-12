@@ -140,6 +140,7 @@ Pilot day zero kiti icin:
   - streamlit guard json dosyalari dogru mode / base_url / service / gate bilgisi tasiyor mu
   - pilot launch / cutover paketleri dogru link ve komutlari tasiyor mu
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlari karar/gate/release satirlarini guncel tasiyor mu
+  - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalari manifestteki verify sonucu ile uyumlu mu
   kontrol eder
 
 ## Zorunlu Ayarlar

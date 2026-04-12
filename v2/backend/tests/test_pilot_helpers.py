@@ -478,6 +478,8 @@ def test_day_zero_verify_passes_for_valid_bundle(monkeypatch, tmp_path: Path):
     assert result["packet_ok"] is True
     assert result["reports_checked"] is True
     assert result["reports_ok"] is True
+    assert result["verify_reports_checked"] is True
+    assert result["verify_reports_ok"] is True
     assert result["smoke_checked"] is False
     assert result["consistency_issues"] == []
 
@@ -801,6 +803,38 @@ def test_day_zero_verify_fails_when_banner_guard_json_is_wrong(monkeypatch, tmp_
     assert any("streamlit-banner-guard.json" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_embedded_verify_json_is_wrong(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    verify_json_path = tmp_path / "pilot-day-zero-verify.json"
+    verify_payload = json.loads(verify_json_path.read_text(encoding="utf-8"))
+    verify_payload["recommended_next_step"] = "Yanlis sonraki adim"
+    verify_json_path.write_text(json.dumps(verify_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["verify_reports_checked"] is True
+    assert result["verify_reports_ok"] is False
+    assert any("pilot-day-zero-verify.json" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_launch_packet_is_stale(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
@@ -926,6 +960,8 @@ def test_day_zero_verify_markdown_includes_core_sections():
             "packet_ok": True,
             "reports_checked": True,
             "reports_ok": True,
+            "verify_reports_checked": True,
+            "verify_reports_ok": True,
             "recommended_next_step": "Day-zero kiti kullanima hazir.",
         }
     )
@@ -937,6 +973,7 @@ def test_day_zero_verify_markdown_includes_core_sections():
     assert "Env Payloads" in markdown
     assert "Launch Packets" in markdown
     assert "Status Reports" in markdown
+    assert "Embedded Verify Reports" in markdown
     assert "## Missing Files" in markdown
     assert "## Consistency Issues" in markdown
     assert "Smoke" in markdown
