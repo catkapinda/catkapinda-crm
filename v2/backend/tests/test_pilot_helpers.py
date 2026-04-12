@@ -203,6 +203,11 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert manifest["cutover_gate_passed"] is False
     assert manifest["banner_guard_allowed"] is True
     assert manifest["redirect_guard_allowed"] is False
+    assert manifest["verify_passed"] is True
+    assert manifest["verify_missing_files_count"] == 0
+    assert manifest["verify_consistency_issues_count"] == 0
+    assert manifest["verify_archive_exists"] is True
+    assert manifest["verify_recommended_next_step"] == "Day-zero kiti kullanima hazir."
     assert "archive_path" in manifest
     assert (tmp_path / "render-env-bundle.env").exists()
     assert (tmp_path / "streamlit-banner.env").exists()
@@ -222,6 +227,9 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert "verify_markdown" in manifest["files"]
     assert "CK_V2_CUTOVER_MODE=banner" in (tmp_path / "streamlit-banner-guarded.env").read_text(encoding="utf-8")
     assert "# guard blocked redirect env" in (tmp_path / "streamlit-redirect-guarded.env").read_text(encoding="utf-8")
+    start_here = (tmp_path / "00-START-HERE.md").read_text(encoding="utf-8")
+    assert "Verify: `PASS`" in start_here
+    assert "Day-zero kiti kullanima hazir." in start_here
 
 
 def test_day_zero_can_derive_api_url_from_status_payload():
@@ -340,3 +348,13 @@ def test_day_zero_verify_markdown_includes_core_sections():
     assert "# Cat Kapinda CRM v2 Day Zero Verify" in markdown
     assert "## Missing Files" in markdown
     assert "## Consistency Issues" in markdown
+
+
+def test_day_zero_exit_code_respects_strict_verify_mode():
+    manifest = {
+        "pilot_gate_passed": True,
+        "verify_passed": False,
+    }
+
+    assert pilot_day_zero.compute_exit_code(manifest, strict=False) == 0
+    assert pilot_day_zero.compute_exit_code(manifest, strict=True) == 2

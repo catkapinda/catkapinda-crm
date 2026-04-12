@@ -37,6 +37,8 @@ def _build_start_here_markdown(
     cutover_gate_passed: bool,
     banner_guard_allowed: bool,
     redirect_guard_allowed: bool,
+    verify_passed: bool | None = None,
+    verify_next_step: str | None = None,
 ) -> str:
     lines = [
         "# Cat Kapinda CRM v2 Day Zero - Start Here",
@@ -49,6 +51,11 @@ def _build_start_here_markdown(
         f"- Cutover Gate: `{'PASS' if cutover_gate_passed else 'FAIL'}`",
         f"- Banner Guard: `{'PASS' if banner_guard_allowed else 'BLOCK'}`",
         f"- Redirect Guard: `{'PASS' if redirect_guard_allowed else 'BLOCK'}`",
+        (
+            f"- Verify: `{'PASS' if verify_passed else 'FAIL'}`"
+            if verify_passed is not None
+            else "- Verify: `BEKLENIYOR`"
+        ),
         "",
         "## Nereden Baslayacagiz",
         "",
@@ -72,6 +79,15 @@ def _build_start_here_markdown(
         "- `streamlit-redirect-guarded.env`: guvenli redirect gecisi",
         "",
     ]
+    if verify_next_step:
+        lines.extend(
+            [
+                "## Verify Sonrasi Sonraki Adim",
+                "",
+                verify_next_step,
+                "",
+            ]
+        )
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -270,7 +286,27 @@ def build_day_zero_bundle(
     )
     manifest["files"]["verify_json"] = str(output_dir / "pilot-day-zero-verify.json")
     manifest["files"]["verify_markdown"] = str(output_dir / "pilot-day-zero-verify.md")
+    manifest["verify_passed"] = verify_result["passed"]
+    manifest["verify_missing_files_count"] = len(verify_result["missing_files"])
+    manifest["verify_consistency_issues_count"] = len(verify_result["consistency_issues"])
+    manifest["verify_recommended_next_step"] = verify_result["recommended_next_step"]
+    manifest["verify_archive_exists"] = verify_result["archive_exists"]
     (output_dir / "pilot-day-zero-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (output_dir / "00-START-HERE.md").write_text(
+        _build_start_here_markdown(
+            generated_at=generated_at,
+            frontend_url=frontend_url,
+            api_url=api_url,
+            streamlit_url=streamlit_url,
+            pilot_gate_passed=preflight_result["pilot_gate"]["passed"],
+            cutover_gate_passed=preflight_result["cutover_gate"]["passed"],
+            banner_guard_allowed=banner_guard["allowed"],
+            redirect_guard_allowed=cutover_guard["allowed"],
+            verify_passed=verify_result["passed"],
+            verify_next_step=verify_result["recommended_next_step"],
+        ),
+        encoding="utf-8",
+    )
     _zip_directory(output_dir, archive_path)
     return manifest
 
@@ -286,10 +322,20 @@ def render_console_summary(manifest: dict) -> str:
         f"Cutover Gate: {'PASS' if manifest['cutover_gate_passed'] else 'FAIL'}",
         f"Banner Guard: {'PASS' if manifest['banner_guard_allowed'] else 'BLOCK'}",
         f"Redirect Guard: {'PASS' if manifest['redirect_guard_allowed'] else 'BLOCK'}",
+        f"Verify: {'PASS' if manifest.get('verify_passed') else 'FAIL'}",
+        f"Verify Next Step: {manifest.get('verify_recommended_next_step', 'Yok')}",
         "Files:",
     ]
     lines.extend([f"- {label}: {path}" for label, path in manifest["files"].items()])
     return "\n".join(lines) + "\n"
+
+
+def compute_exit_code(manifest: dict, *, strict: bool) -> int:
+    if not manifest["pilot_gate_passed"]:
+        return 2
+    if strict and not manifest.get("verify_passed", False):
+        return 2
+    return 0
 
 
 def main() -> int:
@@ -358,6 +404,11 @@ def main() -> int:
         action="store_true",
         help="Print the manifest as JSON",
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit non-zero if the embedded day-zero verify result also fails.",
+    )
     args = parser.parse_args()
 
     frontend_url = normalize_url(args.base_url)
@@ -386,7 +437,7 @@ def main() -> int:
     else:
         print(render_console_summary(manifest), end="")
 
-    return 0 if manifest["pilot_gate_passed"] else 2
+    return compute_exit_code(manifest, strict=args.strict)
 
 
 if __name__ == "__main__":

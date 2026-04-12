@@ -100,6 +100,8 @@ Pilot cutover guard icin:
 
 Pilot day zero kiti icin:
 - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero`
+- verify de exit koduna dahil olsun istersen:
+  - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero --strict`
 - `--api-url` verilmezse canli `/api/pilot-status` uzerinden backend servisi bulunmaya calisilir
 - bu helper ayni klasorde:
   - env bundle
@@ -113,6 +115,7 @@ Pilot day zero kiti icin:
   - `00-START-HERE.md`
   toplar
 - ayrica ayni isimle `.zip` arsivi de uretir
+- kit ozetinde verify sonucu ve onerilen sonraki adim da yazilir
 - kit tam mi diye hizli kontrol icin:
   - `python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero`
 

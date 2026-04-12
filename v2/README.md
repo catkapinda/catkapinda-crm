@@ -129,6 +129,8 @@ Pilot cutover guard helper:
 Pilot day zero kit helper:
 - Pilot gunu tum ana artefaktlari tek klasorde toplamak icin:
   - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero`
+- verify de exit koduna girsin istersen:
+  - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero --strict`
 - `--api-url` verilmezse script bunu canli `/api/pilot-status` verisinden cikarmayi dener
 - bu helper sunlari bir arada uretir:
   - render env bundle
@@ -143,6 +145,10 @@ Pilot day zero kit helper:
   - day-zero verify markdown/json
   - `00-START-HERE.md`
   - paylasilabilir `.zip` arsivi
+- manifest ve konsol ozetinde artik:
+  - verify pass/fail
+  - verify sonrasi onerilen adim
+  da gorunur
 - uretilen kitin eksik ve tutarlilik kontrolu icin:
   - `python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero`
 
