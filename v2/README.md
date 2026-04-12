@@ -171,7 +171,7 @@ Pilot day zero kit helper:
   - checksum katmaniyla dosya ve zip iceriginin manifestle birebir uyumunu
   - release snapshot'in pilot-status-live.json ile ayni build bilgisini tasiyip tasimadigini
   - `00-START-HERE.md` rehberinin verify/smoke/release satirlarini guncel tutup tutmadigini
-  - env dosyalarinin dogru URL ve cutover modlarini tasiyip tasimadigini
+  - env dosyalarinin ve `render-env-bundle.json` esleniginin dogru URL ve cutover modlarini tasiyip tasimadigini
   - `pilot-launch.md` ve `pilot-cutover.md` paketlerinin dogru link ve cutover komutlarini tasiyip tasimadigini
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlarinin karar/gate/release satirlarini guncel tutup tutmadigini
   da kontrol eder

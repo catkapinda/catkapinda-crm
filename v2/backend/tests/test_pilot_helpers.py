@@ -739,6 +739,38 @@ def test_day_zero_verify_fails_when_streamlit_banner_env_is_wrong(monkeypatch, t
     assert any("streamlit-banner.env" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_render_env_bundle_json_is_wrong(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    bundle_json_path = tmp_path / "render-env-bundle.json"
+    bundle_payload = json.loads(bundle_json_path.read_text(encoding="utf-8"))
+    bundle_payload["crmcatkapinda-v2-api"]["CK_V2_API_PUBLIC_URL"] = "https://wrong-api.example.com"
+    bundle_json_path.write_text(json.dumps(bundle_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["env_checked"] is True
+    assert result["env_ok"] is False
+    assert any("render-env-bundle.json" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_launch_packet_is_stale(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())

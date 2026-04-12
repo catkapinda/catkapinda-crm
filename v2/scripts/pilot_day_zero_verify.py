@@ -282,13 +282,20 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
     streamlit_service = service_names.get("streamlit")
 
     render_bundle_path = output_dir / "render-env-bundle.env"
+    render_bundle_json_path = output_dir / "render-env-bundle.json"
     banner_env_path = output_dir / "streamlit-banner.env"
     redirect_env_path = output_dir / "streamlit-redirect.env"
 
-    if not (render_bundle_path.exists() and banner_env_path.exists() and redirect_env_path.exists()):
+    if not (
+        render_bundle_path.exists()
+        and render_bundle_json_path.exists()
+        and banner_env_path.exists()
+        and redirect_env_path.exists()
+    ):
         return (False, ["Env dosyalari eksik oldugu icin env payload kontrolu yapilamadi"])
 
     render_bundle = _parse_env_bundle(render_bundle_path)
+    render_bundle_json = _read_json(render_bundle_json_path)
     banner_bundle = _parse_env_bundle(banner_env_path)
     redirect_bundle = _parse_env_bundle(redirect_env_path)
 
@@ -298,10 +305,19 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
         issues.append(f"render-env-bundle.env icinde frontend servisi eksik: {frontend_service}")
     if streamlit_service not in render_bundle:
         issues.append(f"render-env-bundle.env icinde streamlit servisi eksik: {streamlit_service}")
+    if api_service not in render_bundle_json:
+        issues.append(f"render-env-bundle.json icinde API servisi eksik: {api_service}")
+    if frontend_service not in render_bundle_json:
+        issues.append(f"render-env-bundle.json icinde frontend servisi eksik: {frontend_service}")
+    if streamlit_service not in render_bundle_json:
+        issues.append(f"render-env-bundle.json icinde streamlit servisi eksik: {streamlit_service}")
 
     api_env = render_bundle.get(api_service or "", {})
     frontend_env = render_bundle.get(frontend_service or "", {})
     streamlit_env = render_bundle.get(streamlit_service or "", {})
+    api_env_json = render_bundle_json.get(api_service or "", {})
+    frontend_env_json = render_bundle_json.get(frontend_service or "", {})
+    streamlit_env_json = render_bundle_json.get(streamlit_service or "", {})
     banner_env = banner_bundle.get(streamlit_service or "", {})
     redirect_env = redirect_bundle.get(streamlit_service or "", {})
 
@@ -311,12 +327,33 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
         issues.append("render-env-bundle.env icinde CK_V2_PUBLIC_APP_URL uyusmuyor")
     if api_env.get("CK_V2_API_PUBLIC_URL") != manifest.get("api_url"):
         issues.append("render-env-bundle.env icinde CK_V2_API_PUBLIC_URL uyusmuyor")
+    if api_env_json.get("CK_V2_FRONTEND_BASE_URL") != manifest.get("frontend_url"):
+        issues.append("render-env-bundle.json icinde CK_V2_FRONTEND_BASE_URL uyusmuyor")
+    if api_env_json.get("CK_V2_PUBLIC_APP_URL") != manifest.get("frontend_url"):
+        issues.append("render-env-bundle.json icinde CK_V2_PUBLIC_APP_URL uyusmuyor")
+    if api_env_json.get("CK_V2_API_PUBLIC_URL") != manifest.get("api_url"):
+        issues.append("render-env-bundle.json icinde CK_V2_API_PUBLIC_URL uyusmuyor")
     if frontend_env.get("NEXT_PUBLIC_V2_API_BASE_URL") != "/v2-api":
         issues.append("render-env-bundle.env icinde NEXT_PUBLIC_V2_API_BASE_URL beklenen degerde degil")
+    if frontend_env_json.get("NEXT_PUBLIC_V2_API_BASE_URL") != "/v2-api":
+        issues.append("render-env-bundle.json icinde NEXT_PUBLIC_V2_API_BASE_URL beklenen degerde degil")
     if streamlit_env.get("CK_V2_PILOT_URL") != manifest.get("frontend_url"):
         issues.append("render-env-bundle.env icinde streamlit CK_V2_PILOT_URL uyusmuyor")
     if streamlit_env.get("CK_V2_CUTOVER_MODE") != "banner":
         issues.append("render-env-bundle.env icinde streamlit CK_V2_CUTOVER_MODE banner olmali")
+    if streamlit_env_json.get("CK_V2_PILOT_URL") != manifest.get("frontend_url"):
+        issues.append("render-env-bundle.json icinde streamlit CK_V2_PILOT_URL uyusmuyor")
+    if streamlit_env_json.get("CK_V2_CUTOVER_MODE") != "banner":
+        issues.append("render-env-bundle.json icinde streamlit CK_V2_CUTOVER_MODE banner olmali")
+
+    for service_name, env_payload in [
+        (api_service, api_env),
+        (frontend_service, frontend_env),
+        (streamlit_service, streamlit_env),
+    ]:
+        json_payload = render_bundle_json.get(service_name or "", {})
+        if env_payload and json_payload and env_payload != json_payload:
+            issues.append(f"render-env-bundle.env ile render-env-bundle.json uyusmuyor: {service_name}")
 
     if banner_env.get("CK_V2_PILOT_URL") != manifest.get("frontend_url"):
         issues.append("streamlit-banner.env icinde CK_V2_PILOT_URL uyusmuyor")
