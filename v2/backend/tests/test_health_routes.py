@@ -171,6 +171,16 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --json"
     )
+    assert payload["helper_commands"][2]["command"] == (
+        "python v2/scripts/render_env_bundle.py "
+        "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com "
+        "--service crmcatkapinda --cutover-mode banner"
+    )
+    assert payload["helper_commands"][3]["command"] == (
+        "python v2/scripts/render_env_bundle.py "
+        "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com "
+        "--service crmcatkapinda --cutover-mode redirect"
+    )
     assert payload["services"][0]["name"] == "crmcatkapinda-v2"
     assert payload["services"][0]["service_type"] == "frontend"
     assert payload["services"][0]["public_url"] == "https://pilot.example.com"

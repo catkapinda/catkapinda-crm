@@ -725,6 +725,22 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
                 f"--frontend-url {frontend_url} --api-url {backend_url} --json"
             ),
         ),
+        PilotHelperCommand(
+            label="Streamlit Banner Env",
+            command=(
+                "python v2/scripts/render_env_bundle.py "
+                f"--frontend-url {frontend_url} --api-url {backend_url} "
+                "--service crmcatkapinda --cutover-mode banner"
+            ),
+        ),
+        PilotHelperCommand(
+            label="Streamlit Redirect Env",
+            command=(
+                "python v2/scripts/render_env_bundle.py "
+                f"--frontend-url {frontend_url} --api-url {backend_url} "
+                "--service crmcatkapinda --cutover-mode redirect"
+            ),
+        ),
     ]
 
 

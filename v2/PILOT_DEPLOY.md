@@ -53,6 +53,10 @@ Env bloklarini tek komutta hazirlamak icin:
 - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain>`
 - JSON cikti istenirse:
   - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --json`
+- sadece eski Streamlit banner env'i icin:
+  - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --service crmcatkapinda --cutover-mode banner`
+- sadece eski Streamlit redirect env'i icin:
+  - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --service crmcatkapinda --cutover-mode redirect`
 
 ## Zorunlu Ayarlar
 

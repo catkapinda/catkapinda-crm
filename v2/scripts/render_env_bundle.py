@@ -67,6 +67,12 @@ def render_text(bundle: dict[str, dict[str, str]]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def filter_bundle(bundle: dict[str, dict[str, str]], service: str) -> dict[str, dict[str, str]]:
+    if service == "all":
+        return bundle
+    return {service: bundle[service]}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Generate Render env blocks for the Cat Kapinda CRM v2 pilot services."
@@ -109,6 +115,12 @@ def main() -> int:
         action="store_true",
         help="Print the env bundle as JSON instead of dotenv-style blocks",
     )
+    parser.add_argument(
+        "--service",
+        choices=["all", "crmcatkapinda-v2-api", "crmcatkapinda-v2", "crmcatkapinda"],
+        default="all",
+        help="Optionally print only one service block",
+    )
     args = parser.parse_args()
 
     frontend_url = normalize_url(args.frontend_url)
@@ -123,12 +135,13 @@ def main() -> int:
         streamlit_service_name=args.streamlit_service_name.strip(),
         cutover_mode=args.cutover_mode,
     )
+    filtered_bundle = filter_bundle(bundle, args.service)
 
     if args.json:
-        print(json.dumps(bundle, ensure_ascii=False, indent=2))
+        print(json.dumps(filtered_bundle, ensure_ascii=False, indent=2))
         return 0
 
-    print(render_text(bundle), end="")
+    print(render_text(filtered_bundle), end="")
     return 0
 
 

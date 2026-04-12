@@ -68,6 +68,10 @@ Render env bundle helper:
   - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain>`
 - istenirse JSON olarak:
   - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --json`
+- sadece eski Streamlit banner env'i icin:
+  - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --service crmcatkapinda --cutover-mode banner`
+- sadece eski Streamlit redirect env'i icin:
+  - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --service crmcatkapinda --cutover-mode redirect`
 
 Pilot smoke check:
 - After deploy, run:
