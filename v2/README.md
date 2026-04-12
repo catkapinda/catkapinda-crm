@@ -57,3 +57,4 @@ Pilot smoke check:
   - login page
   - backend health
   - backend readiness
+  - backend pilot cutover phase (`ready_for_pilot` / `ready_for_cutover`)

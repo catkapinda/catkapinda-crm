@@ -137,3 +137,10 @@ Bu iki alan Render Environment veya `secrets.toml` icindeki `[v2]` bolumu ile de
 10. smoke script temiz donmeli:
    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
 11. `status` ekranindaki `zorunlu eksik env` sayisi `0` olmali
+12. `status` ekranindaki `Streamlit'ten cikis ozeti` karti en az `Pilot Acilabilir` seviyesinde olmali
+
+Not:
+- smoke script artik opsiyonel SMS env eksiklerini blokaj saymaz
+- gecme mantigi:
+  - `required_missing_env_vars = 0`
+  - `cutover.phase = ready_for_pilot` veya `ready_for_cutover`

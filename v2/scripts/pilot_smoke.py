@@ -137,14 +137,19 @@ def run_smoke_checks(base_url: str, timeout: int) -> list[CheckResult]:
         status, payload = fetch_json(base_url, "/v2-api/health/pilot", timeout)
         module_count = len(payload.get("modules", []))
         auth = payload.get("auth", {})
-        missing_envs = payload.get("missing_env_vars", [])
+        cutover = payload.get("cutover", {})
+        required_missing_envs = payload.get("required_missing_env_vars", [])
+        optional_missing_envs = payload.get("optional_missing_env_vars", [])
+        modules_ready_count = int(cutover.get("modules_ready_count") or 0)
         ok = (
             status == 200
             and payload.get("status") in {"ok", "degraded"}
             and module_count >= 8
             and bool(auth.get("email_login"))
             and bool(auth.get("phone_login"))
-            and len(missing_envs) == 0
+            and len(required_missing_envs) == 0
+            and cutover.get("phase") in {"ready_for_pilot", "ready_for_cutover"}
+            and bool(cutover.get("ready"))
         )
         results.append(
             CheckResult(
@@ -152,8 +157,11 @@ def run_smoke_checks(base_url: str, timeout: int) -> list[CheckResult]:
                 ok=ok,
                 detail=(
                     f"HTTP {status} • status={payload.get('status')} • "
-                    f"modules={module_count} • sms={auth.get('sms_login')} • "
-                    f"missing_envs={len(missing_envs)}"
+                    f"phase={cutover.get('phase', '-')} • "
+                    f"modules={modules_ready_count}/{module_count} • "
+                    f"sms={auth.get('sms_login')} • "
+                    f"required_missing={len(required_missing_envs)} • "
+                    f"optional_missing={len(optional_missing_envs)}"
                 ),
             )
         )
