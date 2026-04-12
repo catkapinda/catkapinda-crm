@@ -35,6 +35,7 @@ type BackendReadiness = {
   };
   config: Array<{
     name: string;
+    service: string;
     ok: boolean;
     required: boolean;
     detail: string | null;
@@ -149,6 +150,33 @@ export default function StatusPage() {
   const backendChecks = useMemo(() => backend?.checks ?? [], [backend]);
   const backendConfig = useMemo(() => backend?.config ?? [], [backend]);
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
+  const backendConfigEntries = useMemo(
+    () => backendConfig.filter((entry) => entry.service === "backend"),
+    [backendConfig],
+  );
+  const frontendConfigEntries = useMemo(
+    () => [
+      {
+        name: "NEXT_PUBLIC_V2_API_BASE_URL",
+        ok: true,
+        required: true,
+        detail: "/v2-api (Render proxy rewrite)",
+      },
+      {
+        name: "CK_V2_INTERNAL_API_HOSTPORT",
+        ok: true,
+        required: true,
+        detail: "Backend hostport degerinden otomatik gelir",
+      },
+      {
+        name: "NEXT_TELEMETRY_DISABLED",
+        ok: true,
+        required: false,
+        detail: "1 (blueprint ile otomatik gelir)",
+      },
+    ],
+    [],
+  );
   const overallOk = Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable) && backend?.status === "ok";
   const coreReady = Boolean(frontend?.backendReachable) && Boolean(backend?.core_ready);
   const cutoverTone =
@@ -549,49 +577,118 @@ export default function StatusPage() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                    gap: "12px",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                    gap: "16px",
                   }}
                 >
-                  {backendConfig.map((entry) => (
-                    <article
-                      key={entry.name}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "18px",
-                        border: "1px solid rgba(219, 228, 243, 0.9)",
-                        background: "rgba(248, 250, 255, 0.86)",
-                        display: "grid",
-                        gap: "8px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "10px",
-                        }}
-                      >
-                        <strong style={{ textTransform: "capitalize" }}>{entry.name.replaceAll("_", " ")}</strong>
-                        <div style={statusPill(entry.ok)}>
-                          {entry.ok ? "Hazır" : entry.required ? "Zorunlu Eksik" : "İsteğe Bağlı Eksik"}
-                        </div>
+                  <article
+                    style={{
+                      padding: "18px",
+                      borderRadius: "20px",
+                      border: "1px solid rgba(219, 228, 243, 0.9)",
+                      background: "rgba(248, 250, 255, 0.86)",
+                      display: "grid",
+                      gap: "12px",
+                      alignContent: "start",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: "6px" }}>
+                      <strong style={{ fontSize: "1rem" }}>Render API Servisi</strong>
+                      <div style={{ color: "#5f7294", lineHeight: 1.5 }}>
+                        Backend servisine girilecek ortam degiskenleri. Zorunlu eksikler burada gorunur.
                       </div>
-                      <div style={{ color: "#5f7294", lineHeight: 1.5 }}>{entry.detail ?? "-"}</div>
-                      {entry.missing_envs.length ? (
-                        <div
+                    </div>
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      {backendConfigEntries.map((entry) => (
+                        <article
+                          key={entry.name}
                           style={{
-                            color: entry.required ? "#c24141" : "#9a6700",
-                            fontSize: "0.9rem",
-                            lineHeight: 1.5,
+                            padding: "14px",
+                            borderRadius: "16px",
+                            border: "1px solid rgba(219, 228, 243, 0.9)",
+                            background: "rgba(255,255,255,0.92)",
+                            display: "grid",
+                            gap: "8px",
                           }}
                         >
-                          Eksik: {entry.missing_envs.join(", ")}
-                        </div>
-                      ) : null}
-                    </article>
-                  ))}
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: "10px",
+                            }}
+                          >
+                            <strong style={{ textTransform: "capitalize" }}>{entry.name.replaceAll("_", " ")}</strong>
+                            <div style={statusPill(entry.ok)}>
+                              {entry.ok ? "Hazır" : entry.required ? "Zorunlu Eksik" : "İsteğe Bağlı Eksik"}
+                            </div>
+                          </div>
+                          <div style={{ color: "#5f7294", lineHeight: 1.5 }}>{entry.detail ?? "-"}</div>
+                          {entry.missing_envs.length ? (
+                            <div
+                              style={{
+                                color: entry.required ? "#c24141" : "#9a6700",
+                                fontSize: "0.9rem",
+                                lineHeight: 1.5,
+                              }}
+                            >
+                              Eksik: {entry.missing_envs.join(", ")}
+                            </div>
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  </article>
+
+                  <article
+                    style={{
+                      padding: "18px",
+                      borderRadius: "20px",
+                      border: "1px solid rgba(219, 228, 243, 0.9)",
+                      background: "rgba(248, 250, 255, 0.86)",
+                      display: "grid",
+                      gap: "12px",
+                      alignContent: "start",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: "6px" }}>
+                      <strong style={{ fontSize: "1rem" }}>Render Frontend Servisi</strong>
+                      <div style={{ color: "#5f7294", lineHeight: 1.5 }}>
+                        Frontend servisi blueprint ile otomatik gelen ayarlarla ayaga kalkar. Burada sadece kontrol listesi gorursun.
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      {frontendConfigEntries.map((entry) => (
+                        <article
+                          key={entry.name}
+                          style={{
+                            padding: "14px",
+                            borderRadius: "16px",
+                            border: "1px solid rgba(219, 228, 243, 0.9)",
+                            background: "rgba(255,255,255,0.92)",
+                            display: "grid",
+                            gap: "8px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: "10px",
+                            }}
+                          >
+                            <strong>{entry.name}</strong>
+                            <div style={statusPill(entry.ok)}>
+                              {entry.ok ? "Blueprint ile Hazır" : entry.required ? "Zorunlu Eksik" : "İsteğe Bağlı Eksik"}
+                            </div>
+                          </div>
+                          <div style={{ color: "#5f7294", lineHeight: 1.5 }}>{entry.detail}</div>
+                        </article>
+                      ))}
+                    </div>
+                  </article>
                 </div>
 
                 <div

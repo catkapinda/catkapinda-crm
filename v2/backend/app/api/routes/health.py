@@ -298,6 +298,7 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
     config_entries: list[PilotConfigEntry] = [
         PilotConfigEntry(
             name="database",
+            service="backend",
             ok=bool(settings.database_url),
             required=True,
             detail="Veritabanı URL tanımlı" if settings.database_url else "CK_V2_DATABASE_URL veya DATABASE_URL eksik",
@@ -305,6 +306,7 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         ),
         PilotConfigEntry(
             name="frontend_base_url",
+            service="backend",
             ok=has_any_frontend_url,
             required=True,
             detail=settings.resolved_frontend_base_url if has_any_frontend_url else "CK_V2_FRONTEND_BASE_URL veya CK_V2_PUBLIC_APP_URL eksik",
@@ -312,6 +314,7 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         ),
         PilotConfigEntry(
             name="public_app_url",
+            service="backend",
             ok=has_any_frontend_url,
             required=False,
             detail=settings.resolved_public_app_url if has_any_frontend_url else "Public app URL pilot sonrasi da eklenebilir",
@@ -319,6 +322,7 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         ),
         PilotConfigEntry(
             name="sms_allowlist",
+            service="backend",
             required=False,
             ok=bool(settings.sms_phone_allowlist),
             detail=f"{len(settings.sms_phone_allowlist)} izinli telefon",
@@ -330,6 +334,7 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         ),
         PilotConfigEntry(
             name="sms_provider",
+            service="backend",
             required=False,
             ok=bool(sms_setup["configured"]),
             detail=(
@@ -341,6 +346,7 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         ),
         PilotConfigEntry(
             name="default_auth_password",
+            service="backend",
             required=False,
             ok=settings.default_auth_password != "123456",
             detail=(

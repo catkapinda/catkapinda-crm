@@ -34,6 +34,7 @@ class PilotAuthStatus(BaseModel):
 
 class PilotConfigEntry(BaseModel):
     name: str
+    service: str = "backend"
     ok: bool
     required: bool = True
     detail: str | None = None

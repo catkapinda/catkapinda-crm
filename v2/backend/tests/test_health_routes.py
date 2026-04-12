@@ -127,6 +127,7 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["cutover"]["ready"] is False
     assert payload["cutover"]["modules_ready_count"] == len(payload["modules"])
     assert any("Varsayilan v2 sifresi" in item for item in payload["cutover"]["blocking_items"])
+    assert any(entry["service"] == "backend" for entry in payload["config"])
     assert "config" in payload
     assert "missing_env_vars" in payload
     assert "required_missing_env_vars" in payload
