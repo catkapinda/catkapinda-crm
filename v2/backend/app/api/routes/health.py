@@ -336,6 +336,14 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
             missing_envs=[] if has_any_frontend_url else ["CK_V2_PUBLIC_APP_URL"],
         ),
         PilotConfigEntry(
+            name="api_public_url",
+            service="backend",
+            ok=bool(settings.api_public_url),
+            required=False,
+            detail=settings.resolved_api_public_url if settings.api_public_url else "API public URL pilot sonrasi da eklenebilir",
+            missing_envs=[] if settings.api_public_url else ["CK_V2_API_PUBLIC_URL"],
+        ),
+        PilotConfigEntry(
             name="sms_allowlist",
             service="backend",
             required=False,
@@ -386,6 +394,8 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         next_actions.append("Backend servisine veritabanı URL'sini gir.")
     if any(name in required_missing_env_vars for name in {"CK_V2_FRONTEND_BASE_URL", "CK_V2_PUBLIC_APP_URL"}):
         next_actions.append("Backend tarafinda en az bir pilot uygulama URL'si tanimla.")
+    if "CK_V2_API_PUBLIC_URL" in optional_missing_env_vars:
+        next_actions.append("Render'da backend servis public URL'sini de girersen status ekrani daha net olur.")
     if any(name in optional_missing_env_vars for name in {"AUTH_EBRU_PHONE", "AUTH_MERT_PHONE", "AUTH_MUHAMMED_PHONE"}):
         next_actions.append("SMS login acilacaksa yonetici telefon allowlist degerlerini gir.")
     if sms_setup["missing_envs"]:
@@ -494,7 +504,7 @@ def _build_smoke_commands() -> list[PilotSmokeCommand]:
 
 def _build_pilot_services() -> list[PilotServiceEntry]:
     frontend_url = settings.resolved_public_app_url.rstrip("/")
-    backend_url = settings.resolved_frontend_base_url.rstrip("/")
+    backend_url = settings.resolved_api_public_url.rstrip("/")
     return [
         PilotServiceEntry(
             name="crmcatkapinda-v2",

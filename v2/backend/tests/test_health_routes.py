@@ -102,6 +102,7 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     monkeypatch.setattr(settings, "database_url", "postgresql://pilot")
     monkeypatch.setattr(settings, "frontend_base_url", "https://pilot.example.com")
     monkeypatch.setattr(settings, "public_app_url", "https://pilot.example.com")
+    monkeypatch.setattr(settings, "api_public_url", "https://pilot-api.example.com")
     monkeypatch.setattr(settings, "auth_ebru_phone", "05321234567")
     monkeypatch.setattr(settings, "auth_mert_phone", "")
     monkeypatch.setattr(settings, "auth_muhammed_phone", "")
@@ -140,6 +141,7 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["services"][0]["public_url"] == "https://pilot.example.com"
     assert payload["services"][1]["name"] == "crmcatkapinda-v2-api"
     assert payload["services"][1]["service_type"] == "backend"
+    assert payload["services"][1]["public_url"] == "https://pilot-api.example.com"
     assert "config" in payload
     assert "missing_env_vars" in payload
     assert "required_missing_env_vars" in payload
@@ -170,6 +172,7 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     monkeypatch.setattr(settings, "database_url", "postgresql://pilot")
     monkeypatch.setattr(settings, "frontend_base_url", "https://pilot.example.com")
     monkeypatch.setattr(settings, "public_app_url", "")
+    monkeypatch.setattr(settings, "api_public_url", "")
     monkeypatch.setattr(settings, "auth_ebru_phone", "")
     monkeypatch.setattr(settings, "auth_mert_phone", "")
     monkeypatch.setattr(settings, "auth_muhammed_phone", "")

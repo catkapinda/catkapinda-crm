@@ -47,6 +47,9 @@ Yerel smoke check:
   - v2 frontend public URL'si
 - `CK_V2_PUBLIC_APP_URL`
   - v2 frontend public URL'si
+- `CK_V2_API_PUBLIC_URL`
+  - v2 backend public URL'si
+  - `/status` ekraninda backend servis adresini dogru gostermek icin onerilir
 - `CK_V2_DEFAULT_AUTH_PASSWORD`
   - yonetici ve mobil operasyon kullanicilarinin ilk sifresi
   - not: varsayilan `123456` yerine pilot oncesi yeni bir sifre girmen onerilir
@@ -54,6 +57,7 @@ Yerel smoke check:
 Not:
 - `CK_V2_FRONTEND_BASE_URL` veya `CK_V2_PUBLIC_APP_URL` alanlarindan en az biri pilot icin yeterlidir.
 - Ikisini de girersen status ekrani ikisini de gosterebilir; ama readiness icin tek URL yeterlidir.
+- `CK_V2_API_PUBLIC_URL` zorunlu degildir ama pilot status ve servis linklerini temiz gormek icin tavsiye edilir.
 
 ### SMS login icin opsiyonel ayarlar
 

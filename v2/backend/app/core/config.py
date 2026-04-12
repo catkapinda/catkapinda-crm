@@ -21,6 +21,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("CK_V2_PUBLIC_APP_URL", "PUBLIC_APP_URL"),
     )
+    api_public_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CK_V2_API_PUBLIC_URL", "API_PUBLIC_URL"),
+    )
     auth_ebru_phone: str = Field(default="", validation_alias=AliasChoices("AUTH_EBRU_PHONE"))
     auth_mert_phone: str = Field(default="", validation_alias=AliasChoices("AUTH_MERT_PHONE"))
     auth_muhammed_phone: str = Field(default="", validation_alias=AliasChoices("AUTH_MUHAMMED_PHONE"))
@@ -51,6 +55,10 @@ class Settings(BaseSettings):
     @property
     def resolved_public_app_url(self) -> str:
         return str(self.public_app_url or self.frontend_base_url or "http://127.0.0.1:3000").strip()
+
+    @property
+    def resolved_api_public_url(self) -> str:
+        return str(self.api_public_url or "http://127.0.0.1:8000").strip()
 
     @property
     def sms_phone_allowlist(self) -> list[str]:

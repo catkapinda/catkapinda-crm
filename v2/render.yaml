@@ -16,6 +16,8 @@ services:
         sync: false
       - key: CK_V2_PUBLIC_APP_URL
         sync: false
+      - key: CK_V2_API_PUBLIC_URL
+        sync: false
       - key: CK_V2_DEFAULT_AUTH_PASSWORD
         sync: false
       - key: AUTH_EBRU_PHONE
