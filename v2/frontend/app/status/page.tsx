@@ -426,6 +426,41 @@ export default function StatusPage() {
           </div>
         </section>
 
+        <section
+          style={{
+            ...cardStyle(),
+            display: "grid",
+            gap: "12px",
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0, fontSize: "1.15rem" }}>Hızlı Geçişler</h2>
+            <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+              Pilot açılışında en çok bakacağımız bölümlere buradan doğrudan atlayabiliriz.
+            </p>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}
+          >
+            <a href="#pilot-scenarios" style={actionButtonStyle()}>
+              Pilot Senaryolari
+            </a>
+            <a href="#rollout-steps" style={actionButtonStyle()}>
+              Açılış Sırası
+            </a>
+            <a href="#deploy-readiness" style={actionButtonStyle()}>
+              Deploy Hazırlığı
+            </a>
+            <a href="#render-services" style={actionButtonStyle()}>
+              Render Servisleri
+            </a>
+          </div>
+        </section>
+
         {loading ? (
           <section style={cardStyle()}>Pilot durumu yükleniyor...</section>
         ) : (
@@ -718,6 +753,7 @@ export default function StatusPage() {
 
             {pilotServices.length ? (
               <section
+                id="render-services"
                 style={{
                   ...cardStyle(),
                   display: "grid",
@@ -1162,7 +1198,7 @@ export default function StatusPage() {
             </section>
 
             {pilotScenarios.length ? (
-              <section style={cardStyle()}>
+              <section id="pilot-scenarios" style={cardStyle()}>
                 <div
                   style={{
                     display: "flex",
@@ -1237,7 +1273,7 @@ export default function StatusPage() {
             ) : null}
 
             {rolloutSteps.length ? (
-              <section style={cardStyle()}>
+              <section id="rollout-steps" style={cardStyle()}>
                 <div
                   style={{
                     display: "flex",
