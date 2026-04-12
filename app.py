@@ -541,6 +541,8 @@ AUTH_QUERY_KEY = "ck_session"
 SESSION_CONN_KEY = "_ck_active_conn"
 SESSION_CONN_CREATED_AT_KEY = "_ck_active_conn_created_at"
 SESSION_CONN_MAX_AGE_SECONDS = 75
+DB_UI_RETRY_SESSION_KEY = "_ck_db_ui_retry_at"
+DB_UI_RETRY_COOLDOWN_SECONDS = 45
 AUTH_SESSION_DAYS = 30
 VAT_RATE_DEFAULT = 20.0
 COURIER_HOURLY_COST = 250.0  # KDV dahil
@@ -982,6 +984,15 @@ def get_conn() -> CompatConnection:
     if last_error is not None:
         raise last_error
     raise RuntimeError("Veritabanı bağlantısı kurulamadı.")
+
+
+def should_run_db_ui_retry() -> bool:
+    last_attempt = float(st.session_state.get(DB_UI_RETRY_SESSION_KEY, 0.0) or 0.0)
+    now = time.monotonic()
+    if last_attempt and (now - last_attempt) < DB_UI_RETRY_COOLDOWN_SECONDS:
+        return False
+    st.session_state[DB_UI_RETRY_SESSION_KEY] = now
+    return True
 
 
 def login_gate(conn: sqlite3.Connection) -> bool:
@@ -7614,10 +7625,14 @@ def main() -> None:
 
     try:
         conn = get_conn()
+        st.session_state.pop(DB_UI_RETRY_SESSION_KEY, None)
         if boot_placeholder is not None:
             boot_placeholder.empty()
             st.session_state["_ck_boot_shell_rendered"] = True
     except RuntimeError as exc:
+        if should_run_db_ui_retry():
+            time.sleep(1.1)
+            st.rerun()
         st.error("Veritabanina su an ulasilamadi. Sistem baglantiyi otomatik olarak yeniden denedi.")
         st.info("Birkaç saniye sonra sayfayi yenileyip tekrar deneyin. Sorun devam ederse teknik detaylari kontrol edelim.")
         with st.expander("Teknik detay"):
