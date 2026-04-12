@@ -126,6 +126,8 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["auth"]["default_password_configured"] is False
     assert payload["cutover"]["phase"] == "not_ready"
     assert payload["cutover"]["ready"] is False
+    assert payload["decision"]["tone"] == "warning"
+    assert payload["decision"]["primary_href"] == "#deploy-readiness"
     assert payload["cutover"]["modules_ready_count"] == len(payload["modules"])
     assert any("Varsayilan v2 sifresi" in item for item in payload["cutover"]["blocking_items"])
     assert any(entry["service"] == "backend" for entry in payload["config"])
@@ -214,6 +216,8 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     assert payload["auth"]["default_password_configured"] is True
     assert payload["cutover"]["phase"] == "ready_for_pilot"
     assert payload["cutover"]["ready"] is True
+    assert payload["decision"]["tone"] == "info"
+    assert payload["decision"]["primary_href"] == "/login"
     assert any("Opsiyonel env ayarlari" in item for item in payload["cutover"]["remaining_items"])
     assert payload["rollout_steps"][0]["status"] == "ready"
 

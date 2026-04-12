@@ -14,6 +14,7 @@ from app.schemas.health import (
     PilotAuthStatus,
     PilotConfigEntry,
     PilotCutoverSummary,
+    PilotDecisionSummary,
     PilotDeployStep,
     PilotEnvSnippetEntry,
     PilotFlowStep,
@@ -194,6 +195,7 @@ def pilot_readiness(
         optional_missing_env_vars=optional_missing_env_vars,
         default_password_configured=settings.default_auth_password != "123456",
     )
+    decision = _build_pilot_decision(cutover=cutover)
     pilot_accounts = _build_pilot_accounts()
     pilot_flow = _build_pilot_flow()
     pilot_scenarios = _build_pilot_scenarios()
@@ -231,6 +233,7 @@ def pilot_readiness(
         next_actions=next_actions,
         modules=modules,
         cutover=cutover,
+        decision=decision,
         pilot_accounts=pilot_accounts,
         pilot_flow=pilot_flow,
         pilot_scenarios=pilot_scenarios,
@@ -930,4 +933,32 @@ def _build_cutover_summary(
         modules_total_count=modules_total_count,
         blocking_items=blocking_items,
         remaining_items=remaining_items,
+    )
+
+
+def _build_pilot_decision(*, cutover: PilotCutoverSummary) -> PilotDecisionSummary:
+    if cutover.phase == "ready_for_cutover":
+        return PilotDecisionSummary(
+            title="Bugun redirect'e gecmeye haziriz",
+            detail="Pilot ve auth temel olarak hazir. Son smoke ve banner onayi geldiyse eski paneli v2'ye yonlendirme asamasina gecebiliriz.",
+            tone="success",
+            primary_label="Rollout adimlarini ac",
+            primary_href="#rollout-steps",
+        )
+
+    if cutover.phase == "ready_for_pilot":
+        return PilotDecisionSummary(
+            title="Bugun pilotu acabiliriz",
+            detail="Yeni sistem cekirdek olarak hazir. Simdi login, puantaj, personel ve kesinti senaryolarini ekip ile kontrollu sekilde test etme zamani.",
+            tone="info",
+            primary_label="Pilot login ekranini ac",
+            primary_href="/login",
+        )
+
+    return PilotDecisionSummary(
+        title="Once blokajlari kapatalim",
+        detail="Pilot acilisi oncesi zorunlu eksikleri veya auth blokajlarini kapatmamiz gerekiyor. Asagidaki rollout ve deploy kartlari sonraki adimi gosterecek.",
+        tone="warning",
+        primary_label="Deploy hazirligini incele",
+        primary_href="#deploy-readiness",
     )

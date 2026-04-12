@@ -67,6 +67,13 @@ type BackendReadiness = {
     blocking_items: string[];
     remaining_items: string[];
   };
+  decision: {
+    title: string;
+    detail: string;
+    tone: string;
+    primary_label: string;
+    primary_href: string;
+  };
   pilot_accounts: Array<{
     email: string;
     full_name: string;
@@ -166,6 +173,38 @@ function actionButtonStyle(tone: "primary" | "ghost" = "ghost") {
     color: tone === "primary" ? "#0f5fd7" : "#35507d",
     fontWeight: 800,
     textDecoration: "none",
+  } as const;
+}
+
+function tonePill(tone: string) {
+  if (tone === "success") {
+    return statusPill(true);
+  }
+
+  if (tone === "info") {
+    return {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "8px 12px",
+      borderRadius: "999px",
+      fontSize: "0.82rem",
+      fontWeight: 800,
+      background: "rgba(15, 95, 215, 0.12)",
+      color: "#0f5fd7",
+    } as const;
+  }
+
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px 12px",
+    borderRadius: "999px",
+    fontSize: "0.82rem",
+    fontWeight: 800,
+    background: "rgba(245, 158, 11, 0.12)",
+    color: "#9a6700",
   } as const;
 }
 
@@ -499,6 +538,33 @@ export default function StatusPage() {
                       Ilk Pilot Akisini Test Et
                     </Link>
                   </div>
+                </div>
+              </section>
+            ) : null}
+
+            {backend?.decision ? (
+              <section
+                style={{
+                  ...cardStyle(),
+                  display: "grid",
+                  gap: "12px",
+                  background:
+                    backend.decision.tone === "success"
+                      ? "linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(255,255,255,0.98))"
+                      : backend.decision.tone === "info"
+                        ? "linear-gradient(135deg, rgba(15, 95, 215, 0.06), rgba(255,255,255,0.98))"
+                        : "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(255,255,255,0.98))",
+                }}
+              >
+                <div style={tonePill(backend.decision.tone)}>Bugunun Karari</div>
+                <h2 style={{ margin: 0, fontSize: "1.45rem" }}>{backend.decision.title}</h2>
+                <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "74ch" }}>
+                  {backend.decision.detail}
+                </p>
+                <div>
+                  <Link href={backend.decision.primary_href} style={actionButtonStyle("primary")}>
+                    {backend.decision.primary_label}
+                  </Link>
                 </div>
               </section>
             ) : null}
@@ -878,7 +944,7 @@ export default function StatusPage() {
               </article>
             </section>
 
-            <section style={cardStyle()}>
+            <section id="deploy-readiness" style={cardStyle()}>
               <div
                 style={{
                   display: "flex",
