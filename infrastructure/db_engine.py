@@ -217,6 +217,32 @@ def _safe_database_target(database_config: str | dict[str, Any]) -> str:
         return "?"
 
 
+def _classify_postgres_connect_error(exc: Exception) -> str:
+    message = str(exc).lower()
+    if "password authentication failed" in message or "authentication failed" in message:
+        return "Kullanici adi veya sifre reddedildi"
+    if "timeout expired" in message or "timed out" in message or "timeout" in message:
+        return "Baglanti zaman asimina ugradi"
+    if "could not translate host name" in message or "name or service not known" in message:
+        return "Host adi cozumlenemedi"
+    if "connection refused" in message:
+        return "Hedef sunucu baglantiyi reddetti"
+    if "too many clients" in message or "max_client_conn" in message:
+        return "Baglanti limiti dolu gorunuyor"
+    if "server closed the connection unexpectedly" in message or "terminating connection" in message:
+        return "Sunucu baglantiyi beklenmedik sekilde kapatti"
+    if "ssl" in message and "failed" in message:
+        return "SSL baglantisi kurulurken hata alindi"
+    return "Veritabani erisimi basarisiz oldu"
+
+
+def _short_exception_text(exc: Exception, *, max_len: int = 220) -> str:
+    text = " ".join(str(exc).split()).strip()
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3].rstrip() + "..."
+
+
 def describe_database_config_sources() -> list[dict[str, str]]:
     sources: list[dict[str, str]] = []
     for label, database_config in _iter_database_config_candidates():
@@ -314,6 +340,8 @@ def connect_postgres(database_config: str | dict[str, Any]) -> CompatConnection:
         raise RuntimeError(
             "PostgreSQL baglantisi kurulamadi. "
             f"Hedef: {safe_target} | Kullanici: {safe_user}. "
+            f"Sebep: {_classify_postgres_connect_error(exc)}. "
+            f"Teknik: {_short_exception_text(exc)}. "
             "Render Environment veya Streamlit secrets icindeki veritabani bilgilerini kontrol et."
         ) from exc
     return CompatConnection(
@@ -370,6 +398,7 @@ def connect_database() -> CompatConnection:
             raise RuntimeError(
                 "Veritabanina su an ulasilamiyor. Baglanti otomatik olarak yeniden denendi ama kurulamadı. "
                 f"Denenen kaynaklar: {attempted_sources}. "
+                f"Son baglanti nedeni: {_short_exception_text(last_error)}. "
                 "Lutfen kisa bir sure sonra tekrar deneyin. Sorun devam ederse Render Environment veya Streamlit secrets "
                 "icindeki veritabani ayarlarini kontrol edin."
             ) from last_error

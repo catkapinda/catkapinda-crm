@@ -139,6 +139,16 @@ class DbEngineConfigTests(TestCase):
         self.assertIn("okunabilir bir veritabani kaynagi bulamiyor", snapshot["summary"])
         self.assertTrue(any("yeniden deploy" in item for item in snapshot["checklist"]))
 
+    def test_classify_postgres_connect_error_covers_common_failures(self) -> None:
+        self.assertEqual(
+            db_engine._classify_postgres_connect_error(RuntimeError("password authentication failed for user postgres")),
+            "Kullanici adi veya sifre reddedildi",
+        )
+        self.assertEqual(
+            db_engine._classify_postgres_connect_error(RuntimeError("connection timeout expired")),
+            "Baglanti zaman asimina ugradi",
+        )
+
     @patch.dict(
         os.environ,
         {
@@ -182,5 +192,6 @@ class DbEngineConfigTests(TestCase):
 
         self.assertIn("Veritabanina su an ulasilamiyor", str(ctx.exception))
         self.assertIn("Denenen kaynaklar: primary", str(ctx.exception))
+        self.assertIn("Son baglanti nedeni: temp fail", str(ctx.exception))
         self.assertEqual(connect_mock.call_count, 5)
         self.assertEqual(sleep_mock.call_count, 4)
