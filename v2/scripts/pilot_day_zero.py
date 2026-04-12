@@ -323,6 +323,11 @@ def build_day_zero_bundle(
         "api_url": api_url,
         "streamlit_url": streamlit_url,
         "output_dir": str(output_dir),
+        "service_names": {
+            "api": api_service_name,
+            "frontend": frontend_service_name,
+            "streamlit": streamlit_service_name,
+        },
         "release_snapshot": _extract_release_snapshot(status_payload),
         "pilot_gate_passed": preflight_result["pilot_gate"]["passed"],
         "cutover_gate_passed": preflight_result["cutover_gate"]["passed"],

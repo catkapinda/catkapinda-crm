@@ -40,6 +40,23 @@ def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _parse_env_bundle(path: Path) -> dict[str, dict[str, str]]:
+    sections: dict[str, dict[str, str]] = {}
+    current_section: str | None = None
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            current_section = line[1:-1]
+            sections[current_section] = {}
+            continue
+        if current_section and "=" in line:
+            key, value = line.split("=", 1)
+            sections[current_section][key.strip()] = value.strip()
+    return sections
+
+
 def _sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
@@ -257,6 +274,63 @@ def _check_start_here_markdown(*, output_dir: Path, manifest: dict) -> tuple[boo
     return (True, issues)
 
 
+def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+    service_names = manifest.get("service_names") or {}
+    api_service = service_names.get("api")
+    frontend_service = service_names.get("frontend")
+    streamlit_service = service_names.get("streamlit")
+
+    render_bundle_path = output_dir / "render-env-bundle.env"
+    banner_env_path = output_dir / "streamlit-banner.env"
+    redirect_env_path = output_dir / "streamlit-redirect.env"
+
+    if not (render_bundle_path.exists() and banner_env_path.exists() and redirect_env_path.exists()):
+        return (False, ["Env dosyalari eksik oldugu icin env payload kontrolu yapilamadi"])
+
+    render_bundle = _parse_env_bundle(render_bundle_path)
+    banner_bundle = _parse_env_bundle(banner_env_path)
+    redirect_bundle = _parse_env_bundle(redirect_env_path)
+
+    if api_service not in render_bundle:
+        issues.append(f"render-env-bundle.env icinde API servisi eksik: {api_service}")
+    if frontend_service not in render_bundle:
+        issues.append(f"render-env-bundle.env icinde frontend servisi eksik: {frontend_service}")
+    if streamlit_service not in render_bundle:
+        issues.append(f"render-env-bundle.env icinde streamlit servisi eksik: {streamlit_service}")
+
+    api_env = render_bundle.get(api_service or "", {})
+    frontend_env = render_bundle.get(frontend_service or "", {})
+    streamlit_env = render_bundle.get(streamlit_service or "", {})
+    banner_env = banner_bundle.get(streamlit_service or "", {})
+    redirect_env = redirect_bundle.get(streamlit_service or "", {})
+
+    if api_env.get("CK_V2_FRONTEND_BASE_URL") != manifest.get("frontend_url"):
+        issues.append("render-env-bundle.env icinde CK_V2_FRONTEND_BASE_URL uyusmuyor")
+    if api_env.get("CK_V2_PUBLIC_APP_URL") != manifest.get("frontend_url"):
+        issues.append("render-env-bundle.env icinde CK_V2_PUBLIC_APP_URL uyusmuyor")
+    if api_env.get("CK_V2_API_PUBLIC_URL") != manifest.get("api_url"):
+        issues.append("render-env-bundle.env icinde CK_V2_API_PUBLIC_URL uyusmuyor")
+    if frontend_env.get("NEXT_PUBLIC_V2_API_BASE_URL") != "/v2-api":
+        issues.append("render-env-bundle.env icinde NEXT_PUBLIC_V2_API_BASE_URL beklenen degerde degil")
+    if streamlit_env.get("CK_V2_PILOT_URL") != manifest.get("frontend_url"):
+        issues.append("render-env-bundle.env icinde streamlit CK_V2_PILOT_URL uyusmuyor")
+    if streamlit_env.get("CK_V2_CUTOVER_MODE") != "banner":
+        issues.append("render-env-bundle.env icinde streamlit CK_V2_CUTOVER_MODE banner olmali")
+
+    if banner_env.get("CK_V2_PILOT_URL") != manifest.get("frontend_url"):
+        issues.append("streamlit-banner.env icinde CK_V2_PILOT_URL uyusmuyor")
+    if banner_env.get("CK_V2_CUTOVER_MODE") != "banner":
+        issues.append("streamlit-banner.env icinde CK_V2_CUTOVER_MODE banner olmali")
+
+    if redirect_env.get("CK_V2_PILOT_URL") != manifest.get("frontend_url"):
+        issues.append("streamlit-redirect.env icinde CK_V2_PILOT_URL uyusmuyor")
+    if redirect_env.get("CK_V2_CUTOVER_MODE") != "redirect":
+        issues.append("streamlit-redirect.env icinde CK_V2_CUTOVER_MODE redirect olmali")
+
+    return (True, issues)
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -369,6 +443,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(start_here_issues)
 
+    env_checked, env_issues = _check_env_payloads(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(env_issues)
+
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
         "Day-zero kiti kullanima hazir."
@@ -398,6 +478,8 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "release_snapshot_actual": release_snapshot_actual,
         "start_here_checked": start_here_checked,
         "start_here_ok": True if start_here_checked and not start_here_issues else (False if start_here_checked else None),
+        "env_checked": env_checked,
+        "env_ok": True if env_checked and not env_issues else (False if env_checked else None),
         "recommended_next_step": recommended_next_step,
     }
 
@@ -411,6 +493,8 @@ def render_console_summary(result: dict) -> str:
     release_snapshot_ok = result.get("release_snapshot_ok")
     start_here_checked = bool(result.get("start_here_checked"))
     start_here_ok = result.get("start_here_ok")
+    env_checked = bool(result.get("env_checked"))
+    env_ok = result.get("env_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
@@ -431,6 +515,11 @@ def render_console_summary(result: dict) -> str:
             f"Start Here: {'PASS' if start_here_ok else 'FAIL'}"
             if start_here_checked
             else "Start Here: SKIPPED"
+        ),
+        (
+            f"Env Payloads: {'PASS' if env_ok else 'FAIL'}"
+            if env_checked
+            else "Env Payloads: SKIPPED"
         ),
         (
             f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
@@ -455,6 +544,8 @@ def render_markdown_report(result: dict) -> str:
     release_snapshot_ok = result.get("release_snapshot_ok")
     start_here_checked = bool(result.get("start_here_checked"))
     start_here_ok = result.get("start_here_ok")
+    env_checked = bool(result.get("env_checked"))
+    env_ok = result.get("env_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -476,6 +567,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Start Here: `{'PASS' if start_here_ok else 'FAIL'}`"
             if start_here_checked
             else "- Start Here: `SKIPPED`"
+        ),
+        (
+            f"- Env Payloads: `{'PASS' if env_ok else 'FAIL'}`"
+            if env_checked
+            else "- Env Payloads: `SKIPPED`"
         ),
         (
             f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"

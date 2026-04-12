@@ -235,6 +235,9 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert manifest["release_snapshot"]["frontend_release"] == "front123"
     assert manifest["release_snapshot"]["backend_release"] == "back123"
     assert manifest["release_snapshot"]["release_alignment"] == "mismatch"
+    assert manifest["service_names"]["api"] == "crmcatkapinda-v2-api"
+    assert manifest["service_names"]["frontend"] == "crmcatkapinda-v2"
+    assert manifest["service_names"]["streamlit"] == "crmcatkapinda"
     assert manifest["verify_passed"] is True
     assert manifest["verify_missing_files_count"] == 0
     assert manifest["verify_consistency_issues_count"] == 0
@@ -383,6 +386,8 @@ def test_day_zero_verify_passes_for_valid_bundle(monkeypatch, tmp_path: Path):
     assert result["release_snapshot_actual"]["frontend_release"] == "front123"
     assert result["start_here_checked"] is True
     assert result["start_here_ok"] is True
+    assert result["env_checked"] is True
+    assert result["env_ok"] is True
     assert result["smoke_checked"] is False
     assert result["consistency_issues"] == []
 
@@ -720,6 +725,56 @@ def test_day_zero_verify_fails_when_start_here_markdown_is_stale(monkeypatch, tm
     assert any("00-START-HERE.md" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_streamlit_banner_env_is_wrong(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+
+    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
+        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
+        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
+        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
+        return {
+            "pilot_gate": {"passed": True},
+            "cutover_gate": {"passed": False},
+            "files": {
+                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
+                "status_markdown": str(output_dir / "pilot-status-live.md"),
+                "status_json": str(output_dir / "pilot-status-live.json"),
+                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
+                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
+            },
+        }
+
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    banner_env_path = tmp_path / "streamlit-banner.env"
+    content = banner_env_path.read_text(encoding="utf-8").replace("CK_V2_CUTOVER_MODE=banner", "CK_V2_CUTOVER_MODE=redirect")
+    banner_env_path.write_text(content, encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["env_checked"] is True
+    assert result["env_ok"] is False
+    assert any("streamlit-banner.env" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_archive_is_missing(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
 
@@ -785,6 +840,8 @@ def test_day_zero_verify_markdown_includes_core_sections():
             "release_snapshot_ok": True,
             "start_here_checked": True,
             "start_here_ok": True,
+            "env_checked": True,
+            "env_ok": True,
             "recommended_next_step": "Day-zero kiti kullanima hazir.",
         }
     )
@@ -793,6 +850,7 @@ def test_day_zero_verify_markdown_includes_core_sections():
     assert "Integrity" in markdown
     assert "Release Snapshot" in markdown
     assert "Start Here" in markdown
+    assert "Env Payloads" in markdown
     assert "## Missing Files" in markdown
     assert "## Consistency Issues" in markdown
     assert "Smoke" in markdown
