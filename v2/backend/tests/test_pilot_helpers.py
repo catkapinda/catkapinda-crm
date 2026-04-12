@@ -937,6 +937,38 @@ def test_day_zero_verify_fails_when_embedded_verify_manifest_summary_is_wrong(mo
     assert any("manifest_summary_ok" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_embedded_verify_env_state_is_wrong(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    verify_json_path = tmp_path / "pilot-day-zero-verify.json"
+    verify_payload = json.loads(verify_json_path.read_text(encoding="utf-8"))
+    verify_payload["env_ok"] = False
+    verify_json_path.write_text(json.dumps(verify_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["verify_reports_checked"] is True
+    assert result["verify_reports_ok"] is False
+    assert any("env_ok" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_manifest_file_map_is_wrong(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())

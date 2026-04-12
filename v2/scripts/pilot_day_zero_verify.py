@@ -510,6 +510,9 @@ def _check_embedded_verify_reports(
     *,
     output_dir: Path,
     manifest: dict,
+    expected_release_snapshot_ok: bool | None = None,
+    expected_env_ok: bool | None = None,
+    expected_packet_ok: bool | None = None,
     expected_manifest_core_checked: bool | None = None,
     expected_manifest_core_ok: bool | None = None,
     expected_manifest_summary_checked: bool | None = None,
@@ -542,6 +545,13 @@ def _check_embedded_verify_reports(
     if verify_payload.get("recommended_next_step") != manifest.get("verify_recommended_next_step"):
         issues.append("pilot-day-zero-verify.json icinde recommended_next_step manifestle uyusmuyor")
 
+    if expected_release_snapshot_ok is not None and verify_payload.get("release_snapshot_ok") != expected_release_snapshot_ok:
+        issues.append("pilot-day-zero-verify.json icinde release_snapshot_ok guncel verify sonucu ile uyusmuyor")
+    if expected_env_ok is not None and verify_payload.get("env_ok") != expected_env_ok:
+        issues.append("pilot-day-zero-verify.json icinde env_ok guncel verify sonucu ile uyusmuyor")
+    if expected_packet_ok is not None and verify_payload.get("packet_ok") != expected_packet_ok:
+        issues.append("pilot-day-zero-verify.json icinde packet_ok guncel verify sonucu ile uyusmuyor")
+
     if expected_manifest_core_checked is not None and verify_payload.get("manifest_core_checked") != expected_manifest_core_checked:
         issues.append("pilot-day-zero-verify.json icinde manifest_core_checked guncel verify sonucu ile uyusmuyor")
     if expected_manifest_core_ok is not None and verify_payload.get("manifest_core_ok") != expected_manifest_core_ok:
@@ -567,6 +577,13 @@ def _check_embedded_verify_reports(
         f"- Archive: `{expected_archive}`",
         f"- Recommended Next Step: {expected_next_step}",
     ]
+    for label, value in [
+        ("Release Snapshot", expected_release_snapshot_ok),
+        ("Env Payloads", expected_env_ok),
+        ("Launch Packets", expected_packet_ok),
+    ]:
+        if value is not None:
+            expected_markdown_snippets.append(f"- {label}: `{'PASS' if value else 'FAIL'}`")
     if expected_manifest_core_checked is not None:
         expected_markdown_snippets.append(
             f"- Manifest Core: `{'PASS' if expected_manifest_core_ok else 'FAIL'}`"
@@ -898,6 +915,9 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     verify_reports_checked, verify_report_issues = _check_embedded_verify_reports(
         output_dir=output_dir,
         manifest=manifest,
+        expected_release_snapshot_ok=(not release_snapshot_issues) if release_snapshot_checked else None,
+        expected_env_ok=(not env_issues) if env_checked else None,
+        expected_packet_ok=(not packet_issues) if packet_checked else None,
         expected_manifest_core_checked=manifest_core_checked,
         expected_manifest_core_ok=(not manifest_core_issues) if manifest_core_checked else None,
         expected_manifest_summary_checked=manifest_summary_checked,

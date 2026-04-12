@@ -176,7 +176,7 @@ Pilot day zero kit helper:
   - `pilot-launch.md` ve `pilot-cutover.md` paketlerinin dogru link ve cutover komutlarini tasiyip tasimadigini
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlarinin karar/gate/release satirlarini guncel tutup tutmadigini
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalarinin manifestteki verify sonucu ile uyumlu kalip kalmadigini
-  - gomulu verify raporlarinin `Manifest Core`, `Manifest Summary` ve `Manifest Files` durumlarini da guncel verify ile ayni tasiyip tasimadigini
+  - gomulu verify raporlarinin `Release Snapshot`, `Env Payloads`, `Launch Packets` ve `Manifest Core/Summary/Files` durumlarini da guncel verify ile ayni tasiyip tasimadigini
   - `pilot-day-zero-manifest.json` icindeki gate/guard/verify ozet alanlarinin alttaki json raporlarla uyumlu kalip kalmadigini
   - `pilot-day-zero-manifest.json` icindeki `files` haritasinin dogru etiketleri dogru dosya adlarina baglayip baglamadigini
   - `pilot-day-zero-manifest.json` icindeki `frontend_url` / `api_url` / `streamlit_url` / `service_names` / `archive_path` cekirdek metadata'sinin artefaktlarla uyumlu kalip kalmadigini
