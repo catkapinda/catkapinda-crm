@@ -21,6 +21,96 @@ PROTECTED_PAGES = [
 ]
 LEGACY_BANNER_MARKERS = ("Yeni sisteme gecis basladi", "v2 pilotu ac")
 LEGACY_REDIRECT_MARKERS = ("YENI SISTEM ACILIYOR", "Cat Kapinda CRM v2'ye geciliyor")
+WARNING_ONLY_CHECKS = {"legacy_banner_bridge", "legacy_redirect_bridge"}
+CHECK_GUIDANCE: dict[str, tuple[str, str]] = {
+    "frontend_health": (
+        "v2 frontend ayaga kalkmamis gorunuyor.",
+        "Render frontend servisini ve /api/health yanitini once duzeltelim.",
+    ),
+    "frontend_ready": (
+        "Frontend backend'e saglikli baglanamiyor.",
+        "CK_V2_INTERNAL_API_HOSTPORT veya yerel base URL ayarlarini kontrol edelim.",
+    ),
+    "frontend_pilot_status": (
+        "Pilot status koprusu eksik ya da backend pilot verisi gelmiyor.",
+        "Once /api/pilot-status ve backend /health/pilot hattini dogrulayalim.",
+    ),
+    "release_alignment": (
+        "Frontend ve backend farkli release ile ayakta.",
+        "Iki servisi de ayni commit ile yeniden deploy edelim.",
+    ),
+    "status_page": (
+        "Pilot durum ekrani acilmiyor.",
+        "Frontend routing ve /status sayfasini kontrol edelim.",
+    ),
+    "login_page": (
+        "Login ekrani erisilebilir degil.",
+        "Frontend login route'unu ve middleware akisini kontrol edelim.",
+    ),
+    "backend_health": (
+        "v2 backend ayaga kalkmamis gorunuyor.",
+        "Render API servisini ve /api/health yanitini duzeltelim.",
+    ),
+    "backend_ready": (
+        "Backend readiness kontrolu temiz donmuyor.",
+        "Database ve temel bootstrap kontrollerini inceleyelim.",
+    ),
+    "backend_pilot": (
+        "Pilot readiness hala bloklu.",
+        "Eksik env'leri ve cutover phase detaylarini /status uzerinden kapatalim.",
+    ),
+    "auth_login": (
+        "Verilen pilot hesapla giris basarisiz.",
+        "Pilot kullanici sifresini ve auth senkronunu kontrol edelim.",
+    ),
+    "auth_me": (
+        "Login sonrasi auth/me dogrulanamadi.",
+        "Token/cookie akisini ve backend auth endpointlerini kontrol edelim.",
+    ),
+    "protected_attendance_page": (
+        "Giris sonrasi Puantaj sayfasi acilmadi.",
+        "Attendance route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
+    "protected_personnel_page": (
+        "Giris sonrasi Personel sayfasi acilmadi.",
+        "Personnel route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
+    "protected_deductions_page": (
+        "Giris sonrasi Kesintiler sayfasi acilmadi.",
+        "Deductions route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
+    "protected_reports_page": (
+        "Giris sonrasi Raporlar sayfasi acilmadi.",
+        "Reports route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
+    "legacy_banner_bridge": (
+        "Eski Streamlit panelde banner koprusu gorunmuyor.",
+        "CK_V2_PILOT_URL ve CK_V2_CUTOVER_MODE=banner ayarlarini kontrol edelim.",
+    ),
+    "legacy_redirect_bridge": (
+        "Eski Streamlit panelde redirect koprusu gorunmuyor.",
+        "CK_V2_PILOT_URL ve CK_V2_CUTOVER_MODE=redirect ayarlarini kontrol edelim.",
+    ),
+}
+CHECK_PRIORITY = [
+    "frontend_health",
+    "frontend_ready",
+    "backend_health",
+    "backend_ready",
+    "backend_pilot",
+    "frontend_pilot_status",
+    "release_alignment",
+    "status_page",
+    "login_page",
+    "auth_login",
+    "auth_me",
+    "protected_attendance_page",
+    "protected_personnel_page",
+    "protected_deductions_page",
+    "protected_reports_page",
+    "legacy_banner_bridge",
+    "legacy_redirect_bridge",
+]
 
 
 @dataclass
@@ -30,7 +120,55 @@ class CheckResult:
     detail: str
 
 
+def build_decision_summary(report: dict) -> dict:
+    failed_names = [result["name"] for result in report["results"] if not result["ok"]]
+    legacy_mode = report.get("legacy_cutover_mode") or None
+
+    if not failed_names:
+        next_step = "Pilot login ekranini acip ofisle ilk pilot senaryolarina gecebiliriz."
+        if legacy_mode == "banner":
+            next_step = "Banner koprusu de temiz. Ofis pilotunu acip gozlem turune gecebiliriz."
+        elif legacy_mode == "redirect":
+            next_step = "Redirect koprusu de temiz. Streamlit'ten cikis provasi yapmaya haziriz."
+        return {
+            "status": "pass",
+            "headline": "Pilot smoke temiz.",
+            "primary_blocker": None,
+            "recommended_next_step": next_step,
+            "failing_checks": [],
+        }
+
+    ordered_failures = sorted(
+        failed_names,
+        key=lambda name: CHECK_PRIORITY.index(name) if name in CHECK_PRIORITY else len(CHECK_PRIORITY),
+    )
+    blocking_failures = [name for name in ordered_failures if name not in WARNING_ONLY_CHECKS]
+    primary_name = blocking_failures[0] if blocking_failures else ordered_failures[0]
+    headline, next_step = CHECK_GUIDANCE.get(
+        primary_name,
+        ("Pilot smoke blokaj verdi.", "Ilk failing check'i inceleyip blokaji kapatalim."),
+    )
+    primary_blocker = CHECK_GUIDANCE.get(primary_name, ("", ""))[0]
+    status = "blocking" if blocking_failures else "warning"
+
+    if status == "warning":
+        headline = "v2 pilot cekirdek olarak hazir, ama gecis koprusu eksik."
+        if legacy_mode == "banner":
+            next_step = "Banner env'lerini tamamlayip eski panelden gecis kartini gorunur hale getirelim."
+        elif legacy_mode == "redirect":
+            next_step = "Redirect env'lerini tamamlayip kontrollu yonlendirme provasini yapalim."
+
+    return {
+        "status": status,
+        "headline": headline,
+        "primary_blocker": primary_blocker,
+        "recommended_next_step": next_step,
+        "failing_checks": ordered_failures,
+    }
+
+
 def build_markdown_report(report: dict) -> str:
+    decision = report["decision"]
     lines = [
         "# v2 Pilot Smoke Report",
         "",
@@ -43,6 +181,14 @@ def build_markdown_report(report: dict) -> str:
         f"- Overall OK: `{report['overall_ok']}`",
         f"- Passed: `{report['passed_count']}`",
         f"- Failed: `{report['failed_count']}`",
+        "",
+        "## Decision",
+        "",
+        f"- Status: `{decision['status']}`",
+        f"- Headline: {decision['headline']}",
+        f"- Primary Blocker: {decision['primary_blocker'] or '-'}",
+        f"- Recommended Next Step: {decision['recommended_next_step']}",
+        f"- Failing Checks: `{', '.join(decision['failing_checks']) if decision['failing_checks'] else '-'}`",
         "",
         "| Check | Result | Detail |",
         "| --- | --- | --- |",
@@ -67,6 +213,23 @@ def build_report(
 ) -> dict:
     passed_count = sum(1 for result in results if result.ok)
     failed_count = sum(1 for result in results if not result.ok)
+    result_entries = [
+        {
+            "name": result.name,
+            "ok": result.ok,
+            "detail": result.detail,
+        }
+        for result in results
+    ]
+    decision = build_decision_summary(
+        {
+            "base_url": base_url,
+            "identity_provided": bool(identity),
+            "legacy_url": legacy_url,
+            "legacy_cutover_mode": legacy_cutover_mode,
+            "results": result_entries,
+        }
+    )
     return {
         "generated_at": datetime.now(UTC).isoformat(),
         "base_url": base_url,
@@ -77,14 +240,8 @@ def build_report(
         "overall_ok": failed_count == 0,
         "passed_count": passed_count,
         "failed_count": failed_count,
-        "results": [
-            {
-                "name": result.name,
-                "ok": result.ok,
-                "detail": result.detail,
-            }
-            for result in results
-        ],
+        "decision": decision,
+        "results": result_entries,
     }
 
 
@@ -447,7 +604,15 @@ def main() -> int:
         print(build_markdown_report(report))
         return 1 if failed else 0
 
+    decision = report["decision"]
     print(f"v2 pilot smoke • {base_url}")
+    print("-" * 72)
+    print(f"Decision  {decision['status'].upper():<10}  {decision['headline']}")
+    if decision["primary_blocker"]:
+        print(f"Blocker   {decision['primary_blocker']}")
+    print(f"Next Step {decision['recommended_next_step']}")
+    if decision["failing_checks"]:
+        print(f"Failures  {', '.join(decision['failing_checks'])}")
     print("-" * 72)
     for result in results:
         status = "OK" if result.ok else "FAIL"

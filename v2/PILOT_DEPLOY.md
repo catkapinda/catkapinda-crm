@@ -199,3 +199,7 @@ Not:
   - `banner` modunda v2 geçiş kartını
   - `redirect` modunda otomatik geçiş yüzeyini
   da doğrular
+- JSON / Markdown smoke raporlari ayrica sunlari da verir:
+  - pilot karar ozeti
+  - ana blokaj
+  - onerilen siradaki adim

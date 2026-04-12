@@ -92,3 +92,7 @@ Pilot smoke check:
     - `/deductions`
     - `/reports`
   - if legacy bridge smoke is enabled, the old Streamlit app's banner/redirect bridge
+  - JSON / Markdown smoke reports now also include:
+    - pilot decision summary
+    - primary blocker
+    - recommended next step
