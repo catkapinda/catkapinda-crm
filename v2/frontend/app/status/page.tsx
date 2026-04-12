@@ -121,6 +121,7 @@ export default function StatusPage() {
   const [frontend, setFrontend] = useState<FrontendStatus | null>(null);
   const [backend, setBackend] = useState<BackendReadiness | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentBaseUrl, setCurrentBaseUrl] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -156,6 +157,13 @@ export default function StatusPage() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    setCurrentBaseUrl(window.location.origin);
   }, []);
 
   const backendChecks = useMemo(() => backend?.checks ?? [], [backend]);
@@ -198,6 +206,32 @@ export default function StatusPage() {
       : backend?.cutover.phase === "ready_for_pilot"
         ? true
         : false;
+  const pilotLinks = useMemo(
+    () =>
+      currentBaseUrl
+        ? [
+            { label: "Pilot Login", href: `${currentBaseUrl}/login` },
+            { label: "Pilot Dashboard", href: `${currentBaseUrl}/` },
+            { label: "Pilot Status", href: `${currentBaseUrl}/status` },
+            { label: "Pilot Puantaj", href: `${currentBaseUrl}/attendance` },
+          ]
+        : [],
+    [currentBaseUrl],
+  );
+  const smokeCommand = useMemo(
+    () =>
+      currentBaseUrl
+        ? `python v2/scripts/pilot_smoke.py --base-url ${currentBaseUrl}`
+        : "",
+    [currentBaseUrl],
+  );
+  const authSmokeCommand = useMemo(
+    () =>
+      currentBaseUrl
+        ? `python v2/scripts/pilot_smoke.py --base-url ${currentBaseUrl} --identity ebru@catkapinda.com --password <sifre>`
+        : "",
+    [currentBaseUrl],
+  );
 
   return (
     <main
@@ -374,6 +408,93 @@ export default function StatusPage() {
                   <Link href="/personnel" style={actionButtonStyle()}>
                     Personel'e Git
                   </Link>
+                </div>
+              </section>
+            ) : null}
+
+            {currentBaseUrl ? (
+              <section
+                style={{
+                  ...cardStyle(),
+                  display: "grid",
+                  gap: "16px",
+                }}
+              >
+                <div style={{ display: "grid", gap: "6px" }}>
+                  <div style={statusPill(Boolean(frontend?.backendReachable))}>Pilot Baglantilari</div>
+                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Deploy sonrasi bakacagin yerler</h2>
+                  <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
+                    Pilot acildiginda ekip bu linklerden ilerleyebilir. Ayni kartta smoke komutlari da hazir.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {pilotLinks.map((link) => (
+                    <a key={link.href} href={link.href} style={actionButtonStyle(link.label === "Pilot Login" ? "primary" : "ghost")}>
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                    gap: "14px",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "16px",
+                      borderRadius: "18px",
+                      border: "1px solid rgba(219, 228, 243, 0.9)",
+                      background: "rgba(248, 251, 255, 0.92)",
+                      display: "grid",
+                      gap: "10px",
+                    }}
+                  >
+                    <strong>Normal Smoke</strong>
+                    <code
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        fontSize: "0.88rem",
+                        lineHeight: 1.7,
+                        color: "#25406b",
+                      }}
+                    >
+                      {smokeCommand}
+                    </code>
+                  </div>
+                  <div
+                    style={{
+                      padding: "16px",
+                      borderRadius: "18px",
+                      border: "1px solid rgba(219, 228, 243, 0.9)",
+                      background: "rgba(248, 251, 255, 0.92)",
+                      display: "grid",
+                      gap: "10px",
+                    }}
+                  >
+                    <strong>Gercek Login Smoke</strong>
+                    <code
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        fontSize: "0.88rem",
+                        lineHeight: 1.7,
+                        color: "#25406b",
+                      }}
+                    >
+                      {authSmokeCommand}
+                    </code>
+                  </div>
                 </div>
               </section>
             ) : null}
