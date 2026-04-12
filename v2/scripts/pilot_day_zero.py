@@ -11,6 +11,7 @@ from pilot_cutover_guard import build_guard_result, render_env_text as render_gu
 from pilot_launch_packet import build_packet
 from pilot_preflight import build_preflight_bundle
 from pilot_status_report import fetch_pilot_status
+from pilot_day_zero_verify import render_markdown_report as render_verify_markdown_report, verify_day_zero_bundle
 from render_env_bundle import build_bundle, filter_bundle, normalize_url, render_text
 
 
@@ -65,6 +66,8 @@ def _build_start_here_markdown(
         "- `pilot-status-live.md`: canli /api/pilot-status ozeti",
         "- `pilot-gate-pilot.json`: pilot karari",
         "- `pilot-gate-cutover.json`: redirect karari",
+        "- `pilot-day-zero-verify.md`: kit dogrulama ozeti",
+        "- `pilot-day-zero-verify.json`: kit dogrulama json ciktisi",
         "- `streamlit-banner-guarded.env`: guvenli banner gecisi",
         "- `streamlit-redirect-guarded.env`: guvenli redirect gecisi",
         "",
@@ -252,12 +255,23 @@ def build_day_zero_bundle(
         encoding="utf-8",
     )
     archive_path = output_dir.parent / f"{output_dir.name}.zip"
-    _zip_directory(output_dir, archive_path)
     manifest["archive_path"] = str(archive_path)
-    (output_dir / "pilot-day-zero-manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+    (output_dir / "pilot-day-zero-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _zip_directory(output_dir, archive_path)
+
+    verify_result = verify_day_zero_bundle(output_dir)
+    (output_dir / "pilot-day-zero-verify.json").write_text(
+        json.dumps(verify_result, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    (output_dir / "pilot-day-zero-verify.md").write_text(
+        render_verify_markdown_report(verify_result) + "\n",
+        encoding="utf-8",
+    )
+    manifest["files"]["verify_json"] = str(output_dir / "pilot-day-zero-verify.json")
+    manifest["files"]["verify_markdown"] = str(output_dir / "pilot-day-zero-verify.md")
+    (output_dir / "pilot-day-zero-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _zip_directory(output_dir, archive_path)
     return manifest
 
 

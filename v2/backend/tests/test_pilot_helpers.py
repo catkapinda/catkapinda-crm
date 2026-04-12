@@ -214,8 +214,12 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert (tmp_path / "pilot-launch.md").exists()
     assert (tmp_path / "pilot-cutover.md").exists()
     assert (tmp_path / "pilot-day-zero-manifest.json").exists()
+    assert (tmp_path / "pilot-day-zero-verify.json").exists()
+    assert (tmp_path / "pilot-day-zero-verify.md").exists()
     assert (tmp_path / "00-START-HERE.md").exists()
     assert (tmp_path.parent / f"{tmp_path.name}.zip").exists()
+    assert "verify_json" in manifest["files"]
+    assert "verify_markdown" in manifest["files"]
     assert "CK_V2_CUTOVER_MODE=banner" in (tmp_path / "streamlit-banner-guarded.env").read_text(encoding="utf-8")
     assert "# guard blocked redirect env" in (tmp_path / "streamlit-redirect-guarded.env").read_text(encoding="utf-8")
 
@@ -318,3 +322,21 @@ def test_day_zero_verify_fails_when_archive_is_missing(monkeypatch, tmp_path: Pa
     assert result["passed"] is False
     assert result["archive_exists"] is False
     assert any("zip arsivi" in item for item in result["consistency_issues"])
+
+
+def test_day_zero_verify_markdown_includes_core_sections():
+    markdown = pilot_day_zero_verify.render_markdown_report(
+        {
+            "passed": True,
+            "output_dir": "pilot-day-zero",
+            "missing_files": [],
+            "consistency_issues": [],
+            "archive_exists": True,
+            "archive_members_count": 18,
+            "recommended_next_step": "Day-zero kiti kullanima hazir.",
+        }
+    )
+
+    assert "# Cat Kapinda CRM v2 Day Zero Verify" in markdown
+    assert "## Missing Files" in markdown
+    assert "## Consistency Issues" in markdown

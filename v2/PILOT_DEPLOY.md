@@ -106,6 +106,7 @@ Pilot day zero kiti icin:
   - launch packet
   - preflight summary
   - gate jsonlari
+  - verify markdown/json
   - streamlit banner/redirect env
   - streamlit banner/redirect guard json
   - streamlit banner/redirect guarded env

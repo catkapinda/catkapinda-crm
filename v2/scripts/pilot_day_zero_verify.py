@@ -170,6 +170,28 @@ def render_console_summary(result: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_markdown_report(result: dict) -> str:
+    lines = [
+        "# Cat Kapinda CRM v2 Day Zero Verify",
+        "",
+        f"- Output Dir: `{result['output_dir']}`",
+        f"- Status: `{'PASS' if result['passed'] else 'FAIL'}`",
+        f"- Archive: `{'OK' if result['archive_exists'] else 'MISSING'}`",
+        f"- Archive Members: `{result['archive_members_count']}`",
+        f"- Recommended Next Step: {result['recommended_next_step']}",
+        "",
+        "## Missing Files",
+        "",
+        *([f"- `{item}`" for item in result["missing_files"]] or ["- Yok"]),
+        "",
+        "## Consistency Issues",
+        "",
+        *([f"- {item}" for item in result["consistency_issues"]] or ["- Yok"]),
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Verify that a Cat Kapinda CRM v2 day-zero bundle is complete and internally consistent."
@@ -184,11 +206,18 @@ def main() -> int:
         action="store_true",
         help="Print the verification result as JSON",
     )
+    parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Print the verification result as Markdown",
+    )
     args = parser.parse_args()
 
     result = verify_day_zero_bundle(Path(args.output_dir))
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
+    elif args.markdown:
+        print(render_markdown_report(result))
     else:
         print(render_console_summary(result), end="")
     return 0 if result["passed"] else 2

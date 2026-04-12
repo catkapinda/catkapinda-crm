@@ -140,6 +140,7 @@ Pilot day zero kit helper:
   - pilot cutover packet
   - canli preflight ciktıları
   - day-zero manifest json
+  - day-zero verify markdown/json
   - `00-START-HERE.md`
   - paylasilabilir `.zip` arsivi
 - uretilen kitin eksik ve tutarlilik kontrolu icin:
