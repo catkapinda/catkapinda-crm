@@ -215,6 +215,7 @@ export default function StatusPage() {
   const [loadNote, setLoadNote] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [completedItems, setCompletedItems] = useState<Record<string, boolean>>({});
   useEffect(() => {
     let active = true;
 
@@ -269,6 +270,20 @@ export default function StatusPage() {
     };
   }, []);
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("ck-v2-pilot-checklist");
+      if (!stored) {
+        return;
+      }
+
+      const parsed = JSON.parse(stored) as Record<string, boolean>;
+      setCompletedItems(parsed);
+    } catch {
+      setCompletedItems({});
+    }
+  }, []);
+
   const backendChecks = useMemo(() => backend?.checks ?? [], [backend]);
   const backendConfig = useMemo(() => backend?.config ?? [], [backend]);
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
@@ -316,6 +331,37 @@ export default function StatusPage() {
       ),
     [envSnippets],
   );
+  const checklistKeys = useMemo(
+    () => ({
+      pilotFlow: pilotFlow.map((step) => `pilot-flow-${step.title}`),
+      pilotScenarios: pilotScenarios.map((scenario) => `pilot-scenario-${scenario.title}`),
+      deploySteps: deploySteps.map((step) => `deploy-step-${step.title}`),
+      rolloutSteps: rolloutSteps.map((step) => `rollout-step-${step.title}`),
+    }),
+    [deploySteps, pilotFlow, pilotScenarios, rolloutSteps],
+  );
+  const checklistSummary = useMemo(() => {
+    const pilotFlowCompleted = checklistKeys.pilotFlow.filter((key) => completedItems[key]).length;
+    const pilotScenariosCompleted = checklistKeys.pilotScenarios.filter((key) => completedItems[key]).length;
+    const deployStepsCompleted = checklistKeys.deploySteps.filter((key) => completedItems[key]).length;
+    const rolloutStepsCompleted = checklistKeys.rolloutSteps.filter((key) => completedItems[key]).length;
+    const total =
+      checklistKeys.pilotFlow.length +
+      checklistKeys.pilotScenarios.length +
+      checklistKeys.deploySteps.length +
+      checklistKeys.rolloutSteps.length;
+    const completed =
+      pilotFlowCompleted + pilotScenariosCompleted + deployStepsCompleted + rolloutStepsCompleted;
+
+    return {
+      pilotFlowCompleted,
+      pilotScenariosCompleted,
+      deployStepsCompleted,
+      rolloutStepsCompleted,
+      total,
+      completed,
+    };
+  }, [checklistKeys, completedItems]);
   const readinessSummary = useMemo(() => {
     const activeModules = backendModules.filter((entry) => entry.status === "active").length;
     const totalModules = backendModules.length;
@@ -388,6 +434,27 @@ export default function StatusPage() {
       }, 1800);
     } catch {
       setCopiedKey(null);
+    }
+  }
+
+  function toggleCompleted(key: string) {
+    setCompletedItems((current) => {
+      const next = { ...current, [key]: !current[key] };
+      try {
+        window.localStorage.setItem("ck-v2-pilot-checklist", JSON.stringify(next));
+      } catch {
+        // localStorage erişimi olmasa da checklist deneyimi bozulmasın.
+      }
+      return next;
+    });
+  }
+
+  function clearChecklist() {
+    setCompletedItems({});
+    try {
+      window.localStorage.removeItem("ck-v2-pilot-checklist");
+    } catch {
+      // localStorage erişimi olmasa da ekran çalışmaya devam etsin.
     }
   }
 
@@ -578,6 +645,114 @@ export default function StatusPage() {
             <a href="#render-services" style={actionButtonStyle()}>
               Render Servisleri
             </a>
+          </div>
+        </section>
+
+        <section
+          style={{
+            ...cardStyle(),
+            display: "grid",
+            gap: "16px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "16px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <h2 style={{ margin: 0, fontSize: "1.15rem" }}>Pilot Takip Listesi</h2>
+              <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+                Açılış günü hangi adımı tamamladığımızı burada işaretleyebiliriz. Bu işaretler tarayıcıda saklanır.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+              <div style={statusPill(checklistSummary.completed === checklistSummary.total && checklistSummary.total > 0)}>
+                {checklistSummary.completed}/{checklistSummary.total || 0} tamam
+              </div>
+              <button
+                type="button"
+                onClick={clearChecklist}
+                style={{
+                  ...actionButtonStyle(),
+                  cursor: "pointer",
+                }}
+              >
+                Listeyi Sıfırla
+              </button>
+            </div>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "12px",
+            }}
+          >
+            <article
+              style={{
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid rgba(219, 228, 243, 0.9)",
+                background: "rgba(248, 250, 255, 0.86)",
+                display: "grid",
+                gap: "6px",
+              }}
+            >
+              <strong>İlk Pilot Akışı</strong>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>
+                {checklistSummary.pilotFlowCompleted}/{checklistKeys.pilotFlow.length || 0} adım tamam
+              </div>
+            </article>
+            <article
+              style={{
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid rgba(219, 228, 243, 0.9)",
+                background: "rgba(248, 250, 255, 0.86)",
+                display: "grid",
+                gap: "6px",
+              }}
+            >
+              <strong>Pilot Senaryoları</strong>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>
+                {checklistSummary.pilotScenariosCompleted}/{checklistKeys.pilotScenarios.length || 0} senaryo tamam
+              </div>
+            </article>
+            <article
+              style={{
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid rgba(219, 228, 243, 0.9)",
+                background: "rgba(248, 250, 255, 0.86)",
+                display: "grid",
+                gap: "6px",
+              }}
+            >
+              <strong>Render Açılışı</strong>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>
+                {checklistSummary.deployStepsCompleted}/{checklistKeys.deploySteps.length || 0} adım tamam
+              </div>
+            </article>
+            <article
+              style={{
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid rgba(219, 228, 243, 0.9)",
+                background: "rgba(248, 250, 255, 0.86)",
+                display: "grid",
+                gap: "6px",
+              }}
+            >
+              <strong>Rollout Geçişi</strong>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>
+                {checklistSummary.rolloutStepsCompleted}/{checklistKeys.rolloutSteps.length || 0} adım tamam
+              </div>
+            </article>
           </div>
         </section>
 
@@ -900,7 +1075,28 @@ export default function StatusPage() {
                         gap: "10px",
                       }}
                     >
-                      <strong>{step.title}</strong>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <strong>{step.title}</strong>
+                        <button
+                          type="button"
+                          onClick={() => toggleCompleted(`deploy-step-${step.title}`)}
+                          style={{
+                            ...actionButtonStyle(completedItems[`deploy-step-${step.title}`] ? "primary" : "ghost"),
+                            cursor: "pointer",
+                            padding: "10px 12px",
+                          }}
+                        >
+                          {completedItems[`deploy-step-${step.title}`] ? "Tamamlandı" : "Tamamla"}
+                        </button>
+                      </div>
                       <div style={{ color: "#5f7294", lineHeight: 1.7 }}>{step.detail}</div>
                       {step.service_name ? (
                         <div style={{ color: "#35507d", fontSize: "0.9rem", fontWeight: 700 }}>
@@ -1309,12 +1505,14 @@ export default function StatusPage() {
                       Ofisin yeni sisteme ilk girişte izleyeceği önerilen kısa rota.
                     </p>
                   </div>
-                  <div style={statusPill(pilotFlow.length > 0)}>{pilotFlow.length} adım</div>
+                  <div style={statusPill(pilotFlow.length > 0)}>
+                    {checklistSummary.pilotFlowCompleted}/{pilotFlow.length} adım
+                  </div>
                 </div>
-                <div style={{ marginTop: "18px", display: "grid", gap: "12px" }}>
-                  {pilotFlow.map((step) => (
-                    <article
-                      key={step.title}
+              <div style={{ marginTop: "18px", display: "grid", gap: "12px" }}>
+                {pilotFlow.map((step) => (
+                  <article
+                    key={step.title}
                       style={{
                         padding: "16px",
                         borderRadius: "18px",
@@ -1324,7 +1522,48 @@ export default function StatusPage() {
                         gap: "8px",
                       }}
                     >
-                      <strong>{step.title}</strong>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <strong>{step.title}</strong>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "8px",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleCompleted(`pilot-flow-${step.title}`)}
+                            style={{
+                              ...actionButtonStyle(completedItems[`pilot-flow-${step.title}`] ? "primary" : "ghost"),
+                              cursor: "pointer",
+                              padding: "10px 12px",
+                            }}
+                          >
+                            {completedItems[`pilot-flow-${step.title}`] ? "Tamamlandı" : "Tamamla"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void copyText(`pilot-flow-${step.title}`, `${step.title}\n${step.detail}\n${step.href}`)}
+                            style={{
+                              ...actionButtonStyle(),
+                              cursor: "pointer",
+                              padding: "10px 12px",
+                            }}
+                          >
+                            {copiedKey === `pilot-flow-${step.title}` ? "Kopyalandi" : "Adimi Kopyala"}
+                          </button>
+                        </div>
+                      </div>
                       <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{step.detail}</div>
                       <div>
                         <Link href={step.href} style={actionButtonStyle()}>
@@ -1397,7 +1636,9 @@ export default function StatusPage() {
                       Pilotu actigimiz ilk gun ekip bunlari sirasiyla denerse yeni sistemin ana operasyon akislari hizli sekilde dogrulanir.
                     </p>
                   </div>
-                  <div style={statusPill(pilotScenarios.length > 0)}>{pilotScenarios.length} senaryo</div>
+                  <div style={statusPill(pilotScenarios.length > 0)}>
+                    {checklistSummary.pilotScenariosCompleted}/{pilotScenarios.length} senaryo
+                  </div>
                 </div>
                 <div
                   style={{
@@ -1418,19 +1659,55 @@ export default function StatusPage() {
                         display: "grid",
                         gap: "10px",
                       }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
                           justifyContent: "space-between",
                           gap: "10px",
                           flexWrap: "wrap",
-                        }}
-                      >
-                        <strong>{scenario.title}</strong>
-                        <div style={statusPill(true)}>{scenario.module}</div>
-                      </div>
+                          }}
+                        >
+                          <strong>{scenario.title}</strong>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: "8px",
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <div style={statusPill(true)}>{scenario.module}</div>
+                            <button
+                              type="button"
+                              onClick={() => toggleCompleted(`pilot-scenario-${scenario.title}`)}
+                              style={{
+                                ...actionButtonStyle(completedItems[`pilot-scenario-${scenario.title}`] ? "primary" : "ghost"),
+                                cursor: "pointer",
+                                padding: "10px 12px",
+                              }}
+                            >
+                              {completedItems[`pilot-scenario-${scenario.title}`] ? "Tamamlandı" : "Tamamla"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void copyText(
+                                  `pilot-scenario-${scenario.title}`,
+                                  `${scenario.title}\n${scenario.module}\n${scenario.detail}\nBasari isareti: ${scenario.success_hint}\n${scenario.href}`,
+                                )
+                              }
+                              style={{
+                                ...actionButtonStyle(),
+                                cursor: "pointer",
+                                padding: "10px 12px",
+                              }}
+                            >
+                              {copiedKey === `pilot-scenario-${scenario.title}` ? "Kopyalandi" : "Senaryoyu Kopyala"}
+                            </button>
+                          </div>
+                        </div>
                       <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{scenario.detail}</div>
                       <div
                         style={{
@@ -1473,7 +1750,7 @@ export default function StatusPage() {
                     </p>
                   </div>
                   <div style={statusPill(rolloutSteps.every((step) => step.status !== "blocked"))}>
-                    {rolloutSteps.filter((step) => step.status === "ready").length}/{rolloutSteps.length} adım hazır
+                    {checklistSummary.rolloutStepsCompleted}/{rolloutSteps.length} adım tamam
                   </div>
                 </div>
                 <div style={{ marginTop: "18px", display: "grid", gap: "12px" }}>
@@ -1499,8 +1776,28 @@ export default function StatusPage() {
                         }}
                       >
                         <strong>{step.title}</strong>
-                        <div style={statusPill(step.status === "ready")}>
-                          {step.status === "ready" ? "Hazır" : step.status === "blocked" ? "Bloklu" : "Sırada"}
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "8px",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <div style={statusPill(step.status === "ready")}>
+                            {step.status === "ready" ? "Hazır" : step.status === "blocked" ? "Bloklu" : "Sırada"}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleCompleted(`rollout-step-${step.title}`)}
+                            style={{
+                              ...actionButtonStyle(completedItems[`rollout-step-${step.title}`] ? "primary" : "ghost"),
+                              cursor: "pointer",
+                              padding: "10px 12px",
+                            }}
+                          >
+                            {completedItems[`rollout-step-${step.title}`] ? "Tamamlandı" : "Tamamla"}
+                          </button>
                         </div>
                       </div>
                       <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{step.detail}</div>
