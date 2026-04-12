@@ -142,6 +142,7 @@ Pilot day zero kiti icin:
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlari karar/gate/release satirlarini guncel tasiyor mu
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalari manifestteki verify sonucu ile uyumlu mu
   - `pilot-day-zero-manifest.json` icindeki gate/guard/verify ozet alanlari alttaki json raporlarla uyumlu mu
+  - `pilot-day-zero-manifest.json` icindeki files haritasi dogru etiketleri dogru dosya adlarina bagliyor mu
   kontrol eder
 
 ## Zorunlu Ayarlar

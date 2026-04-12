@@ -177,6 +177,7 @@ Pilot day zero kit helper:
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlarinin karar/gate/release satirlarini guncel tutup tutmadigini
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalarinin manifestteki verify sonucu ile uyumlu kalip kalmadigini
   - `pilot-day-zero-manifest.json` icindeki gate/guard/verify ozet alanlarinin alttaki json raporlarla uyumlu kalip kalmadigini
+  - `pilot-day-zero-manifest.json` icindeki `files` haritasinin dogru etiketleri dogru dosya adlarina baglayip baglamadigini
   da kontrol eder
 
 Pilot smoke check:

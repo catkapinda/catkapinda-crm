@@ -597,6 +597,53 @@ def _check_manifest_summary(*, output_dir: Path, manifest: dict) -> tuple[bool, 
     return (True, issues)
 
 
+def _check_manifest_file_map(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+    files = manifest.get("files") or {}
+    expected_files = {
+        "render_env_bundle_env": "render-env-bundle.env",
+        "render_env_bundle_json": "render-env-bundle.json",
+        "streamlit_banner_env": "streamlit-banner.env",
+        "streamlit_redirect_env": "streamlit-redirect.env",
+        "streamlit_banner_guard_json": "streamlit-banner-guard.json",
+        "streamlit_redirect_guard_json": "streamlit-redirect-guard.json",
+        "streamlit_banner_guarded_env": "streamlit-banner-guarded.env",
+        "streamlit_redirect_guarded_env": "streamlit-redirect-guarded.env",
+        "pilot_launch_packet": "pilot-launch.md",
+        "pilot_cutover_packet": "pilot-cutover.md",
+        "summary_markdown": "pilot-preflight-summary.md",
+        "status_markdown": "pilot-status-live.md",
+        "status_json": "pilot-status-live.json",
+        "pilot_gate_json": "pilot-gate-pilot.json",
+        "cutover_gate_json": "pilot-gate-cutover.json",
+    }
+    if manifest.get("smoke_included"):
+        expected_files["smoke_markdown"] = "pilot-smoke-live.md"
+        expected_files["smoke_json"] = "pilot-smoke-live.json"
+    if "verify_json" in files or (output_dir / "pilot-day-zero-verify.json").exists():
+        expected_files["verify_json"] = "pilot-day-zero-verify.json"
+    if "verify_markdown" in files or (output_dir / "pilot-day-zero-verify.md").exists():
+        expected_files["verify_markdown"] = "pilot-day-zero-verify.md"
+
+    for label, expected_name in expected_files.items():
+        raw_path = files.get(label)
+        if not raw_path:
+            issues.append(f"Manifest files icinde beklenen etiket eksik: {label}")
+            continue
+        actual_path = Path(str(raw_path))
+        if actual_path.name != expected_name:
+            issues.append(f"Manifest files icinde {label} beklenen dosyaya gitmiyor: {expected_name}")
+        expected_path = output_dir / expected_name
+        if actual_path != expected_path:
+            issues.append(f"Manifest files icinde {label} path uyusmuyor: {expected_path}")
+
+    unexpected_labels = sorted(set(files.keys()) - set(expected_files.keys()))
+    for label in unexpected_labels:
+        issues.append(f"Manifest files icinde beklenmeyen etiket var: {label}")
+
+    return (True, issues)
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -743,6 +790,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(manifest_summary_issues)
 
+    manifest_file_map_checked, manifest_file_map_issues = _check_manifest_file_map(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(manifest_file_map_issues)
+
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
         "Day-zero kiti kullanima hazir."
@@ -782,6 +835,8 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "verify_reports_ok": True if verify_reports_checked and not verify_report_issues else (False if verify_reports_checked else None),
         "manifest_summary_checked": manifest_summary_checked,
         "manifest_summary_ok": True if manifest_summary_checked and not manifest_summary_issues else (False if manifest_summary_checked else None),
+        "manifest_files_checked": manifest_file_map_checked,
+        "manifest_files_ok": True if manifest_file_map_checked and not manifest_file_map_issues else (False if manifest_file_map_checked else None),
         "recommended_next_step": recommended_next_step,
     }
 
@@ -805,6 +860,8 @@ def render_console_summary(result: dict) -> str:
     verify_reports_ok = result.get("verify_reports_ok")
     manifest_summary_checked = bool(result.get("manifest_summary_checked"))
     manifest_summary_ok = result.get("manifest_summary_ok")
+    manifest_files_checked = bool(result.get("manifest_files_checked"))
+    manifest_files_ok = result.get("manifest_files_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
@@ -852,6 +909,11 @@ def render_console_summary(result: dict) -> str:
             else "Manifest Summary: SKIPPED"
         ),
         (
+            f"Manifest Files: {'PASS' if manifest_files_ok else 'FAIL'}"
+            if manifest_files_checked
+            else "Manifest Files: SKIPPED"
+        ),
+        (
             f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
             if smoke_checked and smoke_overall_ok is not None
             else "Smoke: SKIPPED"
@@ -884,6 +946,8 @@ def render_markdown_report(result: dict) -> str:
     verify_reports_ok = result.get("verify_reports_ok")
     manifest_summary_checked = bool(result.get("manifest_summary_checked"))
     manifest_summary_ok = result.get("manifest_summary_ok")
+    manifest_files_checked = bool(result.get("manifest_files_checked"))
+    manifest_files_ok = result.get("manifest_files_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -930,6 +994,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Manifest Summary: `{'PASS' if manifest_summary_ok else 'FAIL'}`"
             if manifest_summary_checked
             else "- Manifest Summary: `SKIPPED`"
+        ),
+        (
+            f"- Manifest Files: `{'PASS' if manifest_files_ok else 'FAIL'}`"
+            if manifest_files_checked
+            else "- Manifest Files: `SKIPPED`"
         ),
         (
             f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"
