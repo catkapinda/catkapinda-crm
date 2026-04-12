@@ -176,6 +176,7 @@ Pilot day zero kit helper:
   - `pilot-launch.md` ve `pilot-cutover.md` paketlerinin dogru link ve cutover komutlarini tasiyip tasimadigini
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlarinin karar/gate/release satirlarini guncel tutup tutmadigini
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalarinin manifestteki verify sonucu ile uyumlu kalip kalmadigini
+  - `pilot-day-zero-manifest.json` icindeki gate/guard/verify ozet alanlarinin alttaki json raporlarla uyumlu kalip kalmadigini
   da kontrol eder
 
 Pilot smoke check:

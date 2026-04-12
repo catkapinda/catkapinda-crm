@@ -551,6 +551,52 @@ def _check_embedded_verify_reports(*, output_dir: Path, manifest: dict) -> tuple
     return (True, issues)
 
 
+def _check_manifest_summary(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+
+    pilot_gate_json_path = output_dir / "pilot-gate-pilot.json"
+    cutover_gate_json_path = output_dir / "pilot-gate-cutover.json"
+    banner_guard_json_path = output_dir / "streamlit-banner-guard.json"
+    redirect_guard_json_path = output_dir / "streamlit-redirect-guard.json"
+    verify_json_path = output_dir / "pilot-day-zero-verify.json"
+
+    required_paths = [
+        pilot_gate_json_path,
+        cutover_gate_json_path,
+        banner_guard_json_path,
+        redirect_guard_json_path,
+    ]
+    if any(not path.exists() for path in required_paths):
+        return (False, ["Manifest ozeti icin gerekli gate/guard dosyalari eksik"])
+
+    pilot_gate_payload = _read_json(pilot_gate_json_path)
+    cutover_gate_payload = _read_json(cutover_gate_json_path)
+    banner_guard_payload = _read_json(banner_guard_json_path)
+    redirect_guard_payload = _read_json(redirect_guard_json_path)
+
+    if manifest.get("pilot_gate_passed") != pilot_gate_payload.get("passed"):
+        issues.append("Manifest pilot_gate_passed degeri pilot-gate-pilot.json ile uyusmuyor")
+    if manifest.get("cutover_gate_passed") != cutover_gate_payload.get("passed"):
+        issues.append("Manifest cutover_gate_passed degeri pilot-gate-cutover.json ile uyusmuyor")
+    if manifest.get("banner_guard_allowed") != banner_guard_payload.get("allowed"):
+        issues.append("Manifest banner_guard_allowed degeri streamlit-banner-guard.json ile uyusmuyor")
+    if manifest.get("redirect_guard_allowed") != redirect_guard_payload.get("allowed"):
+        issues.append("Manifest redirect_guard_allowed degeri streamlit-redirect-guard.json ile uyusmuyor")
+
+    if verify_json_path.exists():
+        verify_payload = _read_json(verify_json_path)
+        if "verify_passed" in manifest and manifest.get("verify_passed") != verify_payload.get("passed"):
+            issues.append("Manifest verify_passed degeri pilot-day-zero-verify.json ile uyusmuyor")
+        if "verify_missing_files_count" in manifest and manifest.get("verify_missing_files_count") != len(verify_payload.get("missing_files") or []):
+            issues.append("Manifest verify_missing_files_count degeri pilot-day-zero-verify.json ile uyusmuyor")
+        if "verify_consistency_issues_count" in manifest and manifest.get("verify_consistency_issues_count") != len(verify_payload.get("consistency_issues") or []):
+            issues.append("Manifest verify_consistency_issues_count degeri pilot-day-zero-verify.json ile uyusmuyor")
+        if "verify_archive_exists" in manifest and manifest.get("verify_archive_exists") != verify_payload.get("archive_exists"):
+            issues.append("Manifest verify_archive_exists degeri pilot-day-zero-verify.json ile uyusmuyor")
+
+    return (True, issues)
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -691,6 +737,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(verify_report_issues)
 
+    manifest_summary_checked, manifest_summary_issues = _check_manifest_summary(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(manifest_summary_issues)
+
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
         "Day-zero kiti kullanima hazir."
@@ -728,6 +780,8 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "reports_ok": True if reports_checked and not report_issues else (False if reports_checked else None),
         "verify_reports_checked": verify_reports_checked,
         "verify_reports_ok": True if verify_reports_checked and not verify_report_issues else (False if verify_reports_checked else None),
+        "manifest_summary_checked": manifest_summary_checked,
+        "manifest_summary_ok": True if manifest_summary_checked and not manifest_summary_issues else (False if manifest_summary_checked else None),
         "recommended_next_step": recommended_next_step,
     }
 
@@ -749,6 +803,8 @@ def render_console_summary(result: dict) -> str:
     reports_ok = result.get("reports_ok")
     verify_reports_checked = bool(result.get("verify_reports_checked"))
     verify_reports_ok = result.get("verify_reports_ok")
+    manifest_summary_checked = bool(result.get("manifest_summary_checked"))
+    manifest_summary_ok = result.get("manifest_summary_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
@@ -791,6 +847,11 @@ def render_console_summary(result: dict) -> str:
             else "Embedded Verify Reports: SKIPPED"
         ),
         (
+            f"Manifest Summary: {'PASS' if manifest_summary_ok else 'FAIL'}"
+            if manifest_summary_checked
+            else "Manifest Summary: SKIPPED"
+        ),
+        (
             f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
             if smoke_checked and smoke_overall_ok is not None
             else "Smoke: SKIPPED"
@@ -821,6 +882,8 @@ def render_markdown_report(result: dict) -> str:
     reports_ok = result.get("reports_ok")
     verify_reports_checked = bool(result.get("verify_reports_checked"))
     verify_reports_ok = result.get("verify_reports_ok")
+    manifest_summary_checked = bool(result.get("manifest_summary_checked"))
+    manifest_summary_ok = result.get("manifest_summary_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -862,6 +925,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Embedded Verify Reports: `{'PASS' if verify_reports_ok else 'FAIL'}`"
             if verify_reports_checked
             else "- Embedded Verify Reports: `SKIPPED`"
+        ),
+        (
+            f"- Manifest Summary: `{'PASS' if manifest_summary_ok else 'FAIL'}`"
+            if manifest_summary_checked
+            else "- Manifest Summary: `SKIPPED`"
         ),
         (
             f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"
