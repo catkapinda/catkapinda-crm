@@ -112,6 +112,8 @@ Pilot day zero kiti icin:
   - `00-START-HERE.md`
   toplar
 - ayrica ayni isimle `.zip` arsivi de uretir
+- kit tam mi diye hizli kontrol icin:
+  - `python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero`
 
 ## Zorunlu Ayarlar
 

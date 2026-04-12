@@ -8,6 +8,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import pilot_cutover_guard  # noqa: E402
 import pilot_day_zero  # noqa: E402
+import pilot_day_zero_verify  # noqa: E402
 import pilot_gate  # noqa: E402
 import pilot_preflight  # noqa: E402
 import pilot_status_report  # noqa: E402
@@ -223,3 +224,97 @@ def test_day_zero_can_derive_api_url_from_status_payload():
     derived = pilot_day_zero._derive_api_url(sample_payload())
 
     assert derived == "https://pilot-api.example.com"
+
+
+def test_day_zero_verify_passes_for_valid_bundle(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+
+    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path) -> dict:
+        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
+        (output_dir / "pilot-status-live.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
+        return {
+            "pilot_gate": {"passed": True},
+            "cutover_gate": {"passed": False},
+            "files": {
+                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
+                "status_markdown": str(output_dir / "pilot-status-live.md"),
+                "status_json": str(output_dir / "pilot-status-live.json"),
+                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
+                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
+            },
+        }
+
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is True
+    assert result["archive_exists"] is True
+    assert result["archive_members_count"] > 0
+    assert result["consistency_issues"] == []
+
+
+def test_day_zero_verify_fails_when_archive_is_missing(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+
+    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path) -> dict:
+        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
+        (output_dir / "pilot-status-live.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
+        return {
+            "pilot_gate": {"passed": True},
+            "cutover_gate": {"passed": False},
+            "files": {
+                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
+                "status_markdown": str(output_dir / "pilot-status-live.md"),
+                "status_json": str(output_dir / "pilot-status-live.json"),
+                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
+                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
+            },
+        }
+
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+
+    manifest = pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    archive_path = Path(manifest["archive_path"])
+    archive_path.unlink()
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["archive_exists"] is False
+    assert any("zip arsivi" in item for item in result["consistency_issues"])

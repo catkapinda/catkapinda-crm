@@ -830,6 +830,11 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             ),
         ),
         PilotHelperCommand(
+            label="Pilot Day Zero Verify",
+            category="quick-check",
+            command="python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero",
+        ),
+        PilotHelperCommand(
             label="Pilot Gate Check",
             category="quick-check",
             command=(
@@ -915,6 +920,11 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
                 "python v2/scripts/pilot_cutover_guard.py "
                 f"--base-url {frontend_url} --mode banner"
             ),
+        ),
+        PilotCommandPackEntry(
+            title="8. Day-zero kitini dogrula",
+            detail="Uretilen klasorde eksik dosya, zip ve guard tutarliligi var mi tek komutta kontrol et.",
+            command="python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero",
         ),
     ]
 

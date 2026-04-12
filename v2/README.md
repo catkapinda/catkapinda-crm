@@ -142,6 +142,8 @@ Pilot day zero kit helper:
   - day-zero manifest json
   - `00-START-HERE.md`
   - paylasilabilir `.zip` arsivi
+- uretilen kitin eksik ve tutarlilik kontrolu icin:
+  - `python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero`
 
 Pilot smoke check:
 - After deploy, run:

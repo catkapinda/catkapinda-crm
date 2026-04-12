@@ -230,18 +230,22 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     )
     assert payload["helper_commands"][13]["category"] == "packet"
     assert payload["helper_commands"][14]["command"] == (
-        "python v2/scripts/pilot_gate.py "
-        "--base-url https://pilot.example.com --mode pilot"
+        "python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero"
     )
     assert payload["helper_commands"][14]["category"] == "quick-check"
     assert payload["helper_commands"][15]["command"] == (
         "python v2/scripts/pilot_gate.py "
+        "--base-url https://pilot.example.com --mode pilot"
+    )
+    assert payload["helper_commands"][15]["category"] == "quick-check"
+    assert payload["helper_commands"][16]["command"] == (
+        "python v2/scripts/pilot_gate.py "
         "--base-url https://pilot.example.com --mode cutover"
     )
-    assert payload["helper_commands"][16]["command"] == "curl -fsSL https://pilot.example.com/api/health"
-    assert payload["helper_commands"][17]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
-    assert payload["helper_commands"][18]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
-    assert payload["helper_commands"][19]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
+    assert payload["helper_commands"][17]["command"] == "curl -fsSL https://pilot.example.com/api/health"
+    assert payload["helper_commands"][18]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
+    assert payload["helper_commands"][19]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
+    assert payload["helper_commands"][20]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
     assert payload["command_pack"][0]["title"] == "1. Env bloklarini hazirla"
     assert payload["command_pack"][0]["command"] == (
         "python v2/scripts/render_env_bundle.py "
@@ -259,6 +263,7 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["command_pack"][6]["command"] == (
         "python v2/scripts/pilot_cutover_guard.py --base-url https://pilot.example.com --mode banner"
     )
+    assert payload["command_pack"][7]["command"] == "python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero"
     assert payload["services"][0]["name"] == "crmcatkapinda-v2"
     assert payload["services"][0]["service_type"] == "frontend"
     assert payload["services"][0]["public_url"] == "https://pilot.example.com"
