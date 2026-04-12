@@ -206,6 +206,30 @@ def _iter_database_config_candidates() -> list[tuple[str, str | dict[str, Any]]]
     return candidates
 
 
+def _safe_database_target(database_config: str | dict[str, Any]) -> str:
+    try:
+        if isinstance(database_config, dict):
+            return f"{database_config.get('host', '?')}:{database_config.get('port', 5432)}/{database_config.get('dbname', 'postgres')}"
+        cleaned_url = (database_config or "").strip().strip('"').strip("'")
+        parsed = urlsplit(cleaned_url)
+        return f"{parsed.hostname or '?'}:{parsed.port or 5432}/{(parsed.path or '').lstrip('/') or 'postgres'}"
+    except Exception:
+        return "?"
+
+
+def describe_database_config_sources() -> list[dict[str, str]]:
+    sources: list[dict[str, str]] = []
+    for label, database_config in _iter_database_config_candidates():
+        sources.append(
+            {
+                "label": label,
+                "type": "mapping" if isinstance(database_config, dict) else "url",
+                "target": _safe_database_target(database_config),
+            }
+        )
+    return sources
+
+
 def get_database_config() -> str | dict[str, Any] | None:
     candidates = _iter_database_config_candidates()
     return candidates[0][1] if candidates else None

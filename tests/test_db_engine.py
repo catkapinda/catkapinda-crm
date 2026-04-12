@@ -100,6 +100,29 @@ class DbEngineConfigTests(TestCase):
         },
         clear=True,
     )
+    def test_describe_database_config_sources_returns_safe_source_summary(self) -> None:
+        with patch.object(
+            db_engine.st,
+            "secrets",
+            {"database": {"url": "postgresql://secret-user:secret-pass@secret-host:5432/postgres?sslmode=require"}},
+        ):
+            sources = db_engine.describe_database_config_sources()
+
+        self.assertEqual(
+            sources,
+            [
+                {"label": "render_database_url", "type": "url", "target": "env-host:5432/postgres"},
+                {"label": "streamlit_database_url", "type": "url", "target": "secret-host:5432/postgres"},
+            ],
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "DATABASE_URL": "postgresql://env-user:env-pass@env-host:5432/postgres?sslmode=require",
+        },
+        clear=True,
+    )
     def test_connect_database_falls_back_to_streamlit_secret_candidate(self) -> None:
         secret_url = "postgresql://secret-user:secret-pass@secret-host:5432/postgres?sslmode=require"
         with (

@@ -41,6 +41,7 @@ from infrastructure.db_engine import (
     adapt_sql,
     configure_db_engine,
     connect_database,
+    describe_database_config_sources,
     fetch_df,
 )
 from builders.entity_builders import (
@@ -956,11 +957,30 @@ def get_conn() -> CompatConnection:
             except Exception:
                 drop_existing_conn()
 
-    conn = connect_database()
-    ensure_runtime_bootstrap(conn)
-    st.session_state[SESSION_CONN_KEY] = conn
-    st.session_state[SESSION_CONN_CREATED_AT_KEY] = time.monotonic()
-    return conn
+    last_error: Exception | None = None
+    for attempt in range(2):
+        conn = connect_database()
+        try:
+            ensure_runtime_bootstrap(conn)
+            st.session_state[SESSION_CONN_KEY] = conn
+            st.session_state[SESSION_CONN_CREATED_AT_KEY] = time.monotonic()
+            return conn
+        except Exception as exc:
+            last_error = exc
+            try:
+                conn.close()
+            except Exception:
+                pass
+            st.session_state.pop(SESSION_CONN_KEY, None)
+            st.session_state.pop(SESSION_CONN_CREATED_AT_KEY, None)
+            if attempt == 0:
+                time.sleep(0.8)
+                continue
+            raise
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Veritabanı bağlantısı kurulamadı.")
 
 
 def login_gate(conn: sqlite3.Connection) -> bool:
@@ -7601,6 +7621,16 @@ def main() -> None:
         st.info("Birkaç saniye sonra sayfayi yenileyip tekrar deneyin. Sorun devam ederse teknik detaylari kontrol edelim.")
         with st.expander("Teknik detay"):
             st.write(str(exc))
+            source_lines = [
+                f"- `{entry['label']}` ({entry['type']}) -> `{entry['target']}`"
+                for entry in describe_database_config_sources()
+            ]
+            if source_lines:
+                st.markdown("**Bulunan baglanti kaynaklari**")
+                st.markdown("\n".join(source_lines))
+            else:
+                st.markdown("**Bulunan baglanti kaynaklari**")
+                st.markdown("- Veritabanı için okunabilen bir env/secrets kaynağı bulunamadı.")
             st.code(
                 'DATABASE_URL = "postgresql://..."\n\n'
                 '[database]\n'
