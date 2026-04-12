@@ -749,6 +749,22 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             ),
         ),
         PilotHelperCommand(
+            label="Guarded Banner Env",
+            category="env",
+            command=(
+                "python v2/scripts/pilot_cutover_guard.py "
+                f"--base-url {frontend_url} --mode banner"
+            ),
+        ),
+        PilotHelperCommand(
+            label="Guarded Redirect Env",
+            category="env",
+            command=(
+                "python v2/scripts/pilot_cutover_guard.py "
+                f"--base-url {frontend_url} --mode redirect"
+            ),
+        ),
+        PilotHelperCommand(
             label="API Env",
             category="env",
             command=(
@@ -885,12 +901,11 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="7. Streamlit banner koprusunu hazirla",
-            detail="Eski panelde kontrollu gecis kartini gosterecek env blokunu uret.",
+            title="7. Guarded Streamlit banner env'ini uret",
+            detail="Canli pilot gate'e gore eski panelde kontrollu gecis kartini guvenli sekilde hazirla.",
             command=(
-                "python v2/scripts/render_env_bundle.py "
-                f"--frontend-url {frontend_url} --api-url {backend_url} "
-                "--service streamlit --cutover-mode banner"
+                "python v2/scripts/pilot_cutover_guard.py "
+                f"--base-url {frontend_url} --mode banner"
             ),
         ),
     ]

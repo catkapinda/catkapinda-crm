@@ -91,6 +91,13 @@ Pilot preflight paketi icin:
   uretir
 - pilot gate gecerliyse `0`, degilse `2` ile cikar
 
+Pilot cutover guard icin:
+- `python v2/scripts/pilot_cutover_guard.py --base-url https://<v2-frontend-domain> --mode banner`
+- `python v2/scripts/pilot_cutover_guard.py --base-url https://<v2-frontend-domain> --mode redirect`
+- bu helper canli gate sonucuna gore env blogunu verir
+- blokaj varsa `2` ile cikar
+- zorunlu override gerektiginde `--force` kullanilabilir
+
 ## Zorunlu Ayarlar
 
 ### Backend

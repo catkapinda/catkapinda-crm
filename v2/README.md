@@ -117,6 +117,15 @@ Pilot preflight bundle helper:
   - `pilot-gate-cutover.json`
 - pilot gate gecerliyse `0`, degilse `2` ile cikar
 
+Pilot cutover guard helper:
+- Streamlit `banner` env'ini yalnizca canli pilot gecerliyse uretmek icin:
+  - `python v2/scripts/pilot_cutover_guard.py --base-url https://<v2-frontend-domain> --mode banner`
+- Streamlit `redirect` env'ini yalnizca canli cutover gecerliyse uretmek icin:
+  - `python v2/scripts/pilot_cutover_guard.py --base-url https://<v2-frontend-domain> --mode redirect`
+- blokaj varsa `2` ile cikar
+- acil durumda override icin:
+  - `--force`
+
 Pilot smoke check:
 - After deploy, run:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`

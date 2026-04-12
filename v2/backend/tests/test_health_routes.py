@@ -183,52 +183,60 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "--service streamlit --cutover-mode redirect"
     )
     assert payload["helper_commands"][4]["command"] == (
+        "python v2/scripts/pilot_cutover_guard.py "
+        "--base-url https://pilot.example.com --mode banner"
+    )
+    assert payload["helper_commands"][5]["command"] == (
+        "python v2/scripts/pilot_cutover_guard.py "
+        "--base-url https://pilot.example.com --mode redirect"
+    )
+    assert payload["helper_commands"][6]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --service api"
     )
-    assert payload["helper_commands"][5]["command"] == (
+    assert payload["helper_commands"][7]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --service frontend"
     )
-    assert payload["helper_commands"][6]["command"] == (
+    assert payload["helper_commands"][8]["command"] == (
         "python v2/scripts/pilot_launch_packet.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --output pilot-launch.md"
     )
-    assert payload["helper_commands"][6]["category"] == "packet"
-    assert payload["helper_commands"][7]["command"] == (
+    assert payload["helper_commands"][8]["category"] == "packet"
+    assert payload["helper_commands"][9]["command"] == (
         "python v2/scripts/pilot_launch_packet.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com "
         "--cutover-mode redirect --output pilot-cutover.md"
     )
-    assert payload["helper_commands"][7]["category"] == "packet"
-    assert payload["helper_commands"][8]["command"] == (
+    assert payload["helper_commands"][9]["category"] == "packet"
+    assert payload["helper_commands"][10]["command"] == (
         "python v2/scripts/pilot_status_report.py "
         "--base-url https://pilot.example.com --output pilot-status-live.md"
     )
-    assert payload["helper_commands"][8]["category"] == "packet"
-    assert payload["helper_commands"][9]["command"] == (
+    assert payload["helper_commands"][10]["category"] == "packet"
+    assert payload["helper_commands"][11]["command"] == (
         "python v2/scripts/pilot_status_report.py "
         "--base-url https://pilot.example.com --json --output pilot-status-live.json"
     )
-    assert payload["helper_commands"][9]["category"] == "packet"
-    assert payload["helper_commands"][10]["command"] == (
+    assert payload["helper_commands"][11]["category"] == "packet"
+    assert payload["helper_commands"][12]["command"] == (
         "python v2/scripts/pilot_preflight.py "
         "--base-url https://pilot.example.com --output-dir pilot-preflight"
     )
-    assert payload["helper_commands"][10]["category"] == "packet"
-    assert payload["helper_commands"][11]["command"] == (
+    assert payload["helper_commands"][12]["category"] == "packet"
+    assert payload["helper_commands"][13]["command"] == (
         "python v2/scripts/pilot_gate.py "
         "--base-url https://pilot.example.com --mode pilot"
     )
-    assert payload["helper_commands"][11]["category"] == "quick-check"
-    assert payload["helper_commands"][12]["command"] == (
+    assert payload["helper_commands"][13]["category"] == "quick-check"
+    assert payload["helper_commands"][14]["command"] == (
         "python v2/scripts/pilot_gate.py "
         "--base-url https://pilot.example.com --mode cutover"
     )
-    assert payload["helper_commands"][13]["command"] == "curl -fsSL https://pilot.example.com/api/health"
-    assert payload["helper_commands"][14]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
-    assert payload["helper_commands"][15]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
-    assert payload["helper_commands"][16]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
+    assert payload["helper_commands"][15]["command"] == "curl -fsSL https://pilot.example.com/api/health"
+    assert payload["helper_commands"][16]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
+    assert payload["helper_commands"][17]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
+    assert payload["helper_commands"][18]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
     assert payload["command_pack"][0]["title"] == "1. Env bloklarini hazirla"
     assert payload["command_pack"][0]["command"] == (
         "python v2/scripts/render_env_bundle.py "
@@ -243,7 +251,9 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "python v2/scripts/pilot_gate.py --base-url https://pilot.example.com --mode pilot"
     )
     assert "--identity ebru@catkapinda.com --password <sifre>" in payload["command_pack"][5]["command"]
-    assert "--service streamlit --cutover-mode banner" in payload["command_pack"][6]["command"]
+    assert payload["command_pack"][6]["command"] == (
+        "python v2/scripts/pilot_cutover_guard.py --base-url https://pilot.example.com --mode banner"
+    )
     assert payload["services"][0]["name"] == "crmcatkapinda-v2"
     assert payload["services"][0]["service_type"] == "frontend"
     assert payload["services"][0]["public_url"] == "https://pilot.example.com"
