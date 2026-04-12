@@ -39,6 +39,8 @@ def _build_start_here_markdown(
     redirect_guard_allowed: bool,
     verify_passed: bool | None = None,
     verify_next_step: str | None = None,
+    smoke_overall_ok: bool | None = None,
+    smoke_next_step: str | None = None,
 ) -> str:
     lines = [
         "# Cat Kapinda CRM v2 Day Zero - Start Here",
@@ -55,6 +57,11 @@ def _build_start_here_markdown(
             f"- Verify: `{'PASS' if verify_passed else 'FAIL'}`"
             if verify_passed is not None
             else "- Verify: `BEKLENIYOR`"
+        ),
+        (
+            f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"
+            if smoke_overall_ok is not None
+            else "- Smoke: `ATLANDI`"
         ),
         "",
         "## Nereden Baslayacagiz",
@@ -88,6 +95,15 @@ def _build_start_here_markdown(
                 "",
             ]
         )
+    if smoke_next_step:
+        lines.extend(
+            [
+                "## Smoke Sonrasi Sonraki Adim",
+                "",
+                smoke_next_step,
+                "",
+            ]
+        )
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -112,6 +128,12 @@ def build_day_zero_bundle(
     api_service_name: str,
     frontend_service_name: str,
     streamlit_service_name: str,
+    include_smoke: bool = False,
+    smoke_identity: str | None = None,
+    smoke_password: str | None = None,
+    smoke_preset: str | None = None,
+    smoke_legacy_url: str | None = None,
+    smoke_legacy_cutover_mode: str | None = None,
 ) -> dict:
     generated_at = datetime.now(UTC).isoformat()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -227,7 +249,14 @@ def build_day_zero_bundle(
         base_url=frontend_url,
         timeout=timeout,
         output_dir=output_dir,
+        include_smoke=include_smoke,
+        identity=smoke_identity,
+        password=smoke_password,
+        preset=smoke_preset,
+        legacy_url=smoke_legacy_url,
+        legacy_cutover_mode=smoke_legacy_cutover_mode,
     )
+    smoke_report = preflight_result.get("smoke_report")
 
     manifest = {
         "generated_at": generated_at,
@@ -239,6 +268,7 @@ def build_day_zero_bundle(
         "cutover_gate_passed": preflight_result["cutover_gate"]["passed"],
         "banner_guard_allowed": banner_guard["allowed"],
         "redirect_guard_allowed": cutover_guard["allowed"],
+        "smoke_included": include_smoke,
         "files": {
             "render_env_bundle_env": str(output_dir / "render-env-bundle.env"),
             "render_env_bundle_json": str(output_dir / "render-env-bundle.json"),
@@ -291,6 +321,11 @@ def build_day_zero_bundle(
     manifest["verify_consistency_issues_count"] = len(verify_result["consistency_issues"])
     manifest["verify_recommended_next_step"] = verify_result["recommended_next_step"]
     manifest["verify_archive_exists"] = verify_result["archive_exists"]
+    manifest["smoke_overall_ok"] = smoke_report["overall_ok"] if smoke_report else None
+    manifest["smoke_failed_count"] = smoke_report["failed_count"] if smoke_report else None
+    manifest["smoke_recommended_next_step"] = (
+        smoke_report["decision"]["recommended_next_step"] if smoke_report else None
+    )
     (output_dir / "pilot-day-zero-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (output_dir / "00-START-HERE.md").write_text(
         _build_start_here_markdown(
@@ -304,6 +339,8 @@ def build_day_zero_bundle(
             redirect_guard_allowed=cutover_guard["allowed"],
             verify_passed=verify_result["passed"],
             verify_next_step=verify_result["recommended_next_step"],
+            smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,
+            smoke_next_step=smoke_report["decision"]["recommended_next_step"] if smoke_report else None,
         ),
         encoding="utf-8",
     )
@@ -324,16 +361,26 @@ def render_console_summary(manifest: dict) -> str:
         f"Redirect Guard: {'PASS' if manifest['redirect_guard_allowed'] else 'BLOCK'}",
         f"Verify: {'PASS' if manifest.get('verify_passed') else 'FAIL'}",
         f"Verify Next Step: {manifest.get('verify_recommended_next_step', 'Yok')}",
+        *(
+            [
+                f"Smoke: {'PASS' if manifest.get('smoke_overall_ok') else 'FAIL'}",
+                f"Smoke Next Step: {manifest.get('smoke_recommended_next_step', 'Yok')}",
+            ]
+            if manifest.get("smoke_included")
+            else []
+        ),
         "Files:",
     ]
     lines.extend([f"- {label}: {path}" for label, path in manifest["files"].items()])
     return "\n".join(lines) + "\n"
 
 
-def compute_exit_code(manifest: dict, *, strict: bool) -> int:
+def compute_exit_code(manifest: dict, *, strict: bool, strict_smoke: bool) -> int:
     if not manifest["pilot_gate_passed"]:
         return 2
     if strict and not manifest.get("verify_passed", False):
+        return 2
+    if strict_smoke and manifest.get("smoke_included") and not manifest.get("smoke_overall_ok", False):
         return 2
     return 0
 
@@ -409,6 +456,26 @@ def main() -> int:
         action="store_true",
         help="Exit non-zero if the embedded day-zero verify result also fails.",
     )
+    parser.add_argument(
+        "--include-smoke",
+        action="store_true",
+        help="Also embed a live pilot_smoke report into the day-zero kit.",
+    )
+    parser.add_argument("--smoke-identity", default="", help="Optional login identity for embedded smoke")
+    parser.add_argument("--smoke-password", default="", help="Optional login password for embedded smoke")
+    parser.add_argument("--smoke-preset", choices=("pilot", "cutover"), default=None, help="Optional pilot_smoke preset")
+    parser.add_argument("--smoke-legacy-url", default="", help="Optional legacy Streamlit URL for embedded smoke")
+    parser.add_argument(
+        "--smoke-legacy-cutover-mode",
+        choices=("banner", "redirect"),
+        default=None,
+        help="Optional legacy cutover mode for embedded smoke",
+    )
+    parser.add_argument(
+        "--strict-smoke",
+        action="store_true",
+        help="Exit non-zero if embedded smoke is enabled and fails.",
+    )
     args = parser.parse_args()
 
     frontend_url = normalize_url(args.base_url)
@@ -430,6 +497,12 @@ def main() -> int:
         api_service_name=args.api_service_name.strip(),
         frontend_service_name=args.frontend_service_name.strip(),
         streamlit_service_name=args.streamlit_service_name.strip(),
+        include_smoke=args.include_smoke,
+        smoke_identity=args.smoke_identity.strip() or None,
+        smoke_password=args.smoke_password.strip() or None,
+        smoke_preset=args.smoke_preset,
+        smoke_legacy_url=args.smoke_legacy_url.strip() or None,
+        smoke_legacy_cutover_mode=args.smoke_legacy_cutover_mode,
     )
 
     if args.json:
@@ -437,7 +510,7 @@ def main() -> int:
     else:
         print(render_console_summary(manifest), end="")
 
-    return compute_exit_code(manifest, strict=args.strict)
+    return compute_exit_code(manifest, strict=args.strict, strict_smoke=args.strict_smoke)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ import pilot_day_zero  # noqa: E402
 import pilot_day_zero_verify  # noqa: E402
 import pilot_gate  # noqa: E402
 import pilot_preflight  # noqa: E402
+import pilot_smoke  # noqa: E402
 import pilot_status_report  # noqa: E402
 
 
@@ -161,10 +162,36 @@ def test_preflight_bundle_writes_expected_files(monkeypatch, tmp_path: Path):
     assert (tmp_path / "pilot-preflight-summary.md").exists()
 
 
+def test_preflight_bundle_can_embed_smoke_outputs(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_preflight, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(
+        pilot_preflight,
+        "run_smoke_checks",
+        lambda **kwargs: [pilot_smoke.CheckResult(name="frontend_health", ok=True, detail="HTTP 200")],
+    )
+
+    result = pilot_preflight.build_preflight_bundle(
+        base_url="https://pilot.example.com",
+        timeout=5,
+        output_dir=tmp_path,
+        include_smoke=True,
+        preset="pilot",
+        legacy_url="https://crmcatkapinda.com",
+        legacy_cutover_mode="banner",
+    )
+
+    assert result["smoke_report"]["overall_ok"] is True
+    assert (tmp_path / "pilot-smoke-live.md").exists()
+    assert (tmp_path / "pilot-smoke-live.json").exists()
+    summary = (tmp_path / "pilot-preflight-summary.md").read_text(encoding="utf-8")
+    assert "## Smoke" in summary
+    assert "Smoke Markdown" in summary
+
+
 def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
 
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path) -> dict:
+    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
         (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
         (output_dir / "pilot-status-live.json").write_text("{}", encoding="utf-8")
         (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
@@ -208,6 +235,8 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert manifest["verify_consistency_issues_count"] == 0
     assert manifest["verify_archive_exists"] is True
     assert manifest["verify_recommended_next_step"] == "Day-zero kiti kullanima hazir."
+    assert manifest["smoke_included"] is False
+    assert manifest["smoke_overall_ok"] is None
     assert "archive_path" in manifest
     assert (tmp_path / "render-env-bundle.env").exists()
     assert (tmp_path / "streamlit-banner.env").exists()
@@ -232,6 +261,66 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert "Day-zero kiti kullanima hazir." in start_here
 
 
+def test_day_zero_bundle_can_surface_embedded_smoke_summary(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+
+    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
+        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
+        (output_dir / "pilot-status-live.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
+        (output_dir / "pilot-smoke-live.md").write_text("smoke", encoding="utf-8")
+        (output_dir / "pilot-smoke-live.json").write_text("{}", encoding="utf-8")
+        return {
+            "pilot_gate": {"passed": True},
+            "cutover_gate": {"passed": False},
+            "smoke_report": {
+                "overall_ok": False,
+                "failed_count": 2,
+                "decision": {
+                    "recommended_next_step": "Frontend ready blokajini kapat.",
+                },
+            },
+            "files": {
+                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
+                "status_markdown": str(output_dir / "pilot-status-live.md"),
+                "status_json": str(output_dir / "pilot-status-live.json"),
+                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
+                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
+                "smoke_markdown": str(output_dir / "pilot-smoke-live.md"),
+                "smoke_json": str(output_dir / "pilot-smoke-live.json"),
+            },
+        }
+
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+
+    manifest = pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+        include_smoke=True,
+        smoke_preset="pilot",
+    )
+
+    assert manifest["smoke_included"] is True
+    assert manifest["smoke_overall_ok"] is False
+    assert manifest["smoke_failed_count"] == 2
+    assert manifest["smoke_recommended_next_step"] == "Frontend ready blokajini kapat."
+    start_here = (tmp_path / "00-START-HERE.md").read_text(encoding="utf-8")
+    assert "Smoke: `FAIL`" in start_here
+    assert "Frontend ready blokajini kapat." in start_here
+
+
 def test_day_zero_can_derive_api_url_from_status_payload():
     derived = pilot_day_zero._derive_api_url(sample_payload())
 
@@ -241,7 +330,7 @@ def test_day_zero_can_derive_api_url_from_status_payload():
 def test_day_zero_verify_passes_for_valid_bundle(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
 
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path) -> dict:
+    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
         (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
         (output_dir / "pilot-status-live.json").write_text("{}", encoding="utf-8")
         (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
@@ -287,7 +376,7 @@ def test_day_zero_verify_passes_for_valid_bundle(monkeypatch, tmp_path: Path):
 def test_day_zero_verify_fails_when_archive_is_missing(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
 
-    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path) -> dict:
+    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
         (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
         (output_dir / "pilot-status-live.json").write_text("{}", encoding="utf-8")
         (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
@@ -354,7 +443,20 @@ def test_day_zero_exit_code_respects_strict_verify_mode():
     manifest = {
         "pilot_gate_passed": True,
         "verify_passed": False,
+        "smoke_included": False,
     }
 
-    assert pilot_day_zero.compute_exit_code(manifest, strict=False) == 0
-    assert pilot_day_zero.compute_exit_code(manifest, strict=True) == 2
+    assert pilot_day_zero.compute_exit_code(manifest, strict=False, strict_smoke=False) == 0
+    assert pilot_day_zero.compute_exit_code(manifest, strict=True, strict_smoke=False) == 2
+
+
+def test_day_zero_exit_code_can_enforce_strict_smoke_mode():
+    manifest = {
+        "pilot_gate_passed": True,
+        "verify_passed": True,
+        "smoke_included": True,
+        "smoke_overall_ok": False,
+    }
+
+    assert pilot_day_zero.compute_exit_code(manifest, strict=False, strict_smoke=False) == 0
+    assert pilot_day_zero.compute_exit_code(manifest, strict=False, strict_smoke=True) == 2

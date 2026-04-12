@@ -822,11 +822,29 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             ),
         ),
         PilotHelperCommand(
+            label="Pilot Preflight + Smoke",
+            category="packet",
+            command=(
+                "python v2/scripts/pilot_preflight.py "
+                f"--base-url {frontend_url} --output-dir pilot-preflight "
+                "--include-smoke --preset pilot"
+            ),
+        ),
+        PilotHelperCommand(
             label="Pilot Day Zero Kit",
             category="packet",
             command=(
                 "python v2/scripts/pilot_day_zero.py "
                 f"--base-url {frontend_url} --api-url {backend_url} --output-dir pilot-day-zero"
+            ),
+        ),
+        PilotHelperCommand(
+            label="Pilot Day Zero + Smoke",
+            category="packet",
+            command=(
+                "python v2/scripts/pilot_day_zero.py "
+                f"--base-url {frontend_url} --api-url {backend_url} --output-dir pilot-day-zero "
+                "--include-smoke --smoke-preset pilot"
             ),
         ),
         PilotHelperCommand(

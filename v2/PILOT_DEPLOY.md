@@ -82,12 +82,19 @@ Pilot gate karari icin:
 
 Pilot preflight paketi icin:
 - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight`
+- smoke sonucunu da preflight paketine gommek istersen:
+  - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight --include-smoke --preset pilot`
+- smoke da exit koduna girsin istersen:
+  - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight --include-smoke --preset pilot --strict-smoke`
 - bu helper tek klasorde:
   - canli status markdown
   - canli status json
   - pilot gate json
   - cutover gate json
   - preflight summary markdown
+  - smoke aciksa:
+    - smoke markdown
+    - smoke json
   uretir
 - pilot gate gecerliyse `0`, degilse `2` ile cikar
 
@@ -100,8 +107,12 @@ Pilot cutover guard icin:
 
 Pilot day zero kiti icin:
 - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero`
+- smoke sonucunu da day-zero kitine gommek istersen:
+  - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero --include-smoke --smoke-preset pilot`
 - verify de exit koduna dahil olsun istersen:
   - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero --strict`
+- smoke da exit koduna dahil olsun istersen:
+  - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero --include-smoke --smoke-preset pilot --strict-smoke`
 - `--api-url` verilmezse canli `/api/pilot-status` uzerinden backend servisi bulunmaya calisilir
 - bu helper ayni klasorde:
   - env bundle
@@ -115,7 +126,7 @@ Pilot day zero kiti icin:
   - `00-START-HERE.md`
   toplar
 - ayrica ayni isimle `.zip` arsivi de uretir
-- kit ozetinde verify sonucu ve onerilen sonraki adim da yazilir
+- kit ozetinde verify ve smoke sonucu ile onerilen sonraki adimlar da yazilir
 - kit tam mi diye hizli kontrol icin:
   - `python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero`
 

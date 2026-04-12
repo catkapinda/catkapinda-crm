@@ -109,12 +109,19 @@ Pilot gate helper:
 Pilot preflight bundle helper:
 - Canli pilot durumu icin tum ciktıları tek klasorde toplamak icin:
   - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight`
+- smoke sonucunu da preflight paketine gommek istersen:
+  - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight --include-smoke --preset pilot`
+- smoke da exit koduna girsin istersen:
+  - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight --include-smoke --preset pilot --strict-smoke`
 - bu helper sunlari birlikte uretir:
   - `pilot-preflight-summary.md`
   - `pilot-status-live.md`
   - `pilot-status-live.json`
   - `pilot-gate-pilot.json`
   - `pilot-gate-cutover.json`
+  - smoke aciksa:
+    - `pilot-smoke-live.md`
+    - `pilot-smoke-live.json`
 - pilot gate gecerliyse `0`, degilse `2` ile cikar
 
 Pilot cutover guard helper:
@@ -129,8 +136,12 @@ Pilot cutover guard helper:
 Pilot day zero kit helper:
 - Pilot gunu tum ana artefaktlari tek klasorde toplamak icin:
   - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero`
+- smoke sonucunu da day-zero kitine gommek istersen:
+  - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero --include-smoke --smoke-preset pilot`
 - verify de exit koduna girsin istersen:
   - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero --strict`
+- smoke da exit koduna girsin istersen:
+  - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero --include-smoke --smoke-preset pilot --strict-smoke`
 - `--api-url` verilmezse script bunu canli `/api/pilot-status` verisinden cikarmayi dener
 - bu helper sunlari bir arada uretir:
   - render env bundle
@@ -148,6 +159,8 @@ Pilot day zero kit helper:
 - manifest ve konsol ozetinde artik:
   - verify pass/fail
   - verify sonrasi onerilen adim
+  - smoke pass/fail
+  - smoke sonrasi onerilen adim
   da gorunur
 - uretilen kitin eksik ve tutarlilik kontrolu icin:
   - `python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero`

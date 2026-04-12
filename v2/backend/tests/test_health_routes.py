@@ -163,89 +163,104 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert "--legacy-cutover-mode redirect" in payload["smoke_commands"][5]["command"]
     assert "--preset pilot" in payload["smoke_commands"][6]["command"]
     assert "--preset cutover" in payload["smoke_commands"][7]["command"]
-    assert payload["helper_commands"][0]["command"] == (
+    helper_map = {entry["label"]: entry for entry in payload["helper_commands"]}
+    assert helper_map["Render Env Bundle"]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com"
     )
-    assert payload["helper_commands"][0]["category"] == "env"
-    assert payload["helper_commands"][1]["command"] == (
+    assert helper_map["Render Env Bundle"]["category"] == "env"
+    assert helper_map["Render Env Bundle JSON"]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --json"
     )
-    assert payload["helper_commands"][2]["command"] == (
+    assert helper_map["Streamlit Banner Env"]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com "
         "--service streamlit --cutover-mode banner"
     )
-    assert payload["helper_commands"][3]["command"] == (
+    assert helper_map["Streamlit Redirect Env"]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com "
         "--service streamlit --cutover-mode redirect"
     )
-    assert payload["helper_commands"][4]["command"] == (
+    assert helper_map["Guarded Banner Env"]["command"] == (
         "python v2/scripts/pilot_cutover_guard.py "
         "--base-url https://pilot.example.com --mode banner"
     )
-    assert payload["helper_commands"][5]["command"] == (
+    assert helper_map["Guarded Banner Env"]["category"] == "env"
+    assert helper_map["Guarded Redirect Env"]["command"] == (
         "python v2/scripts/pilot_cutover_guard.py "
         "--base-url https://pilot.example.com --mode redirect"
     )
-    assert payload["helper_commands"][6]["command"] == (
+    assert helper_map["Guarded Redirect Env"]["category"] == "env"
+    assert helper_map["API Env"]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --service api"
     )
-    assert payload["helper_commands"][7]["command"] == (
+    assert helper_map["Frontend Env"]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --service frontend"
     )
-    assert payload["helper_commands"][8]["command"] == (
+    assert helper_map["Pilot Launch Packet"]["command"] == (
         "python v2/scripts/pilot_launch_packet.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --output pilot-launch.md"
     )
-    assert payload["helper_commands"][8]["category"] == "packet"
-    assert payload["helper_commands"][9]["command"] == (
+    assert helper_map["Pilot Launch Packet"]["category"] == "packet"
+    assert helper_map["Pilot Cutover Packet"]["command"] == (
         "python v2/scripts/pilot_launch_packet.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com "
         "--cutover-mode redirect --output pilot-cutover.md"
     )
-    assert payload["helper_commands"][9]["category"] == "packet"
-    assert payload["helper_commands"][10]["command"] == (
+    assert helper_map["Pilot Cutover Packet"]["category"] == "packet"
+    assert helper_map["Live Pilot Status Report"]["command"] == (
         "python v2/scripts/pilot_status_report.py "
         "--base-url https://pilot.example.com --output pilot-status-live.md"
     )
-    assert payload["helper_commands"][10]["category"] == "packet"
-    assert payload["helper_commands"][11]["command"] == (
+    assert helper_map["Live Pilot Status Report"]["category"] == "packet"
+    assert helper_map["Live Pilot Status JSON"]["command"] == (
         "python v2/scripts/pilot_status_report.py "
         "--base-url https://pilot.example.com --json --output pilot-status-live.json"
     )
-    assert payload["helper_commands"][11]["category"] == "packet"
-    assert payload["helper_commands"][12]["command"] == (
+    assert helper_map["Live Pilot Status JSON"]["category"] == "packet"
+    assert helper_map["Pilot Preflight Bundle"]["command"] == (
         "python v2/scripts/pilot_preflight.py "
         "--base-url https://pilot.example.com --output-dir pilot-preflight"
     )
-    assert payload["helper_commands"][12]["category"] == "packet"
-    assert payload["helper_commands"][13]["command"] == (
+    assert helper_map["Pilot Preflight Bundle"]["category"] == "packet"
+    assert helper_map["Pilot Preflight + Smoke"]["command"] == (
+        "python v2/scripts/pilot_preflight.py "
+        "--base-url https://pilot.example.com --output-dir pilot-preflight "
+        "--include-smoke --preset pilot"
+    )
+    assert helper_map["Pilot Preflight + Smoke"]["category"] == "packet"
+    assert helper_map["Pilot Day Zero Kit"]["command"] == (
         "python v2/scripts/pilot_day_zero.py "
         "--base-url https://pilot.example.com --api-url https://pilot-api.example.com --output-dir pilot-day-zero"
     )
-    assert payload["helper_commands"][13]["category"] == "packet"
-    assert payload["helper_commands"][14]["command"] == (
+    assert helper_map["Pilot Day Zero Kit"]["category"] == "packet"
+    assert helper_map["Pilot Day Zero + Smoke"]["command"] == (
+        "python v2/scripts/pilot_day_zero.py "
+        "--base-url https://pilot.example.com --api-url https://pilot-api.example.com --output-dir pilot-day-zero "
+        "--include-smoke --smoke-preset pilot"
+    )
+    assert helper_map["Pilot Day Zero + Smoke"]["category"] == "packet"
+    assert helper_map["Pilot Day Zero Verify"]["command"] == (
         "python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero"
     )
-    assert payload["helper_commands"][14]["category"] == "quick-check"
-    assert payload["helper_commands"][15]["command"] == (
+    assert helper_map["Pilot Day Zero Verify"]["category"] == "quick-check"
+    assert helper_map["Pilot Gate Check"]["command"] == (
         "python v2/scripts/pilot_gate.py "
         "--base-url https://pilot.example.com --mode pilot"
     )
-    assert payload["helper_commands"][15]["category"] == "quick-check"
-    assert payload["helper_commands"][16]["command"] == (
+    assert helper_map["Pilot Gate Check"]["category"] == "quick-check"
+    assert helper_map["Cutover Gate Check"]["command"] == (
         "python v2/scripts/pilot_gate.py "
         "--base-url https://pilot.example.com --mode cutover"
     )
-    assert payload["helper_commands"][17]["command"] == "curl -fsSL https://pilot.example.com/api/health"
-    assert payload["helper_commands"][18]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
-    assert payload["helper_commands"][19]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
-    assert payload["helper_commands"][20]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
+    assert helper_map["Frontend Health Curl"]["command"] == "curl -fsSL https://pilot.example.com/api/health"
+    assert helper_map["Frontend Ready Curl"]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
+    assert helper_map["Backend Health Curl"]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
+    assert helper_map["Backend Pilot Curl"]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
     assert payload["command_pack"][0]["title"] == "1. Env bloklarini hazirla"
     assert payload["command_pack"][0]["command"] == (
         "python v2/scripts/render_env_bundle.py "
