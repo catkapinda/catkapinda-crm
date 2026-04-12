@@ -656,6 +656,12 @@ def _build_env_snippets() -> list[PilotEnvSnippetEntry]:
         "NEXT_TELEMETRY_DISABLED=1",
         "CK_V2_INTERNAL_API_HOSTPORT=<render-backend-hostport>",
     ]
+    streamlit_lines = [
+        f"CK_V2_PILOT_URL={frontend_url}",
+        "CK_V2_CUTOVER_MODE=banner",
+        "# Tam geciste banner yerine redirect kullan:",
+        "# CK_V2_CUTOVER_MODE=redirect",
+    ]
     return [
         PilotEnvSnippetEntry(
             service_name="crmcatkapinda-v2-api",
@@ -666,6 +672,11 @@ def _build_env_snippets() -> list[PilotEnvSnippetEntry]:
             service_name="crmcatkapinda-v2",
             title="Render Frontend Servisi Env Bloku",
             body="\n".join(frontend_lines),
+        ),
+        PilotEnvSnippetEntry(
+            service_name="crmcatkapinda",
+            title="Eski Streamlit Servisi Gecis Env Bloku",
+            body="\n".join(streamlit_lines),
         ),
     ]
 

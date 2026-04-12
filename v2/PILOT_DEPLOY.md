@@ -128,6 +128,7 @@ Ana Streamlit panelde yeni sisteme gecisi kod degistirmeden acmak icin:
   - eski panel yerine kullaniciyi dogrudan v2'ye yonlendirir
 
 Bu iki alan Render Environment veya `secrets.toml` icindeki `[v2]` bolumu ile de verilebilir.
+`/status` ekranindaki `Eski Streamlit Servisi Gecis Env Bloku` karti da bu degerleri kopyalamak icin hazir durur.
 
 ## Pilot Acildiginda Ilk Kontrol
 

@@ -569,7 +569,7 @@ export default function StatusPage() {
                   <div style={statusPill(true)}>Kopyala-Yapistir Env Planı</div>
                   <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Render'a girilecek örnek env blokları</h2>
                   <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
-                    Pilotu açarken servis bazlı environment değerlerini buradan referans alabilirsin. Gizli alanları kendi gerçek değerlerinle doldurman yeterli.
+                    Pilotu açarken servis bazlı environment değerlerini buradan referans alabilirsin. V2 servisleri yanında eski Streamlit servisine geçiş banneri/redirect vermek için gereken env bloku da burada. Gizli alanları kendi gerçek değerlerinle doldurman yeterli.
                   </p>
                 </div>
 

@@ -160,6 +160,9 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert "CK_V2_API_PUBLIC_URL=https://pilot-api.example.com" in payload["env_snippets"][0]["body"]
     assert payload["env_snippets"][1]["service_name"] == "crmcatkapinda-v2"
     assert "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api" in payload["env_snippets"][1]["body"]
+    assert payload["env_snippets"][2]["service_name"] == "crmcatkapinda"
+    assert "CK_V2_PILOT_URL=https://pilot.example.com" in payload["env_snippets"][2]["body"]
+    assert "CK_V2_CUTOVER_MODE=banner" in payload["env_snippets"][2]["body"]
     modules = {entry["module"]: entry for entry in payload["modules"]}
     assert modules["overview"]["href"] == "/"
     assert modules["audit"]["href"] == "/audit"
