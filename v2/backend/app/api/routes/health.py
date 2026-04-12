@@ -693,6 +693,14 @@ def _build_smoke_commands() -> list[PilotSmokeCommand]:
                 "--legacy-url https://crmcatkapinda.com --legacy-cutover-mode redirect"
             ),
         ),
+        PilotSmokeCommand(
+            label="Pilot Bundle Smoke",
+            command=f"python v2/scripts/pilot_smoke.py --base-url {base_url} --preset pilot",
+        ),
+        PilotSmokeCommand(
+            label="Cutover Bundle Smoke",
+            command=f"python v2/scripts/pilot_smoke.py --base-url {base_url} --preset cutover",
+        ),
     ]
 
 

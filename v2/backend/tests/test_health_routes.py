@@ -161,6 +161,8 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert "--markdown --output pilot-report.md" in payload["smoke_commands"][3]["command"]
     assert "--legacy-cutover-mode banner" in payload["smoke_commands"][4]["command"]
     assert "--legacy-cutover-mode redirect" in payload["smoke_commands"][5]["command"]
+    assert "--preset pilot" in payload["smoke_commands"][6]["command"]
+    assert "--preset cutover" in payload["smoke_commands"][7]["command"]
     assert payload["services"][0]["name"] == "crmcatkapinda-v2"
     assert payload["services"][0]["service_type"] == "frontend"
     assert payload["services"][0]["public_url"] == "https://pilot.example.com"

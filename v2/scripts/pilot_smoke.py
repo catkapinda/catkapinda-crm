@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 
 DEFAULT_TIMEOUT = 12
+DEFAULT_LEGACY_URL = "https://crmcatkapinda.com"
 PROTECTED_PAGES = [
     ("/attendance", "protected_attendance_page"),
     ("/personnel", "protected_personnel_page"),
@@ -173,6 +174,7 @@ def build_markdown_report(report: dict) -> str:
         "# v2 Pilot Smoke Report",
         "",
         f"- Base URL: `{report['base_url']}`",
+        f"- Preset: `{report['preset'] or '-'}`",
         f"- Generated At: `{report['generated_at']}`",
         f"- Timeout: `{report['timeout_seconds']}s`",
         f"- Identity Provided: `{report['identity_provided']}`",
@@ -206,6 +208,7 @@ def build_report(
     *,
     base_url: str,
     timeout: int,
+    preset: str | None,
     identity: str | None,
     legacy_url: str | None,
     legacy_cutover_mode: str | None,
@@ -224,6 +227,7 @@ def build_report(
     decision = build_decision_summary(
         {
             "base_url": base_url,
+            "preset": preset,
             "identity_provided": bool(identity),
             "legacy_url": legacy_url,
             "legacy_cutover_mode": legacy_cutover_mode,
@@ -233,6 +237,7 @@ def build_report(
     return {
         "generated_at": datetime.now(UTC).isoformat(),
         "base_url": base_url,
+        "preset": preset,
         "timeout_seconds": timeout,
         "identity_provided": bool(identity),
         "legacy_url": legacy_url,
@@ -252,6 +257,30 @@ def normalize_base_url(raw: str) -> str:
     if not value.startswith(("http://", "https://")):
         value = f"https://{value}"
     return value.rstrip("/")
+
+
+def resolve_preset(
+    preset: str | None,
+    *,
+    legacy_url: str | None,
+    legacy_cutover_mode: str | None,
+) -> tuple[str | None, str | None]:
+    normalized_preset = (preset or "").strip().lower() or None
+    resolved_legacy_url = legacy_url
+    resolved_legacy_cutover_mode = legacy_cutover_mode
+
+    if normalized_preset == "pilot":
+        resolved_legacy_cutover_mode = resolved_legacy_cutover_mode or "banner"
+        resolved_legacy_url = resolved_legacy_url or normalize_base_url(
+            os.getenv("CK_V2_SMOKE_LEGACY_URL", DEFAULT_LEGACY_URL)
+        )
+    elif normalized_preset == "cutover":
+        resolved_legacy_cutover_mode = resolved_legacy_cutover_mode or "redirect"
+        resolved_legacy_url = resolved_legacy_url or normalize_base_url(
+            os.getenv("CK_V2_SMOKE_LEGACY_URL", DEFAULT_LEGACY_URL)
+        )
+
+    return resolved_legacy_url, resolved_legacy_cutover_mode
 
 
 def fetch_json(base_url: str, path: str, timeout: int) -> tuple[int, dict]:
@@ -547,9 +576,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run basic pilot smoke checks against a deployed v2 frontend URL.")
     parser.add_argument("--base-url", required=True, help="Public frontend URL, e.g. https://crmcatkapinda-v2.onrender.com")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help="HTTP timeout in seconds")
+    parser.add_argument(
+        "--preset",
+        default=os.getenv("CK_V2_SMOKE_PRESET", ""),
+        choices=["", "pilot", "cutover"],
+        help="Optional smoke bundle preset. 'pilot' adds legacy banner bridge, 'cutover' adds legacy redirect bridge.",
+    )
     parser.add_argument("--identity", default=os.getenv("CK_V2_SMOKE_IDENTITY", ""), help="Optional login identity for end-to-end auth smoke")
     parser.add_argument("--password", default=os.getenv("CK_V2_SMOKE_PASSWORD", ""), help="Optional login password for end-to-end auth smoke")
-    parser.add_argument("--legacy-url", default="", help="Optional legacy Streamlit URL for banner/redirect smoke")
+    parser.add_argument("--legacy-url", default=os.getenv("CK_V2_SMOKE_LEGACY_URL", ""), help="Optional legacy Streamlit URL for banner/redirect smoke")
     parser.add_argument("--json", action="store_true", help="Print the smoke result as JSON instead of a text table")
     parser.add_argument("--markdown", action="store_true", help="Print the smoke result as Markdown instead of a text table")
     parser.add_argument("--output", default="", help="Optional file path to write the JSON smoke report")
@@ -562,10 +597,16 @@ def main() -> int:
     args = parser.parse_args()
 
     base_url = normalize_base_url(args.base_url)
+    preset = args.preset.strip() or None
     identity = args.identity.strip() or None
     password = args.password.strip() or None
     legacy_url = normalize_base_url(args.legacy_url) if args.legacy_url.strip() else None
     legacy_cutover_mode = args.legacy_cutover_mode.strip() or None
+    legacy_url, legacy_cutover_mode = resolve_preset(
+        preset,
+        legacy_url=legacy_url,
+        legacy_cutover_mode=legacy_cutover_mode,
+    )
     results = run_smoke_checks(
         base_url,
         args.timeout,
@@ -577,6 +618,7 @@ def main() -> int:
     report = build_report(
         base_url=base_url,
         timeout=args.timeout,
+        preset=preset,
         identity=identity,
         legacy_url=legacy_url,
         legacy_cutover_mode=legacy_cutover_mode,
@@ -607,6 +649,8 @@ def main() -> int:
     decision = report["decision"]
     print(f"v2 pilot smoke • {base_url}")
     print("-" * 72)
+    if preset:
+        print(f"Preset    {preset}")
     print(f"Decision  {decision['status'].upper():<10}  {decision['headline']}")
     if decision["primary_blocker"]:
         print(f"Blocker   {decision['primary_blocker']}")

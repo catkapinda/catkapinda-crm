@@ -66,6 +66,10 @@ Deploy:
 Pilot smoke check:
 - After deploy, run:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
+  - easier pilot preset:
+    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --preset pilot`
+  - easier cutover preset:
+    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --preset cutover`
   - optional JSON report:
     - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --json --output pilot-report.json`
   - optional Markdown report:
@@ -96,3 +100,5 @@ Pilot smoke check:
     - pilot decision summary
     - primary blocker
     - recommended next step
+  - `--preset pilot` automatically adds the legacy banner bridge check
+  - `--preset cutover` automatically adds the legacy redirect bridge check

@@ -34,6 +34,10 @@ Pilot durum sayfasi:
 
 Yerel smoke check:
 - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
+- kolay pilot preset:
+  - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --preset pilot`
+- kolay cutover preset:
+  - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --preset cutover`
 - opsiyonel JSON rapor:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --json --output pilot-report.json`
 - opsiyonel Markdown rapor:
@@ -203,3 +207,5 @@ Not:
   - pilot karar ozeti
   - ana blokaj
   - onerilen siradaki adim
+- `--preset pilot` otomatik olarak legacy banner smoke'u da acar
+- `--preset cutover` otomatik olarak legacy redirect smoke'u da acar
