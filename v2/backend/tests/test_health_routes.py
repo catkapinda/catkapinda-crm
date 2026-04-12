@@ -133,6 +133,9 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["pilot_accounts"][0]["email"] == "ebru@catkapinda.com"
     assert payload["pilot_flow"][0]["href"] == "/login"
     assert any(step["href"] == "/attendance" for step in payload["pilot_flow"])
+    assert payload["rollout_steps"][0]["service_name"] == "crmcatkapinda-v2-api"
+    assert payload["rollout_steps"][3]["service_name"] == "crmcatkapinda"
+    assert "CK_V2_PILOT_URL" in payload["rollout_steps"][3]["env_keys"]
     assert payload["pilot_links"][0]["href"] == "https://pilot.example.com/login"
     assert payload["smoke_commands"][0]["command"] == "python v2/scripts/pilot_smoke.py --base-url https://pilot.example.com"
     assert "--identity ebru@catkapinda.com" in payload["smoke_commands"][1]["command"]
@@ -205,6 +208,7 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     assert payload["cutover"]["phase"] == "ready_for_pilot"
     assert payload["cutover"]["ready"] is True
     assert any("Opsiyonel env ayarlari" in item for item in payload["cutover"]["remaining_items"])
+    assert payload["rollout_steps"][0]["status"] == "ready"
 
 
 def test_readiness_route_reports_degraded_when_runtime_bootstrap_failed():

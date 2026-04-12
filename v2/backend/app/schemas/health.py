@@ -76,6 +76,14 @@ class PilotFlowStep(BaseModel):
     href: str
 
 
+class PilotRolloutStep(BaseModel):
+    title: str
+    detail: str
+    status: str
+    service_name: str | None = None
+    env_keys: list[str] = []
+
+
 class PilotLinkEntry(BaseModel):
     label: str
     href: str
@@ -124,6 +132,7 @@ class PilotReadinessResponse(BaseModel):
     cutover: PilotCutoverSummary
     pilot_accounts: list[PilotAccountEntry]
     pilot_flow: list[PilotFlowStep]
+    rollout_steps: list[PilotRolloutStep]
     pilot_links: list[PilotLinkEntry]
     smoke_commands: list[PilotSmokeCommand]
     services: list[PilotServiceEntry]

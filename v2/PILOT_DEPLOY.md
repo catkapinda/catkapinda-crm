@@ -151,6 +151,7 @@ Bu iki alan Render Environment veya `secrets.toml` icindeki `[v2]` bolumu ile de
      - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --identity ebru@catkapinda.com --password <sifre>`
 11. `status` ekranindaki `zorunlu eksik env` sayisi `0` olmali
 12. `status` ekranindaki `Streamlit'ten cikis ozeti` karti en az `Pilot Acilabilir` seviyesinde olmali
+13. `status` ekranindaki `Pilot Acilis Sirasi` kartinda adimlar bloklu olmamali
 
 Not:
 - smoke script artik opsiyonel SMS env eksiklerini blokaj saymaz

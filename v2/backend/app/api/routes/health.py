@@ -17,6 +17,7 @@ from app.schemas.health import (
     PilotEnvSnippetEntry,
     PilotFlowStep,
     PilotLinkEntry,
+    PilotRolloutStep,
     PilotServiceEntry,
     PilotServiceEnvEntry,
     PilotModuleEntry,
@@ -193,6 +194,12 @@ def pilot_readiness(
     )
     pilot_accounts = _build_pilot_accounts()
     pilot_flow = _build_pilot_flow()
+    rollout_steps = _build_rollout_steps(
+        core_ready=core_ready,
+        auth_ready=auth_ready,
+        required_missing_env_vars=required_missing_env_vars,
+        optional_missing_env_vars=optional_missing_env_vars,
+    )
     pilot_links = _build_pilot_links()
     smoke_commands = _build_smoke_commands()
     services = _build_pilot_services()
@@ -222,6 +229,7 @@ def pilot_readiness(
         cutover=cutover,
         pilot_accounts=pilot_accounts,
         pilot_flow=pilot_flow,
+        rollout_steps=rollout_steps,
         pilot_links=pilot_links,
         smoke_commands=smoke_commands,
         services=services,
@@ -475,6 +483,57 @@ def _build_pilot_flow() -> list[PilotFlowStep]:
             title="4. Finans yüzeylerini gözden geçir",
             detail="Aylık hakediş ve raporlar ekranında özet kartlar ile tabloların beklendiği gibi açıldığını doğrula.",
             href="/reports",
+        ),
+    ]
+
+
+def _build_rollout_steps(
+    *,
+    core_ready: bool,
+    auth_ready: bool,
+    required_missing_env_vars: list[str],
+    optional_missing_env_vars: list[str],
+) -> list[PilotRolloutStep]:
+    api_step_ready = "blocked" if required_missing_env_vars else "ready"
+    frontend_step_ready = "blocked" if required_missing_env_vars else "ready"
+    smoke_step_status = "ready" if core_ready else "blocked"
+    banner_step_status = "ready" if core_ready else "pending"
+    redirect_step_status = "ready" if core_ready and auth_ready else "pending"
+    return [
+        PilotRolloutStep(
+            title="1. Render API servisini aç",
+            detail="crmcatkapinda-v2-api servisini oluştur, backend env blokunu gir ve /api/health ile ayağa kalktığını doğrula.",
+            status=api_step_ready,
+            service_name="crmcatkapinda-v2-api",
+            env_keys=["CK_V2_DATABASE_URL", "CK_V2_FRONTEND_BASE_URL", "CK_V2_PUBLIC_APP_URL", "CK_V2_API_PUBLIC_URL"],
+        ),
+        PilotRolloutStep(
+            title="2. Render frontend servisini aç",
+            detail="crmcatkapinda-v2 servisini oluştur, frontend health ve /status ekranını açıp backend erişimini doğrula.",
+            status=frontend_step_ready,
+            service_name="crmcatkapinda-v2",
+            env_keys=["NEXT_PUBLIC_V2_API_BASE_URL", "CK_V2_INTERNAL_API_HOSTPORT"],
+        ),
+        PilotRolloutStep(
+            title="3. Smoke testleri çalıştır",
+            detail="Normal smoke ve gerekiyorsa gerçek login smoke ile pilot yüzeylerin açıldığını kontrol et.",
+            status=smoke_step_status,
+            service_name="crmcatkapinda-v2",
+            env_keys=[],
+        ),
+        PilotRolloutStep(
+            title="4. Eski Streamlit panelde banner aç",
+            detail="crmcatkapinda servisinde CK_V2_PILOT_URL ve CK_V2_CUTOVER_MODE=banner vererek ofise yeni sisteme geçiş butonu göster.",
+            status=banner_step_status,
+            service_name="crmcatkapinda",
+            env_keys=["CK_V2_PILOT_URL", "CK_V2_CUTOVER_MODE"],
+        ),
+        PilotRolloutStep(
+            title="5. Pilot stabil olunca redirect'e geç",
+            detail="Pilot doğrulandıktan sonra CK_V2_CUTOVER_MODE=redirect yaparak eski paneli doğrudan v2'ye yönlendir.",
+            status=redirect_step_status if not optional_missing_env_vars else "pending",
+            service_name="crmcatkapinda",
+            env_keys=["CK_V2_CUTOVER_MODE"],
         ),
     ]
 

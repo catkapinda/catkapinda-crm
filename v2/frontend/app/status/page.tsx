@@ -76,6 +76,13 @@ type BackendReadiness = {
     detail: string;
     href: string;
   }>;
+  rollout_steps: Array<{
+    title: string;
+    detail: string;
+    status: string;
+    service_name: string | null;
+    env_keys: string[];
+  }>;
   pilot_links: Array<{
     label: string;
     href: string;
@@ -187,6 +194,7 @@ export default function StatusPage() {
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
   const pilotAccounts = useMemo(() => backend?.pilot_accounts ?? [], [backend]);
   const pilotFlow = useMemo(() => backend?.pilot_flow ?? [], [backend]);
+  const rolloutSteps = useMemo(() => backend?.rollout_steps ?? [], [backend]);
   const pilotLinks = useMemo(() => backend?.pilot_links ?? [], [backend]);
   const smokeCommands = useMemo(() => backend?.smoke_commands ?? [], [backend]);
   const pilotServices = useMemo(() => backend?.services ?? [], [backend]);
@@ -868,6 +876,71 @@ export default function StatusPage() {
                 </div>
               </article>
             </section>
+
+            {rolloutSteps.length ? (
+              <section style={cardStyle()}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Açılış Sırası</h2>
+                    <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+                      Render tarafında adım adım hangi sırayla ilerleyeceğimizi burada net olarak görebilirsin.
+                    </p>
+                  </div>
+                  <div style={statusPill(rolloutSteps.every((step) => step.status !== "blocked"))}>
+                    {rolloutSteps.filter((step) => step.status === "ready").length}/{rolloutSteps.length} adım hazır
+                  </div>
+                </div>
+                <div style={{ marginTop: "18px", display: "grid", gap: "12px" }}>
+                  {rolloutSteps.map((step) => (
+                    <article
+                      key={step.title}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 250, 255, 0.86)",
+                        display: "grid",
+                        gap: "8px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "12px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <strong>{step.title}</strong>
+                        <div style={statusPill(step.status === "ready")}>
+                          {step.status === "ready" ? "Hazır" : step.status === "blocked" ? "Bloklu" : "Sırada"}
+                        </div>
+                      </div>
+                      <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{step.detail}</div>
+                      {step.service_name ? (
+                        <div style={{ color: "#35507d", fontSize: "0.92rem", lineHeight: 1.5 }}>
+                          Servis: {step.service_name}
+                        </div>
+                      ) : null}
+                      {step.env_keys.length ? (
+                        <div style={{ color: "#5f7294", fontSize: "0.9rem", lineHeight: 1.5 }}>
+                          Env: {step.env_keys.join(", ")}
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             <section style={cardStyle()}>
               <div
