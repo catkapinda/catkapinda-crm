@@ -125,6 +125,8 @@ def run_smoke_checks(
         status, payload = fetch_json(base_url, "/api/pilot-status", timeout)
         frontend_payload = payload.get("frontend", {})
         backend_payload = payload.get("backend", {})
+        frontend_release = frontend_payload.get("releaseLabel") if isinstance(frontend_payload, dict) else None
+        backend_release = backend_payload.get("release_label") if isinstance(backend_payload, dict) else None
         ok = (
             status == 200
             and bool(frontend_payload.get("proxyConfigured"))
@@ -142,8 +144,22 @@ def run_smoke_checks(
                 ),
             )
         )
+        release_ok = True
+        if frontend_release and backend_release:
+            release_ok = frontend_release == backend_release
+        results.append(
+            CheckResult(
+                name="release_alignment",
+                ok=release_ok,
+                detail=(
+                    f"frontend={frontend_release or '-'} • "
+                    f"backend={backend_release or '-'}"
+                ),
+            )
+        )
     except (urllib.error.URLError, json.JSONDecodeError) as exc:
         results.append(CheckResult("frontend_pilot_status", False, str(exc)))
+        results.append(CheckResult("release_alignment", False, str(exc)))
 
     try:
         status, content_type, _ = fetch_text(base_url, "/status", timeout)

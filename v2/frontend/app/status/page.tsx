@@ -388,6 +388,19 @@ export default function StatusPage() {
   }, [backendConfigEntries, backendModules, pilotAccounts, rolloutSteps]);
   const overallOk = Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable) && backend?.status === "ok";
   const coreReady = Boolean(frontend?.backendReachable) && Boolean(backend?.core_ready);
+  const releaseAlignment = useMemo(() => {
+    const frontendRelease = frontend?.releaseLabel || null;
+    const backendRelease = backend?.release_label || null;
+    const bothPresent = Boolean(frontendRelease && backendRelease);
+    const mismatch = Boolean(frontendRelease && backendRelease && frontendRelease !== backendRelease);
+
+    return {
+      frontendRelease,
+      backendRelease,
+      bothPresent,
+      mismatch,
+    };
+  }, [backend?.release_label, frontend?.releaseLabel]);
   const pilotSummaryText = useMemo(() => {
     const lines = [
       "Cat Kapinda CRM v2 Pilot Durum Ozeti",
@@ -406,11 +419,16 @@ export default function StatusPage() {
       backend?.cutover?.remaining_items?.length
         ? `Kalan maddeler: ${backend.cutover.remaining_items.join(" | ")}`
         : "Kalan maddeler: yok",
+      releaseAlignment.mismatch
+        ? `Surum uyumsuzlugu: frontend=${releaseAlignment.frontendRelease} backend=${releaseAlignment.backendRelease}`
+        : releaseAlignment.bothPresent
+          ? `Surum uyumu: ${releaseAlignment.frontendRelease}`
+          : "Surum uyumu: eksik bilgi",
       frontend?.detail ? `Frontend: ${frontend.detail}` : null,
     ];
 
     return lines.filter(Boolean).join("\n");
-  }, [backend, coreReady, frontend, lastUpdatedAt, overallOk, readinessSummary]);
+  }, [backend, coreReady, frontend, lastUpdatedAt, overallOk, readinessSummary, releaseAlignment]);
   const frontendRecoveryTips = useMemo(() => {
     if (!frontend) {
       return ["Frontend status verisi alınamadı. Önce /api/pilot-status ve /api/ready endpointlerini açıp cevap dönüyor mu kontrol et."];
@@ -813,6 +831,72 @@ export default function StatusPage() {
                 <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>{loadNote}</p>
               </section>
             ) : null}
+
+            <section
+              style={{
+                ...cardStyle(),
+                display: "grid",
+                gap: "12px",
+                background: releaseAlignment.mismatch
+                  ? "linear-gradient(135deg, rgba(239, 68, 68, 0.06), rgba(255,255,255,0.98))"
+                  : "linear-gradient(135deg, rgba(15, 95, 215, 0.05), rgba(255,255,255,0.98))",
+              }}
+            >
+              <div style={statusPill(!releaseAlignment.mismatch)}>
+                {releaseAlignment.mismatch
+                  ? "Surum Uyusmazligi"
+                  : releaseAlignment.bothPresent
+                    ? "Surumler Hizali"
+                    : "Surum Etiketi Bekleniyor"}
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                  gap: "14px",
+                }}
+              >
+                <article
+                  style={{
+                    padding: "16px",
+                    borderRadius: "18px",
+                    border: "1px solid rgba(219, 228, 243, 0.9)",
+                    background: "rgba(248, 251, 255, 0.92)",
+                    display: "grid",
+                    gap: "6px",
+                  }}
+                >
+                  <strong>Frontend Build</strong>
+                  <div style={{ color: "#35507d", fontSize: "1rem", fontWeight: 800 }}>
+                    {releaseAlignment.frontendRelease ?? "henuz gorunmuyor"}
+                  </div>
+                  <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{frontend?.service ?? "Frontend servisi bekleniyor"}</div>
+                </article>
+                <article
+                  style={{
+                    padding: "16px",
+                    borderRadius: "18px",
+                    border: "1px solid rgba(219, 228, 243, 0.9)",
+                    background: "rgba(248, 251, 255, 0.92)",
+                    display: "grid",
+                    gap: "6px",
+                  }}
+                >
+                  <strong>Backend Build</strong>
+                  <div style={{ color: "#35507d", fontSize: "1rem", fontWeight: 800 }}>
+                    {releaseAlignment.backendRelease ?? "henuz gorunmuyor"}
+                  </div>
+                  <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{backend?.service ?? "Backend servisi bekleniyor"}</div>
+                </article>
+              </div>
+              <p style={{ margin: 0, color: releaseAlignment.mismatch ? "#b42318" : "#5f7294", lineHeight: 1.7 }}>
+                {releaseAlignment.mismatch
+                  ? "Frontend ve backend farkli deploy gorunuyor. Pilotta ilerlemeden once iki servisin de ayni committe oldugunu dogrulayalim."
+                  : releaseAlignment.bothPresent
+                    ? "Iki servis ayni release etiketini gosteriyor; bu, pilot acilisinda dogru build ile ilerledigimizi anlamayi kolaylastirir."
+                    : "Release etiketi env tarafindan henuz gelmiyor olabilir. Pilotta Render commit bilgisi gelince bu alan otomatik dolacak."}
+              </p>
+            </section>
 
             {backend?.cutover ? (
               <section
