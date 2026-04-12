@@ -135,6 +135,7 @@ Pilot day zero kiti icin:
   - zip arsivinde smoke dosyalari tasiniyor mu
   - checksum katmaniyla dosya ve zip icerigi manifestle birebir uyusuyor mu
   - release snapshot ile pilot-status-live.json ayni build bilgisini veriyor mu
+  - `00-START-HERE.md` icindeki rehber satirlari manifest durumuyla uyusuyor mu
   kontrol eder
 
 ## Zorunlu Ayarlar

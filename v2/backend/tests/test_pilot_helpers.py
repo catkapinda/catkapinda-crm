@@ -381,6 +381,8 @@ def test_day_zero_verify_passes_for_valid_bundle(monkeypatch, tmp_path: Path):
     assert result["release_snapshot_checked"] is True
     assert result["release_snapshot_ok"] is True
     assert result["release_snapshot_actual"]["frontend_release"] == "front123"
+    assert result["start_here_checked"] is True
+    assert result["start_here_ok"] is True
     assert result["smoke_checked"] is False
     assert result["consistency_issues"] == []
 
@@ -668,6 +670,56 @@ def test_day_zero_verify_fails_when_release_snapshot_disagrees(monkeypatch, tmp_
     assert any("Frontend release" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_start_here_markdown_is_stale(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+
+    def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
+        (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
+        (output_dir / "pilot-status-live.json").write_text(json.dumps(sample_payload()), encoding="utf-8")
+        (output_dir / "pilot-gate-pilot.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-gate-cutover.json").write_text("{}", encoding="utf-8")
+        (output_dir / "pilot-preflight-summary.md").write_text("summary", encoding="utf-8")
+        return {
+            "pilot_gate": {"passed": True},
+            "cutover_gate": {"passed": False},
+            "files": {
+                "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
+                "status_markdown": str(output_dir / "pilot-status-live.md"),
+                "status_json": str(output_dir / "pilot-status-live.json"),
+                "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
+                "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
+            },
+        }
+
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", fake_preflight_bundle)
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    start_here_path = tmp_path / "00-START-HERE.md"
+    content = start_here_path.read_text(encoding="utf-8").replace("- Verify: `PASS`", "- Verify: `FAIL`")
+    start_here_path.write_text(content, encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["start_here_checked"] is True
+    assert result["start_here_ok"] is False
+    assert any("00-START-HERE.md" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_archive_is_missing(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
 
@@ -731,6 +783,8 @@ def test_day_zero_verify_markdown_includes_core_sections():
             "integrity_entries_count": 12,
             "release_snapshot_checked": True,
             "release_snapshot_ok": True,
+            "start_here_checked": True,
+            "start_here_ok": True,
             "recommended_next_step": "Day-zero kiti kullanima hazir.",
         }
     )
@@ -738,6 +792,7 @@ def test_day_zero_verify_markdown_includes_core_sections():
     assert "# Cat Kapinda CRM v2 Day Zero Verify" in markdown
     assert "Integrity" in markdown
     assert "Release Snapshot" in markdown
+    assert "Start Here" in markdown
     assert "## Missing Files" in markdown
     assert "## Consistency Issues" in markdown
     assert "Smoke" in markdown

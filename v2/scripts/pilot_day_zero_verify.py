@@ -210,6 +210,53 @@ def _check_release_snapshot(*, output_dir: Path, manifest: dict) -> tuple[bool, 
     return (True, actual, issues)
 
 
+def _check_start_here_markdown(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+    start_here_path = output_dir / "00-START-HERE.md"
+    if not start_here_path.exists():
+        issues.append("00-START-HERE.md bulunamadi")
+        return (False, issues)
+
+    content = start_here_path.read_text(encoding="utf-8")
+    release_snapshot = manifest.get("release_snapshot") or {}
+    smoke_included = bool(manifest.get("smoke_included"))
+    verify_state = (
+        "PASS"
+        if manifest.get("verify_passed")
+        else ("FAIL" if "verify_passed" in manifest else "BEKLENIYOR")
+    )
+    if smoke_included:
+        smoke_state = (
+            "PASS"
+            if manifest.get("smoke_overall_ok")
+            else ("FAIL" if "smoke_overall_ok" in manifest else "BEKLENIYOR")
+        )
+    else:
+        smoke_state = "ATLANDI"
+
+    expected_snippets = [
+        f"- Frontend Release: `{release_snapshot.get('frontend_release') or '-'}`",
+        f"- Backend Release: `{release_snapshot.get('backend_release') or '-'}`",
+        f"- Release Alignment: `{release_snapshot.get('release_alignment') or '-'}`",
+        f"- Verify: `{verify_state}`",
+        f"- Smoke: `{smoke_state}`",
+    ]
+
+    for snippet in expected_snippets:
+        if snippet not in content:
+            issues.append(f"00-START-HERE.md icinde beklenen satir eksik: {snippet}")
+
+    verify_next_step = manifest.get("verify_recommended_next_step")
+    if verify_next_step and verify_next_step not in content:
+        issues.append("00-START-HERE.md icinde verify sonrasi onerilen adim eksik")
+
+    smoke_next_step = manifest.get("smoke_recommended_next_step")
+    if smoke_included and smoke_next_step and smoke_next_step not in content:
+        issues.append("00-START-HERE.md icinde smoke sonrasi onerilen adim eksik")
+
+    return (True, issues)
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -316,6 +363,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(release_snapshot_issues)
 
+    start_here_checked, start_here_issues = _check_start_here_markdown(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(start_here_issues)
+
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
         "Day-zero kiti kullanima hazir."
@@ -343,6 +396,8 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "release_snapshot_ok": True if release_snapshot_checked and not release_snapshot_issues else (False if release_snapshot_checked else None),
         "release_snapshot": manifest.get("release_snapshot"),
         "release_snapshot_actual": release_snapshot_actual,
+        "start_here_checked": start_here_checked,
+        "start_here_ok": True if start_here_checked and not start_here_issues else (False if start_here_checked else None),
         "recommended_next_step": recommended_next_step,
     }
 
@@ -354,6 +409,8 @@ def render_console_summary(result: dict) -> str:
     integrity_ok = result.get("integrity_ok")
     release_snapshot_checked = bool(result.get("release_snapshot_checked"))
     release_snapshot_ok = result.get("release_snapshot_ok")
+    start_here_checked = bool(result.get("start_here_checked"))
+    start_here_ok = result.get("start_here_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
@@ -369,6 +426,11 @@ def render_console_summary(result: dict) -> str:
             f"Release Snapshot: {'PASS' if release_snapshot_ok else 'FAIL'}"
             if release_snapshot_checked
             else "Release Snapshot: SKIPPED"
+        ),
+        (
+            f"Start Here: {'PASS' if start_here_ok else 'FAIL'}"
+            if start_here_checked
+            else "Start Here: SKIPPED"
         ),
         (
             f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
@@ -391,6 +453,8 @@ def render_markdown_report(result: dict) -> str:
     integrity_ok = result.get("integrity_ok")
     release_snapshot_checked = bool(result.get("release_snapshot_checked"))
     release_snapshot_ok = result.get("release_snapshot_ok")
+    start_here_checked = bool(result.get("start_here_checked"))
+    start_here_ok = result.get("start_here_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -407,6 +471,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Release Snapshot: `{'PASS' if release_snapshot_ok else 'FAIL'}`"
             if release_snapshot_checked
             else "- Release Snapshot: `SKIPPED`"
+        ),
+        (
+            f"- Start Here: `{'PASS' if start_here_ok else 'FAIL'}`"
+            if start_here_checked
+            else "- Start Here: `SKIPPED`"
         ),
         (
             f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"
