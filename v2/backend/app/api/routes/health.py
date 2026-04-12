@@ -730,7 +730,7 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             command=(
                 "python v2/scripts/render_env_bundle.py "
                 f"--frontend-url {frontend_url} --api-url {backend_url} "
-                "--service crmcatkapinda --cutover-mode banner"
+                "--service streamlit --cutover-mode banner"
             ),
         ),
         PilotHelperCommand(
@@ -738,7 +738,21 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             command=(
                 "python v2/scripts/render_env_bundle.py "
                 f"--frontend-url {frontend_url} --api-url {backend_url} "
-                "--service crmcatkapinda --cutover-mode redirect"
+                "--service streamlit --cutover-mode redirect"
+            ),
+        ),
+        PilotHelperCommand(
+            label="API Env",
+            command=(
+                "python v2/scripts/render_env_bundle.py "
+                f"--frontend-url {frontend_url} --api-url {backend_url} --service api"
+            ),
+        ),
+        PilotHelperCommand(
+            label="Frontend Env",
+            command=(
+                "python v2/scripts/render_env_bundle.py "
+                f"--frontend-url {frontend_url} --api-url {backend_url} --service frontend"
             ),
         ),
     ]

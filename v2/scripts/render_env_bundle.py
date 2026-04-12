@@ -67,10 +67,31 @@ def render_text(bundle: dict[str, dict[str, str]]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def filter_bundle(bundle: dict[str, dict[str, str]], service: str) -> dict[str, dict[str, str]]:
-    if service == "all":
+def filter_bundle(
+    bundle: dict[str, dict[str, str]],
+    service: str,
+    *,
+    api_service_name: str,
+    frontend_service_name: str,
+    streamlit_service_name: str,
+) -> dict[str, dict[str, str]]:
+    normalized = service.strip().lower()
+    if normalized == "all":
         return bundle
-    return {service: bundle[service]}
+
+    service_alias_map = {
+        "api": api_service_name,
+        "frontend": frontend_service_name,
+        "streamlit": streamlit_service_name,
+        api_service_name.lower(): api_service_name,
+        frontend_service_name.lower(): frontend_service_name,
+        streamlit_service_name.lower(): streamlit_service_name,
+    }
+    resolved_service = service_alias_map.get(normalized, service)
+    if resolved_service not in bundle:
+        available = ", ".join(["all", "api", "frontend", "streamlit", *bundle.keys()])
+        raise ValueError(f"Gecersiz service secimi: {service}. Gecerli degerler: {available}")
+    return {resolved_service: bundle[resolved_service]}
 
 
 def main() -> int:
@@ -117,9 +138,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--service",
-        choices=["all", "crmcatkapinda-v2-api", "crmcatkapinda-v2", "crmcatkapinda"],
         default="all",
-        help="Optionally print only one service block",
+        help="Optionally print only one service block: all, api, frontend, streamlit, or an exact service name",
     )
     args = parser.parse_args()
 
@@ -135,7 +155,13 @@ def main() -> int:
         streamlit_service_name=args.streamlit_service_name.strip(),
         cutover_mode=args.cutover_mode,
     )
-    filtered_bundle = filter_bundle(bundle, args.service)
+    filtered_bundle = filter_bundle(
+        bundle,
+        args.service,
+        api_service_name=args.api_service_name.strip(),
+        frontend_service_name=args.frontend_service_name.strip(),
+        streamlit_service_name=args.streamlit_service_name.strip(),
+    )
 
     if args.json:
         print(json.dumps(filtered_bundle, ensure_ascii=False, indent=2))

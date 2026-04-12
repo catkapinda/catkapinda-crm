@@ -174,12 +174,20 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["helper_commands"][2]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com "
-        "--service crmcatkapinda --cutover-mode banner"
+        "--service streamlit --cutover-mode banner"
     )
     assert payload["helper_commands"][3]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com "
-        "--service crmcatkapinda --cutover-mode redirect"
+        "--service streamlit --cutover-mode redirect"
+    )
+    assert payload["helper_commands"][4]["command"] == (
+        "python v2/scripts/render_env_bundle.py "
+        "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --service api"
+    )
+    assert payload["helper_commands"][5]["command"] == (
+        "python v2/scripts/render_env_bundle.py "
+        "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --service frontend"
     )
     assert payload["services"][0]["name"] == "crmcatkapinda-v2"
     assert payload["services"][0]["service_type"] == "frontend"
