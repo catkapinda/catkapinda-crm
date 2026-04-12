@@ -57,6 +57,10 @@ Yerel smoke check:
 - `CK_V2_API_PUBLIC_URL`
   - v2 backend public URL'si
   - `/status` ekraninda backend servis adresini dogru gostermek icin onerilir
+- `CK_V2_APP_ENV=production`
+  - backend status ekraninin production olarak gorunmesini saglar
+- `CK_V2_RENDER_SERVICE_NAME=crmcatkapinda-v2-api`
+  - backend servis adini status ekraninda sabit ve net gosterir
 - `CK_V2_DEFAULT_AUTH_PASSWORD`
   - yonetici ve mobil operasyon kullanicilarinin ilk sifresi
   - not: varsayilan `123456` yerine pilot oncesi yeni bir sifre girmen onerilir
@@ -103,6 +107,7 @@ Frontend env ozeti:
   - `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
   - `CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000`
 - Render pilot:
+  - `CK_V2_FRONTEND_SERVICE_NAME=crmcatkapinda-v2`
   - `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
   - `CK_V2_INTERNAL_API_HOSTPORT=<fromService>`
 

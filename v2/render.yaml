@@ -10,6 +10,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.9
+      - key: CK_V2_APP_ENV
+        value: production
+      - key: CK_V2_RENDER_SERVICE_NAME
+        value: crmcatkapinda-v2-api
       - key: CK_V2_DATABASE_URL
         sync: false
       - key: CK_V2_FRONTEND_BASE_URL
@@ -50,6 +54,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22.14.0
+      - key: CK_V2_FRONTEND_SERVICE_NAME
+        value: crmcatkapinda-v2
       - key: NEXT_PUBLIC_V2_API_BASE_URL
         value: /v2-api
       - key: CK_V2_INTERNAL_API_HOSTPORT

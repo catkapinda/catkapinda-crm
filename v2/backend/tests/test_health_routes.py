@@ -181,7 +181,10 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert isinstance(payload["services"], list)
     assert isinstance(payload["env_snippets"], list)
     snippet_map = {entry["service_name"]: entry for entry in payload["env_snippets"]}
+    assert "CK_V2_APP_ENV=production" in snippet_map["crmcatkapinda-v2-api"]["body"]
+    assert "CK_V2_RENDER_SERVICE_NAME=crmcatkapinda-v2-api" in snippet_map["crmcatkapinda-v2-api"]["body"]
     assert "CK_V2_API_PUBLIC_URL=https://pilot-api.example.com" in snippet_map["crmcatkapinda-v2-api"]["body"]
+    assert "CK_V2_FRONTEND_SERVICE_NAME=crmcatkapinda-v2" in snippet_map["crmcatkapinda-v2"]["body"]
     assert "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api" in snippet_map["crmcatkapinda-v2"]["body"]
     assert "CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000" in snippet_map["local-v2-frontend"]["body"]
     assert "CK_V2_PILOT_URL=https://pilot.example.com" in snippet_map["crmcatkapinda"]["body"]

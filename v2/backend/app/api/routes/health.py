@@ -339,6 +339,18 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
     has_any_frontend_url = bool(settings.frontend_base_url or settings.public_app_url)
     config_entries: list[PilotConfigEntry] = [
         PilotConfigEntry(
+            name="app_env",
+            service="backend",
+            ok=settings.app_env == "production",
+            required=False,
+            detail=(
+                "production"
+                if settings.app_env == "production"
+                else f"Su an {settings.app_env}; Render pilotta production onerilir"
+            ),
+            missing_envs=[] if settings.app_env == "production" else ["CK_V2_APP_ENV"],
+        ),
+        PilotConfigEntry(
             name="database",
             service="backend",
             ok=bool(settings.database_url),
@@ -689,6 +701,12 @@ def _build_pilot_services() -> list[PilotServiceEntry]:
             health_path=f"{frontend_url}/api/health",
             env_vars=[
                 PilotServiceEnvEntry(
+                    key="CK_V2_FRONTEND_SERVICE_NAME",
+                    required=False,
+                    configured=True,
+                    detail="Status ekraninda frontend servis adini sabitler",
+                ),
+                PilotServiceEnvEntry(
                     key="NEXT_PUBLIC_V2_API_BASE_URL",
                     required=True,
                     configured=True,
@@ -714,6 +732,18 @@ def _build_pilot_services() -> list[PilotServiceEntry]:
             public_url=backend_url,
             health_path=f"{backend_url}/api/health",
             env_vars=[
+                PilotServiceEnvEntry(
+                    key="CK_V2_APP_ENV",
+                    required=False,
+                    configured=settings.app_env == "production",
+                    detail="Render pilotta production onerilir",
+                ),
+                PilotServiceEnvEntry(
+                    key="CK_V2_RENDER_SERVICE_NAME",
+                    required=False,
+                    configured=bool(settings.render_service_name),
+                    detail="Status ekraninda backend servis adini sabitler",
+                ),
                 PilotServiceEnvEntry(
                     key="CK_V2_DATABASE_URL",
                     required=True,
@@ -807,6 +837,8 @@ def _build_env_snippets() -> list[PilotEnvSnippetEntry]:
     frontend_url = settings.resolved_public_app_url.rstrip("/")
     backend_url = settings.resolved_api_public_url.rstrip("/")
     backend_lines = [
+        "CK_V2_APP_ENV=production",
+        "CK_V2_RENDER_SERVICE_NAME=crmcatkapinda-v2-api",
         "CK_V2_DATABASE_URL=<mevcut-postgresql-url>",
         f"CK_V2_FRONTEND_BASE_URL={frontend_url}",
         f"CK_V2_PUBLIC_APP_URL={frontend_url}",
@@ -823,6 +855,7 @@ def _build_env_snippets() -> list[PilotEnvSnippetEntry]:
         "SMS_NETGSM_ENCODING=TR",
     ]
     frontend_lines = [
+        "CK_V2_FRONTEND_SERVICE_NAME=crmcatkapinda-v2",
         "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api",
         "NEXT_TELEMETRY_DISABLED=1",
         "CK_V2_INTERNAL_API_HOSTPORT=<render-backend-hostport>",

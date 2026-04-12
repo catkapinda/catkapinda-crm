@@ -39,11 +39,15 @@ Deploy:
   - `CK_V2_API_PUBLIC_URL=https://<api-domain>`
 - Required for first management/mobile auth bootstrap on the API service:
   - `CK_V2_DEFAULT_AUTH_PASSWORD`
+- Recommended on the API service for cleaner pilot status metadata:
+  - `CK_V2_APP_ENV=production`
+  - `CK_V2_RENDER_SERVICE_NAME=crmcatkapinda-v2-api`
 - Frontend proxy env strategy:
   - local dev:
     - `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
     - `CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000`
   - Render pilot:
+    - `CK_V2_FRONTEND_SERVICE_NAME=crmcatkapinda-v2`
     - `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
     - `CK_V2_INTERNAL_API_HOSTPORT=<fromService>`
   - `/status` ekraninda her iki frontend modu da ayri env blogu olarak gorunur
