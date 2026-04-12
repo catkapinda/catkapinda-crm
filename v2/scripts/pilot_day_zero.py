@@ -28,6 +28,22 @@ def _derive_api_url(payload: dict) -> str | None:
     return None
 
 
+def _extract_release_snapshot(payload: dict) -> dict:
+    frontend = payload.get("frontend") or {}
+    backend = payload.get("backend") or {}
+    frontend_release = frontend.get("releaseLabel") or None
+    backend_release = backend.get("release_label") or None
+    if frontend_release and backend_release:
+        release_alignment = "aligned" if frontend_release == backend_release else "mismatch"
+    else:
+        release_alignment = "unknown"
+    return {
+        "frontend_release": frontend_release,
+        "backend_release": backend_release,
+        "release_alignment": release_alignment,
+    }
+
+
 def _build_start_here_markdown(
     *,
     generated_at: str,
@@ -38,6 +54,7 @@ def _build_start_here_markdown(
     cutover_gate_passed: bool,
     banner_guard_allowed: bool,
     redirect_guard_allowed: bool,
+    release_snapshot: dict | None = None,
     verify_passed: bool | None = None,
     verify_next_step: str | None = None,
     smoke_overall_ok: bool | None = None,
@@ -54,6 +71,21 @@ def _build_start_here_markdown(
         f"- Cutover Gate: `{'PASS' if cutover_gate_passed else 'FAIL'}`",
         f"- Banner Guard: `{'PASS' if banner_guard_allowed else 'BLOCK'}`",
         f"- Redirect Guard: `{'PASS' if redirect_guard_allowed else 'BLOCK'}`",
+        (
+            f"- Frontend Release: `{release_snapshot.get('frontend_release') or '-'}`"
+            if release_snapshot
+            else "- Frontend Release: `-`"
+        ),
+        (
+            f"- Backend Release: `{release_snapshot.get('backend_release') or '-'}`"
+            if release_snapshot
+            else "- Backend Release: `-`"
+        ),
+        (
+            f"- Release Alignment: `{release_snapshot.get('release_alignment') or '-'}`"
+            if release_snapshot
+            else "- Release Alignment: `-`"
+        ),
         (
             f"- Verify: `{'PASS' if verify_passed else 'FAIL'}`"
             if verify_passed is not None
@@ -291,6 +323,7 @@ def build_day_zero_bundle(
         "api_url": api_url,
         "streamlit_url": streamlit_url,
         "output_dir": str(output_dir),
+        "release_snapshot": _extract_release_snapshot(status_payload),
         "pilot_gate_passed": preflight_result["pilot_gate"]["passed"],
         "cutover_gate_passed": preflight_result["cutover_gate"]["passed"],
         "banner_guard_allowed": banner_guard["allowed"],
@@ -324,6 +357,7 @@ def build_day_zero_bundle(
             cutover_gate_passed=preflight_result["cutover_gate"]["passed"],
             banner_guard_allowed=banner_guard["allowed"],
             redirect_guard_allowed=cutover_guard["allowed"],
+            release_snapshot=manifest["release_snapshot"],
         ),
         encoding="utf-8",
     )
@@ -364,6 +398,7 @@ def build_day_zero_bundle(
             cutover_gate_passed=preflight_result["cutover_gate"]["passed"],
             banner_guard_allowed=banner_guard["allowed"],
             redirect_guard_allowed=cutover_guard["allowed"],
+            release_snapshot=manifest["release_snapshot"],
             verify_passed=verify_result["passed"],
             verify_next_step=verify_result["recommended_next_step"],
             smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,

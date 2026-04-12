@@ -169,6 +169,7 @@ Pilot day zero kit helper:
   - smoke sonucunun manifest ile uyumunu
   - zip arsivinin smoke dosyalarini da tasiyip tasimadigini
   - checksum katmaniyla dosya ve zip iceriginin manifestle birebir uyumunu
+  - release snapshot'in pilot-status-live.json ile ayni build bilgisini tasiyip tasimadigini
   da kontrol eder
 
 Pilot smoke check:

@@ -174,6 +174,42 @@ def _check_integrity_manifest(
     return (True, str(algorithm), len(recorded), issues)
 
 
+def _check_release_snapshot(*, output_dir: Path, manifest: dict) -> tuple[bool, dict | None, list[str]]:
+    issues: list[str] = []
+    release_snapshot = manifest.get("release_snapshot") or {}
+    if not release_snapshot:
+        return (False, None, issues)
+
+    status_json_path = output_dir / "pilot-status-live.json"
+    if not status_json_path.exists():
+        issues.append("Release snapshot icin pilot-status-live.json bulunamadi")
+        return (True, None, issues)
+
+    status_payload = _read_json(status_json_path)
+    frontend = status_payload.get("frontend") or {}
+    backend = status_payload.get("backend") or {}
+    actual = {
+        "frontend_release": frontend.get("releaseLabel") or None,
+        "backend_release": backend.get("release_label") or None,
+    }
+    if actual["frontend_release"] and actual["backend_release"]:
+        actual["release_alignment"] = (
+            "aligned" if actual["frontend_release"] == actual["backend_release"] else "mismatch"
+        )
+    else:
+        actual["release_alignment"] = "unknown"
+
+    for key, label in [
+        ("frontend_release", "Frontend release"),
+        ("backend_release", "Backend release"),
+        ("release_alignment", "Release alignment"),
+    ]:
+        if release_snapshot.get(key) != actual.get(key):
+            issues.append(f"{label} manifest ile pilot-status-live.json uyusmuyor")
+
+    return (True, actual, issues)
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -274,6 +310,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(integrity_issues)
 
+    release_snapshot_checked, release_snapshot_actual, release_snapshot_issues = _check_release_snapshot(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(release_snapshot_issues)
+
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
         "Day-zero kiti kullanima hazir."
@@ -297,6 +339,10 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "integrity_ok": True if integrity_checked and not integrity_issues else (False if integrity_checked else None),
         "integrity_algorithm": integrity_algorithm,
         "integrity_entries_count": integrity_entries_count,
+        "release_snapshot_checked": release_snapshot_checked,
+        "release_snapshot_ok": True if release_snapshot_checked and not release_snapshot_issues else (False if release_snapshot_checked else None),
+        "release_snapshot": manifest.get("release_snapshot"),
+        "release_snapshot_actual": release_snapshot_actual,
         "recommended_next_step": recommended_next_step,
     }
 
@@ -306,6 +352,8 @@ def render_console_summary(result: dict) -> str:
     smoke_overall_ok = result.get("smoke_overall_ok")
     integrity_checked = bool(result.get("integrity_checked"))
     integrity_ok = result.get("integrity_ok")
+    release_snapshot_checked = bool(result.get("release_snapshot_checked"))
+    release_snapshot_ok = result.get("release_snapshot_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
@@ -316,6 +364,11 @@ def render_console_summary(result: dict) -> str:
             f"Integrity: {'PASS' if integrity_ok else 'FAIL'} ({result.get('integrity_algorithm')}, {result.get('integrity_entries_count')} kayit)"
             if integrity_checked
             else "Integrity: SKIPPED"
+        ),
+        (
+            f"Release Snapshot: {'PASS' if release_snapshot_ok else 'FAIL'}"
+            if release_snapshot_checked
+            else "Release Snapshot: SKIPPED"
         ),
         (
             f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
@@ -336,6 +389,8 @@ def render_markdown_report(result: dict) -> str:
     smoke_overall_ok = result.get("smoke_overall_ok")
     integrity_checked = bool(result.get("integrity_checked"))
     integrity_ok = result.get("integrity_ok")
+    release_snapshot_checked = bool(result.get("release_snapshot_checked"))
+    release_snapshot_ok = result.get("release_snapshot_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -347,6 +402,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Integrity: `{'PASS' if integrity_ok else 'FAIL'}` (`{result.get('integrity_algorithm')}`, `{result.get('integrity_entries_count')}` kayit)"
             if integrity_checked
             else "- Integrity: `SKIPPED`"
+        ),
+        (
+            f"- Release Snapshot: `{'PASS' if release_snapshot_ok else 'FAIL'}`"
+            if release_snapshot_checked
+            else "- Release Snapshot: `SKIPPED`"
         ),
         (
             f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"
