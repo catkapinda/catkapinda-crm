@@ -201,11 +201,21 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "--cutover-mode redirect --output pilot-cutover.md"
     )
     assert payload["helper_commands"][7]["category"] == "packet"
-    assert payload["helper_commands"][8]["command"] == "curl -fsSL https://pilot.example.com/api/health"
-    assert payload["helper_commands"][8]["category"] == "quick-check"
-    assert payload["helper_commands"][9]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
-    assert payload["helper_commands"][10]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
-    assert payload["helper_commands"][11]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
+    assert payload["helper_commands"][8]["command"] == (
+        "python v2/scripts/pilot_status_report.py "
+        "--base-url https://pilot.example.com --output pilot-status-live.md"
+    )
+    assert payload["helper_commands"][8]["category"] == "packet"
+    assert payload["helper_commands"][9]["command"] == (
+        "python v2/scripts/pilot_status_report.py "
+        "--base-url https://pilot.example.com --json --output pilot-status-live.json"
+    )
+    assert payload["helper_commands"][9]["category"] == "packet"
+    assert payload["helper_commands"][10]["command"] == "curl -fsSL https://pilot.example.com/api/health"
+    assert payload["helper_commands"][10]["category"] == "quick-check"
+    assert payload["helper_commands"][11]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
+    assert payload["helper_commands"][12]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
+    assert payload["helper_commands"][13]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
     assert payload["command_pack"][0]["title"] == "1. Env bloklarini hazirla"
     assert payload["command_pack"][0]["command"] == (
         "python v2/scripts/render_env_bundle.py "

@@ -68,6 +68,12 @@ Acilis paketi uretmek icin:
   - `python v2/scripts/pilot_launch_packet.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --cutover-mode redirect --output pilot-cutover.md`
 - bu paket artik hazir env bloklarini da icerir
 
+Canli pilot durum raporu icin:
+- `python v2/scripts/pilot_status_report.py --base-url https://<v2-frontend-domain> --output pilot-status-live.md`
+- JSON raporu istenirse:
+  - `python v2/scripts/pilot_status_report.py --base-url https://<v2-frontend-domain> --json --output pilot-status-live.json`
+- bu rapor `/api/pilot-status` verisini cekip paylasilabilir tek dosyada toplar
+
 ## Zorunlu Ayarlar
 
 ### Backend

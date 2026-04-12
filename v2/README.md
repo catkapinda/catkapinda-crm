@@ -84,6 +84,18 @@ Pilot launch packet helper:
   - `python v2/scripts/pilot_launch_packet.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --cutover-mode redirect --output pilot-cutover.md`
 - bu paket artık doğrudan hazır env bloklarını da içerir
 
+Live pilot status report helper:
+- Anlik `/api/pilot-status` verisini paylasilabilir rapora cevirmek icin:
+  - `python v2/scripts/pilot_status_report.py --base-url https://<v2-frontend-domain> --output pilot-status-live.md`
+- ham JSON gerekiyorsa:
+  - `python v2/scripts/pilot_status_report.py --base-url https://<v2-frontend-domain> --json --output pilot-status-live.json`
+- bu rapor sunlari tek dosyada toplar:
+  - bugunun karari
+  - cutover ozeti
+  - blokajlar ve kalan maddeler
+  - pilot linkleri
+  - komut paketi / smoke / helper komutlari
+
 Pilot smoke check:
 - After deploy, run:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`

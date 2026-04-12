@@ -782,6 +782,22 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             ),
         ),
         PilotHelperCommand(
+            label="Live Pilot Status Report",
+            category="packet",
+            command=(
+                "python v2/scripts/pilot_status_report.py "
+                f"--base-url {frontend_url} --output pilot-status-live.md"
+            ),
+        ),
+        PilotHelperCommand(
+            label="Live Pilot Status JSON",
+            category="packet",
+            command=(
+                "python v2/scripts/pilot_status_report.py "
+                f"--base-url {frontend_url} --json --output pilot-status-live.json"
+            ),
+        ),
+        PilotHelperCommand(
             label="Frontend Health Curl",
             category="quick-check",
             command=f"curl -fsSL {frontend_url}/api/health",
