@@ -315,6 +315,26 @@ export default function StatusPage() {
       ),
     [envSnippets],
   );
+  const readinessSummary = useMemo(() => {
+    const activeModules = backendModules.filter((entry) => entry.status === "active").length;
+    const totalModules = backendModules.length;
+    const readyRolloutSteps = rolloutSteps.filter((step) => step.status === "ready").length;
+    const totalRolloutSteps = rolloutSteps.length;
+    const configuredRequiredBackendEnv = backendConfigEntries.filter((entry) => entry.required && entry.ok).length;
+    const totalRequiredBackendEnv = backendConfigEntries.filter((entry) => entry.required).length;
+    const phoneReadyAccounts = pilotAccounts.filter((entry) => entry.has_phone).length;
+
+    return {
+      activeModules,
+      totalModules,
+      readyRolloutSteps,
+      totalRolloutSteps,
+      configuredRequiredBackendEnv,
+      totalRequiredBackendEnv,
+      phoneReadyAccounts,
+      totalPilotAccounts: pilotAccounts.length,
+    };
+  }, [backendConfigEntries, backendModules, pilotAccounts, rolloutSteps]);
   const overallOk = Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable) && backend?.status === "ok";
   const coreReady = Boolean(frontend?.backendReachable) && Boolean(backend?.core_ready);
   const frontendRecoveryTips = useMemo(() => {
@@ -423,6 +443,93 @@ export default function StatusPage() {
             >
               {lastUpdatedAt ? `Son kontrol: ${lastUpdatedAt}` : "Son kontrol bekleniyor"}
             </div>
+          </div>
+        </section>
+
+        <section
+          style={{
+            ...cardStyle(),
+            display: "grid",
+            gap: "16px",
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0, fontSize: "1.15rem" }}>Pilot Hazirlik Ozeti</h2>
+            <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+              Tek bakışta ne kadar yol aldığımızı ve ilk açılış için hangi halkaların tamam olduğunu buradan görebiliriz.
+            </p>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "12px",
+            }}
+          >
+            <article
+              style={{
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid rgba(219, 228, 243, 0.9)",
+                background: "rgba(248, 250, 255, 0.86)",
+                display: "grid",
+                gap: "8px",
+              }}
+            >
+              <div style={{ color: "#5f7294", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase" }}>Moduller</div>
+              <strong style={{ fontSize: "1.6rem", color: "#16274a" }}>
+                {readinessSummary.activeModules}/{readinessSummary.totalModules || 0}
+              </strong>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Pilotta acik ana moduller</div>
+            </article>
+            <article
+              style={{
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid rgba(219, 228, 243, 0.9)",
+                background: "rgba(248, 250, 255, 0.86)",
+                display: "grid",
+                gap: "8px",
+              }}
+            >
+              <div style={{ color: "#5f7294", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase" }}>Rollout</div>
+              <strong style={{ fontSize: "1.6rem", color: "#16274a" }}>
+                {readinessSummary.readyRolloutSteps}/{readinessSummary.totalRolloutSteps || 0}
+              </strong>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Hazir acilis adimlari</div>
+            </article>
+            <article
+              style={{
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid rgba(219, 228, 243, 0.9)",
+                background: "rgba(248, 250, 255, 0.86)",
+                display: "grid",
+                gap: "8px",
+              }}
+            >
+              <div style={{ color: "#5f7294", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase" }}>Backend Env</div>
+              <strong style={{ fontSize: "1.6rem", color: "#16274a" }}>
+                {readinessSummary.configuredRequiredBackendEnv}/{readinessSummary.totalRequiredBackendEnv || 0}
+              </strong>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Zorunlu backend ayari</div>
+            </article>
+            <article
+              style={{
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid rgba(219, 228, 243, 0.9)",
+                background: "rgba(248, 250, 255, 0.86)",
+                display: "grid",
+                gap: "8px",
+              }}
+            >
+              <div style={{ color: "#5f7294", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase" }}>Pilot Hesap</div>
+              <strong style={{ fontSize: "1.6rem", color: "#16274a" }}>
+                {readinessSummary.phoneReadyAccounts}/{readinessSummary.totalPilotAccounts || 0}
+              </strong>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Telefon hazir hesap</div>
+            </article>
           </div>
         </section>
 
