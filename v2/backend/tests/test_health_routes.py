@@ -163,6 +163,14 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert "--legacy-cutover-mode redirect" in payload["smoke_commands"][5]["command"]
     assert "--preset pilot" in payload["smoke_commands"][6]["command"]
     assert "--preset cutover" in payload["smoke_commands"][7]["command"]
+    assert payload["helper_commands"][0]["command"] == (
+        "python v2/scripts/render_env_bundle.py "
+        "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com"
+    )
+    assert payload["helper_commands"][1]["command"] == (
+        "python v2/scripts/render_env_bundle.py "
+        "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --json"
+    )
     assert payload["services"][0]["name"] == "crmcatkapinda-v2"
     assert payload["services"][0]["service_type"] == "frontend"
     assert payload["services"][0]["public_url"] == "https://pilot.example.com"
@@ -181,6 +189,7 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert isinstance(payload["next_actions"], list)
     assert isinstance(payload["pilot_links"], list)
     assert isinstance(payload["smoke_commands"], list)
+    assert isinstance(payload["helper_commands"], list)
     assert isinstance(payload["services"], list)
     assert isinstance(payload["env_snippets"], list)
     snippet_map = {entry["service_name"]: entry for entry in payload["env_snippets"]}

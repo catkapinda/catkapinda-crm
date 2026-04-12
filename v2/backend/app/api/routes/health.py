@@ -18,6 +18,7 @@ from app.schemas.health import (
     PilotDeployStep,
     PilotEnvSnippetEntry,
     PilotFlowStep,
+    PilotHelperCommand,
     PilotLinkEntry,
     PilotScenarioStep,
     PilotRolloutStep,
@@ -210,6 +211,7 @@ def pilot_readiness(
     )
     pilot_links = _build_pilot_links()
     smoke_commands = _build_smoke_commands()
+    helper_commands = _build_helper_commands()
     services = _build_pilot_services()
     env_snippets = _build_env_snippets()
     return PilotReadinessResponse(
@@ -245,6 +247,7 @@ def pilot_readiness(
         rollout_steps=rollout_steps,
         pilot_links=pilot_links,
         smoke_commands=smoke_commands,
+        helper_commands=helper_commands,
         services=services,
         env_snippets=env_snippets,
     )
@@ -700,6 +703,27 @@ def _build_smoke_commands() -> list[PilotSmokeCommand]:
         PilotSmokeCommand(
             label="Cutover Bundle Smoke",
             command=f"python v2/scripts/pilot_smoke.py --base-url {base_url} --preset cutover",
+        ),
+    ]
+
+
+def _build_helper_commands() -> list[PilotHelperCommand]:
+    frontend_url = settings.resolved_public_app_url.rstrip("/")
+    backend_url = settings.resolved_api_public_url.rstrip("/")
+    return [
+        PilotHelperCommand(
+            label="Render Env Bundle",
+            command=(
+                "python v2/scripts/render_env_bundle.py "
+                f"--frontend-url {frontend_url} --api-url {backend_url}"
+            ),
+        ),
+        PilotHelperCommand(
+            label="Render Env Bundle JSON",
+            command=(
+                "python v2/scripts/render_env_bundle.py "
+                f"--frontend-url {frontend_url} --api-url {backend_url} --json"
+            ),
         ),
     ]
 

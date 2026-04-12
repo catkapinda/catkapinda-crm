@@ -120,6 +120,11 @@ class PilotSmokeCommand(BaseModel):
     command: str
 
 
+class PilotHelperCommand(BaseModel):
+    label: str
+    command: str
+
+
 class PilotServiceEnvEntry(BaseModel):
     key: str
     required: bool
@@ -166,5 +171,6 @@ class PilotReadinessResponse(BaseModel):
     rollout_steps: list[PilotRolloutStep]
     pilot_links: list[PilotLinkEntry]
     smoke_commands: list[PilotSmokeCommand]
+    helper_commands: list[PilotHelperCommand]
     services: list[PilotServiceEntry]
     env_snippets: list[PilotEnvSnippetEntry]
