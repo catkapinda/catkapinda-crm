@@ -214,6 +214,7 @@ export default function StatusPage() {
   const [loading, setLoading] = useState(true);
   const [loadNote, setLoadNote] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
 
@@ -377,6 +378,18 @@ export default function StatusPage() {
       : backend?.cutover.phase === "ready_for_pilot"
         ? true
         : false;
+
+  async function copyText(key: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      window.setTimeout(() => {
+        setCopiedKey((current) => (current === key ? null : current));
+      }, 1800);
+    } catch {
+      setCopiedKey(null);
+    }
+  }
 
   return (
     <main
@@ -767,9 +780,30 @@ export default function StatusPage() {
                   }}
                 >
                   {pilotLinks.map((link) => (
-                    <a key={link.href} href={link.href} style={actionButtonStyle(link.label === "Pilot Login" ? "primary" : "ghost")}>
-                      {link.label}
-                    </a>
+                    <div
+                      key={link.href}
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <a href={link.href} style={actionButtonStyle(link.label === "Pilot Login" ? "primary" : "ghost")}>
+                        {link.label}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => void copyText(`pilot-link-${link.label}`, link.href)}
+                        style={{
+                          ...actionButtonStyle(),
+                          cursor: "pointer",
+                          padding: "10px 12px",
+                        }}
+                      >
+                        {copiedKey === `pilot-link-${link.label}` ? "Kopyalandi" : "Linki Kopyala"}
+                      </button>
+                    </div>
                   ))}
                 </div>
 
@@ -792,7 +826,28 @@ export default function StatusPage() {
                         gap: "10px",
                       }}
                     >
-                      <strong>{command.label}</strong>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <strong>{command.label}</strong>
+                        <button
+                          type="button"
+                          onClick={() => void copyText(`smoke-${command.label}`, command.command)}
+                          style={{
+                            ...actionButtonStyle(),
+                            cursor: "pointer",
+                            padding: "10px 12px",
+                          }}
+                        >
+                          {copiedKey === `smoke-${command.label}` ? "Kopyalandi" : "Komutu Kopyala"}
+                        </button>
+                      </div>
                       <code
                         style={{
                           whiteSpace: "pre-wrap",
@@ -978,7 +1033,28 @@ export default function StatusPage() {
                         gap: "10px",
                       }}
                     >
-                      <strong>{snippet.title}</strong>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <strong>{snippet.title}</strong>
+                        <button
+                          type="button"
+                          onClick={() => void copyText(`env-${snippet.service_name}`, snippet.body)}
+                          style={{
+                            ...actionButtonStyle(),
+                            cursor: "pointer",
+                            padding: "10px 12px",
+                          }}
+                        >
+                          {copiedKey === `env-${snippet.service_name}` ? "Kopyalandi" : "Env Kopyala"}
+                        </button>
+                      </div>
                       <code
                         style={{
                           whiteSpace: "pre-wrap",
