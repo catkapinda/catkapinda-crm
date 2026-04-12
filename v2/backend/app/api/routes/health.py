@@ -798,6 +798,14 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             ),
         ),
         PilotHelperCommand(
+            label="Pilot Preflight Bundle",
+            category="packet",
+            command=(
+                "python v2/scripts/pilot_preflight.py "
+                f"--base-url {frontend_url} --output-dir pilot-preflight"
+            ),
+        ),
+        PilotHelperCommand(
             label="Pilot Gate Check",
             category="quick-check",
             command=(

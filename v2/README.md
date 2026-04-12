@@ -106,6 +106,17 @@ Pilot gate helper:
   - blokaj varsa `2` ile cikar
   - yani terminal cikis koduyla da net karar verir
 
+Pilot preflight bundle helper:
+- Canli pilot durumu icin tum ciktıları tek klasorde toplamak icin:
+  - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight`
+- bu helper sunlari birlikte uretir:
+  - `pilot-preflight-summary.md`
+  - `pilot-status-live.md`
+  - `pilot-status-live.json`
+  - `pilot-gate-pilot.json`
+  - `pilot-gate-cutover.json`
+- pilot gate gecerliyse `0`, degilse `2` ile cikar
+
 Pilot smoke check:
 - After deploy, run:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`

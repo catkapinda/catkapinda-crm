@@ -80,6 +80,17 @@ Pilot gate karari icin:
   - `python v2/scripts/pilot_gate.py --base-url https://<v2-frontend-domain> --mode cutover`
 - bu helper basariliysa `0`, blokaj varsa `2` ile cikar
 
+Pilot preflight paketi icin:
+- `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight`
+- bu helper tek klasorde:
+  - canli status markdown
+  - canli status json
+  - pilot gate json
+  - cutover gate json
+  - preflight summary markdown
+  uretir
+- pilot gate gecerliyse `0`, degilse `2` ile cikar
+
 ## Zorunlu Ayarlar
 
 ### Backend
