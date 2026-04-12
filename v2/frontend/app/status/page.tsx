@@ -384,6 +384,27 @@ export default function StatusPage() {
   }, [backendConfigEntries, backendModules, pilotAccounts, rolloutSteps]);
   const overallOk = Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable) && backend?.status === "ok";
   const coreReady = Boolean(frontend?.backendReachable) && Boolean(backend?.core_ready);
+  const pilotSummaryText = useMemo(() => {
+    const lines = [
+      "Cat Kapinda CRM v2 Pilot Durum Ozeti",
+      `Son kontrol: ${lastUpdatedAt ?? "bekleniyor"}`,
+      `Durum: ${overallOk ? "Pilot hazir" : coreReady ? "Temel olarak hazir" : "Kontrol gerekli"}`,
+      backend?.decision ? `Bugunun karari: ${backend.decision.title}` : null,
+      `Moduller: ${readinessSummary.activeModules}/${readinessSummary.totalModules || 0}`,
+      `Rollout: ${readinessSummary.readyRolloutSteps}/${readinessSummary.totalRolloutSteps || 0}`,
+      `Backend env: ${readinessSummary.configuredRequiredBackendEnv}/${readinessSummary.totalRequiredBackendEnv || 0}`,
+      `Pilot hesap: ${readinessSummary.phoneReadyAccounts}/${readinessSummary.totalPilotAccounts || 0}`,
+      backend?.cutover?.blocking_items?.length
+        ? `Blokajlar: ${backend.cutover.blocking_items.join(" | ")}`
+        : "Blokajlar: yok",
+      backend?.cutover?.remaining_items?.length
+        ? `Kalan maddeler: ${backend.cutover.remaining_items.join(" | ")}`
+        : "Kalan maddeler: yok",
+      frontend?.detail ? `Frontend: ${frontend.detail}` : null,
+    ];
+
+    return lines.filter(Boolean).join("\n");
+  }, [backend, coreReady, frontend, lastUpdatedAt, overallOk, readinessSummary]);
   const frontendRecoveryTips = useMemo(() => {
     if (!frontend) {
       return ["Frontend status verisi alınamadı. Önce /api/pilot-status ve /api/ready endpointlerini açıp cevap dönüyor mu kontrol et."];
@@ -513,6 +534,16 @@ export default function StatusPage() {
               }}
             >
               Simdi Yenile
+            </button>
+            <button
+              type="button"
+              onClick={() => void copyText("pilot-summary", pilotSummaryText)}
+              style={{
+                ...actionButtonStyle(),
+                cursor: "pointer",
+              }}
+            >
+              {copiedKey === "pilot-summary" ? "Durum Kopyalandi" : "Durum Ozetini Kopyala"}
             </button>
             <div
               style={{
