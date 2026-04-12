@@ -171,6 +171,7 @@ Pilot day zero kit helper:
   - smoke sonucunun manifest ile uyumunu
   - zip arsivinin smoke dosyalarini da tasiyip tasimadigini
   - checksum katmaniyla dosya ve zip iceriginin manifestle birebir uyumunu
+  - zip icindeki `pilot-day-zero-manifest.json` kopyasinin disaridaki manifestle birebir uyumlu kalip kalmadigini
   - release snapshot'in pilot-status-live.json ile ayni build bilgisini tasiyip tasimadigini
   - `00-START-HERE.md` rehberinin verify/smoke/release satirlarini guncel tutup tutmadigini
   - env dosyalarinin ve `render-env-bundle.json` esleniginin dogru URL ve cutover modlarini tasiyip tasimadigini

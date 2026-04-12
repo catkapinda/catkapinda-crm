@@ -78,6 +78,21 @@ def _canonicalize_path_text(value: str | Path | None) -> str | None:
     return str(Path(text).expanduser().resolve())
 
 
+def _canonicalize_manifest_payload(payload: dict) -> dict:
+    normalized = json.loads(json.dumps(payload))
+    if "output_dir" in normalized:
+        normalized["output_dir"] = _canonicalize_path_text(normalized.get("output_dir"))
+    if "archive_path" in normalized:
+        normalized["archive_path"] = _canonicalize_path_text(normalized.get("archive_path"))
+    files = normalized.get("files")
+    if isinstance(files, dict):
+        normalized["files"] = {
+            key: _canonicalize_path_text(value)
+            for key, value in files.items()
+        }
+    return normalized
+
+
 def _check_guard_file(
     *,
     mode: str,
@@ -182,6 +197,28 @@ def _check_archive_members(*, archive_members: list[str], manifest: dict) -> lis
             issues.append(f"Zip arsivinde {member} eksik")
 
     return issues
+
+
+def _check_archive_manifest_payload(
+    *,
+    manifest: dict,
+    archive_payloads: dict[str, bytes],
+) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+    manifest_member = "pilot-day-zero-manifest.json"
+    archive_manifest_bytes = archive_payloads.get(manifest_member)
+    if archive_manifest_bytes is None:
+        return (False, [f"Zip arsivinde {manifest_member} okunamadi"])
+
+    try:
+        archive_manifest = json.loads(archive_manifest_bytes.decode("utf-8"))
+    except Exception:
+        return (True, [f"Zip icindeki {manifest_member} gecerli json degil"])
+
+    if _canonicalize_manifest_payload(archive_manifest) != _canonicalize_manifest_payload(manifest):
+        issues.append(f"Zip icindeki {manifest_member} disaridaki manifest ile uyusmuyor")
+
+    return (True, issues)
 
 
 def _check_integrity_manifest(
@@ -786,6 +823,7 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     consistency_issues: list[str] = []
     archive_members: list[str] = []
     archive_checksums: dict[str, str] = {}
+    archive_payloads: dict[str, bytes] = {}
 
     if not output_dir.exists():
         missing_files.append(str(output_dir))
@@ -861,10 +899,14 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         else:
             with zipfile.ZipFile(archive_file) as archive:
                 archive_members = archive.namelist()
-                archive_checksums = {
-                    member: _sha256_bytes(archive.read(member))
+                archive_payloads = {
+                    member: archive.read(member)
                     for member in archive_members
                     if not member.endswith("/")
+                }
+                archive_checksums = {
+                    member: _sha256_bytes(payload)
+                    for member, payload in archive_payloads.items()
                 }
             consistency_issues.extend(_check_archive_members(archive_members=archive_members, manifest=manifest))
 
@@ -881,6 +923,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         archive_checksums=archive_checksums,
     )
     consistency_issues.extend(integrity_issues)
+
+    archive_manifest_checked, archive_manifest_issues = _check_archive_manifest_payload(
+        manifest=manifest,
+        archive_payloads=archive_payloads,
+    ) if archive_exists else (False, [])
+    consistency_issues.extend(archive_manifest_issues)
 
     release_snapshot_checked, release_snapshot_actual, release_snapshot_issues = _check_release_snapshot(
         output_dir=output_dir,
@@ -968,6 +1016,8 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "integrity_ok": True if integrity_checked and not integrity_issues else (False if integrity_checked else None),
         "integrity_algorithm": integrity_algorithm,
         "integrity_entries_count": integrity_entries_count,
+        "archive_manifest_checked": archive_manifest_checked,
+        "archive_manifest_ok": True if archive_manifest_checked and not archive_manifest_issues else (False if archive_manifest_checked else None),
         "release_snapshot_checked": release_snapshot_checked,
         "release_snapshot_ok": True if release_snapshot_checked and not release_snapshot_issues else (False if release_snapshot_checked else None),
         "release_snapshot": manifest.get("release_snapshot"),
@@ -997,6 +1047,8 @@ def render_console_summary(result: dict) -> str:
     smoke_overall_ok = result.get("smoke_overall_ok")
     integrity_checked = bool(result.get("integrity_checked"))
     integrity_ok = result.get("integrity_ok")
+    archive_manifest_checked = bool(result.get("archive_manifest_checked"))
+    archive_manifest_ok = result.get("archive_manifest_ok")
     release_snapshot_checked = bool(result.get("release_snapshot_checked"))
     release_snapshot_ok = result.get("release_snapshot_ok")
     start_here_checked = bool(result.get("start_here_checked"))
@@ -1025,6 +1077,11 @@ def render_console_summary(result: dict) -> str:
             f"Integrity: {'PASS' if integrity_ok else 'FAIL'} ({result.get('integrity_algorithm')}, {result.get('integrity_entries_count')} kayit)"
             if integrity_checked
             else "Integrity: SKIPPED"
+        ),
+        (
+            f"Archive Manifest: {'PASS' if archive_manifest_ok else 'FAIL'}"
+            if archive_manifest_checked
+            else "Archive Manifest: SKIPPED"
         ),
         (
             f"Release Snapshot: {'PASS' if release_snapshot_ok else 'FAIL'}"
@@ -1090,6 +1147,8 @@ def render_markdown_report(result: dict) -> str:
     smoke_overall_ok = result.get("smoke_overall_ok")
     integrity_checked = bool(result.get("integrity_checked"))
     integrity_ok = result.get("integrity_ok")
+    archive_manifest_checked = bool(result.get("archive_manifest_checked"))
+    archive_manifest_ok = result.get("archive_manifest_ok")
     release_snapshot_checked = bool(result.get("release_snapshot_checked"))
     release_snapshot_ok = result.get("release_snapshot_ok")
     start_here_checked = bool(result.get("start_here_checked"))
@@ -1119,6 +1178,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Integrity: `{'PASS' if integrity_ok else 'FAIL'}` (`{result.get('integrity_algorithm')}`, `{result.get('integrity_entries_count')}` kayit)"
             if integrity_checked
             else "- Integrity: `SKIPPED`"
+        ),
+        (
+            f"- Archive Manifest: `{'PASS' if archive_manifest_ok else 'FAIL'}`"
+            if archive_manifest_checked
+            else "- Archive Manifest: `SKIPPED`"
         ),
         (
             f"- Release Snapshot: `{'PASS' if release_snapshot_ok else 'FAIL'}`"
