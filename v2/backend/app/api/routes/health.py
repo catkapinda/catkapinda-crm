@@ -10,9 +10,11 @@ from app.core.sms import describe_sms_config
 from app.schemas.health import (
     HealthCheckEntry,
     HealthResponse,
+    PilotAccountEntry,
     PilotAuthStatus,
     PilotConfigEntry,
     PilotCutoverSummary,
+    PilotFlowStep,
     PilotModuleEntry,
     PilotReadinessResponse,
     ReadinessResponse,
@@ -184,6 +186,8 @@ def pilot_readiness(
         optional_missing_env_vars=optional_missing_env_vars,
         default_password_configured=settings.default_auth_password != "123456",
     )
+    pilot_accounts = _build_pilot_accounts()
+    pilot_flow = _build_pilot_flow()
     return PilotReadinessResponse(
         status="ok" if overall_ok else "degraded",
         core_ready=core_ready,
@@ -207,6 +211,8 @@ def pilot_readiness(
         next_actions=next_actions,
         modules=modules,
         cutover=cutover,
+        pilot_accounts=pilot_accounts,
+        pilot_flow=pilot_flow,
     )
 
 
@@ -409,6 +415,45 @@ def _build_auth_user_counts(conn: psycopg.Connection) -> tuple[int, int]:
         )
     except Exception:  # pragma: no cover - defensive runtime fallback
         return (0, 0)
+
+
+def _build_pilot_accounts() -> list[PilotAccountEntry]:
+    accounts: list[PilotAccountEntry] = []
+    for user in settings.default_auth_users:
+        accounts.append(
+            PilotAccountEntry(
+                email=user["email"],
+                full_name=user["full_name"],
+                role=user["role_display"],
+                has_phone=bool("".join(ch for ch in str(user.get("phone") or "") if ch.isdigit())),
+            )
+        )
+    return accounts
+
+
+def _build_pilot_flow() -> list[PilotFlowStep]:
+    return [
+        PilotFlowStep(
+            title="1. Giriş ekranını doğrula",
+            detail="Önce e-posta/şifre ile giriş yap. SMS env tamamlandıysa telefon kodu akışını da ayrıca dene.",
+            href="/login",
+        ),
+        PilotFlowStep(
+            title="2. Puantaj kaydı oluştur",
+            detail="Günlük puantajdan bir kayıt ekle, ardından kayıt yönetiminden düzenleme ve silme akışını kontrol et.",
+            href="/attendance",
+        ),
+        PilotFlowStep(
+            title="3. Personel ve kesinti akışını kontrol et",
+            detail="Personel kartı güncelle, ardından kesinti girişinin kaydedildiğini ve listede göründüğünü doğrula.",
+            href="/personnel",
+        ),
+        PilotFlowStep(
+            title="4. Finans yüzeylerini gözden geçir",
+            detail="Aylık hakediş ve raporlar ekranında özet kartlar ile tabloların beklendiği gibi açıldığını doğrula.",
+            href="/reports",
+        ),
+    ]
 
 
 def _build_module_table_status(conn: psycopg.Connection) -> dict[str, dict[str, object]]:

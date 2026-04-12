@@ -65,6 +65,17 @@ type BackendReadiness = {
     blocking_items: string[];
     remaining_items: string[];
   };
+  pilot_accounts: Array<{
+    email: string;
+    full_name: string;
+    role: string;
+    has_phone: boolean;
+  }>;
+  pilot_flow: Array<{
+    title: string;
+    detail: string;
+    href: string;
+  }>;
 };
 
 function statusPill(ok: boolean) {
@@ -150,6 +161,8 @@ export default function StatusPage() {
   const backendChecks = useMemo(() => backend?.checks ?? [], [backend]);
   const backendConfig = useMemo(() => backend?.config ?? [], [backend]);
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
+  const pilotAccounts = useMemo(() => backend?.pilot_accounts ?? [], [backend]);
+  const pilotFlow = useMemo(() => backend?.pilot_flow ?? [], [backend]);
   const backendConfigEntries = useMemo(
     () => backendConfig.filter((entry) => entry.service === "backend"),
     [backendConfig],
@@ -528,6 +541,100 @@ export default function StatusPage() {
                   </article>
                 ))}
               </div>
+            </section>
+
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)",
+                gap: "18px",
+              }}
+            >
+              <article style={cardStyle()}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Ilk Pilot Test Akışı</h2>
+                    <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+                      Ofisin yeni sisteme ilk girişte izleyeceği önerilen kısa rota.
+                    </p>
+                  </div>
+                  <div style={statusPill(pilotFlow.length > 0)}>{pilotFlow.length} adım</div>
+                </div>
+                <div style={{ marginTop: "18px", display: "grid", gap: "12px" }}>
+                  {pilotFlow.map((step) => (
+                    <article
+                      key={step.title}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 250, 255, 0.86)",
+                        display: "grid",
+                        gap: "8px",
+                      }}
+                    >
+                      <strong>{step.title}</strong>
+                      <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{step.detail}</div>
+                      <div>
+                        <Link href={step.href} style={actionButtonStyle()}>
+                          Adımı Aç
+                        </Link>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </article>
+
+              <article style={cardStyle()}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Giriş Hesapları</h2>
+                    <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
+                      İlk denemede kullanılabilecek yönetici hesaplar ve telefon giriş durumu.
+                    </p>
+                  </div>
+                  <div style={statusPill(pilotAccounts.length > 0)}>{pilotAccounts.length} hesap</div>
+                </div>
+                <div style={{ marginTop: "18px", display: "grid", gap: "12px" }}>
+                  {pilotAccounts.map((account) => (
+                    <article
+                      key={account.email}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 250, 255, 0.86)",
+                        display: "grid",
+                        gap: "8px",
+                      }}
+                    >
+                      <strong>{account.full_name}</strong>
+                      <div style={{ color: "#35507d", lineHeight: 1.5 }}>{account.email}</div>
+                      <div style={{ color: "#5f7294", lineHeight: 1.5 }}>{account.role}</div>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <div style={statusPill(true)}>E-posta giriş</div>
+                        <div style={statusPill(account.has_phone)}>Telefon {account.has_phone ? "hazır" : "eksik"}</div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </article>
             </section>
 
             <section style={cardStyle()}>

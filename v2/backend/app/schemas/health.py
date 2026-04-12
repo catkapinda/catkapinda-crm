@@ -63,6 +63,19 @@ class PilotCutoverSummary(BaseModel):
     remaining_items: list[str]
 
 
+class PilotAccountEntry(BaseModel):
+    email: str
+    full_name: str
+    role: str
+    has_phone: bool
+
+
+class PilotFlowStep(BaseModel):
+    title: str
+    detail: str
+    href: str
+
+
 class PilotReadinessResponse(BaseModel):
     status: str
     core_ready: bool
@@ -78,3 +91,5 @@ class PilotReadinessResponse(BaseModel):
     next_actions: list[str]
     modules: list[PilotModuleEntry]
     cutover: PilotCutoverSummary
+    pilot_accounts: list[PilotAccountEntry]
+    pilot_flow: list[PilotFlowStep]
