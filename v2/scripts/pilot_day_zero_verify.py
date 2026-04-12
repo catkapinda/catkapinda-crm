@@ -100,6 +100,23 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
     return (not issues, issues, smoke_payload)
 
 
+def _check_archive_members(*, archive_members: list[str], manifest: dict) -> list[str]:
+    issues: list[str] = []
+    expected_members = {"00-START-HERE.md", "pilot-day-zero-manifest.json"}
+
+    for raw_path in (manifest.get("files") or {}).values():
+        expected_members.add(Path(str(raw_path)).name)
+
+    if manifest.get("smoke_included"):
+        expected_members.update(OPTIONAL_SMOKE_FILES)
+
+    for member in sorted(expected_members):
+        if member not in archive_members:
+            issues.append(f"Zip arsivinde {member} eksik")
+
+    return issues
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -178,9 +195,7 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         else:
             with zipfile.ZipFile(archive_file) as archive:
                 archive_members = archive.namelist()
-            for expected_member in ("00-START-HERE.md", "pilot-day-zero-manifest.json"):
-                if expected_member not in archive_members:
-                    consistency_issues.append(f"Zip arsivinde {expected_member} eksik")
+            consistency_issues.extend(_check_archive_members(archive_members=archive_members, manifest=manifest))
 
     smoke_ok, smoke_issues, smoke_payload = _check_smoke_consistency(
         output_dir=output_dir,

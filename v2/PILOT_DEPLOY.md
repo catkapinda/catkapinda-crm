@@ -132,6 +132,7 @@ Pilot day zero kiti icin:
 - smoke ile uretilen kitlerde verify ayrica:
   - smoke dosyalari var mi
   - smoke sonucu manifestle tutarli mi
+  - zip arsivinde smoke dosyalari tasiniyor mu
   kontrol eder
 
 ## Zorunlu Ayarlar

@@ -167,6 +167,7 @@ Pilot day zero kit helper:
 - eger kit smoke ile uretildiyse verify artik:
   - smoke markdown/json dosyalarini
   - smoke sonucunun manifest ile uyumunu
+  - zip arsivinin smoke dosyalarini da tasiyip tasimadigini
   da kontrol eder
 
 Pilot smoke check:
