@@ -29,6 +29,11 @@ REQUIRED_FILES = (
     "pilot-day-zero-manifest.json",
 )
 
+OPTIONAL_SMOKE_FILES = (
+    "pilot-smoke-live.md",
+    "pilot-smoke-live.json",
+)
+
 
 def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -51,6 +56,48 @@ def _check_guard_file(*, mode: str, guard_json_path: Path, guarded_env_path: Pat
             issues.append(f"{guarded_env_path.name} guard blokluyken blok mesaji icermiyor")
 
     return (not issues, issues)
+
+
+def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str], dict | None]:
+    issues: list[str] = []
+    smoke_payload: dict | None = None
+    smoke_included = bool(manifest.get("smoke_included"))
+
+    if not smoke_included:
+        return (True, issues, None)
+
+    smoke_json_path = output_dir / "pilot-smoke-live.json"
+    smoke_markdown_path = output_dir / "pilot-smoke-live.md"
+
+    for path in (smoke_json_path, smoke_markdown_path):
+        if not path.exists():
+            issues.append(f"Smoke acikken {path.name} bulunamadi")
+
+    if issues:
+        return (False, issues, None)
+
+    smoke_payload = _read_json(smoke_json_path)
+
+    expected_overall_ok = manifest.get("smoke_overall_ok")
+    if expected_overall_ok is not None and bool(smoke_payload.get("overall_ok")) != bool(expected_overall_ok):
+        issues.append(
+            "Manifest smoke_overall_ok degeri ile pilot-smoke-live.json uyusmuyor"
+        )
+
+    expected_failed_count = manifest.get("smoke_failed_count")
+    if expected_failed_count is not None and int(smoke_payload.get("failed_count") or 0) != int(expected_failed_count):
+        issues.append(
+            "Manifest smoke_failed_count degeri ile pilot-smoke-live.json uyusmuyor"
+        )
+
+    expected_next_step = manifest.get("smoke_recommended_next_step")
+    actual_next_step = ((smoke_payload.get("decision") or {}).get("recommended_next_step") or "").strip()
+    if expected_next_step and actual_next_step != expected_next_step:
+        issues.append(
+            "Manifest smoke_recommended_next_step degeri ile pilot-smoke-live.json uyusmuyor"
+        )
+
+    return (not issues, issues, smoke_payload)
 
 
 def verify_day_zero_bundle(output_dir: Path) -> dict:
@@ -135,6 +182,13 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
                 if expected_member not in archive_members:
                     consistency_issues.append(f"Zip arsivinde {expected_member} eksik")
 
+    smoke_ok, smoke_issues, smoke_payload = _check_smoke_consistency(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    if not smoke_ok:
+        consistency_issues.extend(smoke_issues)
+
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
         "Day-zero kiti kullanima hazir."
@@ -150,17 +204,28 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "archive_path": archive_path,
         "archive_exists": archive_exists,
         "archive_members_count": len(archive_members),
+        "smoke_included": bool(manifest.get("smoke_included")),
+        "smoke_checked": bool(manifest.get("smoke_included")),
+        "smoke_overall_ok": (smoke_payload or {}).get("overall_ok") if smoke_payload else None,
+        "smoke_failed_count": (smoke_payload or {}).get("failed_count") if smoke_payload else None,
         "recommended_next_step": recommended_next_step,
     }
 
 
 def render_console_summary(result: dict) -> str:
+    smoke_checked = bool(result.get("smoke_checked"))
+    smoke_overall_ok = result.get("smoke_overall_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
         f"Status: {'PASS' if result['passed'] else 'FAIL'}",
         f"Archive: {'OK' if result['archive_exists'] else 'MISSING'}",
         f"Archive Members: {result['archive_members_count']}",
+        (
+            f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
+            if smoke_checked and smoke_overall_ok is not None
+            else "Smoke: SKIPPED"
+        ),
         f"Recommended Next Step: {result['recommended_next_step']}",
         "Missing Files:",
     ]
@@ -171,6 +236,8 @@ def render_console_summary(result: dict) -> str:
 
 
 def render_markdown_report(result: dict) -> str:
+    smoke_checked = bool(result.get("smoke_checked"))
+    smoke_overall_ok = result.get("smoke_overall_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -178,6 +245,11 @@ def render_markdown_report(result: dict) -> str:
         f"- Status: `{'PASS' if result['passed'] else 'FAIL'}`",
         f"- Archive: `{'OK' if result['archive_exists'] else 'MISSING'}`",
         f"- Archive Members: `{result['archive_members_count']}`",
+        (
+            f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"
+            if smoke_checked and smoke_overall_ok is not None
+            else "- Smoke: `SKIPPED`"
+        ),
         f"- Recommended Next Step: {result['recommended_next_step']}",
         "",
         "## Missing Files",

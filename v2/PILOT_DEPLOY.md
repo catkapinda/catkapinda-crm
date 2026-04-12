@@ -129,6 +129,10 @@ Pilot day zero kiti icin:
 - kit ozetinde verify ve smoke sonucu ile onerilen sonraki adimlar da yazilir
 - kit tam mi diye hizli kontrol icin:
   - `python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero`
+- smoke ile uretilen kitlerde verify ayrica:
+  - smoke dosyalari var mi
+  - smoke sonucu manifestle tutarli mi
+  kontrol eder
 
 ## Zorunlu Ayarlar
 

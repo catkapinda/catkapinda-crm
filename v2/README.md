@@ -164,6 +164,10 @@ Pilot day zero kit helper:
   da gorunur
 - uretilen kitin eksik ve tutarlilik kontrolu icin:
   - `python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero`
+- eger kit smoke ile uretildiyse verify artik:
+  - smoke markdown/json dosyalarini
+  - smoke sonucunun manifest ile uyumunu
+  da kontrol eder
 
 Pilot smoke check:
 - After deploy, run:
