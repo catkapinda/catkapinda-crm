@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import json
 from pathlib import Path
 
+from pilot_cutover_guard import build_guard_result, render_env_text as render_guard_env_text
 from pilot_launch_packet import build_packet
 from pilot_preflight import build_preflight_bundle
 from pilot_status_report import fetch_pilot_status
@@ -41,6 +42,7 @@ def build_day_zero_bundle(
 ) -> dict:
     generated_at = datetime.now(UTC).isoformat()
     output_dir.mkdir(parents=True, exist_ok=True)
+    status_payload = fetch_pilot_status(frontend_url, timeout)
 
     env_bundle = build_bundle(
         frontend_url=frontend_url,
@@ -87,6 +89,37 @@ def build_day_zero_bundle(
     )
     (output_dir / "streamlit-redirect.env").write_text(render_text(streamlit_redirect), encoding="utf-8")
 
+    banner_guard = build_guard_result(
+        base_url=frontend_url,
+        mode="banner",
+        payload=status_payload,
+        streamlit_service_name=streamlit_service_name,
+        force=False,
+    )
+    cutover_guard = build_guard_result(
+        base_url=frontend_url,
+        mode="redirect",
+        payload=status_payload,
+        streamlit_service_name=streamlit_service_name,
+        force=False,
+    )
+    (output_dir / "streamlit-banner-guard.json").write_text(
+        json.dumps(banner_guard, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "streamlit-redirect-guard.json").write_text(
+        json.dumps(cutover_guard, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "streamlit-banner-guarded.env").write_text(
+        render_guard_env_text(banner_guard["env_bundle"]) if banner_guard["allowed"] else "# guard blocked banner env\n",
+        encoding="utf-8",
+    )
+    (output_dir / "streamlit-redirect-guarded.env").write_text(
+        render_guard_env_text(cutover_guard["env_bundle"]) if cutover_guard["allowed"] else "# guard blocked redirect env\n",
+        encoding="utf-8",
+    )
+
     pilot_launch_packet = build_packet(
         frontend_url=frontend_url,
         api_url=api_url,
@@ -131,11 +164,17 @@ def build_day_zero_bundle(
         "output_dir": str(output_dir),
         "pilot_gate_passed": preflight_result["pilot_gate"]["passed"],
         "cutover_gate_passed": preflight_result["cutover_gate"]["passed"],
+        "banner_guard_allowed": banner_guard["allowed"],
+        "redirect_guard_allowed": cutover_guard["allowed"],
         "files": {
             "render_env_bundle_env": str(output_dir / "render-env-bundle.env"),
             "render_env_bundle_json": str(output_dir / "render-env-bundle.json"),
             "streamlit_banner_env": str(output_dir / "streamlit-banner.env"),
             "streamlit_redirect_env": str(output_dir / "streamlit-redirect.env"),
+            "streamlit_banner_guard_json": str(output_dir / "streamlit-banner-guard.json"),
+            "streamlit_redirect_guard_json": str(output_dir / "streamlit-redirect-guard.json"),
+            "streamlit_banner_guarded_env": str(output_dir / "streamlit-banner-guarded.env"),
+            "streamlit_redirect_guarded_env": str(output_dir / "streamlit-redirect-guarded.env"),
             "pilot_launch_packet": str(output_dir / "pilot-launch.md"),
             "pilot_cutover_packet": str(output_dir / "pilot-cutover.md"),
             **preflight_result["files"],
@@ -157,6 +196,8 @@ def render_console_summary(manifest: dict) -> str:
         f"Output Dir: {manifest['output_dir']}",
         f"Pilot Gate: {'PASS' if manifest['pilot_gate_passed'] else 'FAIL'}",
         f"Cutover Gate: {'PASS' if manifest['cutover_gate_passed'] else 'FAIL'}",
+        f"Banner Guard: {'PASS' if manifest['banner_guard_allowed'] else 'BLOCK'}",
+        f"Redirect Guard: {'PASS' if manifest['redirect_guard_allowed'] else 'BLOCK'}",
         "Files:",
     ]
     lines.extend([f"- {label}: {path}" for label, path in manifest["files"].items()])

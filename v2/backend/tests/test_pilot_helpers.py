@@ -161,6 +161,8 @@ def test_preflight_bundle_writes_expected_files(monkeypatch, tmp_path: Path):
 
 
 def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+
     def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path) -> dict:
         (output_dir / "pilot-status-live.md").write_text("status", encoding="utf-8")
         (output_dir / "pilot-status-live.json").write_text("{}", encoding="utf-8")
@@ -198,12 +200,20 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
 
     assert manifest["pilot_gate_passed"] is True
     assert manifest["cutover_gate_passed"] is False
+    assert manifest["banner_guard_allowed"] is True
+    assert manifest["redirect_guard_allowed"] is False
     assert (tmp_path / "render-env-bundle.env").exists()
     assert (tmp_path / "streamlit-banner.env").exists()
     assert (tmp_path / "streamlit-redirect.env").exists()
+    assert (tmp_path / "streamlit-banner-guard.json").exists()
+    assert (tmp_path / "streamlit-redirect-guard.json").exists()
+    assert (tmp_path / "streamlit-banner-guarded.env").exists()
+    assert (tmp_path / "streamlit-redirect-guarded.env").exists()
     assert (tmp_path / "pilot-launch.md").exists()
     assert (tmp_path / "pilot-cutover.md").exists()
     assert (tmp_path / "pilot-day-zero-manifest.json").exists()
+    assert "CK_V2_CUTOVER_MODE=banner" in (tmp_path / "streamlit-banner-guarded.env").read_text(encoding="utf-8")
+    assert "# guard blocked redirect env" in (tmp_path / "streamlit-redirect-guarded.env").read_text(encoding="utf-8")
 
 
 def test_day_zero_can_derive_api_url_from_status_payload():

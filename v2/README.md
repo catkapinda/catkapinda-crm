@@ -134,6 +134,8 @@ Pilot day zero kit helper:
   - render env bundle
   - streamlit banner env
   - streamlit redirect env
+  - streamlit banner/redirect guard json
+  - streamlit banner/redirect guarded env
   - pilot launch packet
   - pilot cutover packet
   - canli preflight ciktıları

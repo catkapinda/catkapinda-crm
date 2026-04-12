@@ -107,6 +107,8 @@ Pilot day zero kiti icin:
   - preflight summary
   - gate jsonlari
   - streamlit banner/redirect env
+  - streamlit banner/redirect guard json
+  - streamlit banner/redirect guarded env
   toplar
 
 ## Zorunlu Ayarlar
