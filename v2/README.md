@@ -172,6 +172,7 @@ Pilot day zero kit helper:
   - release snapshot'in pilot-status-live.json ile ayni build bilgisini tasiyip tasimadigini
   - `00-START-HERE.md` rehberinin verify/smoke/release satirlarini guncel tutup tutmadigini
   - env dosyalarinin dogru URL ve cutover modlarini tasiyip tasimadigini
+  - `pilot-launch.md` ve `pilot-cutover.md` paketlerinin dogru link ve cutover komutlarini tasiyip tasimadigini
   da kontrol eder
 
 Pilot smoke check:

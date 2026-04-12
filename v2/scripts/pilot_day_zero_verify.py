@@ -331,6 +331,49 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
     return (True, issues)
 
 
+def _check_launch_packets(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+    frontend_url = manifest.get("frontend_url")
+    api_url = manifest.get("api_url")
+    streamlit_url = manifest.get("streamlit_url")
+
+    expected_packets = {
+        "pilot-launch.md": {
+            "label": "pilot-launch.md",
+            "cutover_mode": "banner",
+        },
+        "pilot-cutover.md": {
+            "label": "pilot-cutover.md",
+            "cutover_mode": "redirect",
+        },
+    }
+
+    for filename, packet_meta in expected_packets.items():
+        path = output_dir / filename
+        if not path.exists():
+            issues.append(f"{filename} bulunamadi")
+            continue
+
+        content = path.read_text(encoding="utf-8")
+        expected_snippets = [
+            f"- Frontend: `{frontend_url}`",
+            f"- Backend: `{api_url}`",
+            f"- Streamlit: `{streamlit_url}`",
+            f"- Pilot Login: `{frontend_url}/login`",
+            f"- Pilot Status: `{frontend_url}/status`",
+            f"- Backend Health: `{api_url}/api/health`",
+            f"--frontend-url {frontend_url}",
+            f"--api-url {api_url}",
+            f"--cutover-mode {packet_meta['cutover_mode']}",
+            f"6. Streamlit tarafında `{packet_meta['cutover_mode']}` modunu hazırlayıp ofis geçişini başlat.",
+        ]
+        for snippet in expected_snippets:
+            if snippet not in content:
+                issues.append(f"{packet_meta['label']} icinde beklenen satir eksik: {snippet}")
+
+    return (True, issues)
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -449,6 +492,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(env_issues)
 
+    packet_checked, packet_issues = _check_launch_packets(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(packet_issues)
+
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
         "Day-zero kiti kullanima hazir."
@@ -480,6 +529,8 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "start_here_ok": True if start_here_checked and not start_here_issues else (False if start_here_checked else None),
         "env_checked": env_checked,
         "env_ok": True if env_checked and not env_issues else (False if env_checked else None),
+        "packet_checked": packet_checked,
+        "packet_ok": True if packet_checked and not packet_issues else (False if packet_checked else None),
         "recommended_next_step": recommended_next_step,
     }
 
@@ -495,6 +546,8 @@ def render_console_summary(result: dict) -> str:
     start_here_ok = result.get("start_here_ok")
     env_checked = bool(result.get("env_checked"))
     env_ok = result.get("env_ok")
+    packet_checked = bool(result.get("packet_checked"))
+    packet_ok = result.get("packet_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
@@ -522,6 +575,11 @@ def render_console_summary(result: dict) -> str:
             else "Env Payloads: SKIPPED"
         ),
         (
+            f"Launch Packets: {'PASS' if packet_ok else 'FAIL'}"
+            if packet_checked
+            else "Launch Packets: SKIPPED"
+        ),
+        (
             f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
             if smoke_checked and smoke_overall_ok is not None
             else "Smoke: SKIPPED"
@@ -546,6 +604,8 @@ def render_markdown_report(result: dict) -> str:
     start_here_ok = result.get("start_here_ok")
     env_checked = bool(result.get("env_checked"))
     env_ok = result.get("env_ok")
+    packet_checked = bool(result.get("packet_checked"))
+    packet_ok = result.get("packet_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -572,6 +632,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Env Payloads: `{'PASS' if env_ok else 'FAIL'}`"
             if env_checked
             else "- Env Payloads: `SKIPPED`"
+        ),
+        (
+            f"- Launch Packets: `{'PASS' if packet_ok else 'FAIL'}`"
+            if packet_checked
+            else "- Launch Packets: `SKIPPED`"
         ),
         (
             f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"
