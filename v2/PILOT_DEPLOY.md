@@ -103,6 +103,9 @@ Frontend env ozeti:
   - `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
   - `CK_V2_INTERNAL_API_HOSTPORT=<fromService>`
 
+Not:
+- `/status` ekranindaki env planinda bu iki frontend modu da ayri kartlar halinde gorunur.
+
 ## Pilot Hazir Sayilmasi Icin
 
 Asagidaki ekranlar calisir olmali:

@@ -228,17 +228,11 @@ export default function StatusPage() {
     [],
   );
   const frontendEnvModes = useMemo(
-    () => [
-      {
-        title: "Yerel Frontend (.env.local)",
-        body: "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api\nCK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000",
-      },
-      {
-        title: "Render Frontend (blueprint)",
-        body: "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api\nCK_V2_INTERNAL_API_HOSTPORT=<fromService>\nNEXT_TELEMETRY_DISABLED=1",
-      },
-    ],
-    [],
+    () =>
+      envSnippets.filter(
+        (entry) => entry.service_name === "crmcatkapinda-v2" || entry.service_name === "local-v2-frontend",
+      ),
+    [envSnippets],
   );
   const overallOk = Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable) && backend?.status === "ok";
   const coreReady = Boolean(frontend?.backendReachable) && Boolean(backend?.core_ready);
@@ -1081,7 +1075,7 @@ export default function StatusPage() {
                     <div style={{ display: "grid", gap: "6px" }}>
                       <strong style={{ fontSize: "1rem" }}>Render Frontend Servisi</strong>
                       <div style={{ color: "#5f7294", lineHeight: 1.5 }}>
-                        Frontend servisi Render pilotta blueprint ile otomatik gelen ayarlarla ayaga kalkar. Yerel denemede ise ayni proxy rotasi korunur ama hedef env anahtari degisir.
+                        Frontend servisi Render pilotta blueprint ile otomatik gelen ayarlarla ayaga kalkar. Yerel denemede ise ayni proxy rotasi korunur ama hedef env anahtari degisir; asagidaki bloklar bunu netlestirir.
                       </div>
                     </div>
                     <div style={{ display: "grid", gap: "10px" }}>

@@ -729,6 +729,10 @@ def _build_env_snippets() -> list[PilotEnvSnippetEntry]:
         "NEXT_TELEMETRY_DISABLED=1",
         "CK_V2_INTERNAL_API_HOSTPORT=<render-backend-hostport>",
     ]
+    frontend_local_lines = [
+        "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api",
+        "CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000",
+    ]
     streamlit_lines = [
         f"CK_V2_PILOT_URL={frontend_url}",
         "CK_V2_CUTOVER_MODE=banner",
@@ -745,6 +749,11 @@ def _build_env_snippets() -> list[PilotEnvSnippetEntry]:
             service_name="crmcatkapinda-v2",
             title="Render Frontend Servisi Env Bloku",
             body="\n".join(frontend_lines),
+        ),
+        PilotEnvSnippetEntry(
+            service_name="local-v2-frontend",
+            title="Yerel Frontend Env Bloku",
+            body="\n".join(frontend_local_lines),
         ),
         PilotEnvSnippetEntry(
             service_name="crmcatkapinda",

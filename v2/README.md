@@ -46,6 +46,7 @@ Deploy:
   - Render pilot:
     - `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
     - `CK_V2_INTERNAL_API_HOSTPORT=<fromService>`
+  - `/status` ekraninda her iki frontend modu da ayri env blogu olarak gorunur
 - Optional but recommended for phone/SMS login on the API service:
   - `AUTH_EBRU_PHONE`
   - `AUTH_MERT_PHONE`
