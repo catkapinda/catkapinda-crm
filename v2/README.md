@@ -178,6 +178,7 @@ Pilot day zero kit helper:
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalarinin manifestteki verify sonucu ile uyumlu kalip kalmadigini
   - `pilot-day-zero-manifest.json` icindeki gate/guard/verify ozet alanlarinin alttaki json raporlarla uyumlu kalip kalmadigini
   - `pilot-day-zero-manifest.json` icindeki `files` haritasinin dogru etiketleri dogru dosya adlarina baglayip baglamadigini
+  - `pilot-day-zero-manifest.json` icindeki `frontend_url` / `api_url` / `streamlit_url` / `service_names` / `archive_path` cekirdek metadata'sinin artefaktlarla uyumlu kalip kalmadigini
   da kontrol eder
 
 Pilot smoke check:

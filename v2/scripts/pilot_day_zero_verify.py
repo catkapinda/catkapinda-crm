@@ -644,6 +644,70 @@ def _check_manifest_file_map(*, output_dir: Path, manifest: dict) -> tuple[bool,
     return (True, issues)
 
 
+def _check_manifest_core(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+
+    frontend_url = str(manifest.get("frontend_url") or "").strip()
+    api_url = str(manifest.get("api_url") or "").strip()
+    streamlit_url = str(manifest.get("streamlit_url") or "").strip()
+    generated_at = str(manifest.get("generated_at") or "").strip()
+    service_names = manifest.get("service_names") or {}
+    archive_path = str(manifest.get("archive_path") or "").strip()
+    expected_archive_path = str(output_dir.parent / f"{output_dir.name}.zip")
+
+    for label, value in [
+        ("frontend_url", frontend_url),
+        ("api_url", api_url),
+        ("streamlit_url", streamlit_url),
+    ]:
+        if not value.startswith("https://"):
+            issues.append(f"Manifest {label} https ile baslamiyor")
+
+    if not generated_at:
+        issues.append("Manifest generated_at bos")
+
+    if archive_path != expected_archive_path:
+        issues.append("Manifest archive_path beklenen zip yoluyla uyusmuyor")
+
+    for label in ("api", "frontend", "streamlit"):
+        value = str(service_names.get(label) or "").strip()
+        if not value:
+            issues.append(f"Manifest service_names icinde {label} eksik")
+        elif any(ch.isspace() for ch in value):
+            issues.append(f"Manifest service_names icinde {label} bosluk iceriyor")
+
+    start_here_path = output_dir / "00-START-HERE.md"
+    if start_here_path.exists():
+        start_here = start_here_path.read_text(encoding="utf-8")
+        expected_snippets = [
+            f"- Frontend URL: `{frontend_url}`",
+            f"- API URL: `{api_url}`",
+            f"- Streamlit URL: `{streamlit_url}`",
+        ]
+        for snippet in expected_snippets:
+            if snippet not in start_here:
+                issues.append(f"00-START-HERE.md icinde cekirdek metadata eksik: {snippet}")
+
+    render_env_bundle_json_path = output_dir / "render-env-bundle.json"
+    if render_env_bundle_json_path.exists():
+        render_env_bundle_json = _read_json(render_env_bundle_json_path)
+        if set(render_env_bundle_json.keys()) != set(service_names.values()):
+            issues.append("Manifest service_names ile render-env-bundle.json servisleri uyusmuyor")
+
+    banner_guard_json_path = output_dir / "streamlit-banner-guard.json"
+    redirect_guard_json_path = output_dir / "streamlit-redirect-guard.json"
+    for guard_path in (banner_guard_json_path, redirect_guard_json_path):
+        if not guard_path.exists():
+            continue
+        guard_payload = _read_json(guard_path)
+        if guard_payload.get("base_url") != frontend_url:
+            issues.append(f"{guard_path.name} icinde base_url manifest frontend_url ile uyusmuyor")
+        if guard_payload.get("streamlit_service_name") != service_names.get("streamlit"):
+            issues.append(f"{guard_path.name} icinde streamlit service name manifestle uyusmuyor")
+
+    return (True, issues)
+
+
 def verify_day_zero_bundle(output_dir: Path) -> dict:
     output_dir = output_dir.resolve()
     manifest_path = output_dir / "pilot-day-zero-manifest.json"
@@ -796,6 +860,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(manifest_file_map_issues)
 
+    manifest_core_checked, manifest_core_issues = _check_manifest_core(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(manifest_core_issues)
+
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
         "Day-zero kiti kullanima hazir."
@@ -837,6 +907,8 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "manifest_summary_ok": True if manifest_summary_checked and not manifest_summary_issues else (False if manifest_summary_checked else None),
         "manifest_files_checked": manifest_file_map_checked,
         "manifest_files_ok": True if manifest_file_map_checked and not manifest_file_map_issues else (False if manifest_file_map_checked else None),
+        "manifest_core_checked": manifest_core_checked,
+        "manifest_core_ok": True if manifest_core_checked and not manifest_core_issues else (False if manifest_core_checked else None),
         "recommended_next_step": recommended_next_step,
     }
 
@@ -862,6 +934,8 @@ def render_console_summary(result: dict) -> str:
     manifest_summary_ok = result.get("manifest_summary_ok")
     manifest_files_checked = bool(result.get("manifest_files_checked"))
     manifest_files_ok = result.get("manifest_files_ok")
+    manifest_core_checked = bool(result.get("manifest_core_checked"))
+    manifest_core_ok = result.get("manifest_core_ok")
     lines = [
         "Cat Kapinda CRM v2 Day Zero Verify",
         f"Output Dir: {result['output_dir']}",
@@ -914,6 +988,11 @@ def render_console_summary(result: dict) -> str:
             else "Manifest Files: SKIPPED"
         ),
         (
+            f"Manifest Core: {'PASS' if manifest_core_ok else 'FAIL'}"
+            if manifest_core_checked
+            else "Manifest Core: SKIPPED"
+        ),
+        (
             f"Smoke: {'PASS' if smoke_overall_ok else 'FAIL'}"
             if smoke_checked and smoke_overall_ok is not None
             else "Smoke: SKIPPED"
@@ -948,6 +1027,8 @@ def render_markdown_report(result: dict) -> str:
     manifest_summary_ok = result.get("manifest_summary_ok")
     manifest_files_checked = bool(result.get("manifest_files_checked"))
     manifest_files_ok = result.get("manifest_files_ok")
+    manifest_core_checked = bool(result.get("manifest_core_checked"))
+    manifest_core_ok = result.get("manifest_core_ok")
     lines = [
         "# Cat Kapinda CRM v2 Day Zero Verify",
         "",
@@ -999,6 +1080,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Manifest Files: `{'PASS' if manifest_files_ok else 'FAIL'}`"
             if manifest_files_checked
             else "- Manifest Files: `SKIPPED`"
+        ),
+        (
+            f"- Manifest Core: `{'PASS' if manifest_core_ok else 'FAIL'}`"
+            if manifest_core_checked
+            else "- Manifest Core: `SKIPPED`"
         ),
         (
             f"- Smoke: `{'PASS' if smoke_overall_ok else 'FAIL'}`"
