@@ -167,6 +167,7 @@ export default function StatusPage() {
   const [backend, setBackend] = useState<BackendReadiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadNote, setLoadNote] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
 
@@ -180,6 +181,7 @@ export default function StatusPage() {
         if (active) {
           setFrontend(payload?.frontend ?? null);
           setBackend(payload?.backend ?? null);
+          setLastUpdatedAt(new Date().toLocaleTimeString("tr-TR"));
           if (!payload?.backend) {
             setLoadNote("Backend pilot verisi su an alınamadı. Frontend teşhis kartlarıyla devam edebiliriz.");
           }
@@ -192,12 +194,14 @@ export default function StatusPage() {
           if (active) {
             setFrontend(readyPayload);
             setBackend(null);
+            setLastUpdatedAt(new Date().toLocaleTimeString("tr-TR"));
             setLoadNote("Pilot köprüsü şu an cevap vermiyor. Frontend hazır mı diye yedek /api/ready kontrolü gösteriliyor.");
           }
         } catch {
           if (active) {
             setFrontend(null);
             setBackend(null);
+            setLastUpdatedAt(new Date().toLocaleTimeString("tr-TR"));
             setLoadNote("Pilot durumu alınamadı. Önce /api/pilot-status ve /api/ready endpointlerini kontrol edeceğiz.");
           }
         }
@@ -209,8 +213,12 @@ export default function StatusPage() {
     }
 
     void loadStatus();
+    const intervalId = window.setInterval(() => {
+      void loadStatus();
+    }, 20000);
     return () => {
       active = false;
+      window.clearInterval(intervalId);
     };
   }, []);
 
@@ -340,6 +348,7 @@ export default function StatusPage() {
               display: "flex",
               gap: "12px",
               flexWrap: "wrap",
+              alignItems: "center",
             }}
           >
             <Link href="/login" style={actionButtonStyle("primary")}>
@@ -348,6 +357,25 @@ export default function StatusPage() {
             <Link href="/" style={actionButtonStyle()}>
               Dashboard'a Don
             </Link>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                ...actionButtonStyle(),
+                cursor: "pointer",
+              }}
+            >
+              Simdi Yenile
+            </button>
+            <div
+              style={{
+                color: "#5f7294",
+                fontWeight: 700,
+                fontSize: "0.92rem",
+              }}
+            >
+              {lastUpdatedAt ? `Son kontrol: ${lastUpdatedAt}` : "Son kontrol bekleniyor"}
+            </div>
           </div>
         </section>
 
