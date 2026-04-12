@@ -1,16 +1,23 @@
 const DEFAULT_TIMEOUT_MS = 4000;
 
 export async function GET() {
-  const internalTarget =
-    process.env.CK_V2_INTERNAL_API_BASE_URL || process.env.CK_V2_INTERNAL_API_HOSTPORT || "";
+  const explicitBaseUrl = process.env.CK_V2_INTERNAL_API_BASE_URL || "";
+  const hostportTarget = process.env.CK_V2_INTERNAL_API_HOSTPORT || "";
+  const internalTarget = explicitBaseUrl || hostportTarget;
   const proxyConfigured = Boolean(internalTarget);
-  const targetBaseUrl =
-    process.env.CK_V2_INTERNAL_API_BASE_URL ||
-    (process.env.CK_V2_INTERNAL_API_HOSTPORT ? `http://${process.env.CK_V2_INTERNAL_API_HOSTPORT}` : "");
+  const proxyMode = explicitBaseUrl ? "explicit_base_url" : hostportTarget ? "render_hostport" : "missing";
+  const sourceEnvKey = explicitBaseUrl
+    ? "CK_V2_INTERNAL_API_BASE_URL"
+    : hostportTarget
+      ? "CK_V2_INTERNAL_API_HOSTPORT"
+      : null;
+  const targetBaseUrl = explicitBaseUrl || (hostportTarget ? `http://${hostportTarget}` : "");
 
   let backendReachable = false;
   let backendStatus = "unknown";
-  let detail = proxyConfigured ? "Proxy ayarlı, backend kontrol ediliyor." : "Proxy hedefi eksik.";
+  let detail = proxyConfigured
+    ? `Proxy ayarlı (${proxyMode}), backend kontrol ediliyor.`
+    : "Proxy hedefi eksik.";
 
   if (targetBaseUrl) {
     const controller = new AbortController();
@@ -24,15 +31,17 @@ export async function GET() {
         const payload = (await response.json()) as { status?: string };
         backendReachable = true;
         backendStatus = payload.status || "ok";
-        detail = "Frontend backend'e ulaşabiliyor.";
+        detail = `Frontend backend'e ulaşıyor (${proxyMode}).`;
       } else {
         backendStatus = `http_${response.status}`;
-        detail = `Backend health HTTP ${response.status} döndü.`;
+        detail = `Backend health HTTP ${response.status} döndü (${proxyMode}).`;
       }
     } catch (error) {
       backendStatus = "unreachable";
       detail =
-        error instanceof Error ? `Backend erişimi kurulamadı: ${error.message}` : "Backend erişimi kurulamadı.";
+        error instanceof Error
+          ? `Backend erişimi kurulamadı (${proxyMode}): ${error.message}`
+          : `Backend erişimi kurulamadı (${proxyMode}).`;
     } finally {
       clearTimeout(timeout);
     }
@@ -43,6 +52,8 @@ export async function GET() {
       status: proxyConfigured && backendReachable ? "ok" : "degraded",
       service: "crmcatkapinda-v2-frontend",
       proxyConfigured,
+      proxyMode,
+      sourceEnvKey,
       backendReachable,
       backendStatus,
       targetBaseUrl: targetBaseUrl || null,

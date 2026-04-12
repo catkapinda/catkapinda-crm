@@ -7,6 +7,8 @@ type FrontendStatus = {
   status: string;
   service: string;
   proxyConfigured: boolean;
+  proxyMode: string;
+  sourceEnvKey: string | null;
   backendReachable: boolean;
   backendStatus: string;
   targetBaseUrl: string | null;
@@ -650,10 +652,20 @@ export default function StatusPage() {
                     <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.6 }}>{frontend.detail}</p>
                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                       <div style={statusPill(Boolean(frontend.proxyConfigured))}>Proxy</div>
+                      <div style={statusPill(frontend.proxyMode !== "missing")}>
+                        {frontend.proxyMode === "explicit_base_url"
+                          ? "Yerel Base URL"
+                          : frontend.proxyMode === "render_hostport"
+                            ? "Render Hostport"
+                            : "Proxy Modu Eksik"}
+                      </div>
                       <div style={statusPill(Boolean(frontend.backendReachable))}>
                         Backend {frontend.backendStatus !== "unknown" ? `(${frontend.backendStatus})` : ""}
                       </div>
                     </div>
+                    {frontend.sourceEnvKey ? (
+                      <div style={{ color: "#5f7294", fontSize: "0.92rem" }}>Kaynak env: {frontend.sourceEnvKey}</div>
+                    ) : null}
                     {frontend.targetBaseUrl ? (
                       <div style={{ color: "#5f7294", fontSize: "0.92rem" }}>İç hedef: {frontend.targetBaseUrl}</div>
                     ) : null}

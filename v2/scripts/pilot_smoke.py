@@ -112,6 +112,8 @@ def run_smoke_checks(
                 ok=ok,
                 detail=(
                     f"HTTP {status} • proxyConfigured={payload.get('proxyConfigured')} • "
+                    f"proxyMode={payload.get('proxyMode')} • "
+                    f"source={payload.get('sourceEnvKey')} • "
                     f"backendReachable={payload.get('backendReachable')} • backendStatus={payload.get('backendStatus')}"
                 ),
             )
