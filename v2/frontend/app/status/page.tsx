@@ -166,11 +166,13 @@ export default function StatusPage() {
   const [frontend, setFrontend] = useState<FrontendStatus | null>(null);
   const [backend, setBackend] = useState<BackendReadiness | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadNote, setLoadNote] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
 
     async function loadStatus() {
       setLoading(true);
+      setLoadNote(null);
       try {
         const response = await fetch("/api/pilot-status", { cache: "no-store" });
         const payload = response.ok ? ((await response.json()) as PilotStatusResponse) : null;
@@ -178,11 +180,26 @@ export default function StatusPage() {
         if (active) {
           setFrontend(payload?.frontend ?? null);
           setBackend(payload?.backend ?? null);
+          if (!payload?.backend) {
+            setLoadNote("Backend pilot verisi su an alınamadı. Frontend teşhis kartlarıyla devam edebiliriz.");
+          }
         }
       } catch {
-        if (active) {
-          setFrontend(null);
-          setBackend(null);
+        try {
+          const readyResponse = await fetch("/api/ready", { cache: "no-store" });
+          const readyPayload = readyResponse.ok ? ((await readyResponse.json()) as FrontendStatus) : null;
+
+          if (active) {
+            setFrontend(readyPayload);
+            setBackend(null);
+            setLoadNote("Pilot köprüsü şu an cevap vermiyor. Frontend hazır mı diye yedek /api/ready kontrolü gösteriliyor.");
+          }
+        } catch {
+          if (active) {
+            setFrontend(null);
+            setBackend(null);
+            setLoadNote("Pilot durumu alınamadı. Önce /api/pilot-status ve /api/ready endpointlerini kontrol edeceğiz.");
+          }
         }
       } finally {
         if (active) {
@@ -338,6 +355,23 @@ export default function StatusPage() {
           <section style={cardStyle()}>Pilot durumu yükleniyor...</section>
         ) : (
           <>
+            {loadNote ? (
+              <section
+                style={{
+                  ...cardStyle(),
+                  display: "grid",
+                  gap: "10px",
+                  background: "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(255,255,255,0.98))",
+                }}
+              >
+                <div style={statusPill(Boolean(frontend))}>
+                  {frontend ? "Yedek Teshis Acik" : "Baglanti Kontrolu Gerekli"}
+                </div>
+                <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot durum notu</h2>
+                <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>{loadNote}</p>
+              </section>
+            ) : null}
+
             {backend?.cutover ? (
               <section
                 style={{
