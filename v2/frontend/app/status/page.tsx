@@ -78,6 +78,11 @@ type BackendReadiness = {
     detail: string;
     href: string;
   }>;
+  deploy_steps: Array<{
+    title: string;
+    detail: string;
+    service_name: string | null;
+  }>;
   rollout_steps: Array<{
     title: string;
     detail: string;
@@ -197,6 +202,7 @@ export default function StatusPage() {
   const backendModules = useMemo(() => backend?.modules ?? [], [backend]);
   const pilotAccounts = useMemo(() => backend?.pilot_accounts ?? [], [backend]);
   const pilotFlow = useMemo(() => backend?.pilot_flow ?? [], [backend]);
+  const deploySteps = useMemo(() => backend?.deploy_steps ?? [], [backend]);
   const rolloutSteps = useMemo(() => backend?.rollout_steps ?? [], [backend]);
   const pilotLinks = useMemo(() => backend?.pilot_links ?? [], [backend]);
   const smokeCommands = useMemo(() => backend?.smoke_commands ?? [], [backend]);
@@ -487,6 +493,54 @@ export default function StatusPage() {
                         {command.command}
                       </code>
                     </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {deploySteps.length ? (
+              <section
+                style={{
+                  ...cardStyle(),
+                  display: "grid",
+                  gap: "16px",
+                }}
+              >
+                <div style={{ display: "grid", gap: "6px" }}>
+                  <div style={statusPill(true)}>Render Açılış Adımları</div>
+                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Pilotu açarken izleyeceğimiz sıra</h2>
+                  <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
+                    Bu bölüm doğrudan Render tarafındaki manuel kurulumu adım adım özetler. Zamanı geldiğinde tek referans ekranımız burası olacak.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                    gap: "14px",
+                  }}
+                >
+                  {deploySteps.map((step) => (
+                    <article
+                      key={step.title}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 251, 255, 0.92)",
+                        display: "grid",
+                        gap: "10px",
+                      }}
+                    >
+                      <strong>{step.title}</strong>
+                      <div style={{ color: "#5f7294", lineHeight: 1.7 }}>{step.detail}</div>
+                      {step.service_name ? (
+                        <div style={{ color: "#35507d", fontSize: "0.9rem", fontWeight: 700 }}>
+                          Servis: {step.service_name}
+                        </div>
+                      ) : null}
+                    </article>
                   ))}
                 </div>
               </section>

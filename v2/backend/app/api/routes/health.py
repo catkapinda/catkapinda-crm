@@ -14,6 +14,7 @@ from app.schemas.health import (
     PilotAuthStatus,
     PilotConfigEntry,
     PilotCutoverSummary,
+    PilotDeployStep,
     PilotEnvSnippetEntry,
     PilotFlowStep,
     PilotLinkEntry,
@@ -194,6 +195,7 @@ def pilot_readiness(
     )
     pilot_accounts = _build_pilot_accounts()
     pilot_flow = _build_pilot_flow()
+    deploy_steps = _build_deploy_steps()
     rollout_steps = _build_rollout_steps(
         core_ready=core_ready,
         auth_ready=auth_ready,
@@ -229,6 +231,7 @@ def pilot_readiness(
         cutover=cutover,
         pilot_accounts=pilot_accounts,
         pilot_flow=pilot_flow,
+        deploy_steps=deploy_steps,
         rollout_steps=rollout_steps,
         pilot_links=pilot_links,
         smoke_commands=smoke_commands,
@@ -483,6 +486,41 @@ def _build_pilot_flow() -> list[PilotFlowStep]:
             title="4. Finans yüzeylerini gözden geçir",
             detail="Aylık hakediş ve raporlar ekranında özet kartlar ile tabloların beklendiği gibi açıldığını doğrula.",
             href="/reports",
+        ),
+    ]
+
+
+def _build_deploy_steps() -> list[PilotDeployStep]:
+    return [
+        PilotDeployStep(
+            title="1. Render'da blueprint import et",
+            detail="Render dashboard'da New > Blueprint sec ve repo icindeki v2/render.yaml dosyasini import et.",
+            service_name=None,
+        ),
+        PilotDeployStep(
+            title="2. Backend servisini doldur",
+            detail="crmcatkapinda-v2-api icin veritabani URL'si, frontend URL'si, API public URL'si ve pilot sifresini gir.",
+            service_name="crmcatkapinda-v2-api",
+        ),
+        PilotDeployStep(
+            title="3. Frontend servisini kontrol et",
+            detail="crmcatkapinda-v2 tarafinda NEXT_PUBLIC_V2_API_BASE_URL=/v2-api ve CK_V2_INTERNAL_API_HOSTPORT fromService baginin geldigini kontrol et.",
+            service_name="crmcatkapinda-v2",
+        ),
+        PilotDeployStep(
+            title="4. Pilot health ve status'u ac",
+            detail="Deploy bitince once /api/health, sonra /api/ready ve /status sayfasini ac. Tum baglantilar bu ekranda gorunecek.",
+            service_name="crmcatkapinda-v2",
+        ),
+        PilotDeployStep(
+            title="5. Smoke komutlarini kos",
+            detail="Status ekranindaki Normal Smoke ve gerekiyorsa Gercek Login Smoke komutlarini calistir.",
+            service_name=None,
+        ),
+        PilotDeployStep(
+            title="6. Eski Streamlit'e banner ver",
+            detail="Ana crmcatkapinda servisine CK_V2_PILOT_URL ve CK_V2_CUTOVER_MODE=banner ekleyip ofise kontrollu gecis butonu goster.",
+            service_name="crmcatkapinda",
         ),
     ]
 

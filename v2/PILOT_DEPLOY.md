@@ -30,6 +30,7 @@ Pilot durum sayfasi:
   - eksik env listesi
   - siradaki adimlar
   - modül hazirlik durumu
+  - Render acilis adimlari
 
 Yerel smoke check:
 - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
