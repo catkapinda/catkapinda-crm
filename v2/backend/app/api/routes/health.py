@@ -16,6 +16,7 @@ from app.schemas.health import (
     PilotCutoverSummary,
     PilotDecisionSummary,
     PilotDeployStep,
+    PilotCommandPackEntry,
     PilotEnvSnippetEntry,
     PilotFlowStep,
     PilotHelperCommand,
@@ -212,6 +213,7 @@ def pilot_readiness(
     pilot_links = _build_pilot_links()
     smoke_commands = _build_smoke_commands()
     helper_commands = _build_helper_commands()
+    command_pack = _build_command_pack()
     services = _build_pilot_services()
     env_snippets = _build_env_snippets()
     return PilotReadinessResponse(
@@ -248,6 +250,7 @@ def pilot_readiness(
         pilot_links=pilot_links,
         smoke_commands=smoke_commands,
         helper_commands=helper_commands,
+        command_pack=command_pack,
         services=services,
         env_snippets=env_snippets,
     )
@@ -780,6 +783,53 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             label="Backend Pilot Curl",
             category="quick-check",
             command=f"curl -fsSL {backend_url}/api/health/pilot",
+        ),
+    ]
+
+
+def _build_command_pack() -> list[PilotCommandPackEntry]:
+    frontend_url = settings.resolved_public_app_url.rstrip("/")
+    backend_url = settings.resolved_api_public_url.rstrip("/")
+    return [
+        PilotCommandPackEntry(
+            title="1. Env bloklarini hazirla",
+            detail="Render'a girecegin env bloklarini tek komutta uret.",
+            command=(
+                "python v2/scripts/render_env_bundle.py "
+                f"--frontend-url {frontend_url} --api-url {backend_url}"
+            ),
+        ),
+        PilotCommandPackEntry(
+            title="2. Frontend health'i kontrol et",
+            detail="Frontend deploy bitti mi diye hizlica bak.",
+            command=f"curl -fsSL {frontend_url}/api/health",
+        ),
+        PilotCommandPackEntry(
+            title="3. Backend pilot health'i kontrol et",
+            detail="API ayakta mi ve pilot readiness yaniti donuyor mu bak.",
+            command=f"curl -fsSL {backend_url}/api/health/pilot",
+        ),
+        PilotCommandPackEntry(
+            title="4. Pilot smoke paketini calistir",
+            detail="Pilot acilisi icin temel smoke akisini kos.",
+            command=f"python v2/scripts/pilot_smoke.py --base-url {frontend_url} --preset pilot",
+        ),
+        PilotCommandPackEntry(
+            title="5. Gercek login smoke'u kos",
+            detail="Yonetici hesapla gercek oturum acilisini dogrula.",
+            command=(
+                f"python v2/scripts/pilot_smoke.py --base-url {frontend_url} "
+                "--identity ebru@catkapinda.com --password <sifre>"
+            ),
+        ),
+        PilotCommandPackEntry(
+            title="6. Streamlit banner koprusunu hazirla",
+            detail="Eski panelde kontrollu gecis kartini gosterecek env blokunu uret.",
+            command=(
+                "python v2/scripts/render_env_bundle.py "
+                f"--frontend-url {frontend_url} --api-url {backend_url} "
+                "--service streamlit --cutover-mode banner"
+            ),
         ),
     ]
 

@@ -195,6 +195,18 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["helper_commands"][7]["command"] == "curl -fsSL https://pilot.example.com/api/ready"
     assert payload["helper_commands"][8]["command"] == "curl -fsSL https://pilot-api.example.com/api/health"
     assert payload["helper_commands"][9]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
+    assert payload["command_pack"][0]["title"] == "1. Env bloklarini hazirla"
+    assert payload["command_pack"][0]["command"] == (
+        "python v2/scripts/render_env_bundle.py "
+        "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com"
+    )
+    assert payload["command_pack"][1]["command"] == "curl -fsSL https://pilot.example.com/api/health"
+    assert payload["command_pack"][2]["command"] == "curl -fsSL https://pilot-api.example.com/api/health/pilot"
+    assert payload["command_pack"][3]["command"] == (
+        "python v2/scripts/pilot_smoke.py --base-url https://pilot.example.com --preset pilot"
+    )
+    assert "--identity ebru@catkapinda.com --password <sifre>" in payload["command_pack"][4]["command"]
+    assert "--service streamlit --cutover-mode banner" in payload["command_pack"][5]["command"]
     assert payload["services"][0]["name"] == "crmcatkapinda-v2"
     assert payload["services"][0]["service_type"] == "frontend"
     assert payload["services"][0]["public_url"] == "https://pilot.example.com"
@@ -214,6 +226,7 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert isinstance(payload["pilot_links"], list)
     assert isinstance(payload["smoke_commands"], list)
     assert isinstance(payload["helper_commands"], list)
+    assert isinstance(payload["command_pack"], list)
     assert isinstance(payload["services"], list)
     assert isinstance(payload["env_snippets"], list)
     snippet_map = {entry["service_name"]: entry for entry in payload["env_snippets"]}
