@@ -16,6 +16,7 @@ from app.schemas.health import (
     PilotCutoverSummary,
     PilotFlowStep,
     PilotLinkEntry,
+    PilotServiceEntry,
     PilotModuleEntry,
     PilotReadinessResponse,
     PilotSmokeCommand,
@@ -192,6 +193,7 @@ def pilot_readiness(
     pilot_flow = _build_pilot_flow()
     pilot_links = _build_pilot_links()
     smoke_commands = _build_smoke_commands()
+    services = _build_pilot_services()
     return PilotReadinessResponse(
         status="ok" if overall_ok else "degraded",
         core_ready=core_ready,
@@ -219,6 +221,7 @@ def pilot_readiness(
         pilot_flow=pilot_flow,
         pilot_links=pilot_links,
         smoke_commands=smoke_commands,
+        services=services,
     )
 
 
@@ -485,6 +488,25 @@ def _build_smoke_commands() -> list[PilotSmokeCommand]:
                 f"python v2/scripts/pilot_smoke.py --base-url {base_url} "
                 "--identity ebru@catkapinda.com --password <sifre>"
             ),
+        ),
+    ]
+
+
+def _build_pilot_services() -> list[PilotServiceEntry]:
+    frontend_url = settings.resolved_public_app_url.rstrip("/")
+    backend_url = settings.resolved_frontend_base_url.rstrip("/")
+    return [
+        PilotServiceEntry(
+            name="crmcatkapinda-v2",
+            service_type="frontend",
+            public_url=frontend_url,
+            health_path=f"{frontend_url}/api/health",
+        ),
+        PilotServiceEntry(
+            name="crmcatkapinda-v2-api",
+            service_type="backend",
+            public_url=backend_url,
+            health_path=f"{backend_url}/api/health",
         ),
     ]
 

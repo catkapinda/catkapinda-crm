@@ -86,6 +86,13 @@ class PilotSmokeCommand(BaseModel):
     command: str
 
 
+class PilotServiceEntry(BaseModel):
+    name: str
+    service_type: str
+    public_url: str
+    health_path: str
+
+
 class PilotReadinessResponse(BaseModel):
     status: str
     core_ready: bool
@@ -105,3 +112,4 @@ class PilotReadinessResponse(BaseModel):
     pilot_flow: list[PilotFlowStep]
     pilot_links: list[PilotLinkEntry]
     smoke_commands: list[PilotSmokeCommand]
+    services: list[PilotServiceEntry]

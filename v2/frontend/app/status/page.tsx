@@ -84,6 +84,12 @@ type BackendReadiness = {
     label: string;
     command: string;
   }>;
+  services: Array<{
+    name: string;
+    service_type: string;
+    public_url: string;
+    health_path: string;
+  }>;
 };
 
 function statusPill(ok: boolean) {
@@ -172,6 +178,7 @@ export default function StatusPage() {
   const pilotFlow = useMemo(() => backend?.pilot_flow ?? [], [backend]);
   const pilotLinks = useMemo(() => backend?.pilot_links ?? [], [backend]);
   const smokeCommands = useMemo(() => backend?.smoke_commands ?? [], [backend]);
+  const pilotServices = useMemo(() => backend?.services ?? [], [backend]);
   const backendConfigEntries = useMemo(
     () => backendConfig.filter((entry) => entry.service === "backend"),
     [backendConfig],
@@ -448,6 +455,57 @@ export default function StatusPage() {
                       >
                         {command.command}
                       </code>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {pilotServices.length ? (
+              <section
+                style={{
+                  ...cardStyle(),
+                  display: "grid",
+                  gap: "16px",
+                }}
+              >
+                <div style={{ display: "grid", gap: "6px" }}>
+                  <div style={statusPill(true)}>Render Servisleri</div>
+                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Pilotta acacagimiz servisler</h2>
+                  <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
+                    Render uzerinde gorecegin servis adlari ve public health adresleri burada tek yerde duruyor.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                    gap: "14px",
+                  }}
+                >
+                  {pilotServices.map((service) => (
+                    <div
+                      key={service.name}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 251, 255, 0.92)",
+                        display: "grid",
+                        gap: "10px",
+                      }}
+                    >
+                      <div style={statusPill(service.service_type === "frontend")}>
+                        {service.service_type === "frontend" ? "Frontend Servisi" : "Backend Servisi"}
+                      </div>
+                      <strong style={{ fontSize: "1rem" }}>{service.name}</strong>
+                      <div style={{ color: "#5f7294", fontSize: "0.92rem", lineHeight: 1.7 }}>
+                        Public URL: {service.public_url}
+                      </div>
+                      <div style={{ color: "#5f7294", fontSize: "0.92rem", lineHeight: 1.7 }}>
+                        Health: {service.health_path}
+                      </div>
                     </div>
                   ))}
                 </div>
