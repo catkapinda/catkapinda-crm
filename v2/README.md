@@ -165,6 +165,7 @@ Pilot day zero kit helper:
 - uretilen kitin eksik ve tutarlilik kontrolu icin:
   - `python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero`
 - `pilot_day_zero.py` output klasorunu canonical path'e (`resolve`) cevirerek manifestler; boylece `/var` ve `/private` gibi alias path farklari verify tarafinda sahte uyumsuzluk yaratmaz
+- `pilot_day_zero_verify.py` da manifest/verify icindeki path alanlarini canonical olarak karsilastirir; symlink veya alias path kullanilsa bile ayni hedefe bakiyorsa gereksiz fail uretmez
 - eger kit smoke ile uretildiyse verify artik:
   - smoke markdown/json dosyalarini
   - smoke sonucunun manifest ile uyumunu

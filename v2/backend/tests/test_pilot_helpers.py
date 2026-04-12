@@ -420,6 +420,65 @@ def test_day_zero_bundle_normalizes_output_dir_before_manifest(monkeypatch, tmp_
     assert pilot_day_zero_verify.verify_day_zero_bundle(alias_output_dir)["passed"] is True
 
 
+def test_day_zero_verify_accepts_alias_manifest_paths(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    real_output_dir = tmp_path / "real-output"
+    alias_output_dir = tmp_path / "alias-output"
+    alias_output_dir.symlink_to(real_output_dir, target_is_directory=True)
+
+    manifest = pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=real_output_dir,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    real_archive_path = Path(manifest["archive_path"])
+    alias_archive_path = tmp_path / "alias-output.zip"
+    alias_archive_path.symlink_to(real_archive_path)
+
+    manifest_path = real_output_dir / "pilot-day-zero-manifest.json"
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_payload["output_dir"] = str(alias_output_dir)
+    manifest_payload["archive_path"] = str(alias_archive_path)
+    for label, raw_path in list(manifest_payload["files"].items()):
+        manifest_payload["files"][label] = str(alias_output_dir / Path(raw_path).name)
+    manifest_path.write_text(json.dumps(manifest_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    verify_json_path = real_output_dir / "pilot-day-zero-verify.json"
+    verify_payload = json.loads(verify_json_path.read_text(encoding="utf-8"))
+    verify_payload["output_dir"] = str(alias_output_dir)
+    verify_payload["archive_path"] = str(alias_archive_path)
+    verify_json_path.write_text(json.dumps(verify_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    verify_md_path = real_output_dir / "pilot-day-zero-verify.md"
+    verify_md = verify_md_path.read_text(encoding="utf-8").replace(str(real_output_dir.resolve()), str(alias_output_dir))
+    verify_md_path.write_text(verify_md, encoding="utf-8")
+
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_payload["integrity"] = pilot_day_zero._build_integrity_manifest(
+        output_dir=real_output_dir.resolve(),
+        manifest=manifest_payload,
+    )
+    manifest_path.write_text(json.dumps(manifest_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    pilot_day_zero._zip_directory(real_output_dir.resolve(), real_archive_path)
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(alias_output_dir)
+
+    assert result["passed"] is True
+    assert result["consistency_issues"] == []
+
+
 def test_day_zero_bundle_can_surface_embedded_smoke_summary(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(

@@ -69,6 +69,15 @@ def _sha256_path(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _canonicalize_path_text(value: str | Path | None) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return str(Path(text).expanduser().resolve())
+
+
 def _check_guard_file(
     *,
     mode: str,
@@ -534,9 +543,9 @@ def _check_embedded_verify_reports(
     expected_archive = "OK" if manifest.get("verify_archive_exists") else "MISSING"
     expected_next_step = manifest.get("verify_recommended_next_step") or "-"
 
-    if verify_payload.get("output_dir") != manifest.get("output_dir"):
+    if _canonicalize_path_text(verify_payload.get("output_dir")) != _canonicalize_path_text(manifest.get("output_dir")):
         issues.append("pilot-day-zero-verify.json icinde output_dir manifestle uyusmuyor")
-    if verify_payload.get("archive_path") != manifest.get("archive_path"):
+    if _canonicalize_path_text(verify_payload.get("archive_path")) != _canonicalize_path_text(manifest.get("archive_path")):
         issues.append("pilot-day-zero-verify.json icinde archive_path manifestle uyusmuyor")
     if verify_payload.get("passed") != manifest.get("verify_passed"):
         issues.append("pilot-day-zero-verify.json icinde passed degeri manifestle uyusmuyor")
@@ -571,8 +580,14 @@ def _check_embedded_verify_reports(
         if verify_payload.get("smoke_failed_count") != manifest.get("smoke_failed_count"):
             issues.append("pilot-day-zero-verify.json icinde smoke_failed_count manifestle uyusmuyor")
 
-    expected_markdown_snippets = [
+    output_dir_variants = {
         f"- Output Dir: `{manifest.get('output_dir')}`",
+    }
+    canonical_output_dir = _canonicalize_path_text(manifest.get("output_dir"))
+    if canonical_output_dir:
+        output_dir_variants.add(f"- Output Dir: `{canonical_output_dir}`")
+
+    expected_markdown_snippets = [
         f"- Status: `{expected_status}`",
         f"- Archive: `{expected_archive}`",
         f"- Recommended Next Step: {expected_next_step}",
@@ -596,6 +611,9 @@ def _check_embedded_verify_reports(
         expected_markdown_snippets.append(
             f"- Manifest Files: `{'PASS' if expected_manifest_files_ok else 'FAIL'}`"
         )
+    if not any(snippet in verify_markdown for snippet in output_dir_variants):
+        issues.append("pilot-day-zero-verify.md icinde beklenen Output Dir satiri eksik")
+
     for snippet in expected_markdown_snippets:
         if snippet not in verify_markdown:
             issues.append(f"pilot-day-zero-verify.md icinde beklenen satir eksik: {snippet}")
@@ -686,7 +704,7 @@ def _check_manifest_file_map(*, output_dir: Path, manifest: dict) -> tuple[bool,
         if actual_path.name != expected_name:
             issues.append(f"Manifest files icinde {label} beklenen dosyaya gitmiyor: {expected_name}")
         expected_path = output_dir / expected_name
-        if actual_path != expected_path:
+        if _canonicalize_path_text(actual_path) != _canonicalize_path_text(expected_path):
             issues.append(f"Manifest files icinde {label} path uyusmuyor: {expected_path}")
 
     unexpected_labels = sorted(set(files.keys()) - set(expected_files.keys()))
@@ -704,8 +722,8 @@ def _check_manifest_core(*, output_dir: Path, manifest: dict) -> tuple[bool, lis
     streamlit_url = str(manifest.get("streamlit_url") or "").strip()
     generated_at = str(manifest.get("generated_at") or "").strip()
     service_names = manifest.get("service_names") or {}
-    archive_path = str(manifest.get("archive_path") or "").strip()
-    expected_archive_path = str(output_dir.parent / f"{output_dir.name}.zip")
+    archive_path = _canonicalize_path_text(manifest.get("archive_path")) or ""
+    expected_archive_path = str((output_dir.parent / f"{output_dir.name}.zip").resolve())
 
     for label, value in [
         ("frontend_url", frontend_url),
@@ -808,7 +826,7 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
             consistency_issues.append(f"Manifest girdisi eksik dosyaya isaret ediyor: {label}")
 
     expected_output_dir = str(output_dir)
-    if manifest.get("output_dir") != expected_output_dir:
+    if _canonicalize_path_text(manifest.get("output_dir")) != expected_output_dir:
         consistency_issues.append(
             f"Manifest output_dir uyusmuyor: {manifest.get('output_dir')} != {expected_output_dir}"
         )
@@ -835,7 +853,7 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     archive_path = manifest.get("archive_path")
     archive_exists = False
     if archive_path:
-        archive_file = Path(str(archive_path))
+        archive_file = Path(str(archive_path)).resolve()
         archive_exists = archive_file.exists()
         if not archive_exists:
             missing_files.append(str(archive_file))
