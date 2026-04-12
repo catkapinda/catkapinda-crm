@@ -98,6 +98,17 @@ Pilot cutover guard icin:
 - blokaj varsa `2` ile cikar
 - zorunlu override gerektiginde `--force` kullanilabilir
 
+Pilot day zero kiti icin:
+- `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero`
+- `--api-url` verilmezse canli `/api/pilot-status` uzerinden backend servisi bulunmaya calisilir
+- bu helper ayni klasorde:
+  - env bundle
+  - launch packet
+  - preflight summary
+  - gate jsonlari
+  - streamlit banner/redirect env
+  toplar
+
 ## Zorunlu Ayarlar
 
 ### Backend

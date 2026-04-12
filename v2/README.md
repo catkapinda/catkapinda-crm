@@ -126,6 +126,19 @@ Pilot cutover guard helper:
 - acil durumda override icin:
   - `--force`
 
+Pilot day zero kit helper:
+- Pilot gunu tum ana artefaktlari tek klasorde toplamak icin:
+  - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero`
+- `--api-url` verilmezse script bunu canli `/api/pilot-status` verisinden cikarmayi dener
+- bu helper sunlari bir arada uretir:
+  - render env bundle
+  - streamlit banner env
+  - streamlit redirect env
+  - pilot launch packet
+  - pilot cutover packet
+  - canli preflight ciktıları
+  - day-zero manifest json
+
 Pilot smoke check:
 - After deploy, run:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
