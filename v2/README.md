@@ -62,6 +62,8 @@ Deploy:
 Pilot smoke check:
 - After deploy, run:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
+  - optional JSON report:
+    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --json --output pilot-report.json`
   - optional auth smoke:
     - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --identity ebru@catkapinda.com --password <sifre>`
   - optional legacy Streamlit bridge smoke:
@@ -75,6 +77,7 @@ Pilot smoke check:
   - backend health
   - backend readiness
   - backend pilot cutover phase (`ready_for_pilot` / `ready_for_cutover`)
+  - optional machine-readable JSON pilot report
   - optionally login + `/auth/me` if identity/password are provided
   - if login smoke is enabled, protected v2 pages:
     - `/attendance`

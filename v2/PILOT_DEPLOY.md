@@ -34,6 +34,8 @@ Pilot durum sayfasi:
 
 Yerel smoke check:
 - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
+- opsiyonel JSON rapor:
+  - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --json --output pilot-report.json`
 - opsiyonel gerçek login smoke:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --identity ebru@catkapinda.com --password <sifre>`
 - opsiyonel eski Streamlit banner smoke:
@@ -165,6 +167,8 @@ Bu iki alan Render Environment veya `secrets.toml` icindeki `[v2]` bolumu ile de
 9. SMS login env'leri girildiyse telefon kodu akisi da calismali
 10. smoke script temiz donmeli:
    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
+   - istenirse JSON raporu da alinabilir:
+     - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --json --output pilot-report.json`
    - istenirse login de dogrulanabilir:
      - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --identity ebru@catkapinda.com --password <sifre>`
 11. `status` ekranindaki `zorunlu eksik env` sayisi `0` olmali

@@ -654,6 +654,13 @@ def _build_smoke_commands() -> list[PilotSmokeCommand]:
             ),
         ),
         PilotSmokeCommand(
+            label="JSON Smoke Raporu",
+            command=(
+                f"python v2/scripts/pilot_smoke.py --base-url {base_url} "
+                "--json --output pilot-report.json"
+            ),
+        ),
+        PilotSmokeCommand(
             label="Legacy Banner Smoke",
             command=(
                 f"python v2/scripts/pilot_smoke.py --base-url {base_url} "

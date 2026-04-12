@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, UTC
 import json
 import os
 import sys
@@ -27,6 +28,38 @@ class CheckResult:
     name: str
     ok: bool
     detail: str
+
+
+def build_report(
+    *,
+    base_url: str,
+    timeout: int,
+    identity: str | None,
+    legacy_url: str | None,
+    legacy_cutover_mode: str | None,
+    results: list[CheckResult],
+) -> dict:
+    passed_count = sum(1 for result in results if result.ok)
+    failed_count = sum(1 for result in results if not result.ok)
+    return {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "base_url": base_url,
+        "timeout_seconds": timeout,
+        "identity_provided": bool(identity),
+        "legacy_url": legacy_url,
+        "legacy_cutover_mode": legacy_cutover_mode,
+        "overall_ok": failed_count == 0,
+        "passed_count": passed_count,
+        "failed_count": failed_count,
+        "results": [
+            {
+                "name": result.name,
+                "ok": result.ok,
+                "detail": result.detail,
+            }
+            for result in results
+        ],
+    }
 
 
 def normalize_base_url(raw: str) -> str:
@@ -334,6 +367,8 @@ def main() -> int:
     parser.add_argument("--identity", default=os.getenv("CK_V2_SMOKE_IDENTITY", ""), help="Optional login identity for end-to-end auth smoke")
     parser.add_argument("--password", default=os.getenv("CK_V2_SMOKE_PASSWORD", ""), help="Optional login password for end-to-end auth smoke")
     parser.add_argument("--legacy-url", default="", help="Optional legacy Streamlit URL for banner/redirect smoke")
+    parser.add_argument("--json", action="store_true", help="Print the smoke result as JSON instead of a text table")
+    parser.add_argument("--output", default="", help="Optional file path to write the JSON smoke report")
     parser.add_argument(
         "--legacy-cutover-mode",
         default="",
@@ -355,16 +390,36 @@ def main() -> int:
         legacy_url=legacy_url,
         legacy_cutover_mode=legacy_cutover_mode,
     )
+    report = build_report(
+        base_url=base_url,
+        timeout=args.timeout,
+        identity=identity,
+        legacy_url=legacy_url,
+        legacy_cutover_mode=legacy_cutover_mode,
+        results=results,
+    )
+
+    failed = False
+    for result in results:
+        failed = failed or not result.ok
+
+    if args.output.strip():
+        with open(args.output.strip(), "w", encoding="utf-8") as handle:
+            json.dump(report, handle, ensure_ascii=False, indent=2)
+
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 1 if failed else 0
 
     print(f"v2 pilot smoke • {base_url}")
     print("-" * 72)
-    failed = False
     for result in results:
         status = "OK" if result.ok else "FAIL"
         print(f"{status:>4}  {result.name:<18}  {result.detail}")
-        failed = failed or not result.ok
 
     print("-" * 72)
+    if args.output.strip():
+        print(f"JSON report written to: {args.output.strip()}")
     if failed:
         print("Pilot smoke check failed.")
         return 1
