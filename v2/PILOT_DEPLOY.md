@@ -88,6 +88,20 @@ Not:
   - Render blueprint ile `/v2-api` olarak gelir
 - `CK_V2_INTERNAL_API_HOSTPORT`
   - Render blueprint ile backend servisinden gelir
+  - Render pilotunda tercih edilen ayar budur
+- `CK_V2_INTERNAL_API_BASE_URL`
+  - yalnizca yerel frontend calistirirken gerekir
+  - ornek: `http://127.0.0.1:8000`
+  - Render pilotunda bunu kullanmak zorunda degilsin
+
+Frontend env ozeti:
+
+- Yerel deneme:
+  - `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
+  - `CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000`
+- Render pilot:
+  - `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
+  - `CK_V2_INTERNAL_API_HOSTPORT=<fromService>`
 
 ## Pilot Hazir Sayilmasi Icin
 

@@ -21,6 +21,8 @@ Run locally:
   - run `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
 - Frontend:
   - copy `frontend/.env.example` to `frontend/.env.local`
+  - keep `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
+  - keep `CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000`
   - install from `frontend/`
   - run `npm run dev`
 
@@ -37,6 +39,13 @@ Deploy:
   - `CK_V2_API_PUBLIC_URL=https://<api-domain>`
 - Required for first management/mobile auth bootstrap on the API service:
   - `CK_V2_DEFAULT_AUTH_PASSWORD`
+- Frontend proxy env strategy:
+  - local dev:
+    - `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
+    - `CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000`
+  - Render pilot:
+    - `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
+    - `CK_V2_INTERNAL_API_HOSTPORT=<fromService>`
 - Optional but recommended for phone/SMS login on the API service:
   - `AUTH_EBRU_PHONE`
   - `AUTH_MERT_PHONE`

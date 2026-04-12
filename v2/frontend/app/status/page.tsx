@@ -209,19 +209,33 @@ export default function StatusPage() {
         name: "NEXT_PUBLIC_V2_API_BASE_URL",
         ok: true,
         required: true,
-        detail: "/v2-api (Render proxy rewrite)",
+        detail: "/v2-api (hem yerel gelistirme hem Render pilot icin ayni kalir)",
       },
       {
-        name: "CK_V2_INTERNAL_API_HOSTPORT",
+        name: "CK_V2_INTERNAL_API_HOSTPORT veya CK_V2_INTERNAL_API_BASE_URL",
         ok: true,
         required: true,
-        detail: "Backend hostport degerinden otomatik gelir",
+        detail:
+          "Render pilotta CK_V2_INTERNAL_API_HOSTPORT blueprint ile otomatik gelir. Yerelde CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000 kullanilir.",
       },
       {
         name: "NEXT_TELEMETRY_DISABLED",
         ok: true,
         required: false,
         detail: "1 (blueprint ile otomatik gelir)",
+      },
+    ],
+    [],
+  );
+  const frontendEnvModes = useMemo(
+    () => [
+      {
+        title: "Yerel Frontend (.env.local)",
+        body: "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api\nCK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000",
+      },
+      {
+        title: "Render Frontend (blueprint)",
+        body: "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api\nCK_V2_INTERNAL_API_HOSTPORT=<fromService>\nNEXT_TELEMETRY_DISABLED=1",
       },
     ],
     [],
@@ -1067,7 +1081,7 @@ export default function StatusPage() {
                     <div style={{ display: "grid", gap: "6px" }}>
                       <strong style={{ fontSize: "1rem" }}>Render Frontend Servisi</strong>
                       <div style={{ color: "#5f7294", lineHeight: 1.5 }}>
-                        Frontend servisi blueprint ile otomatik gelen ayarlarla ayaga kalkar. Burada sadece kontrol listesi gorursun.
+                        Frontend servisi Render pilotta blueprint ile otomatik gelen ayarlarla ayaga kalkar. Yerel denemede ise ayni proxy rotasi korunur ama hedef env anahtari degisir.
                       </div>
                     </div>
                     <div style={{ display: "grid", gap: "10px" }}>
@@ -1097,6 +1111,41 @@ export default function StatusPage() {
                             </div>
                           </div>
                           <div style={{ color: "#5f7294", lineHeight: 1.5 }}>{entry.detail}</div>
+                        </article>
+                      ))}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: "4px",
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                        gap: "10px",
+                      }}
+                    >
+                      {frontendEnvModes.map((mode) => (
+                        <article
+                          key={mode.title}
+                          style={{
+                            padding: "14px",
+                            borderRadius: "16px",
+                            border: "1px solid rgba(219, 228, 243, 0.9)",
+                            background: "rgba(255,255,255,0.92)",
+                            display: "grid",
+                            gap: "8px",
+                          }}
+                        >
+                          <strong>{mode.title}</strong>
+                          <code
+                            style={{
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                              fontSize: "0.88rem",
+                              lineHeight: 1.7,
+                              color: "#25406b",
+                            }}
+                          >
+                            {mode.body}
+                          </code>
                         </article>
                       ))}
                     </div>
