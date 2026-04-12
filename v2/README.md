@@ -50,6 +50,8 @@ Deploy:
 Pilot smoke check:
 - After deploy, run:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
+  - optional auth smoke:
+    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --identity ebru@catkapinda.com --password <sifre>`
 - This verifies:
   - frontend health
   - frontend readiness
@@ -58,3 +60,4 @@ Pilot smoke check:
   - backend health
   - backend readiness
   - backend pilot cutover phase (`ready_for_pilot` / `ready_for_cutover`)
+  - optionally login + `/auth/me` if identity/password are provided
