@@ -798,6 +798,22 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             ),
         ),
         PilotHelperCommand(
+            label="Pilot Gate Check",
+            category="quick-check",
+            command=(
+                "python v2/scripts/pilot_gate.py "
+                f"--base-url {frontend_url} --mode pilot"
+            ),
+        ),
+        PilotHelperCommand(
+            label="Cutover Gate Check",
+            category="quick-check",
+            command=(
+                "python v2/scripts/pilot_gate.py "
+                f"--base-url {frontend_url} --mode cutover"
+            ),
+        ),
+        PilotHelperCommand(
             label="Frontend Health Curl",
             category="quick-check",
             command=f"curl -fsSL {frontend_url}/api/health",
@@ -848,7 +864,12 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             command=f"python v2/scripts/pilot_smoke.py --base-url {frontend_url} --preset pilot",
         ),
         PilotCommandPackEntry(
-            title="5. Gercek login smoke'u kos",
+            title="5. Pilot gate kararini al",
+            detail="Canli /api/pilot-status verisine gore pilot acilabilir mi bak.",
+            command=f"python v2/scripts/pilot_gate.py --base-url {frontend_url} --mode pilot",
+        ),
+        PilotCommandPackEntry(
+            title="6. Gercek login smoke'u kos",
             detail="Yonetici hesapla gercek oturum acilisini dogrula.",
             command=(
                 f"python v2/scripts/pilot_smoke.py --base-url {frontend_url} "
@@ -856,7 +877,7 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="6. Streamlit banner koprusunu hazirla",
+            title="7. Streamlit banner koprusunu hazirla",
             detail="Eski panelde kontrollu gecis kartini gosterecek env blokunu uret.",
             command=(
                 "python v2/scripts/render_env_bundle.py "

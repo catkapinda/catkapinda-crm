@@ -74,6 +74,12 @@ Canli pilot durum raporu icin:
   - `python v2/scripts/pilot_status_report.py --base-url https://<v2-frontend-domain> --json --output pilot-status-live.json`
 - bu rapor `/api/pilot-status` verisini cekip paylasilabilir tek dosyada toplar
 
+Pilot gate karari icin:
+- `python v2/scripts/pilot_gate.py --base-url https://<v2-frontend-domain> --mode pilot`
+- redirect cutover karari icin:
+  - `python v2/scripts/pilot_gate.py --base-url https://<v2-frontend-domain> --mode cutover`
+- bu helper basariliysa `0`, blokaj varsa `2` ile cikar
+
 ## Zorunlu Ayarlar
 
 ### Backend

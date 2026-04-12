@@ -96,6 +96,16 @@ Live pilot status report helper:
   - pilot linkleri
   - komut paketi / smoke / helper komutlari
 
+Pilot gate helper:
+- Pilot acilabilir mi diye anlik karar almak icin:
+  - `python v2/scripts/pilot_gate.py --base-url https://<v2-frontend-domain> --mode pilot`
+- Redirect cutover'a gecilebilir mi diye bakmak icin:
+  - `python v2/scripts/pilot_gate.py --base-url https://<v2-frontend-domain> --mode cutover`
+- bu helper `/api/pilot-status` verisine gore:
+  - `0` ile gecer
+  - blokaj varsa `2` ile cikar
+  - yani terminal cikis koduyla da net karar verir
+
 Pilot smoke check:
 - After deploy, run:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
