@@ -141,6 +141,7 @@ Pilot day zero kiti icin:
   - pilot launch / cutover paketleri dogru link ve komutlari tasiyor mu
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlari karar/gate/release satirlarini guncel tasiyor mu
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalari manifestteki verify sonucu ile uyumlu mu
+  - gomulu verify raporlari `Manifest Core` sonucunu da guncel verify ile ayni tasiyor mu
   - `pilot-day-zero-manifest.json` icindeki gate/guard/verify ozet alanlari alttaki json raporlarla uyumlu mu
   - `pilot-day-zero-manifest.json` icindeki files haritasi dogru etiketleri dogru dosya adlarina bagliyor mu
   - `pilot-day-zero-manifest.json` icindeki frontend/api/streamlit URL'leri, service name'ler ve archive path cekirdek metadata'si artefaktlarla uyumlu mu

@@ -506,7 +506,13 @@ def _check_status_documents(*, output_dir: Path, manifest: dict) -> tuple[bool, 
     return (True, issues)
 
 
-def _check_embedded_verify_reports(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+def _check_embedded_verify_reports(
+    *,
+    output_dir: Path,
+    manifest: dict,
+    expected_manifest_core_checked: bool | None = None,
+    expected_manifest_core_ok: bool | None = None,
+) -> tuple[bool, list[str]]:
     issues: list[str] = []
     verify_json_path = output_dir / "pilot-day-zero-verify.json"
     verify_markdown_path = output_dir / "pilot-day-zero-verify.md"
@@ -532,6 +538,11 @@ def _check_embedded_verify_reports(*, output_dir: Path, manifest: dict) -> tuple
     if verify_payload.get("recommended_next_step") != manifest.get("verify_recommended_next_step"):
         issues.append("pilot-day-zero-verify.json icinde recommended_next_step manifestle uyusmuyor")
 
+    if expected_manifest_core_checked is not None and verify_payload.get("manifest_core_checked") != expected_manifest_core_checked:
+        issues.append("pilot-day-zero-verify.json icinde manifest_core_checked guncel verify sonucu ile uyusmuyor")
+    if expected_manifest_core_ok is not None and verify_payload.get("manifest_core_ok") != expected_manifest_core_ok:
+        issues.append("pilot-day-zero-verify.json icinde manifest_core_ok guncel verify sonucu ile uyusmuyor")
+
     if manifest.get("smoke_included"):
         if verify_payload.get("smoke_overall_ok") != manifest.get("smoke_overall_ok"):
             issues.append("pilot-day-zero-verify.json icinde smoke_overall_ok manifestle uyusmuyor")
@@ -544,6 +555,10 @@ def _check_embedded_verify_reports(*, output_dir: Path, manifest: dict) -> tuple
         f"- Archive: `{expected_archive}`",
         f"- Recommended Next Step: {expected_next_step}",
     ]
+    if expected_manifest_core_checked is not None:
+        expected_markdown_snippets.append(
+            f"- Manifest Core: `{'PASS' if expected_manifest_core_ok else 'FAIL'}`"
+        )
     for snippet in expected_markdown_snippets:
         if snippet not in verify_markdown:
             issues.append(f"pilot-day-zero-verify.md icinde beklenen satir eksik: {snippet}")
@@ -842,12 +857,6 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(report_issues)
 
-    verify_reports_checked, verify_report_issues = _check_embedded_verify_reports(
-        output_dir=output_dir,
-        manifest=manifest,
-    )
-    consistency_issues.extend(verify_report_issues)
-
     manifest_summary_checked, manifest_summary_issues = _check_manifest_summary(
         output_dir=output_dir,
         manifest=manifest,
@@ -865,6 +874,14 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         manifest=manifest,
     )
     consistency_issues.extend(manifest_core_issues)
+
+    verify_reports_checked, verify_report_issues = _check_embedded_verify_reports(
+        output_dir=output_dir,
+        manifest=manifest,
+        expected_manifest_core_checked=manifest_core_checked,
+        expected_manifest_core_ok=(not manifest_core_issues) if manifest_core_checked else None,
+    )
+    consistency_issues.extend(verify_report_issues)
 
     passed = not missing_files and not consistency_issues
     recommended_next_step = (
