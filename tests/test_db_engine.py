@@ -119,6 +119,29 @@ class DbEngineConfigTests(TestCase):
     @patch.dict(
         os.environ,
         {
+            "DATABASE_URL": "postgresql://env-user:env-pass@aws-1-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require",
+        },
+        clear=True,
+    )
+    def test_build_database_diagnostics_snapshot_highlights_supabase_pooler(self) -> None:
+        with patch.object(db_engine.st, "secrets", {}):
+            snapshot = db_engine.build_database_diagnostics_snapshot()
+
+        self.assertIn("Supabase pooler", snapshot["summary"])
+        self.assertTrue(any("DATABASE_URL" in item for item in snapshot["checklist"]))
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_build_database_diagnostics_snapshot_reports_missing_source(self) -> None:
+        with patch.object(db_engine.st, "secrets", {}):
+            snapshot = db_engine.build_database_diagnostics_snapshot()
+
+        self.assertEqual(snapshot["sources"], [])
+        self.assertIn("okunabilir bir veritabani kaynagi bulamiyor", snapshot["summary"])
+        self.assertTrue(any("yeniden deploy" in item for item in snapshot["checklist"]))
+
+    @patch.dict(
+        os.environ,
+        {
             "DATABASE_URL": "postgresql://env-user:env-pass@env-host:5432/postgres?sslmode=require",
         },
         clear=True,

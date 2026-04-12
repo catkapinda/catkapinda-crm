@@ -37,6 +37,7 @@ from ui.dashboard_sections import (
     render_dashboard_summary_cards,
 )
 from infrastructure.db_engine import (
+    build_database_diagnostics_snapshot,
     CompatConnection,
     adapt_sql,
     configure_db_engine,
@@ -7621,6 +7622,9 @@ def main() -> None:
         st.info("Birkaç saniye sonra sayfayi yenileyip tekrar deneyin. Sorun devam ederse teknik detaylari kontrol edelim.")
         with st.expander("Teknik detay"):
             st.write(str(exc))
+            diagnostics = build_database_diagnostics_snapshot()
+            st.markdown("**Muhtemel durum**")
+            st.markdown(f"- {diagnostics['summary']}")
             source_lines = [
                 f"- `{entry['label']}` ({entry['type']}) -> `{entry['target']}`"
                 for entry in describe_database_config_sources()
@@ -7631,6 +7635,8 @@ def main() -> None:
             else:
                 st.markdown("**Bulunan baglanti kaynaklari**")
                 st.markdown("- Veritabanı için okunabilen bir env/secrets kaynağı bulunamadı.")
+            st.markdown("**Ilk kontrol sirasi**")
+            st.markdown("\n".join(f"- {item}" for item in diagnostics["checklist"]))
             st.code(
                 'DATABASE_URL = "postgresql://..."\n\n'
                 '[database]\n'

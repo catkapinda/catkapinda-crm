@@ -230,6 +230,36 @@ def describe_database_config_sources() -> list[dict[str, str]]:
     return sources
 
 
+def build_database_diagnostics_snapshot() -> dict[str, Any]:
+    sources = describe_database_config_sources()
+    labels = {entry["label"] for entry in sources}
+    targets = " ".join(entry["target"] for entry in sources).lower()
+
+    if not sources:
+        summary = "Uygulama staging tarafinda okunabilir bir veritabani kaynagi bulamiyor."
+    elif "supabase" in targets or "pooler" in targets:
+        summary = "Veritabani kaynagi bulundu; sorun daha cok staging ile Supabase pooler arasindaki erisim veya credential tarafinda gorunuyor."
+    else:
+        summary = "Veritabani kaynagi bulundu; sorun baglanti kurulurken erisim ya da credential tarafinda gorunuyor."
+
+    checklist: list[str] = []
+    if "render_database_url" in labels:
+        checklist.append("Render staging Environment icindeki DATABASE_URL degerini kontrol et.")
+    if "render_split_database_env" in labels:
+        checklist.append("Render staging tarafindaki DB_HOST / DB_USER / DB_PASSWORD alanlarini kontrol et.")
+    if any(label.startswith("streamlit_") for label in labels):
+        checklist.append("Streamlit secrets fallback degerleri eski ya da farkliysa staging ile ayni oldugunu kontrol et.")
+    checklist.append("Env degisikligi yapildiysa staging servisine yeniden deploy ver.")
+    if "supabase" in targets or "pooler" in targets:
+        checklist.append("Supabase pooler tarafinda anlik erisim ya da limit sorunu olup olmadigini kontrol et.")
+
+    return {
+        "sources": sources,
+        "summary": summary,
+        "checklist": checklist,
+    }
+
+
 def get_database_config() -> str | dict[str, Any] | None:
     candidates = _iter_database_config_candidates()
     return candidates[0][1] if candidates else None
