@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import zipfile
+from copy import deepcopy
 
 
 DEFAULT_OUTPUT_DIR = "pilot-day-zero"
@@ -55,6 +56,30 @@ def _parse_env_bundle(path: Path) -> dict[str, dict[str, str]]:
             key, value = line.split("=", 1)
             sections[current_section][key.strip()] = value.strip()
     return sections
+
+
+def _render_env_bundle(bundle: dict[str, dict[str, str]]) -> str:
+    lines: list[str] = []
+    for service_name, envs in bundle.items():
+        lines.append(f"[{service_name}]")
+        for key, value in envs.items():
+            lines.append(f"{key}={value}")
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+def _extract_fenced_block(content: str, language: str) -> str | None:
+    start_token = f"```{language}"
+    start_index = content.find(start_token)
+    if start_index == -1:
+        return None
+    block_start = content.find("\n", start_index)
+    if block_start == -1:
+        return None
+    block_end = content.find("\n```", block_start + 1)
+    if block_end == -1:
+        return None
+    return content[block_start + 1:block_end].strip()
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -550,6 +575,8 @@ def _check_launch_packets(*, output_dir: Path, manifest: dict) -> tuple[bool, li
             "cutover_mode": "redirect",
         },
     }
+    render_bundle_json_path = output_dir / "render-env-bundle.json"
+    rendered_base_bundle = _read_json(render_bundle_json_path) if render_bundle_json_path.exists() else {}
 
     for filename, packet_meta in expected_packets.items():
         path = output_dir / filename
@@ -583,6 +610,18 @@ def _check_launch_packets(*, output_dir: Path, manifest: dict) -> tuple[bool, li
         for snippet in expected_snippets:
             if snippet not in content:
                 issues.append(f"{packet_meta['label']} icinde beklenen satir eksik: {snippet}")
+
+        if rendered_base_bundle:
+            packet_env_block = _extract_fenced_block(content, "dotenv")
+            if not packet_env_block:
+                issues.append(f"{packet_meta['label']} icinde dotenv blogu bulunamadi")
+            else:
+                expected_bundle = deepcopy(rendered_base_bundle)
+                if streamlit_service in expected_bundle:
+                    expected_bundle[streamlit_service]["CK_V2_CUTOVER_MODE"] = packet_meta["cutover_mode"]
+                expected_env_block = _render_env_bundle(expected_bundle)
+                if packet_env_block != expected_env_block:
+                    issues.append(f"{packet_meta['label']} icindeki gomulu env blogu render bundle ile uyusmuyor")
 
     return (True, issues)
 

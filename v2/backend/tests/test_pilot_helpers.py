@@ -1470,7 +1470,7 @@ def test_day_zero_verify_fails_when_launch_packet_env_block_drifts(monkeypatch, 
     assert result["passed"] is False
     assert result["packet_checked"] is True
     assert result["packet_ok"] is False
-    assert any("pilot-launch.md" in item for item in result["consistency_issues"])
+    assert any("pilot-launch.md" in item and "env blogu" in item for item in result["consistency_issues"])
 
 
 def test_day_zero_verify_fails_when_preflight_summary_is_stale(monkeypatch, tmp_path: Path):

@@ -151,7 +151,7 @@ Pilot day zero kiti icin:
   - env bolumlerinin icinde beklenmeyen stale anahtar kalmis mi
   - streamlit guard json dosyalari dogru mode / base_url / service / gate bilgisi tasiyor mu
   - guarded env dosyalari guard json icindeki env bloguyla birebir uyusuyor mu
-  - pilot launch / cutover paketleri dogru link, komut ve gomulu env bloklarini tasiyor mu
+  - pilot launch / cutover paketleri dogru link, komut ve gomulu env bloklarinin butununu tasiyor mu
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlari karar/gate/release satirlarini guncel tasiyor mu
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalari manifestteki verify sonucu ile uyumlu mu
   - gomulu verify raporlari `Release Snapshot`, `Env Payloads`, `Launch Packets` ve `Manifest Core/Summary/Files` sonuclarini da guncel verify ile ayni tasiyor mu
