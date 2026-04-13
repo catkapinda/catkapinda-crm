@@ -387,9 +387,41 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert "verify_markdown" in manifest["files"]
     assert "CK_V2_CUTOVER_MODE=banner" in (tmp_path / "streamlit-banner-guarded.env").read_text(encoding="utf-8")
     assert "# guard blocked redirect env" in (tmp_path / "streamlit-redirect-guarded.env").read_text(encoding="utf-8")
+    embedded_verify = json.loads((tmp_path / "pilot-day-zero-verify.json").read_text(encoding="utf-8"))
+    assert embedded_verify["verify_reports_checked"] is True
+    assert embedded_verify["verify_reports_ok"] is True
     start_here = (tmp_path / "00-START-HERE.md").read_text(encoding="utf-8")
     assert "Verify: `PASS`" in start_here
     assert "Day-zero kiti kullanima hazir." in start_here
+
+
+def test_day_zero_bundle_embeds_final_verify_snapshot(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    embedded_verify = json.loads((tmp_path / "pilot-day-zero-verify.json").read_text(encoding="utf-8"))
+    fresh_verify = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert embedded_verify["passed"] == fresh_verify["passed"]
+    assert embedded_verify["verify_reports_checked"] == fresh_verify["verify_reports_checked"]
+    assert embedded_verify["verify_reports_ok"] == fresh_verify["verify_reports_ok"]
+    assert embedded_verify["manifest_core_checked"] == fresh_verify["manifest_core_checked"]
+    assert embedded_verify["manifest_core_ok"] == fresh_verify["manifest_core_ok"]
 
 
 def test_day_zero_bundle_normalizes_output_dir_before_manifest(monkeypatch, tmp_path: Path):

@@ -132,6 +132,7 @@ Pilot day zero kiti icin:
 - ayni output klasorune yeniden kit ureteceksen:
   - `python v2/scripts/pilot_day_zero.py --base-url https://<v2-frontend-domain> --api-url https://<v2-api-domain> --output-dir pilot-day-zero --fresh-output`
   - bu flag mevcut output klasorunu ve ayni isimli zip arsivini temizleyip kiti bastan kurar
+- `pilot_day_zero.py` verify raporunu iki asamada gunceller; bu sayede bundle icindeki `pilot-day-zero-verify.*` dosyalari final kitin kendisini anlatir
 - `pilot_day_zero.py` bundle klasorunu canonical path ile manifestler; boylece `/var` ve `/private` alias path farklari verify tarafinda gereksiz fail uretmez
 - `pilot_day_zero_verify.py` da manifest ve embedded verify icindeki path alanlarini canonical olarak karsilastirir; symlink/alias path kullanimi dogru bundle'larda sahte blokaj yaratmaz
 - smoke ile uretilen kitlerde verify ayrica:

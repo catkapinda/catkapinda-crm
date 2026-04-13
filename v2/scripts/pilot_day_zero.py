@@ -184,6 +184,19 @@ def _build_integrity_manifest(*, output_dir: Path, manifest: dict) -> dict:
     }
 
 
+def _apply_verify_result_to_manifest(*, manifest: dict, verify_result: dict, smoke_report: dict | None) -> None:
+    manifest["verify_passed"] = verify_result["passed"]
+    manifest["verify_missing_files_count"] = len(verify_result["missing_files"])
+    manifest["verify_consistency_issues_count"] = len(verify_result["consistency_issues"])
+    manifest["verify_recommended_next_step"] = verify_result["recommended_next_step"]
+    manifest["verify_archive_exists"] = verify_result["archive_exists"]
+    manifest["smoke_overall_ok"] = smoke_report["overall_ok"] if smoke_report else None
+    manifest["smoke_failed_count"] = smoke_report["failed_count"] if smoke_report else None
+    manifest["smoke_recommended_next_step"] = (
+        smoke_report["decision"]["recommended_next_step"] if smoke_report else None
+    )
+
+
 def build_day_zero_bundle(
     *,
     frontend_url: str,
@@ -388,26 +401,21 @@ def build_day_zero_bundle(
     (output_dir / "pilot-day-zero-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     _zip_directory(output_dir, archive_path)
 
-    verify_result = verify_day_zero_bundle(output_dir)
+    initial_verify_result = verify_day_zero_bundle(output_dir)
     (output_dir / "pilot-day-zero-verify.json").write_text(
-        json.dumps(verify_result, ensure_ascii=False, indent=2) + "\n",
+        json.dumps(initial_verify_result, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     (output_dir / "pilot-day-zero-verify.md").write_text(
-        render_verify_markdown_report(verify_result) + "\n",
+        render_verify_markdown_report(initial_verify_result) + "\n",
         encoding="utf-8",
     )
     manifest["files"]["verify_json"] = str(output_dir / "pilot-day-zero-verify.json")
     manifest["files"]["verify_markdown"] = str(output_dir / "pilot-day-zero-verify.md")
-    manifest["verify_passed"] = verify_result["passed"]
-    manifest["verify_missing_files_count"] = len(verify_result["missing_files"])
-    manifest["verify_consistency_issues_count"] = len(verify_result["consistency_issues"])
-    manifest["verify_recommended_next_step"] = verify_result["recommended_next_step"]
-    manifest["verify_archive_exists"] = verify_result["archive_exists"]
-    manifest["smoke_overall_ok"] = smoke_report["overall_ok"] if smoke_report else None
-    manifest["smoke_failed_count"] = smoke_report["failed_count"] if smoke_report else None
-    manifest["smoke_recommended_next_step"] = (
-        smoke_report["decision"]["recommended_next_step"] if smoke_report else None
+    _apply_verify_result_to_manifest(
+        manifest=manifest,
+        verify_result=initial_verify_result,
+        smoke_report=smoke_report,
     )
     (output_dir / "pilot-day-zero-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (output_dir / "00-START-HERE.md").write_text(
@@ -421,8 +429,51 @@ def build_day_zero_bundle(
             banner_guard_allowed=banner_guard["allowed"],
             redirect_guard_allowed=cutover_guard["allowed"],
             release_snapshot=manifest["release_snapshot"],
-            verify_passed=verify_result["passed"],
-            verify_next_step=verify_result["recommended_next_step"],
+            verify_passed=initial_verify_result["passed"],
+            verify_next_step=initial_verify_result["recommended_next_step"],
+            smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,
+            smoke_next_step=smoke_report["decision"]["recommended_next_step"] if smoke_report else None,
+        ),
+        encoding="utf-8",
+    )
+    manifest["integrity"] = _build_integrity_manifest(output_dir=output_dir, manifest=manifest)
+    (output_dir / "pilot-day-zero-manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    _zip_directory(output_dir, archive_path)
+
+    final_verify_result = verify_day_zero_bundle(output_dir)
+    (output_dir / "pilot-day-zero-verify.json").write_text(
+        json.dumps(final_verify_result, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "pilot-day-zero-verify.md").write_text(
+        render_verify_markdown_report(final_verify_result) + "\n",
+        encoding="utf-8",
+    )
+    _apply_verify_result_to_manifest(
+        manifest=manifest,
+        verify_result=final_verify_result,
+        smoke_report=smoke_report,
+    )
+    (output_dir / "pilot-day-zero-manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "00-START-HERE.md").write_text(
+        _build_start_here_markdown(
+            generated_at=generated_at,
+            frontend_url=frontend_url,
+            api_url=api_url,
+            streamlit_url=streamlit_url,
+            pilot_gate_passed=preflight_result["pilot_gate"]["passed"],
+            cutover_gate_passed=preflight_result["cutover_gate"]["passed"],
+            banner_guard_allowed=banner_guard["allowed"],
+            redirect_guard_allowed=cutover_guard["allowed"],
+            release_snapshot=manifest["release_snapshot"],
+            verify_passed=final_verify_result["passed"],
+            verify_next_step=final_verify_result["recommended_next_step"],
             smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,
             smoke_next_step=smoke_report["decision"]["recommended_next_step"] if smoke_report else None,
         ),
