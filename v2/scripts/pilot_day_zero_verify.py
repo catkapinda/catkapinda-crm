@@ -205,6 +205,38 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
 
     smoke_payload = _read_json(smoke_json_path)
     smoke_markdown = smoke_markdown_path.read_text(encoding="utf-8").strip()
+    smoke_results = [
+        result
+        for result in (smoke_payload.get("results") or [])
+        if isinstance(result, dict)
+    ]
+    derived_passed_count = smoke_payload.get("passed_count")
+    if derived_passed_count is None:
+        if smoke_results:
+            derived_passed_count = sum(1 for result in smoke_results if result.get("ok"))
+        else:
+            derived_passed_count = 1 if smoke_payload.get("overall_ok") else 0
+
+    if smoke_results:
+        actual_passed_count = sum(1 for result in smoke_results if result.get("ok"))
+        actual_failed_count = sum(1 for result in smoke_results if not result.get("ok"))
+        if smoke_payload.get("passed_count") is not None and int(smoke_payload.get("passed_count") or 0) != actual_passed_count:
+            issues.append("pilot-smoke-live.json icinde passed_count result listesiyle uyusmuyor")
+        if smoke_payload.get("failed_count") is not None and int(smoke_payload.get("failed_count") or 0) != actual_failed_count:
+            issues.append("pilot-smoke-live.json icinde failed_count result listesiyle uyusmuyor")
+        if smoke_payload.get("overall_ok") is not None and bool(smoke_payload.get("overall_ok")) != (actual_failed_count == 0):
+            issues.append("pilot-smoke-live.json icinde overall_ok result listesiyle uyusmuyor")
+
+        decision = smoke_payload.get("decision") or {}
+        failing_checks = decision.get("failing_checks")
+        if isinstance(failing_checks, list):
+            expected_failing_checks = [
+                str(result.get("name"))
+                for result in smoke_results
+                if not result.get("ok") and result.get("name")
+            ]
+            if set(map(str, failing_checks)) != set(expected_failing_checks):
+                issues.append("pilot-smoke-live.json icinde failing_checks result listesiyle uyusmuyor")
 
     expected_overall_ok = manifest.get("smoke_overall_ok")
     if expected_overall_ok is not None and bool(smoke_payload.get("overall_ok")) != bool(expected_overall_ok):
@@ -227,6 +259,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
 
     expected_markdown_snippets = [
         f"- Overall OK: `{smoke_payload.get('overall_ok')}`",
+        f"- Passed: `{derived_passed_count}`",
         f"- Failed: `{smoke_payload.get('failed_count')}`",
     ]
     decision = smoke_payload.get("decision") or {}
@@ -238,14 +271,15 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         expected_markdown_snippets.append(
             f"- Recommended Next Step: {decision.get('recommended_next_step')}"
         )
+    if decision.get("failing_checks") is not None:
+        failing_checks_text = ", ".join(map(str, decision.get("failing_checks") or [])) or "-"
+        expected_markdown_snippets.append(f"- Failing Checks: `{failing_checks_text}`")
 
     for snippet in expected_markdown_snippets:
         if snippet not in smoke_markdown:
             issues.append(f"pilot-smoke-live.md icinde beklenen smoke satiri eksik: {snippet}")
 
-    for result in smoke_payload.get("results") or []:
-        if not isinstance(result, dict):
-            continue
+    for result in smoke_results:
         result_label = "OK" if result.get("ok") else "FAIL"
         detail = str(result.get("detail") or "").replace("\n", " ").replace("|", "\\|")
         expected_row = f"| `{result.get('name')}` | **{result_label}** | {detail} |"
