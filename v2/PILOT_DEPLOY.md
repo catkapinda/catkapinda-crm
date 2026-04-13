@@ -140,6 +140,7 @@ Pilot day zero kiti icin:
   - release snapshot ile pilot-status-live.json ayni build bilgisini veriyor mu
   - `00-START-HERE.md` icindeki rehber satirlari manifest durumuyla uyusuyor mu
   - render-env-bundle / render-env-bundle.json / streamlit banner / streamlit redirect env dosyalari dogru URL ve mode'u tasiyor mu
+  - env dosyalarinda manifestte olmayan stale / beklenmeyen servis bolumu kalmis mi
   - streamlit guard json dosyalari dogru mode / base_url / service / gate bilgisi tasiyor mu
   - pilot launch / cutover paketleri dogru link ve komutlari tasiyor mu
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlari karar/gate/release satirlarini guncel tasiyor mu

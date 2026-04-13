@@ -395,6 +395,20 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
     render_bundle_json = _read_json(render_bundle_json_path)
     banner_bundle = _parse_env_bundle(banner_env_path)
     redirect_bundle = _parse_env_bundle(redirect_env_path)
+    expected_render_services = {
+        value
+        for value in (api_service, frontend_service, streamlit_service)
+        if value
+    }
+    actual_render_services = set(render_bundle.keys())
+    if actual_render_services != expected_render_services:
+        issues.append("render-env-bundle.env icindeki servis bolumleri manifest service_names ile uyusmuyor")
+    actual_banner_services = set(banner_bundle.keys())
+    if actual_banner_services != ({streamlit_service} if streamlit_service else set()):
+        issues.append("streamlit-banner.env icinde beklenmeyen servis bolumu var")
+    actual_redirect_services = set(redirect_bundle.keys())
+    if actual_redirect_services != ({streamlit_service} if streamlit_service else set()):
+        issues.append("streamlit-redirect.env icinde beklenmeyen servis bolumu var")
 
     if api_service not in render_bundle:
         issues.append(f"render-env-bundle.env icinde API servisi eksik: {api_service}")
