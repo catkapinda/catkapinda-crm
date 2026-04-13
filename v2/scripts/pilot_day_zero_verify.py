@@ -204,6 +204,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         return (False, issues, None)
 
     smoke_payload = _read_json(smoke_json_path)
+    smoke_markdown = smoke_markdown_path.read_text(encoding="utf-8").strip()
 
     expected_overall_ok = manifest.get("smoke_overall_ok")
     if expected_overall_ok is not None and bool(smoke_payload.get("overall_ok")) != bool(expected_overall_ok):
@@ -223,6 +224,24 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         issues.append(
             "Manifest smoke_recommended_next_step degeri ile pilot-smoke-live.json uyusmuyor"
         )
+
+    expected_markdown_snippets = [
+        f"- Overall OK: `{smoke_payload.get('overall_ok')}`",
+        f"- Failed: `{smoke_payload.get('failed_count')}`",
+    ]
+    decision = smoke_payload.get("decision") or {}
+    if decision.get("status") is not None:
+        expected_markdown_snippets.append(f"- Status: `{decision.get('status')}`")
+    if decision.get("headline"):
+        expected_markdown_snippets.append(f"- Headline: {decision.get('headline')}")
+    if decision.get("recommended_next_step"):
+        expected_markdown_snippets.append(
+            f"- Recommended Next Step: {decision.get('recommended_next_step')}"
+        )
+
+    for snippet in expected_markdown_snippets:
+        if snippet not in smoke_markdown:
+            issues.append(f"pilot-smoke-live.md icinde beklenen smoke satiri eksik: {snippet}")
 
     return (not issues, issues, smoke_payload)
 
