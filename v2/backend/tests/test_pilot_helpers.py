@@ -521,6 +521,51 @@ def test_day_zero_bundle_can_surface_embedded_smoke_summary(monkeypatch, tmp_pat
     assert "Frontend ready blokajini kapat." in start_here
 
 
+def test_day_zero_bundle_can_freshen_existing_output_dir(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    first_manifest = pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+    assert first_manifest["verify_passed"] is True
+
+    stale_file = tmp_path / "stale-note.txt"
+    stale_file.write_text("eski arti dosya", encoding="utf-8")
+
+    refreshed_manifest = pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+        fresh_output=True,
+    )
+
+    assert refreshed_manifest["verify_passed"] is True
+    assert stale_file.exists() is False
+    verify_result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+    assert verify_result["passed"] is True
+
+
 def test_day_zero_can_derive_api_url_from_status_payload():
     derived = pilot_day_zero._derive_api_url(sample_payload())
 

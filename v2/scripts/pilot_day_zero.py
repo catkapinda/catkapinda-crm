@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import zipfile
 
 from pilot_cutover_guard import build_guard_result, render_env_text as render_guard_env_text
@@ -147,6 +148,16 @@ def _zip_directory(source_dir: Path, zip_path: Path) -> None:
                 archive.write(path, arcname=path.relative_to(source_dir))
 
 
+def _clear_output_dir(output_dir: Path) -> None:
+    if not output_dir.exists():
+        return
+    for path in sorted(output_dir.iterdir(), reverse=True):
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+
+
 def _sha256_path(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -188,6 +199,7 @@ def build_day_zero_bundle(
     frontend_service_name: str,
     streamlit_service_name: str,
     include_smoke: bool = False,
+    fresh_output: bool = False,
     smoke_identity: str | None = None,
     smoke_password: str | None = None,
     smoke_preset: str | None = None,
@@ -196,6 +208,11 @@ def build_day_zero_bundle(
 ) -> dict:
     generated_at = datetime.now(UTC).isoformat()
     output_dir = output_dir.resolve()
+    archive_path = output_dir.parent / f"{output_dir.name}.zip"
+    if fresh_output:
+        _clear_output_dir(output_dir)
+        if archive_path.exists():
+            archive_path.unlink()
     output_dir.mkdir(parents=True, exist_ok=True)
     status_payload = fetch_pilot_status(frontend_url, timeout)
 
@@ -367,7 +384,6 @@ def build_day_zero_bundle(
         ),
         encoding="utf-8",
     )
-    archive_path = output_dir.parent / f"{output_dir.name}.zip"
     manifest["archive_path"] = str(archive_path)
     (output_dir / "pilot-day-zero-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     _zip_directory(output_dir, archive_path)
@@ -485,6 +501,11 @@ def main() -> int:
         help="Directory where all artifacts will be written",
     )
     parser.add_argument(
+        "--fresh-output",
+        action="store_true",
+        help="Wipe the existing output directory and matching zip before rebuilding the kit.",
+    )
+    parser.add_argument(
         "--database-url",
         default="<mevcut-postgresql-url>",
         help="Shared PostgreSQL URL placeholder or real value",
@@ -571,6 +592,7 @@ def main() -> int:
         frontend_service_name=args.frontend_service_name.strip(),
         streamlit_service_name=args.streamlit_service_name.strip(),
         include_smoke=args.include_smoke,
+        fresh_output=args.fresh_output,
         smoke_identity=args.smoke_identity.strip() or None,
         smoke_password=args.smoke_password.strip() or None,
         smoke_preset=args.smoke_preset,
