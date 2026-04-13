@@ -285,6 +285,10 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         expected_markdown_snippets.append(f"- Status: `{decision.get('status')}`")
     if decision.get("headline"):
         expected_markdown_snippets.append(f"- Headline: {decision.get('headline')}")
+    if "primary_blocker" in decision:
+        expected_markdown_snippets.append(
+            f"- Primary Blocker: {decision.get('primary_blocker') or '-'}"
+        )
     if decision.get("recommended_next_step"):
         expected_markdown_snippets.append(
             f"- Recommended Next Step: {decision.get('recommended_next_step')}"
