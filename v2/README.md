@@ -190,7 +190,8 @@ Pilot day zero kit helper:
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlarinin karar/gate/release satirlarini guncel tutup tutmadigini
   - `pilot-smoke-live.md` raporunun `pilot-smoke-live.json` ile, check tablosu dahil, birebir uyumlu kalip kalmadigini
   - `pilot-smoke-live.json` icindeki passed/failed/overall ve failing_checks alanlarinin result listesiyle tutarli kalip kalmadigini
-  - `pilot-smoke-live.json` icindeki decision alanlarinin (`status`, `headline`, `recommended_next_step`) result listesiyle tutarli kalip kalmadigini
+  - `pilot-smoke-live.json` icindeki cekirdek decision alanlarinin (`status`, `headline`, `primary_blocker`) result listesiyle tutarli kalip kalmadigini
+  - smoke dahil kitlerde `pilot-smoke-live.json` icinde result listesinin bos kalip kalmadigini
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalarinin manifestteki verify sonucu ile uyumlu kalip kalmadigini
   - gomulu verify raporlarinin `Release Snapshot`, `Env Payloads`, `Launch Packets` ve `Manifest Core/Summary/Files` durumlarini da guncel verify ile ayni tasiyip tasimadigini
   - `pilot-day-zero-manifest.json` icindeki gate/guard/verify ozet alanlarinin alttaki json raporlarla uyumlu kalip kalmadigini

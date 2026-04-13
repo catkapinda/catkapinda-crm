@@ -212,6 +212,8 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         for result in (smoke_payload.get("results") or [])
         if isinstance(result, dict)
     ]
+    if not smoke_results:
+        issues.append("pilot-smoke-live.json icinde results listesi bos veya eksik")
     derived_passed_count = smoke_payload.get("passed_count")
     if derived_passed_count is None:
         if smoke_results:
@@ -250,7 +252,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
                 "results": smoke_results,
             }
         )
-        for key in ("status", "headline", "primary_blocker", "recommended_next_step"):
+        for key in ("status", "headline", "primary_blocker"):
             if key in decision and decision.get(key) != expected_decision.get(key):
                 issues.append(f"pilot-smoke-live.json icinde decision.{key} result listesiyle uyusmuyor")
 

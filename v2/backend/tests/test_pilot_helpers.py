@@ -121,6 +121,34 @@ def write_valid_preflight_artifacts(
     }
 
     base_url = "https://pilot.example.com"
+    normalized_smoke_report = None
+    if smoke_report is not None:
+        raw_smoke_report = json.loads(json.dumps(smoke_report))
+        smoke_results = raw_smoke_report.get("results") or []
+        passed_count = raw_smoke_report.get("passed_count")
+        if passed_count is None:
+            passed_count = sum(1 for result in smoke_results if result.get("ok")) if smoke_results else (1 if raw_smoke_report["overall_ok"] else 0)
+        failed_count = raw_smoke_report.get("failed_count")
+        if failed_count is None:
+            failed_count = sum(1 for result in smoke_results if not result.get("ok"))
+        normalized_smoke_report = {
+            "base_url": base_url,
+            "preset": None,
+            "generated_at": "2026-01-01T00:00:00+00:00",
+            "timeout_seconds": 5,
+            "identity_provided": False,
+            "legacy_url": None,
+            "legacy_cutover_mode": None,
+            "overall_ok": raw_smoke_report["overall_ok"],
+            "passed_count": passed_count,
+            "failed_count": failed_count,
+            "results": smoke_results,
+        }
+        normalized_smoke_report["decision"] = {
+            **pilot_smoke.build_decision_summary(normalized_smoke_report),
+            **(raw_smoke_report.get("decision") or {}),
+        }
+
     (output_dir / "pilot-status-live.md").write_text(
         pilot_status_report.build_markdown_report(base_url=base_url, payload=payload),
         encoding="utf-8",
@@ -136,7 +164,7 @@ def write_valid_preflight_artifacts(
             pilot_gate=pilot_gate_result,
             cutover_gate=cutover_gate_result,
             output_dir=output_dir,
-            smoke_report=smoke_report,
+            smoke_report=normalized_smoke_report,
         ),
         encoding="utf-8",
     )
@@ -148,38 +176,12 @@ def write_valid_preflight_artifacts(
         "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
         "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
     }
-    if smoke_report is not None:
-        smoke_results = smoke_report.get("results") or []
-        passed_count = smoke_report.get("passed_count")
-        if passed_count is None:
-            passed_count = sum(1 for result in smoke_results if result.get("ok")) if smoke_results else (1 if smoke_report["overall_ok"] else 0)
+    if normalized_smoke_report is not None:
         (output_dir / "pilot-smoke-live.md").write_text(
-            pilot_smoke.build_markdown_report(
-                {
-                    "base_url": base_url,
-                    "preset": None,
-                    "generated_at": "2026-01-01T00:00:00+00:00",
-                    "timeout_seconds": 5,
-                    "identity_provided": False,
-                    "legacy_url": None,
-                    "legacy_cutover_mode": None,
-                    "overall_ok": smoke_report["overall_ok"],
-                    "passed_count": passed_count,
-                    "failed_count": smoke_report["failed_count"],
-                    "decision": {
-                        "status": "pass" if smoke_report["overall_ok"] else "blocking",
-                        "headline": "Smoke report",
-                        "primary_blocker": None,
-                        "recommended_next_step": smoke_report["decision"]["recommended_next_step"],
-                        "failing_checks": [],
-                        **(smoke_report.get("decision") or {}),
-                    },
-                    "results": smoke_results,
-                }
-            ),
+            pilot_smoke.build_markdown_report(normalized_smoke_report),
             encoding="utf-8",
         )
-        (output_dir / "pilot-smoke-live.json").write_text(json.dumps(smoke_report), encoding="utf-8")
+        (output_dir / "pilot-smoke-live.json").write_text(json.dumps(normalized_smoke_report), encoding="utf-8")
         files["smoke_markdown"] = str(output_dir / "pilot-smoke-live.md")
         files["smoke_json"] = str(output_dir / "pilot-smoke-live.json")
     return files
@@ -208,23 +210,40 @@ def make_fake_preflight_bundle(
     pilot_gate_result = {**default_pilot_gate, **(pilot_gate_result or {})}
     cutover_gate_result = {**default_cutover_gate, **(cutover_gate_result or {})}
     if smoke_report is not None:
+        raw_smoke_report = dict(smoke_report)
         smoke_report = {
             "overall_ok": False,
             "failed_count": 0,
             "results": [],
-            "decision": {
-                "headline": "Smoke report",
-                "recommended_next_step": "Smoke blokajlarini kapat.",
-                "failing_checks": [],
-            },
+            "decision": {},
             **smoke_report,
         }
         smoke_report["decision"] = {
-            "headline": "Smoke report",
             "recommended_next_step": "Smoke blokajlarini kapat.",
-            "failing_checks": [],
             **(smoke_report.get("decision") or {}),
         }
+        if not smoke_report.get("results"):
+            smoke_report["results"] = (
+                [
+                    {
+                        "name": "frontend_health",
+                        "ok": True,
+                        "detail": "HTTP 200",
+                    }
+                ]
+                if smoke_report.get("overall_ok")
+                else [
+                    {
+                        "name": "frontend_ready",
+                        "ok": False,
+                        "detail": "Synthetic smoke failure",
+                    }
+                ]
+            )
+        if "passed_count" not in raw_smoke_report:
+            smoke_report["passed_count"] = sum(1 for result in smoke_report["results"] if result.get("ok"))
+        if "failed_count" not in raw_smoke_report:
+            smoke_report["failed_count"] = sum(1 for result in smoke_report["results"] if not result.get("ok"))
 
     def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
         files = write_valid_preflight_artifacts(
@@ -240,7 +259,7 @@ def make_fake_preflight_bundle(
             "files": files,
         }
         if smoke_report is not None:
-            result["smoke_report"] = json.loads(json.dumps(smoke_report))
+            result["smoke_report"] = json.loads((output_dir / "pilot-smoke-live.json").read_text(encoding="utf-8"))
         return result
 
     return fake_preflight_bundle
@@ -997,6 +1016,55 @@ def test_day_zero_verify_fails_when_smoke_decision_drifts_from_results(monkeypat
     assert result["passed"] is False
     assert result["smoke_checked"] is True
     assert any("decision.status" in item or "decision.headline" in item for item in result["consistency_issues"])
+
+
+def test_day_zero_verify_fails_when_smoke_results_list_is_missing(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
+                "overall_ok": True,
+                "results": [
+                    {
+                        "name": "frontend_health",
+                        "ok": True,
+                        "detail": "HTTP 200",
+                    }
+                ],
+                "decision": {"recommended_next_step": "Pilot login ekranini ac."},
+            }
+        ),
+    )
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+        include_smoke=True,
+        smoke_preset="pilot",
+    )
+
+    smoke_json_path = tmp_path / "pilot-smoke-live.json"
+    smoke_payload = json.loads(smoke_json_path.read_text(encoding="utf-8"))
+    smoke_payload["results"] = []
+    smoke_json_path.write_text(json.dumps(smoke_payload), encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["smoke_checked"] is True
+    assert any("results listesi" in item for item in result["consistency_issues"])
 
 
 def test_day_zero_verify_fails_when_smoke_archive_member_is_missing(monkeypatch, tmp_path: Path):
