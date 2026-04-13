@@ -148,9 +148,14 @@ def _check_guard_file(
             issues.append(f"{guarded_env_path.name} icinde {expected_token} bulunamadi")
         if "# guard blocked" in content:
             issues.append(f"{guarded_env_path.name} izin varken blok mesajı iceriyor")
+        parsed_guarded_env = _parse_env_bundle(guarded_env_path)
+        if parsed_guarded_env != env_bundle:
+            issues.append(f"{guarded_env_path.name} icindeki env blogu {guard_json_path.name} ile uyusmuyor")
     else:
         if "# guard blocked" not in content:
             issues.append(f"{guarded_env_path.name} guard blokluyken blok mesaji icermiyor")
+        if "[" in content or "=" in content:
+            issues.append(f"{guarded_env_path.name} guard blokluyken env bolumu icermemeli")
 
     return (not issues, issues)
 

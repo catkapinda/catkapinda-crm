@@ -177,6 +177,7 @@ Pilot day zero kit helper:
   - env dosyalarinin ve `render-env-bundle.json` esleniginin dogru URL ve cutover modlarini tasiyip tasimadigini
   - env dosyalarinda manifestte olmayan stale / beklenmeyen servis bolumu kalip kalmadigini
   - guard json dosyalarinin (`streamlit-banner-guard.json`, `streamlit-redirect-guard.json`) dogru mode/base_url/service/gate bilgisi tasiyip tasimadigini
+  - guarded env dosyalarinin guard json icindeki env bloguyla birebir uyumlu kalip kalmadigini
   - `pilot-launch.md` ve `pilot-cutover.md` paketlerinin dogru link ve cutover komutlarini tasiyip tasimadigini
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlarinin karar/gate/release satirlarini guncel tutup tutmadigini
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalarinin manifestteki verify sonucu ile uyumlu kalip kalmadigini
