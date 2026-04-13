@@ -155,6 +155,7 @@ Pilot day zero kiti icin:
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlari karar/gate/release satirlarini guncel tasiyor mu
   - `pilot-smoke-live.md` raporu `pilot-smoke-live.json` ile, check tablosu dahil, birebir uyusuyor mu
   - `pilot-smoke-live.json` icindeki passed/failed/overall ve failing_checks alanlari result listesiyle tutarli mi
+  - `pilot-smoke-live.json` icindeki decision alanlari (`status`, `headline`, `recommended_next_step`) result listesiyle tutarli mi
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalari manifestteki verify sonucu ile uyumlu mu
   - gomulu verify raporlari `Release Snapshot`, `Env Payloads`, `Launch Packets` ve `Manifest Core/Summary/Files` sonuclarini da guncel verify ile ayni tasiyor mu
   - `pilot-day-zero-manifest.json` icindeki gate/guard/verify ozet alanlari alttaki json raporlarla uyumlu mu
