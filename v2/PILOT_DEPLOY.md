@@ -84,6 +84,8 @@ Pilot preflight paketi icin:
 - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight`
 - smoke sonucunu da preflight paketine gommek istersen:
   - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight --include-smoke --preset pilot`
+- ayni output klasorune yeniden preflight ureteceksen:
+  - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight --fresh-output`
 - smoke da exit koduna girsin istersen:
   - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight --include-smoke --preset pilot --strict-smoke`
 - bu helper tek klasorde:
@@ -97,6 +99,7 @@ Pilot preflight paketi icin:
     - smoke json
   uretir
 - pilot gate gecerliyse `0`, degilse `2` ile cikar
+- smoke kapaliyken eski `pilot-smoke-live.*` dosyalari varsa otomatik temizlenir; stale smoke artefakti kalmaz
 
 Pilot cutover guard icin:
 - `python v2/scripts/pilot_cutover_guard.py --base-url https://<v2-frontend-domain> --mode banner`

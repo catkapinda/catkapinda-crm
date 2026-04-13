@@ -5,6 +5,7 @@ import argparse
 from datetime import UTC, datetime
 import json
 from pathlib import Path
+import shutil
 
 from pilot_gate import build_gate_result
 from pilot_smoke import build_markdown_report as build_smoke_markdown_report, build_report as build_smoke_report, run_smoke_checks
@@ -17,6 +18,23 @@ DEFAULT_TIMEOUT = 12
 
 def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _clear_output_dir(output_dir: Path) -> None:
+    if not output_dir.exists():
+        return
+    for path in sorted(output_dir.iterdir(), reverse=True):
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+
+
+def _remove_stale_smoke_files(output_dir: Path) -> None:
+    for filename in ("pilot-smoke-live.md", "pilot-smoke-live.json"):
+        path = output_dir / filename
+        if path.exists():
+            path.unlink()
 
 
 def _build_summary_markdown(
@@ -110,12 +128,16 @@ def build_preflight_bundle(
     timeout: int,
     output_dir: Path,
     include_smoke: bool = False,
+    fresh_output: bool = False,
     identity: str | None = None,
     password: str | None = None,
     preset: str | None = None,
     legacy_url: str | None = None,
     legacy_cutover_mode: str | None = None,
 ) -> dict:
+    output_dir = output_dir.resolve()
+    if fresh_output:
+        _clear_output_dir(output_dir)
     payload = fetch_pilot_status(base_url, timeout)
     pilot_gate = build_gate_result(mode="pilot", payload=payload)
     cutover_gate = build_gate_result(mode="cutover", payload=payload)
@@ -148,6 +170,8 @@ def build_preflight_bundle(
             build_smoke_markdown_report(smoke_report),
             encoding="utf-8",
         )
+    else:
+        _remove_stale_smoke_files(output_dir)
 
     summary_markdown = _build_summary_markdown(
         base_url=base_url,
@@ -244,6 +268,11 @@ def main() -> int:
         action="store_true",
         help="Also run pilot_smoke and embed smoke markdown/json into the preflight bundle.",
     )
+    parser.add_argument(
+        "--fresh-output",
+        action="store_true",
+        help="Wipe the existing output directory before rebuilding the preflight bundle.",
+    )
     parser.add_argument("--identity", default="", help="Optional login identity for embedded smoke")
     parser.add_argument("--password", default="", help="Optional login password for embedded smoke")
     parser.add_argument("--preset", choices=("pilot", "cutover"), default=None, help="Optional pilot_smoke preset")
@@ -267,6 +296,7 @@ def main() -> int:
         timeout=args.timeout,
         output_dir=Path(args.output_dir),
         include_smoke=args.include_smoke,
+        fresh_output=args.fresh_output,
         identity=args.identity.strip() or None,
         password=args.password.strip() or None,
         preset=args.preset,

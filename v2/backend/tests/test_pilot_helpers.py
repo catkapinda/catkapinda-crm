@@ -332,6 +332,46 @@ def test_preflight_bundle_can_embed_smoke_outputs(monkeypatch, tmp_path: Path):
     assert "Smoke Markdown" in summary
 
 
+def test_preflight_bundle_removes_stale_smoke_files_when_smoke_is_disabled(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_preflight, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+
+    (tmp_path / "pilot-smoke-live.md").write_text("stale", encoding="utf-8")
+    (tmp_path / "pilot-smoke-live.json").write_text("{}", encoding="utf-8")
+
+    result = pilot_preflight.build_preflight_bundle(
+        base_url="https://pilot.example.com",
+        timeout=5,
+        output_dir=tmp_path,
+        include_smoke=False,
+    )
+
+    assert result.get("smoke_report") is None
+    assert (tmp_path / "pilot-smoke-live.md").exists() is False
+    assert (tmp_path / "pilot-smoke-live.json").exists() is False
+
+
+def test_preflight_bundle_can_freshen_existing_output_dir(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_preflight, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+
+    pilot_preflight.build_preflight_bundle(
+        base_url="https://pilot.example.com",
+        timeout=5,
+        output_dir=tmp_path,
+    )
+    stale_file = tmp_path / "stale-preflight.txt"
+    stale_file.write_text("eski dosya", encoding="utf-8")
+
+    result = pilot_preflight.build_preflight_bundle(
+        base_url="https://pilot.example.com",
+        timeout=5,
+        output_dir=tmp_path,
+        fresh_output=True,
+    )
+
+    assert result["pilot_gate"]["passed"] is True
+    assert stale_file.exists() is False
+
+
 def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())

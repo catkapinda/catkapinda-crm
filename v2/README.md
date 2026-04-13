@@ -111,6 +111,8 @@ Pilot preflight bundle helper:
   - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight`
 - smoke sonucunu da preflight paketine gommek istersen:
   - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight --include-smoke --preset pilot`
+- ayni output klasorune yeniden preflight ureteceksen:
+  - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight --fresh-output`
 - smoke da exit koduna girsin istersen:
   - `python v2/scripts/pilot_preflight.py --base-url https://<v2-frontend-domain> --output-dir pilot-preflight --include-smoke --preset pilot --strict-smoke`
 - bu helper sunlari birlikte uretir:
@@ -123,6 +125,7 @@ Pilot preflight bundle helper:
     - `pilot-smoke-live.md`
     - `pilot-smoke-live.json`
 - pilot gate gecerliyse `0`, degilse `2` ile cikar
+- smoke kapaliyken eski `pilot-smoke-live.*` dosyalari varsa temizlenir; boylece stale smoke artefakti kalmaz
 
 Pilot cutover guard helper:
 - Streamlit `banner` env'ini yalnizca canli pilot gecerliyse uretmek icin:
