@@ -252,7 +252,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
                 "results": smoke_results,
             }
         )
-        for key in ("status", "headline", "primary_blocker"):
+        for key in ("status", "headline", "primary_blocker", "recommended_next_step"):
             if key in decision and decision.get(key) != expected_decision.get(key):
                 issues.append(f"pilot-smoke-live.json icinde decision.{key} result listesiyle uyusmuyor")
 
