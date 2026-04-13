@@ -818,7 +818,7 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             category="packet",
             command=(
                 "python v2/scripts/pilot_preflight.py "
-                f"--base-url {frontend_url} --output-dir pilot-preflight"
+                f"--base-url {frontend_url} --output-dir pilot-preflight --fresh-output"
             ),
         ),
         PilotHelperCommand(
@@ -827,7 +827,7 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             command=(
                 "python v2/scripts/pilot_preflight.py "
                 f"--base-url {frontend_url} --output-dir pilot-preflight "
-                "--include-smoke --preset pilot"
+                "--fresh-output --include-smoke --preset pilot --strict-smoke"
             ),
         ),
         PilotHelperCommand(
@@ -835,7 +835,8 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             category="packet",
             command=(
                 "python v2/scripts/pilot_day_zero.py "
-                f"--base-url {frontend_url} --api-url {backend_url} --output-dir pilot-day-zero"
+                f"--base-url {frontend_url} --api-url {backend_url} --output-dir pilot-day-zero "
+                "--fresh-output --strict"
             ),
         ),
         PilotHelperCommand(
@@ -844,7 +845,7 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             command=(
                 "python v2/scripts/pilot_day_zero.py "
                 f"--base-url {frontend_url} --api-url {backend_url} --output-dir pilot-day-zero "
-                "--include-smoke --smoke-preset pilot"
+                "--fresh-output --include-smoke --smoke-preset pilot --strict --strict-smoke"
             ),
         ),
         PilotHelperCommand(
@@ -932,7 +933,16 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="7. Guarded Streamlit banner env'ini uret",
+            title="7. Day-zero kitini taze ve strict uret",
+            detail="Tum acilis artefaktlarini sifirdan olustur ve final verify snapshot'ini bundle'a gom.",
+            command=(
+                "python v2/scripts/pilot_day_zero.py "
+                f"--base-url {frontend_url} --api-url {backend_url} --output-dir pilot-day-zero "
+                "--fresh-output --strict"
+            ),
+        ),
+        PilotCommandPackEntry(
+            title="8. Guarded Streamlit banner env'ini uret",
             detail="Canli pilot gate'e gore eski panelde kontrollu gecis kartini guvenli sekilde hazirla.",
             command=(
                 "python v2/scripts/pilot_cutover_guard.py "
@@ -940,7 +950,7 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="8. Day-zero kitini dogrula",
+            title="9. Day-zero kitini dogrula",
             detail="Uretilen klasorde eksik dosya, zip ve guard tutarliligi var mi tek komutta kontrol et.",
             command="python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero",
         ),

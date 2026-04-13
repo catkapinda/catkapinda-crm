@@ -224,24 +224,25 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert helper_map["Live Pilot Status JSON"]["category"] == "packet"
     assert helper_map["Pilot Preflight Bundle"]["command"] == (
         "python v2/scripts/pilot_preflight.py "
-        "--base-url https://pilot.example.com --output-dir pilot-preflight"
+        "--base-url https://pilot.example.com --output-dir pilot-preflight --fresh-output"
     )
     assert helper_map["Pilot Preflight Bundle"]["category"] == "packet"
     assert helper_map["Pilot Preflight + Smoke"]["command"] == (
         "python v2/scripts/pilot_preflight.py "
         "--base-url https://pilot.example.com --output-dir pilot-preflight "
-        "--include-smoke --preset pilot"
+        "--fresh-output --include-smoke --preset pilot --strict-smoke"
     )
     assert helper_map["Pilot Preflight + Smoke"]["category"] == "packet"
     assert helper_map["Pilot Day Zero Kit"]["command"] == (
         "python v2/scripts/pilot_day_zero.py "
-        "--base-url https://pilot.example.com --api-url https://pilot-api.example.com --output-dir pilot-day-zero"
+        "--base-url https://pilot.example.com --api-url https://pilot-api.example.com --output-dir pilot-day-zero "
+        "--fresh-output --strict"
     )
     assert helper_map["Pilot Day Zero Kit"]["category"] == "packet"
     assert helper_map["Pilot Day Zero + Smoke"]["command"] == (
         "python v2/scripts/pilot_day_zero.py "
         "--base-url https://pilot.example.com --api-url https://pilot-api.example.com --output-dir pilot-day-zero "
-        "--include-smoke --smoke-preset pilot"
+        "--fresh-output --include-smoke --smoke-preset pilot --strict --strict-smoke"
     )
     assert helper_map["Pilot Day Zero + Smoke"]["category"] == "packet"
     assert helper_map["Pilot Day Zero Verify"]["command"] == (
@@ -276,9 +277,14 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     )
     assert "--identity ebru@catkapinda.com --password <sifre>" in payload["command_pack"][5]["command"]
     assert payload["command_pack"][6]["command"] == (
+        "python v2/scripts/pilot_day_zero.py "
+        "--base-url https://pilot.example.com --api-url https://pilot-api.example.com --output-dir pilot-day-zero "
+        "--fresh-output --strict"
+    )
+    assert payload["command_pack"][7]["command"] == (
         "python v2/scripts/pilot_cutover_guard.py --base-url https://pilot.example.com --mode banner"
     )
-    assert payload["command_pack"][7]["command"] == "python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero"
+    assert payload["command_pack"][8]["command"] == "python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero"
     assert payload["services"][0]["name"] == "crmcatkapinda-v2"
     assert payload["services"][0]["service_type"] == "frontend"
     assert payload["services"][0]["public_url"] == "https://pilot.example.com"
