@@ -535,6 +535,10 @@ def _check_launch_packets(*, output_dir: Path, manifest: dict) -> tuple[bool, li
     frontend_url = manifest.get("frontend_url")
     api_url = manifest.get("api_url")
     streamlit_url = manifest.get("streamlit_url")
+    service_names = manifest.get("service_names") or {}
+    api_service = service_names.get("api") or ""
+    frontend_service = service_names.get("frontend") or ""
+    streamlit_service = service_names.get("streamlit") or ""
 
     expected_packets = {
         "pilot-launch.md": {
@@ -565,6 +569,16 @@ def _check_launch_packets(*, output_dir: Path, manifest: dict) -> tuple[bool, li
             f"--api-url {api_url}",
             f"--cutover-mode {packet_meta['cutover_mode']}",
             f"6. Streamlit tarafında `{packet_meta['cutover_mode']}` modunu hazırlayıp ofis geçişini başlat.",
+            f"[{api_service}]",
+            f"[{frontend_service}]",
+            f"[{streamlit_service}]",
+            f"CK_V2_RENDER_SERVICE_NAME={api_service}",
+            f"CK_V2_FRONTEND_SERVICE_NAME={frontend_service}",
+            f"CK_V2_FRONTEND_BASE_URL={frontend_url}",
+            f"CK_V2_PUBLIC_APP_URL={frontend_url}",
+            f"CK_V2_API_PUBLIC_URL={api_url}",
+            f"CK_V2_PILOT_URL={frontend_url}",
+            f"CK_V2_CUTOVER_MODE={packet_meta['cutover_mode']}",
         ]
         for snippet in expected_snippets:
             if snippet not in content:

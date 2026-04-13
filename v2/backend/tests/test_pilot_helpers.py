@@ -1439,6 +1439,40 @@ def test_day_zero_verify_fails_when_launch_packet_is_stale(monkeypatch, tmp_path
     assert any("pilot-cutover.md" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_launch_packet_env_block_drifts(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    packet_path = tmp_path / "pilot-launch.md"
+    content = packet_path.read_text(encoding="utf-8").replace(
+        "CK_V2_API_PUBLIC_URL=https://pilot-api.example.com",
+        "CK_V2_API_PUBLIC_URL=https://stale-api.example.com",
+    )
+    packet_path.write_text(content, encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["packet_checked"] is True
+    assert result["packet_ok"] is False
+    assert any("pilot-launch.md" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_preflight_summary_is_stale(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(
