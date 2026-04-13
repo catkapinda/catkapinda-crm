@@ -188,7 +188,7 @@ Pilot day zero kit helper:
   - guarded env dosyalarinin guard json icindeki env bloguyla birebir uyumlu kalip kalmadigini
   - `pilot-launch.md` ve `pilot-cutover.md` paketlerinin dogru link, cutover komutu ve gomulu env bloklarinin butununu tasiyip tasimadigini
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlarinin karar/gate/release satirlarini guncel tutup tutmadigini
-  - `pilot-smoke-live.md` raporunun `pilot-smoke-live.json` ile birebir uyumlu kalip kalmadigini
+  - `pilot-smoke-live.md` raporunun `pilot-smoke-live.json` ile, check tablosu dahil, birebir uyumlu kalip kalmadigini
   - `pilot-day-zero-verify.json` ve `pilot-day-zero-verify.md` dosyalarinin manifestteki verify sonucu ile uyumlu kalip kalmadigini
   - gomulu verify raporlarinin `Release Snapshot`, `Env Payloads`, `Launch Packets` ve `Manifest Core/Summary/Files` durumlarini da guncel verify ile ayni tasiyip tasimadigini
   - `pilot-day-zero-manifest.json` icindeki gate/guard/verify ozet alanlarinin alttaki json raporlarla uyumlu kalip kalmadigini

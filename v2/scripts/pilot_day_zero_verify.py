@@ -243,6 +243,15 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         if snippet not in smoke_markdown:
             issues.append(f"pilot-smoke-live.md icinde beklenen smoke satiri eksik: {snippet}")
 
+    for result in smoke_payload.get("results") or []:
+        if not isinstance(result, dict):
+            continue
+        result_label = "OK" if result.get("ok") else "FAIL"
+        detail = str(result.get("detail") or "").replace("\n", " ").replace("|", "\\|")
+        expected_row = f"| `{result.get('name')}` | **{result_label}** | {detail} |"
+        if expected_row not in smoke_markdown:
+            issues.append(f"pilot-smoke-live.md icinde beklenen check satiri eksik: {result.get('name')}")
+
     return (not issues, issues, smoke_payload)
 
 

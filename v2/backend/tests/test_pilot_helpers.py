@@ -149,6 +149,10 @@ def write_valid_preflight_artifacts(
         "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
     }
     if smoke_report is not None:
+        smoke_results = smoke_report.get("results") or []
+        passed_count = smoke_report.get("passed_count")
+        if passed_count is None:
+            passed_count = sum(1 for result in smoke_results if result.get("ok")) if smoke_results else (1 if smoke_report["overall_ok"] else 0)
         (output_dir / "pilot-smoke-live.md").write_text(
             pilot_smoke.build_markdown_report(
                 {
@@ -160,7 +164,7 @@ def write_valid_preflight_artifacts(
                     "legacy_url": None,
                     "legacy_cutover_mode": None,
                     "overall_ok": smoke_report["overall_ok"],
-                    "passed_count": 1 if smoke_report["overall_ok"] else 0,
+                    "passed_count": passed_count,
                     "failed_count": smoke_report["failed_count"],
                     "decision": {
                         "status": "pass" if smoke_report["overall_ok"] else "blocking",
@@ -168,8 +172,9 @@ def write_valid_preflight_artifacts(
                         "primary_blocker": None,
                         "recommended_next_step": smoke_report["decision"]["recommended_next_step"],
                         "failing_checks": [],
+                        **(smoke_report.get("decision") or {}),
                     },
-                    "results": [],
+                    "results": smoke_results,
                 }
             ),
             encoding="utf-8",
@@ -206,6 +211,7 @@ def make_fake_preflight_bundle(
         smoke_report = {
             "overall_ok": False,
             "failed_count": 0,
+            "results": [],
             "decision": {
                 "headline": "Smoke report",
                 "recommended_next_step": "Smoke blokajlarini kapat.",
@@ -827,6 +833,58 @@ def test_day_zero_verify_fails_when_smoke_markdown_drifts(monkeypatch, tmp_path:
     assert result["passed"] is False
     assert result["smoke_checked"] is True
     assert any("pilot-smoke-live.md" in item for item in result["consistency_issues"])
+
+
+def test_day_zero_verify_fails_when_smoke_markdown_check_table_drifts(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
+                "overall_ok": False,
+                "failed_count": 1,
+                "results": [
+                    {
+                        "name": "frontend_ready",
+                        "ok": False,
+                        "detail": "Backend pilot status alinmadi",
+                    }
+                ],
+                "decision": {"recommended_next_step": "Frontend ready blokajini kapat."},
+            }
+        ),
+    )
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+        include_smoke=True,
+        smoke_preset="pilot",
+    )
+
+    smoke_markdown_path = tmp_path / "pilot-smoke-live.md"
+    content = smoke_markdown_path.read_text(encoding="utf-8").replace(
+        "| `frontend_ready` | **FAIL** | Backend pilot status alinmadi |",
+        "| `frontend_ready` | **OK** | Backend pilot status alinmadi |",
+    )
+    smoke_markdown_path.write_text(content, encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["smoke_checked"] is True
+    assert any("pilot-smoke-live.md" in item and "frontend_ready" in item for item in result["consistency_issues"])
 
 
 def test_day_zero_verify_fails_when_smoke_archive_member_is_missing(monkeypatch, tmp_path: Path):
