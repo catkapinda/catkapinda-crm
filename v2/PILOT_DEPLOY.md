@@ -141,6 +141,7 @@ Pilot day zero kiti icin:
   - `00-START-HERE.md` icindeki rehber satirlari manifest durumuyla uyusuyor mu
   - render-env-bundle / render-env-bundle.json / streamlit banner / streamlit redirect env dosyalari dogru URL ve mode'u tasiyor mu
   - env dosyalarinda manifestte olmayan stale / beklenmeyen servis bolumu kalmis mi
+  - env bolumlerinin icinde beklenmeyen stale anahtar kalmis mi
   - streamlit guard json dosyalari dogru mode / base_url / service / gate bilgisi tasiyor mu
   - guarded env dosyalari guard json icindeki env bloguyla birebir uyusuyor mu
   - pilot launch / cutover paketleri dogru link ve komutlari tasiyor mu

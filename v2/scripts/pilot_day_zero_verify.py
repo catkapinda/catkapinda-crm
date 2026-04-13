@@ -415,6 +415,35 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
     if actual_redirect_services != ({streamlit_service} if streamlit_service else set()):
         issues.append("streamlit-redirect.env icinde beklenmeyen servis bolumu var")
 
+    expected_api_keys = {
+        "CK_V2_APP_ENV",
+        "CK_V2_RENDER_SERVICE_NAME",
+        "CK_V2_DATABASE_URL",
+        "CK_V2_FRONTEND_BASE_URL",
+        "CK_V2_PUBLIC_APP_URL",
+        "CK_V2_API_PUBLIC_URL",
+        "CK_V2_DEFAULT_AUTH_PASSWORD",
+        "AUTH_EBRU_PHONE",
+        "AUTH_MERT_PHONE",
+        "AUTH_MUHAMMED_PHONE",
+        "SMS_PROVIDER",
+        "SMS_API_URL",
+        "SMS_NETGSM_USERNAME",
+        "SMS_NETGSM_PASSWORD",
+        "SMS_SENDER",
+        "SMS_NETGSM_ENCODING",
+    }
+    expected_frontend_keys = {
+        "CK_V2_FRONTEND_SERVICE_NAME",
+        "NEXT_PUBLIC_V2_API_BASE_URL",
+        "NEXT_TELEMETRY_DISABLED",
+        "CK_V2_INTERNAL_API_HOSTPORT",
+    }
+    expected_streamlit_keys = {
+        "CK_V2_PILOT_URL",
+        "CK_V2_CUTOVER_MODE",
+    }
+
     if api_service not in render_bundle:
         issues.append(f"render-env-bundle.env icinde API servisi eksik: {api_service}")
     if frontend_service not in render_bundle:
@@ -436,6 +465,23 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
     streamlit_env_json = render_bundle_json.get(streamlit_service or "", {})
     banner_env = banner_bundle.get(streamlit_service or "", {})
     redirect_env = redirect_bundle.get(streamlit_service or "", {})
+
+    if api_env and set(api_env.keys()) != expected_api_keys:
+        issues.append("render-env-bundle.env icindeki API env anahtarlari beklenen set ile uyusmuyor")
+    if api_env_json and set(api_env_json.keys()) != expected_api_keys:
+        issues.append("render-env-bundle.json icindeki API env anahtarlari beklenen set ile uyusmuyor")
+    if frontend_env and set(frontend_env.keys()) != expected_frontend_keys:
+        issues.append("render-env-bundle.env icindeki frontend env anahtarlari beklenen set ile uyusmuyor")
+    if frontend_env_json and set(frontend_env_json.keys()) != expected_frontend_keys:
+        issues.append("render-env-bundle.json icindeki frontend env anahtarlari beklenen set ile uyusmuyor")
+    if streamlit_env and set(streamlit_env.keys()) != expected_streamlit_keys:
+        issues.append("render-env-bundle.env icindeki streamlit env anahtarlari beklenen set ile uyusmuyor")
+    if streamlit_env_json and set(streamlit_env_json.keys()) != expected_streamlit_keys:
+        issues.append("render-env-bundle.json icindeki streamlit env anahtarlari beklenen set ile uyusmuyor")
+    if banner_env and set(banner_env.keys()) != expected_streamlit_keys:
+        issues.append("streamlit-banner.env icindeki env anahtarlari beklenen set ile uyusmuyor")
+    if redirect_env and set(redirect_env.keys()) != expected_streamlit_keys:
+        issues.append("streamlit-redirect.env icindeki env anahtarlari beklenen set ile uyusmuyor")
 
     if api_env.get("CK_V2_FRONTEND_BASE_URL") != manifest.get("frontend_url"):
         issues.append("render-env-bundle.env icinde CK_V2_FRONTEND_BASE_URL uyusmuyor")
