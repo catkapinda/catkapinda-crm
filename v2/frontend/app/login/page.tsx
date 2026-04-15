@@ -380,6 +380,19 @@ function LoginPageContent() {
     }
   }
 
+  function fillLocalCredentials(email: string) {
+    setIdentity(email);
+    if (localReadyLogin?.defaultPasswordPresent) {
+      setPassword(localReadyLogin.defaultPasswordIsDefault ? "123456" : "");
+    }
+    setError("");
+    setNotice(
+      localReadyLogin?.defaultPasswordIsDefault
+        ? "Yerel sqlite hesabi forma dolduruldu. Bu local modda varsayilan sifre 123456."
+        : "Yerel sqlite hesabi forma dolduruldu. Sifre backend/.env tarafindaki CK_V2_DEFAULT_AUTH_PASSWORD alanindan geliyor.",
+    );
+  }
+
   const localLoginHint = useMemo<LocalLoginHint | null>(() => {
     if (!runningOnLocalhost || isPreviewModeBrowser()) {
       return null;
@@ -933,6 +946,22 @@ function LoginPageContent() {
                         <strong style={{ color: "#16274a" }}>{account.full_name}</strong>
                         <code style={inlineCodeStyle}>{account.email}</code>
                         <span style={{ color: "#5f7294", fontSize: "0.9rem" }}>{account.role}</span>
+                        <button
+                          type="button"
+                          onClick={() => fillLocalCredentials(account.email)}
+                          style={{
+                            marginTop: "6px",
+                            borderRadius: "12px",
+                            border: "1px solid rgba(15, 95, 215, 0.18)",
+                            background: "rgba(15, 95, 215, 0.08)",
+                            color: "#0f3f91",
+                            fontWeight: 800,
+                            padding: "10px 12px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Formu Bu Hesapla Doldur
+                        </button>
                       </div>
                     ))}
                   </div>

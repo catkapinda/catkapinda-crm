@@ -659,6 +659,17 @@ export default function StatusPage() {
       defaultPasswordIsDefault: localSetup.default_auth_password_is_default,
     };
   }, [frontend, localSetup, pilotAccounts]);
+  const localSqliteSmokeCommand = useMemo(() => {
+    if (!localSqliteLoginReady || localSqliteLoginReady.accounts.length === 0) {
+      return null;
+    }
+
+    const firstAccount = localSqliteLoginReady.accounts[0];
+    const passwordPart = localSqliteLoginReady.defaultPasswordIsDefault
+      ? " --password 123456"
+      : " --password <backend-env-sifresi>";
+    return `python v2/scripts/pilot_smoke.py --base-url http://127.0.0.1:3001 --identity ${firstAccount.email}${passwordPart}`;
+  }, [localSqliteLoginReady]);
 
   async function copyText(key: string, value: string) {
     try {
@@ -1059,6 +1070,37 @@ export default function StatusPage() {
                           ? "Sifre tanimli; backend/.env icindeki CK_V2_DEFAULT_AUTH_PASSWORD alanindan geliyor."
                           : "Sifre tanimli gorunmuyor; login oncesi backend/.env tarafini kontrol et."}
                     </div>
+                    {localSqliteSmokeCommand ? (
+                      <>
+                        <code
+                          style={{
+                            display: "block",
+                            marginTop: "12px",
+                            padding: "10px 12px",
+                            borderRadius: "14px",
+                            background: "rgba(16, 24, 40, 0.06)",
+                            color: "#16274a",
+                            fontSize: "0.84rem",
+                            lineHeight: 1.6,
+                            overflowX: "auto",
+                          }}
+                        >
+                          {localSqliteSmokeCommand}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => void copyText("local-sqlite-smoke", localSqliteSmokeCommand)}
+                          style={{
+                            ...actionButtonStyle("ghost"),
+                            cursor: "pointer",
+                            marginTop: "12px",
+                            width: "fit-content",
+                          }}
+                        >
+                          {copiedKey === "local-sqlite-smoke" ? "Komut Kopyalandi" : "Local Smoke Komutunu Kopyala"}
+                        </button>
+                      </>
+                    ) : null}
                   </article>
                 ) : null}
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
