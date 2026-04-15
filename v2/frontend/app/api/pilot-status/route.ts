@@ -33,6 +33,7 @@ export async function GET() {
     ? `Proxy ayarlı (${target.proxyMode}), backend pilot durumu kontrol ediliyor.`
     : "Proxy hedefi eksik.";
   let pilotPayload: unknown = null;
+  let localSetupPayload: unknown = null;
   let pilotHttpStatus: number | null = null;
   let pilotErrorDetail: string | null = null;
 
@@ -40,12 +41,16 @@ export async function GET() {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
     try {
-      const [healthResponse, pilotResponse] = await Promise.all([
+      const [healthResponse, pilotResponse, localSetupResponse] = await Promise.all([
         fetch(`${target.targetBaseUrl}/api/health`, {
           cache: "no-store",
           signal: controller.signal,
         }),
         fetch(`${target.targetBaseUrl}/api/health/pilot`, {
+          cache: "no-store",
+          signal: controller.signal,
+        }),
+        fetch(`${target.targetBaseUrl}/api/health/local-setup`, {
           cache: "no-store",
           signal: controller.signal,
         }),
@@ -69,6 +74,10 @@ export async function GET() {
         detail = pilotErrorDetail
           ? `Pilot status HTTP ${pilotResponse.status} döndü (${target.proxyMode}): ${pilotErrorDetail}`
           : `Pilot status HTTP ${pilotResponse.status} döndü (${target.proxyMode}).`;
+      }
+
+      if (localSetupResponse.ok) {
+        localSetupPayload = await localSetupResponse.json();
       }
     } catch (error) {
       backendStatus = "unreachable";
@@ -100,6 +109,7 @@ export async function GET() {
         detail,
       },
       backend: pilotPayload,
+      localSetup: localSetupPayload,
     },
     {
       status: 200,

@@ -147,10 +147,40 @@ type BackendReadiness = {
   }>;
 };
 
+type LocalSetupStatus = {
+  ready: boolean;
+  backend_env_path: string;
+  frontend_env_path: string;
+  backend_env_exists: boolean;
+  frontend_env_exists: boolean;
+  database_url_present: boolean;
+  database_url_source: string | null;
+  default_auth_password_present: boolean;
+  default_auth_password_source: string | null;
+  default_auth_password_is_default: boolean;
+  frontend_proxy_target_present: boolean;
+  frontend_proxy_target: string | null;
+  frontend_proxy_source: string | null;
+  current_app_seed_detected: boolean;
+  current_app_seed_sources: string[];
+  current_app_seed_placeholders: string[];
+  current_app_available_sources: Array<{
+    label: string;
+    path: string;
+    kind: string;
+    exists: boolean;
+  }>;
+  missing_phone_keys: string[];
+  blocking_items: string[];
+  warnings: string[];
+  next_actions: string[];
+};
+
 type PilotStatusResponse = {
   status: string;
   frontend: FrontendStatus;
   backend: BackendReadiness | null;
+  localSetup: LocalSetupStatus | null;
 };
 
 function statusPill(ok: boolean) {
@@ -227,6 +257,7 @@ function tonePill(tone: string) {
 export default function StatusPage() {
   const [frontend, setFrontend] = useState<FrontendStatus | null>(null);
   const [backend, setBackend] = useState<BackendReadiness | null>(null);
+  const [localSetup, setLocalSetup] = useState<LocalSetupStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadNote, setLoadNote] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -245,6 +276,7 @@ export default function StatusPage() {
         if (active) {
           setFrontend(payload?.frontend ?? null);
           setBackend(payload?.backend ?? null);
+          setLocalSetup(payload?.localSetup ?? null);
           setLastUpdatedAt(new Date().toLocaleTimeString("tr-TR"));
           if (!payload?.backend) {
             setLoadNote("Backend pilot verisi su an alınamadı. Frontend teşhis kartlarıyla devam edebiliriz.");
@@ -258,6 +290,7 @@ export default function StatusPage() {
           if (active) {
             setFrontend(readyPayload);
             setBackend(null);
+            setLocalSetup(null);
             setLastUpdatedAt(new Date().toLocaleTimeString("tr-TR"));
             setLoadNote("Pilot köprüsü şu an cevap vermiyor. Frontend hazır mı diye yedek /api/ready kontrolü gösteriliyor.");
           }
@@ -265,6 +298,7 @@ export default function StatusPage() {
           if (active) {
             setFrontend(null);
             setBackend(null);
+            setLocalSetup(null);
             setLastUpdatedAt(new Date().toLocaleTimeString("tr-TR"));
             setLoadNote("Pilot durumu alınamadı. Önce /api/pilot-status ve /api/ready endpointlerini kontrol edeceğiz.");
           }
@@ -822,6 +856,44 @@ export default function StatusPage() {
                 </article>
               ))}
             </div>
+            {localSetup ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "12px",
+                }}
+              >
+                <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Doctor Ozeti</div>
+                  <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
+                    Backend .env: {localSetup.backend_env_exists ? "var" : "yok"}
+                    <br />
+                    Frontend .env.local: {localSetup.frontend_env_exists ? "var" : "yok"}
+                    <br />
+                    Current app seed: {localSetup.current_app_seed_detected ? "bulundu" : "bulunmadi"}
+                  </div>
+                </article>
+                <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Eksik Halkalar</div>
+                  <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
+                    {localSetup.blocking_items.length
+                      ? localSetup.blocking_items.join(" ")
+                      : "Zorunlu blokaj görünmüyor."}
+                  </div>
+                </article>
+                <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Seed Kaynaklari</div>
+                  <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
+                    {localSetup.current_app_seed_sources.length
+                      ? localSetup.current_app_seed_sources.join(" | ")
+                      : localSetup.current_app_seed_placeholders.length
+                        ? `Sadece template bulundu: ${localSetup.current_app_seed_placeholders.join(" | ")}`
+                        : "Kullanilabilir current app seed bulunamadi."}
+                  </div>
+                </article>
+              </div>
+            ) : null}
           </section>
         ) : null}
 

@@ -379,3 +379,51 @@ def test_readiness_route_reports_degraded_when_runtime_bootstrap_failed():
     checks = {entry["name"]: entry for entry in payload["checks"]}
     assert checks["runtime_bootstrap"]["ok"] is False
     assert "basarisiz" in (checks["runtime_bootstrap"]["detail"] or "")
+
+
+def test_local_setup_route_returns_doctor_snapshot(monkeypatch):
+    reset_runtime_bootstrap_state()
+    monkeypatch.setattr(
+        "app.api.routes.health.build_local_doctor_report",
+        lambda v2_root, runtime_env: {
+            "ready": False,
+            "backend_env_path": f"{v2_root}/backend/.env",
+            "frontend_env_path": f"{v2_root}/frontend/.env.local",
+            "backend_env_exists": False,
+            "frontend_env_exists": True,
+            "database_url_present": False,
+            "database_url_source": None,
+            "default_auth_password_present": False,
+            "default_auth_password_source": None,
+            "default_auth_password_is_default": False,
+            "frontend_proxy_target_present": True,
+            "frontend_proxy_target": "http://127.0.0.1:8000",
+            "frontend_proxy_source": "file:CK_V2_INTERNAL_API_BASE_URL",
+            "current_app_seed_detected": False,
+            "current_app_seed_sources": [],
+            "current_app_seed_placeholders": ["workspace_secrets_template:DATABASE_URL"],
+            "current_app_available_sources": [
+                {
+                    "label": "workspace_secrets_template",
+                    "path": f"{v2_root.parent}/secrets.template.toml",
+                    "kind": "streamlit_secrets",
+                    "exists": True,
+                }
+            ],
+            "missing_phone_keys": ["AUTH_EBRU_PHONE"],
+            "blocking_items": ["Backend veritabani URL'i eksik."],
+            "warnings": ["Varsayilan sifre acik degil."],
+            "next_actions": ["python v2/scripts/local_v2_doctor.py"],
+        },
+    )
+    client = TestClient(create_app(enable_bootstrap=False))
+
+    response = client.get("/api/health/local-setup")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ready"] is False
+    assert payload["frontend_proxy_target"] == "http://127.0.0.1:8000"
+    assert payload["current_app_seed_placeholders"] == ["workspace_secrets_template:DATABASE_URL"]
+    assert payload["current_app_available_sources"][0]["exists"] is True
+    assert payload["next_actions"] == ["python v2/scripts/local_v2_doctor.py"]

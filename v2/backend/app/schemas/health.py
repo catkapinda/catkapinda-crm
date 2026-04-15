@@ -153,6 +153,37 @@ class PilotEnvSnippetEntry(BaseModel):
     body: str
 
 
+class LocalSetupSourceEntry(BaseModel):
+    label: str
+    path: str
+    kind: str
+    exists: bool
+
+
+class LocalSetupResponse(BaseModel):
+    ready: bool
+    backend_env_path: str
+    frontend_env_path: str
+    backend_env_exists: bool
+    frontend_env_exists: bool
+    database_url_present: bool
+    database_url_source: str | None = None
+    default_auth_password_present: bool
+    default_auth_password_source: str | None = None
+    default_auth_password_is_default: bool
+    frontend_proxy_target_present: bool
+    frontend_proxy_target: str | None = None
+    frontend_proxy_source: str | None = None
+    current_app_seed_detected: bool
+    current_app_seed_sources: list[str] = []
+    current_app_seed_placeholders: list[str] = []
+    current_app_available_sources: list[LocalSetupSourceEntry] = []
+    missing_phone_keys: list[str] = []
+    blocking_items: list[str] = []
+    warnings: list[str] = []
+    next_actions: list[str] = []
+
+
 class PilotReadinessResponse(BaseModel):
     status: str
     core_ready: bool

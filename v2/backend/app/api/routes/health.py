@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -6,10 +8,12 @@ import psycopg
 from app.core.bootstrap import get_runtime_bootstrap_state
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.local_doctor import build_local_doctor_report
 from app.core.sms import describe_sms_config
 from app.schemas.health import (
     HealthCheckEntry,
     HealthResponse,
+    LocalSetupResponse,
     PilotAccountEntry,
     PilotAuthStatus,
     PilotConfigEntry,
@@ -75,6 +79,13 @@ def healthcheck() -> HealthResponse:
         commit_sha=settings.release_sha,
         release_label=settings.short_release_sha or settings.render_service_name,
     )
+
+
+@router.get("/health/local-setup", response_model=LocalSetupResponse)
+def local_setup_health() -> LocalSetupResponse:
+    v2_root = Path(__file__).resolve().parents[4]
+    report = build_local_doctor_report(v2_root, os.environ)
+    return LocalSetupResponse(**report)
 
 
 @router.get("/health/ready", response_model=ReadinessResponse)
