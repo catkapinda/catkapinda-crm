@@ -67,15 +67,15 @@ def _normalize_bulk_entry_ids(entry_ids: list[int]) -> list[int]:
         try:
             entry_id = int(raw_entry_id)
         except (TypeError, ValueError) as exc:
-            raise ValueError("Toplu silme icin gecerli puantaj kayitlari secilmelidir.") from exc
+            raise ValueError("Toplu silme için geçerli puantaj kayıtları seçilmelidir.") from exc
         if entry_id <= 0:
-            raise ValueError("Toplu silme icin gecerli puantaj kayitlari secilmelidir.")
+            raise ValueError("Toplu silme için geçerli puantaj kayıtları seçilmelidir.")
         if entry_id in seen_ids:
             continue
         seen_ids.add(entry_id)
         normalized_ids.append(entry_id)
     if not normalized_ids:
-        raise ValueError("Toplu silme icin en az bir puantaj kaydi secilmelidir.")
+        raise ValueError("Toplu silme için en az bir puantaj kaydı seçilmelidir.")
     return normalized_ids
 
 
@@ -83,9 +83,9 @@ def _resolve_filtered_delete_window(
     payload: AttendanceFilteredDeleteRequest,
 ) -> tuple[date, date, str]:
     if payload.date_from is None or payload.date_to is None:
-        raise ValueError("Filtrelenmis toplu silme icin baslangic ve bitis tarihi secilmelidir.")
+        raise ValueError("Filtrelenmiş toplu silme için başlangıç ve bitiş tarihi seçilmelidir.")
     if payload.date_from > payload.date_to:
-        raise ValueError("Filtrelenmis toplu silmede baslangic tarihi bitis tarihinden buyuk olamaz.")
+        raise ValueError("Filtrelenmiş toplu silmede başlangıç tarihi bitiş tarihinden büyük olamaz.")
     normalized_search = str(payload.search or "").strip()
     return payload.date_from, payload.date_to, normalized_search
 
@@ -159,7 +159,7 @@ def _resolve_attendance_values(
             "notes": notes_text,
         }
 
-    raise ValueError("Gecersiz attendance akisi.")
+    raise ValueError("Geçersiz puantaj akışı.")
 
 
 def _build_management_entry(row: dict[str, object]) -> AttendanceManagementEntry:
@@ -336,7 +336,7 @@ def build_attendance_entry_detail(
 ) -> AttendanceEntryDetailResponse:
     row = fetch_attendance_entry_by_id(conn, entry_id)
     if row is None:
-        raise LookupError("Attendance kaydı bulunamadı.")
+        raise LookupError("Puantaj kaydı bulunamadı.")
     return AttendanceEntryDetailResponse(entry=_build_management_entry(row))
 
 
@@ -348,7 +348,7 @@ def update_attendance_entry_record(
 ) -> AttendanceUpdateResponse:
     existing_entry = fetch_attendance_entry_by_id(conn, entry_id)
     if existing_entry is None:
-        raise LookupError("Attendance kaydı bulunamadı.")
+        raise LookupError("Puantaj kaydı bulunamadı.")
 
     values = _resolve_attendance_values(
         entry_mode=payload.entry_mode,
@@ -367,7 +367,7 @@ def update_attendance_entry_record(
     conn.commit()
     return AttendanceUpdateResponse(
         entry_id=entry_id,
-        message="Attendance kaydı güncellendi.",
+        message="Puantaj kaydı güncellendi.",
     )
 
 
@@ -378,13 +378,13 @@ def delete_attendance_entry_record(
 ) -> AttendanceDeleteResponse:
     existing_entry = fetch_attendance_entry_by_id(conn, entry_id)
     if existing_entry is None:
-        raise LookupError("Attendance kaydı bulunamadı.")
+        raise LookupError("Puantaj kaydı bulunamadı.")
 
     delete_attendance_entry(conn, entry_id)
     conn.commit()
     return AttendanceDeleteResponse(
         entry_id=entry_id,
-        message="Attendance kaydı silindi.",
+        message="Puantaj kaydı silindi.",
     )
 
 
@@ -410,7 +410,7 @@ def bulk_delete_attendance_entries(
     return AttendanceBulkDeleteResponse(
         entry_ids=deleted_ids,
         deleted_count=deleted_count,
-        message=f"{deleted_count} puantaj kaydi silindi.",
+        message=f"{deleted_count} puantaj kaydı silindi.",
     )
 
 
@@ -428,7 +428,7 @@ def delete_attendance_entries_by_filter(
         date_to=date_to,
     )
     if not entry_ids:
-        raise LookupError("Secilen filtrede silinecek puantaj kaydi bulunamadi.")
+        raise LookupError("Seçilen filtrede silinecek puantaj kaydı bulunamadı.")
 
     deleted_ids = delete_attendance_entries(conn, entry_ids)
     deleted_count = len(deleted_ids)
@@ -442,5 +442,5 @@ def delete_attendance_entries_by_filter(
         date_to=date_to,
         restaurant_id=payload.restaurant_id,
         search=normalized_search,
-        message=f"Filtredeki {deleted_count} puantaj kaydi silindi.",
+        message=f"Filtredeki {deleted_count} puantaj kaydı silindi.",
     )

@@ -104,7 +104,7 @@ def _get_deduction_type_caption(deduction_type: str) -> str:
     if normalized_type == ADVANCE_DEDUCTION_TYPE:
         return "Avans, tahsilat takibi icin dusulur ama kurye fatura matrahini azaltmaz."
     if normalized_type == PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE:
-        return "Partner kart indirimi bordro kesintisi degil, yan gelir kaydidir."
+        return "Partner kart indirimi bordro kesintisi değil, yan gelir kaydıdır."
     return ""
 
 
@@ -206,7 +206,7 @@ def build_deduction_detail(
 ) -> DeductionDetailResponse:
     row = fetch_deduction_record_by_id(conn, deduction_id)
     if row is None:
-        raise LookupError("Kesinti kaydi bulunamadi.")
+        raise LookupError("Kesinti kaydı bulunamadı.")
     return DeductionDetailResponse(entry=_build_management_entry(row))
 
 
@@ -232,7 +232,7 @@ def create_deduction_entry(
     conn.commit()
     return DeductionCreateResponse(
         deduction_id=deduction_id,
-        message="Kesinti kaydi olusturuldu.",
+        message="Kesinti kaydı oluşturuldu.",
     )
 
 
@@ -244,7 +244,7 @@ def update_deduction_entry(
 ) -> DeductionUpdateResponse:
     existing = fetch_deduction_record_by_id(conn, deduction_id)
     if existing is None:
-        raise LookupError("Kesinti kaydi bulunamadi.")
+        raise LookupError("Kesinti kaydı bulunamadı.")
     if str(existing.get("auto_source_key") or "").strip():
         raise ValueError("Otomatik olusan kesinti kayitlari v2 ekranindan duzenlenemez.")
 
@@ -266,7 +266,7 @@ def update_deduction_entry(
     conn.commit()
     return DeductionUpdateResponse(
         deduction_id=deduction_id,
-        message="Kesinti kaydi guncellendi.",
+        message="Kesinti kaydı güncellendi.",
     )
 
 
@@ -277,12 +277,12 @@ def delete_deduction_entry(
 ) -> DeductionDeleteResponse:
     existing = fetch_deduction_record_by_id(conn, deduction_id)
     if existing is None:
-        raise LookupError("Kesinti kaydi bulunamadi.")
+        raise LookupError("Kesinti kaydı bulunamadı.")
     if str(existing.get("auto_source_key") or "").strip():
         raise ValueError("Otomatik olusan kesinti kayitlari v2 ekranindan silinemez.")
     delete_deduction_record(conn, deduction_id)
     conn.commit()
     return DeductionDeleteResponse(
         deduction_id=deduction_id,
-        message="Kesinti kaydi silindi.",
+        message="Kesinti kaydı silindi.",
     )
