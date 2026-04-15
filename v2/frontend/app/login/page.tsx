@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../components/auth/auth-provider";
 import { buildApiUrl, readStoredAuthNotice, writeStoredAuthNotice } from "../../lib/api";
 import { resolveDefaultPath } from "../../lib/navigation";
+import { isPreviewModeBrowser } from "../../lib/preview";
 
 const serifTitleStyle = {
   fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
@@ -35,6 +36,8 @@ function LoginPageContent() {
   const [authPanelMode, setAuthPanelMode] = useState<"sms" | "recovery">("sms");
   const [phone, setPhone] = useState("");
   const [loginCode, setLoginCode] = useState("");
+  const [recoveryNewPassword, setRecoveryNewPassword] = useState("");
+  const [recoveryConfirmPassword, setRecoveryConfirmPassword] = useState("");
   const [smsSubmitting, setSmsSubmitting] = useState(false);
   const [smsError, setSmsError] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
@@ -54,6 +57,12 @@ function LoginPageContent() {
     let active = true;
 
     async function loadAuthModes() {
+      if (isPreviewModeBrowser()) {
+        if (active) {
+          setSmsLoginEnabled(true);
+        }
+        return;
+      }
       try {
         const response = await fetch(buildApiUrl("/auth/modes"), { cache: "no-store" });
         const payload = (await response.json().catch(() => null)) as { sms_login?: boolean } | null;
@@ -110,17 +119,76 @@ function LoginPageContent() {
     }
   }
 
+  async function requestPasswordResetCode(phoneValue: string): Promise<{ message: string; masked_phone: string }> {
+    if (isPreviewModeBrowser()) {
+      return {
+        message: "Preview modunda sifre kurtarma kodu hazirlandi.",
+        masked_phone: phoneValue || "05xxxxxxxxx",
+      };
+    }
+    const response = await fetch(buildApiUrl("/auth/request-password-reset-code"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ phone: phoneValue }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { detail?: string; message?: string; masked_phone?: string }
+      | null;
+
+    if (!response.ok || !payload?.message || !payload?.masked_phone) {
+      throw new Error(payload?.detail || "Sifre sifirlama kodu gonderilemedi.");
+    }
+
+    return {
+      message: payload.message,
+      masked_phone: payload.masked_phone,
+    };
+  }
+
+  async function resetPasswordWithCode(
+    phoneValue: string,
+    codeValue: string,
+    nextPassword: string,
+  ): Promise<{ message: string }> {
+    if (isPreviewModeBrowser()) {
+      return { message: "Preview modunda sifre sifirlama tamamlandi. Yeni sifrenle giris yapabilirsin." };
+    }
+    const response = await fetch(buildApiUrl("/auth/reset-password-with-code"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        phone: phoneValue,
+        code: codeValue,
+        new_password: nextPassword,
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { detail?: string; message?: string }
+      | null;
+
+    if (!response.ok || !payload?.message) {
+      throw new Error(payload?.detail || "Sifre sifirlanamadi.");
+    }
+
+    return { message: payload.message };
+  }
+
   async function handleSendCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSmsSubmitting(true);
     setSmsError("");
     setNotice("");
     try {
-      const payload = await requestPhoneCode(phone);
+      const payload =
+        authPanelMode === "recovery" ? await requestPasswordResetCode(phone) : await requestPhoneCode(phone);
       setMaskedPhone(payload.masked_phone);
       setSmsMessage(
         authPanelMode === "recovery"
-          ? "Kimligini dogrulaman icin kod hazir. Kodla devam edip sifreni guvenlik ekranindan guncelleyebilirsin."
+          ? "Kimligini dogrulaman icin kod hazir. Ayni kartta yeni sifreni belirleyip hesabina geri donebilirsin."
           : payload.message,
       );
     } catch (requestError) {
@@ -132,16 +200,29 @@ function LoginPageContent() {
 
   async function handleVerifyCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (authPanelMode === "recovery" && recoveryNewPassword !== recoveryConfirmPassword) {
+      setSmsError("Yeni sifre ve tekrar sifresi ayni olmali.");
+      return;
+    }
     setSmsSubmitting(true);
     setSmsError("");
     setNotice("");
     try {
-      const loggedInUser = await verifyPhoneCode(phone, loginCode);
       if (authPanelMode === "recovery") {
-        writeStoredAuthNotice("SMS ile kimligini dogruladin. Guvenlik icin sifreni simdi guncelle.");
-        router.replace("/account");
+        const payload = await resetPasswordWithCode(phone, loginCode, recoveryNewPassword);
+        setIdentity((currentIdentity) => currentIdentity.trim() || phone.trim());
+        setPassword("");
+        setNotice(payload.message);
+        setSmsMessage("");
+        setMaskedPhone("");
+        setLoginCode("");
+        setRecoveryNewPassword("");
+        setRecoveryConfirmPassword("");
+        setPhone("");
+        switchAuthPanelMode("sms");
         return;
       }
+      const loggedInUser = await verifyPhoneCode(phone, loginCode);
       router.replace(
         loggedInUser.must_change_password ? "/account" : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
       );
@@ -158,6 +239,8 @@ function LoginPageContent() {
     setSmsMessage("");
     setMaskedPhone("");
     setLoginCode("");
+    setRecoveryNewPassword("");
+    setRecoveryConfirmPassword("");
   }
 
   return (
@@ -307,7 +390,7 @@ function LoginPageContent() {
               [
                 authPanelMode === "recovery" ? "Guvenlik Akis" : "Pilot Akis",
                 authPanelMode === "recovery"
-                  ? "Kimligini dogrulayan ekip dogrudan guvenlik ekranina dusuyor."
+                  ? "Kimligini dogrulayan ekip ayni panelde yeni sifre belirleyip girise donebiliyor."
                   : "Giris yapan ekip ilgili modullere temiz sekilde dusuyor.",
               ],
             ].map(([title, text]) => (
@@ -556,7 +639,7 @@ function LoginPageContent() {
                 </h2>
                 <p style={cardBodyStyle}>
                   Kayitli telefon numarana tek kullanimlik kod gonderelim. Kimligini
-                  dogruladiginda seni dogrudan guvenlik ekranina alip yeni sifre belirletelim.
+                  dogruladiginda ayni kartta yeni sifreni belirleyip hesabina geri donebilirsin.
                 </p>
               </div>
 
@@ -609,7 +692,7 @@ function LoginPageContent() {
               {[
                 ["1. Kimlik", "Kayitli telefon numarani gir."],
                 ["2. Kod", "Tek kullanimlik SMS kodunu al."],
-                ["3. Sifre", "Guvenlik ekraninda yeni sifreni belirle."],
+                ["3. Sifre", "Ayni kartta yeni sifreni belirle."],
               ].map(([title, text]) => (
                 <article
                   key={title}
@@ -730,7 +813,7 @@ function LoginPageContent() {
                   }}
                 >
                   {authPanelMode === "recovery"
-                    ? "Kayitli telefon numarana tek kullanimlik kod gonder. Kimligini dogruladiktan sonra seni dogrudan guvenlik ekranina alip yeni sifre belirletelim."
+                    ? "Kayitli telefon numarana tek kullanimlik kod gonder. Kimligini dogruladiktan sonra ayni kartta yeni sifreni belirleyip girise donebilirsin."
                     : "Bolge muduru ve izinli yonetici numaralari bu akisi kullanabilir. Kod gonder ve ayni kart icinde dogrulamayi tamamla."}
                 </p>
               </div>
@@ -777,17 +860,52 @@ function LoginPageContent() {
                   />
                 </label>
 
+                {authPanelMode === "recovery" ? (
+                  <>
+                    <label style={labelStyle}>
+                      <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Sifre</span>
+                      <input
+                        type="password"
+                        value={recoveryNewPassword}
+                        onChange={(event) => setRecoveryNewPassword(event.target.value)}
+                        placeholder="En az 6 karakter"
+                        style={darkFieldStyle}
+                      />
+                    </label>
+                    <label style={labelStyle}>
+                      <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Sifre Tekrar</span>
+                      <input
+                        type="password"
+                        value={recoveryConfirmPassword}
+                        onChange={(event) => setRecoveryConfirmPassword(event.target.value)}
+                        placeholder="Yeni sifreni tekrar gir"
+                        style={darkFieldStyle}
+                      />
+                    </label>
+                  </>
+                ) : null}
+
                 {smsError ? <div style={darkErrorStyle}>{smsError}</div> : null}
 
                 <button
                   type="submit"
-                  disabled={smsSubmitting || !loginCode.trim()}
-                  style={goldButtonStyle(smsSubmitting || !loginCode.trim())}
+                  disabled={
+                    smsSubmitting ||
+                    !loginCode.trim() ||
+                    (authPanelMode === "recovery" &&
+                      (!recoveryNewPassword.trim() || !recoveryConfirmPassword.trim()))
+                  }
+                  style={goldButtonStyle(
+                    smsSubmitting ||
+                      !loginCode.trim() ||
+                      (authPanelMode === "recovery" &&
+                        (!recoveryNewPassword.trim() || !recoveryConfirmPassword.trim())),
+                  )}
                 >
                   {smsSubmitting
                     ? "Kod Dogrulaniyor..."
                     : authPanelMode === "recovery"
-                      ? "Kimligimi Dogrula ve Devam Et"
+                      ? "Kimligimi Dogrula ve Sifreyi Yenile"
                       : "Kodu Dogrula"}
                 </button>
               </form>

@@ -39,6 +39,7 @@ from app.schemas.auth import (
     AuthCurrentUserResponse,
     AuthLoginResponse,
     AuthModesResponse,
+    AuthPasswordResetResponse,
     AuthPhoneCodeRequestResponse,
 )
 
@@ -174,6 +175,58 @@ def can_issue_phone_code_for_user(
     )
 
 
+def can_issue_password_reset_code_for_user(*, user_row: dict) -> bool:
+    normalized_phone = normalize_auth_phone(str(user_row.get("phone") or ""))
+    return bool(normalized_phone) and int(user_row.get("is_active") or 0) == 1
+
+
+def _issue_phone_code(
+    conn: psycopg.Connection,
+    *,
+    user_row: dict,
+    phone: str,
+    purpose: str,
+    message: str,
+) -> AuthPhoneCodeRequestResponse:
+    cleanup_expired_phone_codes(conn)
+    issued_code = generate_phone_login_code()
+    now_text = datetime.utcnow().isoformat(timespec="seconds")
+    expires_at = (datetime.utcnow() + timedelta(minutes=PHONE_LOGIN_CODE_MINUTES)).isoformat(
+        timespec="seconds"
+    )
+
+    try:
+        delete_pending_phone_codes(
+            conn,
+            auth_user_id=int(user_row.get("id") or 0),
+            purpose=purpose,
+        )
+        insert_phone_code(
+            conn,
+            auth_user_id=int(user_row.get("id") or 0),
+            phone=phone,
+            code_hash=hash_auth_password(issued_code),
+            purpose=purpose,
+            created_at=now_text,
+            expires_at=expires_at,
+        )
+        send_phone_login_code_sms(
+            phone,
+            str(user_row.get("full_name") or ""),
+            issued_code,
+            expires_in_minutes=PHONE_LOGIN_CODE_MINUTES,
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    return AuthPhoneCodeRequestResponse(
+        message=message,
+        masked_phone=mask_auth_phone(phone),
+    )
+
+
 def request_phone_login_code(
     conn: psycopg.Connection,
     *,
@@ -187,45 +240,49 @@ def request_phone_login_code(
         raise ValueError("Telefon numarasi gecersiz.")
 
     generic_message = "Eger bu telefon numarasi icin SMS giris yetkisi varsa, kod gonderildi."
-    masked_phone = mask_auth_phone(normalized_phone)
     user_row = fetch_auth_user_by_identity(conn, identity=normalized_phone)
     if not user_row or not can_issue_phone_code_for_user(conn, user_row=user_row):
-        return AuthPhoneCodeRequestResponse(message=generic_message, masked_phone=masked_phone)
+        return AuthPhoneCodeRequestResponse(
+            message=generic_message,
+            masked_phone=mask_auth_phone(normalized_phone),
+        )
 
-    cleanup_expired_phone_codes(conn)
-    login_code = generate_phone_login_code()
-    now_text = datetime.utcnow().isoformat(timespec="seconds")
-    expires_at = (datetime.utcnow() + timedelta(minutes=PHONE_LOGIN_CODE_MINUTES)).isoformat(
-        timespec="seconds"
+    return _issue_phone_code(
+        conn,
+        user_row=user_row,
+        phone=normalized_phone,
+        purpose="login",
+        message=generic_message,
     )
 
-    try:
-        delete_pending_phone_codes(
-            conn,
-            auth_user_id=int(user_row.get("id") or 0),
-            purpose="login",
-        )
-        insert_phone_code(
-            conn,
-            auth_user_id=int(user_row.get("id") or 0),
-            phone=normalized_phone,
-            code_hash=hash_auth_password(login_code),
-            purpose="login",
-            created_at=now_text,
-            expires_at=expires_at,
-        )
-        send_phone_login_code_sms(
-            normalized_phone,
-            str(user_row.get("full_name") or ""),
-            login_code,
-            expires_in_minutes=PHONE_LOGIN_CODE_MINUTES,
-        )
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
 
-    return AuthPhoneCodeRequestResponse(message=generic_message, masked_phone=masked_phone)
+def request_phone_password_reset_code(
+    conn: psycopg.Connection,
+    *,
+    phone: str,
+) -> AuthPhoneCodeRequestResponse:
+    if not sms_delivery_enabled():
+        raise RuntimeError("SMS ile sifre sifirlama su an aktif degil.")
+
+    normalized_phone = normalize_auth_phone(phone)
+    if not normalized_phone:
+        raise ValueError("Telefon numarasi gecersiz.")
+
+    generic_message = "Eger bu telefon numarasi icin sifre sifirlama yetkisi varsa, kod gonderildi."
+    user_row = fetch_auth_user_by_identity(conn, identity=normalized_phone)
+    if not user_row or not can_issue_password_reset_code_for_user(user_row=user_row):
+        return AuthPhoneCodeRequestResponse(
+            message=generic_message,
+            masked_phone=mask_auth_phone(normalized_phone),
+        )
+
+    return _issue_phone_code(
+        conn,
+        user_row=user_row,
+        phone=normalized_phone,
+        purpose="password_reset",
+        message=generic_message,
+    )
 
 
 def verify_phone_login_code_and_login(
@@ -275,6 +332,67 @@ def verify_phone_login_code_and_login(
     )
     token = create_auth_session(conn, username=resolve_session_identity(row))
     return build_authenticated_user(user_row=row, token=token)
+
+
+def reset_password_with_phone_code(
+    conn: psycopg.Connection,
+    *,
+    phone: str,
+    login_code: str,
+    new_password: str,
+) -> AuthPasswordResetResponse:
+    normalized_phone = normalize_auth_phone(phone)
+    normalized_code = str(login_code or "").strip()
+    normalized_new_password = str(new_password or "")
+    if not normalized_phone or not normalized_code:
+        raise ValueError("Telefon numarasi veya kod gecersiz.")
+    if len(normalized_new_password) < 6:
+        raise ValueError("Yeni sifre en az 6 karakter olmali.")
+
+    cleanup_expired_phone_codes(conn)
+    now_text = datetime.utcnow().isoformat(timespec="seconds")
+    row = fetch_active_phone_code(
+        conn,
+        phone=normalized_phone,
+        purpose="password_reset",
+        now_text=now_text,
+    )
+    if not row:
+        raise ValueError("Kod gecersiz veya suresi dolmus.")
+
+    attempt_count = int(row.get("code_attempt_count") or 0)
+    if attempt_count >= PHONE_LOGIN_CODE_ATTEMPT_LIMIT:
+        raise ValueError("Kod gecersiz veya suresi dolmus.")
+
+    if not verify_auth_password(normalized_code, str(row.get("code_hash") or "")):
+        increment_phone_code_attempt(
+            conn,
+            code_row_id=int(row.get("code_row_id") or 0),
+            attempt_count=attempt_count + 1,
+            attempted_at=now_text,
+        )
+        conn.commit()
+        raise ValueError("Kod gecersiz veya suresi dolmus.")
+
+    if int(row.get("is_active") or 0) != 1:
+        raise ValueError("Bu hesap aktif degil.")
+
+    if verify_auth_password(normalized_new_password, str(row.get("password_hash") or "")):
+        raise ValueError("Yeni sifre mevcut sifreden farkli olmali.")
+
+    consume_phone_code(
+        conn,
+        code_row_id=int(row.get("code_row_id") or 0),
+        attempt_count=attempt_count + 1,
+        consumed_at=now_text,
+    )
+    update_auth_user_password(
+        conn,
+        user_id=int(row.get("id") or 0),
+        password_hash=hash_auth_password(normalized_new_password),
+    )
+    conn.commit()
+    return AuthPasswordResetResponse(message="Sifre sifirlandi. Yeni sifrenle giris yapabilirsin.")
 
 
 def serialize_authenticated_user(user: AuthenticatedUser) -> AuthCurrentUserResponse:

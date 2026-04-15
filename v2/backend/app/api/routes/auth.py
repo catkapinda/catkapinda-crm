@@ -14,6 +14,9 @@ from app.schemas.auth import (
     AuthLoginResponse,
     AuthLogoutResponse,
     AuthModesResponse,
+    AuthPasswordResetCodeRequest,
+    AuthPasswordResetRequest,
+    AuthPasswordResetResponse,
     AuthPhoneCodeRequest,
     AuthPhoneCodeRequestResponse,
     AuthPhoneCodeVerifyRequest,
@@ -24,6 +27,8 @@ from app.services.auth import (
     build_login_response,
     change_authenticated_user_password,
     request_phone_login_code,
+    request_phone_password_reset_code,
+    reset_password_with_phone_code,
     revoke_authenticated_session,
     serialize_authenticated_user,
     verify_phone_login_code_and_login,
@@ -69,6 +74,21 @@ def request_phone_code_route(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+@router.post("/request-password-reset-code", response_model=AuthPhoneCodeRequestResponse)
+def request_password_reset_code_route(
+    payload: AuthPasswordResetCodeRequest,
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AuthPhoneCodeRequestResponse:
+    try:
+        return request_phone_password_reset_code(conn, phone=payload.phone)
+    except RuntimeError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @router.post("/verify-phone-code", response_model=AuthLoginResponse)
 def verify_phone_code_route(
     payload: AuthPhoneCodeVerifyRequest,
@@ -84,6 +104,23 @@ def verify_phone_code_route(
         conn.rollback()
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     return build_login_response(user)
+
+
+@router.post("/reset-password-with-code", response_model=AuthPasswordResetResponse)
+def reset_password_with_code_route(
+    payload: AuthPasswordResetRequest,
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AuthPasswordResetResponse:
+    try:
+        return reset_password_with_phone_code(
+            conn,
+            phone=payload.phone,
+            login_code=payload.code,
+            new_password=payload.new_password,
+        )
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/me", response_model=AuthCurrentUserResponse)

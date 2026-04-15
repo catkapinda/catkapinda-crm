@@ -26,6 +26,16 @@ class AuthPhoneCodeRequestResponse(BaseModel):
     masked_phone: str
 
 
+class AuthPasswordResetCodeRequest(BaseModel):
+    phone: str
+
+
+class AuthPasswordResetRequest(BaseModel):
+    phone: str
+    code: str
+    new_password: str
+
+
 class AuthChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
@@ -58,3 +68,7 @@ class AuthLogoutResponse(BaseModel):
 class AuthChangePasswordResponse(BaseModel):
     message: str
     user: AuthCurrentUserResponse
+
+
+class AuthPasswordResetResponse(BaseModel):
+    message: str
