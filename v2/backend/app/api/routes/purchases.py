@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import psycopg
 
 from app.api.deps.auth import require_action
+from app.core.audit import response_to_dict, safe_record_audit_event
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.purchases import (
@@ -63,11 +64,22 @@ def get_purchases_form_options(
 @router.post("/records", response_model=PurchaseCreateResponse, status_code=201)
 def create_purchase_record_route(
     payload: PurchaseCreateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("purchase.create"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("purchase.create"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> PurchaseCreateResponse:
     try:
-        return create_purchase_record(conn, payload=payload)
+        response = create_purchase_record(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="satın alma",
+            action_type="oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("purchase_id"),
+            details={**payload.model_dump(mode="json"), "purchase_id": response_data.get("purchase_id")},
+        )
+        return response
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -105,11 +117,22 @@ def get_purchase_record_detail(
 def update_purchase_record_route(
     purchase_id: int,
     payload: PurchaseUpdateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("purchase.update"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("purchase.update"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> PurchaseUpdateResponse:
     try:
-        return update_purchase_record_entry(conn, purchase_id=purchase_id, payload=payload)
+        response = update_purchase_record_entry(conn, purchase_id=purchase_id, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="satın alma",
+            action_type="güncelle",
+            summary=str(response_data.get("message") or ""),
+            entity_id=purchase_id,
+            details={**payload.model_dump(mode="json"), "purchase_id": purchase_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -121,11 +144,22 @@ def update_purchase_record_route(
 @router.delete("/records/{purchase_id}", response_model=PurchaseDeleteResponse)
 def delete_purchase_record_route(
     purchase_id: int,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("purchase.delete"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("purchase.delete"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> PurchaseDeleteResponse:
     try:
-        return delete_purchase_record_entry(conn, purchase_id=purchase_id)
+        response = delete_purchase_record_entry(conn, purchase_id=purchase_id)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="satın alma",
+            action_type="sil",
+            summary=str(response_data.get("message") or ""),
+            entity_id=purchase_id,
+            details={"purchase_id": purchase_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc

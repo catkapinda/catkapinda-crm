@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import psycopg
 
 from app.api.deps.auth import require_action
+from app.core.audit import response_to_dict, safe_record_audit_event
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.restaurants import (
@@ -59,11 +60,22 @@ def get_restaurants_form_options(
 @router.post("/records", response_model=RestaurantCreateResponse, status_code=201)
 def create_restaurant_record_route(
     payload: RestaurantCreateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("restaurant.create"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("restaurant.create"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> RestaurantCreateResponse:
     try:
-        return create_restaurant_record(conn, payload=payload)
+        response = create_restaurant_record(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="restoran",
+            action_type="oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("restaurant_id"),
+            details={**payload.model_dump(mode="json"), "restaurant_id": response_data.get("restaurant_id")},
+        )
+        return response
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -103,11 +115,22 @@ def get_restaurant_record_detail(
 def update_restaurant_record_route(
     restaurant_id: int,
     payload: RestaurantUpdateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("restaurant.update"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("restaurant.update"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> RestaurantUpdateResponse:
     try:
-        return update_restaurant_record_entry(conn, restaurant_id=restaurant_id, payload=payload)
+        response = update_restaurant_record_entry(conn, restaurant_id=restaurant_id, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="restoran",
+            action_type="güncelle",
+            summary=str(response_data.get("message") or ""),
+            entity_id=restaurant_id,
+            details={**payload.model_dump(mode="json"), "restaurant_id": restaurant_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -119,11 +142,22 @@ def update_restaurant_record_route(
 @router.post("/records/{restaurant_id}/toggle-status", response_model=RestaurantStatusUpdateResponse)
 def toggle_restaurant_status_route(
     restaurant_id: int,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("restaurant.status_change"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("restaurant.status_change"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> RestaurantStatusUpdateResponse:
     try:
-        return toggle_restaurant_record_status(conn, restaurant_id=restaurant_id)
+        response = toggle_restaurant_record_status(conn, restaurant_id=restaurant_id)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="restoran",
+            action_type="durum değiştir",
+            summary=str(response_data.get("message") or ""),
+            entity_id=restaurant_id,
+            details={"restaurant_id": restaurant_id, "active": response_data.get("active")},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -132,11 +166,22 @@ def toggle_restaurant_status_route(
 @router.delete("/records/{restaurant_id}", response_model=RestaurantDeleteResponse)
 def delete_restaurant_record_route(
     restaurant_id: int,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("restaurant.delete"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("restaurant.delete"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> RestaurantDeleteResponse:
     try:
-        return delete_restaurant_record_entry(conn, restaurant_id=restaurant_id)
+        response = delete_restaurant_record_entry(conn, restaurant_id=restaurant_id)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="restoran",
+            action_type="sil",
+            summary=str(response_data.get("message") or ""),
+            entity_id=restaurant_id,
+            details={"restaurant_id": restaurant_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc

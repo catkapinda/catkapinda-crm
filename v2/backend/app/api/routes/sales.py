@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import psycopg
 
 from app.api.deps.auth import require_action
+from app.core.audit import response_to_dict, safe_record_audit_event
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.sales import (
@@ -57,11 +58,22 @@ def get_sales_form_options(
 @router.post("/records", response_model=SalesCreateResponse, status_code=201)
 def create_sales_record_route(
     payload: SalesCreateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("sales.create"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("sales.create"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> SalesCreateResponse:
     try:
-        return create_sales_record(conn, payload=payload)
+        response = create_sales_record(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="satış",
+            action_type="oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("entry_id"),
+            details={**payload.model_dump(mode="json"), "entry_id": response_data.get("entry_id")},
+        )
+        return response
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -94,11 +106,22 @@ def get_sales_record_detail(
 def update_sales_record_route(
     sales_id: int,
     payload: SalesUpdateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("sales.update"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("sales.update"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> SalesUpdateResponse:
     try:
-        return update_sales_record_entry(conn, sales_id=sales_id, payload=payload)
+        response = update_sales_record_entry(conn, sales_id=sales_id, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="satış",
+            action_type="güncelle",
+            summary=str(response_data.get("message") or ""),
+            entity_id=sales_id,
+            details={**payload.model_dump(mode="json"), "entry_id": sales_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -110,11 +133,22 @@ def update_sales_record_route(
 @router.delete("/records/{sales_id}", response_model=SalesDeleteResponse)
 def delete_sales_record_route(
     sales_id: int,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("sales.delete"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("sales.delete"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> SalesDeleteResponse:
     try:
-        return delete_sales_record_entry(conn, sales_id=sales_id)
+        response = delete_sales_record_entry(conn, sales_id=sales_id)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="satış",
+            action_type="sil",
+            summary=str(response_data.get("message") or ""),
+            entity_id=sales_id,
+            details={"entry_id": sales_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc

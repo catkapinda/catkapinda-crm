@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import psycopg
 
 from app.api.deps.auth import require_action
+from app.core.audit import response_to_dict, safe_record_audit_event
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.equipment import (
@@ -75,11 +76,22 @@ def get_equipment_form_options(
 @router.post("/issues", response_model=EquipmentIssueCreateResponse, status_code=201)
 def create_equipment_issue_route(
     payload: EquipmentIssueCreateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("equipment.create"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("equipment.create"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> EquipmentIssueCreateResponse:
     try:
-        return create_equipment_issue_entry(conn, payload=payload)
+        response = create_equipment_issue_entry(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="zimmet",
+            action_type="oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("equipment_issue_id"),
+            details={**payload.model_dump(mode="json"), "equipment_issue_id": response_data.get("equipment_issue_id")},
+        )
+        return response
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -119,11 +131,22 @@ def get_equipment_issue_detail_route(
 def update_equipment_issue_route(
     issue_id: int,
     payload: EquipmentIssueUpdateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("equipment.bulk_update"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("equipment.bulk_update"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> EquipmentIssueUpdateResponse:
     try:
-        return update_equipment_issue_entry(conn, issue_id=issue_id, payload=payload)
+        response = update_equipment_issue_entry(conn, issue_id=issue_id, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="zimmet",
+            action_type="güncelle",
+            summary=str(response_data.get("message") or ""),
+            entity_id=issue_id,
+            details={**payload.model_dump(mode="json"), "equipment_issue_id": issue_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -135,11 +158,22 @@ def update_equipment_issue_route(
 @router.delete("/issues/{issue_id}", response_model=EquipmentIssueDeleteResponse)
 def delete_equipment_issue_route(
     issue_id: int,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("equipment.bulk_delete"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("equipment.bulk_delete"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> EquipmentIssueDeleteResponse:
     try:
-        return delete_equipment_issue_entry(conn, issue_id=issue_id)
+        response = delete_equipment_issue_entry(conn, issue_id=issue_id)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="zimmet",
+            action_type="sil",
+            summary=str(response_data.get("message") or ""),
+            entity_id=issue_id,
+            details={"equipment_issue_id": issue_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -151,11 +185,22 @@ def delete_equipment_issue_route(
 @router.post("/box-returns", response_model=BoxReturnCreateResponse, status_code=201)
 def create_box_return_route(
     payload: BoxReturnCreateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("equipment.box_return"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("equipment.box_return"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> BoxReturnCreateResponse:
     try:
-        return create_box_return_entry(conn, payload=payload)
+        response = create_box_return_entry(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="box geri alım",
+            action_type="oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("box_return_id"),
+            details={**payload.model_dump(mode="json"), "box_return_id": response_data.get("box_return_id")},
+        )
+        return response
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -193,11 +238,22 @@ def get_box_return_detail_route(
 def update_box_return_route(
     box_return_id: int,
     payload: BoxReturnUpdateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("equipment.box_return"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("equipment.box_return"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> BoxReturnUpdateResponse:
     try:
-        return update_box_return_entry(conn, box_return_id=box_return_id, payload=payload)
+        response = update_box_return_entry(conn, box_return_id=box_return_id, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="box geri alım",
+            action_type="güncelle",
+            summary=str(response_data.get("message") or ""),
+            entity_id=box_return_id,
+            details={**payload.model_dump(mode="json"), "box_return_id": box_return_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -209,11 +265,22 @@ def update_box_return_route(
 @router.delete("/box-returns/{box_return_id}", response_model=BoxReturnDeleteResponse)
 def delete_box_return_route(
     box_return_id: int,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("equipment.box_return"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("equipment.box_return"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> BoxReturnDeleteResponse:
     try:
-        return delete_box_return_entry(conn, box_return_id=box_return_id)
+        response = delete_box_return_entry(conn, box_return_id=box_return_id)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="box geri alım",
+            action_type="sil",
+            summary=str(response_data.get("message") or ""),
+            entity_id=box_return_id,
+            details={"box_return_id": box_return_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc

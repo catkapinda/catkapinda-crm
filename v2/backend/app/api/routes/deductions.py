@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import psycopg
 
 from app.api.deps.auth import require_action
+from app.core.audit import response_to_dict, safe_record_audit_event
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.deductions import (
@@ -64,11 +65,22 @@ def get_deductions_form_options(
 @router.post("/records", response_model=DeductionCreateResponse, status_code=201)
 def create_deduction_record_route(
     payload: DeductionCreateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("deduction.create"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("deduction.create"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> DeductionCreateResponse:
     try:
-        return create_deduction_entry(conn, payload=payload)
+        response = create_deduction_entry(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="kesinti",
+            action_type="oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("deduction_id"),
+            details={**payload.model_dump(mode="json"), "deduction_id": response_data.get("deduction_id")},
+        )
+        return response
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -108,11 +120,22 @@ def get_deduction_record_detail(
 def update_deduction_record_route(
     deduction_id: int,
     payload: DeductionUpdateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("deduction.update"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("deduction.update"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> DeductionUpdateResponse:
     try:
-        return update_deduction_entry(conn, deduction_id=deduction_id, payload=payload)
+        response = update_deduction_entry(conn, deduction_id=deduction_id, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="kesinti",
+            action_type="güncelle",
+            summary=str(response_data.get("message") or ""),
+            entity_id=deduction_id,
+            details={**payload.model_dump(mode="json"), "deduction_id": deduction_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -124,11 +147,22 @@ def update_deduction_record_route(
 @router.delete("/records/{deduction_id}", response_model=DeductionDeleteResponse)
 def delete_deduction_record_route(
     deduction_id: int,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("deduction.delete"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("deduction.delete"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> DeductionDeleteResponse:
     try:
-        return delete_deduction_entry(conn, deduction_id=deduction_id)
+        response = delete_deduction_entry(conn, deduction_id=deduction_id)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="kesinti",
+            action_type="sil",
+            summary=str(response_data.get("message") or ""),
+            entity_id=deduction_id,
+            details={"deduction_id": deduction_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc

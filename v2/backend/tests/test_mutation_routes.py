@@ -62,6 +62,11 @@ def _build_client() -> TestClient:
 
 
 def test_attendance_mutation_routes(monkeypatch):
+    audit_calls = []
+    monkeypatch.setattr(
+        "app.api.routes.attendance.safe_record_audit_event",
+        lambda conn, **kwargs: audit_calls.append(kwargs) or True,
+    )
     monkeypatch.setattr(
         "app.api.routes.attendance.create_attendance_entry",
         lambda conn, payload: {
@@ -149,6 +154,8 @@ def test_attendance_mutation_routes(monkeypatch):
 
     assert create_response.status_code == 201
     assert create_response.json()["entry_id"] == 101
+    assert audit_calls[0]["action_type"] == "oluştur"
+    assert audit_calls[0]["entity_type"] == "puantaj"
     assert update_response.status_code == 200
     assert update_response.json()["message"] == "Puantaj kaydi guncellendi."
     assert delete_response.status_code == 200

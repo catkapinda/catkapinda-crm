@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 import psycopg
 
 from app.api.deps.auth import get_current_user
+from app.core.audit import response_to_dict, safe_record_audit_event
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.auth import (
@@ -56,7 +57,18 @@ def login_route(
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=401, detail=str(exc)) from exc
-    return build_login_response(user)
+    response = build_login_response(user)
+    response_data = response_to_dict(response)
+    safe_record_audit_event(
+        conn,
+        user=user,
+        entity_type="oturum",
+        action_type="giriş",
+        summary="Kullanıcı giriş yaptı.",
+        entity_id=user.id,
+        details={"identity": user.identity, "token_type": response_data.get("token_type")},
+    )
+    return response
 
 
 @router.post("/request-phone-code", response_model=AuthPhoneCodeRequestResponse)
@@ -136,7 +148,17 @@ def logout_route(
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AuthLogoutResponse:
     revoke_authenticated_session(conn, token=user.token)
-    return AuthLogoutResponse(message="Oturum kapatıldı.")
+    response = AuthLogoutResponse(message="Oturum kapatıldı.")
+    safe_record_audit_event(
+        conn,
+        user=user,
+        entity_type="oturum",
+        action_type="çıkış",
+        summary=response.message,
+        entity_id=user.id,
+        details={"identity": user.identity},
+    )
+    return response
 
 
 @router.post("/change-password", response_model=AuthChangePasswordResponse)
@@ -158,7 +180,18 @@ def change_password_route(
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return AuthChangePasswordResponse(
+    response = AuthChangePasswordResponse(
         message="Şifre güncellendi.",
         user=serialize_authenticated_user(refreshed_user),
     )
+    response_data = response_to_dict(response)
+    safe_record_audit_event(
+        conn,
+        user=refreshed_user,
+        entity_type="hesap",
+        action_type="şifre değiştir",
+        summary=str(response_data.get("message") or ""),
+        entity_id=refreshed_user.id,
+        details={"identity": refreshed_user.identity},
+    )
+    return response

@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.core.database import get_db
+from app.core.security import AuthenticatedUser
 from app.main import create_app
 
 
@@ -56,6 +57,41 @@ def test_request_password_reset_code_route_returns_message(monkeypatch):
         "message": "Kod gönderildi.",
         "masked_phone": "05******12",
     }
+
+
+def test_login_route_records_audit_event(monkeypatch):
+    audit_calls = []
+    monkeypatch.setattr(
+        "app.api.routes.auth.authenticate_user",
+        lambda conn, identity, password: AuthenticatedUser(
+            id=7,
+            identity="mert.kurtulus@catkapinda.com",
+            email="mert.kurtulus@catkapinda.com",
+            phone="",
+            full_name="Mert Kurtuluş",
+            role="admin",
+            role_display="Yönetim Kurulu / Yönetici",
+            must_change_password=False,
+            allowed_actions=[],
+            expires_at="2099-01-01T00:00:00",
+            token="token-123",
+        ),
+    )
+    monkeypatch.setattr(
+        "app.api.routes.auth.safe_record_audit_event",
+        lambda conn, **kwargs: audit_calls.append(kwargs) or True,
+    )
+    client = _build_app()
+
+    response = client.post(
+        "/api/auth/login",
+        json={"identity": "mert.kurtulus@catkapinda.com", "password": "123456"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["user"]["identity"] == "mert.kurtulus@catkapinda.com"
+    assert audit_calls[0]["entity_type"] == "oturum"
+    assert audit_calls[0]["action_type"] == "giriş"
 
 
 def test_request_password_reset_code_route_returns_validation_error(monkeypatch):

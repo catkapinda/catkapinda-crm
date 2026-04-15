@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import psycopg
 
 from app.api.deps.auth import require_action
+from app.core.audit import response_to_dict, safe_record_audit_event
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.attendance import (
@@ -70,11 +71,22 @@ def get_attendance_form_options(
 @router.post("/entries", response_model=AttendanceCreateResponse, status_code=201)
 def create_attendance_entry_route(
     payload: AttendanceCreateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.create"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("attendance.create"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AttendanceCreateResponse:
     try:
-        return create_attendance_entry(conn, payload=payload)
+        response = create_attendance_entry(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="puantaj",
+            action_type="oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("entry_id"),
+            details={**payload.model_dump(mode="json"), "entry_id": response_data.get("entry_id")},
+        )
+        return response
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -103,11 +115,22 @@ def get_attendance_entries(
 @router.delete("/entries", response_model=AttendanceBulkDeleteResponse)
 def bulk_delete_attendance_entries_route(
     payload: AttendanceBulkDeleteRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.bulk_delete"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("attendance.bulk_delete"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AttendanceBulkDeleteResponse:
     try:
-        return bulk_delete_attendance_entries(conn, payload=payload)
+        response = bulk_delete_attendance_entries(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="puantaj",
+            action_type="toplu sil",
+            summary=str(response_data.get("message") or ""),
+            entity_id=",".join(str(entry_id) for entry_id in response_data.get("entry_ids") or []),
+            details={**payload.model_dump(mode="json"), "deleted_count": response_data.get("deleted_count")},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -119,11 +142,21 @@ def bulk_delete_attendance_entries_route(
 @router.delete("/entries/filter", response_model=AttendanceFilteredDeleteResponse)
 def delete_attendance_entries_by_filter_route(
     payload: AttendanceFilteredDeleteRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.bulk_delete"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("attendance.bulk_delete"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AttendanceFilteredDeleteResponse:
     try:
-        return delete_attendance_entries_by_filter(conn, payload=payload)
+        response = delete_attendance_entries_by_filter(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="puantaj",
+            action_type="toplu sil",
+            summary=str(response_data.get("message") or ""),
+            details={**payload.model_dump(mode="json"), "deleted_count": response_data.get("deleted_count")},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -148,11 +181,22 @@ def get_attendance_entry_detail(
 def update_attendance_entry_route(
     entry_id: int,
     payload: AttendanceUpdateRequest,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.update"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("attendance.update"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AttendanceUpdateResponse:
     try:
-        return update_attendance_entry_record(conn, entry_id=entry_id, payload=payload)
+        response = update_attendance_entry_record(conn, entry_id=entry_id, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="puantaj",
+            action_type="güncelle",
+            summary=str(response_data.get("message") or ""),
+            entity_id=entry_id,
+            details={**payload.model_dump(mode="json"), "entry_id": entry_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -164,11 +208,22 @@ def update_attendance_entry_route(
 @router.delete("/entries/{entry_id}", response_model=AttendanceDeleteResponse)
 def delete_attendance_entry_route(
     entry_id: int,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.delete"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("attendance.delete"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AttendanceDeleteResponse:
     try:
-        return delete_attendance_entry_record(conn, entry_id=entry_id)
+        response = delete_attendance_entry_record(conn, entry_id=entry_id)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="puantaj",
+            action_type="sil",
+            summary=str(response_data.get("message") or ""),
+            entity_id=entry_id,
+            details={"entry_id": entry_id},
+        )
+        return response
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
