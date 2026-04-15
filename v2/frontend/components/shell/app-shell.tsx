@@ -27,9 +27,18 @@ export function AppShell({
         "/": "/preview",
         "/attendance": "/preview/attendance",
         "/personnel": "/preview/personnel",
+        "/reports": "/preview/reports",
+        "/account": "/preview/account",
       };
       return sidebarItems
-        .filter((item) => item.label === "Genel Bakış" || item.label === "Puantaj" || item.label === "Personel")
+        .filter(
+          (item) =>
+            item.label === "Genel Bakış" ||
+            item.label === "Puantaj" ||
+            item.label === "Personel" ||
+            item.label === "Raporlar" ||
+            item.label === "Profil",
+        )
         .map(
           (item): SidebarItem => ({
             ...item,

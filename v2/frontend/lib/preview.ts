@@ -563,6 +563,130 @@ function buildPersonnelDashboard() {
   };
 }
 
+function buildReportsDashboard(month: string | null) {
+  const selectedMonth = month || "2026-04";
+  const attendanceRows = previewAttendanceRecords.filter((entry) => entry.entry_date.startsWith(selectedMonth));
+  const activePersonnelIds = new Set(attendanceRows.map((entry) => entry.primary_person_id).filter(Boolean));
+  const restaurantIds = new Set(attendanceRows.map((entry) => entry.restaurant_id));
+
+  const invoiceEntries = previewRestaurants.map((restaurant) => {
+    const rows = attendanceRows.filter((entry) => entry.restaurant_id === restaurant.id);
+    const totalHours = rows.reduce((sum, row) => sum + row.worked_hours, 0);
+    const totalPackages = rows.reduce((sum, row) => sum + row.package_count, 0);
+    const grossInvoice =
+      restaurant.pricing_model === "fixed_monthly"
+        ? restaurant.fixed_monthly_fee || totalHours * 420
+        : totalPackages * 72;
+    const netInvoice = grossInvoice / 1.2;
+    return {
+      restaurant: restaurant.label,
+      pricing_model: restaurant.pricing_model === "fixed_monthly" ? "Sabit Aylik" : "Paket Bazli",
+      total_hours: totalHours,
+      total_packages: totalPackages,
+      net_invoice: Math.round(netInvoice),
+      gross_invoice: Math.round(grossInvoice),
+    };
+  });
+
+  const costEntries = previewPersonnelRecords
+    .filter((entry) => activePersonnelIds.has(entry.id))
+    .map((entry) => {
+      const rows = attendanceRows.filter(
+        (attendance) =>
+          attendance.primary_person_id === entry.id || attendance.replacement_person_id === entry.id,
+      );
+      const totalHours = rows.reduce((sum, row) => sum + row.worked_hours, 0);
+      const totalPackages = rows.reduce((sum, row) => sum + row.package_count, 0);
+      const totalDeductions = entry.status === "Aktif" ? 2750 : 850;
+      const netCost = Math.round(totalHours * 220 + totalDeductions + entry.monthly_fixed_cost);
+      return {
+        personnel: entry.full_name,
+        role: entry.role,
+        total_hours: totalHours,
+        total_packages: totalPackages,
+        total_deductions: totalDeductions,
+        net_cost: netCost,
+        cost_model: entry.monthly_fixed_cost > 0 ? "Sabit + Saat" : "Saat Bazli",
+      };
+    });
+
+  const totalRevenue = invoiceEntries.reduce((sum, row) => sum + row.gross_invoice, 0);
+  const totalPersonnelCost = costEntries.reduce((sum, row) => sum + row.net_cost, 0);
+  const totalHours = invoiceEntries.reduce((sum, row) => sum + row.total_hours, 0);
+  const totalPackages = invoiceEntries.reduce((sum, row) => sum + row.total_packages, 0);
+  const grossProfit = totalRevenue - totalPersonnelCost;
+  const sideIncomeNet = Math.round(totalRevenue * 0.045);
+
+  const modelBreakdown = invoiceEntries.reduce<
+    Array<{
+      pricing_model: string;
+      restaurant_count: number;
+      total_hours: number;
+      total_packages: number;
+      gross_invoice: number;
+    }>
+  >((accumulator, entry) => {
+    const current = accumulator.find((item) => item.pricing_model === entry.pricing_model);
+    if (current) {
+      current.restaurant_count += 1;
+      current.total_hours += entry.total_hours;
+      current.total_packages += entry.total_packages;
+      current.gross_invoice += entry.gross_invoice;
+    } else {
+      accumulator.push({
+        pricing_model: entry.pricing_model,
+        restaurant_count: 1,
+        total_hours: entry.total_hours,
+        total_packages: entry.total_packages,
+        gross_invoice: entry.gross_invoice,
+      });
+    }
+    return accumulator;
+  }, []);
+
+  return {
+    module: "reports",
+    status: "preview",
+    month_options: ["2026-04", "2026-03", "2026-02"],
+    selected_month: selectedMonth,
+    summary: {
+      selected_month: selectedMonth,
+      restaurant_count: restaurantIds.size,
+      courier_count: activePersonnelIds.size,
+      total_hours: totalHours,
+      total_packages: totalPackages,
+      total_revenue: totalRevenue,
+      total_personnel_cost: totalPersonnelCost,
+      gross_profit: grossProfit,
+      side_income_net: sideIncomeNet,
+    },
+    invoice_entries: invoiceEntries,
+    cost_entries: costEntries,
+    model_breakdown: modelBreakdown,
+    top_restaurants: [...invoiceEntries]
+      .sort((left, right) => right.gross_invoice - left.gross_invoice)
+      .slice(0, 5)
+      .map((entry) => ({
+        restaurant: entry.restaurant,
+        pricing_model: entry.pricing_model,
+        total_hours: entry.total_hours,
+        total_packages: entry.total_packages,
+        gross_invoice: entry.gross_invoice,
+      })),
+    top_couriers: [...costEntries]
+      .sort((left, right) => right.net_cost - left.net_cost)
+      .slice(0, 5)
+      .map((entry) => ({
+        personnel: entry.personnel,
+        role: entry.role,
+        total_hours: entry.total_hours,
+        total_deductions: entry.total_deductions,
+        net_cost: entry.net_cost,
+        cost_model: entry.cost_model,
+      })),
+  };
+}
+
 function nextPersonnelCode() {
   const maxNumeric = previewPersonnelRecords.reduce((maxValue, entry) => {
     const numeric = Number(entry.person_code.replace(/\D/g, "")) || 0;
@@ -727,8 +851,23 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     return buildJsonResponse(buildPersonnelDashboard());
   }
 
+  if (pathname === "/reports/dashboard" && method === "GET") {
+    const month = url.searchParams.get("month");
+    return buildJsonResponse(buildReportsDashboard(month));
+  }
+
   if (pathname === "/personnel/form-options" && method === "GET") {
     return buildJsonResponse(buildPersonnelFormOptions());
+  }
+
+  if (pathname === "/auth/change-password" && method === "POST") {
+    return buildJsonResponse({
+      message: "Preview modunda sifre guncellendi.",
+      user: {
+        ...PREVIEW_USER,
+        must_change_password: false,
+      },
+    });
   }
 
   if (pathname === "/personnel/records" && method === "GET") {
