@@ -372,7 +372,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         else None
     )
     decision_primary_blocker = (
-        _coerce_optional_nullable_str(
+        _coerce_optional_nullable_nonempty_str(
             value=decision_for_manifest.get("primary_blocker"),
             issue_label="pilot-smoke-live.json icinde decision.primary_blocker",
             issues=issues,
@@ -380,7 +380,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         if "primary_blocker" in decision_for_manifest
         else None
     )
-    actual_next_step = _coerce_optional_str(
+    actual_next_step = _coerce_optional_nullable_nonempty_str(
         value=decision_for_manifest.get("recommended_next_step"),
         issue_label="pilot-smoke-live.json icinde decision.recommended_next_step",
         issues=issues,
