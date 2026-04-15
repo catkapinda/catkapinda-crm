@@ -280,6 +280,15 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
     for snippet in expected_markdown_structure:
         if snippet not in smoke_markdown:
             issues.append(f"pilot-smoke-live.md icinde beklenen yapi satiri eksik: {snippet}")
+    actual_structure_lines = [
+        line.strip()
+        for line in smoke_markdown.splitlines()
+        if line.strip().startswith("# ")
+        or line.strip().startswith("## ")
+        or line.strip() in {"| Check | Result | Detail |", "| --- | --- | --- |"}
+    ]
+    if actual_structure_lines != expected_markdown_structure:
+        issues.append("pilot-smoke-live.md icinde yapi satirlari beklenen listeyle birebir uyusmuyor")
 
     expected_markdown_snippets = [
         f"- Base URL: `{smoke_payload.get('base_url')}`",
