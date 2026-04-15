@@ -13,7 +13,11 @@ BACKEND_ROOT = V2_ROOT / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.core.local_doctor import build_local_doctor_report, write_backend_env_file  # noqa: E402
+from app.core.local_doctor import (  # noqa: E402
+    build_local_doctor_report,
+    discover_current_app_seed_values,
+    write_backend_env_file,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -25,6 +29,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--write-backend-env",
         action="store_true",
         help="Shell env icindeki degerlerle backend/.env dosyasini olustur.",
+    )
+    parser.add_argument(
+        "--sync-from-current-app",
+        action="store_true",
+        help="Shell env eksikse mevcut app kaynaklarindaki gercek degerleri fallback olarak kullan.",
     )
     parser.add_argument(
         "--overwrite-backend-env",
@@ -72,6 +81,12 @@ def _print_human_report(report: dict[str, object], *, wrote_env: str | None = No
         "- SMS telefonlari: "
         + ("eksik yok" if not report["missing_phone_keys"] else ", ".join(report["missing_phone_keys"]))
     )
+    if report["current_app_seed_detected"]:
+        print("- Current app kaynagi: bulundu")
+    elif report["current_app_seed_placeholders"]:
+        print("- Current app kaynagi: sadece placeholder/template degerler bulundu")
+    else:
+        print("- Current app kaynagi: kullanilabilir seed bulunamadi")
 
     if wrote_env:
         print(f"- backend/.env yazildi: {wrote_env}")
@@ -88,6 +103,16 @@ def _print_human_report(report: dict[str, object], *, wrote_env: str | None = No
         for item in warnings:
             print(f"- {item}")
 
+    if report["current_app_seed_sources"]:
+        print("\nCurrent app kaynaklari:")
+        for item in report["current_app_seed_sources"]:
+            print(f"- {item}")
+
+    if report["current_app_seed_placeholders"]:
+        print("\nTemplate / placeholder kaynaklar:")
+        for item in report["current_app_seed_placeholders"]:
+            print(f"- {item}")
+
     next_actions = report["next_actions"]
     if next_actions:
         print("\nSonraki adimlar:")
@@ -100,6 +125,11 @@ def main() -> int:
     args = parser.parse_args()
 
     wrote_env_path: str | None = None
+    current_app_seed_values: dict[str, str] | None = None
+    if args.sync_from_current_app:
+        current_app_seed = discover_current_app_seed_values(V2_ROOT.parent)
+        current_app_seed_values = current_app_seed["values"]
+
     if args.write_backend_env:
         try:
             wrote_env_path = str(
@@ -107,6 +137,7 @@ def main() -> int:
                     V2_ROOT,
                     os.environ,
                     overwrite=args.overwrite_backend_env,
+                    current_app_seed_values=current_app_seed_values,
                     frontend_url=args.frontend_url,
                     api_url=args.api_url,
                 )

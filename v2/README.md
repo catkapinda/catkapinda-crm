@@ -23,6 +23,8 @@ Run locally:
     - `python v2/scripts/local_v2_doctor.py`
   - shell env icinde `DATABASE_URL` veya `CK_V2_DATABASE_URL` hazirsa backend/.env olusturmak icin:
     - `python v2/scripts/local_v2_doctor.py --write-backend-env`
+  - mevcut app kaynaklarindan (ornegin `secrets.toml`) otomatik seed denemek icin:
+    - `python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app`
 - Frontend:
   - copy `frontend/.env.example` to `frontend/.env.local`
   - keep `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`

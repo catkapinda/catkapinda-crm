@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.core.local_doctor import build_local_doctor_report, write_backend_env_file
+from app.core.local_doctor import build_local_doctor_report, discover_current_app_seed_values, write_backend_env_file
 
 
 def test_local_doctor_flags_missing_database_url(tmp_path: Path):
@@ -39,3 +39,46 @@ def test_write_backend_env_file_uses_runtime_database_url(tmp_path: Path):
     assert "CK_V2_DEFAULT_AUTH_PASSWORD=GizliSifre123" in content
     assert "AUTH_EBRU_PHONE=05321234567" in content
     assert "CK_V2_FRONTEND_BASE_URL=http://127.0.0.1:3000" in content
+
+
+def test_current_app_seed_reads_real_secrets_and_ignores_template_placeholders(tmp_path: Path):
+    current_root = tmp_path / "current-app"
+    current_root.mkdir()
+    (current_root / "secrets.template.toml").write_text(
+        'DATABASE_URL = "postgresql://postgres:PAROLA@db.PROJE_REF.supabase.co:5432/postgres?sslmode=require"\n'
+        '[auth]\n'
+        'ebru_phone = "05XXXXXXXXX"\n',
+        encoding="utf-8",
+    )
+    (current_root / "secrets.toml").write_text(
+        'DATABASE_URL = "postgresql://real-user:real-pass@db.real.supabase.co:5432/postgres?sslmode=require"\n'
+        '[auth]\n'
+        'ebru_phone = "05321234567"\n'
+        'mert_phone = "05331234567"\n',
+        encoding="utf-8",
+    )
+
+    seed = discover_current_app_seed_values(current_root)
+
+    assert seed["values"]["database_url"] == "postgresql://real-user:real-pass@db.real.supabase.co:5432/postgres?sslmode=require"
+    assert seed["values"]["AUTH_EBRU_PHONE"] == "05321234567"
+    assert seed["values"]["AUTH_MERT_PHONE"] == "05331234567"
+    assert "workspace_secrets_template:DATABASE_URL" in seed["placeholders_detected"]
+
+
+def test_write_backend_env_file_can_use_current_app_seed_values(tmp_path: Path):
+    v2_root = tmp_path / "v2"
+    (v2_root / "backend").mkdir(parents=True)
+
+    env_path = write_backend_env_file(
+        v2_root,
+        {},
+        current_app_seed_values={
+            "database_url": "postgresql://seed-user:seed-pass@db.real.supabase.co:5432/postgres?sslmode=require",
+            "AUTH_EBRU_PHONE": "05321234567",
+        },
+    )
+
+    content = env_path.read_text(encoding="utf-8")
+    assert "CK_V2_DATABASE_URL=postgresql://seed-user:seed-pass@db.real.supabase.co:5432/postgres?sslmode=require" in content
+    assert "AUTH_EBRU_PHONE=05321234567" in content
