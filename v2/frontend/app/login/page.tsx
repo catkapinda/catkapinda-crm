@@ -242,7 +242,9 @@ function LoginPageContent() {
                   maxWidth: "8ch",
                 }}
               >
-                Yeni operasyon paneline giris.
+                {authPanelMode === "recovery"
+                  ? "Hesabina guvenli sekilde geri don."
+                  : "Yeni operasyon paneline giris."}
               </h1>
               <p
                 style={{
@@ -253,11 +255,37 @@ function LoginPageContent() {
                   fontSize: "1rem",
                 }}
               >
-                Bu yuzeyi yalnizca kimlik dogrulama icin degil, yeni sistemin karakterini ilk
-                andan hissettirmek icin kurduk. Sifreyle giris, SMS akisi ve yonlendirme tek
-                editorial yuzeyde toplanmis durumda.
+                {authPanelMode === "recovery"
+                  ? "Sifreni unuttuysan ekibi beklemeden kimligini telefon koduyla dogrulayip hesabina geri donebilirsin. Kurtarma akisi artik bu masanin ilk seviye yollarindan biri."
+                  : "Bu yuzeyi yalnizca kimlik dogrulama icin degil, yeni sistemin karakterini ilk andan hissettirmek icin kurduk. Sifreyle giris, SMS akisi ve yonlendirme tek editorial yuzeyde toplanmis durumda."}
               </p>
             </div>
+
+            {smsLoginEnabled ? (
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => switchAuthPanelMode("recovery")}
+                  style={heroQuickActionStyle(authPanelMode === "recovery")}
+                >
+                  {authPanelMode === "recovery" ? "Kurtarma Akisi Acik" : "Sifremi Unuttum"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchAuthPanelMode("sms")}
+                  style={heroSecondaryActionStyle(authPanelMode === "sms")}
+                >
+                  SMS ile Giris
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div
@@ -269,9 +297,19 @@ function LoginPageContent() {
             }}
           >
             {[
-              ["Giris Hatti", "Sifre ve SMS akisi ayni kontrol masasi icinde."],
+              [
+                authPanelMode === "recovery" ? "Kurtarma Hatti" : "Giris Hatti",
+                authPanelMode === "recovery"
+                  ? "SMS dogrulama ve yeni sifre akisi ayni kontrol masasi icinde."
+                  : "Sifre ve SMS akisi ayni kontrol masasi icinde.",
+              ],
               ["Yetki", "Rol bazli yonlendirme giris sonrasi otomatik isliyor."],
-              ["Pilot Akis", "Giris yapan ekip ilgili modullere temiz sekilde dusuyor."],
+              [
+                authPanelMode === "recovery" ? "Guvenlik Akis" : "Pilot Akis",
+                authPanelMode === "recovery"
+                  ? "Kimligini dogrulayan ekip dogrudan guvenlik ekranina dusuyor."
+                  : "Giris yapan ekip ilgili modullere temiz sekilde dusuyor.",
+              ],
             ].map(([title, text]) => (
               <article
                 key={title}
@@ -330,11 +368,14 @@ function LoginPageContent() {
                   fontWeight: 700,
                 }}
               >
-                Hızlı giris, temiz yonlendirme, daha az surtunme.
+                {authPanelMode === "recovery"
+                  ? "Telefonla dogrula, sifreni yenile, kaldigin yerden devam et."
+                  : "Hızlı giris, temiz yonlendirme, daha az surtunme."}
               </div>
               <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.7 }}>
-                Login sonrasi ekranlar artik beyazlayip yeniden yukleniyormus gibi his
-                vermesin diye yapinin geri kalanini da ayni dille tasiyoruz.
+                {authPanelMode === "recovery"
+                  ? "Kurtarma akisi artik yardimci bir dip link degil; giris deneyiminin dogal bir parcasi. Kullanici dogrudan dogrulama alanina inip hesabini toparlayabiliyor."
+                  : "Login sonrasi ekranlar artik beyazlayip yeniden yukleniyormus gibi his vermesin diye yapinin geri kalanini da ayni dille tasiyoruz."}
               </div>
             </article>
 
@@ -353,10 +394,12 @@ function LoginPageContent() {
                 Hazir Moduller
               </div>
               <div style={{ ...serifTitleStyle, fontSize: "2.4rem", lineHeight: 0.9, fontWeight: 700 }}>
-                10+
+                {authPanelMode === "recovery" ? "3 Adim" : "10+"}
               </div>
               <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.6, fontSize: "0.92rem" }}>
-                Puantaj, personel, kesintiler, raporlar ve daha fazlasi ayni pilot omurgasinda.
+                {authPanelMode === "recovery"
+                  ? "Telefon, kod ve yeni sifre. Kurtarma akisi net ve tek hatta toplaniyor."
+                  : "Puantaj, personel, kesintiler, raporlar ve daha fazlasi ayni pilot omurgasinda."}
               </div>
             </article>
           </div>
@@ -961,6 +1004,35 @@ const inlineLinkButtonStyle = {
   fontSize: "0.92rem",
   cursor: "pointer",
 } satisfies CSSProperties;
+
+function heroQuickActionStyle(active: boolean): CSSProperties {
+  return {
+    padding: "13px 16px",
+    borderRadius: "999px",
+    border: active ? "1px solid rgba(241,194,143,0.24)" : "1px solid rgba(255,255,255,0.14)",
+    background: active
+      ? "linear-gradient(135deg, rgba(241,194,143,0.98), rgba(185,116,41,0.96))"
+      : "rgba(255,255,255,0.08)",
+    color: active ? "#2f1b09" : "#fff4e5",
+    fontWeight: 900,
+    fontSize: "0.92rem",
+    cursor: "pointer",
+    boxShadow: active ? "0 16px 30px rgba(185,116,41,0.18)" : "none",
+  };
+}
+
+function heroSecondaryActionStyle(active: boolean): CSSProperties {
+  return {
+    padding: "13px 16px",
+    borderRadius: "999px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)",
+    color: "#fff4e5",
+    fontWeight: 800,
+    fontSize: "0.9rem",
+    cursor: "pointer",
+  };
+}
 
 function panelToggleStyle(active: boolean): CSSProperties {
   return {
