@@ -306,7 +306,7 @@ export default function StatusPage() {
           setLocalSetupSource(payload?.localSetupSource ?? null);
           setLastUpdatedAt(new Date().toLocaleTimeString("tr-TR"));
           if (!payload?.backend) {
-            setLoadNote("Backend pilot verisi su an alınamadı. Frontend teşhis kartlarıyla devam edebiliriz.");
+            setLoadNote("Arka uç pilot verisi şu an alınamadı. Ön yüz teşhis kartlarıyla devam edebiliriz.");
           }
         }
       } catch {
@@ -319,7 +319,7 @@ export default function StatusPage() {
             setBackend(null);
             setLocalSetup(null);
             setLastUpdatedAt(new Date().toLocaleTimeString("tr-TR"));
-            setLoadNote("Pilot köprüsü şu an cevap vermiyor. Frontend hazır mı diye yedek /api/ready kontrolü gösteriliyor.");
+            setLoadNote("Pilot köprüsü şu an cevap vermiyor. Ön yüz hazır mı diye yedek `/api/ready` kontrolü gösteriliyor.");
           }
         } catch {
           if (active) {
@@ -518,37 +518,37 @@ export default function StatusPage() {
   }, [backend, coreReady, frontend, lastUpdatedAt, overallOk, readinessSummary, releaseAlignment]);
   const frontendRecoveryTips = useMemo(() => {
     if (!frontend) {
-      return ["Frontend status verisi alınamadı. Önce /api/pilot-status ve /api/ready endpointlerini açıp cevap dönüyor mu kontrol et."];
+      return ["Ön yüz durum verisi alınamadı. Önce `/api/pilot-status` ve `/api/ready` uç noktalarını açıp cevap dönüyor mu kontrol et."];
     }
 
     if (!frontend.proxyConfigured) {
       return [
-        "Frontend tarafında backend hedefi hiç görünmüyor. Render pilotta CK_V2_INTERNAL_API_HOSTPORT fromService bağını kontrol et.",
+        "Ön yüz tarafında arka uç hedefi hiç görünmüyor. Render pilotunda `CK_V2_INTERNAL_API_HOSTPORT` hizmet bağlantısını kontrol et.",
         "Yerel denemede çalışıyorsan CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000 ayarının .env.local içinde olduğundan emin ol.",
       ];
     }
 
     if (frontend.proxyMode === "render_hostport" && !frontend.backendReachable) {
       return [
-        "Frontend Render hostport modunda ama backend'e ulaşamıyor. Önce crmcatkapinda-v2-api servisinin /api/health endpointini aç.",
-        "Render frontend servisinde CK_V2_INTERNAL_API_HOSTPORT değerinin gerçekten backend servisine fromService ile bağlı olduğunu kontrol et.",
+        "Ön yüz Render iç adres kipinde ama arka uca ulaşamıyor. Önce `crmcatkapinda-v2-api` servisinin `/api/health` uç noktasını aç.",
+        "Render ön yüz servisinde `CK_V2_INTERNAL_API_HOSTPORT` değerinin gerçekten arka uç servisine hizmet bağlantısıyla bağlı olduğunu kontrol et.",
       ];
     }
 
     if (frontend.proxyMode === "explicit_base_url" && !frontend.backendReachable) {
       return [
-        "Frontend explicit base URL modunda. Bu genelde yerel geliştirme içindir; pilotta yanlışlıkla bu env girildiyse kaldır.",
+        "Ön yüz açık taban adresi kipinde. Bu genelde yerel geliştirme içindir; pilotta yanlışlıkla bu ortam girildiyse kaldır.",
         "Yereldeysen CK_V2_INTERNAL_API_BASE_URL değerinin çalışan backend adresine işaret ettiğini doğrula.",
       ];
     }
 
     if (frontend.backendReachable) {
       return [
-        "Frontend backend'i görüyor. Bundan sonraki odak /status ekranındaki cutover ve modül kartları olmalı.",
+        "Ön yüz arka ucu görüyor. Bundan sonraki odak `/status` ekranındaki geçiş ve modül kartları olmalı.",
       ];
     }
 
-    return ["Frontend proxy katmanı kontrol edilmeli. /api/ready ve /api/pilot-status cevaplarını birlikte incele."];
+    return ["Ön yüz geçiş katmanı kontrol edilmeli. `/api/ready` ve `/api/pilot-status` cevaplarını birlikte incele."];
   }, [frontend]);
   const cutoverTone =
     backend?.cutover.phase === "ready_for_cutover"
@@ -574,7 +574,7 @@ export default function StatusPage() {
         tone: "warning" as const,
         title: "Ön yüz yerel geçiş ayarı yeniden yazılmalı.",
         detail:
-          "Bu yerel kipte ön yüz, arka uç hedefini `.env.local` içinden okuyor. Doctor şu an en doğru yerel API hedefiyle bu dosyayı tek komutla yeniden üretebilir.",
+          "Bu yerel kipte ön yüz, arka uç hedefini `.env.local` içinden okuyor. Kurulum yardımcısı şu an en doğru yerel API hedefiyle bu dosyayı tek komutla yeniden üretebilir.",
         commands: [
           localSetup.suggested_frontend_env_command,
           "python v2/scripts/local_v2_doctor.py",
@@ -601,7 +601,7 @@ export default function StatusPage() {
         title: "Arka uç ortamı güncel, ama çalışan süreç yeniden başlatılmalı.",
         detail:
           localSetup?.backend_restart_reason ||
-          "Doctor `backend/.env` tarafında `DATABASE_URL` gördüğü halde çalışan arka uç hâlâ eski ortam ile 503 dönüyor. Bu yerel durumda tipik olarak uvicorn sürecinin ortam yazıldıktan sonra yeniden başlatılması gerekir.",
+          "Kurulum yardımcısı `backend/.env` tarafında `DATABASE_URL` gördüğü halde çalışan arka uç hâlâ eski ortam ile 503 dönüyor. Bu yerel durumda tipik olarak uvicorn sürecinin ortam yazıldıktan sonra yeniden başlatılması gerekir.",
         commands: [
           localSetup?.suggested_backend_restart_command ||
             localSetup?.suggested_backend_start_command ||
@@ -620,7 +620,7 @@ export default function StatusPage() {
         tone: "warning" as const,
         title: "Arka uç ayakta, veritabanı ortamı eksik.",
         detail:
-          "Bu yerel durumda API cevap veriyor ama `DATABASE_URL` olmadığı için gerçek kimlik doğrulama akışı tamamlanamıyor. Doctor komutlarıyla mevcut kaynakları tarayıp `backend/.env` dosyasını hazırlayabiliriz.",
+          "Bu yerel durumda API cevap veriyor ama `DATABASE_URL` olmadığı için gerçek kimlik doğrulama akışı tamamlanamıyor. Kurulum yardımcısı komutlarıyla mevcut kaynakları tarayıp `backend/.env` dosyasını hazırlayabiliriz.",
         commands: [
           "python v2/scripts/local_v2_doctor.py",
           localSetup?.suggested_bootstrap_command || localSetup?.suggested_scaffold_command || "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
@@ -832,7 +832,7 @@ export default function StatusPage() {
                 gap: "8px",
               }}
             >
-              <div style={{ color: "#5f7294", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase" }}>Rollout</div>
+              <div style={{ color: "#5f7294", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase" }}>Açılış Sırası</div>
               <strong style={{ fontSize: "1.6rem", color: "#16274a" }}>
                 {readinessSummary.readyRolloutSteps}/{readinessSummary.totalRolloutSteps || 0}
               </strong>
@@ -962,7 +962,7 @@ export default function StatusPage() {
                 }}
               >
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
-                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Doctor Özeti</div>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Kurulum Özeti</div>
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
                     Karar: {localSetup.decision_headline || "belirsiz"}
                     <br />
@@ -993,7 +993,7 @@ export default function StatusPage() {
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
                     {localSetup.detected_frontend_urls.length
                       ? localSetup.detected_frontend_urls.join(" | ")
-                      : "Doctor şu an cevap veren bir yerel ön yüz adresi göremedi."}
+                      : "Kurulum yardımcısı şu an cevap veren bir yerel ön yüz adresi göremedi."}
                   </div>
                 </article>
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
@@ -1015,7 +1015,7 @@ export default function StatusPage() {
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
                   <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>İlk Hamle</div>
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
-                    {localSetup.decision_detail || "Doctor ayrı bir ilk hamle notu üretmedi."}
+                    {localSetup.decision_detail || "Kurulum yardımcısı ayrı bir ilk öneri notu üretmedi."}
                   </div>
                   {localSetup.decision_command ? (
                     <button
@@ -1287,7 +1287,7 @@ export default function StatusPage() {
                 }}
               >
                 <div style={statusPill(Boolean(frontend))}>
-                  {frontend ? "Yedek Teshis Açık" : "Baglanti Kontrolu Gerekli"}
+                  {frontend ? "Yedek Teşhis Açık" : "Bağlantı Kontrolü Gerekli"}
                 </div>
                 <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot durum notu</h2>
                 <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>{loadNote}</p>
@@ -2700,14 +2700,14 @@ export default function StatusPage() {
                   }}
                 >
                   <div>
-                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Deploy Hazırlığı</h2>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yayın Hazırlığı</h2>
                     <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                      Pilotu açmadan önce hangi environment değerlerinin eksik olduğunu ve sıradaki adımları burada gör.
+                      Pilotu açmadan önce hangi ortam değerlerinin eksik olduğunu ve sıradaki adımları burada gör.
                     </p>
                   </div>
                   <div style={statusPill((backend?.required_missing_env_vars?.length ?? 0) === 0)}>
                     {(backend?.required_missing_env_vars?.length ?? 0) === 0
-                      ? "Zorunlu Env Tamam"
+                      ? "Zorunlu Ortam Tamam"
                       : `${backend?.required_missing_env_vars?.length ?? 0} zorunlu eksik`}
                   </div>
                 </div>
