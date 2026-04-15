@@ -57,6 +57,11 @@ type PayrollDashboard = {
   }>;
 };
 
+const serifStyle = {
+  fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  letterSpacing: "-0.04em",
+} as const;
+
 function formatMoney(value: number) {
   return new Intl.NumberFormat("tr-TR", {
     style: "currency",
@@ -113,6 +118,89 @@ function metricCard(label: string, value: string, note: string) {
         }}
       >
         {note}
+      </div>
+    </article>
+  );
+}
+
+function narrativeCard({
+  eyebrow,
+  title,
+  body,
+  tone = "paper",
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  tone?: "paper" | "ink" | "accent";
+}) {
+  const palette =
+    tone === "ink"
+      ? {
+          background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+          border: "1px solid rgba(255,255,255,0.08)",
+          title: "#fff7ea",
+          body: "rgba(255,247,234,0.72)",
+          eyebrow: "rgba(255,247,234,0.62)",
+        }
+      : tone === "accent"
+        ? {
+            background: "linear-gradient(180deg, rgba(185,116,41,0.12), rgba(255,248,236,0.98))",
+            border: "1px solid rgba(185,116,41,0.18)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--accent-strong)",
+          }
+        : {
+            background: "rgba(255,255,255,0.84)",
+            border: "1px solid var(--line)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--muted)",
+          };
+
+  return (
+    <article
+      style={{
+        padding: "18px 18px 16px",
+        borderRadius: "22px",
+        background: palette.background,
+        border: palette.border,
+        boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      <div
+        style={{
+          color: palette.eyebrow,
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifStyle,
+          color: palette.title,
+          fontSize: "1.45rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: palette.body,
+          fontSize: "0.93rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
       </div>
     </article>
   );
@@ -281,12 +369,12 @@ export default function PayrollPage() {
       return [];
     }
     return [
-      metricCard("Brüt Hakediş", formatMoney(dashboard.summary.gross_payroll), `${dashboard.summary.selected_month} toplamı`),
-      metricCard("Toplam Kesinti", formatMoney(dashboard.summary.total_deductions), "Ay sonu kesinti toplamı"),
-      metricCard("Net Ödeme", formatMoney(dashboard.summary.net_payment), "Hakediş kapanış özeti"),
-      metricCard("Personel", formatNumber(dashboard.summary.personnel_count), "Hakediş havuzundaki çalışan"),
-      metricCard("Toplam Saat", formatNumber(dashboard.summary.total_hours, 1), "Seçili filtre çalışma saati"),
-      metricCard("Toplam Paket", formatNumber(dashboard.summary.total_packages, 0), "Seçili filtre paket toplamı"),
+      metricCard("Brut Hakedis", formatMoney(dashboard.summary.gross_payroll), `${dashboard.summary.selected_month} toplami`),
+      metricCard("Toplam Kesinti", formatMoney(dashboard.summary.total_deductions), "Ay sonu kesinti toplami"),
+      metricCard("Net Odeme", formatMoney(dashboard.summary.net_payment), "Hakedis kapanis ozeti"),
+      metricCard("Personel", formatNumber(dashboard.summary.personnel_count), "Hakedis havuzundaki calisan"),
+      metricCard("Toplam Saat", formatNumber(dashboard.summary.total_hours, 1), "Secili filtre calisma saati"),
+      metricCard("Toplam Paket", formatNumber(dashboard.summary.total_packages, 0), "Secili filtre paket toplami"),
     ];
   }, [dashboard]);
 
@@ -308,10 +396,57 @@ export default function PayrollPage() {
         : 0;
 
     return [
-      metricCard("Saat Başına Net", formatMoney(netPerHour), "Net ödeme / toplam saat"),
-      metricCard("Kurye Başına Net", formatMoney(netPerCourier), "Net ödeme / personel"),
-      metricCard("Kesinti Oranı", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / brüt hakediş"),
+      metricCard("Saat Basina Net", formatMoney(netPerHour), "Net odeme / toplam saat"),
+      metricCard("Kurye Basina Net", formatMoney(netPerCourier), "Net odeme / personel"),
+      metricCard("Kesinti Orani", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / brut hakedis"),
     ];
+  }, [dashboard]);
+
+  const decisionDeck = useMemo(() => {
+    if (!dashboard?.summary) {
+      return [];
+    }
+
+    const deductionRatio =
+      dashboard.summary.gross_payroll > 0
+        ? (dashboard.summary.total_deductions / dashboard.summary.gross_payroll) * 100
+        : 0;
+    const topPersonnel = dashboard.top_personnel[0] ?? null;
+    const topCostModel = dashboard.cost_model_breakdown[0] ?? null;
+    const netPerCourier =
+      dashboard.summary.personnel_count > 0
+        ? dashboard.summary.net_payment / dashboard.summary.personnel_count
+        : 0;
+
+    return [
+      {
+        eyebrow: "Odeme Nabzi",
+        title:
+          deductionRatio <= 8
+            ? "Kesinti baskisi kontrollu gorunuyor."
+            : deductionRatio <= 14
+              ? "Kesinti baskisi izlenmeli."
+              : "Kesinti baskisi yukseliyor.",
+        body: `${dashboard.summary.selected_month} doneminde ${formatMoney(dashboard.summary.net_payment)} net odeme cikiyor. Kesinti orani %${formatNumber(deductionRatio, 1)} seviyesinde.`,
+        tone: deductionRatio <= 8 ? "ink" : "accent",
+      },
+      {
+        eyebrow: "En Yuksek Net Odeme",
+        title: topPersonnel ? topPersonnel.personnel : "Odeme lideri sinyali henuz yok.",
+        body: topPersonnel
+          ? `${topPersonnel.role} rolunde ${formatMoney(topPersonnel.net_payment)} net odeme tasiyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmali.`
+          : "Personel dagilimi geldikce bu kart aylik odeme agirligini onde gosterecek.",
+        tone: "paper",
+      },
+      {
+        eyebrow: "Model Yuku",
+        title: topCostModel ? topCostModel.cost_model : "Model dagilimi sinyali henuz yok.",
+        body: topCostModel
+          ? `${formatNumber(topCostModel.personnel_count)} personel ile ${formatMoney(topCostModel.net_payment)} net odeme yukunu tasiyor. Kurye basina ortalama net odeme ${formatMoney(netPerCourier)} seviyesinde.`
+          : "Hangi maliyet modelinin yuk tasidigini bu alan hizli gosterecek.",
+        tone: "paper",
+      },
+    ] as const;
   }, [dashboard]);
 
   const filteredEntries = useMemo(() => {
@@ -337,7 +472,8 @@ export default function PayrollPage() {
           style={{
             padding: "28px",
             borderRadius: "30px",
-            background: "var(--surface-strong)",
+            background:
+              "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,242,233,0.96))",
             border: "1px solid var(--line)",
             boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
             display: "grid",
@@ -346,17 +482,23 @@ export default function PayrollPage() {
         >
           <div
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.9fr)",
               gap: "18px",
-              flexWrap: "wrap",
+              alignItems: "stretch",
             }}
           >
-            <div>
+            <div
+              style={{
+                display: "grid",
+                gap: "16px",
+                alignContent: "start",
+              }}
+            >
               <div
                 style={{
                   display: "inline-flex",
+                  width: "fit-content",
                   padding: "7px 12px",
                   borderRadius: "999px",
                   background: "var(--accent-soft)",
@@ -369,67 +511,237 @@ export default function PayrollPage() {
               >
                 Hakedis ve Bordro
               </div>
-              <h1
+              <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
+                <h1
+                  style={{
+                    ...serifStyle,
+                    margin: 0,
+                    fontSize: "clamp(2.2rem, 4vw, 3.6rem)",
+                    lineHeight: 0.96,
+                    fontWeight: 700,
+                  }}
+                >
+                  Bordroyu sadece toplamla degil, gerilim noktalarini da okuyarak yonetiyoruz.
+                </h1>
+                <p
+                  style={{
+                    margin: 0,
+                    maxWidth: "76ch",
+                    color: "var(--muted)",
+                    fontSize: "1.02rem",
+                    lineHeight: 1.76,
+                  }}
+                >
+                  Net odeme, kesinti, saat ve paket dagilimlarini daha ciddi bir karar
+                  odasina cekiyoruz. Hedefimiz, kapanis oncesi riskleri ve odeme agirligini
+                  bir bakista daha dogru hissettirmek.
+                </p>
+              </div>
+              <div
                 style={{
-                  margin: "16px 0 10px",
-                  fontSize: "clamp(2rem, 4vw, 3rem)",
-                  lineHeight: 1.03,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "10px",
                 }}
               >
-                Aylik hakedis yeni hatta hazir.
-              </h1>
-              <p
-                style={{
-                  margin: 0,
-                  maxWidth: "76ch",
-                  color: "var(--muted)",
-                  fontSize: "1.02rem",
-                  lineHeight: 1.7,
-                }}
-              >
-                Net odeme, kesinti, saat ve paket dagilimlarini artik daha hizli ve daha
-                okunur bir bordro yuzeyinde takip edebilirsin.
-              </p>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(15,95,215,0.08)",
+                    color: "#0f5fd7",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Bordro sinyali acik
+                </span>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(185,116,41,0.1)",
+                    color: "var(--accent-strong)",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Risk ve odeme ayni katmanda
+                </span>
+              </div>
             </div>
+
             <div
               style={{
-                minWidth: "280px",
                 display: "grid",
-                gap: "10px",
+                gap: "12px",
               }}
             >
-              <label
-                htmlFor="payroll-month"
+              <article
                 style={{
-                  color: "var(--muted)",
-                  fontSize: "0.82rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  fontWeight: 800,
+                  padding: "18px 18px 16px",
+                  borderRadius: "24px",
+                  background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+                  color: "#fff7ea",
+                  boxShadow: "var(--shadow-deep)",
+                  display: "grid",
+                  gap: "14px",
                 }}
               >
-                Hakediş Dönemi
-              </label>
-              <select
-                id="payroll-month"
-                value={selectedMonth}
-                onChange={(event) => setSelectedMonth(event.target.value)}
-                disabled={dashboardLoading || !dashboard?.month_options?.length}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    alignItems: "start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.62)",
+                        fontSize: "0.74rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Hakedis Donemi
+                    </div>
+                    <div
+                      style={{
+                        ...serifStyle,
+                        fontSize: "1.8rem",
+                        lineHeight: 0.96,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {(dashboard?.summary?.selected_month ?? selectedMonth) || "Ay sec"}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      padding: "7px 10px",
+                      borderRadius: "999px",
+                      background: "rgba(255,255,255,0.08)",
+                      color: "rgba(255,247,234,0.82)",
+                      fontSize: "0.8rem",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Payroll Room
+                  </div>
+                </div>
+                <select
+                  id="payroll-month"
+                  value={selectedMonth}
+                  onChange={(event) => setSelectedMonth(event.target.value)}
+                  disabled={dashboardLoading || !dashboard?.month_options?.length}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "16px",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "#fff7ea",
+                    fontWeight: 700,
+                  }}
+                >
+                  {(dashboard?.month_options ?? []).map((month) => (
+                    <option key={month} value={month} style={{ color: "#16283b" }}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Net Odeme
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {formatMoney(dashboard?.summary?.net_payment ?? 0)}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(185,116,41,0.14)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Toplam Kesinti
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {formatMoney(dashboard?.summary?.total_deductions ?? 0)}
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article
                 style={{
-                  padding: "14px 16px",
-                  borderRadius: "16px",
+                  padding: "16px 18px",
+                  borderRadius: "22px",
                   border: "1px solid var(--line)",
-                  background: "rgba(255,255,255,0.96)",
-                  color: "var(--text)",
-                  fontWeight: 700,
+                  background: "rgba(255,255,255,0.78)",
+                  display: "grid",
+                  gap: "8px",
                 }}
               >
-                {(dashboard?.month_options ?? []).map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-              </select>
+                <div
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.74rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Okuma Notu
+                </div>
+                <div
+                  style={{
+                    color: "var(--text)",
+                    fontSize: "0.95rem",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  Bu ekranda once kesinti baskisini, sonra model yukunu ve en yuksek net
+                  odeme cikan isimleri okumak kapanis kararini daha netlestirir.
+                </div>
+              </article>
             </div>
           </div>
 
@@ -538,13 +850,25 @@ export default function PayrollPage() {
             <div
               style={{
                 display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {decisionDeck.map((item) => (
+                <div key={`${item.eyebrow}-${item.title}`}>{narrativeCard(item)}</div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
                 gridTemplateColumns: "minmax(0, 1.8fr) minmax(320px, 1fr)",
                 gap: "18px",
               }}
             >
               <ScrollCard
-                title="Hakediş Özeti"
-                subtitle="Personel bazlı çalışma, kesinti ve net ödeme görünümü. Liste kendi içinde scroll eder."
+                title="Hakedis Ozeti"
+                subtitle="Personel bazli calisma, kesinti ve net odeme gorunumu. Liste kendi icinde scroll eder."
                 actions={
                   <input
                     value={entryQuery}
@@ -575,7 +899,7 @@ export default function PayrollPage() {
                         "Durum",
                         "Saat",
                         "Paket",
-                        "Brüt",
+                        "Brut",
                         "Kesinti",
                         "Net",
                         "Restoran",
@@ -604,8 +928,8 @@ export default function PayrollPage() {
 
               <div style={{ display: "grid", gap: "18px" }}>
                 <ScrollCard
-                  title="Maliyet Modeli Dağılımı"
-                  subtitle="Hangi hakediş modelinin ne kadar yük taşıdığını tek bakışta izle."
+                  title="Maliyet Modeli Dagilimi"
+                  subtitle="Hangi hakedis modelinin ne kadar yuk tasidigini tek bakista izle."
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
                     {dashboard.cost_model_breakdown.map((row) => (
@@ -633,8 +957,8 @@ export default function PayrollPage() {
                 </ScrollCard>
 
                 <ScrollCard
-                  title="En Yüksek Net Ödeme"
-                  subtitle="Ay içinde en yüksek net ödeme çıkan çalışanları hızlıca gör."
+                  title="En Yuksek Net Odeme"
+                  subtitle="Ay icinde en yuksek net odeme cikan calisanlari hizlica gor."
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
                     {dashboard.top_personnel.map((row) => (
