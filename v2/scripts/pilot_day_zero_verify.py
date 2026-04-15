@@ -276,6 +276,13 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         )
 
     expected_markdown_snippets = [
+        f"- Base URL: `{smoke_payload.get('base_url')}`",
+        f"- Preset: `{smoke_payload.get('preset') or '-'}`",
+        f"- Generated At: `{smoke_payload.get('generated_at')}`",
+        f"- Timeout: `{smoke_payload.get('timeout_seconds')}s`",
+        f"- Identity Provided: `{bool(smoke_payload.get('identity_provided'))}`",
+        f"- Legacy URL: `{smoke_payload.get('legacy_url') or '-'}`",
+        f"- Legacy Cutover Mode: `{smoke_payload.get('legacy_cutover_mode') or '-'}`",
         f"- Overall OK: `{smoke_payload.get('overall_ok')}`",
         f"- Passed: `{derived_passed_count}`",
         f"- Failed: `{smoke_payload.get('failed_count')}`",
