@@ -107,6 +107,25 @@ def _canonicalize_path_text(value: str | Path | None) -> str | None:
     return str(Path(text).expanduser().resolve())
 
 
+def _coerce_optional_int(*, value: object, issue_label: str, issues: list[str]) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        issues.append(f"{issue_label} sayisal degil")
+        return None
+
+
+def _coerce_optional_str(*, value: object, issue_label: str, issues: list[str]) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    issues.append(f"{issue_label} string degil")
+    return ""
+
+
 def _canonicalize_manifest_payload(payload: dict) -> dict:
     normalized = json.loads(json.dumps(payload))
     if "output_dir" in normalized:
@@ -227,7 +246,18 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         issues.append("pilot-smoke-live.md canonical smoke raporuyla birebir uyusmuyor")
     if not smoke_results:
         issues.append("pilot-smoke-live.json icinde results listesi bos veya eksik")
-    derived_passed_count = smoke_payload.get("passed_count")
+    payload_passed_count = _coerce_optional_int(
+        value=smoke_payload.get("passed_count"),
+        issue_label="pilot-smoke-live.json icinde passed_count",
+        issues=issues,
+    )
+    payload_failed_count = _coerce_optional_int(
+        value=smoke_payload.get("failed_count"),
+        issue_label="pilot-smoke-live.json icinde failed_count",
+        issues=issues,
+    )
+
+    derived_passed_count = payload_passed_count
     if derived_passed_count is None:
         if smoke_results:
             derived_passed_count = sum(1 for result in smoke_results if result.get("ok"))
@@ -237,9 +267,9 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
     if smoke_results:
         actual_passed_count = sum(1 for result in smoke_results if result.get("ok"))
         actual_failed_count = sum(1 for result in smoke_results if not result.get("ok"))
-        if smoke_payload.get("passed_count") is not None and int(smoke_payload.get("passed_count") or 0) != actual_passed_count:
+        if payload_passed_count is not None and payload_passed_count != actual_passed_count:
             issues.append("pilot-smoke-live.json icinde passed_count result listesiyle uyusmuyor")
-        if smoke_payload.get("failed_count") is not None and int(smoke_payload.get("failed_count") or 0) != actual_failed_count:
+        if payload_failed_count is not None and payload_failed_count != actual_failed_count:
             issues.append("pilot-smoke-live.json icinde failed_count result listesiyle uyusmuyor")
         if smoke_payload.get("overall_ok") is not None and bool(smoke_payload.get("overall_ok")) != (actual_failed_count == 0):
             issues.append("pilot-smoke-live.json icinde overall_ok result listesiyle uyusmuyor")
@@ -277,8 +307,12 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             "Manifest smoke_overall_ok degeri ile pilot-smoke-live.json uyusmuyor"
         )
 
-    expected_failed_count = manifest.get("smoke_failed_count")
-    if expected_failed_count is not None and int(smoke_payload.get("failed_count") or 0) != int(expected_failed_count):
+    expected_failed_count = _coerce_optional_int(
+        value=manifest.get("smoke_failed_count"),
+        issue_label="Manifest smoke_failed_count",
+        issues=issues,
+    )
+    if expected_failed_count is not None and payload_failed_count is not None and payload_failed_count != expected_failed_count:
         issues.append(
             "Manifest smoke_failed_count degeri ile pilot-smoke-live.json uyusmuyor"
         )
@@ -286,7 +320,11 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
     raw_decision = smoke_payload.get("decision")
     decision_for_manifest = raw_decision if isinstance(raw_decision, dict) else {}
     expected_next_step = manifest.get("smoke_recommended_next_step")
-    actual_next_step = (decision_for_manifest.get("recommended_next_step") or "").strip()
+    actual_next_step = _coerce_optional_str(
+        value=decision_for_manifest.get("recommended_next_step"),
+        issue_label="pilot-smoke-live.json icinde decision.recommended_next_step",
+        issues=issues,
+    )
     if expected_next_step and actual_next_step != expected_next_step:
         issues.append(
             "Manifest smoke_recommended_next_step degeri ile pilot-smoke-live.json uyusmuyor"
