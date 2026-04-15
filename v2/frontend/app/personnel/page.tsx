@@ -94,6 +94,97 @@ function metricCard(label: string, value: string, note: string) {
   );
 }
 
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  }).format(value || 0);
+}
+
+function narrativeCard({
+  eyebrow,
+  title,
+  body,
+  tone = "paper",
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  tone?: "paper" | "ink" | "accent";
+}) {
+  const palette =
+    tone === "ink"
+      ? {
+          background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+          border: "1px solid rgba(255,255,255,0.08)",
+          title: "#fff7ea",
+          body: "rgba(255,247,234,0.72)",
+          eyebrow: "rgba(255,247,234,0.62)",
+        }
+      : tone === "accent"
+        ? {
+            background: "linear-gradient(180deg, rgba(185,116,41,0.12), rgba(255,248,236,0.98))",
+            border: "1px solid rgba(185,116,41,0.18)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--accent-strong)",
+          }
+        : {
+            background: "rgba(255,255,255,0.84)",
+            border: "1px solid var(--line)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--muted)",
+          };
+
+  return (
+    <article
+      style={{
+        ...paperCardStyle,
+        padding: "18px 18px 16px",
+        background: palette.background,
+        border: palette.border,
+        boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      <div
+        style={{
+          color: palette.eyebrow,
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifTitleStyle,
+          color: palette.title,
+          fontSize: "1.45rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: palette.body,
+          fontSize: "0.93rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
+      </div>
+    </article>
+  );
+}
+
 function workspaceFrame(
   kicker: string,
   title: string,
@@ -213,6 +304,52 @@ export default function PersonnelPage() {
     dashboard?.summary.total_personnel && dashboard.summary.total_personnel > 0
       ? Math.round((dashboard.summary.assigned_restaurants / dashboard.summary.total_personnel) * 100)
       : 0;
+  const decisionDeck = useMemo(() => {
+    if (!dashboard) {
+      return [];
+    }
+
+    const activeRatio =
+      dashboard.summary.total_personnel > 0
+        ? (dashboard.summary.active_personnel / dashboard.summary.total_personnel) * 100
+        : 0;
+    const topEntry = dashboard.recent_entries[0] ?? null;
+    const unassignedCount = dashboard.recent_entries.filter((entry) => !entry.restaurant_label).length;
+    const topRole = roleBreakdown[0] ?? null;
+
+    return [
+      {
+        eyebrow: "Kadro Dengesi",
+        title:
+          activeRatio >= 80
+            ? "Aktif kadro dengesi guclu gorunuyor."
+            : activeRatio >= 60
+              ? "Aktif kadro korunuyor."
+              : "Aktif kadro dikkat istiyor.",
+        body: `${dashboard.summary.total_personnel} kartin %${activeRatio.toFixed(1)} aktif durumda. Bu oran sahaya cikabilecek gercek kadro gucunu hizli okumayi saglar.`,
+        tone: activeRatio >= 80 ? "ink" : "accent",
+      },
+      {
+        eyebrow: "En Sicak Kart",
+        title: topEntry ? topEntry.full_name : "Kadro sinyali henuz yok.",
+        body: topEntry
+          ? `${topEntry.role} rolunde ${topEntry.restaurant_label || "atamasiz"} baglami ile one cikiyor. ${topEntry.vehicle_mode} ve ${topEntry.phone || "telefon yok"} bilgisiyle sahaya hazirlik seviyesi gorunuyor.`
+          : "Yeni kart ve guncellemeler geldikce burada dikkat isteyen personel karti one cikarilacak.",
+        tone: "paper",
+      },
+      {
+        eyebrow: unassignedCount > 0 ? "Atama Baskisi" : "Rol Yogunlugu",
+        title: unassignedCount > 0 ? "Atama bekleyen kartlar var." : topRole ? `${topRole[0]} onde gidiyor.` : "Rol sinyali henuz yok.",
+        body:
+          unassignedCount > 0
+            ? `Son kartlarda ${unassignedCount} kisi sube atamasi olmadan gorunuyor. Bu, saha planlamasi oncesi hizli bir kontrol gerektirebilir.`
+            : topRole
+              ? `Son hareketlerde ${topRole[0]} rolu ${topRole[1]} kartla one cikiyor. Ayni anda %${restaurantCoverage} sube kapsami operasyon dagilimini okumayi kolaylastiriyor.`
+              : "Rol dagilimi geldikce burada hangi kadro tipinin agirlik kazandigi daha erken okunacak.",
+        tone: unassignedCount > 0 ? "accent" : "paper",
+      },
+    ] as const;
+  }, [dashboard, restaurantCoverage, roleBreakdown]);
 
   return (
     <AppShell activeItem="Personel">
@@ -358,8 +495,9 @@ export default function PersonnelPage() {
                 {dashboard?.summary.total_personnel ?? "-"}
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
-                Toplam kart havuzu. Bu yuzey aktiflik, atama ve son hareketleri ayni ritimde
-                okumaya odakli.
+                {dashboard
+                  ? `${dashboard.summary.active_personnel} aktif, ${dashboard.summary.passive_personnel} pasif kart ayni yuzeyde izleniyor.`
+                  : "Toplam kart havuzu. Bu yuzey aktiflik, atama ve son hareketleri ayni ritimde okumaya odakli."}
               </div>
             </article>
 
@@ -503,6 +641,18 @@ export default function PersonnelPage() {
               {metricCard("Aktif", String(dashboard.summary.active_personnel), "Sahaya cikabilecek aktif kadro")}
               {metricCard("Pasif", String(dashboard.summary.passive_personnel), "Pasif veya beklemede duran kartlar")}
               {metricCard("Atanmis Sube", String(dashboard.summary.assigned_restaurants), "Kadro icinde gorunen aktif atamalar")}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {decisionDeck.map((item) => (
+                <div key={`${item.eyebrow}-${item.title}`}>{narrativeCard(item)}</div>
+              ))}
             </div>
 
             {workspaceFrame(
