@@ -14,6 +14,9 @@ type PreviewMeta = {
   title: string;
   description: string;
   relatedLabels: string[];
+  reviewPoints: string[];
+  signal: string;
+  flowNote: string;
 };
 
 const previewMetaByLabel: Record<string, PreviewMeta> = {
@@ -23,6 +26,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Preview hattinin omurgasi burada. Modulleri akisa gore ayiriyor, son sinyalleri topluyor ve nereden baslanacagini netlestiriyor.",
     relatedLabels: ["Puantaj", "Satış", "Ekipman"],
+    reviewPoints: [
+      "Saha, ticari ve kontrol katmanlarinin ayni merkezde nasil bulustuguna bak.",
+      "Recent activity akisinin moduller arasi hikaye kurup kurmadigini kontrol et.",
+      "Hangi module once girmenin daha dogal hissettirdigine odaklan.",
+    ],
+    signal: "Bu yuzey artik sadece dashboard degil, tum preview deneyiminin ana komuta masasi gibi davraniyor.",
+    flowNote: "Bu noktadan sonra saha omurgasina gecmek icin once Puantaj, finans resmi icin Satış veya Ekipman iyi bir devam rotasi.",
   },
   "Puantaj": {
     kicker: "Saha Omurgasi",
@@ -30,6 +40,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Vardiya, destek gecisi ve aylik kayit temizligi gibi operasyonun en sik dokunulan islerini hizli gozlemlemek icin hazir.",
     relatedLabels: ["Personel", "Kesintiler", "Restoranlar"],
+    reviewPoints: [
+      "Gunluk giris akisinda yogun kullanima uygun ritim hissediliyor mu bak.",
+      "Liste, filtre ve tehlikeli aksiyonlarin ayirt edilebilirligine odaklan.",
+      "Saha operasyoni icin hiz, netlik ve kontrol dengesi kuruldu mu kontrol et.",
+    ],
+    signal: "En sik kullanilan modul oldugu icin tasarim dili burada agirlik ve hiz arasinda dengeleniyor.",
+    flowNote: "Puantajdan sonra Personel veya Kesintiler yuzeyine gecmek, karar zincirinin tutarliligini daha iyi gosterir.",
   },
   Personel: {
     kicker: "Kadro Yonetimi",
@@ -37,6 +54,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Kart acma, durum degistirme ve restoran dagilimi yeni dilde daha okunur bir yuzeye donusuyor.",
     relatedLabels: ["Puantaj", "Kesintiler", "Ekipman"],
+    reviewPoints: [
+      "Kart yogunlugu yuksek olsa bile sayfa nefes aliyor mu incele.",
+      "Aktif-pasif, restoran dagilimi ve iletisim bilgileri kolay taraniyor mu bak.",
+      "Yeni tasarim yoneticiye daha guven veren bir kontrol hissi veriyor mu kontrol et.",
+    ],
+    signal: "Personel ekraninda premium his, bilgi kalabaligini daha sakin ve hiyerarsik bir dilde eritmekten geliyor.",
+    flowNote: "Buradan sonra Ekipman veya Kesintiler modulu, personel kartinin operasyonla nasil baglandigini gostermek icin iyi bir devam.",
   },
   Kesintiler: {
     kicker: "Bordro On Hatti",
@@ -44,6 +68,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Manuel ve otomatik kesintileri ayni panelde gormek, duzenlemek ve payroll etkisini hissetmek icin acik.",
     relatedLabels: ["Aylık Hakediş", "Personel", "Puantaj"],
+    reviewPoints: [
+      "Otomatik ve manuel kayitlar ayni yuzeyde karismadan ayrisiyor mu bak.",
+      "Miktar, neden ve personel baglami bir bakista okunabiliyor mu incele.",
+      "Kesinti akisinin bordroya giden karar hissini verip vermedigine odaklan.",
+    ],
+    signal: "Bu moduldaki kalite hissi, finansal hassasiyet ile operasyonel hiz arasindaki dengeyi dogru kurdugunda gucleniyor.",
+    flowNote: "Kesintilerden sonra Aylik Hakedis ekranina gecmek, verinin sonuc katmaninda nasil yankilandigini gostermek icin en net rota.",
   },
   Ekipman: {
     kicker: "Filo ve Zimmet",
@@ -51,6 +82,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Ekipman kayitlarini backoffice diliyle izlemek, duzenlemek ve box iadelerini birlikte gormek icin tasarlandi.",
     relatedLabels: ["Satın Alma", "Kesintiler", "Sistem Kayıtları"],
+    reviewPoints: [
+      "Zimmet ve box geri alim akislarinin ayni kabukta karismadan okunup okunmadigina bak.",
+      "Maliyet, adet ve personel baginin birlikte yeterince net hissedilip hissedilmedigini incele.",
+      "Backoffice agirligi olan bir modul icin yeterince premium duruyor mu kontrol et.",
+    ],
+    signal: "Bu yuzey, operasyonel agirligi yuksek alanlarda bile arayuzun koleksiyon sayfasi gibi duz degil, niyetli bir panel gibi davranabilecegini gosteriyor.",
+    flowNote: "Buradan sonra Satin Alma veya Sistem Kayitlari ekranina gecmek, ekipman hareketinin maliyet ve iz kaydi tarafini baglar.",
   },
   "Aylık Hakediş": {
     kicker: "Finans Cekirdegi",
@@ -58,6 +96,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Saat, paket, kesinti ve net odeme dagilimini tek panelde daha karli ve daha hizli analiz etmek icin kuruldu.",
     relatedLabels: ["Kesintiler", "Raporlar", "Satın Alma"],
+    reviewPoints: [
+      "Ozet kartlarin finansal resmi yeterince hizli anlatip anlatmadigina bak.",
+      "Liste ve filtre tarafinda ay bazli okuma kolay mi incele.",
+      "Kesinti ve net odeme zinciri zihinde temiz kuruluyor mu kontrol et.",
+    ],
+    signal: "Bordroya yakin ekranlarda tasarimin amaci gorsel gosteri degil, karar kalitesini yukseltmek.",
+    flowNote: "Bu duraktan sonra Raporlar modulu, rakamlarin daha genis is resmi icinde nasil konumlandigini gormek icin iyi bir devam.",
   },
   "Satın Alma": {
     kicker: "Backoffice Maliyet",
@@ -65,6 +110,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Tedarikciler, kalem bazli alimlar ve birim maliyet resmi artik daha derli toplu bir satin alma panelinde.",
     relatedLabels: ["Ekipman", "Aylık Hakediş", "Raporlar"],
+    reviewPoints: [
+      "Tedarikci, kalem ve fatura alanlari arasinda hiyerarsi net mi bak.",
+      "Maliyet ekraninin fazla muhasebesel gorunmeden ciddi durup durmadigina incele.",
+      "Liste ve form akislarinin ayni dilde kalip kalmadigini kontrol et.",
+    ],
+    signal: "Satin alma modulu, sessiz ama guclu bir backoffice tasarim dilinin neleri iyilestirebildigini gosteren kritik yuzeylerden biri.",
+    flowNote: "Bu ekrandan sonra Ekipman veya Raporlar rotasi, satin alma verisinin nereye aktigini gostermek icin iyi calisiyor.",
   },
   "Satış": {
     kicker: "Ticari Akis",
@@ -72,6 +124,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Firsat havuzu, teklif modeli ve takip aksiyonlari daha editoryal bir satista bulusuyor.",
     relatedLabels: ["Raporlar", "Restoranlar", "Satın Alma"],
+    reviewPoints: [
+      "Pipeline enerjisinin daha canli ve premium hissedilip hissedilmedigine bak.",
+      "Teklif, takip tarihi ve sorumlu sahibi gibi alanlar net okunuyor mu incele.",
+      "Ticari modullerin operasyon modullerinden farkli bir enerji tasiyip tasimadigini kontrol et.",
+    ],
+    signal: "Satis ekraninda hedef, kurumsal ama heyecansiz bir tablo yerine hareket hissi veren bir ticari panel kurmak.",
+    flowNote: "Satis sonrasi en iyi baglantilar Restoranlar ve Raporlar; biri operasyon acilisini, digeri ticari resmi devam ettiriyor.",
   },
   Restoranlar: {
     kicker: "Sube Katmani",
@@ -79,6 +138,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Restoran kartlari, aktiflik ve fiyat yapilari operasyonla daha bagli bir yuzeyde incelenebiliyor.",
     relatedLabels: ["Puantaj", "Satış", "Personel"],
+    reviewPoints: [
+      "Sube kartlarinin kurumsal ama sicak bir his verip vermedigine bak.",
+      "Fiyat modeli ve aktiflik bilgisinin birlikte ne kadar net okundugunu incele.",
+      "Bu ekranin saha ile ticari katman arasinda bir bag kurup kurmadigina odaklan.",
+    ],
+    signal: "Restoranlar modulu, CRM tarafinin yalnizca ic operasyon degil, musteri yuzlu karar katmani da oldugunu hissettiriyor.",
+    flowNote: "Buradan sonra Satis veya Puantaj modulu, sube verisinin iki farkli yonde nasil yasadigini gostermek icin iyi bir akis kurar.",
   },
   Raporlar: {
     kicker: "Karar Paneli",
@@ -86,6 +152,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Aylik resmi daha premium bir rapor deneyimine cekiyor; ticari ve operasyonel etkileri tek bakista okumayi kolaylastiriyor.",
     relatedLabels: ["Aylık Hakediş", "Satış", "Satın Alma"],
+    reviewPoints: [
+      "Rapor ozeti bir yoneticiye tek bakista yon tayin ettiriyor mu bak.",
+      "Trend, maliyet ve ciro ritmi yeterince editoryal hissediyor mu incele.",
+      "Bu ekranin tum sistemin karar katmani gibi davranip davranmadigini kontrol et.",
+    ],
+    signal: "Raporlar modulu, yeni dilin en dogrudan 'premium urun' hissini uretebilecegi katmanlardan biri.",
+    flowNote: "Raporlardan sonra Aylik Hakedis veya Satis ekranina donmek, karar verisinin kaynak akislarla uyumunu gosterir.",
   },
   "Sistem Kayıtları": {
     kicker: "Admin Katmani",
@@ -93,6 +166,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Audit akisinda filtreleme, akis takibi ve operasyonel seffaflik ayni estetik kabukta.",
     relatedLabels: ["Ekipman", "Profil", "Genel Bakış"],
+    reviewPoints: [
+      "Audit kayitlari ciddi ama sikici olmayan bir tonda okunuyor mu bak.",
+      "Filtre ve liste yogunlugune ragmen sayfa hala sakin kalabiliyor mu incele.",
+      "Bu ekran admin guveni veriyor mu kontrol et.",
+    ],
+    signal: "Bu yuzey, sistemin guven ve izlenebilirlik tarafini tasarim kalitesinden odun vermeden sunuyor.",
+    flowNote: "Sistem Kayitlari sonrasi Profil veya Genel Bakis rotasi, yonetici akislarini daha butunlu gormek icin mantikli.",
   },
   Profil: {
     kicker: "Kimlik Katmani",
@@ -100,6 +180,13 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     description:
       "Sadece operasyon degil, kullanicinin uygulama ile kurdugu kisiel temas da yeni dilde gorunur halde.",
     relatedLabels: ["Genel Bakış", "Sistem Kayıtları"],
+    reviewPoints: [
+      "Giris sonrasi en kisisel ekranin yeterince sakin ve guvenli hissedip hissetmedigine bak.",
+      "Sifre degistirme ve hesap bakimi akislarinin urun kalitesine uyumuna odaklan.",
+      "Yardimci ama ikincil bir ekran olmasina ragmen karakterini koruyor mu kontrol et.",
+    ],
+    signal: "Profil ekraninda kalite hissi, kullanicinin sistemle bire bir temas ettigi alanlarda da ayni estetik omurganin korunmasindan geliyor.",
+    flowNote: "Profil sonrasi Genel Bakis veya Sistem Kayitlari rotasi, kullanici ve yonetim katmanini birlikte okumak icin iyi bir kapanis verir.",
   },
 };
 
@@ -168,6 +255,16 @@ export function AppShell({
         .filter(Boolean) as SidebarItem[],
     [previewMeta.relatedLabels, visibleItems],
   );
+  const previewActiveIndex = useMemo(
+    () => visibleItems.findIndex((item) => item.label === activeItem),
+    [activeItem, visibleItems],
+  );
+  const previewPreviousItem =
+    previewActiveIndex > 0 ? visibleItems[previewActiveIndex - 1] : null;
+  const previewNextItem =
+    previewActiveIndex >= 0 && previewActiveIndex < visibleItems.length - 1
+      ? visibleItems[previewActiveIndex + 1]
+      : null;
 
   useEffect(() => {
     if (loading) {
@@ -644,6 +741,234 @@ export function AppShell({
                 >
                   Aktif sayfa: {activeItem}
                 </span>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "12px",
+                }}
+              >
+                <article
+                  style={{
+                    display: "grid",
+                    gap: "10px",
+                    padding: "16px 18px",
+                    borderRadius: "20px",
+                    border: "1px solid rgba(24,40,59,0.08)",
+                    background: "rgba(255,255,255,0.72)",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "var(--muted)",
+                      fontSize: "0.74rem",
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Neye Bak
+                  </div>
+                  <div style={{ display: "grid", gap: "8px" }}>
+                    {previewMeta.reviewPoints.map((point) => (
+                      <div
+                        key={point}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "18px minmax(0, 1fr)",
+                          gap: "8px",
+                          color: "var(--text)",
+                          lineHeight: 1.6,
+                          fontSize: "0.93rem",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: "18px",
+                            height: "18px",
+                            borderRadius: "999px",
+                            display: "grid",
+                            placeItems: "center",
+                            background: "rgba(185,116,41,0.12)",
+                            color: "var(--accent-strong)",
+                            fontSize: "0.72rem",
+                            fontWeight: 900,
+                          }}
+                        >
+                          +
+                        </span>
+                        <span>{point}</span>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article
+                  style={{
+                    display: "grid",
+                    gap: "12px",
+                    padding: "16px 18px",
+                    borderRadius: "20px",
+                    border: "1px solid rgba(24,40,59,0.08)",
+                    background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(34,53,76,0.94))",
+                    color: "#fff7ea",
+                    boxShadow: "var(--shadow-deep)",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "rgba(255,247,234,0.64)",
+                      fontSize: "0.74rem",
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Kritik Sinyal
+                  </div>
+                  <div
+                    style={{
+                      fontFamily:
+                        '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+                      fontSize: "1.35rem",
+                      lineHeight: 1.02,
+                      letterSpacing: "-0.03em",
+                    }}
+                  >
+                    {previewMeta.signal}
+                  </div>
+                  <div
+                    style={{
+                      color: "rgba(255,247,234,0.72)",
+                      lineHeight: 1.65,
+                      fontSize: "0.92rem",
+                    }}
+                  >
+                    {previewMeta.flowNote}
+                  </div>
+                </article>
+
+                <article
+                  style={{
+                    display: "grid",
+                    gap: "12px",
+                    padding: "16px 18px",
+                    borderRadius: "20px",
+                    border: "1px solid rgba(24,40,59,0.08)",
+                    background: "rgba(255,255,255,0.72)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "var(--muted)",
+                        fontSize: "0.74rem",
+                        fontWeight: 800,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Akis Haritasi
+                    </div>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        padding: "6px 10px",
+                        borderRadius: "999px",
+                        background: "rgba(15,95,215,0.08)",
+                        color: "#0f5fd7",
+                        fontSize: "0.8rem",
+                        fontWeight: 800,
+                      }}
+                    >
+                      Durak {Math.max(previewActiveIndex + 1, 1)} / {visibleItems.length}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: "10px",
+                    }}
+                  >
+                    {previewPreviousItem ? (
+                      <Link
+                        href={previewPreviousItem.href}
+                        style={{
+                          display: "grid",
+                          gap: "4px",
+                          padding: "12px 14px",
+                          borderRadius: "16px",
+                          background: "rgba(24,40,59,0.05)",
+                          border: "1px solid rgba(24,40,59,0.08)",
+                          color: "var(--text)",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: "0.73rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          Onceki Durak
+                        </span>
+                        <span style={{ fontWeight: 800 }}>{previewPreviousItem.label}</span>
+                      </Link>
+                    ) : null}
+                    {previewNextItem ? (
+                      <Link
+                        href={previewNextItem.href}
+                        style={{
+                          display: "grid",
+                          gap: "4px",
+                          padding: "12px 14px",
+                          borderRadius: "16px",
+                          background: "rgba(185,116,41,0.08)",
+                          border: "1px solid rgba(185,116,41,0.18)",
+                          color: "var(--text)",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: "0.73rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          Sonraki Durak
+                        </span>
+                        <span style={{ fontWeight: 800 }}>{previewNextItem.label}</span>
+                      </Link>
+                    ) : null}
+                    {!previewPreviousItem && !previewNextItem ? (
+                      <div
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: "16px",
+                          background: "rgba(24,40,59,0.05)",
+                          color: "var(--muted)",
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        Bu preview rotasi tekil bir kesit degil; yandaki ilgili gecisler ile kesif akisini derinlestirebilirsin.
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
               </div>
             </section>
           ) : null}
