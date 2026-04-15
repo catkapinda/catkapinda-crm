@@ -165,7 +165,7 @@ def test_personnel_mutation_routes(monkeypatch):
         lambda conn, payload: {
             "person_id": 33,
             "person_code": "CK-K33",
-            "message": "Personel olusturuldu.",
+            "message": "Personel oluşturuldu.",
         },
     )
     monkeypatch.setattr(
@@ -173,7 +173,7 @@ def test_personnel_mutation_routes(monkeypatch):
         lambda conn, person_id, payload: {
             "person_id": person_id,
             "person_code": "CK-K33",
-            "message": "Personel guncellendi.",
+            "message": "Personel güncellendi.",
         },
     )
     monkeypatch.setattr(
@@ -181,14 +181,14 @@ def test_personnel_mutation_routes(monkeypatch):
         lambda conn, person_id: {
             "person_id": person_id,
             "status": "Pasif",
-            "message": "Personel pasife alindi.",
+            "message": "Personel pasife alındı.",
         },
     )
     monkeypatch.setattr(
         "app.api.routes.personnel.delete_personnel_record_entry",
         lambda conn, person_id: {
             "person_id": person_id,
-            "message": "Personel kalici olarak silindi.",
+            "message": "Personel kalıcı olarak silindi.",
         },
     )
     client = _build_client()
@@ -207,7 +207,7 @@ def test_personnel_mutation_routes(monkeypatch):
     update_response = client.put(
         "/api/personnel/records/33",
         json={
-            "full_name": "Test Kurye Guncel",
+            "full_name": "Test Kurye Güncel",
             "role": "Kurye",
             "phone": "05000000002",
             "assigned_restaurant_id": 11,
@@ -225,7 +225,7 @@ def test_personnel_mutation_routes(monkeypatch):
     assert toggle_response.status_code == 200
     assert toggle_response.json()["status"] == "Pasif"
     assert delete_response.status_code == 200
-    assert delete_response.json()["message"] == "Personel kalici olarak silindi."
+    assert delete_response.json()["message"] == "Personel kalıcı olarak silindi."
 
 
 def test_deductions_mutation_routes(monkeypatch):

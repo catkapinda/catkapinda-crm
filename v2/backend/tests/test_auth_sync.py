@@ -73,6 +73,20 @@ class FakeConnection:
             )
             return FakeResult([dict(row)] if row else [])
 
+        if "FROM auth_users WHERE role = %s AND phone = %s AND id <> %s LIMIT 1" in normalized:
+            role, phone, excluded_id = params
+            row = next(
+                (
+                    candidate
+                    for candidate in self.auth_users
+                    if str(candidate.get("role") or "") == str(role)
+                    and str(candidate.get("phone") or "") == str(phone)
+                    and int(candidate.get("id") or 0) != int(excluded_id)
+                ),
+                None,
+            )
+            return FakeResult([dict(row)] if row else [])
+
         if normalized.startswith("INSERT INTO auth_users"):
             (
                 email,
@@ -123,6 +137,14 @@ class FakeConnection:
         if normalized.startswith("UPDATE auth_users SET is_active = 0, updated_at = %s"):
             updated_at, auth_user_id = params
             row = next(candidate for candidate in self.auth_users if int(candidate["id"]) == int(auth_user_id))
+            row["is_active"] = 0
+            row["updated_at"] = updated_at
+            return FakeResult([])
+
+        if normalized.startswith("UPDATE auth_users SET phone = %s, is_active = 0, updated_at = %s"):
+            phone, updated_at, auth_user_id = params
+            row = next(candidate for candidate in self.auth_users if int(candidate["id"]) == int(auth_user_id))
+            row["phone"] = phone
             row["is_active"] = 0
             row["updated_at"] = updated_at
             return FakeResult([])
@@ -230,3 +252,50 @@ def test_sync_mobile_auth_users_creates_and_deactivates_across_bootstrap_pass():
     assert created["is_active"] == 1
     assert created["phone"] == "5321112233"
     assert orphan["is_active"] == 0
+
+
+def test_sync_mobile_auth_user_releases_conflicting_phone_before_update():
+    conn = FakeConnection(
+        personnel_rows={
+            7: {
+                "id": 7,
+                "full_name": "Cihan Yıldız",
+                "role": "Bölge Müdürü",
+                "status": "Aktif",
+                "phone": "0532 999 88 77",
+            }
+        },
+        auth_users=[
+            {
+                "id": 21,
+                "email": build_mobile_auth_email(7),
+                "phone": "5321112233",
+                "full_name": "Cihan Yıldız",
+                "role": "mobile_ops",
+                "role_display": "Mobil Operasyon",
+                "password_hash": "hashed",
+                "is_active": 1,
+                "must_change_password": 0,
+            },
+            {
+                "id": 22,
+                "email": build_mobile_auth_email(8),
+                "phone": "5329998877",
+                "full_name": "Eski Kullanıcı",
+                "role": "mobile_ops",
+                "role_display": "Mobil Operasyon",
+                "password_hash": "hashed",
+                "is_active": 1,
+                "must_change_password": 0,
+            },
+        ],
+    )
+
+    sync_mobile_auth_user_for_personnel(conn, personnel_id=7)
+
+    updated = next(row for row in conn.auth_users if int(row["id"]) == 21)
+    released = next(row for row in conn.auth_users if int(row["id"]) == 22)
+    assert updated["phone"] == "5329998877"
+    assert updated["is_active"] == 1
+    assert released["phone"] == ""
+    assert released["is_active"] == 0

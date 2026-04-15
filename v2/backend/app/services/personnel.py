@@ -182,17 +182,17 @@ def _build_personnel_delete_message(dependency_counts: dict[str, int]) -> str:
         for label, count in [
             ("Puantaj", dependency_counts.get("puantaj", 0)),
             ("Kesinti", dependency_counts.get("kesinti", 0)),
-            ("Rol gecmisi", dependency_counts.get("rol_gecmisi", 0)),
-            ("Arac gecmisi", dependency_counts.get("arac_gecmisi", 0)),
-            ("Plaka gecmisi", dependency_counts.get("plaka", 0)),
+            ("Rol geçmişi", dependency_counts.get("rol_gecmisi", 0)),
+            ("Araç geçmişi", dependency_counts.get("arac_gecmisi", 0)),
+            ("Plaka geçmişi", dependency_counts.get("plaka", 0)),
             ("Zimmet", dependency_counts.get("zimmet", 0)),
             ("Box iade", dependency_counts.get("box_iade", 0)),
         ]
         if count
     ]
     if detail_parts:
-        return "Personel ve bagli kayitlar kalici olarak silindi. " + " | ".join(detail_parts)
-    return "Personel kaydi kalici olarak silindi."
+        return "Personel ve bağlı kayıtlar kalıcı olarak silindi. " + " | ".join(detail_parts)
+    return "Personel kaydı kalıcı olarak silindi."
 
 
 def build_personnel_status() -> PersonnelModuleStatus:
@@ -276,7 +276,7 @@ def build_personnel_detail(
 ) -> PersonnelDetailResponse:
     row = fetch_personnel_record_by_id(conn, person_id)
     if row is None:
-        raise LookupError("Personel kaydi bulunamadi.")
+        raise LookupError("Personel kaydı bulunamadı.")
     return PersonnelDetailResponse(entry=_build_management_entry(row))
 
 
@@ -321,7 +321,7 @@ def create_personnel_record(
     return PersonnelCreateResponse(
         person_id=person_id,
         person_code=person_code,
-        message="Personel kaydi olusturuldu.",
+        message="Personel kaydı oluşturuldu.",
     )
 
 
@@ -333,7 +333,7 @@ def update_personnel_record_entry(
 ) -> PersonnelUpdateResponse:
     existing_row = fetch_personnel_record_by_id(conn, person_id)
     if existing_row is None:
-        raise LookupError("Personel kaydi bulunamadi.")
+        raise LookupError("Personel kaydı bulunamadı.")
 
     full_name = str(payload.full_name or "").strip()
     if not full_name:
@@ -375,7 +375,7 @@ def update_personnel_record_entry(
     return PersonnelUpdateResponse(
         person_id=person_id,
         person_code=person_code,
-        message="Personel kaydi guncellendi.",
+        message="Personel kaydı güncellendi.",
     )
 
 
@@ -386,7 +386,7 @@ def toggle_personnel_record_status(
 ) -> PersonnelStatusUpdateResponse:
     existing_row = fetch_personnel_record_by_id(conn, person_id)
     if existing_row is None:
-        raise LookupError("Personel kaydi bulunamadi.")
+        raise LookupError("Personel kaydı bulunamadı.")
     next_status = "Pasif" if str(existing_row.get("status") or "") == "Aktif" else "Aktif"
     update_personnel_status(
         conn,
@@ -399,7 +399,7 @@ def toggle_personnel_record_status(
     return PersonnelStatusUpdateResponse(
         person_id=person_id,
         status=next_status,
-        message="Personel pasife alindi." if next_status == "Pasif" else "Personel aktiflestirildi.",
+        message="Personel pasife alındı." if next_status == "Pasif" else "Personel aktifleştirildi.",
     )
 
 
@@ -410,7 +410,7 @@ def delete_personnel_record_entry(
 ) -> PersonnelDeleteResponse:
     existing_row = fetch_personnel_record_by_id(conn, person_id)
     if existing_row is None:
-        raise LookupError("Personel kaydi bulunamadi.")
+        raise LookupError("Personel kaydı bulunamadı.")
 
     dependency_counts = {
         "puantaj": count_personnel_linked_daily_entries(conn, person_id),

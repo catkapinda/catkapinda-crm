@@ -202,6 +202,18 @@ def _upsert_mobile_auth_user(
         return
 
     auth_user_id = int(auth_user.get("id") or 0)
+    conflicting_user = _fetch_phone_conflicting_mobile_auth_user(
+        conn,
+        normalized_phone=normalized_phone,
+        exclude_auth_user_id=auth_user_id,
+    )
+    if conflicting_user is not None:
+        _release_mobile_auth_user_phone(
+            conn,
+            auth_user=conflicting_user,
+            now_text=now_text,
+        )
+
     old_email = str(auth_user.get("email") or "")
     old_phone = normalize_auth_phone(str(auth_user.get("phone") or ""))
     password_hash = str(auth_user.get("password_hash") or "")
@@ -240,6 +252,55 @@ def _upsert_mobile_auth_user(
         conn,
         auth_user_id=auth_user_id,
         identities={old_email, old_phone, placeholder_email, normalized_phone},
+    )
+
+
+def _fetch_phone_conflicting_mobile_auth_user(
+    conn: psycopg.Connection,
+    *,
+    normalized_phone: str,
+    exclude_auth_user_id: int,
+) -> dict | None:
+    if not normalized_phone:
+        return None
+
+    row = conn.execute(
+        """
+        SELECT *
+        FROM auth_users
+        WHERE role = %s
+          AND phone = %s
+          AND id <> %s
+        LIMIT 1
+        """,
+        (MOBILE_AUTH_ROLE, normalized_phone, exclude_auth_user_id),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def _release_mobile_auth_user_phone(
+    conn: psycopg.Connection,
+    *,
+    auth_user: dict,
+    now_text: str,
+) -> None:
+    auth_user_id = int(auth_user.get("id") or 0)
+    old_email = str(auth_user.get("email") or "")
+    old_phone = normalize_auth_phone(str(auth_user.get("phone") or ""))
+    conn.execute(
+        """
+        UPDATE auth_users
+        SET phone = %s,
+            is_active = 0,
+            updated_at = %s
+        WHERE id = %s
+        """,
+        ("", now_text, auth_user_id),
+    )
+    _clear_auth_runtime_state(
+        conn,
+        auth_user_id=auth_user_id,
+        identities={old_email, old_phone},
     )
 
 

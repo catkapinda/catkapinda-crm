@@ -35,6 +35,7 @@ def test_create_personnel_record_syncs_mobile_auth(monkeypatch):
     )
 
     assert response.person_id == 42
+    assert response.message == "Personel kaydı oluşturuldu."
     assert sync_calls == [(42, None)]
     assert conn.commit_count == 1
 
@@ -56,7 +57,7 @@ def test_update_personnel_record_syncs_mobile_auth(monkeypatch):
         lambda _conn, *, personnel_id, fallback_row=None: sync_calls.append((personnel_id, fallback_row)),
     )
 
-    personnel_service.update_personnel_record_entry(
+    response = personnel_service.update_personnel_record_entry(
         conn,
         person_id=15,
         payload=PersonnelUpdateRequest(
@@ -66,6 +67,7 @@ def test_update_personnel_record_syncs_mobile_auth(monkeypatch):
         ),
     )
 
+    assert response.message == "Personel kaydı güncellendi."
     assert sync_calls == [(15, None)]
     assert conn.commit_count == 1
 
@@ -86,8 +88,9 @@ def test_toggle_personnel_record_status_syncs_mobile_auth(monkeypatch):
         lambda _conn, *, personnel_id, fallback_row=None: sync_calls.append((personnel_id, fallback_row)),
     )
 
-    personnel_service.toggle_personnel_record_status(conn, person_id=16)
+    response = personnel_service.toggle_personnel_record_status(conn, person_id=16)
 
+    assert response.message == "Personel pasife alındı."
     assert sync_calls == [(16, None)]
     assert conn.commit_count == 1
 
@@ -118,7 +121,8 @@ def test_delete_personnel_record_syncs_mobile_auth_with_passive_fallback(monkeyp
         lambda _conn, *, personnel_id, fallback_row=None: sync_calls.append((personnel_id, fallback_row)),
     )
 
-    personnel_service.delete_personnel_record_entry(conn, person_id=17)
+    response = personnel_service.delete_personnel_record_entry(conn, person_id=17)
 
+    assert response.message == "Personel kaydı kalıcı olarak silindi."
     assert sync_calls == [(17, {**existing_row, "status": "Pasif"})]
     assert conn.commit_count == 1
