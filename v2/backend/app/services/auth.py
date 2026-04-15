@@ -64,11 +64,11 @@ def authenticate_user(
 ) -> AuthenticatedUser:
     user_row = fetch_auth_user_by_identity(conn, identity=identity)
     if not user_row:
-        raise ValueError("Giris bilgileri gecersiz.")
+        raise ValueError("Giriş bilgileri geçersiz.")
     if int(user_row.get("is_active") or 0) != 1:
         raise ValueError("Bu hesap aktif degil.")
     if not verify_auth_password(password, str(user_row.get("password_hash") or "")):
-        raise ValueError("Giris bilgileri gecersiz.")
+        raise ValueError("Giriş bilgileri geçersiz.")
 
     token = create_auth_session(conn, username=resolve_session_identity(user_row))
     return build_authenticated_user(user_row=user_row, token=token)
@@ -103,7 +103,7 @@ def resolve_authenticated_user(
     if not user_row or int(user_row.get("is_active") or 0) != 1:
         delete_auth_session(conn, token=token)
         conn.commit()
-        raise LookupError("Oturum gecersiz.")
+        raise LookupError("Oturum geçersiz.")
 
     return build_authenticated_user(
         user_row=user_row,
@@ -237,7 +237,7 @@ def request_phone_login_code(
 
     normalized_phone = normalize_auth_phone(phone)
     if not normalized_phone:
-        raise ValueError("Telefon numarasi gecersiz.")
+        raise ValueError("Telefon numarası geçersiz.")
 
     generic_message = "Eger bu telefon numarasi icin SMS giris yetkisi varsa, kod gonderildi."
     user_row = fetch_auth_user_by_identity(conn, identity=normalized_phone)

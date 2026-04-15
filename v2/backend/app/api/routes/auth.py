@@ -136,7 +136,7 @@ def logout_route(
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> AuthLogoutResponse:
     revoke_authenticated_session(conn, token=user.token)
-    return AuthLogoutResponse(message="Oturum kapatildi.")
+    return AuthLogoutResponse(message="Oturum kapatıldı.")
 
 
 @router.post("/change-password", response_model=AuthChangePasswordResponse)
@@ -159,6 +159,6 @@ def change_password_route(
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return AuthChangePasswordResponse(
-        message="Sifre guncellendi.",
+        message="Şifre güncellendi.",
         user=serialize_authenticated_user(refreshed_user),
     )
