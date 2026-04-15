@@ -73,6 +73,70 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_auth_phone_codes_phone_purpose ON auth_phone_codes (phone, purpose)",
+    """
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id BIGSERIAL PRIMARY KEY,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        actor_username TEXT,
+        actor_full_name TEXT,
+        actor_role TEXT,
+        entity_type TEXT,
+        entity_id TEXT,
+        action_type TEXT,
+        summary TEXT,
+        details_json TEXT
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS personnel_role_history (
+        id BIGSERIAL PRIMARY KEY,
+        personnel_id BIGINT NOT NULL,
+        role TEXT,
+        changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        notes TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS personnel_vehicle_history (
+        id BIGSERIAL PRIMARY KEY,
+        personnel_id BIGINT NOT NULL,
+        vehicle_type TEXT,
+        plate TEXT,
+        changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        notes TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS sales_leads (
+        id BIGSERIAL PRIMARY KEY,
+        restaurant_name TEXT NOT NULL DEFAULT '',
+        city TEXT NOT NULL DEFAULT '',
+        district TEXT NOT NULL DEFAULT '',
+        address TEXT NOT NULL DEFAULT '',
+        contact_name TEXT NOT NULL DEFAULT '',
+        contact_phone TEXT NOT NULL DEFAULT '',
+        contact_email TEXT NOT NULL DEFAULT '',
+        requested_courier_count BIGINT NOT NULL DEFAULT 0,
+        lead_source TEXT NOT NULL DEFAULT '',
+        proposed_quote NUMERIC NOT NULL DEFAULT 0,
+        pricing_model TEXT NOT NULL DEFAULT '',
+        hourly_rate NUMERIC NOT NULL DEFAULT 0,
+        package_rate NUMERIC NOT NULL DEFAULT 0,
+        package_threshold BIGINT NOT NULL DEFAULT 0,
+        package_rate_low NUMERIC NOT NULL DEFAULT 0,
+        package_rate_high NUMERIC NOT NULL DEFAULT 0,
+        fixed_monthly_fee NUMERIC NOT NULL DEFAULT 0,
+        pricing_model_hint TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'Yeni Talep',
+        next_follow_up_date DATE NULL,
+        assigned_owner TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_sales_leads_updated_at ON sales_leads (updated_at)",
 )
 
 AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
@@ -126,6 +190,70 @@ AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_auth_phone_codes_phone_purpose ON auth_phone_codes (phone, purpose)",
+    """
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL,
+        actor_username TEXT,
+        actor_full_name TEXT,
+        actor_role TEXT,
+        entity_type TEXT,
+        entity_id TEXT,
+        action_type TEXT,
+        summary TEXT,
+        details_json TEXT
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS personnel_role_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        personnel_id INTEGER NOT NULL,
+        role TEXT,
+        changed_at TEXT NOT NULL,
+        notes TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS personnel_vehicle_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        personnel_id INTEGER NOT NULL,
+        vehicle_type TEXT,
+        plate TEXT,
+        changed_at TEXT NOT NULL,
+        notes TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS sales_leads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        restaurant_name TEXT NOT NULL DEFAULT '',
+        city TEXT NOT NULL DEFAULT '',
+        district TEXT NOT NULL DEFAULT '',
+        address TEXT NOT NULL DEFAULT '',
+        contact_name TEXT NOT NULL DEFAULT '',
+        contact_phone TEXT NOT NULL DEFAULT '',
+        contact_email TEXT NOT NULL DEFAULT '',
+        requested_courier_count INTEGER NOT NULL DEFAULT 0,
+        lead_source TEXT NOT NULL DEFAULT '',
+        proposed_quote REAL NOT NULL DEFAULT 0,
+        pricing_model TEXT NOT NULL DEFAULT '',
+        hourly_rate REAL NOT NULL DEFAULT 0,
+        package_rate REAL NOT NULL DEFAULT 0,
+        package_threshold INTEGER NOT NULL DEFAULT 0,
+        package_rate_low REAL NOT NULL DEFAULT 0,
+        package_rate_high REAL NOT NULL DEFAULT 0,
+        fixed_monthly_fee REAL NOT NULL DEFAULT 0,
+        pricing_model_hint TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'Yeni Talep',
+        next_follow_up_date TEXT NULL,
+        assigned_owner TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_sales_leads_updated_at ON sales_leads (updated_at)",
 )
 
 
