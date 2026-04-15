@@ -142,6 +142,15 @@ def _coerce_optional_nullable_nonempty_str(*, value: object, issue_label: str, i
     return normalized
 
 
+def _coerce_optional_bool(*, value: object, issue_label: str, issues: list[str]) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    issues.append(f"{issue_label} bool degil")
+    return None
+
+
 def _normalize_smoke_results(*, value: object, issues: list[str]) -> tuple[bool, list[dict[str, object]]]:
     if value is None:
         return (False, [])
@@ -373,6 +382,46 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         issue_label="pilot-smoke-live.json icinde decision.recommended_next_step",
         issues=issues,
     )
+    smoke_base_url = _coerce_optional_nullable_nonempty_str(
+        value=smoke_payload.get("base_url"),
+        issue_label="pilot-smoke-live.json icinde base_url",
+        issues=issues,
+    )
+    smoke_preset = _coerce_optional_nullable_nonempty_str(
+        value=smoke_payload.get("preset"),
+        issue_label="pilot-smoke-live.json icinde preset",
+        issues=issues,
+    )
+    smoke_generated_at = _coerce_optional_nullable_nonempty_str(
+        value=smoke_payload.get("generated_at"),
+        issue_label="pilot-smoke-live.json icinde generated_at",
+        issues=issues,
+    )
+    smoke_timeout_seconds = _coerce_optional_int(
+        value=smoke_payload.get("timeout_seconds"),
+        issue_label="pilot-smoke-live.json icinde timeout_seconds",
+        issues=issues,
+    )
+    smoke_identity_provided = _coerce_optional_bool(
+        value=smoke_payload.get("identity_provided"),
+        issue_label="pilot-smoke-live.json icinde identity_provided",
+        issues=issues,
+    )
+    smoke_legacy_url = _coerce_optional_nullable_nonempty_str(
+        value=smoke_payload.get("legacy_url"),
+        issue_label="pilot-smoke-live.json icinde legacy_url",
+        issues=issues,
+    )
+    smoke_legacy_cutover_mode = _coerce_optional_nullable_nonempty_str(
+        value=smoke_payload.get("legacy_cutover_mode"),
+        issue_label="pilot-smoke-live.json icinde legacy_cutover_mode",
+        issues=issues,
+    )
+    smoke_overall_ok = _coerce_optional_bool(
+        value=smoke_payload.get("overall_ok"),
+        issue_label="pilot-smoke-live.json icinde overall_ok",
+        issues=issues,
+    )
     payload_passed_count = _coerce_optional_int(
         value=smoke_payload.get("passed_count"),
         issue_label="pilot-smoke-live.json icinde passed_count",
@@ -389,7 +438,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         if smoke_results:
             derived_passed_count = sum(1 for result in smoke_results if result.get("ok"))
         else:
-            derived_passed_count = 1 if smoke_payload.get("overall_ok") else 0
+            derived_passed_count = 1 if smoke_overall_ok else 0
 
     if smoke_results:
         actual_passed_count = sum(1 for result in smoke_results if result.get("ok"))
@@ -398,7 +447,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             issues.append("pilot-smoke-live.json icinde passed_count result listesiyle uyusmuyor")
         if payload_failed_count is not None and payload_failed_count != actual_failed_count:
             issues.append("pilot-smoke-live.json icinde failed_count result listesiyle uyusmuyor")
-        if smoke_payload.get("overall_ok") is not None and bool(smoke_payload.get("overall_ok")) != (actual_failed_count == 0):
+        if smoke_overall_ok is not None and smoke_overall_ok != (actual_failed_count == 0):
             issues.append("pilot-smoke-live.json icinde overall_ok result listesiyle uyusmuyor")
 
         expected_decision: dict[str, object] | None = None
@@ -406,11 +455,11 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             try:
                 expected_decision = build_smoke_decision_summary(
                     {
-                        "base_url": smoke_payload.get("base_url") or manifest.get("frontend_url"),
-                        "preset": smoke_payload.get("preset"),
-                        "identity_provided": bool(smoke_payload.get("identity_provided")),
-                        "legacy_url": smoke_payload.get("legacy_url"),
-                        "legacy_cutover_mode": smoke_payload.get("legacy_cutover_mode"),
+                        "base_url": smoke_base_url or manifest.get("frontend_url"),
+                        "preset": smoke_preset,
+                        "identity_provided": bool(smoke_identity_provided),
+                        "legacy_url": smoke_legacy_url,
+                        "legacy_cutover_mode": smoke_legacy_cutover_mode,
                         "results": smoke_results,
                     }
                 )
@@ -432,7 +481,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
                     issues.append(f"pilot-smoke-live.json icinde decision.{key} result listesiyle uyusmuyor")
 
     expected_overall_ok = manifest.get("smoke_overall_ok")
-    if expected_overall_ok is not None and bool(smoke_payload.get("overall_ok")) != bool(expected_overall_ok):
+    if expected_overall_ok is not None and smoke_overall_ok is not None and smoke_overall_ok != bool(expected_overall_ok):
         issues.append(
             "Manifest smoke_overall_ok degeri ile pilot-smoke-live.json uyusmuyor"
         )
@@ -478,7 +527,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             f"- Preset: `{smoke_payload.get('preset') or '-'}`",
             f"- Generated At: `{smoke_payload.get('generated_at')}`",
             f"- Timeout: `{smoke_payload.get('timeout_seconds')}s`",
-            f"- Identity Provided: `{bool(smoke_payload.get('identity_provided'))}`",
+            f"- Identity Provided: `{smoke_payload.get('identity_provided')}`",
             f"- Legacy URL: `{smoke_payload.get('legacy_url') or '-'}`",
             f"- Legacy Cutover Mode: `{smoke_payload.get('legacy_cutover_mode') or '-'}`",
             f"- Overall OK: `{smoke_payload.get('overall_ok')}`",

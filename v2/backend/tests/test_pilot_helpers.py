@@ -1382,6 +1382,156 @@ def test_day_zero_verify_fails_when_smoke_decision_primary_blocker_is_not_a_stri
     assert any("decision.primary_blocker string degil" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_smoke_overall_ok_is_not_bool(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
+                "overall_ok": True,
+                "failed_count": 0,
+                "results": [
+                    {
+                        "name": "frontend_health",
+                        "ok": True,
+                        "detail": "HTTP 200",
+                    }
+                ],
+                "decision": {"recommended_next_step": "Pilot login ekranini acip ofisle ilk pilot senaryolarina gecebiliriz."},
+            }
+        ),
+    )
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+        include_smoke=True,
+        smoke_preset="pilot",
+    )
+
+    smoke_json_path = tmp_path / "pilot-smoke-live.json"
+    smoke_payload = json.loads(smoke_json_path.read_text(encoding="utf-8"))
+    smoke_payload["overall_ok"] = "true"
+    smoke_json_path.write_text(json.dumps(smoke_payload), encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["smoke_checked"] is True
+    assert any("overall_ok bool degil" in item for item in result["consistency_issues"])
+
+
+def test_day_zero_verify_fails_when_smoke_identity_provided_is_not_bool(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
+                "overall_ok": True,
+                "failed_count": 0,
+                "results": [
+                    {
+                        "name": "frontend_health",
+                        "ok": True,
+                        "detail": "HTTP 200",
+                    }
+                ],
+                "decision": {"recommended_next_step": "Pilot login ekranini acip ofisle ilk pilot senaryolarina gecebiliriz."},
+            }
+        ),
+    )
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+        include_smoke=True,
+        smoke_preset="pilot",
+    )
+
+    smoke_json_path = tmp_path / "pilot-smoke-live.json"
+    smoke_payload = json.loads(smoke_json_path.read_text(encoding="utf-8"))
+    smoke_payload["identity_provided"] = "yes"
+    smoke_json_path.write_text(json.dumps(smoke_payload), encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["smoke_checked"] is True
+    assert any("identity_provided bool degil" in item for item in result["consistency_issues"])
+
+
+def test_day_zero_verify_fails_when_smoke_timeout_seconds_is_not_numeric(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
+                "overall_ok": True,
+                "failed_count": 0,
+                "results": [
+                    {
+                        "name": "frontend_health",
+                        "ok": True,
+                        "detail": "HTTP 200",
+                    }
+                ],
+                "decision": {"recommended_next_step": "Pilot login ekranini acip ofisle ilk pilot senaryolarina gecebiliriz."},
+            }
+        ),
+    )
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+        include_smoke=True,
+        smoke_preset="pilot",
+    )
+
+    smoke_json_path = tmp_path / "pilot-smoke-live.json"
+    smoke_payload = json.loads(smoke_json_path.read_text(encoding="utf-8"))
+    smoke_payload["timeout_seconds"] = "hizli"
+    smoke_json_path.write_text(json.dumps(smoke_payload), encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["smoke_checked"] is True
+    assert any("timeout_seconds sayisal degil" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_smoke_decision_payload_is_not_a_dict(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(
