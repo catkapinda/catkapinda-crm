@@ -124,6 +124,8 @@ def _print_human_report(report: dict[str, object], *, wrote_paths: list[str] | N
         print(f"- Onerilen backend baslatma: {report['suggested_backend_start_command']}")
     if report.get("suggested_bootstrap_command"):
         print(f"- Onerilen bootstrap komutu: {report['suggested_bootstrap_command']}")
+    if report.get("suggested_bootstrap_with_db_command"):
+        print(f"- Onerilen tam bootstrap komutu: {report['suggested_bootstrap_with_db_command']}")
     if report.get("suggested_scaffold_command"):
         print(f"- Onerilen scaffold komutu: {report['suggested_scaffold_command']}")
     if report.get("suggested_frontend_env_command"):

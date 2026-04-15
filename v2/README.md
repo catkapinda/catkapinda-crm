@@ -23,6 +23,8 @@ Run locally:
     - `python v2/scripts/local_v2_doctor.py`
   - frontend `.env.local` ve backend scaffold/env dosyalarini tek komutta hazirlamak icin:
     - `python v2/scripts/local_v2_doctor.py --bootstrap-local --sync-from-current-app`
+  - PostgreSQL URL elindeyse ayni anda frontend + backend env dosyalarini tam yazmak icin:
+    - `python v2/scripts/local_v2_doctor.py --bootstrap-local --database-url '<postgresql://...>' --overwrite-backend-env --overwrite-frontend-env`
   - gercek DB URL elinde yoksa ama backend/.env iskeletini hazirlamak istiyorsan:
     - `python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app`
   - shell env icinde `DATABASE_URL` veya `CK_V2_DATABASE_URL` hazirsa backend/.env olusturmak icin:

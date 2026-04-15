@@ -179,6 +179,7 @@ class LocalSetupResponse(BaseModel):
     suggested_frontend_url: str | None = None
     suggested_api_url: str | None = None
     suggested_bootstrap_command: str | None = None
+    suggested_bootstrap_with_db_command: str | None = None
     suggested_frontend_env_command: str | None = None
     suggested_scaffold_command: str | None = None
     suggested_env_write_command: str | None = None

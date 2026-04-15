@@ -29,6 +29,7 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path, monkeypatch):
     assert report["frontend_env_needs_sync"] is False
     assert report["suggested_frontend_url"] == "http://127.0.0.1:3000"
     assert "--bootstrap-local" in report["suggested_bootstrap_command"]
+    assert "--database-url '<postgresql://...>'" in report["suggested_bootstrap_with_db_command"]
     assert "--write-frontend-env" in report["suggested_frontend_env_command"]
     assert "--frontend-url 'http://127.0.0.1:3000'" in report["suggested_scaffold_command"]
     assert "--api-url 'http://127.0.0.1:8000'" in report["suggested_env_write_command"]
@@ -164,12 +165,16 @@ def test_local_doctor_commands_use_detected_frontend_url_when_backend_env_exists
     (v2_root / "backend").mkdir(parents=True)
     (v2_root / "frontend").mkdir(parents=True)
     (v2_root / "backend" / ".env").write_text("CK_V2_APP_ENV=development\n", encoding="utf-8")
+    (v2_root / "frontend" / ".env.local").write_text("CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000\n", encoding="utf-8")
 
     monkeypatch.setattr(local_doctor, "discover_local_frontend_urls", lambda: ["http://127.0.0.1:3001"])
 
     report = build_local_doctor_report(v2_root, {})
 
     assert report["suggested_frontend_url"] == "http://127.0.0.1:3001"
+    assert "--frontend-url 'http://127.0.0.1:3001'" in report["suggested_bootstrap_with_db_command"]
+    assert "--overwrite-backend-env" in report["suggested_bootstrap_with_db_command"]
+    assert "--overwrite-frontend-env" in report["suggested_bootstrap_with_db_command"]
     assert "--api-url 'http://127.0.0.1:8000'" in report["suggested_frontend_env_command"]
     assert "--frontend-url 'http://127.0.0.1:3001'" in report["suggested_scaffold_command"]
     assert "--frontend-url 'http://127.0.0.1:3001'" in report["suggested_env_write_command"]

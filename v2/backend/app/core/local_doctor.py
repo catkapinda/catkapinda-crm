@@ -485,6 +485,14 @@ def build_local_doctor_report(
         overwrite_backend_env=bootstrap_can_overwrite_backend,
         overwrite_frontend_env=frontend_env_path.exists(),
     )
+    suggested_bootstrap_with_db_command = _build_local_doctor_command(
+        frontend_url=suggested_frontend_url,
+        api_url=suggested_api_url,
+        bootstrap_local=True,
+        overwrite_backend_env=backend_env_path.exists(),
+        overwrite_frontend_env=frontend_env_path.exists(),
+        include_database_placeholder=True,
+    )
     suggested_scaffold_command = _build_local_doctor_command(
         frontend_url=suggested_frontend_url,
         api_url=suggested_api_url,
@@ -544,7 +552,7 @@ def build_local_doctor_report(
                 f"Ilk adim olarak `{suggested_bootstrap_command}` ile local env dosyalarini hazirla."
             )
         next_actions.append(
-            f"Gercek PostgreSQL URL'ini alip `{suggested_env_write_command}` calistir."
+            f"Gercek PostgreSQL URL'ini alip `{suggested_bootstrap_with_db_command}` calistir."
         )
     elif database_source == "current_app_seed:DATABASE_URL" and not backend_env_path.exists():
         warnings.append("Veritabani URL'i current app kaynaklarinda bulundu ama v2 backend/.env henuz yazilmadi.")
@@ -606,6 +614,7 @@ def build_local_doctor_report(
         "suggested_frontend_url": suggested_frontend_url,
         "suggested_api_url": suggested_api_url,
         "suggested_bootstrap_command": suggested_bootstrap_command,
+        "suggested_bootstrap_with_db_command": suggested_bootstrap_with_db_command,
         "suggested_frontend_env_command": suggested_frontend_env_command,
         "suggested_scaffold_command": suggested_scaffold_command,
         "suggested_env_write_command": suggested_env_write_command,
