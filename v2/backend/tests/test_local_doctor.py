@@ -2,6 +2,7 @@ from pathlib import Path
 
 from app.core import local_doctor
 from app.core.local_doctor import (
+    bootstrap_local_setup_files,
     build_local_doctor_report,
     discover_current_app_seed_values,
     write_backend_env_file,
@@ -27,11 +28,12 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path, monkeypatch):
     assert report["frontend_proxy_target"] == "http://127.0.0.1:8000"
     assert report["frontend_env_needs_sync"] is False
     assert report["suggested_frontend_url"] == "http://127.0.0.1:3000"
+    assert "--bootstrap-local" in report["suggested_bootstrap_command"]
     assert "--write-frontend-env" in report["suggested_frontend_env_command"]
     assert "--frontend-url 'http://127.0.0.1:3000'" in report["suggested_scaffold_command"]
     assert "--api-url 'http://127.0.0.1:8000'" in report["suggested_env_write_command"]
     assert any("Backend veritabani URL'i eksik" in item for item in report["blocking_items"])
-    assert any("--write-backend-scaffold" in item for item in report["next_actions"])
+    assert any("--bootstrap-local" in item for item in report["next_actions"])
 
 
 def test_local_doctor_reports_detected_frontend_urls_and_duplicate_warning(tmp_path: Path, monkeypatch):
@@ -115,6 +117,26 @@ def test_write_frontend_env_file_can_use_suggested_api_url(tmp_path: Path):
     assert "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api" in content
     assert "CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:9000" in content
     assert "CK_V2_FRONTEND_SERVICE_NAME=crmcatkapinda-v2" in content
+
+
+def test_bootstrap_local_setup_writes_frontend_and_backend_scaffold_when_database_missing(tmp_path: Path):
+    v2_root = tmp_path / "v2"
+    (v2_root / "frontend").mkdir(parents=True)
+    (v2_root / "backend").mkdir(parents=True)
+
+    written = bootstrap_local_setup_files(
+        v2_root,
+        {},
+        frontend_url="http://127.0.0.1:3001",
+        api_url="http://127.0.0.1:8000",
+    )
+
+    assert [path.name for path in written] == [".env.local", ".env"]
+    frontend_content = (v2_root / "frontend" / ".env.local").read_text(encoding="utf-8")
+    backend_content = (v2_root / "backend" / ".env").read_text(encoding="utf-8")
+    assert "CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000" in frontend_content
+    assert "CK_V2_FRONTEND_BASE_URL=http://127.0.0.1:3001" in backend_content
+    assert "# CK_V2_DATABASE_URL=postgresql://user:password@host:5432/postgres?sslmode=require" in backend_content
 
 
 def test_discover_local_frontend_urls_falls_back_to_next_dev_process_ports(monkeypatch):

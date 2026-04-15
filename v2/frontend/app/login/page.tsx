@@ -44,6 +44,7 @@ type LoginPilotStatusPayload = {
     frontend_env_needs_sync?: boolean;
     suggested_frontend_url?: string | null;
     suggested_api_url?: string | null;
+    suggested_bootstrap_command?: string | null;
     suggested_frontend_env_command?: string | null;
     suggested_scaffold_command?: string | null;
     suggested_env_write_command?: string | null;
@@ -387,7 +388,7 @@ function LoginPageContent() {
         return {
           title: "Mevcut uygulamada seed bulundu, v2 backend env'i henuz yazilmadi.",
           detail: `Doctor current app tarafinda kullanilabilir kaynak gordu${currentAppSeedSources.length ? `: ${currentAppSeedSources.join(", ")}` : ""}. Tek komutla backend/.env ureterek gercek login akisini acabiliriz.`,
-          command: localSetup.suggested_current_app_env_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app",
+          command: localSetup.suggested_bootstrap_command || localSetup.suggested_current_app_env_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app",
         };
       }
 
@@ -408,7 +409,7 @@ function LoginPageContent() {
             targetDetail,
           command: localSetup.backend_env_exists
             ? localSetup.suggested_env_write_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env"
-            : localSetup.suggested_scaffold_command || "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
+            : localSetup.suggested_bootstrap_command || localSetup.suggested_scaffold_command || "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
         };
       }
 

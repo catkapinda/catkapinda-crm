@@ -21,6 +21,8 @@ Run locally:
   - run `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
   - eksik envleri tek komutta gormek icin:
     - `python v2/scripts/local_v2_doctor.py`
+  - frontend `.env.local` ve backend scaffold/env dosyalarini tek komutta hazirlamak icin:
+    - `python v2/scripts/local_v2_doctor.py --bootstrap-local --sync-from-current-app`
   - gercek DB URL elinde yoksa ama backend/.env iskeletini hazirlamak istiyorsan:
     - `python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app`
   - shell env icinde `DATABASE_URL` veya `CK_V2_DATABASE_URL` hazirsa backend/.env olusturmak icin:

@@ -14,6 +14,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.core.local_doctor import (  # noqa: E402
+    bootstrap_local_setup_files,
     build_local_doctor_report,
     discover_current_app_seed_values,
     write_backend_env_file,
@@ -27,6 +28,11 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Local v2 icin env ve backend readiness doktoru.",
     )
     parser.add_argument("--json", action="store_true", help="Raporu JSON olarak yazdir.")
+    parser.add_argument(
+        "--bootstrap-local",
+        action="store_true",
+        help="Frontend .env.local ve gerekiyorsa backend .env/scaffold dosyalarini tek komutta hazirla.",
+    )
     parser.add_argument(
         "--write-backend-env",
         action="store_true",
@@ -95,7 +101,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_human_report(report: dict[str, object], *, wrote_env: str | None = None) -> None:
+def _print_human_report(report: dict[str, object], *, wrote_paths: list[str] | None = None) -> None:
     print("Local v2 doctor")
     print(f"- Backend .env: {'var' if report['backend_env_exists'] else 'yok'} -> {report['backend_env_path']}")
     print(f"- Frontend .env.local: {'var' if report['frontend_env_exists'] else 'yok'} -> {report['frontend_env_path']}")
@@ -116,6 +122,8 @@ def _print_human_report(report: dict[str, object], *, wrote_env: str | None = No
     print(f"- Onerilen API URL: {report['suggested_api_url']}")
     if report.get("suggested_backend_start_command"):
         print(f"- Onerilen backend baslatma: {report['suggested_backend_start_command']}")
+    if report.get("suggested_bootstrap_command"):
+        print(f"- Onerilen bootstrap komutu: {report['suggested_bootstrap_command']}")
     if report.get("suggested_scaffold_command"):
         print(f"- Onerilen scaffold komutu: {report['suggested_scaffold_command']}")
     if report.get("suggested_frontend_env_command"):
@@ -143,8 +151,8 @@ def _print_human_report(report: dict[str, object], *, wrote_env: str | None = No
     else:
         print("- Current app kaynagi: kullanilabilir seed bulunamadi")
 
-    if wrote_env:
-        print(f"- backend/.env yazildi: {wrote_env}")
+    if wrote_paths:
+        print("- Yazilan dosyalar: " + " | ".join(wrote_paths))
 
     blocking_items = report["blocking_items"]
     if blocking_items:
@@ -179,7 +187,7 @@ def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
 
-    wrote_env_path: str | None = None
+    wrote_paths: list[str] = []
     runtime_env = dict(os.environ)
     if args.database_url:
         runtime_env["CK_V2_DATABASE_URL"] = args.database_url
@@ -201,16 +209,37 @@ def main() -> int:
     resolved_frontend_url = args.frontend_url or str(preflight_report.get("suggested_frontend_url") or "http://127.0.0.1:3000")
     resolved_api_url = args.api_url or str(preflight_report.get("suggested_api_url") or "http://127.0.0.1:8000")
 
+    if args.bootstrap_local:
+        try:
+            written = bootstrap_local_setup_files(
+                V2_ROOT,
+                runtime_env,
+                current_app_seed_values=current_app_seed_values,
+                overwrite_backend_env=args.overwrite_backend_env,
+                overwrite_frontend_env=args.overwrite_frontend_env,
+                frontend_url=resolved_frontend_url,
+                api_url=resolved_api_url,
+            )
+            wrote_paths.extend(str(path) for path in written)
+        except (FileExistsError, ValueError) as exc:
+            if args.json:
+                print(json.dumps({"status": "error", "detail": str(exc)}, ensure_ascii=True, indent=2))
+            else:
+                print(str(exc), file=sys.stderr)
+            return 2
+
     if args.write_backend_scaffold:
         try:
-            wrote_env_path = str(
-                write_backend_env_scaffold_file(
-                    V2_ROOT,
-                    runtime_env,
-                    overwrite=args.overwrite_backend_env,
-                    current_app_seed_values=current_app_seed_values,
-                    frontend_url=resolved_frontend_url,
-                    api_url=resolved_api_url,
+            wrote_paths.append(
+                str(
+                    write_backend_env_scaffold_file(
+                        V2_ROOT,
+                        runtime_env,
+                        overwrite=args.overwrite_backend_env,
+                        current_app_seed_values=current_app_seed_values,
+                        frontend_url=resolved_frontend_url,
+                        api_url=resolved_api_url,
+                    )
                 )
             )
         except FileExistsError as exc:
@@ -222,11 +251,13 @@ def main() -> int:
 
     if args.write_frontend_env:
         try:
-            wrote_env_path = str(
-                write_frontend_env_file(
-                    V2_ROOT,
-                    overwrite=args.overwrite_frontend_env,
-                    api_url=resolved_api_url,
+            wrote_paths.append(
+                str(
+                    write_frontend_env_file(
+                        V2_ROOT,
+                        overwrite=args.overwrite_frontend_env,
+                        api_url=resolved_api_url,
+                    )
                 )
             )
         except FileExistsError as exc:
@@ -238,14 +269,16 @@ def main() -> int:
 
     if args.write_backend_env:
         try:
-            wrote_env_path = str(
-                write_backend_env_file(
-                    V2_ROOT,
-                    runtime_env,
-                    overwrite=args.overwrite_backend_env,
-                    current_app_seed_values=current_app_seed_values,
-                    frontend_url=resolved_frontend_url,
-                    api_url=resolved_api_url,
+            wrote_paths.append(
+                str(
+                    write_backend_env_file(
+                        V2_ROOT,
+                        runtime_env,
+                        overwrite=args.overwrite_backend_env,
+                        current_app_seed_values=current_app_seed_values,
+                        frontend_url=resolved_frontend_url,
+                        api_url=resolved_api_url,
+                    )
                 )
             )
         except (FileExistsError, ValueError) as exc:
@@ -258,10 +291,14 @@ def main() -> int:
     report = build_local_doctor_report(V2_ROOT, runtime_env)
 
     if args.json:
-        payload = {**report, "written_backend_env_path": wrote_env_path}
+        payload = {
+            **report,
+            "written_backend_env_path": next((path for path in wrote_paths if path.endswith("/backend/.env")), None),
+            "written_paths": wrote_paths,
+        }
         print(json.dumps(payload, ensure_ascii=True, indent=2))
     else:
-        _print_human_report(report, wrote_env=wrote_env_path)
+        _print_human_report(report, wrote_paths=wrote_paths or None)
 
     return 0 if report["ready"] else 2
 

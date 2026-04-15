@@ -233,6 +233,7 @@ def _build_local_doctor_command(
     *,
     frontend_url: str,
     api_url: str,
+    bootstrap_local: bool = False,
     write_backend_env: bool = False,
     write_backend_scaffold: bool = False,
     write_frontend_env: bool = False,
@@ -243,6 +244,8 @@ def _build_local_doctor_command(
 ) -> str:
     command = ["python", "v2/scripts/local_v2_doctor.py"]
 
+    if bootstrap_local:
+        command.append("--bootstrap-local")
     if write_backend_env:
         command.append("--write-backend-env")
     if write_backend_scaffold:
@@ -410,6 +413,54 @@ def write_frontend_env_file(
     return frontend_env_path
 
 
+def bootstrap_local_setup_files(
+    v2_root: Path,
+    runtime_env: Mapping[str, str],
+    *,
+    current_app_seed_values: Mapping[str, str] | None = None,
+    overwrite_backend_env: bool = False,
+    overwrite_frontend_env: bool = False,
+    frontend_url: str = LOCAL_FRONTEND_URL,
+    api_url: str = LOCAL_API_URL,
+) -> list[Path]:
+    written_paths: list[Path] = []
+
+    frontend_path = write_frontend_env_file(
+        v2_root,
+        overwrite=overwrite_frontend_env,
+        api_url=api_url,
+    )
+    written_paths.append(frontend_path)
+
+    backend_env_path = v2_root / "backend" / ".env"
+    database_url, _ = _resolve_value(runtime_env, {}, BACKEND_DATABASE_KEYS)
+    if not database_url and current_app_seed_values:
+        database_url = _strip_wrapping_quotes(str(current_app_seed_values.get("database_url", "")))
+
+    if database_url:
+        backend_path = write_backend_env_file(
+            v2_root,
+            runtime_env,
+            overwrite=overwrite_backend_env,
+            current_app_seed_values=current_app_seed_values,
+            frontend_url=frontend_url,
+            api_url=api_url,
+        )
+        written_paths.append(backend_path)
+    elif not backend_env_path.exists():
+        backend_path = write_backend_env_scaffold_file(
+            v2_root,
+            runtime_env,
+            overwrite=overwrite_backend_env,
+            current_app_seed_values=current_app_seed_values,
+            frontend_url=frontend_url,
+            api_url=api_url,
+        )
+        written_paths.append(backend_path)
+
+    return written_paths
+
+
 def build_local_doctor_report(
     v2_root: Path,
     runtime_env: Mapping[str, str],
@@ -425,6 +476,15 @@ def build_local_doctor_report(
     detected_frontend_urls = discover_local_frontend_urls()
     suggested_frontend_url = resolve_suggested_frontend_url(detected_frontend_urls)
     suggested_api_url = LOCAL_API_URL
+    bootstrap_can_overwrite_backend = backend_env_path.exists() and bool(current_app_values.get("database_url"))
+    suggested_bootstrap_command = _build_local_doctor_command(
+        frontend_url=suggested_frontend_url,
+        api_url=suggested_api_url,
+        bootstrap_local=True,
+        sync_from_current_app=bool(current_app_values),
+        overwrite_backend_env=bootstrap_can_overwrite_backend,
+        overwrite_frontend_env=frontend_env_path.exists(),
+    )
     suggested_scaffold_command = _build_local_doctor_command(
         frontend_url=suggested_frontend_url,
         api_url=suggested_api_url,
@@ -481,7 +541,7 @@ def build_local_doctor_report(
         blocking_items.append("Backend veritabani URL'i eksik. CK_V2_DATABASE_URL veya DATABASE_URL tanimlanmali.")
         if not backend_env_path.exists():
             next_actions.append(
-                f"Ilk adim olarak `{suggested_scaffold_command}` ile backend/.env iskeletini olustur."
+                f"Ilk adim olarak `{suggested_bootstrap_command}` ile local env dosyalarini hazirla."
             )
         next_actions.append(
             f"Gercek PostgreSQL URL'ini alip `{suggested_env_write_command}` calistir."
@@ -545,6 +605,7 @@ def build_local_doctor_report(
         "detected_frontend_urls": detected_frontend_urls,
         "suggested_frontend_url": suggested_frontend_url,
         "suggested_api_url": suggested_api_url,
+        "suggested_bootstrap_command": suggested_bootstrap_command,
         "suggested_frontend_env_command": suggested_frontend_env_command,
         "suggested_scaffold_command": suggested_scaffold_command,
         "suggested_env_write_command": suggested_env_write_command,
