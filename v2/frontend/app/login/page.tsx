@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, FormEvent } from "react";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
@@ -39,6 +39,8 @@ function LoginPageContent() {
   const [smsError, setSmsError] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
   const [maskedPhone, setMaskedPhone] = useState("");
+  const recoveryPanelRef = useRef<HTMLDivElement | null>(null);
+  const recoveryPhoneInputRef = useRef<HTMLInputElement | null>(null);
 
   const nextPath = useMemo(() => searchParams.get("next") || "", [searchParams]);
 
@@ -79,6 +81,17 @@ function LoginPageContent() {
     setNotice(nextNotice);
     writeStoredAuthNotice("");
   }, []);
+
+  useEffect(() => {
+    if (!smsLoginEnabled || authPanelMode !== "recovery") {
+      return;
+    }
+    const frameId = window.requestAnimationFrame(() => {
+      recoveryPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      recoveryPhoneInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [authPanelMode, smsLoginEnabled]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -401,6 +414,29 @@ function LoginPageContent() {
                 />
               </label>
 
+              {smsLoginEnabled ? (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                    Sifreni mi unuttun?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => switchAuthPanelMode("recovery")}
+                    style={inlineLinkButtonStyle}
+                  >
+                    SMS ile kurtar
+                  </button>
+                </div>
+              ) : null}
+
               {error ? <div style={errorStyle}>{error}</div> : null}
 
               <button type="submit" disabled={submitting || loading} style={primaryButtonStyle(submitting || loading)}>
@@ -416,8 +452,17 @@ function LoginPageContent() {
               display: "grid",
               gap: "16px",
               background:
-                "linear-gradient(180deg, rgba(240,247,255,0.98), rgba(255,252,246,0.96))",
-              border: "1px solid rgba(15,95,215,0.12)",
+                authPanelMode === "recovery"
+                  ? "linear-gradient(180deg, rgba(231,244,255,0.99), rgba(255,250,241,0.98))"
+                  : "linear-gradient(180deg, rgba(240,247,255,0.98), rgba(255,252,246,0.96))",
+              border:
+                authPanelMode === "recovery"
+                  ? "1px solid rgba(15,95,215,0.22)"
+                  : "1px solid rgba(15,95,215,0.12)",
+              boxShadow:
+                authPanelMode === "recovery"
+                  ? "0 24px 54px rgba(15,95,215,0.14)"
+                  : "var(--shadow-soft)",
             }}
           >
             <div
@@ -430,7 +475,31 @@ function LoginPageContent() {
               }}
             >
               <div style={{ display: "grid", gap: "8px", maxWidth: "42ch" }}>
-                <div style={{ ...eyebrowStyle, color: "#0f5fd7" }}>Sifre Kurtarma</div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ ...eyebrowStyle, color: "#0f5fd7" }}>Sifre Kurtarma</div>
+                  {authPanelMode === "recovery" ? (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        padding: "6px 10px",
+                        borderRadius: "999px",
+                        background: "rgba(15,95,215,0.12)",
+                        color: "#0f5fd7",
+                        fontSize: "0.76rem",
+                        fontWeight: 800,
+                      }}
+                    >
+                      Kurtarma modu acik
+                    </span>
+                  ) : null}
+                </div>
                 <h2
                   style={{
                     ...serifTitleStyle,
@@ -522,12 +591,12 @@ function LoginPageContent() {
               style={{
                 display: "flex",
                 gap: "12px",
-                alignItems: "center",
+                alignItems: "stretch",
                 justifyContent: "space-between",
                 flexWrap: "wrap",
               }}
             >
-              <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
+              <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem", maxWidth: "44ch" }}>
                 {smsLoginEnabled
                   ? "SMS kurtarma hatti aktif. Telefon dogrulamasiyla hesaba geri donebilirsin."
                   : "SMS kurtarma hatti aktif degilse ofis yoneticisiyle iletisime gecerek sifre destegi alabilirsin."}
@@ -537,9 +606,9 @@ function LoginPageContent() {
                 <button
                   type="button"
                   onClick={() => switchAuthPanelMode("recovery")}
-                  style={ghostButtonStyle(false)}
+                  style={recoveryCtaStyle(authPanelMode === "recovery")}
                 >
-                  Sifremi Unuttum
+                  {authPanelMode === "recovery" ? "Kurtarma Modu Acik" : "Sifremi Unuttum"}
                 </button>
               ) : null}
             </div>
@@ -547,6 +616,7 @@ function LoginPageContent() {
 
           {smsLoginEnabled ? (
             <section
+              ref={recoveryPanelRef}
               style={{
                 ...paperCardStyle,
                 padding: "24px",
@@ -628,6 +698,7 @@ function LoginPageContent() {
                     {authPanelMode === "recovery" ? "Kayitli Telefon" : "Telefon"}
                   </span>
                   <input
+                    ref={recoveryPhoneInputRef}
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
                     placeholder="05xxxxxxxxx"
@@ -881,6 +952,16 @@ function ghostButtonStyle(disabled: boolean): CSSProperties {
   };
 }
 
+const inlineLinkButtonStyle = {
+  padding: 0,
+  border: "none",
+  background: "transparent",
+  color: "#0f5fd7",
+  fontWeight: 800,
+  fontSize: "0.92rem",
+  cursor: "pointer",
+} satisfies CSSProperties;
+
 function panelToggleStyle(active: boolean): CSSProperties {
   return {
     padding: "9px 14px",
@@ -891,5 +972,21 @@ function panelToggleStyle(active: boolean): CSSProperties {
     fontWeight: 800,
     fontSize: "0.82rem",
     cursor: "pointer",
+  };
+}
+
+function recoveryCtaStyle(active: boolean): CSSProperties {
+  return {
+    padding: "14px 18px",
+    borderRadius: "18px",
+    border: active ? "1px solid rgba(15,95,215,0.18)" : "1px solid rgba(15,95,215,0.14)",
+    background: active
+      ? "linear-gradient(135deg, rgba(15,95,215,0.12), rgba(255,255,255,0.9))"
+      : "rgba(255,255,255,0.92)",
+    color: "#0f5fd7",
+    fontWeight: 900,
+    fontSize: "0.94rem",
+    cursor: "pointer",
+    boxShadow: active ? "0 16px 30px rgba(15,95,215,0.14)" : "none",
   };
 }
