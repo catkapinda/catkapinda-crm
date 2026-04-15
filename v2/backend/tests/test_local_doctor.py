@@ -5,6 +5,7 @@ from app.core.local_doctor import (
     bootstrap_local_setup_files,
     build_local_doctor_report,
     discover_current_app_seed_values,
+    fetch_local_backend_setup_report,
     write_backend_env_file,
     write_backend_env_scaffold_file,
     write_frontend_env_file,
@@ -159,6 +160,73 @@ def test_discover_local_frontend_urls_falls_back_to_next_dev_process_ports(monke
     urls = local_doctor.discover_local_frontend_urls()
 
     assert urls == ["http://127.0.0.1:3001"]
+
+
+def test_fetch_local_backend_setup_report_returns_payload(monkeypatch):
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return (
+                b'{"ready": false, "blocking_items": ["Backend veritabani URL\'i eksik."], "backend_restart_required": false}'
+            )
+
+    monkeypatch.setattr(local_doctor, "urlopen", lambda *args, **kwargs: FakeResponse())
+
+    payload = fetch_local_backend_setup_report()
+
+    assert payload is not None
+    assert payload["ready"] is False
+    assert payload["blocking_items"] == ["Backend veritabani URL'i eksik."]
+
+
+def test_fetch_local_backend_setup_report_returns_none_for_invalid_payload(monkeypatch):
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return b'{"status": "ok"}'
+
+    monkeypatch.setattr(local_doctor, "urlopen", lambda *args, **kwargs: FakeResponse())
+    monkeypatch.setattr(
+        local_doctor.subprocess,
+        "run",
+        lambda *args, **kwargs: type("Completed", (), {"returncode": 1, "stdout": ""})(),
+    )
+
+    payload = fetch_local_backend_setup_report()
+
+    assert payload is None
+
+
+def test_fetch_local_backend_setup_report_falls_back_to_curl(monkeypatch):
+    def raising_urlopen(*args, **kwargs):
+        raise OSError("loopback blocked")
+
+    class Completed:
+        returncode = 0
+        stdout = '{"ready": false, "blocking_items": ["Backend veritabani URL\'i eksik."], "backend_restart_required": false}'
+
+    monkeypatch.setattr(local_doctor, "urlopen", raising_urlopen)
+    monkeypatch.setattr(local_doctor.subprocess, "run", lambda *args, **kwargs: Completed())
+
+    payload = fetch_local_backend_setup_report()
+
+    assert payload is not None
+    assert payload["ready"] is False
+    assert payload["blocking_items"] == ["Backend veritabani URL'i eksik."]
 
 
 def test_local_doctor_commands_use_detected_frontend_url_when_backend_env_exists(tmp_path: Path, monkeypatch):

@@ -17,6 +17,7 @@ from app.core.local_doctor import (  # noqa: E402
     bootstrap_local_setup_files,
     build_local_doctor_report,
     discover_current_app_seed_values,
+    fetch_local_backend_setup_report,
     write_backend_env_file,
     write_backend_env_scaffold_file,
     write_frontend_env_file,
@@ -101,8 +102,14 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_human_report(report: dict[str, object], *, wrote_paths: list[str] | None = None) -> None:
+def _print_human_report(
+    report: dict[str, object],
+    *,
+    wrote_paths: list[str] | None = None,
+    report_source: str = "local_files",
+) -> None:
     print("Local v2 doctor")
+    print(f"- Rapor kaynagi: {'backend runtime snapshot' if report_source == 'backend_runtime' else 'local dosya analizi'}")
     print(f"- Backend .env: {'var' if report['backend_env_exists'] else 'yok'} -> {report['backend_env_path']}")
     print(f"- Frontend .env.local: {'var' if report['frontend_env_exists'] else 'yok'} -> {report['frontend_env_path']}")
     print(
@@ -295,16 +302,22 @@ def main() -> int:
             return 2
 
     report = build_local_doctor_report(V2_ROOT, runtime_env)
+    report_source = "local_files"
+    backend_runtime_report = fetch_local_backend_setup_report(api_url=resolved_api_url)
+    if backend_runtime_report:
+        report = backend_runtime_report
+        report_source = "backend_runtime"
 
     if args.json:
         payload = {
             **report,
+            "report_source": report_source,
             "written_backend_env_path": next((path for path in wrote_paths if path.endswith("/backend/.env")), None),
             "written_paths": wrote_paths,
         }
         print(json.dumps(payload, ensure_ascii=True, indent=2))
     else:
-        _print_human_report(report, wrote_paths=wrote_paths or None)
+        _print_human_report(report, wrote_paths=wrote_paths or None, report_source=report_source)
 
     return 0 if report["ready"] else 2
 

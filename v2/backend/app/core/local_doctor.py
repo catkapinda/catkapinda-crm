@@ -219,6 +219,53 @@ def discover_local_frontend_urls(ports: tuple[int, ...] = LOCAL_FRONTEND_CANDIDA
     return detected_urls
 
 
+def _parse_local_setup_payload(payload: object) -> dict[str, object] | None:
+    if not isinstance(payload, dict):
+        return None
+    if "ready" not in payload or "blocking_items" not in payload:
+        return None
+    return payload
+
+
+def fetch_local_backend_setup_report(
+    api_url: str = LOCAL_API_URL,
+    *,
+    timeout_seconds: float = 1.5,
+) -> dict[str, object] | None:
+    request = Request(f"{api_url}/api/health/local-setup", headers={"Accept": "application/json"})
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:  # noqa: S310 - local doctor only probes localhost-style targets
+            if response.status != 200:
+                return None
+            payload = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError):
+        payload = None
+
+    parsed = _parse_local_setup_payload(payload)
+    if parsed:
+        return parsed
+
+    try:
+        curl_result = subprocess.run(  # noqa: S603 - fixed local diagnostics command
+            ["curl", "-sf", f"{api_url}/api/health/local-setup"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+
+    if curl_result.returncode != 0 or not curl_result.stdout.strip():
+        return None
+
+    try:
+        curl_payload = json.loads(curl_result.stdout)
+    except json.JSONDecodeError:
+        return None
+
+    return _parse_local_setup_payload(curl_payload)
+
+
 def resolve_suggested_frontend_url(detected_frontend_urls: list[str] | None = None) -> str:
     if detected_frontend_urls:
         return detected_frontend_urls[0]

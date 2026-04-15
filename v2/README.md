@@ -35,6 +35,7 @@ Run locally:
     - `python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env`
   - bu doctor komutlari `--frontend-url` verilmezse, canli local frontend URL'ini otomatik secmeye calisir
   - doctor raporu ayrica canli local frontend ve onerilen frontend/API hedeflerini de acikca gosterir
+  - local backend aciksa `python v2/scripts/local_v2_doctor.py` artik backend runtime snapshot'ini da cekip dosya analizi yerine daha gercekci bir local setup resmi vermeye calisir
   - login ve `/status` ekranlari doctor'in onerilen scaffold / env yazma komutlarini dogrudan kullanir
   - local backend acik ama `/api/health/local-setup` bayat kalmissa, frontend `/api/pilot-status` route'u doctor'i lokalden yeniden calistirip daha taze local setup verisi uretebilir
   - backend/.env guncel oldugu halde `/status` hala `DATABASE_URL` eksik diyorsa, login ve `/status` bunu tipik bir "backend restart gerekli" durumu olarak isaretler
