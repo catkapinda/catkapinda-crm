@@ -1009,6 +1009,63 @@ def test_day_zero_verify_fails_when_smoke_markdown_check_table_drifts(monkeypatc
     assert any("pilot-smoke-live.md" in item and "frontend_ready" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_smoke_markdown_check_table_order_drifts(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
+                "overall_ok": False,
+                "failed_count": 2,
+                "results": [
+                    {
+                        "name": "backend_ready",
+                        "ok": False,
+                        "detail": "Backend readiness bozuk",
+                    },
+                    {
+                        "name": "frontend_ready",
+                        "ok": False,
+                        "detail": "Frontend backend'e baglanamiyor",
+                    },
+                ],
+                "decision": {"recommended_next_step": "CK_V2_INTERNAL_API_HOSTPORT veya yerel base URL ayarlarini kontrol edelim."},
+            }
+        ),
+    )
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+        include_smoke=True,
+        smoke_preset="pilot",
+    )
+
+    smoke_markdown_path = tmp_path / "pilot-smoke-live.md"
+    content = smoke_markdown_path.read_text(encoding="utf-8")
+    first_row = "| `backend_ready` | **FAIL** | Backend readiness bozuk |"
+    second_row = "| `frontend_ready` | **FAIL** | Frontend backend'e baglanamiyor |"
+    content = content.replace(f"{first_row}\n{second_row}", f"{second_row}\n{first_row}")
+    smoke_markdown_path.write_text(content, encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["smoke_checked"] is True
+    assert any("check satiri sirasi bozuk" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_smoke_json_counts_drift_from_results(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(
