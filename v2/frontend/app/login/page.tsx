@@ -32,6 +32,7 @@ function LoginPageContent() {
   const [notice, setNotice] = useState("");
 
   const [smsLoginEnabled, setSmsLoginEnabled] = useState(false);
+  const [authPanelMode, setAuthPanelMode] = useState<"sms" | "recovery">("sms");
   const [phone, setPhone] = useState("");
   const [loginCode, setLoginCode] = useState("");
   const [smsSubmitting, setSmsSubmitting] = useState(false);
@@ -104,7 +105,11 @@ function LoginPageContent() {
     try {
       const payload = await requestPhoneCode(phone);
       setMaskedPhone(payload.masked_phone);
-      setSmsMessage(payload.message);
+      setSmsMessage(
+        authPanelMode === "recovery"
+          ? "Kimligini dogrulaman icin kod hazir. Kodla devam edip sifreni guvenlik ekranindan guncelleyebilirsin."
+          : payload.message,
+      );
     } catch (requestError) {
       setSmsError(requestError instanceof Error ? requestError.message : "SMS kodu gonderilemedi.");
     } finally {
@@ -119,6 +124,11 @@ function LoginPageContent() {
     setNotice("");
     try {
       const loggedInUser = await verifyPhoneCode(phone, loginCode);
+      if (authPanelMode === "recovery") {
+        writeStoredAuthNotice("SMS ile kimligini dogruladin. Guvenlik icin sifreni simdi guncelle.");
+        router.replace("/account");
+        return;
+      }
       router.replace(
         loggedInUser.must_change_password ? "/account" : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
       );
@@ -127,6 +137,14 @@ function LoginPageContent() {
     } finally {
       setSmsSubmitting(false);
     }
+  }
+
+  function switchAuthPanelMode(mode: "sms" | "recovery") {
+    setAuthPanelMode(mode);
+    setSmsError("");
+    setSmsMessage("");
+    setMaskedPhone("");
+    setLoginCode("");
   }
 
   return (
@@ -388,6 +406,39 @@ function LoginPageContent() {
               <button type="submit" disabled={submitting || loading} style={primaryButtonStyle(submitting || loading)}>
                 {submitting ? "Giris Yapiliyor..." : "Giris Yap"}
               </button>
+
+              <div
+                style={{
+                  padding: "14px 16px",
+                  borderRadius: "18px",
+                  border: "1px solid rgba(15,95,215,0.12)",
+                  background: "rgba(15,95,215,0.05)",
+                  display: "grid",
+                  gap: "10px",
+                }}
+              >
+                <div style={{ display: "grid", gap: "6px" }}>
+                  <div style={{ ...eyebrowStyle, color: "#0f5fd7" }}>Sifre Kurtarma</div>
+                  <div style={{ color: "var(--text)", fontWeight: 700 }}>
+                    Sifreni unuttuysan SMS ile kimligini dogrulayip yeni sifre belirleyebilirsin.
+                  </div>
+                  <div style={{ ...cardBodyStyle, fontSize: "0.92rem" }}>
+                    {smsLoginEnabled
+                      ? "Telefonuna gelen tek kullanimlik kodla hesabina guvenli sekilde don, sonra guvenlik ekranindan sifreni yenile."
+                      : "SMS kurtarma hatti su an aktif degilse ofis yoneticisiyle iletisime gecerek sifre destegi alabilirsin."}
+                  </div>
+                </div>
+
+                {smsLoginEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => switchAuthPanelMode("recovery")}
+                    style={ghostButtonStyle(false)}
+                  >
+                    Sifremi Unuttum
+                  </button>
+                ) : null}
+              </div>
             </form>
           </section>
 
@@ -404,6 +455,32 @@ function LoginPageContent() {
               }}
             >
               <div style={{ display: "grid", gap: "8px" }}>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    width: "fit-content",
+                    padding: "6px",
+                    borderRadius: "999px",
+                    background: "rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    gap: "6px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => switchAuthPanelMode("sms")}
+                    style={panelToggleStyle(authPanelMode === "sms")}
+                  >
+                    SMS ile Giris
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchAuthPanelMode("recovery")}
+                    style={panelToggleStyle(authPanelMode === "recovery")}
+                  >
+                    Sifremi Unuttum
+                  </button>
+                </div>
                 <div
                   style={{
                     color: "#f2cf9e",
@@ -424,7 +501,9 @@ function LoginPageContent() {
                     fontWeight: 700,
                   }}
                 >
-                  Tek kullanimlik kodla hizli dogrulama.
+                  {authPanelMode === "recovery"
+                    ? "Telefon dogrulamasiyla hesabina geri don."
+                    : "Tek kullanimlik kodla hizli dogrulama."}
                 </h2>
                 <p
                   style={{
@@ -434,14 +513,17 @@ function LoginPageContent() {
                     fontSize: "0.95rem",
                   }}
                 >
-                  Bolge muduru ve izinli yonetici numaralari bu akisi kullanabilir. Kod gonder ve
-                  ayni kart icinde dogrulamayi tamamla.
+                  {authPanelMode === "recovery"
+                    ? "Kayitli telefon numarana tek kullanimlik kod gonder. Kimligini dogruladiktan sonra seni dogrudan guvenlik ekranina alip yeni sifre belirletelim."
+                    : "Bolge muduru ve izinli yonetici numaralari bu akisi kullanabilir. Kod gonder ve ayni kart icinde dogrulamayi tamamla."}
                 </p>
               </div>
 
               <form onSubmit={handleSendCode} style={{ display: "grid", gap: "12px" }}>
                 <label style={labelStyle}>
-                  <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Telefon</span>
+                  <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>
+                    {authPanelMode === "recovery" ? "Kayitli Telefon" : "Telefon"}
+                  </span>
                   <input
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
@@ -450,7 +532,11 @@ function LoginPageContent() {
                   />
                 </label>
                 <button type="submit" disabled={smsSubmitting} style={secondaryButtonStyle(smsSubmitting)}>
-                  {smsSubmitting ? "Kod Hazirlaniyor..." : "SMS Kodu Gonder"}
+                  {smsSubmitting
+                    ? "Kod Hazirlaniyor..."
+                    : authPanelMode === "recovery"
+                      ? "Dogrulama Kodu Gonder"
+                      : "SMS Kodu Gonder"}
                 </button>
               </form>
 
@@ -481,7 +567,11 @@ function LoginPageContent() {
                   disabled={smsSubmitting || !loginCode.trim()}
                   style={goldButtonStyle(smsSubmitting || !loginCode.trim())}
                 >
-                  {smsSubmitting ? "Kod Dogrulaniyor..." : "Kodu Dogrula"}
+                  {smsSubmitting
+                    ? "Kod Dogrulaniyor..."
+                    : authPanelMode === "recovery"
+                      ? "Kimligimi Dogrula ve Devam Et"
+                      : "Kodu Dogrula"}
                 </button>
               </form>
             </section>
@@ -671,5 +761,32 @@ function goldButtonStyle(disabled: boolean): CSSProperties {
     fontSize: "0.98rem",
     cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.6 : 1,
+  };
+}
+
+function ghostButtonStyle(disabled: boolean): CSSProperties {
+  return {
+    padding: "13px 15px",
+    borderRadius: "16px",
+    border: "1px solid rgba(15,95,215,0.14)",
+    background: "rgba(255,255,255,0.9)",
+    color: "#0f5fd7",
+    fontWeight: 800,
+    fontSize: "0.94rem",
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.6 : 1,
+  };
+}
+
+function panelToggleStyle(active: boolean): CSSProperties {
+  return {
+    padding: "9px 14px",
+    borderRadius: "999px",
+    border: "none",
+    background: active ? "rgba(241,194,143,0.98)" : "transparent",
+    color: active ? "#2f1b09" : "rgba(255,247,234,0.74)",
+    fontWeight: 800,
+    fontSize: "0.82rem",
+    cursor: "pointer",
   };
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import type { CSSProperties, FormEvent } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
 import { AppShell } from "../../components/shell/app-shell";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, readStoredAuthNotice, writeStoredAuthNotice } from "../../lib/api";
 import { resolveDefaultPath } from "../../lib/navigation";
 
 type ChangePasswordResponse = {
@@ -146,6 +146,16 @@ export default function AccountPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    const nextNotice = readStoredAuthNotice();
+    if (!nextNotice) {
+      return;
+    }
+    setNotice(nextNotice);
+    writeStoredAuthNotice("");
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -550,6 +560,21 @@ export default function AccountPage() {
                 Yeni sisteme gectigimizde herkesin tekil ve guclu sifre kullanmasi gerekiyor.
               </p>
             </div>
+
+            {notice ? (
+              <div
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: "16px",
+                  background: "rgba(15, 95, 215, 0.08)",
+                  color: "#0f5fd7",
+                  border: "1px solid rgba(15, 95, 215, 0.14)",
+                  fontWeight: 700,
+                }}
+              >
+                {notice}
+              </div>
+            ) : null}
 
             {user?.must_change_password ? (
               <div
