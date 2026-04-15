@@ -103,6 +103,12 @@ def _print_human_report(report: dict[str, object], *, wrote_env: str | None = No
         print("- Canli local frontend: " + " | ".join(str(item) for item in detected_frontend_urls))
     print(f"- Onerilen frontend URL: {report['suggested_frontend_url']}")
     print(f"- Onerilen API URL: {report['suggested_api_url']}")
+    if report.get("suggested_backend_start_command"):
+        print(f"- Onerilen backend baslatma: {report['suggested_backend_start_command']}")
+    if report.get("suggested_scaffold_command"):
+        print(f"- Onerilen scaffold komutu: {report['suggested_scaffold_command']}")
+    if report.get("suggested_env_write_command"):
+        print(f"- Onerilen env yazma komutu: {report['suggested_env_write_command']}")
     print(
         "- Varsayilan sifre: "
         + (

@@ -43,6 +43,10 @@ type LoginPilotStatusPayload = {
     database_url_present?: boolean;
     suggested_frontend_url?: string | null;
     suggested_api_url?: string | null;
+    suggested_scaffold_command?: string | null;
+    suggested_env_write_command?: string | null;
+    suggested_current_app_env_command?: string | null;
+    suggested_backend_start_command?: string | null;
     current_app_seed_detected?: boolean;
     current_app_seed_sources?: string[];
     current_app_seed_placeholders?: string[];
@@ -349,7 +353,7 @@ function LoginPageContent() {
         title: "Local backend henuz ayakta degil.",
         detail:
           "Frontend 127.0.0.1:8000 hedefini bulamiyor. Bu durumda giris ve sifre kurtarma calismaz; demo icin preview, gercek deneme icin backend gerekir.",
-        command: "cd v2/backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+        command: localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
       };
     }
 
@@ -363,7 +367,7 @@ function LoginPageContent() {
         return {
           title: "Mevcut uygulamada seed bulundu, v2 backend env'i henuz yazilmadi.",
           detail: `Doctor current app tarafinda kullanilabilir kaynak gordu${currentAppSeedSources.length ? `: ${currentAppSeedSources.join(", ")}` : ""}. Tek komutla backend/.env ureterek gercek login akisini acabiliriz.`,
-          command: "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app",
+          command: localSetup.suggested_current_app_env_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app",
         };
       }
 
@@ -383,8 +387,8 @@ function LoginPageContent() {
             placeholderDetail +
             targetDetail,
           command: localSetup.backend_env_exists
-            ? "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env"
-            : "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
+            ? localSetup.suggested_env_write_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env"
+            : localSetup.suggested_scaffold_command || "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
         };
       }
 
@@ -394,8 +398,8 @@ function LoginPageContent() {
           detail:
             "Shell env ile ilerleyebiliriz ama local backend yeniden baslatildiginda ayni ayari yeniden yapmak gerekir. Kalici kurulum icin doctor bunu tek komutla yazabilir.",
           command: localSetup.current_app_seed_detected
-            ? "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app"
-            : "python v2/scripts/local_v2_doctor.py --write-backend-env",
+            ? localSetup.suggested_current_app_env_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app"
+            : localSetup.suggested_env_write_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>'",
         };
       }
 

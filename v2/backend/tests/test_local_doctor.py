@@ -25,6 +25,8 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path, monkeypatch):
     assert report["database_url_present"] is False
     assert report["frontend_proxy_target"] == "http://127.0.0.1:8000"
     assert report["suggested_frontend_url"] == "http://127.0.0.1:3000"
+    assert "--frontend-url 'http://127.0.0.1:3000'" in report["suggested_scaffold_command"]
+    assert "--api-url 'http://127.0.0.1:8000'" in report["suggested_env_write_command"]
     assert any("Backend veritabani URL'i eksik" in item for item in report["blocking_items"])
     assert any("--write-backend-scaffold" in item for item in report["next_actions"])
 
@@ -40,6 +42,7 @@ def test_local_doctor_reports_detected_frontend_urls_and_duplicate_warning(tmp_p
 
     assert report["detected_frontend_urls"] == ["http://127.0.0.1:3000", "http://127.0.0.1:3001"]
     assert report["suggested_frontend_url"] == "http://127.0.0.1:3000"
+    assert "--overwrite-backend-env" not in report["suggested_env_write_command"]
     assert any("Birden fazla local frontend oturumu" in item for item in report["warnings"])
     assert any("tek aktif frontend URL" in item for item in report["next_actions"])
 
@@ -114,6 +117,23 @@ def test_discover_local_frontend_urls_falls_back_to_next_dev_process_ports(monke
     urls = local_doctor.discover_local_frontend_urls()
 
     assert urls == ["http://127.0.0.1:3001"]
+
+
+def test_local_doctor_commands_use_detected_frontend_url_when_backend_env_exists(tmp_path: Path, monkeypatch):
+    v2_root = tmp_path / "v2"
+    (v2_root / "backend").mkdir(parents=True)
+    (v2_root / "frontend").mkdir(parents=True)
+    (v2_root / "backend" / ".env").write_text("CK_V2_APP_ENV=development\n", encoding="utf-8")
+
+    monkeypatch.setattr(local_doctor, "discover_local_frontend_urls", lambda: ["http://127.0.0.1:3001"])
+
+    report = build_local_doctor_report(v2_root, {})
+
+    assert report["suggested_frontend_url"] == "http://127.0.0.1:3001"
+    assert "--frontend-url 'http://127.0.0.1:3001'" in report["suggested_scaffold_command"]
+    assert "--frontend-url 'http://127.0.0.1:3001'" in report["suggested_env_write_command"]
+    assert "--overwrite-backend-env" in report["suggested_scaffold_command"]
+    assert "--overwrite-backend-env" in report["suggested_env_write_command"]
 
 
 def test_local_doctor_prefers_direct_database_url_command_when_backend_env_exists(tmp_path: Path):

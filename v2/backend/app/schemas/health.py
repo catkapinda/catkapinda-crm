@@ -177,6 +177,10 @@ class LocalSetupResponse(BaseModel):
     detected_frontend_urls: list[str] = []
     suggested_frontend_url: str | None = None
     suggested_api_url: str | None = None
+    suggested_scaffold_command: str | None = None
+    suggested_env_write_command: str | None = None
+    suggested_current_app_env_command: str | None = None
+    suggested_backend_start_command: str | None = None
     current_app_seed_detected: bool
     current_app_seed_sources: list[str] = []
     current_app_seed_placeholders: list[str] = []

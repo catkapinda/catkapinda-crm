@@ -223,6 +223,40 @@ def resolve_suggested_frontend_url(detected_frontend_urls: list[str] | None = No
     return LOCAL_FRONTEND_URL
 
 
+def _quote_shell_arg(value: str) -> str:
+    return "'" + value.replace("'", "'\"'\"'") + "'"
+
+
+def _build_local_doctor_command(
+    *,
+    frontend_url: str,
+    api_url: str,
+    write_backend_env: bool = False,
+    write_backend_scaffold: bool = False,
+    sync_from_current_app: bool = False,
+    overwrite_backend_env: bool = False,
+    include_database_placeholder: bool = False,
+) -> str:
+    command = ["python", "v2/scripts/local_v2_doctor.py"]
+
+    if write_backend_env:
+        command.append("--write-backend-env")
+    if write_backend_scaffold:
+        command.append("--write-backend-scaffold")
+    if include_database_placeholder:
+        command.extend(["--database-url", "'<postgresql://...>'"])
+
+    command.extend(["--frontend-url", _quote_shell_arg(frontend_url)])
+    command.extend(["--api-url", _quote_shell_arg(api_url)])
+
+    if sync_from_current_app:
+        command.append("--sync-from-current-app")
+    if overwrite_backend_env:
+        command.append("--overwrite-backend-env")
+
+    return " ".join(command)
+
+
 def render_backend_env(
     runtime_env: Mapping[str, str],
     *,
@@ -348,6 +382,29 @@ def build_local_doctor_report(
     current_app_values = current_app_seed["values"]
     detected_frontend_urls = discover_local_frontend_urls()
     suggested_frontend_url = resolve_suggested_frontend_url(detected_frontend_urls)
+    suggested_api_url = LOCAL_API_URL
+    suggested_scaffold_command = _build_local_doctor_command(
+        frontend_url=suggested_frontend_url,
+        api_url=suggested_api_url,
+        write_backend_scaffold=True,
+        sync_from_current_app=True,
+        overwrite_backend_env=backend_env_path.exists(),
+    )
+    suggested_env_write_command = _build_local_doctor_command(
+        frontend_url=suggested_frontend_url,
+        api_url=suggested_api_url,
+        write_backend_env=True,
+        overwrite_backend_env=backend_env_path.exists(),
+        include_database_placeholder=True,
+    )
+    suggested_current_app_env_command = _build_local_doctor_command(
+        frontend_url=suggested_frontend_url,
+        api_url=suggested_api_url,
+        write_backend_env=True,
+        sync_from_current_app=True,
+        overwrite_backend_env=backend_env_path.exists(),
+    )
+    suggested_backend_start_command = "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
 
     database_url, database_source = _resolve_value(runtime_env, backend_env_values, BACKEND_DATABASE_KEYS)
     if not database_url and current_app_values.get("database_url"):
@@ -373,20 +430,15 @@ def build_local_doctor_report(
         blocking_items.append("Backend veritabani URL'i eksik. CK_V2_DATABASE_URL veya DATABASE_URL tanimlanmali.")
         if not backend_env_path.exists():
             next_actions.append(
-                "Ilk adim olarak `python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app` ile backend/.env iskeletini olustur."
+                f"Ilk adim olarak `{suggested_scaffold_command}` ile backend/.env iskeletini olustur."
             )
-        if backend_env_path.exists():
-            next_actions.append(
-                "Gercek PostgreSQL URL'ini alip `python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env` calistir."
-            )
-        else:
-            next_actions.append(
-                "Gercek PostgreSQL URL'ini alip `python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>'` calistir."
-            )
+        next_actions.append(
+            f"Gercek PostgreSQL URL'ini alip `{suggested_env_write_command}` calistir."
+        )
     elif database_source == "current_app_seed:DATABASE_URL" and not backend_env_path.exists():
         warnings.append("Veritabani URL'i current app kaynaklarinda bulundu ama v2 backend/.env henuz yazilmadi.")
         next_actions.append(
-            "Current app kaynaklarini kullanarak backend/.env yazmak icin `python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app` calistir."
+            f"Current app kaynaklarini kullanarak backend/.env yazmak icin `{suggested_current_app_env_command}` calistir."
         )
 
     if not proxy_target:
@@ -408,7 +460,7 @@ def build_local_doctor_report(
 
     if not backend_env_path.exists() and database_url:
         warnings.append("Backend .env dosyasi henuz yok; shell env kaybolursa local backend yeniden kurulum ister.")
-        next_actions.append("Kalici local kurulum icin `python v2/scripts/local_v2_doctor.py --write-backend-env` kullan.")
+        next_actions.append(f"Kalici local kurulum icin `{suggested_current_app_env_command if current_app_seed['values'] else _build_local_doctor_command(frontend_url=suggested_frontend_url, api_url=suggested_api_url, write_backend_env=True)}` kullan.")
 
     if not frontend_env_path.exists():
         warnings.append("frontend/.env.local bulunamadi.")
@@ -437,7 +489,11 @@ def build_local_doctor_report(
         "frontend_proxy_source": proxy_source or None,
         "detected_frontend_urls": detected_frontend_urls,
         "suggested_frontend_url": suggested_frontend_url,
-        "suggested_api_url": LOCAL_API_URL,
+        "suggested_api_url": suggested_api_url,
+        "suggested_scaffold_command": suggested_scaffold_command,
+        "suggested_env_write_command": suggested_env_write_command,
+        "suggested_current_app_env_command": suggested_current_app_env_command,
+        "suggested_backend_start_command": suggested_backend_start_command,
         "current_app_seed_detected": bool(current_app_values),
         "current_app_seed_sources": current_app_seed["sources_used"],
         "current_app_seed_placeholders": current_app_seed["placeholders_detected"],

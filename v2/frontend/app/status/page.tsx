@@ -164,6 +164,10 @@ type LocalSetupStatus = {
   detected_frontend_urls: string[];
   suggested_frontend_url?: string | null;
   suggested_api_url?: string | null;
+  suggested_scaffold_command?: string | null;
+  suggested_env_write_command?: string | null;
+  suggested_current_app_env_command?: string | null;
+  suggested_backend_start_command?: string | null;
   current_app_seed_detected: boolean;
   current_app_seed_sources: string[];
   current_app_seed_placeholders: string[];
@@ -544,7 +548,7 @@ export default function StatusPage() {
         detail:
           "Frontend explicit base URL modunda 127.0.0.1:8000 hedefini ariyor. Bu local senaryoda normal; backend ayaga kalkmadan login ve sifre kurtarma akisi tamamlanmaz.",
         commands: [
-          "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
+          localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
           "python v2/scripts/local_v2_doctor.py",
         ],
       };
@@ -562,8 +566,8 @@ export default function StatusPage() {
           "Bu local durumda API cevap veriyor ama DATABASE_URL olmadigi icin gercek auth akisi tamamlanamiyor. Doctor komutlariyla mevcut kaynaklari tarayip backend/.env dosyasini hazirlayabiliriz.",
         commands: [
           "python v2/scripts/local_v2_doctor.py",
-          "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
-          "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env",
+          localSetup?.suggested_scaffold_command || "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
+          localSetup?.suggested_env_write_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env",
         ],
       };
     }

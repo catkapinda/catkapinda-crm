@@ -29,6 +29,7 @@ Run locally:
     - `python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env`
   - bu doctor komutlari `--frontend-url` verilmezse, canli local frontend URL'ini otomatik secmeye calisir
   - doctor raporu ayrica canli local frontend ve onerilen frontend/API hedeflerini de acikca gosterir
+  - login ve `/status` ekranlari doctor'in onerilen scaffold / env yazma komutlarini dogrudan kullanir
   - mevcut app kaynaklarindan (ornegin `secrets.toml`) otomatik seed denemek icin:
     - `python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app`
 - Frontend:
