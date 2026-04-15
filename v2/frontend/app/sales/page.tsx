@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../components/auth/auth-provider";
 import { SalesEntryWorkspace } from "../../components/sales/sales-entry-workspace";
@@ -31,6 +31,11 @@ type SalesDashboard = {
     updated_at: string;
   }>;
 };
+
+const serifStyle = {
+  fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  letterSpacing: "-0.04em",
+} as const;
 
 function metricCard(label: string, value: string, tone: "accent" | "soft" = "soft") {
   return (
@@ -63,6 +68,113 @@ function metricCard(label: string, value: string, tone: "accent" | "soft" = "sof
         }}
       >
         {value}
+      </div>
+    </article>
+  );
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  }).format(value || 0);
+}
+
+function formatTimestamp(value: string) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function narrativeCard({
+  eyebrow,
+  title,
+  body,
+  tone = "paper",
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  tone?: "paper" | "ink" | "accent";
+}) {
+  const palette =
+    tone === "ink"
+      ? {
+          background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+          border: "1px solid rgba(255,255,255,0.08)",
+          title: "#fff7ea",
+          body: "rgba(255,247,234,0.72)",
+          eyebrow: "rgba(255,247,234,0.62)",
+        }
+      : tone === "accent"
+        ? {
+            background: "linear-gradient(180deg, rgba(185,116,41,0.12), rgba(255,248,236,0.98))",
+            border: "1px solid rgba(185,116,41,0.18)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--accent-strong)",
+          }
+        : {
+            background: "rgba(255,255,255,0.84)",
+            border: "1px solid var(--line)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--muted)",
+          };
+
+  return (
+    <article
+      style={{
+        padding: "18px 18px 16px",
+        borderRadius: "22px",
+        background: palette.background,
+        border: palette.border,
+        boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      <div
+        style={{
+          color: palette.eyebrow,
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifStyle,
+          color: palette.title,
+          fontSize: "1.45rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: palette.body,
+          fontSize: "0.93rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
       </div>
     </article>
   );
@@ -118,53 +230,313 @@ export default function SalesPage() {
     };
   }, [loading, user]);
 
+  const decisionDeck = useMemo(() => {
+    if (!dashboard) {
+      return [];
+    }
+
+    const proposalRatio =
+      dashboard.summary.total_entries > 0
+        ? (dashboard.summary.proposal_stage / dashboard.summary.total_entries) * 100
+        : 0;
+    const winRatio =
+      dashboard.summary.total_entries > 0
+        ? (dashboard.summary.won_count / dashboard.summary.total_entries) * 100
+        : 0;
+    const topOpportunity = dashboard.recent_entries[0] ?? null;
+    const followUpPressure =
+      dashboard.summary.open_follow_up >= Math.max(3, dashboard.summary.won_count);
+
+    return [
+      {
+        eyebrow: "Pipeline Sinyali",
+        title:
+          proposalRatio >= 35
+            ? "Teklif havuzu canli gorunuyor."
+            : proposalRatio >= 20
+              ? "Teklif akisinda hareket var."
+              : "Teklif hacmi daha fazla itis isteyebilir.",
+        body: `${dashboard.summary.total_entries} firsatin %${proposalRatio.toFixed(1)} kadari teklif asamasinda. Bu oran pipeline'in ne kadar olgunlastigini hizli gosteren ana sinyalimiz.`,
+        tone: proposalRatio >= 35 ? "ink" : "accent",
+      },
+      {
+        eyebrow: "En Sicak Firsat",
+        title: topOpportunity ? topOpportunity.restaurant_name : "Sicak firsat sinyali henuz yok.",
+        body: topOpportunity
+          ? `${topOpportunity.city} / ${topOpportunity.district} hattinda ${topOpportunity.pricing_model_label} modeliyle ${formatCurrency(topOpportunity.proposed_quote)} teklif seviyesinde. Sorumlu: ${topOpportunity.assigned_owner || "Atanmadi"}.`
+          : "Yeni firsat kayitlari geldikce bu alan hangi lead'in daha cok dikkat istedigini one cikaracak.",
+        tone: "paper",
+      },
+      {
+        eyebrow: followUpPressure ? "Takip Baskisi" : "Kapanis Ritmi",
+        title: followUpPressure ? "Acik takip kuyrugu agirlasiyor." : "Kazanilan firsat ritmi korunuyor.",
+        body: followUpPressure
+          ? `${dashboard.summary.open_follow_up} acik takip var. Ekibin gorusme ve donus disiplinini korumasi bu haftanin ana ticari riski olabilir.`
+          : `${dashboard.summary.won_count} kazanilan firsat ve %${winRatio.toFixed(1)} donusum, mevcut hattin kapanis tarafinda guven verdigini gosteriyor.`,
+        tone: followUpPressure ? "accent" : "paper",
+      },
+    ] as const;
+  }, [dashboard]);
+
   return (
     <AppShell activeItem="Satış">
       <section style={{ display: "grid", gap: "18px" }}>
         <div
           style={{
-            padding: "24px 26px",
-            borderRadius: "28px",
-            background: "var(--surface-strong)",
+            padding: "28px",
+            borderRadius: "30px",
+            background:
+              "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,242,233,0.96))",
             border: "1px solid var(--line)",
             boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
+            display: "grid",
+            gap: "18px",
           }}
         >
           <div
             style={{
-              display: "inline-flex",
-              padding: "7px 12px",
-              borderRadius: "999px",
-              background: "var(--accent-soft)",
-              color: "var(--accent)",
-              fontSize: "0.78rem",
-              fontWeight: 800,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.9fr)",
+              gap: "18px",
+              alignItems: "stretch",
             }}
           >
-            Ticari Akis
+            <div
+              style={{
+                display: "grid",
+                gap: "16px",
+                alignContent: "start",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  width: "fit-content",
+                  padding: "7px 12px",
+                  borderRadius: "999px",
+                  background: "var(--accent-soft)",
+                  color: "var(--accent)",
+                  fontSize: "0.78rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Ticari Akis
+              </div>
+              <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
+                <h1
+                  style={{
+                    ...serifStyle,
+                    margin: 0,
+                    fontSize: "clamp(2.2rem, 4vw, 3.6rem)",
+                    lineHeight: 0.96,
+                    fontWeight: 700,
+                  }}
+                >
+                  Pipeline'i sadece listelemiyor, artik sahneliyoruz.
+                </h1>
+                <p
+                  style={{
+                    margin: 0,
+                    maxWidth: "74ch",
+                    color: "var(--muted)",
+                    lineHeight: 1.76,
+                    fontSize: "1.02rem",
+                  }}
+                >
+                  Firsat havuzu, teklif modeli ve takip aksiyonlarini daha canli bir
+                  ticari panelde topluyoruz. Hedefimiz, ekip hangi lead'e yuklenmeli
+                  sorusuna sayfa acilir acilmaz daha iyi cevap verebilmek.
+                </p>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(15,95,215,0.08)",
+                    color: "#0f5fd7",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Pipeline gorunurlugu acik
+                </span>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(185,116,41,0.1)",
+                    color: "var(--accent-strong)",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Teklif ve takip ayni satirda
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              <article
+                style={{
+                  padding: "18px 18px 16px",
+                  borderRadius: "24px",
+                  background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+                  color: "#fff7ea",
+                  boxShadow: "var(--shadow-deep)",
+                  display: "grid",
+                  gap: "14px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    alignItems: "start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.62)",
+                        fontSize: "0.74rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Ticari Nabiz
+                    </div>
+                    <div
+                      style={{
+                        ...serifStyle,
+                        fontSize: "1.8rem",
+                        lineHeight: 0.96,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {dashboard?.summary.total_entries ?? 0} aktif sinyal
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      padding: "7px 10px",
+                      borderRadius: "999px",
+                      background: "rgba(255,255,255,0.08)",
+                      color: "rgba(255,247,234,0.82)",
+                      fontSize: "0.8rem",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Commercial Room
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Acik Takip
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {dashboard?.summary.open_follow_up ?? 0}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(185,116,41,0.14)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Kazanilan
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {dashboard?.summary.won_count ?? 0}
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article
+                style={{
+                  padding: "16px 18px",
+                  borderRadius: "22px",
+                  border: "1px solid var(--line)",
+                  background: "rgba(255,255,255,0.78)",
+                  display: "grid",
+                  gap: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.74rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Okuma Notu
+                </div>
+                <div
+                  style={{
+                    color: "var(--text)",
+                    fontSize: "0.95rem",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  Bu ekranda once teklif havuzunu, sonra acik takip baskisini ve en son
+                  sicak lead kartlarini okumak en saglikli ticari akisi veriyor.
+                </div>
+              </article>
+            </div>
           </div>
-          <h1
-            style={{
-              margin: "16px 0 10px",
-              fontSize: "clamp(2rem, 3vw, 2.8rem)",
-              lineHeight: 1.05,
-            }}
-          >
-            Satis ve teklif takibi yeni hatta hazir.
-          </h1>
-          <p
-            style={{
-              margin: 0,
-              maxWidth: "74ch",
-              color: "var(--muted)",
-              lineHeight: 1.7,
-            }}
-          >
-            Firsat havuzu, teklif modeli ve takip aksiyonlari artik daha temiz ve hizli
-            bir ticari yuzeyde yonetilecek.
-          </p>
         </div>
 
         {dashboardLoading ? (
@@ -207,6 +579,190 @@ export default function SalesPage() {
               {metricCard("Teklif Asamasi", String(dashboard.summary.proposal_stage))}
               {metricCard("Kazanilan", String(dashboard.summary.won_count))}
             </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {decisionDeck.map((item) => (
+                <div key={`${item.eyebrow}-${item.title}`}>{narrativeCard(item)}</div>
+              ))}
+            </div>
+
+            <section
+              style={{
+                padding: "20px",
+                borderRadius: "24px",
+                border: "1px solid var(--line)",
+                background: "var(--surface-strong)",
+                boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+                display: "grid",
+                gap: "14px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "16px",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Son Ticari Sinyaller</h2>
+                  <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
+                    Ekip nereye donmeli sorusunu hizlandiran en guncel lead hareketleri.
+                  </p>
+                </div>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(24,40,59,0.08)",
+                    color: "var(--text)",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Son {dashboard.recent_entries.length} kayit
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                  gap: "12px",
+                }}
+              >
+                {dashboard.recent_entries.map((entry) => (
+                  <article
+                    key={entry.id}
+                    style={{
+                      display: "grid",
+                      gap: "10px",
+                      padding: "16px 16px 14px",
+                      borderRadius: "20px",
+                      border: "1px solid rgba(24,40,59,0.08)",
+                      background:
+                        "linear-gradient(180deg, rgba(255,253,248,0.98), rgba(247,241,231,0.96))",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        alignItems: "start",
+                      }}
+                    >
+                      <div style={{ display: "grid", gap: "4px" }}>
+                        <div
+                          style={{
+                            ...serifStyle,
+                            fontSize: "1.22rem",
+                            lineHeight: 0.98,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {entry.restaurant_name}
+                        </div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                          {entry.city} / {entry.district}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          padding: "6px 10px",
+                          borderRadius: "999px",
+                          background: "rgba(185,116,41,0.12)",
+                          color: "var(--accent-strong)",
+                          fontSize: "0.74rem",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {entry.status}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                        gap: "10px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: "14px",
+                          background: "rgba(24,40,59,0.05)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: "0.72rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          Teklif
+                        </div>
+                        <div style={{ marginTop: "7px", fontWeight: 900 }}>
+                          {formatCurrency(entry.proposed_quote)}
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: "14px",
+                          background: "rgba(15,95,215,0.06)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: "0.72rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          Sorumlu
+                        </div>
+                        <div style={{ marginTop: "7px", fontWeight: 900 }}>
+                          {entry.assigned_owner || "Atanmadi"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: "4px",
+                        color: "var(--muted)",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      <div>
+                        {entry.pricing_model_label} • {entry.lead_source}
+                      </div>
+                      <div>
+                        {entry.contact_name} • {formatTimestamp(entry.updated_at)}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
 
             <SalesEntryWorkspace />
             <SalesManagementWorkspace />
