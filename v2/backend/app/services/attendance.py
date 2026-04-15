@@ -7,7 +7,9 @@ import psycopg
 from app.repositories.attendance import (
     count_attendance_management_entries,
     delete_attendance_entry,
+    delete_attendance_entries,
     fetch_attendance_entry_by_id,
+    fetch_attendance_entry_ids,
     fetch_attendance_management_entries,
     fetch_attendance_people,
     fetch_attendance_restaurants,
@@ -19,6 +21,8 @@ from app.repositories.attendance import (
 from app.schemas.attendance import (
     AttendanceCreateRequest,
     AttendanceCreateResponse,
+    AttendanceBulkDeleteRequest,
+    AttendanceBulkDeleteResponse,
     AttendanceDashboardResponse,
     AttendanceDeleteResponse,
     AttendanceEntryDetailResponse,
@@ -51,6 +55,25 @@ NON_WORKING_STATUSES = {"İzin", "Gelmedi", "Raporlu", "İhbarsız Çıkış"}
 def _normalize_entry_mode(value: str) -> str:
     normalized = str(value or "").strip()
     return ENTRY_MODE_ALIASES.get(normalized, normalized or "Restoran Kuryesi")
+
+
+def _normalize_bulk_entry_ids(entry_ids: list[int]) -> list[int]:
+    normalized_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for raw_entry_id in entry_ids:
+        try:
+            entry_id = int(raw_entry_id)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Toplu silme icin gecerli puantaj kayitlari secilmelidir.") from exc
+        if entry_id <= 0:
+            raise ValueError("Toplu silme icin gecerli puantaj kayitlari secilmelidir.")
+        if entry_id in seen_ids:
+            continue
+        seen_ids.add(entry_id)
+        normalized_ids.append(entry_id)
+    if not normalized_ids:
+        raise ValueError("Toplu silme icin en az bir puantaj kaydi secilmelidir.")
+    return normalized_ids
 
 
 def _resolve_attendance_values(
@@ -342,4 +365,30 @@ def delete_attendance_entry_record(
     return AttendanceDeleteResponse(
         entry_id=entry_id,
         message="Attendance kaydı silindi.",
+    )
+
+
+def bulk_delete_attendance_entries(
+    conn: psycopg.Connection,
+    *,
+    payload: AttendanceBulkDeleteRequest,
+) -> AttendanceBulkDeleteResponse:
+    entry_ids = _normalize_bulk_entry_ids(payload.entry_ids)
+    existing_ids = fetch_attendance_entry_ids(conn, entry_ids=entry_ids)
+    existing_id_set = set(existing_ids)
+    missing_ids = [entry_id for entry_id in entry_ids if entry_id not in existing_id_set]
+    if missing_ids:
+        missing_labels = ", ".join(str(entry_id) for entry_id in missing_ids)
+        raise LookupError(f"Secilen puantaj kayitlari bulunamadi: {missing_labels}.")
+
+    deleted_ids = sorted(delete_attendance_entries(conn, entry_ids))
+    if len(deleted_ids) != len(entry_ids):
+        raise LookupError("Secilen puantaj kayitlarinin bir kismi silinemedi.")
+
+    conn.commit()
+    deleted_count = len(deleted_ids)
+    return AttendanceBulkDeleteResponse(
+        entry_ids=deleted_ids,
+        deleted_count=deleted_count,
+        message=f"{deleted_count} puantaj kaydi silindi.",
     )

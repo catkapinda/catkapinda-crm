@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AttendanceModuleStatus(BaseModel):
@@ -125,4 +125,14 @@ class AttendanceUpdateResponse(BaseModel):
 
 class AttendanceDeleteResponse(BaseModel):
     entry_id: int
+    message: str
+
+
+class AttendanceBulkDeleteRequest(BaseModel):
+    entry_ids: list[int] = Field(default_factory=list)
+
+
+class AttendanceBulkDeleteResponse(BaseModel):
+    entry_ids: list[int]
+    deleted_count: int
     message: str

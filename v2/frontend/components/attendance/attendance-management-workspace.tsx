@@ -52,6 +52,12 @@ type AttendanceEntryDetailResponse = {
   entry: AttendanceEntry;
 };
 
+type AttendanceBulkDeleteResponse = {
+  entry_ids: number[];
+  deleted_count: number;
+  message: string;
+};
+
 function badgeStyle(kind: "accent" | "soft" | "warn" | "muted"): CSSProperties {
   const palette = {
     accent: {
@@ -121,11 +127,14 @@ export function AttendanceManagementWorkspace() {
   const [entries, setEntries] = useState<AttendanceEntry[]>([]);
   const [totalEntries, setTotalEntries] = useState(0);
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([]);
 
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
+  const [deletePending, setDeletePending] = useState(false);
+  const [bulkDeletePending, setBulkDeletePending] = useState(false);
 
   const [editDate, setEditDate] = useState("");
   const [editRestaurantId, setEditRestaurantId] = useState<number | "">("");
@@ -148,6 +157,11 @@ export function AttendanceManagementWorkspace() {
   const isFixedMonthly = selectedRestaurant?.pricing_model === "fixed_monthly";
   const needsReplacement = editEntryMode === "Joker" || editEntryMode === "Destek";
   const needsAbsenceReason = editEntryMode !== "Restoran Kuryesi";
+  const selectedEntryIdSet = useMemo(() => new Set(selectedEntryIds), [selectedEntryIds]);
+  const allVisibleSelected =
+    entries.length > 0 && entries.every((entry) => selectedEntryIdSet.has(entry.id));
+  const selectedVisibleCount = entries.filter((entry) => selectedEntryIdSet.has(entry.id)).length;
+  const isAnyMutationPending = isPending || deletePending || bulkDeletePending;
 
   async function loadReferenceOptions() {
     const response = await apiFetch("/attendance/form-options");
@@ -177,8 +191,10 @@ export function AttendanceManagementWorkspace() {
         throw new Error("Puantaj kayitlari yuklenemedi.");
       }
       const payload = (await response.json()) as AttendanceManagementResponse;
+      const visibleEntryIdSet = new Set(payload.entries.map((entry) => entry.id));
       setEntries(payload.entries);
       setTotalEntries(payload.total_entries);
+      setSelectedEntryIds((current) => current.filter((entryId) => visibleEntryIdSet.has(entryId)));
       setSelectedEntryId((current) => {
         if (!payload.entries.length) {
           return null;
@@ -196,6 +212,29 @@ export function AttendanceManagementWorkspace() {
     } finally {
       setListLoading(false);
     }
+  }
+
+  function toggleEntrySelection(entryId: number, checked: boolean) {
+    setSelectedEntryIds((current) => {
+      if (checked) {
+        if (current.includes(entryId)) {
+          return current;
+        }
+        return [...current, entryId];
+      }
+      return current.filter((currentEntryId) => currentEntryId !== entryId);
+    });
+  }
+
+  function toggleVisibleEntries(checked: boolean) {
+    const visibleEntryIds = entries.map((entry) => entry.id);
+    const visibleEntryIdSet = new Set(visibleEntryIds);
+    setSelectedEntryIds((current) => {
+      if (checked) {
+        return Array.from(new Set([...current, ...visibleEntryIds]));
+      }
+      return current.filter((entryId) => !visibleEntryIdSet.has(entryId));
+    });
   }
 
   async function loadPeopleOptions(restaurantId: number) {
@@ -340,24 +379,85 @@ export function AttendanceManagementWorkspace() {
 
     setSaveError("");
     setSaveSuccess("");
+    setDeletePending(true);
 
-    const response = await apiFetch(`/attendance/entries/${selectedEntryId}`, {
-      method: "DELETE",
-    });
-    const payload = (await response.json().catch(() => null)) as
-      | { detail?: string; message?: string }
-      | null;
+    try {
+      const response = await apiFetch(`/attendance/entries/${selectedEntryId}`, {
+        method: "DELETE",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { detail?: string; message?: string }
+        | null;
 
-    if (!response.ok) {
-      setSaveError(payload?.detail || "Kayit silinemedi.");
+      if (!response.ok) {
+        setSaveError(payload?.detail || "Kayit silinemedi.");
+        return;
+      }
+
+      setSelectedEntryIds((current) =>
+        current.filter((entryId) => entryId !== selectedEntryId),
+      );
+      setSaveSuccess(payload?.message || "Kayit silindi.");
+      await loadEntries();
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (!selectedEntryIds.length) {
       return;
     }
 
-    setSaveSuccess(payload?.message || "Kayit silindi.");
-    await loadEntries();
-    startTransition(() => {
-      router.refresh();
-    });
+    const shouldDelete = window.confirm(
+      `Secili ${selectedEntryIds.length} puantaj kaydi silinsin mi?`,
+    );
+    if (!shouldDelete) {
+      return;
+    }
+
+    setSaveError("");
+    setSaveSuccess("");
+    setBulkDeletePending(true);
+
+    try {
+      const response = await apiFetch("/attendance/entries", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          entry_ids: selectedEntryIds,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | ({ detail?: string } & Partial<AttendanceBulkDeleteResponse>)
+        | null;
+
+      if (!response.ok) {
+        setSaveError(payload?.detail || "Secili puantaj kayitlari silinemedi.");
+        return;
+      }
+
+      const deletedEntryIds = Array.isArray(payload?.entry_ids) ? payload.entry_ids : selectedEntryIds;
+      const deletedEntryIdSet = new Set(deletedEntryIds);
+      setSelectedEntryIds((current) =>
+        current.filter((entryId) => !deletedEntryIdSet.has(entryId)),
+      );
+      setSelectedEntryId((current) =>
+        current !== null && deletedEntryIdSet.has(current) ? null : current,
+      );
+      setSaveSuccess(payload?.message || "Secili puantaj kayitlari silindi.");
+      await loadEntries();
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      setBulkDeletePending(false);
+    }
   }
 
   const summary = useMemo(() => {
@@ -456,12 +556,61 @@ export function AttendanceManagementWorkspace() {
                 ))}
               </select>
             </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <span
+                style={badgeStyle(selectedEntryIds.length ? "accent" : "muted")}
+              >
+                {selectedEntryIds.length
+                  ? `${selectedEntryIds.length} kayit secili${
+                      selectedVisibleCount ? ` • ${selectedVisibleCount} gorunuyor` : ""
+                    }`
+                  : "Toplu silme icin kayit sec"}
+              </span>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
+                }}
+              >
+                {selectedEntryIds.length ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEntryIds([])}
+                    disabled={isAnyMutationPending}
+                    style={tertiaryButtonStyle}
+                  >
+                    Secimi Temizle
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  disabled={!selectedEntryIds.length || isAnyMutationPending}
+                  style={dangerButtonStyle}
+                >
+                  {bulkDeletePending ? "Secilenler Siliniyor..." : "Secilenleri Sil"}
+                </button>
+              </div>
+            </div>
           </div>
 
           {listError ? (
             <div style={feedbackBox("error")}>{listError}</div>
           ) : listLoading ? (
             <div style={feedbackBox("info")}>Kayit listesi yukleniyor...</div>
+          ) : !entries.length ? (
+            <div style={feedbackBox("info")}>Filtreye uygun puantaj kaydi bulunamadi.</div>
           ) : (
             <div
               style={{
@@ -485,19 +634,21 @@ export function AttendanceManagementWorkspace() {
                   }}
                 >
                   <tr>
+                    <th
+                      style={{
+                        ...tableHeaderCellStyle,
+                        width: "54px",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        aria-label="Tum gorunen puantaj kayitlarini sec"
+                        onChange={(event) => toggleVisibleEntries(event.target.checked)}
+                      />
+                    </th>
                     {["Tarih", "Sube", "Akis", "Calisan", "Mesai", "Paket"].map((header) => (
-                      <th
-                        key={header}
-                        style={{
-                          padding: "14px 16px",
-                          textAlign: "left",
-                          fontSize: "0.78rem",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          color: "var(--muted)",
-                          borderBottom: "1px solid var(--line)",
-                        }}
-                      >
+                      <th key={header} style={tableHeaderCellStyle}>
                         {header}
                       </th>
                     ))}
@@ -506,15 +657,37 @@ export function AttendanceManagementWorkspace() {
                 <tbody>
                   {entries.map((entry) => {
                     const isSelected = selectedEntryId === entry.id;
+                    const isChecked = selectedEntryIdSet.has(entry.id);
                     return (
                       <tr
                         key={entry.id}
                         onClick={() => setSelectedEntryId(entry.id)}
                         style={{
                           cursor: "pointer",
-                          background: isSelected ? "rgba(15, 95, 215, 0.06)" : "transparent",
+                          background: isSelected
+                            ? "rgba(15, 95, 215, 0.06)"
+                            : isChecked
+                              ? "rgba(15, 95, 215, 0.03)"
+                              : "transparent",
                         }}
                       >
+                        <td
+                          style={{
+                            ...tableCellStyle,
+                            width: "54px",
+                            textAlign: "center",
+                          }}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            aria-label={`${entry.restaurant} puantaj kaydini sec`}
+                            onChange={(event) =>
+                              toggleEntrySelection(entry.id, event.target.checked)
+                            }
+                          />
+                        </td>
                         <td style={tableCellStyle}>
                           <div style={{ fontWeight: 700 }}>{entry.entry_date}</div>
                         </td>
@@ -614,7 +787,8 @@ export function AttendanceManagementWorkspace() {
                 lineHeight: 1.6,
               }}
             >
-              Kaydi sec, personel ve vardiya detaylarini guncelle ya da ayni panelden sil.
+              Kaydi sec, personel ve vardiya detaylarini guncelle; istersen soldan birden fazla
+              kaydi toplu silebilirsin.
             </p>
           </div>
 
@@ -822,10 +996,15 @@ export function AttendanceManagementWorkspace() {
                     flexWrap: "wrap",
                   }}
                 >
-                  <button type="button" onClick={handleDelete} style={secondaryButtonStyle}>
-                    Kaydi Sil
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={isAnyMutationPending}
+                    style={secondaryButtonStyle}
+                  >
+                    {deletePending ? "Kayit Siliniyor..." : "Kaydi Sil"}
                   </button>
-                  <button type="submit" disabled={isPending} style={primaryButtonStyle}>
+                  <button type="submit" disabled={isAnyMutationPending} style={primaryButtonStyle}>
                     {isPending ? "Kaydediliyor..." : "Kaydi Guncelle"}
                   </button>
                 </div>
@@ -917,6 +1096,16 @@ const tableCellStyle: CSSProperties = {
   fontSize: "0.94rem",
 };
 
+const tableHeaderCellStyle: CSSProperties = {
+  padding: "14px 16px",
+  textAlign: "left",
+  fontSize: "0.78rem",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: "var(--muted)",
+  borderBottom: "1px solid var(--line)",
+};
+
 const primaryButtonStyle: CSSProperties = {
   padding: "13px 20px",
   borderRadius: "16px",
@@ -936,6 +1125,27 @@ const secondaryButtonStyle: CSSProperties = {
   color: "#b54747",
   fontWeight: 800,
   cursor: "pointer",
+};
+
+const tertiaryButtonStyle: CSSProperties = {
+  padding: "13px 18px",
+  borderRadius: "16px",
+  border: "1px solid var(--line)",
+  background: "rgba(255, 255, 255, 0.92)",
+  color: "var(--muted)",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const dangerButtonStyle: CSSProperties = {
+  padding: "13px 20px",
+  borderRadius: "16px",
+  border: "1px solid rgba(200, 77, 77, 0.18)",
+  background: "linear-gradient(135deg, rgba(196, 62, 62, 0.96), rgba(224, 88, 88, 0.96))",
+  color: "#fff",
+  fontWeight: 800,
+  cursor: "pointer",
+  boxShadow: "0 12px 28px rgba(196, 62, 62, 0.18)",
 };
 
 function feedbackBox(kind: "info" | "error" | "success"): CSSProperties {

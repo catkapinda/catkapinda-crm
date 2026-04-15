@@ -307,6 +307,23 @@ def fetch_attendance_entry_by_id(conn: psycopg.Connection, entry_id: int) -> dic
     return dict(row) if row else None
 
 
+def fetch_attendance_entry_ids(
+    conn: psycopg.Connection,
+    *,
+    entry_ids: list[int],
+) -> list[int]:
+    rows = conn.execute(
+        """
+        SELECT id
+        FROM daily_entries
+        WHERE id = ANY(%s)
+        ORDER BY id
+        """,
+        (entry_ids,),
+    ).fetchall()
+    return [int(row["id"]) for row in rows]
+
+
 def update_attendance_entry(conn: psycopg.Connection, entry_id: int, values: dict) -> None:
     conn.execute(
         """
@@ -344,3 +361,15 @@ def update_attendance_entry(conn: psycopg.Connection, entry_id: int, values: dic
 
 def delete_attendance_entry(conn: psycopg.Connection, entry_id: int) -> None:
     conn.execute("DELETE FROM daily_entries WHERE id = %s", (entry_id,))
+
+
+def delete_attendance_entries(conn: psycopg.Connection, entry_ids: list[int]) -> list[int]:
+    rows = conn.execute(
+        """
+        DELETE FROM daily_entries
+        WHERE id = ANY(%s)
+        RETURNING id
+        """,
+        (entry_ids,),
+    ).fetchall()
+    return [int(row["id"]) for row in rows]

@@ -25,6 +25,7 @@ def _fake_admin_user() -> AuthenticatedUser:
             "attendance.create",
             "attendance.update",
             "attendance.delete",
+            "attendance.bulk_delete",
             "deduction.create",
             "deduction.update",
             "deduction.delete",
@@ -82,6 +83,14 @@ def test_attendance_mutation_routes(monkeypatch):
             "message": "Puantaj kaydi silindi.",
         },
     )
+    monkeypatch.setattr(
+        "app.api.routes.attendance.bulk_delete_attendance_entries",
+        lambda conn, payload: {
+            "entry_ids": payload.entry_ids,
+            "deleted_count": len(payload.entry_ids),
+            "message": f"{len(payload.entry_ids)} puantaj kaydi silindi.",
+        },
+    )
     client = _build_client()
 
     create_response = client.post(
@@ -110,6 +119,13 @@ def test_attendance_mutation_routes(monkeypatch):
         },
     )
     delete_response = client.delete("/api/attendance/entries/101")
+    bulk_delete_response = client.request(
+        "DELETE",
+        "/api/attendance/entries",
+        json={
+            "entry_ids": [101, 102],
+        },
+    )
 
     assert create_response.status_code == 201
     assert create_response.json()["entry_id"] == 101
@@ -117,6 +133,8 @@ def test_attendance_mutation_routes(monkeypatch):
     assert update_response.json()["message"] == "Puantaj kaydi guncellendi."
     assert delete_response.status_code == 200
     assert delete_response.json()["entry_id"] == 101
+    assert bulk_delete_response.status_code == 200
+    assert bulk_delete_response.json()["deleted_count"] == 2
 
 
 def test_personnel_mutation_routes(monkeypatch):

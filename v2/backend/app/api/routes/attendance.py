@@ -8,6 +8,8 @@ from app.api.deps.auth import require_action
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.attendance import (
+    AttendanceBulkDeleteRequest,
+    AttendanceBulkDeleteResponse,
     AttendanceCreateRequest,
     AttendanceCreateResponse,
     AttendanceDashboardResponse,
@@ -20,6 +22,7 @@ from app.schemas.attendance import (
     AttendanceUpdateResponse,
 )
 from app.services.attendance import (
+    bulk_delete_attendance_entries,
     build_attendance_entry_detail,
     build_attendance_management,
     build_attendance_dashboard,
@@ -88,6 +91,22 @@ def get_attendance_entries(
         restaurant_id=restaurant_id,
         search=search,
     )
+
+
+@router.delete("/entries", response_model=AttendanceBulkDeleteResponse)
+def bulk_delete_attendance_entries_route(
+    payload: AttendanceBulkDeleteRequest,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.bulk_delete"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AttendanceBulkDeleteResponse:
+    try:
+        return bulk_delete_attendance_entries(conn, payload=payload)
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/entries/{entry_id}", response_model=AttendanceEntryDetailResponse)
