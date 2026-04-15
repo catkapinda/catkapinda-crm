@@ -233,15 +233,6 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
 
         decision = smoke_payload.get("decision") or {}
         failing_checks = decision.get("failing_checks")
-        if isinstance(failing_checks, list):
-            expected_failing_checks = [
-                str(result.get("name"))
-                for result in smoke_results
-                if not result.get("ok") and result.get("name")
-            ]
-            if set(map(str, failing_checks)) != set(expected_failing_checks):
-                issues.append("pilot-smoke-live.json icinde failing_checks result listesiyle uyusmuyor")
-
         expected_decision = build_smoke_decision_summary(
             {
                 "base_url": smoke_payload.get("base_url") or manifest.get("frontend_url"),
@@ -252,6 +243,10 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
                 "results": smoke_results,
             }
         )
+        if isinstance(failing_checks, list):
+            expected_failing_checks = list(expected_decision.get("failing_checks") or [])
+            if list(map(str, failing_checks)) != expected_failing_checks:
+                issues.append("pilot-smoke-live.json icinde failing_checks result listesiyle uyusmuyor")
         for key in ("status", "headline", "primary_blocker", "recommended_next_step"):
             if key in decision and decision.get(key) != expected_decision.get(key):
                 issues.append(f"pilot-smoke-live.json icinde decision.{key} result listesiyle uyusmuyor")
