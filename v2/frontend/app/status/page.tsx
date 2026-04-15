@@ -490,15 +490,15 @@ export default function StatusPage() {
   }, [backend?.release_label, frontend?.releaseLabel]);
   const pilotSummaryText = useMemo(() => {
     const lines = [
-      "Cat Kapinda CRM v2 Pilot Durum Ozeti",
+      "Cat Kapında CRM v2 Pilot Durum Özeti",
       `Son kontrol: ${lastUpdatedAt ?? "bekleniyor"}`,
       `Durum: ${overallOk ? "Pilot hazır" : coreReady ? "Temel olarak hazır" : "Kontrol gerekli"}`,
-      frontend?.releaseLabel ? `Frontend build: ${frontend.releaseLabel}` : null,
-      backend?.release_label ? `Backend build: ${backend.release_label}` : null,
-      backend?.decision ? `Bugunun karari: ${backend.decision.title}` : null,
+      frontend?.releaseLabel ? `Ön yüz derlemesi: ${frontend.releaseLabel}` : null,
+      backend?.release_label ? `Arka uç derlemesi: ${backend.release_label}` : null,
+      backend?.decision ? `Bugünün kararı: ${backend.decision.title}` : null,
       `Modüller: ${readinessSummary.activeModules}/${readinessSummary.totalModules || 0}`,
       `Rollout: ${readinessSummary.readyRolloutSteps}/${readinessSummary.totalRolloutSteps || 0}`,
-      `Backend env: ${readinessSummary.configuredRequiredBackendEnv}/${readinessSummary.totalRequiredBackendEnv || 0}`,
+      `Arka uç ortamı: ${readinessSummary.configuredRequiredBackendEnv}/${readinessSummary.totalRequiredBackendEnv || 0}`,
       `Pilot hesap: ${readinessSummary.phoneReadyAccounts}/${readinessSummary.totalPilotAccounts || 0}`,
       backend?.cutover?.blocking_items?.length
         ? `Blokajlar: ${backend.cutover.blocking_items.join(" | ")}`
@@ -507,11 +507,11 @@ export default function StatusPage() {
         ? `Kalan maddeler: ${backend.cutover.remaining_items.join(" | ")}`
         : "Kalan maddeler: yok",
       releaseAlignment.mismatch
-        ? `Surum uyumsuzlugu: frontend=${releaseAlignment.frontendRelease} backend=${releaseAlignment.backendRelease}`
+        ? `Sürüm uyumsuzluğu: ön yüz=${releaseAlignment.frontendRelease} arka uç=${releaseAlignment.backendRelease}`
         : releaseAlignment.bothPresent
-          ? `Surum uyumu: ${releaseAlignment.frontendRelease}`
-          : "Surum uyumu: eksik bilgi",
-      frontend?.detail ? `Frontend: ${frontend.detail}` : null,
+          ? `Sürüm uyumu: ${releaseAlignment.frontendRelease}`
+          : "Sürüm uyumu: eksik bilgi",
+      frontend?.detail ? `Ön yüz: ${frontend.detail}` : null,
     ];
 
     return lines.filter(Boolean).join("\n");
@@ -572,9 +572,9 @@ export default function StatusPage() {
     if ((!frontend.proxyConfigured || localSetup?.frontend_env_needs_sync) && localSetup?.suggested_frontend_env_command) {
       return {
         tone: "warning" as const,
-        title: "Frontend local proxy env'i yeniden yazilmali.",
+        title: "Ön yüz yerel geçiş ayarı yeniden yazılmalı.",
         detail:
-          "Bu local modda frontend, backend hedefini .env.local icinden okuyor. Doctor su an en doğru local API hedefiyle bu dosyayi tek komutla yeniden uretebilir.",
+          "Bu yerel kipte ön yüz, arka uç hedefini `.env.local` içinden okuyor. Doctor şu an en doğru yerel API hedefiyle bu dosyayı tek komutla yeniden üretebilir.",
         commands: [
           localSetup.suggested_frontend_env_command,
           "python v2/scripts/local_v2_doctor.py",
@@ -585,9 +585,9 @@ export default function StatusPage() {
     if (!frontend.backendReachable) {
       return {
         tone: "warning" as const,
-        title: "Local backend henüz görünmuyor.",
+        title: "Yerel arka uç henüz görünmüyor.",
         detail:
-          "Frontend explicit base URL modunda 127.0.0.1:8000 hedefini ariyor. Bu local senaryoda normal; backend ayağa kalkmadan login ve şifre kurtarma akışı tamamlanmaz.",
+          "Ön yüz açık taban adresi kipinde 127.0.0.1:8000 hedefini arıyor. Bu yerel senaryoda normal; arka uç ayağa kalkmadan giriş ve şifre kurtarma akışı tamamlanmaz.",
         commands: [
           localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
           "python v2/scripts/local_v2_doctor.py",
@@ -598,10 +598,10 @@ export default function StatusPage() {
     if (localBackendEnvRestartNeeded) {
       return {
         tone: "warning" as const,
-        title: "Backend env güncel, ama çalışan surec yeniden baslatilmali.",
+        title: "Arka uç ortamı güncel, ama çalışan süreç yeniden başlatılmalı.",
         detail:
           localSetup?.backend_restart_reason ||
-          "Doctor backend/.env tarafında DATABASE_URL gördüğü halde çalışan backend hala eski env ile 503 dönüyor. Bu local durumda tipik olarak uvicorn sürecinin env yazıldıktan sonra yeniden başlatılması gerekir.",
+          "Doctor `backend/.env` tarafında `DATABASE_URL` gördüğü halde çalışan arka uç hâlâ eski ortam ile 503 dönüyor. Bu yerel durumda tipik olarak uvicorn sürecinin ortam yazıldıktan sonra yeniden başlatılması gerekir.",
         commands: [
           localSetup?.suggested_backend_restart_command ||
             localSetup?.suggested_backend_start_command ||
@@ -618,7 +618,7 @@ export default function StatusPage() {
     if (databaseMissing) {
       return {
         tone: "warning" as const,
-        title: "Backend ayakta, veritabanı env'i eksik.",
+        title: "Arka uç ayakta, veritabanı ortamı eksik.",
         detail:
           "Bu yerel durumda API cevap veriyor ama `DATABASE_URL` olmadığı için gerçek kimlik doğrulama akışı tamamlanamıyor. Doctor komutlarıyla mevcut kaynakları tarayıp `backend/.env` dosyasını hazırlayabiliriz.",
         commands: [
@@ -632,10 +632,10 @@ export default function StatusPage() {
     if (frontend.backendReachable && !backend) {
       return {
         tone: "info" as const,
-        title: "Backend görünüyor, detay readiness verisi sinirli.",
+        title: "Arka uç görünüyor, ayrıntılı hazırlık verisi sınırlı.",
         detail:
           frontend.pilotErrorDetail ||
-          "Pilot status tam donmedi ama frontend backend'i görüyor. Bir sonraki odak local env ve veritabanı bağlantısı olmalı.",
+          "Pilot durumu tam dönmedi ama ön yüz arka ucu görüyor. Bir sonraki odak yerel ortam ve veritabanı bağlantısı olmalı.",
         commands: ["python v2/scripts/local_v2_doctor.py"],
       };
     }
@@ -966,17 +966,17 @@ export default function StatusPage() {
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
                     Karar: {localSetup.decision_headline || "belirsiz"}
                     <br />
-                    Backend .env: {localSetup.backend_env_exists ? "var" : "yok"}
+                    Arka uç `.env`: {localSetup.backend_env_exists ? "var" : "yok"}
                     <br />
-                    Frontend .env.local: {localSetup.frontend_env_exists ? "var" : "yok"}
+                    Ön yüz `.env.local`: {localSetup.frontend_env_exists ? "var" : "yok"}
                     <br />
                     Ön yüz ortam eşitlemesi: {localSetup.frontend_env_needs_sync ? "gerekiyor" : "hazır"}
                     <br />
                     Arka uç yeniden başlatma: {localBackendEnvRestartNeeded ? "gerekiyor" : "gerekli görünmüyor"}
                     <br />
-                    Runtime DB: {localSetup.runtime_database_url_present ? "var" : "yok"}
+                    Çalışan veritabanı bağlantısı: {localSetup.runtime_database_url_present ? "var" : "yok"}
                     <br />
-                    Backend .env DB: {localSetup.backend_env_database_url_present ? "var" : "yok"}
+                    Arka uç `.env` veritabanı: {localSetup.backend_env_database_url_present ? "var" : "yok"}
                     <br />
                     Yerel kurulum kaynağı:{" "}
                     {localSetupSource === "frontend_local_doctor"
@@ -989,7 +989,7 @@ export default function StatusPage() {
                   </div>
                 </article>
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
-                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Canlı Local Frontend</div>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Canlı Yerel Ön Yüz</div>
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
                     {localSetup.detected_frontend_urls.length
                       ? localSetup.detected_frontend_urls.join(" | ")
@@ -1077,10 +1077,10 @@ export default function StatusPage() {
                     <div style={{ marginTop: "12px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
                       {localSqliteLoginReady.defaultPasswordIsDefault &&
                       localSqliteLoginReady.accounts.some((account) => account.default_password_active)
-                        ? "Sadece 'Varsayılan şifre aktif' yazan hesaplarda local şifre 123456 olarak kullanilabilir."
+                        ? "Sadece 'Varsayılan şifre aktif' yazan hesaplarda yerel şifre 123456 olarak kullanılabilir."
                         : localSqliteLoginReady.defaultPasswordPresent
                           ? "Hesap şifreleri bu makinede değişmiş olabilir; smoke veya login denemesinde güncel şifreyi kullan."
-                          : "Şifre tanimli görünmuyor; login öncesi backend/.env tarafını kontrol et."}
+                          : "Şifre tanımlı görünmüyor; giriş öncesi `backend/.env` tarafını kontrol et."}
                     </div>
                     {localSqliteSmokeCommand ? (
                       <>
@@ -1109,7 +1109,7 @@ export default function StatusPage() {
                             width: "fit-content",
                           }}
                         >
-                          {copiedKey === "local-sqlite-smoke" ? "Komut Kopyalandi" : "Local Smoke Komutunu Kopyala"}
+                          {copiedKey === "local-sqlite-smoke" ? "Komut Kopyalandı" : "Yerel Yoklama Komutunu Kopyala"}
                         </button>
                       </>
                     ) : null}
@@ -1306,10 +1306,10 @@ export default function StatusPage() {
             >
               <div style={statusPill(!releaseAlignment.mismatch)}>
                 {releaseAlignment.mismatch
-                  ? "Surum Uyusmazligi"
+                  ? "Sürüm Uyumsuzluğu"
                   : releaseAlignment.bothPresent
-                    ? "Surumler Hizali"
-                    : "Surum Etiketi Bekleniyor"}
+                    ? "Sürümler Uyumlu"
+                    : "Sürüm Etiketi Bekleniyor"}
               </div>
               <div
                 style={{
@@ -2236,9 +2236,9 @@ export default function StatusPage() {
                 }}
               >
                 <div>
-                  <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Frontend Hızlı Teşhis</h2>
+                  <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Ön Yüz Hızlı Teşhisi</h2>
                   <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                    Pilotta frontend tarafı tökezlerse önce bu kısa yorumlara bakacağız. Proxy modu ve backend erişimi birlikte yorumlanır.
+                    Pilotta ön yüz tarafı tökezlerse önce bu kısa yorumlara bakacağız. Geçiş kipi ve arka uç erişimi birlikte yorumlanır.
                   </p>
                 </div>
                 <div style={statusPill(Boolean(frontend?.backendReachable))}>
@@ -2748,7 +2748,7 @@ export default function StatusPage() {
                     <div style={{ display: "grid", gap: "6px" }}>
                       <strong style={{ fontSize: "1rem" }}>Render API Servisi</strong>
                       <div style={{ color: "#5f7294", lineHeight: 1.5 }}>
-                        Backend servisine girilecek ortam degiskenleri. Zorunlu eksikler burada görünür.
+                        Arka uç servisine girilecek ortam değişkenleri. Zorunlu eksikler burada görünür.
                       </div>
                     </div>
                     <div style={{ display: "grid", gap: "10px" }}>
@@ -2806,9 +2806,9 @@ export default function StatusPage() {
                     }}
                   >
                     <div style={{ display: "grid", gap: "6px" }}>
-                      <strong style={{ fontSize: "1rem" }}>Render Frontend Servisi</strong>
+                      <strong style={{ fontSize: "1rem" }}>Render Ön Yüz Servisi</strong>
                       <div style={{ color: "#5f7294", lineHeight: 1.5 }}>
-                        Frontend servisi Render pilotta blueprint ile otomatik gelen ayarlarla ayağa kalkar. Yerel denemede ise aynı proxy rotasi korunur ama hedef env anahtari degisir; asagidaki bloklar bunu netlestirir.
+                        Ön yüz servisi Render pilotunda planla gelen ayarlarla ayağa kalkar. Yerel denemede ise aynı geçiş rotası korunur ama hedef ortam anahtarı değişir; aşağıdaki bloklar bunu netleştirir.
                       </div>
                     </div>
                     <div style={{ display: "grid", gap: "10px" }}>
