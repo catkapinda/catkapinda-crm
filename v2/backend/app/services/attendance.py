@@ -10,6 +10,7 @@ from app.repositories.attendance import (
     delete_attendance_entries,
     fetch_attendance_entry_by_id,
     fetch_attendance_entry_ids,
+    fetch_attendance_management_entry_ids,
     fetch_attendance_management_entries,
     fetch_attendance_people,
     fetch_attendance_restaurants,
@@ -27,6 +28,8 @@ from app.schemas.attendance import (
     AttendanceDeleteResponse,
     AttendanceEntryDetailResponse,
     AttendanceEntrySummary,
+    AttendanceFilteredDeleteRequest,
+    AttendanceFilteredDeleteResponse,
     AttendanceFormOptionsResponse,
     AttendanceManagementEntry,
     AttendanceManagementResponse,
@@ -74,6 +77,17 @@ def _normalize_bulk_entry_ids(entry_ids: list[int]) -> list[int]:
     if not normalized_ids:
         raise ValueError("Toplu silme icin en az bir puantaj kaydi secilmelidir.")
     return normalized_ids
+
+
+def _resolve_filtered_delete_window(
+    payload: AttendanceFilteredDeleteRequest,
+) -> tuple[date, date, str]:
+    if payload.date_from is None or payload.date_to is None:
+        raise ValueError("Filtrelenmis toplu silme icin baslangic ve bitis tarihi secilmelidir.")
+    if payload.date_from > payload.date_to:
+        raise ValueError("Filtrelenmis toplu silmede baslangic tarihi bitis tarihinden buyuk olamaz.")
+    normalized_search = str(payload.search or "").strip()
+    return payload.date_from, payload.date_to, normalized_search
 
 
 def _resolve_attendance_values(
@@ -291,17 +305,23 @@ def build_attendance_management(
     limit: int,
     restaurant_id: int | None = None,
     search: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ) -> AttendanceManagementResponse:
     rows = fetch_attendance_management_entries(
         conn,
         limit=limit,
         restaurant_id=restaurant_id,
         search=search,
+        date_from=date_from,
+        date_to=date_to,
     )
     total_entries = count_attendance_management_entries(
         conn,
         restaurant_id=restaurant_id,
         search=search,
+        date_from=date_from,
+        date_to=date_to,
     )
     return AttendanceManagementResponse(
         total_entries=total_entries,
@@ -391,4 +411,36 @@ def bulk_delete_attendance_entries(
         entry_ids=deleted_ids,
         deleted_count=deleted_count,
         message=f"{deleted_count} puantaj kaydi silindi.",
+    )
+
+
+def delete_attendance_entries_by_filter(
+    conn: psycopg.Connection,
+    *,
+    payload: AttendanceFilteredDeleteRequest,
+) -> AttendanceFilteredDeleteResponse:
+    date_from, date_to, normalized_search = _resolve_filtered_delete_window(payload)
+    entry_ids = fetch_attendance_management_entry_ids(
+        conn,
+        restaurant_id=payload.restaurant_id,
+        search=normalized_search,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    if not entry_ids:
+        raise LookupError("Secilen filtrede silinecek puantaj kaydi bulunamadi.")
+
+    deleted_ids = delete_attendance_entries(conn, entry_ids)
+    deleted_count = len(deleted_ids)
+    if deleted_count != len(entry_ids):
+        raise LookupError("Filtrelenen puantaj kayitlarinin bir kismi silinemedi.")
+
+    conn.commit()
+    return AttendanceFilteredDeleteResponse(
+        deleted_count=deleted_count,
+        date_from=date_from,
+        date_to=date_to,
+        restaurant_id=payload.restaurant_id,
+        search=normalized_search,
+        message=f"Filtredeki {deleted_count} puantaj kaydi silindi.",
     )

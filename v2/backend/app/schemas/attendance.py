@@ -136,3 +136,19 @@ class AttendanceBulkDeleteResponse(BaseModel):
     entry_ids: list[int]
     deleted_count: int
     message: str
+
+
+class AttendanceFilteredDeleteRequest(BaseModel):
+    date_from: date | None = None
+    date_to: date | None = None
+    restaurant_id: int | None = None
+    search: str | None = None
+
+
+class AttendanceFilteredDeleteResponse(BaseModel):
+    deleted_count: int
+    date_from: date
+    date_to: date
+    restaurant_id: int | None
+    search: str
+    message: str

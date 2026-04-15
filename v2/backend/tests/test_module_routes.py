@@ -141,7 +141,7 @@ def test_attendance_routes_smoke(monkeypatch):
     )
     monkeypatch.setattr(
         "app.api.routes.attendance.build_attendance_management",
-        lambda conn, limit, restaurant_id=None, search=None: {
+        lambda conn, limit, restaurant_id=None, search=None, date_from=None, date_to=None: {
             "total_entries": 1,
             "entries": [
                 {

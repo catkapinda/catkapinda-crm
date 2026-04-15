@@ -15,6 +15,8 @@ from app.schemas.attendance import (
     AttendanceDashboardResponse,
     AttendanceDeleteResponse,
     AttendanceEntryDetailResponse,
+    AttendanceFilteredDeleteRequest,
+    AttendanceFilteredDeleteResponse,
     AttendanceFormOptionsResponse,
     AttendanceManagementResponse,
     AttendanceModuleStatus,
@@ -29,6 +31,7 @@ from app.services.attendance import (
     build_attendance_form_options,
     build_attendance_status,
     create_attendance_entry,
+    delete_attendance_entries_by_filter,
     delete_attendance_entry_record,
     update_attendance_entry_record,
 )
@@ -84,12 +87,16 @@ def get_attendance_entries(
     limit: int = Query(default=60, ge=1, le=300),
     restaurant_id: int | None = None,
     search: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ) -> AttendanceManagementResponse:
     return build_attendance_management(
         conn,
         limit=limit,
         restaurant_id=restaurant_id,
         search=search,
+        date_from=date_from,
+        date_to=date_to,
     )
 
 
@@ -101,6 +108,22 @@ def bulk_delete_attendance_entries_route(
 ) -> AttendanceBulkDeleteResponse:
     try:
         return bulk_delete_attendance_entries(conn, payload=payload)
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/entries/filter", response_model=AttendanceFilteredDeleteResponse)
+def delete_attendance_entries_by_filter_route(
+    payload: AttendanceFilteredDeleteRequest,
+    _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.bulk_delete"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AttendanceFilteredDeleteResponse:
+    try:
+        return delete_attendance_entries_by_filter(conn, payload=payload)
     except LookupError as exc:
         conn.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -166,6 +166,8 @@ def fetch_attendance_management_entries(
     limit: int,
     restaurant_id: int | None = None,
     search: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ) -> list[dict]:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     rows = conn.execute(
@@ -204,6 +206,8 @@ def fetch_attendance_management_entries(
         LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
         LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
         WHERE (%s IS NULL OR d.restaurant_id = %s)
+          AND (%s IS NULL OR d.entry_date >= %s)
+          AND (%s IS NULL OR d.entry_date <= %s)
           AND (
             %s IS NULL
             OR r.brand || ' - ' || r.branch ILIKE %s
@@ -217,6 +221,10 @@ def fetch_attendance_management_entries(
         (
             restaurant_id,
             restaurant_id,
+            date_from,
+            date_from,
+            date_to,
+            date_to,
             search_pattern,
             search_pattern,
             search_pattern,
@@ -233,6 +241,8 @@ def count_attendance_management_entries(
     *,
     restaurant_id: int | None = None,
     search: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ) -> int:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     row = conn.execute(
@@ -243,6 +253,8 @@ def count_attendance_management_entries(
         LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
         LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
         WHERE (%s IS NULL OR d.restaurant_id = %s)
+          AND (%s IS NULL OR d.entry_date >= %s)
+          AND (%s IS NULL OR d.entry_date <= %s)
           AND (
             %s IS NULL
             OR r.brand || ' - ' || r.branch ILIKE %s
@@ -254,6 +266,10 @@ def count_attendance_management_entries(
         (
             restaurant_id,
             restaurant_id,
+            date_from,
+            date_from,
+            date_to,
+            date_to,
             search_pattern,
             search_pattern,
             search_pattern,
@@ -262,6 +278,51 @@ def count_attendance_management_entries(
         ),
     ).fetchone()
     return int(row["total_count"] or 0) if row else 0
+
+
+def fetch_attendance_management_entry_ids(
+    conn: psycopg.Connection,
+    *,
+    restaurant_id: int | None = None,
+    search: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> list[int]:
+    search_pattern = f"%{search.strip()}%" if search and search.strip() else None
+    rows = conn.execute(
+        """
+        SELECT d.id
+        FROM daily_entries d
+        JOIN restaurants r ON r.id = d.restaurant_id
+        LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
+        LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
+        WHERE (%s IS NULL OR d.restaurant_id = %s)
+          AND (%s IS NULL OR d.entry_date >= %s)
+          AND (%s IS NULL OR d.entry_date <= %s)
+          AND (
+            %s IS NULL
+            OR r.brand || ' - ' || r.branch ILIKE %s
+            OR COALESCE(pp.full_name, '') ILIKE %s
+            OR COALESCE(ap.full_name, '') ILIKE %s
+            OR COALESCE(d.notes, '') ILIKE %s
+          )
+        ORDER BY d.id
+        """,
+        (
+            restaurant_id,
+            restaurant_id,
+            date_from,
+            date_from,
+            date_to,
+            date_to,
+            search_pattern,
+            search_pattern,
+            search_pattern,
+            search_pattern,
+            search_pattern,
+        ),
+    ).fetchall()
+    return [int(row["id"]) for row in rows]
 
 
 def fetch_attendance_entry_by_id(conn: psycopg.Connection, entry_id: int) -> dict | None:

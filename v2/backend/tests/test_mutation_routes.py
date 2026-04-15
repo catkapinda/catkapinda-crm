@@ -91,6 +91,17 @@ def test_attendance_mutation_routes(monkeypatch):
             "message": f"{len(payload.entry_ids)} puantaj kaydi silindi.",
         },
     )
+    monkeypatch.setattr(
+        "app.api.routes.attendance.delete_attendance_entries_by_filter",
+        lambda conn, payload: {
+            "deleted_count": 31,
+            "date_from": payload.date_from,
+            "date_to": payload.date_to,
+            "restaurant_id": payload.restaurant_id,
+            "search": payload.search or "",
+            "message": "Filtredeki 31 puantaj kaydi silindi.",
+        },
+    )
     client = _build_client()
 
     create_response = client.post(
@@ -126,6 +137,15 @@ def test_attendance_mutation_routes(monkeypatch):
             "entry_ids": [101, 102],
         },
     )
+    filtered_delete_response = client.request(
+        "DELETE",
+        "/api/attendance/entries/filter",
+        json={
+            "date_from": "2026-01-01",
+            "date_to": "2026-01-31",
+            "restaurant_id": 10,
+        },
+    )
 
     assert create_response.status_code == 201
     assert create_response.json()["entry_id"] == 101
@@ -135,6 +155,8 @@ def test_attendance_mutation_routes(monkeypatch):
     assert delete_response.json()["entry_id"] == 101
     assert bulk_delete_response.status_code == 200
     assert bulk_delete_response.json()["deleted_count"] == 2
+    assert filtered_delete_response.status_code == 200
+    assert filtered_delete_response.json()["deleted_count"] == 31
 
 
 def test_personnel_mutation_routes(monkeypatch):

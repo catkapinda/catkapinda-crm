@@ -58,6 +58,15 @@ type AttendanceBulkDeleteResponse = {
   message: string;
 };
 
+type AttendanceFilteredDeleteResponse = {
+  deleted_count: number;
+  date_from: string;
+  date_to: string;
+  restaurant_id: number | null;
+  search: string;
+  message: string;
+};
+
 function badgeStyle(kind: "accent" | "soft" | "warn" | "muted"): CSSProperties {
   const palette = {
     accent: {
@@ -109,6 +118,32 @@ function formatCurrency(value: number) {
   }).format(value || 0);
 }
 
+function resolveMonthWindow(monthValue: string) {
+  if (!monthValue) {
+    return null;
+  }
+  const [yearText, monthText] = monthValue.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return null;
+  }
+  const dateFrom = `${yearText}-${monthText}-01`;
+  const dateTo = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+  return { dateFrom, dateTo };
+}
+
+function formatMonthLabel(monthValue: string) {
+  const windowValue = resolveMonthWindow(monthValue);
+  if (!windowValue) {
+    return "";
+  }
+  return new Intl.DateTimeFormat("tr-TR", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${windowValue.dateFrom}T12:00:00`));
+}
+
 export function AttendanceManagementWorkspace() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -121,6 +156,7 @@ export function AttendanceManagementWorkspace() {
   const [searchInput, setSearchInput] = useState("");
   const deferredSearch = useDeferredValue(searchInput);
   const [filterRestaurantId, setFilterRestaurantId] = useState<number | "">("");
+  const [filterMonth, setFilterMonth] = useState("");
 
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState("");
@@ -135,6 +171,7 @@ export function AttendanceManagementWorkspace() {
   const [saveSuccess, setSaveSuccess] = useState("");
   const [deletePending, setDeletePending] = useState(false);
   const [bulkDeletePending, setBulkDeletePending] = useState(false);
+  const [filteredDeletePending, setFilteredDeletePending] = useState(false);
 
   const [editDate, setEditDate] = useState("");
   const [editRestaurantId, setEditRestaurantId] = useState<number | "">("");
@@ -158,10 +195,13 @@ export function AttendanceManagementWorkspace() {
   const needsReplacement = editEntryMode === "Joker" || editEntryMode === "Destek";
   const needsAbsenceReason = editEntryMode !== "Restoran Kuryesi";
   const selectedEntryIdSet = useMemo(() => new Set(selectedEntryIds), [selectedEntryIds]);
+  const activeMonthWindow = useMemo(() => resolveMonthWindow(filterMonth), [filterMonth]);
+  const activeMonthLabel = useMemo(() => formatMonthLabel(filterMonth), [filterMonth]);
   const allVisibleSelected =
     entries.length > 0 && entries.every((entry) => selectedEntryIdSet.has(entry.id));
   const selectedVisibleCount = entries.filter((entry) => selectedEntryIdSet.has(entry.id)).length;
-  const isAnyMutationPending = isPending || deletePending || bulkDeletePending;
+  const isAnyMutationPending =
+    isPending || deletePending || bulkDeletePending || filteredDeletePending;
 
   async function loadReferenceOptions() {
     const response = await apiFetch("/attendance/form-options");
@@ -182,6 +222,10 @@ export function AttendanceManagementWorkspace() {
       query.set("limit", "160");
       if (typeof filterRestaurantId === "number") {
         query.set("restaurant_id", String(filterRestaurantId));
+      }
+      if (activeMonthWindow) {
+        query.set("date_from", activeMonthWindow.dateFrom);
+        query.set("date_to", activeMonthWindow.dateTo);
       }
       if (deferredSearch.trim()) {
         query.set("search", deferredSearch.trim());
@@ -291,7 +335,7 @@ export function AttendanceManagementWorkspace() {
 
   useEffect(() => {
     void loadEntries();
-  }, [filterRestaurantId, deferredSearch]);
+  }, [filterRestaurantId, deferredSearch, activeMonthWindow]);
 
   useEffect(() => {
     if (selectedEntryId) {
@@ -460,6 +504,72 @@ export function AttendanceManagementWorkspace() {
     }
   }
 
+  async function handleFilteredDelete() {
+    if (!activeMonthWindow || totalEntries <= 0) {
+      return;
+    }
+
+    const monthLabel = activeMonthLabel || "secilen ay";
+    const restaurantLabel =
+      typeof filterRestaurantId === "number"
+        ? restaurants.find((restaurant) => restaurant.id === filterRestaurantId)?.label ?? ""
+        : "";
+    const searchLabel = deferredSearch.trim();
+    const extraNotes = [
+      restaurantLabel ? `Sube: ${restaurantLabel}` : "",
+      searchLabel ? `Arama: ${searchLabel}` : "",
+    ].filter(Boolean);
+    const shouldDelete = window.confirm(
+      [
+        `${monthLabel} icindeki ${totalEntries} puantaj kaydi silinsin mi?`,
+        extraNotes.length ? extraNotes.join("\n") : "",
+        "Bu islem secili aya uyan tum kayitlari kalici olarak siler.",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+    );
+    if (!shouldDelete) {
+      return;
+    }
+
+    setSaveError("");
+    setSaveSuccess("");
+    setFilteredDeletePending(true);
+
+    try {
+      const response = await apiFetch("/attendance/entries/filter", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          date_from: activeMonthWindow.dateFrom,
+          date_to: activeMonthWindow.dateTo,
+          restaurant_id: typeof filterRestaurantId === "number" ? filterRestaurantId : null,
+          search: searchLabel,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | ({ detail?: string } & Partial<AttendanceFilteredDeleteResponse>)
+        | null;
+
+      if (!response.ok) {
+        setSaveError(payload?.detail || "Filtredeki puantaj kayitlari silinemedi.");
+        return;
+      }
+
+      setSelectedEntryIds([]);
+      setSelectedEntryId(null);
+      setSaveSuccess(payload?.message || "Filtredeki puantaj kayitlari silindi.");
+      await loadEntries();
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      setFilteredDeletePending(false);
+    }
+  }
+
   const summary = useMemo(() => {
     const totalHours = entries.reduce((sum, entry) => sum + Number(entry.worked_hours || 0), 0);
     const totalPackages = entries.reduce((sum, entry) => sum + Number(entry.package_count || 0), 0);
@@ -525,14 +635,15 @@ export function AttendanceManagementWorkspace() {
             <div>
               <h2 style={{ margin: 0, fontSize: "1.12rem" }}>Kayit Yonetimi</h2>
               <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>
-                Son attendance kayitlarini filtrele, sec ve ayni ekranda guncelle.
+                Son attendance kayitlarini filtrele, sec, ay bazinda toplu sil veya ayni ekranda
+                guncelle.
               </p>
             </div>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) minmax(220px, 280px)",
+                gridTemplateColumns: "minmax(0, 1fr) minmax(220px, 280px) minmax(180px, 220px)",
                 gap: "12px",
               }}
             >
@@ -555,6 +666,12 @@ export function AttendanceManagementWorkspace() {
                   </option>
                 ))}
               </select>
+              <input
+                type="month"
+                value={filterMonth}
+                onChange={(event) => setFilterMonth(event.target.value)}
+                style={fieldStyle}
+              />
             </div>
 
             <div
@@ -573,7 +690,9 @@ export function AttendanceManagementWorkspace() {
                   ? `${selectedEntryIds.length} kayit secili${
                       selectedVisibleCount ? ` • ${selectedVisibleCount} gorunuyor` : ""
                     }`
-                  : "Toplu silme icin kayit sec"}
+                  : activeMonthLabel
+                    ? `${activeMonthLabel} filtresi aktif`
+                    : "Toplu silme icin kayit sec"}
               </span>
               <div
                 style={{
@@ -595,6 +714,26 @@ export function AttendanceManagementWorkspace() {
                 ) : null}
                 <button
                   type="button"
+                  onClick={() => setFilterMonth("")}
+                  disabled={!filterMonth || isAnyMutationPending}
+                  style={tertiaryButtonStyle}
+                >
+                  Ay Filtresini Temizle
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFilteredDelete}
+                  disabled={!activeMonthWindow || totalEntries <= 0 || isAnyMutationPending}
+                  style={dangerButtonStyle}
+                >
+                  {filteredDeletePending
+                    ? "Filtredeki Ay Siliniyor..."
+                    : activeMonthLabel
+                      ? `${activeMonthLabel} Kayitlarini Sil`
+                      : "Ayi Toplu Sil"}
+                </button>
+                <button
+                  type="button"
                   onClick={handleBulkDelete}
                   disabled={!selectedEntryIds.length || isAnyMutationPending}
                   style={dangerButtonStyle}
@@ -603,6 +742,15 @@ export function AttendanceManagementWorkspace() {
                 </button>
               </div>
             </div>
+
+            {activeMonthLabel ? (
+              <div style={feedbackBox("info")}>
+                {activeMonthLabel} icin toplam {totalEntries} kayit bulundu.
+                {totalEntries > entries.length
+                  ? ` Listede ilk ${entries.length} kayit gosteriliyor; ay silme islemi tum ${totalEntries} kaydi kapsar.`
+                  : ""}
+              </div>
+            ) : null}
           </div>
 
           {listError ? (
