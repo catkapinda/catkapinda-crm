@@ -2,6 +2,8 @@
 
 import type { CSSProperties, FormEvent } from "react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
@@ -33,6 +35,7 @@ function LoginPageContent() {
   const [notice, setNotice] = useState("");
 
   const [smsLoginEnabled, setSmsLoginEnabled] = useState(false);
+  const [authModesUnavailable, setAuthModesUnavailable] = useState(false);
   const [authPanelMode, setAuthPanelMode] = useState<"sms" | "recovery">("sms");
   const [phone, setPhone] = useState("");
   const [loginCode, setLoginCode] = useState("");
@@ -46,6 +49,10 @@ function LoginPageContent() {
   const recoveryPhoneInputRef = useRef<HTMLInputElement | null>(null);
 
   const nextPath = useMemo(() => searchParams.get("next") || "", [searchParams]);
+  const runningOnLocalhost = useMemo(
+    () => typeof window !== "undefined" && window.location.hostname === "localhost",
+    [],
+  );
 
   useEffect(() => {
     if (!loading && user) {
@@ -60,18 +67,28 @@ function LoginPageContent() {
       if (isPreviewModeBrowser()) {
         if (active) {
           setSmsLoginEnabled(true);
+          setAuthModesUnavailable(false);
         }
         return;
       }
       try {
         const response = await fetch(buildApiUrl("/auth/modes"), { cache: "no-store" });
+        if (!response.ok) {
+          if (active) {
+            setSmsLoginEnabled(false);
+            setAuthModesUnavailable(true);
+          }
+          return;
+        }
         const payload = (await response.json().catch(() => null)) as { sms_login?: boolean } | null;
         if (active) {
           setSmsLoginEnabled(Boolean(payload?.sms_login));
+          setAuthModesUnavailable(false);
         }
       } catch {
         if (active) {
           setSmsLoginEnabled(false);
+          setAuthModesUnavailable(true);
         }
       }
     }
@@ -299,6 +316,60 @@ function LoginPageContent() {
           <div style={{ position: "relative", display: "grid", gap: "18px" }}>
             <div
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "14px",
+                flexWrap: "wrap",
+              }}
+            >
+              <div
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  borderRadius: "20px",
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  display: "grid",
+                  placeItems: "center",
+                  boxShadow: "0 18px 36px rgba(10, 20, 35, 0.24)",
+                }}
+              >
+                <Image
+                  src="/catkapinda_logo.png"
+                  alt="Cat Kapinda"
+                  width={38}
+                  height={38}
+                  style={{ width: "38px", height: "38px", objectFit: "contain" }}
+                  priority
+                />
+              </div>
+              <div style={{ display: "grid", gap: "4px" }}>
+                <div
+                  style={{
+                    color: "#f2cf9e",
+                    fontSize: "0.74rem",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    fontWeight: 800,
+                  }}
+                >
+                  Cat Kapinda
+                </div>
+                <div
+                  style={{
+                    ...serifTitleStyle,
+                    fontSize: "1.55rem",
+                    lineHeight: 0.92,
+                    fontWeight: 700,
+                    color: "#fff7ea",
+                  }}
+                >
+                  Operasyon Masasi v2
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
                 display: "inline-flex",
                 width: "fit-content",
                 padding: "7px 12px",
@@ -518,6 +589,22 @@ function LoginPageContent() {
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
+              {authModesUnavailable ? (
+                <div style={infoBannerStyle}>
+                  <div style={{ display: "grid", gap: "5px" }}>
+                    <strong>Bu ekran gercek v2 giris yuzeyi.</strong>
+                    <span>
+                      Backend bagli degilse giris ve sifre kurtarma burada calismaz. Tasarimi gezmek
+                      icin preview modunu kullanabilirsin.
+                    </span>
+                  </div>
+                  {runningOnLocalhost ? (
+                    <Link href="/preview" style={infoBannerLinkStyle}>
+                      Preview&apos;e Git
+                    </Link>
+                  ) : null}
+                </div>
+              ) : null}
               {notice ? <div style={noticeStyle}>{notice}</div> : null}
               <label style={labelStyle}>
                 <span style={labelTitleStyle}>E-posta veya Telefon</span>
@@ -560,6 +647,25 @@ function LoginPageContent() {
                   >
                     SMS ile kurtar
                   </button>
+                </div>
+              ) : authModesUnavailable ? (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                    Kurtarma akisi backend ile aktiflesir.
+                  </span>
+                  {runningOnLocalhost ? (
+                    <Link href="/preview" style={inlinePreviewLinkStyle}>
+                      Demo yuzeyini ac
+                    </Link>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -913,6 +1019,12 @@ function LoginPageContent() {
                         Sifremi Unuttum
                       </button>
                     ) : null}
+
+                    {authModesUnavailable && runningOnLocalhost ? (
+                      <Link href="/preview" style={recoveryFallbackLinkStyle}>
+                        Bu local oturumda demo yuzeyini ac
+                      </Link>
+                    ) : null}
                   </>
                 )}
               </article>
@@ -1162,6 +1274,35 @@ const noticeStyle = {
   fontWeight: 700,
 } satisfies CSSProperties;
 
+const infoBannerStyle = {
+  padding: "14px 16px",
+  borderRadius: "18px",
+  border: "1px solid rgba(15,95,215,0.14)",
+  background: "linear-gradient(180deg, rgba(239,246,255,0.98), rgba(255,250,244,0.96))",
+  color: "var(--text)",
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "12px",
+  alignItems: "start",
+  flexWrap: "wrap",
+  lineHeight: 1.6,
+  fontSize: "0.92rem",
+} satisfies CSSProperties;
+
+const infoBannerLinkStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "10px 14px",
+  borderRadius: "999px",
+  background: "rgba(15,95,215,0.1)",
+  border: "1px solid rgba(15,95,215,0.14)",
+  color: "#0f5fd7",
+  fontWeight: 800,
+  textDecoration: "none",
+  whiteSpace: "nowrap",
+} satisfies CSSProperties;
+
 const errorStyle = {
   padding: "12px 14px",
   borderRadius: "16px",
@@ -1252,6 +1393,13 @@ const inlineLinkButtonStyle = {
   cursor: "pointer",
 } satisfies CSSProperties;
 
+const inlinePreviewLinkStyle = {
+  color: "#0f5fd7",
+  fontWeight: 800,
+  fontSize: "0.92rem",
+  textDecoration: "none",
+} satisfies CSSProperties;
+
 function heroQuickActionStyle(active: boolean): CSSProperties {
   return {
     padding: "13px 16px",
@@ -1309,3 +1457,16 @@ function recoveryCtaStyle(active: boolean): CSSProperties {
     boxShadow: active ? "0 16px 30px rgba(15,95,215,0.14)" : "none",
   };
 }
+
+const recoveryFallbackLinkStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "12px 14px",
+  borderRadius: "16px",
+  border: "1px solid rgba(15,95,215,0.12)",
+  background: "rgba(15,95,215,0.08)",
+  color: "#0f5fd7",
+  fontWeight: 800,
+  textDecoration: "none",
+} satisfies CSSProperties;
