@@ -271,6 +271,16 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             "Manifest smoke_recommended_next_step degeri ile pilot-smoke-live.json uyusmuyor"
         )
 
+    expected_markdown_structure = [
+        "# v2 Pilot Smoke Report",
+        "## Decision",
+        "| Check | Result | Detail |",
+        "| --- | --- | --- |",
+    ]
+    for snippet in expected_markdown_structure:
+        if snippet not in smoke_markdown:
+            issues.append(f"pilot-smoke-live.md icinde beklenen yapi satiri eksik: {snippet}")
+
     expected_markdown_snippets = [
         f"- Base URL: `{smoke_payload.get('base_url')}`",
         f"- Preset: `{smoke_payload.get('preset') or '-'}`",
