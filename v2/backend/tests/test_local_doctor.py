@@ -12,6 +12,18 @@ from app.core.local_doctor import (
 )
 
 
+def _minimal_local_setup_payload() -> bytes:
+    return (
+        b'{"ready": false, "blocking_items": ["Backend veritabani URL\'i eksik."], '
+        b'"backend_restart_required": false, '
+        b'"suggested_backend_restart_command": "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000", '
+        b'"decision_status": "blocked", '
+        b'"decision_headline": "Veritabani baglantisi eksik.", '
+        b'"decision_detail": "Gercek PostgreSQL URL gelmeden local auth akisi acilamaz.", '
+        b'"decision_command": "python v2/scripts/local_v2_doctor.py --bootstrap-local --database-url \'<postgresql://...>\'"}'
+    )
+
+
 def test_local_doctor_flags_missing_database_url(tmp_path: Path, monkeypatch):
     v2_root = tmp_path / "v2"
     (v2_root / "backend").mkdir(parents=True)
@@ -178,9 +190,7 @@ def test_fetch_local_backend_setup_report_returns_payload(monkeypatch):
             return False
 
         def read(self):
-            return (
-                b'{"ready": false, "blocking_items": ["Backend veritabani URL\'i eksik."], "backend_restart_required": false}'
-            )
+            return _minimal_local_setup_payload()
 
     monkeypatch.setattr(local_doctor, "urlopen", lambda *args, **kwargs: FakeResponse())
 
@@ -222,7 +232,7 @@ def test_fetch_local_backend_setup_report_falls_back_to_curl(monkeypatch):
 
     class Completed:
         returncode = 0
-        stdout = '{"ready": false, "blocking_items": ["Backend veritabani URL\'i eksik."], "backend_restart_required": false}'
+        stdout = _minimal_local_setup_payload().decode("utf-8")
 
     monkeypatch.setattr(local_doctor, "urlopen", raising_urlopen)
     monkeypatch.setattr(local_doctor.subprocess, "run", lambda *args, **kwargs: Completed())
@@ -232,6 +242,31 @@ def test_fetch_local_backend_setup_report_falls_back_to_curl(monkeypatch):
     assert payload is not None
     assert payload["ready"] is False
     assert payload["blocking_items"] == ["Backend veritabani URL'i eksik."]
+
+
+def test_fetch_local_backend_setup_report_rejects_stale_backend_snapshot(monkeypatch):
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return b'{"ready": false, "blocking_items": ["Backend veritabani URL\'i eksik."], "backend_restart_required": false}'
+
+    monkeypatch.setattr(local_doctor, "urlopen", lambda *args, **kwargs: FakeResponse())
+    monkeypatch.setattr(
+        local_doctor.subprocess,
+        "run",
+        lambda *args, **kwargs: type("Completed", (), {"returncode": 1, "stdout": ""})(),
+    )
+
+    payload = fetch_local_backend_setup_report()
+
+    assert payload is None
 
 
 def test_local_doctor_commands_use_detected_frontend_url_when_backend_env_exists(tmp_path: Path, monkeypatch):

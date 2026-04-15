@@ -19,6 +19,16 @@ CURRENT_APP_PHONE_SECRET_KEYS = {
     "AUTH_MERT_PHONE": "mert_phone",
     "AUTH_MUHAMMED_PHONE": "muhammed_phone",
 }
+LOCAL_SETUP_REQUIRED_KEYS = (
+    "ready",
+    "blocking_items",
+    "backend_restart_required",
+    "suggested_backend_restart_command",
+    "decision_status",
+    "decision_headline",
+    "decision_detail",
+    "decision_command",
+)
 
 LOCAL_FRONTEND_URL = "http://127.0.0.1:3000"
 LOCAL_API_URL = "http://127.0.0.1:8000"
@@ -222,7 +232,7 @@ def discover_local_frontend_urls(ports: tuple[int, ...] = LOCAL_FRONTEND_CANDIDA
 def _parse_local_setup_payload(payload: object) -> dict[str, object] | None:
     if not isinstance(payload, dict):
         return None
-    if "ready" not in payload or "blocking_items" not in payload:
+    if any(key not in payload for key in LOCAL_SETUP_REQUIRED_KEYS):
         return None
     return payload
 

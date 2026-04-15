@@ -9,6 +9,12 @@ const LOCAL_SETUP_DETAIL_KEYS = [
   "suggested_frontend_url",
   "suggested_api_url",
   "suggested_bootstrap_command",
+  "suggested_backend_restart_command",
+  "backend_restart_required",
+  "decision_status",
+  "decision_headline",
+  "decision_detail",
+  "decision_command",
 ];
 
 function isLoopbackTarget(targetBaseUrl: string) {
