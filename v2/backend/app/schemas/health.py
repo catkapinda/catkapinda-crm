@@ -175,6 +175,8 @@ class LocalSetupResponse(BaseModel):
     frontend_proxy_target: str | None = None
     frontend_proxy_source: str | None = None
     detected_frontend_urls: list[str] = []
+    suggested_frontend_url: str | None = None
+    suggested_api_url: str | None = None
     current_app_seed_detected: bool
     current_app_seed_sources: list[str] = []
     current_app_seed_placeholders: list[str] = []

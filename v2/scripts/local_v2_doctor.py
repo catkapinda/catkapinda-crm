@@ -48,12 +48,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--frontend-url",
-        default="http://127.0.0.1:3000",
+        default="",
         help="Otomatik yazilacak backend/.env icin frontend public URL'i.",
     )
     parser.add_argument(
         "--api-url",
-        default="http://127.0.0.1:8000",
+        default="",
         help="Otomatik yazilacak backend/.env icin API public URL'i.",
     )
     parser.add_argument(
@@ -173,6 +173,10 @@ def main() -> int:
         current_app_seed = discover_current_app_seed_values(V2_ROOT.parent)
         current_app_seed_values = current_app_seed["values"]
 
+    preflight_report = build_local_doctor_report(V2_ROOT, runtime_env)
+    resolved_frontend_url = args.frontend_url or str(preflight_report.get("suggested_frontend_url") or "http://127.0.0.1:3000")
+    resolved_api_url = args.api_url or str(preflight_report.get("suggested_api_url") or "http://127.0.0.1:8000")
+
     if args.write_backend_scaffold:
         try:
             wrote_env_path = str(
@@ -181,8 +185,8 @@ def main() -> int:
                     runtime_env,
                     overwrite=args.overwrite_backend_env,
                     current_app_seed_values=current_app_seed_values,
-                    frontend_url=args.frontend_url,
-                    api_url=args.api_url,
+                    frontend_url=resolved_frontend_url,
+                    api_url=resolved_api_url,
                 )
             )
         except FileExistsError as exc:
@@ -200,8 +204,8 @@ def main() -> int:
                     runtime_env,
                     overwrite=args.overwrite_backend_env,
                     current_app_seed_values=current_app_seed_values,
-                    frontend_url=args.frontend_url,
-                    api_url=args.api_url,
+                    frontend_url=resolved_frontend_url,
+                    api_url=resolved_api_url,
                 )
             )
         except (FileExistsError, ValueError) as exc:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 import json
 from pathlib import Path
+import subprocess
 import tomllib
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -20,6 +21,7 @@ CURRENT_APP_PHONE_SECRET_KEYS = {
 LOCAL_FRONTEND_URL = "http://127.0.0.1:3000"
 LOCAL_API_URL = "http://127.0.0.1:8000"
 LOCAL_FRONTEND_CANDIDATE_PORTS = (3000, 3001, 3002)
+LOCAL_V2_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _strip_wrapping_quotes(value: str) -> str:
@@ -164,6 +166,30 @@ def _normalize_proxy_target(raw_target: str) -> str:
     return f"http://{target.rstrip('/')}"
 
 
+def _discover_frontend_ports_from_processes(
+    ports: tuple[int, ...] = LOCAL_FRONTEND_CANDIDATE_PORTS,
+) -> list[int]:
+    discovered_ports: set[int] = set()
+    for port in ports:
+        try:
+            lsof_result = subprocess.run(  # noqa: S603 - fixed local diagnostics command
+                ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except OSError:
+            continue
+
+        for line in lsof_result.stdout.splitlines():
+            lowered = line.lower()
+            if "listen" in lowered and ("node" in lowered or "next" in lowered):
+                discovered_ports.add(port)
+                break
+
+    return [port for port in ports if port in discovered_ports]
+
+
 def discover_local_frontend_urls(ports: tuple[int, ...] = LOCAL_FRONTEND_CANDIDATE_PORTS) -> list[str]:
     detected_urls: list[str] = []
 
@@ -181,7 +207,20 @@ def discover_local_frontend_urls(ports: tuple[int, ...] = LOCAL_FRONTEND_CANDIDA
         if isinstance(payload, dict) and payload.get("status") == "ok":
             detected_urls.append(base_url)
 
+    if detected_urls:
+        return detected_urls
+
+    process_ports = _discover_frontend_ports_from_processes(ports=ports)
+    if process_ports:
+        return [f"http://127.0.0.1:{port}" for port in process_ports]
+
     return detected_urls
+
+
+def resolve_suggested_frontend_url(detected_frontend_urls: list[str] | None = None) -> str:
+    if detected_frontend_urls:
+        return detected_frontend_urls[0]
+    return LOCAL_FRONTEND_URL
 
 
 def render_backend_env(
@@ -308,6 +347,7 @@ def build_local_doctor_report(
     current_app_seed = discover_current_app_seed_values(current_app_root)
     current_app_values = current_app_seed["values"]
     detected_frontend_urls = discover_local_frontend_urls()
+    suggested_frontend_url = resolve_suggested_frontend_url(detected_frontend_urls)
 
     database_url, database_source = _resolve_value(runtime_env, backend_env_values, BACKEND_DATABASE_KEYS)
     if not database_url and current_app_values.get("database_url"):
@@ -396,6 +436,8 @@ def build_local_doctor_report(
         "frontend_proxy_target": proxy_target or None,
         "frontend_proxy_source": proxy_source or None,
         "detected_frontend_urls": detected_frontend_urls,
+        "suggested_frontend_url": suggested_frontend_url,
+        "suggested_api_url": LOCAL_API_URL,
         "current_app_seed_detected": bool(current_app_values),
         "current_app_seed_sources": current_app_seed["sources_used"],
         "current_app_seed_placeholders": current_app_seed["placeholders_detected"],
