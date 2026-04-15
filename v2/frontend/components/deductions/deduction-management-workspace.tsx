@@ -220,7 +220,7 @@ export function DeductionManagementWorkspace() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedEntryId || typeof editPersonnelId !== "number") {
-      setSaveError("Duzenlenecek kesinti sec.");
+      setSaveError("Duzenlenecek kesinti seç.");
       return;
     }
 
@@ -245,11 +245,11 @@ export function DeductionManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setSaveError(payload?.detail || "Kesinti kaydi guncellenemedi.");
+      setSaveError(payload?.detail || "Kesinti kaydı güncellenemedi.");
       return;
     }
 
-    setSaveSuccess(payload?.message || "Kesinti kaydi guncellendi.");
+    setSaveSuccess(payload?.message || "Kesinti kaydı güncellendi.");
     startTransition(() => {
       router.refresh();
     });
@@ -259,7 +259,7 @@ export function DeductionManagementWorkspace() {
 
   async function handleDelete() {
     if (!selectedEntryId) {
-      setSaveError("Silinecek kesinti sec.");
+      setSaveError("Silinecek kesinti seç.");
       return;
     }
     setSaveError("");
@@ -272,10 +272,10 @@ export function DeductionManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setSaveError(payload?.detail || "Kesinti kaydi silinemedi.");
+      setSaveError(payload?.detail || "Kesinti kaydı silinemedi.");
       return;
     }
-    setSaveSuccess(payload?.message || "Kesinti kaydi silindi.");
+    setSaveSuccess(payload?.message || "Kesinti kaydı silindi.");
     startTransition(() => {
       router.refresh();
     });
@@ -294,9 +294,9 @@ export function DeductionManagementWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Kesinti Kayit Yonetimi</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Kesinti Kayıt Yönetimi</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Kayitlari filtrele, sec, guncelle ve sil. Otomatik olusan satirlar salt okunur tutulur.
+          Kayıtları filtrele, seç, güncelle ve sil. Otomatik oluşan satırlar salt okunur tutulur.
         </p>
       </div>
 
@@ -329,7 +329,7 @@ export function DeductionManagementWorkspace() {
               }}
               style={fieldStyle}
             >
-              <option value="">Tum personel</option>
+              <option value="">Tüm personel</option>
               {options?.personnel.map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.label}
@@ -342,7 +342,7 @@ export function DeductionManagementWorkspace() {
               onChange={(event) => setFilterDeductionType(event.target.value)}
               style={fieldStyle}
             >
-              <option value="">Tum tipler</option>
+              <option value="">Tüm tipler</option>
               {options?.deduction_types.map((type) => (
                 <option key={type} value={type}>
                   {type}
@@ -376,7 +376,7 @@ export function DeductionManagementWorkspace() {
                 alignItems: "center",
               }}
             >
-              <strong>{totalEntries} kayit</strong>
+              <strong>{totalEntries} kayıt</strong>
               <span style={pill("muted")}>{entries.length} gosteriliyor</span>
             </div>
 
@@ -387,9 +387,9 @@ export function DeductionManagementWorkspace() {
               }}
             >
               {listLoading ? (
-                <div style={{ padding: "18px 16px", color: "var(--muted)" }}>Kayitlar yukleniyor...</div>
+                <div style={{ padding: "18px 16px", color: "var(--muted)" }}>Kayitlar yükleniyor...</div>
               ) : entries.length === 0 ? (
-                <div style={{ padding: "18px 16px", color: "var(--muted)" }}>Eslesen kesinti kaydi yok.</div>
+                <div style={{ padding: "18px 16px", color: "var(--muted)" }}>Eslesen kesinti kaydı yok.</div>
               ) : (
                 entries.map((entry) => (
                   <button
@@ -456,7 +456,7 @@ export function DeductionManagementWorkspace() {
               gap: "10px",
             }}
           >
-            <div style={{ fontWeight: 900 }}>Secili Kayit</div>
+            <div style={{ fontWeight: 900 }}>Seçili Kayıt</div>
             {selectedEntry ? (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
@@ -474,7 +474,7 @@ export function DeductionManagementWorkspace() {
                 <div>{selectedEntry.type_caption}</div>
               </>
             ) : (
-              <div style={{ color: "var(--muted)" }}>Duzenlemek icin soldan bir kayit sec.</div>
+              <div style={{ color: "var(--muted)" }}>Düzenlemek için soldan bir kayıt seç.</div>
             )}
           </div>
 
@@ -556,7 +556,7 @@ export function DeductionManagementWorkspace() {
               <div style={{ fontWeight: 800, color: "var(--text)", marginBottom: "4px" }}>
                 Tip Aciklamasi
               </div>
-              {selectedCaption || "Secilen kesinti tipinin aciklamasi burada gorunur."}
+              {selectedCaption || "Seçilen kesinti tipinin açıklaması burada görünür."}
             </div>
 
             <label style={{ display: "grid", gap: "8px" }}>
@@ -581,7 +581,7 @@ export function DeductionManagementWorkspace() {
                   fontWeight: 700,
                 }}
               >
-                Bu satir otomatik olustugu icin v2 ekraninda duzenlenemez veya silinemez.
+                Bu satir otomatik olustugu için v2 ekraninda düzenlenemez veya silinemez.
               </div>
             )}
 
@@ -616,7 +616,7 @@ export function DeductionManagementWorkspace() {
                   cursor: "pointer",
                 }}
               >
-                {isPending ? "Kaydediliyor..." : "Kaydi Guncelle"}
+                {isPending ? "Kaydediliyor..." : "Kaydı Güncelle"}
               </button>
               <button
                 type="button"
@@ -636,7 +636,7 @@ export function DeductionManagementWorkspace() {
                   cursor: "pointer",
                 }}
               >
-                Kaydi Sil
+                Kaydı Sil
               </button>
             </div>
           </form>

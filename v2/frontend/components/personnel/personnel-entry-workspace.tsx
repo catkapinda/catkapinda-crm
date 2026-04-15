@@ -115,11 +115,11 @@ export function PersonnelEntryWorkspace() {
       | null;
 
     if (!response.ok) {
-      setSubmitError(payload?.detail || "Personel kaydi olusturulamadi.");
+      setSubmitError(payload?.detail || "Personel kaydı oluşturulamadı.");
       return;
     }
 
-    setSubmitSuccess(payload?.message || "Personel kaydi olusturuldu.");
+    setSubmitSuccess(payload?.message || "Personel kaydı oluşturuldu.");
     setGeneratedCode(payload?.person_code || "");
     setFullName("");
     setPhone("");
@@ -143,10 +143,10 @@ export function PersonnelEntryWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Personel Kaydi</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Personel Kaydı</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Kimlik, rol ve sube atamasini attendance v2 ile ayni hizda parcali ekran mantigina
-          tasiyan ilk personel slice.
+          Kimlik, rol ve şube atamasini puantaj v2 ile aynı hizda parcali ekran mantigina
+          taşıyan ilk personel slice.
         </p>
       </div>
 
@@ -159,7 +159,7 @@ export function PersonnelEntryWorkspace() {
             color: "var(--muted)",
           }}
         >
-          Personel form secenekleri yukleniyor...
+          Personel form secenekleri yükleniyor...
         </div>
       ) : (
         <form
@@ -219,7 +219,7 @@ export function PersonnelEntryWorkspace() {
                   </select>
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Restoran / Sube</span>
+                  <span style={{ fontWeight: 700 }}>Restoran / Şube</span>
                   <select
                     value={restaurantId}
                     onChange={(event) =>
@@ -236,7 +236,7 @@ export function PersonnelEntryWorkspace() {
                   </select>
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Ise Giris</span>
+                  <span style={{ fontWeight: 700 }}>Ise Giriş</span>
                   <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
@@ -254,7 +254,7 @@ export function PersonnelEntryWorkspace() {
                   <input value={currentPlate} onChange={(event) => setCurrentPlate(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Aylik Sabit Tutar</span>
+                  <span style={{ fontWeight: 700 }}>Aylık Sabit Tutar</span>
                   <input
                     inputMode="decimal"
                     value={monthlyFixedCost}
@@ -288,7 +288,7 @@ export function PersonnelEntryWorkspace() {
                   cursor: "pointer",
                 }}
               >
-                {isPending ? "Kaydediliyor..." : "Personel Kaydini Olustur"}
+                {isPending ? "Kaydediliyor..." : "Personel Kaydini Oluştur"}
               </button>
             </div>
 
@@ -302,9 +302,9 @@ export function PersonnelEntryWorkspace() {
                 background: "rgba(244, 248, 255, 0.9)",
               }}
             >
-              <h3 style={{ margin: 0, fontSize: "1rem" }}>Kayit Ozeti</h3>
+              <h3 style={{ margin: 0, fontSize: "1rem" }}>Kayıt Ozeti</h3>
               <SummaryItem label="Rol" value={role} />
-              <SummaryItem label="Sube" value={selectedRestaurantLabel} />
+              <SummaryItem label="Şube" value={selectedRestaurantLabel} />
               <SummaryItem label="Arac" value={vehicleMode} />
               <SummaryItem label="Durum" value={status} />
               <SummaryItem

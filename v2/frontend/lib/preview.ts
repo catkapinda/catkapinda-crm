@@ -176,7 +176,7 @@ let previewRestaurants: PreviewRestaurantRecord[] = [
     tax_office: "Goztepe",
     tax_number: "3456789012",
     active: true,
-    notes: "Aksam piki icin joker gecisi sik kullaniliyor.",
+    notes: "Aksam piki için joker gecisi sık kullaniliyor.",
   },
   {
     id: 2,
@@ -206,7 +206,7 @@ let previewRestaurants: PreviewRestaurantRecord[] = [
     tax_office: "Levent",
     tax_number: "4567890123",
     active: true,
-    notes: "Paket bazli primde hafta sonu verimi yuksek.",
+    notes: "Paket bazli primde hafta sonu verimi yüksek.",
   },
   {
     id: 3,
@@ -236,7 +236,7 @@ let previewRestaurants: PreviewRestaurantRecord[] = [
     tax_office: "Sisli",
     tax_number: "5678901234",
     active: true,
-    notes: "Sabit aylik modelde maliyet takibi kritik.",
+    notes: "Sabit aylık modelde maliyet takibi kritik.",
   },
   {
     id: 4,
@@ -283,7 +283,7 @@ let previewPersonnelRecords: PreviewPersonnelRecord[] = [
     current_plate: "34 KD 101",
     start_date: "2026-01-04",
     monthly_fixed_cost: 0,
-    notes: "Sabah vardiyasinda guclu.",
+    notes: "Sabah vardiyasinda güçlü.",
   },
   {
     id: 102,
@@ -297,7 +297,7 @@ let previewPersonnelRecords: PreviewPersonnelRecord[] = [
     current_plate: "34 OK 102",
     start_date: "2025-11-14",
     monthly_fixed_cost: 0,
-    notes: "Aksam saatlerinde yogun kullaniliyor.",
+    notes: "Aksam saatlerinde yoğun kullaniliyor.",
   },
   {
     id: 103,
@@ -311,7 +311,7 @@ let previewPersonnelRecords: PreviewPersonnelRecord[] = [
     current_plate: "34 MY 103",
     start_date: "2025-09-02",
     monthly_fixed_cost: 0,
-    notes: "Iki sube arasinda gecis yapiyor.",
+    notes: "İki şube arasinda geçiş yapiyor.",
   },
   {
     id: 104,
@@ -325,7 +325,7 @@ let previewPersonnelRecords: PreviewPersonnelRecord[] = [
     current_plate: "",
     start_date: "2024-08-19",
     monthly_fixed_cost: 42000,
-    notes: "Vardiya dagilimini takip ediyor.",
+    notes: "Vardiya dağılımını takip ediyor.",
   },
   {
     id: 105,
@@ -339,7 +339,7 @@ let previewPersonnelRecords: PreviewPersonnelRecord[] = [
     current_plate: "34 ET 105",
     start_date: "2025-06-22",
     monthly_fixed_cost: 0,
-    notes: "Gecici pasif durumda.",
+    notes: "Geçici pasif durumda.",
   },
   {
     id: 106,
@@ -409,7 +409,7 @@ let previewAttendanceRecords: PreviewAttendanceRecord[] = [
     worked_hours: 11,
     package_count: 39,
     monthly_invoice_amount: 164000,
-    notes: "Sabit aylik model.",
+    notes: "Sabit aylık model.",
   },
   {
     id: 504,
@@ -422,7 +422,7 @@ let previewAttendanceRecords: PreviewAttendanceRecord[] = [
     worked_hours: 8,
     package_count: 18,
     monthly_invoice_amount: 0,
-    notes: "Kisa destek kaydi.",
+    notes: "Kisa destek kaydı.",
   },
   {
     id: 505,
@@ -435,7 +435,7 @@ let previewAttendanceRecords: PreviewAttendanceRecord[] = [
     worked_hours: 7,
     package_count: 22,
     monthly_invoice_amount: 0,
-    notes: "Pasif karta gecmeden onceki son kayit.",
+    notes: "Pasif karta gecmeden onceki son kayıt.",
   },
   {
     id: 506,
@@ -469,7 +469,7 @@ let previewDeductionRecords: PreviewDeductionRecord[] = [
     deduction_date: "2026-04-12",
     deduction_type: "traffic_fine",
     amount: 1850,
-    notes: "Besiktas hattinda park cezasi.",
+    notes: "Besiktas hattında park cezasi.",
     auto_source_key: "",
     is_auto_record: false,
   },
@@ -479,7 +479,7 @@ let previewDeductionRecords: PreviewDeductionRecord[] = [
     deduction_date: "2026-04-10",
     deduction_type: "missing_equipment",
     amount: 950,
-    notes: "Zimmet eksigi otomatik yansidi.",
+    notes: "Zimmet eksiği otomatik yansidi.",
     auto_source_key: "equipment:loss:104:20260410",
     is_auto_record: true,
   },
@@ -489,7 +489,7 @@ let previewDeductionRecords: PreviewDeductionRecord[] = [
     deduction_date: "2026-04-09",
     deduction_type: "cash_gap",
     amount: 620,
-    notes: "Gun sonu tahsilat farki.",
+    notes: "Gün sonu tahsilat farki.",
     auto_source_key: "",
     is_auto_record: false,
   },
@@ -564,7 +564,7 @@ let previewSalesRecords: PreviewSalesRecord[] = [
     status: "Yeni Talep",
     next_follow_up_date: "2026-04-16",
     assigned_owner: "Seda Kurt",
-    notes: "Hizli teklif bekliyorlar, hafta ici demo istenecek.",
+    notes: "Hızlı teklif bekliyorlar, hafta ici demo istenecek.",
     created_at: "2026-04-11T09:20:00Z",
     updated_at: "2026-04-15T08:10:00Z",
   },
@@ -590,7 +590,7 @@ let previewSalesRecords: PreviewSalesRecord[] = [
     status: "Takipte",
     next_follow_up_date: "2026-04-20",
     assigned_owner: "Onur Celik",
-    notes: "Bursa genisleme planina paralel ikinci sube potansiyeli var.",
+    notes: "Bursa genisleme planina paralel ikinci şube potansiyeli var.",
     created_at: "2026-03-29T14:05:00Z",
     updated_at: "2026-04-13T12:25:00Z",
   },
@@ -631,7 +631,7 @@ let previewPurchaseRecords: PreviewPurchaseRecord[] = [
     total_invoice_amount: 14880,
     supplier: "MotoGiyim",
     invoice_no: "MG-240414",
-    notes: "Yeni ise baslayan ekip icin seri alim.",
+    notes: "Yeni ise baslayan ekip için seri alım.",
   },
   {
     id: 1002,
@@ -651,7 +651,7 @@ let previewPurchaseRecords: PreviewPurchaseRecord[] = [
     total_invoice_amount: 5580,
     supplier: "MotoGiyim",
     invoice_no: "MG-240408",
-    notes: "Istanbul sahasi icin toplu alim.",
+    notes: "Istanbul sahasi için toplu alım.",
   },
   {
     id: 1004,
@@ -661,7 +661,7 @@ let previewPurchaseRecords: PreviewPurchaseRecord[] = [
     total_invoice_amount: 7200,
     supplier: "SahaTek",
     invoice_no: "ST-240403",
-    notes: "Nisan yagmurlari icin koruyucu stok.",
+    notes: "Nisan yagmurlari için koruyucu stok.",
   },
 ];
 
@@ -677,7 +677,7 @@ let previewEquipmentIssueRecords: PreviewEquipmentIssueRecord[] = [
     vat_rate: 20,
     installment_count: 2,
     sale_type: "Satış",
-    notes: "Yeni ise baslayan personel icin standart set.",
+    notes: "Yeni ise baslayan personel için standart set.",
     auto_source_key: "",
     is_auto_record: false,
   },
@@ -692,7 +692,7 @@ let previewEquipmentIssueRecords: PreviewEquipmentIssueRecord[] = [
     vat_rate: 20,
     installment_count: 1,
     sale_type: "Zimmet",
-    notes: "Arac degisikligi sonrasi sabitleme aparati verildi.",
+    notes: "Arac degisikligi sonrası sabitleme aparati verildi.",
     auto_source_key: "",
     is_auto_record: false,
   },
@@ -722,7 +722,7 @@ let previewEquipmentIssueRecords: PreviewEquipmentIssueRecord[] = [
     vat_rate: 20,
     installment_count: 2,
     sale_type: "Depozito",
-    notes: "Nisan yagmurlari icin teslim edildi.",
+    notes: "Nisan yagmurlari için teslim edildi.",
     auto_source_key: "",
     is_auto_record: false,
   },
@@ -737,7 +737,7 @@ let previewBoxReturnRecords: PreviewBoxReturnRecord[] = [
     condition_status: "Temiz",
     payout_amount: 1200,
     waived: false,
-    notes: "Pasif karta gecis sonrasi tam iade.",
+    notes: "Pasif karta geçiş sonrası tam iade.",
   },
   {
     id: 1202,
@@ -771,7 +771,7 @@ let previewAuditRecords: PreviewAuditRecord[] = [
     entity_type: "attendance",
     entity_id: "506",
     action_type: "delete",
-    summary: "Nisan ilk hafta puantaj temizligi sirasinda tek kayit silindi.",
+    summary: "Nisan ilk hafta puantaj temizligi sirasinda tek kayıt silindi.",
     details_json: '{"entry_id":506,"restaurant":"Sushi Fold / Besiktas Hub","reason":"preview cleanup"}',
   },
   {
@@ -795,7 +795,7 @@ let previewAuditRecords: PreviewAuditRecord[] = [
     entity_type: "equipment_issue",
     entity_id: "1101",
     action_type: "create",
-    summary: "Kaan Demir icin kask zimmet kaydi olusturuldu.",
+    summary: "Kaan Demir için kask zimmet kaydı oluşturuldu.",
     details_json: '{"item_name":"Kask","quantity":1,"sale_type":"Satış"}',
   },
   {
@@ -819,8 +819,8 @@ let previewAuditRecords: PreviewAuditRecord[] = [
     entity_type: "deduction",
     entity_id: "802",
     action_type: "update",
-    summary: "Trafik cezasi kesintisinin notu ve tutari guncellendi.",
-    details_json: '{"deduction_type":"traffic_fine","amount":1850,"notes":"Besiktas hattinda park cezasi."}',
+    summary: "Trafik cezasi kesintisinin notu ve tutari güncellendi.",
+    details_json: '{"deduction_type":"traffic_fine","amount":1850,"notes":"Besiktas hattında park cezasi."}',
   },
 ];
 
@@ -828,12 +828,12 @@ const previewRoleOptions = ["Kurye", "Joker", "Destek", "Saha Lideri"];
 const previewStatusOptions = ["Aktif", "Pasif"];
 const previewVehicleModeOptions = ["Kendi Motoru", "Sirket Motoru", "Yaya"];
 const previewEntryModes = ["Restoran Kuryesi", "Joker", "Destek", "Izinli", "Raporlu"];
-const previewAbsenceReasons = ["Izin", "Rapor", "Destek Gecisi", "Acil Cikis"];
+const previewAbsenceReasons = ["Izin", "Rapor", "Destek Gecisi", "Acil Çıkış"];
 const previewDeductionTypeCaptions: Record<string, string> = {
   advance_payment: "Personelin avans talebi nedeniyle manuel olarak kayda dusulur.",
-  traffic_fine: "Trafik veya park cezasi nedeniyle olusan kesinti kalemi.",
-  missing_equipment: "Kask, telefon ya da zimmetli ekipman kaybi icin otomatik kesinti.",
-  cash_gap: "Gun sonu tahsilat veya kasa farki icin kullanilir.",
+  traffic_fine: "Trafik veya park cezasi nedeniyle oluşan kesinti kalemi.",
+  missing_equipment: "Kask, telefon ya da zimmetli ekipman kaybi için otomatik kesinti.",
+  cash_gap: "Gün sonu tahsilat veya kasa farki için kullanilir.",
   late_return: "Motor, cihaz veya zimmetin gec teslim edilmesi durumunda kullanilir.",
 };
 const previewDeductionTypes = Object.keys(previewDeductionTypeCaptions);
@@ -841,7 +841,7 @@ const previewRestaurantPricingModels = [
   { value: "hourly_plus_package", label: "Saatlik + Paket" },
   { value: "threshold_package", label: "Esikli Paket" },
   { value: "hourly_only", label: "Saatlik" },
-  { value: "fixed_monthly", label: "Sabit Aylik" },
+  { value: "fixed_monthly", label: "Sabit Aylık" },
 ];
 const previewSalesSourceOptions = ["Mail", "Referans", "Saha", "Partner", "Telefon"];
 const previewSalesStatusOptions = [
@@ -907,7 +907,7 @@ export const PREVIEW_USER = {
   phone: "05320009999",
   full_name: "Preview Operator",
   role: "admin",
-  role_display: "Tasarim Preview / Yonetici",
+  role_display: "Tasarım Preview / Yönetici",
   must_change_password: false,
   allowed_actions: [
     "dashboard.view",
@@ -992,7 +992,7 @@ function restaurantLabel(restaurantId: number | null | undefined) {
 
 function buildAttendanceCoverageType(entryMode: string, replacementPersonId: number | null) {
   if (entryMode === "Joker" || entryMode === "Destek") {
-    return replacementPersonId ? "Yedekli" : "Gecis";
+    return replacementPersonId ? "Yedekli" : "Geçiş";
   }
   if (entryMode === "Izinli" || entryMode === "Raporlu") {
     return "Devamsizlik";
@@ -1167,7 +1167,7 @@ function salesPricingHint(record: {
     }).format(value || 0);
 
   if (record.pricing_model === "threshold_package") {
-    return `${toMoney(record.hourly_rate)}/saat | ${record.package_threshold} alti ${toMoney(record.package_rate_low)} | ustu ${toMoney(record.package_rate_high)}`;
+    return `${toMoney(record.hourly_rate)}/saat | ${record.package_threshold} altı ${toMoney(record.package_rate_low)} | üstü ${toMoney(record.package_rate_high)}`;
   }
   if (record.pricing_model === "hourly_plus_package") {
     return `${toMoney(record.hourly_rate)}/saat + ${toMoney(record.package_rate)}/paket`;
@@ -1537,7 +1537,7 @@ function buildOverviewDashboard() {
     ...previewAttendanceRecords.slice(0, 3).map((entry) => ({
       module_key: "attendance",
       module_label: "Puantaj",
-      title: `${restaurantLabel(entry.restaurant_id)} puantaji guncel`,
+      title: `${restaurantLabel(entry.restaurant_id)} puantaji güncel`,
       subtitle: `${personnelLabel(entry.primary_person_id) || "Atama"} / ${entry.entry_mode}`,
       meta: `${entry.worked_hours} saat · ${entry.package_count} paket`,
       entry_date: entry.entry_date,
@@ -1546,7 +1546,7 @@ function buildOverviewDashboard() {
     ...previewPersonnelRecords.slice(0, 3).map((entry) => ({
       module_key: "personnel",
       module_label: "Personel",
-      title: `${entry.full_name} karti hazir`,
+      title: `${entry.full_name} kartı hazır`,
       subtitle: `${entry.role} · ${restaurantLabel(entry.restaurant_id) || "Atanmadi"}`,
       meta: entry.status,
       entry_date: entry.start_date,
@@ -1555,7 +1555,7 @@ function buildOverviewDashboard() {
     ...previewDeductionRecords.slice(0, 2).map((entry) => ({
       module_key: "deductions",
       module_label: "Kesintiler",
-      title: `${personnelLabel(entry.personnel_id) || "Personel"} icin kesinti kaydi hazir`,
+      title: `${personnelLabel(entry.personnel_id) || "Personel"} için kesinti kaydı hazır`,
       subtitle: deductionCaption(entry.deduction_type),
       meta: new Intl.NumberFormat("tr-TR", {
         style: "currency",
@@ -1568,7 +1568,7 @@ function buildOverviewDashboard() {
     ...previewRestaurants.slice(0, 2).map((entry) => ({
       module_key: "restaurants",
       module_label: "Restoranlar",
-      title: `${entry.brand} / ${entry.branch} karti hazir`,
+      title: `${entry.brand} / ${entry.branch} kartı hazır`,
       subtitle: `${pricingModelLabel(entry.pricing_model)} · ${entry.active ? "Aktif" : "Pasif"}`,
       meta: `${entry.target_headcount} hedef kadro`,
       entry_date: entry.start_date,
@@ -1577,7 +1577,7 @@ function buildOverviewDashboard() {
     ...previewSalesRecords.slice(0, 2).map((entry) => ({
       module_key: "sales",
       module_label: "Satış",
-      title: `${entry.restaurant_name} firsati pipeline'da`,
+      title: `${entry.restaurant_name} fırsatı pipeline'da`,
       subtitle: `${entry.status} · ${entry.assigned_owner || "Sahip bekliyor"}`,
       meta: new Intl.NumberFormat("tr-TR", {
         style: "currency",
@@ -1590,7 +1590,7 @@ function buildOverviewDashboard() {
     ...previewPurchaseRecords.slice(0, 2).map((entry) => ({
       module_key: "purchases",
       module_label: "Satın Alma",
-      title: `${entry.item_name} faturasi kayitli`,
+      title: `${entry.item_name} faturası kayıtlı`,
       subtitle: `${entry.supplier || "Tedarikçi yok"} · ${entry.quantity} adet`,
       meta: new Intl.NumberFormat("tr-TR", {
         style: "currency",
@@ -1603,7 +1603,7 @@ function buildOverviewDashboard() {
     ...previewEquipmentIssueRecords.slice(0, 2).map((entry) => ({
       module_key: "equipment",
       module_label: "Ekipman",
-      title: `${personnelLabel(entry.personnel_id) || "Personel"} icin ${entry.item_name} zimmeti`,
+      title: `${personnelLabel(entry.personnel_id) || "Personel"} için ${entry.item_name} zimmeti`,
       subtitle: `${entry.sale_type} · ${entry.quantity} adet`,
       meta: new Intl.NumberFormat("tr-TR", {
         style: "currency",
@@ -1640,17 +1640,17 @@ function buildOverviewDashboard() {
       {
         key: "attendance",
         title: "Puantaj",
-        description: "Gunluk attendance girisi, kayit yonetimi ve aylik silme akislarini ayni yerde toplar.",
+        description: "Günlük attendance girisi, kayıt yönetimi ve aylık silme akışlarını aynı yerde toplar.",
         href: "/preview/attendance",
-        primary_label: "Aylik Kayit",
+        primary_label: "Aylık Kayıt",
         primary_value: String(monthAttendanceEntries),
-        secondary_label: "Aktif Sube",
+        secondary_label: "Aktif Şube",
         secondary_value: String(activeRestaurants),
       },
       {
         key: "personnel",
         title: "Personel",
-        description: "Kart acma, durum degistirme ve saha dagilimini operasyon diliyle gosterir.",
+        description: "Kart açma, durum değiştirme ve saha dağılımını operasyon diliyle gösterir.",
         href: "/preview/personnel",
         primary_label: "Aktif Kadro",
         primary_value: String(activePersonnel),
@@ -1660,7 +1660,7 @@ function buildOverviewDashboard() {
       {
         key: "reports",
         title: "Raporlar",
-        description: "Aylik hakedis ve fatura resmini editorial komuta paneli gibi okur.",
+        description: "Aylık hakediş ve fatura resmini editorial komuta paneli gibi okur.",
         href: "/preview/reports",
         primary_label: "Toplam Ciro",
         primary_value: "TRY 1.24M",
@@ -1670,21 +1670,21 @@ function buildOverviewDashboard() {
       {
         key: "deductions",
         title: "Kesintiler",
-        description: "Manuel ve otomatik kesinti akisini tek panelde izler, gunceller ve temizler.",
+        description: "Manuel ve otomatik kesinti akışını tek panelde izler, günceller ve temizler.",
         href: "/preview/deductions",
-        primary_label: "Bu Ay Kayit",
+        primary_label: "Bu Ay Kayıt",
         primary_value: String(monthDeductionEntries),
-        secondary_label: "Otomatik Kayit",
+        secondary_label: "Otomatik Kayıt",
         secondary_value: String(previewDeductionRecords.filter((entry) => entry.is_auto_record).length),
       },
       {
         key: "restaurants",
         title: "Restoranlar",
-        description: "Sube, fiyat modeli ve kadro dengesini daha kararli bir ekrana tasir.",
+        description: "Şube, fiyat modeli ve kadro dengesini daha kararli bir ekrana tasir.",
         href: "/preview/restaurants",
-        primary_label: "Aktif Sube",
+        primary_label: "Aktif Şube",
         primary_value: String(previewRestaurants.filter((entry) => entry.active).length),
-        secondary_label: "Sabit Aylik",
+        secondary_label: "Sabit Aylık",
         secondary_value: String(
           previewRestaurants.filter((entry) => entry.pricing_model === "fixed_monthly").length,
         ),
@@ -1694,7 +1694,7 @@ function buildOverviewDashboard() {
         title: "Satış",
         description: "Fırsat havuzu, teklif durumu ve takip aksiyonları yeni ticari panelde toplanir.",
         href: "/preview/sales",
-        primary_label: "Açık Pipeline",
+        primary_label: "Açık Fırsat Hattı",
         primary_value: String(openSalesPipeline),
         secondary_label: "Kazanılan",
         secondary_value: String(
@@ -2103,7 +2103,7 @@ function buildReportsDashboard(month: string | null) {
     const netInvoice = grossInvoice / 1.2;
     return {
       restaurant: restaurant.label,
-      pricing_model: restaurant.pricing_model === "fixed_monthly" ? "Sabit Aylik" : "Paket Bazli",
+      pricing_model: restaurant.pricing_model === "fixed_monthly" ? "Sabit Aylık" : "Paket Bazli",
       total_hours: totalHours,
       total_packages: totalPackages,
       net_invoice: Math.round(netInvoice),
@@ -2360,7 +2360,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     };
     previewAttendanceRecords = [nextRecord, ...previewAttendanceRecords];
     return buildJsonResponse({
-      message: "Preview kaydi olusturuldu.",
+      message: "Preview kaydı oluşturuldu.",
       entry_id: nextRecord.id,
     });
   }
@@ -2373,7 +2373,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     return buildJsonResponse({
       entry_ids: entryIds,
       deleted_count: entryIds.length,
-      message: "Preview secili kayitlari silindi.",
+      message: "Preview seçili kayıtları silindi.",
     });
   }
 
@@ -2413,7 +2413,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
       date_to: dateTo,
       restaurant_id: restaurantId,
       search,
-      message: "Preview filtredeki puantaj kayitlari silindi.",
+      message: "Preview filtredeki puantaj kayıtları silindi.",
     });
   }
 
@@ -2421,7 +2421,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const entryId = Number(pathname.split("/").pop());
     const index = previewAttendanceRecords.findIndex((entry) => entry.id === entryId);
     if (index < 0) {
-      return buildJsonResponse({ detail: "Kayit bulunamadi." }, 404);
+      return buildJsonResponse({ detail: "Kayıt bulunamadı." }, 404);
     }
 
     if (method === "GET") {
@@ -2444,12 +2444,12 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
         monthly_invoice_amount: Number(body.monthly_invoice_amount || 0),
         notes: String(body.notes || ""),
       };
-      return buildJsonResponse({ message: "Preview puantaj kaydi guncellendi." });
+      return buildJsonResponse({ message: "Preview puantaj kaydı güncellendi." });
     }
 
     if (method === "DELETE") {
       previewAttendanceRecords = previewAttendanceRecords.filter((entry) => entry.id !== entryId);
-      return buildJsonResponse({ message: "Preview puantaj kaydi silindi." });
+      return buildJsonResponse({ message: "Preview puantaj kaydı silindi." });
     }
   }
 
@@ -2468,7 +2468,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
 
   if (pathname === "/auth/change-password" && method === "POST") {
     return buildJsonResponse({
-      message: "Preview modunda sifre guncellendi.",
+      message: "Preview modunda şifre güncellendi.",
       user: {
         ...PREVIEW_USER,
         must_change_password: false,
@@ -2505,7 +2505,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     };
     previewDeductionRecords = [nextRecord, ...previewDeductionRecords];
     return buildJsonResponse({
-      message: "Preview kesinti kaydi olusturuldu.",
+      message: "Preview kesinti kaydı oluşturuldu.",
       entry_id: nextRecord.id,
     });
   }
@@ -2514,7 +2514,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const entryId = Number(pathname.split("/").pop());
     const index = previewDeductionRecords.findIndex((entry) => entry.id === entryId);
     if (index < 0) {
-      return buildJsonResponse({ detail: "Kesinti bulunamadi." }, 404);
+      return buildJsonResponse({ detail: "Kesinti bulunamadı." }, 404);
     }
 
     if (method === "GET") {
@@ -2525,7 +2525,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
 
     if (previewDeductionRecords[index].is_auto_record && (method === "PUT" || method === "DELETE")) {
       return buildJsonResponse(
-        { detail: "Otomatik olusan kesinti kayitlari preview modunda duzenlenemez." },
+        { detail: "Otomatik oluşan kesinti kayıtları preview modunda düzenlenemez." },
         400,
       );
     }
@@ -2539,12 +2539,12 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
         amount: Number(body.amount || 0),
         notes: String(body.notes || ""),
       };
-      return buildJsonResponse({ message: "Preview kesinti kaydi guncellendi." });
+      return buildJsonResponse({ message: "Preview kesinti kaydı güncellendi." });
     }
 
     if (method === "DELETE") {
       previewDeductionRecords = previewDeductionRecords.filter((entry) => entry.id !== entryId);
-      return buildJsonResponse({ message: "Preview kesinti kaydi silindi." });
+      return buildJsonResponse({ message: "Preview kesinti kaydı silindi." });
     }
   }
 
@@ -2558,7 +2558,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
 
   if (pathname === "/restaurants/records" && method === "POST") {
     const brand = String(body.brand || "Preview Marka");
-    const branch = String(body.branch || "Yeni Sube");
+    const branch = String(body.branch || "Yeni Şube");
     const nextRecord: PreviewRestaurantRecord = {
       id: nextRestaurantId(),
       brand,
@@ -2595,7 +2595,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     };
     previewRestaurants = [nextRecord, ...previewRestaurants];
     return buildJsonResponse({
-      message: "Preview restoran kaydi olusturuldu.",
+      message: "Preview restoran kaydı oluşturuldu.",
       entry_id: nextRecord.id,
     });
   }
@@ -2612,7 +2612,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const timestamp = "2026-04-15T10:30:00Z";
     const nextRecord: PreviewSalesRecord = {
       id: nextSalesId(),
-      restaurant_name: String(body.restaurant_name || "Preview Firsat"),
+      restaurant_name: String(body.restaurant_name || "Preview Fırsat"),
       city: String(body.city || "Istanbul"),
       district: String(body.district || "Kadikoy"),
       address: String(body.address || ""),
@@ -2638,7 +2638,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     };
     previewSalesRecords = [nextRecord, ...previewSalesRecords];
     return buildJsonResponse({
-      message: "Preview satis firsati olusturuldu.",
+      message: "Preview satış fırsatı oluşturuldu.",
       entry_id: nextRecord.id,
     });
   }
@@ -2664,7 +2664,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     };
     previewPurchaseRecords = [nextRecord, ...previewPurchaseRecords];
     return buildJsonResponse({
-      message: "Preview satin alma kaydi olusturuldu.",
+      message: "Preview satın alma kaydı oluşturuldu.",
       entry_id: nextRecord.id,
     });
   }
@@ -2698,7 +2698,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     };
     previewEquipmentIssueRecords = [nextRecord, ...previewEquipmentIssueRecords];
     return buildJsonResponse({
-      message: "Preview zimmet kaydi olusturuldu.",
+      message: "Preview zimmet kaydı oluşturuldu.",
       entry_id: nextRecord.id,
     });
   }
@@ -2724,7 +2724,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     };
     previewBoxReturnRecords = [nextRecord, ...previewBoxReturnRecords];
     return buildJsonResponse({
-      message: "Preview box geri alim kaydi olusturuldu.",
+      message: "Preview box geri alım kaydı oluşturuldu.",
       entry_id: nextRecord.id,
     });
   }
@@ -2748,20 +2748,20 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const entryId = Number(pathname.split("/")[3]);
     const index = previewRestaurants.findIndex((entry) => entry.id === entryId);
     if (index < 0) {
-      return buildJsonResponse({ detail: "Restoran bulunamadi." }, 404);
+      return buildJsonResponse({ detail: "Restoran bulunamadı." }, 404);
     }
     previewRestaurants[index] = {
       ...previewRestaurants[index],
       active: !previewRestaurants[index].active,
     };
-    return buildJsonResponse({ message: "Preview restoran durumu guncellendi." });
+    return buildJsonResponse({ message: "Preview restoran durumu güncellendi." });
   }
 
   if (pathname.startsWith("/restaurants/records/")) {
     const entryId = Number(pathname.split("/").pop());
     const index = previewRestaurants.findIndex((entry) => entry.id === entryId);
     if (index < 0) {
-      return buildJsonResponse({ detail: "Restoran bulunamadi." }, 404);
+      return buildJsonResponse({ detail: "Restoran bulunamadı." }, 404);
     }
 
     if (method === "GET") {
@@ -2807,12 +2807,12 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
         active: String(body.status || "Aktif") !== "Pasif",
         notes: String(body.notes || ""),
       };
-      return buildJsonResponse({ message: "Preview restoran kaydi guncellendi." });
+      return buildJsonResponse({ message: "Preview restoran kaydı güncellendi." });
     }
 
     if (method === "DELETE") {
       previewRestaurants = previewRestaurants.filter((entry) => entry.id !== entryId);
-      return buildJsonResponse({ message: "Preview restoran kaydi silindi." });
+      return buildJsonResponse({ message: "Preview restoran kaydı silindi." });
     }
   }
 
@@ -2820,7 +2820,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const entryId = Number(pathname.split("/").pop());
     const index = previewSalesRecords.findIndex((entry) => entry.id === entryId);
     if (index < 0) {
-      return buildJsonResponse({ detail: "Satis firsati bulunamadi." }, 404);
+      return buildJsonResponse({ detail: "Satış fırsatı bulunamadı." }, 404);
     }
 
     if (method === "GET") {
@@ -2857,12 +2857,12 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
         notes: String(body.notes || previewSalesRecords[index].notes),
         updated_at: "2026-04-15T11:45:00Z",
       };
-      return buildJsonResponse({ message: "Preview satis kaydi guncellendi." });
+      return buildJsonResponse({ message: "Preview satış kaydı güncellendi." });
     }
 
     if (method === "DELETE") {
       previewSalesRecords = previewSalesRecords.filter((entry) => entry.id !== entryId);
-      return buildJsonResponse({ message: "Preview satis kaydi silindi." });
+      return buildJsonResponse({ message: "Preview satış kaydı silindi." });
     }
   }
 
@@ -2870,7 +2870,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const entryId = Number(pathname.split("/").pop());
     const index = previewPurchaseRecords.findIndex((entry) => entry.id === entryId);
     if (index < 0) {
-      return buildJsonResponse({ detail: "Satin alma kaydi bulunamadi." }, 404);
+      return buildJsonResponse({ detail: "Satın alma kaydı bulunamadı." }, 404);
     }
 
     if (method === "GET") {
@@ -2890,12 +2890,12 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
         invoice_no: String(body.invoice_no || previewPurchaseRecords[index].invoice_no),
         notes: String(body.notes || previewPurchaseRecords[index].notes),
       };
-      return buildJsonResponse({ message: "Preview satin alma kaydi guncellendi." });
+      return buildJsonResponse({ message: "Preview satın alma kaydı güncellendi." });
     }
 
     if (method === "DELETE") {
       previewPurchaseRecords = previewPurchaseRecords.filter((entry) => entry.id !== entryId);
-      return buildJsonResponse({ message: "Preview satin alma kaydi silindi." });
+      return buildJsonResponse({ message: "Preview satın alma kaydı silindi." });
     }
   }
 
@@ -2903,7 +2903,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const entryId = Number(pathname.split("/").pop());
     const index = previewEquipmentIssueRecords.findIndex((entry) => entry.id === entryId);
     if (index < 0) {
-      return buildJsonResponse({ detail: "Zimmet kaydi bulunamadi." }, 404);
+      return buildJsonResponse({ detail: "Zimmet kaydı bulunamadı." }, 404);
     }
 
     if (method === "GET") {
@@ -2914,7 +2914,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
 
     if (previewEquipmentIssueRecords[index].is_auto_record && (method === "PUT" || method === "DELETE")) {
       return buildJsonResponse(
-        { detail: "Otomatik olusan zimmet kayitlari preview modunda duzenlenemez." },
+        { detail: "Otomatik oluşan zimmet kayıtları preview modunda düzenlenemez." },
         400,
       );
     }
@@ -2932,12 +2932,12 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
         sale_type: String(body.sale_type || previewEquipmentIssueRecords[index].sale_type),
         notes: String(body.notes || previewEquipmentIssueRecords[index].notes),
       };
-      return buildJsonResponse({ message: "Preview zimmet kaydi guncellendi." });
+      return buildJsonResponse({ message: "Preview zimmet kaydı güncellendi." });
     }
 
     if (method === "DELETE") {
       previewEquipmentIssueRecords = previewEquipmentIssueRecords.filter((entry) => entry.id !== entryId);
-      return buildJsonResponse({ message: "Preview zimmet kaydi silindi." });
+      return buildJsonResponse({ message: "Preview zimmet kaydı silindi." });
     }
   }
 
@@ -2945,7 +2945,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const entryId = Number(pathname.split("/").pop());
     const index = previewBoxReturnRecords.findIndex((entry) => entry.id === entryId);
     if (index < 0) {
-      return buildJsonResponse({ detail: "Box geri alim kaydi bulunamadi." }, 404);
+      return buildJsonResponse({ detail: "Box geri alım kaydı bulunamadı." }, 404);
     }
 
     if (method === "GET") {
@@ -2965,12 +2965,12 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
         waived: Number(body.payout_amount || 0) <= 0,
         notes: String(body.notes || previewBoxReturnRecords[index].notes),
       };
-      return buildJsonResponse({ message: "Preview box geri alim kaydi guncellendi." });
+      return buildJsonResponse({ message: "Preview box geri alım kaydı güncellendi." });
     }
 
     if (method === "DELETE") {
       previewBoxReturnRecords = previewBoxReturnRecords.filter((entry) => entry.id !== entryId);
-      return buildJsonResponse({ message: "Preview box geri alim kaydi silindi." });
+      return buildJsonResponse({ message: "Preview box geri alım kaydı silindi." });
     }
   }
 
@@ -2991,7 +2991,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     };
     previewPersonnelRecords = [nextRecord, ...previewPersonnelRecords];
     return buildJsonResponse({
-      message: "Preview personel kaydi olusturuldu.",
+      message: "Preview personel kaydı oluşturuldu.",
       person_code: nextRecord.person_code,
     });
   }
@@ -3000,14 +3000,14 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const entryId = Number(pathname.split("/")[3]);
     const index = previewPersonnelRecords.findIndex((entry) => entry.id === entryId);
     if (index < 0) {
-      return buildJsonResponse({ detail: "Personel bulunamadi." }, 404);
+      return buildJsonResponse({ detail: "Personel bulunamadı." }, 404);
     }
     previewPersonnelRecords[index] = {
       ...previewPersonnelRecords[index],
       status: previewPersonnelRecords[index].status === "Aktif" ? "Pasif" : "Aktif",
     };
     return buildJsonResponse({
-      message: "Preview personel durumu guncellendi.",
+      message: "Preview personel durumu güncellendi.",
     });
   }
 
@@ -3015,7 +3015,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const entryId = Number(pathname.split("/").pop());
     const index = previewPersonnelRecords.findIndex((entry) => entry.id === entryId);
     if (index < 0) {
-      return buildJsonResponse({ detail: "Personel bulunamadi." }, 404);
+      return buildJsonResponse({ detail: "Personel bulunamadı." }, 404);
     }
 
     if (method === "GET") {
@@ -3039,7 +3039,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
         notes: String(body.notes || ""),
       };
       return buildJsonResponse({
-        message: "Preview personel kaydi guncellendi.",
+        message: "Preview personel kaydı güncellendi.",
         person_code: previewPersonnelRecords[index].person_code,
       });
     }
@@ -3047,7 +3047,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     if (method === "DELETE") {
       previewPersonnelRecords = previewPersonnelRecords.filter((entry) => entry.id !== entryId);
       return buildJsonResponse({
-        message: "Preview personel kaydi silindi.",
+        message: "Preview personel kaydı silindi.",
       });
     }
   }

@@ -274,7 +274,7 @@ function listCard(
               background: "rgba(255, 255, 255, 0.72)",
             }}
           >
-            Henuz kayit yok.
+            Henüz kayıt yok.
           </div>
         )}
       </div>
@@ -348,34 +348,34 @@ export default function EquipmentPage() {
         eyebrow: "Zimmet Nabzi",
         title:
           dashboard.summary.this_month_issues >= Math.max(4, dashboard.summary.total_box_returns)
-            ? "Bu ay zimmet akisi daha agir."
+            ? "Bu ay zimmet akışı daha agir."
             : "Zimmet ve iade dengesi korunuyor.",
-        body: `${dashboard.summary.this_month_issues} aylik zimmet ve ${dashboard.summary.total_box_returns} box iadesi ayni hatta okunuyor. Bu oran ekipman hareketinin ne kadar tek yone yukseldigini gosterir.`,
+        body: `${dashboard.summary.this_month_issues} aylık zimmet ve ${dashboard.summary.total_box_returns} box iadesi aynı hatta okunuyor. Bu oran ekipman hareketinin ne kadar tek yone yukseldigini gösterir.`,
         tone:
           dashboard.summary.this_month_issues >= Math.max(4, dashboard.summary.total_box_returns)
             ? "ink"
             : "paper",
       },
       {
-        eyebrow: "En Sicak Hareket",
-        title: topIssue ? `${topIssue.item_name} / ${topIssue.personnel_label}` : "Ekipman sinyali henuz yok.",
+        eyebrow: "En Sıcak Hareket",
+        title: topIssue ? `${topIssue.item_name} / ${topIssue.personnel_label}` : "Ekipman sinyali henüz yok.",
         body: topIssue
-          ? `${topIssue.issue_date} tarihli ${topIssue.quantity} adet teslim, ${formatCurrency(topIssue.total_sale)} satis etkisi tasiyor. ${topIssue.sale_type}${topIssue.is_auto_record ? " ve otomatik kaynak" : ""} gorunumuyle onde duruyor.`
-          : "Yeni zimmet hareketleri geldikce burada ilk dikkat isteyen ekipman karti gorunecek.",
+          ? `${topIssue.issue_date} tarihli ${topIssue.quantity} adet teslim, ${formatCurrency(topIssue.total_sale)} satış etkisi taşıyor. ${topIssue.sale_type}${topIssue.is_auto_record ? " ve otomatik kaynak" : ""} görünümüyle önde duruyor.`
+          : "Yeni zimmet hareketleri geldikçe burada ilk dikkat isteyen ekipman kartı görünecek.",
         tone: "paper",
       },
       {
-        eyebrow: installmentPressure ? "Taksit Baskisi" : "Karlilik Sinyali",
+        eyebrow: installmentPressure ? "Taksit Baskisi" : "Kârlılık Sinyali",
         title: installmentPressure
-          ? "Taksit satirlari agirlasiyor."
+          ? "Taksit satırları agirlasiyor."
           : topProfitItem
-            ? `${topProfitItem.item_name} onde gidiyor.`
-            : "Karlilik sinyali henuz yok.",
+            ? `${topProfitItem.item_name} önde gidiyor.`
+            : "Kârlılık sinyali henüz yok.",
         body: installmentPressure
-          ? `${dashboard.summary.installment_rows} taksit satiri var. Kesinti zincirinin bordroya etkisi daha yakin takip edilmeli.`
+          ? `${dashboard.summary.installment_rows} taksit satırı var. Kesinti zincirinin bordroya etkisi daha yakin takip edilmeli.`
           : topProfitItem
-            ? `${formatCurrency(topProfitItem.gross_profit)} brut kar ile ${topProfitItem.sold_qty} adet satis tasiyor. Filo ve ekipman hattinda en saglikli urun sinyallerinden biri bu.`
-            : "Satis ve alim ozetleri geldikce burada en verimli ekipman kalemi one cikarilacak.",
+            ? `${formatCurrency(topProfitItem.gross_profit)} brüt kar ile ${topProfitItem.sold_qty} adet satış taşıyor. Filo ve ekipman hattında en sağlıklı ürün sinyallerinden biri bu.`
+            : "Satış ve alım özetleri geldikçe burada en verimli ekipman kalemi öne çıkarılacak.",
         tone: installmentPressure ? "accent" : "paper",
       },
     ] as const;
@@ -437,7 +437,7 @@ export default function EquipmentPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Ekipman akisini sadece takip etmiyor, artik maliyet ve geri donusle birlikte okuyoruz.
+                  Ekipman akışını sadece takip etmiyor, artık maliyet ve geri dönüşle birlikte okuyoruz.
                 </h1>
                 <p
                   style={{
@@ -448,9 +448,9 @@ export default function EquipmentPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Zimmet, box iadesi, taksit dagilimi ve ekipman karliligini ayni karar
-                  katmaninda topluyoruz. Hedefimiz, sadece hareketi degil agirlik merkezi ve
-                  finansal etkisini de daha hizli gostermek.
+                  Zimmet, box iadesi, taksit dağılımı ve ekipman karliligini aynı karar
+                  katmaninda topluyoruz. Hedefimiz, sadece hareketi değil ağırlık merkezi ve
+                  finansal etkisini de daha hızlı göstermek.
                 </p>
               </div>
               <div
@@ -471,7 +471,7 @@ export default function EquipmentPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Zimmet ve iade ayni hatta
+                  Zimmet ve iade aynı hatta
                 </span>
                 <span
                   style={{
@@ -484,7 +484,7 @@ export default function EquipmentPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Karlilik ve taksit sinyali acik
+                  Kârlılık ve taksit sinyali açık
                 </span>
               </div>
             </div>
@@ -535,7 +535,7 @@ export default function EquipmentPage() {
                         fontWeight: 700,
                       }}
                     >
-                      {dashboard?.summary.this_month_issues ?? 0} aylik zimmet
+                      {dashboard?.summary.this_month_issues ?? 0} aylık zimmet
                     </div>
                   </div>
                   <div
@@ -549,7 +549,7 @@ export default function EquipmentPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Equipment Room
+                    Ekipman Odası
                   </div>
                 </div>
                 <div
@@ -597,7 +597,7 @@ export default function EquipmentPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Taksit Satiri
+                      Taksit Satırı
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
                       {dashboard?.summary.installment_rows ?? 0}
@@ -634,8 +634,8 @@ export default function EquipmentPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda once zimmet ve iade dengesine, sonra taksit baskisina ve en
-                  son satis karliligi sinyaline bakmak en saglikli operasyon okumasini verir.
+                  Bu ekranda önce zimmet ve iade dengesine, sonra taksit baskısına ve en
+                  son satış karliligi sinyaline bakmak en sağlıklı operasyon okumasini verir.
                 </div>
               </article>
             </div>
@@ -652,7 +652,7 @@ export default function EquipmentPage() {
               color: "var(--muted)",
             }}
           >
-            Ekipman verileri yukleniyor...
+            Ekipman verileri yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -665,8 +665,8 @@ export default function EquipmentPage() {
               lineHeight: 1.7,
             }}
           >
-            Ekipman servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran
-            son zimmetleri, box iadelerini ve taksit akislarini gercek veriden gosterecek.
+            Ekipman servisine su anda erisilemiyor. Backend hazır oldugunda bu ekran
+            son zimmetleri, box iadelerini ve taksit akışlarını gerçek veriden gösterecek.
           </div>
         ) : (
           <>
@@ -677,11 +677,11 @@ export default function EquipmentPage() {
                 gap: "14px",
               }}
             >
-              {metricCard("Toplam Zimmet", String(dashboard.summary.total_issues), "Tum teslim zinciri", "accent")}
-              {metricCard("Bu Ay Zimmet", String(dashboard.summary.this_month_issues), "Aylik ekipman hareketi")}
-              {metricCard("Taksit Satiri", String(dashboard.summary.installment_rows), "Kesinti hattina dusen taksitler")}
-              {metricCard("Box Iadesi", String(dashboard.summary.total_box_returns), "Toplam geri alim hareketi")}
-              {metricCard("Box Odemesi", formatCurrency(dashboard.summary.total_box_payout), "Iade icin cikan toplam odeme")}
+              {metricCard("Toplam Zimmet", String(dashboard.summary.total_issues), "Tüm teslim zinciri", "accent")}
+              {metricCard("Bu Ay Zimmet", String(dashboard.summary.this_month_issues), "Aylık ekipman hareketi")}
+              {metricCard("Taksit Satırı", String(dashboard.summary.installment_rows), "Kesinti hattına dusen taksitler")}
+              {metricCard("Box Iadesi", String(dashboard.summary.total_box_returns), "Toplam geri alım hareketi")}
+              {metricCard("Box Odemesi", formatCurrency(dashboard.summary.total_box_payout), "Iade için çıkan toplam ödeme")}
               {metricCard("Ayri Kalem", String(dashboard.summary.distinct_items), "Takip edilen ekipman cesidi")}
             </div>
 
@@ -715,7 +715,7 @@ export default function EquipmentPage() {
               )}
               {listCard(
                 "Son Box Iadeleri",
-                "Geri alinan box ve varsa personele odeme tutari.",
+                "Geri alinan box ve varsa personele ödeme tutari.",
                 dashboard.recent_box_returns.map((entry) => ({
                   title: entry.personnel_label,
                   meta: `${entry.return_date} · ${entry.quantity} adet · ${entry.waived ? "Talep edilmedi" : entry.condition_status}`,
@@ -724,7 +724,7 @@ export default function EquipmentPage() {
               )}
               {listCard(
                 "Taksit Akisi",
-                "Zimmetten otomatik olusan deduction satirlari.",
+                "Zimmetten otomatik oluşan deduction satırları.",
                 dashboard.installment_entries.map((entry) => ({
                   title: entry.personnel_label,
                   meta: `${entry.deduction_date} · ${entry.notes || entry.deduction_type}`,
@@ -741,20 +741,20 @@ export default function EquipmentPage() {
               }}
             >
               {listCard(
-                "Satis Karliligi",
-                "Satilan ekipmanlarda brüt kar sinyali tasiyan kalemler.",
+                "Satış Karliligi",
+                "Satilan ekipmanlarda brüt kar sinyali taşıyan kalemler.",
                 dashboard.sales_profit.map((entry) => ({
                   title: entry.item_name,
-                  meta: `${entry.sold_qty} adet · Maliyet ${formatCurrency(entry.total_cost)} · Satis ${formatCurrency(entry.total_sale)}`,
+                  meta: `${entry.sold_qty} adet · Maliyet ${formatCurrency(entry.total_cost)} · Satış ${formatCurrency(entry.total_sale)}`,
                   value: formatCurrency(entry.gross_profit),
                 })),
               )}
               {listCard(
-                "Alim Ozeti",
-                "Satinalma tarafinda hangi kalemin ne maliyetle beslendigini oku.",
+                "Alım Ozeti",
+                "Satinalma tarafında hangi kalemin ne maliyetle beslendigini oku.",
                 dashboard.purchase_summary.map((entry) => ({
                   title: entry.item_name,
-                  meta: `${entry.purchased_qty} adet · Toplam alim ${formatCurrency(entry.purchased_total)}`,
+                  meta: `${entry.purchased_qty} adet · Toplam alım ${formatCurrency(entry.purchased_total)}`,
                   value: `${formatCurrency(entry.weighted_unit_cost)}/adet`,
                 })),
               )}

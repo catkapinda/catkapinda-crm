@@ -104,7 +104,7 @@ export function AttendanceEntryWorkspace() {
     setSubmitSuccess("");
 
     if (typeof restaurantId !== "number") {
-      setSubmitError("Lutfen bir sube sec.");
+      setSubmitError("Lutfen bir şube seç.");
       return;
     }
 
@@ -133,11 +133,11 @@ export function AttendanceEntryWorkspace() {
       | null;
 
     if (!response.ok) {
-      setSubmitError(payload?.detail || "Kayit olusturulamadi.");
+      setSubmitError(payload?.detail || "Kayıt oluşturulamadı.");
       return;
     }
 
-    setSubmitSuccess(payload?.message || "Kayit olusturuldu.");
+    setSubmitSuccess(payload?.message || "Kayıt oluşturuldu.");
     setEntryMode("Restoran Kuryesi");
     setPrimaryPersonId("");
     setReplacementPersonId("");
@@ -175,7 +175,7 @@ export function AttendanceEntryWorkspace() {
             fontSize: "1.2rem",
           }}
         >
-          Gunluk Puantaj Girisi
+          Günlük Puantaj Girisi
         </h2>
         <p
           style={{
@@ -184,7 +184,7 @@ export function AttendanceEntryWorkspace() {
             lineHeight: 1.7,
           }}
         >
-          Bu ilk yazilabilir v2 formu, sube ve personel secimini gercek attendance API ile
+          Bu ilk yazilabilir v2 formu, şube ve personel secimini gerçek attendance API ile
           baglar.
         </p>
       </div>
@@ -198,7 +198,7 @@ export function AttendanceEntryWorkspace() {
             color: "var(--muted)",
           }}
         >
-          Attendance form secenekleri yukleniyor...
+          Attendance form secenekleri yükleniyor...
         </div>
       ) : (
         <form
@@ -226,7 +226,7 @@ export function AttendanceEntryWorkspace() {
             </label>
 
             <label style={{ display: "grid", gap: "8px" }}>
-              <span style={{ fontWeight: 700 }}>Sube</span>
+              <span style={{ fontWeight: 700 }}>Şube</span>
               <select
                 value={restaurantId}
                 onChange={(event) => {
@@ -267,7 +267,7 @@ export function AttendanceEntryWorkspace() {
           >
             <label style={{ display: "grid", gap: "8px" }}>
               <span style={{ fontWeight: 700 }}>
-                {needsReplacement ? "Normalde Girecek Personel" : "Calisan Personel"}
+                {needsReplacement ? "Normalde Girecek Personel" : "Çalışan Personel"}
               </span>
               <select
                 value={primaryPersonId}
@@ -353,7 +353,7 @@ export function AttendanceEntryWorkspace() {
 
             {isFixedMonthly ? (
               <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>Aylik Fatura Tutari</span>
+                <span style={{ fontWeight: 700 }}>Aylık Fatura Tutari</span>
                 <input
                   type="number"
                   step="0.01"
@@ -392,11 +392,11 @@ export function AttendanceEntryWorkspace() {
             >
               <strong style={{ color: "var(--text)" }}>{selectedRestaurant.label}</strong>
               {" "}
-              secili.
+              seçili.
               {isFixedMonthly ? (
                 <>
                   {" "}
-                  Bu sube sabit aylik ucret modeliyle calisiyor. Kayit icin varsayilan sabit
+                  Bu şube sabit aylık ucret modeliyle çalışıyor. Kayıt için varsayılan sabit
                   rakam:{" "}
                   <strong style={{ color: "var(--text)" }}>
                     {selectedRestaurant.fixed_monthly_fee.toLocaleString("tr-TR")} TL
@@ -448,7 +448,7 @@ export function AttendanceEntryWorkspace() {
               opacity: isPending ? 0.72 : 1,
             }}
           >
-            {isPending ? "Kayit yenileniyor..." : "Gunluk Puantaj Kaydet"}
+            {isPending ? "Kayıt yenileniyor..." : "Günlük Puantaj Kaydet"}
           </button>
         </form>
       )}

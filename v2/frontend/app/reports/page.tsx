@@ -413,34 +413,34 @@ export default function ReportsPage() {
 
     return [
       {
-        eyebrow: "Ayin Odagi",
+        eyebrow: "Ayın Odağı",
         title:
           marginRatio >= 18
-            ? "Marj resmi saglam gorunuyor."
+            ? "Marj resmi sağlam görünüyor."
             : marginRatio >= 10
               ? "Marj korunuyor ama dikkat istiyor."
               : "Marj alarm seviyesine yakin.",
-        body: `${dashboard.summary.selected_month} doneminde brut fark ${formatMoney(dashboard.summary.gross_profit)} ve marj %${formatNumber(marginRatio, 1)} seviyesinde.`,
+        body: `${dashboard.summary.selected_month} döneminde brüt fark ${formatMoney(dashboard.summary.gross_profit)} ve marj %${formatNumber(marginRatio, 1)} seviyesinde.`,
         tone: marginRatio >= 18 ? "ink" : "accent",
       },
       {
-        eyebrow: "En Guclu Restoran",
-        title: topRestaurant ? topRestaurant.restaurant : "Restoran sinyali henuz yok.",
+        eyebrow: "En Güçlü Restoran",
+        title: topRestaurant ? topRestaurant.restaurant : "Restoran sinyali henüz yok.",
         body: topRestaurant
-          ? `${topRestaurant.pricing_model} modeli ile ${formatMoney(topRestaurant.gross_invoice)} fatura uretiyor; ${formatNumber(topRestaurant.total_hours, 1)} saat ve ${formatNumber(topRestaurant.total_packages)} paket hacmi tasiyor.`
-          : "Ilk restoran sinyali geldikce bu kart ilgili ciro hareketini one cikaracak.",
+          ? `${topRestaurant.pricing_model} modeli ile ${formatMoney(topRestaurant.gross_invoice)} fatura üretiyor; ${formatNumber(topRestaurant.total_hours, 1)} saat ve ${formatNumber(topRestaurant.total_packages)} paket hacmi taşıyor.`
+          : "Ilk restoran sinyali geldikçe bu kart ilgili ciro hareketini öne çıkaracak.",
         tone: "paper",
       },
       {
         eyebrow: sideIncomePositive ? "Denge Katkisi" : "Risk Alani",
-        title: topCourier ? topCourier.personnel : "Maliyet lideri henuz yok.",
+        title: topCourier ? topCourier.personnel : "Maliyet lideri henüz yok.",
         body: topCourier
-          ? `${topCourier.role} rolunde ${formatMoney(topCourier.net_cost)} net maliyet tasiyor. ${formatMoney(topCourier.total_deductions)} kesinti etkisiyle birlikte ${
-              topModel ? `${topModel.pricing_model} modeli ayin ana hacmini surukluyor.` : "model dagilimi bu maliyeti okumakta kritik."
+          ? `${topCourier.role} rolünde ${formatMoney(topCourier.net_cost)} net maliyet taşıyor. ${formatMoney(topCourier.total_deductions)} kesinti etkisiyle birlikte ${
+              topModel ? `${topModel.pricing_model} modeli ayın ana hacmini sürüklüyor.` : "model dağılımı bu maliyeti okumakta kritik."
             }`
           : sideIncomePositive
             ? `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Kesinti ve ek gelirler genel resmi su anda destekliyor.`
-            : `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Kesinti ve ek gelir tarafini daha yakindan izlemek gerekiyor.`,
+            : `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Kesinti ve ek gelir tarafını daha yakından izlemek gerekiyor.`,
         tone: sideIncomePositive ? "paper" : "accent",
       },
     ] as const;
@@ -517,7 +517,7 @@ export default function ReportsPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Karlilik ve Rapor
+                Kârlılık ve Rapor
               </div>
               <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
                 <h1
@@ -529,7 +529,7 @@ export default function ReportsPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Aylik resmi yalnizca okumuyor, artik yonlendiriyoruz.
+                  Aylık resmi yalnızca okumuyor, artık yonlendiriyoruz.
                 </h1>
                 <p
                   style={{
@@ -540,9 +540,9 @@ export default function ReportsPage() {
                     lineHeight: 1.78,
                   }}
                 >
-                  Fatura, maliyet, marj ve model dagilimlarini ayni editorial yuzeyde
-                  toplayip hangi hattin iyi gittigini, hangi alanin dikkat istedigini
-                  daha hizli gormeyi hedefliyoruz.
+                  Fatura, maliyet, marj ve model dağılımlarını aynı editoryal yüzeyde
+                  toplayip hangi hattın iyi gittigini, hangi alanin dikkat istedigini
+                  daha hızlı gormeyi hedefliyoruz.
                 </p>
               </div>
               <div
@@ -563,7 +563,7 @@ export default function ReportsPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Karar katmani aktif
+                  Karar katmanı aktif
                 </span>
                 <span
                   style={{
@@ -576,7 +576,7 @@ export default function ReportsPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Fatura ve maliyet ayni satirda
+                  Fatura ve maliyet aynı satırda
                 </span>
               </div>
             </div>
@@ -617,7 +617,7 @@ export default function ReportsPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Rapor Donemi
+                      Rapor Dönemi
                     </div>
                     <div
                       style={{
@@ -627,7 +627,7 @@ export default function ReportsPage() {
                         fontWeight: 700,
                       }}
                     >
-                      {(dashboard?.summary?.selected_month ?? selectedMonth) || "Ay sec"}
+                      {(dashboard?.summary?.selected_month ?? selectedMonth) || "Ay seç"}
                     </div>
                   </div>
                   <div
@@ -641,7 +641,7 @@ export default function ReportsPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Decision Room
+                    Karar Odası
                   </div>
                 </div>
                 <select
@@ -746,8 +746,8 @@ export default function ReportsPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu yuzeyde once fark ve marja, sonra model dagilimi ile en yuksek
-                  fatura ve maliyet tasiyan isimlere bakmak en saglikli okuma sirasini verir.
+                  Bu yüzeyde önce fark ve marja, sonra model dağılımı ile en yüksek
+                  fatura ve maliyet taşıyan isimlere bakmak en sağlıklı okuma sirasini verir.
                 </div>
               </article>
             </div>
@@ -764,7 +764,7 @@ export default function ReportsPage() {
               color: "var(--muted)",
             }}
           >
-            Rapor verileri yukleniyor...
+            Rapor verileri yükleniyor...
           </div>
         ) : !dashboard || !dashboard.summary ? (
           <div
@@ -777,8 +777,8 @@ export default function ReportsPage() {
               lineHeight: 1.7,
             }}
           >
-            Rapor servisine su anda erisilemiyor. Backend hazir oldugunda restoran
-            faturasi ve kurye maliyeti burada gercek veriden acilacak.
+            Rapor servisine su anda erisilemiyor. Backend hazır oldugunda restoran
+            faturası ve kurye maliyeti burada gerçek veriden açılacak.
           </div>
         ) : (
           <>
@@ -825,7 +825,7 @@ export default function ReportsPage() {
             >
               <ScrollCard
                 title="Restoran Faturası"
-                subtitle="Şube bazlı toplam saat, paket ve restoran faturası. Liste kendi içinde scroll eder."
+                subtitle="Şube bazlı toplam saat, paket ve restoran faturası. Liste kendi içinde kaydırılabilir."
                 actions={
                   <input
                     value={invoiceQuery}
@@ -870,7 +870,7 @@ export default function ReportsPage() {
 
               <ScrollCard
                 title="Kurye Maliyeti"
-                subtitle="Personel bazlı saat, paket, kesinti ve net maliyet görünümü. Liste kendi içinde scroll eder."
+                subtitle="Personel bazlı saat, paket, kesinti ve net maliyet görünümü. Liste kendi içinde kaydırılabilir."
                 actions={
                   <input
                     value={costQuery}

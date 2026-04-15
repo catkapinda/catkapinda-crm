@@ -270,7 +270,7 @@ export function EquipmentManagementWorkspace() {
       }
       const response = await apiFetch(`/equipment/box-returns?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Box geri alim listesi yuklenemedi.");
+        throw new Error("Box geri alım listesi yuklenemedi.");
       }
       const payload = (await response.json()) as BoxReturnsManagementResponse;
       setBoxEntries(payload.entries);
@@ -286,7 +286,7 @@ export function EquipmentManagementWorkspace() {
       });
     } catch (error) {
       setBoxListError(
-        error instanceof Error ? error.message : "Box geri alim listesi yuklenemedi.",
+        error instanceof Error ? error.message : "Box geri alım listesi yuklenemedi.",
       );
       setBoxEntries([]);
       setBoxTotalEntries(0);
@@ -303,7 +303,7 @@ export function EquipmentManagementWorkspace() {
     try {
       const response = await apiFetch(`/equipment/box-returns/${entryId}`);
       if (!response.ok) {
-        throw new Error("Box geri alim detayi yuklenemedi.");
+        throw new Error("Box geri alım detayi yuklenemedi.");
       }
       const payload = (await response.json()) as BoxReturnDetailResponse;
       const entry = payload.entry;
@@ -315,7 +315,7 @@ export function EquipmentManagementWorkspace() {
       setEditBoxNotes(entry.notes ?? "");
     } catch (error) {
       setBoxSaveError(
-        error instanceof Error ? error.message : "Box geri alim detayi yuklenemedi.",
+        error instanceof Error ? error.message : "Box geri alım detayi yuklenemedi.",
       );
     } finally {
       setBoxDetailLoading(false);
@@ -367,7 +367,7 @@ export function EquipmentManagementWorkspace() {
   async function handleIssueSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedIssueId || typeof editIssuePersonnelId !== "number") {
-      setIssueSaveError("Duzenlenecek zimmet kaydini sec.");
+      setIssueSaveError("Duzenlenecek zimmet kaydini seç.");
       return;
     }
     setIssueSaveError("");
@@ -393,10 +393,10 @@ export function EquipmentManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setIssueSaveError(payload?.detail || "Zimmet kaydi guncellenemedi.");
+      setIssueSaveError(payload?.detail || "Zimmet kaydı güncellenemedi.");
       return;
     }
-    setIssueSaveSuccess(payload?.message || "Zimmet kaydi guncellendi.");
+    setIssueSaveSuccess(payload?.message || "Zimmet kaydı güncellendi.");
     startTransition(() => {
       router.refresh();
     });
@@ -406,7 +406,7 @@ export function EquipmentManagementWorkspace() {
 
   async function handleIssueDelete() {
     if (!selectedIssueId) {
-      setIssueSaveError("Silinecek zimmet kaydini sec.");
+      setIssueSaveError("Silinecek zimmet kaydini seç.");
       return;
     }
     setIssueSaveError("");
@@ -418,10 +418,10 @@ export function EquipmentManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setIssueSaveError(payload?.detail || "Zimmet kaydi silinemedi.");
+      setIssueSaveError(payload?.detail || "Zimmet kaydı silinemedi.");
       return;
     }
-    setIssueSaveSuccess(payload?.message || "Zimmet kaydi silindi.");
+    setIssueSaveSuccess(payload?.message || "Zimmet kaydı silindi.");
     startTransition(() => {
       router.refresh();
     });
@@ -431,7 +431,7 @@ export function EquipmentManagementWorkspace() {
   async function handleBoxSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedBoxId || typeof editBoxPersonnelId !== "number") {
-      setBoxSaveError("Duzenlenecek box kaydini sec.");
+      setBoxSaveError("Duzenlenecek box kaydini seç.");
       return;
     }
     setBoxSaveError("");
@@ -454,10 +454,10 @@ export function EquipmentManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setBoxSaveError(payload?.detail || "Box geri alim kaydi guncellenemedi.");
+      setBoxSaveError(payload?.detail || "Box geri alım kaydı güncellenemedi.");
       return;
     }
-    setBoxSaveSuccess(payload?.message || "Box geri alim kaydi guncellendi.");
+    setBoxSaveSuccess(payload?.message || "Box geri alım kaydı güncellendi.");
     startTransition(() => {
       router.refresh();
     });
@@ -467,7 +467,7 @@ export function EquipmentManagementWorkspace() {
 
   async function handleBoxDelete() {
     if (!selectedBoxId) {
-      setBoxSaveError("Silinecek box kaydini sec.");
+      setBoxSaveError("Silinecek box kaydini seç.");
       return;
     }
     setBoxSaveError("");
@@ -479,10 +479,10 @@ export function EquipmentManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setBoxSaveError(payload?.detail || "Box geri alim kaydi silinemedi.");
+      setBoxSaveError(payload?.detail || "Box geri alım kaydı silinemedi.");
       return;
     }
-    setBoxSaveSuccess(payload?.message || "Box geri alim kaydi silindi.");
+    setBoxSaveSuccess(payload?.message || "Box geri alım kaydı silindi.");
     startTransition(() => {
       router.refresh();
     });
@@ -504,7 +504,7 @@ export function EquipmentManagementWorkspace() {
         <div>
           <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Zimmet Yonetimi</h2>
           <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-            Zimmet kayitlarini filtrele, sec, guncelle ve bagli taksitleriyle temizle.
+            Zimmet kayıtlarını filtrele, seç, güncelle ve bağlı taksitleriyle temizle.
           </p>
         </div>
 
@@ -532,7 +532,7 @@ export function EquipmentManagementWorkspace() {
                 }}
                 style={fieldStyle}
               >
-                <option value="">Tum personel</option>
+                <option value="">Tüm personel</option>
                 {options?.personnel.map((person) => (
                   <option key={person.id} value={person.id}>
                     {person.label}
@@ -544,7 +544,7 @@ export function EquipmentManagementWorkspace() {
                 onChange={(event) => setIssueFilterItemName(event.target.value)}
                 style={fieldStyle}
               >
-                <option value="">Tum kalemler</option>
+                <option value="">Tüm kalemler</option>
                 {options?.issue_items.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -581,7 +581,7 @@ export function EquipmentManagementWorkspace() {
                   color: "var(--muted)",
                 }}
               >
-                Zimmet listesi yukleniyor...
+                Zimmet listesi yükleniyor...
               </div>
             ) : issueListError ? (
               <div
@@ -693,12 +693,12 @@ export function EquipmentManagementWorkspace() {
                         fontWeight: 800,
                       }}
                     >
-                      Secili Zimmet
+                      Seçili Zimmet
                     </div>
                     <h3 style={{ margin: "6px 0 0" }}>{selectedIssue.item_name}</h3>
                   </div>
                   <span style={pill(selectedIssue.is_auto_record ? "warn" : "muted")}>
-                    {selectedIssue.is_auto_record ? "Otomatik kayit" : "Manuel kayit"}
+                    {selectedIssue.is_auto_record ? "Otomatik kayıt" : "Manuel kayıt"}
                   </span>
                 </div>
 
@@ -750,7 +750,7 @@ export function EquipmentManagementWorkspace() {
                     </select>
                   </label>
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Satis Tipi</span>
+                    <span style={{ fontWeight: 700 }}>Satış Tipi</span>
                     <select
                       value={editSaleType}
                       onChange={(event) => setEditSaleType(event.target.value)}
@@ -789,7 +789,7 @@ export function EquipmentManagementWorkspace() {
                     />
                   </label>
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Birim Satis</span>
+                    <span style={{ fontWeight: 700 }}>Birim Satış</span>
                     <input
                       type="number"
                       min="0"
@@ -842,7 +842,7 @@ export function EquipmentManagementWorkspace() {
                     <strong style={{ color: "var(--text)" }}>{formatCurrency(selectedIssue.total_cost)}</strong>
                   </div>
                   <div>
-                    <div>Toplam Satis</div>
+                    <div>Toplam Satış</div>
                     <strong style={{ color: "var(--text)" }}>{formatCurrency(selectedIssue.total_sale)}</strong>
                   </div>
                   <div>
@@ -888,7 +888,7 @@ export function EquipmentManagementWorkspace() {
                       cursor: "pointer",
                     }}
                   >
-                    {isPending ? "Kaydediliyor..." : "Zimmeti Guncelle"}
+                    {isPending ? "Kaydediliyor..." : "Zimmeti Güncelle"}
                   </button>
                   <button
                     type="button"
@@ -918,7 +918,7 @@ export function EquipmentManagementWorkspace() {
                   background: "rgba(255, 255, 255, 0.76)",
                 }}
               >
-                Duzenlemek icin sol taraftan bir zimmet kaydi sec.
+                Düzenlemek için sol taraftan bir zimmet kaydı seç.
               </div>
             )}
           </form>
@@ -936,9 +936,9 @@ export function EquipmentManagementWorkspace() {
         }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Box Geri Alim Yonetimi</h2>
+          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Box Geri Alım Yonetimi</h2>
           <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-            Iade kayitlarini filtrele, sec, guncelle ve odeme durumuyla takip et.
+            İade kayıtlarını filtrele, seç, güncelle ve ödeme durumuyla takip et.
           </p>
         </div>
 
@@ -966,7 +966,7 @@ export function EquipmentManagementWorkspace() {
                 }}
                 style={fieldStyle}
               >
-                <option value="">Tum personel</option>
+                <option value="">Tüm personel</option>
                 {options?.personnel.map((person) => (
                   <option key={person.id} value={person.id}>
                     {person.label}
@@ -1003,7 +1003,7 @@ export function EquipmentManagementWorkspace() {
                   color: "var(--muted)",
                 }}
               >
-                Box geri alim listesi yukleniyor...
+                Box geri alım listesi yükleniyor...
               </div>
             ) : boxListError ? (
               <div
@@ -1104,7 +1104,7 @@ export function EquipmentManagementWorkspace() {
                       fontWeight: 800,
                     }}
                   >
-                    Secili Box Iadesi
+                    Seçili Box Iadesi
                   </div>
                   <h3 style={{ margin: "6px 0 0" }}>{selectedBox.personnel_label}</h3>
                 </div>
@@ -1131,7 +1131,7 @@ export function EquipmentManagementWorkspace() {
                     </select>
                   </label>
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Iade Tarihi</span>
+                    <span style={{ fontWeight: 700 }}>İade Tarihi</span>
                     <input
                       type="date"
                       value={editReturnDate}
@@ -1165,7 +1165,7 @@ export function EquipmentManagementWorkspace() {
                     </select>
                   </label>
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Odeme Tutarı</span>
+                    <span style={{ fontWeight: 700 }}>Ödeme Tutarı</span>
                     <input
                       type="number"
                       min="0"
@@ -1220,7 +1220,7 @@ export function EquipmentManagementWorkspace() {
                       cursor: "pointer",
                     }}
                   >
-                    {isPending ? "Kaydediliyor..." : "Box Kaydini Guncelle"}
+                    {isPending ? "Kaydediliyor..." : "Box Kaydini Güncelle"}
                   </button>
                   <button
                     type="button"
@@ -1250,7 +1250,7 @@ export function EquipmentManagementWorkspace() {
                   background: "rgba(255, 255, 255, 0.76)",
                 }}
               >
-                Duzenlemek icin sol taraftan bir box geri alim kaydi sec.
+                Düzenlemek için sol taraftan bir box geri alım kaydı seç.
               </div>
             )}
           </form>

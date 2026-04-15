@@ -141,7 +141,7 @@ export function EquipmentEntryWorkspace() {
     setIssueError("");
     setIssueSuccess("");
     if (typeof issuePersonnelId !== "number") {
-      setIssueError("Lutfen bir personel sec.");
+      setIssueError("Lutfen bir personel seç.");
       return;
     }
 
@@ -166,11 +166,11 @@ export function EquipmentEntryWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setIssueError(payload?.detail || "Zimmet kaydi olusturulamadi.");
+      setIssueError(payload?.detail || "Zimmet kaydı oluşturulamadı.");
       return;
     }
 
-    setIssueSuccess(payload?.message || "Zimmet kaydi olusturuldu.");
+    setIssueSuccess(payload?.message || "Zimmet kaydı oluşturuldu.");
     setQuantity("1");
     setIssueNotes("");
     startTransition(() => {
@@ -183,7 +183,7 @@ export function EquipmentEntryWorkspace() {
     setBoxError("");
     setBoxSuccess("");
     if (typeof boxPersonnelId !== "number") {
-      setBoxError("Lutfen bir personel sec.");
+      setBoxError("Lutfen bir personel seç.");
       return;
     }
 
@@ -205,11 +205,11 @@ export function EquipmentEntryWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setBoxError(payload?.detail || "Box geri alim kaydi olusturulamadi.");
+      setBoxError(payload?.detail || "Box geri alım kaydı oluşturulamadı.");
       return;
     }
 
-    setBoxSuccess(payload?.message || "Box geri alim kaydi olusturuldu.");
+    setBoxSuccess(payload?.message || "Box geri alım kaydı oluşturuldu.");
     setReturnQuantity("1");
     setPayoutAmount("0");
     setBoxNotes("");
@@ -237,9 +237,9 @@ export function EquipmentEntryWorkspace() {
         }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Zimmet Kaydi</h2>
+          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Zimmet Kaydı</h2>
           <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-            Ekipman teslim, satis ve depozit kayitlarini ayni yuzeyden olustur.
+            Ekipman teslim, satış ve depozit kayıtlarını aynı yüzeyden oluştur.
           </p>
         </div>
 
@@ -252,7 +252,7 @@ export function EquipmentEntryWorkspace() {
               color: "var(--muted)",
             }}
           >
-            Ekipman secenekleri yukleniyor...
+            Ekipman secenekleri yükleniyor...
           </div>
         ) : (
           <form onSubmit={handleIssueSubmit} style={{ display: "grid", gap: "16px" }}>
@@ -297,7 +297,7 @@ export function EquipmentEntryWorkspace() {
                 </select>
               </label>
               <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>Satis Tipi</span>
+                <span style={{ fontWeight: 700 }}>Satış Tipi</span>
                 <select value={saleType} onChange={(event) => setSaleType(event.target.value)} style={fieldStyle}>
                   {options?.sale_type_options.map((type) => (
                     <option key={type} value={type}>
@@ -330,7 +330,7 @@ export function EquipmentEntryWorkspace() {
                 />
               </label>
               <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>Birim Satis</span>
+                <span style={{ fontWeight: 700 }}>Birim Satış</span>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -403,7 +403,7 @@ export function EquipmentEntryWorkspace() {
                   <div style={{ fontWeight: 800 }}>{formatCurrency(issueSummary.totalCost)}</div>
                 </div>
                 <div>
-                  <div style={{ color: "var(--muted)", fontSize: "0.82rem" }}>Toplam Satis</div>
+                  <div style={{ color: "var(--muted)", fontSize: "0.82rem" }}>Toplam Satış</div>
                   <div style={{ fontWeight: 800 }}>{formatCurrency(issueSummary.totalSale)}</div>
                 </div>
                 <div>
@@ -451,7 +451,7 @@ export function EquipmentEntryWorkspace() {
                 boxShadow: "0 16px 28px rgba(15, 95, 215, 0.2)",
               }}
             >
-              {isPending ? "Kaydediliyor..." : "Zimmet Kaydini Olustur"}
+              {isPending ? "Kaydediliyor..." : "Zimmet Kaydini Oluştur"}
             </button>
           </form>
         )}
@@ -468,9 +468,9 @@ export function EquipmentEntryWorkspace() {
         }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Box Geri Alim</h2>
+          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Box Geri Alım</h2>
           <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-            Iade alinmis box adetlerini ve varsa odeme tutarini operasyon kaydina bagla.
+            İade alınmış box adetlerini ve varsa ödeme tutarını operasyon kaydına bağla.
           </p>
         </div>
 
@@ -483,7 +483,7 @@ export function EquipmentEntryWorkspace() {
               color: "var(--muted)",
             }}
           >
-            Box geri alim secenekleri yukleniyor...
+            Box geri alım secenekleri yükleniyor...
           </div>
         ) : (
           <form onSubmit={handleBoxSubmit} style={{ display: "grid", gap: "16px" }}>
@@ -509,7 +509,7 @@ export function EquipmentEntryWorkspace() {
                 </select>
               </label>
               <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>Iade Tarihi</span>
+                <span style={{ fontWeight: 700 }}>İade Tarihi</span>
                 <input
                   type="date"
                   value={returnDate}
@@ -543,7 +543,7 @@ export function EquipmentEntryWorkspace() {
                 </select>
               </label>
               <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>Odeme Tutarı</span>
+                <span style={{ fontWeight: 700 }}>Ödeme Tutarı</span>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -601,7 +601,7 @@ export function EquipmentEntryWorkspace() {
                 boxShadow: "0 16px 28px rgba(16, 32, 60, 0.2)",
               }}
             >
-              {isPending ? "Kaydediliyor..." : "Box Geri Alim Kaydini Olustur"}
+              {isPending ? "Kaydediliyor..." : "Box Geri Alım Kaydini Oluştur"}
             </button>
           </form>
         )}

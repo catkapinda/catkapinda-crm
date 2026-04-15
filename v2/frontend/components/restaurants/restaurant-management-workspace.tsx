@@ -239,7 +239,7 @@ export function RestaurantManagementWorkspace() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedEntryId) {
-      setSaveError("Duzenlenecek restoran sec.");
+      setSaveError("Duzenlenecek restoran seç.");
       return;
     }
 
@@ -285,11 +285,11 @@ export function RestaurantManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setSaveError(payload?.detail || "Restoran kaydi guncellenemedi.");
+      setSaveError(payload?.detail || "Restoran kaydı güncellenemedi.");
       return;
     }
 
-    setSaveSuccess(payload?.message || "Restoran kaydi guncellendi.");
+    setSaveSuccess(payload?.message || "Restoran kaydı güncellendi.");
     startTransition(() => {
       router.refresh();
     });
@@ -299,7 +299,7 @@ export function RestaurantManagementWorkspace() {
 
   async function handleToggleStatus() {
     if (!selectedEntryId) {
-      setSaveError("Durumu degistirilecek restoran sec.");
+      setSaveError("Durumu değiştirilecek restoran seç.");
       return;
     }
     setSaveError("");
@@ -312,10 +312,10 @@ export function RestaurantManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setSaveError(payload?.detail || "Restoran durumu degistirilemedi.");
+      setSaveError(payload?.detail || "Restoran durumu değiştirilemedi.");
       return;
     }
-    setSaveSuccess(payload?.message || "Restoran durumu guncellendi.");
+    setSaveSuccess(payload?.message || "Restoran durumu güncellendi.");
     startTransition(() => {
       router.refresh();
     });
@@ -325,7 +325,7 @@ export function RestaurantManagementWorkspace() {
 
   async function handleDelete() {
     if (!selectedEntryId) {
-      setSaveError("Silinecek restoran sec.");
+      setSaveError("Silinecek restoran seç.");
       return;
     }
     setSaveError("");
@@ -338,10 +338,10 @@ export function RestaurantManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setSaveError(payload?.detail || "Restoran kaydi silinemedi.");
+      setSaveError(payload?.detail || "Restoran kaydı silinemedi.");
       return;
     }
-    setSaveSuccess(payload?.message || "Restoran kaydi silindi.");
+    setSaveSuccess(payload?.message || "Restoran kaydı silindi.");
     startTransition(() => {
       router.refresh();
     });
@@ -360,9 +360,9 @@ export function RestaurantManagementWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Restoran Kayit Yonetimi</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Restoran Kayıt Yonetimi</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Sube kartlarini filtrele, sec, guncelle, pasife al veya kalici olarak sil.
+          Şube kartlarini filtrele, seç, güncelle, pasife al veya kalıcı olarak sil.
         </p>
       </div>
 
@@ -394,7 +394,7 @@ export function RestaurantManagementWorkspace() {
             <input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Marka, sube, yetkili veya unvan ara"
+              placeholder="Marka, şube, yetkili veya unvan ara"
               style={fieldStyle}
             />
             <select
@@ -402,7 +402,7 @@ export function RestaurantManagementWorkspace() {
               onChange={(event) => setFilterPricingModel(event.target.value)}
               style={fieldStyle}
             >
-              <option value="">Tum Modeller</option>
+              <option value="">Tüm Modeller</option>
               {options?.pricing_models.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
@@ -414,7 +414,7 @@ export function RestaurantManagementWorkspace() {
               onChange={(event) => setFilterStatus(event.target.value as "all" | "active" | "passive")}
               style={fieldStyle}
             >
-              <option value="all">Tum Durumlar</option>
+              <option value="all">Tüm Durumlar</option>
               <option value="active">Aktif</option>
               <option value="passive">Pasif</option>
             </select>
@@ -430,11 +430,11 @@ export function RestaurantManagementWorkspace() {
             }}
           >
             {listLoading ? (
-              <div style={{ color: "var(--muted)" }}>Restoran listesi yukleniyor...</div>
+              <div style={{ color: "var(--muted)" }}>Restoran listesi yükleniyor...</div>
             ) : listError ? (
               <div style={{ color: "#b53632" }}>{listError}</div>
             ) : !entries.length ? (
-              <div style={{ color: "var(--muted)" }}>Filtreye uyan restoran kaydi bulunamadi.</div>
+              <div style={{ color: "var(--muted)" }}>Filtreye uyan restoran kaydı bulunamadı.</div>
             ) : (
               entries.map((entry) => (
                 <button
@@ -502,7 +502,7 @@ export function RestaurantManagementWorkspace() {
             )}
           </div>
           <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
-            Toplam {totalEntries} restoran kaydi.
+            Toplam {totalEntries} restoran kaydı.
           </div>
         </div>
 
@@ -526,9 +526,9 @@ export function RestaurantManagementWorkspace() {
             }}
           >
             <div>
-              <div style={{ fontSize: "1rem", fontWeight: 900 }}>Secili Kart</div>
+              <div style={{ fontSize: "1rem", fontWeight: 900 }}>Seçili Kart</div>
               <div style={{ color: "var(--muted)", marginTop: "4px" }}>
-                {selectedEntry ? `${selectedEntry.brand} - ${selectedEntry.branch}` : "Restoran sec"}
+                {selectedEntry ? `${selectedEntry.brand} - ${selectedEntry.branch}` : "Restoran seç"}
               </div>
             </div>
             <span
@@ -548,7 +548,7 @@ export function RestaurantManagementWorkspace() {
           </div>
 
           {detailLoading ? (
-            <div style={{ color: "var(--muted)" }}>Detay yukleniyor...</div>
+            <div style={{ color: "var(--muted)" }}>Detay yükleniyor...</div>
           ) : selectedEntry ? (
             <>
               <div
@@ -559,7 +559,7 @@ export function RestaurantManagementWorkspace() {
                 }}
               >
                 <input value={editBrand} onChange={(event) => setEditBrand(event.target.value)} placeholder="Marka" style={fieldStyle} />
-                <input value={editBranch} onChange={(event) => setEditBranch(event.target.value)} placeholder="Sube" style={fieldStyle} />
+                <input value={editBranch} onChange={(event) => setEditBranch(event.target.value)} placeholder="Şube" style={fieldStyle} />
                 <select value={editPricingModel} onChange={(event) => setEditPricingModel(event.target.value)} style={fieldStyle}>
                   {options?.pricing_models.map((item) => (
                     <option key={item.value} value={item.value}>
@@ -608,7 +608,7 @@ export function RestaurantManagementWorkspace() {
                 )}
 
                 {editPricingModel === "fixed_monthly" && (
-                  <input value={editFixedMonthlyFee} onChange={(event) => setEditFixedMonthlyFee(event.target.value)} placeholder="Sabit Aylik Ucret" style={fieldStyle} />
+                  <input value={editFixedMonthlyFee} onChange={(event) => setEditFixedMonthlyFee(event.target.value)} placeholder="Sabit Aylık Ucret" style={fieldStyle} />
                 )}
               </div>
 
@@ -683,18 +683,18 @@ export function RestaurantManagementWorkspace() {
                   disabled={isPending}
                   style={actionButton("primary")}
                 >
-                  {isPending ? "Kaydediliyor..." : "Guncelle"}
+                  {isPending ? "Kaydediliyor..." : "Güncelle"}
                 </button>
                 <button type="button" onClick={handleToggleStatus} style={actionButton("soft")}>
                   {selectedEntry.active ? "Pasife Al" : "Aktiflestir"}
                 </button>
                 <button type="button" onClick={handleDelete} style={actionButton("danger")}>
-                  Kalici Sil
+                  Kalıcı Sil
                 </button>
               </div>
             </>
           ) : (
-            <div style={{ color: "var(--muted)" }}>Detay formu icin soldan restoran sec.</div>
+            <div style={{ color: "var(--muted)" }}>Detay formu için soldan restoran seç.</div>
           )}
         </form>
       </div>

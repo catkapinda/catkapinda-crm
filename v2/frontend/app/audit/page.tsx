@@ -239,7 +239,7 @@ function listCard(
               background: "rgba(255, 255, 255, 0.72)",
             }}
           >
-            Henuz kayit yok.
+            Henüz kayıt yok.
           </div>
         )}
       </div>
@@ -262,7 +262,7 @@ function formatTimestamp(value: string) {
 }
 
 function formatActor(entry: AuditDashboard["recent_entries"][number]) {
-  return entry.actor_full_name || entry.actor_username || "Bilinmeyen kullanici";
+  return entry.actor_full_name || entry.actor_username || "Bilinmeyen kullanıcı";
 }
 
 function countEntries(values: string[]) {
@@ -340,33 +340,33 @@ export default function AuditPage() {
 
     return [
       {
-        eyebrow: "Kayit Nabzi",
-        title: recentPressure ? "Son 7 gun daha hizli akiyor." : "Kayit ritmi kontrollu gorunuyor.",
-        body: `${dashboard.summary.last_7_days} kayit son 7 gunde olustu. Toplam ${dashboard.summary.total_entries} kayit icinde bu ritim, sistemde degisimin ne kadar taze oldugunu hizla anlatir.`,
+        eyebrow: "Kayıt Nabzi",
+        title: recentPressure ? "Son 7 gün daha hızlı akiyor." : "Kayıt ritmi kontrollü görünüyor.",
+        body: `${dashboard.summary.last_7_days} kayıt son 7 gunde olustu. Toplam ${dashboard.summary.total_entries} kayıt içinde bu ritim, sistemde degisimin ne kadar taze oldugunu hizla anlatır.`,
         tone: recentPressure ? "ink" : "paper",
       },
       {
-        eyebrow: "En Sicak Aksiyon",
+        eyebrow: "En Sıcak Aksiyon",
         title: topEntry
           ? `${topEntry.action_type} · ${topEntry.entity_type}`
-          : "Aksiyon sinyali henuz yok.",
+          : "Aksiyon sinyali henüz yok.",
         body: topEntry
-          ? `${formatActor(topEntry)} tarafindan ${formatTimestamp(topEntry.created_at)} aninda tetiklendi. ${topEntry.summary || "Bu hareket detay akisi icinde ilk okunacak olaylardan biri."}`
-          : "Yeni audit hareketleri geldikce burada ilk dikkat isteyen aksiyon gorunecek.",
+          ? `${formatActor(topEntry)} tarafindan ${formatTimestamp(topEntry.created_at)} aninda tetiklendi. ${topEntry.summary || "Bu hareket detay akışı içinde ilk okunacak olaylardan biri."}`
+          : "Yeni audit hareketleri geldikçe burada ilk dikkat isteyen aksiyon görünecek.",
         tone: "paper",
       },
       {
-        eyebrow: actorSpreadWide ? "Oyuncu Dagilimi" : "Varlik Baskisi",
+        eyebrow: actorSpreadWide ? "Oyuncu Dagilimi" : "Varlık Baskisi",
         title: actorSpreadWide
-          ? "Kayit izi ekibe yayiliyor."
+          ? "Kayıt izi ekibe yayiliyor."
           : dominantEntity
-            ? `${dominantEntity[0]} onde gidiyor.`
-            : "Dagilim sinyali henuz yok.",
+            ? `${dominantEntity[0]} önde gidiyor.`
+            : "Dagilim sinyali henüz yok.",
         body: actorSpreadWide
-          ? `${dashboard.summary.unique_actors} farkli kullanici ve ${dashboard.summary.unique_entities} farkli varlik izleniyor. Bu dagilim, denetim akisinin tek kisiye bagli kalmadigini gosterir.`
+          ? `${dashboard.summary.unique_actors} farklı kullanıcı ve ${dashboard.summary.unique_entities} farklı varlık izleniyor. Bu dağılım, denetim akışının tek kişiye bağlı kalmadığını gösterir.`
           : dominantEntity
-            ? `${dominantEntity[0]} tarafinda ${dominantEntity[1]} hareket goruluyor. ${dominantAction ? `${dominantAction[0]} aksiyonu ${dominantAction[1]} kez tekrar etti.` : "Aksiyon dagilimi burada yogunlasiyor."}`
-            : "Aksiyon ve varlik karmasi geldikce burada baski noktasi one cikacak.",
+            ? `${dominantEntity[0]} tarafında ${dominantEntity[1]} hareket goruluyor. ${dominantAction ? `${dominantAction[0]} aksiyonu ${dominantAction[1]} kez tekrar etti.` : "Aksiyon dağılımı burada yogunlasiyor."}`
+            : "Aksiyon ve varlık karmasi geldikçe burada baskı noktasi öne cikacak.",
         tone: actorSpreadWide ? "accent" : "paper",
       },
     ] as const;
@@ -446,7 +446,7 @@ export default function AuditPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Sistem hareketini sadece kayit olarak degil, operasyon izi olarak okuyoruz.
+                  Sistem hareketini sadece kayıt olarak değil, operasyon izi olarak okuyoruz.
                 </h1>
                 <p
                   style={{
@@ -457,9 +457,9 @@ export default function AuditPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Kim, neyi, hangi ritimde degistiriyor sorusunu daha okunur bir karar katmanina
-                  tasiyoruz. Hedefimiz, denetim hattini sadece arama masasi degil; erken sinyal
-                  ve guven katmani gibi hissettirmek.
+                  Kim, neyi, hangi ritimde değiştiriyor sorusunu daha okunur bir karar katmanina
+                  taşıyoruz. Hedefimiz, denetim hattini sadece arama masasi değil; erken sinyal
+                  ve güven katmanı gibi hissettirmek.
                 </p>
               </div>
               <div
@@ -480,7 +480,7 @@ export default function AuditPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Kim / ne / ne zaman ayni hatta
+                  Kim / ne / ne zaman aynı hatta
                 </span>
                 <span
                   style={{
@@ -493,7 +493,7 @@ export default function AuditPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Aksiyon ve varlik baskisi gorunur
+                  Aksiyon ve varlık baskısı görünür
                 </span>
               </div>
             </div>
@@ -544,7 +544,7 @@ export default function AuditPage() {
                         fontWeight: 700,
                       }}
                     >
-                      {dashboard?.summary.last_7_days ?? 0} son 7 gun hareketi
+                      {dashboard?.summary.last_7_days ?? 0} son 7 gün hareketi
                     </div>
                   </div>
                   <div
@@ -584,7 +584,7 @@ export default function AuditPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Kullanici
+                      Kullanıcı
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
                       {dashboard?.summary.unique_actors ?? 0}
@@ -606,7 +606,7 @@ export default function AuditPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Varlik
+                      Varlık
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
                       {dashboard?.summary.unique_entities ?? 0}
@@ -643,8 +643,8 @@ export default function AuditPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda once son 7 gun ritmine, sonra aksiyon dagilimina ve en son tekil
-                  varlik baskisina bakmak, hangi modulde yakindan izleme gerektigini daha hizli
+                  Bu ekranda önce son 7 gün ritmine, sonra aksiyon dagilimina ve en son tekil
+                  varlık baskısına bakmak, hangi modülde yakından izleme gerektiğini daha hızlı
                   hissettirir.
                 </div>
               </article>
@@ -662,7 +662,7 @@ export default function AuditPage() {
               color: "var(--muted)",
             }}
           >
-            Sistem kayitlari yukleniyor...
+            Sistem kayıtları yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -675,8 +675,8 @@ export default function AuditPage() {
               lineHeight: 1.7,
             }}
           >
-            Audit servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran sistem
-            kayitlarini ritim, aksiyon ve varlik sinyalleriyle birlikte gercek veriden gosterecek.
+            Audit servisine su anda erisilemiyor. Backend hazır oldugunda bu ekran sistem
+            kayıtlarını ritim, aksiyon ve varlık sinyalleriyle birlikte gerçek veriden gösterecek.
           </div>
         ) : (
           <>
@@ -687,10 +687,10 @@ export default function AuditPage() {
                 gap: "14px",
               }}
             >
-              {metricCard("Toplam Kayit", String(dashboard.summary.total_entries), "Denetim omurgasindaki tum olaylar", "accent")}
-              {metricCard("Son 7 Gun", String(dashboard.summary.last_7_days), "Yeni ritim ve taze hareketler")}
-              {metricCard("Esiz Kullanici", String(dashboard.summary.unique_actors), "Kayit izi birden fazla elde mi")}
-              {metricCard("Esiz Varlik", String(dashboard.summary.unique_entities), "Hangi moduller daha cok oynuyor")}
+              {metricCard("Toplam Kayıt", String(dashboard.summary.total_entries), "Denetim omurgasindaki tüm olaylar", "accent")}
+              {metricCard("Son 7 Gün", String(dashboard.summary.last_7_days), "Yeni ritim ve taze hareketler")}
+              {metricCard("Esiz Kullanıcı", String(dashboard.summary.unique_actors), "Kayıt izi birden fazla elde mi")}
+              {metricCard("Esiz Varlık", String(dashboard.summary.unique_entities), "Hangi modüller daha cok oynuyor")}
             </div>
 
             <div
@@ -714,29 +714,29 @@ export default function AuditPage() {
             >
               {listCard(
                 "Son Sistem Sinyalleri",
-                "En yeni audit hareketlerini actor, aksiyon ve varlik baglamiyla birlikte oku.",
+                "En yeni audit hareketlerini actor, aksiyon ve varlık bağlamıyla birlikte oku.",
                 dashboard.recent_entries.map((entry) => ({
                   title: `${entry.action_type} · ${entry.entity_type} #${entry.entity_id}`,
-                  meta: `${formatTimestamp(entry.created_at)} · ${formatActor(entry)}${entry.actor_role ? ` · ${entry.actor_role}` : ""} · ${entry.summary || "Ozet bilgisi yok."}`,
+                  meta: `${formatTimestamp(entry.created_at)} · ${formatActor(entry)}${entry.actor_role ? ` · ${entry.actor_role}` : ""} · ${entry.summary || "Özet bilgisi yok."}`,
                   value: entry.actor_username || "sistem",
                 })),
               )}
               {listCard(
                 "Aksiyon Dagilimi",
-                "Son hareketler hangi aksiyon turunde yogunlasiyor bak.",
+                "Son hareketler hangi aksiyon türünde yogunlasiyor bak.",
                 actionMix.map(([action, count]) => ({
                   title: action,
                   meta: "Son audit hareketleri icindeki tekrar sayisi",
-                  value: `${count} kayit`,
+                  value: `${count} kayıt`,
                 })),
               )}
               {listCard(
-                "Varlik Baskisi",
-                "Hangi moduller sistem kayitlarini daha cok uretmis gorunuyor.",
+                "Varlık Baskisi",
+                "Hangi modüller sistem kayıtlarını daha cok uretmis görünüyor.",
                 entityMix.map(([entity, count]) => ({
                   title: entity,
-                  meta: "Son audit kayitlari icindeki varlik yogunlugu",
-                  value: `${count} kayit`,
+                  meta: "Son audit kayıtları icindeki varlık yoğunluğu",
+                  value: `${count} kayıt`,
                 })),
               )}
             </div>

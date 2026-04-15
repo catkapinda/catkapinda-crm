@@ -249,30 +249,30 @@ export default function SalesPage() {
 
     return [
       {
-        eyebrow: "Pipeline Sinyali",
+        eyebrow: "Fırsat Hattı Sinyali",
         title:
           proposalRatio >= 35
-            ? "Teklif havuzu canli gorunuyor."
+            ? "Teklif havuzu canlı görünüyor."
             : proposalRatio >= 20
-              ? "Teklif akisinda hareket var."
+              ? "Teklif akışında hareket var."
               : "Teklif hacmi daha fazla itis isteyebilir.",
-        body: `${dashboard.summary.total_entries} firsatin %${proposalRatio.toFixed(1)} kadari teklif asamasinda. Bu oran pipeline'in ne kadar olgunlastigini hizli gosteren ana sinyalimiz.`,
+        body: `${dashboard.summary.total_entries} fırsatın %${proposalRatio.toFixed(1)} kadarı teklif aşamasında. Bu oran pipeline'in ne kadar olgunlaştığını hızlı gösteren ana sinyalimiz.`,
         tone: proposalRatio >= 35 ? "ink" : "accent",
       },
       {
-        eyebrow: "En Sicak Firsat",
-        title: topOpportunity ? topOpportunity.restaurant_name : "Sicak firsat sinyali henuz yok.",
+        eyebrow: "En Sıcak Fırsat",
+        title: topOpportunity ? topOpportunity.restaurant_name : "Sıcak fırsat sinyali henüz yok.",
         body: topOpportunity
-          ? `${topOpportunity.city} / ${topOpportunity.district} hattinda ${topOpportunity.pricing_model_label} modeliyle ${formatCurrency(topOpportunity.proposed_quote)} teklif seviyesinde. Sorumlu: ${topOpportunity.assigned_owner || "Atanmadi"}.`
-          : "Yeni firsat kayitlari geldikce bu alan hangi lead'in daha cok dikkat istedigini one cikaracak.",
+          ? `${topOpportunity.city} / ${topOpportunity.district} hattında ${topOpportunity.pricing_model_label} modeliyle ${formatCurrency(topOpportunity.proposed_quote)} teklif seviyesinde. Sorumlu: ${topOpportunity.assigned_owner || "Atanmadi"}.`
+          : "Yeni fırsat kayıtları geldikçe bu alan hangi lead'in daha cok dikkat istedigini öne çıkaracak.",
         tone: "paper",
       },
       {
-        eyebrow: followUpPressure ? "Takip Baskisi" : "Kapanis Ritmi",
-        title: followUpPressure ? "Acik takip kuyrugu agirlasiyor." : "Kazanilan firsat ritmi korunuyor.",
+        eyebrow: followUpPressure ? "Takip Baskisi" : "Kapanış Ritmi",
+        title: followUpPressure ? "Açık takip kuyrugu agirlasiyor." : "Kazanilan fırsat ritmi korunuyor.",
         body: followUpPressure
-          ? `${dashboard.summary.open_follow_up} acik takip var. Ekibin gorusme ve donus disiplinini korumasi bu haftanin ana ticari riski olabilir.`
-          : `${dashboard.summary.won_count} kazanilan firsat ve %${winRatio.toFixed(1)} donusum, mevcut hattin kapanis tarafinda guven verdigini gosteriyor.`,
+          ? `${dashboard.summary.open_follow_up} açık takip var. Ekibin gorusme ve dönüş disiplinini korumasi bu haftanin ana ticari riski olabilir.`
+          : `${dashboard.summary.won_count} kazanılan fırsat ve %${winRatio.toFixed(1)} dönüşüm, mevcut hattın kapanış tarafında güven verdiğini gösteriyor.`,
         tone: followUpPressure ? "accent" : "paper",
       },
     ] as const;
@@ -334,7 +334,7 @@ export default function SalesPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Pipeline'i sadece listelemiyor, artik sahneliyoruz.
+                  Fırsat Hattı'i sadece listelemiyor, artık sahneliyoruz.
                 </h1>
                 <p
                   style={{
@@ -345,9 +345,9 @@ export default function SalesPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Firsat havuzu, teklif modeli ve takip aksiyonlarini daha canli bir
+                  Fırsat havuzu, teklif modeli ve takip aksiyonlarini daha canlı bir
                   ticari panelde topluyoruz. Hedefimiz, ekip hangi lead'e yuklenmeli
-                  sorusuna sayfa acilir acilmaz daha iyi cevap verebilmek.
+                  sorusuna sayfa açılır acilmaz daha iyi cevap verebilmek.
                 </p>
               </div>
               <div
@@ -368,7 +368,7 @@ export default function SalesPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Pipeline gorunurlugu acik
+                  Fırsat Hattı görünurlugu açık
                 </span>
                 <span
                   style={{
@@ -381,7 +381,7 @@ export default function SalesPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Teklif ve takip ayni satirda
+                  Teklif ve takip aynı satırda
                 </span>
               </div>
             </div>
@@ -472,7 +472,7 @@ export default function SalesPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Acik Takip
+                      Açık Takip
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
                       {dashboard?.summary.open_follow_up ?? 0}
@@ -531,8 +531,8 @@ export default function SalesPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda once teklif havuzunu, sonra acik takip baskisini ve en son
-                  sicak lead kartlarini okumak en saglikli ticari akisi veriyor.
+                  Bu ekranda önce teklif havuzunu, sonra açık takip baskısını ve en son
+                  sıcak lead kartlarini okumak en sağlıklı ticari akışı veriyor.
                 </div>
               </article>
             </div>
@@ -549,7 +549,7 @@ export default function SalesPage() {
               color: "var(--muted)",
             }}
           >
-            Satis verileri yukleniyor...
+            Satış verileri yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -562,8 +562,8 @@ export default function SalesPage() {
               lineHeight: 1.7,
             }}
           >
-            Satis servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran
-            canli firsat ozetini gosterecek.
+            Satış servisine su anda erisilemiyor. Backend hazır oldugunda bu ekran
+            canlı fırsat özetini gösterecek.
           </div>
         ) : (
           <>
@@ -574,8 +574,8 @@ export default function SalesPage() {
                 gap: "14px",
               }}
             >
-              {metricCard("Toplam Firsat", String(dashboard.summary.total_entries), "accent")}
-              {metricCard("Acik Takip", String(dashboard.summary.open_follow_up))}
+              {metricCard("Toplam Fırsat", String(dashboard.summary.total_entries), "accent")}
+              {metricCard("Açık Takip", String(dashboard.summary.open_follow_up))}
               {metricCard("Teklif Asamasi", String(dashboard.summary.proposal_stage))}
               {metricCard("Kazanilan", String(dashboard.summary.won_count))}
             </div>
@@ -615,7 +615,7 @@ export default function SalesPage() {
                 <div>
                   <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Son Ticari Sinyaller</h2>
                   <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
-                    Ekip nereye donmeli sorusunu hizlandiran en guncel lead hareketleri.
+                    Ekip nereye donmeli sorusunu hızlandıran en güncel lead hareketleri.
                   </p>
                 </div>
                 <span
@@ -629,7 +629,7 @@ export default function SalesPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Son {dashboard.recent_entries.length} kayit
+                  Son {dashboard.recent_entries.length} kayıt
                 </span>
               </div>
 

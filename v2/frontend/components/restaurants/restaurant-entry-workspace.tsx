@@ -144,11 +144,11 @@ export function RestaurantEntryWorkspace() {
       | null;
 
     if (!response.ok) {
-      setSubmitError(payload?.detail || "Restoran kaydi olusturulamadi.");
+      setSubmitError(payload?.detail || "Restoran kaydı oluşturulamadı.");
       return;
     }
 
-    setSubmitSuccess(payload?.message || "Restoran kaydi olusturuldu.");
+    setSubmitSuccess(payload?.message || "Restoran kaydı oluşturuldu.");
     setBrand("");
     setBranch("");
     setContactName("");
@@ -176,9 +176,9 @@ export function RestaurantEntryWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Restoran Kaydi</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Restoran Kaydı</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Marka, fiyat modeli ve vergi bilgilerini yeni shell icinde daha hizli kaydet.
+          Marka, fiyat modeli ve vergi bilgilerini yeni shell içinde daha hızlı kaydet.
         </p>
       </div>
 
@@ -191,7 +191,7 @@ export function RestaurantEntryWorkspace() {
             color: "var(--muted)",
           }}
         >
-          Restoran form secenekleri yukleniyor...
+          Restoran form secenekleri yükleniyor...
         </div>
       ) : (
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: "16px" }}>
@@ -216,7 +216,7 @@ export function RestaurantEntryWorkspace() {
                   <input value={brand} onChange={(event) => setBrand(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Sube</span>
+                  <span style={{ fontWeight: 700 }}>Şube</span>
                   <input value={branch} onChange={(event) => setBranch(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
@@ -328,7 +328,7 @@ export function RestaurantEntryWorkspace() {
 
                 {pricingModel === "fixed_monthly" && (
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Sabit Aylik Ucret</span>
+                    <span style={{ fontWeight: 700 }}>Sabit Aylık Ucret</span>
                     <input
                       value={fixedMonthlyFee}
                       onChange={(event) => setFixedMonthlyFee(event.target.value)}
@@ -448,7 +448,7 @@ export function RestaurantEntryWorkspace() {
                   cursor: "pointer",
                 }}
               >
-                {isPending ? "Kaydediliyor..." : "Restoran Kaydini Olustur"}
+                {isPending ? "Kaydediliyor..." : "Restoran Kaydini Oluştur"}
               </button>
             </div>
 
@@ -462,8 +462,8 @@ export function RestaurantEntryWorkspace() {
                 background: "rgba(244, 248, 255, 0.9)",
               }}
             >
-              <h3 style={{ margin: 0, fontSize: "1rem" }}>Kayit Ozeti</h3>
-              <SummaryItem label="Sube" value={brand && branch ? `${brand} - ${branch}` : "-"} />
+              <h3 style={{ margin: 0, fontSize: "1rem" }}>Kayıt Ozeti</h3>
+              <SummaryItem label="Şube" value={brand && branch ? `${brand} - ${branch}` : "-"} />
               <SummaryItem label="Model" value={pricingLabel} />
               <SummaryItem label="Durum" value={status} />
               <SummaryItem label="Hedef Kadro" value={targetHeadcount} />

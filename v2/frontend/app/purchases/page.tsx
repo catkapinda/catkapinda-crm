@@ -259,7 +259,7 @@ function listCard(
               background: "rgba(255, 255, 255, 0.72)",
             }}
           >
-            Henuz kayit yok.
+            Henüz kayıt yok.
           </div>
         )}
       </div>
@@ -342,25 +342,25 @@ export default function PurchasesPage() {
 
     return [
       {
-        eyebrow: "Fatura Nabzi",
-        title: invoicePressure ? "Bu ay alis hacmi sertlesiyor." : "Alis ritmi kontrollu gorunuyor.",
-        body: `${dashboard.summary.this_month_entries} kayit ile ${formatCurrency(dashboard.summary.this_month_total_invoice)} aylik fatura akisi tasiniyor. Bu oran stok ve maliyet yukunun ne kadar hizli buyudugunu anlatir.`,
+        eyebrow: "Fatura Nabzı",
+        title: invoicePressure ? "Bu ay alış hacmi sertleşiyor." : "Alış ritmi kontrollü görünüyor.",
+        body: `${dashboard.summary.this_month_entries} kayıt ile ${formatCurrency(dashboard.summary.this_month_total_invoice)} aylık fatura akışı taşınıyor. Bu oran stok ve maliyet yükünün ne kadar hızlı büyüdüğünü anlatır.`,
         tone: invoicePressure ? "ink" : "paper",
       },
       {
-        eyebrow: "En Sicak Alim",
-        title: topEntry ? `${topEntry.item_name} / ${topEntry.supplier}` : "Alim sinyali henuz yok.",
+        eyebrow: "En Sıcak Alım",
+        title: topEntry ? `${topEntry.item_name} / ${topEntry.supplier}` : "Alım sinyali henüz yok.",
         body: topEntry
-          ? `${formatDate(topEntry.purchase_date)} tarihli ${topEntry.quantity} adet alim, ${formatCurrency(topEntry.total_invoice_amount)} fatura tasiyor. Birim maliyet ${formatCurrency(topEntry.unit_cost)} ile bu kalem ayni anda stok ve maliyet sinyali veriyor.`
-          : "Yeni satin alma hareketleri geldikce burada ilk dikkat isteyen alim kaydi one cikarilacak.",
+          ? `${formatDate(topEntry.purchase_date)} tarihli ${topEntry.quantity} adet alım, ${formatCurrency(topEntry.total_invoice_amount)} fatura taşıyor. Birim maliyet ${formatCurrency(topEntry.unit_cost)} ile bu kalem aynı anda stok ve maliyet sinyali veriyor.`
+          : "Yeni satın alma hareketleri geldikçe burada ilk dikkat isteyen alım kaydı öne çıkarılacak.",
         tone: "paper",
       },
       {
-        eyebrow: "Tedarikci Baskisi",
-        title: dominantSupplier ? `${dominantSupplier[0]} onde gidiyor.` : "Tedarikci sinyali henuz yok.",
+        eyebrow: "Tedarikçi Baskısı",
+        title: dominantSupplier ? `${dominantSupplier[0]} önde gidiyor.` : "Tedarikçi sinyali henüz yok.",
         body: dominantSupplier
-          ? `${dominantSupplier[1].count} kayit ve ${formatCurrency(dominantSupplier[1].total)} toplam fatura ile alis akisinin agirlik merkezi burada toplaniyor. Tedarik riski ve fiyat pazarligi icin yakin takip edilmeli.`
-          : "Tedarikci dagilimi geldikce burada hangi kanal agirlik kazaniyor daha net gorunecek.",
+          ? `${dominantSupplier[1].count} kayıt ve ${formatCurrency(dominantSupplier[1].total)} toplam fatura ile alış akışının ağırlık merkezi burada toplanıyor. Tedarik riski ve fiyat pazarlığı için yakın takip edilmeli.`
+          : "Tedarikçi dağılımı geldikçe burada hangi kanal ağırlık kazanıyor daha net görünecek.",
         tone: dominantSupplier && dominantSupplier[1].count >= 2 ? "accent" : "paper",
       },
     ] as const;
@@ -382,7 +382,7 @@ export default function PurchasesPage() {
       .slice(0, 6)
       .map(([supplier, value]) => ({
         title: supplier,
-        meta: `${value.count} alim kaydi`,
+        meta: `${value.count} alım kaydı`,
         value: formatCurrency(value.total),
       }));
   }, [dashboard]);
@@ -444,7 +444,7 @@ export default function PurchasesPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Satin Alma Room
+                Satın Alma Room
               </div>
               <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
                 <h1
@@ -456,7 +456,7 @@ export default function PurchasesPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Satin alma akisini artik sadece kayit degil, maliyet ve tedarik baskisi olarak okuyoruz.
+                  Satın alma akışını artık sadece kayıt değil, maliyet ve tedarik baskısı olarak okuyoruz.
                 </h1>
                 <p
                   style={{
@@ -467,8 +467,8 @@ export default function PurchasesPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Fatura hacmi, birim maliyet, tedarikci yogunlugu ve son alim hareketlerini ayni
-                  karar katmaninda topluyoruz. Hedefimiz, alis tarafini sadece veri giris yeri degil;
+                  Fatura hacmi, birim maliyet, tedarikçi yoğunluğu ve son alım hareketlerini aynı
+                  karar katmaninda topluyoruz. Hedefimiz, alış tarafını sadece veri giriş yeri değil;
                   stok ve maliyet nabzini okutan bir kontrol masasi haline getirmek.
                 </p>
               </div>
@@ -490,7 +490,7 @@ export default function PurchasesPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Fatura ve tedarik ayni hatta
+                  Fatura ve tedarik aynı hatta
                 </span>
                 <span
                   style={{
@@ -503,7 +503,7 @@ export default function PurchasesPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Maliyet baskisi erken gorunur
+                  Maliyet baskısı erken görünür
                 </span>
               </div>
             </div>
@@ -544,7 +544,7 @@ export default function PurchasesPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Satin Alma Nabzi
+                      Satın Alma Nabzi
                     </div>
                     <div
                       style={{
@@ -554,7 +554,7 @@ export default function PurchasesPage() {
                         fontWeight: 700,
                       }}
                     >
-                      {dashboard?.summary.this_month_entries ?? 0} aylik alim
+                      {dashboard?.summary.this_month_entries ?? 0} aylık alım
                     </div>
                   </div>
                   <div
@@ -594,7 +594,7 @@ export default function PurchasesPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Aylik Fatura
+                      Aylık Fatura
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
                       {formatCurrency(dashboard?.summary.this_month_total_invoice ?? 0)}
@@ -653,8 +653,8 @@ export default function PurchasesPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda once aylik fatura hacmine, sonra tedarikci yogunluguna ve en son
-                  birim maliyet sinyaline bakmak en saglikli satin alma okumasini verir.
+                  Bu ekranda önce aylık fatura hacmine, sonra tedarikçi yoğunluğuna ve en son
+                  birim maliyet sinyaline bakmak en sağlıklı satın alma okumasini verir.
                 </div>
               </article>
             </div>
@@ -671,7 +671,7 @@ export default function PurchasesPage() {
               color: "var(--muted)",
             }}
           >
-            Satin alma verileri yukleniyor...
+            Satın alma verileri yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -684,8 +684,8 @@ export default function PurchasesPage() {
               lineHeight: 1.7,
             }}
           >
-            Satin alma servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran faturayi,
-            tedarikcileri ve maliyet sinyallerini gercek veriden gosterecek.
+            Satın alma servisine su anda erisilemiyor. Backend hazır oldugunda bu ekran faturayi,
+            tedarikçileri ve maliyet sinyallerini gerçek veriden gösterecek.
           </div>
         ) : (
           <>
@@ -696,10 +696,10 @@ export default function PurchasesPage() {
                 gap: "14px",
               }}
             >
-              {metricCard("Toplam Kayit", String(dashboard.summary.total_entries), "Tum alim zinciri", "accent")}
-              {metricCard("Bu Ay", String(dashboard.summary.this_month_entries), "Aylik alim hareketi")}
-              {metricCard("Bu Ay Fatura", formatCurrency(dashboard.summary.this_month_total_invoice), "Giren toplam alim faturasi")}
-              {metricCard("Tedarikci", String(dashboard.summary.distinct_suppliers), "Aktif alim kaynagi sayisi")}
+              {metricCard("Toplam Kayıt", String(dashboard.summary.total_entries), "Tüm alım zinciri", "accent")}
+              {metricCard("Bu Ay", String(dashboard.summary.this_month_entries), "Aylık alım hareketi")}
+              {metricCard("Bu Ay Fatura", formatCurrency(dashboard.summary.this_month_total_invoice), "Giren toplam alım faturası")}
+              {metricCard("Tedarikci", String(dashboard.summary.distinct_suppliers), "Aktif alım kaynagi sayisi")}
             </div>
 
             <div
@@ -722,8 +722,8 @@ export default function PurchasesPage() {
               }}
             >
               {listCard(
-                "Son Alim Sinyalleri",
-                "Fatura, kalem ve tedarikci bilgisini ayni kartta oku.",
+                "Son Alım Sinyalleri",
+                "Fatura, kalem ve tedarikçi bilgisini aynı kartta oku.",
                 dashboard.recent_entries.map((entry) => ({
                   title: `${entry.item_name} · ${entry.supplier}`,
                   meta: `${formatDate(entry.purchase_date)} · ${entry.quantity} adet${entry.invoice_no ? ` · Fatura ${entry.invoice_no}` : ""}${entry.notes ? ` · ${entry.notes}` : ""}`,
@@ -732,12 +732,12 @@ export default function PurchasesPage() {
               )}
               {listCard(
                 "Tedarikci Nabzi",
-                "Son alislar icinde hangi tedarikci daha agirlikli ilerliyor bak.",
+                "Son alislar içinde hangi tedarikçi daha agirlikli ilerliyor bak.",
                 supplierInsights,
               )}
               {listCard(
                 "Birim Maliyet Sinyali",
-                "Birim maliyeti yuksek kalemleri daha erken fark et.",
+                "Birim maliyeti yüksek kalemleri daha erken fark et.",
                 unitCostSignals,
               )}
             </div>

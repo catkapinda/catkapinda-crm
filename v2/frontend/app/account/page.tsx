@@ -163,7 +163,7 @@ export default function AccountPage() {
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Yeni sifre ve tekrar sifresi ayni olmali.");
+      setError("Yeni şifre ve tekrar şifresi aynı olmalı.");
       return;
     }
 
@@ -186,18 +186,18 @@ export default function AccountPage() {
         | ChangePasswordResponse
         | null;
       if (!response.ok || !payload || !("user" in payload)) {
-        throw new Error((payload && "detail" in payload && payload.detail) || "Sifre guncellenemedi.");
+        throw new Error((payload && "detail" in payload && payload.detail) || "Şifre güncellenemedi.");
       }
       updateUser(payload.user);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setMessage(payload.message || "Sifre guncellendi.");
+      setMessage(payload.message || "Şifre güncellendi.");
       if (!payload.user.must_change_password) {
         router.replace(resolveDefaultPath(payload.user.allowed_actions));
       }
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Sifre guncellenemedi.");
+      setError(submitError instanceof Error ? submitError.message : "Şifre güncellenemedi.");
     } finally {
       setSubmitting(false);
     }
@@ -214,26 +214,26 @@ export default function AccountPage() {
     return [
       {
         eyebrow: "Guvenlik Karari",
-        title: user.must_change_password ? "Gecici sifre halen aktif." : "Hesap sabit guvenlikte gorunuyor.",
+        title: user.must_change_password ? "Geçici şifre halen aktif." : "Hesap sabit guvenlikte görünüyor.",
         body: user.must_change_password
-          ? "Bu hesap ilk kurulum sifresiyle acilmis. Kalici sifreye gecis tamamlanmadan bu yuzey guvenli kabul edilmez."
-          : "Sifre degisimi tamamlanmis durumda. Bundan sonra odak, hesabin tekil ve guncel bir erisim hattinda kalmasi.",
+          ? "Bu hesap ilk kurulum şifresiyle açılmış. Kalıcı şifreye geçiş tamamlanmadan bu yüzey güvenli kabul edilmez."
+          : "Şifre degisimi tamamlanmis durumda. Bundan sonra odak, hesabın tekil ve güncel bir erisim hattında kalmasi.",
         tone: user.must_change_password ? "ink" : "paper",
       },
       {
-        eyebrow: "Kimlik Hatti",
-        title: hasContact ? "Hesap kimlik sinyali tamamlaniyor." : "Iletisim izi zayif gorunuyor.",
+        eyebrow: "Kimlik Hattı",
+        title: hasContact ? "Hesap kimlik sinyali tamamlaniyor." : "Iletisim izi zayif görünüyor.",
         body: hasContact
-          ? `${user.email ? "E-posta" : "E-posta yok"}${user.email && user.phone ? " ve " : ""}${user.phone ? "telefon" : ""} bu hesapta gorunur. Bu, pilot geciste destek ve kurtarma adimlarini kolaylastirir.`
-          : "Bu hesapta gorunen e-posta ya da telefon yok. Destek ve kimlik teyidi icin iletisim izini guclendirmek gerekir.",
+          ? `${user.email ? "E-posta" : "E-posta yok"}${user.email && user.phone ? " ve " : ""}${user.phone ? "telefon" : ""} bu hesapta görünür. Bu, pilot geciste destek ve kurtarma adimlarini kolaylaştırır.`
+          : "Bu hesapta görünen e-posta ya da telefon yok. Destek ve kimlik teyidi için iletisim izini guclendirmek gerekir.",
         tone: hasContact ? "paper" : "accent",
       },
       {
         eyebrow: "Oturum Nabzi",
-        title: sessionReady ? "Erisim zamani okunabiliyor." : "Oturum izi eksik gorunuyor.",
+        title: sessionReady ? "Erisim zamani okunabiliyor." : "Oturum izi eksik görünüyor.",
         body: sessionReady
-          ? `${formatExpiry(user.expires_at)} oturum siniri olarak gorunuyor. Bu sinyal, kullanicinin aktif ve takip edilebilir bir oturumda oldugunu anlatir.`
-          : "Bu hesap icin okunabilir bir oturum bitis bilgisi yok. Guvenlik akisini gozden gecirmek faydali olur.",
+          ? `${formatExpiry(user.expires_at)} oturum sınırı olarak görünüyor. Bu sinyal, kullanicinin aktif ve takip edilebilir bir oturumda oldugunu anlatır.`
+          : "Bu hesap için okunabilir bir oturum bitis bilgisi yok. Guvenlik akışını gozden gecirmek faydali olur.",
         tone: sessionReady ? "accent" : "paper",
       },
     ] as const;
@@ -294,7 +294,7 @@ export default function AccountPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Hesabi sadece ayar olarak degil, guvenlik ve kimlik masasi olarak ele aliyoruz.
+                  Hesabi sadece ayar olarak değil, guvenlik ve kimlik masasi olarak ele aliyoruz.
                 </h1>
                 <p
                   style={{
@@ -305,9 +305,9 @@ export default function AccountPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Pilot kullanimda en kritik sey guclu sifre, okunabilir oturum izi ve hesap
-                  kimliginin temiz kalmasi. Bu yuzeyi sadece sifre degistirme alani degil; hesabin
-                  ne kadar saglikli oldugunu gosteren bir guvenlik katmani gibi kurguladik.
+                  Pilot kullanımda en kritik şey güçlü şifre, okunabilir oturum izi ve hesap
+                  kimliginin temiz kalmasi. Bu yüzeyi sadece şifre değiştirme alani değil; hesabın
+                  ne kadar sağlıklı oldugunu gösteren bir guvenlik katmanı gibi kurguladik.
                 </p>
               </div>
               <div
@@ -328,7 +328,7 @@ export default function AccountPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Kimlik ve sifre ayni hatta
+                  Kimlik ve şifre aynı hatta
                 </span>
                 <span
                   style={{
@@ -341,7 +341,7 @@ export default function AccountPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Gecici sifre riski gorunur
+                  Geçici şifre riski görünür
                 </span>
               </div>
             </div>
@@ -392,7 +392,7 @@ export default function AccountPage() {
                         fontWeight: 700,
                       }}
                     >
-                      {user?.must_change_password ? "gecici sifre acik" : "hesap sabit hatta"}
+                      {user?.must_change_password ? "geçici şifre açık" : "hesap sabit hatta"}
                     </div>
                   </div>
                   <div
@@ -491,8 +491,8 @@ export default function AccountPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda once gecici sifre durumuna, sonra hesap kimlik kanallarina ve en
-                  son oturum izine bakmak en saglikli profil okumasini verir.
+                  Bu ekranda önce geçici şifre durumuna, sonra hesap kimlik kanallarina ve en
+                  son oturum izine bakmak en sağlıklı profil okumasini verir.
                 </div>
               </article>
             </div>
@@ -540,7 +540,7 @@ export default function AccountPage() {
             <InfoRow label="Rol" value={user?.role_display || "-"} />
             <InfoRow label="E-posta" value={user?.email || "-"} />
             <InfoRow label="Telefon" value={user?.phone || "-"} />
-            <InfoRow label="Oturum" value={user?.expires_at ? `Acik · ${formatExpiry(user.expires_at)}` : "-"} />
+            <InfoRow label="Oturum" value={user?.expires_at ? `Açık · ${formatExpiry(user.expires_at)}` : "-"} />
           </section>
 
           <section
@@ -555,9 +555,9 @@ export default function AccountPage() {
             }}
           >
             <div style={{ display: "grid", gap: "6px" }}>
-              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Sifre Guncelle</h2>
+              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Şifre Güncelle</h2>
               <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.6 }}>
-                Yeni sisteme gectigimizde herkesin tekil ve guclu sifre kullanmasi gerekiyor.
+                Yeni sisteme gectigimizde herkesin tekil ve güçlü şifre kullanmasi gerekiyor.
               </p>
             </div>
 
@@ -587,23 +587,23 @@ export default function AccountPage() {
                   fontWeight: 700,
                 }}
               >
-                Bu hesap gecici sifre ile acildi. Devam etmeden once sifreni guncelle.
+                Bu hesap geçici şifre ile açıldı. Devam etmeden önce şifreni güncelle.
               </div>
             ) : null}
 
             <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
               <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>Mevcut Sifre</span>
+                <span style={{ fontWeight: 700 }}>Mevcut Şifre</span>
                 <input
                   type="password"
                   value={currentPassword}
                   onChange={(event) => setCurrentPassword(event.target.value)}
                   style={fieldStyle}
-                  placeholder="Mevcut sifren"
+                  placeholder="Mevcut şifren"
                 />
               </label>
               <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>Yeni Sifre</span>
+                <span style={{ fontWeight: 700 }}>Yeni Şifre</span>
                 <input
                   type="password"
                   value={newPassword}
@@ -613,13 +613,13 @@ export default function AccountPage() {
                 />
               </label>
               <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>Yeni Sifre Tekrar</span>
+                <span style={{ fontWeight: 700 }}>Yeni Şifre Tekrar</span>
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   style={fieldStyle}
-                  placeholder="Yeni sifreyi tekrar gir"
+                  placeholder="Yeni şifreyi tekrar gir"
                 />
               </label>
 
@@ -666,7 +666,7 @@ export default function AccountPage() {
                   opacity: submitting ? 0.6 : 1,
                 }}
               >
-                {submitting ? "Kaydediliyor..." : "Sifreyi Guncelle"}
+                {submitting ? "Kaydediliyor..." : "Sifreyi Güncelle"}
               </button>
             </form>
           </section>

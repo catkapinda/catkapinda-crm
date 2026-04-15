@@ -134,7 +134,7 @@ export function SalesManagementWorkspace() {
   async function loadOptions() {
     const response = await apiFetch("/sales/form-options");
     if (!response.ok) {
-      throw new Error("Satis referans verileri yuklenemedi.");
+      throw new Error("Satış referans verileri yuklenemedi.");
     }
     const payload = (await response.json()) as SalesFormOptions;
     setOptions(payload);
@@ -154,7 +154,7 @@ export function SalesManagementWorkspace() {
       }
       const response = await apiFetch(`/sales/records?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Satis listesi yuklenemedi.");
+        throw new Error("Satış listesi yuklenemedi.");
       }
       const payload = (await response.json()) as SalesManagementResponse;
       setEntries(payload.entries);
@@ -169,7 +169,7 @@ export function SalesManagementWorkspace() {
         return payload.entries[0].id;
       });
     } catch (error) {
-      setListError(error instanceof Error ? error.message : "Satis listesi yuklenemedi.");
+      setListError(error instanceof Error ? error.message : "Satış listesi yuklenemedi.");
       setEntries([]);
       setTotalEntries(0);
       setSelectedEntryId(null);
@@ -185,7 +185,7 @@ export function SalesManagementWorkspace() {
     try {
       const response = await apiFetch(`/sales/records/${entryId}`);
       if (!response.ok) {
-        throw new Error("Satis detayi yuklenemedi.");
+        throw new Error("Satış detayi yuklenemedi.");
       }
       const payload = (await response.json()) as SalesDetailResponse;
       const entry = payload.entry;
@@ -211,7 +211,7 @@ export function SalesManagementWorkspace() {
       setEditAssignedOwner(entry.assigned_owner ?? "");
       setEditNotes(entry.notes ?? "");
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Satis detayi yuklenemedi.");
+      setSaveError(error instanceof Error ? error.message : "Satış detayi yuklenemedi.");
     } finally {
       setDetailLoading(false);
     }
@@ -243,7 +243,7 @@ export function SalesManagementWorkspace() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedEntryId) {
-      setSaveError("Duzenlenecek satis kaydi sec.");
+      setSaveError("Duzenlenecek satış kaydı seç.");
       return;
     }
 
@@ -282,11 +282,11 @@ export function SalesManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setSaveError(payload?.detail || "Satis kaydi guncellenemedi.");
+      setSaveError(payload?.detail || "Satış kaydı güncellenemedi.");
       return;
     }
 
-    setSaveSuccess(payload?.message || "Satis kaydi guncellendi.");
+    setSaveSuccess(payload?.message || "Satış kaydı güncellendi.");
     startTransition(() => {
       router.refresh();
     });
@@ -296,7 +296,7 @@ export function SalesManagementWorkspace() {
 
   async function handleDelete() {
     if (!selectedEntryId) {
-      setSaveError("Silinecek satis kaydini sec.");
+      setSaveError("Silinecek satış kaydini seç.");
       return;
     }
     setSaveError("");
@@ -307,10 +307,10 @@ export function SalesManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setSaveError(payload?.detail || "Satis kaydi silinemedi.");
+      setSaveError(payload?.detail || "Satış kaydı silinemedi.");
       return;
     }
-    setSaveSuccess(payload?.message || "Satis kaydi silindi.");
+    setSaveSuccess(payload?.message || "Satış kaydı silindi.");
     startTransition(() => {
       router.refresh();
     });
@@ -329,9 +329,9 @@ export function SalesManagementWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Satis Kayit Yonetimi</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Satış Kayıt Yonetimi</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Firsatlari filtrele, sec, guncelle ve tek panelden takip et.
+          Firsatlari filtrele, seç, güncelle ve tek panelden takip et.
         </p>
       </div>
 
@@ -352,7 +352,7 @@ export function SalesManagementWorkspace() {
             }}
           >
             <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)} style={fieldStyle}>
-              <option value="">Tum Durumlar</option>
+              <option value="">Tüm Durumlar</option>
               {options?.status_options.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
@@ -375,7 +375,7 @@ export function SalesManagementWorkspace() {
               fontWeight: 700,
             }}
           >
-            Toplam eslesen firsat: {totalEntries}
+            Toplam eslesen fırsat: {totalEntries}
           </div>
 
           {listError ? (
@@ -411,7 +411,7 @@ export function SalesManagementWorkspace() {
                     color: "var(--muted)",
                   }}
                 >
-                  Satis kayitlari yukleniyor...
+                  Satış kayıtları yükleniyor...
                 </div>
               ) : entries.length === 0 ? (
                 <div
@@ -423,7 +423,7 @@ export function SalesManagementWorkspace() {
                     color: "var(--muted)",
                   }}
                 >
-                  Bu filtrelerle eslesen satis kaydi bulunamadi.
+                  Bu filtrelerle eslesen satış kaydı bulunamadı.
                 </div>
               ) : (
                 entries.map((entry) => {
@@ -487,7 +487,7 @@ export function SalesManagementWorkspace() {
             }}
           >
             <div style={{ fontSize: "0.82rem", letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--accent)", fontWeight: 800 }}>
-              Secili Firsat
+              Seçili Fırsat
             </div>
             {selectedEntry ? (
               <>
@@ -501,7 +501,7 @@ export function SalesManagementWorkspace() {
                 </div>
               </>
             ) : (
-              <div style={{ color: "var(--muted)" }}>Duzenlemek icin soldan bir kayit sec.</div>
+              <div style={{ color: "var(--muted)" }}>Düzenlemek için soldan bir kayıt seç.</div>
             )}
           </div>
 
@@ -561,7 +561,7 @@ export function SalesManagementWorkspace() {
               </>
             )}
             {editPricingModel === "fixed_monthly" && (
-              <input value={editFixedMonthlyFee} onChange={(event) => setEditFixedMonthlyFee(event.target.value)} placeholder="Aylik Tutar" style={fieldStyle} />
+              <input value={editFixedMonthlyFee} onChange={(event) => setEditFixedMonthlyFee(event.target.value)} placeholder="Aylık Tutar" style={fieldStyle} />
             )}
             <input value={editProposedQuote} onChange={(event) => setEditProposedQuote(event.target.value)} placeholder="Onerilen Teklif" style={fieldStyle} />
           </div>
@@ -578,8 +578,8 @@ export function SalesManagementWorkspace() {
               lineHeight: 1.7,
             }}
           >
-            <div style={{ fontWeight: 800, color: "var(--text)", marginBottom: "4px" }}>Teklif Ozet Notu</div>
-            {selectedEntry?.pricing_model_hint || "Secili teklif modelinin acilimi burada gorunur."}
+            <div style={{ fontWeight: 800, color: "var(--text)", marginBottom: "4px" }}>Teklif Özet Notu</div>
+            {selectedEntry?.pricing_model_hint || "Seçili teklif modelinin açılımı burada görünür."}
           </div>
 
           {(saveError || saveSuccess) && (
@@ -613,7 +613,7 @@ export function SalesManagementWorkspace() {
                 boxShadow: "0 18px 40px rgba(15, 95, 215, 0.22)",
               }}
             >
-              {isPending ? "Kaydediliyor..." : "Guncelle"}
+              {isPending ? "Kaydediliyor..." : "Güncelle"}
             </button>
             <button
               type="button"

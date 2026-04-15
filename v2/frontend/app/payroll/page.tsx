@@ -369,12 +369,12 @@ export default function PayrollPage() {
       return [];
     }
     return [
-      metricCard("Brut Hakedis", formatMoney(dashboard.summary.gross_payroll), `${dashboard.summary.selected_month} toplami`),
-      metricCard("Toplam Kesinti", formatMoney(dashboard.summary.total_deductions), "Ay sonu kesinti toplami"),
-      metricCard("Net Odeme", formatMoney(dashboard.summary.net_payment), "Hakedis kapanis ozeti"),
-      metricCard("Personel", formatNumber(dashboard.summary.personnel_count), "Hakedis havuzundaki calisan"),
-      metricCard("Toplam Saat", formatNumber(dashboard.summary.total_hours, 1), "Secili filtre calisma saati"),
-      metricCard("Toplam Paket", formatNumber(dashboard.summary.total_packages, 0), "Secili filtre paket toplami"),
+      metricCard("Brut Hakediş", formatMoney(dashboard.summary.gross_payroll), `${dashboard.summary.selected_month} toplamı`),
+      metricCard("Toplam Kesinti", formatMoney(dashboard.summary.total_deductions), "Ay sonu kesinti toplamı"),
+      metricCard("Net Ödeme", formatMoney(dashboard.summary.net_payment), "Hakediş kapanış özeti"),
+      metricCard("Personel", formatNumber(dashboard.summary.personnel_count), "Hakediş havuzundaki çalışan"),
+      metricCard("Toplam Saat", formatNumber(dashboard.summary.total_hours, 1), "Seçili filtre çalışma saati"),
+      metricCard("Toplam Paket", formatNumber(dashboard.summary.total_packages, 0), "Seçili filtre paket toplamı"),
     ];
   }, [dashboard]);
 
@@ -396,9 +396,9 @@ export default function PayrollPage() {
         : 0;
 
     return [
-      metricCard("Saat Basina Net", formatMoney(netPerHour), "Net odeme / toplam saat"),
-      metricCard("Kurye Basina Net", formatMoney(netPerCourier), "Net odeme / personel"),
-      metricCard("Kesinti Orani", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / brut hakedis"),
+      metricCard("Saat Basina Net", formatMoney(netPerHour), "Net ödeme / toplam saat"),
+      metricCard("Kurye Basina Net", formatMoney(netPerCourier), "Net ödeme / personel"),
+      metricCard("Kesinti Orani", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / brüt hakediş"),
     ];
   }, [dashboard]);
 
@@ -420,30 +420,30 @@ export default function PayrollPage() {
 
     return [
       {
-        eyebrow: "Odeme Nabzi",
+        eyebrow: "Ödeme Nabzı",
         title:
           deductionRatio <= 8
-            ? "Kesinti baskisi kontrollu gorunuyor."
+            ? "Kesinti baskısı kontrollü görünüyor."
             : deductionRatio <= 14
-              ? "Kesinti baskisi izlenmeli."
-              : "Kesinti baskisi yukseliyor.",
-        body: `${dashboard.summary.selected_month} doneminde ${formatMoney(dashboard.summary.net_payment)} net odeme cikiyor. Kesinti orani %${formatNumber(deductionRatio, 1)} seviyesinde.`,
+              ? "Kesinti baskısı izlenmeli."
+              : "Kesinti baskısı yükseliyor.",
+        body: `${dashboard.summary.selected_month} döneminde ${formatMoney(dashboard.summary.net_payment)} net ödeme çıkıyor. Kesinti oranı %${formatNumber(deductionRatio, 1)} seviyesinde.`,
         tone: deductionRatio <= 8 ? "ink" : "accent",
       },
       {
-        eyebrow: "En Yuksek Net Odeme",
-        title: topPersonnel ? topPersonnel.personnel : "Odeme lideri sinyali henuz yok.",
+        eyebrow: "En Yüksek Net Ödeme",
+        title: topPersonnel ? topPersonnel.personnel : "Ödeme lideri sinyali henüz yok.",
         body: topPersonnel
-          ? `${topPersonnel.role} rolunde ${formatMoney(topPersonnel.net_payment)} net odeme tasiyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmali.`
-          : "Personel dagilimi geldikce bu kart aylik odeme agirligini onde gosterecek.",
+          ? `${topPersonnel.role} rolünde ${formatMoney(topPersonnel.net_payment)} net ödeme taşıyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmali.`
+          : "Personel dağılımı geldikçe bu kart aylık ödeme ağırlığını önde gösterecek.",
         tone: "paper",
       },
       {
         eyebrow: "Model Yuku",
-        title: topCostModel ? topCostModel.cost_model : "Model dagilimi sinyali henuz yok.",
+        title: topCostModel ? topCostModel.cost_model : "Model dağılımı sinyali henüz yok.",
         body: topCostModel
-          ? `${formatNumber(topCostModel.personnel_count)} personel ile ${formatMoney(topCostModel.net_payment)} net odeme yukunu tasiyor. Kurye basina ortalama net odeme ${formatMoney(netPerCourier)} seviyesinde.`
-          : "Hangi maliyet modelinin yuk tasidigini bu alan hizli gosterecek.",
+          ? `${formatNumber(topCostModel.personnel_count)} personel ile ${formatMoney(topCostModel.net_payment)} net ödeme yükünü taşıyor. Kurye basina ortalama net ödeme ${formatMoney(netPerCourier)} seviyesinde.`
+          : "Hangi maliyet modelinin yuk tasidigini bu alan hızlı gösterecek.",
         tone: "paper",
       },
     ] as const;
@@ -509,7 +509,7 @@ export default function PayrollPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Hakedis ve Bordro
+                Hakediş ve Bordro
               </div>
               <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
                 <h1
@@ -521,7 +521,7 @@ export default function PayrollPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Bordroyu sadece toplamla degil, gerilim noktalarini da okuyarak yonetiyoruz.
+                  Bordroyu sadece toplamla değil, gerilim noktalarını da okuyarak yönetiyoruz.
                 </h1>
                 <p
                   style={{
@@ -532,9 +532,9 @@ export default function PayrollPage() {
                     lineHeight: 1.76,
                   }}
                 >
-                  Net odeme, kesinti, saat ve paket dagilimlarini daha ciddi bir karar
-                  odasina cekiyoruz. Hedefimiz, kapanis oncesi riskleri ve odeme agirligini
-                  bir bakista daha dogru hissettirmek.
+                  Net ödeme, kesinti, saat ve paket dağılımlarını daha ciddi bir karar
+                  odasina çekiyoruz. Hedefimiz, kapanış öncesi riskleri ve ödeme ağırlığını
+                  bir bakışta daha doğru hissettirmek.
                 </p>
               </div>
               <div
@@ -555,7 +555,7 @@ export default function PayrollPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Bordro sinyali acik
+                  Bordro sinyali açık
                 </span>
                 <span
                   style={{
@@ -568,7 +568,7 @@ export default function PayrollPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Risk ve odeme ayni katmanda
+                  Risk ve ödeme aynı katmanda
                 </span>
               </div>
             </div>
@@ -609,7 +609,7 @@ export default function PayrollPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Hakedis Donemi
+                      Hakediş Dönemi
                     </div>
                     <div
                       style={{
@@ -619,7 +619,7 @@ export default function PayrollPage() {
                         fontWeight: 700,
                       }}
                     >
-                      {(dashboard?.summary?.selected_month ?? selectedMonth) || "Ay sec"}
+                      {(dashboard?.summary?.selected_month ?? selectedMonth) || "Ay seç"}
                     </div>
                   </div>
                   <div
@@ -679,7 +679,7 @@ export default function PayrollPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Net Odeme
+                      Net Ödeme
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
                       {formatMoney(dashboard?.summary?.net_payment ?? 0)}
@@ -738,8 +738,8 @@ export default function PayrollPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda once kesinti baskisini, sonra model yukunu ve en yuksek net
-                  odeme cikan isimleri okumak kapanis kararini daha netlestirir.
+                  Bu ekranda önce kesinti baskısını, sonra model yükünü ve en yüksek net
+                  ödeme çıkan isimleri okumak kapanış kararini daha netlestirir.
                 </div>
               </article>
             </div>
@@ -809,7 +809,7 @@ export default function PayrollPage() {
               color: "var(--muted)",
             }}
           >
-            Hakedis verileri yukleniyor...
+            Hakediş verileri yükleniyor...
           </div>
         ) : !dashboard || !dashboard.summary ? (
           <div
@@ -822,8 +822,8 @@ export default function PayrollPage() {
               lineHeight: 1.7,
             }}
           >
-            Hakedis servisine su anda erisilemiyor. Backend hazir oldugunda burada
-            aylik odeme ozeti ve bordro dagilimlari gorunecek.
+            Hakediş servisine su anda erisilemiyor. Backend hazır oldugunda burada
+            aylık ödeme özeti ve bordro dağılımları görünecek.
           </div>
         ) : (
           <>
@@ -867,8 +867,8 @@ export default function PayrollPage() {
               }}
             >
               <ScrollCard
-                title="Hakedis Ozeti"
-                subtitle="Personel bazli calisma, kesinti ve net odeme gorunumu. Liste kendi icinde scroll eder."
+                title="Hakediş Ozeti"
+                subtitle="Personel bazli çalışma, kesinti ve net ödeme görünümü. Liste kendi içinde kaydırılabilir."
                 actions={
                   <input
                     value={entryQuery}
@@ -929,7 +929,7 @@ export default function PayrollPage() {
               <div style={{ display: "grid", gap: "18px" }}>
                 <ScrollCard
                   title="Maliyet Modeli Dagilimi"
-                  subtitle="Hangi hakedis modelinin ne kadar yuk tasidigini tek bakista izle."
+                  subtitle="Hangi hakediş modelinin ne kadar yuk tasidigini tek bakışta izle."
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
                     {dashboard.cost_model_breakdown.map((row) => (
@@ -957,8 +957,8 @@ export default function PayrollPage() {
                 </ScrollCard>
 
                 <ScrollCard
-                  title="En Yuksek Net Odeme"
-                  subtitle="Ay icinde en yuksek net odeme cikan calisanlari hizlica gor."
+                  title="En Yüksek Net Ödeme"
+                  subtitle="Ay içinde en yüksek net ödeme çıkan çalışanları hızlıca gör."
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
                     {dashboard.top_personnel.map((row) => (

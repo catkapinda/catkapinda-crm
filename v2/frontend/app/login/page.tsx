@@ -245,7 +245,7 @@ function LoginPageContent() {
         loggedInUser.must_change_password ? "/account" : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
       );
     } catch (authError) {
-      setError(authError instanceof Error ? authError.message : "Giris yapilamadi.");
+      setError(authError instanceof Error ? authError.message : "Giriş yapilamadi.");
     } finally {
       setSubmitting(false);
     }
@@ -254,7 +254,7 @@ function LoginPageContent() {
   async function requestPasswordResetCode(phoneValue: string): Promise<{ message: string; masked_phone: string }> {
     if (isPreviewModeBrowser()) {
       return {
-        message: "Preview modunda sifre kurtarma kodu hazirlandi.",
+        message: "Preview modunda şifre kurtarma kodu hazırlandı.",
         masked_phone: phoneValue || "05xxxxxxxxx",
       };
     }
@@ -270,7 +270,7 @@ function LoginPageContent() {
       | null;
 
     if (!response.ok || !payload?.message || !payload?.masked_phone) {
-      throw new Error(payload?.detail || "Sifre sifirlama kodu gonderilemedi.");
+      throw new Error(payload?.detail || "Şifre sıfırlama kodu gonderilemedi.");
     }
 
     return {
@@ -285,7 +285,7 @@ function LoginPageContent() {
     nextPassword: string,
   ): Promise<{ message: string }> {
     if (isPreviewModeBrowser()) {
-      return { message: "Preview modunda sifre sifirlama tamamlandi. Yeni sifrenle giris yapabilirsin." };
+      return { message: "Preview modunda şifre sıfırlama tamamlandı. Yeni şifrenle giriş yapabilirsin." };
     }
     const response = await fetch(buildApiUrl("/auth/reset-password-with-code"), {
       method: "POST",
@@ -303,7 +303,7 @@ function LoginPageContent() {
       | null;
 
     if (!response.ok || !payload?.message) {
-      throw new Error(payload?.detail || "Sifre sifirlanamadi.");
+      throw new Error(payload?.detail || "Şifre sifirlanamadi.");
     }
 
     return { message: payload.message };
@@ -320,7 +320,7 @@ function LoginPageContent() {
       setMaskedPhone(payload.masked_phone);
       setSmsMessage(
         authPanelMode === "recovery"
-          ? "Kimligini dogrulaman icin kod hazir. Ayni kartta yeni sifreni belirleyip hesabina geri donebilirsin."
+          ? "Kimligini doğrulaman için kod hazır. Aynı kartta yeni şifreni belirleyip hesabına geri dönebilirsin."
           : payload.message,
       );
     } catch (requestError) {
@@ -333,7 +333,7 @@ function LoginPageContent() {
   async function handleVerifyCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (authPanelMode === "recovery" && recoveryNewPassword !== recoveryConfirmPassword) {
-      setSmsError("Yeni sifre ve tekrar sifresi ayni olmali.");
+      setSmsError("Yeni şifre ve tekrar şifresi aynı olmalı.");
       return;
     }
     setSmsSubmitting(true);
@@ -359,7 +359,7 @@ function LoginPageContent() {
         loggedInUser.must_change_password ? "/account" : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
       );
     } catch (verifyError) {
-      setSmsError(verifyError instanceof Error ? verifyError.message : "SMS kodu dogrulanamadi.");
+      setSmsError(verifyError instanceof Error ? verifyError.message : "SMS kodu doğrulanamadı.");
     } finally {
       setSmsSubmitting(false);
     }
@@ -395,10 +395,10 @@ function LoginPageContent() {
     setError("");
     setNotice(
       localReadyLogin?.defaultPasswordIsDefault && account.defaultPasswordActive
-        ? "Yerel sqlite hesabi forma dolduruldu. Bu hesapta varsayilan local sifre su an 123456."
+        ? "Yerel sqlite hesabı forma dolduruldu. Bu hesapta varsayılan local şifre su an 123456."
         : account.mustChangePassword
-          ? "Yerel sqlite hesabi forma dolduruldu. Bu hesap gecici sifre bekliyor; guncel sifreyi biliyorsan elle girmen gerekecek."
-          : "Yerel sqlite hesabi forma dolduruldu. Bu hesapta varsayilan sifre artik aktif gorunmuyor; en son belirlenen sifreyi kullanman gerekecek.",
+          ? "Yerel sqlite hesabı forma dolduruldu. Bu hesap geçici şifre bekliyor; güncel şifreyi biliyorsan elle girmen gerekecek."
+          : "Yerel sqlite hesabı forma dolduruldu. Bu hesapta varsayılan şifre artık aktif görünmuyor; en son belirlenen şifreyi kullanman gerekecek.",
     );
   }
 
@@ -417,25 +417,25 @@ function LoginPageContent() {
       return {
         title: "Frontend env'i local hedefle yeniden hizalanmali.",
         detail:
-          "Doctor su an frontend proxy ayarinin canli local API onerisiyle ayni olmadigini goruyor. .env.local dosyasini tek komutla dogru hedefe cekebiliriz.",
+          "Doctor su an frontend proxy ayarinin canlı local API onerisiyle aynı olmadigini görüyor. .env.local dosyasini tek komutla doğru hedefe cekebiliriz.",
         command: localSetup.suggested_frontend_env_command,
       };
     }
 
     if (!frontendStatus.proxyConfigured && localSetup?.suggested_frontend_env_command) {
       return {
-        title: "Frontend proxy env'i henuz hazir degil.",
+        title: "Frontend proxy env'i henüz hazır değil.",
         detail:
-          "Login ekrani calisiyor ama backend hedefi frontend tarafinda eksik. Doctor local API adresine gore .env.local dosyasini tek komutla yeniden yazabilir.",
+          "Login ekrani çalışıyor ama backend hedefi frontend tarafında eksik. Doctor local API adresine gore .env.local dosyasini tek komutla yeniden yazabilir.",
         command: localSetup.suggested_frontend_env_command,
       };
     }
 
     if (!frontendStatus.backendReachable) {
       return {
-        title: "Local backend henuz ayakta degil.",
+        title: "Local backend henüz ayakta değil.",
         detail:
-          "Frontend 127.0.0.1:8000 hedefini bulamiyor. Bu durumda giris ve sifre kurtarma calismaz; demo icin preview, gercek deneme icin backend gerekir.",
+          "Frontend 127.0.0.1:8000 hedefini bulamiyor. Bu durumda giriş ve şifre kurtarma calismaz; demo için preview, gerçek deneme için backend gerekir.",
         command: localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
       };
     }
@@ -451,15 +451,15 @@ function LoginPageContent() {
       );
       const setupSourceDetail =
         localPilotStatus?.localSetupSource === "frontend_local_doctor"
-          ? " Teşhis frontend tarafinda taze doctor fallback'i ile üretildi; backend'i yeniden başlatınca endpoint de aynı seviyeye gelir."
+          ? " Teşhis frontend tarafında taze doctor fallback'i ile üretildi; backend'i yeniden başlatınca endpoint de aynı seviyeye gelir."
           : "";
 
       if (backendNeedsRestartForEnv) {
         return {
-          title: "Backend env yazildi ama calisan surec yeniden baslatilmali.",
+          title: "Backend env yazildi ama çalışan surec yeniden baslatilmali.",
           detail:
             (localSetup.backend_restart_reason ||
-              "Doctor backend/.env tarafinda veritabani baglantisini goruyor; buna ragmen calisan backend hala DATABASE_URL eksigi donuyor. Bu genelde env yazildiktan sonra uvicorn sureci yeniden baslatilmadiginda olur.") +
+              "Doctor backend/.env tarafında veritabanı bağlantısını görüyor; buna rağmen çalışan backend hala DATABASE_URL eksiği dönüyor. Bu genelde env yazıldıktan sonra uvicorn süreci yeniden başlatılmadığında olur.") +
             setupSourceDetail,
           command:
             localSetup.suggested_backend_restart_command ||
@@ -471,12 +471,12 @@ function LoginPageContent() {
       if (localSetup.decision_headline) {
         const targetDetail =
           localSetup.suggested_frontend_url || localSetup.suggested_api_url
-            ? ` Doctor hedefleri frontend=${localSetup.suggested_frontend_url || "bilinmiyor"} ve api=${localSetup.suggested_api_url || "bilinmiyor"} olarak goruyor.`
+            ? ` Doctor hedefleri frontend=${localSetup.suggested_frontend_url || "bilinmiyor"} ve api=${localSetup.suggested_api_url || "bilinmiyor"} olarak görüyor.`
             : "";
         return {
           title: localSetup.decision_headline,
           detail:
-            (localSetup.decision_detail || blockingItems[0] || "Local kurulumda doctor tarafinda yeni bir aksiyon onerisi var.") +
+            (localSetup.decision_detail || blockingItems[0] || "Local kurulumda doctor tarafında yeni bir aksiyon onerisi var.") +
             targetDetail +
             setupSourceDetail,
           command:
@@ -504,17 +504,17 @@ function LoginPageContent() {
 
     if (databaseMissing) {
       return {
-        title: "Backend ayakta ama veritabani env'i eksik.",
+        title: "Backend ayakta ama veritabanı env'i eksik.",
         detail:
-          "API cevap veriyor fakat DATABASE_URL olmadigi icin gercek giris tamamlanamaz. Doctor komutuyla eksik env'i gorup backend/.env dosyasini hazirlayabiliriz.",
+          "API cevap veriyor fakat DATABASE_URL olmadığı için gerçek giriş tamamlanamaz. Doctor komutuyla eksik env'i görüp backend/.env dosyasini hazırlayabiliriz.",
         command: "python v2/scripts/local_v2_doctor.py",
       };
     }
 
     if (frontendStatus.pilotHttpStatus && !localPilotStatus?.backend) {
       return {
-        title: "Backend ayakta ama readiness katmani henuz temiz degil.",
-        detail: frontendStatus.pilotErrorDetail || frontendStatus.detail || "Pilot status tam donemedi.",
+        title: "Backend ayakta ama readiness katmanı henüz temiz değil.",
+        detail: frontendStatus.pilotErrorDetail || frontendStatus.detail || "Pilot status tam dönemedi.",
       };
     }
 
@@ -672,7 +672,7 @@ function LoginPageContent() {
                 fontWeight: 800,
               }}
             >
-              v2 pilot giris masasi
+              v2 pilot giriş masasi
             </div>
             <div style={{ display: "grid", gap: "12px" }}>
               <h1
@@ -686,8 +686,8 @@ function LoginPageContent() {
                 }}
               >
                 {authPanelMode === "recovery"
-                  ? "Hesabina guvenli sekilde geri don."
-                  : "Yeni operasyon paneline giris."}
+                  ? "Hesabina güvenli sekilde geri don."
+                  : "Yeni operasyon paneline giriş."}
               </h1>
               <p
                 style={{
@@ -699,8 +699,8 @@ function LoginPageContent() {
                 }}
               >
                 {authPanelMode === "recovery"
-                  ? "Sifreni unuttuysan ekibi beklemeden kimligini telefon koduyla dogrulayip hesabina geri donebilirsin. Kurtarma akisi artik bu masanin ilk seviye yollarindan biri."
-                  : "Bu yuzeyi yalnizca kimlik dogrulama icin degil, yeni sistemin karakterini ilk andan hissettirmek icin kurduk. Sifreyle giris, SMS akisi ve yonlendirme tek editorial yuzeyde toplanmis durumda."}
+                  ? "Sifreni unuttuysan ekibi beklemeden kimligini telefon koduyla doğrulayıp hesabına geri dönebilirsin. Kurtarma akışı artık bu masanın ilk seviye yollarından biri."
+                  : "Bu yüzeyi yalnızca kimlik doğrulama için değil, yeni sistemin karakterini ilk andan hissettirmek için kurduk. Şifreyle giriş, SMS akışı ve yönlendirme tek editorial yüzeyde toplanmış durumda."}
               </p>
             </div>
 
@@ -718,14 +718,14 @@ function LoginPageContent() {
                   onClick={() => switchAuthPanelMode("recovery")}
                   style={heroQuickActionStyle(authPanelMode === "recovery")}
                 >
-                  {authPanelMode === "recovery" ? "Kurtarma Akisi Acik" : "Sifremi Unuttum"}
+                  {authPanelMode === "recovery" ? "Kurtarma Akışı Açık" : "Şifremi Unuttum"}
                 </button>
                 <button
                   type="button"
                   onClick={() => switchAuthPanelMode("sms")}
                   style={heroSecondaryActionStyle(authPanelMode === "sms")}
                 >
-                  SMS ile Giris
+                  SMS ile Giriş
                 </button>
               </div>
             ) : null}
@@ -741,17 +741,17 @@ function LoginPageContent() {
           >
             {[
               [
-                authPanelMode === "recovery" ? "Kurtarma Hatti" : "Giris Hatti",
+                authPanelMode === "recovery" ? "Kurtarma Hattı" : "Giriş Hattı",
                 authPanelMode === "recovery"
-                  ? "SMS dogrulama ve yeni sifre akisi ayni kontrol masasi icinde."
-                  : "Sifre ve SMS akisi ayni kontrol masasi icinde.",
+                  ? "SMS doğrulama ve yeni şifre akışı aynı kontrol masasi içinde."
+                  : "Şifre ve SMS akışı aynı kontrol masasi içinde.",
               ],
-              ["Yetki", "Rol bazli yonlendirme giris sonrasi otomatik isliyor."],
+              ["Yetki", "Rol bazli yönlendirme giriş sonrası otomatik isliyor."],
               [
                 authPanelMode === "recovery" ? "Guvenlik Akis" : "Pilot Akis",
                 authPanelMode === "recovery"
-                  ? "Kimligini dogrulayan ekip ayni panelde yeni sifre belirleyip girise donebiliyor."
-                  : "Giris yapan ekip ilgili modullere temiz sekilde dusuyor.",
+                  ? "Kimligini doğrulayan ekip aynı panelde yeni şifre belirleyip girişe dönebiliyor."
+                  : "Giriş yapan ekip ilgili modullere temiz sekilde dusuyor.",
               ],
             ].map(([title, text]) => (
               <article
@@ -801,7 +801,7 @@ function LoginPageContent() {
                   letterSpacing: "0.08em",
                 }}
               >
-                Ilk bakista
+                Ilk bakışta
               </div>
               <div
                 style={{
@@ -812,13 +812,13 @@ function LoginPageContent() {
                 }}
               >
                 {authPanelMode === "recovery"
-                  ? "Telefonla dogrula, sifreni yenile, kaldigin yerden devam et."
-                  : "Hızlı giris, temiz yonlendirme, daha az surtunme."}
+                  ? "Telefonla doğrula, şifreni yenile, kaldığın yerden devam et."
+                  : "Hızlı giriş, temiz yönlendirme, daha az surtunme."}
               </div>
               <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.7 }}>
                 {authPanelMode === "recovery"
-                  ? "Kurtarma akisi artik yardimci bir dip link degil; giris deneyiminin dogal bir parcasi. Kullanici dogrudan dogrulama alanina inip hesabini toparlayabiliyor."
-                  : "Login sonrasi ekranlar artik beyazlayip yeniden yukleniyormus gibi his vermesin diye yapinin geri kalanini da ayni dille tasiyoruz."}
+                  ? "Kurtarma akışı artık yardımcı bir dip link değil; giriş deneyiminin doğal bir parçası. Kullanıcı doğrudan doğrulama alanina inip hesabini toparlayabiliyor."
+                  : "Login sonrası ekranlar artık beyazlayıp yeniden yükleniyormuş gibi his vermesin diye yapinin geri kalanini da aynı dille taşıyoruz."}
               </div>
             </article>
 
@@ -834,15 +834,15 @@ function LoginPageContent() {
               }}
             >
               <div style={{ color: "#f6ddbb", fontSize: "0.74rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 800 }}>
-                Hazir Moduller
+                Hazır Modüller
               </div>
               <div style={{ ...serifTitleStyle, fontSize: "2.4rem", lineHeight: 0.9, fontWeight: 700 }}>
                 {authPanelMode === "recovery" ? "3 Adim" : "10+"}
               </div>
               <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.6, fontSize: "0.92rem" }}>
                 {authPanelMode === "recovery"
-                  ? "Telefon, kod ve yeni sifre. Kurtarma akisi net ve tek hatta toplaniyor."
-                  : "Puantaj, personel, kesintiler, raporlar ve daha fazlasi ayni pilot omurgasinda."}
+                  ? "Telefon, kod ve yeni şifre. Kurtarma akışı net ve tek hatta toplanıyor."
+                  : "Puantaj, personel, kesintiler, raporlar ve daha fazlasi aynı pilot omurgasinda."}
               </div>
             </article>
           </div>
@@ -860,7 +860,7 @@ function LoginPageContent() {
             }}
           >
             <div style={{ display: "grid", gap: "8px" }}>
-              <div style={eyebrowStyle}>Sifre ile Giris</div>
+              <div style={eyebrowStyle}>Şifre ile Giriş</div>
               <h2
                 style={{
                   ...serifTitleStyle,
@@ -870,10 +870,10 @@ function LoginPageContent() {
                   fontWeight: 700,
                 }}
               >
-                E-posta veya telefonla dogrudan gir.
+                E-posta veya telefonla doğrudan gir.
               </h2>
               <p style={cardBodyStyle}>
-                Ofis icin en hizli akis. Giris sonrasi sistem seni yetkine uygun ilk ekrana alir.
+                Ofis için en hızlı akış. Giriş sonrası sistem seni yetkine uygun ilk ekrana alır.
               </p>
             </div>
 
@@ -908,10 +908,10 @@ function LoginPageContent() {
               ) : authModesUnavailable ? (
                 <div style={infoBannerStyle}>
                   <div style={{ display: "grid", gap: "5px" }}>
-                    <strong>Bu ekran gercek v2 giris yuzeyi.</strong>
+                    <strong>Bu ekran gerçek v2 giriş yüzeyi.</strong>
                     <span>
-                      Backend bagli degilse giris ve sifre kurtarma burada calismaz. Tasarimi gezmek
-                      icin preview modunu kullanabilirsin.
+                      Backend bağlı değilse giriş ve şifre kurtarma burada calismaz. Tasarimi gezmek
+                      için preview modunu kullanabilirsin.
                     </span>
                   </div>
                   {runningOnLocalhost ? (
@@ -933,10 +933,10 @@ function LoginPageContent() {
                   }}
                 >
                   <div style={{ display: "grid", gap: "4px" }}>
-                    <strong style={{ color: "#0f3f91" }}>Yerelde gercek giris hazir.</strong>
+                    <strong style={{ color: "#0f3f91" }}>Yerelde gerçek giriş hazır.</strong>
                     <span style={{ color: "#4f6283", lineHeight: 1.65 }}>
-                      Bu makinede backend local sqlite fallback ile calisiyor. PostgreSQL olmadan da e-posta/sifre
-                      akisini deneyebiliriz; sadece bu mod local gelistirme icin gecerli.
+                      Bu makinede backend local sqlite fallback ile çalışıyor. PostgreSQL olmadan da e-posta/şifre
+                      akışını deneyebiliriz; sadece bu mod local gelistirme için geçerli.
                     </span>
                   </div>
                   <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -958,10 +958,10 @@ function LoginPageContent() {
                         <span style={{ color: "#5f7294", fontSize: "0.9rem" }}>{account.role}</span>
                         <span style={{ color: "#5f7294", fontSize: "0.86rem" }}>
                           {account.defaultPasswordActive
-                            ? "Varsayilan sifre aktif gorunuyor."
+                            ? "Varsayılan şifre aktif görünüyor."
                             : account.mustChangePassword
-                              ? "Gecici sifre bekliyor; guncel sifreyi elle gir."
-                              : "Sifre daha once degistirilmis gorunuyor."}
+                              ? "Geçici şifre bekliyor; güncel şifreyi elle gir."
+                              : "Şifre daha önce değiştirilmiş görünüyor."}
                         </span>
                         <button
                           type="button"
@@ -985,10 +985,10 @@ function LoginPageContent() {
                   <div style={{ color: "#4f6283", lineHeight: 1.65 }}>
                     {localReadyLogin.defaultPasswordIsDefault &&
                     localReadyLogin.accounts.some((account) => account.defaultPasswordActive)
-                      ? "Sadece 'Varsayilan sifre aktif' yazan hesaplarda local sifre 123456 olarak kullanilabilir."
+                      ? "Sadece 'Varsayılan şifre aktif' yazan hesaplarda local şifre 123456 olarak kullanılabilir."
                       : localReadyLogin.defaultPasswordPresent
-                        ? "Local hesaplarin sifresi bu makinede degismis olabilir; kart sadece e-postayi doldurur, sifreyi guncel haliyle elle girmek gerekir."
-                        : "Sifre tanimli gorunmuyor; login denemesi oncesi backend/.env tarafini kontrol et."}
+                        ? "Local hesapların şifresi bu makinede değişmiş olabilir; kart sadece e-postayı doldurur, şifreyi güncel haliyle elle girmek gerekir."
+                        : "Şifre tanımlı görünmüyor; giriş denemesi öncesi backend/.env tarafını kontrol et."}
                   </div>
                 </div>
               ) : null}
@@ -1004,7 +1004,7 @@ function LoginPageContent() {
               </label>
 
               <label style={labelStyle}>
-                <span style={labelTitleStyle}>Sifre</span>
+                <span style={labelTitleStyle}>Şifre</span>
                 <input
                   type="password"
                   value={password}
@@ -1046,11 +1046,11 @@ function LoginPageContent() {
                   }}
                 >
                   <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                    Kurtarma akisi backend ile aktiflesir.
+                    Kurtarma akışı backend ile aktifleşir.
                   </span>
                   {runningOnLocalhost ? (
                     <Link href="/preview" style={inlinePreviewLinkStyle}>
-                      Demo yuzeyini ac
+                      Demo yüzeyini aç
                     </Link>
                   ) : null}
                 </div>
@@ -1059,7 +1059,7 @@ function LoginPageContent() {
               {error ? <div style={errorStyle}>{error}</div> : null}
 
               <button type="submit" disabled={submitting || loading} style={primaryButtonStyle(submitting || loading)}>
-                {submitting ? "Giris Yapiliyor..." : "Giris Yap"}
+                {submitting ? "Giriş Yapiliyor..." : "Giriş Yap"}
               </button>
             </form>
           </section>
@@ -1103,7 +1103,7 @@ function LoginPageContent() {
                     flexWrap: "wrap",
                   }}
                 >
-                  <div style={{ ...eyebrowStyle, color: "#0f5fd7" }}>Sifre Kurtarma</div>
+                  <div style={{ ...eyebrowStyle, color: "#0f5fd7" }}>Şifre Kurtarma</div>
                   {authPanelMode === "recovery" ? (
                     <span
                       style={{
@@ -1116,7 +1116,7 @@ function LoginPageContent() {
                         fontWeight: 800,
                       }}
                     >
-                      Kurtarma modu acik
+                      Kurtarma modu açık
                     </span>
                   ) : null}
                 </div>
@@ -1129,11 +1129,11 @@ function LoginPageContent() {
                     fontWeight: 700,
                   }}
                 >
-                  Sifreni unuttuysan buradan guvenli sekilde geri don.
+                  Sifreni unuttuysan buradan güvenli sekilde geri don.
                 </h2>
                 <p style={cardBodyStyle}>
-                  Kayitli telefon numarana tek kullanimlik kod gonderelim. Kimligini
-                  dogruladiginda ayni kartta yeni sifreni belirleyip hesabina geri donebilirsin.
+                  Kayıtlı telefon numarana tek kullanımlık kod gönderelim. Kimligini
+                  doğruladığında aynı kartta yeni şifreni belirleyip hesabına geri dönebilirsin.
                 </p>
               </div>
 
@@ -1157,7 +1157,7 @@ function LoginPageContent() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Kurtarma Hatti
+                  Kurtarma Hattı
                 </div>
                 <div
                   style={{
@@ -1171,7 +1171,7 @@ function LoginPageContent() {
                   SMS
                 </div>
                 <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.9rem" }}>
-                  Telefon koduyla dogrulama, sonra yeni sifre.
+                  Telefon koduyla doğrulama, sonra yeni şifre.
                 </div>
               </div>
             </div>
@@ -1186,9 +1186,9 @@ function LoginPageContent() {
             >
               <div style={{ display: "grid", gap: "12px" }}>
                 {[
-                  ["1. Kimlik", "Kayitli telefon numarani gir."],
-                  ["2. Kod", "Tek kullanimlik SMS kodunu al."],
-                  ["3. Sifre", "Ayni kartta yeni sifreni belirle."],
+                  ["1. Kimlik", "Kayıtlı telefon numarani gir."],
+                  ["2. Kod", "Tek kullanımlık SMS kodunu al."],
+                  ["3. Şifre", "Aynı kartta yeni şifreni belirle."],
                 ].map(([title, text]) => (
                   <article
                     key={title}
@@ -1221,8 +1221,8 @@ function LoginPageContent() {
                   <div style={{ color: "#0f5fd7", fontWeight: 800 }}>Hat Durumu</div>
                   <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
                     {smsLoginEnabled
-                      ? "SMS kurtarma hatti aktif. Telefon dogrulamasiyla hesaba geri donebilirsin."
-                      : "SMS kurtarma hatti aktif degilse ofis yoneticisiyle iletisime gecerek sifre destegi alabilirsin."}
+                      ? "SMS kurtarma hattı aktif. Telefon doğrulamasıyla hesaba geri dönebilirsin."
+                      : "SMS kurtarma hattı aktif değilse ofis yöneticisiyle iletişime gecerek şifre desteği alabilirsin."}
                   </div>
               </div>
             </div>
@@ -1258,7 +1258,7 @@ function LoginPageContent() {
                       letterSpacing: "0.08em",
                     }}
                   >
-                    {authPanelMode === "recovery" ? "Kurtarma Aksiyonu" : "Hazir Oldugunda"}
+                    {authPanelMode === "recovery" ? "Kurtarma Aksiyonu" : "Hazır Oldugunda"}
                   </div>
                   <div
                     style={{
@@ -1270,7 +1270,7 @@ function LoginPageContent() {
                     }}
                   >
                     {authPanelMode === "recovery"
-                      ? "Telefonu dogrula, sifreni burada yenile."
+                      ? "Telefonu doğrula, şifreni burada yenile."
                       : "Kurtarma hattini tek tikla ac."}
                   </div>
                   <div
@@ -1281,8 +1281,8 @@ function LoginPageContent() {
                     }}
                   >
                     {authPanelMode === "recovery"
-                      ? "Bu blok artik sadece bilgi vermiyor; telefon, kod ve yeni sifre adimlarini dogrudan ayni yuzeyde topluyor."
-                      : "Sifre kurtarma modunu actiginda ek bir asagi arama gerekmeden ayni kart icinde tum aksiyonu goreceksin."}
+                      ? "Bu blok artık sadece bilgi vermiyor; telefon, kod ve yeni şifre adimlarini doğrudan aynı yüzeyde topluyor."
+                      : "Şifre kurtarma modunu actiginda ek bir asagi arama gerekmeden aynı kart içinde tüm aksiyonu goreceksin."}
                   </div>
                 </div>
 
@@ -1290,7 +1290,7 @@ function LoginPageContent() {
                   <>
                     <form onSubmit={handleSendCode} style={{ display: "grid", gap: "12px" }}>
                       <label style={labelStyle}>
-                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Kayitli Telefon</span>
+                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Kayıtlı Telefon</span>
                         <input
                           ref={recoveryPhoneInputRef}
                           value={phone}
@@ -1304,7 +1304,7 @@ function LoginPageContent() {
                         disabled={smsSubmitting || !phone.trim()}
                         style={secondaryButtonStyle(smsSubmitting || !phone.trim())}
                       >
-                        {smsSubmitting ? "Kod Hazirlaniyor..." : "Dogrulama Kodu Gonder"}
+                        {smsSubmitting ? "Kod Hazırlanıyor..." : "Dogrulama Kodu Gönder"}
                       </button>
                     </form>
 
@@ -1328,7 +1328,7 @@ function LoginPageContent() {
                         />
                       </label>
                       <label style={labelStyle}>
-                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Sifre</span>
+                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Şifre</span>
                         <input
                           type="password"
                           value={recoveryNewPassword}
@@ -1338,12 +1338,12 @@ function LoginPageContent() {
                         />
                       </label>
                       <label style={labelStyle}>
-                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Sifre Tekrar</span>
+                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Şifre Tekrar</span>
                         <input
                           type="password"
                           value={recoveryConfirmPassword}
                           onChange={(event) => setRecoveryConfirmPassword(event.target.value)}
-                          placeholder="Yeni sifreni tekrar gir"
+                          placeholder="Yeni şifreni tekrar gir"
                           style={darkFieldStyle}
                         />
                       </label>
@@ -1381,7 +1381,7 @@ function LoginPageContent() {
                         gap: "6px",
                       }}
                     >
-                      <div style={{ color: "#0f5fd7", fontWeight: 800 }}>Kurtarma Hatti</div>
+                      <div style={{ color: "#0f5fd7", fontWeight: 800 }}>Kurtarma Hattı</div>
                       <div
                         style={{
                           ...serifTitleStyle,
@@ -1393,7 +1393,7 @@ function LoginPageContent() {
                         SMS
                       </div>
                       <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.92rem" }}>
-                        Telefon koduyla dogrulama, sonra yeni sifre.
+                        Telefon koduyla doğrulama, sonra yeni şifre.
                       </div>
                     </div>
 
@@ -1403,13 +1403,13 @@ function LoginPageContent() {
                         onClick={() => switchAuthPanelMode("recovery")}
                         style={recoveryCtaStyle(false)}
                       >
-                        Sifremi Unuttum
+                        Şifremi Unuttum
                       </button>
                     ) : null}
 
                     {authModesUnavailable && runningOnLocalhost ? (
                       <Link href="/preview" style={recoveryFallbackLinkStyle}>
-                        Bu local oturumda demo yuzeyini ac
+                        Bu local oturumda demo yüzeyini ac
                       </Link>
                     ) : null}
                   </>
@@ -1447,14 +1447,14 @@ function LoginPageContent() {
                     onClick={() => switchAuthPanelMode("sms")}
                     style={panelToggleStyle(authPanelMode === "sms")}
                   >
-                    SMS ile Giris
+                    SMS ile Giriş
                   </button>
                   <button
                     type="button"
                     onClick={() => switchAuthPanelMode("recovery")}
                     style={panelToggleStyle(false)}
                   >
-                    Sifremi Unuttum
+                    Şifremi Unuttum
                   </button>
                 </div>
                 <div
@@ -1466,7 +1466,7 @@ function LoginPageContent() {
                     fontSize: "0.72rem",
                   }}
                 >
-                  SMS ile Giris
+                  SMS ile Giriş
                 </div>
                 <h2
                   style={{
@@ -1477,7 +1477,7 @@ function LoginPageContent() {
                     fontWeight: 700,
                   }}
                 >
-                  Tek kullanimlik kodla hizli dogrulama.
+                  Tek kullanımlık kodla hızlı doğrulama.
                 </h2>
                 <p
                   style={{
@@ -1487,7 +1487,7 @@ function LoginPageContent() {
                     fontSize: "0.95rem",
                   }}
                 >
-                  Bolge muduru ve izinli yonetici numaralari bu akisi kullanabilir. Kod gonder ve ayni kart icinde dogrulamayi tamamla.
+                  Bölge muduru ve izinli yönetici numaraları bu akışı kullanabilir. Kod gönder ve aynı kart içinde doğrulamayı tamamla.
                 </p>
               </div>
 
@@ -1503,7 +1503,7 @@ function LoginPageContent() {
                   />
                 </label>
                 <button type="submit" disabled={smsSubmitting} style={secondaryButtonStyle(smsSubmitting)}>
-                  {smsSubmitting ? "Kod Hazirlaniyor..." : "SMS Kodu Gonder"}
+                  {smsSubmitting ? "Kod Hazırlanıyor..." : "SMS Kodu Gönder"}
                 </button>
               </form>
 
@@ -1589,10 +1589,10 @@ function LoginPageFallback() {
             fontWeight: 700,
           }}
         >
-          Giris masasi hazirlaniyor.
+          Giriş masasi hazırlanıyor.
         </div>
         <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
-          Oturum modlari ve yonlendirme bilgileri yukleniyor. Hazir oldugunda seni dogrudan yeni
+          Oturum modlari ve yönlendirme bilgileri yükleniyor. Hazır oldugunda seni doğrudan yeni
           panele alacagiz.
         </p>
       </section>

@@ -475,7 +475,7 @@ export default function PreviewOverviewPage() {
                   fontWeight: 700,
                 }}
               >
-                {dashboardLoading ? "Hazirlaniyor" : "Gezilebilir Yuzey Acik"}
+                {dashboardLoading ? "Hazırlanıyor" : "Gezilebilir Yüzey Açık"}
               </div>
               <div
                 style={{
@@ -484,7 +484,7 @@ export default function PreviewOverviewPage() {
                 }}
               >
                 {dashboardLoading
-                  ? "Dashboard verisi yukleniyor."
+                  ? "Dashboard verisi yükleniyor."
                   : `${dashboard?.modules.length ?? 0} modül ve ${dashboard?.recent_activity.length ?? 0} canlı sinyal preview akışına bağlı.`}
               </div>
             </div>
@@ -497,7 +497,7 @@ export default function PreviewOverviewPage() {
               gap: "12px",
             }}
           >
-            {heroMetric("Aktif Sube", String(dashboard?.hero.active_restaurants ?? 0), "Saha tarafinda görünen restoran yoğunluğu")}
+            {heroMetric("Aktif Şube", String(dashboard?.hero.active_restaurants ?? 0), "Saha tarafında görünen restoran yoğunluğu")}
             {heroMetric("Aktif Kadro", String(dashboard?.hero.active_personnel ?? 0), "Preview üzerinde dağılmış operasyon ekibi")}
             {heroMetric("Aylık Puantaj", String(dashboard?.hero.month_attendance_entries ?? 0), "Attendance akışındaki Nisan kayıtları")}
             {heroMetric("Aylık Kesinti", String(dashboard?.hero.month_deduction_entries ?? 0), "Bordro ve kesinti yüzeyine bağlı kayıtlar")}

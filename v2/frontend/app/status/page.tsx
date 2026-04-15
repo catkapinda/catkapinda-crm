@@ -397,7 +397,7 @@ export default function StatusPage() {
         name: "NEXT_PUBLIC_V2_API_BASE_URL",
         ok: true,
         required: true,
-        detail: "/v2-api (hem yerel gelistirme hem Render pilot icin ayni kalir)",
+        detail: "/v2-api (hem yerel gelistirme hem Render pilot için aynı kalir)",
       },
       {
         name: "CK_V2_INTERNAL_API_HOSTPORT veya CK_V2_INTERNAL_API_BASE_URL",
@@ -492,11 +492,11 @@ export default function StatusPage() {
     const lines = [
       "Cat Kapinda CRM v2 Pilot Durum Ozeti",
       `Son kontrol: ${lastUpdatedAt ?? "bekleniyor"}`,
-      `Durum: ${overallOk ? "Pilot hazir" : coreReady ? "Temel olarak hazir" : "Kontrol gerekli"}`,
+      `Durum: ${overallOk ? "Pilot hazır" : coreReady ? "Temel olarak hazır" : "Kontrol gerekli"}`,
       frontend?.releaseLabel ? `Frontend build: ${frontend.releaseLabel}` : null,
       backend?.release_label ? `Backend build: ${backend.release_label}` : null,
       backend?.decision ? `Bugunun karari: ${backend.decision.title}` : null,
-      `Moduller: ${readinessSummary.activeModules}/${readinessSummary.totalModules || 0}`,
+      `Modüller: ${readinessSummary.activeModules}/${readinessSummary.totalModules || 0}`,
       `Rollout: ${readinessSummary.readyRolloutSteps}/${readinessSummary.totalRolloutSteps || 0}`,
       `Backend env: ${readinessSummary.configuredRequiredBackendEnv}/${readinessSummary.totalRequiredBackendEnv || 0}`,
       `Pilot hesap: ${readinessSummary.phoneReadyAccounts}/${readinessSummary.totalPilotAccounts || 0}`,
@@ -574,7 +574,7 @@ export default function StatusPage() {
         tone: "warning" as const,
         title: "Frontend local proxy env'i yeniden yazilmali.",
         detail:
-          "Bu local modda frontend, backend hedefini .env.local icinden okuyor. Doctor su an en dogru local API hedefiyle bu dosyayi tek komutla yeniden uretebilir.",
+          "Bu local modda frontend, backend hedefini .env.local icinden okuyor. Doctor su an en doğru local API hedefiyle bu dosyayi tek komutla yeniden uretebilir.",
         commands: [
           localSetup.suggested_frontend_env_command,
           "python v2/scripts/local_v2_doctor.py",
@@ -585,9 +585,9 @@ export default function StatusPage() {
     if (!frontend.backendReachable) {
       return {
         tone: "warning" as const,
-        title: "Local backend henuz gorunmuyor.",
+        title: "Local backend henüz görünmuyor.",
         detail:
-          "Frontend explicit base URL modunda 127.0.0.1:8000 hedefini ariyor. Bu local senaryoda normal; backend ayaga kalkmadan login ve sifre kurtarma akisi tamamlanmaz.",
+          "Frontend explicit base URL modunda 127.0.0.1:8000 hedefini ariyor. Bu local senaryoda normal; backend ayağa kalkmadan login ve şifre kurtarma akışı tamamlanmaz.",
         commands: [
           localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
           "python v2/scripts/local_v2_doctor.py",
@@ -598,10 +598,10 @@ export default function StatusPage() {
     if (localBackendEnvRestartNeeded) {
       return {
         tone: "warning" as const,
-        title: "Backend env guncel, ama calisan surec yeniden baslatilmali.",
+        title: "Backend env güncel, ama çalışan surec yeniden baslatilmali.",
         detail:
           localSetup?.backend_restart_reason ||
-          "Doctor backend/.env tarafinda DATABASE_URL gordugu halde calisan backend hala eski env ile 503 donuyor. Bu local durumda tipik olarak uvicorn surecinin env yazildiktan sonra yeniden baslatilmasi gerekir.",
+          "Doctor backend/.env tarafında DATABASE_URL gördüğü halde çalışan backend hala eski env ile 503 dönüyor. Bu local durumda tipik olarak uvicorn sürecinin env yazıldıktan sonra yeniden başlatılması gerekir.",
         commands: [
           localSetup?.suggested_backend_restart_command ||
             localSetup?.suggested_backend_start_command ||
@@ -618,9 +618,9 @@ export default function StatusPage() {
     if (databaseMissing) {
       return {
         tone: "warning" as const,
-        title: "Backend ayakta, veritabani env'i eksik.",
+        title: "Backend ayakta, veritabanı env'i eksik.",
         detail:
-          "Bu local durumda API cevap veriyor ama DATABASE_URL olmadigi icin gercek auth akisi tamamlanamiyor. Doctor komutlariyla mevcut kaynaklari tarayip backend/.env dosyasini hazirlayabiliriz.",
+          "Bu yerel durumda API cevap veriyor ama `DATABASE_URL` olmadığı için gerçek kimlik doğrulama akışı tamamlanamıyor. Doctor komutlarıyla mevcut kaynakları tarayıp `backend/.env` dosyasını hazırlayabiliriz.",
         commands: [
           "python v2/scripts/local_v2_doctor.py",
           localSetup?.suggested_bootstrap_command || localSetup?.suggested_scaffold_command || "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
@@ -632,10 +632,10 @@ export default function StatusPage() {
     if (frontend.backendReachable && !backend) {
       return {
         tone: "info" as const,
-        title: "Backend gorunuyor, detay readiness verisi sinirli.",
+        title: "Backend görünüyor, detay readiness verisi sinirli.",
         detail:
           frontend.pilotErrorDetail ||
-          "Pilot status tam donmedi ama frontend backend'i goruyor. Bir sonraki odak local env ve veritabani baglantisi olmali.",
+          "Pilot status tam donmedi ama frontend backend'i görüyor. Bir sonraki odak local env ve veritabanı bağlantısı olmalı.",
         commands: ["python v2/scripts/local_v2_doctor.py"],
       };
     }
@@ -671,7 +671,7 @@ export default function StatusPage() {
     const passwordPart =
       localSqliteLoginReady.defaultPasswordIsDefault && smokeAccount.default_password_active
         ? " --password 123456"
-        : " --password <guncel-sifre>";
+        : " --password <güncel-şifre>";
     return `python v2/scripts/pilot_smoke.py --base-url http://127.0.0.1:3001 --identity ${smokeAccount.email}${passwordPart}`;
   }, [localSqliteLoginReady]);
 
@@ -816,11 +816,11 @@ export default function StatusPage() {
                 gap: "8px",
               }}
             >
-              <div style={{ color: "#5f7294", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase" }}>Moduller</div>
+              <div style={{ color: "#5f7294", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase" }}>Modüller</div>
               <strong style={{ fontSize: "1.6rem", color: "#16274a" }}>
                 {readinessSummary.activeModules}/{readinessSummary.totalModules || 0}
               </strong>
-              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Pilotta acik ana moduller</div>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Pilotta açık ana modüller</div>
             </article>
             <article
               style={{
@@ -836,7 +836,7 @@ export default function StatusPage() {
               <strong style={{ fontSize: "1.6rem", color: "#16274a" }}>
                 {readinessSummary.readyRolloutSteps}/{readinessSummary.totalRolloutSteps || 0}
               </strong>
-              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Hazir acilis adimlari</div>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Hazır açılış adimlari</div>
             </article>
             <article
               style={{
@@ -868,7 +868,7 @@ export default function StatusPage() {
               <strong style={{ fontSize: "1.6rem", color: "#16274a" }}>
                 {readinessSummary.phoneReadyAccounts}/{readinessSummary.totalPilotAccounts || 0}
               </strong>
-              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Telefon hazir hesap</div>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Telefon hazır hesap</div>
             </article>
           </div>
         </section>
@@ -970,9 +970,9 @@ export default function StatusPage() {
                     <br />
                     Frontend .env.local: {localSetup.frontend_env_exists ? "var" : "yok"}
                     <br />
-                    Frontend env sync: {localSetup.frontend_env_needs_sync ? "gerekiyor" : "hazir"}
+                    Frontend env sync: {localSetup.frontend_env_needs_sync ? "gerekiyor" : "hazır"}
                     <br />
-                    Backend restart: {localBackendEnvRestartNeeded ? "gerekiyor" : "gerekli gorunmuyor"}
+                    Backend restart: {localBackendEnvRestartNeeded ? "gerekiyor" : "gerekli görünmuyor"}
                     <br />
                     Runtime DB: {localSetup.runtime_database_url_present ? "var" : "yok"}
                     <br />
@@ -989,7 +989,7 @@ export default function StatusPage() {
                   </div>
                 </article>
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
-                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Canli Local Frontend</div>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Canlı Local Frontend</div>
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
                     {localSetup.detected_frontend_urls.length
                       ? localSetup.detected_frontend_urls.join(" | ")
@@ -1034,10 +1034,10 @@ export default function StatusPage() {
                 </article>
                 {localSqliteLoginReady ? (
                   <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
-                    <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Yerel Gercek Giris</div>
+                    <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Yerel Gerçek Giriş</div>
                     <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
-                      Backend su an local sqlite fallback ile ayakta. PostgreSQL olmadan da gercek e-posta/sifre
-                      akisini burada deneyebiliriz.
+                      Backend su an local sqlite fallback ile ayakta. PostgreSQL olmadan da gerçek e-posta/şifre
+                      akışını burada deneyebiliriz.
                     </div>
                     <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
                       {localSqliteLoginReady.accounts.map((account) => (
@@ -1066,10 +1066,10 @@ export default function StatusPage() {
                           <span style={{ color: "#5f7294", fontSize: "0.92rem" }}>{account.role}</span>
                           <span style={{ color: "#5f7294", fontSize: "0.88rem" }}>
                             {account.default_password_active
-                              ? "Varsayilan sifre aktif gorunuyor."
+                              ? "Varsayılan şifre aktif görünüyor."
                               : account.must_change_password
-                                ? "Gecici sifre bekliyor; guncel sifre gerekli."
-                                : "Sifre daha once degistirilmis gorunuyor."}
+                                ? "Geçici şifre bekliyor; güncel şifre gerekli."
+                                : "Şifre daha önce değiştirilmiş görünüyor."}
                           </span>
                         </div>
                       ))}
@@ -1077,10 +1077,10 @@ export default function StatusPage() {
                     <div style={{ marginTop: "12px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
                       {localSqliteLoginReady.defaultPasswordIsDefault &&
                       localSqliteLoginReady.accounts.some((account) => account.default_password_active)
-                        ? "Sadece 'Varsayilan sifre aktif' yazan hesaplarda local sifre 123456 olarak kullanilabilir."
+                        ? "Sadece 'Varsayılan şifre aktif' yazan hesaplarda local şifre 123456 olarak kullanilabilir."
                         : localSqliteLoginReady.defaultPasswordPresent
-                          ? "Hesap sifreleri bu makinede degismis olabilir; smoke veya login denemesinde guncel sifreyi kullan."
-                          : "Sifre tanimli gorunmuyor; login oncesi backend/.env tarafini kontrol et."}
+                          ? "Hesap şifreleri bu makinede değişmiş olabilir; smoke veya login denemesinde güncel şifreyi kullan."
+                          : "Şifre tanimli görünmuyor; login öncesi backend/.env tarafını kontrol et."}
                     </div>
                     {localSqliteSmokeCommand ? (
                       <>
@@ -1122,7 +1122,7 @@ export default function StatusPage() {
                       ? localSetup.current_app_seed_sources.join(" | ")
                       : localSetup.current_app_seed_placeholders.length
                         ? `Sadece template bulundu: ${localSetup.current_app_seed_placeholders.join(" | ")}`
-                        : "Kullanilabilir current app seed bulunamadi."}
+                        : "Kullanilabilir current app seed bulunamadı."}
                   </div>
                 </article>
               </div>
@@ -1287,7 +1287,7 @@ export default function StatusPage() {
                 }}
               >
                 <div style={statusPill(Boolean(frontend))}>
-                  {frontend ? "Yedek Teshis Acik" : "Baglanti Kontrolu Gerekli"}
+                  {frontend ? "Yedek Teshis Açık" : "Baglanti Kontrolu Gerekli"}
                 </div>
                 <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot durum notu</h2>
                 <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>{loadNote}</p>
@@ -1330,7 +1330,7 @@ export default function StatusPage() {
                 >
                   <strong>Frontend Build</strong>
                   <div style={{ color: "#35507d", fontSize: "1rem", fontWeight: 800 }}>
-                    {releaseAlignment.frontendRelease ?? "henuz gorunmuyor"}
+                    {releaseAlignment.frontendRelease ?? "henüz görünmuyor"}
                   </div>
                   <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{frontend?.service ?? "Frontend servisi bekleniyor"}</div>
                 </article>
@@ -1346,17 +1346,17 @@ export default function StatusPage() {
                 >
                   <strong>Backend Build</strong>
                   <div style={{ color: "#35507d", fontSize: "1rem", fontWeight: 800 }}>
-                    {releaseAlignment.backendRelease ?? "henuz gorunmuyor"}
+                    {releaseAlignment.backendRelease ?? "henüz görünmuyor"}
                   </div>
                   <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{backend?.service ?? "Backend servisi bekleniyor"}</div>
                 </article>
               </div>
               <p style={{ margin: 0, color: releaseAlignment.mismatch ? "#b42318" : "#5f7294", lineHeight: 1.7 }}>
                 {releaseAlignment.mismatch
-                  ? "Frontend ve backend farkli deploy gorunuyor. Pilotta ilerlemeden once iki servisin de ayni committe oldugunu dogrulayalim."
+                  ? "Frontend ve backend farklı deploy görünüyor. Pilotta ilerlemeden önce iki servisin de aynı committe oldugunu doğrulayalım."
                   : releaseAlignment.bothPresent
-                    ? "Iki servis ayni release etiketini gosteriyor; bu, pilot acilisinda dogru build ile ilerledigimizi anlamayi kolaylastirir."
-                    : "Release etiketi env tarafindan henuz gelmiyor olabilir. Pilotta Render commit bilgisi gelince bu alan otomatik dolacak."}
+                    ? "İki servis aynı sürüm etiketini gösteriyor; bu, pilot açılışında doğru derleme ile ilerlediğimizi anlamayı kolaylaştırır."
+                    : "Release etiketi env tarafindan henüz gelmiyor olabilir. Pilotta Render commit bilgisi gelince bu alan otomatik dolacak."}
               </p>
             </section>
 
@@ -1376,10 +1376,10 @@ export default function StatusPage() {
               >
                 <div style={statusPill(cutoverTone)}>
                   {backend.cutover.phase === "ready_for_cutover"
-                    ? "Cutover Hazir"
+                    ? "Cutover Hazır"
                     : backend.cutover.phase === "ready_for_pilot"
                       ? "Pilot Acilabilir"
-                      : "Once Blokajlar Kapanmali"}
+                      : "Önce Blokajlar Kapanmali"}
                 </div>
                 <div
                   style={{
@@ -1389,7 +1389,7 @@ export default function StatusPage() {
                   }}
                 >
                   <div style={{ display: "grid", gap: "10px" }}>
-                    <h2 style={{ margin: 0, fontSize: "1.5rem" }}>Streamlit'ten cikis ozeti</h2>
+                    <h2 style={{ margin: 0, fontSize: "1.5rem" }}>Streamlit'ten çıkış özeti</h2>
                     <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>{backend.cutover.summary}</p>
                     {backend.cutover.blocking_items.length ? (
                       <div
@@ -1440,7 +1440,7 @@ export default function StatusPage() {
                     }}
                   >
                     <div style={statusPill(backend.cutover.core_checks_ready)}>Core Checks</div>
-                    <div style={statusPill(backend.cutover.auth_ready)}>Auth Hazir</div>
+                    <div style={statusPill(backend.cutover.auth_ready)}>Auth Hazır</div>
                     <div style={statusPill(backend.cutover.modules_ready_count === backend.cutover.modules_total_count)}>
                       Modul {backend.cutover.modules_ready_count}/{backend.cutover.modules_total_count}
                     </div>
@@ -1491,14 +1491,14 @@ export default function StatusPage() {
                   background: "linear-gradient(135deg, rgba(15, 95, 215, 0.05), rgba(255,255,255,0.98))",
                 }}
               >
-                <div style={statusPill(true)}>{overallOk ? "Pilot Kullanima Hazir" : "Temel Yuzey Hazir"}</div>
+                <div style={statusPill(true)}>{overallOk ? "Pilot Kullanima Hazır" : "Temel Yüzey Hazır"}</div>
                 <h2 style={{ margin: 0, fontSize: "1.45rem" }}>
-                  {overallOk ? "Yeni sisteme kontrollu gecis baslayabilir." : "Pilot cekirdek olarak hazir, son ayarlar tamamlanabilir."}
+                  {overallOk ? "Yeni sisteme kontrollü geçiş baslayabilir." : "Pilot çekirdek olarak hazır, son ayarlar tamamlanabilir."}
                 </h2>
                 <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
                   {overallOk
-                    ? "Frontend, backend ve temel auth kontrolleri su anda olumlu gorunuyor. Ofis ekibi once login ekranindan girip puantaj, personel ve kesinti akislarini yeni sistemde test etmeye baslayabilir."
-                    : "Frontend ve backend cekirdek olarak ayakta. SMS gibi opsiyonel ayarlar tamamlandikca pilot tam hazir seviyesine cikacak."}
+                    ? "Frontend, backend ve temel auth kontrolleri su anda olumlu görünüyor. Ofis ekibi önce login ekranindan girip puantaj, personel ve kesinti akışlarını yeni sistemde test etmeye baslayabilir."
+                    : "Frontend ve backend çekirdek olarak ayakta. SMS gibi opsiyonel ayarlar tamamlandikca pilot tam hazır seviyesine cikacak."}
                 </p>
                 <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                   <Link href="/login" style={actionButtonStyle("primary")}>
@@ -1524,9 +1524,9 @@ export default function StatusPage() {
               >
                 <div style={{ display: "grid", gap: "6px" }}>
                   <div style={statusPill(Boolean(frontend?.backendReachable))}>Pilot Baglantilari</div>
-                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Deploy sonrasi bakacagin yerler</h2>
+                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Deploy sonrası bakacagin yerler</h2>
                   <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
-                    Pilot acildiginda ekip bu linklerden ilerleyebilir. Ayni kartta smoke komutlari da hazir.
+                    Pilot açıldığında ekip bu linklerden ilerleyebilir. Aynı kartta smoke komutları da hazır.
                   </p>
                 </div>
 
@@ -1766,7 +1766,7 @@ export default function StatusPage() {
                         <div>
                           <h3 style={{ margin: 0, fontSize: "1rem" }}>Acilis Paketi Komutlari</h3>
                           <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                            Ekip icin paylasilabilir markdown acilis paketi uretmek istedigimizde bu komutlari kullanabiliriz.
+                            Ekip için paylaşılabilir markdown açılış paketi üretmek istediğimizde bu komutları kullanabiliriz.
                           </p>
                         </div>
                         <div
@@ -1829,7 +1829,7 @@ export default function StatusPage() {
                     {quickCheckCommands.length ? (
                       <div style={{ display: "grid", gap: "14px" }}>
                         <div>
-                          <h3 style={{ margin: 0, fontSize: "1rem" }}>Hizli Kontrol Komutlari</h3>
+                          <h3 style={{ margin: 0, fontSize: "1rem" }}>Hızlı Kontrol Komutlari</h3>
                           <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
                             Full smoke koşturmadan önce servislerin temel sağlık yanıtlarını hızlıca doğrulamak için kullanabiliriz.
                           </p>
@@ -2035,7 +2035,7 @@ export default function StatusPage() {
                             >
                               <strong style={{ fontSize: "0.92rem" }}>{entry.key}</strong>
                               <div style={statusPill(entry.configured || !entry.required)}>
-                                {entry.configured ? "Hazir" : entry.required ? "Zorunlu" : "Opsiyonel"}
+                                {entry.configured ? "Hazır" : entry.required ? "Zorunlu" : "Opsiyonel"}
                               </div>
                             </div>
                             {entry.detail ? (
@@ -2217,7 +2217,7 @@ export default function StatusPage() {
                           fontSize: "0.92rem",
                         }}
                       >
-                        Varsayilan v2 sifresi hala aktif gorunuyor. Pilot oncesi bunu degistirmen onerilir.
+                        Varsayılan v2 şifresi hala aktif görünüyor. Pilot öncesi bunu değiştirmen önerilir.
                       </div>
                     ) : null}
                   </div>
@@ -2499,7 +2499,7 @@ export default function StatusPage() {
                   <div>
                     <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Test Senaryolari</h2>
                     <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                      Pilotu actigimiz ilk gun ekip bunlari sirasiyla denerse yeni sistemin ana operasyon akislari hizli sekilde dogrulanir.
+                      Pilotu açtığımız ilk gün ekip bunları sırasıyla denerse yeni sistemin ana operasyon akışları hızlı sekilde doğrulanır.
                     </p>
                   </div>
                   <div style={statusPill(pilotScenarios.length > 0)}>
@@ -2723,7 +2723,7 @@ export default function StatusPage() {
                       lineHeight: 1.6,
                     }}
                   >
-                    Opsiyonel eksikler: {backend?.optional_missing_env_vars.join(", ")}. Bunlar pilotu durdurmaz, sadece SMS gibi ek akislar icin gerekir.
+                    Opsiyonel eksikler: {backend?.optional_missing_env_vars.join(", ")}. Bunlar pilotu durdurmaz, sadece SMS gibi ek akışlar için gerekir.
                   </div>
                 ) : null}
 
@@ -2748,7 +2748,7 @@ export default function StatusPage() {
                     <div style={{ display: "grid", gap: "6px" }}>
                       <strong style={{ fontSize: "1rem" }}>Render API Servisi</strong>
                       <div style={{ color: "#5f7294", lineHeight: 1.5 }}>
-                        Backend servisine girilecek ortam degiskenleri. Zorunlu eksikler burada gorunur.
+                        Backend servisine girilecek ortam degiskenleri. Zorunlu eksikler burada görünür.
                       </div>
                     </div>
                     <div style={{ display: "grid", gap: "10px" }}>
@@ -2808,7 +2808,7 @@ export default function StatusPage() {
                     <div style={{ display: "grid", gap: "6px" }}>
                       <strong style={{ fontSize: "1rem" }}>Render Frontend Servisi</strong>
                       <div style={{ color: "#5f7294", lineHeight: 1.5 }}>
-                        Frontend servisi Render pilotta blueprint ile otomatik gelen ayarlarla ayaga kalkar. Yerel denemede ise ayni proxy rotasi korunur ama hedef env anahtari degisir; asagidaki bloklar bunu netlestirir.
+                        Frontend servisi Render pilotta blueprint ile otomatik gelen ayarlarla ayağa kalkar. Yerel denemede ise aynı proxy rotasi korunur ama hedef env anahtari degisir; asagidaki bloklar bunu netlestirir.
                       </div>
                     </div>
                     <div style={{ display: "grid", gap: "10px" }}>

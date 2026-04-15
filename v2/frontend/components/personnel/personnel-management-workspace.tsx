@@ -215,7 +215,7 @@ export function PersonnelManagementWorkspace() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedEntryId) {
-      setError("Duzenlenecek personel sec.");
+      setError("Duzenlenecek personel seç.");
       return;
     }
     setError("");
@@ -244,10 +244,10 @@ export function PersonnelManagementWorkspace() {
       | { detail?: string; message?: string; person_code?: string }
       | null;
     if (!response.ok) {
-      setError(payload?.detail || "Personel kaydi guncellenemedi.");
+      setError(payload?.detail || "Personel kaydı güncellenemedi.");
       return;
     }
-    setSuccess(payload?.message || "Personel kaydi guncellendi.");
+    setSuccess(payload?.message || "Personel kaydı güncellendi.");
     if (payload?.person_code) {
       setEditPersonCode(payload.person_code);
     }
@@ -259,7 +259,7 @@ export function PersonnelManagementWorkspace() {
 
   async function handleToggleStatus() {
     if (!selectedEntryId) {
-      setError("Durumu degistirilecek personel sec.");
+      setError("Durumu değiştirilecek personel seç.");
       return;
     }
     setError("");
@@ -272,11 +272,11 @@ export function PersonnelManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setError(payload?.detail || "Personel durumu degistirilemedi.");
+      setError(payload?.detail || "Personel durumu değiştirilemedi.");
       return;
     }
 
-    setSuccess(payload?.message || "Personel durumu guncellendi.");
+    setSuccess(payload?.message || "Personel durumu güncellendi.");
     await loadEntries();
     await loadEntryDetail(selectedEntryId);
     startTransition(() => {
@@ -286,12 +286,12 @@ export function PersonnelManagementWorkspace() {
 
   async function handleDelete() {
     if (!selectedEntryId) {
-      setError("Silinecek personel sec.");
+      setError("Silinecek personel seç.");
       return;
     }
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(
-        "Bu personel kaydini ve bagli gecmislerini kalici olarak silmek istedigine emin misin?",
+        "Bu personel kaydini ve bağlı gecmislerini kalıcı olarak silmek istedigine emin misin?",
       );
       if (!confirmed) {
         return;
@@ -307,11 +307,11 @@ export function PersonnelManagementWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setError(payload?.detail || "Personel kaydi silinemedi.");
+      setError(payload?.detail || "Personel kaydı silinemedi.");
       return;
     }
 
-    setSuccess(payload?.message || "Personel kaydi silindi.");
+    setSuccess(payload?.message || "Personel kaydı silindi.");
     await loadEntries();
     startTransition(() => {
       router.refresh();
@@ -330,10 +330,10 @@ export function PersonnelManagementWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Personel Yonetimi</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Personel Yönetimi</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Kodu, subesi, rolu ve arac atamasiyla birlikte personel kayitlarini attendance v2
-          kalibinda yonet.
+          Kodu, şubesi, rolü ve arac atamasıyla birlikte personel kayıtlarını puantaj v2
+          kalıbında yönet.
         </p>
       </div>
 
@@ -392,7 +392,7 @@ export function PersonnelManagementWorkspace() {
                 }
                 style={fieldStyle}
               >
-                <option value="">Tum Subeler</option>
+                <option value="">Tüm Subeler</option>
                 {options?.restaurants.map((restaurant) => (
                   <option key={restaurant.id} value={restaurant.id}>
                     {restaurant.label}
@@ -400,7 +400,7 @@ export function PersonnelManagementWorkspace() {
                 ))}
               </select>
               <select value={filterRole} onChange={(event) => setFilterRole(event.target.value)} style={fieldStyle}>
-                <option value="">Tum Roller</option>
+                <option value="">Tüm Roller</option>
                 {options?.role_options.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -419,7 +419,7 @@ export function PersonnelManagementWorkspace() {
             }}
           >
             {listLoading ? (
-              <InlineMessage tone="soft" message="Personel listesi yukleniyor..." />
+              <InlineMessage tone="soft" message="Personel listesi yükleniyor..." />
             ) : entries.length ? (
               entries.map((entry) => (
                 <button
@@ -464,7 +464,7 @@ export function PersonnelManagementWorkspace() {
                 </button>
               ))
             ) : (
-              <InlineMessage tone="soft" message="Filtrelere uygun personel bulunamadi." />
+              <InlineMessage tone="soft" message="Filtrelere uygun personel bulunamadı." />
             )}
           </div>
         </aside>
@@ -527,7 +527,7 @@ export function PersonnelManagementWorkspace() {
                     </select>
                   </label>
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Restoran / Sube</span>
+                    <span style={{ fontWeight: 700 }}>Restoran / Şube</span>
                     <select
                       value={editRestaurantId}
                       onChange={(event) =>
@@ -562,11 +562,11 @@ export function PersonnelManagementWorkspace() {
                     <input value={editCurrentPlate} onChange={(event) => setEditCurrentPlate(event.target.value)} style={fieldStyle} />
                   </label>
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Ise Giris</span>
+                    <span style={{ fontWeight: 700 }}>Ise Giriş</span>
                     <input type="date" value={editStartDate} onChange={(event) => setEditStartDate(event.target.value)} style={fieldStyle} />
                   </label>
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Aylik Sabit Tutar</span>
+                    <span style={{ fontWeight: 700 }}>Aylık Sabit Tutar</span>
                     <input
                       inputMode="decimal"
                       value={editMonthlyFixedCost}
@@ -600,7 +600,7 @@ export function PersonnelManagementWorkspace() {
                     cursor: "pointer",
                   }}
                 >
-                  {isPending ? "Guncelleniyor..." : "Personel Kaydini Guncelle"}
+                  {isPending ? "Guncelleniyor..." : "Personel Kaydini Güncelle"}
                 </button>
                 {(canToggleStatus || canDeletePersonnel) && (
                   <div
@@ -620,7 +620,7 @@ export function PersonnelManagementWorkspace() {
                     ) : null}
                     {canDeletePersonnel ? (
                       <button type="button" onClick={handleDelete} style={actionButton("danger")}>
-                        Kalici Sil
+                        Kalıcı Sil
                       </button>
                     ) : null}
                   </div>
@@ -642,13 +642,13 @@ export function PersonnelManagementWorkspace() {
                 <h3 style={{ margin: 0, fontSize: "1rem" }}>Mevcut Kart</h3>
                 <SummaryItem label="Kod" value={editPersonCode} />
                 <SummaryItem label="Rol" value={editRole} />
-                <SummaryItem label="Sube" value={selectedEntry.restaurant_label} />
+                <SummaryItem label="Şube" value={selectedEntry.restaurant_label} />
                 <SummaryItem label="Arac" value={editVehicleMode} />
                 <SummaryItem label="Durum" value={editStatus} />
               </aside>
             </div>
           ) : (
-            <InlineMessage tone="soft" message="Duzenlemek icin soldan bir personel sec." />
+            <InlineMessage tone="soft" message="Düzenlemek için soldan bir personel seç." />
           )}
         </div>
       </div>

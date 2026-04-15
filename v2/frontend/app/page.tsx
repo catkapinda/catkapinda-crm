@@ -297,7 +297,7 @@ function moduleCard(
           boxShadow: "var(--shadow-deep)",
         }}
       >
-        <span>Modulu Ac</span>
+        <span>Modülü Ac</span>
         <span
           style={{
             width: "28px",
@@ -415,7 +415,7 @@ export default function HomePage() {
                 fontWeight: 700,
               }}
             >
-              Ofisin ritmi tek bir bakista okunuyor.
+              Ofisin ritmi tek bir bakışta okunuyor.
             </h1>
             <p
               style={{
@@ -440,9 +440,9 @@ export default function HomePage() {
               }}
             >
               {[
-                ["Yonetim Notu", "Bugunun en yogun alanlari puantaj ve personel senkronu."],
-                ["Kullanim Hissi", "Daha az kart kalabaligi, daha net aksiyon akisi."],
-                ["Tasarlanan Ton", "Premium ama sicak; operasyonel ama editoryal."],
+                ["Yönetim Notu", "Bugunun en yoğun alanlari puantaj ve personel senkronu."],
+                ["Kullanim Hissi", "Daha az kart kalabaligi, daha net aksiyon akışı."],
+                ["Tasarlanan Ton", "Premium ama sıcak; operasyonel ama editoryal."],
               ].map(([label, text]) => (
                 <div
                   key={label}
@@ -513,7 +513,7 @@ export default function HomePage() {
                   fontWeight: 700,
                 }}
               >
-                Daha cesur, daha editorial, daha urun gibi.
+                Daha cesur, daha editorial, daha ürün gibi.
               </div>
               <p
                 style={{
@@ -592,7 +592,7 @@ export default function HomePage() {
               background: "rgba(255, 250, 241, 0.82)",
             }}
           >
-            Genel bakis newsroom paneli yukleniyor...
+            Genel bakış newsroom paneli yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -618,9 +618,9 @@ export default function HomePage() {
               }}
             >
               {pulseCard(
-                "Aktif Sube",
+                "Aktif Şube",
                 String(dashboard.hero.active_restaurants),
-                "Operasyon omurgasinda bugun hareketli olan restoran havuzu.",
+                "Operasyon omurgasinda bugün hareketli olan restoran havuzu.",
               )}
               {pulseCard(
                 "Aktif Personel",
@@ -630,12 +630,12 @@ export default function HomePage() {
               {pulseCard(
                 "Bu Ay Puantaj",
                 String(dashboard.hero.month_attendance_entries),
-                "Ay icinde acilan vardiya ve devam kaydi yogunlugu.",
+                "Ay içinde açılan vardiya ve devam kaydı yoğunluğu.",
               )}
               {pulseCard(
                 "Bu Ay Kesinti",
                 String(dashboard.hero.month_deduction_entries),
-                "Ay sonu finans akisina etki eden manuel ve otomatik kesintiler.",
+                "Ay sonu finans akışına etki eden manuel ve otomatik kesintiler.",
               )}
             </div>
 
@@ -678,7 +678,7 @@ export default function HomePage() {
                       fontWeight: 700,
                     }}
                   >
-                    Moduller artik daha net roller oynuyor.
+                    Modüller artık daha net roller oynuyor.
                   </h2>
                   <p
                     style={{

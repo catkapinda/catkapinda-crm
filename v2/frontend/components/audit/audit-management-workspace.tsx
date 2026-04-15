@@ -268,7 +268,7 @@ export function AuditManagementWorkspace() {
                 textTransform: "uppercase",
               }}
             >
-              Kayit Akisi
+              Kayıt Akisi
             </div>
             <h2
               style={{
@@ -279,11 +279,11 @@ export function AuditManagementWorkspace() {
                 fontWeight: 700,
               }}
             >
-              Sistem izini sadece listelemiyor, ritmi ve baski noktasiyla birlikte okuyoruz.
+              Sistem izini sadece listelemiyor, ritmi ve baskı noktasiyla birlikte okuyoruz.
             </h2>
             <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.75 }}>
-              Filtreleri kullanip hangi aksiyonun, hangi varlikta ve hangi oyuncu tarafinda
-              agirlik kazandigini daha hizli yakalayin. Bu ic yuzey, audit masasini daha erken
+              Filtreleri kullanip hangi aksiyonun, hangi varlikta ve hangi oyuncu tarafında
+              ağırlık kazandigini daha hızlı yakalayin. Bu ic yüzey, audit masasini daha erken
               karar veren bir kontrol paneline ceviriyor.
             </p>
           </div>
@@ -325,7 +325,7 @@ export function AuditManagementWorkspace() {
                   fontWeight: 700,
                 }}
               >
-                {loading ? "akim okunuyor" : `${entries.length} gorunen kayit`}
+                {loading ? "akim okunuyor" : `${entries.length} görünen kayıt`}
               </div>
               <div
                 style={{
@@ -335,8 +335,8 @@ export function AuditManagementWorkspace() {
                 }}
               >
                 {loading
-                  ? "Filtrelenmis audit akisindan ritim sinyali hazirlaniyor."
-                  : `${totalEntries} toplam kayit icinde bu gorunum su anki audit penceresini temsil ediyor.`}
+                  ? "Filtrelenmis audit akışından ritim sinyali hazırlanıyor."
+                  : `${totalEntries} toplam kayıt içinde bu görünum su anki audit penceresini temsil ediyor.`}
               </div>
             </article>
 
@@ -367,21 +367,21 @@ export function AuditManagementWorkspace() {
             gap: "12px",
           }}
         >
-          {statCard("Gorunen Kayit", loading ? "..." : String(entries.length), "Bu filtrede masaya dusen satir sayisi", "accent")}
+          {statCard("Gorunen Kayıt", loading ? "..." : String(entries.length), "Bu filtrede masaya dusen satir sayisi", "accent")}
           {statCard(
             "Aktif Filtre",
             String(activeFilterCount),
-            activeFilterCount ? "Audit akisinin kapsami daraltilmis durumda" : "Tum akis genis acida gorunuyor",
+            activeFilterCount ? "Audit akışinin kapsamı daraltılmış durumda" : "Tüm akış geniş açıda görünüyor",
           )}
           {statCard(
             "Baskin Aksiyon",
             dominantAction ? dominantAction[0] : "-",
-            dominantAction ? `${dominantAction[1]} kayitla tekrar ediyor` : "Aksiyon ritmi geldikce burada belirir",
+            dominantAction ? `${dominantAction[1]} kayıtla tekrar ediyor` : "Aksiyon ritmi geldikçe burada belirir",
           )}
           {statCard(
-            "Baskin Varlik",
+            "Baskin Varlık",
             dominantEntity ? dominantEntity[0] : "-",
-            dominantEntity ? `${dominantEntity[1]} kayitla one cikiyor` : "Varlik yogunlugu geldikce burada belirir",
+            dominantEntity ? `${dominantEntity[1]} kayıtla öne çıkıyor` : "Varlık yoğunluğu geldikçe burada belirir",
           )}
         </div>
       </div>
@@ -415,11 +415,11 @@ export function AuditManagementWorkspace() {
               <input
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Ozet, detay, varlik veya kullanici ara"
+                placeholder="Özet, detay, varlık veya kullanıcı ara"
                 style={fieldStyle}
               />
               <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)} style={fieldStyle}>
-                <option value="">Tum Aksiyonlar</option>
+                <option value="">Tüm Aksiyonlar</option>
                 {actionOptions.map((value) => (
                   <option key={value} value={value}>
                     {value}
@@ -427,7 +427,7 @@ export function AuditManagementWorkspace() {
                 ))}
               </select>
               <select value={entityFilter} onChange={(event) => setEntityFilter(event.target.value)} style={fieldStyle}>
-                <option value="">Tum Varliklar</option>
+                <option value="">Tüm Varliklar</option>
                 {entityOptions.map((value) => (
                   <option key={value} value={value}>
                     {value}
@@ -435,7 +435,7 @@ export function AuditManagementWorkspace() {
                 ))}
               </select>
               <select value={actorFilter} onChange={(event) => setActorFilter(event.target.value)} style={fieldStyle}>
-                <option value="">Tum Kullanicilar</option>
+                <option value="">Tüm Kullanicilar</option>
                 {actorOptions.map((value) => (
                   <option key={value} value={value}>
                     {value}
@@ -451,11 +451,11 @@ export function AuditManagementWorkspace() {
                 gap: "8px",
               }}
             >
-              <span style={badge("muted")}>{totalEntries} toplam kayit</span>
+              <span style={badge("muted")}>{totalEntries} toplam kayıt</span>
               {deferredSearch.trim() ? <span style={badge("accent")}>Arama aktif</span> : null}
               {actionFilter ? <span style={badge("soft")}>Aksiyon: {actionFilter}</span> : null}
-              {entityFilter ? <span style={badge("soft")}>Varlik: {entityFilter}</span> : null}
-              {actorFilter ? <span style={badge("soft")}>Kullanici: {actorFilter}</span> : null}
+              {entityFilter ? <span style={badge("soft")}>Varlık: {entityFilter}</span> : null}
+              {actorFilter ? <span style={badge("soft")}>Kullanıcı: {actorFilter}</span> : null}
             </div>
           </div>
 
@@ -480,9 +480,9 @@ export function AuditManagementWorkspace() {
               }}
             >
               <div style={{ display: "grid", gap: "4px" }}>
-                <strong>Sistem Kayitlari</strong>
+                <strong>Sistem Kayıtları</strong>
                 <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                  Kim, neyi, ne zaman degistirdi sorusunun filtrelenmis gorunumu
+                  Kim, neyi, ne zaman değiştirdi sorusunun filtrelenmis görünümü
                 </span>
               </div>
               <span style={badge("muted")}>{entries.length} satir</span>
@@ -492,7 +492,7 @@ export function AuditManagementWorkspace() {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    {["Zaman", "Kullanici", "Aksiyon", "Varlik", "Ozet", "Detay"].map((label) => (
+                    {["Zaman", "Kullanıcı", "Aksiyon", "Varlık", "Özet", "Detay"].map((label) => (
                       <th
                         key={label}
                         style={{
@@ -519,7 +519,7 @@ export function AuditManagementWorkspace() {
                   {loading ? (
                     <tr>
                       <td colSpan={6} style={{ padding: "18px 16px", color: "var(--muted)" }}>
-                        Sistem kayitlari yukleniyor...
+                        Sistem kayıtları yükleniyor...
                       </td>
                     </tr>
                   ) : error ? (
@@ -531,7 +531,7 @@ export function AuditManagementWorkspace() {
                   ) : !entries.length ? (
                     <tr>
                       <td colSpan={6} style={{ padding: "18px 16px", color: "var(--muted)" }}>
-                        Bu filtrelerde kayit bulunamadi.
+                        Bu filtrelerde kayıt bulunamadı.
                       </td>
                     </tr>
                   ) : (
@@ -631,7 +631,7 @@ export function AuditManagementWorkspace() {
                 letterSpacing: "0.08em",
               }}
             >
-              Son Kayit Ozeti
+              Son Kayıt Ozeti
             </div>
             <h3
               style={{
@@ -641,12 +641,12 @@ export function AuditManagementWorkspace() {
                 lineHeight: 0.98,
               }}
             >
-              {topEntry?.summary || "Henuz kayit yok"}
+              {topEntry?.summary || "Henüz kayıt yok"}
             </h3>
             <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
               {topEntry
                 ? `${actorLabel(topEntry)} • ${topEntry.entity_type || "-"} • ${formatTimestamp(topEntry.created_at)}`
-                : "Kayit akisi geldiginde son islem burada daha editoryal bir ozetle gorunur."}
+                : "Kayıt akışı geldiğinde son islem burada daha editoryal bir özetle görünür."}
             </p>
             <div
               style={{
@@ -673,7 +673,7 @@ export function AuditManagementWorkspace() {
             >
               {topEntry?.details_json
                 ? truncateText(topEntry.details_json, 360)
-                : "Detay JSON kaydi geldiginde burada kisa onizleme gosterilir."}
+                : "Detay JSON kaydı geldiğinde burada kisa onizleme gosterilir."}
             </div>
           </article>
 
@@ -697,7 +697,7 @@ export function AuditManagementWorkspace() {
                 letterSpacing: "0.08em",
               }}
             >
-              Hizli Okuma
+              Hızlı Okuma
             </div>
             <div
               style={{
@@ -730,7 +730,7 @@ export function AuditManagementWorkspace() {
                   Tekrarlayan Aksiyon
                 </div>
                 <div style={{ marginTop: "8px", fontWeight: 800 }}>
-                  {dominantAction ? `${dominantAction[0]} · ${dominantAction[1]} kayit` : "-"}
+                  {dominantAction ? `${dominantAction[0]} · ${dominantAction[1]} kayıt` : "-"}
                 </div>
               </div>
               <div
@@ -742,10 +742,10 @@ export function AuditManagementWorkspace() {
                 }}
               >
                 <div style={{ color: "var(--muted)", fontSize: "0.76rem", fontWeight: 800, textTransform: "uppercase" }}>
-                  Baski Noktasi
+                  Baskı Noktasi
                 </div>
                 <div style={{ marginTop: "8px", fontWeight: 800 }}>
-                  {dominantEntity ? `${dominantEntity[0]} · ${dominantEntity[1]} kayit` : "-"}
+                  {dominantEntity ? `${dominantEntity[0]} · ${dominantEntity[1]} kayıt` : "-"}
                 </div>
               </div>
             </div>

@@ -74,11 +74,11 @@ export function DeductionEntryWorkspace() {
     setSubmitSuccess("");
 
     if (typeof personnelId !== "number") {
-      setSubmitError("Lutfen bir personel sec.");
+      setSubmitError("Lutfen bir personel seç.");
       return;
     }
     if (!deductionType) {
-      setSubmitError("Lutfen bir kesinti tipi sec.");
+      setSubmitError("Lutfen bir kesinti tipi seç.");
       return;
     }
 
@@ -100,11 +100,11 @@ export function DeductionEntryWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setSubmitError(payload?.detail || "Kesinti kaydi olusturulamadi.");
+      setSubmitError(payload?.detail || "Kesinti kaydı oluşturulamadı.");
       return;
     }
 
-    setSubmitSuccess(payload?.message || "Kesinti kaydi olusturuldu.");
+    setSubmitSuccess(payload?.message || "Kesinti kaydı oluşturuldu.");
     setAmount("");
     setNotes("");
     startTransition(() => {
@@ -126,7 +126,7 @@ export function DeductionEntryWorkspace() {
       <div>
         <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Kesinti Girisi</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Manuel kesinti kayitlarini v2 ekraninda hizli sekilde olustur.
+          Manuel kesinti kayıtlarını v2 ekraninda hızlı sekilde oluştur.
         </p>
       </div>
 
@@ -139,7 +139,7 @@ export function DeductionEntryWorkspace() {
             color: "var(--muted)",
           }}
         >
-          Kesinti secenekleri yukleniyor...
+          Kesinti secenekleri yükleniyor...
         </div>
       ) : (
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: "16px" }}>
@@ -225,7 +225,7 @@ export function DeductionEntryWorkspace() {
               <div style={{ fontWeight: 800, color: "var(--text)", marginBottom: "4px" }}>
                 Tip Aciklamasi
               </div>
-              {selectedCaption || "Secilen kesinti tipi icin aciklama burada gorunur."}
+              {selectedCaption || "Seçilen kesinti tipi için açıklama burada görünür."}
             </div>
           </div>
 
@@ -270,7 +270,7 @@ export function DeductionEntryWorkspace() {
               boxShadow: "0 16px 28px rgba(15, 95, 215, 0.2)",
             }}
           >
-            {isPending ? "Kaydediliyor..." : "Kesinti Kaydini Olustur"}
+            {isPending ? "Kaydediliyor..." : "Kesinti Kaydini Oluştur"}
           </button>
         </form>
       )}

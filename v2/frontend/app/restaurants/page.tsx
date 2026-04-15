@@ -90,7 +90,7 @@ function pricingSummary(entry: RestaurantsDashboard["recent_entries"][number]) {
     return `${formatCurrency(entry.fixed_monthly_fee)}/ay`;
   }
   if (entry.pricing_model === "threshold_package") {
-    return `${formatCurrency(entry.hourly_rate)}/saat | ${entry.package_threshold} alti ${formatCurrency(entry.package_rate_low)} | ustu ${formatCurrency(entry.package_rate_high)}`;
+    return `${formatCurrency(entry.hourly_rate)}/saat | ${entry.package_threshold} altı ${formatCurrency(entry.package_rate_low)} | üstü ${formatCurrency(entry.package_rate_high)}`;
   }
   if (entry.pricing_model === "hourly_plus_package") {
     return `${formatCurrency(entry.hourly_rate)}/saat + ${formatCurrency(entry.package_rate)}/paket`;
@@ -245,30 +245,30 @@ export default function RestaurantsPage() {
 
     return [
       {
-        eyebrow: "Sube Nabzi",
+        eyebrow: "Şube Nabzi",
         title:
           activeRatio >= 80
-            ? "Aktif sube dengesi guclu gorunuyor."
+            ? "Aktif şube dengesi güçlü görünüyor."
             : activeRatio >= 60
-              ? "Aktif sube dengesi korunuyor."
-              : "Aktif sube dengesi dikkat istiyor.",
-        body: `${dashboard.summary.total_restaurants} subenin %${activeRatio.toFixed(1)} aktif. Bu oran operasyonun ne kadar canli ve yaygin oldugunu hizli okumayi saglar.`,
+              ? "Aktif şube dengesi korunuyor."
+              : "Aktif şube dengesi dikkat istiyor.",
+        body: `${dashboard.summary.total_restaurants} şubenin %${activeRatio.toFixed(1)} aktif. Bu oran operasyonun ne kadar canlı ve yaygın oldugunu hızlı okumayi saglar.`,
         tone: activeRatio >= 80 ? "ink" : "accent",
       },
       {
-        eyebrow: "En Sicak Sube",
-        title: topRestaurant ? `${topRestaurant.brand} / ${topRestaurant.branch}` : "Sube sinyali henuz yok.",
+        eyebrow: "En Sıcak Şube",
+        title: topRestaurant ? `${topRestaurant.brand} / ${topRestaurant.branch}` : "Şube sinyali henüz yok.",
         body: topRestaurant
-          ? `${topRestaurant.pricing_model_label} modeliyle ${pricingSummary(topRestaurant)} yapisinda calisiyor. Hedef kadro ${topRestaurant.target_headcount} ve kontak ${topRestaurant.contact_name}.`
-          : "Yeni restoran kayitlari geldikce burada dikkat isteyen sube yapisini one cikaracagiz.",
+          ? `${topRestaurant.pricing_model_label} modeliyle ${pricingSummary(topRestaurant)} yapisinda çalışıyor. Hedef kadro ${topRestaurant.target_headcount} ve kontak ${topRestaurant.contact_name}.`
+          : "Yeni restoran kayıtları geldikçe burada dikkat isteyen şube yapisini öne çıkaracağız.",
         tone: "paper",
       },
       {
-        eyebrow: passivePressure ? "Portfoy Baskisi" : "Portfoy Yapisi",
-        title: passivePressure ? "Pasif sube yukselisi izlenmeli." : "Sabit aylik cekirdek olgun gorunuyor.",
+        eyebrow: passivePressure ? "Portföy Baskisi" : "Portföy Yapisi",
+        title: passivePressure ? "Pasif şube yükselişi izlenmeli." : "Sabit aylık çekirdek olgun görünüyor.",
         body: passivePressure
-          ? `${dashboard.summary.passive_restaurants} pasif sube bulunuyor. Portfoyde kapanan veya bekleyen subeleri ayiklamak satis ve operasyon gecisini daha temiz yapar.`
-          : `${dashboard.summary.fixed_monthly_restaurants} sube sabit aylik modelde. Bu, portfoyun %${fixedMonthlyRatio.toFixed(1)} kadarinin daha ongorulebilir gelir modeliyle calistigini gosteriyor.`,
+          ? `${dashboard.summary.passive_restaurants} pasif şube bulunuyor. Portfoyde kapanan veya bekleyen şubeleri ayiklamak satış ve operasyon gecisini daha temiz yapar.`
+          : `${dashboard.summary.fixed_monthly_restaurants} şube sabit aylık modelde. Bu, portföyün %${fixedMonthlyRatio.toFixed(1)} kadarının daha öngörülebilir gelir modeliyle çalıştığını gösteriyor.`,
         tone: passivePressure ? "accent" : "paper",
       },
     ] as const;
@@ -323,7 +323,7 @@ export default function RestaurantsPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Sube Akisi
+                Şube Akisi
               </div>
               <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
                 <h1
@@ -335,7 +335,7 @@ export default function RestaurantsPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Restoran portfoyunu sadece listelemiyor, artik hangi subenin ne anlattigini okuyoruz.
+                  Restoran portföyünü sadece listelemiyor, artık hangi şubenin ne anlattığını okuyoruz.
                 </h1>
                 <p
                   style={{
@@ -346,9 +346,9 @@ export default function RestaurantsPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Marka, fiyat modeli, kadro ve kontak bilgisini daha ciddi bir sube
-                  komuta yuzeyine cekiyoruz. Hedefimiz, musteri portfoyunun hangi
-                  noktada guclu, hangi noktada dikkat istedigini daha hizli gostermek.
+                  Marka, fiyat modeli, kadro ve kontak bilgisini daha ciddi bir şube
+                  komuta yüzeyine çekiyoruz. Hedefimiz, müşteri portföyünün hangi
+                  noktada güçlü, hangi noktada dikkat istediğini daha hızlı göstermek.
                 </p>
               </div>
               <div
@@ -369,7 +369,7 @@ export default function RestaurantsPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Portfoy nabzi acik
+                  Portföy nabzi açık
                 </span>
                 <span
                   style={{
@@ -382,7 +382,7 @@ export default function RestaurantsPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Model ve sube ayni satirda
+                  Model ve şube aynı satırda
                 </span>
               </div>
             </div>
@@ -423,7 +423,7 @@ export default function RestaurantsPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Portfoy Nabzi
+                      Portföy Nabzi
                     </div>
                     <div
                       style={{
@@ -433,7 +433,7 @@ export default function RestaurantsPage() {
                         fontWeight: 700,
                       }}
                     >
-                      {dashboard?.summary.active_restaurants ?? 0} aktif sube
+                      {dashboard?.summary.active_restaurants ?? 0} aktif şube
                     </div>
                   </div>
                   <div
@@ -473,7 +473,7 @@ export default function RestaurantsPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Sabit Aylik
+                      Sabit Aylık
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
                       {dashboard?.summary.fixed_monthly_restaurants ?? 0}
@@ -532,8 +532,8 @@ export default function RestaurantsPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda once aktif-pasif dengeye, sonra fiyat modeline ve son olarak
-                  dikkat isteyen sube kartlarina bakmak en saglikli portfoy okumasini verir.
+                  Bu ekranda önce aktif-pasif dengeye, sonra fiyat modeline ve son olarak
+                  dikkat isteyen şube kartlarina bakmak en sağlıklı portföy okumasini verir.
                 </div>
               </article>
             </div>
@@ -550,7 +550,7 @@ export default function RestaurantsPage() {
               color: "var(--muted)",
             }}
           >
-            Restoran verileri yukleniyor...
+            Restoran verileri yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -563,8 +563,8 @@ export default function RestaurantsPage() {
               lineHeight: 1.7,
             }}
           >
-            Restoran servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran
-            restoran ozetini ve yonetim kayitlarini gercek veriden gosterecek.
+            Restoran servisine su anda erisilemiyor. Backend hazır oldugunda bu ekran
+            restoran özetini ve yönetim kayıtlarını gerçek veriden gösterecek.
           </div>
         ) : (
           <>
@@ -575,10 +575,10 @@ export default function RestaurantsPage() {
                 gap: "14px",
               }}
             >
-              {metricCard("Toplam Sube", String(dashboard.summary.total_restaurants), "accent")}
+              {metricCard("Toplam Şube", String(dashboard.summary.total_restaurants), "accent")}
               {metricCard("Aktif", String(dashboard.summary.active_restaurants))}
               {metricCard("Pasif", String(dashboard.summary.passive_restaurants))}
-              {metricCard("Sabit Aylik", String(dashboard.summary.fixed_monthly_restaurants))}
+              {metricCard("Sabit Aylık", String(dashboard.summary.fixed_monthly_restaurants))}
             </div>
 
             <div
@@ -614,9 +614,9 @@ export default function RestaurantsPage() {
                 }}
               >
                 <div>
-                  <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Son Sube Sinyalleri</h2>
+                  <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Son Şube Sinyalleri</h2>
                   <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
-                    Portfoyde hangi subenin dikkat ve aksiyon istedigini hizlandiran son kartlar.
+                    Portfoyde hangi şubenin dikkat ve aksiyon istedigini hızlandıran son kartlar.
                   </p>
                 </div>
                 <span
@@ -630,7 +630,7 @@ export default function RestaurantsPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Son {dashboard.recent_entries.length} kayit
+                  Son {dashboard.recent_entries.length} kayıt
                 </span>
               </div>
 

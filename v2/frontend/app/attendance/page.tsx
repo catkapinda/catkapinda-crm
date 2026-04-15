@@ -319,25 +319,25 @@ export default function AttendancePage() {
 
     return [
       {
-        eyebrow: "Gunluk Nabiz",
-        title: todayPressure ? "Bugun giris yogunlugu yuksek." : "Bugun akis kontrollu gorunuyor.",
-        body: `${dashboard.summary.today_entries} kayit bugun acildi. Bu, aylik toplam hacmin %${todayRatio.toFixed(1)} kadarina denk geliyor ve saha ritmini hizli okumayi sagliyor.`,
+        eyebrow: "Günlük Nabız",
+        title: todayPressure ? "Bugün giriş yoğunluğu yüksek." : "Bugün akış kontrollü görünüyor.",
+        body: `${dashboard.summary.today_entries} kayıt bugün açıldı. Bu, aylık toplam hacmin %${todayRatio.toFixed(1)} kadarına denk geliyor ve saha ritmini hızlı okumayı sağlıyor.`,
         tone: todayPressure ? "accent" : "ink",
       },
       {
-        eyebrow: "En Sicak Hareket",
-        title: topEntry ? topEntry.restaurant : "Son hareket sinyali henuz yok.",
+        eyebrow: "En Sıcak Hareket",
+        title: topEntry ? topEntry.restaurant : "Son hareket sinyali henüz yok.",
         body: topEntry
-          ? `${topEntry.entry_mode} akisi ile ${topEntry.employee_name || "atanmamis personel"} uzerinden ${topEntry.worked_hours.toFixed(1)} saat ve ${topEntry.package_count.toFixed(0)} paket gorunuyor. ${formatCurrency(topEntry.monthly_invoice_amount)} fatura etkisi tasiyor.`
-          : "Yeni puantaj hareketleri geldikce dikkat isteyen vardiya karti burada onde duracak.",
+          ? `${topEntry.entry_mode} akışı ile ${topEntry.employee_name || "atanmamış personel"} üzerinden ${topEntry.worked_hours.toFixed(1)} saat ve ${topEntry.package_count.toFixed(0)} paket görünüyor. ${formatCurrency(topEntry.monthly_invoice_amount)} fatura etkisi taşıyor.`
+          : "Yeni puantaj hareketleri geldikçe dikkat isteyen vardiya kartı burada önde duracak.",
         tone: "paper",
       },
       {
-        eyebrow: "Akis Imzasi",
-        title: dominantMode ? `${dominantMode[0]} onde gidiyor.` : "Akis imzasi olusmadi.",
+        eyebrow: "Akış İmzası",
+        title: dominantMode ? `${dominantMode[0]} önde gidiyor.` : "Akış imzası oluşmadı.",
         body: dominantMode
-          ? `Son hareketlerde ${dominantMode[0]} modu ${dominantMode[1]} kayitla one cikiyor. Bu, bugunku saha davranisinin hangi hatta yogunlastigini gosteriyor.`
-          : "Son hareket dagilimi geldikce burada ekip icin daha net bir akis resmi olusacak.",
+          ? `Son hareketlerde ${dominantMode[0]} modu ${dominantMode[1]} kayıtla öne çıkıyor. Bu, bugünkü saha davranışının hangi hatta yoğunlaştığını gösteriyor.`
+          : "Son hareket dağılımı geldikçe burada ekip için daha net bir akış resmi oluşacak.",
         tone: "paper",
       },
     ] as const;
@@ -493,7 +493,7 @@ export default function AttendancePage() {
                   textTransform: "uppercase",
                 }}
               >
-                Bugun Ne Hissediliyor
+                Bugün Ne Hissediliyor
               </div>
               <div
                 style={{
@@ -506,8 +506,8 @@ export default function AttendancePage() {
               >
                 {dashboard
                   ? dashboard.summary.today_entries > Math.max(6, Math.ceil(dashboard.summary.active_restaurants * 1.5))
-                    ? "Bugun puantaj masasi oldukca hareketli."
-                    : "Form, liste ve son hareketler bugun dengeli akiyor."
+                    ? "Bugün puantaj masasi oldukca hareketli."
+                    : "Form, liste ve son hareketler bugün dengeli akiyor."
                   : "Form, liste ve son hareketler birbirini tamamlıyor."}
               </div>
               <p
@@ -519,8 +519,8 @@ export default function AttendancePage() {
                 }}
               >
                 {dashboard
-                  ? `Bugun ${dashboard.summary.today_entries} hareket, ${dashboard.summary.active_restaurants} aktif sube ve ${dashboard.summary.month_entries} aylik toplamla akisin hizini daha erken okuyabiliyoruz.`
-                  : "Once giris, sonra duzeltme, gerekirse ay bazli temizlik. Yuzeyin mantigi artik daha net."}
+                  ? `Bugün ${dashboard.summary.today_entries} hareket, ${dashboard.summary.active_restaurants} aktif şube ve ${dashboard.summary.month_entries} aylık toplamla akışın hızını daha erken okuyabiliyoruz.`
+                  : "Önce giriş, sonra düzeltme, gerekirse ay bazlı temizlik. Yüzeyin mantığı artık daha net."}
               </p>
             </article>
 
@@ -586,7 +586,7 @@ export default function AttendancePage() {
               background: "rgba(255, 250, 241, 0.82)",
             }}
           >
-            Puantaj newsroom paneli yukleniyor...
+            Puantaj newsroom paneli yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -612,24 +612,24 @@ export default function AttendancePage() {
               }}
             >
               {metricCard(
-                "Toplam Kayit",
+                "Toplam Kayıt",
                 String(dashboard.summary.total_entries),
                 "Sistemde geriye donuk tutulan tüm puantaj omurgasi.",
               )}
               {metricCard(
-                "Bugun",
+                "Bugün",
                 String(dashboard.summary.today_entries),
-                "Bugun acilan vardiya ve devam hareketleri.",
+                "Bugün açılan vardiya ve devam hareketleri.",
               )}
               {metricCard(
                 "Bu Ay",
                 String(dashboard.summary.month_entries),
-                "Aylik yogunluk, temizlik ve kontrol hacmi.",
+                "Aylık yoğunluk, temizlik ve kontrol hacmi.",
               )}
               {metricCard(
-                "Aktif Sube",
+                "Aktif Şube",
                 String(dashboard.summary.active_restaurants),
-                "Bugun operasyon akisi beklenen aktif subeler.",
+                "Bugün operasyon akışı beklenen aktif şubeler.",
               )}
             </div>
 
@@ -646,15 +646,15 @@ export default function AttendancePage() {
             </div>
 
             {workspaceFrame(
-              "Giris Masasi",
-              "Yeni kayit alani daha net bir sahneye cikti.",
+              "Giriş Masasi",
+              "Yeni kayıt alani daha net bir sahneye çıktı.",
               "Günlük puantaj formunu burada daha temiz bir çerçeve içinde ilerletiyoruz. Amaç veri alanını korkutmak değil, hızlandırmak.",
               <AttendanceEntryWorkspace />,
             )}
 
             {workspaceFrame(
-              "Yonetim Masasi",
-              "Duzeltme, secme ve ay bazli temizlik ayni yuzeyde.",
+              "Yönetim Masasi",
+              "Duzeltme, seçme ve ay bazli temizlik aynı yüzeyde.",
               "Kayıt listesi artık sadece tablo değil; düzeltme, seçili silme ve ay filtresiyle toplu temizlik için daha görünür bir operasyon masası.",
               <AttendanceManagementWorkspace />,
             )}
@@ -725,7 +725,7 @@ export default function AttendancePage() {
                           background: "rgba(24, 40, 59, 0.05)",
                         }}
                       >
-                        {["Tarih", "Sube", "Calisan", "Akis", "Saat", "Paket"].map((header) => (
+                        {["Tarih", "Şube", "Çalışan", "Akis", "Saat", "Paket"].map((header) => (
                           <th
                             key={header}
                             style={{
@@ -813,7 +813,7 @@ export default function AttendancePage() {
                     fontWeight: 700,
                   }}
                 >
-                  Bugun dikkat edilmesi gerekenler
+                  Bugün dikkat edilmesi gerekenler
                 </h2>
                 <div
                   style={{
@@ -822,8 +822,8 @@ export default function AttendancePage() {
                   }}
                 >
                   {[
-                    `Bugun ${dashboard.summary.today_entries} kayit acildi.`,
-                    `Bu ay toplam ${dashboard.summary.month_entries} puantaj satiri birikti.`,
+                    `Bugün ${dashboard.summary.today_entries} kayıt açıldı.`,
+                    `Bu ay toplam ${dashboard.summary.month_entries} puantaj satırı birikti.`,
                     "Ay bazli toplu silme yalnızca filtreli alan için görünür durumda.",
                     "Son hareketler paneli hızlı vardiya temizliği için referans akışı sunuyor.",
                   ].map((item) => (

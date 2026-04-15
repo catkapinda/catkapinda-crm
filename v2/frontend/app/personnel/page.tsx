@@ -322,30 +322,30 @@ export default function PersonnelPage() {
         eyebrow: "Kadro Dengesi",
         title:
           activeRatio >= 80
-            ? "Aktif kadro dengesi guclu gorunuyor."
+            ? "Aktif kadro dengesi güçlü görünüyor."
             : activeRatio >= 60
               ? "Aktif kadro korunuyor."
               : "Aktif kadro dikkat istiyor.",
-        body: `${dashboard.summary.total_personnel} kartin %${activeRatio.toFixed(1)} aktif durumda. Bu oran sahaya cikabilecek gercek kadro gucunu hizli okumayi saglar.`,
+        body: `${dashboard.summary.total_personnel} kartin %${activeRatio.toFixed(1)} aktif durumda. Bu oran sahaya cikabilecek gerçek kadro gucunu hızlı okumayı saglar.`,
         tone: activeRatio >= 80 ? "ink" : "accent",
       },
       {
-        eyebrow: "En Sicak Kart",
-        title: topEntry ? topEntry.full_name : "Kadro sinyali henuz yok.",
+        eyebrow: "En Sıcak Kart",
+        title: topEntry ? topEntry.full_name : "Kadro sinyali henüz yok.",
         body: topEntry
-          ? `${topEntry.role} rolunde ${topEntry.restaurant_label || "atamasiz"} baglami ile one cikiyor. ${topEntry.vehicle_mode} ve ${topEntry.phone || "telefon yok"} bilgisiyle sahaya hazirlik seviyesi gorunuyor.`
-          : "Yeni kart ve guncellemeler geldikce burada dikkat isteyen personel karti one cikarilacak.",
+          ? `${topEntry.role} rolünde ${topEntry.restaurant_label || "atamasız"} bağlamı ile öne çıkıyor. ${topEntry.vehicle_mode} ve ${topEntry.phone || "telefon yok"} bilgisiyle sahaya hazırlık seviyesi görünüyor.`
+          : "Yeni kart ve güncellemeler geldikçe burada dikkat isteyen personel kartı öne çıkarılacak.",
         tone: "paper",
       },
       {
-        eyebrow: unassignedCount > 0 ? "Atama Baskisi" : "Rol Yogunlugu",
-        title: unassignedCount > 0 ? "Atama bekleyen kartlar var." : topRole ? `${topRole[0]} onde gidiyor.` : "Rol sinyali henuz yok.",
+        eyebrow: unassignedCount > 0 ? "Atama Baskısı" : "Rol Yoğunluğu",
+        title: unassignedCount > 0 ? "Atama bekleyen kartlar var." : topRole ? `${topRole[0]} önde gidiyor.` : "Rol sinyali henüz yok.",
         body:
           unassignedCount > 0
-            ? `Son kartlarda ${unassignedCount} kisi sube atamasi olmadan gorunuyor. Bu, saha planlamasi oncesi hizli bir kontrol gerektirebilir.`
+            ? `Son kartlarda ${unassignedCount} kişi şube ataması olmadan görünüyor. Bu, saha planlaması öncesi hızlı bir kontrol gerektirebilir.`
             : topRole
-              ? `Son hareketlerde ${topRole[0]} rolu ${topRole[1]} kartla one cikiyor. Ayni anda %${restaurantCoverage} sube kapsami operasyon dagilimini okumayi kolaylastiriyor.`
-              : "Rol dagilimi geldikce burada hangi kadro tipinin agirlik kazandigi daha erken okunacak.",
+              ? `Son hareketlerde ${topRole[0]} rolü ${topRole[1]} kartla öne çıkıyor. Aynı anda %${restaurantCoverage} şube kapsamı operasyon dağılımını okumayı kolaylaştırıyor.`
+              : "Rol dağılımı geldikçe burada hangi kadro tipinin ağırlık kazandığı daha erken okunacak.",
         tone: unassignedCount > 0 ? "accent" : "paper",
       },
     ] as const;
@@ -414,7 +414,7 @@ export default function PersonnelPage() {
                 maxWidth: "9ch",
               }}
             >
-              Personel akisini merkezden yonet.
+              Personel akışını merkezden yönet.
             </h1>
             <p
               style={{
@@ -425,8 +425,8 @@ export default function PersonnelPage() {
                 fontSize: "1rem",
               }}
             >
-              Kart olusturma, aktif-pasif takibi, sube atamalari ve son hareketler tek editorial
-              yuzeyde toplaniyor. Hedefimiz bu ekrani ofisin gercek calisma masasi gibi hissettirmek.
+              Kart oluşturma, aktif-pasif takibi, şube atamaları ve son hareketler tek editoryal
+              yüzeyde toplanıyor. Hedefimiz bu ekrani ofisin gerçek çalışma masasi gibi hissettirmek.
             </p>
 
             <div
@@ -438,9 +438,9 @@ export default function PersonnelPage() {
               }}
             >
               {[
-                ["Kayit", "Yeni personel karti, sahadan kopmadan hizli olussun."],
-                ["Takip", "Durum, sube ve arac sinyalleri tek yerde toplansin."],
-                ["Denge", "Operasyon eksigi veya yigilma daha ilk bakista gorunsun."],
+                ["Kayıt", "Yeni personel kartı, sahadan kopmadan hızlı olussun."],
+                ["Takip", "Durum, şube ve arac sinyalleri tek yerde toplansin."],
+                ["Denge", "Operasyon eksiği veya yigilma daha ilk bakışta görünsun."],
               ].map(([title, text]) => (
                 <article
                   key={title}
@@ -496,8 +496,8 @@ export default function PersonnelPage() {
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
                 {dashboard
-                  ? `${dashboard.summary.active_personnel} aktif, ${dashboard.summary.passive_personnel} pasif kart ayni yuzeyde izleniyor.`
-                  : "Toplam kart havuzu. Bu yuzey aktiflik, atama ve son hareketleri ayni ritimde okumaya odakli."}
+                  ? `${dashboard.summary.active_personnel} aktif, ${dashboard.summary.passive_personnel} pasif kart aynı yüzeyde izleniyor.`
+                  : "Toplam kart havuzu. Bu yüzey aktiflik, atama ve son hareketleri aynı ritimde okumaya odakli."}
               </div>
             </article>
 
@@ -528,7 +528,7 @@ export default function PersonnelPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Sube Kapsami
+                  Şube Kapsami
                 </div>
                 <div style={{ fontWeight: 800, color: "var(--text)" }}>%{restaurantCoverage}</div>
               </div>
@@ -551,7 +551,7 @@ export default function PersonnelPage() {
                 />
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.65, fontSize: "0.92rem" }}>
-                Atanmis sube sayisinin toplam personele oranini hizli sinyal olarak veriyoruz.
+                Atanmis şube sayisinin toplam personele oranini hızlı sinyal olarak veriyoruz.
               </div>
             </article>
 
@@ -596,7 +596,7 @@ export default function PersonnelPage() {
                 </div>
               ) : (
                 <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
-                  Dashboard verisi geldikce son rol yogunlugu burada gorunecek.
+                  Dashboard verisi geldikçe son rol yoğunluğu burada görünecek.
                 </div>
               )}
             </article>
@@ -612,7 +612,7 @@ export default function PersonnelPage() {
               color: "var(--muted)",
             }}
           >
-            Personel verileri yukleniyor...
+            Personel verileri yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -625,8 +625,8 @@ export default function PersonnelPage() {
               lineHeight: 1.75,
             }}
           >
-            Personel servisine su anda erisilemiyor. Pilot backend ayaga kalktiginda bu ekran
-            kadro ozetini ve son hareketleri gercek veriden besleyecek.
+            Personel servisine su anda erisilemiyor. Pilot backend ayağa kalktiginda bu ekran
+            kadro özetini ve son hareketleri gerçek veriden besleyecek.
           </div>
         ) : (
           <>
@@ -637,10 +637,10 @@ export default function PersonnelPage() {
                 gap: "14px",
               }}
             >
-              {metricCard("Toplam Personel", String(dashboard.summary.total_personnel), "Kayit havuzundaki tum kartlar")}
+              {metricCard("Toplam Personel", String(dashboard.summary.total_personnel), "Kayıt havuzundaki tüm kartlar")}
               {metricCard("Aktif", String(dashboard.summary.active_personnel), "Sahaya cikabilecek aktif kadro")}
               {metricCard("Pasif", String(dashboard.summary.passive_personnel), "Pasif veya beklemede duran kartlar")}
-              {metricCard("Atanmis Sube", String(dashboard.summary.assigned_restaurants), "Kadro icinde gorunen aktif atamalar")}
+              {metricCard("Atanmis Şube", String(dashboard.summary.assigned_restaurants), "Kadro içinde görünen aktif atamalar")}
             </div>
 
             <div
@@ -656,16 +656,16 @@ export default function PersonnelPage() {
             </div>
 
             {workspaceFrame(
-              "Kayit Hatti",
-              "Yeni personel kartini hizli ac.",
-              "Sahadan gelen yeni kurye ya da saha personeli, ofis tarafinda ekstra surtunme olmadan sisteme eklenebilsin.",
+              "Kayıt Hattı",
+              "Yeni personel kartini hızlı ac.",
+              "Sahadan gelen yeni kurye ya da saha personeli, ofis tarafında ekstra surtunme olmadan sisteme eklenebilsin.",
               <PersonnelEntryWorkspace />,
             )}
 
             {workspaceFrame(
-              "Yonetim Hatti",
-              "Kartlari duzenle, durumlari dengele.",
-              "Rol, sube, arac modu ve aktiflik degisimleri daha net bir operasyon cercevesinde gorunsun diye bu bolumu daha editoral bir panele tasidik.",
+              "Yönetim Hattı",
+              "Kartlari düzenle, durumlari dengele.",
+              "Rol, şube, arac modu ve aktiflik degisimleri daha net bir operasyon cercevesinde görünsun diye bu bolumu daha editoral bir panele tasidik.",
               <PersonnelManagementWorkspace />,
             )}
 
@@ -715,7 +715,7 @@ export default function PersonnelPage() {
                     Son personel hareketleri
                   </h2>
                   <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
-                    Son acilan ve guncellenen kartlari operasyon gozuyle hizli sekilde tarayabilirsin.
+                    Son açılan ve güncellenen kartları operasyon gözüyle hızlı sekilde tarayabilirsin.
                   </p>
                 </div>
                 <div style={{ overflowX: "auto" }}>
@@ -732,7 +732,7 @@ export default function PersonnelPage() {
                           background: "rgba(239,232,219,0.56)",
                         }}
                       >
-                        {["Kod", "Ad Soyad", "Rol", "Durum", "Sube", "Arac", "Telefon"].map((header) => (
+                        {["Kod", "Ad Soyad", "Rol", "Durum", "Şube", "Arac", "Telefon"].map((header) => (
                           <th
                             key={header}
                             style={{
@@ -824,8 +824,8 @@ export default function PersonnelPage() {
                     Aktif ve pasif dengeyi ekrandan oku.
                   </div>
                   <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
-                    Buradaki hedef sadece veri gormek degil; sahadaki kadro bosluklarini, atama
-                    yogunlugunu ve kart kalitesini daha hizli okumak.
+                    Buradaki hedef sadece veri görmek değil; sahadaki kadro bosluklarini, atama
+                    yoğunluğunu ve kart kalitesini daha hızlı okumak.
                   </div>
                 </article>
 
@@ -859,10 +859,10 @@ export default function PersonnelPage() {
                       fontWeight: 700,
                     }}
                   >
-                    Kadro paneli artik yalnizca form degil, karar yuzeyi.
+                    Kadro paneli artık yalnızca form değil, karar yüzeyi.
                   </div>
                   <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.75 }}>
-                    Bu dilin amaci formlari daha guzel gostermekten ote, ofisin gunluk insan ve saha
+                    Bu dilin amaci formlari daha guzel gostermekten ote, ofisin günlük insan ve saha
                     planlama ritmini ekranda daha net hissettirmek.
                   </div>
                 </article>

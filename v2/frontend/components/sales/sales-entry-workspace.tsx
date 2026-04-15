@@ -40,7 +40,7 @@ function pricingSummary(
     }).format(Number(value || 0));
 
   if (pricingModel === "threshold_package") {
-    return `${toMoney(hourlyRate)}/saat | ${packageThreshold || "390"} alti ${toMoney(packageRateLow)} | ustu ${toMoney(packageRateHigh)}`;
+    return `${toMoney(hourlyRate)}/saat | ${packageThreshold || "390"} altı ${toMoney(packageRateLow)} | üstü ${toMoney(packageRateHigh)}`;
   }
   if (pricingModel === "hourly_plus_package") {
     return `${toMoney(hourlyRate)}/saat + ${toMoney(packageRate)}/paket`;
@@ -90,7 +90,7 @@ export function SalesEntryWorkspace() {
       try {
         const response = await apiFetch("/sales/form-options");
         if (!response.ok) {
-          throw new Error("Satis form secenekleri yuklenemedi.");
+          throw new Error("Satış form secenekleri yuklenemedi.");
         }
         const payload = (await response.json()) as SalesFormOptions;
         setOptions(payload);
@@ -98,7 +98,7 @@ export function SalesEntryWorkspace() {
         setLeadSource(payload.source_options[0] ?? "Mail");
         setStatus(payload.status_options[0] ?? "Yeni Talep");
       } catch (error) {
-        setSubmitError(error instanceof Error ? error.message : "Satis form secenekleri yuklenemedi.");
+        setSubmitError(error instanceof Error ? error.message : "Satış form secenekleri yuklenemedi.");
       } finally {
         setLoadingOptions(false);
       }
@@ -163,11 +163,11 @@ export function SalesEntryWorkspace() {
       | { detail?: string; message?: string }
       | null;
     if (!response.ok) {
-      setSubmitError(payload?.detail || "Satis firsati olusturulamadi.");
+      setSubmitError(payload?.detail || "Satış fırsatı oluşturulamadı.");
       return;
     }
 
-    setSubmitSuccess(payload?.message || "Satis firsati olusturuldu.");
+    setSubmitSuccess(payload?.message || "Satış fırsatı oluşturuldu.");
     setRestaurantName("");
     setAddress("");
     setContactName("");
@@ -192,9 +192,9 @@ export function SalesEntryWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Satis Firsati</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Satış Firsati</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Talep kanali, teklif modeli ve takip bilgisini yeni shell icinde kaydet.
+          Talep kanali, teklif modeli ve takip bilgisini yeni shell içinde kaydet.
         </p>
       </div>
 
@@ -207,7 +207,7 @@ export function SalesEntryWorkspace() {
             color: "var(--muted)",
           }}
         >
-          Satis form secenekleri yukleniyor...
+          Satış form secenekleri yükleniyor...
         </div>
       ) : (
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: "16px" }}>
@@ -350,7 +350,7 @@ export function SalesEntryWorkspace() {
 
                 {pricingModel === "fixed_monthly" && (
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Aylik Tutar</span>
+                    <span style={{ fontWeight: 700 }}>Aylık Tutar</span>
                     <input value={fixedMonthlyFee} onChange={(event) => setFixedMonthlyFee(event.target.value)} style={fieldStyle} />
                   </label>
                 )}
@@ -430,7 +430,7 @@ export function SalesEntryWorkspace() {
               boxShadow: "0 18px 40px rgba(15, 95, 215, 0.22)",
             }}
           >
-            {isPending ? "Kaydediliyor..." : "Satis Firsatini Olustur"}
+            {isPending ? "Kaydediliyor..." : "Satış Fırsatını Oluştur"}
           </button>
         </form>
       )}

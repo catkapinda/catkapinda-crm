@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       | null;
 
     if (!response.ok || !payload?.access_token || !payload.user) {
-      throw new Error(payload?.detail || "Giris yapilamadi.");
+      throw new Error(payload?.detail || "Giriş yapilamadi.");
     }
 
     writeStoredAuthToken(payload.access_token);
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const requestPhoneCode = useCallback(async (phone: string) => {
     if (isPreviewModeBrowser()) {
       return {
-        message: "Preview modunda SMS kodu hazirlandi.",
+        message: "Preview modunda SMS kodu hazırlandı.",
         masked_phone: phone || "05xxxxxxxxx",
       };
     }
@@ -172,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       | null;
 
     if (!response.ok || !payload?.access_token || !payload.user) {
-      throw new Error(payload?.detail || "SMS kodu dogrulanamadi.");
+      throw new Error(payload?.detail || "SMS kodu doğrulanamadı.");
     }
 
     writeStoredAuthToken(payload.access_token);

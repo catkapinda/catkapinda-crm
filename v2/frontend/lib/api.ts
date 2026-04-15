@@ -64,7 +64,7 @@ function emitUnauthorizedEvent() {
     return;
   }
   writeStoredAuthToken("");
-  writeStoredAuthNotice("Oturumun sona erdi. Devam etmek icin tekrar giris yap.");
+  writeStoredAuthNotice("Oturumun sona erdi. Devam etmek için tekrar giriş yap.");
   window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
 }
 

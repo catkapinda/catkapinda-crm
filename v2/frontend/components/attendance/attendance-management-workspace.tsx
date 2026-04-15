@@ -232,7 +232,7 @@ export function AttendanceManagementWorkspace() {
       }
       const response = await apiFetch(`/attendance/entries?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Puantaj kayitlari yuklenemedi.");
+        throw new Error("Puantaj kayıtları yuklenemedi.");
       }
       const payload = (await response.json()) as AttendanceManagementResponse;
       const visibleEntryIdSet = new Set(payload.entries.map((entry) => entry.id));
@@ -249,7 +249,7 @@ export function AttendanceManagementWorkspace() {
         return payload.entries[0].id;
       });
     } catch (error) {
-      setListError(error instanceof Error ? error.message : "Puantaj kayitlari yuklenemedi.");
+      setListError(error instanceof Error ? error.message : "Puantaj kayıtları yuklenemedi.");
       setEntries([]);
       setTotalEntries(0);
       setSelectedEntryId(null);
@@ -300,7 +300,7 @@ export function AttendanceManagementWorkspace() {
     try {
       const response = await apiFetch(`/attendance/entries/${entryId}`);
       if (!response.ok) {
-        throw new Error("Kayit detayi yuklenemedi.");
+        throw new Error("Kayıt detayi yuklenemedi.");
       }
       const payload = (await response.json()) as AttendanceEntryDetailResponse;
       const entry = payload.entry;
@@ -318,7 +318,7 @@ export function AttendanceManagementWorkspace() {
       setEditNotes(entry.notes ?? "");
       await loadPeopleOptions(entry.restaurant_id);
     } catch (error) {
-      setDetailError(error instanceof Error ? error.message : "Kayit detayi yuklenemedi.");
+      setDetailError(error instanceof Error ? error.message : "Kayıt detayi yuklenemedi.");
       setEditorPeople([]);
     } finally {
       setDetailLoading(false);
@@ -367,7 +367,7 @@ export function AttendanceManagementWorkspace() {
       return;
     }
     if (typeof editRestaurantId !== "number") {
-      setSaveError("Lutfen bir sube sec.");
+      setSaveError("Lutfen bir şube seç.");
       return;
     }
 
@@ -399,11 +399,11 @@ export function AttendanceManagementWorkspace() {
       | null;
 
     if (!response.ok) {
-      setSaveError(payload?.detail || "Kayit guncellenemedi.");
+      setSaveError(payload?.detail || "Kayıt güncellenemedi.");
       return;
     }
 
-    setSaveSuccess(payload?.message || "Kayit guncellendi.");
+    setSaveSuccess(payload?.message || "Kayıt güncellendi.");
     await loadEntries();
     await loadEntryDetail(selectedEntryId);
     startTransition(() => {
@@ -416,7 +416,7 @@ export function AttendanceManagementWorkspace() {
       return;
     }
 
-    const shouldDelete = window.confirm("Bu puantaj kaydi silinsin mi?");
+    const shouldDelete = window.confirm("Bu puantaj kaydı silinsin mi?");
     if (!shouldDelete) {
       return;
     }
@@ -434,14 +434,14 @@ export function AttendanceManagementWorkspace() {
         | null;
 
       if (!response.ok) {
-        setSaveError(payload?.detail || "Kayit silinemedi.");
+        setSaveError(payload?.detail || "Kayıt silinemedi.");
         return;
       }
 
       setSelectedEntryIds((current) =>
         current.filter((entryId) => entryId !== selectedEntryId),
       );
-      setSaveSuccess(payload?.message || "Kayit silindi.");
+      setSaveSuccess(payload?.message || "Kayıt silindi.");
       await loadEntries();
       startTransition(() => {
         router.refresh();
@@ -457,7 +457,7 @@ export function AttendanceManagementWorkspace() {
     }
 
     const shouldDelete = window.confirm(
-      `Secili ${selectedEntryIds.length} puantaj kaydi silinsin mi?`,
+      `Seçili ${selectedEntryIds.length} puantaj kaydı silinsin mi?`,
     );
     if (!shouldDelete) {
       return;
@@ -482,7 +482,7 @@ export function AttendanceManagementWorkspace() {
         | null;
 
       if (!response.ok) {
-        setSaveError(payload?.detail || "Secili puantaj kayitlari silinemedi.");
+        setSaveError(payload?.detail || "Seçili puantaj kayıtları silinemedi.");
         return;
       }
 
@@ -494,7 +494,7 @@ export function AttendanceManagementWorkspace() {
       setSelectedEntryId((current) =>
         current !== null && deletedEntryIdSet.has(current) ? null : current,
       );
-      setSaveSuccess(payload?.message || "Secili puantaj kayitlari silindi.");
+      setSaveSuccess(payload?.message || "Seçili puantaj kayıtları silindi.");
       await loadEntries();
       startTransition(() => {
         router.refresh();
@@ -509,21 +509,21 @@ export function AttendanceManagementWorkspace() {
       return;
     }
 
-    const monthLabel = activeMonthLabel || "secilen ay";
+    const monthLabel = activeMonthLabel || "seçilen ay";
     const restaurantLabel =
       typeof filterRestaurantId === "number"
         ? restaurants.find((restaurant) => restaurant.id === filterRestaurantId)?.label ?? ""
         : "";
     const searchLabel = deferredSearch.trim();
     const extraNotes = [
-      restaurantLabel ? `Sube: ${restaurantLabel}` : "",
+      restaurantLabel ? `Şube: ${restaurantLabel}` : "",
       searchLabel ? `Arama: ${searchLabel}` : "",
     ].filter(Boolean);
     const shouldDelete = window.confirm(
       [
-        `${monthLabel} icindeki ${totalEntries} puantaj kaydi silinsin mi?`,
+        `${monthLabel} icindeki ${totalEntries} puantaj kaydı silinsin mi?`,
         extraNotes.length ? extraNotes.join("\n") : "",
-        "Bu islem secili aya uyan tum kayitlari kalici olarak siler.",
+        "Bu islem seçili aya uyan tüm kayıtları kalıcı olarak siler.",
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -554,13 +554,13 @@ export function AttendanceManagementWorkspace() {
         | null;
 
       if (!response.ok) {
-        setSaveError(payload?.detail || "Filtredeki puantaj kayitlari silinemedi.");
+        setSaveError(payload?.detail || "Filtredeki puantaj kayıtları silinemedi.");
         return;
       }
 
       setSelectedEntryIds([]);
       setSelectedEntryId(null);
-      setSaveSuccess(payload?.message || "Filtredeki puantaj kayitlari silindi.");
+      setSaveSuccess(payload?.message || "Filtredeki puantaj kayıtları silindi.");
       await loadEntries();
       startTransition(() => {
         router.refresh();
@@ -594,11 +594,11 @@ export function AttendanceManagementWorkspace() {
           gap: "12px",
         }}
       >
-        <MetricCard label="Toplam Kayit" value={String(totalEntries)} hint="Tum filtreler disi genel sayi" />
+        <MetricCard label="Toplam Kayıt" value={String(totalEntries)} hint="Tüm filtreler disi genel sayi" />
         <MetricCard
-          label="Gorunen Kayit"
+          label="Gorunen Kayıt"
           value={String(summary.visibleEntries)}
-          hint="Bu listede ekranda gorulen satirlar"
+          hint="Bu listede ekranda gorulen satırlar"
         />
         <MetricCard label="Toplam Saat" value={formatHours(summary.totalHours)} hint="Filtrelenmis toplam" />
         <MetricCard
@@ -633,10 +633,10 @@ export function AttendanceManagementWorkspace() {
             }}
           >
             <div>
-              <h2 style={{ margin: 0, fontSize: "1.12rem" }}>Kayit Yonetimi</h2>
+              <h2 style={{ margin: 0, fontSize: "1.12rem" }}>Kayıt Yonetimi</h2>
               <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>
-                Son attendance kayitlarini filtrele, sec, ay bazinda toplu sil veya ayni ekranda
-                guncelle.
+                Son attendance kayıtlarını filtrele, seç, ay bazinda toplu sil veya aynı ekranda
+                güncelle.
               </p>
             </div>
 
@@ -649,7 +649,7 @@ export function AttendanceManagementWorkspace() {
             >
               <input
                 type="search"
-                placeholder="Sube, personel veya not ara..."
+                placeholder="Şube, personel veya not ara..."
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 style={fieldStyle}
@@ -659,7 +659,7 @@ export function AttendanceManagementWorkspace() {
                 onChange={(event) => setFilterRestaurantId(Number(event.target.value) || "")}
                 style={fieldStyle}
               >
-                <option value="">Tum subeler</option>
+                <option value="">Tüm şubeler</option>
                 {restaurants.map((restaurant) => (
                   <option key={restaurant.id} value={restaurant.id}>
                     {restaurant.label}
@@ -687,12 +687,12 @@ export function AttendanceManagementWorkspace() {
                 style={badgeStyle(selectedEntryIds.length ? "accent" : "muted")}
               >
                 {selectedEntryIds.length
-                  ? `${selectedEntryIds.length} kayit secili${
-                      selectedVisibleCount ? ` • ${selectedVisibleCount} gorunuyor` : ""
+                  ? `${selectedEntryIds.length} kayıt seçili${
+                      selectedVisibleCount ? ` • ${selectedVisibleCount} görünüyor` : ""
                     }`
                   : activeMonthLabel
                     ? `${activeMonthLabel} filtresi aktif`
-                    : "Toplu silme icin kayit sec"}
+                    : "Toplu silme için kayıt seç"}
               </span>
               <div
                 style={{
@@ -745,9 +745,9 @@ export function AttendanceManagementWorkspace() {
 
             {activeMonthLabel ? (
               <div style={feedbackBox("info")}>
-                {activeMonthLabel} icin toplam {totalEntries} kayit bulundu.
+                {activeMonthLabel} için toplam {totalEntries} kayıt bulundu.
                 {totalEntries > entries.length
-                  ? ` Listede ilk ${entries.length} kayit gosteriliyor; ay silme islemi tum ${totalEntries} kaydi kapsar.`
+                  ? ` Listede ilk ${entries.length} kayıt gosteriliyor; ay silme islemi tüm ${totalEntries} kaydı kapsar.`
                   : ""}
               </div>
             ) : null}
@@ -756,9 +756,9 @@ export function AttendanceManagementWorkspace() {
           {listError ? (
             <div style={feedbackBox("error")}>{listError}</div>
           ) : listLoading ? (
-            <div style={feedbackBox("info")}>Kayit listesi yukleniyor...</div>
+            <div style={feedbackBox("info")}>Kayıt listesi yükleniyor...</div>
           ) : !entries.length ? (
-            <div style={feedbackBox("info")}>Filtreye uygun puantaj kaydi bulunamadi.</div>
+            <div style={feedbackBox("info")}>Filtreye uygun puantaj kaydı bulunamadı.</div>
           ) : (
             <div
               style={{
@@ -791,11 +791,11 @@ export function AttendanceManagementWorkspace() {
                       <input
                         type="checkbox"
                         checked={allVisibleSelected}
-                        aria-label="Tum gorunen puantaj kayitlarini sec"
+                        aria-label="Tüm görünen puantaj kayıtlarını seç"
                         onChange={(event) => toggleVisibleEntries(event.target.checked)}
                       />
                     </th>
-                    {["Tarih", "Sube", "Akis", "Calisan", "Mesai", "Paket"].map((header) => (
+                    {["Tarih", "Şube", "Akis", "Çalışan", "Mesai", "Paket"].map((header) => (
                       <th key={header} style={tableHeaderCellStyle}>
                         {header}
                       </th>
@@ -830,7 +830,7 @@ export function AttendanceManagementWorkspace() {
                           <input
                             type="checkbox"
                             checked={isChecked}
-                            aria-label={`${entry.restaurant} puantaj kaydini sec`}
+                            aria-label={`${entry.restaurant} puantaj kaydini seç`}
                             onChange={(event) =>
                               toggleEntrySelection(entry.id, event.target.checked)
                             }
@@ -918,7 +918,7 @@ export function AttendanceManagementWorkspace() {
                 letterSpacing: "0.05em",
               }}
             >
-              Secili Kayit
+              Seçili Kayıt
             </div>
             <h3
               style={{
@@ -926,7 +926,7 @@ export function AttendanceManagementWorkspace() {
                 fontSize: "1.2rem",
               }}
             >
-              Attendance edit akisi
+              Attendance düzenleme akışı
             </h3>
             <p
               style={{
@@ -935,8 +935,8 @@ export function AttendanceManagementWorkspace() {
                 lineHeight: 1.6,
               }}
             >
-              Kaydi sec, personel ve vardiya detaylarini guncelle; istersen soldan birden fazla
-              kaydi toplu silebilirsin.
+              Kaydı seç, personel ve vardiya detaylarını güncelle; istersen soldan birden fazla
+              kaydı toplu silebilirsin.
             </p>
           </div>
 
@@ -949,9 +949,9 @@ export function AttendanceManagementWorkspace() {
             }}
           >
             {!selectedEntryId ? (
-              <div style={feedbackBox("info")}>Duzenlemek icin soldan bir attendance kaydi sec.</div>
+              <div style={feedbackBox("info")}>Düzenlemek için soldan bir attendance kaydı seç.</div>
             ) : detailLoading ? (
-              <div style={feedbackBox("info")}>Secili kayit yukleniyor...</div>
+              <div style={feedbackBox("info")}>Seçili kayıt yükleniyor...</div>
             ) : detailError ? (
               <div style={feedbackBox("error")}>{detailError}</div>
             ) : (
@@ -979,7 +979,7 @@ export function AttendanceManagementWorkspace() {
                     />
                   </label>
                   <label style={{ display: "grid", gap: "7px" }}>
-                    <span style={labelStyle}>Sube</span>
+                    <span style={labelStyle}>Şube</span>
                     <select
                       value={editRestaurantId}
                       onChange={(event) => {
@@ -1019,7 +1019,7 @@ export function AttendanceManagementWorkspace() {
                 >
                   <label style={{ display: "grid", gap: "7px" }}>
                     <span style={labelStyle}>
-                      {needsReplacement ? "Normalde Girecek" : "Calisan Personel"}
+                      {needsReplacement ? "Normalde Girecek" : "Çalışan Personel"}
                     </span>
                     <select
                       value={editPrimaryPersonId}
@@ -1107,7 +1107,7 @@ export function AttendanceManagementWorkspace() {
                   </label>
                   {isFixedMonthly ? (
                     <label style={{ display: "grid", gap: "7px" }}>
-                      <span style={labelStyle}>Aylik Fatura Tutari</span>
+                      <span style={labelStyle}>Aylık Fatura Tutari</span>
                       <input
                         type="number"
                         step="0.01"
@@ -1150,10 +1150,10 @@ export function AttendanceManagementWorkspace() {
                     disabled={isAnyMutationPending}
                     style={secondaryButtonStyle}
                   >
-                    {deletePending ? "Kayit Siliniyor..." : "Kaydi Sil"}
+                    {deletePending ? "Kayıt Siliniyor..." : "Kaydı Sil"}
                   </button>
                   <button type="submit" disabled={isAnyMutationPending} style={primaryButtonStyle}>
-                    {isPending ? "Kaydediliyor..." : "Kaydi Guncelle"}
+                    {isPending ? "Kaydediliyor..." : "Kaydı Güncelle"}
                   </button>
                 </div>
               </form>
