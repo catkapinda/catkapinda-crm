@@ -1,3 +1,5 @@
+import { buildPreviewResponse, isPreviewModeBrowser } from "./preview";
+
 export const AUTH_TOKEN_STORAGE_KEY = "ck_v2_auth_token";
 export const AUTH_TOKEN_COOKIE_NAME = "ck_v2_auth_token";
 export const AUTH_NOTICE_STORAGE_KEY = "ck_v2_auth_notice";
@@ -64,6 +66,12 @@ function emitUnauthorizedEvent() {
 }
 
 export async function apiFetch(path: string, init: RequestInit = {}) {
+  if (isPreviewModeBrowser()) {
+    const previewResponse = buildPreviewResponse(path, init);
+    if (previewResponse) {
+      return previewResponse;
+    }
+  }
   const headers = new Headers(init.headers ?? {});
   const token = readStoredAuthToken();
   if (token && !headers.has("Authorization")) {

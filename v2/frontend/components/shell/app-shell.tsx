@@ -5,7 +5,9 @@ import { useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "../auth/auth-provider";
+import type { SidebarItem } from "../../lib/navigation";
 import { filterSidebarItems, resolveDefaultPath, sidebarItems } from "../../lib/navigation";
+import { isPreviewPathname } from "../../lib/preview";
 
 export function AppShell({
   children,
@@ -17,11 +19,26 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
+  const previewMode = isPreviewPathname(pathname);
 
-  const visibleItems = useMemo(
-    () => filterSidebarItems(user?.allowed_actions ?? []),
-    [user?.allowed_actions],
-  );
+  const visibleItems = useMemo(() => {
+    if (previewMode) {
+      const previewItemMap: Record<string, string> = {
+        "/": "/preview",
+        "/attendance": "/preview/attendance",
+        "/personnel": "/preview/personnel",
+      };
+      return sidebarItems
+        .filter((item) => item.label === "Genel Bakış" || item.label === "Puantaj" || item.label === "Personel")
+        .map(
+          (item): SidebarItem => ({
+            ...item,
+            href: previewItemMap[item.href] ?? "/preview",
+          }),
+        );
+    }
+    return filterSidebarItems(user?.allowed_actions ?? []);
+  }, [previewMode, user?.allowed_actions]);
   const canViewActiveItem = useMemo(
     () => visibleItems.some((item) => item.label === activeItem),
     [visibleItems, activeItem],
@@ -127,7 +144,7 @@ export function AppShell({
               textTransform: "uppercase",
             }}
           >
-            v2 Pilot
+            {previewMode ? "v2 Preview" : "v2 Pilot"}
           </div>
           <div
             style={{
@@ -154,6 +171,21 @@ export function AppShell({
             Operasyonun gunluk nabzi, karar panelleri ve saha akisi tek kabukta.
           </div>
         </div>
+        {previewMode ? (
+          <div
+            style={{
+              padding: "14px 16px",
+              borderRadius: "22px",
+              border: "1px solid rgba(241,194,143,0.14)",
+              background: "rgba(185, 116, 41, 0.08)",
+              color: "#f8e2c0",
+              lineHeight: 1.6,
+              fontSize: "0.9rem",
+            }}
+          >
+            Preview modundayiz. Bu hat backend beklemeden tasarim yuzeylerini gezmek icin acik.
+          </div>
+        ) : null}
         <nav
           style={{
             display: "grid",

@@ -17,6 +17,7 @@ import {
   writeStoredAuthNotice,
   writeStoredAuthToken,
 } from "../../lib/api";
+import { isPreviewModeBrowser, PREVIEW_USER } from "../../lib/preview";
 
 export type AuthUser = {
   id: number;
@@ -49,6 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
+    if (isPreviewModeBrowser()) {
+      setUser(PREVIEW_USER);
+      return;
+    }
     try {
       const response = await apiFetch("/auth/me");
       if (!response.ok) {
@@ -98,6 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (identity: string, password: string) => {
+    if (isPreviewModeBrowser()) {
+      setUser(PREVIEW_USER);
+      return PREVIEW_USER;
+    }
     const response = await fetch(buildApiUrl("/auth/login"), {
       method: "POST",
       headers: {
@@ -119,6 +128,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const requestPhoneCode = useCallback(async (phone: string) => {
+    if (isPreviewModeBrowser()) {
+      return {
+        message: "Preview modunda SMS kodu hazirlandi.",
+        masked_phone: phone || "05xxxxxxxxx",
+      };
+    }
     const response = await fetch(buildApiUrl("/auth/request-phone-code"), {
       method: "POST",
       headers: {
@@ -141,6 +156,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const verifyPhoneCode = useCallback(async (phone: string, code: string) => {
+    if (isPreviewModeBrowser()) {
+      setUser(PREVIEW_USER);
+      return PREVIEW_USER;
+    }
     const response = await fetch(buildApiUrl("/auth/verify-phone-code"), {
       method: "POST",
       headers: {
@@ -162,6 +181,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    if (isPreviewModeBrowser()) {
+      writeStoredAuthToken("");
+      writeStoredAuthNotice("");
+      setUser(null);
+      return;
+    }
     try {
       await apiFetch("/auth/logout", { method: "POST" });
     } finally {

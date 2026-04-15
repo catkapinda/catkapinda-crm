@@ -1,0 +1,821 @@
+type PreviewRestaurant = {
+  id: number;
+  label: string;
+  pricing_model: string;
+  fixed_monthly_fee: number;
+};
+
+type PreviewPersonnelRecord = {
+  id: number;
+  person_code: string;
+  full_name: string;
+  role: string;
+  status: string;
+  phone: string;
+  restaurant_id: number | null;
+  vehicle_mode: string;
+  current_plate: string;
+  start_date: string | null;
+  monthly_fixed_cost: number;
+  notes: string;
+};
+
+type PreviewAttendanceRecord = {
+  id: number;
+  entry_date: string;
+  restaurant_id: number;
+  entry_mode: string;
+  primary_person_id: number | null;
+  replacement_person_id: number | null;
+  absence_reason: string;
+  worked_hours: number;
+  package_count: number;
+  monthly_invoice_amount: number;
+  notes: string;
+};
+
+const previewRestaurants: PreviewRestaurant[] = [
+  { id: 1, label: "Kadikoy Merkez", pricing_model: "fixed_monthly", fixed_monthly_fee: 185000 },
+  { id: 2, label: "Besiktas Hub", pricing_model: "package_based", fixed_monthly_fee: 0 },
+  { id: 3, label: "Mecidiyekoy North", pricing_model: "fixed_monthly", fixed_monthly_fee: 164000 },
+  { id: 4, label: "Atasehir Line", pricing_model: "package_based", fixed_monthly_fee: 0 },
+];
+
+let previewPersonnelRecords: PreviewPersonnelRecord[] = [
+  {
+    id: 101,
+    person_code: "PRS-2401",
+    full_name: "Kaan Demir",
+    role: "Kurye",
+    status: "Aktif",
+    phone: "05320000001",
+    restaurant_id: 1,
+    vehicle_mode: "Kendi Motoru",
+    current_plate: "34 KD 101",
+    start_date: "2026-01-04",
+    monthly_fixed_cost: 0,
+    notes: "Sabah vardiyasinda guclu.",
+  },
+  {
+    id: 102,
+    person_code: "PRS-2402",
+    full_name: "Ozan Koc",
+    role: "Kurye",
+    status: "Aktif",
+    phone: "05320000002",
+    restaurant_id: 2,
+    vehicle_mode: "Sirket Motoru",
+    current_plate: "34 OK 102",
+    start_date: "2025-11-14",
+    monthly_fixed_cost: 0,
+    notes: "Aksam saatlerinde yogun kullaniliyor.",
+  },
+  {
+    id: 103,
+    person_code: "PRS-2403",
+    full_name: "Merve Yildiz",
+    role: "Joker",
+    status: "Aktif",
+    phone: "05320000003",
+    restaurant_id: 1,
+    vehicle_mode: "Kendi Motoru",
+    current_plate: "34 MY 103",
+    start_date: "2025-09-02",
+    monthly_fixed_cost: 0,
+    notes: "Iki sube arasinda gecis yapiyor.",
+  },
+  {
+    id: 104,
+    person_code: "PRS-2404",
+    full_name: "Baris Akin",
+    role: "Saha Lideri",
+    status: "Aktif",
+    phone: "05320000004",
+    restaurant_id: 3,
+    vehicle_mode: "Yaya",
+    current_plate: "",
+    start_date: "2024-08-19",
+    monthly_fixed_cost: 42000,
+    notes: "Vardiya dagilimini takip ediyor.",
+  },
+  {
+    id: 105,
+    person_code: "PRS-2405",
+    full_name: "Ece Tan",
+    role: "Kurye",
+    status: "Pasif",
+    phone: "05320000005",
+    restaurant_id: 4,
+    vehicle_mode: "Sirket Motoru",
+    current_plate: "34 ET 105",
+    start_date: "2025-06-22",
+    monthly_fixed_cost: 0,
+    notes: "Gecici pasif durumda.",
+  },
+  {
+    id: 106,
+    person_code: "PRS-2406",
+    full_name: "Serkan Ince",
+    role: "Kurye",
+    status: "Aktif",
+    phone: "05320000006",
+    restaurant_id: 3,
+    vehicle_mode: "Kendi Motoru",
+    current_plate: "34 SI 106",
+    start_date: "2025-12-09",
+    monthly_fixed_cost: 0,
+    notes: "",
+  },
+  {
+    id: 107,
+    person_code: "PRS-2407",
+    full_name: "Deniz Ucar",
+    role: "Destek",
+    status: "Aktif",
+    phone: "05320000007",
+    restaurant_id: 2,
+    vehicle_mode: "Yaya",
+    current_plate: "",
+    start_date: "2026-02-01",
+    monthly_fixed_cost: 18000,
+    notes: "Hafta sonu destek ekibi.",
+  },
+];
+
+let previewAttendanceRecords: PreviewAttendanceRecord[] = [
+  {
+    id: 501,
+    entry_date: "2026-04-15",
+    restaurant_id: 1,
+    entry_mode: "Restoran Kuryesi",
+    primary_person_id: 101,
+    replacement_person_id: null,
+    absence_reason: "",
+    worked_hours: 10,
+    package_count: 42,
+    monthly_invoice_amount: 0,
+    notes: "Aksam pikini rahatlatti.",
+  },
+  {
+    id: 502,
+    entry_date: "2026-04-15",
+    restaurant_id: 2,
+    entry_mode: "Joker",
+    primary_person_id: 102,
+    replacement_person_id: 103,
+    absence_reason: "Izin",
+    worked_hours: 9,
+    package_count: 36,
+    monthly_invoice_amount: 0,
+    notes: "Joker kaydirma yapildi.",
+  },
+  {
+    id: 503,
+    entry_date: "2026-04-14",
+    restaurant_id: 3,
+    entry_mode: "Restoran Kuryesi",
+    primary_person_id: 106,
+    replacement_person_id: null,
+    absence_reason: "",
+    worked_hours: 11,
+    package_count: 39,
+    monthly_invoice_amount: 164000,
+    notes: "Sabit aylik model.",
+  },
+  {
+    id: 504,
+    entry_date: "2026-04-14",
+    restaurant_id: 1,
+    entry_mode: "Destek",
+    primary_person_id: 103,
+    replacement_person_id: 101,
+    absence_reason: "Rapor",
+    worked_hours: 8,
+    package_count: 18,
+    monthly_invoice_amount: 0,
+    notes: "Kisa destek kaydi.",
+  },
+  {
+    id: 505,
+    entry_date: "2026-04-13",
+    restaurant_id: 4,
+    entry_mode: "Restoran Kuryesi",
+    primary_person_id: 105,
+    replacement_person_id: null,
+    absence_reason: "",
+    worked_hours: 7,
+    package_count: 22,
+    monthly_invoice_amount: 0,
+    notes: "Pasif karta gecmeden onceki son kayit.",
+  },
+  {
+    id: 506,
+    entry_date: "2026-04-12",
+    restaurant_id: 2,
+    entry_mode: "Restoran Kuryesi",
+    primary_person_id: 102,
+    replacement_person_id: null,
+    absence_reason: "",
+    worked_hours: 10,
+    package_count: 40,
+    monthly_invoice_amount: 0,
+    notes: "",
+  },
+];
+
+const previewRoleOptions = ["Kurye", "Joker", "Destek", "Saha Lideri"];
+const previewStatusOptions = ["Aktif", "Pasif"];
+const previewVehicleModeOptions = ["Kendi Motoru", "Sirket Motoru", "Yaya"];
+const previewEntryModes = ["Restoran Kuryesi", "Joker", "Destek", "Izinli", "Raporlu"];
+const previewAbsenceReasons = ["Izin", "Rapor", "Destek Gecisi", "Acil Cikis"];
+
+export const PREVIEW_USER = {
+  id: 9001,
+  identity: "preview@catkapinda.local",
+  email: "preview@catkapinda.local",
+  phone: "05320009999",
+  full_name: "Preview Operator",
+  role: "admin",
+  role_display: "Tasarim Preview / Yonetici",
+  must_change_password: false,
+  allowed_actions: [
+    "dashboard.view",
+    "audit.view",
+    "attendance.view",
+    "attendance.create",
+    "attendance.update",
+    "attendance.delete",
+    "attendance.bulk_delete",
+    "personnel.view",
+    "personnel.create",
+    "personnel.update",
+    "personnel.delete",
+    "personnel.status_change",
+    "deduction.view",
+    "equipment.view",
+    "payroll.view",
+    "purchase.view",
+    "sales.view",
+    "restaurant.view",
+    "reporting.view",
+  ],
+  expires_at: "2099-12-31T23:59:59Z",
+};
+
+export function isPreviewPathname(pathname: string | null | undefined) {
+  return pathname === "/preview" || Boolean(pathname?.startsWith("/preview/"));
+}
+
+export function isPreviewModeBrowser() {
+  return typeof window !== "undefined" && isPreviewPathname(window.location.pathname);
+}
+
+function buildJsonResponse(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+function readJsonBody(init: RequestInit = {}) {
+  if (!init.body || typeof init.body !== "string") {
+    return {};
+  }
+  try {
+    return JSON.parse(init.body) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function findRestaurant(restaurantId: number | null | undefined) {
+  return previewRestaurants.find((restaurant) => restaurant.id === restaurantId) ?? null;
+}
+
+function findPersonnel(personId: number | null | undefined) {
+  return previewPersonnelRecords.find((entry) => entry.id === personId) ?? null;
+}
+
+function personnelLabel(personId: number | null | undefined) {
+  return findPersonnel(personId)?.full_name ?? "";
+}
+
+function restaurantLabel(restaurantId: number | null | undefined) {
+  return findRestaurant(restaurantId)?.label ?? "";
+}
+
+function buildAttendanceCoverageType(entryMode: string, replacementPersonId: number | null) {
+  if (entryMode === "Joker" || entryMode === "Destek") {
+    return replacementPersonId ? "Yedekli" : "Gecis";
+  }
+  if (entryMode === "Izinli" || entryMode === "Raporlu") {
+    return "Devamsizlik";
+  }
+  return "Normal";
+}
+
+function buildAttendanceEntry(record: PreviewAttendanceRecord) {
+  return {
+    id: record.id,
+    entry_date: record.entry_date,
+    restaurant_id: record.restaurant_id,
+    restaurant: restaurantLabel(record.restaurant_id),
+    entry_mode: record.entry_mode,
+    primary_person_id: record.primary_person_id,
+    primary_person_label: personnelLabel(record.primary_person_id) || "-",
+    replacement_person_id: record.replacement_person_id,
+    replacement_person_label: personnelLabel(record.replacement_person_id) || "-",
+    absence_reason: record.absence_reason,
+    coverage_type: buildAttendanceCoverageType(record.entry_mode, record.replacement_person_id),
+    worked_hours: record.worked_hours,
+    package_count: record.package_count,
+    monthly_invoice_amount: record.monthly_invoice_amount,
+    notes: record.notes,
+  };
+}
+
+function buildPersonnelEntry(record: PreviewPersonnelRecord) {
+  return {
+    ...record,
+    restaurant_label: restaurantLabel(record.restaurant_id),
+  };
+}
+
+function buildAttendancePeople(restaurantId: number | null) {
+  return previewPersonnelRecords
+    .filter((entry) => entry.status === "Aktif")
+    .filter((entry) => (restaurantId ? entry.restaurant_id === restaurantId : true))
+    .map((entry) => ({
+      id: entry.id,
+      label: entry.full_name,
+      role: entry.role,
+    }));
+}
+
+function buildAttendanceFormOptions(restaurantId: number | null) {
+  const defaultRestaurantId = restaurantId ?? previewRestaurants[0]?.id ?? null;
+  const selectedRestaurant = findRestaurant(defaultRestaurantId);
+  return {
+    restaurants: previewRestaurants.map((restaurant) => ({
+      id: restaurant.id,
+      label: restaurant.label,
+      pricing_model: restaurant.pricing_model,
+      fixed_monthly_fee: restaurant.fixed_monthly_fee,
+    })),
+    people: buildAttendancePeople(defaultRestaurantId),
+    entry_modes: previewEntryModes,
+    absence_reasons: previewAbsenceReasons,
+    selected_restaurant_id: defaultRestaurantId,
+    selected_pricing_model: selectedRestaurant?.pricing_model ?? null,
+    selected_fixed_monthly_fee: selectedRestaurant?.fixed_monthly_fee ?? 0,
+  };
+}
+
+function buildPersonnelFormOptions() {
+  return {
+    restaurants: previewRestaurants.map((restaurant) => ({
+      id: restaurant.id,
+      label: restaurant.label,
+    })),
+    role_options: previewRoleOptions,
+    status_options: previewStatusOptions,
+    vehicle_mode_options: previewVehicleModeOptions,
+    selected_restaurant_id: previewRestaurants[0]?.id ?? null,
+  };
+}
+
+function filterAttendanceEntries(searchParams: URLSearchParams) {
+  const restaurantId = Number(searchParams.get("restaurant_id") || "");
+  const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
+  const dateFrom = searchParams.get("date_from") || "";
+  const dateTo = searchParams.get("date_to") || "";
+
+  return previewAttendanceRecords
+    .filter((record) => (Number.isFinite(restaurantId) ? record.restaurant_id === restaurantId : true))
+    .filter((record) => (!dateFrom ? true : record.entry_date >= dateFrom))
+    .filter((record) => (!dateTo ? true : record.entry_date <= dateTo))
+    .filter((record) => {
+      if (!search) {
+        return true;
+      }
+      const haystack = [
+        restaurantLabel(record.restaurant_id),
+        personnelLabel(record.primary_person_id),
+        personnelLabel(record.replacement_person_id),
+        record.entry_mode,
+        record.notes,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return haystack.includes(search);
+    })
+    .sort((left, right) => `${right.entry_date}-${right.id}`.localeCompare(`${left.entry_date}-${left.id}`));
+}
+
+function filterPersonnelEntries(searchParams: URLSearchParams) {
+  const restaurantId = Number(searchParams.get("restaurant_id") || "");
+  const role = (searchParams.get("role") || "").trim();
+  const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
+
+  return previewPersonnelRecords
+    .filter((record) => (Number.isFinite(restaurantId) ? record.restaurant_id === restaurantId : true))
+    .filter((record) => (!role ? true : record.role === role))
+    .filter((record) => {
+      if (!search) {
+        return true;
+      }
+      const haystack = [
+        record.person_code,
+        record.full_name,
+        record.phone,
+        restaurantLabel(record.restaurant_id),
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return haystack.includes(search);
+    })
+    .sort((left, right) => right.id - left.id);
+}
+
+function buildOverviewDashboard() {
+  const activeRestaurants = new Set(
+    previewPersonnelRecords.filter((entry) => entry.status === "Aktif" && entry.restaurant_id).map((entry) => entry.restaurant_id),
+  ).size;
+  const activePersonnel = previewPersonnelRecords.filter((entry) => entry.status === "Aktif").length;
+  const currentMonthPrefix = "2026-04";
+  const monthAttendanceEntries = previewAttendanceRecords.filter((entry) => entry.entry_date.startsWith(currentMonthPrefix)).length;
+
+  return {
+    module: "overview",
+    status: "preview",
+    hero: {
+      active_restaurants: activeRestaurants,
+      active_personnel: activePersonnel,
+      month_attendance_entries: monthAttendanceEntries,
+      month_deduction_entries: 18,
+    },
+    modules: [
+      {
+        key: "attendance",
+        title: "Puantaj",
+        description: "Gunluk attendance girisi, kayit yonetimi ve aylik silme akislarini ayni yerde toplar.",
+        href: "/attendance",
+        primary_label: "Aylik Kayit",
+        primary_value: String(monthAttendanceEntries),
+        secondary_label: "Aktif Sube",
+        secondary_value: String(activeRestaurants),
+      },
+      {
+        key: "personnel",
+        title: "Personel",
+        description: "Kart acma, durum degistirme ve saha dagilimini operasyon diliyle gosterir.",
+        href: "/personnel",
+        primary_label: "Aktif Kadro",
+        primary_value: String(activePersonnel),
+        secondary_label: "Pasif Kart",
+        secondary_value: String(previewPersonnelRecords.filter((entry) => entry.status !== "Aktif").length),
+      },
+      {
+        key: "reports",
+        title: "Raporlar",
+        description: "Aylik hakedis ve fatura resmini editorial komuta paneli gibi okur.",
+        href: "/reports",
+        primary_label: "Toplam Ciro",
+        primary_value: "TRY 1.24M",
+        secondary_label: "Kurye Maliyeti",
+        secondary_value: "TRY 742K",
+      },
+    ],
+    recent_activity: [
+      ...previewAttendanceRecords.slice(0, 3).map((entry) => ({
+        module_key: "attendance",
+        module_label: "Puantaj",
+        title: `${restaurantLabel(entry.restaurant_id)} puantaji guncel`,
+        subtitle: `${personnelLabel(entry.primary_person_id) || "Atama"} / ${entry.entry_mode}`,
+        meta: `${entry.worked_hours} saat · ${entry.package_count} paket`,
+        entry_date: entry.entry_date,
+        href: "/attendance",
+      })),
+      ...previewPersonnelRecords.slice(0, 3).map((entry) => ({
+        module_key: "personnel",
+        module_label: "Personel",
+        title: `${entry.full_name} karti hazir`,
+        subtitle: `${entry.role} · ${restaurantLabel(entry.restaurant_id) || "Atanmadi"}`,
+        meta: entry.status,
+        entry_date: entry.start_date,
+        href: "/personnel",
+      })),
+    ],
+  };
+}
+
+function buildAttendanceDashboard() {
+  const today = "2026-04-15";
+  const monthPrefix = "2026-04";
+  return {
+    module: "attendance",
+    status: "preview",
+    summary: {
+      total_entries: previewAttendanceRecords.length,
+      today_entries: previewAttendanceRecords.filter((entry) => entry.entry_date === today).length,
+      month_entries: previewAttendanceRecords.filter((entry) => entry.entry_date.startsWith(monthPrefix)).length,
+      active_restaurants: new Set(previewAttendanceRecords.map((entry) => entry.restaurant_id)).size,
+    },
+    recent_entries: previewAttendanceRecords
+      .slice()
+      .sort((left, right) => `${right.entry_date}-${right.id}`.localeCompare(`${left.entry_date}-${left.id}`))
+      .slice(0, 14)
+      .map((entry) => ({
+        id: entry.id,
+        entry_date: entry.entry_date,
+        restaurant: restaurantLabel(entry.restaurant_id),
+        employee_name: personnelLabel(entry.primary_person_id) || "-",
+        entry_mode: entry.entry_mode,
+        absence_reason: entry.absence_reason,
+        coverage_type: buildAttendanceCoverageType(entry.entry_mode, entry.replacement_person_id),
+        worked_hours: entry.worked_hours,
+        package_count: entry.package_count,
+        monthly_invoice_amount: entry.monthly_invoice_amount,
+        notes: entry.notes,
+      })),
+  };
+}
+
+function buildPersonnelDashboard() {
+  return {
+    module: "personnel",
+    status: "preview",
+    summary: {
+      total_personnel: previewPersonnelRecords.length,
+      active_personnel: previewPersonnelRecords.filter((entry) => entry.status === "Aktif").length,
+      passive_personnel: previewPersonnelRecords.filter((entry) => entry.status !== "Aktif").length,
+      assigned_restaurants: previewPersonnelRecords.filter((entry) => entry.restaurant_id !== null).length,
+    },
+    recent_entries: previewPersonnelRecords
+      .slice()
+      .sort((left, right) => right.id - left.id)
+      .slice(0, 12)
+      .map((entry) => ({
+        ...buildPersonnelEntry(entry),
+      })),
+  };
+}
+
+function nextPersonnelCode() {
+  const maxNumeric = previewPersonnelRecords.reduce((maxValue, entry) => {
+    const numeric = Number(entry.person_code.replace(/\D/g, "")) || 0;
+    return Math.max(maxValue, numeric);
+  }, 2400);
+  return `PRS-${String(maxNumeric + 1).padStart(4, "0")}`;
+}
+
+function nextPersonnelId() {
+  return previewPersonnelRecords.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 100) + 1;
+}
+
+function nextAttendanceId() {
+  return previewAttendanceRecords.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 500) + 1;
+}
+
+export function buildPreviewResponse(path: string, init: RequestInit = {}) {
+  const method = (init.method || "GET").toUpperCase();
+  const url = new URL(path, "http://preview.local");
+  const pathname = url.pathname;
+  const body = readJsonBody(init);
+
+  if (pathname === "/auth/me" && method === "GET") {
+    return buildJsonResponse(PREVIEW_USER);
+  }
+
+  if (pathname === "/auth/logout" && method === "POST") {
+    return buildJsonResponse({ ok: true });
+  }
+
+  if (pathname === "/overview/dashboard" && method === "GET") {
+    return buildJsonResponse(buildOverviewDashboard());
+  }
+
+  if (pathname === "/attendance/dashboard" && method === "GET") {
+    return buildJsonResponse(buildAttendanceDashboard());
+  }
+
+  if (pathname === "/attendance/form-options" && method === "GET") {
+    const restaurantId = Number(url.searchParams.get("restaurant_id") || "");
+    return buildJsonResponse(buildAttendanceFormOptions(Number.isFinite(restaurantId) ? restaurantId : null));
+  }
+
+  if (pathname === "/attendance/entries" && method === "GET") {
+    const entries = filterAttendanceEntries(url.searchParams).map(buildAttendanceEntry);
+    return buildJsonResponse({
+      total_entries: entries.length,
+      entries,
+    });
+  }
+
+  if (pathname === "/attendance/entries" && method === "POST") {
+    const nextRecord: PreviewAttendanceRecord = {
+      id: nextAttendanceId(),
+      entry_date: String(body.entry_date || "2026-04-15"),
+      restaurant_id: Number(body.restaurant_id || previewRestaurants[0]?.id || 1),
+      entry_mode: String(body.entry_mode || "Restoran Kuryesi"),
+      primary_person_id: body.primary_person_id ? Number(body.primary_person_id) : null,
+      replacement_person_id: body.replacement_person_id ? Number(body.replacement_person_id) : null,
+      absence_reason: String(body.absence_reason || ""),
+      worked_hours: Number(body.worked_hours || 0),
+      package_count: Number(body.package_count || 0),
+      monthly_invoice_amount: Number(body.monthly_invoice_amount || 0),
+      notes: String(body.notes || ""),
+    };
+    previewAttendanceRecords = [nextRecord, ...previewAttendanceRecords];
+    return buildJsonResponse({
+      message: "Preview kaydi olusturuldu.",
+      entry_id: nextRecord.id,
+    });
+  }
+
+  if (pathname === "/attendance/entries" && method === "DELETE") {
+    const entryIds = Array.isArray(body.entry_ids)
+      ? body.entry_ids.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+      : [];
+    previewAttendanceRecords = previewAttendanceRecords.filter((entry) => !entryIds.includes(entry.id));
+    return buildJsonResponse({
+      entry_ids: entryIds,
+      deleted_count: entryIds.length,
+      message: "Preview secili kayitlari silindi.",
+    });
+  }
+
+  if (pathname === "/attendance/entries/filter" && method === "DELETE") {
+    const dateFrom = String(body.date_from || "");
+    const dateTo = String(body.date_to || "");
+    const restaurantId = body.restaurant_id ? Number(body.restaurant_id) : null;
+    const search = String(body.search || "").trim().toLocaleLowerCase("tr-TR");
+    const deletable = previewAttendanceRecords.filter((entry) => {
+      if (dateFrom && entry.entry_date < dateFrom) {
+        return false;
+      }
+      if (dateTo && entry.entry_date > dateTo) {
+        return false;
+      }
+      if (restaurantId && entry.restaurant_id !== restaurantId) {
+        return false;
+      }
+      if (!search) {
+        return true;
+      }
+      const haystack = [
+        restaurantLabel(entry.restaurant_id),
+        personnelLabel(entry.primary_person_id),
+        entry.entry_mode,
+        entry.notes,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return haystack.includes(search);
+    });
+    const deleteIds = new Set(deletable.map((entry) => entry.id));
+    previewAttendanceRecords = previewAttendanceRecords.filter((entry) => !deleteIds.has(entry.id));
+    return buildJsonResponse({
+      deleted_count: deletable.length,
+      date_from: dateFrom,
+      date_to: dateTo,
+      restaurant_id: restaurantId,
+      search,
+      message: "Preview filtredeki puantaj kayitlari silindi.",
+    });
+  }
+
+  if (pathname.startsWith("/attendance/entries/")) {
+    const entryId = Number(pathname.split("/").pop());
+    const index = previewAttendanceRecords.findIndex((entry) => entry.id === entryId);
+    if (index < 0) {
+      return buildJsonResponse({ detail: "Kayit bulunamadi." }, 404);
+    }
+
+    if (method === "GET") {
+      return buildJsonResponse({
+        entry: buildAttendanceEntry(previewAttendanceRecords[index]),
+      });
+    }
+
+    if (method === "PUT") {
+      previewAttendanceRecords[index] = {
+        ...previewAttendanceRecords[index],
+        entry_date: String(body.entry_date || previewAttendanceRecords[index].entry_date),
+        restaurant_id: Number(body.restaurant_id || previewAttendanceRecords[index].restaurant_id),
+        entry_mode: String(body.entry_mode || previewAttendanceRecords[index].entry_mode),
+        primary_person_id: body.primary_person_id ? Number(body.primary_person_id) : null,
+        replacement_person_id: body.replacement_person_id ? Number(body.replacement_person_id) : null,
+        absence_reason: String(body.absence_reason || ""),
+        worked_hours: Number(body.worked_hours || 0),
+        package_count: Number(body.package_count || 0),
+        monthly_invoice_amount: Number(body.monthly_invoice_amount || 0),
+        notes: String(body.notes || ""),
+      };
+      return buildJsonResponse({ message: "Preview puantaj kaydi guncellendi." });
+    }
+
+    if (method === "DELETE") {
+      previewAttendanceRecords = previewAttendanceRecords.filter((entry) => entry.id !== entryId);
+      return buildJsonResponse({ message: "Preview puantaj kaydi silindi." });
+    }
+  }
+
+  if (pathname === "/personnel/dashboard" && method === "GET") {
+    return buildJsonResponse(buildPersonnelDashboard());
+  }
+
+  if (pathname === "/personnel/form-options" && method === "GET") {
+    return buildJsonResponse(buildPersonnelFormOptions());
+  }
+
+  if (pathname === "/personnel/records" && method === "GET") {
+    const entries = filterPersonnelEntries(url.searchParams).map(buildPersonnelEntry);
+    return buildJsonResponse({
+      total_entries: entries.length,
+      entries,
+    });
+  }
+
+  if (pathname === "/personnel/records" && method === "POST") {
+    const nextRecord: PreviewPersonnelRecord = {
+      id: nextPersonnelId(),
+      person_code: nextPersonnelCode(),
+      full_name: String(body.full_name || "Preview Personel"),
+      role: String(body.role || previewRoleOptions[0]),
+      status: String(body.status || previewStatusOptions[0]),
+      phone: String(body.phone || ""),
+      restaurant_id: body.assigned_restaurant_id ? Number(body.assigned_restaurant_id) : null,
+      vehicle_mode: String(body.vehicle_mode || previewVehicleModeOptions[0]),
+      current_plate: String(body.current_plate || ""),
+      start_date: String(body.start_date || "2026-04-15"),
+      monthly_fixed_cost: Number(body.monthly_fixed_cost || 0),
+      notes: String(body.notes || ""),
+    };
+    previewPersonnelRecords = [nextRecord, ...previewPersonnelRecords];
+    return buildJsonResponse({
+      message: "Preview personel kaydi olusturuldu.",
+      person_code: nextRecord.person_code,
+    });
+  }
+
+  if (pathname.startsWith("/personnel/records/") && pathname.endsWith("/toggle-status") && method === "POST") {
+    const entryId = Number(pathname.split("/")[3]);
+    const index = previewPersonnelRecords.findIndex((entry) => entry.id === entryId);
+    if (index < 0) {
+      return buildJsonResponse({ detail: "Personel bulunamadi." }, 404);
+    }
+    previewPersonnelRecords[index] = {
+      ...previewPersonnelRecords[index],
+      status: previewPersonnelRecords[index].status === "Aktif" ? "Pasif" : "Aktif",
+    };
+    return buildJsonResponse({
+      message: "Preview personel durumu guncellendi.",
+    });
+  }
+
+  if (pathname.startsWith("/personnel/records/")) {
+    const entryId = Number(pathname.split("/").pop());
+    const index = previewPersonnelRecords.findIndex((entry) => entry.id === entryId);
+    if (index < 0) {
+      return buildJsonResponse({ detail: "Personel bulunamadi." }, 404);
+    }
+
+    if (method === "GET") {
+      return buildJsonResponse({
+        entry: buildPersonnelEntry(previewPersonnelRecords[index]),
+      });
+    }
+
+    if (method === "PUT") {
+      previewPersonnelRecords[index] = {
+        ...previewPersonnelRecords[index],
+        full_name: String(body.full_name || previewPersonnelRecords[index].full_name),
+        role: String(body.role || previewPersonnelRecords[index].role),
+        phone: String(body.phone || previewPersonnelRecords[index].phone),
+        restaurant_id: body.assigned_restaurant_id ? Number(body.assigned_restaurant_id) : null,
+        status: String(body.status || previewPersonnelRecords[index].status),
+        start_date: String(body.start_date || previewPersonnelRecords[index].start_date || ""),
+        vehicle_mode: String(body.vehicle_mode || previewPersonnelRecords[index].vehicle_mode),
+        current_plate: String(body.current_plate || ""),
+        monthly_fixed_cost: Number(body.monthly_fixed_cost || 0),
+        notes: String(body.notes || ""),
+      };
+      return buildJsonResponse({
+        message: "Preview personel kaydi guncellendi.",
+        person_code: previewPersonnelRecords[index].person_code,
+      });
+    }
+
+    if (method === "DELETE") {
+      previewPersonnelRecords = previewPersonnelRecords.filter((entry) => entry.id !== entryId);
+      return buildJsonResponse({
+        message: "Preview personel kaydi silindi.",
+      });
+    }
+  }
+
+  return null;
+}

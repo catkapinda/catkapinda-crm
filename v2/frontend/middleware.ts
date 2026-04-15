@@ -8,7 +8,7 @@ const PUBLIC_PATHS = new Set(["/login", "/status"]);
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  if (PUBLIC_PATHS.has(pathname)) {
+  if (PUBLIC_PATHS.has(pathname) || pathname === "/preview" || pathname.startsWith("/preview/")) {
     return NextResponse.next();
   }
 
