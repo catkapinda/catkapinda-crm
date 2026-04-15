@@ -10,6 +10,9 @@ export function resolveApiBaseUrl() {
     process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
     process.env.NEXT_PUBLIC_API_BASE_URL ??
     "/v2-api";
+  if (configuredBaseUrl.startsWith("/")) {
+    return configuredBaseUrl.endsWith("/") ? configuredBaseUrl.slice(0, -1) : configuredBaseUrl;
+  }
   return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
 }
 

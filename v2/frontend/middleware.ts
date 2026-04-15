@@ -8,7 +8,12 @@ const PUBLIC_PATHS = new Set(["/login", "/status"]);
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  if (PUBLIC_PATHS.has(pathname) || pathname === "/preview" || pathname.startsWith("/preview/")) {
+  if (
+    PUBLIC_PATHS.has(pathname) ||
+    pathname === "/preview" ||
+    pathname.startsWith("/preview/") ||
+    pathname.startsWith("/v2-api/")
+  ) {
     return NextResponse.next();
   }
 
@@ -24,5 +29,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|v2-api|_next/static|_next/image|favicon.ico).*)"],
 };
