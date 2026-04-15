@@ -543,6 +543,12 @@ export default function StatusPage() {
       : backend?.cutover.phase === "ready_for_pilot"
         ? true
         : false;
+  const localBackendEnvRestartNeeded =
+    !!frontend &&
+    !!localSetup?.database_url_present &&
+    frontend.backendReachable &&
+    frontend.pilotHttpStatus === 503 &&
+    (frontend.pilotErrorDetail?.includes("DATABASE_URL") || frontend.detail.includes("DATABASE_URL"));
   const localSetupGuidance = useMemo(() => {
     if (!frontend || frontend.proxyMode !== "explicit_base_url") {
       return null;
@@ -567,6 +573,19 @@ export default function StatusPage() {
         title: "Local backend henuz gorunmuyor.",
         detail:
           "Frontend explicit base URL modunda 127.0.0.1:8000 hedefini ariyor. Bu local senaryoda normal; backend ayaga kalkmadan login ve sifre kurtarma akisi tamamlanmaz.",
+        commands: [
+          localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
+          "python v2/scripts/local_v2_doctor.py",
+        ],
+      };
+    }
+
+    if (localBackendEnvRestartNeeded) {
+      return {
+        tone: "warning" as const,
+        title: "Backend env guncel, ama calisan surec yeniden baslatilmali.",
+        detail:
+          "Doctor backend/.env tarafinda DATABASE_URL gordugu halde calisan backend hala eski env ile 503 donuyor. Bu local durumda tipik olarak uvicorn surecinin env yazildiktan sonra yeniden baslatilmasi gerekir.",
         commands: [
           localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
           "python v2/scripts/local_v2_doctor.py",
@@ -604,7 +623,7 @@ export default function StatusPage() {
     }
 
     return null;
-  }, [backend, frontend]);
+  }, [backend, frontend, localBackendEnvRestartNeeded, localSetup]);
 
   async function copyText(key: string, value: string) {
     try {
@@ -900,6 +919,8 @@ export default function StatusPage() {
                     Frontend .env.local: {localSetup.frontend_env_exists ? "var" : "yok"}
                     <br />
                     Frontend env sync: {localSetup.frontend_env_needs_sync ? "gerekiyor" : "hazir"}
+                    <br />
+                    Backend restart: {localBackendEnvRestartNeeded ? "gerekiyor" : "gerekli gorunmuyor"}
                     <br />
                     Local setup kaynagi:{" "}
                     {localSetupSource === "frontend_local_doctor"

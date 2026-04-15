@@ -385,10 +385,26 @@ function LoginPageContent() {
       const nextActions = localSetup.next_actions ?? [];
       const currentAppSeedSources = localSetup.current_app_seed_sources ?? [];
       const currentAppSeedPlaceholders = localSetup.current_app_seed_placeholders ?? [];
+      const backendNeedsRestartForEnv =
+        localSetup.database_url_present &&
+        frontendStatus.pilotHttpStatus === 503 &&
+        (frontendStatus.pilotErrorDetail?.includes("DATABASE_URL") || frontendStatus.detail?.includes("DATABASE_URL"));
       const setupSourceDetail =
         localPilotStatus?.localSetupSource === "frontend_local_doctor"
           ? " Teşhis frontend tarafinda taze doctor fallback'i ile üretildi; backend'i yeniden başlatınca endpoint de aynı seviyeye gelir."
           : "";
+
+      if (backendNeedsRestartForEnv) {
+        return {
+          title: "Backend env yazildi ama calisan surec yeniden baslatilmali.",
+          detail:
+            "Doctor backend/.env tarafinda veritabani baglantisini goruyor; buna ragmen calisan backend hala DATABASE_URL eksigi donuyor. Bu genelde env yazildiktan sonra uvicorn sureci yeniden baslatilmadiginda olur." +
+            setupSourceDetail,
+          command:
+            localSetup.suggested_backend_start_command ||
+            "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
+        };
+      }
 
       if (localSetup.current_app_seed_detected && !localSetup.backend_env_exists && !localSetup.database_url_present) {
         return {
