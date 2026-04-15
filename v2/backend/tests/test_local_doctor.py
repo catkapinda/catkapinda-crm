@@ -33,8 +33,9 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path, monkeypatch):
         encoding="utf-8",
     )
     monkeypatch.setattr(local_doctor, "discover_local_frontend_urls", lambda: [])
+    monkeypatch.setattr(local_doctor, "LOCAL_SQLITE_FALLBACK_SEED_PATHS", ())
 
-    report = build_local_doctor_report(v2_root, {})
+    report = build_local_doctor_report(v2_root, {"CK_V2_LOCAL_SQLITE_PATH": str(tmp_path / "missing.db")})
 
     assert report["ready"] is False
     assert report["database_url_present"] is False
@@ -54,6 +55,26 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path, monkeypatch):
     assert "--api-url 'http://127.0.0.1:8000'" in report["suggested_env_write_command"]
     assert any("Backend veritabani URL'i eksik" in item for item in report["blocking_items"])
     assert any("--bootstrap-local" in item for item in report["next_actions"])
+
+
+def test_local_doctor_prefers_sqlite_warning_when_local_fallback_exists(tmp_path: Path, monkeypatch):
+    v2_root = tmp_path / "v2"
+    sqlite_path = tmp_path / "catkapinda_crm.db"
+    sqlite_path.write_text("", encoding="utf-8")
+    (v2_root / "backend").mkdir(parents=True)
+    (v2_root / "frontend").mkdir(parents=True)
+    (v2_root / "frontend" / ".env.local").write_text(
+        "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api\nCK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(local_doctor, "discover_local_frontend_urls", lambda: [])
+
+    report = build_local_doctor_report(v2_root, {"CK_V2_LOCAL_SQLITE_PATH": str(sqlite_path)})
+
+    assert report["database_url_present"] is False
+    assert report["decision_status"] == "warning"
+    assert report["decision_headline"] == "PostgreSQL eksik ama local sqlite omurgasi hazir."
+    assert report["decision_command"] == report["suggested_backend_start_command"]
 
 
 def test_local_doctor_reports_detected_frontend_urls_and_duplicate_warning(tmp_path: Path, monkeypatch):

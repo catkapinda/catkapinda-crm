@@ -276,7 +276,13 @@ def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
         HealthCheckEntry(
             name="database_url",
             ok=bool(settings.database_url),
-            detail="DATABASE_URL tanimli" if settings.database_url else "DATABASE_URL eksik",
+            detail=(
+                "DATABASE_URL tanimli"
+                if settings.database_url
+                else "Local sqlite fallback aktif"
+                if getattr(conn, "backend", "postgres") == "sqlite"
+                else "DATABASE_URL eksik"
+            ),
         )
     )
 
@@ -465,6 +471,19 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
 
 
 def _build_auth_user_counts(conn: psycopg.Connection) -> tuple[int, int]:
+    def read_count(row: object) -> int:
+        if row is None:
+            return 0
+        if isinstance(row, dict):
+            return int(row.get("count") or 0)
+        try:
+            return int(row["count"])  # type: ignore[index]
+        except Exception:
+            pass
+        if isinstance(row, (tuple, list)) and row:
+            return int(row[0] or 0)
+        return 0
+
     try:
         admin_row = conn.execute(
             """
@@ -484,10 +503,7 @@ def _build_auth_user_counts(conn: psycopg.Connection) -> tuple[int, int]:
             """,
             ("mobile_ops",),
         ).fetchone()
-        return (
-            int((admin_row or {}).get("count") or 0),
-            int((mobile_row or {}).get("count") or 0),
-        )
+        return (read_count(admin_row), read_count(mobile_row))
     except Exception:  # pragma: no cover - defensive runtime fallback
         return (0, 0)
 
@@ -1178,8 +1194,16 @@ def _build_module_table_status(conn: psycopg.Connection) -> dict[str, dict[str, 
     for module, tables in MODULE_TABLES.items():
         missing_tables: list[str] = []
         for table_name in tables:
-            row = conn.execute("SELECT to_regclass(%s) AS table_name", (f"public.{table_name}",)).fetchone()
-            if not row or not row.get("table_name"):
+            if getattr(conn, "backend", "postgres") == "sqlite":
+                row = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = %s LIMIT 1",
+                    (table_name,),
+                ).fetchone()
+                table_exists = bool(row and dict(row).get("name"))
+            else:
+                row = conn.execute("SELECT to_regclass(%s) AS table_name", (f"public.{table_name}",)).fetchone()
+                table_exists = bool(row and row.get("table_name"))
+            if not table_exists:
                 missing_tables.append(table_name)
 
         status_map[module] = {

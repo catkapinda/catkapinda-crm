@@ -1,3 +1,5 @@
+import sqlite3
+
 from app.core import bootstrap
 from app.core.config import settings
 
@@ -70,3 +72,41 @@ def test_runtime_bootstrap_marks_failure_when_connection_breaks(monkeypatch):
     state = bootstrap.get_runtime_bootstrap_state()
     assert state["ok"] is False
     assert "db offline" in str(state["detail"])
+
+
+def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
+    sqlite_path = tmp_path / "catkapinda_crm.db"
+    with sqlite3.connect(sqlite_path) as raw_conn:
+        raw_conn.execute(
+            """
+            CREATE TABLE personnel (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name TEXT NOT NULL,
+                role TEXT NOT NULL,
+                status TEXT NOT NULL,
+                phone TEXT
+            )
+            """
+        )
+        raw_conn.commit()
+
+    bootstrap.reset_runtime_bootstrap_state()
+    monkeypatch.setattr(settings, "database_url", None)
+    monkeypatch.setattr(settings, "app_env", "development")
+    monkeypatch.setattr(settings, "local_sqlite_fallback_enabled", True)
+    monkeypatch.setattr(settings, "local_sqlite_path", str(sqlite_path))
+
+    bootstrap.ensure_runtime_bootstrap()
+
+    state = bootstrap.get_runtime_bootstrap_state()
+    assert state["ok"] is True
+    assert "local sqlite fallback" in str(state["detail"])
+
+    with sqlite3.connect(sqlite_path) as raw_conn:
+        auth_user_count = raw_conn.execute("SELECT COUNT(*) FROM auth_users").fetchone()[0]
+        phone_code_table = raw_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'auth_phone_codes'"
+        ).fetchone()
+
+    assert auth_user_count == 3
+    assert phone_code_table is not None

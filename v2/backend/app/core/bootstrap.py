@@ -8,6 +8,7 @@ import psycopg
 
 from app.core.auth_sync import sync_mobile_auth_users
 from app.core.config import settings
+from app.core.database import connect_local_sqlite_fallback, local_sqlite_fallback_available
 from app.core.security import hash_auth_password, normalize_auth_identity, normalize_auth_phone
 
 LOGGER = logging.getLogger(__name__)
@@ -74,28 +75,98 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_auth_phone_codes_phone_purpose ON auth_phone_codes (phone, purpose)",
 )
 
+AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
+    """
+    CREATE TABLE IF NOT EXISTS auth_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT,
+        phone TEXT,
+        full_name TEXT NOT NULL DEFAULT '',
+        role TEXT NOT NULL DEFAULT 'viewer',
+        role_display TEXT NOT NULL DEFAULT 'Viewer',
+        password_hash TEXT NOT NULL DEFAULT '',
+        is_active INTEGER NOT NULL DEFAULT 1,
+        must_change_password INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_users_email_unique
+    ON auth_users (email)
+    WHERE email IS NOT NULL AND email <> ''
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_users_phone_unique
+    ON auth_users (phone)
+    WHERE phone IS NOT NULL AND phone <> ''
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+        token TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions (expires_at)",
+    """
+    CREATE TABLE IF NOT EXISTS auth_phone_codes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        auth_user_id INTEGER NOT NULL,
+        phone TEXT NOT NULL,
+        code_hash TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        consumed_at TEXT NULL,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        last_attempt_at TEXT NULL,
+        FOREIGN KEY (auth_user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_auth_phone_codes_phone_purpose ON auth_phone_codes (phone, purpose)",
+)
+
+
+def _run_auth_bootstrap(conn: psycopg.Connection, *, allow_mobile_sync: bool) -> None:
+    statements = AUTH_BOOTSTRAP_STATEMENTS if getattr(conn, "backend", "postgres") == "postgres" else AUTH_BOOTSTRAP_SQLITE_STATEMENTS
+    for statement in statements:
+        conn.execute(statement)
+    sync_default_auth_users(conn)
+    if allow_mobile_sync:
+        sync_mobile_auth_users(conn)
+    conn.commit()
+
 
 def ensure_runtime_bootstrap() -> None:
     BOOTSTRAP_STATE["attempted"] = True
 
-    if not settings.database_url:
+    if not settings.database_url and not local_sqlite_fallback_available():
         BOOTSTRAP_STATE["ok"] = False
         BOOTSTRAP_STATE["detail"] = "DATABASE_URL eksik oldugu icin runtime bootstrap atlandi."
         return
 
     try:
-        with psycopg.connect(
-            settings.database_url,
-            connect_timeout=5,
-            application_name="catkapinda-crm-v2-bootstrap",
-        ) as conn:
-            for statement in AUTH_BOOTSTRAP_STATEMENTS:
-                conn.execute(statement)
-            sync_default_auth_users(conn)
-            sync_mobile_auth_users(conn)
-            conn.commit()
+        if settings.database_url:
+            with psycopg.connect(
+                settings.database_url,
+                connect_timeout=5,
+                application_name="catkapinda-crm-v2-bootstrap",
+            ) as conn:
+                _run_auth_bootstrap(conn, allow_mobile_sync=True)
+        else:
+            conn = connect_local_sqlite_fallback()
+            try:
+                _run_auth_bootstrap(conn, allow_mobile_sync=False)
+            finally:
+                conn.close()
         BOOTSTRAP_STATE["ok"] = True
-        BOOTSTRAP_STATE["detail"] = "Auth runtime bootstrap basarili."
+        BOOTSTRAP_STATE["detail"] = (
+            "Auth runtime bootstrap basarili."
+            if settings.database_url
+            else "Auth runtime bootstrap basarili (local sqlite fallback)."
+        )
     except Exception as exc:  # pragma: no cover - runtime-only network/db failures
         BOOTSTRAP_STATE["ok"] = False
         BOOTSTRAP_STATE["detail"] = f"Runtime bootstrap basarisiz: {exc}"

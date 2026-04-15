@@ -1,5 +1,6 @@
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
 
 
 class Settings(BaseSettings):
@@ -18,6 +19,14 @@ class Settings(BaseSettings):
     database_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("CK_V2_DATABASE_URL", "DATABASE_URL"),
+    )
+    local_sqlite_fallback_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("CK_V2_ENABLE_LOCAL_SQLITE_FALLBACK"),
+    )
+    local_sqlite_path: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CK_V2_LOCAL_SQLITE_PATH"),
     )
     frontend_app_name: str = "Cat Kapinda CRM v2"
     auth_session_days: int = 30
@@ -67,6 +76,13 @@ class Settings(BaseSettings):
     @property
     def resolved_api_public_url(self) -> str:
         return str(self.api_public_url or "http://127.0.0.1:8000").strip()
+
+    @property
+    def resolved_local_sqlite_path(self) -> str:
+        configured = str(self.local_sqlite_path or "").strip()
+        if configured:
+            return configured
+        return str(Path(__file__).resolve().parents[2] / ".local" / "catkapinda_crm.db")
 
     @property
     def short_release_sha(self) -> str | None:

@@ -53,6 +53,9 @@ def sync_mobile_auth_user_for_personnel(
 
 
 def sync_mobile_auth_users(conn: psycopg.Connection) -> None:
+    if getattr(conn, "backend", "postgres") == "sqlite":
+        return
+
     personnel_rows = _fetch_mobile_auth_candidate_rows(conn)
     seen_personnel_ids: set[int] = set()
 

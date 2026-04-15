@@ -91,15 +91,16 @@ def update_auth_user_password(
     user_id: int,
     password_hash: str,
 ) -> None:
+    updated_at = build_current_timestamp()
     conn.execute(
         """
         UPDATE auth_users
         SET password_hash = %s,
             must_change_password = 0,
-            updated_at = NOW()
+            updated_at = %s
         WHERE id = %s
         """,
-        (password_hash, user_id),
+        (password_hash, updated_at, user_id),
     )
 
 

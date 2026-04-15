@@ -1,9 +1,12 @@
 from fastapi.testclient import TestClient
+import sqlite3
 
 from app.core.bootstrap import mark_runtime_bootstrap_state, reset_runtime_bootstrap_state
 from app.core.config import settings
+from app.core.database import CompatConnection
 from app.core.database import get_db
 from app.main import create_app
+from app.api.routes.health import _build_auth_user_counts
 
 
 class HealthyConnection:
@@ -45,6 +48,34 @@ class CountCursor:
 
     def fetchone(self):
         return {"count": self.count}
+
+
+def test_build_auth_user_counts_supports_sqlite_rows():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.execute(
+        """
+        CREATE TABLE auth_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            role TEXT NOT NULL,
+            is_active INTEGER NOT NULL
+        )
+        """
+    )
+    raw_conn.executemany(
+        "INSERT INTO auth_users (email, role, is_active) VALUES (?, ?, ?)",
+        [
+            ("ebru@catkapinda.com", "admin", 1),
+            ("mert@catkapinda.com", "admin", 1),
+            ("ops@catkapinda.com", "mobile_ops", 1),
+            ("inactive@catkapinda.com", "admin", 0),
+        ],
+    )
+    raw_conn.commit()
+
+    conn = CompatConnection(raw_conn, backend="sqlite")
+    assert _build_auth_user_counts(conn) == (2, 1)
 
 
 def test_health_route_returns_service_metadata():
@@ -221,6 +252,7 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "python v2/scripts/pilot_status_report.py "
         "--base-url https://pilot.example.com --json --output pilot-status-live.json"
     )
+
     assert helper_map["Live Pilot Status JSON"]["category"] == "packet"
     assert helper_map["Pilot Preflight Bundle"]["command"] == (
         "python v2/scripts/pilot_preflight.py "
@@ -324,6 +356,57 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert "detail" in modules["attendance"]
     assert "missing_tables" in modules["attendance"]
     assert modules["reports"]["href"] == "/reports"
+
+
+def test_pilot_readiness_route_works_with_local_sqlite_fallback(monkeypatch, tmp_path):
+    sqlite_path = tmp_path / "catkapinda_crm.db"
+    raw_conn = sqlite3.connect(sqlite_path)
+    raw_conn.execute(
+        """
+        CREATE TABLE auth_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            password_hash TEXT,
+            full_name TEXT,
+            role TEXT NOT NULL,
+            role_display TEXT,
+            phone TEXT,
+            is_active INTEGER NOT NULL,
+            must_change_password INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT,
+            updated_at TEXT
+        )
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO auth_users (
+            email, password_hash, full_name, role, role_display, phone, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        ("ebru@catkapinda.com", "hash", "Ebru Aslan", "admin", "Yonetici", "", 1),
+    )
+    raw_conn.commit()
+    raw_conn.close()
+
+    reset_runtime_bootstrap_state()
+    mark_runtime_bootstrap_state(ok=True, detail="Auth runtime bootstrap basarili (local sqlite fallback).")
+    monkeypatch.setattr(settings, "database_url", None)
+    monkeypatch.setattr(settings, "local_sqlite_fallback_enabled", True)
+    monkeypatch.setattr(settings, "local_sqlite_path", str(sqlite_path))
+    monkeypatch.setattr(settings, "frontend_base_url", "http://127.0.0.1:3001")
+    monkeypatch.setattr(settings, "public_app_url", "http://127.0.0.1:3001")
+    monkeypatch.setattr(settings, "api_public_url", "http://127.0.0.1:8000")
+
+    client = TestClient(create_app(enable_bootstrap=False))
+
+    response = client.get("/api/health/pilot")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "degraded"
+    assert payload["checks"][0]["detail"] == "Local sqlite fallback aktif"
+    assert payload["auth"]["admin_user_count"] == 1
 
 
 def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch):

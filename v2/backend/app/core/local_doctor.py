@@ -34,6 +34,11 @@ LOCAL_FRONTEND_URL = "http://127.0.0.1:3000"
 LOCAL_API_URL = "http://127.0.0.1:8000"
 LOCAL_FRONTEND_CANDIDATE_PORTS = (3000, 3001, 3002)
 LOCAL_V2_ROOT = Path(__file__).resolve().parents[3]
+LOCAL_SQLITE_FALLBACK_PATH = LOCAL_V2_ROOT / "backend" / ".local" / "catkapinda_crm.db"
+LOCAL_SQLITE_FALLBACK_SEED_PATHS = (
+    Path.home() / "Documents" / "CatKapindaData" / "catkapinda_crm.db",
+    LOCAL_V2_ROOT.parent / "catkapinda_crm.db",
+)
 
 
 def _strip_wrapping_quotes(value: str) -> str:
@@ -594,6 +599,12 @@ def build_local_doctor_report(
     )
     suggested_backend_start_command = "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
     suggested_backend_restart_command = suggested_backend_start_command
+    local_sqlite_path = Path(
+        _strip_wrapping_quotes(runtime_env.get("CK_V2_LOCAL_SQLITE_PATH", "")) or str(LOCAL_SQLITE_FALLBACK_PATH)
+    ).expanduser()
+    local_sqlite_fallback_available = local_sqlite_path.exists() or any(
+        seed_path.exists() for seed_path in LOCAL_SQLITE_FALLBACK_SEED_PATHS
+    )
 
     runtime_database_url, runtime_database_source = _resolve_value(runtime_env, {}, BACKEND_DATABASE_KEYS)
     backend_env_database_url, backend_env_database_source = _resolve_value({}, backend_env_values, BACKEND_DATABASE_KEYS)
@@ -642,6 +653,11 @@ def build_local_doctor_report(
         next_actions.append(
             f"Gercek PostgreSQL URL'ini alip `{suggested_bootstrap_with_db_command}` calistir."
         )
+        if local_sqlite_fallback_available:
+            warnings.append(f"Local sqlite fallback bulundu: {local_sqlite_path}")
+            next_actions.append(
+                f"Gercek auth'i yerelde denemek icin backend'i `{suggested_backend_start_command}` ile yeniden baslat."
+            )
     elif database_source == "current_app_seed:DATABASE_URL" and not backend_env_path.exists():
         warnings.append("Veritabani URL'i current app kaynaklarinda bulundu ama v2 backend/.env henuz yazilmadi.")
         next_actions.append(
@@ -693,6 +709,14 @@ def build_local_doctor_report(
         decision_headline = "Backend yeniden baslatilmali."
         decision_detail = backend_restart_reason or "backend/.env ile calisan surec arasinda fark var."
         decision_command = suggested_backend_restart_command
+    elif not database_url and local_sqlite_fallback_available:
+        decision_status = "warning"
+        decision_headline = "PostgreSQL eksik ama local sqlite omurgasi hazir."
+        decision_detail = (
+            "Yerelde login ve temel health akislarini mevcut sqlite verisiyle deneyebiliriz. "
+            "Gercek pilot ve Render acilisi icin yine PostgreSQL URL gerekli kalacak."
+        )
+        decision_command = suggested_backend_start_command
     elif not database_url:
         decision_status = "blocked"
         decision_headline = "Veritabani baglantisi eksik."
