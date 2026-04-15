@@ -139,6 +139,9 @@ def _coerce_optional_nullable_nonempty_str(*, value: object, issue_label: str, i
     normalized = _coerce_optional_nullable_str(value=value, issue_label=issue_label, issues=issues)
     if normalized is None:
         return None
+    if not normalized:
+        issues.append(f"{issue_label} bos")
+        return None
     return normalized
 
 
