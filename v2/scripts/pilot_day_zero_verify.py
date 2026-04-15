@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import hashlib
 import json
 from pathlib import Path
@@ -322,9 +323,14 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         if row_index < previous_row_index:
             issues.append(f"pilot-smoke-live.md icinde check satiri sirasi bozuk: {result.get('name')}")
         previous_row_index = row_index
-    for row in actual_table_rows:
-        if row not in expected_table_rows:
+    actual_row_counts = Counter(actual_table_rows)
+    expected_row_counts = Counter(expected_table_rows)
+    for row, count in actual_row_counts.items():
+        expected_count = expected_row_counts.get(row, 0)
+        if expected_count == 0:
             issues.append(f"pilot-smoke-live.md icinde beklenmeyen check satiri var: {row}")
+        elif count > expected_count:
+            issues.append(f"pilot-smoke-live.md icinde tekrarlanan check satiri var: {row}")
 
     return (not issues, issues, smoke_payload)
 
