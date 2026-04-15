@@ -107,6 +107,46 @@ type PreviewPurchaseRecord = {
   notes: string;
 };
 
+type PreviewEquipmentIssueRecord = {
+  id: number;
+  personnel_id: number;
+  issue_date: string;
+  item_name: string;
+  quantity: number;
+  unit_cost: number;
+  unit_sale_price: number;
+  vat_rate: number;
+  installment_count: number;
+  sale_type: string;
+  notes: string;
+  auto_source_key: string;
+  is_auto_record: boolean;
+};
+
+type PreviewBoxReturnRecord = {
+  id: number;
+  personnel_id: number;
+  return_date: string;
+  quantity: number;
+  condition_status: string;
+  payout_amount: number;
+  waived: boolean;
+  notes: string;
+};
+
+type PreviewAuditRecord = {
+  id: number;
+  created_at: string;
+  actor_username: string;
+  actor_full_name: string;
+  actor_role: string;
+  entity_type: string;
+  entity_id: string;
+  action_type: string;
+  summary: string;
+  details_json: string;
+};
+
 let previewRestaurants: PreviewRestaurantRecord[] = [
   {
     id: 1,
@@ -625,6 +665,165 @@ let previewPurchaseRecords: PreviewPurchaseRecord[] = [
   },
 ];
 
+let previewEquipmentIssueRecords: PreviewEquipmentIssueRecord[] = [
+  {
+    id: 1101,
+    personnel_id: 101,
+    issue_date: "2026-04-13",
+    item_name: "Kask",
+    quantity: 1,
+    unit_cost: 2200,
+    unit_sale_price: 2750,
+    vat_rate: 20,
+    installment_count: 2,
+    sale_type: "Satış",
+    notes: "Yeni ise baslayan personel icin standart set.",
+    auto_source_key: "",
+    is_auto_record: false,
+  },
+  {
+    id: 1102,
+    personnel_id: 102,
+    issue_date: "2026-04-11",
+    item_name: "Telefon Tutucu",
+    quantity: 1,
+    unit_cost: 280,
+    unit_sale_price: 420,
+    vat_rate: 20,
+    installment_count: 1,
+    sale_type: "Zimmet",
+    notes: "Arac degisikligi sonrasi sabitleme aparati verildi.",
+    auto_source_key: "",
+    is_auto_record: false,
+  },
+  {
+    id: 1103,
+    personnel_id: 103,
+    issue_date: "2026-04-08",
+    item_name: "Kuryeye Yelek",
+    quantity: 2,
+    unit_cost: 620,
+    unit_sale_price: 890,
+    vat_rate: 20,
+    installment_count: 3,
+    sale_type: "Satış",
+    notes: "Yedek yelek seti eklendi.",
+    auto_source_key: "equipment:auto:vest:103:20260408",
+    is_auto_record: true,
+  },
+  {
+    id: 1104,
+    personnel_id: 106,
+    issue_date: "2026-04-04",
+    item_name: "Yagmurluk",
+    quantity: 1,
+    unit_cost: 720,
+    unit_sale_price: 960,
+    vat_rate: 20,
+    installment_count: 2,
+    sale_type: "Depozito",
+    notes: "Nisan yagmurlari icin teslim edildi.",
+    auto_source_key: "",
+    is_auto_record: false,
+  },
+];
+
+let previewBoxReturnRecords: PreviewBoxReturnRecord[] = [
+  {
+    id: 1201,
+    personnel_id: 105,
+    return_date: "2026-04-14",
+    quantity: 2,
+    condition_status: "Temiz",
+    payout_amount: 1200,
+    waived: false,
+    notes: "Pasif karta gecis sonrasi tam iade.",
+  },
+  {
+    id: 1202,
+    personnel_id: 103,
+    return_date: "2026-04-10",
+    quantity: 1,
+    condition_status: "Hasarli",
+    payout_amount: 0,
+    waived: true,
+    notes: "Hasarli ama operasyonda kayip yazilmadi.",
+  },
+  {
+    id: 1203,
+    personnel_id: 107,
+    return_date: "2026-04-06",
+    quantity: 1,
+    condition_status: "Temiz",
+    payout_amount: 650,
+    waived: false,
+    notes: "Hafta sonu destek seti geri alindi.",
+  },
+];
+
+let previewAuditRecords: PreviewAuditRecord[] = [
+  {
+    id: 1301,
+    created_at: "2026-04-15T09:42:00Z",
+    actor_username: "ebru.aslan",
+    actor_full_name: "Ebru Aslan",
+    actor_role: "admin",
+    entity_type: "attendance",
+    entity_id: "506",
+    action_type: "delete",
+    summary: "Nisan ilk hafta puantaj temizligi sirasinda tek kayit silindi.",
+    details_json: '{"entry_id":506,"restaurant":"Sushi Fold / Besiktas Hub","reason":"preview cleanup"}',
+  },
+  {
+    id: 1302,
+    created_at: "2026-04-15T08:15:00Z",
+    actor_username: "seda.kurt",
+    actor_full_name: "Seda Kurt",
+    actor_role: "sales_manager",
+    entity_type: "sales",
+    entity_id: "902",
+    action_type: "update",
+    summary: "Noodle Port firsatina yeni takip tarihi ve sahibi atandi.",
+    details_json: '{"status":"Yeni Talep","next_follow_up_date":"2026-04-16","assigned_owner":"Seda Kurt"}',
+  },
+  {
+    id: 1303,
+    created_at: "2026-04-14T17:28:00Z",
+    actor_username: "onur.celik",
+    actor_full_name: "Onur Celik",
+    actor_role: "ops_lead",
+    entity_type: "equipment_issue",
+    entity_id: "1101",
+    action_type: "create",
+    summary: "Kaan Demir icin kask zimmet kaydi olusturuldu.",
+    details_json: '{"item_name":"Kask","quantity":1,"sale_type":"Satış"}',
+  },
+  {
+    id: 1304,
+    created_at: "2026-04-13T13:05:00Z",
+    actor_username: "buse.aydin",
+    actor_full_name: "Buse Aydin",
+    actor_role: "finance",
+    entity_type: "purchase",
+    entity_id: "1002",
+    action_type: "create",
+    summary: "RideSafe tedarikcisinden kask alimi kaydedildi.",
+    details_json: '{"item_name":"Kask","quantity":6,"total_invoice_amount":13200}',
+  },
+  {
+    id: 1305,
+    created_at: "2026-04-12T11:12:00Z",
+    actor_username: "ebru.aslan",
+    actor_full_name: "Ebru Aslan",
+    actor_role: "admin",
+    entity_type: "deduction",
+    entity_id: "802",
+    action_type: "update",
+    summary: "Trafik cezasi kesintisinin notu ve tutari guncellendi.",
+    details_json: '{"deduction_type":"traffic_fine","amount":1850,"notes":"Besiktas hattinda park cezasi."}',
+  },
+];
+
 const previewRoleOptions = ["Kurye", "Joker", "Destek", "Saha Lideri"];
 const previewStatusOptions = ["Aktif", "Pasif"];
 const previewVehicleModeOptions = ["Kendi Motoru", "Sirket Motoru", "Yaya"];
@@ -660,6 +859,46 @@ const previewPurchaseItemOptions = [
   "Yagmurluk",
   "Termal Canta",
 ];
+const previewEquipmentIssueItems = [
+  "Kask",
+  "Kuryeye Yelek",
+  "Telefon Tutucu",
+  "Yagmurluk",
+  "Termal Canta",
+];
+const previewEquipmentSaleTypeOptions = ["Satış", "Zimmet", "Depozito"];
+const previewEquipmentReturnConditionOptions = ["Temiz", "Hasarli", "Eksik"];
+const previewEquipmentInstallmentCountOptions = [1, 2, 3, 4, 5, 6];
+const previewEquipmentItemDefaults: Record<
+  string,
+  {
+    default_unit_cost: number;
+    default_sale_price: number;
+    default_installment_count: number;
+    default_vat_rate: number;
+  }
+> = {
+  Kask: { default_unit_cost: 2200, default_sale_price: 2750, default_installment_count: 2, default_vat_rate: 20 },
+  "Kuryeye Yelek": {
+    default_unit_cost: 620,
+    default_sale_price: 890,
+    default_installment_count: 3,
+    default_vat_rate: 20,
+  },
+  "Telefon Tutucu": {
+    default_unit_cost: 280,
+    default_sale_price: 420,
+    default_installment_count: 1,
+    default_vat_rate: 20,
+  },
+  Yagmurluk: { default_unit_cost: 720, default_sale_price: 960, default_installment_count: 2, default_vat_rate: 20 },
+  "Termal Canta": {
+    default_unit_cost: 1600,
+    default_sale_price: 2100,
+    default_installment_count: 4,
+    default_vat_rate: 20,
+  },
+};
 
 export const PREVIEW_USER = {
   id: 9001,
@@ -973,6 +1212,59 @@ function buildPurchaseFormOptions() {
   };
 }
 
+function buildEquipmentIssueEntry(record: PreviewEquipmentIssueRecord) {
+  const totalCost = record.quantity * record.unit_cost;
+  const totalSale = record.quantity * record.unit_sale_price;
+  return {
+    id: record.id,
+    personnel_id: record.personnel_id,
+    personnel_label: personnelLabel(record.personnel_id) || "-",
+    issue_date: record.issue_date,
+    item_name: record.item_name,
+    quantity: record.quantity,
+    unit_cost: record.unit_cost,
+    unit_sale_price: record.unit_sale_price,
+    vat_rate: record.vat_rate,
+    total_cost: totalCost,
+    total_sale: totalSale,
+    gross_profit: totalSale - totalCost,
+    installment_count: record.installment_count,
+    sale_type: record.sale_type,
+    notes: record.notes,
+    auto_source_key: record.auto_source_key,
+    is_auto_record: record.is_auto_record,
+  };
+}
+
+function buildBoxReturnEntry(record: PreviewBoxReturnRecord) {
+  return {
+    ...record,
+    personnel_label: personnelLabel(record.personnel_id) || "-",
+  };
+}
+
+function buildEquipmentFormOptions() {
+  return {
+    personnel: previewPersonnelRecords
+      .filter((entry) => entry.status === "Aktif" || entry.status === "Pasif")
+      .map((entry) => ({
+        id: entry.id,
+        label: `${entry.full_name} · ${restaurantLabel(entry.restaurant_id) || "Atanmadi"}`,
+      })),
+    issue_items: previewEquipmentIssueItems,
+    sale_type_options: previewEquipmentSaleTypeOptions,
+    return_condition_options: previewEquipmentReturnConditionOptions,
+    installment_count_options: previewEquipmentInstallmentCountOptions,
+    item_defaults: previewEquipmentItemDefaults,
+    selected_personnel_id: previewPersonnelRecords[0]?.id ?? null,
+    selected_item: previewEquipmentIssueItems[0] ?? "",
+  };
+}
+
+function buildAuditEntry(record: PreviewAuditRecord) {
+  return { ...record };
+}
+
 function filterAttendanceEntries(searchParams: URLSearchParams) {
   const restaurantId = Number(searchParams.get("restaurant_id") || "");
   const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
@@ -1126,6 +1418,81 @@ function filterPurchaseEntries(searchParams: URLSearchParams) {
       return haystack.includes(search);
     })
     .sort((left, right) => `${right.purchase_date}-${right.id}`.localeCompare(`${left.purchase_date}-${left.id}`));
+}
+
+function filterEquipmentIssueEntries(searchParams: URLSearchParams) {
+  const personnelId = Number(searchParams.get("personnel_id") || "");
+  const itemName = (searchParams.get("item_name") || "").trim();
+  const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
+
+  return previewEquipmentIssueRecords
+    .filter((record) => (Number.isFinite(personnelId) ? record.personnel_id === personnelId : true))
+    .filter((record) => (!itemName ? true : record.item_name === itemName))
+    .filter((record) => {
+      if (!search) {
+        return true;
+      }
+      const haystack = [
+        personnelLabel(record.personnel_id),
+        record.item_name,
+        record.sale_type,
+        record.notes,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return haystack.includes(search);
+    })
+    .sort((left, right) => `${right.issue_date}-${right.id}`.localeCompare(`${left.issue_date}-${left.id}`));
+}
+
+function filterBoxReturnEntries(searchParams: URLSearchParams) {
+  const personnelId = Number(searchParams.get("personnel_id") || "");
+  const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
+
+  return previewBoxReturnRecords
+    .filter((record) => (Number.isFinite(personnelId) ? record.personnel_id === personnelId : true))
+    .filter((record) => {
+      if (!search) {
+        return true;
+      }
+      const haystack = [
+        personnelLabel(record.personnel_id),
+        record.condition_status,
+        record.notes,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return haystack.includes(search);
+    })
+    .sort((left, right) => `${right.return_date}-${right.id}`.localeCompare(`${left.return_date}-${left.id}`));
+}
+
+function filterAuditEntries(searchParams: URLSearchParams) {
+  const actionType = (searchParams.get("action_type") || "").trim();
+  const entityType = (searchParams.get("entity_type") || "").trim();
+  const actorName = (searchParams.get("actor_name") || "").trim();
+  const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
+
+  return previewAuditRecords
+    .filter((record) => (!actionType ? true : record.action_type === actionType))
+    .filter((record) => (!entityType ? true : record.entity_type === entityType))
+    .filter((record) => (!actorName ? true : record.actor_full_name === actorName))
+    .filter((record) => {
+      if (!search) {
+        return true;
+      }
+      const haystack = [
+        record.summary,
+        record.details_json,
+        record.entity_type,
+        record.actor_full_name,
+        record.actor_username,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return haystack.includes(search);
+    })
+    .sort((left, right) => `${right.created_at}-${right.id}`.localeCompare(`${left.created_at}-${left.id}`));
 }
 
 function buildOverviewDashboard() {
@@ -1505,6 +1872,80 @@ function buildPayrollDashboard(
   };
 }
 
+function buildEquipmentDashboard() {
+  const monthPrefix = "2026-04";
+  const issueEntries = previewEquipmentIssueRecords.map((entry) => buildEquipmentIssueEntry(entry));
+  const boxEntries = previewBoxReturnRecords.map((entry) => buildBoxReturnEntry(entry));
+  const installmentEntries = issueEntries
+    .filter((entry) => entry.installment_count > 1)
+    .map((entry) => ({
+      deduction_date: entry.issue_date,
+      personnel_label: entry.personnel_label,
+      deduction_type: "equipment_installment",
+      amount: entry.total_sale / entry.installment_count,
+      notes: `${entry.item_name} · ${entry.installment_count} taksit`,
+    }));
+
+  const salesProfit = previewEquipmentIssueItems.map((itemName) => {
+    const rows = issueEntries.filter((entry) => entry.item_name === itemName);
+    return {
+      item_name: itemName,
+      sold_qty: rows.reduce((sum, entry) => sum + entry.quantity, 0),
+      total_cost: rows.reduce((sum, entry) => sum + entry.total_cost, 0),
+      total_sale: rows.reduce((sum, entry) => sum + entry.total_sale, 0),
+      gross_profit: rows.reduce((sum, entry) => sum + entry.gross_profit, 0),
+    };
+  }).filter((entry) => entry.sold_qty > 0);
+
+  const purchaseSummary = previewEquipmentIssueItems.map((itemName) => {
+    const rows = previewPurchaseRecords.filter((entry) => entry.item_name === itemName);
+    const purchasedQty = rows.reduce((sum, entry) => sum + entry.quantity, 0);
+    const purchasedTotal = rows.reduce((sum, entry) => sum + entry.total_invoice_amount, 0);
+    return {
+      item_name: itemName,
+      purchased_qty: purchasedQty,
+      purchased_total: purchasedTotal,
+      weighted_unit_cost: purchasedQty > 0 ? purchasedTotal / purchasedQty : 0,
+    };
+  }).filter((entry) => entry.purchased_qty > 0);
+
+  return {
+    module: "equipment",
+    status: "preview",
+    summary: {
+      total_issues: issueEntries.length,
+      this_month_issues: issueEntries.filter((entry) => entry.issue_date.startsWith(monthPrefix)).length,
+      installment_rows: installmentEntries.length,
+      total_box_returns: boxEntries.reduce((sum, entry) => sum + entry.quantity, 0),
+      total_box_payout: boxEntries.reduce((sum, entry) => sum + entry.payout_amount, 0),
+      distinct_items: new Set(issueEntries.map((entry) => entry.item_name)).size,
+    },
+    recent_issues: issueEntries.slice().sort((a, b) => `${b.issue_date}-${b.id}`.localeCompare(`${a.issue_date}-${a.id}`)).slice(0, 10),
+    recent_box_returns: boxEntries.slice().sort((a, b) => `${b.return_date}-${b.id}`.localeCompare(`${a.return_date}-${a.id}`)).slice(0, 10),
+    installment_entries: installmentEntries.slice(0, 10),
+    sales_profit: salesProfit,
+    purchase_summary: purchaseSummary,
+  };
+}
+
+function buildAuditDashboard() {
+  const records = previewAuditRecords.slice().sort((a, b) => `${b.created_at}-${b.id}`.localeCompare(`${a.created_at}-${a.id}`));
+  return {
+    module: "audit",
+    status: "preview",
+    summary: {
+      total_entries: records.length,
+      last_7_days: records.filter((entry) => entry.created_at >= "2026-04-08T00:00:00Z").length,
+      unique_actors: new Set(records.map((entry) => entry.actor_username)).size,
+      unique_entities: new Set(records.map((entry) => `${entry.entity_type}:${entry.entity_id}`)).size,
+    },
+    recent_entries: records.slice(0, 12).map((entry) => buildAuditEntry(entry)),
+    action_options: [...new Set(records.map((entry) => entry.action_type))],
+    entity_options: [...new Set(records.map((entry) => entry.entity_type))],
+    actor_options: [...new Set(records.map((entry) => entry.actor_full_name))],
+  };
+}
+
 function buildReportsDashboard(month: string | null) {
   const selectedMonth = month || "2026-04";
   const attendanceRows = previewAttendanceRecords.filter((entry) => entry.entry_date.startsWith(selectedMonth));
@@ -1666,6 +2107,14 @@ function nextPurchaseId() {
   return previewPurchaseRecords.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 1000) + 1;
 }
 
+function nextEquipmentIssueId() {
+  return previewEquipmentIssueRecords.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 1100) + 1;
+}
+
+function nextBoxReturnId() {
+  return previewBoxReturnRecords.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 1200) + 1;
+}
+
 export function buildPreviewResponse(path: string, init: RequestInit = {}) {
   const method = (init.method || "GET").toUpperCase();
   const url = new URL(path, "http://preview.local");
@@ -1714,6 +2163,14 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     );
   }
 
+  if (pathname === "/equipment/dashboard" && method === "GET") {
+    return buildJsonResponse(buildEquipmentDashboard());
+  }
+
+  if (pathname === "/audit/dashboard" && method === "GET") {
+    return buildJsonResponse(buildAuditDashboard());
+  }
+
   if (pathname === "/attendance/form-options" && method === "GET") {
     const restaurantId = Number(url.searchParams.get("restaurant_id") || "");
     return buildJsonResponse(buildAttendanceFormOptions(Number.isFinite(restaurantId) ? restaurantId : null));
@@ -1733,6 +2190,10 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
 
   if (pathname === "/purchases/form-options" && method === "GET") {
     return buildJsonResponse(buildPurchaseFormOptions());
+  }
+
+  if (pathname === "/equipment/form-options" && method === "GET") {
+    return buildJsonResponse(buildEquipmentFormOptions());
   }
 
   if (pathname === "/attendance/entries" && method === "GET") {
@@ -2068,6 +2529,77 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     });
   }
 
+  if (pathname === "/equipment/issues" && method === "GET") {
+    const entries = filterEquipmentIssueEntries(url.searchParams).map(buildEquipmentIssueEntry);
+    return buildJsonResponse({
+      total_entries: entries.length,
+      entries,
+    });
+  }
+
+  if (pathname === "/equipment/issues" && method === "POST") {
+    const nextRecord: PreviewEquipmentIssueRecord = {
+      id: nextEquipmentIssueId(),
+      personnel_id: Number(body.personnel_id || previewPersonnelRecords[0]?.id || 101),
+      issue_date: String(body.issue_date || "2026-04-15"),
+      item_name: String(body.item_name || previewEquipmentIssueItems[0] || "Kask"),
+      quantity: Number(body.quantity || 1),
+      unit_cost: Number(body.unit_cost || 0),
+      unit_sale_price: Number(body.unit_sale_price || 0),
+      vat_rate: Number(
+        previewEquipmentItemDefaults[String(body.item_name || previewEquipmentIssueItems[0] || "Kask")]
+          ?.default_vat_rate || 20,
+      ),
+      installment_count: Number(body.installment_count || 1),
+      sale_type: String(body.sale_type || previewEquipmentSaleTypeOptions[0]),
+      notes: String(body.notes || ""),
+      auto_source_key: "",
+      is_auto_record: false,
+    };
+    previewEquipmentIssueRecords = [nextRecord, ...previewEquipmentIssueRecords];
+    return buildJsonResponse({
+      message: "Preview zimmet kaydi olusturuldu.",
+      entry_id: nextRecord.id,
+    });
+  }
+
+  if (pathname === "/equipment/box-returns" && method === "GET") {
+    const entries = filterBoxReturnEntries(url.searchParams).map(buildBoxReturnEntry);
+    return buildJsonResponse({
+      total_entries: entries.length,
+      entries,
+    });
+  }
+
+  if (pathname === "/equipment/box-returns" && method === "POST") {
+    const nextRecord: PreviewBoxReturnRecord = {
+      id: nextBoxReturnId(),
+      personnel_id: Number(body.personnel_id || previewPersonnelRecords[0]?.id || 101),
+      return_date: String(body.return_date || "2026-04-15"),
+      quantity: Number(body.quantity || 1),
+      condition_status: String(body.condition_status || previewEquipmentReturnConditionOptions[0]),
+      payout_amount: Number(body.payout_amount || 0),
+      waived: Number(body.payout_amount || 0) <= 0,
+      notes: String(body.notes || ""),
+    };
+    previewBoxReturnRecords = [nextRecord, ...previewBoxReturnRecords];
+    return buildJsonResponse({
+      message: "Preview box geri alim kaydi olusturuldu.",
+      entry_id: nextRecord.id,
+    });
+  }
+
+  if (pathname === "/audit/records" && method === "GET") {
+    const entries = filterAuditEntries(url.searchParams).map(buildAuditEntry);
+    return buildJsonResponse({
+      total_entries: entries.length,
+      entries,
+      action_options: [...new Set(previewAuditRecords.map((entry) => entry.action_type))],
+      entity_options: [...new Set(previewAuditRecords.map((entry) => entry.entity_type))],
+      actor_options: [...new Set(previewAuditRecords.map((entry) => entry.actor_full_name))],
+    });
+  }
+
   if (
     pathname.startsWith("/restaurants/records/") &&
     pathname.endsWith("/toggle-status") &&
@@ -2224,6 +2756,81 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     if (method === "DELETE") {
       previewPurchaseRecords = previewPurchaseRecords.filter((entry) => entry.id !== entryId);
       return buildJsonResponse({ message: "Preview satin alma kaydi silindi." });
+    }
+  }
+
+  if (pathname.startsWith("/equipment/issues/")) {
+    const entryId = Number(pathname.split("/").pop());
+    const index = previewEquipmentIssueRecords.findIndex((entry) => entry.id === entryId);
+    if (index < 0) {
+      return buildJsonResponse({ detail: "Zimmet kaydi bulunamadi." }, 404);
+    }
+
+    if (method === "GET") {
+      return buildJsonResponse({
+        entry: buildEquipmentIssueEntry(previewEquipmentIssueRecords[index]),
+      });
+    }
+
+    if (previewEquipmentIssueRecords[index].is_auto_record && (method === "PUT" || method === "DELETE")) {
+      return buildJsonResponse(
+        { detail: "Otomatik olusan zimmet kayitlari preview modunda duzenlenemez." },
+        400,
+      );
+    }
+
+    if (method === "PUT") {
+      previewEquipmentIssueRecords[index] = {
+        ...previewEquipmentIssueRecords[index],
+        personnel_id: Number(body.personnel_id || previewEquipmentIssueRecords[index].personnel_id),
+        issue_date: String(body.issue_date || previewEquipmentIssueRecords[index].issue_date),
+        item_name: String(body.item_name || previewEquipmentIssueRecords[index].item_name),
+        quantity: Number(body.quantity || previewEquipmentIssueRecords[index].quantity),
+        unit_cost: Number(body.unit_cost || 0),
+        unit_sale_price: Number(body.unit_sale_price || 0),
+        installment_count: Number(body.installment_count || 1),
+        sale_type: String(body.sale_type || previewEquipmentIssueRecords[index].sale_type),
+        notes: String(body.notes || previewEquipmentIssueRecords[index].notes),
+      };
+      return buildJsonResponse({ message: "Preview zimmet kaydi guncellendi." });
+    }
+
+    if (method === "DELETE") {
+      previewEquipmentIssueRecords = previewEquipmentIssueRecords.filter((entry) => entry.id !== entryId);
+      return buildJsonResponse({ message: "Preview zimmet kaydi silindi." });
+    }
+  }
+
+  if (pathname.startsWith("/equipment/box-returns/")) {
+    const entryId = Number(pathname.split("/").pop());
+    const index = previewBoxReturnRecords.findIndex((entry) => entry.id === entryId);
+    if (index < 0) {
+      return buildJsonResponse({ detail: "Box geri alim kaydi bulunamadi." }, 404);
+    }
+
+    if (method === "GET") {
+      return buildJsonResponse({
+        entry: buildBoxReturnEntry(previewBoxReturnRecords[index]),
+      });
+    }
+
+    if (method === "PUT") {
+      previewBoxReturnRecords[index] = {
+        ...previewBoxReturnRecords[index],
+        personnel_id: Number(body.personnel_id || previewBoxReturnRecords[index].personnel_id),
+        return_date: String(body.return_date || previewBoxReturnRecords[index].return_date),
+        quantity: Number(body.quantity || previewBoxReturnRecords[index].quantity),
+        condition_status: String(body.condition_status || previewBoxReturnRecords[index].condition_status),
+        payout_amount: Number(body.payout_amount || 0),
+        waived: Number(body.payout_amount || 0) <= 0,
+        notes: String(body.notes || previewBoxReturnRecords[index].notes),
+      };
+      return buildJsonResponse({ message: "Preview box geri alim kaydi guncellendi." });
+    }
+
+    if (method === "DELETE") {
+      previewBoxReturnRecords = previewBoxReturnRecords.filter((entry) => entry.id !== entryId);
+      return buildJsonResponse({ message: "Preview box geri alim kaydi silindi." });
     }
   }
 
