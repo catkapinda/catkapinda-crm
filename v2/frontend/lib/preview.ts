@@ -1505,6 +1505,127 @@ function buildOverviewDashboard() {
   const monthDeductionEntries = previewDeductionRecords.filter((entry) =>
     entry.deduction_date.startsWith(currentMonthPrefix),
   ).length;
+  const openSalesPipeline = previewSalesRecords.filter((entry) =>
+    ["Yeni Talep", "Takipte", "Teklif Gonderildi", "Pazarlik"].includes(entry.status),
+  ).length;
+  const monthPurchasesTotal = previewPurchaseRecords
+    .filter((entry) => entry.purchase_date.startsWith(currentMonthPrefix))
+    .reduce((sum, entry) => sum + entry.total_invoice_amount, 0);
+  const monthPayrollNet = previewPersonnelRecords
+    .filter((entry) => entry.status === "Aktif")
+    .reduce((sum, entry) => {
+      const attendanceTotal = previewAttendanceRecords
+        .filter(
+          (row) =>
+            row.entry_date.startsWith(currentMonthPrefix) &&
+            (row.primary_person_id === entry.id || row.replacement_person_id === entry.id),
+        )
+        .reduce((rowSum, row) => rowSum + row.worked_hours * 220, 0);
+      const deductionsTotal = previewDeductionRecords
+        .filter((row) => row.personnel_id === entry.id && row.deduction_date.startsWith(currentMonthPrefix))
+        .reduce((rowSum, row) => rowSum + row.amount, 0);
+      return sum + Math.max(attendanceTotal + entry.monthly_fixed_cost - deductionsTotal, 0);
+    }, 0);
+  const equipmentIssuesThisMonth = previewEquipmentIssueRecords.filter((entry) =>
+    entry.issue_date.startsWith(currentMonthPrefix),
+  ).length;
+  const auditThisWeek = previewAuditRecords.filter(
+    (entry) => entry.created_at >= "2026-04-08T00:00:00Z",
+  ).length;
+
+  const activityEntries = [
+    ...previewAttendanceRecords.slice(0, 3).map((entry) => ({
+      module_key: "attendance",
+      module_label: "Puantaj",
+      title: `${restaurantLabel(entry.restaurant_id)} puantaji guncel`,
+      subtitle: `${personnelLabel(entry.primary_person_id) || "Atama"} / ${entry.entry_mode}`,
+      meta: `${entry.worked_hours} saat · ${entry.package_count} paket`,
+      entry_date: entry.entry_date,
+      href: "/preview/attendance",
+    })),
+    ...previewPersonnelRecords.slice(0, 3).map((entry) => ({
+      module_key: "personnel",
+      module_label: "Personel",
+      title: `${entry.full_name} karti hazir`,
+      subtitle: `${entry.role} · ${restaurantLabel(entry.restaurant_id) || "Atanmadi"}`,
+      meta: entry.status,
+      entry_date: entry.start_date,
+      href: "/preview/personnel",
+    })),
+    ...previewDeductionRecords.slice(0, 2).map((entry) => ({
+      module_key: "deductions",
+      module_label: "Kesintiler",
+      title: `${personnelLabel(entry.personnel_id) || "Personel"} icin kesinti kaydi hazir`,
+      subtitle: deductionCaption(entry.deduction_type),
+      meta: new Intl.NumberFormat("tr-TR", {
+        style: "currency",
+        currency: "TRY",
+        maximumFractionDigits: 0,
+      }).format(entry.amount),
+      entry_date: entry.deduction_date,
+      href: "/preview/deductions",
+    })),
+    ...previewRestaurants.slice(0, 2).map((entry) => ({
+      module_key: "restaurants",
+      module_label: "Restoranlar",
+      title: `${entry.brand} / ${entry.branch} karti hazir`,
+      subtitle: `${pricingModelLabel(entry.pricing_model)} · ${entry.active ? "Aktif" : "Pasif"}`,
+      meta: `${entry.target_headcount} hedef kadro`,
+      entry_date: entry.start_date,
+      href: "/preview/restaurants",
+    })),
+    ...previewSalesRecords.slice(0, 2).map((entry) => ({
+      module_key: "sales",
+      module_label: "Satış",
+      title: `${entry.restaurant_name} firsati pipeline'da`,
+      subtitle: `${entry.status} · ${entry.assigned_owner || "Sahip bekliyor"}`,
+      meta: new Intl.NumberFormat("tr-TR", {
+        style: "currency",
+        currency: "TRY",
+        maximumFractionDigits: 0,
+      }).format(entry.proposed_quote),
+      entry_date: entry.updated_at,
+      href: "/preview/sales",
+    })),
+    ...previewPurchaseRecords.slice(0, 2).map((entry) => ({
+      module_key: "purchases",
+      module_label: "Satın Alma",
+      title: `${entry.item_name} faturasi kayitli`,
+      subtitle: `${entry.supplier || "Tedarikçi yok"} · ${entry.quantity} adet`,
+      meta: new Intl.NumberFormat("tr-TR", {
+        style: "currency",
+        currency: "TRY",
+        maximumFractionDigits: 0,
+      }).format(entry.total_invoice_amount),
+      entry_date: entry.purchase_date,
+      href: "/preview/purchases",
+    })),
+    ...previewEquipmentIssueRecords.slice(0, 2).map((entry) => ({
+      module_key: "equipment",
+      module_label: "Ekipman",
+      title: `${personnelLabel(entry.personnel_id) || "Personel"} icin ${entry.item_name} zimmeti`,
+      subtitle: `${entry.sale_type} · ${entry.quantity} adet`,
+      meta: new Intl.NumberFormat("tr-TR", {
+        style: "currency",
+        currency: "TRY",
+        maximumFractionDigits: 0,
+      }).format(entry.quantity * entry.unit_sale_price),
+      entry_date: entry.issue_date,
+      href: "/preview/equipment",
+    })),
+    ...previewAuditRecords.slice(0, 2).map((entry) => ({
+      module_key: "audit",
+      module_label: "Sistem Kayıtları",
+      title: entry.summary,
+      subtitle: `${entry.actor_full_name} · ${entry.action_type} · ${entry.entity_type}`,
+      meta: entry.entity_id,
+      entry_date: entry.created_at,
+      href: "/preview/audit",
+    })),
+  ]
+    .slice()
+    .sort((left, right) => `${right.entry_date || ""}`.localeCompare(`${left.entry_date || ""}`))
+    .slice(0, 12);
 
   return {
     module: "overview",
@@ -1568,49 +1689,68 @@ function buildOverviewDashboard() {
           previewRestaurants.filter((entry) => entry.pricing_model === "fixed_monthly").length,
         ),
       },
-    ],
-    recent_activity: [
-      ...previewAttendanceRecords.slice(0, 3).map((entry) => ({
-        module_key: "attendance",
-        module_label: "Puantaj",
-        title: `${restaurantLabel(entry.restaurant_id)} puantaji guncel`,
-        subtitle: `${personnelLabel(entry.primary_person_id) || "Atama"} / ${entry.entry_mode}`,
-        meta: `${entry.worked_hours} saat · ${entry.package_count} paket`,
-        entry_date: entry.entry_date,
-        href: "/preview/attendance",
-      })),
-      ...previewPersonnelRecords.slice(0, 3).map((entry) => ({
-        module_key: "personnel",
-        module_label: "Personel",
-        title: `${entry.full_name} karti hazir`,
-        subtitle: `${entry.role} · ${restaurantLabel(entry.restaurant_id) || "Atanmadi"}`,
-        meta: entry.status,
-        entry_date: entry.start_date,
-        href: "/preview/personnel",
-      })),
-      ...previewDeductionRecords.slice(0, 2).map((entry) => ({
-        module_key: "deductions",
-        module_label: "Kesintiler",
-        title: `${personnelLabel(entry.personnel_id) || "Personel"} icin kesinti kaydi hazir`,
-        subtitle: deductionCaption(entry.deduction_type),
-        meta: new Intl.NumberFormat("tr-TR", {
+      {
+        key: "sales",
+        title: "Satış",
+        description: "Fırsat havuzu, teklif durumu ve takip aksiyonları yeni ticari panelde toplanir.",
+        href: "/preview/sales",
+        primary_label: "Açık Pipeline",
+        primary_value: String(openSalesPipeline),
+        secondary_label: "Kazanılan",
+        secondary_value: String(
+          previewSalesRecords.filter((entry) => entry.status === "Kazanildi").length,
+        ),
+      },
+      {
+        key: "purchases",
+        title: "Satın Alma",
+        description: "Fatura, tedarikçi ve birim maliyet hareketleri daha temiz bir backoffice yüzeye taşınır.",
+        href: "/preview/purchases",
+        primary_label: "Bu Ay Fatura",
+        primary_value: new Intl.NumberFormat("tr-TR", {
           style: "currency",
           currency: "TRY",
           maximumFractionDigits: 0,
-        }).format(entry.amount),
-        entry_date: entry.deduction_date,
-        href: "/preview/deductions",
-      })),
-      ...previewRestaurants.slice(0, 2).map((entry) => ({
-        module_key: "restaurants",
-        module_label: "Restoranlar",
-        title: `${entry.brand} / ${entry.branch} karti hazir`,
-        subtitle: `${pricingModelLabel(entry.pricing_model)} · ${entry.active ? "Aktif" : "Pasif"}`,
-        meta: `${entry.target_headcount} hedef kadro`,
-        entry_date: entry.start_date,
-        href: "/preview/restaurants",
-      })),
+        }).format(monthPurchasesTotal),
+        secondary_label: "Tedarikçi",
+        secondary_value: String(new Set(previewPurchaseRecords.map((entry) => entry.supplier)).size),
+      },
+      {
+        key: "payroll",
+        title: "Aylık Hakediş",
+        description: "Saat, paket, kesinti ve net ödeme görünümünü tek bordro yüzeyinde toplar.",
+        href: "/preview/payroll",
+        primary_label: "Nisan Net",
+        primary_value: new Intl.NumberFormat("tr-TR", {
+          style: "currency",
+          currency: "TRY",
+          maximumFractionDigits: 0,
+        }).format(monthPayrollNet),
+        secondary_label: "Aktif Kadro",
+        secondary_value: String(activePersonnel),
+      },
+      {
+        key: "equipment",
+        title: "Ekipman",
+        description: "Zimmet, satış, depozito ve box geri alım akışını tek panelde izler.",
+        href: "/preview/equipment",
+        primary_label: "Bu Ay Zimmet",
+        primary_value: String(equipmentIssuesThisMonth),
+        secondary_label: "Box İade",
+        secondary_value: String(previewBoxReturnRecords.length),
+      },
+      {
+        key: "audit",
+        title: "Sistem Kayıtları",
+        description: "Kim, hangi kayıt üzerinde ne yaptı sorusunu daha okunur bir admin katmanına taşır.",
+        href: "/preview/audit",
+        primary_label: "Son 7 Gün",
+        primary_value: String(auditThisWeek),
+        secondary_label: "Toplam Log",
+        secondary_value: String(previewAuditRecords.length),
+      },
     ],
+    recent_activity: activityEntries,
   };
 }
 
