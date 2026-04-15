@@ -462,42 +462,42 @@ def test_equipment_mutation_routes(monkeypatch):
         "app.api.routes.equipment.create_equipment_issue_entry",
         lambda conn, payload: {
             "equipment_issue_id": 61,
-            "message": "Zimmet kaydi olusturuldu.",
+            "message": "Zimmet kaydı oluşturuldu.",
         },
     )
     monkeypatch.setattr(
         "app.api.routes.equipment.update_equipment_issue_entry",
         lambda conn, issue_id, payload: {
             "equipment_issue_id": issue_id,
-            "message": "Zimmet kaydi guncellendi.",
+            "message": "Zimmet kaydı güncellendi.",
         },
     )
     monkeypatch.setattr(
         "app.api.routes.equipment.delete_equipment_issue_entry",
         lambda conn, issue_id: {
             "equipment_issue_id": issue_id,
-            "message": "Zimmet kaydi silindi.",
+            "message": "Zimmet kaydı silindi.",
         },
     )
     monkeypatch.setattr(
         "app.api.routes.equipment.create_box_return_entry",
         lambda conn, payload: {
             "box_return_id": 71,
-            "message": "Box iade kaydi olusturuldu.",
+            "message": "Box geri alım kaydı oluşturuldu.",
         },
     )
     monkeypatch.setattr(
         "app.api.routes.equipment.update_box_return_entry",
         lambda conn, box_return_id, payload: {
             "box_return_id": box_return_id,
-            "message": "Box iade kaydi guncellendi.",
+            "message": "Box geri alım kaydı güncellendi.",
         },
     )
     monkeypatch.setattr(
         "app.api.routes.equipment.delete_box_return_entry",
         lambda conn, box_return_id: {
             "box_return_id": box_return_id,
-            "message": "Box iade kaydi silindi.",
+            "message": "Box geri alım kaydı silindi.",
         },
     )
     client = _build_client()
@@ -532,12 +532,12 @@ def test_equipment_mutation_routes(monkeypatch):
     assert create_issue_response.status_code == 201
     assert create_issue_response.json()["equipment_issue_id"] == 61
     assert update_issue_response.status_code == 200
-    assert update_issue_response.json()["message"] == "Zimmet kaydi guncellendi."
+    assert update_issue_response.json()["message"] == "Zimmet kaydı güncellendi."
     assert delete_issue_response.status_code == 200
     assert delete_issue_response.json()["equipment_issue_id"] == 61
     assert create_return_response.status_code == 201
     assert create_return_response.json()["box_return_id"] == 71
     assert update_return_response.status_code == 200
-    assert update_return_response.json()["message"] == "Box iade kaydi guncellendi."
+    assert update_return_response.json()["message"] == "Box geri alım kaydı güncellendi."
     assert delete_return_response.status_code == 200
     assert delete_return_response.json()["box_return_id"] == 71

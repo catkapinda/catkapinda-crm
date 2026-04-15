@@ -353,7 +353,7 @@ def build_equipment_issue_detail(
 ) -> EquipmentIssueDetailResponse:
     row = fetch_equipment_issue_by_id(conn, issue_id)
     if row is None:
-        raise LookupError("Zimmet kaydi bulunamadi.")
+        raise LookupError("Zimmet kaydı bulunamadı.")
     return EquipmentIssueDetailResponse(entry=_build_issue_entry(row))
 
 
@@ -363,9 +363,9 @@ def create_equipment_issue_entry(
     payload: EquipmentIssueCreateRequest,
 ) -> EquipmentIssueCreateResponse:
     if payload.quantity <= 0:
-        raise ValueError("Adet en az 1 olmali.")
+        raise ValueError("Adet en az 1 olmalı.")
     if payload.unit_cost < 0 or payload.unit_sale_price < 0:
-        raise ValueError("Maliyet ve satis tutari negatif olamaz.")
+        raise ValueError("Maliyet ve satış tutarı negatif olamaz.")
 
     item_name = _normalize_issue_item(payload.item_name)
     sale_type = _normalize_sale_type(payload.sale_type)
@@ -399,9 +399,9 @@ def create_equipment_issue_entry(
     )
     conn.commit()
     if _generates_installments(sale_type, total_sale_amount, installment_count):
-        message = f"Zimmet kaydi olusturuldu. {installment_count} taksit planlandi."
+        message = f"Zimmet kaydı oluşturuldu. {installment_count} taksit planlandı."
     else:
-        message = "Zimmet kaydi olusturuldu."
+        message = "Zimmet kaydı oluşturuldu."
     return EquipmentIssueCreateResponse(
         equipment_issue_id=issue_id,
         message=message,
@@ -416,13 +416,13 @@ def update_equipment_issue_entry(
 ) -> EquipmentIssueUpdateResponse:
     existing = fetch_equipment_issue_by_id(conn, issue_id)
     if existing is None:
-        raise LookupError("Zimmet kaydi bulunamadi.")
+        raise LookupError("Zimmet kaydı bulunamadı.")
     if str(existing.get("auto_source_key") or "").strip():
-        raise ValueError("Otomatik olusan zimmet kayitlari v2 ekranindan guncellenemez.")
+        raise ValueError("Otomatik oluşan zimmet kayıtları v2 ekranından güncellenemez.")
     if payload.quantity <= 0:
-        raise ValueError("Adet en az 1 olmali.")
+        raise ValueError("Adet en az 1 olmalı.")
     if payload.unit_cost < 0 or payload.unit_sale_price < 0:
-        raise ValueError("Maliyet ve satis tutari negatif olamaz.")
+        raise ValueError("Maliyet ve satış tutarı negatif olamaz.")
 
     item_name = _normalize_issue_item(payload.item_name)
     sale_type = _normalize_sale_type(payload.sale_type)
@@ -458,7 +458,7 @@ def update_equipment_issue_entry(
     conn.commit()
     return EquipmentIssueUpdateResponse(
         equipment_issue_id=issue_id,
-        message="Zimmet kaydi guncellendi.",
+        message="Zimmet kaydı güncellendi.",
     )
 
 
@@ -469,15 +469,15 @@ def delete_equipment_issue_entry(
 ) -> EquipmentIssueDeleteResponse:
     existing = fetch_equipment_issue_by_id(conn, issue_id)
     if existing is None:
-        raise LookupError("Zimmet kaydi bulunamadi.")
+        raise LookupError("Zimmet kaydı bulunamadı.")
     if str(existing.get("auto_source_key") or "").strip():
-        raise ValueError("Otomatik olusan zimmet kayitlari v2 ekranindan silinemez.")
+        raise ValueError("Otomatik oluşan zimmet kayıtları v2 ekranından silinemez.")
     delete_equipment_issue_installments(conn, issue_id)
     delete_equipment_issue_record(conn, issue_id)
     conn.commit()
     return EquipmentIssueDeleteResponse(
         equipment_issue_id=issue_id,
-        message="Zimmet kaydi ve bagli taksitler silindi.",
+        message="Zimmet kaydı ve bağlı taksitler silindi.",
     )
 
 
@@ -513,7 +513,7 @@ def build_box_return_detail(
 ) -> BoxReturnDetailResponse:
     row = fetch_box_return_by_id(conn, box_return_id)
     if row is None:
-        raise LookupError("Box geri alim kaydi bulunamadi.")
+        raise LookupError("Box geri alım kaydı bulunamadı.")
     return BoxReturnDetailResponse(entry=_build_box_return_entry(row))
 
 
@@ -523,9 +523,9 @@ def create_box_return_entry(
     payload: BoxReturnCreateRequest,
 ) -> BoxReturnCreateResponse:
     if payload.quantity <= 0:
-        raise ValueError("Adet en az 1 olmali.")
+        raise ValueError("Adet en az 1 olmalı.")
     if payload.payout_amount < 0:
-        raise ValueError("Geri odeme tutari negatif olamaz.")
+        raise ValueError("Geri ödeme tutarı negatif olamaz.")
 
     condition_status = _normalize_return_condition(payload.condition_status)
     waived = 1 if condition_status == "Parasını istemedi" else 0
@@ -544,7 +544,7 @@ def create_box_return_entry(
     conn.commit()
     return BoxReturnCreateResponse(
         box_return_id=box_return_id,
-        message="Box geri alim kaydi olusturuldu.",
+        message="Box geri alım kaydı oluşturuldu.",
     )
 
 
@@ -556,11 +556,11 @@ def update_box_return_entry(
 ) -> BoxReturnUpdateResponse:
     existing = fetch_box_return_by_id(conn, box_return_id)
     if existing is None:
-        raise LookupError("Box geri alim kaydi bulunamadi.")
+        raise LookupError("Box geri alım kaydı bulunamadı.")
     if payload.quantity <= 0:
-        raise ValueError("Adet en az 1 olmali.")
+        raise ValueError("Adet en az 1 olmalı.")
     if payload.payout_amount < 0:
-        raise ValueError("Geri odeme tutari negatif olamaz.")
+        raise ValueError("Geri ödeme tutarı negatif olamaz.")
 
     condition_status = _normalize_return_condition(payload.condition_status)
     waived = 1 if condition_status == "Parasını istemedi" else 0
@@ -580,7 +580,7 @@ def update_box_return_entry(
     conn.commit()
     return BoxReturnUpdateResponse(
         box_return_id=box_return_id,
-        message="Box geri alim kaydi guncellendi.",
+        message="Box geri alım kaydı güncellendi.",
     )
 
 
@@ -591,10 +591,10 @@ def delete_box_return_entry(
 ) -> BoxReturnDeleteResponse:
     existing = fetch_box_return_by_id(conn, box_return_id)
     if existing is None:
-        raise LookupError("Box geri alim kaydi bulunamadi.")
+        raise LookupError("Box geri alım kaydı bulunamadı.")
     delete_box_return_record(conn, box_return_id)
     conn.commit()
     return BoxReturnDeleteResponse(
         box_return_id=box_return_id,
-        message="Box geri alim kaydi silindi.",
+        message="Box geri alım kaydı silindi.",
     )
