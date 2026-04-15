@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../components/auth/auth-provider";
 import { RestaurantEntryWorkspace } from "../../components/restaurants/restaurant-entry-workspace";
@@ -36,6 +36,11 @@ type RestaurantsDashboard = {
   }>;
 };
 
+const serifStyle = {
+  fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  letterSpacing: "-0.04em",
+} as const;
+
 function metricCard(label: string, value: string, tone: "accent" | "soft" = "soft") {
   return (
     <article
@@ -67,6 +72,110 @@ function metricCard(label: string, value: string, tone: "accent" | "soft" = "sof
         }}
       >
         {value}
+      </div>
+    </article>
+  );
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  }).format(value || 0);
+}
+
+function pricingSummary(entry: RestaurantsDashboard["recent_entries"][number]) {
+  if (entry.pricing_model === "fixed_monthly") {
+    return `${formatCurrency(entry.fixed_monthly_fee)}/ay`;
+  }
+  if (entry.pricing_model === "threshold_package") {
+    return `${formatCurrency(entry.hourly_rate)}/saat | ${entry.package_threshold} alti ${formatCurrency(entry.package_rate_low)} | ustu ${formatCurrency(entry.package_rate_high)}`;
+  }
+  if (entry.pricing_model === "hourly_plus_package") {
+    return `${formatCurrency(entry.hourly_rate)}/saat + ${formatCurrency(entry.package_rate)}/paket`;
+  }
+  return `${formatCurrency(entry.hourly_rate)}/saat`;
+}
+
+function narrativeCard({
+  eyebrow,
+  title,
+  body,
+  tone = "paper",
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  tone?: "paper" | "ink" | "accent";
+}) {
+  const palette =
+    tone === "ink"
+      ? {
+          background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+          border: "1px solid rgba(255,255,255,0.08)",
+          title: "#fff7ea",
+          body: "rgba(255,247,234,0.72)",
+          eyebrow: "rgba(255,247,234,0.62)",
+        }
+      : tone === "accent"
+        ? {
+            background: "linear-gradient(180deg, rgba(185,116,41,0.12), rgba(255,248,236,0.98))",
+            border: "1px solid rgba(185,116,41,0.18)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--accent-strong)",
+          }
+        : {
+            background: "rgba(255,255,255,0.84)",
+            border: "1px solid var(--line)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--muted)",
+          };
+
+  return (
+    <article
+      style={{
+        padding: "18px 18px 16px",
+        borderRadius: "22px",
+        background: palette.background,
+        border: palette.border,
+        boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      <div
+        style={{
+          color: palette.eyebrow,
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifStyle,
+          color: palette.title,
+          fontSize: "1.45rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: palette.body,
+          fontSize: "0.93rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
       </div>
     </article>
   );
@@ -122,6 +231,49 @@ export default function RestaurantsPage() {
     };
   }, [loading, user]);
 
+  const decisionDeck = useMemo(() => {
+    if (!dashboard) {
+      return [];
+    }
+
+    const total = dashboard.summary.total_restaurants || 0;
+    const activeRatio = total > 0 ? (dashboard.summary.active_restaurants / total) * 100 : 0;
+    const fixedMonthlyRatio =
+      total > 0 ? (dashboard.summary.fixed_monthly_restaurants / total) * 100 : 0;
+    const topRestaurant = dashboard.recent_entries[0] ?? null;
+    const passivePressure = dashboard.summary.passive_restaurants >= Math.max(2, total / 3);
+
+    return [
+      {
+        eyebrow: "Sube Nabzi",
+        title:
+          activeRatio >= 80
+            ? "Aktif sube dengesi guclu gorunuyor."
+            : activeRatio >= 60
+              ? "Aktif sube dengesi korunuyor."
+              : "Aktif sube dengesi dikkat istiyor.",
+        body: `${dashboard.summary.total_restaurants} subenin %${activeRatio.toFixed(1)} aktif. Bu oran operasyonun ne kadar canli ve yaygin oldugunu hizli okumayi saglar.`,
+        tone: activeRatio >= 80 ? "ink" : "accent",
+      },
+      {
+        eyebrow: "En Sicak Sube",
+        title: topRestaurant ? `${topRestaurant.brand} / ${topRestaurant.branch}` : "Sube sinyali henuz yok.",
+        body: topRestaurant
+          ? `${topRestaurant.pricing_model_label} modeliyle ${pricingSummary(topRestaurant)} yapisinda calisiyor. Hedef kadro ${topRestaurant.target_headcount} ve kontak ${topRestaurant.contact_name}.`
+          : "Yeni restoran kayitlari geldikce burada dikkat isteyen sube yapisini one cikaracagiz.",
+        tone: "paper",
+      },
+      {
+        eyebrow: passivePressure ? "Portfoy Baskisi" : "Portfoy Yapisi",
+        title: passivePressure ? "Pasif sube yukselisi izlenmeli." : "Sabit aylik cekirdek olgun gorunuyor.",
+        body: passivePressure
+          ? `${dashboard.summary.passive_restaurants} pasif sube bulunuyor. Portfoyde kapanan veya bekleyen subeleri ayiklamak satis ve operasyon gecisini daha temiz yapar.`
+          : `${dashboard.summary.fixed_monthly_restaurants} sube sabit aylik modelde. Bu, portfoyun %${fixedMonthlyRatio.toFixed(1)} kadarinin daha ongorulebilir gelir modeliyle calistigini gosteriyor.`,
+        tone: passivePressure ? "accent" : "paper",
+      },
+    ] as const;
+  }, [dashboard]);
+
   return (
     <AppShell activeItem="Restoranlar">
       <section
@@ -132,48 +284,260 @@ export default function RestaurantsPage() {
       >
         <div
           style={{
-            padding: "24px 26px",
-            borderRadius: "28px",
-            background: "var(--surface-strong)",
+            padding: "28px",
+            borderRadius: "30px",
+            background:
+              "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,242,233,0.96))",
             border: "1px solid var(--line)",
             boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
+            display: "grid",
+            gap: "18px",
           }}
         >
           <div
             style={{
-              display: "inline-flex",
-              padding: "7px 12px",
-              borderRadius: "999px",
-              background: "var(--accent-soft)",
-              color: "var(--accent)",
-              fontSize: "0.78rem",
-              fontWeight: 800,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.9fr)",
+              gap: "18px",
+              alignItems: "stretch",
             }}
           >
-            Sube Akisi
+            <div
+              style={{
+                display: "grid",
+                gap: "16px",
+                alignContent: "start",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  width: "fit-content",
+                  padding: "7px 12px",
+                  borderRadius: "999px",
+                  background: "var(--accent-soft)",
+                  color: "var(--accent)",
+                  fontSize: "0.78rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Sube Akisi
+              </div>
+              <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
+                <h1
+                  style={{
+                    ...serifStyle,
+                    margin: 0,
+                    fontSize: "clamp(2.2rem, 4vw, 3.6rem)",
+                    lineHeight: 0.96,
+                    fontWeight: 700,
+                  }}
+                >
+                  Restoran portfoyunu sadece listelemiyor, artik hangi subenin ne anlattigini okuyoruz.
+                </h1>
+                <p
+                  style={{
+                    margin: 0,
+                    maxWidth: "74ch",
+                    color: "var(--muted)",
+                    lineHeight: 1.76,
+                    fontSize: "1.02rem",
+                  }}
+                >
+                  Marka, fiyat modeli, kadro ve kontak bilgisini daha ciddi bir sube
+                  komuta yuzeyine cekiyoruz. Hedefimiz, musteri portfoyunun hangi
+                  noktada guclu, hangi noktada dikkat istedigini daha hizli gostermek.
+                </p>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(15,95,215,0.08)",
+                    color: "#0f5fd7",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Portfoy nabzi acik
+                </span>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(185,116,41,0.1)",
+                    color: "var(--accent-strong)",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Model ve sube ayni satirda
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              <article
+                style={{
+                  padding: "18px 18px 16px",
+                  borderRadius: "24px",
+                  background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+                  color: "#fff7ea",
+                  boxShadow: "var(--shadow-deep)",
+                  display: "grid",
+                  gap: "14px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    alignItems: "start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.62)",
+                        fontSize: "0.74rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Portfoy Nabzi
+                    </div>
+                    <div
+                      style={{
+                        ...serifStyle,
+                        fontSize: "1.8rem",
+                        lineHeight: 0.96,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {dashboard?.summary.active_restaurants ?? 0} aktif sube
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      padding: "7px 10px",
+                      borderRadius: "999px",
+                      background: "rgba(255,255,255,0.08)",
+                      color: "rgba(255,247,234,0.82)",
+                      fontSize: "0.8rem",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Portfolio Room
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Sabit Aylik
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {dashboard?.summary.fixed_monthly_restaurants ?? 0}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(185,116,41,0.14)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Pasif
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {dashboard?.summary.passive_restaurants ?? 0}
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article
+                style={{
+                  padding: "16px 18px",
+                  borderRadius: "22px",
+                  border: "1px solid var(--line)",
+                  background: "rgba(255,255,255,0.78)",
+                  display: "grid",
+                  gap: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.74rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Okuma Notu
+                </div>
+                <div
+                  style={{
+                    color: "var(--text)",
+                    fontSize: "0.95rem",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  Bu ekranda once aktif-pasif dengeye, sonra fiyat modeline ve son olarak
+                  dikkat isteyen sube kartlarina bakmak en saglikli portfoy okumasini verir.
+                </div>
+              </article>
+            </div>
           </div>
-          <h1
-            style={{
-              margin: "16px 0 10px",
-              fontSize: "clamp(2rem, 3vw, 2.8rem)",
-              lineHeight: 1.05,
-            }}
-          >
-            Restoran ve sube yonetimi yeni hatta hazir.
-          </h1>
-          <p
-            style={{
-              margin: 0,
-              maxWidth: "74ch",
-              color: "var(--muted)",
-              lineHeight: 1.7,
-            }}
-          >
-            Marka, fiyat modeli, kadro ve vergi bilgilerini tek akis icinde yonet.
-            Restoran operasyonu artik daha kararli ve daha hizli bir omurgaya geciyor.
-          </p>
         </div>
 
         {dashboardLoading ? (
@@ -216,6 +580,188 @@ export default function RestaurantsPage() {
               {metricCard("Pasif", String(dashboard.summary.passive_restaurants))}
               {metricCard("Sabit Aylik", String(dashboard.summary.fixed_monthly_restaurants))}
             </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {decisionDeck.map((item) => (
+                <div key={`${item.eyebrow}-${item.title}`}>{narrativeCard(item)}</div>
+              ))}
+            </div>
+
+            <section
+              style={{
+                padding: "20px",
+                borderRadius: "24px",
+                border: "1px solid var(--line)",
+                background: "var(--surface-strong)",
+                boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+                display: "grid",
+                gap: "14px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "16px",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Son Sube Sinyalleri</h2>
+                  <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
+                    Portfoyde hangi subenin dikkat ve aksiyon istedigini hizlandiran son kartlar.
+                  </p>
+                </div>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(24,40,59,0.08)",
+                    color: "var(--text)",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Son {dashboard.recent_entries.length} kayit
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                  gap: "12px",
+                }}
+              >
+                {dashboard.recent_entries.map((entry) => (
+                  <article
+                    key={entry.id}
+                    style={{
+                      display: "grid",
+                      gap: "10px",
+                      padding: "16px 16px 14px",
+                      borderRadius: "20px",
+                      border: "1px solid rgba(24,40,59,0.08)",
+                      background:
+                        "linear-gradient(180deg, rgba(255,253,248,0.98), rgba(247,241,231,0.96))",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        alignItems: "start",
+                      }}
+                    >
+                      <div style={{ display: "grid", gap: "4px" }}>
+                        <div
+                          style={{
+                            ...serifStyle,
+                            fontSize: "1.22rem",
+                            lineHeight: 0.98,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {entry.brand}
+                        </div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                          {entry.branch}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          padding: "6px 10px",
+                          borderRadius: "999px",
+                          background: entry.active
+                            ? "rgba(15,95,215,0.08)"
+                            : "rgba(185,116,41,0.12)",
+                          color: entry.active ? "#0f5fd7" : "var(--accent-strong)",
+                          fontSize: "0.74rem",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {entry.active ? "Aktif" : "Pasif"}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                        gap: "10px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: "14px",
+                          background: "rgba(24,40,59,0.05)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: "0.72rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          Model
+                        </div>
+                        <div style={{ marginTop: "7px", fontWeight: 900 }}>
+                          {entry.pricing_model_label}
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: "14px",
+                          background: "rgba(15,95,215,0.06)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: "0.72rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          Hedef Kadro
+                        </div>
+                        <div style={{ marginTop: "7px", fontWeight: 900 }}>
+                          {entry.target_headcount}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: "4px",
+                        color: "var(--muted)",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      <div>{pricingSummary(entry)}</div>
+                      <div>{entry.contact_name} • KDV %{entry.vat_rate}</div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
 
             <RestaurantEntryWorkspace />
             <RestaurantManagementWorkspace />
