@@ -249,7 +249,7 @@ def build_sales_management(
 def build_sales_detail(conn: psycopg.Connection, *, sales_id: int) -> SalesDetailResponse:
     row = fetch_sales_record_by_id(conn, sales_id)
     if row is None:
-        raise LookupError("Satis kaydi bulunamadi.")
+        raise LookupError("Satış kaydı bulunamadı.")
     return SalesDetailResponse(entry=_build_entry(row))
 
 
@@ -263,7 +263,7 @@ def create_sales_record(conn: psycopg.Connection, *, payload: SalesCreateRequest
     values["updated_at"] = now_iso
     entry_id = insert_sales_record(conn, values)
     conn.commit()
-    return SalesCreateResponse(message="Satis firsati olusturuldu.", entry_id=entry_id)
+    return SalesCreateResponse(message="Satış fırsatı oluşturuldu.", entry_id=entry_id)
 
 
 def update_sales_record_entry(
@@ -273,7 +273,7 @@ def update_sales_record_entry(
     payload: SalesUpdateRequest,
 ) -> SalesUpdateResponse:
     if fetch_sales_record_by_id(conn, sales_id) is None:
-        raise LookupError("Satis kaydi bulunamadi.")
+        raise LookupError("Satış kaydı bulunamadı.")
     errors = _validate_payload(payload)
     if errors:
         raise ValueError(errors[0])
@@ -281,12 +281,12 @@ def update_sales_record_entry(
     values["updated_at"] = _utc_now_iso()
     update_sales_record(conn, sales_id, values)
     conn.commit()
-    return SalesUpdateResponse(message="Satis firsati guncellendi.")
+    return SalesUpdateResponse(message="Satış fırsatı güncellendi.")
 
 
 def delete_sales_record_entry(conn: psycopg.Connection, *, sales_id: int) -> SalesDeleteResponse:
     if fetch_sales_record_by_id(conn, sales_id) is None:
-        raise LookupError("Satis kaydi bulunamadi.")
+        raise LookupError("Satış kaydı bulunamadı.")
     delete_sales_record(conn, sales_id)
     conn.commit()
-    return SalesDeleteResponse(message="Satis firsati silindi.")
+    return SalesDeleteResponse(message="Satış fırsatı silindi.")

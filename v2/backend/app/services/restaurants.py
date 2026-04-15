@@ -37,7 +37,7 @@ PRICING_MODEL_LABELS = {
     "hourly_plus_package": "Hacimsiz Primli",
     "threshold_package": "Hacimli Primli",
     "hourly_only": "Sadece Saatlik",
-    "fixed_monthly": "Sabit Aylik Ucret",
+    "fixed_monthly": "Sabit Aylık Ücret",
 }
 STATUS_OPTIONS = ["Aktif", "Pasif"]
 
@@ -95,49 +95,49 @@ def _build_management_entry(row: dict[str, object]) -> RestaurantManagementEntry
 def _validate_restaurant_payload(payload: RestaurantCreateRequest | RestaurantUpdateRequest) -> list[str]:
     errors: list[str] = []
     if not str(payload.brand or "").strip():
-        errors.append("Marka alani zorunlu.")
+        errors.append("Marka alanı zorunlu.")
     if not str(payload.branch or "").strip():
-        errors.append("Sube alani zorunlu.")
+        errors.append("Şube alanı zorunlu.")
     if not str(payload.contact_name or "").strip():
-        errors.append("Yetkili ad soyad alani zorunlu.")
+        errors.append("Yetkili ad soyad alanı zorunlu.")
     if not str(payload.contact_phone or "").strip():
-        errors.append("Yetkili telefon alani zorunlu.")
+        errors.append("Yetkili telefon alanı zorunlu.")
     if not str(payload.contact_email or "").strip():
-        errors.append("Yetkili e-posta alani zorunlu.")
+        errors.append("Yetkili e-posta alanı zorunlu.")
     if not str(payload.tax_office or "").strip():
-        errors.append("Vergi dairesi alani zorunlu.")
+        errors.append("Vergi dairesi alanı zorunlu.")
     if not str(payload.tax_number or "").strip():
-        errors.append("Vergi numarasi alani zorunlu.")
+        errors.append("Vergi numarası alanı zorunlu.")
     if int(payload.target_headcount or 0) <= 0:
-        errors.append("Hedef kadro 0'dan buyuk olmali.")
+        errors.append("Hedef kadro 0'dan büyük olmalı.")
     if payload.start_date is None:
-        errors.append("Baslangic tarihi zorunlu.")
+        errors.append("Başlangıç tarihi zorunlu.")
     if payload.start_date and payload.end_date and payload.end_date < payload.start_date:
-        errors.append("Bitis tarihi baslangic tarihinden once olamaz.")
+        errors.append("Bitiş tarihi başlangıç tarihinden önce olamaz.")
     if int(payload.extra_headcount_request or 0) > 0 and payload.extra_headcount_request_date is None:
-        errors.append("Ek kurye talebi girildiginde ek talep tarihi de secilmeli.")
+        errors.append("Ek kurye talebi girildiğinde ek talep tarihi de seçilmeli.")
     if int(payload.reduce_headcount_request or 0) > 0 and payload.reduce_headcount_request_date is None:
-        errors.append("Kurye azaltma talebi girildiginde azaltma talep tarihi de secilmeli.")
+        errors.append("Kurye azaltma talebi girildiğinde azaltma talep tarihi de seçilmeli.")
 
     pricing_model = _normalize_pricing_model(payload.pricing_model)
     if pricing_model == "hourly_plus_package":
         if float(payload.hourly_rate or 0) <= 0:
-            errors.append("Hacimsiz Primli modelde saatlik ucret zorunlu.")
+            errors.append("Hacimsiz Primli modelde saatlik ücret zorunlu.")
         if float(payload.package_rate or 0) <= 0:
             errors.append("Hacimsiz Primli modelde paket primi zorunlu.")
     elif pricing_model == "threshold_package":
         if float(payload.hourly_rate or 0) <= 0:
-            errors.append("Hacimli Primli modelde saatlik ucret zorunlu.")
+            errors.append("Hacimli Primli modelde saatlik ücret zorunlu.")
         if int(payload.package_threshold or 0) <= 0:
-            errors.append("Hacimli Primli modelde paket esigi zorunlu.")
+            errors.append("Hacimli Primli modelde paket eşiği zorunlu.")
         if float(payload.package_rate_low or 0) <= 0 or float(payload.package_rate_high or 0) <= 0:
-            errors.append("Hacimli Primli modelde esik alti ve ustu primler zorunlu.")
+            errors.append("Hacimli Primli modelde eşik altı ve üstü primler zorunlu.")
     elif pricing_model == "hourly_only":
         if float(payload.hourly_rate or 0) <= 0:
-            errors.append("Sadece Saatlik modelde saatlik ucret zorunlu.")
+            errors.append("Sadece Saatlik modelde saatlik ücret zorunlu.")
     elif pricing_model == "fixed_monthly":
         if float(payload.fixed_monthly_fee or 0) <= 0:
-            errors.append("Sabit Aylik Ucret modelde aylik ucret zorunlu.")
+            errors.append("Sabit Aylık Ücret modelinde aylık ücret zorunlu.")
 
     return errors
 
@@ -246,7 +246,7 @@ def build_restaurant_detail(
 ) -> RestaurantDetailResponse:
     row = fetch_restaurant_record_by_id(conn, restaurant_id)
     if row is None:
-        raise LookupError("Restoran kaydi bulunamadi.")
+        raise LookupError("Restoran kaydı bulunamadı.")
     return RestaurantDetailResponse(entry=_build_management_entry(row))
 
 
@@ -262,7 +262,7 @@ def create_restaurant_record(
     conn.commit()
     return RestaurantCreateResponse(
         restaurant_id=restaurant_id,
-        message="Restoran kaydi olusturuldu.",
+        message="Restoran kaydı oluşturuldu.",
     )
 
 
@@ -274,7 +274,7 @@ def update_restaurant_record_entry(
 ) -> RestaurantUpdateResponse:
     existing_row = fetch_restaurant_record_by_id(conn, restaurant_id)
     if existing_row is None:
-        raise LookupError("Restoran kaydi bulunamadi.")
+        raise LookupError("Restoran kaydı bulunamadı.")
     errors = _validate_restaurant_payload(payload)
     if errors:
         raise ValueError(errors[0])
@@ -282,7 +282,7 @@ def update_restaurant_record_entry(
     conn.commit()
     return RestaurantUpdateResponse(
         restaurant_id=restaurant_id,
-        message="Restoran karti guncellendi.",
+        message="Restoran kartı güncellendi.",
     )
 
 
@@ -293,14 +293,14 @@ def toggle_restaurant_record_status(
 ) -> RestaurantStatusUpdateResponse:
     existing_row = fetch_restaurant_record_by_id(conn, restaurant_id)
     if existing_row is None:
-        raise LookupError("Restoran kaydi bulunamadi.")
+        raise LookupError("Restoran kaydı bulunamadı.")
     next_active = not bool(existing_row["active"])
     update_restaurant_status(conn, restaurant_id, active=next_active)
     conn.commit()
     return RestaurantStatusUpdateResponse(
         restaurant_id=restaurant_id,
         active=next_active,
-        message="Restoran aktifleştirildi." if next_active else "Restoran pasife alindi.",
+        message="Restoran aktifleştirildi." if next_active else "Restoran pasife alındı.",
     )
 
 
@@ -311,15 +311,15 @@ def delete_restaurant_record_entry(
 ) -> RestaurantDeleteResponse:
     existing_row = fetch_restaurant_record_by_id(conn, restaurant_id)
     if existing_row is None:
-        raise LookupError("Restoran kaydi bulunamadi.")
+        raise LookupError("Restoran kaydı bulunamadı.")
     linked_people = count_restaurant_linked_personnel(conn, restaurant_id)
     linked_entries = count_restaurant_linked_daily_entries(conn, restaurant_id)
     linked_deductions = count_restaurant_linked_deductions(conn, restaurant_id)
     if linked_people or linked_entries or linked_deductions:
-        raise ValueError("Bu restorana bagli personel, puantaj veya kesinti kaydi var. Once pasife alman daha dogru olur.")
+        raise ValueError("Bu restorana bağlı personel, puantaj veya kesinti kaydı var. Önce pasife alman daha doğru olur.")
     delete_restaurant_record(conn, restaurant_id)
     conn.commit()
     return RestaurantDeleteResponse(
         restaurant_id=restaurant_id,
-        message="Restoran kaydi kalici olarak silindi.",
+        message="Restoran kaydı kalıcı olarak silindi.",
     )

@@ -287,14 +287,14 @@ def test_restaurants_mutation_routes(monkeypatch):
         "app.api.routes.restaurants.create_restaurant_record",
         lambda conn, payload: {
             "restaurant_id": 77,
-            "message": "Restoran olusturuldu.",
+            "message": "Restoran oluşturuldu.",
         },
     )
     monkeypatch.setattr(
         "app.api.routes.restaurants.update_restaurant_record_entry",
         lambda conn, restaurant_id, payload: {
             "restaurant_id": restaurant_id,
-            "message": "Restoran guncellendi.",
+            "message": "Restoran güncellendi.",
         },
     )
     monkeypatch.setattr(
@@ -302,7 +302,7 @@ def test_restaurants_mutation_routes(monkeypatch):
         lambda conn, restaurant_id: {
             "restaurant_id": restaurant_id,
             "active": False,
-            "message": "Restoran pasife alindi.",
+            "message": "Restoran pasife alındı.",
         },
     )
     monkeypatch.setattr(
@@ -316,7 +316,7 @@ def test_restaurants_mutation_routes(monkeypatch):
 
     create_payload = {
         "brand": "Burger@",
-        "branch": "Kavacik",
+        "branch": "Kavacık",
         "pricing_model": "hourly_plus_package",
         "hourly_rate": 250,
         "package_rate": 20,
@@ -325,7 +325,7 @@ def test_restaurants_mutation_routes(monkeypatch):
     }
     update_payload = {
         "brand": "Burger@",
-        "branch": "Kavacik Guncel",
+        "branch": "Kavacık Güncel",
         "pricing_model": "fixed_monthly",
         "fixed_monthly_fee": 80000,
         "vat_rate": 20,
@@ -340,7 +340,7 @@ def test_restaurants_mutation_routes(monkeypatch):
     assert create_response.status_code == 201
     assert create_response.json()["restaurant_id"] == 77
     assert update_response.status_code == 200
-    assert update_response.json()["message"] == "Restoran guncellendi."
+    assert update_response.json()["message"] == "Restoran güncellendi."
     assert toggle_response.status_code == 200
     assert toggle_response.json()["active"] is False
     assert delete_response.status_code == 200
@@ -410,36 +410,36 @@ def test_sales_mutation_routes(monkeypatch):
         "app.api.routes.sales.create_sales_record",
         lambda conn, payload: {
             "entry_id": 55,
-            "message": "Satis firsati olusturuldu.",
+            "message": "Satış fırsatı oluşturuldu.",
         },
     )
     monkeypatch.setattr(
         "app.api.routes.sales.update_sales_record_entry",
         lambda conn, sales_id, payload: {
-            "message": "Satis firsati guncellendi.",
+            "message": "Satış fırsatı güncellendi.",
         },
     )
     monkeypatch.setattr(
         "app.api.routes.sales.delete_sales_record_entry",
         lambda conn, sales_id: {
-            "message": "Satis firsati silindi.",
+            "message": "Satış fırsatı silindi.",
         },
     )
     client = _build_client()
 
     create_payload = {
         "restaurant_name": "Donerci Celal Usta",
-        "city": "Istanbul",
+        "city": "İstanbul",
         "district": "Maltepe",
-        "address": "Bagdat Caddesi No:1",
-        "contact_name": "Erdal Altinkaynak",
+        "address": "Bağdat Caddesi No:1",
+        "contact_name": "Erdal Altınkaynak",
         "contact_phone": "05325719142",
         "pricing_model": "hourly_plus_package",
-        "status": "Teklif Iletildi",
+        "status": "Teklif İletildi",
     }
     update_payload = {
         **create_payload,
-        "district": "Kadikoy",
+        "district": "Kadıköy",
         "pricing_model": "fixed_monthly",
         "fixed_monthly_fee": 90000,
         "status": "Tekrar Aranacak",
@@ -452,9 +452,9 @@ def test_sales_mutation_routes(monkeypatch):
     assert create_response.status_code == 201
     assert create_response.json()["entry_id"] == 55
     assert update_response.status_code == 200
-    assert update_response.json()["message"] == "Satis firsati guncellendi."
+    assert update_response.json()["message"] == "Satış fırsatı güncellendi."
     assert delete_response.status_code == 200
-    assert delete_response.json()["message"] == "Satis firsati silindi."
+    assert delete_response.json()["message"] == "Satış fırsatı silindi."
 
 
 def test_equipment_mutation_routes(monkeypatch):
