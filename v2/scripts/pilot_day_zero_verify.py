@@ -207,7 +207,11 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
     if issues:
         return (False, issues, None)
 
-    smoke_payload = _read_json(smoke_json_path)
+    raw_smoke_payload = _read_json(smoke_json_path)
+    if not isinstance(raw_smoke_payload, dict):
+        issues.append("pilot-smoke-live.json kok payload'i dict degil")
+        return (False, issues, None)
+    smoke_payload = raw_smoke_payload
     smoke_markdown = smoke_markdown_path.read_text(encoding="utf-8").strip()
     expected_smoke_markdown: str | None = None
     try:
