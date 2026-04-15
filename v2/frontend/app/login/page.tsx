@@ -406,40 +406,143 @@ function LoginPageContent() {
               <button type="submit" disabled={submitting || loading} style={primaryButtonStyle(submitting || loading)}>
                 {submitting ? "Giris Yapiliyor..." : "Giris Yap"}
               </button>
+            </form>
+          </section>
+
+          <section
+            style={{
+              ...paperCardStyle,
+              padding: "24px",
+              display: "grid",
+              gap: "16px",
+              background:
+                "linear-gradient(180deg, rgba(240,247,255,0.98), rgba(255,252,246,0.96))",
+              border: "1px solid rgba(15,95,215,0.12)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "14px",
+                alignItems: "start",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ display: "grid", gap: "8px", maxWidth: "42ch" }}>
+                <div style={{ ...eyebrowStyle, color: "#0f5fd7" }}>Sifre Kurtarma</div>
+                <h2
+                  style={{
+                    ...serifTitleStyle,
+                    margin: 0,
+                    fontSize: "1.85rem",
+                    lineHeight: 0.96,
+                    fontWeight: 700,
+                  }}
+                >
+                  Sifreni unuttuysan buradan guvenli sekilde geri don.
+                </h2>
+                <p style={cardBodyStyle}>
+                  Kayitli telefon numarana tek kullanimlik kod gonderelim. Kimligini
+                  dogruladiginda seni dogrudan guvenlik ekranina alip yeni sifre belirletelim.
+                </p>
+              </div>
 
               <div
                 style={{
-                  padding: "14px 16px",
-                  borderRadius: "18px",
+                  minWidth: "160px",
+                  padding: "16px",
+                  borderRadius: "20px",
+                  background: "rgba(15,95,215,0.08)",
                   border: "1px solid rgba(15,95,215,0.12)",
-                  background: "rgba(15,95,215,0.05)",
                   display: "grid",
-                  gap: "10px",
+                  gap: "6px",
                 }}
               >
-                <div style={{ display: "grid", gap: "6px" }}>
-                  <div style={{ ...eyebrowStyle, color: "#0f5fd7" }}>Sifre Kurtarma</div>
-                  <div style={{ color: "var(--text)", fontWeight: 700 }}>
-                    Sifreni unuttuysan SMS ile kimligini dogrulayip yeni sifre belirleyebilirsin.
-                  </div>
-                  <div style={{ ...cardBodyStyle, fontSize: "0.92rem" }}>
-                    {smsLoginEnabled
-                      ? "Telefonuna gelen tek kullanimlik kodla hesabina guvenli sekilde don, sonra guvenlik ekranindan sifreni yenile."
-                      : "SMS kurtarma hatti su an aktif degilse ofis yoneticisiyle iletisime gecerek sifre destegi alabilirsin."}
-                  </div>
+                <div
+                  style={{
+                    color: "#0f5fd7",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    fontSize: "0.72rem",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Kurtarma Hatti
                 </div>
-
-                {smsLoginEnabled ? (
-                  <button
-                    type="button"
-                    onClick={() => switchAuthPanelMode("recovery")}
-                    style={ghostButtonStyle(false)}
-                  >
-                    Sifremi Unuttum
-                  </button>
-                ) : null}
+                <div
+                  style={{
+                    ...serifTitleStyle,
+                    fontSize: "1.7rem",
+                    lineHeight: 0.92,
+                    fontWeight: 700,
+                    color: "var(--text)",
+                  }}
+                >
+                  SMS
+                </div>
+                <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.9rem" }}>
+                  Telefon koduyla dogrulama, sonra yeni sifre.
+                </div>
               </div>
-            </form>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              {[
+                ["1. Kimlik", "Kayitli telefon numarani gir."],
+                ["2. Kod", "Tek kullanimlik SMS kodunu al."],
+                ["3. Sifre", "Guvenlik ekraninda yeni sifreni belirle."],
+              ].map(([title, text]) => (
+                <article
+                  key={title}
+                  style={{
+                    padding: "16px",
+                    borderRadius: "18px",
+                    border: "1px solid rgba(15,95,215,0.1)",
+                    background: "rgba(255,255,255,0.84)",
+                    display: "grid",
+                    gap: "6px",
+                  }}
+                >
+                  <div style={{ color: "#0f5fd7", fontWeight: 800 }}>{title}</div>
+                  <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
+                    {text}
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
+                {smsLoginEnabled
+                  ? "SMS kurtarma hatti aktif. Telefon dogrulamasiyla hesaba geri donebilirsin."
+                  : "SMS kurtarma hatti aktif degilse ofis yoneticisiyle iletisime gecerek sifre destegi alabilirsin."}
+              </div>
+
+              {smsLoginEnabled ? (
+                <button
+                  type="button"
+                  onClick={() => switchAuthPanelMode("recovery")}
+                  style={ghostButtonStyle(false)}
+                >
+                  Sifremi Unuttum
+                </button>
+              ) : null}
+            </div>
           </section>
 
           {smsLoginEnabled ? (
