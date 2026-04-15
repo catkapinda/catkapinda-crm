@@ -135,6 +135,13 @@ def _coerce_optional_nullable_str(*, value: object, issue_label: str, issues: li
     return None
 
 
+def _coerce_optional_nullable_nonempty_str(*, value: object, issue_label: str, issues: list[str]) -> str | None:
+    normalized = _coerce_optional_nullable_str(value=value, issue_label=issue_label, issues=issues)
+    if normalized is None:
+        return None
+    return normalized
+
+
 def _normalize_smoke_results(*, value: object, issues: list[str]) -> tuple[bool, list[dict[str, object]]]:
     if value is None:
         return (False, [])
@@ -335,7 +342,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         issues=issues,
     )
     decision_status = (
-        _coerce_optional_str(
+        _coerce_optional_nullable_nonempty_str(
             value=decision_for_manifest.get("status"),
             issue_label="pilot-smoke-live.json icinde decision.status",
             issues=issues,
@@ -344,7 +351,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         else None
     )
     decision_headline = (
-        _coerce_optional_str(
+        _coerce_optional_nullable_nonempty_str(
             value=decision_for_manifest.get("headline"),
             issue_label="pilot-smoke-live.json icinde decision.headline",
             issues=issues,
