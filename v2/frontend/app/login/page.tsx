@@ -63,6 +63,10 @@ type LoginPilotStatusPayload = {
     blocking_items?: string[];
     warnings?: string[];
     next_actions?: string[];
+    decision_status?: string;
+    decision_headline?: string;
+    decision_detail?: string;
+    decision_command?: string | null;
   } | null;
 };
 
@@ -103,6 +107,7 @@ function LoginPageContent() {
   const [smsMessage, setSmsMessage] = useState("");
   const [maskedPhone, setMaskedPhone] = useState("");
   const [localPilotStatus, setLocalPilotStatus] = useState<LoginPilotStatusPayload | null>(null);
+  const [copiedLocalHintCommand, setCopiedLocalHintCommand] = useState(false);
   const recoveryPanelRef = useRef<HTMLDivElement | null>(null);
   const recoveryPhoneInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -347,6 +352,16 @@ function LoginPageContent() {
     setRecoveryConfirmPassword("");
   }
 
+  async function copyLocalHintCommand(command: string) {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopiedLocalHintCommand(true);
+      window.setTimeout(() => setCopiedLocalHintCommand(false), 1800);
+    } catch {
+      setCopiedLocalHintCommand(false);
+    }
+  }
+
   const localLoginHint = useMemo<LocalLoginHint | null>(() => {
     if (!runningOnLocalhost || isPreviewModeBrowser()) {
       return null;
@@ -388,8 +403,6 @@ function LoginPageContent() {
     if (localSetup) {
       const blockingItems = localSetup.blocking_items ?? [];
       const nextActions = localSetup.next_actions ?? [];
-      const currentAppSeedSources = localSetup.current_app_seed_sources ?? [];
-      const currentAppSeedPlaceholders = localSetup.current_app_seed_placeholders ?? [];
       const backendNeedsRestartForEnv = Boolean(localSetup.backend_restart_required) || (
         localPilotStatus?.localSetupSource !== "backend" &&
         localSetup.database_url_present &&
@@ -415,44 +428,23 @@ function LoginPageContent() {
         };
       }
 
-      if (localSetup.current_app_seed_detected && !localSetup.backend_env_exists && !localSetup.database_url_present) {
-        return {
-          title: "Mevcut uygulamada seed bulundu, v2 backend env'i henuz yazilmadi.",
-          detail: `Doctor current app tarafinda kullanilabilir kaynak gordu${currentAppSeedSources.length ? `: ${currentAppSeedSources.join(", ")}` : ""}. Tek komutla backend/.env ureterek gercek login akisini acabiliriz.${setupSourceDetail}`,
-          command: localSetup.suggested_bootstrap_command || localSetup.suggested_current_app_env_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app",
-        };
-      }
-
-      if (!localSetup.database_url_present) {
-        const placeholderDetail = currentAppSeedPlaceholders.length
-          ? ` Simdilik sadece placeholder/template degerler goruluyor: ${currentAppSeedPlaceholders.join(", ")}.`
-          : "";
+      if (localSetup.decision_headline) {
         const targetDetail =
           localSetup.suggested_frontend_url || localSetup.suggested_api_url
-            ? ` Doctor su an frontend=${localSetup.suggested_frontend_url || "bilinmiyor"} ve api=${localSetup.suggested_api_url || "bilinmiyor"} hedeflerini oneriyor.`
+            ? ` Doctor hedefleri frontend=${localSetup.suggested_frontend_url || "bilinmiyor"} ve api=${localSetup.suggested_api_url || "bilinmiyor"} olarak goruyor.`
             : "";
         return {
-          title: "Backend ayakta ama veritabani baglantisi henuz hazir degil.",
+          title: localSetup.decision_headline,
           detail:
-            (blockingItems[0] ||
-              "API cevap veriyor fakat gercek giris icin gerekli DATABASE_URL henuz bulunmuyor.") +
-            placeholderDetail +
+            (localSetup.decision_detail || blockingItems[0] || "Local kurulumda doctor tarafinda yeni bir aksiyon onerisi var.") +
             targetDetail +
             setupSourceDetail,
-          command: localSetup.backend_env_exists
-            ? localSetup.suggested_bootstrap_with_db_command || localSetup.suggested_env_write_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env"
-            : localSetup.suggested_bootstrap_command || localSetup.suggested_scaffold_command || "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
-        };
-      }
-
-      if (!localSetup.backend_env_exists && localSetup.database_url_present) {
-        return {
-          title: "Veritabani baglantisi goruluyor ama backend/.env kalici degil.",
-          detail:
-            `Shell env ile ilerleyebiliriz ama local backend yeniden baslatildiginda ayni ayari yeniden yapmak gerekir. Kalici kurulum icin doctor bunu tek komutla yazabilir.${setupSourceDetail}`,
-          command: localSetup.current_app_seed_detected
-            ? localSetup.suggested_current_app_env_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app"
-            : localSetup.suggested_env_write_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>'",
+          command:
+            localSetup.decision_command ||
+            extractInlineCommand(nextActions[0]) ||
+            localSetup.suggested_bootstrap_command ||
+            localSetup.suggested_backend_start_command ||
+            undefined,
         };
       }
 
@@ -828,6 +820,15 @@ function LoginPageContent() {
                     ) : null}
                   </div>
                   <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    {localLoginHint.command ? (
+                      <button
+                        type="button"
+                        onClick={() => void copyLocalHintCommand(localLoginHint.command!)}
+                        style={infoBannerButtonStyle}
+                      >
+                        {copiedLocalHintCommand ? "Komut Kopyalandi" : "Ilk Komutu Kopyala"}
+                      </button>
+                    ) : null}
                     <Link href="/status" style={infoBannerLinkStyle}>
                       Pilot Durumu
                     </Link>
@@ -1554,6 +1555,11 @@ const secondaryInfoBannerLinkStyle = {
   ...infoBannerLinkStyle,
   background: "rgba(255,255,255,0.78)",
   color: "var(--text)",
+} satisfies CSSProperties;
+
+const infoBannerButtonStyle = {
+  ...infoBannerLinkStyle,
+  cursor: "pointer",
 } satisfies CSSProperties;
 
 const inlineCodeStyle = {
