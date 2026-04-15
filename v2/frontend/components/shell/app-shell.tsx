@@ -403,9 +403,30 @@ export function AppShell({
               color: "#f8e2c0",
               lineHeight: 1.6,
               fontSize: "0.9rem",
+              display: "grid",
+              gap: "10px",
             }}
           >
-            Preview modundayiz. Bu hat backend beklemeden tasarim yuzeylerini gezmek icin acik.
+            <div style={{ fontWeight: 800, color: "#fff1d8" }}>Demo modundasin.</div>
+            <div>Bu hat gercek backend yerine ornek veriyle calisir; kayitlar kalici degildir.</div>
+            <Link
+              href="/login"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "fit-content",
+                padding: "10px 12px",
+                borderRadius: "14px",
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                color: "#fff7ea",
+                fontWeight: 800,
+                textDecoration: "none",
+              }}
+            >
+              Gercek Girise Don
+            </Link>
           </div>
         ) : null}
         <nav
@@ -707,13 +728,13 @@ export function AppShell({
                     display: "inline-flex",
                     padding: "7px 12px",
                     borderRadius: "999px",
-                    background: "rgba(15,95,215,0.08)",
-                    color: "#0f5fd7",
+                    background: "rgba(207,65,65,0.08)",
+                    color: "#b73636",
                     fontSize: "0.82rem",
                     fontWeight: 800,
                   }}
                 >
-                  Backend bagimsiz preview akisi acik
+                  Gercek backend bagli degil
                 </span>
                 <span
                   style={{
@@ -726,7 +747,7 @@ export function AppShell({
                     fontWeight: 800,
                   }}
                 >
-                  Mock veri ile gezilebilir durum
+                  Ornek veri ile gezilebilir demo
                 </span>
                 <span
                   style={{
@@ -739,8 +760,51 @@ export function AppShell({
                     fontWeight: 800,
                   }}
                 >
-                  Aktif sayfa: {activeItem}
+                  Kayitlar kalici degil
                 </span>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <Link
+                  href="/login"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "11px 14px",
+                    borderRadius: "16px",
+                    background: "var(--surface-ink)",
+                    color: "#fff7ea",
+                    fontWeight: 800,
+                    textDecoration: "none",
+                    boxShadow: "var(--shadow-deep)",
+                  }}
+                >
+                  Gercek Giris Ekranina Git
+                </Link>
+                <Link
+                  href="/status"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "11px 14px",
+                    borderRadius: "16px",
+                    border: "1px solid rgba(24,40,59,0.1)",
+                    background: "rgba(255,255,255,0.72)",
+                    color: "var(--text)",
+                    fontWeight: 800,
+                    textDecoration: "none",
+                  }}
+                >
+                  Pilot Durumunu Kontrol Et
+                </Link>
               </div>
 
               <div
