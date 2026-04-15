@@ -5,8 +5,9 @@ from app.core.bootstrap import mark_runtime_bootstrap_state, reset_runtime_boots
 from app.core.config import settings
 from app.core.database import CompatConnection
 from app.core.database import get_db
+from app.core.security import hash_auth_password
 from app.main import create_app
-from app.api.routes.health import _build_auth_user_counts
+from app.api.routes.health import _build_auth_user_counts, _build_pilot_accounts
 
 
 class HealthyConnection:
@@ -76,6 +77,66 @@ def test_build_auth_user_counts_supports_sqlite_rows():
 
     conn = CompatConnection(raw_conn, backend="sqlite")
     assert _build_auth_user_counts(conn) == (2, 1)
+
+
+def test_build_pilot_accounts_reports_default_password_state_from_sqlite():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.execute(
+        """
+        CREATE TABLE auth_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT,
+            phone TEXT,
+            full_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            role_display TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_active INTEGER NOT NULL,
+            must_change_password INTEGER NOT NULL
+        )
+        """
+    )
+    raw_conn.executemany(
+        """
+        INSERT INTO auth_users (
+            email, phone, full_name, role, role_display, password_hash, is_active, must_change_password
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                "ebru@catkapinda.com",
+                "05321234567",
+                "Ebru Aslan",
+                "admin",
+                "Yönetim Kurulu / Yönetici",
+                hash_auth_password("123456"),
+                1,
+                1,
+            ),
+            (
+                "mert.kurtulus@catkapinda.com",
+                "05331234567",
+                "Mert Kurtuluş",
+                "admin",
+                "Yönetim Kurulu / Yönetici",
+                hash_auth_password("DahaGuclu123!"),
+                1,
+                0,
+            ),
+        ],
+    )
+    raw_conn.commit()
+
+    conn = CompatConnection(raw_conn, backend="sqlite")
+    accounts = _build_pilot_accounts(conn)
+
+    assert accounts[0].email == "ebru@catkapinda.com"
+    assert accounts[0].must_change_password is True
+    assert accounts[0].default_password_active is True
+    assert accounts[1].email == "mert.kurtulus@catkapinda.com"
+    assert accounts[1].must_change_password is False
+    assert accounts[1].default_password_active is False
 
 
 def test_health_route_returns_service_metadata():

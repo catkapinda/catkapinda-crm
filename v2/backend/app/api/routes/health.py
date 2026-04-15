@@ -9,6 +9,8 @@ from app.core.bootstrap import get_runtime_bootstrap_state
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.local_doctor import build_local_doctor_report
+from app.core.security import verify_auth_password
+from app.repositories.auth import fetch_auth_user_by_identity
 from app.core.sms import describe_sms_config
 from app.schemas.health import (
     HealthCheckEntry,
@@ -211,7 +213,7 @@ def pilot_readiness(
         default_password_configured=settings.default_auth_password != "123456",
     )
     decision = _build_pilot_decision(cutover=cutover)
-    pilot_accounts = _build_pilot_accounts()
+    pilot_accounts = _build_pilot_accounts(conn)
     pilot_flow = _build_pilot_flow()
     pilot_scenarios = _build_pilot_scenarios()
     deploy_steps = _build_deploy_steps()
@@ -508,15 +510,27 @@ def _build_auth_user_counts(conn: psycopg.Connection) -> tuple[int, int]:
         return (0, 0)
 
 
-def _build_pilot_accounts() -> list[PilotAccountEntry]:
+def _build_pilot_accounts(conn: psycopg.Connection) -> list[PilotAccountEntry]:
     accounts: list[PilotAccountEntry] = []
     for user in settings.default_auth_users:
+        user_row: dict | None = None
+        try:
+            user_row = fetch_auth_user_by_identity(conn, identity=user["email"])
+        except Exception:  # pragma: no cover - defensive runtime fallback
+            user_row = None
+
+        password_hash = str(user_row.get("password_hash") or "") if user_row else ""
+        resolved_phone = str(user_row.get("phone") or user.get("phone") or "") if user_row else str(user.get("phone") or "")
         accounts.append(
             PilotAccountEntry(
                 email=user["email"],
                 full_name=user["full_name"],
                 role=user["role_display"],
-                has_phone=bool("".join(ch for ch in str(user.get("phone") or "") if ch.isdigit())),
+                has_phone=bool("".join(ch for ch in resolved_phone if ch.isdigit())),
+                must_change_password=bool(int(user_row.get("must_change_password") or 0)) if user_row else False,
+                default_password_active=bool(settings.default_auth_password)
+                and bool(password_hash)
+                and verify_auth_password(settings.default_auth_password, password_hash),
             )
         )
     return accounts

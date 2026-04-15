@@ -2,7 +2,6 @@
 
 import type { CSSProperties, FormEvent } from "react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -41,6 +40,8 @@ type LoginPilotStatusPayload = {
       full_name: string;
       role: string;
       has_phone: boolean;
+      must_change_password: boolean;
+      default_password_active: boolean;
     }>;
   } | null;
   localSetup?: {
@@ -89,6 +90,8 @@ type LocalReadyLogin = {
     email: string;
     full_name: string;
     role: string;
+    mustChangePassword: boolean;
+    defaultPasswordActive: boolean;
   }>;
   defaultPasswordPresent: boolean;
   defaultPasswordIsDefault: boolean;
@@ -382,16 +385,20 @@ function LoginPageContent() {
     }
   }
 
-  function fillLocalCredentials(email: string) {
-    setIdentity(email);
-    if (localReadyLogin?.defaultPasswordPresent) {
-      setPassword(localReadyLogin.defaultPasswordIsDefault ? "123456" : "");
+  function fillLocalCredentials(account: LocalReadyLogin["accounts"][number]) {
+    setIdentity(account.email);
+    if (localReadyLogin?.defaultPasswordPresent && localReadyLogin.defaultPasswordIsDefault && account.defaultPasswordActive) {
+      setPassword("123456");
+    } else {
+      setPassword("");
     }
     setError("");
     setNotice(
-      localReadyLogin?.defaultPasswordIsDefault
-        ? "Yerel sqlite hesabi forma dolduruldu. Bu local modda varsayilan sifre 123456."
-        : "Yerel sqlite hesabi forma dolduruldu. Sifre backend/.env tarafindaki CK_V2_DEFAULT_AUTH_PASSWORD alanindan geliyor.",
+      localReadyLogin?.defaultPasswordIsDefault && account.defaultPasswordActive
+        ? "Yerel sqlite hesabi forma dolduruldu. Bu hesapta varsayilan local sifre su an 123456."
+        : account.mustChangePassword
+          ? "Yerel sqlite hesabi forma dolduruldu. Bu hesap gecici sifre bekliyor; guncel sifreyi biliyorsan elle girmen gerekecek."
+          : "Yerel sqlite hesabi forma dolduruldu. Bu hesapta varsayilan sifre artik aktif gorunmuyor; en son belirlenen sifreyi kullanman gerekecek.",
     );
   }
 
@@ -535,6 +542,8 @@ function LoginPageContent() {
         email: account.email,
         full_name: account.full_name,
         role: account.role,
+        mustChangePassword: Boolean(account.must_change_password),
+        defaultPasswordActive: Boolean(account.default_password_active),
       })),
       defaultPasswordPresent: Boolean(localSetup?.default_auth_password_present),
       defaultPasswordIsDefault: Boolean(localSetup?.default_auth_password_is_default),
@@ -615,13 +624,12 @@ function LoginPageContent() {
                   boxShadow: "0 18px 36px rgba(10, 20, 35, 0.24)",
                 }}
               >
-                <Image
+                <img
                   src="/catkapinda_logo.png"
                   alt="Cat Kapinda"
                   width={38}
                   height={38}
                   style={{ width: "38px", height: "38px", objectFit: "contain" }}
-                  priority
                 />
               </div>
               <div style={{ display: "grid", gap: "4px" }}>
@@ -948,9 +956,16 @@ function LoginPageContent() {
                         <strong style={{ color: "#16274a" }}>{account.full_name}</strong>
                         <code style={inlineCodeStyle}>{account.email}</code>
                         <span style={{ color: "#5f7294", fontSize: "0.9rem" }}>{account.role}</span>
+                        <span style={{ color: "#5f7294", fontSize: "0.86rem" }}>
+                          {account.defaultPasswordActive
+                            ? "Varsayilan sifre aktif gorunuyor."
+                            : account.mustChangePassword
+                              ? "Gecici sifre bekliyor; guncel sifreyi elle gir."
+                              : "Sifre daha once degistirilmis gorunuyor."}
+                        </span>
                         <button
                           type="button"
-                          onClick={() => fillLocalCredentials(account.email)}
+                          onClick={() => fillLocalCredentials(account)}
                           style={{
                             marginTop: "6px",
                             borderRadius: "12px",
@@ -968,10 +983,11 @@ function LoginPageContent() {
                     ))}
                   </div>
                   <div style={{ color: "#4f6283", lineHeight: 1.65 }}>
-                    {localReadyLogin.defaultPasswordIsDefault
-                      ? "Varsayilan local sifre su an 123456. Yerel denemeden sonra bunu degistirmek yine iyi olur."
+                    {localReadyLogin.defaultPasswordIsDefault &&
+                    localReadyLogin.accounts.some((account) => account.defaultPasswordActive)
+                      ? "Sadece 'Varsayilan sifre aktif' yazan hesaplarda local sifre 123456 olarak kullanilabilir."
                       : localReadyLogin.defaultPasswordPresent
-                        ? "Sifre tanimli; deger backend/.env icindeki CK_V2_DEFAULT_AUTH_PASSWORD alanindan geliyor."
+                        ? "Local hesaplarin sifresi bu makinede degismis olabilir; kart sadece e-postayi doldurur, sifreyi guncel haliyle elle girmek gerekir."
                         : "Sifre tanimli gorunmuyor; login denemesi oncesi backend/.env tarafini kontrol et."}
                   </div>
                 </div>

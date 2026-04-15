@@ -80,6 +80,8 @@ class PilotAccountEntry(BaseModel):
     full_name: str
     role: str
     has_phone: bool
+    must_change_password: bool = False
+    default_password_active: bool = False
 
 
 class PilotFlowStep(BaseModel):

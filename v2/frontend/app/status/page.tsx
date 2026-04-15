@@ -85,6 +85,8 @@ type BackendReadiness = {
     full_name: string;
     role: string;
     has_phone: boolean;
+    must_change_password: boolean;
+    default_password_active: boolean;
   }>;
   pilot_flow: Array<{
     title: string;
@@ -664,11 +666,13 @@ export default function StatusPage() {
       return null;
     }
 
-    const firstAccount = localSqliteLoginReady.accounts[0];
-    const passwordPart = localSqliteLoginReady.defaultPasswordIsDefault
-      ? " --password 123456"
-      : " --password <backend-env-sifresi>";
-    return `python v2/scripts/pilot_smoke.py --base-url http://127.0.0.1:3001 --identity ${firstAccount.email}${passwordPart}`;
+    const smokeAccount =
+      localSqliteLoginReady.accounts.find((account) => account.default_password_active) || localSqliteLoginReady.accounts[0];
+    const passwordPart =
+      localSqliteLoginReady.defaultPasswordIsDefault && smokeAccount.default_password_active
+        ? " --password 123456"
+        : " --password <guncel-sifre>";
+    return `python v2/scripts/pilot_smoke.py --base-url http://127.0.0.1:3001 --identity ${smokeAccount.email}${passwordPart}`;
   }, [localSqliteLoginReady]);
 
   async function copyText(key: string, value: string) {
@@ -1060,14 +1064,22 @@ export default function StatusPage() {
                             {account.email}
                           </code>
                           <span style={{ color: "#5f7294", fontSize: "0.92rem" }}>{account.role}</span>
+                          <span style={{ color: "#5f7294", fontSize: "0.88rem" }}>
+                            {account.default_password_active
+                              ? "Varsayilan sifre aktif gorunuyor."
+                              : account.must_change_password
+                                ? "Gecici sifre bekliyor; guncel sifre gerekli."
+                                : "Sifre daha once degistirilmis gorunuyor."}
+                          </span>
                         </div>
                       ))}
                     </div>
                     <div style={{ marginTop: "12px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
-                      {localSqliteLoginReady.defaultPasswordIsDefault
-                        ? "Varsayilan local sifre su an 123456."
+                      {localSqliteLoginReady.defaultPasswordIsDefault &&
+                      localSqliteLoginReady.accounts.some((account) => account.default_password_active)
+                        ? "Sadece 'Varsayilan sifre aktif' yazan hesaplarda local sifre 123456 olarak kullanilabilir."
                         : localSqliteLoginReady.defaultPasswordPresent
-                          ? "Sifre tanimli; backend/.env icindeki CK_V2_DEFAULT_AUTH_PASSWORD alanindan geliyor."
+                          ? "Hesap sifreleri bu makinede degismis olabilir; smoke veya login denemesinde guncel sifreyi kullan."
                           : "Sifre tanimli gorunmuyor; login oncesi backend/.env tarafini kontrol et."}
                     </div>
                     {localSqliteSmokeCommand ? (
