@@ -169,6 +169,25 @@ def _normalize_smoke_results(*, value: object, issues: list[str]) -> tuple[bool,
     return (is_valid and len(normalized_results) == len(value), normalized_results)
 
 
+def _normalize_optional_failing_checks(*, value: object, issues: list[str]) -> tuple[bool, list[str] | None]:
+    if value is None:
+        return (True, None)
+    if not isinstance(value, list):
+        issues.append("pilot-smoke-live.json icinde decision.failing_checks list degil")
+        return (False, None)
+
+    normalized: list[str] = []
+    is_valid = True
+    for index, item in enumerate(value):
+        if not isinstance(item, str) or not item.strip():
+            issues.append(f"pilot-smoke-live.json icinde decision.failing_checks[{index}] string degil")
+            is_valid = False
+            continue
+        normalized.append(item.strip())
+
+    return (is_valid and len(normalized) == len(value), normalized)
+
+
 def _canonicalize_manifest_payload(payload: dict) -> dict:
     normalized = json.loads(json.dumps(payload))
     if "output_dir" in normalized:
@@ -289,6 +308,18 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         issues.append("pilot-smoke-live.md canonical smoke raporuyla birebir uyusmuyor")
     if not smoke_results:
         issues.append("pilot-smoke-live.json icinde results listesi bos veya eksik")
+    raw_decision = smoke_payload.get("decision")
+    if raw_decision is None:
+        decision_for_manifest: dict = {}
+    elif isinstance(raw_decision, dict):
+        decision_for_manifest = raw_decision
+    else:
+        issues.append("pilot-smoke-live.json icinde decision alani dict degil")
+        decision_for_manifest = {}
+    failing_checks_valid, failing_checks = _normalize_optional_failing_checks(
+        value=decision_for_manifest.get("failing_checks"),
+        issues=issues,
+    )
     payload_passed_count = _coerce_optional_int(
         value=smoke_payload.get("passed_count"),
         issue_label="pilot-smoke-live.json icinde passed_count",
@@ -317,15 +348,6 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         if smoke_payload.get("overall_ok") is not None and bool(smoke_payload.get("overall_ok")) != (actual_failed_count == 0):
             issues.append("pilot-smoke-live.json icinde overall_ok result listesiyle uyusmuyor")
 
-        raw_decision = smoke_payload.get("decision")
-        if raw_decision is None:
-            decision: dict = {}
-        elif isinstance(raw_decision, dict):
-            decision = raw_decision
-        else:
-            issues.append("pilot-smoke-live.json icinde decision alani dict degil")
-            decision = {}
-        failing_checks = decision.get("failing_checks")
         expected_decision: dict[str, object] | None = None
         if smoke_results_valid:
             try:
@@ -342,12 +364,12 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             except (KeyError, TypeError, AttributeError) as exc:
                 issues.append(f"pilot-smoke-live.json icinde decision ozeti icin gecersiz result yapisi var: {exc}")
         if expected_decision is not None:
-            if isinstance(failing_checks, list):
+            if failing_checks_valid and isinstance(failing_checks, list):
                 expected_failing_checks = list(expected_decision.get("failing_checks") or [])
-                if list(map(str, failing_checks)) != expected_failing_checks:
+                if failing_checks != expected_failing_checks:
                     issues.append("pilot-smoke-live.json icinde failing_checks result listesiyle uyusmuyor")
             for key in ("status", "headline", "primary_blocker", "recommended_next_step"):
-                if key in decision and decision.get(key) != expected_decision.get(key):
+                if key in decision_for_manifest and decision_for_manifest.get(key) != expected_decision.get(key):
                     issues.append(f"pilot-smoke-live.json icinde decision.{key} result listesiyle uyusmuyor")
 
     expected_overall_ok = manifest.get("smoke_overall_ok")
@@ -366,8 +388,6 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             "Manifest smoke_failed_count degeri ile pilot-smoke-live.json uyusmuyor"
         )
 
-    raw_decision = smoke_payload.get("decision")
-    decision_for_manifest = raw_decision if isinstance(raw_decision, dict) else {}
     expected_next_step = manifest.get("smoke_recommended_next_step")
     actual_next_step = _coerce_optional_str(
         value=decision_for_manifest.get("recommended_next_step"),
@@ -424,8 +444,8 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             expected_markdown_snippets.append(
                 f"- Recommended Next Step: {decision.get('recommended_next_step')}"
             )
-        if decision.get("failing_checks") is not None:
-            failing_checks_text = ", ".join(map(str, decision.get("failing_checks") or [])) or "-"
+        if isinstance(failing_checks, list):
+            failing_checks_text = ", ".join(failing_checks) or "-"
             expected_markdown_snippets.append(f"- Failing Checks: `{failing_checks_text}`")
 
         for snippet in expected_markdown_snippets:
