@@ -13,6 +13,8 @@ type FrontendStatus = {
   sourceEnvKey: string | null;
   backendReachable: boolean;
   backendStatus: string;
+  pilotHttpStatus?: number | null;
+  pilotErrorDetail?: string | null;
   targetBaseUrl: string | null;
   detail: string;
 };
@@ -493,6 +495,54 @@ export default function StatusPage() {
       : backend?.cutover.phase === "ready_for_pilot"
         ? true
         : false;
+  const localSetupGuidance = useMemo(() => {
+    if (!frontend || frontend.proxyMode !== "explicit_base_url") {
+      return null;
+    }
+
+    if (!frontend.backendReachable) {
+      return {
+        tone: "warning" as const,
+        title: "Local backend henuz gorunmuyor.",
+        detail:
+          "Frontend explicit base URL modunda 127.0.0.1:8000 hedefini ariyor. Bu local senaryoda normal; backend ayaga kalkmadan login ve sifre kurtarma akisi tamamlanmaz.",
+        commands: [
+          "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
+          "python v2/scripts/local_v2_doctor.py",
+        ],
+      };
+    }
+
+    const databaseMissing =
+      frontend.pilotHttpStatus === 503 &&
+      (frontend.pilotErrorDetail?.includes("DATABASE_URL") || frontend.detail.includes("DATABASE_URL"));
+
+    if (databaseMissing) {
+      return {
+        tone: "warning" as const,
+        title: "Backend ayakta, veritabani env'i eksik.",
+        detail:
+          "Bu local durumda API cevap veriyor ama DATABASE_URL olmadigi icin gercek auth akisi tamamlanamiyor. Doctor komutlariyla mevcut kaynaklari tarayip backend/.env dosyasini hazirlayabiliriz.",
+        commands: [
+          "python v2/scripts/local_v2_doctor.py",
+          "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app",
+        ],
+      };
+    }
+
+    if (frontend.backendReachable && !backend) {
+      return {
+        tone: "info" as const,
+        title: "Backend gorunuyor, detay readiness verisi sinirli.",
+        detail:
+          frontend.pilotErrorDetail ||
+          "Pilot status tam donmedi ama frontend backend'i goruyor. Bir sonraki odak local env ve veritabani baglantisi olmali.",
+        commands: ["python v2/scripts/local_v2_doctor.py"],
+      };
+    }
+
+    return null;
+  }, [backend, frontend]);
 
   async function copyText(key: string, value: string) {
     try {
@@ -691,6 +741,89 @@ export default function StatusPage() {
             </article>
           </div>
         </section>
+
+        {localSetupGuidance ? (
+          <section
+            style={{
+              ...cardStyle(),
+              display: "grid",
+              gap: "16px",
+              border:
+                localSetupGuidance.tone === "warning"
+                  ? "1px solid rgba(245, 158, 11, 0.22)"
+                  : "1px solid rgba(15, 95, 215, 0.16)",
+              background:
+                localSetupGuidance.tone === "warning"
+                  ? "linear-gradient(180deg, rgba(255,249,235,0.98), rgba(255,255,255,0.98))"
+                  : "linear-gradient(180deg, rgba(239,246,255,0.98), rgba(255,255,255,0.98))",
+            }}
+          >
+            <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+              <div style={tonePill(localSetupGuidance.tone === "warning" ? "warning" : "info")}>
+                Local Kurulum Rehberi
+              </div>
+              <div style={{ color: "#5f7294", fontWeight: 700, fontSize: "0.92rem" }}>
+                Localhost + explicit base URL modu
+              </div>
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: "1.15rem" }}>{localSetupGuidance.title}</h2>
+              <p style={{ margin: "8px 0 0", color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
+                {localSetupGuidance.detail}
+              </p>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              {localSetupGuidance.commands.map((command, index) => (
+                <article
+                  key={command}
+                  style={{
+                    borderRadius: "18px",
+                    border: "1px solid rgba(219, 228, 243, 0.9)",
+                    background: "rgba(255,255,255,0.88)",
+                    padding: "16px",
+                    display: "grid",
+                    gap: "10px",
+                  }}
+                >
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>
+                    Adim {index + 1}
+                  </div>
+                  <code
+                    style={{
+                      display: "block",
+                      padding: "10px 12px",
+                      borderRadius: "14px",
+                      background: "rgba(16, 24, 40, 0.06)",
+                      color: "#16274a",
+                      fontSize: "0.84rem",
+                      lineHeight: 1.6,
+                      overflowX: "auto",
+                    }}
+                  >
+                    {command}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => void copyText(`local-setup-${index}`, command)}
+                    style={{
+                      ...actionButtonStyle(index === 0 ? "primary" : "ghost"),
+                      cursor: "pointer",
+                      width: "fit-content",
+                    }}
+                  >
+                    {copiedKey === `local-setup-${index}` ? "Komut Kopyalandi" : "Komutu Kopyala"}
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section
           style={{
