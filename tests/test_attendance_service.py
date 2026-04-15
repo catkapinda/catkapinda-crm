@@ -191,6 +191,24 @@ class AttendanceServiceTests(unittest.TestCase):
         self.assertEqual(conn.commit_calls, 1)
         self.assertEqual(result, "Günlük puantaj kaydı güncellendi.")
 
+    @patch("services.attendance_service.delete_daily_entries")
+    def test_bulk_delete_daily_entries_and_sync_deletes_ids_and_syncs_actual_people(self, delete_entries_mock):
+        conn = _DummyConn()
+        sync_mock = MagicMock()
+        delete_entries_mock.return_value = 3
+
+        result = attendance_service.bulk_delete_daily_entries_and_sync(
+            conn,
+            entry_ids=[11, 12, 12, 13],
+            affected_person_ids=[4, None, 4, 7],
+            sync_personnel_business_rules_for_ids_fn=sync_mock,
+        )
+
+        delete_entries_mock.assert_called_once_with(conn, [11, 12, 13])
+        sync_mock.assert_called_once_with(conn, [4, 7], create_onboarding=False, full_history=True)
+        self.assertEqual(conn.commit_calls, 1)
+        self.assertEqual(result, "3 günlük puantaj kaydı toplu silindi.")
+
     @patch("services.attendance_service.insert_daily_entry")
     def test_save_bulk_entries_and_sync_skips_empty_rows_and_inserts_actionable_rows(self, insert_entry_mock):
         conn = _DummyConn()

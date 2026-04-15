@@ -221,6 +221,7 @@ from services.attendance_service import (
     ATTENDANCE_ENTRY_MODE_OPTIONS,
     COVERAGE_TYPE_OPTIONS,
     NON_WORKING_ATTENDANCE_STATUSES,
+    bulk_delete_daily_entries_and_sync,
     load_attendance_hero_stats,
     load_attendance_restaurant_pricing_lookup,
     build_bulk_attendance_context,
@@ -5628,6 +5629,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
     can_create_attendance = can_perform_action(actor_role, "attendance.create")
     can_update_attendance = can_perform_action(actor_role, "attendance.update")
     can_delete_attendance = can_perform_action(actor_role, "attendance.delete")
+    can_bulk_delete_attendance = can_perform_action(actor_role, "attendance.bulk_delete")
     st.markdown(
         """
         <style>
@@ -5934,7 +5936,7 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             subtitle="Şube, vardiya akışı ve gün içi yoğunluğu tek bakışta izle.",
         )
 
-        filter_c1, filter_c2, filter_c3 = st.columns([2.1, 1.2, 1.2])
+        filter_c1, filter_c2, filter_c3, filter_c4 = st.columns([2.0, 1.15, 1.15, 1.1])
         management_search = filter_c1.text_input(
             "Kayıt Ara",
             placeholder="Şube, personel, neden ya da not ara",
@@ -5951,8 +5953,50 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             ["Tümü", *entry_mode_options],
             key="attendance_manage_flow_filter",
         )
+        month_filter_map = {"Tümü": "Tümü"}
+        if not df.empty:
+            month_keys = sorted(
+                {
+                    str(value)[:7]
+                    for value in df["entry_date"].fillna("").astype(str).tolist()
+                    if len(str(value)) >= 7
+                },
+                reverse=True,
+            )
+            month_name_map = {
+                1: "Ocak",
+                2: "Şubat",
+                3: "Mart",
+                4: "Nisan",
+                5: "Mayıs",
+                6: "Haziran",
+                7: "Temmuz",
+                8: "Ağustos",
+                9: "Eylül",
+                10: "Ekim",
+                11: "Kasım",
+                12: "Aralık",
+            }
+            for month_key in month_keys:
+                try:
+                    month_date = datetime.strptime(month_key, "%Y-%m")
+                    month_filter_map[
+                        f"{month_key} | {month_name_map.get(month_date.month, month_key)} {month_date.year}"
+                    ] = month_key
+                except ValueError:
+                    month_filter_map[month_key] = month_key
+        management_month_filter_label = filter_c4.selectbox(
+            "Ay",
+            list(month_filter_map.keys()),
+            key="attendance_manage_month_filter",
+        )
+        management_month_filter = month_filter_map.get(management_month_filter_label, "Tümü")
 
         filtered_mgmt_df = df.copy()
+        if management_month_filter != "Tümü":
+            filtered_mgmt_df = filtered_mgmt_df[
+                filtered_mgmt_df["entry_date"].fillna("").astype(str).str.startswith(management_month_filter)
+            ].copy()
         if management_restaurant_filter != "Tümü":
             filtered_mgmt_df = filtered_mgmt_df[filtered_mgmt_df["restoran"] == management_restaurant_filter].copy()
         if management_flow_filter != "Tümü":
@@ -5994,6 +6038,52 @@ def daily_entries_tab(conn: sqlite3.Connection) -> None:
             max_height_px=430,
         )
         st.caption(f"{len(filtered_mgmt_df)} kayıt gösteriliyor.")
+
+        st.markdown("### Filtredeki Kayıtları Toplu Sil")
+        if management_month_filter == "Tümü":
+            st.info("Ay bazlı toplu silme için önce bir ay seç.")
+        elif filtered_mgmt_df.empty:
+            st.info("Seçilen filtrede toplu silinecek günlük puantaj kaydı görünmüyor.")
+        else:
+            filter_summary_parts = [management_month_filter_label]
+            if management_restaurant_filter != "Tümü":
+                filter_summary_parts.append(f"Şube: {management_restaurant_filter}")
+            if management_flow_filter != "Tümü":
+                filter_summary_parts.append(f"Akış: {management_flow_filter}")
+            if management_search.strip():
+                filter_summary_parts.append(f"Arama: {management_search.strip()}")
+            st.warning(
+                f"{' | '.join(filter_summary_parts)} filtresinde {len(filtered_mgmt_df)} günlük puantaj kaydı var. "
+                "Aşağıdaki onayla bu filtreye uyan tüm kayıtları tek hamlede silebilirsin."
+            )
+            confirm_bulk_attendance_delete = st.checkbox(
+                f"{management_month_filter_label} filtresindeki {len(filtered_mgmt_df)} kaydı kalıcı olarak silmeyi onaylıyorum.",
+                key="attendance_bulk_delete_confirm",
+            )
+            if st.button(
+                "Filtredeki Kayıtları Toplu Sil",
+                use_container_width=True,
+                key="attendance_bulk_delete_button",
+                disabled=not can_bulk_delete_attendance or not confirm_bulk_attendance_delete,
+            ):
+                try:
+                    selected_bulk_entry_ids = [int(value) for value in filtered_mgmt_df["id"].tolist()]
+                    affected_person_ids = [
+                        safe_int(value, 0)
+                        for value in filtered_mgmt_df.get("actual_personnel_id", []).tolist()
+                    ]
+                    success_text = bulk_delete_daily_entries_and_sync(
+                        conn,
+                        entry_ids=selected_bulk_entry_ids,
+                        affected_person_ids=affected_person_ids,
+                        sync_personnel_business_rules_for_ids_fn=sync_personnel_business_rules_for_ids,
+                        actor_role=actor_role,
+                    )
+                except Exception as exc:
+                    st.error(f"Toplu puantaj silinemedi: {exc}")
+                else:
+                    st.success(success_text)
+                    st.rerun()
     if not df.empty:
         st.markdown("<div class='ck-attendance-manage-shell'>", unsafe_allow_html=True)
         st.markdown("<div class='ck-attendance-form-kicker'>Kayıt Düzelt / Sil</div>", unsafe_allow_html=True)

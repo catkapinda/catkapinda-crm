@@ -5,6 +5,7 @@ from datetime import date
 from typing import Any, Callable
 
 from repositories.attendance_repository import (
+    delete_daily_entries,
     delete_daily_entry,
     fetch_attendance_restaurant_pricing_rows,
     fetch_attendance_hero_stats,
@@ -350,6 +351,53 @@ def delete_daily_entry_and_sync(
             action_type="delete",
             summary=success_text,
             details={"deleted_actual_id": deleted_actual_id},
+            commit=False,
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return success_text
+
+
+def bulk_delete_daily_entries_and_sync(
+    conn,
+    *,
+    entry_ids: list[int],
+    affected_person_ids: list[int | None],
+    sync_personnel_business_rules_for_ids_fn: Callable[..., None],
+    actor_role: str = "admin",
+) -> str:
+    require_action_access(actor_role, "attendance.bulk_delete")
+    normalized_entry_ids = sorted({int(entry_id) for entry_id in entry_ids if int(entry_id) > 0})
+    if not normalized_entry_ids:
+        raise ValueError("Toplu silme için önce en az bir günlük puantaj kaydı seçmelisin.")
+    normalized_person_ids = sorted(
+        {
+            int(person_id)
+            for person_id in affected_person_ids
+            if person_id is not None and int(person_id) > 0
+        }
+    )
+    try:
+        deleted_count = delete_daily_entries(conn, normalized_entry_ids)
+        sync_personnel_business_rules_for_ids_fn(
+            conn,
+            normalized_person_ids,
+            create_onboarding=False,
+            full_history=True,
+        )
+        success_text = f"{deleted_count} günlük puantaj kaydı toplu silindi."
+        record_audit_event(
+            conn,
+            entity_type="attendance",
+            action_type="bulk_delete",
+            summary=success_text,
+            details={
+                "entry_ids": normalized_entry_ids,
+                "deleted_count": deleted_count,
+                "affected_person_ids": normalized_person_ids,
+            },
             commit=False,
         )
         conn.commit()

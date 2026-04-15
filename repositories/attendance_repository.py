@@ -37,7 +37,8 @@ def fetch_daily_entry_management_df(conn: CompatConnection):
     return fetch_df(
         conn,
         """
-        SELECT d.id, d.entry_date, r.brand || ' - ' || r.branch AS restoran,
+        SELECT d.id, d.entry_date, d.planned_personnel_id, d.actual_personnel_id,
+               r.brand || ' - ' || r.branch AS restoran,
                COALESCE(ap.full_name, pp.full_name, '-') AS calisan_personel,
                CASE
                    WHEN d.planned_personnel_id IS NOT NULL
@@ -131,6 +132,17 @@ def update_daily_entry(conn: CompatConnection, entry_id: int, values: dict[str, 
 
 def delete_daily_entry(conn: CompatConnection, entry_id: int) -> None:
     conn.execute("DELETE FROM daily_entries WHERE id = ?", (entry_id,))
+
+
+def delete_daily_entries(conn: CompatConnection, entry_ids: list[int]) -> int:
+    if not entry_ids:
+        return 0
+    placeholders = ", ".join("?" for _ in entry_ids)
+    cursor = conn.execute(
+        f"DELETE FROM daily_entries WHERE id IN ({placeholders})",
+        tuple(entry_ids),
+    )
+    return max(int(cursor.rowcount or 0), 0)
 
 
 @cache_db_read(ttl=30)
