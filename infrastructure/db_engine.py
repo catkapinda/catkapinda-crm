@@ -76,6 +76,9 @@ class CompatCursor:
     def __iter__(self):
         return iter(self.cursor)
 
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.cursor, name)
+
     def fetchone(self):
         return self.cursor.fetchone()
 
