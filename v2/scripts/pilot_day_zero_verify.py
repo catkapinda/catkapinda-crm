@@ -303,11 +303,18 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         if snippet not in smoke_markdown:
             issues.append(f"pilot-smoke-live.md icinde beklenen smoke satiri eksik: {snippet}")
 
+    actual_table_rows = [
+        line.strip()
+        for line in smoke_markdown.splitlines()
+        if line.strip().startswith("| `")
+    ]
+    expected_table_rows: list[str] = []
     previous_row_index = -1
     for result in smoke_results:
         result_label = "OK" if result.get("ok") else "FAIL"
         detail = str(result.get("detail") or "").replace("\n", " ").replace("|", "\\|")
         expected_row = f"| `{result.get('name')}` | **{result_label}** | {detail} |"
+        expected_table_rows.append(expected_row)
         row_index = smoke_markdown.find(expected_row)
         if row_index == -1:
             issues.append(f"pilot-smoke-live.md icinde beklenen check satiri eksik: {result.get('name')}")
@@ -315,6 +322,9 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         if row_index < previous_row_index:
             issues.append(f"pilot-smoke-live.md icinde check satiri sirasi bozuk: {result.get('name')}")
         previous_row_index = row_index
+    for row in actual_table_rows:
+        if row not in expected_table_rows:
+            issues.append(f"pilot-smoke-live.md icinde beklenmeyen check satiri var: {row}")
 
     return (not issues, issues, smoke_payload)
 

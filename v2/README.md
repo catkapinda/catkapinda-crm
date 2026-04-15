@@ -188,7 +188,7 @@ Pilot day zero kit helper:
   - guarded env dosyalarinin guard json icindeki env bloguyla birebir uyumlu kalip kalmadigini
   - `pilot-launch.md` ve `pilot-cutover.md` paketlerinin dogru link, cutover komutu ve gomulu env bloklarinin butununu tasiyip tasimadigini
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlarinin karar/gate/release satirlarini guncel tutup tutmadigini
-  - `pilot-smoke-live.md` raporunun `pilot-smoke-live.json` ile, metadata, karar satirlari ve check tablosu, satir sirasi dahil, birebir uyumlu kalip kalmadigini
+  - `pilot-smoke-live.md` raporunun `pilot-smoke-live.json` ile, metadata, karar satirlari ve check tablosu, satir sirasi ve beklenmeyen ekstra satirlar dahil, birebir uyumlu kalip kalmadigini
   - `pilot-smoke-live.json` icindeki passed/failed/overall ve failing_checks alanlarinin result listesiyle, sirasi dahil, tutarli kalip kalmadigini
   - `pilot-smoke-live.json` icindeki cekirdek decision alanlarinin (`status`, `headline`, `primary_blocker`, `recommended_next_step`) result listesiyle tutarli kalip kalmadigini
   - smoke dahil kitlerde `pilot-smoke-live.json` icinde result listesinin bos kalip kalmadigini
