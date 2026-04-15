@@ -157,12 +157,17 @@ def _normalize_smoke_results(*, value: object, issues: list[str]) -> tuple[bool,
             issues.append(f"pilot-smoke-live.json icinde results[{index}].detail eksik")
             is_valid = False
             continue
+        detail = raw_result.get("detail")
+        if not isinstance(detail, str):
+            issues.append(f"pilot-smoke-live.json icinde results[{index}].detail string degil")
+            is_valid = False
+            continue
 
         normalized_results.append(
             {
                 "name": name.strip(),
                 "ok": ok,
-                "detail": raw_result.get("detail"),
+                "detail": detail,
             }
         )
 
