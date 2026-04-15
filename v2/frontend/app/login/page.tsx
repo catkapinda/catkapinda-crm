@@ -41,8 +41,10 @@ type LoginPilotStatusPayload = {
     backend_env_exists?: boolean;
     frontend_env_exists?: boolean;
     database_url_present?: boolean;
+    frontend_env_needs_sync?: boolean;
     suggested_frontend_url?: string | null;
     suggested_api_url?: string | null;
+    suggested_frontend_env_command?: string | null;
     suggested_scaffold_command?: string | null;
     suggested_env_write_command?: string | null;
     suggested_current_app_env_command?: string | null;
@@ -348,6 +350,15 @@ function LoginPageContent() {
       return null;
     }
 
+    if (!frontendStatus.proxyConfigured && localSetup?.suggested_frontend_env_command) {
+      return {
+        title: "Frontend proxy env'i henuz hazir degil.",
+        detail:
+          "Login ekrani calisiyor ama backend hedefi frontend tarafinda eksik. Doctor local API adresine gore .env.local dosyasini tek komutla yeniden yazabilir.",
+        command: localSetup.suggested_frontend_env_command,
+      };
+    }
+
     if (!frontendStatus.backendReachable) {
       return {
         title: "Local backend henuz ayakta degil.",
@@ -362,6 +373,15 @@ function LoginPageContent() {
       const nextActions = localSetup.next_actions ?? [];
       const currentAppSeedSources = localSetup.current_app_seed_sources ?? [];
       const currentAppSeedPlaceholders = localSetup.current_app_seed_placeholders ?? [];
+
+      if (localSetup.frontend_env_needs_sync && localSetup.suggested_frontend_env_command) {
+        return {
+          title: "Frontend env'i local hedefle yeniden hizalanmali.",
+          detail:
+            "Doctor su an frontend proxy ayarinin canli local API onerisiyle ayni olmadigini goruyor. .env.local dosyasini tek komutla dogru hedefe cekebiliriz.",
+          command: localSetup.suggested_frontend_env_command,
+        };
+      }
 
       if (localSetup.current_app_seed_detected && !localSetup.backend_env_exists && !localSetup.database_url_present) {
         return {

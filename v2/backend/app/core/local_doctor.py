@@ -12,6 +12,8 @@ BACKEND_DATABASE_KEYS = ("CK_V2_DATABASE_URL", "DATABASE_URL")
 BACKEND_PASSWORD_KEYS = ("CK_V2_DEFAULT_AUTH_PASSWORD", "DEFAULT_AUTH_PASSWORD")
 BACKEND_PHONE_KEYS = ("AUTH_EBRU_PHONE", "AUTH_MERT_PHONE", "AUTH_MUHAMMED_PHONE")
 FRONTEND_PROXY_KEYS = ("CK_V2_INTERNAL_API_BASE_URL", "CK_V2_INTERNAL_API_HOSTPORT")
+FRONTEND_PUBLIC_API_BASE = "/v2-api"
+FRONTEND_SERVICE_NAME = "crmcatkapinda-v2"
 CURRENT_APP_PHONE_SECRET_KEYS = {
     "AUTH_EBRU_PHONE": "ebru_phone",
     "AUTH_MERT_PHONE": "mert_phone",
@@ -233,8 +235,10 @@ def _build_local_doctor_command(
     api_url: str,
     write_backend_env: bool = False,
     write_backend_scaffold: bool = False,
+    write_frontend_env: bool = False,
     sync_from_current_app: bool = False,
     overwrite_backend_env: bool = False,
+    overwrite_frontend_env: bool = False,
     include_database_placeholder: bool = False,
 ) -> str:
     command = ["python", "v2/scripts/local_v2_doctor.py"]
@@ -243,6 +247,8 @@ def _build_local_doctor_command(
         command.append("--write-backend-env")
     if write_backend_scaffold:
         command.append("--write-backend-scaffold")
+    if write_frontend_env:
+        command.append("--write-frontend-env")
     if include_database_placeholder:
         command.extend(["--database-url", "'<postgresql://...>'"])
 
@@ -253,8 +259,23 @@ def _build_local_doctor_command(
         command.append("--sync-from-current-app")
     if overwrite_backend_env:
         command.append("--overwrite-backend-env")
+    if overwrite_frontend_env:
+        command.append("--overwrite-frontend-env")
 
     return " ".join(command)
+
+
+def render_frontend_env(
+    *,
+    api_url: str = LOCAL_API_URL,
+    frontend_service_name: str = FRONTEND_SERVICE_NAME,
+) -> str:
+    lines = [
+        f"NEXT_PUBLIC_V2_API_BASE_URL={FRONTEND_PUBLIC_API_BASE}",
+        f"CK_V2_FRONTEND_SERVICE_NAME={frontend_service_name}",
+        f"CK_V2_INTERNAL_API_BASE_URL={api_url}",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def render_backend_env(
@@ -368,6 +389,27 @@ def write_backend_env_scaffold_file(
     return backend_env_path
 
 
+def write_frontend_env_file(
+    v2_root: Path,
+    *,
+    overwrite: bool = False,
+    api_url: str = LOCAL_API_URL,
+    frontend_service_name: str = FRONTEND_SERVICE_NAME,
+) -> Path:
+    frontend_env_path = v2_root / "frontend" / ".env.local"
+    if frontend_env_path.exists() and not overwrite:
+        raise FileExistsError(f"{frontend_env_path} zaten var. Ezmek icin --overwrite-frontend-env kullan.")
+
+    frontend_env_path.write_text(
+        render_frontend_env(
+            api_url=api_url,
+            frontend_service_name=frontend_service_name,
+        ),
+        encoding="utf-8",
+    )
+    return frontend_env_path
+
+
 def build_local_doctor_report(
     v2_root: Path,
     runtime_env: Mapping[str, str],
@@ -389,6 +431,12 @@ def build_local_doctor_report(
         write_backend_scaffold=True,
         sync_from_current_app=True,
         overwrite_backend_env=backend_env_path.exists(),
+    )
+    suggested_frontend_env_command = _build_local_doctor_command(
+        frontend_url=suggested_frontend_url,
+        api_url=suggested_api_url,
+        write_frontend_env=True,
+        overwrite_frontend_env=frontend_env_path.exists(),
     )
     suggested_env_write_command = _build_local_doctor_command(
         frontend_url=suggested_frontend_url,
@@ -413,6 +461,9 @@ def build_local_doctor_report(
     default_password, password_source = _resolve_value(runtime_env, backend_env_values, BACKEND_PASSWORD_KEYS)
     proxy_target_raw, proxy_source = _resolve_value(runtime_env, frontend_env_values, FRONTEND_PROXY_KEYS)
     proxy_target = _normalize_proxy_target(proxy_target_raw)
+    frontend_env_needs_sync = (not frontend_env_path.exists()) or (
+        bool(proxy_target) and proxy_source == "file:CK_V2_INTERNAL_API_BASE_URL" and proxy_target != suggested_api_url
+    )
 
     missing_phone_keys = [
         key
@@ -443,7 +494,10 @@ def build_local_doctor_report(
 
     if not proxy_target:
         blocking_items.append("Frontend proxy hedefi eksik. CK_V2_INTERNAL_API_BASE_URL veya CK_V2_INTERNAL_API_HOSTPORT bulunamadi.")
-        next_actions.append("frontend/.env.local icinde CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000 kullan.")
+        next_actions.append(f"Frontend .env.local icin `{suggested_frontend_env_command}` kullan.")
+    elif frontend_env_needs_sync:
+        warnings.append("Frontend .env.local icindeki backend hedefi mevcut local API onerisiyle hizali degil.")
+        next_actions.append(f"Frontend env'i guncellemek icin `{suggested_frontend_env_command}` kullan.")
 
     if default_password == "123456":
         warnings.append("CK_V2_DEFAULT_AUTH_PASSWORD hala varsayilan degerde.")
@@ -464,7 +518,7 @@ def build_local_doctor_report(
 
     if not frontend_env_path.exists():
         warnings.append("frontend/.env.local bulunamadi.")
-        next_actions.append("frontend/.env.example dosyasini .env.local olarak kopyalayip proxy hedefini koru.")
+        next_actions.append(f"frontend/.env.local olusturmak icin `{suggested_frontend_env_command}` kullan.")
 
     if len(detected_frontend_urls) > 1:
         warnings.append("Birden fazla local frontend oturumu gorunuyor; port karmasasi olusabilir.")
@@ -487,9 +541,11 @@ def build_local_doctor_report(
         "frontend_proxy_target_present": bool(proxy_target),
         "frontend_proxy_target": proxy_target or None,
         "frontend_proxy_source": proxy_source or None,
+        "frontend_env_needs_sync": frontend_env_needs_sync,
         "detected_frontend_urls": detected_frontend_urls,
         "suggested_frontend_url": suggested_frontend_url,
         "suggested_api_url": suggested_api_url,
+        "suggested_frontend_env_command": suggested_frontend_env_command,
         "suggested_scaffold_command": suggested_scaffold_command,
         "suggested_env_write_command": suggested_env_write_command,
         "suggested_current_app_env_command": suggested_current_app_env_command,

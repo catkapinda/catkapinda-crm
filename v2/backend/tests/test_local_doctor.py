@@ -6,6 +6,7 @@ from app.core.local_doctor import (
     discover_current_app_seed_values,
     write_backend_env_file,
     write_backend_env_scaffold_file,
+    write_frontend_env_file,
 )
 
 
@@ -24,7 +25,9 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path, monkeypatch):
     assert report["ready"] is False
     assert report["database_url_present"] is False
     assert report["frontend_proxy_target"] == "http://127.0.0.1:8000"
+    assert report["frontend_env_needs_sync"] is False
     assert report["suggested_frontend_url"] == "http://127.0.0.1:3000"
+    assert "--write-frontend-env" in report["suggested_frontend_env_command"]
     assert "--frontend-url 'http://127.0.0.1:3000'" in report["suggested_scaffold_command"]
     assert "--api-url 'http://127.0.0.1:8000'" in report["suggested_env_write_command"]
     assert any("Backend veritabani URL'i eksik" in item for item in report["blocking_items"])
@@ -99,6 +102,21 @@ def test_write_backend_env_scaffold_file_can_use_detected_frontend_url(tmp_path:
     assert "CK_V2_PUBLIC_APP_URL=http://127.0.0.1:3001" in content
 
 
+def test_write_frontend_env_file_can_use_suggested_api_url(tmp_path: Path):
+    v2_root = tmp_path / "v2"
+    (v2_root / "frontend").mkdir(parents=True)
+
+    env_path = write_frontend_env_file(
+        v2_root,
+        api_url="http://127.0.0.1:9000",
+    )
+
+    content = env_path.read_text(encoding="utf-8")
+    assert "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api" in content
+    assert "CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:9000" in content
+    assert "CK_V2_FRONTEND_SERVICE_NAME=crmcatkapinda-v2" in content
+
+
 def test_discover_local_frontend_urls_falls_back_to_next_dev_process_ports(monkeypatch):
     class Completed:
         def __init__(self, stdout: str):
@@ -130,10 +148,29 @@ def test_local_doctor_commands_use_detected_frontend_url_when_backend_env_exists
     report = build_local_doctor_report(v2_root, {})
 
     assert report["suggested_frontend_url"] == "http://127.0.0.1:3001"
+    assert "--api-url 'http://127.0.0.1:8000'" in report["suggested_frontend_env_command"]
     assert "--frontend-url 'http://127.0.0.1:3001'" in report["suggested_scaffold_command"]
     assert "--frontend-url 'http://127.0.0.1:3001'" in report["suggested_env_write_command"]
     assert "--overwrite-backend-env" in report["suggested_scaffold_command"]
     assert "--overwrite-backend-env" in report["suggested_env_write_command"]
+
+
+def test_local_doctor_flags_frontend_env_sync_when_proxy_target_differs(tmp_path: Path, monkeypatch):
+    v2_root = tmp_path / "v2"
+    (v2_root / "backend").mkdir(parents=True)
+    (v2_root / "frontend").mkdir(parents=True)
+    (v2_root / "frontend" / ".env.local").write_text(
+        "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api\nCK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:9999\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(local_doctor, "discover_local_frontend_urls", lambda: ["http://127.0.0.1:3001"])
+
+    report = build_local_doctor_report(v2_root, {})
+
+    assert report["frontend_env_needs_sync"] is True
+    assert "--write-frontend-env" in report["suggested_frontend_env_command"]
+    assert any("Frontend env'i guncellemek" in item for item in report["next_actions"])
 
 
 def test_local_doctor_prefers_direct_database_url_command_when_backend_env_exists(tmp_path: Path):

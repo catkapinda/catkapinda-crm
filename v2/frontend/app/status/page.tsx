@@ -161,9 +161,11 @@ type LocalSetupStatus = {
   frontend_proxy_target_present: boolean;
   frontend_proxy_target: string | null;
   frontend_proxy_source: string | null;
+  frontend_env_needs_sync: boolean;
   detected_frontend_urls: string[];
   suggested_frontend_url?: string | null;
   suggested_api_url?: string | null;
+  suggested_frontend_env_command?: string | null;
   suggested_scaffold_command?: string | null;
   suggested_env_write_command?: string | null;
   suggested_current_app_env_command?: string | null;
@@ -539,6 +541,19 @@ export default function StatusPage() {
   const localSetupGuidance = useMemo(() => {
     if (!frontend || frontend.proxyMode !== "explicit_base_url") {
       return null;
+    }
+
+    if ((!frontend.proxyConfigured || localSetup?.frontend_env_needs_sync) && localSetup?.suggested_frontend_env_command) {
+      return {
+        tone: "warning" as const,
+        title: "Frontend local proxy env'i yeniden yazilmali.",
+        detail:
+          "Bu local modda frontend, backend hedefini .env.local icinden okuyor. Doctor su an en dogru local API hedefiyle bu dosyayi tek komutla yeniden uretebilir.",
+        commands: [
+          localSetup.suggested_frontend_env_command,
+          "python v2/scripts/local_v2_doctor.py",
+        ],
+      };
     }
 
     if (!frontend.backendReachable) {

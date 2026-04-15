@@ -18,6 +18,7 @@ from app.core.local_doctor import (  # noqa: E402
     discover_current_app_seed_values,
     write_backend_env_file,
     write_backend_env_scaffold_file,
+    write_frontend_env_file,
 )
 
 
@@ -37,6 +38,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="DATABASE_URL olmadan da backend/.env icin doldurulabilir bir iskelet olustur.",
     )
     parser.add_argument(
+        "--write-frontend-env",
+        action="store_true",
+        help="Local frontend/.env.local dosyasini onerilen API hedefiyle olustur.",
+    )
+    parser.add_argument(
         "--sync-from-current-app",
         action="store_true",
         help="Shell env eksikse mevcut app kaynaklarindaki gercek degerleri fallback olarak kullan.",
@@ -45,6 +51,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--overwrite-backend-env",
         action="store_true",
         help="Var olan backend/.env dosyasini ezmeye izin ver.",
+    )
+    parser.add_argument(
+        "--overwrite-frontend-env",
+        action="store_true",
+        help="Var olan frontend/.env.local dosyasini ezmeye izin ver.",
     )
     parser.add_argument(
         "--frontend-url",
@@ -107,6 +118,8 @@ def _print_human_report(report: dict[str, object], *, wrote_env: str | None = No
         print(f"- Onerilen backend baslatma: {report['suggested_backend_start_command']}")
     if report.get("suggested_scaffold_command"):
         print(f"- Onerilen scaffold komutu: {report['suggested_scaffold_command']}")
+    if report.get("suggested_frontend_env_command"):
+        print(f"- Onerilen frontend env komutu: {report['suggested_frontend_env_command']}")
     if report.get("suggested_env_write_command"):
         print(f"- Onerilen env yazma komutu: {report['suggested_env_write_command']}")
     print(
@@ -197,6 +210,22 @@ def main() -> int:
                     overwrite=args.overwrite_backend_env,
                     current_app_seed_values=current_app_seed_values,
                     frontend_url=resolved_frontend_url,
+                    api_url=resolved_api_url,
+                )
+            )
+        except FileExistsError as exc:
+            if args.json:
+                print(json.dumps({"status": "error", "detail": str(exc)}, ensure_ascii=True, indent=2))
+            else:
+                print(str(exc), file=sys.stderr)
+            return 2
+
+    if args.write_frontend_env:
+        try:
+            wrote_env_path = str(
+                write_frontend_env_file(
+                    V2_ROOT,
+                    overwrite=args.overwrite_frontend_env,
                     api_url=resolved_api_url,
                 )
             )

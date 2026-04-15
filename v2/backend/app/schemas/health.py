@@ -174,9 +174,11 @@ class LocalSetupResponse(BaseModel):
     frontend_proxy_target_present: bool
     frontend_proxy_target: str | None = None
     frontend_proxy_source: str | None = None
+    frontend_env_needs_sync: bool = False
     detected_frontend_urls: list[str] = []
     suggested_frontend_url: str | None = None
     suggested_api_url: str | None = None
+    suggested_frontend_env_command: str | None = None
     suggested_scaffold_command: str | None = None
     suggested_env_write_command: str | None = None
     suggested_current_app_env_command: str | None = None
