@@ -212,8 +212,8 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
     expected_smoke_markdown: str | None = None
     try:
         expected_smoke_markdown = build_smoke_markdown_report(smoke_payload).strip()
-    except KeyError as exc:
-        issues.append(f"pilot-smoke-live.json canonical smoke raporu icin eksik alan iceriyor: {exc}")
+    except (KeyError, TypeError, AttributeError) as exc:
+        issues.append(f"pilot-smoke-live.json canonical smoke raporu icin gecersiz alan yapi iceriyor: {exc}")
     smoke_results = [
         result
         for result in (smoke_payload.get("results") or [])
@@ -240,7 +240,14 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         if smoke_payload.get("overall_ok") is not None and bool(smoke_payload.get("overall_ok")) != (actual_failed_count == 0):
             issues.append("pilot-smoke-live.json icinde overall_ok result listesiyle uyusmuyor")
 
-        decision = smoke_payload.get("decision") or {}
+        raw_decision = smoke_payload.get("decision")
+        if raw_decision is None:
+            decision: dict = {}
+        elif isinstance(raw_decision, dict):
+            decision = raw_decision
+        else:
+            issues.append("pilot-smoke-live.json icinde decision alani dict degil")
+            decision = {}
         failing_checks = decision.get("failing_checks")
         expected_decision = build_smoke_decision_summary(
             {
@@ -272,8 +279,10 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             "Manifest smoke_failed_count degeri ile pilot-smoke-live.json uyusmuyor"
         )
 
+    raw_decision = smoke_payload.get("decision")
+    decision_for_manifest = raw_decision if isinstance(raw_decision, dict) else {}
     expected_next_step = manifest.get("smoke_recommended_next_step")
-    actual_next_step = ((smoke_payload.get("decision") or {}).get("recommended_next_step") or "").strip()
+    actual_next_step = (decision_for_manifest.get("recommended_next_step") or "").strip()
     if expected_next_step and actual_next_step != expected_next_step:
         issues.append(
             "Manifest smoke_recommended_next_step degeri ile pilot-smoke-live.json uyusmuyor"
@@ -310,7 +319,7 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         f"- Passed: `{derived_passed_count}`",
         f"- Failed: `{smoke_payload.get('failed_count')}`",
     ]
-    decision = smoke_payload.get("decision") or {}
+    decision = decision_for_manifest
     if decision.get("status") is not None:
         expected_markdown_snippets.append(f"- Status: `{decision.get('status')}`")
     if decision.get("headline"):
