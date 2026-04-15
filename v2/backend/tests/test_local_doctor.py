@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from app.core import local_doctor
 from app.core.local_doctor import build_local_doctor_report, discover_current_app_seed_values, write_backend_env_file
 
 
@@ -18,6 +19,20 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path):
     assert report["database_url_present"] is False
     assert report["frontend_proxy_target"] == "http://127.0.0.1:8000"
     assert any("Backend veritabani URL'i eksik" in item for item in report["blocking_items"])
+
+
+def test_local_doctor_reports_detected_frontend_urls_and_duplicate_warning(tmp_path: Path, monkeypatch):
+    v2_root = tmp_path / "v2"
+    (v2_root / "backend").mkdir(parents=True)
+    (v2_root / "frontend").mkdir(parents=True)
+
+    monkeypatch.setattr(local_doctor, "discover_local_frontend_urls", lambda: ["http://127.0.0.1:3000", "http://127.0.0.1:3001"])
+
+    report = build_local_doctor_report(v2_root, {})
+
+    assert report["detected_frontend_urls"] == ["http://127.0.0.1:3000", "http://127.0.0.1:3001"]
+    assert any("Birden fazla local frontend oturumu" in item for item in report["warnings"])
+    assert any("tek aktif frontend URL" in item for item in report["next_actions"])
 
 
 def test_write_backend_env_file_uses_runtime_database_url(tmp_path: Path):

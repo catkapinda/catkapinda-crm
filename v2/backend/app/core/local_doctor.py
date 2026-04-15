@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import json
 from pathlib import Path
 import tomllib
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 BACKEND_DATABASE_KEYS = ("CK_V2_DATABASE_URL", "DATABASE_URL")
 BACKEND_PASSWORD_KEYS = ("CK_V2_DEFAULT_AUTH_PASSWORD", "DEFAULT_AUTH_PASSWORD")
@@ -16,6 +19,7 @@ CURRENT_APP_PHONE_SECRET_KEYS = {
 
 LOCAL_FRONTEND_URL = "http://127.0.0.1:3000"
 LOCAL_API_URL = "http://127.0.0.1:8000"
+LOCAL_FRONTEND_CANDIDATE_PORTS = (3000, 3001, 3002)
 
 
 def _strip_wrapping_quotes(value: str) -> str:
@@ -160,6 +164,26 @@ def _normalize_proxy_target(raw_target: str) -> str:
     return f"http://{target.rstrip('/')}"
 
 
+def discover_local_frontend_urls(ports: tuple[int, ...] = LOCAL_FRONTEND_CANDIDATE_PORTS) -> list[str]:
+    detected_urls: list[str] = []
+
+    for port in ports:
+        base_url = f"http://127.0.0.1:{port}"
+        request = Request(f"{base_url}/api/health", headers={"Accept": "application/json"})
+        try:
+            with urlopen(request, timeout=0.35) as response:  # noqa: S310 - local doctor only probes localhost
+                if response.status != 200:
+                    continue
+                payload = json.loads(response.read().decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError):
+            continue
+
+        if isinstance(payload, dict) and payload.get("status") == "ok":
+            detected_urls.append(base_url)
+
+    return detected_urls
+
+
 def render_backend_env(
     runtime_env: Mapping[str, str],
     *,
@@ -230,6 +254,7 @@ def build_local_doctor_report(
     frontend_env_values = load_env_file(frontend_env_path)
     current_app_seed = discover_current_app_seed_values(current_app_root)
     current_app_values = current_app_seed["values"]
+    detected_frontend_urls = discover_local_frontend_urls()
 
     database_url, database_source = _resolve_value(runtime_env, backend_env_values, BACKEND_DATABASE_KEYS)
     if not database_url and current_app_values.get("database_url"):
@@ -287,6 +312,10 @@ def build_local_doctor_report(
         warnings.append("frontend/.env.local bulunamadi.")
         next_actions.append("frontend/.env.example dosyasini .env.local olarak kopyalayip proxy hedefini koru.")
 
+    if len(detected_frontend_urls) > 1:
+        warnings.append("Birden fazla local frontend oturumu gorunuyor; port karmasasi olusabilir.")
+        next_actions.append("Eski `next dev` sureclerini kapatip tek aktif frontend URL birak.")
+
     if not next_actions:
         next_actions.append("Local v2 omurgasi hazir. Backend'i 8000'de, frontend'i 3000/3001'de ayaga kaldirip login akisini test et.")
 
@@ -304,6 +333,7 @@ def build_local_doctor_report(
         "frontend_proxy_target_present": bool(proxy_target),
         "frontend_proxy_target": proxy_target or None,
         "frontend_proxy_source": proxy_source or None,
+        "detected_frontend_urls": detected_frontend_urls,
         "current_app_seed_detected": bool(current_app_values),
         "current_app_seed_sources": current_app_seed["sources_used"],
         "current_app_seed_placeholders": current_app_seed["placeholders_detected"],

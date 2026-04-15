@@ -161,6 +161,7 @@ type LocalSetupStatus = {
   frontend_proxy_target_present: boolean;
   frontend_proxy_target: string | null;
   frontend_proxy_source: string | null;
+  detected_frontend_urls: string[];
   current_app_seed_detected: boolean;
   current_app_seed_sources: string[];
   current_app_seed_placeholders: string[];
@@ -872,6 +873,14 @@ export default function StatusPage() {
                     Frontend .env.local: {localSetup.frontend_env_exists ? "var" : "yok"}
                     <br />
                     Current app seed: {localSetup.current_app_seed_detected ? "bulundu" : "bulunmadi"}
+                  </div>
+                </article>
+                <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Canli Local Frontend</div>
+                  <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
+                    {localSetup.detected_frontend_urls.length
+                      ? localSetup.detected_frontend_urls.join(" | ")
+                      : "Doctor su an cevap veren bir local frontend URL'i goremedi."}
                   </div>
                 </article>
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
