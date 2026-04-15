@@ -36,6 +36,18 @@ type LoginPilotStatusPayload = {
     required_missing_env_vars?: string[];
     next_actions?: string[];
   } | null;
+  localSetup?: {
+    ready?: boolean;
+    backend_env_exists?: boolean;
+    frontend_env_exists?: boolean;
+    database_url_present?: boolean;
+    current_app_seed_detected?: boolean;
+    current_app_seed_sources?: string[];
+    current_app_seed_placeholders?: string[];
+    blocking_items?: string[];
+    warnings?: string[];
+    next_actions?: string[];
+  } | null;
 };
 
 type LocalLoginHint = {
@@ -43,6 +55,14 @@ type LocalLoginHint = {
   detail: string;
   command?: string;
 };
+
+function extractInlineCommand(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  const match = value.match(/`([^`]+)`/);
+  return match?.[1] ?? null;
+}
 
 function LoginPageContent() {
   const router = useRouter();
@@ -317,6 +337,7 @@ function LoginPageContent() {
     }
 
     const frontendStatus = localPilotStatus?.frontend;
+    const localSetup = localPilotStatus?.localSetup;
     if (!frontendStatus) {
       return null;
     }
@@ -328,6 +349,54 @@ function LoginPageContent() {
           "Frontend 127.0.0.1:8000 hedefini bulamiyor. Bu durumda giris ve sifre kurtarma calismaz; demo icin preview, gercek deneme icin backend gerekir.",
         command: "cd v2/backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
       };
+    }
+
+    if (localSetup) {
+      const blockingItems = localSetup.blocking_items ?? [];
+      const nextActions = localSetup.next_actions ?? [];
+      const currentAppSeedSources = localSetup.current_app_seed_sources ?? [];
+      const currentAppSeedPlaceholders = localSetup.current_app_seed_placeholders ?? [];
+
+      if (localSetup.current_app_seed_detected && !localSetup.backend_env_exists && !localSetup.database_url_present) {
+        return {
+          title: "Mevcut uygulamada seed bulundu, v2 backend env'i henuz yazilmadi.",
+          detail: `Doctor current app tarafinda kullanilabilir kaynak gordu${currentAppSeedSources.length ? `: ${currentAppSeedSources.join(", ")}` : ""}. Tek komutla backend/.env ureterek gercek login akisini acabiliriz.`,
+          command: "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app",
+        };
+      }
+
+      if (!localSetup.database_url_present) {
+        const placeholderDetail = currentAppSeedPlaceholders.length
+          ? ` Simdilik sadece placeholder/template degerler goruluyor: ${currentAppSeedPlaceholders.join(", ")}.`
+          : "";
+        return {
+          title: "Backend ayakta ama veritabani baglantisi henuz hazir degil.",
+          detail:
+            (blockingItems[0] ||
+              "API cevap veriyor fakat gercek giris icin gerekli DATABASE_URL henuz bulunmuyor.") +
+            placeholderDetail,
+          command: "python v2/scripts/local_v2_doctor.py",
+        };
+      }
+
+      if (!localSetup.backend_env_exists && localSetup.database_url_present) {
+        return {
+          title: "Veritabani baglantisi goruluyor ama backend/.env kalici degil.",
+          detail:
+            "Shell env ile ilerleyebiliriz ama local backend yeniden baslatildiginda ayni ayari yeniden yapmak gerekir. Kalici kurulum icin doctor bunu tek komutla yazabilir.",
+          command: localSetup.current_app_seed_detected
+            ? "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app"
+            : "python v2/scripts/local_v2_doctor.py --write-backend-env",
+        };
+      }
+
+      if (blockingItems.length > 0) {
+        return {
+          title: "Local kurulumda hala bir blokaj var.",
+          detail: blockingItems[0],
+          command: extractInlineCommand(nextActions[0]) || "python v2/scripts/local_v2_doctor.py",
+        };
+      }
     }
 
     const requiredMissing = localPilotStatus?.backend?.required_missing_env_vars ?? [];
