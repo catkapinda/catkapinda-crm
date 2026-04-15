@@ -737,8 +737,8 @@ export default function StatusPage() {
             Cat Kapında CRM v2 pilot kontrol ekranı
           </h1>
           <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
-            Bu sayfa yeni sistemin gerçekten ayağa kalkıp kalkmadığını tek bakışta gösterir. Frontend proxy,
-            backend servis ve veritabanı erişimi burada birlikte kontrol edilir.
+            Bu sayfa yeni sistemin gerçekten ayağa kalkıp kalkmadığını tek bakışta gösterir. Ön yüz geçiş katmanı,
+            arka uç servis ve veritabanı erişimi burada birlikte kontrol edilir.
           </p>
           <div
             style={{
@@ -749,10 +749,10 @@ export default function StatusPage() {
             }}
           >
             <Link href="/login" style={actionButtonStyle("primary")}>
-              Pilotu Ac
+              Pilotu Aç
             </Link>
             <Link href="/" style={actionButtonStyle()}>
-              Dashboard'a Don
+              Genel Bakışa Dön
             </Link>
             <button
               type="button"
@@ -762,7 +762,7 @@ export default function StatusPage() {
                 cursor: "pointer",
               }}
             >
-              Simdi Yenile
+              Şimdi Yenile
             </button>
             <button
               type="button"
@@ -772,7 +772,7 @@ export default function StatusPage() {
                 cursor: "pointer",
               }}
             >
-              {copiedKey === "pilot-summary" ? "Durum Kopyalandi" : "Durum Ozetini Kopyala"}
+              {copiedKey === "pilot-summary" ? "Durum Kopyalandı" : "Durum Özetini Kopyala"}
             </button>
             <div
               style={{
@@ -794,7 +794,7 @@ export default function StatusPage() {
           }}
         >
           <div>
-            <h2 style={{ margin: 0, fontSize: "1.15rem" }}>Pilot Hazirlik Ozeti</h2>
+            <h2 style={{ margin: 0, fontSize: "1.15rem" }}>Pilot Hazırlık Özeti</h2>
             <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
               Tek bakışta ne kadar yol aldığımızı ve ilk açılış için hangi halkaların tamam olduğunu buradan görebiliriz.
             </p>
@@ -836,7 +836,7 @@ export default function StatusPage() {
               <strong style={{ fontSize: "1.6rem", color: "#16274a" }}>
                 {readinessSummary.readyRolloutSteps}/{readinessSummary.totalRolloutSteps || 0}
               </strong>
-              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Hazır açılış adimlari</div>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Hazır açılış adımları</div>
             </article>
             <article
               style={{
@@ -848,11 +848,11 @@ export default function StatusPage() {
                 gap: "8px",
               }}
             >
-              <div style={{ color: "#5f7294", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase" }}>Backend Env</div>
+              <div style={{ color: "#5f7294", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase" }}>Arka Uç Ortamı</div>
               <strong style={{ fontSize: "1.6rem", color: "#16274a" }}>
                 {readinessSummary.configuredRequiredBackendEnv}/{readinessSummary.totalRequiredBackendEnv || 0}
               </strong>
-              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Zorunlu backend ayari</div>
+              <div style={{ color: "#5f7294", lineHeight: 1.6 }}>Zorunlu arka uç ayarı</div>
             </article>
             <article
               style={{
@@ -891,10 +891,10 @@ export default function StatusPage() {
           >
             <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
               <div style={tonePill(localSetupGuidance.tone === "warning" ? "warning" : "info")}>
-                Local Kurulum Rehberi
+                Yerel Kurulum Rehberi
               </div>
               <div style={{ color: "#5f7294", fontWeight: 700, fontSize: "0.92rem" }}>
-                Localhost + explicit base URL modu
+                Localhost + açık taban adresi kipi
               </div>
             </div>
             <div>
@@ -923,7 +923,7 @@ export default function StatusPage() {
                   }}
                 >
                   <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>
-                    Adim {index + 1}
+                    Adım {index + 1}
                   </div>
                   <code
                     style={{
@@ -948,7 +948,7 @@ export default function StatusPage() {
                       width: "fit-content",
                     }}
                   >
-                    {copiedKey === `local-setup-${index}` ? "Komut Kopyalandi" : "Komutu Kopyala"}
+                    {copiedKey === `local-setup-${index}` ? "Komut Kopyalandı" : "Komutu Kopyala"}
                   </button>
                 </article>
               ))}
@@ -962,7 +962,7 @@ export default function StatusPage() {
                 }}
               >
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
-                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Doctor Ozeti</div>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Doctor Özeti</div>
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
                     Karar: {localSetup.decision_headline || "belirsiz"}
                     <br />
@@ -970,22 +970,22 @@ export default function StatusPage() {
                     <br />
                     Frontend .env.local: {localSetup.frontend_env_exists ? "var" : "yok"}
                     <br />
-                    Frontend env sync: {localSetup.frontend_env_needs_sync ? "gerekiyor" : "hazır"}
+                    Ön yüz ortam eşitlemesi: {localSetup.frontend_env_needs_sync ? "gerekiyor" : "hazır"}
                     <br />
-                    Backend restart: {localBackendEnvRestartNeeded ? "gerekiyor" : "gerekli görünmuyor"}
+                    Arka uç yeniden başlatma: {localBackendEnvRestartNeeded ? "gerekiyor" : "gerekli görünmüyor"}
                     <br />
                     Runtime DB: {localSetup.runtime_database_url_present ? "var" : "yok"}
                     <br />
                     Backend .env DB: {localSetup.backend_env_database_url_present ? "var" : "yok"}
                     <br />
-                    Local setup kaynagi:{" "}
+                    Yerel kurulum kaynağı:{" "}
                     {localSetupSource === "frontend_local_doctor"
-                      ? "frontend fallback"
+                      ? "ön yüz yedeği"
                       : localSetupSource === "backend"
-                        ? "backend endpoint"
+                        ? "arka uç uç noktası"
                         : "bilinmiyor"}
                     <br />
-                    Current app seed: {localSetup.current_app_seed_detected ? "bulundu" : "bulunmadi"}
+                    Mevcut uygulama kaynağı: {localSetup.current_app_seed_detected ? "bulundu" : "bulunmadı"}
                   </div>
                 </article>
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
@@ -993,13 +993,13 @@ export default function StatusPage() {
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
                     {localSetup.detected_frontend_urls.length
                       ? localSetup.detected_frontend_urls.join(" | ")
-                      : "Doctor su an cevap veren bir local frontend URL'i goremedi."}
+                      : "Doctor şu an cevap veren bir yerel ön yüz adresi göremedi."}
                   </div>
                 </article>
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
-                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Onerilen Local Hedef</div>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Önerilen Yerel Hedef</div>
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
-                    Frontend: {localSetup.suggested_frontend_url || "bilinmiyor"}
+                    Ön yüz: {localSetup.suggested_frontend_url || "bilinmiyor"}
                     <br />
                     API: {localSetup.suggested_api_url || "bilinmiyor"}
                   </div>
@@ -1013,9 +1013,9 @@ export default function StatusPage() {
                   </div>
                 </article>
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
-                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Ilk Hamle</div>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>İlk Hamle</div>
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
-                    {localSetup.decision_detail || "Doctor ayri bir ilk hamle notu uretmedi."}
+                    {localSetup.decision_detail || "Doctor ayrı bir ilk hamle notu üretmedi."}
                   </div>
                   {localSetup.decision_command ? (
                     <button
@@ -1028,7 +1028,7 @@ export default function StatusPage() {
                         width: "fit-content",
                       }}
                     >
-                      {copiedKey === "doctor-decision-command" ? "Komut Kopyalandi" : "Ilk Komutu Kopyala"}
+                      {copiedKey === "doctor-decision-command" ? "Komut Kopyalandı" : "İlk Komutu Kopyala"}
                     </button>
                   ) : null}
                 </article>
@@ -1036,7 +1036,7 @@ export default function StatusPage() {
                   <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
                     <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Yerel Gerçek Giriş</div>
                     <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
-                      Backend su an local sqlite fallback ile ayakta. PostgreSQL olmadan da gerçek e-posta/şifre
+                      Arka uç şu an yerel sqlite desteğiyle ayakta. PostgreSQL olmadan da gerçek e-posta/şifre
                       akışını burada deneyebiliriz.
                     </div>
                     <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
@@ -1328,11 +1328,11 @@ export default function StatusPage() {
                     gap: "6px",
                   }}
                 >
-                  <strong>Frontend Build</strong>
+                  <strong>Ön Yüz Derlemesi</strong>
                   <div style={{ color: "#35507d", fontSize: "1rem", fontWeight: 800 }}>
-                    {releaseAlignment.frontendRelease ?? "henüz görünmuyor"}
+                    {releaseAlignment.frontendRelease ?? "henüz görünmüyor"}
                   </div>
-                  <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{frontend?.service ?? "Frontend servisi bekleniyor"}</div>
+                  <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{frontend?.service ?? "Ön yüz servisi bekleniyor"}</div>
                 </article>
                 <article
                   style={{
@@ -1344,19 +1344,19 @@ export default function StatusPage() {
                     gap: "6px",
                   }}
                 >
-                  <strong>Backend Build</strong>
+                  <strong>Arka Uç Derlemesi</strong>
                   <div style={{ color: "#35507d", fontSize: "1rem", fontWeight: 800 }}>
-                    {releaseAlignment.backendRelease ?? "henüz görünmuyor"}
+                    {releaseAlignment.backendRelease ?? "henüz görünmüyor"}
                   </div>
-                  <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{backend?.service ?? "Backend servisi bekleniyor"}</div>
+                  <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{backend?.service ?? "Arka uç servisi bekleniyor"}</div>
                 </article>
               </div>
               <p style={{ margin: 0, color: releaseAlignment.mismatch ? "#b42318" : "#5f7294", lineHeight: 1.7 }}>
                 {releaseAlignment.mismatch
-                  ? "Frontend ve backend farklı deploy görünüyor. Pilotta ilerlemeden önce iki servisin de aynı committe oldugunu doğrulayalım."
+                  ? "Ön yüz ve arka uç farklı dağıtım sürümlerinde görünüyor. Pilotta ilerlemeden önce iki servisin de aynı kayıtta olduğunu doğrulayalım."
                   : releaseAlignment.bothPresent
                     ? "İki servis aynı sürüm etiketini gösteriyor; bu, pilot açılışında doğru derleme ile ilerlediğimizi anlamayı kolaylaştırır."
-                    : "Release etiketi env tarafindan henüz gelmiyor olabilir. Pilotta Render commit bilgisi gelince bu alan otomatik dolacak."}
+                    : "Sürüm etiketi ortam değişkenlerinden henüz gelmiyor olabilir. Pilotta Render kayıt bilgisi gelince bu alan otomatik dolacak."}
               </p>
             </section>
 
@@ -1378,8 +1378,8 @@ export default function StatusPage() {
                   {backend.cutover.phase === "ready_for_cutover"
                     ? "Cutover Hazır"
                     : backend.cutover.phase === "ready_for_pilot"
-                      ? "Pilot Acilabilir"
-                      : "Önce Blokajlar Kapanmali"}
+                    ? "Pilot Açılabilir"
+                      : "Önce Blokajlar Kapanmalı"}
                 </div>
                 <div
                   style={{
@@ -1439,16 +1439,16 @@ export default function StatusPage() {
                       alignContent: "start",
                     }}
                   >
-                    <div style={statusPill(backend.cutover.core_checks_ready)}>Core Checks</div>
-                    <div style={statusPill(backend.cutover.auth_ready)}>Auth Hazır</div>
+                    <div style={statusPill(backend.cutover.core_checks_ready)}>Temel Kontroller Hazır</div>
+                    <div style={statusPill(backend.cutover.auth_ready)}>Kimlik Doğrulama Hazır</div>
                     <div style={statusPill(backend.cutover.modules_ready_count === backend.cutover.modules_total_count)}>
-                      Modul {backend.cutover.modules_ready_count}/{backend.cutover.modules_total_count}
+                      Modül {backend.cutover.modules_ready_count}/{backend.cutover.modules_total_count}
                     </div>
                     <Link href="/login" style={actionButtonStyle("primary")}>
-                      Login Ekranini Ac
+                      Giriş Ekranını Aç
                     </Link>
                     <Link href="/attendance" style={actionButtonStyle()}>
-                      Ilk Pilot Akisini Test Et
+                      İlk Pilot Akışını Test Et
                     </Link>
                   </div>
                 </div>
@@ -1469,7 +1469,7 @@ export default function StatusPage() {
                         : "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(255,255,255,0.98))",
                 }}
               >
-                <div style={tonePill(backend.decision.tone)}>Bugunun Karari</div>
+                <div style={tonePill(backend.decision.tone)}>Bugünün Kararı</div>
                 <h2 style={{ margin: 0, fontSize: "1.45rem" }}>{backend.decision.title}</h2>
                 <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "74ch" }}>
                   {backend.decision.detail}
@@ -1491,18 +1491,18 @@ export default function StatusPage() {
                   background: "linear-gradient(135deg, rgba(15, 95, 215, 0.05), rgba(255,255,255,0.98))",
                 }}
               >
-                <div style={statusPill(true)}>{overallOk ? "Pilot Kullanima Hazır" : "Temel Yüzey Hazır"}</div>
+                <div style={statusPill(true)}>{overallOk ? "Pilot Kullanıma Hazır" : "Temel Yüzey Hazır"}</div>
                 <h2 style={{ margin: 0, fontSize: "1.45rem" }}>
-                  {overallOk ? "Yeni sisteme kontrollü geçiş baslayabilir." : "Pilot çekirdek olarak hazır, son ayarlar tamamlanabilir."}
+                  {overallOk ? "Yeni sisteme kontrollü geçiş başlayabilir." : "Pilot çekirdek olarak hazır, son ayarlar tamamlanabilir."}
                 </h2>
                 <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
                   {overallOk
-                    ? "Frontend, backend ve temel auth kontrolleri su anda olumlu görünüyor. Ofis ekibi önce login ekranindan girip puantaj, personel ve kesinti akışlarını yeni sistemde test etmeye baslayabilir."
-                    : "Frontend ve backend çekirdek olarak ayakta. SMS gibi opsiyonel ayarlar tamamlandikca pilot tam hazır seviyesine cikacak."}
+                    ? "Ön yüz, arka uç ve temel kimlik doğrulama kontrolleri şu anda olumlu görünüyor. Ofis ekibi önce giriş ekranından girip puantaj, personel ve kesinti akışlarını yeni sistemde test etmeye başlayabilir."
+                    : "Ön yüz ve arka uç çekirdek olarak ayakta. SMS gibi isteğe bağlı ayarlar tamamlandıkça pilot tam hazır seviyesine çıkacak."}
                 </p>
                 <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                   <Link href="/login" style={actionButtonStyle("primary")}>
-                    Login Ekranini Ac
+                    Giriş Ekranını Aç
                   </Link>
                   <Link href="/attendance" style={actionButtonStyle()}>
                     Puantaja Git
@@ -1523,8 +1523,8 @@ export default function StatusPage() {
                 }}
               >
                 <div style={{ display: "grid", gap: "6px" }}>
-                  <div style={statusPill(Boolean(frontend?.backendReachable))}>Pilot Baglantilari</div>
-                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Deploy sonrası bakacagin yerler</h2>
+                  <div style={statusPill(Boolean(frontend?.backendReachable))}>Pilot Bağlantıları</div>
+                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Yayın sonrası bakacağın yerler</h2>
                   <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
                     Pilot açıldığında ekip bu linklerden ilerleyebilir. Aynı kartta smoke komutları da hazır.
                   </p>
@@ -1559,7 +1559,7 @@ export default function StatusPage() {
                           padding: "10px 12px",
                         }}
                       >
-                        {copiedKey === `pilot-link-${link.label}` ? "Kopyalandi" : "Linki Kopyala"}
+                        {copiedKey === `pilot-link-${link.label}` ? "Kopyalandı" : "Bağlantıyı Kopyala"}
                       </button>
                     </div>
                   ))}
@@ -1581,9 +1581,9 @@ export default function StatusPage() {
                       }}
                     >
                       <div>
-                        <h3 style={{ margin: 0, fontSize: "1rem" }}>Acilis Komut Paketi</h3>
+                        <h3 style={{ margin: 0, fontSize: "1rem" }}>Açılış Komut Paketi</h3>
                         <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                          Pilot gunu hangi komutu hangi sirayla kosacagimizi tek blokta goruyoruz.
+                          Pilot günü hangi komutu hangi sırayla çalıştıracağımızı tek blokta görüyoruz.
                         </p>
                       </div>
                       <div
@@ -1624,7 +1624,7 @@ export default function StatusPage() {
                                   padding: "10px 12px",
                                 }}
                               >
-                                {copiedKey === `command-pack-${entry.title}` ? "Kopyalandi" : "Komutu Kopyala"}
+                                {copiedKey === `command-pack-${entry.title}` ? "Kopyalandı" : "Komutu Kopyala"}
                               </button>
                             </div>
                             <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{entry.detail}</div>
@@ -1675,7 +1675,7 @@ export default function StatusPage() {
                             padding: "10px 12px",
                           }}
                         >
-                          {copiedKey === `smoke-${command.label}` ? "Kopyalandi" : "Komutu Kopyala"}
+                          {copiedKey === `smoke-${command.label}` ? "Kopyalandı" : "Komutu Kopyala"}
                         </button>
                       </div>
                       <code
@@ -1701,7 +1701,7 @@ export default function StatusPage() {
                     }}
                   >
                     <div>
-                      <h3 style={{ margin: 0, fontSize: "1rem" }}>Env Helper Komutlari</h3>
+                      <h3 style={{ margin: 0, fontSize: "1rem" }}>Ortam Yardımcı Komutları</h3>
                       <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
                         Render env bloklarini tek komutta üretmek için bu yardımcıları kullanabiliriz.
                       </p>
@@ -1744,7 +1744,7 @@ export default function StatusPage() {
                                 padding: "10px 12px",
                               }}
                             >
-                              {copiedKey === `helper-${command.label}` ? "Kopyalandi" : "Komutu Kopyala"}
+                              {copiedKey === `helper-${command.label}` ? "Kopyalandı" : "Komutu Kopyala"}
                             </button>
                           </div>
                           <code
@@ -1764,7 +1764,7 @@ export default function StatusPage() {
                     {packetHelperCommands.length ? (
                       <div style={{ display: "grid", gap: "14px" }}>
                         <div>
-                          <h3 style={{ margin: 0, fontSize: "1rem" }}>Acilis Paketi Komutlari</h3>
+                          <h3 style={{ margin: 0, fontSize: "1rem" }}>Açılış Paketi Komutları</h3>
                           <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
                             Ekip için paylaşılabilir markdown açılış paketi üretmek istediğimizde bu komutları kullanabiliriz.
                           </p>
@@ -1807,7 +1807,7 @@ export default function StatusPage() {
                                     padding: "10px 12px",
                                   }}
                                 >
-                                  {copiedKey === `helper-${command.label}` ? "Kopyalandi" : "Komutu Kopyala"}
+                                  {copiedKey === `helper-${command.label}` ? "Kopyalandı" : "Komutu Kopyala"}
                                 </button>
                               </div>
                               <code
@@ -1829,7 +1829,7 @@ export default function StatusPage() {
                     {quickCheckCommands.length ? (
                       <div style={{ display: "grid", gap: "14px" }}>
                         <div>
-                          <h3 style={{ margin: 0, fontSize: "1rem" }}>Hızlı Kontrol Komutlari</h3>
+                          <h3 style={{ margin: 0, fontSize: "1rem" }}>Hızlı Kontrol Komutları</h3>
                           <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
                             Full smoke koşturmadan önce servislerin temel sağlık yanıtlarını hızlıca doğrulamak için kullanabiliriz.
                           </p>
@@ -1872,7 +1872,7 @@ export default function StatusPage() {
                                     padding: "10px 12px",
                                   }}
                                 >
-                                  {copiedKey === `helper-${command.label}` ? "Kopyalandi" : "Komutu Kopyala"}
+                                  {copiedKey === `helper-${command.label}` ? "Kopyalandı" : "Komutu Kopyala"}
                                 </button>
                               </div>
                               <code
@@ -1976,9 +1976,9 @@ export default function StatusPage() {
               >
                 <div style={{ display: "grid", gap: "6px" }}>
                   <div style={statusPill(true)}>Render Servisleri</div>
-                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Pilotta acacagimiz servisler</h2>
+                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Pilotta açacağımız servisler</h2>
                   <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
-                    Render uzerinde gorecegin servis adlari ve public health adresleri burada tek yerde duruyor.
+                    Render üzerinde göreceğin servis adları ve açık sağlık adresleri burada tek yerde duruyor.
                   </p>
                 </div>
 
@@ -2002,14 +2002,14 @@ export default function StatusPage() {
                       }}
                     >
                       <div style={statusPill(service.service_type === "frontend")}>
-                        {service.service_type === "frontend" ? "Frontend Servisi" : "Backend Servisi"}
+                        {service.service_type === "frontend" ? "Ön Yüz Servisi" : "Arka Uç Servisi"}
                       </div>
                       <strong style={{ fontSize: "1rem" }}>{service.name}</strong>
                       <div style={{ color: "#5f7294", fontSize: "0.92rem", lineHeight: 1.7 }}>
-                        Public URL: {service.public_url}
+                        Açık Adres: {service.public_url}
                       </div>
                       <div style={{ color: "#5f7294", fontSize: "0.92rem", lineHeight: 1.7 }}>
-                        Health: {service.health_path}
+                        Sağlık Adresi: {service.health_path}
                       </div>
                       <div style={{ display: "grid", gap: "8px" }}>
                         {service.env_vars.map((entry) => (
@@ -2059,10 +2059,10 @@ export default function StatusPage() {
                 }}
               >
                 <div style={{ display: "grid", gap: "6px" }}>
-                  <div style={statusPill(true)}>Kopyala-Yapistir Env Planı</div>
+                  <div style={statusPill(true)}>Kopyala Yapıştır Ortam Planı</div>
                   <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Render'a girilecek örnek env blokları</h2>
                   <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
-                    Pilotu açarken servis bazlı environment değerlerini buradan referans alabilirsin. V2 servisleri yanında eski Streamlit servisine geçiş banneri/redirect vermek için gereken env bloku da burada. Gizli alanları kendi gerçek değerlerinle doldurman yeterli.
+                    Pilotu açarken servis bazlı ortam değişkenlerini buradan referans alabilirsin. V2 servisleri yanında eski Streamlit servisine geçiş bandı veya yönlendirme vermek için gereken ortam bloğu da burada. Gizli alanları kendi gerçek değerlerinle doldurman yeterli.
                   </p>
                 </div>
 
@@ -2104,7 +2104,7 @@ export default function StatusPage() {
                             padding: "10px 12px",
                           }}
                         >
-                          {copiedKey === `env-${snippet.service_name}` ? "Kopyalandi" : "Env Kopyala"}
+                          {copiedKey === `env-${snippet.service_name}` ? "Kopyalandı" : "Ortam Bloğunu Kopyala"}
                         </button>
                       </div>
                       <code
@@ -2133,35 +2133,35 @@ export default function StatusPage() {
             >
               <article style={cardStyle()}>
                 <div style={{ color: "#5f7294", fontSize: "0.82rem", textTransform: "uppercase", fontWeight: 800 }}>
-                  Frontend
+                  Ön Yüz
                 </div>
-                <h2 style={{ margin: "12px 0 8px", fontSize: "1.4rem" }}>{frontend?.service ?? "Erisilemiyor"}</h2>
+                <h2 style={{ margin: "12px 0 8px", fontSize: "1.4rem" }}>{frontend?.service ?? "Erişilemiyor"}</h2>
                 <div style={statusPill(Boolean(frontend?.proxyConfigured) && Boolean(frontend?.backendReachable))}>
                   {frontend?.proxyConfigured && frontend?.backendReachable
-                    ? "Frontend Hazır"
+                    ? "Ön Yüz Hazır"
                     : frontend?.proxyConfigured
-                      ? "Backend Erişimi Eksik"
-                      : "Proxy Eksik"}
+                      ? "Arka Uç Erişimi Eksik"
+                      : "Geçiş Ayarı Eksik"}
                 </div>
                 {frontend ? (
                   <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
                     <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.6 }}>{frontend.detail}</p>
                     {frontend.releaseLabel ? (
                       <div style={{ color: "#35507d", fontSize: "0.92rem", fontWeight: 700 }}>
-                        Build: {frontend.releaseLabel}
+                        Derleme: {frontend.releaseLabel}
                       </div>
                     ) : null}
                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                      <div style={statusPill(Boolean(frontend.proxyConfigured))}>Proxy</div>
+                      <div style={statusPill(Boolean(frontend.proxyConfigured))}>Geçiş Katmanı</div>
                       <div style={statusPill(frontend.proxyMode !== "missing")}>
                         {frontend.proxyMode === "explicit_base_url"
-                          ? "Yerel Base URL"
+                          ? "Yerel Taban Adresi"
                           : frontend.proxyMode === "render_hostport"
-                            ? "Render Hostport"
-                            : "Proxy Modu Eksik"}
+                            ? "Render İç Adresi"
+                            : "Geçiş Kipi Eksik"}
                       </div>
                       <div style={statusPill(Boolean(frontend.backendReachable))}>
-                        Backend {frontend.backendStatus !== "unknown" ? `(${frontend.backendStatus})` : ""}
+                        Arka Uç {frontend.backendStatus !== "unknown" ? `(${frontend.backendStatus})` : ""}
                       </div>
                     </div>
                     {frontend.sourceEnvKey ? (
@@ -2176,11 +2176,11 @@ export default function StatusPage() {
 
               <article style={cardStyle()}>
                 <div style={{ color: "#5f7294", fontSize: "0.82rem", textTransform: "uppercase", fontWeight: 800 }}>
-                  Backend ve Auth
+                  Arka Uç ve Kimlik Doğrulama
                 </div>
-                <h2 style={{ margin: "12px 0 8px", fontSize: "1.4rem" }}>{backend?.service ?? "Erisilemiyor"}</h2>
+                <h2 style={{ margin: "12px 0 8px", fontSize: "1.4rem" }}>{backend?.service ?? "Erişilemiyor"}</h2>
                   <div style={statusPill(Boolean(backend?.core_ready))}>
-                  {backend?.status === "ok" ? "Backend Hazır" : backend?.core_ready ? "Backend Temel Olarak Hazır" : "Backend Kontrol Gerekli"}
+                  {backend?.status === "ok" ? "Arka Uç Hazır" : backend?.core_ready ? "Arka Uç Temel Olarak Hazır" : "Arka Uç Kontrol Gerekli"}
                 </div>
                 {backend ? (
                   <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
@@ -2189,7 +2189,7 @@ export default function StatusPage() {
                     </p>
                     {backend.release_label ? (
                       <div style={{ color: "#35507d", fontSize: "0.92rem", fontWeight: 700 }}>
-                        Build: {backend.release_label}
+                        Derleme: {backend.release_label}
                       </div>
                     ) : null}
                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -2366,7 +2366,7 @@ export default function StatusPage() {
                   }}
                 >
                   <div>
-                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Ilk Pilot Test Akışı</h2>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>İlk Pilot Test Akışı</h2>
                     <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
                       Ofisin yeni sisteme ilk girişte izleyeceği önerilen kısa rota.
                     </p>
@@ -2426,7 +2426,7 @@ export default function StatusPage() {
                               padding: "10px 12px",
                             }}
                           >
-                            {copiedKey === `pilot-flow-${step.title}` ? "Kopyalandi" : "Adimi Kopyala"}
+                            {copiedKey === `pilot-flow-${step.title}` ? "Kopyalandı" : "Adımı Kopyala"}
                           </button>
                         </div>
                       </div>
@@ -2497,9 +2497,9 @@ export default function StatusPage() {
                   }}
                 >
                   <div>
-                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Test Senaryolari</h2>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Test Senaryoları</h2>
                     <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                      Pilotu açtığımız ilk gün ekip bunları sırasıyla denerse yeni sistemin ana operasyon akışları hızlı sekilde doğrulanır.
+                      Pilotu açtığımız ilk gün ekip bunları sırasıyla denerse yeni sistemin ana operasyon akışları hızlı şekilde doğrulanır.
                     </p>
                   </div>
                   <div style={statusPill(pilotScenarios.length > 0)}>
@@ -2561,7 +2561,7 @@ export default function StatusPage() {
                               onClick={() =>
                                 void copyText(
                                   `pilot-scenario-${scenario.title}`,
-                                  `${scenario.title}\n${scenario.module}\n${scenario.detail}\nBasari isareti: ${scenario.success_hint}\n${scenario.href}`,
+                                  `${scenario.title}\n${scenario.module}\n${scenario.detail}\nBaşarı işareti: ${scenario.success_hint}\n${scenario.href}`,
                                 )
                               }
                               style={{
@@ -2570,7 +2570,7 @@ export default function StatusPage() {
                                 padding: "10px 12px",
                               }}
                             >
-                              {copiedKey === `pilot-scenario-${scenario.title}` ? "Kopyalandi" : "Senaryoyu Kopyala"}
+                              {copiedKey === `pilot-scenario-${scenario.title}` ? "Kopyalandı" : "Senaryoyu Kopyala"}
                             </button>
                           </div>
                         </div>

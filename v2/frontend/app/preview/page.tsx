@@ -407,7 +407,7 @@ export default function PreviewOverviewPage() {
               textTransform: "uppercase",
             }}
           >
-            v2 Preview Atlas
+            v2 Ön İzleme Atlası
           </div>
 
           <div
@@ -440,8 +440,8 @@ export default function PreviewOverviewPage() {
                   lineHeight: 1.8,
                 }}
               >
-                Bu preview hattı artık sadece birkaç mock kart göstermiyor. Operasyon, ticari yüzeyler,
-                backoffice ve admin katmanı tek kabukta gezilebilir durumda. Buradan herhangi bir modüle
+                Bu ön izleme hattı artık sadece birkaç örnek kart göstermiyor. Operasyon, ticari yüzeyler,
+                ofis yönetimi ve yönetici katmanı tek kabukta gezilebilir durumda. Buradan herhangi bir modüle
                 girip tasarım dilini gerçek kullanım hissiyle inceleyebilirsin.
               </p>
             </div>
@@ -465,7 +465,7 @@ export default function PreviewOverviewPage() {
                   color: "rgba(255,247,234,0.72)",
                 }}
               >
-                Preview Durumu
+                Ön İzleme Durumu
               </div>
               <div
                 style={{
@@ -485,7 +485,7 @@ export default function PreviewOverviewPage() {
               >
                 {dashboardLoading
                   ? "Dashboard verisi yükleniyor."
-                  : `${dashboard?.modules.length ?? 0} modül ve ${dashboard?.recent_activity.length ?? 0} canlı sinyal preview akışına bağlı.`}
+                  : `${dashboard?.modules.length ?? 0} modül ve ${dashboard?.recent_activity.length ?? 0} canlı sinyal ön izleme akışına bağlı.`}
               </div>
             </div>
           </div>
@@ -498,8 +498,8 @@ export default function PreviewOverviewPage() {
             }}
           >
             {heroMetric("Aktif Şube", String(dashboard?.hero.active_restaurants ?? 0), "Saha tarafında görünen restoran yoğunluğu")}
-            {heroMetric("Aktif Kadro", String(dashboard?.hero.active_personnel ?? 0), "Preview üzerinde dağılmış operasyon ekibi")}
-            {heroMetric("Aylık Puantaj", String(dashboard?.hero.month_attendance_entries ?? 0), "Attendance akışındaki Nisan kayıtları")}
+            {heroMetric("Aktif Kadro", String(dashboard?.hero.active_personnel ?? 0), "Ön izleme üzerinde dağılmış operasyon ekibi")}
+            {heroMetric("Aylık Puantaj", String(dashboard?.hero.month_attendance_entries ?? 0), "Puantaj akışındaki nisan kayıtları")}
             {heroMetric("Aylık Kesinti", String(dashboard?.hero.month_deduction_entries ?? 0), "Bordro ve kesinti yüzeyine bağlı kayıtlar")}
           </div>
         </section>
@@ -515,7 +515,7 @@ export default function PreviewOverviewPage() {
               lineHeight: 1.7,
             }}
           >
-            Preview dashboard verisi şu anda alınamadı. Bu sayfa veri geldiğinde modülleri akış bazlı kümeler halinde gösterecek.
+            Ön izleme panosunun verisi şu anda alınamadı. Bu sayfa veri geldiğinde modülleri akış bazlı kümeler halinde gösterecek.
           </section>
         ) : null}
 
@@ -599,7 +599,7 @@ export default function PreviewOverviewPage() {
                     Anlık Sinyaller
                   </div>
                   <h2 style={{ ...serifStyle, margin: 0, fontSize: "2rem", lineHeight: 0.96 }}>
-                    Preview içinde dolaşırken nereden başlamalı?
+                    Ön izleme içinde dolaşırken nereden başlamalı?
                   </h2>
                 </div>
                 <div
@@ -637,10 +637,10 @@ export default function PreviewOverviewPage() {
                     Kontrol Katmanı
                   </div>
                   <h3 style={{ ...serifStyle, margin: 0, fontSize: "1.7rem", lineHeight: 0.96 }}>
-                    Admin ve profil yüzeyleri
+                    Yönetici ve profil yüzeyleri
                   </h3>
                   <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
-                    Denetim akışı ve hesap yüzeyi de preview hattının parçası. Böylece yalnızca saha değil, yönetim dilini de aynı estetikte görebilirsin.
+                    Denetim akışı ve hesap yüzeyi de ön izleme hattının parçası. Böylece yalnızca saha değil, yönetim dilini de aynı estetikte görebilirsin.
                   </p>
                 </div>
                 <div style={{ display: "grid", gap: "12px" }}>
@@ -660,7 +660,7 @@ export default function PreviewOverviewPage() {
                       Profil
                     </div>
                     <div style={{ color: "var(--muted)", lineHeight: 1.65 }}>
-                      Şifre akışı, kimlik hissi ve kişisel ayar yüzeyini preview içinde ayrıca inceleyebilirsin.
+                      Şifre akışı, kimlik hissi ve kişisel ayar yüzeyini ön izleme içinde ayrıca inceleyebilirsin.
                     </div>
                   </Link>
                 </div>

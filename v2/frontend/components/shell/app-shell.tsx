@@ -366,7 +366,7 @@ export function AppShell({
               textTransform: "uppercase",
             }}
           >
-            {previewMode ? "v2 Preview" : "v2 Pilot"}
+            {previewMode ? "v2 Ön İzleme" : "v2 Pilot"}
           </div>
           <div
             style={{
@@ -380,7 +380,7 @@ export function AppShell({
                 '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
             }}
           >
-            Cat Kapinda CRM
+            Cat Kapında CRM
           </div>
           <div
             style={{
@@ -390,7 +390,7 @@ export function AppShell({
               lineHeight: 1.6,
             }}
           >
-            Operasyonun günlük nabzi, karar panelleri ve saha akışı tek kabukta.
+            Operasyonun günlük nabzı, karar panelleri ve saha akışı tek kabukta.
           </div>
         </div>
         {previewMode ? (
@@ -407,8 +407,8 @@ export function AppShell({
               gap: "10px",
             }}
           >
-            <div style={{ fontWeight: 800, color: "#fff1d8" }}>Demo modundasin.</div>
-            <div>Bu hat gerçek backend yerine ornek veriyle calisir; kayıtlar kalıcı degildir.</div>
+            <div style={{ fontWeight: 800, color: "#fff1d8" }}>Tanıtım kipindesin.</div>
+            <div>Bu hat gerçek arka uç yerine örnek veriyle çalışır; kayıtlar kalıcı değildir.</div>
             <Link
               href="/login"
               style={{
@@ -425,7 +425,7 @@ export function AppShell({
                 textDecoration: "none",
               }}
             >
-              Gerçek Girise Don
+              Gerçek Girişe Dön
             </Link>
           </div>
         ) : null}
@@ -638,7 +638,7 @@ export function AppShell({
                       boxShadow: "var(--shadow-deep)",
                     }}
                   >
-                    <span>Ön İzleme Merkezi'a Don</span>
+                    <span>Ön İzleme Merkezine Dön</span>
                     <span
                       style={{
                         width: "28px",
@@ -667,7 +667,7 @@ export function AppShell({
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Ilgili Gecisler
+                      İlgili Geçişler
                     </div>
                     <div
                       style={{
@@ -734,7 +734,7 @@ export function AppShell({
                     fontWeight: 800,
                   }}
                 >
-                  Gerçek backend bağlı değil
+                  Gerçek arka uç bağlı değil
                 </span>
                 <span
                   style={{
@@ -747,7 +747,7 @@ export function AppShell({
                     fontWeight: 800,
                   }}
                 >
-                  Ornek veri ile gezilebilir demo
+                  Örnek verilerle gezilebilir tanıtım
                 </span>
                 <span
                   style={{

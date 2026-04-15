@@ -395,10 +395,10 @@ function LoginPageContent() {
     setError("");
     setNotice(
       localReadyLogin?.defaultPasswordIsDefault && account.defaultPasswordActive
-        ? "Yerel sqlite hesabı forma dolduruldu. Bu hesapta varsayılan local şifre su an 123456."
+        ? "Yerel sqlite hesabı forma dolduruldu. Bu hesapta varsayılan yerel şifre şu an 123456."
         : account.mustChangePassword
           ? "Yerel sqlite hesabı forma dolduruldu. Bu hesap geçici şifre bekliyor; güncel şifreyi biliyorsan elle girmen gerekecek."
-          : "Yerel sqlite hesabı forma dolduruldu. Bu hesapta varsayılan şifre artık aktif görünmuyor; en son belirlenen şifreyi kullanman gerekecek.",
+          : "Yerel sqlite hesabı forma dolduruldu. Bu hesapta varsayılan şifre artık aktif görünmüyor; en son belirlenen şifreyi kullanman gerekecek.",
     );
   }
 
@@ -415,27 +415,27 @@ function LoginPageContent() {
 
     if (localSetup?.frontend_env_needs_sync && localSetup.suggested_frontend_env_command) {
       return {
-        title: "Frontend env'i local hedefle yeniden hizalanmali.",
+        title: "Ön yüz ortam dosyası yerel hedefle yeniden hizalanmalı.",
         detail:
-          "Doctor su an frontend proxy ayarinin canlı local API onerisiyle aynı olmadigini görüyor. .env.local dosyasini tek komutla doğru hedefe cekebiliriz.",
+          "Doctor şu an ön yüz geçiş ayarının canlı yerel API önerisiyle aynı olmadığını görüyor. `.env.local` dosyasını tek komutla doğru hedefe çekebiliriz.",
         command: localSetup.suggested_frontend_env_command,
       };
     }
 
     if (!frontendStatus.proxyConfigured && localSetup?.suggested_frontend_env_command) {
       return {
-        title: "Frontend proxy env'i henüz hazır değil.",
+        title: "Ön yüz geçiş ortamı henüz hazır değil.",
         detail:
-          "Login ekrani çalışıyor ama backend hedefi frontend tarafında eksik. Doctor local API adresine gore .env.local dosyasini tek komutla yeniden yazabilir.",
+          "Giriş ekranı çalışıyor ama arka uç hedefi ön yüz tarafında eksik. Doctor yerel API adresine göre `.env.local` dosyasını tek komutla yeniden yazabilir.",
         command: localSetup.suggested_frontend_env_command,
       };
     }
 
     if (!frontendStatus.backendReachable) {
       return {
-        title: "Local backend henüz ayakta değil.",
+        title: "Yerel arka uç henüz ayakta değil.",
         detail:
-          "Frontend 127.0.0.1:8000 hedefini bulamiyor. Bu durumda giriş ve şifre kurtarma calismaz; demo için preview, gerçek deneme için backend gerekir.",
+          "Ön yüz 127.0.0.1:8000 hedefini bulamıyor. Bu durumda giriş ve şifre kurtarma çalışmaz; tanıtım için ön izleme, gerçek deneme için arka uç gerekir.",
         command: localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
       };
     }
@@ -451,15 +451,15 @@ function LoginPageContent() {
       );
       const setupSourceDetail =
         localPilotStatus?.localSetupSource === "frontend_local_doctor"
-          ? " Teşhis frontend tarafında taze doctor fallback'i ile üretildi; backend'i yeniden başlatınca endpoint de aynı seviyeye gelir."
+          ? " Teşhis ön yüz tarafında taze doctor yedeğiyle üretildi; arka ucu yeniden başlatınca uç nokta da aynı seviyeye gelir."
           : "";
 
       if (backendNeedsRestartForEnv) {
         return {
-          title: "Backend env yazildi ama çalışan surec yeniden baslatilmali.",
+          title: "Arka uç ortamı yazıldı ama çalışan süreç yeniden başlatılmalı.",
           detail:
             (localSetup.backend_restart_reason ||
-              "Doctor backend/.env tarafında veritabanı bağlantısını görüyor; buna rağmen çalışan backend hala DATABASE_URL eksiği dönüyor. Bu genelde env yazıldıktan sonra uvicorn süreci yeniden başlatılmadığında olur.") +
+              "Doctor `backend/.env` tarafında veritabanı bağlantısını görüyor; buna rağmen çalışan arka uç hâlâ `DATABASE_URL` eksiği dönüyor. Bu genelde ortam yazıldıktan sonra uvicorn süreci yeniden başlatılmadığında olur.") +
             setupSourceDetail,
           command:
             localSetup.suggested_backend_restart_command ||
@@ -471,12 +471,12 @@ function LoginPageContent() {
       if (localSetup.decision_headline) {
         const targetDetail =
           localSetup.suggested_frontend_url || localSetup.suggested_api_url
-            ? ` Doctor hedefleri frontend=${localSetup.suggested_frontend_url || "bilinmiyor"} ve api=${localSetup.suggested_api_url || "bilinmiyor"} olarak görüyor.`
+            ? ` Doctor hedefleri ön yüz=${localSetup.suggested_frontend_url || "bilinmiyor"} ve api=${localSetup.suggested_api_url || "bilinmiyor"} olarak görüyor.`
             : "";
         return {
           title: localSetup.decision_headline,
           detail:
-            (localSetup.decision_detail || blockingItems[0] || "Local kurulumda doctor tarafında yeni bir aksiyon onerisi var.") +
+            (localSetup.decision_detail || blockingItems[0] || "Yerel kurulumda doctor tarafında yeni bir eylem önerisi var.") +
             targetDetail +
             setupSourceDetail,
           command:
@@ -490,7 +490,7 @@ function LoginPageContent() {
 
       if (blockingItems.length > 0) {
         return {
-          title: "Local kurulumda hala bir blokaj var.",
+          title: "Yerel kurulumda hâlâ bir blokaj var.",
           detail: `${blockingItems[0]}${setupSourceDetail}`,
           command: extractInlineCommand(nextActions[0]) || "python v2/scripts/local_v2_doctor.py",
         };
@@ -504,17 +504,17 @@ function LoginPageContent() {
 
     if (databaseMissing) {
       return {
-        title: "Backend ayakta ama veritabanı env'i eksik.",
+        title: "Arka uç ayakta ama veritabanı ortamı eksik.",
         detail:
-          "API cevap veriyor fakat DATABASE_URL olmadığı için gerçek giriş tamamlanamaz. Doctor komutuyla eksik env'i görüp backend/.env dosyasini hazırlayabiliriz.",
+          "API cevap veriyor fakat `DATABASE_URL` olmadığı için gerçek giriş tamamlanamaz. Doctor komutuyla eksik ortamı görüp `backend/.env` dosyasını hazırlayabiliriz.",
         command: "python v2/scripts/local_v2_doctor.py",
       };
     }
 
     if (frontendStatus.pilotHttpStatus && !localPilotStatus?.backend) {
       return {
-        title: "Backend ayakta ama readiness katmanı henüz temiz değil.",
-        detail: frontendStatus.pilotErrorDetail || frontendStatus.detail || "Pilot status tam dönemedi.",
+        title: "Arka uç ayakta ama hazırlık katmanı henüz temiz değil.",
+        detail: frontendStatus.pilotErrorDetail || frontendStatus.detail || "Pilot durumu tam dönemedi.",
       };
     }
 
@@ -686,7 +686,7 @@ function LoginPageContent() {
                 }}
               >
                 {authPanelMode === "recovery"
-                  ? "Hesabina güvenli sekilde geri don."
+                  ? "Hesabına güvenli şekilde geri dön."
                   : "Yeni operasyon paneline giriş."}
               </h1>
               <p
@@ -699,8 +699,8 @@ function LoginPageContent() {
                 }}
               >
                 {authPanelMode === "recovery"
-                  ? "Sifreni unuttuysan ekibi beklemeden kimligini telefon koduyla doğrulayıp hesabına geri dönebilirsin. Kurtarma akışı artık bu masanın ilk seviye yollarından biri."
-                  : "Bu yüzeyi yalnızca kimlik doğrulama için değil, yeni sistemin karakterini ilk andan hissettirmek için kurduk. Şifreyle giriş, SMS akışı ve yönlendirme tek editorial yüzeyde toplanmış durumda."}
+                  ? "Şifreni unuttuysan ekibi beklemeden kimliğini telefon koduyla doğrulayıp hesabına geri dönebilirsin. Kurtarma akışı artık bu masanın ilk seviye yollarından biri."
+                  : "Bu yüzeyi yalnızca kimlik doğrulama için değil, yeni sistemin karakterini ilk andan hissettirmek için kurduk. Şifreyle giriş, SMS akışı ve yönlendirme tek bir yüzeyde toplanmış durumda."}
               </p>
             </div>
 
@@ -743,15 +743,15 @@ function LoginPageContent() {
               [
                 authPanelMode === "recovery" ? "Kurtarma Hattı" : "Giriş Hattı",
                 authPanelMode === "recovery"
-                  ? "SMS doğrulama ve yeni şifre akışı aynı kontrol masasi içinde."
-                  : "Şifre ve SMS akışı aynı kontrol masasi içinde.",
+                  ? "SMS doğrulama ve yeni şifre akışı aynı kontrol masası içinde."
+                  : "Şifre ve SMS akışı aynı kontrol masası içinde.",
               ],
-              ["Yetki", "Rol bazli yönlendirme giriş sonrası otomatik isliyor."],
+              ["Yetki", "Rol bazlı yönlendirme giriş sonrası otomatik işliyor."],
               [
-                authPanelMode === "recovery" ? "Guvenlik Akis" : "Pilot Akis",
+                authPanelMode === "recovery" ? "Güvenlik Akışı" : "Pilot Akışı",
                 authPanelMode === "recovery"
-                  ? "Kimligini doğrulayan ekip aynı panelde yeni şifre belirleyip girişe dönebiliyor."
-                  : "Giriş yapan ekip ilgili modullere temiz sekilde dusuyor.",
+                  ? "Kimliğini doğrulayan ekip aynı panelde yeni şifre belirleyip girişe dönebiliyor."
+                  : "Giriş yapan ekip ilgili modüllere temiz şekilde düşüyor.",
               ],
             ].map(([title, text]) => (
               <article
@@ -801,7 +801,7 @@ function LoginPageContent() {
                   letterSpacing: "0.08em",
                 }}
               >
-                Ilk bakışta
+                İlk bakışta
               </div>
               <div
                 style={{
@@ -813,12 +813,12 @@ function LoginPageContent() {
               >
                 {authPanelMode === "recovery"
                   ? "Telefonla doğrula, şifreni yenile, kaldığın yerden devam et."
-                  : "Hızlı giriş, temiz yönlendirme, daha az surtunme."}
+                  : "Hızlı giriş, temiz yönlendirme, daha az sürtünme."}
               </div>
               <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.7 }}>
                 {authPanelMode === "recovery"
-                  ? "Kurtarma akışı artık yardımcı bir dip link değil; giriş deneyiminin doğal bir parçası. Kullanıcı doğrudan doğrulama alanina inip hesabini toparlayabiliyor."
-                  : "Login sonrası ekranlar artık beyazlayıp yeniden yükleniyormuş gibi his vermesin diye yapinin geri kalanini da aynı dille taşıyoruz."}
+                  ? "Kurtarma akışı artık yardımcı bir dip bağlantı değil; giriş deneyiminin doğal bir parçası. Kullanıcı doğrudan doğrulama alanına inip hesabını toparlayabiliyor."
+                  : "Giriş sonrası ekranlar artık beyazlayıp yeniden yükleniyormuş gibi his vermesin diye yapının geri kalanını da aynı dille taşıyoruz."}
               </div>
             </article>
 
@@ -837,12 +837,12 @@ function LoginPageContent() {
                 Hazır Modüller
               </div>
               <div style={{ ...serifTitleStyle, fontSize: "2.4rem", lineHeight: 0.9, fontWeight: 700 }}>
-                {authPanelMode === "recovery" ? "3 Adim" : "10+"}
+                {authPanelMode === "recovery" ? "3 Adım" : "10+"}
               </div>
               <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.6, fontSize: "0.92rem" }}>
                 {authPanelMode === "recovery"
                   ? "Telefon, kod ve yeni şifre. Kurtarma akışı net ve tek hatta toplanıyor."
-                  : "Puantaj, personel, kesintiler, raporlar ve daha fazlasi aynı pilot omurgasinda."}
+                  : "Puantaj, personel, kesintiler, raporlar ve daha fazlası aynı pilot omurgasında."}
               </div>
             </article>
           </div>
@@ -894,14 +894,14 @@ function LoginPageContent() {
                         onClick={() => void copyLocalHintCommand(localLoginHint.command!)}
                         style={infoBannerButtonStyle}
                       >
-                        {copiedLocalHintCommand ? "Komut Kopyalandi" : "Ilk Komutu Kopyala"}
+                        {copiedLocalHintCommand ? "Komut Kopyalandı" : "İlk Komutu Kopyala"}
                       </button>
                     ) : null}
                     <Link href="/status" style={infoBannerLinkStyle}>
                       Pilot Durumu
                     </Link>
                     <Link href="/preview" style={secondaryInfoBannerLinkStyle}>
-                      Preview&apos;e Git
+                      Ön İzlemeye Git
                     </Link>
                   </div>
                 </div>
@@ -910,13 +910,13 @@ function LoginPageContent() {
                   <div style={{ display: "grid", gap: "5px" }}>
                     <strong>Bu ekran gerçek v2 giriş yüzeyi.</strong>
                     <span>
-                      Backend bağlı değilse giriş ve şifre kurtarma burada calismaz. Tasarimi gezmek
-                      için preview modunu kullanabilirsin.
+                      Arka uç bağlı değilse giriş ve şifre kurtarma burada çalışmaz. Tasarımı gezmek
+                      için ön izleme kipini kullanabilirsin.
                     </span>
                   </div>
                   {runningOnLocalhost ? (
                     <Link href="/preview" style={infoBannerLinkStyle}>
-                      Preview&apos;e Git
+                      Ön İzlemeye Git
                     </Link>
                   ) : null}
                 </div>
@@ -935,8 +935,8 @@ function LoginPageContent() {
                   <div style={{ display: "grid", gap: "4px" }}>
                     <strong style={{ color: "#0f3f91" }}>Yerelde gerçek giriş hazır.</strong>
                     <span style={{ color: "#4f6283", lineHeight: 1.65 }}>
-                      Bu makinede backend local sqlite fallback ile çalışıyor. PostgreSQL olmadan da e-posta/şifre
-                      akışını deneyebiliriz; sadece bu mod local gelistirme için geçerli.
+                      Bu makinede arka uç yerel sqlite desteğiyle çalışıyor. PostgreSQL olmadan da e-posta/şifre
+                      akışını deneyebiliriz; sadece bu kip yerel geliştirme için geçerli.
                     </span>
                   </div>
                   <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -985,9 +985,9 @@ function LoginPageContent() {
                   <div style={{ color: "#4f6283", lineHeight: 1.65 }}>
                     {localReadyLogin.defaultPasswordIsDefault &&
                     localReadyLogin.accounts.some((account) => account.defaultPasswordActive)
-                      ? "Sadece 'Varsayılan şifre aktif' yazan hesaplarda local şifre 123456 olarak kullanılabilir."
+                        ? "Sadece 'Varsayılan şifre aktif' yazan hesaplarda yerel şifre 123456 olarak kullanılabilir."
                       : localReadyLogin.defaultPasswordPresent
-                        ? "Local hesapların şifresi bu makinede değişmiş olabilir; kart sadece e-postayı doldurur, şifreyi güncel haliyle elle girmek gerekir."
+                        ? "Yerel hesapların şifresi bu makinede değişmiş olabilir; kart sadece e-postayı doldurur, şifreyi güncel haliyle elle girmek gerekir."
                         : "Şifre tanımlı görünmüyor; giriş denemesi öncesi backend/.env tarafını kontrol et."}
                   </div>
                 </div>
@@ -1009,7 +1009,7 @@ function LoginPageContent() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Sifreni gir"
+                  placeholder="Şifreni gir"
                   style={fieldStyle}
                 />
               </label>
@@ -1025,7 +1025,7 @@ function LoginPageContent() {
                   }}
                 >
                   <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                    Sifreni mi unuttun?
+                    Şifreni mi unuttun?
                   </span>
                   <button
                     type="button"
@@ -1129,7 +1129,7 @@ function LoginPageContent() {
                     fontWeight: 700,
                   }}
                 >
-                  Sifreni unuttuysan buradan güvenli sekilde geri don.
+                  Şifreni unuttuysan buradan güvenli şekilde geri dön.
                 </h2>
                 <p style={cardBodyStyle}>
                   Kayıtlı telefon numarana tek kullanımlık kod gönderelim. Kimligini
@@ -1281,7 +1281,7 @@ function LoginPageContent() {
                     }}
                   >
                     {authPanelMode === "recovery"
-                      ? "Bu blok artık sadece bilgi vermiyor; telefon, kod ve yeni şifre adimlarini doğrudan aynı yüzeyde topluyor."
+                      ? "Bu blok artık sadece bilgi vermiyor; telefon, kod ve yeni şifre adımlarını doğrudan aynı yüzeyde topluyor."
                       : "Şifre kurtarma modunu actiginda ek bir asagi arama gerekmeden aynı kart içinde tüm aksiyonu goreceksin."}
                   </div>
                 </div>
@@ -1365,7 +1365,7 @@ function LoginPageContent() {
                             !recoveryConfirmPassword.trim(),
                         )}
                       >
-                        {smsSubmitting ? "Kod Dogrulaniyor..." : "Kimligimi Dogrula ve Sifreyi Yenile"}
+                        {smsSubmitting ? "Kod Doğrulanıyor..." : "Kimliğimi Doğrula ve Şifreyi Yenile"}
                       </button>
                     </form>
                   </>
@@ -1409,7 +1409,7 @@ function LoginPageContent() {
 
                     {authModesUnavailable && runningOnLocalhost ? (
                       <Link href="/preview" style={recoveryFallbackLinkStyle}>
-                        Bu local oturumda demo yüzeyini ac
+                        Bu yerel oturumda tanıtım yüzeyini aç
                       </Link>
                     ) : null}
                   </>
@@ -1589,7 +1589,7 @@ function LoginPageFallback() {
             fontWeight: 700,
           }}
         >
-          Giriş masasi hazırlanıyor.
+          Giriş masası hazırlanıyor.
         </div>
         <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
           Oturum modlari ve yönlendirme bilgileri yükleniyor. Hazır oldugunda seni doğrudan yeni
