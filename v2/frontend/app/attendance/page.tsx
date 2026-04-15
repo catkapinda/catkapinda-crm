@@ -91,6 +91,97 @@ function metricCard(label: string, value: string, note: string) {
   );
 }
 
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  }).format(value || 0);
+}
+
+function narrativeCard({
+  eyebrow,
+  title,
+  body,
+  tone = "paper",
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  tone?: "paper" | "ink" | "accent";
+}) {
+  const palette =
+    tone === "ink"
+      ? {
+          background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+          border: "1px solid rgba(255,255,255,0.08)",
+          title: "#fff7ea",
+          body: "rgba(255,247,234,0.72)",
+          eyebrow: "rgba(255,247,234,0.62)",
+        }
+      : tone === "accent"
+        ? {
+            background: "linear-gradient(180deg, rgba(185,116,41,0.12), rgba(255,248,236,0.98))",
+            border: "1px solid rgba(185,116,41,0.18)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--accent-strong)",
+          }
+        : {
+            background: "rgba(255,255,255,0.84)",
+            border: "1px solid var(--line)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--muted)",
+          };
+
+  return (
+    <article
+      style={{
+        ...paperCardStyle,
+        padding: "18px 18px 16px",
+        background: palette.background,
+        border: palette.border,
+        boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      <div
+        style={{
+          color: palette.eyebrow,
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifTitleStyle,
+          color: palette.title,
+          fontSize: "1.45rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: palette.body,
+          fontSize: "0.93rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
+      </div>
+    </article>
+  );
+}
+
 function workspaceFrame(
   kicker: string,
   title: string,
@@ -211,6 +302,46 @@ export default function AttendancePage() {
       .sort((left, right) => right[1] - left[1])
       .slice(0, 4);
   }, [dashboard?.recent_entries]);
+
+  const decisionDeck = useMemo(() => {
+    if (!dashboard) {
+      return [];
+    }
+
+    const todayRatio =
+      dashboard.summary.month_entries > 0
+        ? (dashboard.summary.today_entries / dashboard.summary.month_entries) * 100
+        : 0;
+    const topEntry = dashboard.recent_entries[0] ?? null;
+    const dominantMode = modeBreakdown[0] ?? null;
+    const todayPressure =
+      dashboard.summary.today_entries >= Math.max(6, Math.ceil(dashboard.summary.active_restaurants * 1.5));
+
+    return [
+      {
+        eyebrow: "Gunluk Nabiz",
+        title: todayPressure ? "Bugun giris yogunlugu yuksek." : "Bugun akis kontrollu gorunuyor.",
+        body: `${dashboard.summary.today_entries} kayit bugun acildi. Bu, aylik toplam hacmin %${todayRatio.toFixed(1)} kadarina denk geliyor ve saha ritmini hizli okumayi sagliyor.`,
+        tone: todayPressure ? "accent" : "ink",
+      },
+      {
+        eyebrow: "En Sicak Hareket",
+        title: topEntry ? topEntry.restaurant : "Son hareket sinyali henuz yok.",
+        body: topEntry
+          ? `${topEntry.entry_mode} akisi ile ${topEntry.employee_name || "atanmamis personel"} uzerinden ${topEntry.worked_hours.toFixed(1)} saat ve ${topEntry.package_count.toFixed(0)} paket gorunuyor. ${formatCurrency(topEntry.monthly_invoice_amount)} fatura etkisi tasiyor.`
+          : "Yeni puantaj hareketleri geldikce dikkat isteyen vardiya karti burada onde duracak.",
+        tone: "paper",
+      },
+      {
+        eyebrow: "Akis Imzasi",
+        title: dominantMode ? `${dominantMode[0]} onde gidiyor.` : "Akis imzasi olusmadi.",
+        body: dominantMode
+          ? `Son hareketlerde ${dominantMode[0]} modu ${dominantMode[1]} kayitla one cikiyor. Bu, bugunku saha davranisinin hangi hatta yogunlastigini gosteriyor.`
+          : "Son hareket dagilimi geldikce burada ekip icin daha net bir akis resmi olusacak.",
+        tone: "paper",
+      },
+    ] as const;
+  }, [dashboard, modeBreakdown]);
 
   return (
     <AppShell activeItem="Puantaj">
@@ -373,7 +504,11 @@ export default function AttendancePage() {
                   fontWeight: 700,
                 }}
               >
-                Form, liste ve son hareketler birbirini tamamlıyor.
+                {dashboard
+                  ? dashboard.summary.today_entries > Math.max(6, Math.ceil(dashboard.summary.active_restaurants * 1.5))
+                    ? "Bugun puantaj masasi oldukca hareketli."
+                    : "Form, liste ve son hareketler bugun dengeli akiyor."
+                  : "Form, liste ve son hareketler birbirini tamamlıyor."}
               </div>
               <p
                 style={{
@@ -383,8 +518,9 @@ export default function AttendancePage() {
                   fontSize: "0.96rem",
                 }}
               >
-                Önce giriş, sonra düzeltme, gerekirse ay bazlı temizlik. Yüzeyin mantığı artık daha
-                net.
+                {dashboard
+                  ? `Bugun ${dashboard.summary.today_entries} hareket, ${dashboard.summary.active_restaurants} aktif sube ve ${dashboard.summary.month_entries} aylik toplamla akisin hizini daha erken okuyabiliyoruz.`
+                  : "Once giris, sonra duzeltme, gerekirse ay bazli temizlik. Yuzeyin mantigi artik daha net."}
               </p>
             </article>
 
@@ -495,6 +631,18 @@ export default function AttendancePage() {
                 String(dashboard.summary.active_restaurants),
                 "Bugun operasyon akisi beklenen aktif subeler.",
               )}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {decisionDeck.map((item) => (
+                <div key={`${item.eyebrow}-${item.title}`}>{narrativeCard(item)}</div>
+              ))}
             </div>
 
             {workspaceFrame(
