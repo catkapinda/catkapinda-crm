@@ -126,6 +126,49 @@ def _coerce_optional_str(*, value: object, issue_label: str, issues: list[str]) 
     return ""
 
 
+def _normalize_smoke_results(*, value: object, issues: list[str]) -> tuple[bool, list[dict[str, object]]]:
+    if value is None:
+        return (False, [])
+    if not isinstance(value, list):
+        issues.append("pilot-smoke-live.json icinde results alani list degil")
+        return (False, [])
+
+    normalized_results: list[dict[str, object]] = []
+    is_valid = True
+    for index, raw_result in enumerate(value):
+        if not isinstance(raw_result, dict):
+            issues.append(f"pilot-smoke-live.json icinde results[{index}] dict degil")
+            is_valid = False
+            continue
+
+        name = raw_result.get("name")
+        if not isinstance(name, str) or not name.strip():
+            issues.append(f"pilot-smoke-live.json icinde results[{index}].name gecersiz")
+            is_valid = False
+            continue
+
+        ok = raw_result.get("ok")
+        if not isinstance(ok, bool):
+            issues.append(f"pilot-smoke-live.json icinde results[{index}].ok bool degil")
+            is_valid = False
+            continue
+
+        if "detail" not in raw_result:
+            issues.append(f"pilot-smoke-live.json icinde results[{index}].detail eksik")
+            is_valid = False
+            continue
+
+        normalized_results.append(
+            {
+                "name": name.strip(),
+                "ok": ok,
+                "detail": raw_result.get("detail"),
+            }
+        )
+
+    return (is_valid and len(normalized_results) == len(value), normalized_results)
+
+
 def _canonicalize_manifest_payload(payload: dict) -> dict:
     normalized = json.loads(json.dumps(payload))
     if "output_dir" in normalized:
@@ -232,16 +275,16 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         return (False, issues, None)
     smoke_payload = raw_smoke_payload
     smoke_markdown = smoke_markdown_path.read_text(encoding="utf-8").strip()
+    smoke_results_valid, smoke_results = _normalize_smoke_results(
+        value=smoke_payload.get("results"),
+        issues=issues,
+    )
     expected_smoke_markdown: str | None = None
-    try:
-        expected_smoke_markdown = build_smoke_markdown_report(smoke_payload).strip()
-    except (KeyError, TypeError, AttributeError) as exc:
-        issues.append(f"pilot-smoke-live.json canonical smoke raporu icin gecersiz alan yapi iceriyor: {exc}")
-    smoke_results = [
-        result
-        for result in (smoke_payload.get("results") or [])
-        if isinstance(result, dict)
-    ]
+    if smoke_results_valid:
+        try:
+            expected_smoke_markdown = build_smoke_markdown_report(smoke_payload).strip()
+        except (KeyError, TypeError, AttributeError) as exc:
+            issues.append(f"pilot-smoke-live.json canonical smoke raporu icin gecersiz alan yapi iceriyor: {exc}")
     if expected_smoke_markdown is not None and smoke_markdown != expected_smoke_markdown:
         issues.append("pilot-smoke-live.md canonical smoke raporuyla birebir uyusmuyor")
     if not smoke_results:
@@ -283,23 +326,29 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             issues.append("pilot-smoke-live.json icinde decision alani dict degil")
             decision = {}
         failing_checks = decision.get("failing_checks")
-        expected_decision = build_smoke_decision_summary(
-            {
-                "base_url": smoke_payload.get("base_url") or manifest.get("frontend_url"),
-                "preset": smoke_payload.get("preset"),
-                "identity_provided": bool(smoke_payload.get("identity_provided")),
-                "legacy_url": smoke_payload.get("legacy_url"),
-                "legacy_cutover_mode": smoke_payload.get("legacy_cutover_mode"),
-                "results": smoke_results,
-            }
-        )
-        if isinstance(failing_checks, list):
-            expected_failing_checks = list(expected_decision.get("failing_checks") or [])
-            if list(map(str, failing_checks)) != expected_failing_checks:
-                issues.append("pilot-smoke-live.json icinde failing_checks result listesiyle uyusmuyor")
-        for key in ("status", "headline", "primary_blocker", "recommended_next_step"):
-            if key in decision and decision.get(key) != expected_decision.get(key):
-                issues.append(f"pilot-smoke-live.json icinde decision.{key} result listesiyle uyusmuyor")
+        expected_decision: dict[str, object] | None = None
+        if smoke_results_valid:
+            try:
+                expected_decision = build_smoke_decision_summary(
+                    {
+                        "base_url": smoke_payload.get("base_url") or manifest.get("frontend_url"),
+                        "preset": smoke_payload.get("preset"),
+                        "identity_provided": bool(smoke_payload.get("identity_provided")),
+                        "legacy_url": smoke_payload.get("legacy_url"),
+                        "legacy_cutover_mode": smoke_payload.get("legacy_cutover_mode"),
+                        "results": smoke_results,
+                    }
+                )
+            except (KeyError, TypeError, AttributeError) as exc:
+                issues.append(f"pilot-smoke-live.json icinde decision ozeti icin gecersiz result yapisi var: {exc}")
+        if expected_decision is not None:
+            if isinstance(failing_checks, list):
+                expected_failing_checks = list(expected_decision.get("failing_checks") or [])
+                if list(map(str, failing_checks)) != expected_failing_checks:
+                    issues.append("pilot-smoke-live.json icinde failing_checks result listesiyle uyusmuyor")
+            for key in ("status", "headline", "primary_blocker", "recommended_next_step"):
+                if key in decision and decision.get(key) != expected_decision.get(key):
+                    issues.append(f"pilot-smoke-live.json icinde decision.{key} result listesiyle uyusmuyor")
 
     expected_overall_ok = manifest.get("smoke_overall_ok")
     if expected_overall_ok is not None and bool(smoke_payload.get("overall_ok")) != bool(expected_overall_ok):
@@ -330,93 +379,94 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             "Manifest smoke_recommended_next_step degeri ile pilot-smoke-live.json uyusmuyor"
         )
 
-    expected_markdown_structure = [
-        "# v2 Pilot Smoke Report",
-        "## Decision",
-        "| Check | Result | Detail |",
-        "| --- | --- | --- |",
-    ]
-    for snippet in expected_markdown_structure:
-        if snippet not in smoke_markdown:
-            issues.append(f"pilot-smoke-live.md icinde beklenen yapi satiri eksik: {snippet}")
-    actual_structure_lines = [
-        line.strip()
-        for line in smoke_markdown.splitlines()
-        if line.strip().startswith("# ")
-        or line.strip().startswith("## ")
-        or line.strip() in {"| Check | Result | Detail |", "| --- | --- | --- |"}
-    ]
-    if actual_structure_lines != expected_markdown_structure:
-        issues.append("pilot-smoke-live.md icinde yapi satirlari beklenen listeyle birebir uyusmuyor")
+    if smoke_results_valid:
+        expected_markdown_structure = [
+            "# v2 Pilot Smoke Report",
+            "## Decision",
+            "| Check | Result | Detail |",
+            "| --- | --- | --- |",
+        ]
+        for snippet in expected_markdown_structure:
+            if snippet not in smoke_markdown:
+                issues.append(f"pilot-smoke-live.md icinde beklenen yapi satiri eksik: {snippet}")
+        actual_structure_lines = [
+            line.strip()
+            for line in smoke_markdown.splitlines()
+            if line.strip().startswith("# ")
+            or line.strip().startswith("## ")
+            or line.strip() in {"| Check | Result | Detail |", "| --- | --- | --- |"}
+        ]
+        if actual_structure_lines != expected_markdown_structure:
+            issues.append("pilot-smoke-live.md icinde yapi satirlari beklenen listeyle birebir uyusmuyor")
 
-    expected_markdown_snippets = [
-        f"- Base URL: `{smoke_payload.get('base_url')}`",
-        f"- Preset: `{smoke_payload.get('preset') or '-'}`",
-        f"- Generated At: `{smoke_payload.get('generated_at')}`",
-        f"- Timeout: `{smoke_payload.get('timeout_seconds')}s`",
-        f"- Identity Provided: `{bool(smoke_payload.get('identity_provided'))}`",
-        f"- Legacy URL: `{smoke_payload.get('legacy_url') or '-'}`",
-        f"- Legacy Cutover Mode: `{smoke_payload.get('legacy_cutover_mode') or '-'}`",
-        f"- Overall OK: `{smoke_payload.get('overall_ok')}`",
-        f"- Passed: `{derived_passed_count}`",
-        f"- Failed: `{smoke_payload.get('failed_count')}`",
-    ]
-    decision = decision_for_manifest
-    if decision.get("status") is not None:
-        expected_markdown_snippets.append(f"- Status: `{decision.get('status')}`")
-    if decision.get("headline"):
-        expected_markdown_snippets.append(f"- Headline: {decision.get('headline')}")
-    if "primary_blocker" in decision:
-        expected_markdown_snippets.append(
-            f"- Primary Blocker: {decision.get('primary_blocker') or '-'}"
-        )
-    if decision.get("recommended_next_step"):
-        expected_markdown_snippets.append(
-            f"- Recommended Next Step: {decision.get('recommended_next_step')}"
-        )
-    if decision.get("failing_checks") is not None:
-        failing_checks_text = ", ".join(map(str, decision.get("failing_checks") or [])) or "-"
-        expected_markdown_snippets.append(f"- Failing Checks: `{failing_checks_text}`")
+        expected_markdown_snippets = [
+            f"- Base URL: `{smoke_payload.get('base_url')}`",
+            f"- Preset: `{smoke_payload.get('preset') or '-'}`",
+            f"- Generated At: `{smoke_payload.get('generated_at')}`",
+            f"- Timeout: `{smoke_payload.get('timeout_seconds')}s`",
+            f"- Identity Provided: `{bool(smoke_payload.get('identity_provided'))}`",
+            f"- Legacy URL: `{smoke_payload.get('legacy_url') or '-'}`",
+            f"- Legacy Cutover Mode: `{smoke_payload.get('legacy_cutover_mode') or '-'}`",
+            f"- Overall OK: `{smoke_payload.get('overall_ok')}`",
+            f"- Passed: `{derived_passed_count}`",
+            f"- Failed: `{smoke_payload.get('failed_count')}`",
+        ]
+        decision = decision_for_manifest
+        if decision.get("status") is not None:
+            expected_markdown_snippets.append(f"- Status: `{decision.get('status')}`")
+        if decision.get("headline"):
+            expected_markdown_snippets.append(f"- Headline: {decision.get('headline')}")
+        if "primary_blocker" in decision:
+            expected_markdown_snippets.append(
+                f"- Primary Blocker: {decision.get('primary_blocker') or '-'}"
+            )
+        if decision.get("recommended_next_step"):
+            expected_markdown_snippets.append(
+                f"- Recommended Next Step: {decision.get('recommended_next_step')}"
+            )
+        if decision.get("failing_checks") is not None:
+            failing_checks_text = ", ".join(map(str, decision.get("failing_checks") or [])) or "-"
+            expected_markdown_snippets.append(f"- Failing Checks: `{failing_checks_text}`")
 
-    for snippet in expected_markdown_snippets:
-        if snippet not in smoke_markdown:
-            issues.append(f"pilot-smoke-live.md icinde beklenen smoke satiri eksik: {snippet}")
-    actual_summary_bullets = [
-        line.strip()
-        for line in smoke_markdown.splitlines()
-        if line.strip().startswith("- ") and not line.strip().startswith("- |")
-    ]
-    if actual_summary_bullets != expected_markdown_snippets:
-        issues.append("pilot-smoke-live.md icinde summary/decision satirlari beklenen listeyle birebir uyusmuyor")
+        for snippet in expected_markdown_snippets:
+            if snippet not in smoke_markdown:
+                issues.append(f"pilot-smoke-live.md icinde beklenen smoke satiri eksik: {snippet}")
+        actual_summary_bullets = [
+            line.strip()
+            for line in smoke_markdown.splitlines()
+            if line.strip().startswith("- ") and not line.strip().startswith("- |")
+        ]
+        if actual_summary_bullets != expected_markdown_snippets:
+            issues.append("pilot-smoke-live.md icinde summary/decision satirlari beklenen listeyle birebir uyusmuyor")
 
-    actual_table_rows = [
-        line.strip()
-        for line in smoke_markdown.splitlines()
-        if line.strip().startswith("| `")
-    ]
-    expected_table_rows: list[str] = []
-    for result in smoke_results:
-        result_label = "OK" if result.get("ok") else "FAIL"
-        detail = str(result.get("detail") or "").replace("\n", " ").replace("|", "\\|")
-        expected_row = f"| `{result.get('name')}` | **{result_label}** | {detail} |"
-        expected_table_rows.append(expected_row)
-    actual_row_counts = Counter(actual_table_rows)
-    expected_row_counts = Counter(expected_table_rows)
-    previous_row_position = -1
-    for expected_row, result in zip(expected_table_rows, smoke_results):
-        if actual_row_counts.get(expected_row, 0) < expected_row_counts.get(expected_row, 0):
-            issues.append(f"pilot-smoke-live.md icinde beklenen check satiri eksik: {result.get('name')}")
-            continue
-        row_position = actual_table_rows.index(expected_row)
-        if row_position < previous_row_position:
-            issues.append(f"pilot-smoke-live.md icinde check satiri sirasi bozuk: {result.get('name')}")
-        previous_row_position = row_position
-    for row, count in actual_row_counts.items():
-        expected_count = expected_row_counts.get(row, 0)
-        if expected_count == 0:
-            issues.append(f"pilot-smoke-live.md icinde beklenmeyen check satiri var: {row}")
-        elif count > expected_count:
-            issues.append(f"pilot-smoke-live.md icinde tekrarlanan check satiri var: {row}")
+        actual_table_rows = [
+            line.strip()
+            for line in smoke_markdown.splitlines()
+            if line.strip().startswith("| `")
+        ]
+        expected_table_rows: list[str] = []
+        for result in smoke_results:
+            result_label = "OK" if result.get("ok") else "FAIL"
+            detail = str(result.get("detail") or "").replace("\n", " ").replace("|", "\\|")
+            expected_row = f"| `{result.get('name')}` | **{result_label}** | {detail} |"
+            expected_table_rows.append(expected_row)
+        actual_row_counts = Counter(actual_table_rows)
+        expected_row_counts = Counter(expected_table_rows)
+        previous_row_position = -1
+        for expected_row, result in zip(expected_table_rows, smoke_results):
+            if actual_row_counts.get(expected_row, 0) < expected_row_counts.get(expected_row, 0):
+                issues.append(f"pilot-smoke-live.md icinde beklenen check satiri eksik: {result.get('name')}")
+                continue
+            row_position = actual_table_rows.index(expected_row)
+            if row_position < previous_row_position:
+                issues.append(f"pilot-smoke-live.md icinde check satiri sirasi bozuk: {result.get('name')}")
+            previous_row_position = row_position
+        for row, count in actual_row_counts.items():
+            expected_count = expected_row_counts.get(row, 0)
+            if expected_count == 0:
+                issues.append(f"pilot-smoke-live.md icinde beklenmeyen check satiri var: {row}")
+            elif count > expected_count:
+                issues.append(f"pilot-smoke-live.md icinde tekrarlanan check satiri var: {row}")
 
     return (not issues, issues, smoke_payload)
 
