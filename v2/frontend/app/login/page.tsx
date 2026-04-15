@@ -41,6 +41,8 @@ type LoginPilotStatusPayload = {
     backend_env_exists?: boolean;
     frontend_env_exists?: boolean;
     database_url_present?: boolean;
+    suggested_frontend_url?: string | null;
+    suggested_api_url?: string | null;
     current_app_seed_detected?: boolean;
     current_app_seed_sources?: string[];
     current_app_seed_placeholders?: string[];
@@ -369,12 +371,17 @@ function LoginPageContent() {
         const placeholderDetail = currentAppSeedPlaceholders.length
           ? ` Simdilik sadece placeholder/template degerler goruluyor: ${currentAppSeedPlaceholders.join(", ")}.`
           : "";
+        const targetDetail =
+          localSetup.suggested_frontend_url || localSetup.suggested_api_url
+            ? ` Doctor su an frontend=${localSetup.suggested_frontend_url || "bilinmiyor"} ve api=${localSetup.suggested_api_url || "bilinmiyor"} hedeflerini oneriyor.`
+            : "";
         return {
           title: "Backend ayakta ama veritabani baglantisi henuz hazir degil.",
           detail:
             (blockingItems[0] ||
               "API cevap veriyor fakat gercek giris icin gerekli DATABASE_URL henuz bulunmuyor.") +
-            placeholderDetail,
+            placeholderDetail +
+            targetDetail,
           command: localSetup.backend_env_exists
             ? "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env"
             : "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",

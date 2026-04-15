@@ -98,6 +98,11 @@ def _print_human_report(report: dict[str, object], *, wrote_env: str | None = No
         + (str(report["frontend_proxy_target"]) if report["frontend_proxy_target"] else "eksik")
         + (f" ({report['frontend_proxy_source']})" if report["frontend_proxy_source"] else "")
     )
+    detected_frontend_urls = report.get("detected_frontend_urls") or []
+    if detected_frontend_urls:
+        print("- Canli local frontend: " + " | ".join(str(item) for item in detected_frontend_urls))
+    print(f"- Onerilen frontend URL: {report['suggested_frontend_url']}")
+    print(f"- Onerilen API URL: {report['suggested_api_url']}")
     print(
         "- Varsayilan sifre: "
         + (
