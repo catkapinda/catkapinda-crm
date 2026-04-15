@@ -303,6 +303,13 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
     for snippet in expected_markdown_snippets:
         if snippet not in smoke_markdown:
             issues.append(f"pilot-smoke-live.md icinde beklenen smoke satiri eksik: {snippet}")
+    actual_summary_bullets = [
+        line.strip()
+        for line in smoke_markdown.splitlines()
+        if line.strip().startswith("- ") and not line.strip().startswith("- |")
+    ]
+    if actual_summary_bullets != expected_markdown_snippets:
+        issues.append("pilot-smoke-live.md icinde summary/decision satirlari beklenen listeyle birebir uyusmuyor")
 
     actual_table_rows = [
         line.strip()

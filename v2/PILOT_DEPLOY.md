@@ -153,7 +153,7 @@ Pilot day zero kiti icin:
   - guarded env dosyalari guard json icindeki env bloguyla birebir uyusuyor mu
   - pilot launch / cutover paketleri dogru link, komut ve gomulu env bloklarinin butununu tasiyor mu
   - `pilot-status-live.md` ve `pilot-preflight-summary.md` raporlari karar/gate/release satirlarini guncel tasiyor mu
-  - `pilot-smoke-live.md` raporu `pilot-smoke-live.json` ile, metadata, karar satirlari ve check tablosu, satir sirasi, beklenmeyen ekstra satirlar ve tekrarlanan satirlar dahil, birebir uyusuyor mu
+  - `pilot-smoke-live.md` raporu `pilot-smoke-live.json` ile, metadata, karar satirlari ve check tablosu, satir sirasi, beklenmeyen/tekrarlanan tablo satirlari ve stale summary bullet'lari dahil, birebir uyusuyor mu
   - `pilot-smoke-live.json` icindeki passed/failed/overall ve failing_checks alanlari result listesiyle, sirasi dahil, tutarli mi
   - `pilot-smoke-live.json` icindeki cekirdek decision alanlari (`status`, `headline`, `primary_blocker`, `recommended_next_step`) result listesiyle tutarli mi
   - smoke dahil kitlerde `pilot-smoke-live.json` icindeki result listesi bos mu

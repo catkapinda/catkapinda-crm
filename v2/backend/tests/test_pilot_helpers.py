@@ -899,6 +899,51 @@ def test_day_zero_verify_fails_when_smoke_markdown_metadata_drifts(monkeypatch, 
     assert any("Base URL" in item for item in result["consistency_issues"])
 
 
+def test_day_zero_verify_fails_when_smoke_markdown_has_unexpected_summary_bullet(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_preflight_bundle",
+        make_fake_preflight_bundle(
+            smoke_report={
+                "overall_ok": True,
+                "failed_count": 0,
+                "decision": {"recommended_next_step": "Pilot login ekranini acip ofisle ilk pilot senaryolarina gecebiliriz."},
+            }
+        ),
+    )
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+        include_smoke=True,
+        smoke_preset="pilot",
+    )
+
+    smoke_markdown_path = tmp_path / "pilot-smoke-live.md"
+    content = smoke_markdown_path.read_text(encoding="utf-8").replace(
+        "## Decision\n",
+        "- Overall OK: `False`\n## Decision\n",
+    )
+    smoke_markdown_path.write_text(content, encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["smoke_checked"] is True
+    assert any("summary/decision satirlari" in item for item in result["consistency_issues"])
+
+
 def test_day_zero_verify_fails_when_smoke_markdown_primary_blocker_drifts(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(
