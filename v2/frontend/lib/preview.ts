@@ -1,8 +1,32 @@
-type PreviewRestaurant = {
+type PreviewRestaurantRecord = {
   id: number;
+  brand: string;
+  branch: string;
   label: string;
   pricing_model: string;
+  hourly_rate: number;
+  package_rate: number;
+  package_threshold: number;
+  package_rate_low: number;
+  package_rate_high: number;
   fixed_monthly_fee: number;
+  vat_rate: number;
+  target_headcount: number;
+  start_date: string | null;
+  end_date: string | null;
+  extra_headcount_request: number;
+  extra_headcount_request_date: string | null;
+  reduce_headcount_request: number;
+  reduce_headcount_request_date: string | null;
+  contact_name: string;
+  contact_phone: string;
+  contact_email: string;
+  company_title: string;
+  address: string;
+  tax_office: string;
+  tax_number: string;
+  active: boolean;
+  notes: string;
 };
 
 type PreviewPersonnelRecord = {
@@ -34,11 +58,138 @@ type PreviewAttendanceRecord = {
   notes: string;
 };
 
-const previewRestaurants: PreviewRestaurant[] = [
-  { id: 1, label: "Kadikoy Merkez", pricing_model: "fixed_monthly", fixed_monthly_fee: 185000 },
-  { id: 2, label: "Besiktas Hub", pricing_model: "package_based", fixed_monthly_fee: 0 },
-  { id: 3, label: "Mecidiyekoy North", pricing_model: "fixed_monthly", fixed_monthly_fee: 164000 },
-  { id: 4, label: "Atasehir Line", pricing_model: "package_based", fixed_monthly_fee: 0 },
+type PreviewDeductionRecord = {
+  id: number;
+  personnel_id: number;
+  deduction_date: string;
+  deduction_type: string;
+  amount: number;
+  notes: string;
+  auto_source_key: string;
+  is_auto_record: boolean;
+};
+
+let previewRestaurants: PreviewRestaurantRecord[] = [
+  {
+    id: 1,
+    brand: "Burger House",
+    branch: "Kadikoy Merkez",
+    label: "Burger House / Kadikoy Merkez",
+    pricing_model: "fixed_monthly",
+    hourly_rate: 0,
+    package_rate: 0,
+    package_threshold: 390,
+    package_rate_low: 0,
+    package_rate_high: 0,
+    fixed_monthly_fee: 185000,
+    vat_rate: 20,
+    target_headcount: 6,
+    start_date: "2025-07-01",
+    end_date: null,
+    extra_headcount_request: 1,
+    extra_headcount_request_date: "2026-04-11",
+    reduce_headcount_request: 0,
+    reduce_headcount_request_date: null,
+    contact_name: "Pelin Aras",
+    contact_phone: "02165550001",
+    contact_email: "pelin.aras@burgerhouse.com",
+    company_title: "Burger House Gida A.S.",
+    address: "Kadikoy / Istanbul",
+    tax_office: "Goztepe",
+    tax_number: "3456789012",
+    active: true,
+    notes: "Aksam piki icin joker gecisi sik kullaniliyor.",
+  },
+  {
+    id: 2,
+    brand: "Sushi Fold",
+    branch: "Besiktas Hub",
+    label: "Sushi Fold / Besiktas Hub",
+    pricing_model: "hourly_plus_package",
+    hourly_rate: 225,
+    package_rate: 74,
+    package_threshold: 390,
+    package_rate_low: 0,
+    package_rate_high: 0,
+    fixed_monthly_fee: 0,
+    vat_rate: 20,
+    target_headcount: 5,
+    start_date: "2025-10-15",
+    end_date: null,
+    extra_headcount_request: 2,
+    extra_headcount_request_date: "2026-04-09",
+    reduce_headcount_request: 0,
+    reduce_headcount_request_date: null,
+    contact_name: "Emre Yalcin",
+    contact_phone: "02125550002",
+    contact_email: "emre.yalcin@sushifold.com",
+    company_title: "Sushi Fold Restoran Ltd.",
+    address: "Besiktas / Istanbul",
+    tax_office: "Levent",
+    tax_number: "4567890123",
+    active: true,
+    notes: "Paket bazli primde hafta sonu verimi yuksek.",
+  },
+  {
+    id: 3,
+    brand: "Pide Route",
+    branch: "Mecidiyekoy North",
+    label: "Pide Route / Mecidiyekoy North",
+    pricing_model: "fixed_monthly",
+    hourly_rate: 0,
+    package_rate: 0,
+    package_threshold: 390,
+    package_rate_low: 0,
+    package_rate_high: 0,
+    fixed_monthly_fee: 164000,
+    vat_rate: 20,
+    target_headcount: 4,
+    start_date: "2025-03-04",
+    end_date: null,
+    extra_headcount_request: 0,
+    extra_headcount_request_date: null,
+    reduce_headcount_request: 1,
+    reduce_headcount_request_date: "2026-03-26",
+    contact_name: "Yasemin Colak",
+    contact_phone: "02125550003",
+    contact_email: "yasemin.colak@pideroute.com",
+    company_title: "Pide Route Gida Sanayi",
+    address: "Mecidiyekoy / Istanbul",
+    tax_office: "Sisli",
+    tax_number: "5678901234",
+    active: true,
+    notes: "Sabit aylik modelde maliyet takibi kritik.",
+  },
+  {
+    id: 4,
+    brand: "Wrap Station",
+    branch: "Atasehir Line",
+    label: "Wrap Station / Atasehir Line",
+    pricing_model: "threshold_package",
+    hourly_rate: 205,
+    package_rate: 0,
+    package_threshold: 420,
+    package_rate_low: 62,
+    package_rate_high: 79,
+    fixed_monthly_fee: 0,
+    vat_rate: 20,
+    target_headcount: 4,
+    start_date: "2025-12-10",
+    end_date: null,
+    extra_headcount_request: 0,
+    extra_headcount_request_date: null,
+    reduce_headcount_request: 0,
+    reduce_headcount_request_date: null,
+    contact_name: "Arda Gurel",
+    contact_phone: "02165550004",
+    contact_email: "arda.gurel@wrapstation.com",
+    company_title: "Wrap Station Hizmet A.S.",
+    address: "Atasehir / Istanbul",
+    tax_office: "Kozyatagi",
+    tax_number: "6789012345",
+    active: false,
+    notes: "Nisan sonunda yeniden aktiflestirme gorusuluyor.",
+  },
 ];
 
 let previewPersonnelRecords: PreviewPersonnelRecord[] = [
@@ -223,11 +374,87 @@ let previewAttendanceRecords: PreviewAttendanceRecord[] = [
   },
 ];
 
+let previewDeductionRecords: PreviewDeductionRecord[] = [
+  {
+    id: 801,
+    personnel_id: 101,
+    deduction_date: "2026-04-14",
+    deduction_type: "advance_payment",
+    amount: 2500,
+    notes: "Hafta basi avans kapamasi.",
+    auto_source_key: "",
+    is_auto_record: false,
+  },
+  {
+    id: 802,
+    personnel_id: 102,
+    deduction_date: "2026-04-12",
+    deduction_type: "traffic_fine",
+    amount: 1850,
+    notes: "Besiktas hattinda park cezasi.",
+    auto_source_key: "",
+    is_auto_record: false,
+  },
+  {
+    id: 803,
+    personnel_id: 104,
+    deduction_date: "2026-04-10",
+    deduction_type: "missing_equipment",
+    amount: 950,
+    notes: "Zimmet eksigi otomatik yansidi.",
+    auto_source_key: "equipment:loss:104:20260410",
+    is_auto_record: true,
+  },
+  {
+    id: 804,
+    personnel_id: 106,
+    deduction_date: "2026-04-09",
+    deduction_type: "cash_gap",
+    amount: 620,
+    notes: "Gun sonu tahsilat farki.",
+    auto_source_key: "",
+    is_auto_record: false,
+  },
+  {
+    id: 805,
+    personnel_id: 107,
+    deduction_date: "2026-04-07",
+    deduction_type: "advance_payment",
+    amount: 1800,
+    notes: "Hafta sonu destek avansi.",
+    auto_source_key: "",
+    is_auto_record: false,
+  },
+  {
+    id: 806,
+    personnel_id: 103,
+    deduction_date: "2026-04-03",
+    deduction_type: "late_return",
+    amount: 430,
+    notes: "Motor teslim gecikmesi.",
+    auto_source_key: "attendance:late_return:103:20260403",
+    is_auto_record: true,
+  },
+];
+
 const previewRoleOptions = ["Kurye", "Joker", "Destek", "Saha Lideri"];
 const previewStatusOptions = ["Aktif", "Pasif"];
 const previewVehicleModeOptions = ["Kendi Motoru", "Sirket Motoru", "Yaya"];
 const previewEntryModes = ["Restoran Kuryesi", "Joker", "Destek", "Izinli", "Raporlu"];
 const previewAbsenceReasons = ["Izin", "Rapor", "Destek Gecisi", "Acil Cikis"];
+const previewDeductionTypeCaptions: Record<string, string> = {
+  advance_payment: "Personelin avans talebi nedeniyle manuel olarak kayda dusulur.",
+  traffic_fine: "Trafik veya park cezasi nedeniyle olusan kesinti kalemi.",
+  missing_equipment: "Kask, telefon ya da zimmetli ekipman kaybi icin otomatik kesinti.",
+  cash_gap: "Gun sonu tahsilat veya kasa farki icin kullanilir.",
+  late_return: "Motor, cihaz veya zimmetin gec teslim edilmesi durumunda kullanilir.",
+};
+const previewDeductionTypes = Object.keys(previewDeductionTypeCaptions);
+const previewRestaurantPricingModels = [
+  { value: "hourly_plus_package", label: "Saatlik + Paket" },
+  { value: "threshold_package", label: "Esikli Paket" },
+  { value: "fixed_monthly", label: "Sabit Aylik" },
+];
 
 export const PREVIEW_USER = {
   id: 9001,
@@ -252,11 +479,18 @@ export const PREVIEW_USER = {
     "personnel.delete",
     "personnel.status_change",
     "deduction.view",
+    "deduction.create",
+    "deduction.update",
+    "deduction.delete",
     "equipment.view",
     "payroll.view",
     "purchase.view",
     "sales.view",
     "restaurant.view",
+    "restaurant.create",
+    "restaurant.update",
+    "restaurant.delete",
+    "restaurant.status_change",
     "reporting.view",
   ],
   expires_at: "2099-12-31T23:59:59Z",
@@ -386,6 +620,86 @@ function buildPersonnelFormOptions() {
   };
 }
 
+function pricingModelLabel(pricingModel: string) {
+  return (
+    previewRestaurantPricingModels.find((item) => item.value === pricingModel)?.label ?? pricingModel
+  );
+}
+
+function deductionCaption(deductionType: string) {
+  return previewDeductionTypeCaptions[deductionType] ?? deductionType;
+}
+
+function buildDeductionEntry(record: PreviewDeductionRecord) {
+  return {
+    id: record.id,
+    personnel_id: record.personnel_id,
+    personnel_label: personnelLabel(record.personnel_id) || "-",
+    deduction_date: record.deduction_date,
+    deduction_type: record.deduction_type,
+    type_caption: deductionCaption(record.deduction_type),
+    amount: record.amount,
+    notes: record.notes,
+    auto_source_key: record.auto_source_key,
+    is_auto_record: record.is_auto_record,
+  };
+}
+
+function buildDeductionFormOptions() {
+  return {
+    personnel: previewPersonnelRecords
+      .filter((entry) => entry.status === "Aktif")
+      .map((entry) => ({
+        id: entry.id,
+        label: `${entry.full_name} · ${restaurantLabel(entry.restaurant_id) || "Atanmadi"}`,
+      })),
+    deduction_types: previewDeductionTypes,
+    type_captions: previewDeductionTypeCaptions,
+    selected_personnel_id: previewPersonnelRecords.find((entry) => entry.status === "Aktif")?.id ?? null,
+  };
+}
+
+function buildRestaurantFormOptions() {
+  return {
+    pricing_models: previewRestaurantPricingModels,
+    status_options: previewStatusOptions,
+    selected_pricing_model: previewRestaurantPricingModels[0]?.value ?? "hourly_plus_package",
+  };
+}
+
+function buildRestaurantEntry(record: PreviewRestaurantRecord) {
+  return {
+    id: record.id,
+    brand: record.brand,
+    branch: record.branch,
+    pricing_model: record.pricing_model,
+    pricing_model_label: pricingModelLabel(record.pricing_model),
+    hourly_rate: record.hourly_rate,
+    package_rate: record.package_rate,
+    package_threshold: record.package_threshold,
+    package_rate_low: record.package_rate_low,
+    package_rate_high: record.package_rate_high,
+    fixed_monthly_fee: record.fixed_monthly_fee,
+    vat_rate: record.vat_rate,
+    target_headcount: record.target_headcount,
+    start_date: record.start_date,
+    end_date: record.end_date,
+    extra_headcount_request: record.extra_headcount_request,
+    extra_headcount_request_date: record.extra_headcount_request_date,
+    reduce_headcount_request: record.reduce_headcount_request,
+    reduce_headcount_request_date: record.reduce_headcount_request_date,
+    contact_name: record.contact_name,
+    contact_phone: record.contact_phone,
+    contact_email: record.contact_email,
+    company_title: record.company_title,
+    address: record.address,
+    tax_office: record.tax_office,
+    tax_number: record.tax_number,
+    active: record.active,
+    notes: record.notes,
+  };
+}
+
 function filterAttendanceEntries(searchParams: URLSearchParams) {
   const restaurantId = Number(searchParams.get("restaurant_id") || "");
   const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
@@ -439,6 +753,65 @@ function filterPersonnelEntries(searchParams: URLSearchParams) {
     .sort((left, right) => right.id - left.id);
 }
 
+function filterDeductionEntries(searchParams: URLSearchParams) {
+  const personnelId = Number(searchParams.get("personnel_id") || "");
+  const deductionType = (searchParams.get("deduction_type") || "").trim();
+  const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
+
+  return previewDeductionRecords
+    .filter((record) => (Number.isFinite(personnelId) ? record.personnel_id === personnelId : true))
+    .filter((record) => (!deductionType ? true : record.deduction_type === deductionType))
+    .filter((record) => {
+      if (!search) {
+        return true;
+      }
+      const haystack = [
+        personnelLabel(record.personnel_id),
+        record.deduction_type,
+        deductionCaption(record.deduction_type),
+        record.notes,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return haystack.includes(search);
+    })
+    .sort((left, right) => `${right.deduction_date}-${right.id}`.localeCompare(`${left.deduction_date}-${left.id}`));
+}
+
+function filterRestaurantEntries(searchParams: URLSearchParams) {
+  const pricingModel = (searchParams.get("pricing_model") || "").trim();
+  const active = searchParams.get("active");
+  const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
+
+  return previewRestaurants
+    .filter((record) => (!pricingModel ? true : record.pricing_model === pricingModel))
+    .filter((record) => {
+      if (active === "true") {
+        return record.active;
+      }
+      if (active === "false") {
+        return !record.active;
+      }
+      return true;
+    })
+    .filter((record) => {
+      if (!search) {
+        return true;
+      }
+      const haystack = [
+        record.brand,
+        record.branch,
+        record.contact_name,
+        record.company_title,
+        record.notes,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return haystack.includes(search);
+    })
+    .sort((left, right) => right.id - left.id);
+}
+
 function buildOverviewDashboard() {
   const activeRestaurants = new Set(
     previewPersonnelRecords.filter((entry) => entry.status === "Aktif" && entry.restaurant_id).map((entry) => entry.restaurant_id),
@@ -446,6 +819,9 @@ function buildOverviewDashboard() {
   const activePersonnel = previewPersonnelRecords.filter((entry) => entry.status === "Aktif").length;
   const currentMonthPrefix = "2026-04";
   const monthAttendanceEntries = previewAttendanceRecords.filter((entry) => entry.entry_date.startsWith(currentMonthPrefix)).length;
+  const monthDeductionEntries = previewDeductionRecords.filter((entry) =>
+    entry.deduction_date.startsWith(currentMonthPrefix),
+  ).length;
 
   return {
     module: "overview",
@@ -454,14 +830,14 @@ function buildOverviewDashboard() {
       active_restaurants: activeRestaurants,
       active_personnel: activePersonnel,
       month_attendance_entries: monthAttendanceEntries,
-      month_deduction_entries: 18,
+      month_deduction_entries: monthDeductionEntries,
     },
     modules: [
       {
         key: "attendance",
         title: "Puantaj",
         description: "Gunluk attendance girisi, kayit yonetimi ve aylik silme akislarini ayni yerde toplar.",
-        href: "/attendance",
+        href: "/preview/attendance",
         primary_label: "Aylik Kayit",
         primary_value: String(monthAttendanceEntries),
         secondary_label: "Aktif Sube",
@@ -471,7 +847,7 @@ function buildOverviewDashboard() {
         key: "personnel",
         title: "Personel",
         description: "Kart acma, durum degistirme ve saha dagilimini operasyon diliyle gosterir.",
-        href: "/personnel",
+        href: "/preview/personnel",
         primary_label: "Aktif Kadro",
         primary_value: String(activePersonnel),
         secondary_label: "Pasif Kart",
@@ -481,11 +857,33 @@ function buildOverviewDashboard() {
         key: "reports",
         title: "Raporlar",
         description: "Aylik hakedis ve fatura resmini editorial komuta paneli gibi okur.",
-        href: "/reports",
+        href: "/preview/reports",
         primary_label: "Toplam Ciro",
         primary_value: "TRY 1.24M",
         secondary_label: "Kurye Maliyeti",
         secondary_value: "TRY 742K",
+      },
+      {
+        key: "deductions",
+        title: "Kesintiler",
+        description: "Manuel ve otomatik kesinti akisini tek panelde izler, gunceller ve temizler.",
+        href: "/preview/deductions",
+        primary_label: "Bu Ay Kayit",
+        primary_value: String(monthDeductionEntries),
+        secondary_label: "Otomatik Kayit",
+        secondary_value: String(previewDeductionRecords.filter((entry) => entry.is_auto_record).length),
+      },
+      {
+        key: "restaurants",
+        title: "Restoranlar",
+        description: "Sube, fiyat modeli ve kadro dengesini daha kararli bir ekrana tasir.",
+        href: "/preview/restaurants",
+        primary_label: "Aktif Sube",
+        primary_value: String(previewRestaurants.filter((entry) => entry.active).length),
+        secondary_label: "Sabit Aylik",
+        secondary_value: String(
+          previewRestaurants.filter((entry) => entry.pricing_model === "fixed_monthly").length,
+        ),
       },
     ],
     recent_activity: [
@@ -496,7 +894,7 @@ function buildOverviewDashboard() {
         subtitle: `${personnelLabel(entry.primary_person_id) || "Atama"} / ${entry.entry_mode}`,
         meta: `${entry.worked_hours} saat · ${entry.package_count} paket`,
         entry_date: entry.entry_date,
-        href: "/attendance",
+        href: "/preview/attendance",
       })),
       ...previewPersonnelRecords.slice(0, 3).map((entry) => ({
         module_key: "personnel",
@@ -505,7 +903,29 @@ function buildOverviewDashboard() {
         subtitle: `${entry.role} · ${restaurantLabel(entry.restaurant_id) || "Atanmadi"}`,
         meta: entry.status,
         entry_date: entry.start_date,
-        href: "/personnel",
+        href: "/preview/personnel",
+      })),
+      ...previewDeductionRecords.slice(0, 2).map((entry) => ({
+        module_key: "deductions",
+        module_label: "Kesintiler",
+        title: `${personnelLabel(entry.personnel_id) || "Personel"} icin kesinti kaydi hazir`,
+        subtitle: deductionCaption(entry.deduction_type),
+        meta: new Intl.NumberFormat("tr-TR", {
+          style: "currency",
+          currency: "TRY",
+          maximumFractionDigits: 0,
+        }).format(entry.amount),
+        entry_date: entry.deduction_date,
+        href: "/preview/deductions",
+      })),
+      ...previewRestaurants.slice(0, 2).map((entry) => ({
+        module_key: "restaurants",
+        module_label: "Restoranlar",
+        title: `${entry.brand} / ${entry.branch} karti hazir`,
+        subtitle: `${pricingModelLabel(entry.pricing_model)} · ${entry.active ? "Aktif" : "Pasif"}`,
+        meta: `${entry.target_headcount} hedef kadro`,
+        entry_date: entry.start_date,
+        href: "/preview/restaurants",
       })),
     ],
   };
@@ -563,6 +983,49 @@ function buildPersonnelDashboard() {
   };
 }
 
+function buildDeductionsDashboard() {
+  const monthPrefix = "2026-04";
+  return {
+    module: "deductions",
+    status: "preview",
+    summary: {
+      total_entries: previewDeductionRecords.length,
+      this_month_entries: previewDeductionRecords.filter((entry) =>
+        entry.deduction_date.startsWith(monthPrefix),
+      ).length,
+      manual_entries: previewDeductionRecords.filter((entry) => !entry.is_auto_record).length,
+      auto_entries: previewDeductionRecords.filter((entry) => entry.is_auto_record).length,
+    },
+    recent_entries: previewDeductionRecords
+      .slice()
+      .sort((left, right) =>
+        `${right.deduction_date}-${right.id}`.localeCompare(`${left.deduction_date}-${left.id}`),
+      )
+      .slice(0, 12)
+      .map((entry) => buildDeductionEntry(entry)),
+  };
+}
+
+function buildRestaurantsDashboard() {
+  return {
+    module: "restaurants",
+    status: "preview",
+    summary: {
+      total_restaurants: previewRestaurants.length,
+      active_restaurants: previewRestaurants.filter((entry) => entry.active).length,
+      passive_restaurants: previewRestaurants.filter((entry) => !entry.active).length,
+      fixed_monthly_restaurants: previewRestaurants.filter(
+        (entry) => entry.pricing_model === "fixed_monthly",
+      ).length,
+    },
+    recent_entries: previewRestaurants
+      .slice()
+      .sort((left, right) => right.id - left.id)
+      .slice(0, 10)
+      .map((entry) => buildRestaurantEntry(entry)),
+  };
+}
+
 function buildReportsDashboard(month: string | null) {
   const selectedMonth = month || "2026-04";
   const attendanceRows = previewAttendanceRecords.filter((entry) => entry.entry_date.startsWith(selectedMonth));
@@ -597,7 +1060,12 @@ function buildReportsDashboard(month: string | null) {
       );
       const totalHours = rows.reduce((sum, row) => sum + row.worked_hours, 0);
       const totalPackages = rows.reduce((sum, row) => sum + row.package_count, 0);
-      const totalDeductions = entry.status === "Aktif" ? 2750 : 850;
+      const totalDeductions = previewDeductionRecords
+        .filter(
+          (deduction) =>
+            deduction.personnel_id === entry.id && deduction.deduction_date.startsWith(selectedMonth),
+        )
+        .reduce((sum, deduction) => sum + deduction.amount, 0);
       const netCost = Math.round(totalHours * 220 + totalDeductions + entry.monthly_fixed_cost);
       return {
         personnel: entry.full_name,
@@ -703,6 +1171,14 @@ function nextAttendanceId() {
   return previewAttendanceRecords.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 500) + 1;
 }
 
+function nextDeductionId() {
+  return previewDeductionRecords.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 800) + 1;
+}
+
+function nextRestaurantId() {
+  return previewRestaurants.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 4) + 1;
+}
+
 export function buildPreviewResponse(path: string, init: RequestInit = {}) {
   const method = (init.method || "GET").toUpperCase();
   const url = new URL(path, "http://preview.local");
@@ -725,9 +1201,25 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     return buildJsonResponse(buildAttendanceDashboard());
   }
 
+  if (pathname === "/deductions/dashboard" && method === "GET") {
+    return buildJsonResponse(buildDeductionsDashboard());
+  }
+
+  if (pathname === "/restaurants/dashboard" && method === "GET") {
+    return buildJsonResponse(buildRestaurantsDashboard());
+  }
+
   if (pathname === "/attendance/form-options" && method === "GET") {
     const restaurantId = Number(url.searchParams.get("restaurant_id") || "");
     return buildJsonResponse(buildAttendanceFormOptions(Number.isFinite(restaurantId) ? restaurantId : null));
+  }
+
+  if (pathname === "/deductions/form-options" && method === "GET") {
+    return buildJsonResponse(buildDeductionFormOptions());
+  }
+
+  if (pathname === "/restaurants/form-options" && method === "GET") {
+    return buildJsonResponse(buildRestaurantFormOptions());
   }
 
   if (pathname === "/attendance/entries" && method === "GET") {
@@ -876,6 +1368,198 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
       total_entries: entries.length,
       entries,
     });
+  }
+
+  if (pathname === "/deductions/records" && method === "GET") {
+    const entries = filterDeductionEntries(url.searchParams).map(buildDeductionEntry);
+    return buildJsonResponse({
+      total_entries: entries.length,
+      entries,
+    });
+  }
+
+  if (pathname === "/deductions/records" && method === "POST") {
+    const nextRecord: PreviewDeductionRecord = {
+      id: nextDeductionId(),
+      personnel_id: Number(body.personnel_id || previewPersonnelRecords[0]?.id || 101),
+      deduction_date: String(body.deduction_date || "2026-04-15"),
+      deduction_type: String(body.deduction_type || previewDeductionTypes[0]),
+      amount: Number(body.amount || 0),
+      notes: String(body.notes || ""),
+      auto_source_key: "",
+      is_auto_record: false,
+    };
+    previewDeductionRecords = [nextRecord, ...previewDeductionRecords];
+    return buildJsonResponse({
+      message: "Preview kesinti kaydi olusturuldu.",
+      entry_id: nextRecord.id,
+    });
+  }
+
+  if (pathname.startsWith("/deductions/records/")) {
+    const entryId = Number(pathname.split("/").pop());
+    const index = previewDeductionRecords.findIndex((entry) => entry.id === entryId);
+    if (index < 0) {
+      return buildJsonResponse({ detail: "Kesinti bulunamadi." }, 404);
+    }
+
+    if (method === "GET") {
+      return buildJsonResponse({
+        entry: buildDeductionEntry(previewDeductionRecords[index]),
+      });
+    }
+
+    if (previewDeductionRecords[index].is_auto_record && (method === "PUT" || method === "DELETE")) {
+      return buildJsonResponse(
+        { detail: "Otomatik olusan kesinti kayitlari preview modunda duzenlenemez." },
+        400,
+      );
+    }
+
+    if (method === "PUT") {
+      previewDeductionRecords[index] = {
+        ...previewDeductionRecords[index],
+        personnel_id: Number(body.personnel_id || previewDeductionRecords[index].personnel_id),
+        deduction_date: String(body.deduction_date || previewDeductionRecords[index].deduction_date),
+        deduction_type: String(body.deduction_type || previewDeductionRecords[index].deduction_type),
+        amount: Number(body.amount || 0),
+        notes: String(body.notes || ""),
+      };
+      return buildJsonResponse({ message: "Preview kesinti kaydi guncellendi." });
+    }
+
+    if (method === "DELETE") {
+      previewDeductionRecords = previewDeductionRecords.filter((entry) => entry.id !== entryId);
+      return buildJsonResponse({ message: "Preview kesinti kaydi silindi." });
+    }
+  }
+
+  if (pathname === "/restaurants/records" && method === "GET") {
+    const entries = filterRestaurantEntries(url.searchParams).map(buildRestaurantEntry);
+    return buildJsonResponse({
+      total_entries: entries.length,
+      entries,
+    });
+  }
+
+  if (pathname === "/restaurants/records" && method === "POST") {
+    const brand = String(body.brand || "Preview Marka");
+    const branch = String(body.branch || "Yeni Sube");
+    const nextRecord: PreviewRestaurantRecord = {
+      id: nextRestaurantId(),
+      brand,
+      branch,
+      label: `${brand} / ${branch}`,
+      pricing_model: String(body.pricing_model || previewRestaurantPricingModels[0]?.value || "hourly_plus_package"),
+      hourly_rate: Number(body.hourly_rate || 0),
+      package_rate: Number(body.package_rate || 0),
+      package_threshold: Number(body.package_threshold || 390),
+      package_rate_low: Number(body.package_rate_low || 0),
+      package_rate_high: Number(body.package_rate_high || 0),
+      fixed_monthly_fee: Number(body.fixed_monthly_fee || 0),
+      vat_rate: Number(body.vat_rate || 20),
+      target_headcount: Number(body.target_headcount || 1),
+      start_date: body.start_date ? String(body.start_date) : "2026-04-15",
+      end_date: body.end_date ? String(body.end_date) : null,
+      extra_headcount_request: Number(body.extra_headcount_request || 0),
+      extra_headcount_request_date: body.extra_headcount_request_date
+        ? String(body.extra_headcount_request_date)
+        : null,
+      reduce_headcount_request: Number(body.reduce_headcount_request || 0),
+      reduce_headcount_request_date: body.reduce_headcount_request_date
+        ? String(body.reduce_headcount_request_date)
+        : null,
+      contact_name: String(body.contact_name || ""),
+      contact_phone: String(body.contact_phone || ""),
+      contact_email: String(body.contact_email || ""),
+      company_title: String(body.company_title || ""),
+      address: String(body.address || ""),
+      tax_office: String(body.tax_office || ""),
+      tax_number: String(body.tax_number || ""),
+      active: String(body.status || "Aktif") !== "Pasif",
+      notes: String(body.notes || ""),
+    };
+    previewRestaurants = [nextRecord, ...previewRestaurants];
+    return buildJsonResponse({
+      message: "Preview restoran kaydi olusturuldu.",
+      entry_id: nextRecord.id,
+    });
+  }
+
+  if (
+    pathname.startsWith("/restaurants/records/") &&
+    pathname.endsWith("/toggle-status") &&
+    method === "POST"
+  ) {
+    const entryId = Number(pathname.split("/")[3]);
+    const index = previewRestaurants.findIndex((entry) => entry.id === entryId);
+    if (index < 0) {
+      return buildJsonResponse({ detail: "Restoran bulunamadi." }, 404);
+    }
+    previewRestaurants[index] = {
+      ...previewRestaurants[index],
+      active: !previewRestaurants[index].active,
+    };
+    return buildJsonResponse({ message: "Preview restoran durumu guncellendi." });
+  }
+
+  if (pathname.startsWith("/restaurants/records/")) {
+    const entryId = Number(pathname.split("/").pop());
+    const index = previewRestaurants.findIndex((entry) => entry.id === entryId);
+    if (index < 0) {
+      return buildJsonResponse({ detail: "Restoran bulunamadi." }, 404);
+    }
+
+    if (method === "GET") {
+      return buildJsonResponse({
+        entry: buildRestaurantEntry(previewRestaurants[index]),
+      });
+    }
+
+    if (method === "PUT") {
+      const brand = String(body.brand || previewRestaurants[index].brand);
+      const branch = String(body.branch || previewRestaurants[index].branch);
+      previewRestaurants[index] = {
+        ...previewRestaurants[index],
+        brand,
+        branch,
+        label: `${brand} / ${branch}`,
+        pricing_model: String(body.pricing_model || previewRestaurants[index].pricing_model),
+        hourly_rate: Number(body.hourly_rate || 0),
+        package_rate: Number(body.package_rate || 0),
+        package_threshold: Number(body.package_threshold || 390),
+        package_rate_low: Number(body.package_rate_low || 0),
+        package_rate_high: Number(body.package_rate_high || 0),
+        fixed_monthly_fee: Number(body.fixed_monthly_fee || 0),
+        vat_rate: Number(body.vat_rate || 20),
+        target_headcount: Number(body.target_headcount || 0),
+        start_date: body.start_date ? String(body.start_date) : null,
+        end_date: body.end_date ? String(body.end_date) : null,
+        extra_headcount_request: Number(body.extra_headcount_request || 0),
+        extra_headcount_request_date: body.extra_headcount_request_date
+          ? String(body.extra_headcount_request_date)
+          : null,
+        reduce_headcount_request: Number(body.reduce_headcount_request || 0),
+        reduce_headcount_request_date: body.reduce_headcount_request_date
+          ? String(body.reduce_headcount_request_date)
+          : null,
+        contact_name: String(body.contact_name || ""),
+        contact_phone: String(body.contact_phone || ""),
+        contact_email: String(body.contact_email || ""),
+        company_title: String(body.company_title || ""),
+        address: String(body.address || ""),
+        tax_office: String(body.tax_office || ""),
+        tax_number: String(body.tax_number || ""),
+        active: String(body.status || "Aktif") !== "Pasif",
+        notes: String(body.notes || ""),
+      };
+      return buildJsonResponse({ message: "Preview restoran kaydi guncellendi." });
+    }
+
+    if (method === "DELETE") {
+      previewRestaurants = previewRestaurants.filter((entry) => entry.id !== entryId);
+      return buildJsonResponse({ message: "Preview restoran kaydi silindi." });
+    }
   }
 
   if (pathname === "/personnel/records" && method === "POST") {
