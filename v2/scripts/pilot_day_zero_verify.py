@@ -10,6 +10,7 @@ import zipfile
 from copy import deepcopy
 
 from pilot_smoke import build_decision_summary as build_smoke_decision_summary
+from pilot_smoke import build_markdown_report as build_smoke_markdown_report
 
 
 DEFAULT_OUTPUT_DIR = "pilot-day-zero"
@@ -208,11 +209,18 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
 
     smoke_payload = _read_json(smoke_json_path)
     smoke_markdown = smoke_markdown_path.read_text(encoding="utf-8").strip()
+    expected_smoke_markdown: str | None = None
+    try:
+        expected_smoke_markdown = build_smoke_markdown_report(smoke_payload).strip()
+    except KeyError as exc:
+        issues.append(f"pilot-smoke-live.json canonical smoke raporu icin eksik alan iceriyor: {exc}")
     smoke_results = [
         result
         for result in (smoke_payload.get("results") or [])
         if isinstance(result, dict)
     ]
+    if expected_smoke_markdown is not None and smoke_markdown != expected_smoke_markdown:
+        issues.append("pilot-smoke-live.md canonical smoke raporuyla birebir uyusmuyor")
     if not smoke_results:
         issues.append("pilot-smoke-live.json icinde results listesi bos veya eksik")
     derived_passed_count = smoke_payload.get("passed_count")
