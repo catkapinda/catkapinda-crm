@@ -30,6 +30,10 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path, monkeypatch):
     assert report["suggested_backend_restart_command"] == "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
     assert report["frontend_proxy_target"] == "http://127.0.0.1:8000"
     assert report["frontend_env_needs_sync"] is False
+    assert report["decision_status"] == "blocked"
+    assert report["decision_headline"] == "Veritabani baglantisi eksik."
+    assert "Gercek PostgreSQL URL" in report["decision_detail"]
+    assert report["decision_command"] == report["suggested_bootstrap_command"]
     assert report["suggested_frontend_url"] == "http://127.0.0.1:3000"
     assert "--bootstrap-local" in report["suggested_bootstrap_command"]
     assert "--database-url '<postgresql://...>'" in report["suggested_bootstrap_with_db_command"]
@@ -256,6 +260,10 @@ def test_local_doctor_flags_frontend_env_sync_when_proxy_target_differs(tmp_path
     v2_root = tmp_path / "v2"
     (v2_root / "backend").mkdir(parents=True)
     (v2_root / "frontend").mkdir(parents=True)
+    (v2_root / "backend" / ".env").write_text(
+        "CK_V2_APP_ENV=development\nCK_V2_DATABASE_URL=postgresql://file-user:file-pass@db.local:5432/postgres?sslmode=require\n",
+        encoding="utf-8",
+    )
     (v2_root / "frontend" / ".env.local").write_text(
         "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api\nCK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:9999\n",
         encoding="utf-8",
@@ -267,6 +275,9 @@ def test_local_doctor_flags_frontend_env_sync_when_proxy_target_differs(tmp_path
 
     assert report["frontend_env_needs_sync"] is True
     assert report["ready"] is False
+    assert report["decision_status"] == "action_required"
+    assert report["decision_headline"] == "Frontend local proxy ayari guncellenmeli."
+    assert report["decision_command"] == report["suggested_frontend_env_command"]
     assert any("Frontend .env.local icindeki backend hedefi" in item for item in report["blocking_items"])
     assert "--write-frontend-env" in report["suggested_frontend_env_command"]
     assert any("Frontend env'i guncellemek" in item for item in report["next_actions"])
@@ -307,6 +318,9 @@ def test_local_doctor_flags_backend_restart_when_backend_env_and_runtime_differ(
     assert report["runtime_database_url_present"] is False
     assert report["backend_env_database_url_present"] is True
     assert report["backend_restart_required"] is True
+    assert report["decision_status"] == "restart_required"
+    assert report["decision_headline"] == "Backend yeniden baslatilmali."
+    assert report["decision_command"] == report["suggested_backend_restart_command"]
     assert "yeniden baslatilmali" in report["blocking_items"][0]
     assert "backend/.env icinde DATABASE_URL var" in (report["backend_restart_reason"] or "")
     assert report["suggested_backend_restart_command"] == "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000"

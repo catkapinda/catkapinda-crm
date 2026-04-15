@@ -192,6 +192,10 @@ type LocalSetupStatus = {
   blocking_items: string[];
   warnings: string[];
   next_actions: string[];
+  decision_status: string;
+  decision_headline: string;
+  decision_detail: string;
+  decision_command: string | null;
 };
 
 type PilotStatusResponse = {
@@ -926,6 +930,8 @@ export default function StatusPage() {
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
                   <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Doctor Ozeti</div>
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
+                    Karar: {localSetup.decision_headline || "belirsiz"}
+                    <br />
                     Backend .env: {localSetup.backend_env_exists ? "var" : "yok"}
                     <br />
                     Frontend .env.local: {localSetup.frontend_env_exists ? "var" : "yok"}
@@ -971,6 +977,26 @@ export default function StatusPage() {
                       ? localSetup.blocking_items.join(" ")
                       : "Zorunlu blokaj görünmüyor."}
                   </div>
+                </article>
+                <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
+                  <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Ilk Hamle</div>
+                  <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
+                    {localSetup.decision_detail || "Doctor ayri bir ilk hamle notu uretmedi."}
+                  </div>
+                  {localSetup.decision_command ? (
+                    <button
+                      type="button"
+                      onClick={() => void copyText("doctor-decision-command", localSetup.decision_command!)}
+                      style={{
+                        ...actionButtonStyle("ghost"),
+                        cursor: "pointer",
+                        marginTop: "12px",
+                        width: "fit-content",
+                      }}
+                    >
+                      {copiedKey === "doctor-decision-command" ? "Komut Kopyalandi" : "Ilk Komutu Kopyala"}
+                    </button>
+                  ) : null}
                 </article>
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
                   <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Seed Kaynaklari</div>

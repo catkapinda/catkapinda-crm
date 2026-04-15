@@ -110,6 +110,12 @@ def _print_human_report(
 ) -> None:
     print("Local v2 doctor")
     print(f"- Rapor kaynagi: {'backend runtime snapshot' if report_source == 'backend_runtime' else 'local dosya analizi'}")
+    if report.get("decision_headline"):
+        print(f"- Karar: {report['decision_headline']}")
+        if report.get("decision_detail"):
+            print(f"  Ozet: {report['decision_detail']}")
+        if report.get("decision_command"):
+            print(f"  Ilk komut: {report['decision_command']}")
     print(f"- Backend .env: {'var' if report['backend_env_exists'] else 'yok'} -> {report['backend_env_path']}")
     print(f"- Frontend .env.local: {'var' if report['frontend_env_exists'] else 'yok'} -> {report['frontend_env_path']}")
     print(

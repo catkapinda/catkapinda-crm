@@ -673,6 +673,32 @@ def build_local_doctor_report(
     if not next_actions:
         next_actions.append("Local v2 omurgasi hazir. Backend'i 8000'de, frontend'i 3000/3001'de ayaga kaldirip login akisini test et.")
 
+    decision_status = "ready"
+    decision_headline = "Local v2 omurgasi hazir."
+    decision_detail = "Frontend ve backend temel halkalari gorunuyor; bir sonraki odak gercek auth akisini denemek."
+    decision_command = suggested_backend_start_command
+
+    if backend_restart_required:
+        decision_status = "restart_required"
+        decision_headline = "Backend yeniden baslatilmali."
+        decision_detail = backend_restart_reason or "backend/.env ile calisan surec arasinda fark var."
+        decision_command = suggested_backend_restart_command
+    elif not database_url:
+        decision_status = "blocked"
+        decision_headline = "Veritabani baglantisi eksik."
+        decision_detail = "Gercek PostgreSQL URL gelmeden local auth akisi acilamaz."
+        decision_command = suggested_bootstrap_with_db_command if backend_env_path.exists() else suggested_bootstrap_command
+    elif not proxy_target or frontend_env_needs_sync:
+        decision_status = "action_required"
+        decision_headline = "Frontend local proxy ayari guncellenmeli."
+        decision_detail = "Frontend tarafi backend hedefini eksik ya da yanlis okuyor; .env.local yeniden yazilmali."
+        decision_command = suggested_frontend_env_command
+    elif warnings:
+        decision_status = "warning"
+        decision_headline = "Local kurulum calisiyor ama birkac uyari var."
+        decision_detail = warnings[0]
+        decision_command = next((extract for extract in [suggested_current_app_env_command, suggested_env_write_command, suggested_backend_start_command] if extract), None)
+
     return {
         "ready": not blocking_items,
         "backend_env_path": str(backend_env_path),
@@ -713,4 +739,8 @@ def build_local_doctor_report(
         "blocking_items": blocking_items,
         "warnings": warnings,
         "next_actions": next_actions,
+        "decision_status": decision_status,
+        "decision_headline": decision_headline,
+        "decision_detail": decision_detail,
+        "decision_command": decision_command,
     }

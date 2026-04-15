@@ -200,6 +200,10 @@ class LocalSetupResponse(BaseModel):
     blocking_items: list[str] = []
     warnings: list[str] = []
     next_actions: list[str] = []
+    decision_status: str = "ready"
+    decision_headline: str = ""
+    decision_detail: str = ""
+    decision_command: str | None = None
 
 
 class PilotReadinessResponse(BaseModel):
