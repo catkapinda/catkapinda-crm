@@ -895,6 +895,8 @@ export default function StatusPage() {
                     <br />
                     Frontend .env.local: {localSetup.frontend_env_exists ? "var" : "yok"}
                     <br />
+                    Frontend env sync: {localSetup.frontend_env_needs_sync ? "gerekiyor" : "hazir"}
+                    <br />
                     Current app seed: {localSetup.current_app_seed_detected ? "bulundu" : "bulunmadi"}
                   </div>
                 </article>

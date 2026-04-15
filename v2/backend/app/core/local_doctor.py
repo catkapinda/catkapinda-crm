@@ -556,7 +556,7 @@ def build_local_doctor_report(
         blocking_items.append("Frontend proxy hedefi eksik. CK_V2_INTERNAL_API_BASE_URL veya CK_V2_INTERNAL_API_HOSTPORT bulunamadi.")
         next_actions.append(f"Frontend .env.local icin `{suggested_frontend_env_command}` kullan.")
     elif frontend_env_needs_sync:
-        warnings.append("Frontend .env.local icindeki backend hedefi mevcut local API onerisiyle hizali degil.")
+        blocking_items.append("Frontend .env.local icindeki backend hedefi mevcut local API onerisiyle hizali degil.")
         next_actions.append(f"Frontend env'i guncellemek icin `{suggested_frontend_env_command}` kullan.")
 
     if default_password == "123456":

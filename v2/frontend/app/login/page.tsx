@@ -351,6 +351,15 @@ function LoginPageContent() {
       return null;
     }
 
+    if (localSetup?.frontend_env_needs_sync && localSetup.suggested_frontend_env_command) {
+      return {
+        title: "Frontend env'i local hedefle yeniden hizalanmali.",
+        detail:
+          "Doctor su an frontend proxy ayarinin canli local API onerisiyle ayni olmadigini goruyor. .env.local dosyasini tek komutla dogru hedefe cekebiliriz.",
+        command: localSetup.suggested_frontend_env_command,
+      };
+    }
+
     if (!frontendStatus.proxyConfigured && localSetup?.suggested_frontend_env_command) {
       return {
         title: "Frontend proxy env'i henuz hazir degil.",
@@ -374,15 +383,6 @@ function LoginPageContent() {
       const nextActions = localSetup.next_actions ?? [];
       const currentAppSeedSources = localSetup.current_app_seed_sources ?? [];
       const currentAppSeedPlaceholders = localSetup.current_app_seed_placeholders ?? [];
-
-      if (localSetup.frontend_env_needs_sync && localSetup.suggested_frontend_env_command) {
-        return {
-          title: "Frontend env'i local hedefle yeniden hizalanmali.",
-          detail:
-            "Doctor su an frontend proxy ayarinin canli local API onerisiyle ayni olmadigini goruyor. .env.local dosyasini tek komutla dogru hedefe cekebiliriz.",
-          command: localSetup.suggested_frontend_env_command,
-        };
-      }
 
       if (localSetup.current_app_seed_detected && !localSetup.backend_env_exists && !localSetup.database_url_present) {
         return {

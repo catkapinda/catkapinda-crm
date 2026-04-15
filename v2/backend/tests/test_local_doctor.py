@@ -191,6 +191,8 @@ def test_local_doctor_flags_frontend_env_sync_when_proxy_target_differs(tmp_path
     report = build_local_doctor_report(v2_root, {})
 
     assert report["frontend_env_needs_sync"] is True
+    assert report["ready"] is False
+    assert any("Frontend .env.local icindeki backend hedefi" in item for item in report["blocking_items"])
     assert "--write-frontend-env" in report["suggested_frontend_env_command"]
     assert any("Frontend env'i guncellemek" in item for item in report["next_actions"])
 
