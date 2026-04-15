@@ -8,6 +8,18 @@ import { useAuth } from "../../components/auth/auth-provider";
 import { buildApiUrl, readStoredAuthNotice, writeStoredAuthNotice } from "../../lib/api";
 import { resolveDefaultPath } from "../../lib/navigation";
 
+const serifTitleStyle = {
+  fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  letterSpacing: "-0.04em",
+} as const;
+
+const paperCardStyle = {
+  borderRadius: "30px",
+  border: "1px solid var(--line)",
+  background: "var(--surface-raised)",
+  boxShadow: "var(--shadow-soft)",
+} as const;
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -121,131 +133,237 @@ function LoginPageContent() {
     <main
       style={{
         minHeight: "100vh",
+        padding: "24px",
         display: "grid",
         placeItems: "center",
-        padding: "24px",
       }}
     >
       <section
         style={{
-          width: "min(1120px, 100%)",
+          width: "min(1180px, 100%)",
           display: "grid",
-          gap: "18px",
-          gridTemplateColumns: "minmax(0, 1.1fr) minmax(340px, 0.9fr)",
-          alignItems: "start",
+          gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+          gap: "20px",
+          alignItems: "stretch",
         }}
       >
-        <div
+        <article
           style={{
-            padding: "36px",
-            borderRadius: "32px",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,248,255,0.94))",
-            border: "1px solid rgba(40, 92, 196, 0.10)",
-            boxShadow: "0 32px 80px rgba(22, 42, 74, 0.08)",
-            minHeight: "100%",
+            padding: "34px",
+            borderRadius: "36px",
+            background:
+              "linear-gradient(145deg, rgba(22, 38, 58, 0.98), rgba(38, 58, 82, 0.96))",
+            boxShadow: "var(--shadow-deep)",
+            color: "#fff7ea",
+            position: "relative",
+            overflow: "hidden",
+            display: "grid",
+            gap: "24px",
           }}
         >
           <div
             style={{
-              display: "inline-flex",
-              padding: "7px 12px",
+              position: "absolute",
+              inset: "auto auto -120px -80px",
+              width: "280px",
+              height: "280px",
               borderRadius: "999px",
-              background: "var(--accent-soft)",
-              color: "var(--accent)",
-              fontSize: "0.78rem",
-              fontWeight: 800,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
+              background: "radial-gradient(circle, rgba(185,116,41,0.35), transparent 70%)",
             }}
-          >
-            Cat Kapinda v2
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: "36px 34px auto auto",
+              width: "180px",
+              height: "180px",
+              borderRadius: "999px",
+              background: "radial-gradient(circle, rgba(255,255,255,0.1), transparent 72%)",
+            }}
+          />
+
+          <div style={{ position: "relative", display: "grid", gap: "18px" }}>
+            <div
+              style={{
+                display: "inline-flex",
+                width: "fit-content",
+                padding: "7px 12px",
+                borderRadius: "999px",
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "#f2cf9e",
+                fontSize: "0.74rem",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                fontWeight: 800,
+              }}
+            >
+              v2 pilot giris masasi
+            </div>
+            <div style={{ display: "grid", gap: "12px" }}>
+              <h1
+                style={{
+                  ...serifTitleStyle,
+                  margin: 0,
+                  fontSize: "clamp(2.8rem, 6vw, 5rem)",
+                  lineHeight: 0.9,
+                  fontWeight: 700,
+                  maxWidth: "8ch",
+                }}
+              >
+                Yeni operasyon paneline giris.
+              </h1>
+              <p
+                style={{
+                  margin: 0,
+                  maxWidth: "58ch",
+                  color: "rgba(255, 247, 234, 0.76)",
+                  lineHeight: 1.8,
+                  fontSize: "1rem",
+                }}
+              >
+                Bu yuzeyi yalnizca kimlik dogrulama icin degil, yeni sistemin karakterini ilk
+                andan hissettirmek icin kurduk. Sifreyle giris, SMS akisi ve yonlendirme tek
+                editorial yuzeyde toplanmis durumda.
+              </p>
+            </div>
           </div>
-
-          <h1
-            style={{
-              margin: "18px 0 10px",
-              fontSize: "clamp(2.2rem, 4vw, 3.4rem)",
-              lineHeight: 0.96,
-              letterSpacing: "-0.04em",
-            }}
-          >
-            Yeni operasyon paneline hos geldin.
-          </h1>
-
-          <p
-            style={{
-              margin: 0,
-              maxWidth: "58ch",
-              color: "var(--muted)",
-              lineHeight: 1.8,
-              fontSize: "1rem",
-            }}
-          >
-            Artik menu gecisleri, formlar ve yetki akislari daha modern bir yapida ilerliyor.
-            Istersen e-posta/sifre ile, istersen telefon ve SMS kodu ile giris yapabilirsin.
-          </p>
 
           <div
             style={{
+              position: "relative",
               display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               gap: "14px",
-              marginTop: "28px",
             }}
           >
             {[
-              ["Puantaj", "Giris, duzeltme ve yonetim tek akista."],
-              ["Personel", "Kayit olusturma ve duzenleme yeni hat uzerinde."],
-              ["Kesintiler", "Filo ve finans kurallariyla uyumlu yonetim."],
+              ["Giris Hatti", "Sifre ve SMS akisi ayni kontrol masasi icinde."],
+              ["Yetki", "Rol bazli yonlendirme giris sonrasi otomatik isliyor."],
+              ["Pilot Akis", "Giris yapan ekip ilgili modullere temiz sekilde dusuyor."],
             ].map(([title, text]) => (
-              <div
+              <article
                 key={title}
                 style={{
-                  padding: "18px",
-                  borderRadius: "24px",
-                  border: "1px solid rgba(40, 92, 196, 0.08)",
-                  background: "rgba(255,255,255,0.88)",
+                  padding: "18px 16px",
+                  borderRadius: "22px",
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  backdropFilter: "blur(10px)",
                   display: "grid",
                   gap: "8px",
                 }}
               >
-                <div style={{ fontWeight: 800 }}>{title}</div>
-                <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>{text}</div>
-              </div>
+                <div style={{ color: "#fff4e5", fontWeight: 800 }}>{title}</div>
+                <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.65, fontSize: "0.92rem" }}>
+                  {text}
+                </div>
+              </article>
             ))}
           </div>
-        </div>
 
-        <div
-          style={{
-            display: "grid",
-            gap: "18px",
-          }}
-        >
-          <section style={cardStyle}>
-            <div>
+          <div
+            style={{
+              position: "relative",
+              display: "grid",
+              gridTemplateColumns: "1.2fr 0.8fr",
+              gap: "14px",
+            }}
+          >
+            <article
+              style={{
+                padding: "20px",
+                borderRadius: "24px",
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                display: "grid",
+                gap: "8px",
+              }}
+            >
+              <div
+                style={{
+                  color: "#f2cf9e",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                Ilk bakista
+              </div>
+              <div
+                style={{
+                  ...serifTitleStyle,
+                  fontSize: "1.8rem",
+                  lineHeight: 0.96,
+                  fontWeight: 700,
+                }}
+              >
+                Hızlı giris, temiz yonlendirme, daha az surtunme.
+              </div>
+              <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.7 }}>
+                Login sonrasi ekranlar artik beyazlayip yeniden yukleniyormus gibi his
+                vermesin diye yapinin geri kalanini da ayni dille tasiyoruz.
+              </div>
+            </article>
+
+            <article
+              style={{
+                padding: "20px",
+                borderRadius: "24px",
+                background: "linear-gradient(180deg, rgba(185,116,41,0.24), rgba(255,255,255,0.06))",
+                border: "1px solid rgba(241,194,143,0.2)",
+                display: "grid",
+                gap: "6px",
+                alignContent: "start",
+              }}
+            >
+              <div style={{ color: "#f6ddbb", fontSize: "0.74rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 800 }}>
+                Hazir Moduller
+              </div>
+              <div style={{ ...serifTitleStyle, fontSize: "2.4rem", lineHeight: 0.9, fontWeight: 700 }}>
+                10+
+              </div>
+              <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.6, fontSize: "0.92rem" }}>
+                Puantaj, personel, kesintiler, raporlar ve daha fazlasi ayni pilot omurgasinda.
+              </div>
+            </article>
+          </div>
+        </article>
+
+        <div style={{ display: "grid", gap: "18px", alignContent: "start" }}>
+          <section
+            style={{
+              ...paperCardStyle,
+              padding: "26px",
+              display: "grid",
+              gap: "18px",
+              background:
+                "linear-gradient(180deg, rgba(255,253,247,0.99), rgba(247,241,230,0.96))",
+            }}
+          >
+            <div style={{ display: "grid", gap: "8px" }}>
               <div style={eyebrowStyle}>Sifre ile Giris</div>
-              <h2 style={cardTitleStyle}>E-posta veya telefon</h2>
-              <p style={cardBodyStyle}>Mevcut sifrenle dogrudan giris yap.</p>
+              <h2
+                style={{
+                  ...serifTitleStyle,
+                  margin: 0,
+                  fontSize: "2rem",
+                  lineHeight: 0.96,
+                  fontWeight: 700,
+                }}
+              >
+                E-posta veya telefonla dogrudan gir.
+              </h2>
+              <p style={cardBodyStyle}>
+                Ofis icin en hizli akis. Giris sonrasi sistem seni yetkine uygun ilk ekrana alir.
+              </p>
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
-              {notice ? (
-                <div
-                  style={{
-                    padding: "12px 14px",
-                    borderRadius: "16px",
-                    background: "rgba(15, 95, 215, 0.08)",
-                    border: "1px solid rgba(15, 95, 215, 0.18)",
-                    color: "var(--accent)",
-                    fontWeight: 700,
-                  }}
-                >
-                  {notice}
-                </div>
-              ) : null}
-              <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>E-posta veya Telefon</span>
+              {notice ? <div style={noticeStyle}>{notice}</div> : null}
+              <label style={labelStyle}>
+                <span style={labelTitleStyle}>E-posta veya Telefon</span>
                 <input
                   value={identity}
                   onChange={(event) => setIdentity(event.target.value)}
@@ -254,8 +372,8 @@ function LoginPageContent() {
                 />
               </label>
 
-              <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>Sifre</span>
+              <label style={labelStyle}>
+                <span style={labelTitleStyle}>Sifre</span>
                 <input
                   type="password"
                   value={password}
@@ -274,23 +392,61 @@ function LoginPageContent() {
           </section>
 
           {smsLoginEnabled ? (
-            <section style={cardStyle}>
-              <div>
-                <div style={eyebrowStyle}>SMS ile Giris</div>
-                <h2 style={cardTitleStyle}>Telefonuna tek kullanimlik kod gelsin</h2>
-                <p style={cardBodyStyle}>
-                  Bolge muduru ve izinli yonetici numaralari bu akisi kullanabilir.
+            <section
+              style={{
+                ...paperCardStyle,
+                padding: "24px",
+                display: "grid",
+                gap: "18px",
+                background:
+                  "linear-gradient(145deg, rgba(27,43,63,0.98), rgba(43,62,85,0.95))",
+                color: "#fff7ea",
+              }}
+            >
+              <div style={{ display: "grid", gap: "8px" }}>
+                <div
+                  style={{
+                    color: "#f2cf9e",
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    fontSize: "0.72rem",
+                  }}
+                >
+                  SMS ile Giris
+                </div>
+                <h2
+                  style={{
+                    ...serifTitleStyle,
+                    margin: 0,
+                    fontSize: "1.9rem",
+                    lineHeight: 0.96,
+                    fontWeight: 700,
+                  }}
+                >
+                  Tek kullanimlik kodla hizli dogrulama.
+                </h2>
+                <p
+                  style={{
+                    margin: 0,
+                    color: "rgba(255,247,234,0.72)",
+                    lineHeight: 1.75,
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  Bolge muduru ve izinli yonetici numaralari bu akisi kullanabilir. Kod gonder ve
+                  ayni kart icinde dogrulamayi tamamla.
                 </p>
               </div>
 
               <form onSubmit={handleSendCode} style={{ display: "grid", gap: "12px" }}>
-                <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Telefon</span>
+                <label style={labelStyle}>
+                  <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Telefon</span>
                   <input
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
                     placeholder="05xxxxxxxxx"
-                    style={fieldStyle}
+                    style={darkFieldStyle}
                   />
                 </label>
                 <button type="submit" disabled={smsSubmitting} style={secondaryButtonStyle(smsSubmitting)}>
@@ -306,21 +462,25 @@ function LoginPageContent() {
               ) : null}
 
               <form onSubmit={handleVerifyCode} style={{ display: "grid", gap: "12px" }}>
-                <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>6 Haneli Kod</span>
+                <label style={labelStyle}>
+                  <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>6 Haneli Kod</span>
                   <input
                     value={loginCode}
                     onChange={(event) => setLoginCode(event.target.value)}
                     placeholder="000000"
-                    style={fieldStyle}
+                    style={darkFieldStyle}
                     inputMode="numeric"
                     maxLength={6}
                   />
                 </label>
 
-                {smsError ? <div style={errorStyle}>{smsError}</div> : null}
+                {smsError ? <div style={darkErrorStyle}>{smsError}</div> : null}
 
-                <button type="submit" disabled={smsSubmitting || !loginCode.trim()} style={primaryButtonStyle(smsSubmitting || !loginCode.trim())}>
+                <button
+                  type="submit"
+                  disabled={smsSubmitting || !loginCode.trim()}
+                  style={goldButtonStyle(smsSubmitting || !loginCode.trim())}
+                >
                   {smsSubmitting ? "Kod Dogrulaniyor..." : "Kodu Dogrula"}
                 </button>
               </form>
@@ -337,12 +497,52 @@ function LoginPageFallback() {
     <main
       style={{
         minHeight: "100vh",
+        padding: "24px",
         display: "grid",
         placeItems: "center",
-        padding: "24px",
       }}
     >
-      <section style={cardStyle}>Giris hazirlaniyor...</section>
+      <section
+        style={{
+          ...paperCardStyle,
+          width: "min(460px, 100%)",
+          padding: "28px",
+          display: "grid",
+          gap: "16px",
+        }}
+      >
+        <div
+          style={{
+            height: "10px",
+            borderRadius: "999px",
+            background: "rgba(185, 116, 41, 0.12)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: "42%",
+              height: "100%",
+              borderRadius: "999px",
+              background: "linear-gradient(90deg, var(--accent-strong), var(--accent))",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            ...serifTitleStyle,
+            fontSize: "2rem",
+            lineHeight: 0.96,
+            fontWeight: 700,
+          }}
+        >
+          Giris masasi hazirlaniyor.
+        </div>
+        <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+          Oturum modlari ve yonlendirme bilgileri yukleniyor. Hazir oldugunda seni dogrudan yeni
+          panele alacagiz.
+        </p>
+      </section>
     </main>
   );
 }
@@ -355,85 +555,120 @@ export default function LoginPage() {
   );
 }
 
-const fieldStyle = {
-  width: "100%",
-  padding: "14px 16px",
-  borderRadius: "16px",
-  border: "1px solid var(--line)",
-  background: "rgba(255, 255, 255, 0.96)",
-  color: "var(--text)",
-  fontSize: "0.98rem",
+const labelStyle = {
+  display: "grid",
+  gap: "8px",
 } satisfies CSSProperties;
 
-const cardStyle = {
-  padding: "28px",
-  borderRadius: "28px",
-  background: "var(--surface-strong)",
-  border: "1px solid var(--line)",
-  boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
-  display: "grid",
-  gap: "16px",
+const labelTitleStyle = {
+  fontWeight: 800,
+  fontSize: "0.92rem",
+} satisfies CSSProperties;
+
+const fieldStyle = {
+  width: "100%",
+  padding: "15px 16px",
+  borderRadius: "18px",
+  border: "1px solid rgba(62, 81, 107, 0.14)",
+  background: "rgba(255,255,255,0.92)",
+  color: "var(--text)",
+  fontSize: "0.98rem",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
+} satisfies CSSProperties;
+
+const darkFieldStyle = {
+  ...fieldStyle,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff7ea",
+  boxShadow: "none",
 } satisfies CSSProperties;
 
 const eyebrowStyle = {
-  color: "var(--accent)",
+  color: "var(--accent-strong)",
   fontWeight: 800,
-  letterSpacing: "0.04em",
+  letterSpacing: "0.08em",
   textTransform: "uppercase",
-  fontSize: "0.76rem",
-} satisfies CSSProperties;
-
-const cardTitleStyle = {
-  margin: "8px 0 6px",
-  fontSize: "1.4rem",
-  lineHeight: 1.1,
+  fontSize: "0.74rem",
 } satisfies CSSProperties;
 
 const cardBodyStyle = {
   margin: 0,
   color: "var(--muted)",
-  lineHeight: 1.7,
+  lineHeight: 1.75,
   fontSize: "0.95rem",
+} satisfies CSSProperties;
+
+const noticeStyle = {
+  padding: "12px 14px",
+  borderRadius: "16px",
+  background: "rgba(185, 116, 41, 0.1)",
+  border: "1px solid rgba(185, 116, 41, 0.18)",
+  color: "#8f5a1f",
+  fontWeight: 700,
 } satisfies CSSProperties;
 
 const errorStyle = {
   padding: "12px 14px",
   borderRadius: "16px",
-  background: "rgba(207, 65, 65, 0.08)",
+  background: "rgba(207,65,65,0.08)",
   color: "#b73636",
-  border: "1px solid rgba(207, 65, 65, 0.12)",
+  border: "1px solid rgba(207,65,65,0.12)",
+} satisfies CSSProperties;
+
+const darkErrorStyle = {
+  padding: "12px 14px",
+  borderRadius: "16px",
+  background: "rgba(207,65,65,0.14)",
+  color: "#ffd9d9",
+  border: "1px solid rgba(255,128,128,0.16)",
 } satisfies CSSProperties;
 
 const successStyle = {
   padding: "12px 14px",
   borderRadius: "16px",
-  background: "rgba(51, 122, 88, 0.09)",
-  color: "#2d7f58",
-  border: "1px solid rgba(51, 122, 88, 0.14)",
+  background: "rgba(98, 165, 124, 0.16)",
+  color: "#dcf4e4",
+  border: "1px solid rgba(124, 208, 154, 0.16)",
 } satisfies CSSProperties;
 
 function primaryButtonStyle(disabled: boolean): CSSProperties {
   return {
-    padding: "14px 18px",
-    borderRadius: "16px",
+    padding: "15px 18px",
+    borderRadius: "18px",
     border: "none",
-    background: "var(--accent)",
-    color: "#fff",
+    background: "linear-gradient(135deg, var(--accent-strong), var(--accent))",
+    color: "#fffaf3",
     fontWeight: 800,
-    fontSize: "1rem",
+    fontSize: "0.98rem",
     cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.6 : 1,
+    boxShadow: disabled ? "none" : "0 16px 26px rgba(185, 116, 41, 0.18)",
   };
 }
 
 function secondaryButtonStyle(disabled: boolean): CSSProperties {
   return {
-    padding: "13px 16px",
-    borderRadius: "16px",
-    border: "1px solid rgba(40, 92, 196, 0.16)",
-    background: "rgba(40, 92, 196, 0.06)",
-    color: "var(--accent)",
+    padding: "14px 16px",
+    borderRadius: "18px",
+    border: "1px solid rgba(241,194,143,0.18)",
+    background: "rgba(255,255,255,0.08)",
+    color: "#fff4e5",
     fontWeight: 800,
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.6 : 1,
+  };
+}
+
+function goldButtonStyle(disabled: boolean): CSSProperties {
+  return {
+    padding: "15px 18px",
+    borderRadius: "18px",
+    border: "none",
+    background: "linear-gradient(135deg, rgba(241,194,143,0.98), rgba(185,116,41,0.96))",
+    color: "#2f1b09",
+    fontWeight: 900,
+    fontSize: "0.98rem",
     cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.6 : 1,
   };
