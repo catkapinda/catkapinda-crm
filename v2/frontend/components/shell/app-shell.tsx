@@ -28,6 +28,9 @@ export function AppShell({
         "/attendance": "/preview/attendance",
         "/personnel": "/preview/personnel",
         "/deductions": "/preview/deductions",
+        "/payroll": "/preview/payroll",
+        "/purchases": "/preview/purchases",
+        "/sales": "/preview/sales",
         "/restaurants": "/preview/restaurants",
         "/reports": "/preview/reports",
         "/account": "/preview/account",
@@ -39,6 +42,9 @@ export function AppShell({
             item.label === "Puantaj" ||
             item.label === "Personel" ||
             item.label === "Kesintiler" ||
+            item.label === "Aylık Hakediş" ||
+            item.label === "Satın Alma" ||
+            item.label === "Satış" ||
             item.label === "Restoranlar" ||
             item.label === "Raporlar" ||
             item.label === "Profil",

@@ -69,6 +69,44 @@ type PreviewDeductionRecord = {
   is_auto_record: boolean;
 };
 
+type PreviewSalesRecord = {
+  id: number;
+  restaurant_name: string;
+  city: string;
+  district: string;
+  address: string;
+  contact_name: string;
+  contact_phone: string;
+  contact_email: string;
+  requested_courier_count: number;
+  lead_source: string;
+  proposed_quote: number;
+  pricing_model: string;
+  hourly_rate: number;
+  package_rate: number;
+  package_threshold: number;
+  package_rate_low: number;
+  package_rate_high: number;
+  fixed_monthly_fee: number;
+  status: string;
+  next_follow_up_date: string | null;
+  assigned_owner: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type PreviewPurchaseRecord = {
+  id: number;
+  purchase_date: string;
+  item_name: string;
+  quantity: number;
+  total_invoice_amount: number;
+  supplier: string;
+  invoice_no: string;
+  notes: string;
+};
+
 let previewRestaurants: PreviewRestaurantRecord[] = [
   {
     id: 1,
@@ -437,6 +475,156 @@ let previewDeductionRecords: PreviewDeductionRecord[] = [
   },
 ];
 
+let previewSalesRecords: PreviewSalesRecord[] = [
+  {
+    id: 901,
+    restaurant_name: "Kavurma Studio",
+    city: "Istanbul",
+    district: "Kadikoy",
+    address: "Moda Mah. Bahariye Cad. No:18",
+    contact_name: "Buse Akpinar",
+    contact_phone: "05330000011",
+    contact_email: "buse@kavurmastudio.com",
+    requested_courier_count: 5,
+    lead_source: "Referans",
+    proposed_quote: 214000,
+    pricing_model: "fixed_monthly",
+    hourly_rate: 0,
+    package_rate: 0,
+    package_threshold: 390,
+    package_rate_low: 0,
+    package_rate_high: 0,
+    fixed_monthly_fee: 214000,
+    status: "Teklif Gonderildi",
+    next_follow_up_date: "2026-04-18",
+    assigned_owner: "Ebru Aslan",
+    notes: "Mevcut operasyonu mayis basinda tasimak istiyorlar.",
+    created_at: "2026-04-06T10:15:00Z",
+    updated_at: "2026-04-14T16:40:00Z",
+  },
+  {
+    id: 902,
+    restaurant_name: "Noodle Port",
+    city: "Istanbul",
+    district: "Sisli",
+    address: "Esentepe Mah. Talatpasa Cad. No:44",
+    contact_name: "Mert Gungor",
+    contact_phone: "05330000012",
+    contact_email: "mert@noodleport.com",
+    requested_courier_count: 4,
+    lead_source: "Mail",
+    proposed_quote: 0,
+    pricing_model: "hourly_plus_package",
+    hourly_rate: 230,
+    package_rate: 78,
+    package_threshold: 390,
+    package_rate_low: 0,
+    package_rate_high: 0,
+    fixed_monthly_fee: 0,
+    status: "Yeni Talep",
+    next_follow_up_date: "2026-04-16",
+    assigned_owner: "Seda Kurt",
+    notes: "Hizli teklif bekliyorlar, hafta ici demo istenecek.",
+    created_at: "2026-04-11T09:20:00Z",
+    updated_at: "2026-04-15T08:10:00Z",
+  },
+  {
+    id: 903,
+    restaurant_name: "Poke Dock",
+    city: "Bursa",
+    district: "Nilufer",
+    address: "FSM Bulvari No:55",
+    contact_name: "Ezgi Tunc",
+    contact_phone: "05330000013",
+    contact_email: "ezgi@pokedock.com",
+    requested_courier_count: 3,
+    lead_source: "Saha",
+    proposed_quote: 118000,
+    pricing_model: "hourly_only",
+    hourly_rate: 245,
+    package_rate: 0,
+    package_threshold: 390,
+    package_rate_low: 0,
+    package_rate_high: 0,
+    fixed_monthly_fee: 0,
+    status: "Takipte",
+    next_follow_up_date: "2026-04-20",
+    assigned_owner: "Onur Celik",
+    notes: "Bursa genisleme planina paralel ikinci sube potansiyeli var.",
+    created_at: "2026-03-29T14:05:00Z",
+    updated_at: "2026-04-13T12:25:00Z",
+  },
+  {
+    id: 904,
+    restaurant_name: "Toast Theory",
+    city: "Istanbul",
+    district: "Besiktas",
+    address: "Carsi Cad. No:5",
+    contact_name: "Deniz Koray",
+    contact_phone: "05330000014",
+    contact_email: "deniz@toasttheory.com",
+    requested_courier_count: 6,
+    lead_source: "Partner",
+    proposed_quote: 198000,
+    pricing_model: "threshold_package",
+    hourly_rate: 215,
+    package_rate: 0,
+    package_threshold: 430,
+    package_rate_low: 64,
+    package_rate_high: 81,
+    fixed_monthly_fee: 0,
+    status: "Kazanildi",
+    next_follow_up_date: null,
+    assigned_owner: "Ebru Aslan",
+    notes: "Mayis ilk haftasi onboarding planlandi.",
+    created_at: "2026-03-17T11:50:00Z",
+    updated_at: "2026-04-10T18:00:00Z",
+  },
+];
+
+let previewPurchaseRecords: PreviewPurchaseRecord[] = [
+  {
+    id: 1001,
+    purchase_date: "2026-04-14",
+    item_name: "Kuryeye Yelek",
+    quantity: 12,
+    total_invoice_amount: 14880,
+    supplier: "MotoGiyim",
+    invoice_no: "MG-240414",
+    notes: "Yeni ise baslayan ekip icin seri alim.",
+  },
+  {
+    id: 1002,
+    purchase_date: "2026-04-12",
+    item_name: "Kask",
+    quantity: 6,
+    total_invoice_amount: 13200,
+    supplier: "RideSafe",
+    invoice_no: "RS-8821",
+    notes: "Eskiyen kasklar yenilendi.",
+  },
+  {
+    id: 1003,
+    purchase_date: "2026-04-08",
+    item_name: "Telefon Tutucu",
+    quantity: 18,
+    total_invoice_amount: 5580,
+    supplier: "MotoGiyim",
+    invoice_no: "MG-240408",
+    notes: "Istanbul sahasi icin toplu alim.",
+  },
+  {
+    id: 1004,
+    purchase_date: "2026-04-03",
+    item_name: "Yagmurluk",
+    quantity: 10,
+    total_invoice_amount: 7200,
+    supplier: "SahaTek",
+    invoice_no: "ST-240403",
+    notes: "Nisan yagmurlari icin koruyucu stok.",
+  },
+];
+
 const previewRoleOptions = ["Kurye", "Joker", "Destek", "Saha Lideri"];
 const previewStatusOptions = ["Aktif", "Pasif"];
 const previewVehicleModeOptions = ["Kendi Motoru", "Sirket Motoru", "Yaya"];
@@ -453,7 +641,24 @@ const previewDeductionTypes = Object.keys(previewDeductionTypeCaptions);
 const previewRestaurantPricingModels = [
   { value: "hourly_plus_package", label: "Saatlik + Paket" },
   { value: "threshold_package", label: "Esikli Paket" },
+  { value: "hourly_only", label: "Saatlik" },
   { value: "fixed_monthly", label: "Sabit Aylik" },
+];
+const previewSalesSourceOptions = ["Mail", "Referans", "Saha", "Partner", "Telefon"];
+const previewSalesStatusOptions = [
+  "Yeni Talep",
+  "Takipte",
+  "Teklif Gonderildi",
+  "Pazarlik",
+  "Kazanildi",
+  "Kaybedildi",
+];
+const previewPurchaseItemOptions = [
+  "Kask",
+  "Kuryeye Yelek",
+  "Telefon Tutucu",
+  "Yagmurluk",
+  "Termal Canta",
 ];
 
 export const PREVIEW_USER = {
@@ -485,7 +690,13 @@ export const PREVIEW_USER = {
     "equipment.view",
     "payroll.view",
     "purchase.view",
+    "purchase.create",
+    "purchase.update",
+    "purchase.delete",
     "sales.view",
+    "sales.create",
+    "sales.update",
+    "sales.delete",
     "restaurant.view",
     "restaurant.create",
     "restaurant.update",
@@ -700,6 +911,68 @@ function buildRestaurantEntry(record: PreviewRestaurantRecord) {
   };
 }
 
+function salesPricingHint(record: {
+  pricing_model: string;
+  hourly_rate: number;
+  package_rate: number;
+  package_threshold: number;
+  package_rate_low: number;
+  package_rate_high: number;
+  fixed_monthly_fee: number;
+}) {
+  const toMoney = (value: number) =>
+    new Intl.NumberFormat("tr-TR", {
+      style: "currency",
+      currency: "TRY",
+      maximumFractionDigits: 0,
+    }).format(value || 0);
+
+  if (record.pricing_model === "threshold_package") {
+    return `${toMoney(record.hourly_rate)}/saat | ${record.package_threshold} alti ${toMoney(record.package_rate_low)} | ustu ${toMoney(record.package_rate_high)}`;
+  }
+  if (record.pricing_model === "hourly_plus_package") {
+    return `${toMoney(record.hourly_rate)}/saat + ${toMoney(record.package_rate)}/paket`;
+  }
+  if (record.pricing_model === "hourly_only") {
+    return `${toMoney(record.hourly_rate)}/saat`;
+  }
+  if (record.pricing_model === "fixed_monthly") {
+    return `${toMoney(record.fixed_monthly_fee)}/ay`;
+  }
+  return "-";
+}
+
+function buildSalesEntry(record: PreviewSalesRecord) {
+  return {
+    ...record,
+    pricing_model_label: pricingModelLabel(record.pricing_model),
+    pricing_model_hint: salesPricingHint(record),
+  };
+}
+
+function buildSalesFormOptions() {
+  return {
+    pricing_models: previewRestaurantPricingModels,
+    source_options: previewSalesSourceOptions,
+    status_options: previewSalesStatusOptions,
+    selected_pricing_model: previewRestaurantPricingModels[0]?.value ?? "hourly_plus_package",
+  };
+}
+
+function buildPurchaseEntry(record: PreviewPurchaseRecord) {
+  return {
+    ...record,
+    unit_cost: record.quantity > 0 ? record.total_invoice_amount / record.quantity : 0,
+  };
+}
+
+function buildPurchaseFormOptions() {
+  return {
+    item_options: previewPurchaseItemOptions,
+    selected_item: previewPurchaseItemOptions[0] ?? "",
+  };
+}
+
 function filterAttendanceEntries(searchParams: URLSearchParams) {
   const restaurantId = Number(searchParams.get("restaurant_id") || "");
   const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
@@ -810,6 +1083,49 @@ function filterRestaurantEntries(searchParams: URLSearchParams) {
       return haystack.includes(search);
     })
     .sort((left, right) => right.id - left.id);
+}
+
+function filterSalesEntries(searchParams: URLSearchParams) {
+  const status = (searchParams.get("status") || "").trim();
+  const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
+
+  return previewSalesRecords
+    .filter((record) => (!status ? true : record.status === status))
+    .filter((record) => {
+      if (!search) {
+        return true;
+      }
+      const haystack = [
+        record.restaurant_name,
+        record.city,
+        record.district,
+        record.contact_name,
+        record.assigned_owner,
+        record.notes,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return haystack.includes(search);
+    })
+    .sort((left, right) => `${right.updated_at}-${right.id}`.localeCompare(`${left.updated_at}-${left.id}`));
+}
+
+function filterPurchaseEntries(searchParams: URLSearchParams) {
+  const itemName = (searchParams.get("item_name") || "").trim();
+  const search = (searchParams.get("search") || "").trim().toLocaleLowerCase("tr-TR");
+
+  return previewPurchaseRecords
+    .filter((record) => (!itemName ? true : record.item_name === itemName))
+    .filter((record) => {
+      if (!search) {
+        return true;
+      }
+      const haystack = [record.item_name, record.supplier, record.invoice_no, record.notes]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return haystack.includes(search);
+    })
+    .sort((left, right) => `${right.purchase_date}-${right.id}`.localeCompare(`${left.purchase_date}-${left.id}`));
 }
 
 function buildOverviewDashboard() {
@@ -1026,6 +1342,169 @@ function buildRestaurantsDashboard() {
   };
 }
 
+function buildSalesDashboard() {
+  return {
+    module: "sales",
+    status: "preview",
+    summary: {
+      total_entries: previewSalesRecords.length,
+      open_follow_up: previewSalesRecords.filter((entry) =>
+        ["Yeni Talep", "Takipte", "Teklif Gonderildi", "Pazarlik"].includes(entry.status),
+      ).length,
+      proposal_stage: previewSalesRecords.filter((entry) =>
+        ["Teklif Gonderildi", "Pazarlik"].includes(entry.status),
+      ).length,
+      won_count: previewSalesRecords.filter((entry) => entry.status === "Kazanildi").length,
+    },
+    recent_entries: previewSalesRecords
+      .slice()
+      .sort((left, right) => `${right.updated_at}-${right.id}`.localeCompare(`${left.updated_at}-${left.id}`))
+      .slice(0, 12)
+      .map((entry) => ({
+        id: entry.id,
+        restaurant_name: entry.restaurant_name,
+        city: entry.city,
+        district: entry.district,
+        contact_name: entry.contact_name,
+        lead_source: entry.lead_source,
+        proposed_quote: entry.proposed_quote,
+        pricing_model_label: pricingModelLabel(entry.pricing_model),
+        status: entry.status,
+        assigned_owner: entry.assigned_owner,
+        updated_at: entry.updated_at,
+      })),
+  };
+}
+
+function buildPurchasesDashboard() {
+  const monthPrefix = "2026-04";
+  return {
+    module: "purchases",
+    status: "preview",
+    summary: {
+      total_entries: previewPurchaseRecords.length,
+      this_month_entries: previewPurchaseRecords.filter((entry) =>
+        entry.purchase_date.startsWith(monthPrefix),
+      ).length,
+      this_month_total_invoice: previewPurchaseRecords
+        .filter((entry) => entry.purchase_date.startsWith(monthPrefix))
+        .reduce((sum, entry) => sum + entry.total_invoice_amount, 0),
+      distinct_suppliers: new Set(previewPurchaseRecords.map((entry) => entry.supplier)).size,
+    },
+    recent_entries: previewPurchaseRecords
+      .slice()
+      .sort((left, right) => `${right.purchase_date}-${right.id}`.localeCompare(`${left.purchase_date}-${left.id}`))
+      .slice(0, 12)
+      .map((entry) => buildPurchaseEntry(entry)),
+  };
+}
+
+function buildPayrollDashboard(
+  month: string | null,
+  role: string | null,
+  restaurant: string | null,
+) {
+  const selectedMonth = month || "2026-04";
+  const roleOptions = ["Tümü", ...new Set(previewPersonnelRecords.map((entry) => entry.role))];
+  const restaurantOptions = ["Tümü", ...previewRestaurants.filter((entry) => entry.active).map((entry) => entry.label)];
+  const selectedRole = role && role !== "Tümü" ? role : "Tümü";
+  const selectedRestaurant = restaurant && restaurant !== "Tümü" ? restaurant : "Tümü";
+
+  const entries = previewPersonnelRecords
+    .filter((entry) => entry.status === "Aktif")
+    .filter((entry) => (selectedRole === "Tümü" ? true : entry.role === selectedRole))
+    .filter((entry) =>
+      selectedRestaurant === "Tümü" ? true : restaurantLabel(entry.restaurant_id) === selectedRestaurant,
+    )
+    .map((entry) => {
+      const attendanceRows = previewAttendanceRecords.filter(
+        (row) =>
+          row.entry_date.startsWith(selectedMonth) &&
+          (row.primary_person_id === entry.id || row.replacement_person_id === entry.id),
+      );
+      const deductions = previewDeductionRecords
+        .filter(
+          (row) => row.personnel_id === entry.id && row.deduction_date.startsWith(selectedMonth),
+        )
+        .reduce((sum, row) => sum + row.amount, 0);
+      const totalHours = attendanceRows.reduce((sum, row) => sum + row.worked_hours, 0);
+      const totalPackages = attendanceRows.reduce((sum, row) => sum + row.package_count, 0);
+      const grossPay = Math.round(totalHours * 220 + entry.monthly_fixed_cost);
+      const restaurantCount = new Set(
+        attendanceRows.map((row) => restaurantLabel(row.restaurant_id)).filter(Boolean),
+      ).size;
+      const costModel = entry.monthly_fixed_cost > 0 ? "Sabit + Saat" : "Saat Bazli";
+      return {
+        personnel_id: entry.id,
+        personnel: entry.full_name,
+        role: entry.role,
+        status: entry.status,
+        total_hours: totalHours,
+        total_packages: totalPackages,
+        gross_pay: grossPay,
+        total_deductions: deductions,
+        net_payment: Math.max(grossPay - deductions, 0),
+        restaurant_count: restaurantCount,
+        cost_model: costModel,
+      };
+    })
+    .sort((left, right) => right.net_payment - left.net_payment);
+
+  const summary = entries.length
+    ? {
+        selected_month: selectedMonth,
+        personnel_count: entries.length,
+        total_hours: entries.reduce((sum, entry) => sum + entry.total_hours, 0),
+        total_packages: entries.reduce((sum, entry) => sum + entry.total_packages, 0),
+        gross_payroll: entries.reduce((sum, entry) => sum + entry.gross_pay, 0),
+        total_deductions: entries.reduce((sum, entry) => sum + entry.total_deductions, 0),
+        net_payment: entries.reduce((sum, entry) => sum + entry.net_payment, 0),
+      }
+    : null;
+
+  const costModelBreakdown = entries.reduce<
+    Array<{
+      cost_model: string;
+      personnel_count: number;
+      total_hours: number;
+      total_packages: number;
+      net_payment: number;
+    }>
+  >((accumulator, entry) => {
+    const existing = accumulator.find((item) => item.cost_model === entry.cost_model);
+    if (existing) {
+      existing.personnel_count += 1;
+      existing.total_hours += entry.total_hours;
+      existing.total_packages += entry.total_packages;
+      existing.net_payment += entry.net_payment;
+    } else {
+      accumulator.push({
+        cost_model: entry.cost_model,
+        personnel_count: 1,
+        total_hours: entry.total_hours,
+        total_packages: entry.total_packages,
+        net_payment: entry.net_payment,
+      });
+    }
+    return accumulator;
+  }, []);
+
+  return {
+    module: "payroll",
+    status: "preview",
+    month_options: ["2026-04", "2026-03", "2026-02"],
+    selected_month: selectedMonth,
+    role_options: roleOptions,
+    restaurant_options: restaurantOptions,
+    selected_role: selectedRole,
+    selected_restaurant: selectedRestaurant,
+    summary,
+    entries,
+    cost_model_breakdown: costModelBreakdown,
+    top_personnel: entries.slice(0, 5),
+  };
+}
+
 function buildReportsDashboard(month: string | null) {
   const selectedMonth = month || "2026-04";
   const attendanceRows = previewAttendanceRecords.filter((entry) => entry.entry_date.startsWith(selectedMonth));
@@ -1179,6 +1658,14 @@ function nextRestaurantId() {
   return previewRestaurants.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 4) + 1;
 }
 
+function nextSalesId() {
+  return previewSalesRecords.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 900) + 1;
+}
+
+function nextPurchaseId() {
+  return previewPurchaseRecords.reduce((maxValue, entry) => Math.max(maxValue, entry.id), 1000) + 1;
+}
+
 export function buildPreviewResponse(path: string, init: RequestInit = {}) {
   const method = (init.method || "GET").toUpperCase();
   const url = new URL(path, "http://preview.local");
@@ -1209,6 +1696,24 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     return buildJsonResponse(buildRestaurantsDashboard());
   }
 
+  if (pathname === "/sales/dashboard" && method === "GET") {
+    return buildJsonResponse(buildSalesDashboard());
+  }
+
+  if (pathname === "/purchases/dashboard" && method === "GET") {
+    return buildJsonResponse(buildPurchasesDashboard());
+  }
+
+  if (pathname === "/payroll/dashboard" && method === "GET") {
+    return buildJsonResponse(
+      buildPayrollDashboard(
+        url.searchParams.get("month"),
+        url.searchParams.get("role"),
+        url.searchParams.get("restaurant"),
+      ),
+    );
+  }
+
   if (pathname === "/attendance/form-options" && method === "GET") {
     const restaurantId = Number(url.searchParams.get("restaurant_id") || "");
     return buildJsonResponse(buildAttendanceFormOptions(Number.isFinite(restaurantId) ? restaurantId : null));
@@ -1220,6 +1725,14 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
 
   if (pathname === "/restaurants/form-options" && method === "GET") {
     return buildJsonResponse(buildRestaurantFormOptions());
+  }
+
+  if (pathname === "/sales/form-options" && method === "GET") {
+    return buildJsonResponse(buildSalesFormOptions());
+  }
+
+  if (pathname === "/purchases/form-options" && method === "GET") {
+    return buildJsonResponse(buildPurchaseFormOptions());
   }
 
   if (pathname === "/attendance/entries" && method === "GET") {
@@ -1486,6 +1999,75 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     });
   }
 
+  if (pathname === "/sales/records" && method === "GET") {
+    const entries = filterSalesEntries(url.searchParams).map(buildSalesEntry);
+    return buildJsonResponse({
+      total_entries: entries.length,
+      entries,
+    });
+  }
+
+  if (pathname === "/sales/records" && method === "POST") {
+    const timestamp = "2026-04-15T10:30:00Z";
+    const nextRecord: PreviewSalesRecord = {
+      id: nextSalesId(),
+      restaurant_name: String(body.restaurant_name || "Preview Firsat"),
+      city: String(body.city || "Istanbul"),
+      district: String(body.district || "Kadikoy"),
+      address: String(body.address || ""),
+      contact_name: String(body.contact_name || ""),
+      contact_phone: String(body.contact_phone || ""),
+      contact_email: String(body.contact_email || ""),
+      requested_courier_count: Number(body.requested_courier_count || 1),
+      lead_source: String(body.lead_source || previewSalesSourceOptions[0]),
+      proposed_quote: Number(body.proposed_quote || 0),
+      pricing_model: String(body.pricing_model || previewRestaurantPricingModels[0]?.value || "hourly_plus_package"),
+      hourly_rate: Number(body.hourly_rate || 0),
+      package_rate: Number(body.package_rate || 0),
+      package_threshold: Number(body.package_threshold || 390),
+      package_rate_low: Number(body.package_rate_low || 0),
+      package_rate_high: Number(body.package_rate_high || 0),
+      fixed_monthly_fee: Number(body.fixed_monthly_fee || 0),
+      status: String(body.status || previewSalesStatusOptions[0]),
+      next_follow_up_date: body.next_follow_up_date ? String(body.next_follow_up_date) : null,
+      assigned_owner: String(body.assigned_owner || ""),
+      notes: String(body.notes || ""),
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+    previewSalesRecords = [nextRecord, ...previewSalesRecords];
+    return buildJsonResponse({
+      message: "Preview satis firsati olusturuldu.",
+      entry_id: nextRecord.id,
+    });
+  }
+
+  if (pathname === "/purchases/records" && method === "GET") {
+    const entries = filterPurchaseEntries(url.searchParams).map(buildPurchaseEntry);
+    return buildJsonResponse({
+      total_entries: entries.length,
+      entries,
+    });
+  }
+
+  if (pathname === "/purchases/records" && method === "POST") {
+    const nextRecord: PreviewPurchaseRecord = {
+      id: nextPurchaseId(),
+      purchase_date: String(body.purchase_date || "2026-04-15"),
+      item_name: String(body.item_name || previewPurchaseItemOptions[0] || "Ekipman"),
+      quantity: Number(body.quantity || 1),
+      total_invoice_amount: Number(body.total_invoice_amount || 0),
+      supplier: String(body.supplier || ""),
+      invoice_no: String(body.invoice_no || ""),
+      notes: String(body.notes || ""),
+    };
+    previewPurchaseRecords = [nextRecord, ...previewPurchaseRecords];
+    return buildJsonResponse({
+      message: "Preview satin alma kaydi olusturuldu.",
+      entry_id: nextRecord.id,
+    });
+  }
+
   if (
     pathname.startsWith("/restaurants/records/") &&
     pathname.endsWith("/toggle-status") &&
@@ -1559,6 +2141,89 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     if (method === "DELETE") {
       previewRestaurants = previewRestaurants.filter((entry) => entry.id !== entryId);
       return buildJsonResponse({ message: "Preview restoran kaydi silindi." });
+    }
+  }
+
+  if (pathname.startsWith("/sales/records/")) {
+    const entryId = Number(pathname.split("/").pop());
+    const index = previewSalesRecords.findIndex((entry) => entry.id === entryId);
+    if (index < 0) {
+      return buildJsonResponse({ detail: "Satis firsati bulunamadi." }, 404);
+    }
+
+    if (method === "GET") {
+      return buildJsonResponse({
+        entry: buildSalesEntry(previewSalesRecords[index]),
+      });
+    }
+
+    if (method === "PUT") {
+      previewSalesRecords[index] = {
+        ...previewSalesRecords[index],
+        restaurant_name: String(body.restaurant_name || previewSalesRecords[index].restaurant_name),
+        city: String(body.city || previewSalesRecords[index].city),
+        district: String(body.district || previewSalesRecords[index].district),
+        address: String(body.address || previewSalesRecords[index].address),
+        contact_name: String(body.contact_name || previewSalesRecords[index].contact_name),
+        contact_phone: String(body.contact_phone || previewSalesRecords[index].contact_phone),
+        contact_email: String(body.contact_email || previewSalesRecords[index].contact_email),
+        requested_courier_count: Number(
+          body.requested_courier_count || previewSalesRecords[index].requested_courier_count,
+        ),
+        lead_source: String(body.lead_source || previewSalesRecords[index].lead_source),
+        proposed_quote: Number(body.proposed_quote || 0),
+        pricing_model: String(body.pricing_model || previewSalesRecords[index].pricing_model),
+        hourly_rate: Number(body.hourly_rate || 0),
+        package_rate: Number(body.package_rate || 0),
+        package_threshold: Number(body.package_threshold || 390),
+        package_rate_low: Number(body.package_rate_low || 0),
+        package_rate_high: Number(body.package_rate_high || 0),
+        fixed_monthly_fee: Number(body.fixed_monthly_fee || 0),
+        status: String(body.status || previewSalesRecords[index].status),
+        next_follow_up_date: body.next_follow_up_date ? String(body.next_follow_up_date) : null,
+        assigned_owner: String(body.assigned_owner || previewSalesRecords[index].assigned_owner),
+        notes: String(body.notes || previewSalesRecords[index].notes),
+        updated_at: "2026-04-15T11:45:00Z",
+      };
+      return buildJsonResponse({ message: "Preview satis kaydi guncellendi." });
+    }
+
+    if (method === "DELETE") {
+      previewSalesRecords = previewSalesRecords.filter((entry) => entry.id !== entryId);
+      return buildJsonResponse({ message: "Preview satis kaydi silindi." });
+    }
+  }
+
+  if (pathname.startsWith("/purchases/records/")) {
+    const entryId = Number(pathname.split("/").pop());
+    const index = previewPurchaseRecords.findIndex((entry) => entry.id === entryId);
+    if (index < 0) {
+      return buildJsonResponse({ detail: "Satin alma kaydi bulunamadi." }, 404);
+    }
+
+    if (method === "GET") {
+      return buildJsonResponse({
+        entry: buildPurchaseEntry(previewPurchaseRecords[index]),
+      });
+    }
+
+    if (method === "PUT") {
+      previewPurchaseRecords[index] = {
+        ...previewPurchaseRecords[index],
+        purchase_date: String(body.purchase_date || previewPurchaseRecords[index].purchase_date),
+        item_name: String(body.item_name || previewPurchaseRecords[index].item_name),
+        quantity: Number(body.quantity || previewPurchaseRecords[index].quantity),
+        total_invoice_amount: Number(body.total_invoice_amount || 0),
+        supplier: String(body.supplier || previewPurchaseRecords[index].supplier),
+        invoice_no: String(body.invoice_no || previewPurchaseRecords[index].invoice_no),
+        notes: String(body.notes || previewPurchaseRecords[index].notes),
+      };
+      return buildJsonResponse({ message: "Preview satin alma kaydi guncellendi." });
+    }
+
+    if (method === "DELETE") {
+      previewPurchaseRecords = previewPurchaseRecords.filter((entry) => entry.id !== entryId);
+      return buildJsonResponse({ message: "Preview satin alma kaydi silindi." });
     }
   }
 
