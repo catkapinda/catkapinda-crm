@@ -77,6 +77,7 @@ def test_runtime_bootstrap_marks_failure_when_connection_breaks(monkeypatch):
 def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
     sqlite_path = tmp_path / "catkapinda_crm.db"
     with sqlite3.connect(sqlite_path) as raw_conn:
+        raw_conn.row_factory = sqlite3.Row
         raw_conn.execute(
             """
             CREATE TABLE personnel (
@@ -85,6 +86,60 @@ def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
                 role TEXT NOT NULL,
                 status TEXT NOT NULL,
                 phone TEXT
+            )
+            """
+        )
+        raw_conn.execute(
+            """
+            CREATE TABLE daily_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entry_date TEXT,
+                restaurant_id INTEGER,
+                planned_personnel_id INTEGER,
+                actual_personnel_id INTEGER,
+                status TEXT,
+                worked_hours REAL,
+                package_count REAL,
+                notes TEXT
+            )
+            """
+        )
+        raw_conn.execute(
+            """
+            CREATE TABLE restaurants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                brand TEXT,
+                branch TEXT,
+                pricing_model TEXT,
+                active INTEGER DEFAULT 1
+            )
+            """
+        )
+        raw_conn.execute(
+            """
+            CREATE TABLE deductions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                personnel_id INTEGER,
+                deduction_date TEXT,
+                deduction_type TEXT,
+                amount REAL,
+                notes TEXT
+            )
+            """
+        )
+        raw_conn.execute(
+            """
+            CREATE TABLE courier_equipment_issues (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                personnel_id INTEGER,
+                issue_date TEXT,
+                item_name TEXT,
+                quantity REAL,
+                unit_cost REAL,
+                unit_sale_price REAL,
+                installment_count INTEGER,
+                sale_type TEXT,
+                notes TEXT
             )
             """
         )
@@ -119,6 +174,11 @@ def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
         sales_table = raw_conn.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sales_leads'"
         ).fetchone()
+        daily_entry_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(daily_entries)").fetchall()}
+        personnel_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(personnel)").fetchall()}
+        restaurant_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(restaurants)").fetchall()}
+        deduction_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(deductions)").fetchall()}
+        equipment_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(courier_equipment_issues)").fetchall()}
 
     assert auth_user_count == 3
     assert phone_code_table is not None
@@ -126,3 +186,8 @@ def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
     assert role_history_table is not None
     assert vehicle_history_table is not None
     assert sales_table is not None
+    assert {"monthly_invoice_amount", "absence_reason", "coverage_type"} <= daily_entry_cols
+    assert {"motor_purchase", "address"} <= personnel_cols
+    assert {"company_title", "address"} <= restaurant_cols
+    assert {"auto_source_key"} <= deduction_cols
+    assert {"vat_rate", "auto_source_key"} <= equipment_cols

@@ -2,20 +2,37 @@ from __future__ import annotations
 
 import psycopg
 
+from app.core.database import is_sqlite_backend
+
 
 def fetch_personnel_summary(conn: psycopg.Connection) -> dict[str, int]:
-    row = conn.execute(
-        """
-        SELECT
-            COUNT(*) AS total_personnel,
-            COUNT(*) FILTER (WHERE status = 'Aktif') AS active_personnel,
-            COUNT(*) FILTER (WHERE status = 'Pasif') AS passive_personnel,
-            COUNT(DISTINCT assigned_restaurant_id) FILTER (
-                WHERE status = 'Aktif' AND assigned_restaurant_id IS NOT NULL
-            ) AS assigned_restaurants
-        FROM personnel
-        """
-    ).fetchone()
+    if is_sqlite_backend(conn):
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_personnel,
+                SUM(CASE WHEN status = 'Aktif' THEN 1 ELSE 0 END) AS active_personnel,
+                SUM(CASE WHEN status = 'Pasif' THEN 1 ELSE 0 END) AS passive_personnel,
+                COUNT(DISTINCT CASE
+                    WHEN status = 'Aktif' AND assigned_restaurant_id IS NOT NULL THEN assigned_restaurant_id
+                    ELSE NULL
+                END) AS assigned_restaurants
+            FROM personnel
+            """
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_personnel,
+                COUNT(*) FILTER (WHERE status = 'Aktif') AS active_personnel,
+                COUNT(*) FILTER (WHERE status = 'Pasif') AS passive_personnel,
+                COUNT(DISTINCT assigned_restaurant_id) FILTER (
+                    WHERE status = 'Aktif' AND assigned_restaurant_id IS NOT NULL
+                ) AS assigned_restaurants
+            FROM personnel
+            """
+        ).fetchone()
     if row is None:
         return {
             "total_personnel": 0,

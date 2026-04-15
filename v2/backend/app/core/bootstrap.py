@@ -256,11 +256,58 @@ AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_sales_leads_updated_at ON sales_leads (updated_at)",
 )
 
+LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
+    "daily_entries": (
+        ("monthly_invoice_amount", "ALTER TABLE daily_entries ADD COLUMN monthly_invoice_amount REAL DEFAULT 0"),
+        ("absence_reason", "ALTER TABLE daily_entries ADD COLUMN absence_reason TEXT"),
+        ("coverage_type", "ALTER TABLE daily_entries ADD COLUMN coverage_type TEXT"),
+    ),
+    "personnel": (
+        ("address", "ALTER TABLE personnel ADD COLUMN address TEXT"),
+        ("emergency_contact_name", "ALTER TABLE personnel ADD COLUMN emergency_contact_name TEXT"),
+        ("emergency_contact_phone", "ALTER TABLE personnel ADD COLUMN emergency_contact_phone TEXT"),
+        ("motor_rental_monthly_amount", "ALTER TABLE personnel ADD COLUMN motor_rental_monthly_amount REAL DEFAULT 13000"),
+        ("motor_purchase", "ALTER TABLE personnel ADD COLUMN motor_purchase TEXT DEFAULT 'Hayır'"),
+        ("motor_purchase_start_date", "ALTER TABLE personnel ADD COLUMN motor_purchase_start_date TEXT"),
+        ("motor_purchase_commitment_months", "ALTER TABLE personnel ADD COLUMN motor_purchase_commitment_months INTEGER"),
+        ("motor_purchase_monthly_deduction", "ALTER TABLE personnel ADD COLUMN motor_purchase_monthly_deduction REAL DEFAULT 0"),
+        ("sgk_job_code", "ALTER TABLE personnel ADD COLUMN sgk_job_code TEXT"),
+    ),
+    "restaurants": (
+        ("company_title", "ALTER TABLE restaurants ADD COLUMN company_title TEXT"),
+        ("address", "ALTER TABLE restaurants ADD COLUMN address TEXT"),
+    ),
+    "deductions": (
+        ("auto_source_key", "ALTER TABLE deductions ADD COLUMN auto_source_key TEXT"),
+    ),
+    "courier_equipment_issues": (
+        ("vat_rate", "ALTER TABLE courier_equipment_issues ADD COLUMN vat_rate REAL DEFAULT 20"),
+        ("auto_source_key", "ALTER TABLE courier_equipment_issues ADD COLUMN auto_source_key TEXT"),
+    ),
+}
+
+
+def _sqlite_table_columns(conn: psycopg.Connection, table_name: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return {str(row["name"]) for row in rows}
+
+
+def _run_local_sqlite_domain_bootstrap(conn: psycopg.Connection) -> None:
+    for table_name, alterations in LOCAL_SQLITE_DOMAIN_ALTERATIONS.items():
+        existing_columns = _sqlite_table_columns(conn, table_name)
+        if not existing_columns:
+            continue
+        for column_name, sql in alterations:
+            if column_name not in existing_columns:
+                conn.execute(sql)
+
 
 def _run_auth_bootstrap(conn: psycopg.Connection, *, allow_mobile_sync: bool) -> None:
     statements = AUTH_BOOTSTRAP_STATEMENTS if getattr(conn, "backend", "postgres") == "postgres" else AUTH_BOOTSTRAP_SQLITE_STATEMENTS
     for statement in statements:
         conn.execute(statement)
+    if getattr(conn, "backend", "postgres") == "sqlite":
+        _run_local_sqlite_domain_bootstrap(conn)
     sync_default_auth_users(conn)
     if allow_mobile_sync:
         sync_mobile_auth_users(conn)

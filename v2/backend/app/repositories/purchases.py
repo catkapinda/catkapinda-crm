@@ -4,27 +4,43 @@ from datetime import date
 
 import psycopg
 
+from app.core.database import is_sqlite_backend
+
 
 def fetch_purchase_summary(
     conn: psycopg.Connection,
     *,
     reference_date: date,
 ) -> dict[str, float | int]:
-    row = conn.execute(
-        """
-        SELECT
-            COUNT(*) AS total_entries,
-            COUNT(*) FILTER (
-                WHERE DATE_TRUNC('month', purchase_date) = DATE_TRUNC('month', %s::date)
-            ) AS this_month_entries,
-            COALESCE(SUM(total_invoice_amount) FILTER (
-                WHERE DATE_TRUNC('month', purchase_date) = DATE_TRUNC('month', %s::date)
-            ), 0) AS this_month_total_invoice,
-            COUNT(DISTINCT NULLIF(TRIM(COALESCE(supplier, '')), '')) AS distinct_suppliers
-        FROM inventory_purchases
-        """,
-        (reference_date, reference_date),
-    ).fetchone()
+    if is_sqlite_backend(conn):
+        month_key = reference_date.strftime("%Y-%m")
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_entries,
+                SUM(CASE WHEN substr(COALESCE(purchase_date, ''), 1, 7) = %s THEN 1 ELSE 0 END) AS this_month_entries,
+                COALESCE(SUM(CASE WHEN substr(COALESCE(purchase_date, ''), 1, 7) = %s THEN COALESCE(total_invoice_amount, 0) ELSE 0 END), 0) AS this_month_total_invoice,
+                COUNT(DISTINCT NULLIF(TRIM(COALESCE(supplier, '')), '')) AS distinct_suppliers
+            FROM inventory_purchases
+            """,
+            (month_key, month_key),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_entries,
+                COUNT(*) FILTER (
+                    WHERE DATE_TRUNC('month', purchase_date) = DATE_TRUNC('month', %s::date)
+                ) AS this_month_entries,
+                COALESCE(SUM(total_invoice_amount) FILTER (
+                    WHERE DATE_TRUNC('month', purchase_date) = DATE_TRUNC('month', %s::date)
+                ), 0) AS this_month_total_invoice,
+                COUNT(DISTINCT NULLIF(TRIM(COALESCE(supplier, '')), '')) AS distinct_suppliers
+            FROM inventory_purchases
+            """,
+            (reference_date, reference_date),
+        ).fetchone()
     if row is None:
         return {
             "total_entries": 0,

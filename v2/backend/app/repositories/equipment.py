@@ -4,24 +4,39 @@ from datetime import date
 
 import psycopg
 
+from app.core.database import is_sqlite_backend
+
 
 def fetch_equipment_summary(
     conn: psycopg.Connection,
     *,
     reference_date: date,
 ) -> dict[str, float]:
-    row = conn.execute(
-        """
-        SELECT
-            COUNT(*) AS total_issues,
-            COUNT(*) FILTER (
-                WHERE DATE_TRUNC('month', issue_date::date) = DATE_TRUNC('month', %s::date)
-            ) AS this_month_issues,
-            COUNT(DISTINCT COALESCE(item_name, '')) AS distinct_items
-        FROM courier_equipment_issues
-        """,
-        (reference_date,),
-    ).fetchone()
+    if is_sqlite_backend(conn):
+        month_key = reference_date.strftime("%Y-%m")
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_issues,
+                SUM(CASE WHEN substr(COALESCE(issue_date, ''), 1, 7) = %s THEN 1 ELSE 0 END) AS this_month_issues,
+                COUNT(DISTINCT COALESCE(item_name, '')) AS distinct_items
+            FROM courier_equipment_issues
+            """,
+            (month_key,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_issues,
+                COUNT(*) FILTER (
+                    WHERE DATE_TRUNC('month', issue_date::date) = DATE_TRUNC('month', %s::date)
+                ) AS this_month_issues,
+                COUNT(DISTINCT COALESCE(item_name, '')) AS distinct_items
+            FROM courier_equipment_issues
+            """,
+            (reference_date,),
+        ).fetchone()
     installment_row = conn.execute(
         "SELECT COUNT(*) AS installment_rows FROM deductions WHERE equipment_issue_id IS NOT NULL"
     ).fetchone()

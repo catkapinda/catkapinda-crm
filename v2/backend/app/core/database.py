@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator, Sequence
 from pathlib import Path
+import re
 import shutil
 import sqlite3
 from typing import Any
@@ -47,7 +48,9 @@ class CompatConnection:
         self.backend = backend
 
     def execute(self, query: str, params: Sequence[Any] = ()):
-        sql = query.replace("%s", "?") if self.backend == "sqlite" else query
+        sql = query
+        if self.backend == "sqlite":
+            sql = _normalize_sqlite_query(query).replace("%s", "?")
         if self.backend == "sqlite":
             cursor = self.raw_conn.execute(sql, params)
             return CompatCursor(cursor)
@@ -56,7 +59,9 @@ class CompatConnection:
         return CompatCursor(cursor)
 
     def executemany(self, query: str, param_sets: Sequence[Sequence[Any]]):
-        sql = query.replace("%s", "?") if self.backend == "sqlite" else query
+        sql = query
+        if self.backend == "sqlite":
+            sql = _normalize_sqlite_query(query).replace("%s", "?")
         if self.backend == "sqlite":
             cursor = self.raw_conn.executemany(sql, param_sets)
             return CompatCursor(cursor)
@@ -76,6 +81,19 @@ class CompatConnection:
 
 def resolve_local_sqlite_fallback_path() -> Path:
     return Path(settings.resolved_local_sqlite_path).expanduser()
+
+
+def is_sqlite_backend(conn: Any) -> bool:
+    return getattr(conn, "backend", "postgres") == "sqlite"
+
+
+def _normalize_sqlite_query(query: str) -> str:
+    sql = query
+    sql = re.sub(r"\bILIKE\b", "LIKE", sql, flags=re.IGNORECASE)
+    sql = re.sub(r"\s+NULLS\s+LAST", "", sql, flags=re.IGNORECASE)
+    sql = re.sub(r"::date\b", "", sql, flags=re.IGNORECASE)
+    sql = re.sub(r"::timestamp\b", "", sql, flags=re.IGNORECASE)
+    return sql
 
 
 def local_sqlite_fallback_available() -> bool:

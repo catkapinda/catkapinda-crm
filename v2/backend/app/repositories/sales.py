@@ -2,36 +2,63 @@ from __future__ import annotations
 
 import psycopg
 
+from app.core.database import is_sqlite_backend
+
 
 def fetch_sales_summary(conn: psycopg.Connection) -> dict[str, int]:
-    row = conn.execute(
-        """
-        SELECT
-            COUNT(*) AS total_entries,
-            COUNT(*) FILTER (
-                WHERE status IN (
-                    'Yeni Talep',
-                    'İlk Görüşme Yapıldı',
-                    'Teklif Hazırlanıyor',
-                    'Teklif İletildi',
-                    'Tekrar Aranacak',
-                    'Toplantı Planlandı'
-                )
-            ) AS open_follow_up,
-            COUNT(*) FILTER (
-                WHERE status IN ('Teklif Hazırlanıyor', 'Teklif İletildi')
-            ) AS proposal_stage,
-            COUNT(*) FILTER (
-                WHERE status = 'Sözleşme İmzalandı'
-            ) AS won_count
-        FROM sales_leads
-        """,
-    ).fetchone()
+    if is_sqlite_backend(conn):
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_entries,
+                SUM(CASE
+                    WHEN status IN (
+                        'Yeni Talep',
+                        'İlk Görüşme Yapıldı',
+                        'Teklif Hazırlanıyor',
+                        'Teklif İletildi',
+                        'Tekrar Aranacak',
+                        'Toplantı Planlandı'
+                    ) THEN 1 ELSE 0
+                END) AS open_follow_up,
+                SUM(CASE
+                    WHEN status IN ('Teklif Hazırlanıyor', 'Teklif İletildi') THEN 1 ELSE 0
+                END) AS proposal_stage,
+                SUM(CASE
+                    WHEN status = 'Sözleşme İmzalandı' THEN 1 ELSE 0
+                END) AS won_count
+            FROM sales_leads
+            """
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_entries,
+                COUNT(*) FILTER (
+                    WHERE status IN (
+                        'Yeni Talep',
+                        'İlk Görüşme Yapıldı',
+                        'Teklif Hazırlanıyor',
+                        'Teklif İletildi',
+                        'Tekrar Aranacak',
+                        'Toplantı Planlandı'
+                    )
+                ) AS open_follow_up,
+                COUNT(*) FILTER (
+                    WHERE status IN ('Teklif Hazırlanıyor', 'Teklif İletildi')
+                ) AS proposal_stage,
+                COUNT(*) FILTER (
+                    WHERE status = 'Sözleşme İmzalandı'
+                ) AS won_count
+            FROM sales_leads
+            """
+        ).fetchone()
     return {
-        "total_entries": int((row or {}).get("total_entries") or 0),
-        "open_follow_up": int((row or {}).get("open_follow_up") or 0),
-        "proposal_stage": int((row or {}).get("proposal_stage") or 0),
-        "won_count": int((row or {}).get("won_count") or 0),
+        "total_entries": int(row["total_entries"] or 0) if row else 0,
+        "open_follow_up": int(row["open_follow_up"] or 0) if row else 0,
+        "proposal_stage": int(row["proposal_stage"] or 0) if row else 0,
+        "won_count": int(row["won_count"] or 0) if row else 0,
     }
 
 
@@ -118,7 +145,7 @@ def count_sales_management_records(
         f"SELECT COUNT(*) AS count FROM sales_leads {where_sql}",
         tuple(params),
     ).fetchone()
-    return int((row or {}).get("count") or 0)
+    return int(row["count"] or 0) if row else 0
 
 
 def fetch_sales_record_by_id(conn: psycopg.Connection, sales_id: int) -> dict[str, object] | None:
@@ -185,7 +212,7 @@ def insert_sales_record(conn: psycopg.Connection, values: dict[str, object]) -> 
             values["updated_at"],
         ),
     ).fetchone()
-    return int((row or {}).get("id") or 0)
+    return int(row["id"] or 0) if row else 0
 
 
 def update_sales_record(conn: psycopg.Connection, sales_id: int, values: dict[str, object]) -> None:

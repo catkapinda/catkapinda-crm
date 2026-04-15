@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import psycopg
 
+from app.core.database import is_sqlite_backend
+
 
 def _restaurant_select_sql() -> str:
     return """
@@ -38,16 +40,28 @@ def _restaurant_select_sql() -> str:
 
 
 def fetch_restaurant_summary(conn: psycopg.Connection) -> dict[str, int]:
-    row = conn.execute(
-        """
-        SELECT
-            COUNT(*) AS total_restaurants,
-            COUNT(*) FILTER (WHERE COALESCE(active, TRUE) = TRUE) AS active_restaurants,
-            COUNT(*) FILTER (WHERE COALESCE(active, TRUE) = FALSE) AS passive_restaurants,
-            COUNT(*) FILTER (WHERE pricing_model = 'fixed_monthly') AS fixed_monthly_restaurants
-        FROM restaurants
-        """
-    ).fetchone()
+    if is_sqlite_backend(conn):
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_restaurants,
+                SUM(CASE WHEN COALESCE(active, 1) = 1 THEN 1 ELSE 0 END) AS active_restaurants,
+                SUM(CASE WHEN COALESCE(active, 1) = 0 THEN 1 ELSE 0 END) AS passive_restaurants,
+                SUM(CASE WHEN pricing_model = 'fixed_monthly' THEN 1 ELSE 0 END) AS fixed_monthly_restaurants
+            FROM restaurants
+            """
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_restaurants,
+                COUNT(*) FILTER (WHERE COALESCE(active, TRUE) = TRUE) AS active_restaurants,
+                COUNT(*) FILTER (WHERE COALESCE(active, TRUE) = FALSE) AS passive_restaurants,
+                COUNT(*) FILTER (WHERE pricing_model = 'fixed_monthly') AS fixed_monthly_restaurants
+            FROM restaurants
+            """
+        ).fetchone()
     if row is None:
         return {
             "total_restaurants": 0,

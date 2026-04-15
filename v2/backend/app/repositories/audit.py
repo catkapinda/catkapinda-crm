@@ -4,22 +4,37 @@ from datetime import datetime, timedelta
 
 import psycopg
 
+from app.core.database import is_sqlite_backend
+
 
 def fetch_audit_summary(conn: psycopg.Connection) -> dict[str, int]:
     last_7_days_cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat(timespec="seconds")
-    row = conn.execute(
-        """
-        SELECT
-            COUNT(*) AS total_entries,
-            COUNT(*) FILTER (
-                WHERE created_at >= %s
-            ) AS last_7_days,
-            COUNT(DISTINCT COALESCE(NULLIF(actor_username, ''), actor_full_name, 'unknown')) AS unique_actors,
-            COUNT(DISTINCT COALESCE(NULLIF(entity_type, ''), 'unknown')) AS unique_entities
-        FROM audit_logs
-        """,
-        (last_7_days_cutoff,),
-    ).fetchone()
+    if is_sqlite_backend(conn):
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_entries,
+                SUM(CASE WHEN created_at >= %s THEN 1 ELSE 0 END) AS last_7_days,
+                COUNT(DISTINCT COALESCE(NULLIF(actor_username, ''), actor_full_name, 'unknown')) AS unique_actors,
+                COUNT(DISTINCT COALESCE(NULLIF(entity_type, ''), 'unknown')) AS unique_entities
+            FROM audit_logs
+            """,
+            (last_7_days_cutoff,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_entries,
+                COUNT(*) FILTER (
+                    WHERE created_at >= %s
+                ) AS last_7_days,
+                COUNT(DISTINCT COALESCE(NULLIF(actor_username, ''), actor_full_name, 'unknown')) AS unique_actors,
+                COUNT(DISTINCT COALESCE(NULLIF(entity_type, ''), 'unknown')) AS unique_entities
+            FROM audit_logs
+            """,
+            (last_7_days_cutoff,),
+        ).fetchone()
     if row is None:
         return {
             "total_entries": 0,
