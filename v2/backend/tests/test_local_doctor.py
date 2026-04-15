@@ -27,6 +27,7 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path, monkeypatch):
     assert report["ready"] is False
     assert report["database_url_present"] is False
     assert report["backend_restart_required"] is False
+    assert report["suggested_backend_restart_command"] == "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
     assert report["frontend_proxy_target"] == "http://127.0.0.1:8000"
     assert report["frontend_env_needs_sync"] is False
     assert report["suggested_frontend_url"] == "http://127.0.0.1:3000"
@@ -308,6 +309,7 @@ def test_local_doctor_flags_backend_restart_when_backend_env_and_runtime_differ(
     assert report["backend_restart_required"] is True
     assert "yeniden baslatilmali" in report["blocking_items"][0]
     assert "backend/.env icinde DATABASE_URL var" in (report["backend_restart_reason"] or "")
+    assert report["suggested_backend_restart_command"] == "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
     assert any("python3 -m uvicorn" in item for item in report["next_actions"])
 
 

@@ -178,6 +178,7 @@ type LocalSetupStatus = {
   suggested_env_write_command?: string | null;
   suggested_current_app_env_command?: string | null;
   suggested_backend_start_command?: string | null;
+  suggested_backend_restart_command?: string | null;
   current_app_seed_detected: boolean;
   current_app_seed_sources: string[];
   current_app_seed_placeholders: string[];
@@ -596,7 +597,9 @@ export default function StatusPage() {
           localSetup?.backend_restart_reason ||
           "Doctor backend/.env tarafinda DATABASE_URL gordugu halde calisan backend hala eski env ile 503 donuyor. Bu local durumda tipik olarak uvicorn surecinin env yazildiktan sonra yeniden baslatilmasi gerekir.",
         commands: [
-          localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
+          localSetup?.suggested_backend_restart_command ||
+            localSetup?.suggested_backend_start_command ||
+            "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
           "python v2/scripts/local_v2_doctor.py",
         ],
       };

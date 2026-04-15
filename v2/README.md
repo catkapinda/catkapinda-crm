@@ -40,6 +40,7 @@ Run locally:
   - local backend acik ama `/api/health/local-setup` bayat kalmissa, frontend `/api/pilot-status` route'u doctor'i lokalden yeniden calistirip daha taze local setup verisi uretebilir
   - backend/.env guncel oldugu halde `/status` hala `DATABASE_URL` eksik diyorsa, login ve `/status` bunu tipik bir "backend restart gerekli" durumu olarak isaretler
   - `/api/health/local-setup` backend tarafinda calisirken artik runtime env ile backend/.env farkini da raporlar; boylece “DB dosyada var ama surec eski env ile acik” durumu daha erken yakalanir
+  - restart gereken durumda doctor artik ayri bir `backend restart` komutu da onerir; boylece “ilk baslat” ile “yeniden baslat” dili karismaz
   - mevcut app kaynaklarindan (ornegin `secrets.toml`) otomatik seed denemek icin:
     - `python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app`
 - Frontend:

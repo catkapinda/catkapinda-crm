@@ -583,6 +583,7 @@ def build_local_doctor_report(
         overwrite_backend_env=backend_env_path.exists(),
     )
     suggested_backend_start_command = "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
+    suggested_backend_restart_command = suggested_backend_start_command
 
     runtime_database_url, runtime_database_source = _resolve_value(runtime_env, {}, BACKEND_DATABASE_KEYS)
     backend_env_database_url, backend_env_database_source = _resolve_value({}, backend_env_values, BACKEND_DATABASE_KEYS)
@@ -620,7 +621,7 @@ def build_local_doctor_report(
             backend_restart_reason = "backend/.env icindeki DATABASE_URL ile calisan backend surecinin DATABASE_URL degeri farkli."
         blocking_items.append("Backend .env guncel, fakat calisan backend sureci yeniden baslatilmali.")
         warnings.append(backend_restart_reason)
-        next_actions.append(f"Backend'i guncellemek icin `{suggested_backend_start_command}` komutunu yeniden calistir.")
+        next_actions.append(f"Backend'i guncellemek icin `{suggested_backend_restart_command}` komutunu yeniden calistir.")
 
     if not database_url:
         blocking_items.append("Backend veritabani URL'i eksik. CK_V2_DATABASE_URL veya DATABASE_URL tanimlanmali.")
@@ -703,6 +704,7 @@ def build_local_doctor_report(
         "suggested_env_write_command": suggested_env_write_command,
         "suggested_current_app_env_command": suggested_current_app_env_command,
         "suggested_backend_start_command": suggested_backend_start_command,
+        "suggested_backend_restart_command": suggested_backend_restart_command,
         "current_app_seed_detected": bool(current_app_values),
         "current_app_seed_sources": current_app_seed["sources_used"],
         "current_app_seed_placeholders": current_app_seed["placeholders_detected"],

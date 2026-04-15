@@ -121,6 +121,8 @@ def _print_human_report(
         print("- Backend restart: gerekli")
         if report.get("backend_restart_reason"):
             print(f"  Neden: {report['backend_restart_reason']}")
+    if report.get("suggested_backend_restart_command"):
+        print(f"- Onerilen backend restart: {report['suggested_backend_restart_command']}")
     print(
         "- Frontend proxy: "
         + (str(report["frontend_proxy_target"]) if report["frontend_proxy_target"] else "eksik")

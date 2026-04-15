@@ -56,6 +56,7 @@ type LoginPilotStatusPayload = {
     suggested_env_write_command?: string | null;
     suggested_current_app_env_command?: string | null;
     suggested_backend_start_command?: string | null;
+    suggested_backend_restart_command?: string | null;
     current_app_seed_detected?: boolean;
     current_app_seed_sources?: string[];
     current_app_seed_placeholders?: string[];
@@ -408,6 +409,7 @@ function LoginPageContent() {
               "Doctor backend/.env tarafinda veritabani baglantisini goruyor; buna ragmen calisan backend hala DATABASE_URL eksigi donuyor. Bu genelde env yazildiktan sonra uvicorn sureci yeniden baslatilmadiginda olur.") +
             setupSourceDetail,
           command:
+            localSetup.suggested_backend_restart_command ||
             localSetup.suggested_backend_start_command ||
             "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
         };
