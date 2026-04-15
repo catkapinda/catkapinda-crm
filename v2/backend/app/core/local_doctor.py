@@ -284,17 +284,19 @@ def render_frontend_env(
 def render_backend_env(
     runtime_env: Mapping[str, str],
     *,
+    existing_env_values: Mapping[str, str] | None = None,
     current_app_seed_values: Mapping[str, str] | None = None,
     frontend_url: str = LOCAL_FRONTEND_URL,
     api_url: str = LOCAL_API_URL,
 ) -> str:
-    database_url, _ = _resolve_value(runtime_env, {}, BACKEND_DATABASE_KEYS)
+    env_file_values = existing_env_values or {}
+    database_url, _ = _resolve_value(runtime_env, env_file_values, BACKEND_DATABASE_KEYS)
     if not database_url and current_app_seed_values:
         database_url = _strip_wrapping_quotes(str(current_app_seed_values.get("database_url", "")))
     if not database_url:
         raise ValueError("CK_V2_DATABASE_URL veya DATABASE_URL shell env icinde bulunamadi.")
 
-    password, _ = _resolve_value(runtime_env, {}, BACKEND_PASSWORD_KEYS)
+    password, _ = _resolve_value(runtime_env, env_file_values, BACKEND_PASSWORD_KEYS)
     lines = [
         "CK_V2_APP_ENV=development",
         f"CK_V2_DATABASE_URL={database_url}",
@@ -306,6 +308,8 @@ def render_backend_env(
 
     for key in BACKEND_PHONE_KEYS:
         value = _strip_wrapping_quotes(runtime_env.get(key, ""))
+        if not value:
+            value = _strip_wrapping_quotes(env_file_values.get(key, ""))
         if not value and current_app_seed_values:
             value = _strip_wrapping_quotes(str(current_app_seed_values.get(key, "")))
         if value:
@@ -317,11 +321,13 @@ def render_backend_env(
 def render_backend_env_scaffold(
     runtime_env: Mapping[str, str],
     *,
+    existing_env_values: Mapping[str, str] | None = None,
     current_app_seed_values: Mapping[str, str] | None = None,
     frontend_url: str = LOCAL_FRONTEND_URL,
     api_url: str = LOCAL_API_URL,
 ) -> str:
-    password, _ = _resolve_value(runtime_env, {}, BACKEND_PASSWORD_KEYS)
+    env_file_values = existing_env_values or {}
+    password, _ = _resolve_value(runtime_env, env_file_values, BACKEND_PASSWORD_KEYS)
     lines = [
         "CK_V2_APP_ENV=development",
         "# TODO: gercek PostgreSQL degerini yapistir",
@@ -334,6 +340,8 @@ def render_backend_env_scaffold(
 
     for key in BACKEND_PHONE_KEYS:
         value = _strip_wrapping_quotes(runtime_env.get(key, ""))
+        if not value:
+            value = _strip_wrapping_quotes(env_file_values.get(key, ""))
         if not value and current_app_seed_values:
             value = _strip_wrapping_quotes(str(current_app_seed_values.get(key, "")))
         if value:
@@ -352,12 +360,14 @@ def write_backend_env_file(
     api_url: str = LOCAL_API_URL,
 ) -> Path:
     backend_env_path = v2_root / "backend" / ".env"
+    existing_env_values = load_env_file(backend_env_path)
     if backend_env_path.exists() and not overwrite:
         raise FileExistsError(f"{backend_env_path} zaten var. Ezmek icin --overwrite-backend-env kullan.")
 
     backend_env_path.write_text(
         render_backend_env(
             runtime_env,
+            existing_env_values=existing_env_values,
             current_app_seed_values=current_app_seed_values,
             frontend_url=frontend_url,
             api_url=api_url,
@@ -377,12 +387,14 @@ def write_backend_env_scaffold_file(
     api_url: str = LOCAL_API_URL,
 ) -> Path:
     backend_env_path = v2_root / "backend" / ".env"
+    existing_env_values = load_env_file(backend_env_path)
     if backend_env_path.exists() and not overwrite:
         raise FileExistsError(f"{backend_env_path} zaten var. Ezmek icin --overwrite-backend-env kullan.")
 
     backend_env_path.write_text(
         render_backend_env_scaffold(
             runtime_env,
+            existing_env_values=existing_env_values,
             current_app_seed_values=current_app_seed_values,
             frontend_url=frontend_url,
             api_url=api_url,
@@ -424,6 +436,7 @@ def bootstrap_local_setup_files(
     api_url: str = LOCAL_API_URL,
 ) -> list[Path]:
     written_paths: list[Path] = []
+    existing_backend_env_values = load_env_file(v2_root / "backend" / ".env")
 
     frontend_path = write_frontend_env_file(
         v2_root,
@@ -433,7 +446,7 @@ def bootstrap_local_setup_files(
     written_paths.append(frontend_path)
 
     backend_env_path = v2_root / "backend" / ".env"
-    database_url, _ = _resolve_value(runtime_env, {}, BACKEND_DATABASE_KEYS)
+    database_url, _ = _resolve_value(runtime_env, existing_backend_env_values, BACKEND_DATABASE_KEYS)
     if not database_url and current_app_seed_values:
         database_url = _strip_wrapping_quotes(str(current_app_seed_values.get("database_url", "")))
 

@@ -259,3 +259,62 @@ def test_write_backend_env_file_can_use_current_app_seed_values(tmp_path: Path):
     content = env_path.read_text(encoding="utf-8")
     assert "CK_V2_DATABASE_URL=postgresql://seed-user:seed-pass@db.real.supabase.co:5432/postgres?sslmode=require" in content
     assert "AUTH_EBRU_PHONE=05321234567" in content
+
+
+def test_write_backend_env_file_preserves_existing_database_values_on_overwrite(tmp_path: Path):
+    v2_root = tmp_path / "v2"
+    (v2_root / "backend").mkdir(parents=True)
+    existing_env_path = v2_root / "backend" / ".env"
+    existing_env_path.write_text(
+        "CK_V2_APP_ENV=development\n"
+        "CK_V2_DATABASE_URL=postgresql://saved-user:saved-pass@db.real.supabase.co:5432/postgres?sslmode=require\n"
+        "CK_V2_DEFAULT_AUTH_PASSWORD=KayitliSifre42\n"
+        "AUTH_EBRU_PHONE=05321234567\n",
+        encoding="utf-8",
+    )
+
+    env_path = write_backend_env_file(
+        v2_root,
+        {},
+        overwrite=True,
+        frontend_url="http://127.0.0.1:3001",
+        api_url="http://127.0.0.1:8000",
+    )
+
+    content = env_path.read_text(encoding="utf-8")
+    assert "CK_V2_DATABASE_URL=postgresql://saved-user:saved-pass@db.real.supabase.co:5432/postgres?sslmode=require" in content
+    assert "CK_V2_DEFAULT_AUTH_PASSWORD=KayitliSifre42" in content
+    assert "AUTH_EBRU_PHONE=05321234567" in content
+    assert "CK_V2_FRONTEND_BASE_URL=http://127.0.0.1:3001" in content
+
+
+def test_bootstrap_local_setup_preserves_existing_database_url_when_refreshing(tmp_path: Path):
+    v2_root = tmp_path / "v2"
+    (v2_root / "frontend").mkdir(parents=True)
+    (v2_root / "backend").mkdir(parents=True)
+    (v2_root / "backend" / ".env").write_text(
+        "CK_V2_APP_ENV=development\n"
+        "CK_V2_DATABASE_URL=postgresql://saved-user:saved-pass@db.real.supabase.co:5432/postgres?sslmode=require\n"
+        "CK_V2_DEFAULT_AUTH_PASSWORD=KayitliSifre42\n",
+        encoding="utf-8",
+    )
+    (v2_root / "frontend" / ".env.local").write_text(
+        "NEXT_PUBLIC_V2_API_BASE_URL=/v2-api\nCK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:9999\n",
+        encoding="utf-8",
+    )
+
+    written = bootstrap_local_setup_files(
+        v2_root,
+        {},
+        overwrite_backend_env=True,
+        overwrite_frontend_env=True,
+        frontend_url="http://127.0.0.1:3001",
+        api_url="http://127.0.0.1:8000",
+    )
+
+    assert [path.name for path in written] == [".env.local", ".env"]
+    backend_content = (v2_root / "backend" / ".env").read_text(encoding="utf-8")
+    frontend_content = (v2_root / "frontend" / ".env.local").read_text(encoding="utf-8")
+    assert "CK_V2_DATABASE_URL=postgresql://saved-user:saved-pass@db.real.supabase.co:5432/postgres?sslmode=require" in backend_content
+    assert "CK_V2_FRONTEND_BASE_URL=http://127.0.0.1:3001" in backend_content
+    assert "CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000" in frontend_content
