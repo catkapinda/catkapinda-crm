@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../components/auth/auth-provider";
 import { AuditManagementWorkspace } from "../../components/audit/audit-management-workspace";
@@ -33,23 +33,32 @@ type AuditDashboard = {
   actor_options: string[];
 };
 
-function metricCard(label: string, value: string, tone: "accent" | "soft" = "soft") {
+const serifStyle = {
+  fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  letterSpacing: "-0.04em",
+} as const;
+
+function metricCard(label: string, value: string, note: string, tone: "accent" | "soft" = "soft") {
   return (
     <article
       key={label}
       style={{
-        padding: "18px",
-        borderRadius: "20px",
+        padding: "18px 18px 16px",
+        borderRadius: "22px",
         border: "1px solid var(--line)",
-        background: tone === "accent" ? "rgba(15, 95, 215, 0.06)" : "var(--surface)",
+        background:
+          tone === "accent"
+            ? "linear-gradient(180deg, rgba(255,253,247,0.98), rgba(246,239,228,0.96))"
+            : "var(--surface-strong)",
+        boxShadow: "0 18px 42px rgba(20, 39, 67, 0.06)",
       }}
     >
       <div
         style={{
           color: "var(--muted)",
-          fontSize: "0.82rem",
+          fontSize: "0.78rem",
           textTransform: "uppercase",
-          letterSpacing: "0.05em",
+          letterSpacing: "0.06em",
           fontWeight: 800,
         }}
       >
@@ -57,16 +66,211 @@ function metricCard(label: string, value: string, tone: "accent" | "soft" = "sof
       </div>
       <div
         style={{
+          ...serifStyle,
           marginTop: "10px",
-          fontSize: "1.85rem",
-          fontWeight: 900,
-          letterSpacing: "-0.04em",
+          fontSize: "2rem",
+          lineHeight: 0.95,
+          fontWeight: 700,
         }}
       >
         {value}
       </div>
+      <div
+        style={{
+          marginTop: "8px",
+          color: "var(--muted)",
+          lineHeight: 1.6,
+          fontSize: "0.92rem",
+        }}
+      >
+        {note}
+      </div>
     </article>
   );
+}
+
+function narrativeCard({
+  eyebrow,
+  title,
+  body,
+  tone = "paper",
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  tone?: "paper" | "ink" | "accent";
+}) {
+  const palette =
+    tone === "ink"
+      ? {
+          background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+          border: "1px solid rgba(255,255,255,0.08)",
+          title: "#fff7ea",
+          body: "rgba(255,247,234,0.72)",
+          eyebrow: "rgba(255,247,234,0.62)",
+        }
+      : tone === "accent"
+        ? {
+            background: "linear-gradient(180deg, rgba(185,116,41,0.12), rgba(255,248,236,0.98))",
+            border: "1px solid rgba(185,116,41,0.18)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--accent-strong)",
+          }
+        : {
+            background: "rgba(255,255,255,0.84)",
+            border: "1px solid var(--line)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--muted)",
+          };
+
+  return (
+    <article
+      style={{
+        padding: "18px 18px 16px",
+        borderRadius: "22px",
+        background: palette.background,
+        border: palette.border,
+        boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      <div
+        style={{
+          color: palette.eyebrow,
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifStyle,
+          color: palette.title,
+          fontSize: "1.45rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: palette.body,
+          fontSize: "0.93rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
+      </div>
+    </article>
+  );
+}
+
+function listCard(
+  title: string,
+  subtitle: string,
+  items: Array<{ title: string; meta: string; value: string }>,
+) {
+  return (
+    <section
+      style={{
+        display: "grid",
+        gap: "12px",
+        padding: "20px",
+        borderRadius: "22px",
+        border: "1px solid var(--line)",
+        background: "var(--surface-strong)",
+        boxShadow: "0 18px 42px rgba(20, 39, 67, 0.06)",
+      }}
+    >
+      <div>
+        <h2 style={{ margin: 0, fontSize: "1.08rem" }}>{title}</h2>
+        <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>{subtitle}</p>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gap: "10px",
+          maxHeight: "280px",
+          overflow: "auto",
+          paddingRight: "4px",
+        }}
+      >
+        {items.length ? (
+          items.map((item, index) => (
+            <article
+              key={`${title}-${index}-${item.title}`}
+              style={{
+                display: "grid",
+                gap: "6px",
+                padding: "14px 16px",
+                borderRadius: "18px",
+                border: "1px solid var(--line)",
+                background: "rgba(255, 255, 255, 0.88)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  alignItems: "center",
+                }}
+              >
+                <strong>{item.title}</strong>
+                <span style={{ color: "var(--muted)", fontSize: "0.88rem" }}>{item.value}</span>
+              </div>
+              <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>{item.meta}</div>
+            </article>
+          ))
+        ) : (
+          <div
+            style={{
+              padding: "18px",
+              borderRadius: "16px",
+              border: "1px dashed rgba(15, 95, 215, 0.25)",
+              color: "var(--muted)",
+              background: "rgba(255, 255, 255, 0.72)",
+            }}
+          >
+            Henuz kayit yok.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function formatTimestamp(value: string) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("tr-TR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function formatActor(entry: AuditDashboard["recent_entries"][number]) {
+  return entry.actor_full_name || entry.actor_username || "Bilinmeyen kullanici";
+}
+
+function countEntries(values: string[]) {
+  const counts = new Map<string, number>();
+  values.forEach((value) => {
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  });
+  return [...counts.entries()].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "tr"));
 }
 
 export default function AuditPage() {
@@ -119,6 +323,69 @@ export default function AuditPage() {
     };
   }, [loading, user]);
 
+  const decisionDeck = useMemo(() => {
+    if (!dashboard) {
+      return [];
+    }
+
+    const topEntry = dashboard.recent_entries[0] ?? null;
+    const actionMix = countEntries(dashboard.recent_entries.map((entry) => entry.action_type));
+    const entityMix = countEntries(dashboard.recent_entries.map((entry) => entry.entity_type));
+    const dominantAction = actionMix[0] ?? null;
+    const dominantEntity = entityMix[0] ?? null;
+    const recentPressure =
+      dashboard.summary.last_7_days >= Math.max(8, Math.ceil(dashboard.summary.total_entries * 0.3));
+    const actorSpreadWide =
+      dashboard.summary.unique_actors >= Math.max(4, Math.ceil(dashboard.summary.unique_entities * 0.8));
+
+    return [
+      {
+        eyebrow: "Kayit Nabzi",
+        title: recentPressure ? "Son 7 gun daha hizli akiyor." : "Kayit ritmi kontrollu gorunuyor.",
+        body: `${dashboard.summary.last_7_days} kayit son 7 gunde olustu. Toplam ${dashboard.summary.total_entries} kayit icinde bu ritim, sistemde degisimin ne kadar taze oldugunu hizla anlatir.`,
+        tone: recentPressure ? "ink" : "paper",
+      },
+      {
+        eyebrow: "En Sicak Aksiyon",
+        title: topEntry
+          ? `${topEntry.action_type} · ${topEntry.entity_type}`
+          : "Aksiyon sinyali henuz yok.",
+        body: topEntry
+          ? `${formatActor(topEntry)} tarafindan ${formatTimestamp(topEntry.created_at)} aninda tetiklendi. ${topEntry.summary || "Bu hareket detay akisi icinde ilk okunacak olaylardan biri."}`
+          : "Yeni audit hareketleri geldikce burada ilk dikkat isteyen aksiyon gorunecek.",
+        tone: "paper",
+      },
+      {
+        eyebrow: actorSpreadWide ? "Oyuncu Dagilimi" : "Varlik Baskisi",
+        title: actorSpreadWide
+          ? "Kayit izi ekibe yayiliyor."
+          : dominantEntity
+            ? `${dominantEntity[0]} onde gidiyor.`
+            : "Dagilim sinyali henuz yok.",
+        body: actorSpreadWide
+          ? `${dashboard.summary.unique_actors} farkli kullanici ve ${dashboard.summary.unique_entities} farkli varlik izleniyor. Bu dagilim, denetim akisinin tek kisiye bagli kalmadigini gosterir.`
+          : dominantEntity
+            ? `${dominantEntity[0]} tarafinda ${dominantEntity[1]} hareket goruluyor. ${dominantAction ? `${dominantAction[0]} aksiyonu ${dominantAction[1]} kez tekrar etti.` : "Aksiyon dagilimi burada yogunlasiyor."}`
+            : "Aksiyon ve varlik karmasi geldikce burada baski noktasi one cikacak.",
+        tone: actorSpreadWide ? "accent" : "paper",
+      },
+    ] as const;
+  }, [dashboard]);
+
+  const actionMix = useMemo(() => {
+    if (!dashboard) {
+      return [];
+    }
+    return countEntries(dashboard.recent_entries.map((entry) => entry.action_type)).slice(0, 6);
+  }, [dashboard]);
+
+  const entityMix = useMemo(() => {
+    if (!dashboard) {
+      return [];
+    }
+    return countEntries(dashboard.recent_entries.map((entry) => entry.entity_type)).slice(0, 6);
+  }, [dashboard]);
+
   return (
     <AppShell activeItem="Sistem Kayıtları">
       <section
@@ -129,48 +396,260 @@ export default function AuditPage() {
       >
         <div
           style={{
-            padding: "24px 26px",
-            borderRadius: "28px",
-            background: "var(--surface-strong)",
+            padding: "28px",
+            borderRadius: "30px",
+            background: "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,242,233,0.96))",
             border: "1px solid var(--line)",
             boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
+            display: "grid",
+            gap: "18px",
           }}
         >
           <div
             style={{
-              display: "inline-flex",
-              padding: "7px 12px",
-              borderRadius: "999px",
-              background: "var(--accent-soft)",
-              color: "var(--accent)",
-              fontSize: "0.78rem",
-              fontWeight: 800,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.9fr)",
+              gap: "18px",
+              alignItems: "stretch",
             }}
           >
-            Audit v2
+            <div
+              style={{
+                display: "grid",
+                gap: "16px",
+                alignContent: "start",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  width: "fit-content",
+                  padding: "7px 12px",
+                  borderRadius: "999px",
+                  background: "var(--accent-soft)",
+                  color: "var(--accent)",
+                  fontSize: "0.78rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Audit Control
+              </div>
+              <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
+                <h1
+                  style={{
+                    ...serifStyle,
+                    margin: 0,
+                    fontSize: "clamp(2.2rem, 4vw, 3.6rem)",
+                    lineHeight: 0.96,
+                    fontWeight: 700,
+                  }}
+                >
+                  Sistem hareketini sadece kayit olarak degil, operasyon izi olarak okuyoruz.
+                </h1>
+                <p
+                  style={{
+                    margin: 0,
+                    maxWidth: "74ch",
+                    color: "var(--muted)",
+                    lineHeight: 1.76,
+                    fontSize: "1.02rem",
+                  }}
+                >
+                  Kim, neyi, hangi ritimde degistiriyor sorusunu daha okunur bir karar katmanina
+                  tasiyoruz. Hedefimiz, denetim hattini sadece arama masasi degil; erken sinyal
+                  ve guven katmani gibi hissettirmek.
+                </p>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(15,95,215,0.08)",
+                    color: "#0f5fd7",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Kim / ne / ne zaman ayni hatta
+                </span>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(185,116,41,0.1)",
+                    color: "var(--accent-strong)",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Aksiyon ve varlik baskisi gorunur
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              <article
+                style={{
+                  padding: "18px 18px 16px",
+                  borderRadius: "24px",
+                  background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+                  color: "#fff7ea",
+                  boxShadow: "var(--shadow-deep)",
+                  display: "grid",
+                  gap: "14px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    alignItems: "start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.62)",
+                        fontSize: "0.74rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Akim Nabzi
+                    </div>
+                    <div
+                      style={{
+                        ...serifStyle,
+                        fontSize: "1.8rem",
+                        lineHeight: 0.96,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {dashboard?.summary.last_7_days ?? 0} son 7 gun hareketi
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      padding: "7px 10px",
+                      borderRadius: "999px",
+                      background: "rgba(255,255,255,0.08)",
+                      color: "rgba(255,247,234,0.82)",
+                      fontSize: "0.8rem",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Audit Room
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Kullanici
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {dashboard?.summary.unique_actors ?? 0}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(185,116,41,0.14)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Varlik
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {dashboard?.summary.unique_entities ?? 0}
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article
+                style={{
+                  padding: "16px 18px",
+                  borderRadius: "22px",
+                  border: "1px solid var(--line)",
+                  background: "rgba(255,255,255,0.78)",
+                  display: "grid",
+                  gap: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.74rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Okuma Notu
+                </div>
+                <div
+                  style={{
+                    color: "var(--text)",
+                    fontSize: "0.95rem",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  Bu ekranda once son 7 gun ritmine, sonra aksiyon dagilimina ve en son tekil
+                  varlik baskisina bakmak, hangi modulde yakindan izleme gerektigini daha hizli
+                  hissettirir.
+                </div>
+              </article>
+            </div>
           </div>
-          <h1
-            style={{
-              margin: "16px 0 10px",
-              fontSize: "clamp(2rem, 3vw, 2.8rem)",
-              lineHeight: 1.05,
-            }}
-          >
-            Sistem kayıtlarını daha okunur ve hızlı bir admin yüzeyine taşıyoruz.
-          </h1>
-          <p
-            style={{
-              margin: 0,
-              maxWidth: "74ch",
-              color: "var(--muted)",
-              lineHeight: 1.7,
-            }}
-          >
-            Kim hangi kayıt üzerinde ne yaptı akışını yeni sistemde filtreleyip izleyin.
-            Böylece Streamlit tarafındaki admin bağımlılığını bir katman daha azaltıyoruz.
-          </p>
         </div>
 
         {dashboardLoading ? (
@@ -183,7 +662,7 @@ export default function AuditPage() {
               color: "var(--muted)",
             }}
           >
-            Sistem kayıtları dashboard yükleniyor...
+            Sistem kayitlari yukleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -196,7 +675,8 @@ export default function AuditPage() {
               lineHeight: 1.7,
             }}
           >
-            Sistem kayıtları API şu an erişilebilir değil. Backend ayağa kalktığında bu ekran audit akışını gerçek veriden gösterecek.
+            Audit servisine su anda erisilemiyor. Backend hazir oldugunda bu ekran sistem
+            kayitlarini ritim, aksiyon ve varlik sinyalleriyle birlikte gercek veriden gosterecek.
           </div>
         ) : (
           <>
@@ -207,10 +687,58 @@ export default function AuditPage() {
                 gap: "14px",
               }}
             >
-              {metricCard("Toplam Kayıt", String(dashboard.summary.total_entries), "accent")}
-              {metricCard("Son 7 Gün", String(dashboard.summary.last_7_days))}
-              {metricCard("Eşsiz Kullanıcı", String(dashboard.summary.unique_actors))}
-              {metricCard("Eşsiz Varlık", String(dashboard.summary.unique_entities))}
+              {metricCard("Toplam Kayit", String(dashboard.summary.total_entries), "Denetim omurgasindaki tum olaylar", "accent")}
+              {metricCard("Son 7 Gun", String(dashboard.summary.last_7_days), "Yeni ritim ve taze hareketler")}
+              {metricCard("Esiz Kullanici", String(dashboard.summary.unique_actors), "Kayit izi birden fazla elde mi")}
+              {metricCard("Esiz Varlik", String(dashboard.summary.unique_entities), "Hangi moduller daha cok oynuyor")}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {decisionDeck.map((item) => (
+                <div key={`${item.eyebrow}-${item.title}`}>{narrativeCard(item)}</div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "16px",
+              }}
+            >
+              {listCard(
+                "Son Sistem Sinyalleri",
+                "En yeni audit hareketlerini actor, aksiyon ve varlik baglamiyla birlikte oku.",
+                dashboard.recent_entries.map((entry) => ({
+                  title: `${entry.action_type} · ${entry.entity_type} #${entry.entity_id}`,
+                  meta: `${formatTimestamp(entry.created_at)} · ${formatActor(entry)}${entry.actor_role ? ` · ${entry.actor_role}` : ""} · ${entry.summary || "Ozet bilgisi yok."}`,
+                  value: entry.actor_username || "sistem",
+                })),
+              )}
+              {listCard(
+                "Aksiyon Dagilimi",
+                "Son hareketler hangi aksiyon turunde yogunlasiyor bak.",
+                actionMix.map(([action, count]) => ({
+                  title: action,
+                  meta: "Son audit hareketleri icindeki tekrar sayisi",
+                  value: `${count} kayit`,
+                })),
+              )}
+              {listCard(
+                "Varlik Baskisi",
+                "Hangi moduller sistem kayitlarini daha cok uretmis gorunuyor.",
+                entityMix.map(([entity, count]) => ({
+                  title: entity,
+                  meta: "Son audit kayitlari icindeki varlik yogunlugu",
+                  value: `${count} kayit`,
+                })),
+              )}
             </div>
 
             <AuditManagementWorkspace />
