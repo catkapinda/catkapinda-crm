@@ -217,6 +217,34 @@ def render_backend_env(
     return "\n".join(lines) + "\n"
 
 
+def render_backend_env_scaffold(
+    runtime_env: Mapping[str, str],
+    *,
+    current_app_seed_values: Mapping[str, str] | None = None,
+    frontend_url: str = LOCAL_FRONTEND_URL,
+    api_url: str = LOCAL_API_URL,
+) -> str:
+    password, _ = _resolve_value(runtime_env, {}, BACKEND_PASSWORD_KEYS)
+    lines = [
+        "CK_V2_APP_ENV=development",
+        "# TODO: gercek PostgreSQL degerini yapistir",
+        "# CK_V2_DATABASE_URL=postgresql://user:password@host:5432/postgres?sslmode=require",
+        f"CK_V2_FRONTEND_BASE_URL={frontend_url}",
+        f"CK_V2_PUBLIC_APP_URL={frontend_url}",
+        f"CK_V2_API_PUBLIC_URL={api_url}",
+        f"CK_V2_DEFAULT_AUTH_PASSWORD={password or '123456'}",
+    ]
+
+    for key in BACKEND_PHONE_KEYS:
+        value = _strip_wrapping_quotes(runtime_env.get(key, ""))
+        if not value and current_app_seed_values:
+            value = _strip_wrapping_quotes(str(current_app_seed_values.get(key, "")))
+        if value:
+            lines.append(f"{key}={value}")
+
+    return "\n".join(lines) + "\n"
+
+
 def write_backend_env_file(
     v2_root: Path,
     runtime_env: Mapping[str, str],
@@ -232,6 +260,31 @@ def write_backend_env_file(
 
     backend_env_path.write_text(
         render_backend_env(
+            runtime_env,
+            current_app_seed_values=current_app_seed_values,
+            frontend_url=frontend_url,
+            api_url=api_url,
+        ),
+        encoding="utf-8",
+    )
+    return backend_env_path
+
+
+def write_backend_env_scaffold_file(
+    v2_root: Path,
+    runtime_env: Mapping[str, str],
+    *,
+    overwrite: bool = False,
+    current_app_seed_values: Mapping[str, str] | None = None,
+    frontend_url: str = LOCAL_FRONTEND_URL,
+    api_url: str = LOCAL_API_URL,
+) -> Path:
+    backend_env_path = v2_root / "backend" / ".env"
+    if backend_env_path.exists() and not overwrite:
+        raise FileExistsError(f"{backend_env_path} zaten var. Ezmek icin --overwrite-backend-env kullan.")
+
+    backend_env_path.write_text(
+        render_backend_env_scaffold(
             runtime_env,
             current_app_seed_values=current_app_seed_values,
             frontend_url=frontend_url,
@@ -278,6 +331,10 @@ def build_local_doctor_report(
 
     if not database_url:
         blocking_items.append("Backend veritabani URL'i eksik. CK_V2_DATABASE_URL veya DATABASE_URL tanimlanmali.")
+        if not backend_env_path.exists():
+            next_actions.append(
+                "Ilk adim olarak `python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app` ile backend/.env iskeletini olustur."
+            )
         next_actions.append(
             "Mevcut PostgreSQL URL'ini shell env'e koyup `python v2/scripts/local_v2_doctor.py --write-backend-env` calistir."
         )

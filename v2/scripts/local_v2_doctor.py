@@ -17,6 +17,7 @@ from app.core.local_doctor import (  # noqa: E402
     build_local_doctor_report,
     discover_current_app_seed_values,
     write_backend_env_file,
+    write_backend_env_scaffold_file,
 )
 
 
@@ -29,6 +30,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--write-backend-env",
         action="store_true",
         help="Shell env icindeki degerlerle backend/.env dosyasini olustur.",
+    )
+    parser.add_argument(
+        "--write-backend-scaffold",
+        action="store_true",
+        help="DATABASE_URL olmadan da backend/.env icin doldurulabilir bir iskelet olustur.",
     )
     parser.add_argument(
         "--sync-from-current-app",
@@ -129,6 +135,25 @@ def main() -> int:
     if args.sync_from_current_app:
         current_app_seed = discover_current_app_seed_values(V2_ROOT.parent)
         current_app_seed_values = current_app_seed["values"]
+
+    if args.write_backend_scaffold:
+        try:
+            wrote_env_path = str(
+                write_backend_env_scaffold_file(
+                    V2_ROOT,
+                    os.environ,
+                    overwrite=args.overwrite_backend_env,
+                    current_app_seed_values=current_app_seed_values,
+                    frontend_url=args.frontend_url,
+                    api_url=args.api_url,
+                )
+            )
+        except FileExistsError as exc:
+            if args.json:
+                print(json.dumps({"status": "error", "detail": str(exc)}, ensure_ascii=True, indent=2))
+            else:
+                print(str(exc), file=sys.stderr)
+            return 2
 
     if args.write_backend_env:
         try:

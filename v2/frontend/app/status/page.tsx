@@ -560,6 +560,7 @@ export default function StatusPage() {
           "Bu local durumda API cevap veriyor ama DATABASE_URL olmadigi icin gercek auth akisi tamamlanamiyor. Doctor komutlariyla mevcut kaynaklari tarayip backend/.env dosyasini hazirlayabiliriz.",
         commands: [
           "python v2/scripts/local_v2_doctor.py",
+          "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
           "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app",
         ],
       };

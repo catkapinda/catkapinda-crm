@@ -14,5 +14,6 @@ v2/frontend/.next.pre_build_backup_*/
 v2/frontend/.env.local
 v2/frontend/out/
 v2/frontend/tsconfig.tsbuildinfo
+v2/backend/.env
 v2/backend/.venv/
 v2/backend/*.egg-info/

@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from app.core import local_doctor
-from app.core.local_doctor import build_local_doctor_report, discover_current_app_seed_values, write_backend_env_file
+from app.core.local_doctor import (
+    build_local_doctor_report,
+    discover_current_app_seed_values,
+    write_backend_env_file,
+    write_backend_env_scaffold_file,
+)
 
 
 def test_local_doctor_flags_missing_database_url(tmp_path: Path):
@@ -19,6 +24,7 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path):
     assert report["database_url_present"] is False
     assert report["frontend_proxy_target"] == "http://127.0.0.1:8000"
     assert any("Backend veritabani URL'i eksik" in item for item in report["blocking_items"])
+    assert any("--write-backend-scaffold" in item for item in report["next_actions"])
 
 
 def test_local_doctor_reports_detected_frontend_urls_and_duplicate_warning(tmp_path: Path, monkeypatch):
@@ -54,6 +60,22 @@ def test_write_backend_env_file_uses_runtime_database_url(tmp_path: Path):
     assert "CK_V2_DEFAULT_AUTH_PASSWORD=GizliSifre123" in content
     assert "AUTH_EBRU_PHONE=05321234567" in content
     assert "CK_V2_FRONTEND_BASE_URL=http://127.0.0.1:3000" in content
+
+
+def test_write_backend_env_scaffold_file_can_prepare_partial_env(tmp_path: Path):
+    v2_root = tmp_path / "v2"
+    (v2_root / "backend").mkdir(parents=True)
+
+    env_path = write_backend_env_scaffold_file(
+        v2_root,
+        {"CK_V2_DEFAULT_AUTH_PASSWORD": "GizliSifre123"},
+        current_app_seed_values={"AUTH_EBRU_PHONE": "05321234567"},
+    )
+
+    content = env_path.read_text(encoding="utf-8")
+    assert "# CK_V2_DATABASE_URL=postgresql://user:password@host:5432/postgres?sslmode=require" in content
+    assert "CK_V2_DEFAULT_AUTH_PASSWORD=GizliSifre123" in content
+    assert "AUTH_EBRU_PHONE=05321234567" in content
 
 
 def test_current_app_seed_reads_real_secrets_and_ignores_template_placeholders(tmp_path: Path):
