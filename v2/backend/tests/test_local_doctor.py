@@ -25,6 +25,7 @@ def test_local_doctor_flags_missing_database_url(tmp_path: Path, monkeypatch):
 
     assert report["ready"] is False
     assert report["database_url_present"] is False
+    assert report["backend_restart_required"] is False
     assert report["frontend_proxy_target"] == "http://127.0.0.1:8000"
     assert report["frontend_env_needs_sync"] is False
     assert report["suggested_frontend_url"] == "http://127.0.0.1:3000"
@@ -216,6 +217,45 @@ def test_local_doctor_prefers_direct_database_url_command_when_backend_env_exist
     assert report["backend_env_exists"] is True
     assert report["database_url_present"] is False
     assert any("--database-url '<postgresql://...>'" in item for item in report["next_actions"])
+
+
+def test_local_doctor_flags_backend_restart_when_backend_env_and_runtime_differ(tmp_path: Path):
+    v2_root = tmp_path / "v2"
+    (v2_root / "backend").mkdir(parents=True)
+    (v2_root / "frontend").mkdir(parents=True)
+    (v2_root / "backend" / ".env").write_text(
+        "CK_V2_APP_ENV=development\nCK_V2_DATABASE_URL=postgresql://file-user:file-pass@db.local:5432/postgres?sslmode=require\n",
+        encoding="utf-8",
+    )
+
+    report = build_local_doctor_report(
+        v2_root,
+        {},
+        runtime_is_backend_process=True,
+    )
+
+    assert report["database_url_present"] is True
+    assert report["runtime_database_url_present"] is False
+    assert report["backend_env_database_url_present"] is True
+    assert report["backend_restart_required"] is True
+    assert "yeniden baslatilmali" in report["blocking_items"][0]
+    assert "backend/.env icinde DATABASE_URL var" in (report["backend_restart_reason"] or "")
+    assert any("python3 -m uvicorn" in item for item in report["next_actions"])
+
+
+def test_local_doctor_does_not_flag_backend_restart_in_generic_cli_context(tmp_path: Path):
+    v2_root = tmp_path / "v2"
+    (v2_root / "backend").mkdir(parents=True)
+    (v2_root / "frontend").mkdir(parents=True)
+    (v2_root / "backend" / ".env").write_text(
+        "CK_V2_APP_ENV=development\nCK_V2_DATABASE_URL=postgresql://file-user:file-pass@db.local:5432/postgres?sslmode=require\n",
+        encoding="utf-8",
+    )
+
+    report = build_local_doctor_report(v2_root, {})
+
+    assert report["database_url_present"] is True
+    assert report["backend_restart_required"] is False
 
 
 def test_current_app_seed_reads_real_secrets_and_ignores_template_placeholders(tmp_path: Path):

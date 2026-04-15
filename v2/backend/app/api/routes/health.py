@@ -84,7 +84,7 @@ def healthcheck() -> HealthResponse:
 @router.get("/health/local-setup", response_model=LocalSetupResponse)
 def local_setup_health() -> LocalSetupResponse:
     v2_root = Path(__file__).resolve().parents[4]
-    report = build_local_doctor_report(v2_root, os.environ)
+    report = build_local_doctor_report(v2_root, os.environ, runtime_is_backend_process=True)
     return LocalSetupResponse(**report)
 
 

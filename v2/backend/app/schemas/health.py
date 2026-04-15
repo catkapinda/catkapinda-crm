@@ -168,6 +168,12 @@ class LocalSetupResponse(BaseModel):
     frontend_env_exists: bool
     database_url_present: bool
     database_url_source: str | None = None
+    runtime_database_url_present: bool = False
+    runtime_database_url_source: str | None = None
+    backend_env_database_url_present: bool = False
+    backend_env_database_url_source: str | None = None
+    backend_restart_required: bool = False
+    backend_restart_reason: str | None = None
     default_auth_password_present: bool
     default_auth_password_source: str | None = None
     default_auth_password_is_default: bool

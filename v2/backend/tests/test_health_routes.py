@@ -385,7 +385,7 @@ def test_local_setup_route_returns_doctor_snapshot(monkeypatch):
     reset_runtime_bootstrap_state()
     monkeypatch.setattr(
         "app.api.routes.health.build_local_doctor_report",
-        lambda v2_root, runtime_env: {
+        lambda v2_root, runtime_env, **kwargs: {
             "ready": False,
             "backend_env_path": f"{v2_root}/backend/.env",
             "frontend_env_path": f"{v2_root}/frontend/.env.local",
@@ -393,6 +393,12 @@ def test_local_setup_route_returns_doctor_snapshot(monkeypatch):
             "frontend_env_exists": True,
             "database_url_present": False,
             "database_url_source": None,
+            "runtime_database_url_present": False,
+            "runtime_database_url_source": None,
+            "backend_env_database_url_present": False,
+            "backend_env_database_url_source": None,
+            "backend_restart_required": False,
+            "backend_restart_reason": None,
             "default_auth_password_present": False,
             "default_auth_password_source": None,
             "default_auth_password_is_default": False,

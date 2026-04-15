@@ -110,6 +110,10 @@ def _print_human_report(report: dict[str, object], *, wrote_paths: list[str] | N
         + ("hazir" if report["database_url_present"] else "eksik")
         + (f" ({report['database_url_source']})" if report["database_url_source"] else "")
     )
+    if report.get("backend_restart_required"):
+        print("- Backend restart: gerekli")
+        if report.get("backend_restart_reason"):
+            print(f"  Neden: {report['backend_restart_reason']}")
     print(
         "- Frontend proxy: "
         + (str(report["frontend_proxy_target"]) if report["frontend_proxy_target"] else "eksik")

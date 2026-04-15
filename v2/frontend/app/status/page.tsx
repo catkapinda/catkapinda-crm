@@ -155,6 +155,12 @@ type LocalSetupStatus = {
   frontend_env_exists: boolean;
   database_url_present: boolean;
   database_url_source: string | null;
+  runtime_database_url_present: boolean;
+  runtime_database_url_source: string | null;
+  backend_env_database_url_present: boolean;
+  backend_env_database_url_source: string | null;
+  backend_restart_required: boolean;
+  backend_restart_reason: string | null;
   default_auth_password_present: boolean;
   default_auth_password_source: string | null;
   default_auth_password_is_default: boolean;
@@ -544,11 +550,13 @@ export default function StatusPage() {
         ? true
         : false;
   const localBackendEnvRestartNeeded =
-    !!frontend &&
-    !!localSetup?.database_url_present &&
-    frontend.backendReachable &&
-    frontend.pilotHttpStatus === 503 &&
-    (frontend.pilotErrorDetail?.includes("DATABASE_URL") || frontend.detail.includes("DATABASE_URL"));
+    !!localSetup &&
+    (localSetup.backend_restart_required ||
+      (!!frontend &&
+        localSetup.database_url_present &&
+        frontend.backendReachable &&
+        frontend.pilotHttpStatus === 503 &&
+        (frontend.pilotErrorDetail?.includes("DATABASE_URL") || frontend.detail.includes("DATABASE_URL"))));
   const localSetupGuidance = useMemo(() => {
     if (!frontend || frontend.proxyMode !== "explicit_base_url") {
       return null;
@@ -585,6 +593,7 @@ export default function StatusPage() {
         tone: "warning" as const,
         title: "Backend env guncel, ama calisan surec yeniden baslatilmali.",
         detail:
+          localSetup?.backend_restart_reason ||
           "Doctor backend/.env tarafinda DATABASE_URL gordugu halde calisan backend hala eski env ile 503 donuyor. Bu local durumda tipik olarak uvicorn surecinin env yazildiktan sonra yeniden baslatilmasi gerekir.",
         commands: [
           localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
@@ -921,6 +930,10 @@ export default function StatusPage() {
                     Frontend env sync: {localSetup.frontend_env_needs_sync ? "gerekiyor" : "hazir"}
                     <br />
                     Backend restart: {localBackendEnvRestartNeeded ? "gerekiyor" : "gerekli gorunmuyor"}
+                    <br />
+                    Runtime DB: {localSetup.runtime_database_url_present ? "var" : "yok"}
+                    <br />
+                    Backend .env DB: {localSetup.backend_env_database_url_present ? "var" : "yok"}
                     <br />
                     Local setup kaynagi:{" "}
                     {localSetupSource === "frontend_local_doctor"

@@ -477,6 +477,8 @@ def bootstrap_local_setup_files(
 def build_local_doctor_report(
     v2_root: Path,
     runtime_env: Mapping[str, str],
+    *,
+    runtime_is_backend_process: bool = False,
 ) -> dict[str, object]:
     current_app_root = v2_root.parent
     backend_env_path = v2_root / "backend" / ".env"
@@ -535,6 +537,8 @@ def build_local_doctor_report(
     )
     suggested_backend_start_command = "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
 
+    runtime_database_url, runtime_database_source = _resolve_value(runtime_env, {}, BACKEND_DATABASE_KEYS)
+    backend_env_database_url, backend_env_database_source = _resolve_value({}, backend_env_values, BACKEND_DATABASE_KEYS)
     database_url, database_source = _resolve_value(runtime_env, backend_env_values, BACKEND_DATABASE_KEYS)
     if not database_url and current_app_values.get("database_url"):
         database_url = _strip_wrapping_quotes(str(current_app_values["database_url"]))
@@ -557,6 +561,19 @@ def build_local_doctor_report(
     warnings: list[str] = []
     blocking_items: list[str] = []
     next_actions: list[str] = []
+    backend_restart_required = runtime_is_backend_process and bool(backend_env_database_url) and (
+        not runtime_database_url or backend_env_database_url != runtime_database_url
+    )
+    backend_restart_reason: str | None = None
+
+    if backend_restart_required:
+        if not runtime_database_url:
+            backend_restart_reason = "backend/.env icinde DATABASE_URL var ama calisan backend sureci bu env ile baslamamis."
+        else:
+            backend_restart_reason = "backend/.env icindeki DATABASE_URL ile calisan backend surecinin DATABASE_URL degeri farkli."
+        blocking_items.append("Backend .env guncel, fakat calisan backend sureci yeniden baslatilmali.")
+        warnings.append(backend_restart_reason)
+        next_actions.append(f"Backend'i guncellemek icin `{suggested_backend_start_command}` komutunu yeniden calistir.")
 
     if not database_url:
         blocking_items.append("Backend veritabani URL'i eksik. CK_V2_DATABASE_URL veya DATABASE_URL tanimlanmali.")
@@ -616,6 +633,12 @@ def build_local_doctor_report(
         "frontend_env_exists": frontend_env_path.exists(),
         "database_url_present": bool(database_url),
         "database_url_source": database_source or None,
+        "runtime_database_url_present": bool(runtime_database_url),
+        "runtime_database_url_source": runtime_database_source or None,
+        "backend_env_database_url_present": bool(backend_env_database_url),
+        "backend_env_database_url_source": backend_env_database_source or None,
+        "backend_restart_required": backend_restart_required,
+        "backend_restart_reason": backend_restart_reason,
         "default_auth_password_present": bool(default_password),
         "default_auth_password_source": password_source or None,
         "default_auth_password_is_default": default_password == "123456",

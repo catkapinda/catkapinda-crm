@@ -42,6 +42,10 @@ type LoginPilotStatusPayload = {
     backend_env_exists?: boolean;
     frontend_env_exists?: boolean;
     database_url_present?: boolean;
+    runtime_database_url_present?: boolean;
+    backend_env_database_url_present?: boolean;
+    backend_restart_required?: boolean;
+    backend_restart_reason?: string | null;
     frontend_env_needs_sync?: boolean;
     suggested_frontend_url?: string | null;
     suggested_api_url?: string | null;
@@ -385,10 +389,12 @@ function LoginPageContent() {
       const nextActions = localSetup.next_actions ?? [];
       const currentAppSeedSources = localSetup.current_app_seed_sources ?? [];
       const currentAppSeedPlaceholders = localSetup.current_app_seed_placeholders ?? [];
-      const backendNeedsRestartForEnv =
+      const backendNeedsRestartForEnv = Boolean(localSetup.backend_restart_required) || (
+        localPilotStatus?.localSetupSource !== "backend" &&
         localSetup.database_url_present &&
         frontendStatus.pilotHttpStatus === 503 &&
-        (frontendStatus.pilotErrorDetail?.includes("DATABASE_URL") || frontendStatus.detail?.includes("DATABASE_URL"));
+        (frontendStatus.pilotErrorDetail?.includes("DATABASE_URL") || frontendStatus.detail?.includes("DATABASE_URL"))
+      );
       const setupSourceDetail =
         localPilotStatus?.localSetupSource === "frontend_local_doctor"
           ? " Teşhis frontend tarafinda taze doctor fallback'i ile üretildi; backend'i yeniden başlatınca endpoint de aynı seviyeye gelir."
@@ -398,7 +404,8 @@ function LoginPageContent() {
         return {
           title: "Backend env yazildi ama calisan surec yeniden baslatilmali.",
           detail:
-            "Doctor backend/.env tarafinda veritabani baglantisini goruyor; buna ragmen calisan backend hala DATABASE_URL eksigi donuyor. Bu genelde env yazildiktan sonra uvicorn sureci yeniden baslatilmadiginda olur." +
+            (localSetup.backend_restart_reason ||
+              "Doctor backend/.env tarafinda veritabani baglantisini goruyor; buna ragmen calisan backend hala DATABASE_URL eksigi donuyor. Bu genelde env yazildiktan sonra uvicorn sureci yeniden baslatilmadiginda olur.") +
             setupSourceDetail,
           command:
             localSetup.suggested_backend_start_command ||
