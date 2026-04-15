@@ -376,7 +376,7 @@ function LoginPageContent() {
               "API cevap veriyor fakat gercek giris icin gerekli DATABASE_URL henuz bulunmuyor.") +
             placeholderDetail,
           command: localSetup.backend_env_exists
-            ? "python v2/scripts/local_v2_doctor.py"
+            ? "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env"
             : "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
         };
       }

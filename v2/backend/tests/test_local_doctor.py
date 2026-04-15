@@ -78,6 +78,22 @@ def test_write_backend_env_scaffold_file_can_prepare_partial_env(tmp_path: Path)
     assert "AUTH_EBRU_PHONE=05321234567" in content
 
 
+def test_local_doctor_prefers_direct_database_url_command_when_backend_env_exists(tmp_path: Path):
+    v2_root = tmp_path / "v2"
+    (v2_root / "backend").mkdir(parents=True)
+    (v2_root / "frontend").mkdir(parents=True)
+    (v2_root / "backend" / ".env").write_text(
+        "CK_V2_APP_ENV=development\n# CK_V2_DATABASE_URL=postgresql://user:password@host:5432/postgres?sslmode=require\n",
+        encoding="utf-8",
+    )
+
+    report = build_local_doctor_report(v2_root, {})
+
+    assert report["backend_env_exists"] is True
+    assert report["database_url_present"] is False
+    assert any("--database-url '<postgresql://...>'" in item for item in report["next_actions"])
+
+
 def test_current_app_seed_reads_real_secrets_and_ignores_template_placeholders(tmp_path: Path):
     current_root = tmp_path / "current-app"
     current_root.mkdir()

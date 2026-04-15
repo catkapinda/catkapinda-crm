@@ -25,6 +25,8 @@ Run locally:
     - `python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app`
   - shell env icinde `DATABASE_URL` veya `CK_V2_DATABASE_URL` hazirsa backend/.env olusturmak icin:
     - `python v2/scripts/local_v2_doctor.py --write-backend-env`
+  - PostgreSQL URL elindeyse shell env kullanmadan dogrudan yazmak icin:
+    - `python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env`
   - mevcut app kaynaklarindan (ornegin `secrets.toml`) otomatik seed denemek icin:
     - `python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app`
 - Frontend:

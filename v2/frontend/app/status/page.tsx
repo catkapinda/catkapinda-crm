@@ -561,7 +561,7 @@ export default function StatusPage() {
         commands: [
           "python v2/scripts/local_v2_doctor.py",
           "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
-          "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app",
+          "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env",
         ],
       };
     }

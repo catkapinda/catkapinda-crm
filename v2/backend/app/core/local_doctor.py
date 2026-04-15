@@ -335,9 +335,14 @@ def build_local_doctor_report(
             next_actions.append(
                 "Ilk adim olarak `python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app` ile backend/.env iskeletini olustur."
             )
-        next_actions.append(
-            "Mevcut PostgreSQL URL'ini shell env'e koyup `python v2/scripts/local_v2_doctor.py --write-backend-env` calistir."
-        )
+        if backend_env_path.exists():
+            next_actions.append(
+                "Gercek PostgreSQL URL'ini alip `python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env` calistir."
+            )
+        else:
+            next_actions.append(
+                "Gercek PostgreSQL URL'ini alip `python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>'` calistir."
+            )
     elif database_source == "current_app_seed:DATABASE_URL" and not backend_env_path.exists():
         warnings.append("Veritabani URL'i current app kaynaklarinda bulundu ama v2 backend/.env henuz yazilmadi.")
         next_actions.append(

@@ -56,6 +56,31 @@ def _build_parser() -> argparse.ArgumentParser:
         default="http://127.0.0.1:8000",
         help="Otomatik yazilacak backend/.env icin API public URL'i.",
     )
+    parser.add_argument(
+        "--database-url",
+        default="",
+        help="Shell env yerine dogrudan kullanilacak PostgreSQL URL'i.",
+    )
+    parser.add_argument(
+        "--default-auth-password",
+        default="",
+        help="Shell env yerine dogrudan yazilacak varsayilan auth sifresi.",
+    )
+    parser.add_argument(
+        "--auth-ebru-phone",
+        default="",
+        help="Gerekirse AUTH_EBRU_PHONE degerini dogrudan ver.",
+    )
+    parser.add_argument(
+        "--auth-mert-phone",
+        default="",
+        help="Gerekirse AUTH_MERT_PHONE degerini dogrudan ver.",
+    )
+    parser.add_argument(
+        "--auth-muhammed-phone",
+        default="",
+        help="Gerekirse AUTH_MUHAMMED_PHONE degerini dogrudan ver.",
+    )
     return parser
 
 
@@ -131,6 +156,18 @@ def main() -> int:
     args = parser.parse_args()
 
     wrote_env_path: str | None = None
+    runtime_env = dict(os.environ)
+    if args.database_url:
+        runtime_env["CK_V2_DATABASE_URL"] = args.database_url
+    if args.default_auth_password:
+        runtime_env["CK_V2_DEFAULT_AUTH_PASSWORD"] = args.default_auth_password
+    if args.auth_ebru_phone:
+        runtime_env["AUTH_EBRU_PHONE"] = args.auth_ebru_phone
+    if args.auth_mert_phone:
+        runtime_env["AUTH_MERT_PHONE"] = args.auth_mert_phone
+    if args.auth_muhammed_phone:
+        runtime_env["AUTH_MUHAMMED_PHONE"] = args.auth_muhammed_phone
+
     current_app_seed_values: dict[str, str] | None = None
     if args.sync_from_current_app:
         current_app_seed = discover_current_app_seed_values(V2_ROOT.parent)
@@ -141,7 +178,7 @@ def main() -> int:
             wrote_env_path = str(
                 write_backend_env_scaffold_file(
                     V2_ROOT,
-                    os.environ,
+                    runtime_env,
                     overwrite=args.overwrite_backend_env,
                     current_app_seed_values=current_app_seed_values,
                     frontend_url=args.frontend_url,
@@ -160,7 +197,7 @@ def main() -> int:
             wrote_env_path = str(
                 write_backend_env_file(
                     V2_ROOT,
-                    os.environ,
+                    runtime_env,
                     overwrite=args.overwrite_backend_env,
                     current_app_seed_values=current_app_seed_values,
                     frontend_url=args.frontend_url,
@@ -174,7 +211,7 @@ def main() -> int:
                 print(str(exc), file=sys.stderr)
             return 2
 
-    report = build_local_doctor_report(V2_ROOT, os.environ)
+    report = build_local_doctor_report(V2_ROOT, runtime_env)
 
     if args.json:
         payload = {**report, "written_backend_env_path": wrote_env_path}
