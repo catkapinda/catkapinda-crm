@@ -154,6 +154,21 @@ def _coerce_optional_bool(*, value: object, issue_label: str, issues: list[str])
     return None
 
 
+def _validate_optional_choice(
+    *,
+    value: str | None,
+    allowed: set[str],
+    issue_label: str,
+    issues: list[str],
+) -> str | None:
+    if value is None:
+        return None
+    if value not in allowed:
+        issues.append(f"{issue_label} gecersiz deger: {value}")
+        return None
+    return value
+
+
 def _normalize_smoke_results(*, value: object, issues: list[str]) -> tuple[bool, list[dict[str, object]]]:
     if value is None:
         return (False, [])
@@ -354,8 +369,13 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         issues=issues,
     )
     decision_status = (
-        _coerce_optional_nullable_nonempty_str(
-            value=decision_for_manifest.get("status"),
+        _validate_optional_choice(
+            value=_coerce_optional_nullable_nonempty_str(
+                value=decision_for_manifest.get("status"),
+                issue_label="pilot-smoke-live.json icinde decision.status",
+                issues=issues,
+            ),
+            allowed={"pass", "blocking", "warning"},
             issue_label="pilot-smoke-live.json icinde decision.status",
             issues=issues,
         )
@@ -395,6 +415,12 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         issue_label="pilot-smoke-live.json icinde preset",
         issues=issues,
     )
+    smoke_preset = _validate_optional_choice(
+        value=smoke_preset,
+        allowed={"pilot", "cutover"},
+        issue_label="pilot-smoke-live.json icinde preset",
+        issues=issues,
+    )
     smoke_generated_at = _coerce_optional_nullable_nonempty_str(
         value=smoke_payload.get("generated_at"),
         issue_label="pilot-smoke-live.json icinde generated_at",
@@ -417,6 +443,12 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
     )
     smoke_legacy_cutover_mode = _coerce_optional_nullable_nonempty_str(
         value=smoke_payload.get("legacy_cutover_mode"),
+        issue_label="pilot-smoke-live.json icinde legacy_cutover_mode",
+        issues=issues,
+    )
+    smoke_legacy_cutover_mode = _validate_optional_choice(
+        value=smoke_legacy_cutover_mode,
+        allowed={"banner", "redirect"},
         issue_label="pilot-smoke-live.json icinde legacy_cutover_mode",
         issues=issues,
     )
