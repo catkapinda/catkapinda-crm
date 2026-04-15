@@ -192,6 +192,7 @@ type PilotStatusResponse = {
   frontend: FrontendStatus;
   backend: BackendReadiness | null;
   localSetup: LocalSetupStatus | null;
+  localSetupSource?: "backend" | "frontend_local_doctor" | null;
 };
 
 function statusPill(ok: boolean) {
@@ -269,6 +270,7 @@ export default function StatusPage() {
   const [frontend, setFrontend] = useState<FrontendStatus | null>(null);
   const [backend, setBackend] = useState<BackendReadiness | null>(null);
   const [localSetup, setLocalSetup] = useState<LocalSetupStatus | null>(null);
+  const [localSetupSource, setLocalSetupSource] = useState<"backend" | "frontend_local_doctor" | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadNote, setLoadNote] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -288,6 +290,7 @@ export default function StatusPage() {
           setFrontend(payload?.frontend ?? null);
           setBackend(payload?.backend ?? null);
           setLocalSetup(payload?.localSetup ?? null);
+          setLocalSetupSource(payload?.localSetupSource ?? null);
           setLastUpdatedAt(new Date().toLocaleTimeString("tr-TR"));
           if (!payload?.backend) {
             setLoadNote("Backend pilot verisi su an alınamadı. Frontend teşhis kartlarıyla devam edebiliriz.");
@@ -897,6 +900,13 @@ export default function StatusPage() {
                     Frontend .env.local: {localSetup.frontend_env_exists ? "var" : "yok"}
                     <br />
                     Frontend env sync: {localSetup.frontend_env_needs_sync ? "gerekiyor" : "hazir"}
+                    <br />
+                    Local setup kaynagi:{" "}
+                    {localSetupSource === "frontend_local_doctor"
+                      ? "frontend fallback"
+                      : localSetupSource === "backend"
+                        ? "backend endpoint"
+                        : "bilinmiyor"}
                     <br />
                     Current app seed: {localSetup.current_app_seed_detected ? "bulundu" : "bulunmadi"}
                   </div>

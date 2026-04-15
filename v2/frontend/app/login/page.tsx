@@ -24,6 +24,7 @@ const paperCardStyle = {
 } as const;
 
 type LoginPilotStatusPayload = {
+  localSetupSource?: "backend" | "frontend_local_doctor" | null;
   frontend?: {
     proxyConfigured?: boolean;
     backendReachable?: boolean;
@@ -384,11 +385,15 @@ function LoginPageContent() {
       const nextActions = localSetup.next_actions ?? [];
       const currentAppSeedSources = localSetup.current_app_seed_sources ?? [];
       const currentAppSeedPlaceholders = localSetup.current_app_seed_placeholders ?? [];
+      const setupSourceDetail =
+        localPilotStatus?.localSetupSource === "frontend_local_doctor"
+          ? " Teşhis frontend tarafinda taze doctor fallback'i ile üretildi; backend'i yeniden başlatınca endpoint de aynı seviyeye gelir."
+          : "";
 
       if (localSetup.current_app_seed_detected && !localSetup.backend_env_exists && !localSetup.database_url_present) {
         return {
           title: "Mevcut uygulamada seed bulundu, v2 backend env'i henuz yazilmadi.",
-          detail: `Doctor current app tarafinda kullanilabilir kaynak gordu${currentAppSeedSources.length ? `: ${currentAppSeedSources.join(", ")}` : ""}. Tek komutla backend/.env ureterek gercek login akisini acabiliriz.`,
+          detail: `Doctor current app tarafinda kullanilabilir kaynak gordu${currentAppSeedSources.length ? `: ${currentAppSeedSources.join(", ")}` : ""}. Tek komutla backend/.env ureterek gercek login akisini acabiliriz.${setupSourceDetail}`,
           command: localSetup.suggested_bootstrap_command || localSetup.suggested_current_app_env_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app",
         };
       }
@@ -407,7 +412,8 @@ function LoginPageContent() {
             (blockingItems[0] ||
               "API cevap veriyor fakat gercek giris icin gerekli DATABASE_URL henuz bulunmuyor.") +
             placeholderDetail +
-            targetDetail,
+            targetDetail +
+            setupSourceDetail,
           command: localSetup.backend_env_exists
             ? localSetup.suggested_bootstrap_with_db_command || localSetup.suggested_env_write_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>' --overwrite-backend-env"
             : localSetup.suggested_bootstrap_command || localSetup.suggested_scaffold_command || "python v2/scripts/local_v2_doctor.py --write-backend-scaffold --sync-from-current-app",
@@ -418,7 +424,7 @@ function LoginPageContent() {
         return {
           title: "Veritabani baglantisi goruluyor ama backend/.env kalici degil.",
           detail:
-            "Shell env ile ilerleyebiliriz ama local backend yeniden baslatildiginda ayni ayari yeniden yapmak gerekir. Kalici kurulum icin doctor bunu tek komutla yazabilir.",
+            `Shell env ile ilerleyebiliriz ama local backend yeniden baslatildiginda ayni ayari yeniden yapmak gerekir. Kalici kurulum icin doctor bunu tek komutla yazabilir.${setupSourceDetail}`,
           command: localSetup.current_app_seed_detected
             ? localSetup.suggested_current_app_env_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --sync-from-current-app"
             : localSetup.suggested_env_write_command || "python v2/scripts/local_v2_doctor.py --write-backend-env --database-url '<postgresql://...>'",
@@ -428,7 +434,7 @@ function LoginPageContent() {
       if (blockingItems.length > 0) {
         return {
           title: "Local kurulumda hala bir blokaj var.",
-          detail: blockingItems[0],
+          detail: `${blockingItems[0]}${setupSourceDetail}`,
           command: extractInlineCommand(nextActions[0]) || "python v2/scripts/local_v2_doctor.py",
         };
       }

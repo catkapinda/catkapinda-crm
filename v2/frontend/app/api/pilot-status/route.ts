@@ -1,4 +1,52 @@
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+
+export const runtime = "nodejs";
+
 const DEFAULT_TIMEOUT_MS = 4000;
+const LOCAL_SETUP_DETAIL_KEYS = [
+  "frontend_env_needs_sync",
+  "suggested_frontend_url",
+  "suggested_api_url",
+  "suggested_bootstrap_command",
+];
+
+function isLoopbackTarget(targetBaseUrl: string) {
+  try {
+    const parsed = new URL(targetBaseUrl);
+    return parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost";
+  } catch {
+    return false;
+  }
+}
+
+function hasDetailedLocalSetupPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return false;
+  }
+
+  return LOCAL_SETUP_DETAIL_KEYS.every((key) => key in payload);
+}
+
+function loadFreshLocalSetupPayload() {
+  const scriptPath = path.resolve(process.cwd(), "..", "scripts", "local_v2_doctor.py");
+  const result = spawnSync("python3", [scriptPath, "--json"], {
+    encoding: "utf-8",
+    env: process.env,
+    timeout: DEFAULT_TIMEOUT_MS,
+  });
+
+  if (result.error || !result.stdout?.trim()) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
+    return parsed && !Array.isArray(parsed) && "ready" in parsed ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 function resolveInternalTarget() {
   const explicitBaseUrl = process.env.CK_V2_INTERNAL_API_BASE_URL || "";
@@ -34,6 +82,7 @@ export async function GET() {
     : "Proxy hedefi eksik.";
   let pilotPayload: unknown = null;
   let localSetupPayload: unknown = null;
+  let localSetupSource: "backend" | "frontend_local_doctor" | null = null;
   let pilotHttpStatus: number | null = null;
   let pilotErrorDetail: string | null = null;
 
@@ -78,6 +127,7 @@ export async function GET() {
 
       if (localSetupResponse.ok) {
         localSetupPayload = await localSetupResponse.json();
+        localSetupSource = "backend";
       }
     } catch (error) {
       backendStatus = "unreachable";
@@ -87,6 +137,14 @@ export async function GET() {
           : `Pilot status alınamadı (${target.proxyMode}).`;
     } finally {
       clearTimeout(timeout);
+    }
+  }
+
+  if (target.targetBaseUrl && isLoopbackTarget(target.targetBaseUrl) && !hasDetailedLocalSetupPayload(localSetupPayload)) {
+    const freshLocalSetupPayload = loadFreshLocalSetupPayload();
+    if (freshLocalSetupPayload) {
+      localSetupPayload = freshLocalSetupPayload;
+      localSetupSource = "frontend_local_doctor";
     }
   }
 
@@ -110,6 +168,7 @@ export async function GET() {
       },
       backend: pilotPayload,
       localSetup: localSetupPayload,
+      localSetupSource,
     },
     {
       status: 200,
