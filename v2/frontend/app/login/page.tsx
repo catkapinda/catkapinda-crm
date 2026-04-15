@@ -36,6 +36,12 @@ type LoginPilotStatusPayload = {
   backend?: {
     required_missing_env_vars?: string[];
     next_actions?: string[];
+    pilot_accounts?: Array<{
+      email: string;
+      full_name: string;
+      role: string;
+      has_phone: boolean;
+    }>;
   } | null;
   localSetup?: {
     ready?: boolean;
@@ -46,6 +52,8 @@ type LoginPilotStatusPayload = {
     backend_env_database_url_present?: boolean;
     backend_restart_required?: boolean;
     backend_restart_reason?: string | null;
+    default_auth_password_present?: boolean;
+    default_auth_password_is_default?: boolean;
     frontend_env_needs_sync?: boolean;
     suggested_frontend_url?: string | null;
     suggested_api_url?: string | null;
@@ -74,6 +82,16 @@ type LocalLoginHint = {
   title: string;
   detail: string;
   command?: string;
+};
+
+type LocalReadyLogin = {
+  accounts: Array<{
+    email: string;
+    full_name: string;
+    role: string;
+  }>;
+  defaultPasswordPresent: boolean;
+  defaultPasswordIsDefault: boolean;
 };
 
 function extractInlineCommand(value: string | undefined): string | null {
@@ -481,6 +499,33 @@ function LoginPageContent() {
     return null;
   }, [localPilotStatus, runningOnLocalhost]);
 
+  const localReadyLogin = useMemo<LocalReadyLogin | null>(() => {
+    if (!runningOnLocalhost || isPreviewModeBrowser()) {
+      return null;
+    }
+
+    const localSetup = localPilotStatus?.localSetup;
+    const frontendStatus = localPilotStatus?.frontend;
+    const pilotAccounts = localPilotStatus?.backend?.pilot_accounts ?? [];
+    const sqliteFallbackReady =
+      (localSetup?.warnings ?? []).some((item) => item.toLowerCase().includes("sqlite fallback")) ||
+      (localSetup?.decision_headline ?? "").toLowerCase().includes("sqlite");
+
+    if (!sqliteFallbackReady || !frontendStatus?.backendReachable || pilotAccounts.length === 0) {
+      return null;
+    }
+
+    return {
+      accounts: pilotAccounts.slice(0, 3).map((account) => ({
+        email: account.email,
+        full_name: account.full_name,
+        role: account.role,
+      })),
+      defaultPasswordPresent: Boolean(localSetup?.default_auth_password_present),
+      defaultPasswordIsDefault: Boolean(localSetup?.default_auth_password_is_default),
+    };
+  }, [localPilotStatus, runningOnLocalhost]);
+
   return (
     <main
       style={{
@@ -851,6 +896,53 @@ function LoginPageContent() {
                       Preview&apos;e Git
                     </Link>
                   ) : null}
+                </div>
+              ) : null}
+              {localReadyLogin ? (
+                <div
+                  style={{
+                    borderRadius: "22px",
+                    border: "1px solid rgba(15, 95, 215, 0.14)",
+                    background: "linear-gradient(180deg, rgba(239,246,255,0.94), rgba(255,255,255,0.98))",
+                    padding: "18px",
+                    display: "grid",
+                    gap: "12px",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "4px" }}>
+                    <strong style={{ color: "#0f3f91" }}>Yerelde gercek giris hazir.</strong>
+                    <span style={{ color: "#4f6283", lineHeight: 1.65 }}>
+                      Bu makinede backend local sqlite fallback ile calisiyor. PostgreSQL olmadan da e-posta/sifre
+                      akisini deneyebiliriz; sadece bu mod local gelistirme icin gecerli.
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    {localReadyLogin.accounts.map((account) => (
+                      <div
+                        key={account.email}
+                        style={{
+                          borderRadius: "16px",
+                          border: "1px solid rgba(15, 95, 215, 0.12)",
+                          background: "rgba(255,255,255,0.82)",
+                          padding: "12px 14px",
+                          display: "grid",
+                          gap: "4px",
+                          minWidth: "220px",
+                        }}
+                      >
+                        <strong style={{ color: "#16274a" }}>{account.full_name}</strong>
+                        <code style={inlineCodeStyle}>{account.email}</code>
+                        <span style={{ color: "#5f7294", fontSize: "0.9rem" }}>{account.role}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ color: "#4f6283", lineHeight: 1.65 }}>
+                    {localReadyLogin.defaultPasswordIsDefault
+                      ? "Varsayilan local sifre su an 123456. Yerel denemeden sonra bunu degistirmek yine iyi olur."
+                      : localReadyLogin.defaultPasswordPresent
+                        ? "Sifre tanimli; deger backend/.env icindeki CK_V2_DEFAULT_AUTH_PASSWORD alanindan geliyor."
+                        : "Sifre tanimli gorunmuyor; login denemesi oncesi backend/.env tarafini kontrol et."}
+                  </div>
                 </div>
               ) : null}
               {notice ? <div style={noticeStyle}>{notice}</div> : null}

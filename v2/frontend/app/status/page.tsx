@@ -640,6 +640,25 @@ export default function StatusPage() {
 
     return null;
   }, [backend, frontend, localBackendEnvRestartNeeded, localSetup]);
+  const localSqliteLoginReady = useMemo(() => {
+    if (!localSetup || !frontend || frontend.proxyMode !== "explicit_base_url" || !frontend.backendReachable) {
+      return null;
+    }
+
+    const sqliteFallbackReady =
+      localSetup.warnings.some((item) => item.toLowerCase().includes("sqlite fallback")) ||
+      localSetup.decision_headline.toLowerCase().includes("sqlite");
+
+    if (!sqliteFallbackReady || pilotAccounts.length === 0) {
+      return null;
+    }
+
+    return {
+      accounts: pilotAccounts.slice(0, 3),
+      defaultPasswordPresent: localSetup.default_auth_password_present,
+      defaultPasswordIsDefault: localSetup.default_auth_password_is_default,
+    };
+  }, [frontend, localSetup, pilotAccounts]);
 
   async function copyText(key: string, value: string) {
     try {
@@ -998,6 +1017,50 @@ export default function StatusPage() {
                     </button>
                   ) : null}
                 </article>
+                {localSqliteLoginReady ? (
+                  <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
+                    <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Yerel Gercek Giris</div>
+                    <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
+                      Backend su an local sqlite fallback ile ayakta. PostgreSQL olmadan da gercek e-posta/sifre
+                      akisini burada deneyebiliriz.
+                    </div>
+                    <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
+                      {localSqliteLoginReady.accounts.map((account) => (
+                        <div
+                          key={account.email}
+                          style={{
+                            borderRadius: "14px",
+                            border: "1px solid rgba(219, 228, 243, 0.9)",
+                            background: "rgba(248,250,255,0.78)",
+                            padding: "10px 12px",
+                            display: "grid",
+                            gap: "4px",
+                          }}
+                        >
+                          <strong style={{ color: "#16274a" }}>{account.full_name}</strong>
+                          <code
+                            style={{
+                              display: "inline-block",
+                              fontSize: "0.84rem",
+                              color: "#0f3f91",
+                              wordBreak: "break-all",
+                            }}
+                          >
+                            {account.email}
+                          </code>
+                          <span style={{ color: "#5f7294", fontSize: "0.92rem" }}>{account.role}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: "12px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
+                      {localSqliteLoginReady.defaultPasswordIsDefault
+                        ? "Varsayilan local sifre su an 123456."
+                        : localSqliteLoginReady.defaultPasswordPresent
+                          ? "Sifre tanimli; backend/.env icindeki CK_V2_DEFAULT_AUTH_PASSWORD alanindan geliyor."
+                          : "Sifre tanimli gorunmuyor; login oncesi backend/.env tarafini kontrol et."}
+                    </div>
+                  </article>
+                ) : null}
                 <article style={{ ...cardStyle(), padding: "16px", boxShadow: "none" }}>
                   <div style={{ color: "#35507d", fontWeight: 800, fontSize: "0.84rem" }}>Seed Kaynaklari</div>
                   <div style={{ marginTop: "8px", color: "#5f7294", lineHeight: 1.7, fontSize: "0.92rem" }}>
