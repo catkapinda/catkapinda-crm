@@ -327,21 +327,22 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         if line.strip().startswith("| `")
     ]
     expected_table_rows: list[str] = []
-    previous_row_index = -1
     for result in smoke_results:
         result_label = "OK" if result.get("ok") else "FAIL"
         detail = str(result.get("detail") or "").replace("\n", " ").replace("|", "\\|")
         expected_row = f"| `{result.get('name')}` | **{result_label}** | {detail} |"
         expected_table_rows.append(expected_row)
-        row_index = smoke_markdown.find(expected_row)
-        if row_index == -1:
-            issues.append(f"pilot-smoke-live.md icinde beklenen check satiri eksik: {result.get('name')}")
-            continue
-        if row_index < previous_row_index:
-            issues.append(f"pilot-smoke-live.md icinde check satiri sirasi bozuk: {result.get('name')}")
-        previous_row_index = row_index
     actual_row_counts = Counter(actual_table_rows)
     expected_row_counts = Counter(expected_table_rows)
+    previous_row_position = -1
+    for expected_row, result in zip(expected_table_rows, smoke_results):
+        if actual_row_counts.get(expected_row, 0) < expected_row_counts.get(expected_row, 0):
+            issues.append(f"pilot-smoke-live.md icinde beklenen check satiri eksik: {result.get('name')}")
+            continue
+        row_position = actual_table_rows.index(expected_row)
+        if row_position < previous_row_position:
+            issues.append(f"pilot-smoke-live.md icinde check satiri sirasi bozuk: {result.get('name')}")
+        previous_row_position = row_position
     for row, count in actual_row_counts.items():
         expected_count = expected_row_counts.get(row, 0)
         if expected_count == 0:
