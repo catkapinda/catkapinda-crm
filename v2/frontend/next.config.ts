@@ -12,7 +12,7 @@ function normalizeProxyTarget(rawTarget?: string) {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  distDir: ".next-build",
+  distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next-build",
   async rewrites() {
     const proxyTarget = normalizeProxyTarget(
       process.env.CK_V2_INTERNAL_API_BASE_URL ?? process.env.CK_V2_INTERNAL_API_HOSTPORT,

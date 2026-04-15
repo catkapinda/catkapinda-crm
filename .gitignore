@@ -9,6 +9,7 @@ catkapinda_crm.db
 v2/frontend/node_modules/
 v2/frontend/.next/
 v2/frontend/.next-build/
+v2/frontend/.next-dev/
 v2/frontend/out/
 v2/backend/.venv/
 v2/backend/*.egg-info/

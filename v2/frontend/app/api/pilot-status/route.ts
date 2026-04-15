@@ -33,6 +33,8 @@ export async function GET() {
     ? `Proxy ayarlı (${target.proxyMode}), backend pilot durumu kontrol ediliyor.`
     : "Proxy hedefi eksik.";
   let pilotPayload: unknown = null;
+  let pilotHttpStatus: number | null = null;
+  let pilotErrorDetail: string | null = null;
 
   if (target.targetBaseUrl) {
     const controller = new AbortController();
@@ -61,7 +63,12 @@ export async function GET() {
         pilotPayload = await pilotResponse.json();
         detail = `Pilot status alındı (${target.proxyMode}).`;
       } else {
-        detail = `Pilot status HTTP ${pilotResponse.status} döndü (${target.proxyMode}).`;
+        pilotHttpStatus = pilotResponse.status;
+        const errorPayload = (await pilotResponse.json().catch(() => null)) as { detail?: string } | null;
+        pilotErrorDetail = typeof errorPayload?.detail === "string" ? errorPayload.detail : null;
+        detail = pilotErrorDetail
+          ? `Pilot status HTTP ${pilotResponse.status} döndü (${target.proxyMode}): ${pilotErrorDetail}`
+          : `Pilot status HTTP ${pilotResponse.status} döndü (${target.proxyMode}).`;
       }
     } catch (error) {
       backendStatus = "unreachable";
@@ -87,6 +94,8 @@ export async function GET() {
         sourceEnvKey: target.sourceEnvKey,
         backendReachable,
         backendStatus,
+        pilotHttpStatus,
+        pilotErrorDetail,
         targetBaseUrl: target.targetBaseUrl || null,
         detail,
       },

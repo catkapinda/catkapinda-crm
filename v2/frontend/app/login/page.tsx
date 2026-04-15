@@ -23,6 +23,27 @@ const paperCardStyle = {
   boxShadow: "var(--shadow-soft)",
 } as const;
 
+type LoginPilotStatusPayload = {
+  frontend?: {
+    proxyConfigured?: boolean;
+    backendReachable?: boolean;
+    detail?: string;
+    targetBaseUrl?: string | null;
+    pilotHttpStatus?: number | null;
+    pilotErrorDetail?: string | null;
+  };
+  backend?: {
+    required_missing_env_vars?: string[];
+    next_actions?: string[];
+  } | null;
+};
+
+type LocalLoginHint = {
+  title: string;
+  detail: string;
+  command?: string;
+};
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,6 +66,7 @@ function LoginPageContent() {
   const [smsError, setSmsError] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
   const [maskedPhone, setMaskedPhone] = useState("");
+  const [localPilotStatus, setLocalPilotStatus] = useState<LoginPilotStatusPayload | null>(null);
   const recoveryPanelRef = useRef<HTMLDivElement | null>(null);
   const recoveryPhoneInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -107,6 +129,35 @@ function LoginPageContent() {
     setNotice(nextNotice);
     writeStoredAuthNotice("");
   }, []);
+
+  useEffect(() => {
+    if (!runningOnLocalhost || isPreviewModeBrowser()) {
+      return;
+    }
+    let active = true;
+
+    async function loadLocalPilotStatus() {
+      try {
+        const response = await fetch("/api/pilot-status", { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+        const payload = (await response.json().catch(() => null)) as LoginPilotStatusPayload | null;
+        if (active && payload) {
+          setLocalPilotStatus(payload);
+        }
+      } catch {
+        if (active) {
+          setLocalPilotStatus(null);
+        }
+      }
+    }
+
+    void loadLocalPilotStatus();
+    return () => {
+      active = false;
+    };
+  }, [runningOnLocalhost]);
 
   useEffect(() => {
     if (!smsLoginEnabled || authPanelMode !== "recovery") {
@@ -259,6 +310,49 @@ function LoginPageContent() {
     setRecoveryNewPassword("");
     setRecoveryConfirmPassword("");
   }
+
+  const localLoginHint = useMemo<LocalLoginHint | null>(() => {
+    if (!runningOnLocalhost || isPreviewModeBrowser()) {
+      return null;
+    }
+
+    const frontendStatus = localPilotStatus?.frontend;
+    if (!frontendStatus) {
+      return null;
+    }
+
+    if (!frontendStatus.backendReachable) {
+      return {
+        title: "Local backend henuz ayakta degil.",
+        detail:
+          "Frontend 127.0.0.1:8000 hedefini bulamiyor. Bu durumda giris ve sifre kurtarma calismaz; demo icin preview, gercek deneme icin backend gerekir.",
+        command: "cd v2/backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+      };
+    }
+
+    const requiredMissing = localPilotStatus?.backend?.required_missing_env_vars ?? [];
+    const pilotErrorDetail = frontendStatus.pilotErrorDetail || "";
+    const databaseMissing =
+      requiredMissing.includes("CK_V2_DATABASE_URL") || pilotErrorDetail.includes("DATABASE_URL");
+
+    if (databaseMissing) {
+      return {
+        title: "Backend ayakta ama veritabani env'i eksik.",
+        detail:
+          "API cevap veriyor fakat DATABASE_URL olmadigi icin gercek giris tamamlanamaz. Doctor komutuyla eksik env'i gorup backend/.env dosyasini hazirlayabiliriz.",
+        command: "python v2/scripts/local_v2_doctor.py",
+      };
+    }
+
+    if (frontendStatus.pilotHttpStatus && !localPilotStatus?.backend) {
+      return {
+        title: "Backend ayakta ama readiness katmani henuz temiz degil.",
+        detail: frontendStatus.pilotErrorDetail || frontendStatus.detail || "Pilot status tam donemedi.",
+      };
+    }
+
+    return null;
+  }, [localPilotStatus, runningOnLocalhost]);
 
   return (
     <main
@@ -589,7 +683,25 @@ function LoginPageContent() {
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
-              {authModesUnavailable ? (
+              {localLoginHint ? (
+                <div style={infoBannerStyle}>
+                  <div style={{ display: "grid", gap: "6px", maxWidth: "54ch" }}>
+                    <strong>{localLoginHint.title}</strong>
+                    <span>{localLoginHint.detail}</span>
+                    {localLoginHint.command ? (
+                      <code style={inlineCodeStyle}>{localLoginHint.command}</code>
+                    ) : null}
+                  </div>
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    <Link href="/status" style={infoBannerLinkStyle}>
+                      Pilot Durumu
+                    </Link>
+                    <Link href="/preview" style={secondaryInfoBannerLinkStyle}>
+                      Preview&apos;e Git
+                    </Link>
+                  </div>
+                </div>
+              ) : authModesUnavailable ? (
                 <div style={infoBannerStyle}>
                   <div style={{ display: "grid", gap: "5px" }}>
                     <strong>Bu ekran gercek v2 giris yuzeyi.</strong>
@@ -1301,6 +1413,24 @@ const infoBannerLinkStyle = {
   fontWeight: 800,
   textDecoration: "none",
   whiteSpace: "nowrap",
+} satisfies CSSProperties;
+
+const secondaryInfoBannerLinkStyle = {
+  ...infoBannerLinkStyle,
+  background: "rgba(255,255,255,0.78)",
+  color: "var(--text)",
+} satisfies CSSProperties;
+
+const inlineCodeStyle = {
+  display: "inline-flex",
+  width: "fit-content",
+  padding: "8px 10px",
+  borderRadius: "12px",
+  background: "rgba(16, 24, 40, 0.08)",
+  border: "1px solid rgba(16, 24, 40, 0.08)",
+  color: "var(--text)",
+  fontSize: "0.84rem",
+  fontWeight: 700,
 } satisfies CSSProperties;
 
 const errorStyle = {

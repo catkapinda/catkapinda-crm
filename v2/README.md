@@ -19,6 +19,10 @@ Run locally:
   - copy `backend/.env.example` to `backend/.env`
   - install from `backend/`
   - run `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
+  - eksik envleri tek komutta gormek icin:
+    - `python v2/scripts/local_v2_doctor.py`
+  - shell env icinde `DATABASE_URL` veya `CK_V2_DATABASE_URL` hazirsa backend/.env olusturmak icin:
+    - `python v2/scripts/local_v2_doctor.py --write-backend-env`
 - Frontend:
   - copy `frontend/.env.example` to `frontend/.env.local`
   - keep `NEXT_PUBLIC_V2_API_BASE_URL=/v2-api`
