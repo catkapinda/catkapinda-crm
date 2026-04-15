@@ -31,6 +31,7 @@ Run locally:
   - keep `CK_V2_INTERNAL_API_BASE_URL=http://127.0.0.1:8000`
   - install from `frontend/`
   - run `npm run dev`
+  - local dev cache'i `.next-dev/`, production build ciktilari ise standart `.next/` altinda tutulur; boylece dev ve build artefaktlari birbirine girmez
 
 Deploy:
 - `render.yaml` inside this folder defines two services:
