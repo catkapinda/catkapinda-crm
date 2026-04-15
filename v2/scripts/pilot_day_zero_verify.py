@@ -126,6 +126,15 @@ def _coerce_optional_str(*, value: object, issue_label: str, issues: list[str]) 
     return ""
 
 
+def _coerce_optional_nullable_str(*, value: object, issue_label: str, issues: list[str]) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip()
+    issues.append(f"{issue_label} string degil")
+    return None
+
+
 def _normalize_smoke_results(*, value: object, issues: list[str]) -> tuple[bool, list[dict[str, object]]]:
     if value is None:
         return (False, [])
@@ -325,6 +334,38 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         value=decision_for_manifest.get("failing_checks"),
         issues=issues,
     )
+    decision_status = (
+        _coerce_optional_str(
+            value=decision_for_manifest.get("status"),
+            issue_label="pilot-smoke-live.json icinde decision.status",
+            issues=issues,
+        )
+        if "status" in decision_for_manifest
+        else None
+    )
+    decision_headline = (
+        _coerce_optional_str(
+            value=decision_for_manifest.get("headline"),
+            issue_label="pilot-smoke-live.json icinde decision.headline",
+            issues=issues,
+        )
+        if "headline" in decision_for_manifest
+        else None
+    )
+    decision_primary_blocker = (
+        _coerce_optional_nullable_str(
+            value=decision_for_manifest.get("primary_blocker"),
+            issue_label="pilot-smoke-live.json icinde decision.primary_blocker",
+            issues=issues,
+        )
+        if "primary_blocker" in decision_for_manifest
+        else None
+    )
+    actual_next_step = _coerce_optional_str(
+        value=decision_for_manifest.get("recommended_next_step"),
+        issue_label="pilot-smoke-live.json icinde decision.recommended_next_step",
+        issues=issues,
+    )
     payload_passed_count = _coerce_optional_int(
         value=smoke_payload.get("passed_count"),
         issue_label="pilot-smoke-live.json icinde passed_count",
@@ -373,8 +414,14 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
                 expected_failing_checks = list(expected_decision.get("failing_checks") or [])
                 if failing_checks != expected_failing_checks:
                     issues.append("pilot-smoke-live.json icinde failing_checks result listesiyle uyusmuyor")
-            for key in ("status", "headline", "primary_blocker", "recommended_next_step"):
-                if key in decision_for_manifest and decision_for_manifest.get(key) != expected_decision.get(key):
+            comparable_decision_values = {
+                "status": decision_status,
+                "headline": decision_headline,
+                "primary_blocker": decision_primary_blocker,
+                "recommended_next_step": actual_next_step,
+            }
+            for key, actual_value in comparable_decision_values.items():
+                if key in decision_for_manifest and actual_value != expected_decision.get(key):
                     issues.append(f"pilot-smoke-live.json icinde decision.{key} result listesiyle uyusmuyor")
 
     expected_overall_ok = manifest.get("smoke_overall_ok")
@@ -394,11 +441,6 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
         )
 
     expected_next_step = manifest.get("smoke_recommended_next_step")
-    actual_next_step = _coerce_optional_str(
-        value=decision_for_manifest.get("recommended_next_step"),
-        issue_label="pilot-smoke-live.json icinde decision.recommended_next_step",
-        issues=issues,
-    )
     if expected_next_step and actual_next_step != expected_next_step:
         issues.append(
             "Manifest smoke_recommended_next_step degeri ile pilot-smoke-live.json uyusmuyor"
@@ -436,18 +478,17 @@ def _check_smoke_consistency(*, output_dir: Path, manifest: dict) -> tuple[bool,
             f"- Passed: `{derived_passed_count}`",
             f"- Failed: `{smoke_payload.get('failed_count')}`",
         ]
-        decision = decision_for_manifest
-        if decision.get("status") is not None:
-            expected_markdown_snippets.append(f"- Status: `{decision.get('status')}`")
-        if decision.get("headline"):
-            expected_markdown_snippets.append(f"- Headline: {decision.get('headline')}")
-        if "primary_blocker" in decision:
+        if decision_status is not None:
+            expected_markdown_snippets.append(f"- Status: `{decision_status}`")
+        if decision_headline:
+            expected_markdown_snippets.append(f"- Headline: {decision_headline}")
+        if "primary_blocker" in decision_for_manifest:
             expected_markdown_snippets.append(
-                f"- Primary Blocker: {decision.get('primary_blocker') or '-'}"
+                f"- Primary Blocker: {decision_primary_blocker or '-'}"
             )
-        if decision.get("recommended_next_step"):
+        if actual_next_step:
             expected_markdown_snippets.append(
-                f"- Recommended Next Step: {decision.get('recommended_next_step')}"
+                f"- Recommended Next Step: {actual_next_step}"
             )
         if isinstance(failing_checks, list):
             failing_checks_text = ", ".join(failing_checks) or "-"
