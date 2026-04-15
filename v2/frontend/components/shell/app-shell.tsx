@@ -92,41 +92,66 @@ export function AppShell({
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        gridTemplateColumns: "280px 1fr",
-      }}
-    >
+    <div className="app-shell">
       <aside
+        className="app-shell__sidebar"
         style={{
-          padding: "28px 24px",
-          borderRight: "1px solid rgba(193, 209, 232, 0.9)",
-          background: "rgba(255, 255, 255, 0.72)",
-          backdropFilter: "blur(14px)",
+          padding: "28px 24px 24px",
+          borderRight: "1px solid rgba(255, 255, 255, 0.08)",
+          background:
+            "linear-gradient(180deg, rgba(19, 32, 48, 0.98) 0%, rgba(24, 40, 59, 0.96) 42%, rgba(37, 55, 77, 0.96) 100%)",
+          color: "#f6efe3",
+          backdropFilter: "blur(18px)",
+          boxShadow: "inset -1px 0 0 rgba(255, 255, 255, 0.06)",
         }}
       >
-        <div style={{ marginBottom: "22px" }}>
+        <div
+          style={{
+            padding: "18px 18px 16px",
+            borderRadius: "28px",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))",
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "0 20px 38px rgba(0, 0, 0, 0.18)",
+          }}
+        >
           <div
             style={{
-              color: "#17345D",
+              display: "inline-flex",
+              padding: "6px 10px",
+              borderRadius: "999px",
+              background: "rgba(185, 116, 41, 0.18)",
+              color: "#f1c28f",
+              fontSize: "0.72rem",
+              fontWeight: 800,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            v2 Pilot
+          </div>
+          <div
+            style={{
+              marginTop: "16px",
+              color: "#fff7ed",
               fontWeight: 900,
-              fontSize: "1.45rem",
+              fontSize: "1.85rem",
               letterSpacing: "-0.03em",
+              lineHeight: 0.95,
+              fontFamily:
+                '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
             }}
           >
             Cat Kapinda CRM
           </div>
           <div
             style={{
-              marginTop: "8px",
-              color: "var(--muted)",
-              fontSize: "0.93rem",
+              marginTop: "10px",
+              color: "rgba(246, 239, 227, 0.72)",
+              fontSize: "0.92rem",
               lineHeight: 1.6,
             }}
           >
-            v2 yetkili operasyon kabuğu
+            Operasyonun gunluk nabzi, karar panelleri ve saha akisi tek kabukta.
           </div>
         </div>
         <nav
@@ -141,14 +166,49 @@ export function AppShell({
               href={item.href}
               style={{
                 padding: "14px 16px",
-                borderRadius: "18px",
-                border: "1px solid var(--line)",
-                background: item.label === activeItem ? "var(--accent-soft)" : "rgba(255, 255, 255, 0.82)",
-                color: item.label === activeItem ? "var(--accent)" : "var(--text)",
-                fontWeight: 700,
+                borderRadius: "20px",
+                border:
+                  item.label === activeItem
+                    ? "1px solid rgba(241, 194, 143, 0.4)"
+                    : "1px solid rgba(255, 255, 255, 0.08)",
+                background:
+                  item.label === activeItem
+                    ? "linear-gradient(135deg, rgba(185, 116, 41, 0.24), rgba(255,255,255,0.08))"
+                    : "rgba(255, 255, 255, 0.03)",
+                color: item.label === activeItem ? "#fff4e5" : "rgba(246, 239, 227, 0.84)",
+                fontWeight: item.label === activeItem ? 800 : 700,
+                boxShadow:
+                  item.label === activeItem ? "0 18px 34px rgba(0, 0, 0, 0.16)" : "none",
               }}
             >
-              {item.label}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                }}
+              >
+                <span>{item.label}</span>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: "30px",
+                    height: "30px",
+                    borderRadius: "12px",
+                    background:
+                      item.label === activeItem
+                        ? "rgba(255,255,255,0.14)"
+                        : "rgba(255,255,255,0.06)",
+                    fontSize: "0.76rem",
+                    fontWeight: 900,
+                  }}
+                >
+                  {item.label.charAt(0)}
+                </span>
+              </div>
             </Link>
           ))}
         </nav>
@@ -156,21 +216,34 @@ export function AppShell({
         <div
           style={{
             marginTop: "auto",
-            paddingTop: "18px",
+            paddingTop: "10px",
             display: "grid",
             gap: "10px",
           }}
         >
           <div
             style={{
-              padding: "14px 16px",
-              borderRadius: "18px",
-              border: "1px solid var(--line)",
-              background: "rgba(255, 255, 255, 0.82)",
+              padding: "16px",
+              borderRadius: "22px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(255, 255, 255, 0.05)",
             }}
           >
-            <div style={{ fontWeight: 800 }}>{user.full_name}</div>
-            <div style={{ marginTop: "4px", color: "var(--muted)", fontSize: "0.9rem" }}>
+            <div
+              style={{
+                fontWeight: 800,
+                color: "#fff7ed",
+              }}
+            >
+              {user.full_name}
+            </div>
+            <div
+              style={{
+                marginTop: "4px",
+                color: "rgba(246, 239, 227, 0.66)",
+                fontSize: "0.9rem",
+              }}
+            >
               {user.role_display}
             </div>
           </div>
@@ -180,12 +253,12 @@ export function AppShell({
               void logout().then(() => router.replace("/login"));
             }}
             style={{
-              padding: "12px 16px",
-              borderRadius: "16px",
-              border: "1px solid var(--line)",
-              background: "rgba(255, 255, 255, 0.82)",
-              color: "var(--text)",
-              fontWeight: 700,
+              padding: "13px 16px",
+              borderRadius: "18px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(255, 255, 255, 0.04)",
+              color: "#fff4e5",
+              fontWeight: 800,
               cursor: "pointer",
             }}
           >
@@ -194,8 +267,9 @@ export function AppShell({
         </div>
       </aside>
       <main
+        className="app-shell__main"
         style={{
-          padding: "28px",
+          padding: "30px",
         }}
       >
         {children}

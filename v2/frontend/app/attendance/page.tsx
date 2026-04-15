@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AttendanceEntryWorkspace } from "../../components/attendance/attendance-entry-workspace";
 import { AttendanceManagementWorkspace } from "../../components/attendance/attendance-management-workspace";
@@ -32,23 +32,35 @@ type AttendanceDashboard = {
   }>;
 };
 
-function metricCard(label: string, value: string) {
+const serifTitleStyle = {
+  fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  letterSpacing: "-0.04em",
+} as const;
+
+const paperCardStyle = {
+  borderRadius: "28px",
+  border: "1px solid var(--line)",
+  background: "var(--surface-raised)",
+  boxShadow: "var(--shadow-soft)",
+} as const;
+
+function metricCard(label: string, value: string, note: string) {
   return (
     <article
       key={label}
       style={{
-        padding: "18px",
-        borderRadius: "20px",
-        border: "1px solid var(--line)",
-        background: "var(--surface)",
+        ...paperCardStyle,
+        padding: "18px 18px 16px",
+        background:
+          "linear-gradient(180deg, rgba(255,253,247,0.98), rgba(246,239,228,0.96))",
       }}
     >
       <div
         style={{
           color: "var(--muted)",
-          fontSize: "0.82rem",
+          fontSize: "0.74rem",
           textTransform: "uppercase",
-          letterSpacing: "0.05em",
+          letterSpacing: "0.08em",
           fontWeight: 800,
         }}
       >
@@ -56,15 +68,86 @@ function metricCard(label: string, value: string) {
       </div>
       <div
         style={{
+          ...serifTitleStyle,
           marginTop: "10px",
-          fontSize: "1.85rem",
-          fontWeight: 900,
-          letterSpacing: "-0.04em",
+          fontSize: "2rem",
+          lineHeight: 0.95,
+          fontWeight: 700,
         }}
       >
         {value}
       </div>
+      <div
+        style={{
+          marginTop: "8px",
+          color: "var(--muted)",
+          lineHeight: 1.6,
+          fontSize: "0.92rem",
+        }}
+      >
+        {note}
+      </div>
     </article>
+  );
+}
+
+function workspaceFrame(
+  kicker: string,
+  title: string,
+  description: string,
+  child: React.ReactNode,
+) {
+  return (
+    <section
+      style={{
+        ...paperCardStyle,
+        padding: "20px",
+        display: "grid",
+        gap: "18px",
+        background:
+          "linear-gradient(180deg, rgba(255,253,247,0.98), rgba(249,244,235,0.95))",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gap: "8px",
+        }}
+      >
+        <div
+          style={{
+            color: "var(--accent-strong)",
+            fontWeight: 800,
+            fontSize: "0.74rem",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          {kicker}
+        </div>
+        <h2
+          style={{
+            ...serifTitleStyle,
+            margin: 0,
+            fontSize: "2rem",
+            lineHeight: 0.98,
+            fontWeight: 700,
+          }}
+        >
+          {title}
+        </h2>
+        <p
+          style={{
+            margin: 0,
+            color: "var(--muted)",
+            lineHeight: 1.7,
+          }}
+        >
+          {description}
+        </p>
+      </div>
+      {child}
+    </section>
   );
 }
 
@@ -118,191 +201,501 @@ export default function AttendancePage() {
     };
   }, [loading, user]);
 
+  const modeBreakdown = useMemo(() => {
+    const rows = dashboard?.recent_entries ?? [];
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      counts.set(row.entry_mode, (counts.get(row.entry_mode) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 4);
+  }, [dashboard?.recent_entries]);
+
   return (
     <AppShell activeItem="Puantaj">
       <section
         style={{
           display: "grid",
-          gap: "18px",
+          gap: "24px",
         }}
       >
-        <div
+        <section
           style={{
-            padding: "24px 26px",
-            borderRadius: "28px",
-            background: "var(--surface-strong)",
-            border: "1px solid var(--line)",
-            boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: "18px",
           }}
         >
+          <article
+            style={{
+              padding: "30px",
+              borderRadius: "34px",
+              background:
+                "linear-gradient(145deg, rgba(22, 38, 58, 0.98), rgba(37, 56, 79, 0.96))",
+              color: "#fff7ea",
+              boxShadow: "var(--shadow-deep)",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: "auto auto -110px -70px",
+                width: "240px",
+                height: "240px",
+                borderRadius: "999px",
+                background: "radial-gradient(circle, rgba(185,116,41,0.34), transparent 72%)",
+              }}
+            />
+            <div
+              style={{
+                display: "inline-flex",
+                padding: "7px 12px",
+                borderRadius: "999px",
+                background: "rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "#f5d7b1",
+                fontSize: "0.74rem",
+                fontWeight: 800,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+              }}
+            >
+              Attendance Desk
+            </div>
+            <h1
+              style={{
+                ...serifTitleStyle,
+                margin: "20px 0 14px",
+                fontSize: "clamp(2.6rem, 5vw, 4.3rem)",
+                lineHeight: 0.92,
+                maxWidth: "11ch",
+                fontWeight: 700,
+              }}
+            >
+              Puantaj yüzeyi artık daha güçlü bir ritimde akıyor.
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                maxWidth: "68ch",
+                color: "rgba(255, 247, 234, 0.78)",
+                lineHeight: 1.75,
+                fontSize: "1rem",
+              }}
+            >
+              Giriş, yönetim, ay bazlı temizlik ve son hareketler artık daha sahici bir ürün
+              hissiyle aynı yüzeyde. Bu ekranın amacı sadece veri göstermek değil; ofisin işini
+              daha seri ve daha güvenli ilerletmek.
+            </p>
+
+            <div
+              style={{
+                marginTop: "24px",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              {[
+                ["Yeni hamle", "Ay filtresiyle toplu puantaj silme artık doğrudan yönetim akışında."],
+                ["Kullanım hedefi", "Gün sonu vardiya düzeltmesi ve temizlik daha az tıklamayla bitsin."],
+                ["UI yönü", "Saha operasyon hissi veren daha editorial ve daha cesur yüzey."],
+              ].map(([label, text]) => (
+                <div
+                  key={label}
+                  style={{
+                    padding: "14px 14px 12px",
+                    borderRadius: "20px",
+                    background: "rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "#f1c28f",
+                      fontSize: "0.72rem",
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    {label}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      color: "rgba(255, 247, 234, 0.84)",
+                      lineHeight: 1.6,
+                      fontSize: "0.93rem",
+                    }}
+                  >
+                    {text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+
           <div
             style={{
-              display: "inline-flex",
-              padding: "7px 12px",
-              borderRadius: "999px",
-              background: "var(--accent-soft)",
-              color: "var(--accent)",
-              fontSize: "0.78rem",
-              fontWeight: 800,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
+              display: "grid",
+              gap: "18px",
             }}
           >
-            Operasyon Akisi
+            <article
+              style={{
+                ...paperCardStyle,
+                padding: "24px",
+                background:
+                  "linear-gradient(180deg, rgba(255,250,241,0.98), rgba(245,236,220,0.96))",
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--accent-strong)",
+                  fontWeight: 800,
+                  fontSize: "0.75rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Bugun Ne Hissediliyor
+              </div>
+              <div
+                style={{
+                  ...serifTitleStyle,
+                  marginTop: "14px",
+                  fontSize: "2rem",
+                  lineHeight: 0.96,
+                  fontWeight: 700,
+                }}
+              >
+                Form, liste ve son hareketler birbirini tamamlıyor.
+              </div>
+              <p
+                style={{
+                  margin: "12px 0 0",
+                  color: "var(--muted)",
+                  lineHeight: 1.7,
+                  fontSize: "0.96rem",
+                }}
+              >
+                Önce giriş, sonra düzeltme, gerekirse ay bazlı temizlik. Yüzeyin mantığı artık daha
+                net.
+              </p>
+            </article>
+
+            <article
+              style={{
+                ...paperCardStyle,
+                padding: "24px",
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--muted)",
+                  fontWeight: 800,
+                  fontSize: "0.75rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Son Akis Tipleri
+              </div>
+              <div
+                style={{
+                  marginTop: "16px",
+                  display: "grid",
+                  gap: "10px",
+                }}
+              >
+                {modeBreakdown.length ? (
+                  modeBreakdown.map(([label, count]) => (
+                    <div
+                      key={label}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "14px",
+                        padding: "14px 16px",
+                        borderRadius: "18px",
+                        background: "rgba(24, 40, 59, 0.05)",
+                        border: "1px solid rgba(24, 40, 59, 0.08)",
+                      }}
+                    >
+                      <span style={{ fontWeight: 800 }}>{label}</span>
+                      <span style={{ color: "var(--accent-strong)", fontWeight: 900 }}>{count}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                    Son hareket verisi geldiğinde akış kırılımı burada belirecek.
+                  </div>
+                )}
+              </div>
+            </article>
           </div>
-          <h1
-            style={{
-              margin: "16px 0 10px",
-              fontSize: "clamp(2rem, 3vw, 2.8rem)",
-              lineHeight: 1.05,
-            }}
-          >
-            Gunluk puantaj yeni hatta hazir.
-          </h1>
-          <p
-            style={{
-              margin: 0,
-              maxWidth: "74ch",
-              color: "var(--muted)",
-              lineHeight: 1.7,
-            }}
-          >
-            Gunluk puantaj girisi, kayit yonetimi ve son hareketler artik daha akici bir yapida
-            tek ekranda ilerliyor. Bu alan pilot acildiginda ofisin Streamlit'e donmeden kullanacagi
-            ana operasyon yuzlerinden biri olacak.
-          </p>
-        </div>
+        </section>
 
         {dashboardLoading ? (
           <div
             style={{
+              ...paperCardStyle,
               padding: "18px 20px",
-              borderRadius: "22px",
-              border: "1px solid rgba(15, 95, 215, 0.14)",
-              background: "rgba(15, 95, 215, 0.06)",
               color: "var(--muted)",
+              background: "rgba(255, 250, 241, 0.82)",
             }}
           >
-            Gunluk puantaj verileri yukleniyor...
+            Puantaj newsroom paneli yukleniyor...
           </div>
         ) : !dashboard ? (
           <div
             style={{
-              padding: "18px 20px",
-              borderRadius: "22px",
-              border: "1px dashed rgba(15, 95, 215, 0.35)",
-              background: "rgba(255, 255, 255, 0.66)",
+              ...paperCardStyle,
+              padding: "20px 22px",
+              borderStyle: "dashed",
               color: "var(--muted)",
-              lineHeight: 1.7,
+              lineHeight: 1.75,
+              background: "rgba(255, 250, 241, 0.82)",
             }}
           >
-            Puantaj servisine su anda erisilemiyor. Pilot backend ayaga kalktiginda bu ekran
-            gunluk puantaj ozetini ve son hareketleri gercek veriden gosterecek.
+            Attendance backend şu anda cevap vermiyor. Veri geri geldiğinde bu yeni yüzey puantaj
+            ritmini, son hareketleri ve aylık nabzı aynı çerçevede gösterecek.
           </div>
         ) : (
           <>
-            <AttendanceEntryWorkspace />
-            <AttendanceManagementWorkspace />
-
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                 gap: "14px",
               }}
             >
-              {metricCard("Toplam Kayit", String(dashboard.summary.total_entries))}
-              {metricCard("Bugun", String(dashboard.summary.today_entries))}
-              {metricCard("Bu Ay", String(dashboard.summary.month_entries))}
-              {metricCard("Aktif Sube", String(dashboard.summary.active_restaurants))}
+              {metricCard(
+                "Toplam Kayit",
+                String(dashboard.summary.total_entries),
+                "Sistemde geriye donuk tutulan tüm puantaj omurgasi.",
+              )}
+              {metricCard(
+                "Bugun",
+                String(dashboard.summary.today_entries),
+                "Bugun acilan vardiya ve devam hareketleri.",
+              )}
+              {metricCard(
+                "Bu Ay",
+                String(dashboard.summary.month_entries),
+                "Aylik yogunluk, temizlik ve kontrol hacmi.",
+              )}
+              {metricCard(
+                "Aktif Sube",
+                String(dashboard.summary.active_restaurants),
+                "Bugun operasyon akisi beklenen aktif subeler.",
+              )}
             </div>
 
-            <div
+            {workspaceFrame(
+              "Giris Masasi",
+              "Yeni kayit alani daha net bir sahneye cikti.",
+              "Günlük puantaj formunu burada daha temiz bir çerçeve içinde ilerletiyoruz. Amaç veri alanını korkutmak değil, hızlandırmak.",
+              <AttendanceEntryWorkspace />,
+            )}
+
+            {workspaceFrame(
+              "Yonetim Masasi",
+              "Duzeltme, secme ve ay bazli temizlik ayni yuzeyde.",
+              "Kayıt listesi artık sadece tablo değil; düzeltme, seçili silme ve ay filtresiyle toplu temizlik için daha görünür bir operasyon masası.",
+              <AttendanceManagementWorkspace />,
+            )}
+
+            <section
               style={{
-                borderRadius: "24px",
-                border: "1px solid var(--line)",
-                background: "var(--surface-strong)",
-                overflow: "hidden",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                gap: "18px",
               }}
             >
-              <div
+              <article
                 style={{
-                  padding: "18px 20px",
-                  borderBottom: "1px solid var(--line)",
+                  ...paperCardStyle,
+                  overflow: "hidden",
                 }}
               >
-                <h2
+                <div
                   style={{
-                    margin: 0,
-                    fontSize: "1.1rem",
+                    padding: "22px 22px 16px",
+                    borderBottom: "1px solid var(--line)",
                   }}
                 >
-                  Son Puantaj Hareketleri
-                </h2>
-                <p
-                  style={{
-                    margin: "6px 0 0",
-                    color: "var(--muted)",
-                  }}
-                >
-                  Son girilen kayitlari, sube ve calisan akisini tek bakista kontrol et.
-                </p>
-              </div>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontWeight: 800,
+                      fontSize: "0.74rem",
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Son Puantaj Hareketleri
+                  </div>
+                  <h2
+                    style={{
+                      ...serifTitleStyle,
+                      margin: "10px 0 6px",
+                      fontSize: "2rem",
+                      lineHeight: 0.98,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Akış masası
+                  </h2>
+                  <p
+                    style={{
+                      margin: 0,
+                      color: "var(--muted)",
+                      lineHeight: 1.7,
+                    }}
+                  >
+                    Son kayıtlar artık daha sakin ama daha karakterli bir tabloda akıyor.
+                  </p>
+                </div>
 
-              <div
-                style={{
-                  overflowX: "auto",
-                }}
-              >
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                  }}
-                >
-                  <thead>
-                    <tr
-                      style={{
-                        textAlign: "left",
-                        background: "rgba(236, 243, 252, 0.86)",
-                      }}
-                    >
-                      {["Tarih", "Sube", "Calisan", "Akis", "Saat", "Paket"].map((header) => (
-                        <th
-                          key={header}
-                          style={{
-                            padding: "14px 16px",
-                            fontSize: "0.84rem",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                            color: "var(--muted)",
-                          }}
-                        >
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dashboard.recent_entries.map((entry) => (
+                <div style={{ overflowX: "auto" }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                    }}
+                  >
+                    <thead>
                       <tr
-                        key={entry.id}
                         style={{
-                          borderTop: "1px solid rgba(193, 209, 232, 0.56)",
+                          textAlign: "left",
+                          background: "rgba(24, 40, 59, 0.05)",
                         }}
                       >
-                        <td style={tableCellStyle}>{entry.entry_date}</td>
-                        <td style={tableCellStyle}>{entry.restaurant}</td>
-                        <td style={tableCellStyle}>{entry.employee_name || "-"}</td>
-                        <td style={tableCellStyle}>{entry.entry_mode}</td>
-                        <td style={tableCellStyle}>{entry.worked_hours.toFixed(1)}</td>
-                        <td style={tableCellStyle}>{entry.package_count.toFixed(0)}</td>
+                        {["Tarih", "Sube", "Calisan", "Akis", "Saat", "Paket"].map((header) => (
+                          <th
+                            key={header}
+                            style={{
+                              padding: "15px 16px",
+                              fontSize: "0.76rem",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                              color: "var(--muted)",
+                            }}
+                          >
+                            {header}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                    </thead>
+                    <tbody>
+                      {dashboard.recent_entries.map((entry) => (
+                        <tr
+                          key={entry.id}
+                          style={{
+                            borderTop: "1px solid rgba(24, 40, 59, 0.08)",
+                          }}
+                        >
+                          <td style={tableCellStyle}>{entry.entry_date}</td>
+                          <td style={tableCellStyle}>{entry.restaurant}</td>
+                          <td style={tableCellStyle}>{entry.employee_name || "-"}</td>
+                          <td style={tableCellStyle}>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                padding: "6px 10px",
+                                borderRadius: "999px",
+                                background:
+                                  entry.entry_mode === "Restoran Kuryesi"
+                                    ? "rgba(24, 40, 59, 0.08)"
+                                    : "rgba(185, 116, 41, 0.12)",
+                                color:
+                                  entry.entry_mode === "Restoran Kuryesi"
+                                    ? "var(--text)"
+                                    : "var(--accent-strong)",
+                                fontWeight: 800,
+                                fontSize: "0.78rem",
+                              }}
+                            >
+                              {entry.entry_mode}
+                            </span>
+                          </td>
+                          <td style={tableCellStyle}>{entry.worked_hours.toFixed(1)}</td>
+                          <td style={tableCellStyle}>{entry.package_count.toFixed(0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <aside
+                style={{
+                  ...paperCardStyle,
+                  padding: "22px",
+                  display: "grid",
+                  gap: "14px",
+                  alignSelf: "start",
+                  background:
+                    "linear-gradient(180deg, rgba(255,253,247,0.98), rgba(246,239,228,0.96))",
+                }}
+              >
+                <div
+                  style={{
+                    color: "var(--muted)",
+                    fontWeight: 800,
+                    fontSize: "0.74rem",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Operasyon Notlari
+                </div>
+                <h2
+                  style={{
+                    ...serifTitleStyle,
+                    margin: 0,
+                    fontSize: "2rem",
+                    lineHeight: 0.98,
+                    fontWeight: 700,
+                  }}
+                >
+                  Bugun dikkat edilmesi gerekenler
+                </h2>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "10px",
+                  }}
+                >
+                  {[
+                    `Bugun ${dashboard.summary.today_entries} kayit acildi.`,
+                    `Bu ay toplam ${dashboard.summary.month_entries} puantaj satiri birikti.`,
+                    "Ay bazli toplu silme yalnızca filtreli alan için görünür durumda.",
+                    "Son hareketler paneli hızlı vardiya temizliği için referans akışı sunuyor.",
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      style={{
+                        padding: "14px 14px 12px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(24, 40, 59, 0.08)",
+                        background: "rgba(24, 40, 59, 0.04)",
+                        color: "var(--text)",
+                        lineHeight: 1.65,
+                      }}
+                    >
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </aside>
+            </section>
           </>
         )}
       </section>
@@ -311,7 +704,7 @@ export default function AttendancePage() {
 }
 
 const tableCellStyle = {
-  padding: "14px 16px",
+  padding: "15px 16px",
   fontSize: "0.95rem",
   color: "var(--text)",
 };
