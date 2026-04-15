@@ -63,6 +63,11 @@ type ReportsDashboard = {
   }>;
 };
 
+const serifStyle = {
+  fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  letterSpacing: "-0.04em",
+} as const;
+
 function formatMoney(value: number) {
   return new Intl.NumberFormat("tr-TR", {
     style: "currency",
@@ -119,6 +124,89 @@ function metricCard(label: string, value: string, note: string) {
         }}
       >
         {note}
+      </div>
+    </article>
+  );
+}
+
+function narrativeCard({
+  eyebrow,
+  title,
+  body,
+  tone = "paper",
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  tone?: "paper" | "ink" | "accent";
+}) {
+  const palette =
+    tone === "ink"
+      ? {
+          background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+          border: "1px solid rgba(255,255,255,0.08)",
+          title: "#fff7ea",
+          body: "rgba(255,247,234,0.72)",
+          eyebrow: "rgba(255,247,234,0.62)",
+        }
+      : tone === "accent"
+        ? {
+            background: "linear-gradient(180deg, rgba(185,116,41,0.12), rgba(255,248,236,0.98))",
+            border: "1px solid rgba(185,116,41,0.18)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--accent-strong)",
+          }
+        : {
+            background: "rgba(255,255,255,0.84)",
+            border: "1px solid var(--line)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--muted)",
+          };
+
+  return (
+    <article
+      style={{
+        padding: "18px 18px 16px",
+        borderRadius: "22px",
+        background: palette.background,
+        border: palette.border,
+        boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      <div
+        style={{
+          color: palette.eyebrow,
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifStyle,
+          color: palette.title,
+          fontSize: "1.5rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: palette.body,
+          fontSize: "0.93rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
       </div>
     </article>
   );
@@ -309,6 +397,55 @@ export default function ReportsPage() {
     ];
   }, [dashboard]);
 
+  const decisionDeck = useMemo(() => {
+    if (!dashboard?.summary) {
+      return [];
+    }
+
+    const marginRatio =
+      dashboard.summary.total_revenue > 0
+        ? (dashboard.summary.gross_profit / dashboard.summary.total_revenue) * 100
+        : 0;
+    const topRestaurant = dashboard.top_restaurants[0] ?? null;
+    const topCourier = dashboard.top_couriers[0] ?? null;
+    const topModel = dashboard.model_breakdown[0] ?? null;
+    const sideIncomePositive = dashboard.summary.side_income_net >= 0;
+
+    return [
+      {
+        eyebrow: "Ayin Odagi",
+        title:
+          marginRatio >= 18
+            ? "Marj resmi saglam gorunuyor."
+            : marginRatio >= 10
+              ? "Marj korunuyor ama dikkat istiyor."
+              : "Marj alarm seviyesine yakin.",
+        body: `${dashboard.summary.selected_month} doneminde brut fark ${formatMoney(dashboard.summary.gross_profit)} ve marj %${formatNumber(marginRatio, 1)} seviyesinde.`,
+        tone: marginRatio >= 18 ? "ink" : "accent",
+      },
+      {
+        eyebrow: "En Guclu Restoran",
+        title: topRestaurant ? topRestaurant.restaurant : "Restoran sinyali henuz yok.",
+        body: topRestaurant
+          ? `${topRestaurant.pricing_model} modeli ile ${formatMoney(topRestaurant.gross_invoice)} fatura uretiyor; ${formatNumber(topRestaurant.total_hours, 1)} saat ve ${formatNumber(topRestaurant.total_packages)} paket hacmi tasiyor.`
+          : "Ilk restoran sinyali geldikce bu kart ilgili ciro hareketini one cikaracak.",
+        tone: "paper",
+      },
+      {
+        eyebrow: sideIncomePositive ? "Denge Katkisi" : "Risk Alani",
+        title: topCourier ? topCourier.personnel : "Maliyet lideri henuz yok.",
+        body: topCourier
+          ? `${topCourier.role} rolunde ${formatMoney(topCourier.net_cost)} net maliyet tasiyor. ${formatMoney(topCourier.total_deductions)} kesinti etkisiyle birlikte ${
+              topModel ? `${topModel.pricing_model} modeli ayin ana hacmini surukluyor.` : "model dagilimi bu maliyeti okumakta kritik."
+            }`
+          : sideIncomePositive
+            ? `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Kesinti ve ek gelirler genel resmi su anda destekliyor.`
+            : `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Kesinti ve ek gelir tarafini daha yakindan izlemek gerekiyor.`,
+        tone: sideIncomePositive ? "paper" : "accent",
+      },
+    ] as const;
+  }, [dashboard]);
+
   const filteredInvoiceEntries = useMemo(() => {
     const rows = dashboard?.invoice_entries ?? [];
     const query = invoiceQuery.trim().toLocaleLowerCase("tr-TR");
@@ -343,7 +480,8 @@ export default function ReportsPage() {
           style={{
             padding: "28px",
             borderRadius: "30px",
-            background: "var(--surface-strong)",
+            background:
+              "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,242,233,0.96))",
             border: "1px solid var(--line)",
             boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
             display: "grid",
@@ -352,17 +490,23 @@ export default function ReportsPage() {
         >
           <div
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.9fr)",
               gap: "18px",
-              flexWrap: "wrap",
+              alignItems: "stretch",
             }}
           >
-            <div>
+            <div
+              style={{
+                display: "grid",
+                gap: "16px",
+                alignContent: "start",
+              }}
+            >
               <div
                 style={{
                   display: "inline-flex",
+                  width: "fit-content",
                   padding: "7px 12px",
                   borderRadius: "999px",
                   background: "var(--accent-soft)",
@@ -375,67 +519,237 @@ export default function ReportsPage() {
               >
                 Karlilik ve Rapor
               </div>
-              <h1
+              <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
+                <h1
+                  style={{
+                    ...serifStyle,
+                    margin: 0,
+                    fontSize: "clamp(2.2rem, 4vw, 3.7rem)",
+                    lineHeight: 0.96,
+                    fontWeight: 700,
+                  }}
+                >
+                  Aylik resmi yalnizca okumuyor, artik yonlendiriyoruz.
+                </h1>
+                <p
+                  style={{
+                    margin: 0,
+                    maxWidth: "72ch",
+                    color: "var(--muted)",
+                    fontSize: "1.02rem",
+                    lineHeight: 1.78,
+                  }}
+                >
+                  Fatura, maliyet, marj ve model dagilimlarini ayni editorial yuzeyde
+                  toplayip hangi hattin iyi gittigini, hangi alanin dikkat istedigini
+                  daha hizli gormeyi hedefliyoruz.
+                </p>
+              </div>
+              <div
                 style={{
-                  margin: "16px 0 10px",
-                  fontSize: "clamp(2rem, 4vw, 3rem)",
-                  lineHeight: 1.03,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "10px",
                 }}
               >
-                Restoran faturasi ve kurye maliyeti yeni hatta hazir.
-              </h1>
-              <p
-                style={{
-                  margin: 0,
-                  maxWidth: "76ch",
-                  color: "var(--muted)",
-                  fontSize: "1.02rem",
-                  lineHeight: 1.7,
-                }}
-              >
-                Fatura, maliyet, marj ve model dagilimlarini ayni yuzeyde izleyip karar
-                alabilecegin yeni rapor merkezi burada.
-              </p>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(15,95,215,0.08)",
+                    color: "#0f5fd7",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Karar katmani aktif
+                </span>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(185,116,41,0.1)",
+                    color: "var(--accent-strong)",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Fatura ve maliyet ayni satirda
+                </span>
+              </div>
             </div>
+
             <div
               style={{
-                minWidth: "200px",
                 display: "grid",
-                gap: "8px",
+                gap: "12px",
               }}
             >
-              <label
-                htmlFor="reports-month"
+              <article
                 style={{
-                  color: "var(--muted)",
-                  fontSize: "0.82rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  fontWeight: 800,
+                  padding: "18px 18px 16px",
+                  borderRadius: "24px",
+                  background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+                  color: "#fff7ea",
+                  boxShadow: "var(--shadow-deep)",
+                  display: "grid",
+                  gap: "14px",
                 }}
               >
-                Rapor Dönemi
-              </label>
-              <select
-                id="reports-month"
-                value={selectedMonth}
-                onChange={(event) => setSelectedMonth(event.target.value)}
-                disabled={dashboardLoading || !dashboard?.month_options?.length}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    alignItems: "start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.62)",
+                        fontSize: "0.74rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Rapor Donemi
+                    </div>
+                    <div
+                      style={{
+                        ...serifStyle,
+                        fontSize: "1.8rem",
+                        lineHeight: 0.96,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {(dashboard?.summary?.selected_month ?? selectedMonth) || "Ay sec"}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      padding: "7px 10px",
+                      borderRadius: "999px",
+                      background: "rgba(255,255,255,0.08)",
+                      color: "rgba(255,247,234,0.82)",
+                      fontSize: "0.8rem",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Decision Room
+                  </div>
+                </div>
+                <select
+                  id="reports-month"
+                  value={selectedMonth}
+                  onChange={(event) => setSelectedMonth(event.target.value)}
+                  disabled={dashboardLoading || !dashboard?.month_options?.length}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "16px",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "#fff7ea",
+                    fontWeight: 700,
+                  }}
+                >
+                  {(dashboard?.month_options ?? []).map((month) => (
+                    <option key={month} value={month} style={{ color: "#16283b" }}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Toplam Fatura
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {formatMoney(dashboard?.summary?.total_revenue ?? 0)}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(185,116,41,0.14)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Brut Fark
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {formatMoney(dashboard?.summary?.gross_profit ?? 0)}
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article
                 style={{
-                  padding: "14px 16px",
-                  borderRadius: "16px",
+                  padding: "16px 18px",
+                  borderRadius: "22px",
                   border: "1px solid var(--line)",
-                  background: "rgba(255,255,255,0.96)",
-                  color: "var(--text)",
-                  fontWeight: 700,
+                  background: "rgba(255,255,255,0.78)",
+                  display: "grid",
+                  gap: "8px",
                 }}
               >
-                {(dashboard?.month_options ?? []).map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-              </select>
+                <div
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.74rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Okuma Notu
+                </div>
+                <div
+                  style={{
+                    color: "var(--text)",
+                    fontSize: "0.95rem",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  Bu yuzeyde once fark ve marja, sonra model dagilimi ile en yuksek
+                  fatura ve maliyet tasiyan isimlere bakmak en saglikli okuma sirasini verir.
+                </div>
+              </article>
             </div>
           </div>
         </div>
@@ -486,6 +800,20 @@ export default function ReportsPage() {
               }}
             >
               {signalCards}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {decisionDeck.map((item) => (
+                <div key={`${item.eyebrow}-${item.title}`}>
+                  {narrativeCard(item)}
+                </div>
+              ))}
             </div>
 
             <div
