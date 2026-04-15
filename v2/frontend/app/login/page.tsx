@@ -572,6 +572,7 @@ function LoginPageContent() {
           </section>
 
           <section
+            ref={recoveryPanelRef}
             style={{
               ...paperCardStyle,
               padding: "24px",
@@ -685,64 +686,241 @@ function LoginPageContent() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: "12px",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "14px",
+                alignItems: "start",
               }}
             >
-              {[
-                ["1. Kimlik", "Kayitli telefon numarani gir."],
-                ["2. Kod", "Tek kullanimlik SMS kodunu al."],
-                ["3. Sifre", "Ayni kartta yeni sifreni belirle."],
-              ].map(([title, text]) => (
-                <article
-                  key={title}
+              <div style={{ display: "grid", gap: "12px" }}>
+                {[
+                  ["1. Kimlik", "Kayitli telefon numarani gir."],
+                  ["2. Kod", "Tek kullanimlik SMS kodunu al."],
+                  ["3. Sifre", "Ayni kartta yeni sifreni belirle."],
+                ].map(([title, text]) => (
+                  <article
+                    key={title}
+                    style={{
+                      padding: "16px",
+                      borderRadius: "18px",
+                      border: "1px solid rgba(15,95,215,0.1)",
+                      background: "rgba(255,255,255,0.84)",
+                      display: "grid",
+                      gap: "6px",
+                    }}
+                  >
+                    <div style={{ color: "#0f5fd7", fontWeight: 800 }}>{title}</div>
+                    <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
+                      {text}
+                    </div>
+                  </article>
+                ))}
+
+                <div
                   style={{
                     padding: "16px",
                     borderRadius: "18px",
                     border: "1px solid rgba(15,95,215,0.1)",
                     background: "rgba(255,255,255,0.84)",
                     display: "grid",
-                    gap: "6px",
+                    gap: "10px",
                   }}
                 >
-                  <div style={{ color: "#0f5fd7", fontWeight: 800 }}>{title}</div>
+                  <div style={{ color: "#0f5fd7", fontWeight: 800 }}>Hat Durumu</div>
                   <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
-                    {text}
+                    {smsLoginEnabled
+                      ? "SMS kurtarma hatti aktif. Telefon dogrulamasiyla hesaba geri donebilirsin."
+                      : "SMS kurtarma hatti aktif degilse ofis yoneticisiyle iletisime gecerek sifre destegi alabilirsin."}
                   </div>
-                </article>
-              ))}
+              </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                alignItems: "stretch",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem", maxWidth: "44ch" }}>
-                {smsLoginEnabled
-                  ? "SMS kurtarma hatti aktif. Telefon dogrulamasiyla hesaba geri donebilirsin."
-                  : "SMS kurtarma hatti aktif degilse ofis yoneticisiyle iletisime gecerek sifre destegi alabilirsin."}
-              </div>
+              <article
+                style={{
+                  padding: "18px",
+                  borderRadius: "22px",
+                  border:
+                    authPanelMode === "recovery"
+                      ? "1px solid rgba(15,95,215,0.18)"
+                      : "1px solid rgba(15,95,215,0.12)",
+                  background:
+                    authPanelMode === "recovery"
+                      ? "linear-gradient(180deg, rgba(20,40,66,0.96), rgba(34,57,86,0.94))"
+                      : "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(244,248,255,0.94))",
+                  color: authPanelMode === "recovery" ? "#fff7ea" : "var(--text)",
+                  boxShadow:
+                    authPanelMode === "recovery"
+                      ? "0 24px 54px rgba(15,95,215,0.16)"
+                      : "0 20px 44px rgba(22,42,74,0.08)",
+                  display: "grid",
+                  gap: "14px",
+                }}
+              >
+                <div style={{ display: "grid", gap: "6px" }}>
+                  <div
+                    style={{
+                      color: authPanelMode === "recovery" ? "#f2cf9e" : "#0f5fd7",
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      fontSize: "0.72rem",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    {authPanelMode === "recovery" ? "Kurtarma Aksiyonu" : "Hazir Oldugunda"}
+                  </div>
+                  <div
+                    style={{
+                      ...serifTitleStyle,
+                      fontSize: authPanelMode === "recovery" ? "2rem" : "1.7rem",
+                      lineHeight: 0.96,
+                      fontWeight: 700,
+                      color: authPanelMode === "recovery" ? "#fff7ea" : "var(--text)",
+                    }}
+                  >
+                    {authPanelMode === "recovery"
+                      ? "Telefonu dogrula, sifreni burada yenile."
+                      : "Kurtarma hattini tek tikla ac."}
+                  </div>
+                  <div
+                    style={{
+                      color: authPanelMode === "recovery" ? "rgba(255,247,234,0.72)" : "var(--muted)",
+                      lineHeight: 1.65,
+                      fontSize: "0.93rem",
+                    }}
+                  >
+                    {authPanelMode === "recovery"
+                      ? "Bu blok artik sadece bilgi vermiyor; telefon, kod ve yeni sifre adimlarini dogrudan ayni yuzeyde topluyor."
+                      : "Sifre kurtarma modunu actiginda ek bir asagi arama gerekmeden ayni kart icinde tum aksiyonu goreceksin."}
+                  </div>
+                </div>
 
-              {smsLoginEnabled ? (
-                <button
-                  type="button"
-                  onClick={() => switchAuthPanelMode("recovery")}
-                  style={recoveryCtaStyle(authPanelMode === "recovery")}
-                >
-                  {authPanelMode === "recovery" ? "Kurtarma Modu Acik" : "Sifremi Unuttum"}
-                </button>
-              ) : null}
+                {authPanelMode === "recovery" ? (
+                  <>
+                    <form onSubmit={handleSendCode} style={{ display: "grid", gap: "12px" }}>
+                      <label style={labelStyle}>
+                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Kayitli Telefon</span>
+                        <input
+                          ref={recoveryPhoneInputRef}
+                          value={phone}
+                          onChange={(event) => setPhone(event.target.value)}
+                          placeholder="05xxxxxxxxx"
+                          style={darkFieldStyle}
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        disabled={smsSubmitting || !phone.trim()}
+                        style={secondaryButtonStyle(smsSubmitting || !phone.trim())}
+                      >
+                        {smsSubmitting ? "Kod Hazirlaniyor..." : "Dogrulama Kodu Gonder"}
+                      </button>
+                    </form>
+
+                    {smsMessage ? (
+                      <div style={successStyle}>
+                        {smsMessage}
+                        {maskedPhone ? ` (${maskedPhone})` : ""}
+                      </div>
+                    ) : null}
+
+                    <form onSubmit={handleVerifyCode} style={{ display: "grid", gap: "12px" }}>
+                      <label style={labelStyle}>
+                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>6 Haneli Kod</span>
+                        <input
+                          value={loginCode}
+                          onChange={(event) => setLoginCode(event.target.value)}
+                          placeholder="000000"
+                          style={darkFieldStyle}
+                          inputMode="numeric"
+                          maxLength={6}
+                        />
+                      </label>
+                      <label style={labelStyle}>
+                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Sifre</span>
+                        <input
+                          type="password"
+                          value={recoveryNewPassword}
+                          onChange={(event) => setRecoveryNewPassword(event.target.value)}
+                          placeholder="En az 6 karakter"
+                          style={darkFieldStyle}
+                        />
+                      </label>
+                      <label style={labelStyle}>
+                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Sifre Tekrar</span>
+                        <input
+                          type="password"
+                          value={recoveryConfirmPassword}
+                          onChange={(event) => setRecoveryConfirmPassword(event.target.value)}
+                          placeholder="Yeni sifreni tekrar gir"
+                          style={darkFieldStyle}
+                        />
+                      </label>
+
+                      {smsError ? <div style={darkErrorStyle}>{smsError}</div> : null}
+
+                      <button
+                        type="submit"
+                        disabled={
+                          smsSubmitting ||
+                          !loginCode.trim() ||
+                          !recoveryNewPassword.trim() ||
+                          !recoveryConfirmPassword.trim()
+                        }
+                        style={goldButtonStyle(
+                          smsSubmitting ||
+                            !loginCode.trim() ||
+                            !recoveryNewPassword.trim() ||
+                            !recoveryConfirmPassword.trim(),
+                        )}
+                      >
+                        {smsSubmitting ? "Kod Dogrulaniyor..." : "Kimligimi Dogrula ve Sifreyi Yenile"}
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        padding: "14px 16px",
+                        borderRadius: "18px",
+                        background: "rgba(15,95,215,0.08)",
+                        border: "1px solid rgba(15,95,215,0.12)",
+                        display: "grid",
+                        gap: "6px",
+                      }}
+                    >
+                      <div style={{ color: "#0f5fd7", fontWeight: 800 }}>Kurtarma Hatti</div>
+                      <div
+                        style={{
+                          ...serifTitleStyle,
+                          fontSize: "2rem",
+                          lineHeight: 0.92,
+                          fontWeight: 700,
+                        }}
+                      >
+                        SMS
+                      </div>
+                      <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.92rem" }}>
+                        Telefon koduyla dogrulama, sonra yeni sifre.
+                      </div>
+                    </div>
+
+                    {smsLoginEnabled ? (
+                      <button
+                        type="button"
+                        onClick={() => switchAuthPanelMode("recovery")}
+                        style={recoveryCtaStyle(false)}
+                      >
+                        Sifremi Unuttum
+                      </button>
+                    ) : null}
+                  </>
+                )}
+              </article>
             </div>
           </section>
 
-          {smsLoginEnabled ? (
+          {smsLoginEnabled && authPanelMode === "sms" ? (
             <section
-              ref={recoveryPanelRef}
               style={{
                 ...paperCardStyle,
                 padding: "24px",
@@ -775,7 +953,7 @@ function LoginPageContent() {
                   <button
                     type="button"
                     onClick={() => switchAuthPanelMode("recovery")}
-                    style={panelToggleStyle(authPanelMode === "recovery")}
+                    style={panelToggleStyle(false)}
                   >
                     Sifremi Unuttum
                   </button>
@@ -800,9 +978,7 @@ function LoginPageContent() {
                     fontWeight: 700,
                   }}
                 >
-                  {authPanelMode === "recovery"
-                    ? "Telefon dogrulamasiyla hesabina geri don."
-                    : "Tek kullanimlik kodla hizli dogrulama."}
+                  Tek kullanimlik kodla hizli dogrulama.
                 </h2>
                 <p
                   style={{
@@ -812,17 +988,13 @@ function LoginPageContent() {
                     fontSize: "0.95rem",
                   }}
                 >
-                  {authPanelMode === "recovery"
-                    ? "Kayitli telefon numarana tek kullanimlik kod gonder. Kimligini dogruladiktan sonra ayni kartta yeni sifreni belirleyip girise donebilirsin."
-                    : "Bolge muduru ve izinli yonetici numaralari bu akisi kullanabilir. Kod gonder ve ayni kart icinde dogrulamayi tamamla."}
+                  Bolge muduru ve izinli yonetici numaralari bu akisi kullanabilir. Kod gonder ve ayni kart icinde dogrulamayi tamamla.
                 </p>
               </div>
 
               <form onSubmit={handleSendCode} style={{ display: "grid", gap: "12px" }}>
                 <label style={labelStyle}>
-                  <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>
-                    {authPanelMode === "recovery" ? "Kayitli Telefon" : "Telefon"}
-                  </span>
+                  <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Telefon</span>
                   <input
                     ref={recoveryPhoneInputRef}
                     value={phone}
@@ -832,11 +1004,7 @@ function LoginPageContent() {
                   />
                 </label>
                 <button type="submit" disabled={smsSubmitting} style={secondaryButtonStyle(smsSubmitting)}>
-                  {smsSubmitting
-                    ? "Kod Hazirlaniyor..."
-                    : authPanelMode === "recovery"
-                      ? "Dogrulama Kodu Gonder"
-                      : "SMS Kodu Gonder"}
+                  {smsSubmitting ? "Kod Hazirlaniyor..." : "SMS Kodu Gonder"}
                 </button>
               </form>
 
@@ -860,53 +1028,14 @@ function LoginPageContent() {
                   />
                 </label>
 
-                {authPanelMode === "recovery" ? (
-                  <>
-                    <label style={labelStyle}>
-                      <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Sifre</span>
-                      <input
-                        type="password"
-                        value={recoveryNewPassword}
-                        onChange={(event) => setRecoveryNewPassword(event.target.value)}
-                        placeholder="En az 6 karakter"
-                        style={darkFieldStyle}
-                      />
-                    </label>
-                    <label style={labelStyle}>
-                      <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Sifre Tekrar</span>
-                      <input
-                        type="password"
-                        value={recoveryConfirmPassword}
-                        onChange={(event) => setRecoveryConfirmPassword(event.target.value)}
-                        placeholder="Yeni sifreni tekrar gir"
-                        style={darkFieldStyle}
-                      />
-                    </label>
-                  </>
-                ) : null}
-
                 {smsError ? <div style={darkErrorStyle}>{smsError}</div> : null}
 
                 <button
                   type="submit"
-                  disabled={
-                    smsSubmitting ||
-                    !loginCode.trim() ||
-                    (authPanelMode === "recovery" &&
-                      (!recoveryNewPassword.trim() || !recoveryConfirmPassword.trim()))
-                  }
-                  style={goldButtonStyle(
-                    smsSubmitting ||
-                      !loginCode.trim() ||
-                      (authPanelMode === "recovery" &&
-                        (!recoveryNewPassword.trim() || !recoveryConfirmPassword.trim())),
-                  )}
+                  disabled={smsSubmitting || !loginCode.trim()}
+                  style={goldButtonStyle(smsSubmitting || !loginCode.trim())}
                 >
-                  {smsSubmitting
-                    ? "Kod Dogrulaniyor..."
-                    : authPanelMode === "recovery"
-                      ? "Kimligimi Dogrula ve Sifreyi Yenile"
-                      : "Kodu Dogrula"}
+                  {smsSubmitting ? "Kod Dogrulaniyor..." : "Kodu Dogrula"}
                 </button>
               </form>
             </section>
