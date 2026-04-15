@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, FormEvent } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
@@ -24,6 +24,118 @@ type ChangePasswordResponse = {
     expires_at: string;
   };
 };
+
+const serifStyle = {
+  fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  letterSpacing: "-0.04em",
+} as const;
+
+const fieldStyle = {
+  width: "100%",
+  padding: "14px 16px",
+  borderRadius: "16px",
+  border: "1px solid var(--line)",
+  background: "rgba(255, 255, 255, 0.92)",
+  color: "var(--text)",
+  fontSize: "0.98rem",
+} satisfies CSSProperties;
+
+function formatExpiry(value: string) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("tr-TR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function narrativeCard({
+  eyebrow,
+  title,
+  body,
+  tone = "paper",
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  tone?: "paper" | "ink" | "accent";
+}) {
+  const palette =
+    tone === "ink"
+      ? {
+          background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+          border: "1px solid rgba(255,255,255,0.08)",
+          title: "#fff7ea",
+          body: "rgba(255,247,234,0.72)",
+          eyebrow: "rgba(255,247,234,0.62)",
+        }
+      : tone === "accent"
+        ? {
+            background: "linear-gradient(180deg, rgba(185,116,41,0.12), rgba(255,248,236,0.98))",
+            border: "1px solid rgba(185,116,41,0.18)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--accent-strong)",
+          }
+        : {
+            background: "rgba(255,255,255,0.84)",
+            border: "1px solid var(--line)",
+            title: "var(--text)",
+            body: "var(--muted)",
+            eyebrow: "var(--muted)",
+          };
+
+  return (
+    <article
+      style={{
+        padding: "18px 18px 16px",
+        borderRadius: "22px",
+        background: palette.background,
+        border: palette.border,
+        boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      <div
+        style={{
+          color: palette.eyebrow,
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifStyle,
+          color: palette.title,
+          fontSize: "1.45rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: palette.body,
+          fontSize: "0.93rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
+      </div>
+    </article>
+  );
+}
 
 export default function AccountPage() {
   const router = useRouter();
@@ -81,53 +193,312 @@ export default function AccountPage() {
     }
   }
 
+  const securityDeck = useMemo(() => {
+    if (!user) {
+      return [];
+    }
+
+    const hasContact = Boolean(user.email || user.phone);
+    const sessionReady = Boolean(user.expires_at);
+
+    return [
+      {
+        eyebrow: "Guvenlik Karari",
+        title: user.must_change_password ? "Gecici sifre halen aktif." : "Hesap sabit guvenlikte gorunuyor.",
+        body: user.must_change_password
+          ? "Bu hesap ilk kurulum sifresiyle acilmis. Kalici sifreye gecis tamamlanmadan bu yuzey guvenli kabul edilmez."
+          : "Sifre degisimi tamamlanmis durumda. Bundan sonra odak, hesabin tekil ve guncel bir erisim hattinda kalmasi.",
+        tone: user.must_change_password ? "ink" : "paper",
+      },
+      {
+        eyebrow: "Kimlik Hatti",
+        title: hasContact ? "Hesap kimlik sinyali tamamlaniyor." : "Iletisim izi zayif gorunuyor.",
+        body: hasContact
+          ? `${user.email ? "E-posta" : "E-posta yok"}${user.email && user.phone ? " ve " : ""}${user.phone ? "telefon" : ""} bu hesapta gorunur. Bu, pilot geciste destek ve kurtarma adimlarini kolaylastirir.`
+          : "Bu hesapta gorunen e-posta ya da telefon yok. Destek ve kimlik teyidi icin iletisim izini guclendirmek gerekir.",
+        tone: hasContact ? "paper" : "accent",
+      },
+      {
+        eyebrow: "Oturum Nabzi",
+        title: sessionReady ? "Erisim zamani okunabiliyor." : "Oturum izi eksik gorunuyor.",
+        body: sessionReady
+          ? `${formatExpiry(user.expires_at)} oturum siniri olarak gorunuyor. Bu sinyal, kullanicinin aktif ve takip edilebilir bir oturumda oldugunu anlatir.`
+          : "Bu hesap icin okunabilir bir oturum bitis bilgisi yok. Guvenlik akisini gozden gecirmek faydali olur.",
+        tone: sessionReady ? "accent" : "paper",
+      },
+    ] as const;
+  }, [user]);
+
   return (
     <AppShell activeItem="Profil">
       <section style={{ display: "grid", gap: "18px" }}>
         <div
           style={{
-            padding: "24px 26px",
-            borderRadius: "28px",
-            background: "var(--surface-strong)",
+            padding: "28px",
+            borderRadius: "30px",
+            background: "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,242,233,0.96))",
             border: "1px solid var(--line)",
             boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
+            display: "grid",
+            gap: "18px",
           }}
         >
           <div
             style={{
-              display: "inline-flex",
-              padding: "7px 12px",
-              borderRadius: "999px",
-              background: "var(--accent-soft)",
-              color: "var(--accent)",
-              fontSize: "0.78rem",
-              fontWeight: 800,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.9fr)",
+              gap: "18px",
+              alignItems: "stretch",
             }}
           >
-            Profil ve Guvenlik
+            <div
+              style={{
+                display: "grid",
+                gap: "16px",
+                alignContent: "start",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  width: "fit-content",
+                  padding: "7px 12px",
+                  borderRadius: "999px",
+                  background: "var(--accent-soft)",
+                  color: "var(--accent)",
+                  fontSize: "0.78rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Profil ve Guvenlik
+              </div>
+              <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
+                <h1
+                  style={{
+                    ...serifStyle,
+                    margin: 0,
+                    fontSize: "clamp(2.2rem, 4vw, 3.6rem)",
+                    lineHeight: 0.96,
+                    fontWeight: 700,
+                  }}
+                >
+                  Hesabi sadece ayar olarak degil, guvenlik ve kimlik masasi olarak ele aliyoruz.
+                </h1>
+                <p
+                  style={{
+                    margin: 0,
+                    maxWidth: "74ch",
+                    color: "var(--muted)",
+                    lineHeight: 1.76,
+                    fontSize: "1.02rem",
+                  }}
+                >
+                  Pilot kullanimda en kritik sey guclu sifre, okunabilir oturum izi ve hesap
+                  kimliginin temiz kalmasi. Bu yuzeyi sadece sifre degistirme alani degil; hesabin
+                  ne kadar saglikli oldugunu gosteren bir guvenlik katmani gibi kurguladik.
+                </p>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(15,95,215,0.08)",
+                    color: "#0f5fd7",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Kimlik ve sifre ayni hatta
+                </span>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(185,116,41,0.1)",
+                    color: "var(--accent-strong)",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  Gecici sifre riski gorunur
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              <article
+                style={{
+                  padding: "18px 18px 16px",
+                  borderRadius: "24px",
+                  background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+                  color: "#fff7ea",
+                  boxShadow: "var(--shadow-deep)",
+                  display: "grid",
+                  gap: "14px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    alignItems: "start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.62)",
+                        fontSize: "0.74rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Guvenlik Nabzi
+                    </div>
+                    <div
+                      style={{
+                        ...serifStyle,
+                        fontSize: "1.8rem",
+                        lineHeight: 0.96,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {user?.must_change_password ? "gecici sifre acik" : "hesap sabit hatta"}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      padding: "7px 10px",
+                      borderRadius: "999px",
+                      background: "rgba(255,255,255,0.08)",
+                      color: "rgba(255,247,234,0.82)",
+                      fontSize: "0.8rem",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Security Desk
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Rol
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {user?.role_display || "-"}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      padding: "12px 12px 10px",
+                      borderRadius: "16px",
+                      background: "rgba(185,116,41,0.14)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.64)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      Oturum
+                    </div>
+                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                      {user?.expires_at ? "izlenebilir" : "eksik"}
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article
+                style={{
+                  padding: "16px 18px",
+                  borderRadius: "22px",
+                  border: "1px solid var(--line)",
+                  background: "rgba(255,255,255,0.78)",
+                  display: "grid",
+                  gap: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.74rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Okuma Notu
+                </div>
+                <div
+                  style={{
+                    color: "var(--text)",
+                    fontSize: "0.95rem",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  Bu ekranda once gecici sifre durumuna, sonra hesap kimlik kanallarina ve en
+                  son oturum izine bakmak en saglikli profil okumasini verir.
+                </div>
+              </article>
+            </div>
           </div>
-          <h1
-            style={{
-              margin: "16px 0 10px",
-              fontSize: "clamp(2rem, 3vw, 2.8rem)",
-              lineHeight: 1.05,
-            }}
-          >
-            Hesabini ve giris bilgilerini buradan yonet.
-          </h1>
-          <p
-            style={{
-              margin: 0,
-              maxWidth: "74ch",
-              color: "var(--muted)",
-              lineHeight: 1.7,
-            }}
-          >
-            Pilot kullanimda en kritik guvenlik adimi sifrenin guncel ve tekil olmasi. Ilk
-            giriste gecici sifre ile geldiysen bunu burada kalici sifreye cevir.
-          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: "14px",
+          }}
+        >
+          {securityDeck.map((item) => (
+            <div key={`${item.eyebrow}-${item.title}`}>{narrativeCard(item)}</div>
+          ))}
         </div>
 
         <div
@@ -135,6 +506,7 @@ export default function AccountPage() {
             display: "grid",
             gridTemplateColumns: "minmax(320px, 420px) minmax(360px, 1fr)",
             gap: "18px",
+            alignItems: "start",
           }}
         >
           <section
@@ -148,12 +520,17 @@ export default function AccountPage() {
               gap: "14px",
             }}
           >
-            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Profil Ozeti</h2>
+            <div style={{ display: "grid", gap: "6px" }}>
+              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Profil Ozeti</h2>
+              <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.6 }}>
+                Hesabin kimlik, rol ve oturum izini tek yerde oku.
+              </p>
+            </div>
             <InfoRow label="Ad Soyad" value={user?.full_name || "-"} />
             <InfoRow label="Rol" value={user?.role_display || "-"} />
             <InfoRow label="E-posta" value={user?.email || "-"} />
             <InfoRow label="Telefon" value={user?.phone || "-"} />
-            <InfoRow label="Oturum" value={user?.expires_at ? `Acik · ${user.expires_at}` : "-"} />
+            <InfoRow label="Oturum" value={user?.expires_at ? `Acik · ${formatExpiry(user.expires_at)}` : "-"} />
           </section>
 
           <section
@@ -167,9 +544,9 @@ export default function AccountPage() {
               gap: "16px",
             }}
           >
-            <div>
+            <div style={{ display: "grid", gap: "6px" }}>
               <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Sifre Guncelle</h2>
-              <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>
+              <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.6 }}>
                 Yeni sisteme gectigimizde herkesin tekil ve guclu sifre kullanmasi gerekiyor.
               </p>
             </div>
@@ -299,13 +676,3 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-const fieldStyle = {
-  width: "100%",
-  padding: "14px 16px",
-  borderRadius: "16px",
-  border: "1px solid var(--line)",
-  background: "rgba(255, 255, 255, 0.92)",
-  color: "var(--text)",
-  fontSize: "0.98rem",
-} satisfies CSSProperties;
