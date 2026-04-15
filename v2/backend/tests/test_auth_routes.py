@@ -43,7 +43,7 @@ def test_request_password_reset_code_route_returns_message(monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.auth.request_phone_password_reset_code",
         lambda conn, phone: {
-            "message": "Kod gonderildi.",
+            "message": "Kod gönderildi.",
             "masked_phone": "05******12",
         },
     )
@@ -53,14 +53,14 @@ def test_request_password_reset_code_route_returns_message(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {
-        "message": "Kod gonderildi.",
+        "message": "Kod gönderildi.",
         "masked_phone": "05******12",
     }
 
 
 def test_request_password_reset_code_route_returns_validation_error(monkeypatch):
     def _raise_error(conn, phone):
-        raise ValueError("Telefon numarasi gecersiz.")
+        raise ValueError("Telefon numarası geçersiz.")
 
     monkeypatch.setattr("app.api.routes.auth.request_phone_password_reset_code", _raise_error)
     client = _build_app()
@@ -68,14 +68,14 @@ def test_request_password_reset_code_route_returns_validation_error(monkeypatch)
     response = client.post("/api/auth/request-password-reset-code", json={"phone": "abc"})
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "Telefon numarasi gecersiz."
+    assert response.json()["detail"] == "Telefon numarası geçersiz."
 
 
 def test_reset_password_with_code_route_returns_message(monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.auth.reset_password_with_phone_code",
         lambda conn, phone, login_code, new_password: {
-            "message": "Sifre sifirlandi. Yeni sifrenle giris yapabilirsin."
+            "message": "Şifre sıfırlandı. Yeni şifrenle giriş yapabilirsin."
         },
     )
     client = _build_app()
@@ -90,12 +90,12 @@ def test_reset_password_with_code_route_returns_message(monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json()["message"] == "Sifre sifirlandi. Yeni sifrenle giris yapabilirsin."
+    assert response.json()["message"] == "Şifre sıfırlandı. Yeni şifrenle giriş yapabilirsin."
 
 
 def test_reset_password_with_code_route_returns_validation_error(monkeypatch):
     def _raise_error(conn, phone, login_code, new_password):
-        raise ValueError("Kod gecersiz veya suresi dolmus.")
+        raise ValueError("Kod geçersiz veya süresi dolmuş.")
 
     monkeypatch.setattr("app.api.routes.auth.reset_password_with_phone_code", _raise_error)
     client = _build_app()
@@ -110,4 +110,4 @@ def test_reset_password_with_code_route_returns_validation_error(monkeypatch):
     )
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "Kod gecersiz veya suresi dolmus."
+    assert response.json()["detail"] == "Kod geçersiz veya süresi dolmuş."

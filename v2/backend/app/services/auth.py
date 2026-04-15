@@ -97,7 +97,7 @@ def resolve_authenticated_user(
     cleanup_expired_auth_sessions(conn)
     session_row = fetch_auth_session(conn, token=token)
     if not session_row:
-        raise LookupError("Oturum bulunamadi.")
+        raise LookupError("Oturum bulunamadı.")
 
     user_row = fetch_auth_user_by_identity(conn, identity=str(session_row.get("username") or ""))
     if not user_row or int(user_row.get("is_active") or 0) != 1:
@@ -262,13 +262,13 @@ def request_phone_password_reset_code(
     phone: str,
 ) -> AuthPhoneCodeRequestResponse:
     if not sms_delivery_enabled():
-        raise RuntimeError("SMS ile sifre sifirlama su an aktif degil.")
+        raise RuntimeError("SMS ile şifre sıfırlama şu an aktif değil.")
 
     normalized_phone = normalize_auth_phone(phone)
     if not normalized_phone:
-        raise ValueError("Telefon numarasi gecersiz.")
+        raise ValueError("Telefon numarası geçersiz.")
 
-    generic_message = "Eger bu telefon numarasi icin sifre sifirlama yetkisi varsa, kod gonderildi."
+    generic_message = "Eğer bu telefon numarası için şifre sıfırlama yetkisi varsa, kod gönderildi."
     user_row = fetch_auth_user_by_identity(conn, identity=normalized_phone)
     if not user_row or not can_issue_password_reset_code_for_user(user_row=user_row):
         return AuthPhoneCodeRequestResponse(
@@ -294,7 +294,7 @@ def verify_phone_login_code_and_login(
     normalized_phone = normalize_auth_phone(phone)
     normalized_code = str(login_code or "").strip()
     if not normalized_phone or not normalized_code:
-        raise ValueError("Telefon numarasi veya kod gecersiz.")
+        raise ValueError("Telefon numarası veya kod geçersiz.")
 
     cleanup_expired_phone_codes(conn)
     now_text = datetime.utcnow().isoformat(timespec="seconds")
@@ -305,11 +305,11 @@ def verify_phone_login_code_and_login(
         now_text=now_text,
     )
     if not row:
-        raise ValueError("Kod gecersiz veya suresi dolmus.")
+        raise ValueError("Kod geçersiz veya süresi dolmuş.")
 
     attempt_count = int(row.get("code_attempt_count") or 0)
     if attempt_count >= PHONE_LOGIN_CODE_ATTEMPT_LIMIT:
-        raise ValueError("Kod gecersiz veya suresi dolmus.")
+        raise ValueError("Kod geçersiz veya süresi dolmuş.")
 
     if not verify_auth_password(normalized_code, str(row.get("code_hash") or "")):
         increment_phone_code_attempt(
@@ -319,10 +319,10 @@ def verify_phone_login_code_and_login(
             attempted_at=now_text,
         )
         conn.commit()
-        raise ValueError("Kod gecersiz veya suresi dolmus.")
+        raise ValueError("Kod geçersiz veya süresi dolmuş.")
 
     if int(row.get("is_active") or 0) != 1:
-        raise ValueError("Bu hesap aktif degil.")
+        raise ValueError("Bu hesap aktif değil.")
 
     consume_phone_code(
         conn,
@@ -345,9 +345,9 @@ def reset_password_with_phone_code(
     normalized_code = str(login_code or "").strip()
     normalized_new_password = str(new_password or "")
     if not normalized_phone or not normalized_code:
-        raise ValueError("Telefon numarasi veya kod gecersiz.")
+        raise ValueError("Telefon numarası veya kod geçersiz.")
     if len(normalized_new_password) < 6:
-        raise ValueError("Yeni sifre en az 6 karakter olmali.")
+        raise ValueError("Yeni şifre en az 6 karakter olmalı.")
 
     cleanup_expired_phone_codes(conn)
     now_text = datetime.utcnow().isoformat(timespec="seconds")
@@ -358,11 +358,11 @@ def reset_password_with_phone_code(
         now_text=now_text,
     )
     if not row:
-        raise ValueError("Kod gecersiz veya suresi dolmus.")
+        raise ValueError("Kod geçersiz veya süresi dolmuş.")
 
     attempt_count = int(row.get("code_attempt_count") or 0)
     if attempt_count >= PHONE_LOGIN_CODE_ATTEMPT_LIMIT:
-        raise ValueError("Kod gecersiz veya suresi dolmus.")
+        raise ValueError("Kod geçersiz veya süresi dolmuş.")
 
     if not verify_auth_password(normalized_code, str(row.get("code_hash") or "")):
         increment_phone_code_attempt(
@@ -372,13 +372,13 @@ def reset_password_with_phone_code(
             attempted_at=now_text,
         )
         conn.commit()
-        raise ValueError("Kod gecersiz veya suresi dolmus.")
+        raise ValueError("Kod geçersiz veya süresi dolmuş.")
 
     if int(row.get("is_active") or 0) != 1:
-        raise ValueError("Bu hesap aktif degil.")
+        raise ValueError("Bu hesap aktif değil.")
 
     if verify_auth_password(normalized_new_password, str(row.get("password_hash") or "")):
-        raise ValueError("Yeni sifre mevcut sifreden farkli olmali.")
+        raise ValueError("Yeni şifre mevcut şifreden farklı olmalı.")
 
     consume_phone_code(
         conn,
@@ -392,7 +392,7 @@ def reset_password_with_phone_code(
         password_hash=hash_auth_password(normalized_new_password),
     )
     conn.commit()
-    return AuthPasswordResetResponse(message="Sifre sifirlandi. Yeni sifrenle giris yapabilirsin.")
+    return AuthPasswordResetResponse(message="Şifre sıfırlandı. Yeni şifrenle giriş yapabilirsin.")
 
 
 def serialize_authenticated_user(user: AuthenticatedUser) -> AuthCurrentUserResponse:
@@ -429,16 +429,16 @@ def change_authenticated_user_password(
     normalized_current = str(current_password or "")
     normalized_new = str(new_password or "")
     if len(normalized_new) < 6:
-        raise ValueError("Yeni sifre en az 6 karakter olmali.")
+        raise ValueError("Yeni şifre en az 6 karakter olmalı.")
     if normalized_current == normalized_new:
-        raise ValueError("Yeni sifre mevcut sifreden farkli olmali.")
+        raise ValueError("Yeni şifre mevcut şifreden farklı olmalı.")
 
     user_row = fetch_auth_user_by_identity(conn, identity=user.identity)
     if not user_row:
-        raise LookupError("Kullanici bulunamadi.")
+        raise LookupError("Kullanıcı bulunamadı.")
     stored_hash = str(user_row.get("password_hash") or "")
     if not verify_auth_password(normalized_current, stored_hash):
-        raise ValueError("Mevcut sifre dogru degil.")
+        raise ValueError("Mevcut şifre doğru değil.")
 
     update_auth_user_password(
         conn,

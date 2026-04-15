@@ -399,11 +399,11 @@ def bulk_delete_attendance_entries(
     missing_ids = [entry_id for entry_id in entry_ids if entry_id not in existing_id_set]
     if missing_ids:
         missing_labels = ", ".join(str(entry_id) for entry_id in missing_ids)
-        raise LookupError(f"Secilen puantaj kayitlari bulunamadi: {missing_labels}.")
+        raise LookupError(f"Seçilen puantaj kayıtları bulunamadı: {missing_labels}.")
 
     deleted_ids = sorted(delete_attendance_entries(conn, entry_ids))
     if len(deleted_ids) != len(entry_ids):
-        raise LookupError("Secilen puantaj kayitlarinin bir kismi silinemedi.")
+        raise LookupError("Seçilen puantaj kayıtlarının bir kısmı silinemedi.")
 
     conn.commit()
     deleted_count = len(deleted_ids)

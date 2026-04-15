@@ -108,28 +108,28 @@ def _validate_payload(payload: SalesCreateRequest | SalesUpdateRequest) -> list[
     if not str(payload.contact_phone or "").strip():
         errors.append("Yetkili telefon bilgisi zorunlu.")
     if not str(payload.status or "").strip():
-        errors.append("Durum secimi zorunlu.")
+        errors.append("Durum seçimi zorunlu.")
     pricing_model = _normalize_pricing_model(payload.pricing_model)
     if pricing_model == "hourly_plus_package":
         if float(payload.hourly_rate or 0) <= 0:
-            errors.append("Hacimsiz Primli modelde saatlik ucret zorunlu.")
+            errors.append("Hacimsiz Primli modelde saatlik ücret zorunlu.")
         if float(payload.package_rate or 0) <= 0:
-            errors.append("Hacimsiz Primli modelde paket ucreti zorunlu.")
+            errors.append("Hacimsiz Primli modelde paket ücreti zorunlu.")
     elif pricing_model == "threshold_package":
         if float(payload.hourly_rate or 0) <= 0:
-            errors.append("Hacimli Primli modelde saatlik ucret zorunlu.")
+            errors.append("Hacimli Primli modelde saatlik ücret zorunlu.")
         if int(payload.package_threshold or 0) <= 0:
-            errors.append("Hacimli Primli modelde paket esigi zorunlu.")
+            errors.append("Hacimli Primli modelde paket eşiği zorunlu.")
         if float(payload.package_rate_low or 0) <= 0:
-            errors.append("Hacimli Primli modelde esik alti ucret zorunlu.")
+            errors.append("Hacimli Primli modelde eşik altı ücret zorunlu.")
         if float(payload.package_rate_high or 0) <= 0:
-            errors.append("Hacimli Primli modelde esik ustu ucret zorunlu.")
+            errors.append("Hacimli Primli modelde eşik üstü ücret zorunlu.")
     elif pricing_model == "hourly_only":
         if float(payload.hourly_rate or 0) <= 0:
-            errors.append("Sadece Saatlik modelde saatlik ucret zorunlu.")
+            errors.append("Sadece Saatlik modelde saatlik ücret zorunlu.")
     elif pricing_model == "fixed_monthly":
         if float(payload.fixed_monthly_fee or 0) <= 0:
-            errors.append("Sabit Aylik Ucret modelde aylik tutar zorunlu.")
+            errors.append("Sabit Aylık Ücret modelde aylık tutar zorunlu.")
     return errors
 
 

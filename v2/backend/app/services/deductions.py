@@ -217,7 +217,7 @@ def create_deduction_entry(
 ) -> DeductionCreateResponse:
     normalized_type = _normalize_deduction_type(payload.deduction_type)
     if payload.amount <= 0:
-        raise ValueError("Tutar sifirdan buyuk olmali.")
+        raise ValueError("Tutar sıfırdan büyük olmalı.")
 
     deduction_id = insert_deduction_record(
         conn,
@@ -246,11 +246,11 @@ def update_deduction_entry(
     if existing is None:
         raise LookupError("Kesinti kaydı bulunamadı.")
     if str(existing.get("auto_source_key") or "").strip():
-        raise ValueError("Otomatik olusan kesinti kayitlari v2 ekranindan duzenlenemez.")
+        raise ValueError("Otomatik oluşan kesinti kayıtları v2 ekranından düzenlenemez.")
 
     normalized_type = _normalize_deduction_type(payload.deduction_type)
     if payload.amount <= 0:
-        raise ValueError("Tutar sifirdan buyuk olmali.")
+        raise ValueError("Tutar sıfırdan büyük olmalı.")
 
     update_deduction_record(
         conn,
@@ -279,7 +279,7 @@ def delete_deduction_entry(
     if existing is None:
         raise LookupError("Kesinti kaydı bulunamadı.")
     if str(existing.get("auto_source_key") or "").strip():
-        raise ValueError("Otomatik olusan kesinti kayitlari v2 ekranindan silinemez.")
+        raise ValueError("Otomatik oluşan kesinti kayıtları v2 ekranından silinemez.")
     delete_deduction_record(conn, deduction_id)
     conn.commit()
     return DeductionDeleteResponse(
