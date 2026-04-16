@@ -6,6 +6,7 @@ from collections import Counter
 import hashlib
 import json
 from pathlib import Path
+import urllib.parse
 import zipfile
 from copy import deepcopy
 
@@ -105,6 +106,16 @@ def _canonicalize_path_text(value: str | Path | None) -> str | None:
     if not text:
         return None
     return str(Path(text).expanduser().resolve())
+
+
+def _is_allowed_manifest_url(value: str) -> bool:
+    if value.startswith("https://"):
+        return True
+    if not value.startswith("http://"):
+        return False
+    parsed = urllib.parse.urlparse(value)
+    hostname = (parsed.hostname or "").lower()
+    return hostname in {"127.0.0.1", "localhost"}
 
 
 def _coerce_optional_int(*, value: object, issue_label: str, issues: list[str]) -> int | None:
@@ -1309,8 +1320,8 @@ def _check_manifest_core(*, output_dir: Path, manifest: dict) -> tuple[bool, lis
         ("api_url", api_url),
         ("streamlit_url", streamlit_url),
     ]:
-        if not value.startswith("https://"):
-            issues.append(f"Manifest {label} https ile baslamiyor")
+        if not _is_allowed_manifest_url(value):
+            issues.append(f"Manifest {label} desteklenen URL bicimiyle baslamiyor")
 
     if not generated_at:
         issues.append("Manifest generated_at bos")

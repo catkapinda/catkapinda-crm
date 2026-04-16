@@ -409,6 +409,26 @@ def test_pilot_smoke_localhost_report_becomes_clean_with_local_sqlite(monkeypatc
     assert report["decision"]["failing_checks"] == []
 
 
+def test_day_zero_verify_manifest_core_accepts_localhost_http_urls(tmp_path: Path):
+    manifest = {
+        "frontend_url": "http://127.0.0.1:3001",
+        "api_url": "http://localhost:8000",
+        "streamlit_url": "https://crmcatkapinda.com",
+        "generated_at": "2026-04-16T20:00:00+00:00",
+        "service_names": {
+            "api": "crmcatkapinda-v2-api",
+            "frontend": "crmcatkapinda-v2",
+            "streamlit": "crmcatkapinda",
+        },
+        "archive_path": str((tmp_path.parent / f"{tmp_path.name}.zip").resolve()),
+    }
+
+    checked, issues = pilot_day_zero_verify._check_manifest_core(output_dir=tmp_path, manifest=manifest)
+
+    assert checked is True
+    assert issues == []
+
+
 def test_pilot_gate_passes_when_phase_is_ready_for_pilot():
     result = pilot_gate.build_gate_result(mode="pilot", payload=sample_payload())
 
