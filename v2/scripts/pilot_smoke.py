@@ -26,6 +26,159 @@ PROTECTED_PAGES = [
     ("/audit", "protected_audit_page"),
     ("/reports", "protected_reports_page"),
 ]
+AUTH_JSON_ENDPOINTS = [
+    {
+        "path": "/v2-api/overview/dashboard",
+        "check_name": "overview_dashboard_data",
+        "required_keys": ("module", "status", "hero", "modules", "recent_activity"),
+        "list_keys": ("modules", "recent_activity"),
+        "nested_dict_keys": {
+            "hero": ("active_restaurants", "active_personnel", "month_attendance_entries", "month_deduction_entries"),
+        },
+    },
+    {
+        "path": "/v2-api/attendance/dashboard",
+        "check_name": "attendance_dashboard_data",
+        "required_keys": ("module", "status", "summary", "recent_entries"),
+        "list_keys": ("recent_entries",),
+        "nested_dict_keys": {"summary": ("total_entries", "today_entries", "month_entries", "active_restaurants")},
+    },
+    {
+        "path": "/v2-api/attendance/entries",
+        "check_name": "attendance_entries_data",
+        "required_keys": ("total_entries", "entries"),
+        "list_keys": ("entries",),
+        "non_negative_int_keys": ("total_entries",),
+    },
+    {
+        "path": "/v2-api/personnel/dashboard",
+        "check_name": "personnel_dashboard_data",
+        "required_keys": ("module", "status", "summary", "recent_entries"),
+        "list_keys": ("recent_entries",),
+        "nested_dict_keys": {"summary": ("total_personnel", "active_personnel", "passive_personnel", "assigned_restaurants")},
+    },
+    {
+        "path": "/v2-api/personnel/records",
+        "check_name": "personnel_records_data",
+        "required_keys": ("total_entries", "entries"),
+        "list_keys": ("entries",),
+        "non_negative_int_keys": ("total_entries",),
+    },
+    {
+        "path": "/v2-api/deductions/dashboard",
+        "check_name": "deductions_dashboard_data",
+        "required_keys": ("module", "status", "summary", "recent_entries"),
+        "list_keys": ("recent_entries",),
+        "nested_dict_keys": {"summary": ("total_entries", "this_month_entries", "manual_entries", "auto_entries")},
+    },
+    {
+        "path": "/v2-api/deductions/records",
+        "check_name": "deductions_records_data",
+        "required_keys": ("total_entries", "entries"),
+        "list_keys": ("entries",),
+        "non_negative_int_keys": ("total_entries",),
+    },
+    {
+        "path": "/v2-api/restaurants/dashboard",
+        "check_name": "restaurants_dashboard_data",
+        "required_keys": ("module", "status", "summary", "recent_entries"),
+        "list_keys": ("recent_entries",),
+        "nested_dict_keys": {"summary": ("total_restaurants", "active_restaurants", "passive_restaurants", "fixed_monthly_restaurants")},
+    },
+    {
+        "path": "/v2-api/restaurants/records",
+        "check_name": "restaurants_records_data",
+        "required_keys": ("total_entries", "entries"),
+        "list_keys": ("entries",),
+        "non_negative_int_keys": ("total_entries",),
+    },
+    {
+        "path": "/v2-api/sales/dashboard",
+        "check_name": "sales_dashboard_data",
+        "required_keys": ("module", "status", "summary", "recent_entries"),
+        "list_keys": ("recent_entries",),
+        "nested_dict_keys": {"summary": ("total_entries", "open_follow_up", "proposal_stage", "won_count")},
+    },
+    {
+        "path": "/v2-api/sales/records",
+        "check_name": "sales_records_data",
+        "required_keys": ("total_entries", "entries"),
+        "list_keys": ("entries",),
+        "non_negative_int_keys": ("total_entries",),
+    },
+    {
+        "path": "/v2-api/purchases/dashboard",
+        "check_name": "purchases_dashboard_data",
+        "required_keys": ("module", "status", "summary", "recent_entries"),
+        "list_keys": ("recent_entries",),
+        "nested_dict_keys": {"summary": ("total_entries", "this_month_entries", "this_month_total_invoice", "distinct_suppliers")},
+    },
+    {
+        "path": "/v2-api/purchases/records",
+        "check_name": "purchases_records_data",
+        "required_keys": ("total_entries", "entries"),
+        "list_keys": ("entries",),
+        "non_negative_int_keys": ("total_entries",),
+    },
+    {
+        "path": "/v2-api/payroll/dashboard",
+        "check_name": "payroll_dashboard_data",
+        "required_keys": ("module", "status", "month_options", "entries", "cost_model_breakdown", "top_personnel"),
+        "list_keys": ("month_options", "entries", "cost_model_breakdown", "top_personnel"),
+        "optional_nested_dict_keys": {"summary": ("selected_month", "personnel_count", "total_hours", "net_payment")},
+    },
+    {
+        "path": "/v2-api/equipment/dashboard",
+        "check_name": "equipment_dashboard_data",
+        "required_keys": (
+            "module",
+            "status",
+            "summary",
+            "recent_issues",
+            "recent_box_returns",
+            "installment_entries",
+            "sales_profit",
+            "purchase_summary",
+        ),
+        "list_keys": ("recent_issues", "recent_box_returns", "installment_entries", "sales_profit", "purchase_summary"),
+        "nested_dict_keys": {"summary": ("total_issues", "this_month_issues", "installment_rows", "total_box_returns")},
+    },
+    {
+        "path": "/v2-api/equipment/issues",
+        "check_name": "equipment_issues_data",
+        "required_keys": ("total_entries", "entries"),
+        "list_keys": ("entries",),
+        "non_negative_int_keys": ("total_entries",),
+    },
+    {
+        "path": "/v2-api/equipment/box-returns",
+        "check_name": "equipment_box_returns_data",
+        "required_keys": ("total_entries", "entries"),
+        "list_keys": ("entries",),
+        "non_negative_int_keys": ("total_entries",),
+    },
+    {
+        "path": "/v2-api/audit/dashboard",
+        "check_name": "audit_dashboard_data",
+        "required_keys": ("module", "status", "summary", "recent_entries", "action_options", "entity_options", "actor_options"),
+        "list_keys": ("recent_entries", "action_options", "entity_options", "actor_options"),
+        "nested_dict_keys": {"summary": ("total_entries", "last_7_days", "unique_actors", "unique_entities")},
+    },
+    {
+        "path": "/v2-api/audit/records",
+        "check_name": "audit_records_data",
+        "required_keys": ("total_entries", "entries", "action_options", "entity_options", "actor_options"),
+        "list_keys": ("entries", "action_options", "entity_options", "actor_options"),
+        "non_negative_int_keys": ("total_entries",),
+    },
+    {
+        "path": "/v2-api/reports/dashboard",
+        "check_name": "reports_dashboard_data",
+        "required_keys": ("module", "status", "month_options", "invoice_entries", "cost_entries", "model_breakdown", "top_restaurants", "top_couriers"),
+        "list_keys": ("month_options", "invoice_entries", "cost_entries", "model_breakdown", "top_restaurants", "top_couriers"),
+        "optional_nested_dict_keys": {"summary": ("selected_month", "restaurant_count", "courier_count", "gross_profit")},
+    },
+]
 LEGACY_BANNER_MARKERS = ("Yeni sisteme gecis basladi", "v2 pilotu ac")
 LEGACY_REDIRECT_MARKERS = ("YENI SISTEM ACILIYOR", "Cat Kapinda CRM v2'ye geciliyor")
 WARNING_ONLY_CHECKS = {"legacy_banner_bridge", "legacy_redirect_bridge"}
@@ -114,6 +267,86 @@ CHECK_GUIDANCE: dict[str, tuple[str, str]] = {
         "Giris sonrasi Raporlar sayfasi acilmadi.",
         "Reports route ve korumali sayfa cookie akisini kontrol edelim.",
     ),
+    "overview_dashboard_data": (
+        "Genel Bakis veri omurgasi cevap vermiyor.",
+        "Overview dashboard endpoint'ini ve ozet sorgularini kontrol edelim.",
+    ),
+    "attendance_dashboard_data": (
+        "Puantaj ozet verisi acilmadi.",
+        "Attendance dashboard endpoint'ini ve ozet sorgularini kontrol edelim.",
+    ),
+    "attendance_entries_data": (
+        "Puantaj liste verisi acilmadi.",
+        "Attendance entries endpoint'ini ve liste sorgularini kontrol edelim.",
+    ),
+    "personnel_dashboard_data": (
+        "Personel ozet verisi acilmadi.",
+        "Personnel dashboard endpoint'ini ve ozet sorgularini kontrol edelim.",
+    ),
+    "personnel_records_data": (
+        "Personel liste verisi acilmadi.",
+        "Personnel records endpoint'ini ve liste sorgularini kontrol edelim.",
+    ),
+    "deductions_dashboard_data": (
+        "Kesinti ozet verisi acilmadi.",
+        "Deductions dashboard endpoint'ini ve ozet sorgularini kontrol edelim.",
+    ),
+    "deductions_records_data": (
+        "Kesinti liste verisi acilmadi.",
+        "Deductions records endpoint'ini ve liste sorgularini kontrol edelim.",
+    ),
+    "restaurants_dashboard_data": (
+        "Restoran ozet verisi acilmadi.",
+        "Restaurants dashboard endpoint'ini ve ozet sorgularini kontrol edelim.",
+    ),
+    "restaurants_records_data": (
+        "Restoran liste verisi acilmadi.",
+        "Restaurants records endpoint'ini ve liste sorgularini kontrol edelim.",
+    ),
+    "sales_dashboard_data": (
+        "Satis ozet verisi acilmadi.",
+        "Sales dashboard endpoint'ini ve ozet sorgularini kontrol edelim.",
+    ),
+    "sales_records_data": (
+        "Satis liste verisi acilmadi.",
+        "Sales records endpoint'ini ve liste sorgularini kontrol edelim.",
+    ),
+    "purchases_dashboard_data": (
+        "Satin Alma ozet verisi acilmadi.",
+        "Purchases dashboard endpoint'ini ve ozet sorgularini kontrol edelim.",
+    ),
+    "purchases_records_data": (
+        "Satin Alma liste verisi acilmadi.",
+        "Purchases records endpoint'ini ve liste sorgularini kontrol edelim.",
+    ),
+    "payroll_dashboard_data": (
+        "Aylik Hakedis ozet verisi acilmadi.",
+        "Payroll dashboard endpoint'ini ve ozet sorgularini kontrol edelim.",
+    ),
+    "equipment_dashboard_data": (
+        "Ekipman ozet verisi acilmadi.",
+        "Equipment dashboard endpoint'ini ve ozet sorgularini kontrol edelim.",
+    ),
+    "equipment_issues_data": (
+        "Zimmet liste verisi acilmadi.",
+        "Equipment issues endpoint'ini ve liste sorgularini kontrol edelim.",
+    ),
+    "equipment_box_returns_data": (
+        "Box geri alim liste verisi acilmadi.",
+        "Equipment box-returns endpoint'ini ve liste sorgularini kontrol edelim.",
+    ),
+    "audit_dashboard_data": (
+        "Sistem kayitlari ozet verisi acilmadi.",
+        "Audit dashboard endpoint'ini ve ozet sorgularini kontrol edelim.",
+    ),
+    "audit_records_data": (
+        "Sistem kayitlari liste verisi acilmadi.",
+        "Audit records endpoint'ini ve liste sorgularini kontrol edelim.",
+    ),
+    "reports_dashboard_data": (
+        "Raporlar veri omurgasi acilmadi.",
+        "Reports dashboard endpoint'ini ve rapor sorgularini kontrol edelim.",
+    ),
     "legacy_banner_bridge": (
         "Eski Streamlit panelde banner koprusu gorunmuyor.",
         "CK_V2_PILOT_URL ve CK_V2_CUTOVER_MODE=banner ayarlarini kontrol edelim.",
@@ -145,6 +378,26 @@ CHECK_PRIORITY = [
     "protected_equipment_page",
     "protected_audit_page",
     "protected_reports_page",
+    "overview_dashboard_data",
+    "attendance_dashboard_data",
+    "attendance_entries_data",
+    "personnel_dashboard_data",
+    "personnel_records_data",
+    "deductions_dashboard_data",
+    "deductions_records_data",
+    "restaurants_dashboard_data",
+    "restaurants_records_data",
+    "sales_dashboard_data",
+    "sales_records_data",
+    "purchases_dashboard_data",
+    "purchases_records_data",
+    "payroll_dashboard_data",
+    "equipment_dashboard_data",
+    "equipment_issues_data",
+    "equipment_box_returns_data",
+    "audit_dashboard_data",
+    "audit_records_data",
+    "reports_dashboard_data",
     "legacy_banner_bridge",
     "legacy_redirect_bridge",
 ]
@@ -155,6 +408,59 @@ class CheckResult:
     name: str
     ok: bool
     detail: str
+
+
+def _is_non_negative_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def validate_json_endpoint_payload(endpoint: dict[str, object], payload: dict) -> tuple[bool, str]:
+    issues: list[str] = []
+
+    if not isinstance(payload, dict):
+        return False, "payload=nesne degil"
+
+    required_keys = endpoint.get("required_keys", ())
+    list_keys = endpoint.get("list_keys", ())
+    nested_dict_keys = endpoint.get("nested_dict_keys", {})
+    optional_nested_dict_keys = endpoint.get("optional_nested_dict_keys", {})
+    non_negative_int_keys = endpoint.get("non_negative_int_keys", ())
+
+    for key in required_keys:
+        if key not in payload:
+            issues.append(f"{key}=eksik")
+
+    for key in list_keys:
+        if key in payload and not isinstance(payload.get(key), list):
+            issues.append(f"{key}=liste degil")
+
+    for key, child_keys in nested_dict_keys.items():
+        value = payload.get(key)
+        if not isinstance(value, dict):
+            issues.append(f"{key}=nesne degil")
+            continue
+        for child_key in child_keys:
+            if child_key not in value:
+                issues.append(f"{key}.{child_key}=eksik")
+
+    for key, child_keys in optional_nested_dict_keys.items():
+        value = payload.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, dict):
+            issues.append(f"{key}=nesne degil")
+            continue
+        for child_key in child_keys:
+            if child_key not in value:
+                issues.append(f"{key}.{child_key}=eksik")
+
+    for key in non_negative_int_keys:
+        if key in payload and not _is_non_negative_int(payload.get(key)):
+            issues.append(f"{key}=gecersiz")
+
+    if issues:
+        return False, " • ".join(issues[:4])
+    return True, "sekil=uygun"
 
 
 def is_local_base_url(raw: str) -> bool:
@@ -605,6 +911,25 @@ def run_smoke_checks(
                             name=check_name,
                             ok=page_ok,
                             detail=f"HTTP {page_status} • content-type={page_content_type or '-'} • path={path}",
+                        )
+                    )
+                for endpoint in AUTH_JSON_ENDPOINTS:
+                    path = str(endpoint["path"])
+                    check_name = str(endpoint["check_name"])
+                    data_status, data_payload = fetch_json_with_headers(
+                        base_url,
+                        path,
+                        timeout,
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                    payload_ok, payload_detail = validate_json_endpoint_payload(endpoint, data_payload)
+                    data_ok = data_status == 200 and payload_ok
+                    detail = f"HTTP {data_status} • path={path} • {payload_detail}"
+                    results.append(
+                        CheckResult(
+                            name=check_name,
+                            ok=data_ok,
+                            detail=detail,
                         )
                     )
         except (urllib.error.URLError, json.JSONDecodeError) as exc:

@@ -473,10 +473,161 @@ def test_pilot_smoke_checks_all_protected_module_pages(monkeypatch):
             },
         ),
     )
+    def fake_fetch_json_with_headers(base_url: str, path: str, timeout: int, headers: dict[str, str]):
+        if path == "/v2-api/auth/me":
+            return (200, {"email": "mert.kurtulus@catkapinda.com"})
+        endpoint_payloads = {
+            "/v2-api/overview/dashboard": {
+                "module": "overview",
+                "status": "active",
+                "hero": {
+                    "active_restaurants": 1,
+                    "active_personnel": 2,
+                    "month_attendance_entries": 3,
+                    "month_deduction_entries": 4,
+                },
+                "modules": [],
+                "recent_activity": [],
+            },
+            "/v2-api/attendance/dashboard": {
+                "module": "attendance",
+                "status": "active",
+                "summary": {
+                    "total_entries": 1,
+                    "today_entries": 0,
+                    "month_entries": 1,
+                    "active_restaurants": 1,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/attendance/entries": {"total_entries": 0, "entries": []},
+            "/v2-api/personnel/dashboard": {
+                "module": "personnel",
+                "status": "active",
+                "summary": {
+                    "total_personnel": 1,
+                    "active_personnel": 1,
+                    "passive_personnel": 0,
+                    "assigned_restaurants": 1,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/personnel/records": {"total_entries": 0, "entries": []},
+            "/v2-api/deductions/dashboard": {
+                "module": "deductions",
+                "status": "active",
+                "summary": {
+                    "total_entries": 0,
+                    "this_month_entries": 0,
+                    "manual_entries": 0,
+                    "auto_entries": 0,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/deductions/records": {"total_entries": 0, "entries": []},
+            "/v2-api/restaurants/dashboard": {
+                "module": "restaurants",
+                "status": "active",
+                "summary": {
+                    "total_restaurants": 1,
+                    "active_restaurants": 1,
+                    "passive_restaurants": 0,
+                    "fixed_monthly_restaurants": 1,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/restaurants/records": {"total_entries": 0, "entries": []},
+            "/v2-api/sales/dashboard": {
+                "module": "sales",
+                "status": "active",
+                "summary": {
+                    "total_entries": 0,
+                    "open_follow_up": 0,
+                    "proposal_stage": 0,
+                    "won_count": 0,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/sales/records": {"total_entries": 0, "entries": []},
+            "/v2-api/purchases/dashboard": {
+                "module": "purchases",
+                "status": "active",
+                "summary": {
+                    "total_entries": 0,
+                    "this_month_entries": 0,
+                    "this_month_total_invoice": 0.0,
+                    "distinct_suppliers": 0,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/purchases/records": {"total_entries": 0, "entries": []},
+            "/v2-api/payroll/dashboard": {
+                "module": "payroll",
+                "status": "active",
+                "month_options": [],
+                "selected_month": None,
+                "entries": [],
+                "cost_model_breakdown": [],
+                "top_personnel": [],
+                "summary": None,
+            },
+            "/v2-api/equipment/dashboard": {
+                "module": "equipment",
+                "status": "active",
+                "summary": {
+                    "total_issues": 0,
+                    "this_month_issues": 0,
+                    "installment_rows": 0,
+                    "total_box_returns": 0,
+                },
+                "recent_issues": [],
+                "recent_box_returns": [],
+                "installment_entries": [],
+                "sales_profit": [],
+                "purchase_summary": [],
+            },
+            "/v2-api/equipment/issues": {"total_entries": 0, "entries": []},
+            "/v2-api/equipment/box-returns": {"total_entries": 0, "entries": []},
+            "/v2-api/audit/dashboard": {
+                "module": "audit",
+                "status": "active",
+                "summary": {
+                    "total_entries": 1,
+                    "last_7_days": 1,
+                    "unique_actors": 1,
+                    "unique_entities": 1,
+                },
+                "recent_entries": [],
+                "action_options": [],
+                "entity_options": [],
+                "actor_options": [],
+            },
+            "/v2-api/audit/records": {
+                "total_entries": 1,
+                "entries": [],
+                "action_options": [],
+                "entity_options": [],
+                "actor_options": [],
+            },
+            "/v2-api/reports/dashboard": {
+                "module": "reports",
+                "status": "active",
+                "month_options": [],
+                "selected_month": None,
+                "summary": None,
+                "invoice_entries": [],
+                "cost_entries": [],
+                "model_breakdown": [],
+                "top_restaurants": [],
+                "top_couriers": [],
+            },
+        }
+        return (200, endpoint_payloads[path])
+
     monkeypatch.setattr(
         pilot_smoke,
         "fetch_json_with_headers",
-        lambda base_url, path, timeout, headers: (200, {"email": "mert.kurtulus@catkapinda.com"}),
+        fake_fetch_json_with_headers,
     )
     monkeypatch.setattr(
         pilot_smoke,
@@ -503,7 +654,261 @@ def test_pilot_smoke_checks_all_protected_module_pages(monkeypatch):
         "protected_equipment_page",
         "protected_audit_page",
         "protected_reports_page",
+        "overview_dashboard_data",
+        "attendance_dashboard_data",
+        "attendance_entries_data",
+        "personnel_dashboard_data",
+        "personnel_records_data",
+        "deductions_dashboard_data",
+        "deductions_records_data",
+        "restaurants_dashboard_data",
+        "restaurants_records_data",
+        "sales_dashboard_data",
+        "sales_records_data",
+        "purchases_dashboard_data",
+        "purchases_records_data",
+        "payroll_dashboard_data",
+        "equipment_dashboard_data",
+        "equipment_issues_data",
+        "equipment_box_returns_data",
+        "audit_dashboard_data",
+        "audit_records_data",
+        "reports_dashboard_data",
     } <= result_names
+
+
+def test_pilot_smoke_fails_when_json_endpoint_shape_is_invalid(monkeypatch):
+    def fake_fetch_json(base_url: str, path: str, timeout: int):
+        payloads = {
+            "/api/health": (200, {"status": "ok", "service": "frontend"}),
+            "/api/ready": (
+                200,
+                {
+                    "proxyConfigured": True,
+                    "proxyMode": "explicit_base_url",
+                    "sourceEnvKey": "CK_V2_INTERNAL_API_BASE_URL",
+                    "backendReachable": True,
+                    "backendStatus": "ok",
+                },
+            ),
+            "/api/pilot-status": (
+                200,
+                {
+                    "frontend": {
+                        "proxyConfigured": True,
+                        "proxyMode": "explicit_base_url",
+                        "backendReachable": True,
+                        "backendStatus": "ok",
+                        "releaseLabel": "crmcatkapinda-v2",
+                    },
+                    "backend": {
+                        "release_label": None,
+                        "cutover": {"phase": "not_ready"},
+                    },
+                },
+            ),
+            "/v2-api/health": (200, {"status": "ok", "service": "backend"}),
+            "/v2-api/health/ready": (200, {"status": "degraded", "checks": [{"name": "database_url"}]}),
+            "/v2-api/health/pilot": (
+                200,
+                {
+                    "status": "degraded",
+                    "modules": [{"module": f"m-{index}"} for index in range(11)],
+                    "auth": {"email_login": True, "phone_login": True, "sms_login": False},
+                    "required_missing_env_vars": ["CK_V2_DATABASE_URL"],
+                    "optional_missing_env_vars": [],
+                    "cutover": {"phase": "not_ready", "ready": False, "modules_ready_count": 11},
+                    "checks": [{"name": "database_url", "detail": "Local sqlite fallback aktif"}],
+                },
+            ),
+        }
+        return payloads[path]
+
+    def fake_fetch_json_with_headers(base_url: str, path: str, timeout: int, headers: dict[str, str]):
+        if path == "/v2-api/auth/me":
+            return (200, {"email": "mert.kurtulus@catkapinda.com"})
+        endpoint_payloads = {
+            "/v2-api/overview/dashboard": {
+                "module": "overview",
+                "status": "active",
+                "hero": {
+                    "active_restaurants": 1,
+                    "active_personnel": 2,
+                    "month_attendance_entries": 3,
+                    "month_deduction_entries": 4,
+                },
+                "modules": [],
+                "recent_activity": [],
+            },
+            "/v2-api/attendance/dashboard": {
+                "module": "attendance",
+                "status": "active",
+                "summary": {
+                    "total_entries": 1,
+                    "today_entries": 0,
+                    "month_entries": 1,
+                    "active_restaurants": 1,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/attendance/entries": {"entries": []},
+            "/v2-api/personnel/dashboard": {
+                "module": "personnel",
+                "status": "active",
+                "summary": {
+                    "total_personnel": 1,
+                    "active_personnel": 1,
+                    "passive_personnel": 0,
+                    "assigned_restaurants": 1,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/personnel/records": {"total_entries": 0, "entries": []},
+            "/v2-api/deductions/dashboard": {
+                "module": "deductions",
+                "status": "active",
+                "summary": {
+                    "total_entries": 0,
+                    "this_month_entries": 0,
+                    "manual_entries": 0,
+                    "auto_entries": 0,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/deductions/records": {"total_entries": 0, "entries": []},
+            "/v2-api/restaurants/dashboard": {
+                "module": "restaurants",
+                "status": "active",
+                "summary": {
+                    "total_restaurants": 1,
+                    "active_restaurants": 1,
+                    "passive_restaurants": 0,
+                    "fixed_monthly_restaurants": 1,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/restaurants/records": {"total_entries": 0, "entries": []},
+            "/v2-api/sales/dashboard": {
+                "module": "sales",
+                "status": "active",
+                "summary": {
+                    "total_entries": 0,
+                    "open_follow_up": 0,
+                    "proposal_stage": 0,
+                    "won_count": 0,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/sales/records": {"total_entries": 0, "entries": []},
+            "/v2-api/purchases/dashboard": {
+                "module": "purchases",
+                "status": "active",
+                "summary": {
+                    "total_entries": 0,
+                    "this_month_entries": 0,
+                    "this_month_total_invoice": 0.0,
+                    "distinct_suppliers": 0,
+                },
+                "recent_entries": [],
+            },
+            "/v2-api/purchases/records": {"total_entries": 0, "entries": []},
+            "/v2-api/payroll/dashboard": {
+                "module": "payroll",
+                "status": "active",
+                "month_options": [],
+                "selected_month": None,
+                "entries": [],
+                "cost_model_breakdown": [],
+                "top_personnel": [],
+                "summary": None,
+            },
+            "/v2-api/equipment/dashboard": {
+                "module": "equipment",
+                "status": "active",
+                "summary": {
+                    "total_issues": 0,
+                    "this_month_issues": 0,
+                    "installment_rows": 0,
+                    "total_box_returns": 0,
+                },
+                "recent_issues": [],
+                "recent_box_returns": [],
+                "installment_entries": [],
+                "sales_profit": [],
+                "purchase_summary": [],
+            },
+            "/v2-api/equipment/issues": {"total_entries": 0, "entries": []},
+            "/v2-api/equipment/box-returns": {"total_entries": 0, "entries": []},
+            "/v2-api/audit/dashboard": {
+                "module": "audit",
+                "status": "active",
+                "summary": {
+                    "total_entries": 1,
+                    "last_7_days": 1,
+                    "unique_actors": 1,
+                    "unique_entities": 1,
+                },
+                "recent_entries": [],
+                "action_options": [],
+                "entity_options": [],
+                "actor_options": [],
+            },
+            "/v2-api/audit/records": {
+                "total_entries": 1,
+                "entries": [],
+                "action_options": [],
+                "entity_options": [],
+                "actor_options": [],
+            },
+            "/v2-api/reports/dashboard": {
+                "module": "reports",
+                "status": "active",
+                "month_options": [],
+                "selected_month": None,
+                "summary": None,
+                "invoice_entries": [],
+                "cost_entries": [],
+                "model_breakdown": [],
+                "top_restaurants": [],
+                "top_couriers": [],
+            },
+        }
+        return (200, endpoint_payloads[path])
+
+    monkeypatch.setattr(pilot_smoke, "fetch_json", fake_fetch_json)
+    monkeypatch.setattr(
+        pilot_smoke,
+        "fetch_text",
+        lambda base_url, path, timeout: (200, "text/html; charset=utf-8", "<html></html>"),
+    )
+    monkeypatch.setattr(
+        pilot_smoke,
+        "post_json",
+        lambda base_url, path, payload, timeout, headers=None: (
+            200,
+            {
+                "access_token": "token",
+                "user": {"must_change_password": False},
+            },
+        ),
+    )
+    monkeypatch.setattr(pilot_smoke, "fetch_json_with_headers", fake_fetch_json_with_headers)
+    monkeypatch.setattr(
+        pilot_smoke,
+        "fetch_text_with_headers",
+        lambda base_url, path, timeout, headers: (200, "text/html; charset=utf-8", f"<html>{path}</html>"),
+    )
+
+    results = pilot_smoke.run_smoke_checks(
+        "http://127.0.0.1:3001",
+        12,
+        identity="mert.kurtulus@catkapinda.com",
+        password="123456",
+    )
+    result_map = {result.name: result for result in results}
+
+    assert result_map["attendance_entries_data"].ok is False
+    assert "total_entries=eksik" in result_map["attendance_entries_data"].detail
 
 
 def test_day_zero_verify_manifest_core_accepts_localhost_http_urls(tmp_path: Path):
