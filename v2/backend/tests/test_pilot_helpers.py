@@ -409,6 +409,103 @@ def test_pilot_smoke_localhost_report_becomes_clean_with_local_sqlite(monkeypatc
     assert report["decision"]["failing_checks"] == []
 
 
+def test_pilot_smoke_checks_all_protected_module_pages(monkeypatch):
+    def fake_fetch_json(base_url: str, path: str, timeout: int):
+        payloads = {
+            "/api/health": (200, {"status": "ok", "service": "frontend"}),
+            "/api/ready": (
+                200,
+                {
+                    "proxyConfigured": True,
+                    "proxyMode": "explicit_base_url",
+                    "sourceEnvKey": "CK_V2_INTERNAL_API_BASE_URL",
+                    "backendReachable": True,
+                    "backendStatus": "ok",
+                },
+            ),
+            "/api/pilot-status": (
+                200,
+                {
+                    "frontend": {
+                        "proxyConfigured": True,
+                        "proxyMode": "explicit_base_url",
+                        "backendReachable": True,
+                        "backendStatus": "ok",
+                        "releaseLabel": "crmcatkapinda-v2",
+                    },
+                    "backend": {
+                        "release_label": None,
+                        "cutover": {"phase": "not_ready"},
+                    },
+                },
+            ),
+            "/v2-api/health": (200, {"status": "ok", "service": "backend"}),
+            "/v2-api/health/ready": (200, {"status": "degraded", "checks": [{"name": "database_url"}]}),
+            "/v2-api/health/pilot": (
+                200,
+                {
+                    "status": "degraded",
+                    "modules": [{"module": f"m-{index}"} for index in range(11)],
+                    "auth": {"email_login": True, "phone_login": True, "sms_login": False},
+                    "required_missing_env_vars": ["CK_V2_DATABASE_URL"],
+                    "optional_missing_env_vars": [],
+                    "cutover": {"phase": "not_ready", "ready": False, "modules_ready_count": 11},
+                    "checks": [{"name": "database_url", "detail": "Local sqlite fallback aktif"}],
+                },
+            ),
+        }
+        return payloads[path]
+
+    monkeypatch.setattr(pilot_smoke, "fetch_json", fake_fetch_json)
+    monkeypatch.setattr(
+        pilot_smoke,
+        "fetch_text",
+        lambda base_url, path, timeout: (200, "text/html; charset=utf-8", "<html></html>"),
+    )
+    monkeypatch.setattr(
+        pilot_smoke,
+        "post_json",
+        lambda base_url, path, payload, timeout, headers=None: (
+            200,
+            {
+                "access_token": "token",
+                "user": {"must_change_password": False},
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        pilot_smoke,
+        "fetch_json_with_headers",
+        lambda base_url, path, timeout, headers: (200, {"email": "mert.kurtulus@catkapinda.com"}),
+    )
+    monkeypatch.setattr(
+        pilot_smoke,
+        "fetch_text_with_headers",
+        lambda base_url, path, timeout, headers: (200, "text/html; charset=utf-8", f"<html>{path}</html>"),
+    )
+
+    results = pilot_smoke.run_smoke_checks(
+        "http://127.0.0.1:3001",
+        12,
+        identity="mert.kurtulus@catkapinda.com",
+        password="123456",
+    )
+    result_names = {result.name for result in results}
+
+    assert {
+        "protected_attendance_page",
+        "protected_personnel_page",
+        "protected_deductions_page",
+        "protected_restaurants_page",
+        "protected_sales_page",
+        "protected_purchases_page",
+        "protected_payroll_page",
+        "protected_equipment_page",
+        "protected_audit_page",
+        "protected_reports_page",
+    } <= result_names
+
+
 def test_day_zero_verify_manifest_core_accepts_localhost_http_urls(tmp_path: Path):
     manifest = {
         "frontend_url": "http://127.0.0.1:3001",

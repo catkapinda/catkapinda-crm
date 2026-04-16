@@ -18,6 +18,12 @@ PROTECTED_PAGES = [
     ("/attendance", "protected_attendance_page"),
     ("/personnel", "protected_personnel_page"),
     ("/deductions", "protected_deductions_page"),
+    ("/restaurants", "protected_restaurants_page"),
+    ("/sales", "protected_sales_page"),
+    ("/purchases", "protected_purchases_page"),
+    ("/payroll", "protected_payroll_page"),
+    ("/equipment", "protected_equipment_page"),
+    ("/audit", "protected_audit_page"),
     ("/reports", "protected_reports_page"),
 ]
 LEGACY_BANNER_MARKERS = ("Yeni sisteme gecis basladi", "v2 pilotu ac")
@@ -80,6 +86,30 @@ CHECK_GUIDANCE: dict[str, tuple[str, str]] = {
         "Giris sonrasi Kesintiler sayfasi acilmadi.",
         "Deductions route ve korumali sayfa cookie akisini kontrol edelim.",
     ),
+    "protected_restaurants_page": (
+        "Giris sonrasi Restoranlar sayfasi acilmadi.",
+        "Restaurants route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
+    "protected_sales_page": (
+        "Giris sonrasi Satis sayfasi acilmadi.",
+        "Sales route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
+    "protected_purchases_page": (
+        "Giris sonrasi Satin Alma sayfasi acilmadi.",
+        "Purchases route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
+    "protected_payroll_page": (
+        "Giris sonrasi Aylik Hakedis sayfasi acilmadi.",
+        "Payroll route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
+    "protected_equipment_page": (
+        "Giris sonrasi Ekipman sayfasi acilmadi.",
+        "Equipment route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
+    "protected_audit_page": (
+        "Giris sonrasi Sistem Kayitlari sayfasi acilmadi.",
+        "Audit route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
     "protected_reports_page": (
         "Giris sonrasi Raporlar sayfasi acilmadi.",
         "Reports route ve korumali sayfa cookie akisini kontrol edelim.",
@@ -108,6 +138,12 @@ CHECK_PRIORITY = [
     "protected_attendance_page",
     "protected_personnel_page",
     "protected_deductions_page",
+    "protected_restaurants_page",
+    "protected_sales_page",
+    "protected_purchases_page",
+    "protected_payroll_page",
+    "protected_equipment_page",
+    "protected_audit_page",
     "protected_reports_page",
     "legacy_banner_bridge",
     "legacy_redirect_bridge",
