@@ -22,6 +22,7 @@ def _fake_admin_user() -> AuthenticatedUser:
             "attendance.view",
             "deduction.view",
             "equipment.view",
+            "personnel.plate",
             "purchase.view",
             "restaurant.view",
             "reporting.view",
@@ -222,6 +223,58 @@ def test_announcements_routes_smoke(monkeypatch):
     assert status_response.json()["module"] == "announcements"
     assert dashboard_response.status_code == 200
     assert dashboard_response.json()["metrics"][0]["value"] == "Yenilendi"
+
+
+def test_personnel_plate_workspace_route_smoke(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.personnel.build_personnel_plate_workspace",
+        lambda conn, limit: {
+            "summary": {
+                "total_history_records": 7,
+                "active_plate_assignments": 3,
+                "active_catkapinda_vehicle_personnel": 5,
+                "active_missing_plate_personnel": 2,
+            },
+            "people": [
+                {
+                    "id": 18,
+                    "person_code": "CK-K18",
+                    "full_name": "Plakalı Kurye",
+                    "role": "Kurye",
+                    "status": "Aktif",
+                    "restaurant_label": "Burger@ - Kavacık",
+                    "vehicle_mode": "Çat Kapında Motor Kirası",
+                    "current_plate": "34 ABC 18",
+                    "plate_history_count": 2,
+                }
+            ],
+            "history": [
+                {
+                    "id": 91,
+                    "personnel_id": 18,
+                    "person_code": "CK-K18",
+                    "full_name": "Plakalı Kurye",
+                    "role": "Kurye",
+                    "restaurant_label": "Burger@ - Kavacık",
+                    "vehicle_mode": "Çat Kapında Motor Kirası",
+                    "current_plate": "34 ABC 18",
+                    "plate": "34 ABC 18",
+                    "start_date": "2026-04-10",
+                    "end_date": None,
+                    "reason": "Yeni zimmet",
+                    "active": True,
+                }
+            ],
+        },
+    )
+    client = _build_app()
+
+    response = client.get("/api/personnel/plate-workspace")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["active_plate_assignments"] == 3
+    assert payload["people"][0]["current_plate"] == "34 ABC 18"
 
 
 def test_deductions_routes_smoke(monkeypatch):

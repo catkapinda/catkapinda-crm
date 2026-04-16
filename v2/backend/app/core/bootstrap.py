@@ -108,6 +108,17 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS plate_history (
+        id BIGSERIAL PRIMARY KEY,
+        personnel_id BIGINT NOT NULL,
+        plate TEXT NOT NULL DEFAULT '',
+        start_date DATE NOT NULL,
+        end_date DATE NULL,
+        reason TEXT,
+        active BOOLEAN NOT NULL DEFAULT TRUE
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS sales_leads (
         id BIGSERIAL PRIMARY KEY,
         restaurant_name TEXT NOT NULL DEFAULT '',
@@ -222,6 +233,17 @@ AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
         plate TEXT,
         changed_at TEXT NOT NULL,
         notes TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS plate_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        personnel_id INTEGER NOT NULL,
+        plate TEXT NOT NULL DEFAULT '',
+        start_date TEXT NOT NULL,
+        end_date TEXT,
+        reason TEXT,
+        active INTEGER NOT NULL DEFAULT 1
     )
     """,
     """

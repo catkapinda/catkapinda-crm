@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { PersonnelEntryWorkspace } from "../../components/personnel/personnel-entry-workspace";
 import { PersonnelManagementWorkspace } from "../../components/personnel/personnel-management-workspace";
+import { PersonnelPlateWorkspace } from "../../components/personnel/personnel-plate-workspace";
 import { useAuth } from "../../components/auth/auth-provider";
 import { AppShell } from "../../components/shell/app-shell";
 import { apiFetch } from "../../lib/api";
@@ -671,6 +672,15 @@ export default function PersonnelPage() {
               "Rol, şube, araç modu ve aktiflik değişimleri daha net bir operasyon çerçevesinde görünsün diye bu bölümü daha editoryal bir panele taşıdık.",
               <PersonnelManagementWorkspace />,
             )}
+
+            {canViewPlateArea
+              ? workspaceFrame(
+                  "Plaka Hattı",
+                  "Plaka ve motor geçmişini ayrı masada yönet.",
+                  "Araç zimmeti, plaka değişimi ve açık motor hattını personel düzenleme akışından ayırıp daha net bir operasyon yüzeyine taşıyoruz.",
+                  <PersonnelPlateWorkspace />,
+                )
+              : null}
 
             <section
               style={{

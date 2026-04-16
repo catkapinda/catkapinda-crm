@@ -273,6 +273,76 @@ def test_personnel_mutation_routes(monkeypatch):
     assert delete_response.json()["message"] == "Personel kalıcı olarak silindi."
 
 
+def test_personnel_plate_routes(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.personnel.create_personnel_plate_history_entry",
+        lambda conn, payload: {
+            "history_id": 44,
+            "personnel_id": payload.personnel_id,
+            "plate": payload.plate,
+            "message": "Plaka geçmişi güncellendi.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.personnel.build_personnel_plate_workspace",
+        lambda conn, limit: {
+            "summary": {
+                "total_history_records": 4,
+                "active_plate_assignments": 2,
+                "active_catkapinda_vehicle_personnel": 3,
+                "active_missing_plate_personnel": 1,
+            },
+            "people": [
+                {
+                    "id": 9,
+                    "person_code": "CK-K09",
+                    "full_name": "Araçlı Kurye",
+                    "role": "Kurye",
+                    "status": "Aktif",
+                    "restaurant_label": "Test - Şube",
+                    "vehicle_mode": "Çat Kapında Motor Kirası",
+                    "current_plate": "34 TEST 09",
+                    "plate_history_count": 2,
+                }
+            ],
+            "history": [
+                {
+                    "id": 44,
+                    "personnel_id": 9,
+                    "person_code": "CK-K09",
+                    "full_name": "Araçlı Kurye",
+                    "role": "Kurye",
+                    "restaurant_label": "Test - Şube",
+                    "vehicle_mode": "Çat Kapında Motor Kirası",
+                    "current_plate": "34 TEST 09",
+                    "plate": "34 TEST 09",
+                    "start_date": "2026-04-17",
+                    "end_date": None,
+                    "reason": "Yeni zimmet",
+                    "active": True,
+                }
+            ],
+        },
+    )
+    client = _build_client()
+
+    workspace_response = client.get("/api/personnel/plate-workspace")
+    create_response = client.post(
+        "/api/personnel/plate-history",
+        json={
+            "personnel_id": 9,
+            "plate": "34 TEST 09",
+            "reason": "Yeni zimmet",
+            "start_date": "2026-04-17",
+        },
+    )
+
+    assert workspace_response.status_code == 200
+    assert workspace_response.json()["summary"]["total_history_records"] == 4
+    assert create_response.status_code == 201
+    assert create_response.json()["history_id"] == 44
+
+
 def test_deductions_mutation_routes(monkeypatch):
     audit_calls = []
     monkeypatch.setattr(

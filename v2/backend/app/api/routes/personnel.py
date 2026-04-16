@@ -16,6 +16,9 @@ from app.schemas.personnel import (
     PersonnelFormOptionsResponse,
     PersonnelManagementResponse,
     PersonnelModuleStatus,
+    PersonnelPlateCreateRequest,
+    PersonnelPlateCreateResponse,
+    PersonnelPlateWorkspaceResponse,
     PersonnelStatusUpdateResponse,
     PersonnelUpdateRequest,
     PersonnelUpdateResponse,
@@ -25,7 +28,9 @@ from app.services.personnel import (
     build_personnel_detail,
     build_personnel_form_options,
     build_personnel_management,
+    build_personnel_plate_workspace,
     build_personnel_status,
+    create_personnel_plate_history_entry,
     create_personnel_record,
     delete_personnel_record_entry,
     toggle_personnel_record_status,
@@ -111,6 +116,42 @@ def get_personnel_records(
         search=search,
         include_vehicle_fields=_can_view_personnel_plate(user),
     )
+
+
+@router.get("/plate-workspace", response_model=PersonnelPlateWorkspaceResponse)
+def get_personnel_plate_workspace(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.plate"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+    limit: int = Query(default=80, ge=1, le=300),
+) -> PersonnelPlateWorkspaceResponse:
+    return build_personnel_plate_workspace(conn, limit=limit)
+
+
+@router.post("/plate-history", response_model=PersonnelPlateCreateResponse, status_code=201)
+def create_personnel_plate_history_route(
+    payload: PersonnelPlateCreateRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_action("personnel.plate"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> PersonnelPlateCreateResponse:
+    try:
+        response = create_personnel_plate_history_entry(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="plaka",
+            action_type="oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("history_id"),
+            details={**payload.model_dump(mode="json"), "history_id": response_data.get("history_id")},
+        )
+        return response
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/records/{person_id}", response_model=PersonnelDetailResponse)

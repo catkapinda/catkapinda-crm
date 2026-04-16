@@ -72,6 +72,81 @@ def test_update_personnel_record_syncs_mobile_auth(monkeypatch):
     assert conn.commit_count == 1
 
 
+def test_create_personnel_record_creates_plate_history_baseline(monkeypatch):
+    conn = FakeConnection()
+    history_calls: list[dict] = []
+
+    monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
+    monkeypatch.setattr(personnel_service, "insert_personnel_record", lambda *args, **kwargs: 52)
+    monkeypatch.setattr(personnel_service, "sync_mobile_auth_user_for_personnel", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "count_plate_history_records_for_personnel", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(personnel_service, "fetch_active_plate_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        personnel_service,
+        "insert_plate_history_record",
+        lambda _conn, **kwargs: history_calls.append(kwargs) or 17,
+    )
+
+    response = personnel_service.create_personnel_record(
+        conn,
+        payload=PersonnelCreateRequest(
+            full_name="Plakalı Kurye",
+            role="Kurye",
+            current_plate="34 ABC 123",
+            start_date=date(2026, 4, 17),
+        ),
+    )
+
+    assert response.person_id == 52
+    assert history_calls[0]["plate"] == "34 ABC 123"
+    assert history_calls[0]["reason"] == "Sistem: Başlangıç plakası"
+
+
+def test_update_personnel_record_writes_plate_history_on_plate_change(monkeypatch):
+    conn = FakeConnection()
+    history_calls: list[tuple[str, dict]] = []
+
+    monkeypatch.setattr(
+        personnel_service,
+        "fetch_personnel_record_by_id",
+        lambda *args, **kwargs: {
+            "id": 15,
+            "person_code": "CK-K15",
+            "role": "Kurye",
+            "current_plate": "34 OLD 15",
+        },
+    )
+    monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
+    monkeypatch.setattr(personnel_service, "update_personnel_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "sync_mobile_auth_user_for_personnel", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        personnel_service,
+        "close_active_plate_history_records",
+        lambda _conn, person_id, *, end_date: history_calls.append(("close", {"person_id": person_id, "end_date": end_date})),
+    )
+    monkeypatch.setattr(personnel_service, "fetch_active_plate_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        personnel_service,
+        "insert_plate_history_record",
+        lambda _conn, **kwargs: history_calls.append(("insert", kwargs)) or 18,
+    )
+
+    response = personnel_service.update_personnel_record_entry(
+        conn,
+        person_id=15,
+        payload=PersonnelUpdateRequest(
+            full_name="Plaka Değişti",
+            role="Kurye",
+            current_plate="34 NEW 99",
+        ),
+    )
+
+    assert response.person_id == 15
+    assert history_calls[0][0] == "close"
+    assert history_calls[1][0] == "insert"
+    assert history_calls[1][1]["plate"] == "34 NEW 99"
+
+
 def test_create_personnel_record_ignores_plate_fields_without_permission(monkeypatch):
     conn = FakeConnection()
     inserted_payloads: list[dict] = []

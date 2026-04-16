@@ -7,6 +7,7 @@ import psycopg
 
 from app.core.auth_sync import sync_mobile_auth_user_for_personnel
 from app.repositories.personnel import (
+    close_active_plate_history_records,
     count_personnel_linked_box_returns,
     count_personnel_linked_daily_entries,
     count_personnel_linked_deductions,
@@ -14,15 +15,26 @@ from app.repositories.personnel import (
     count_personnel_linked_plate_history,
     count_personnel_linked_role_history,
     count_personnel_linked_vehicle_history,
+    count_active_catkapinda_vehicle_personnel,
+    count_active_personnel_missing_plate,
+    count_active_plate_history_records,
     count_personnel_management_records,
+    count_plate_history_records_for_personnel,
+    count_total_plate_history_records,
     delete_personnel_and_dependencies,
+    fetch_active_plate_history_record,
     fetch_person_code_values,
+    fetch_personnel_plate_baseline_candidates,
+    fetch_personnel_plate_candidates,
+    fetch_recent_plate_history_records,
     fetch_personnel_management_records,
     fetch_personnel_record_by_id,
     fetch_personnel_restaurants,
     fetch_personnel_summary,
     fetch_recent_personnel_records,
+    insert_plate_history_record,
     insert_personnel_record,
+    update_personnel_current_plate,
     update_personnel_status,
     update_personnel_record,
 )
@@ -33,6 +45,12 @@ from app.schemas.personnel import (
     PersonnelDashboardResponse,
     PersonnelDetailResponse,
     PersonnelFormOptionsResponse,
+    PersonnelPlateCandidateEntry,
+    PersonnelPlateCreateRequest,
+    PersonnelPlateCreateResponse,
+    PersonnelPlateHistoryEntry,
+    PersonnelPlateSummary,
+    PersonnelPlateWorkspaceResponse,
     PersonnelManagementEntry,
     PersonnelManagementResponse,
     PersonnelModuleStatus,
@@ -201,6 +219,80 @@ def _build_personnel_delete_message(dependency_counts: dict[str, int]) -> str:
     return "Personel kaydı kalıcı olarak silindi."
 
 
+def _sync_personnel_plate_history_baselines(conn: psycopg.Connection) -> None:
+    changed = False
+    for row in fetch_personnel_plate_baseline_candidates(conn):
+        current_plate = str(row.get("current_plate") or "").strip()
+        if not current_plate:
+            continue
+        if int(row.get("plate_history_count") or 0) > 0:
+            continue
+        start_date = row.get("start_date")
+        insert_plate_history_record(
+            conn,
+            personnel_id=int(row["id"]),
+            plate=current_plate,
+            start_date=(
+                start_date.isoformat()
+                if isinstance(start_date, date)
+                else str(start_date or date.today().isoformat())
+            ),
+            end_date=None,
+            reason="Sistem: Başlangıç plakası",
+            active=True,
+        )
+        changed = True
+    if changed:
+        conn.commit()
+
+
+def _sync_plate_history_after_personnel_write(
+    conn: psycopg.Connection,
+    *,
+    person_id: int,
+    previous_plate: str,
+    current_plate: str,
+    effective_date: date | None,
+    reason: str,
+) -> None:
+    normalized_previous_plate = str(previous_plate or "").strip()
+    normalized_current_plate = str(current_plate or "").strip()
+    effective_date_text = (effective_date or date.today()).isoformat()
+
+    if normalized_current_plate == normalized_previous_plate:
+        if normalized_current_plate and count_plate_history_records_for_personnel(conn, person_id) == 0:
+            insert_plate_history_record(
+                conn,
+                personnel_id=person_id,
+                plate=normalized_current_plate,
+                start_date=effective_date_text,
+                end_date=None,
+                reason=reason,
+                active=True,
+            )
+        return
+
+    if normalized_previous_plate:
+        close_active_plate_history_records(conn, person_id, end_date=effective_date_text)
+
+    if normalized_current_plate:
+        active_row = fetch_active_plate_history_record(conn, person_id)
+        if active_row:
+            active_plate = str(active_row.get("plate") or "").strip()
+            if active_plate == normalized_current_plate:
+                return
+            close_active_plate_history_records(conn, person_id, end_date=effective_date_text)
+        insert_plate_history_record(
+            conn,
+            personnel_id=person_id,
+            plate=normalized_current_plate,
+            start_date=effective_date_text,
+            end_date=None,
+            reason=reason,
+            active=True,
+        )
+
+
 def build_personnel_status() -> PersonnelModuleStatus:
     return PersonnelModuleStatus(
         module="personnel",
@@ -283,6 +375,93 @@ def build_personnel_management(
     )
 
 
+def build_personnel_plate_workspace(
+    conn: psycopg.Connection,
+    *,
+    limit: int,
+) -> PersonnelPlateWorkspaceResponse:
+    _sync_personnel_plate_history_baselines(conn)
+    people = fetch_personnel_plate_candidates(conn, limit=limit)
+    history_rows = fetch_recent_plate_history_records(conn, limit=limit)
+    return PersonnelPlateWorkspaceResponse(
+        summary=PersonnelPlateSummary(
+            total_history_records=count_total_plate_history_records(conn),
+            active_plate_assignments=count_active_plate_history_records(conn),
+            active_catkapinda_vehicle_personnel=count_active_catkapinda_vehicle_personnel(conn),
+            active_missing_plate_personnel=count_active_personnel_missing_plate(conn),
+        ),
+        people=[
+            PersonnelPlateCandidateEntry(
+                id=int(row["id"]),
+                person_code=str(row["person_code"] or ""),
+                full_name=str(row["full_name"] or ""),
+                role=_display_role(str(row["role"] or "")),
+                status=str(row["status"] or ""),
+                restaurant_label=str(row["restaurant_label"] or "-"),
+                vehicle_mode=_display_vehicle_mode(_derive_vehicle_mode(row)),
+                current_plate=str(row["current_plate"] or ""),
+                plate_history_count=int(row["plate_history_count"] or 0),
+            )
+            for row in people
+        ],
+        history=[
+            PersonnelPlateHistoryEntry(
+                id=int(row["id"]),
+                personnel_id=int(row["personnel_id"]),
+                person_code=str(row["person_code"] or ""),
+                full_name=str(row["full_name"] or ""),
+                role=_display_role(str(row["role"] or "")),
+                restaurant_label=str(row["restaurant_label"] or "-"),
+                vehicle_mode=_display_vehicle_mode(_derive_vehicle_mode(row)),
+                current_plate=str(row["current_plate"] or ""),
+                plate=str(row["plate"] or ""),
+                start_date=row["start_date"],
+                end_date=row["end_date"],
+                reason=str(row["reason"] or ""),
+                active=bool(row["active"]),
+            )
+            for row in history_rows
+        ],
+    )
+
+
+def create_personnel_plate_history_entry(
+    conn: psycopg.Connection,
+    *,
+    payload: PersonnelPlateCreateRequest,
+) -> PersonnelPlateCreateResponse:
+    row = fetch_personnel_record_by_id(conn, payload.personnel_id)
+    if row is None:
+        raise LookupError("Personel kaydı bulunamadı.")
+
+    plate = str(payload.plate or "").strip()
+    if not plate:
+        raise ValueError("Yeni plaka zorunlu.")
+
+    start_date = payload.start_date or date.today()
+    if payload.end_date and payload.end_date < start_date:
+        raise ValueError("Bitiş tarihi başlangıç tarihinden önce olamaz.")
+
+    close_active_plate_history_records(conn, payload.personnel_id, end_date=start_date.isoformat())
+    history_id = insert_plate_history_record(
+        conn,
+        personnel_id=payload.personnel_id,
+        plate=plate,
+        start_date=start_date.isoformat(),
+        end_date=payload.end_date.isoformat() if payload.end_date else None,
+        reason=str(payload.reason or "").strip() or "Yeni zimmet",
+        active=True,
+    )
+    update_personnel_current_plate(conn, payload.personnel_id, plate)
+    conn.commit()
+    return PersonnelPlateCreateResponse(
+        history_id=history_id,
+        personnel_id=payload.personnel_id,
+        plate=plate,
+        message="Plaka geçmişi güncellendi.",
+    )
+
+
 def build_personnel_detail(
     conn: psycopg.Connection,
     *,
@@ -336,6 +515,14 @@ def create_personnel_record(
             "notes": str(payload.notes or "").strip(),
         },
     )
+    _sync_plate_history_after_personnel_write(
+        conn,
+        person_id=person_id,
+        previous_plate="",
+        current_plate=str(payload.current_plate or "").strip() if allow_vehicle_fields else "",
+        effective_date=payload.start_date,
+        reason="Sistem: Başlangıç plakası",
+    )
     sync_mobile_auth_user_for_personnel(conn, personnel_id=person_id)
     conn.commit()
     return PersonnelCreateResponse(
@@ -372,6 +559,7 @@ def update_personnel_record_entry(
         normalized_vehicle_mode = _normalize_vehicle_mode(payload.vehicle_mode)
         vehicle_fields = _resolve_vehicle_fields(normalized_vehicle_mode)
         current_plate = str(payload.current_plate or "").strip()
+        previous_plate = str(existing_row.get("current_plate") or "").strip()
     else:
         vehicle_fields = {
             "vehicle_type": str(existing_row.get("vehicle_type") or ""),
@@ -379,6 +567,7 @@ def update_personnel_record_entry(
             "motor_purchase": str(existing_row.get("motor_purchase") or "Hayır"),
         }
         current_plate = str(existing_row.get("current_plate") or "")
+        previous_plate = current_plate
     update_personnel_record(
         conn,
         person_id,
@@ -400,6 +589,15 @@ def update_personnel_record_entry(
             "notes": str(payload.notes or "").strip(),
         },
     )
+    if allow_vehicle_fields:
+        _sync_plate_history_after_personnel_write(
+            conn,
+            person_id=person_id,
+            previous_plate=previous_plate,
+            current_plate=current_plate,
+            effective_date=date.today(),
+            reason="Sistem: Personel kartından plaka değişimi",
+        )
     sync_mobile_auth_user_for_personnel(conn, personnel_id=person_id)
     conn.commit()
     return PersonnelUpdateResponse(

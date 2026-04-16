@@ -349,6 +349,247 @@ def update_personnel_status(
     )
 
 
+def fetch_personnel_plate_baseline_candidates(conn: psycopg.Connection) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            p.id,
+            COALESCE(p.current_plate, '') AS current_plate,
+            p.start_date,
+            COALESCE(
+                (
+                    SELECT COUNT(*)
+                    FROM plate_history ph
+                    WHERE ph.personnel_id = p.id
+                ),
+                0
+            ) AS plate_history_count
+        FROM personnel p
+        WHERE TRIM(COALESCE(p.current_plate, '')) <> ''
+        """
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def fetch_personnel_plate_candidates(
+    conn: psycopg.Connection,
+    *,
+    limit: int,
+) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            p.id,
+            COALESCE(p.person_code, '') AS person_code,
+            COALESCE(p.full_name, '') AS full_name,
+            COALESCE(p.role, '') AS role,
+            COALESCE(p.status, '') AS status,
+            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
+            COALESCE(p.vehicle_type, '') AS vehicle_type,
+            COALESCE(p.motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(p.motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(p.current_plate, '') AS current_plate,
+            COALESCE(
+                (
+                    SELECT COUNT(*)
+                    FROM plate_history ph
+                    WHERE ph.personnel_id = p.id
+                ),
+                0
+            ) AS plate_history_count
+        FROM personnel p
+        LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+        ORDER BY
+            CASE WHEN COALESCE(p.status, '') = 'Aktif' THEN 0 ELSE 1 END,
+            CASE WHEN TRIM(COALESCE(p.current_plate, '')) <> '' THEN 0 ELSE 1 END,
+            p.full_name,
+            p.id DESC
+        LIMIT %s
+        """,
+        (limit,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def fetch_recent_plate_history_records(
+    conn: psycopg.Connection,
+    *,
+    limit: int,
+) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            ph.id,
+            ph.personnel_id,
+            COALESCE(p.person_code, '') AS person_code,
+            COALESCE(p.full_name, '') AS full_name,
+            COALESCE(p.role, '') AS role,
+            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
+            COALESCE(p.vehicle_type, '') AS vehicle_type,
+            COALESCE(p.motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(p.motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(p.current_plate, '') AS current_plate,
+            COALESCE(ph.plate, '') AS plate,
+            ph.start_date,
+            ph.end_date,
+            COALESCE(ph.reason, '') AS reason,
+            CASE WHEN ph.active THEN TRUE ELSE FALSE END AS active
+        FROM plate_history ph
+        JOIN personnel p ON p.id = ph.personnel_id
+        LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+        ORDER BY
+            CASE WHEN ph.active THEN 0 ELSE 1 END,
+            ph.start_date DESC,
+            ph.id DESC
+        LIMIT %s
+        """,
+        (limit,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def count_total_plate_history_records(conn: psycopg.Connection) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM plate_history
+        """
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_active_plate_history_records(conn: psycopg.Connection) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM plate_history
+        WHERE CASE WHEN active THEN 1 ELSE 0 END = 1
+        """
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_active_personnel_missing_plate(conn: psycopg.Connection) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM personnel
+        WHERE COALESCE(status, '') = 'Aktif'
+          AND TRIM(COALESCE(current_plate, '')) = ''
+        """
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_active_catkapinda_vehicle_personnel(conn: psycopg.Connection) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM personnel
+        WHERE COALESCE(status, '') = 'Aktif'
+          AND (
+            COALESCE(vehicle_type, '') = 'Çat Kapında'
+            OR COALESCE(motor_rental, 'Hayır') = 'Evet'
+            OR COALESCE(motor_purchase, 'Hayır') = 'Evet'
+          )
+        """
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_plate_history_records_for_personnel(
+    conn: psycopg.Connection,
+    person_id: int,
+) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM plate_history
+        WHERE personnel_id = %s
+        """,
+        (person_id,),
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def fetch_active_plate_history_record(
+    conn: psycopg.Connection,
+    person_id: int,
+) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, plate, start_date, end_date, reason
+        FROM plate_history
+        WHERE personnel_id = %s
+          AND CASE WHEN active THEN 1 ELSE 0 END = 1
+        ORDER BY start_date DESC, id DESC
+        LIMIT 1
+        """,
+        (person_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def close_active_plate_history_records(
+    conn: psycopg.Connection,
+    person_id: int,
+    *,
+    end_date: str,
+) -> None:
+    conn.execute(
+        """
+        UPDATE plate_history
+        SET active = %s, end_date = %s
+        WHERE personnel_id = %s
+          AND CASE WHEN active THEN 1 ELSE 0 END = 1
+        """,
+        (False, end_date, person_id),
+    )
+
+
+def insert_plate_history_record(
+    conn: psycopg.Connection,
+    *,
+    personnel_id: int,
+    plate: str,
+    start_date: str,
+    end_date: str | None,
+    reason: str,
+    active: bool,
+) -> int:
+    row = conn.execute(
+        """
+        INSERT INTO plate_history (
+            personnel_id,
+            plate,
+            start_date,
+            end_date,
+            reason,
+            active
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING id
+        """,
+        (personnel_id, plate, start_date, end_date, reason, active),
+    ).fetchone()
+    return int(row["id"])
+
+
+def update_personnel_current_plate(
+    conn: psycopg.Connection,
+    person_id: int,
+    plate: str,
+) -> None:
+    conn.execute(
+        """
+        UPDATE personnel
+        SET current_plate = %s
+        WHERE id = %s
+        """,
+        (plate, person_id),
+    )
+
+
 def count_personnel_linked_daily_entries(conn: psycopg.Connection, person_id: int) -> int:
     row = conn.execute(
         """

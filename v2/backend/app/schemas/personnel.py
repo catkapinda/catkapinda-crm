@@ -16,6 +16,13 @@ class PersonnelSummary(BaseModel):
     assigned_restaurants: int
 
 
+class PersonnelPlateSummary(BaseModel):
+    total_history_records: int
+    active_plate_assignments: int
+    active_catkapinda_vehicle_personnel: int
+    active_missing_plate_personnel: int
+
+
 class PersonnelManagementEntry(BaseModel):
     id: int
     person_code: str
@@ -30,6 +37,34 @@ class PersonnelManagementEntry(BaseModel):
     start_date: date | None
     monthly_fixed_cost: float
     notes: str
+
+
+class PersonnelPlateCandidateEntry(BaseModel):
+    id: int
+    person_code: str
+    full_name: str
+    role: str
+    status: str
+    restaurant_label: str
+    vehicle_mode: str
+    current_plate: str
+    plate_history_count: int
+
+
+class PersonnelPlateHistoryEntry(BaseModel):
+    id: int
+    personnel_id: int
+    person_code: str
+    full_name: str
+    role: str
+    restaurant_label: str
+    vehicle_mode: str
+    current_plate: str
+    plate: str
+    start_date: date | None
+    end_date: date | None
+    reason: str
+    active: bool
 
 
 class PersonnelDashboardResponse(BaseModel):
@@ -80,6 +115,12 @@ class PersonnelDetailResponse(BaseModel):
     entry: PersonnelManagementEntry
 
 
+class PersonnelPlateWorkspaceResponse(BaseModel):
+    summary: PersonnelPlateSummary
+    people: list[PersonnelPlateCandidateEntry]
+    history: list[PersonnelPlateHistoryEntry]
+
+
 class PersonnelUpdateRequest(BaseModel):
     full_name: str
     role: str
@@ -91,6 +132,21 @@ class PersonnelUpdateRequest(BaseModel):
     current_plate: str = ""
     monthly_fixed_cost: float = 0.0
     notes: str = ""
+
+
+class PersonnelPlateCreateRequest(BaseModel):
+    personnel_id: int
+    plate: str
+    reason: str = "Yeni zimmet"
+    start_date: date | None = None
+    end_date: date | None = None
+
+
+class PersonnelPlateCreateResponse(BaseModel):
+    history_id: int
+    personnel_id: int
+    plate: str
+    message: str
 
 
 class PersonnelUpdateResponse(BaseModel):
