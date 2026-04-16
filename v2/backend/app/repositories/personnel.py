@@ -67,6 +67,11 @@ def fetch_recent_personnel_records(
             COALESCE(p.vehicle_type, '') AS vehicle_type,
             COALESCE(p.motor_rental, 'Hayır') AS motor_rental,
             COALESCE(p.motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(p.motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            p.motor_purchase_start_date,
+            COALESCE(p.motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(p.motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(p.motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
             COALESCE(p.current_plate, '') AS current_plate,
             p.start_date,
             COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
@@ -116,6 +121,11 @@ def fetch_personnel_management_records(
             COALESCE(p.vehicle_type, '') AS vehicle_type,
             COALESCE(p.motor_rental, 'Hayır') AS motor_rental,
             COALESCE(p.motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(p.motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            p.motor_purchase_start_date,
+            COALESCE(p.motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(p.motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(p.motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
             COALESCE(p.current_plate, '') AS current_plate,
             p.start_date,
             COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
@@ -206,6 +216,11 @@ def fetch_personnel_record_by_id(
             COALESCE(p.vehicle_type, '') AS vehicle_type,
             COALESCE(p.motor_rental, 'Hayır') AS motor_rental,
             COALESCE(p.motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(p.motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            p.motor_purchase_start_date,
+            COALESCE(p.motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(p.motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(p.motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
             COALESCE(p.current_plate, '') AS current_plate,
             p.start_date,
             COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
@@ -252,6 +267,11 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             vehicle_type,
             motor_rental,
             motor_purchase,
+            motor_rental_monthly_amount,
+            motor_purchase_start_date,
+            motor_purchase_commitment_months,
+            motor_purchase_sale_price,
+            motor_purchase_monthly_deduction,
             current_plate,
             start_date,
             exit_date,
@@ -259,7 +279,7 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             monthly_fixed_cost,
             notes
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
         """,
         (
@@ -274,6 +294,11 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             values["vehicle_type"],
             values["motor_rental"],
             values["motor_purchase"],
+            values["motor_rental_monthly_amount"],
+            values["motor_purchase_start_date"],
+            values["motor_purchase_commitment_months"],
+            values["motor_purchase_sale_price"],
+            values["motor_purchase_monthly_deduction"],
             values["current_plate"],
             values["start_date"],
             values["exit_date"],
@@ -303,6 +328,11 @@ def update_personnel_record(
             vehicle_type = %s,
             motor_rental = %s,
             motor_purchase = %s,
+            motor_rental_monthly_amount = %s,
+            motor_purchase_start_date = %s,
+            motor_purchase_commitment_months = %s,
+            motor_purchase_sale_price = %s,
+            motor_purchase_monthly_deduction = %s,
             current_plate = %s,
             start_date = %s,
             exit_date = %s,
@@ -321,6 +351,11 @@ def update_personnel_record(
             values["vehicle_type"],
             values["motor_rental"],
             values["motor_purchase"],
+            values["motor_rental_monthly_amount"],
+            values["motor_purchase_start_date"],
+            values["motor_purchase_commitment_months"],
+            values["motor_purchase_sale_price"],
+            values["motor_purchase_monthly_deduction"],
             values["current_plate"],
             values["start_date"],
             values["exit_date"],
@@ -587,6 +622,287 @@ def update_personnel_current_plate(
         WHERE id = %s
         """,
         (plate, person_id),
+    )
+
+
+def fetch_personnel_vehicle_baseline_candidates(conn: psycopg.Connection) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            p.id,
+            p.start_date,
+            COALESCE(p.vehicle_type, '') AS vehicle_type,
+            COALESCE(p.motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(p.motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(p.motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            p.motor_purchase_start_date,
+            COALESCE(p.motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(p.motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(p.motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
+            COALESCE(
+                (
+                    SELECT COUNT(*)
+                    FROM personnel_vehicle_history pvh
+                    WHERE pvh.personnel_id = p.id
+                ),
+                0
+            ) AS vehicle_history_count
+        FROM personnel p
+        """
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def fetch_personnel_vehicle_candidates(
+    conn: psycopg.Connection,
+    *,
+    limit: int,
+) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            p.id,
+            COALESCE(p.person_code, '') AS person_code,
+            COALESCE(p.full_name, '') AS full_name,
+            COALESCE(p.role, '') AS role,
+            COALESCE(p.status, '') AS status,
+            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
+            COALESCE(p.vehicle_type, '') AS vehicle_type,
+            COALESCE(p.motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(p.motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(p.motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            p.motor_purchase_start_date,
+            COALESCE(p.motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(p.motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(p.motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
+            COALESCE(p.current_plate, '') AS current_plate,
+            COALESCE(
+                (
+                    SELECT COUNT(*)
+                    FROM personnel_vehicle_history pvh
+                    WHERE pvh.personnel_id = p.id
+                ),
+                0
+            ) AS vehicle_history_count
+        FROM personnel p
+        LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+        ORDER BY
+            CASE WHEN COALESCE(p.status, '') = 'Aktif' THEN 0 ELSE 1 END,
+            CASE WHEN COALESCE(p.vehicle_type, '') = 'Çat Kapında' THEN 0 ELSE 1 END,
+            p.full_name,
+            p.id DESC
+        LIMIT %s
+        """,
+        (limit,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def fetch_recent_vehicle_history_records(
+    conn: psycopg.Connection,
+    *,
+    limit: int,
+) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            pvh.id,
+            pvh.personnel_id,
+            COALESCE(p.person_code, '') AS person_code,
+            COALESCE(p.full_name, '') AS full_name,
+            COALESCE(p.role, '') AS role,
+            COALESCE(p.status, '') AS status,
+            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
+            COALESCE(p.current_plate, '') AS current_plate,
+            COALESCE(pvh.vehicle_type, '') AS vehicle_type,
+            COALESCE(pvh.motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(pvh.motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(pvh.motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            pvh.motor_purchase_start_date,
+            COALESCE(pvh.motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(pvh.motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(pvh.motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
+            pvh.effective_date,
+            COALESCE(pvh.notes, '') AS notes
+        FROM personnel_vehicle_history pvh
+        JOIN personnel p ON p.id = pvh.personnel_id
+        LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+        ORDER BY
+            COALESCE(pvh.effective_date, DATE(pvh.changed_at)) DESC,
+            pvh.id DESC
+        LIMIT %s
+        """,
+        (limit,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def count_total_vehicle_history_records(conn: psycopg.Connection) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM personnel_vehicle_history
+        """
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_active_motor_rental_cards(conn: psycopg.Connection) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM personnel
+        WHERE COALESCE(status, '') = 'Aktif'
+          AND COALESCE(motor_rental, 'Hayır') = 'Evet'
+        """
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_active_motor_sale_cards(conn: psycopg.Connection) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM personnel
+        WHERE COALESCE(status, '') = 'Aktif'
+          AND COALESCE(motor_purchase, 'Hayır') = 'Evet'
+        """
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_vehicle_history_records_for_personnel(
+    conn: psycopg.Connection,
+    person_id: int,
+) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM personnel_vehicle_history
+        WHERE personnel_id = %s
+        """,
+        (person_id,),
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def fetch_latest_vehicle_history_record(
+    conn: psycopg.Connection,
+    person_id: int,
+) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT
+            id,
+            vehicle_type,
+            motor_rental,
+            motor_rental_monthly_amount,
+            motor_purchase,
+            motor_purchase_start_date,
+            motor_purchase_commitment_months,
+            motor_purchase_sale_price,
+            motor_purchase_monthly_deduction,
+            effective_date,
+            notes
+        FROM personnel_vehicle_history
+        WHERE personnel_id = %s
+        ORDER BY COALESCE(effective_date, DATE(changed_at)) DESC, id DESC
+        LIMIT 1
+        """,
+        (person_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def insert_vehicle_history_record(
+    conn: psycopg.Connection,
+    *,
+    personnel_id: int,
+    vehicle_type: str,
+    motor_rental: str,
+    motor_rental_monthly_amount: float,
+    motor_purchase: str,
+    motor_purchase_start_date: str | None,
+    motor_purchase_commitment_months: int,
+    motor_purchase_sale_price: float,
+    motor_purchase_monthly_deduction: float,
+    effective_date: str,
+    notes: str,
+) -> int:
+    row = conn.execute(
+        """
+        INSERT INTO personnel_vehicle_history (
+            personnel_id,
+            vehicle_type,
+            motor_rental,
+            motor_rental_monthly_amount,
+            motor_purchase,
+            motor_purchase_start_date,
+            motor_purchase_commitment_months,
+            motor_purchase_sale_price,
+            motor_purchase_monthly_deduction,
+            effective_date,
+            changed_at,
+            notes
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)
+        RETURNING id
+        """,
+        (
+            personnel_id,
+            vehicle_type,
+            motor_rental,
+            motor_rental_monthly_amount,
+            motor_purchase,
+            motor_purchase_start_date,
+            motor_purchase_commitment_months,
+            motor_purchase_sale_price,
+            motor_purchase_monthly_deduction,
+            effective_date,
+            notes,
+        ),
+    ).fetchone()
+    return int(row["id"])
+
+
+def update_personnel_vehicle_fields(
+    conn: psycopg.Connection,
+    person_id: int,
+    *,
+    vehicle_type: str,
+    motor_rental: str,
+    motor_rental_monthly_amount: float,
+    motor_purchase: str,
+    motor_purchase_start_date: str | None,
+    motor_purchase_commitment_months: int,
+    motor_purchase_sale_price: float,
+    motor_purchase_monthly_deduction: float,
+) -> None:
+    conn.execute(
+        """
+        UPDATE personnel
+        SET
+            vehicle_type = %s,
+            motor_rental = %s,
+            motor_rental_monthly_amount = %s,
+            motor_purchase = %s,
+            motor_purchase_start_date = %s,
+            motor_purchase_commitment_months = %s,
+            motor_purchase_sale_price = %s,
+            motor_purchase_monthly_deduction = %s
+        WHERE id = %s
+        """,
+        (
+            vehicle_type,
+            motor_rental,
+            motor_rental_monthly_amount,
+            motor_purchase,
+            motor_purchase_start_date,
+            motor_purchase_commitment_months,
+            motor_purchase_sale_price,
+            motor_purchase_monthly_deduction,
+            person_id,
+        ),
     )
 
 

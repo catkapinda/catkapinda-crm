@@ -8,6 +8,8 @@ import psycopg
 from app.core.auth_sync import sync_mobile_auth_user_for_personnel
 from app.repositories.personnel import (
     close_active_plate_history_records,
+    count_active_motor_rental_cards,
+    count_active_motor_sale_cards,
     count_active_personnel_records,
     count_personnel_linked_box_returns,
     count_personnel_linked_daily_entries,
@@ -21,6 +23,8 @@ from app.repositories.personnel import (
     count_active_plate_history_records,
     count_personnel_management_records,
     count_plate_history_records_for_personnel,
+    count_total_vehicle_history_records,
+    count_vehicle_history_records_for_personnel,
     count_distinct_role_history_roles,
     count_role_history_records_for_personnel,
     count_total_role_history_records,
@@ -30,22 +34,28 @@ from app.repositories.personnel import (
     fetch_person_code_values,
     fetch_personnel_plate_baseline_candidates,
     fetch_personnel_plate_candidates,
+    fetch_personnel_vehicle_baseline_candidates,
+    fetch_personnel_vehicle_candidates,
     fetch_personnel_role_baseline_candidates,
     fetch_personnel_role_candidates,
     fetch_recent_plate_history_records,
     fetch_recent_role_history_records,
+    fetch_recent_vehicle_history_records,
     fetch_personnel_management_records,
     fetch_personnel_record_by_id,
     fetch_personnel_restaurants,
     fetch_personnel_summary,
     fetch_recent_personnel_records,
     fetch_latest_role_history_record,
+    fetch_latest_vehicle_history_record,
     insert_plate_history_record,
     insert_personnel_record,
     insert_role_history_record,
+    insert_vehicle_history_record,
     update_personnel_current_plate,
     update_personnel_role_fields,
     update_personnel_status,
+    update_personnel_vehicle_fields,
     update_personnel_record,
 )
 from app.schemas.personnel import (
@@ -67,6 +77,12 @@ from app.schemas.personnel import (
     PersonnelRoleHistoryEntry,
     PersonnelRoleSummary,
     PersonnelRoleWorkspaceResponse,
+    PersonnelVehicleCandidateEntry,
+    PersonnelVehicleCreateRequest,
+    PersonnelVehicleCreateResponse,
+    PersonnelVehicleHistoryEntry,
+    PersonnelVehicleSummary,
+    PersonnelVehicleWorkspaceResponse,
     PersonnelManagementEntry,
     PersonnelManagementResponse,
     PersonnelModuleStatus,
@@ -167,6 +183,32 @@ def _derive_vehicle_mode(row: dict[str, object]) -> str:
     if vehicle_type == "Çat Kapında" and motor_rental == "Evet":
         return "Cat Kapinda Motor Kirasi"
     return "Kendi Motoru"
+
+
+def _build_vehicle_payload(
+    *,
+    vehicle_mode: str,
+    motor_rental_monthly_amount: float,
+    motor_purchase_start_date: date | None,
+    motor_purchase_commitment_months: int,
+    motor_purchase_sale_price: float,
+    motor_purchase_monthly_deduction: float,
+) -> dict[str, object]:
+    vehicle_fields = _resolve_vehicle_fields(vehicle_mode)
+    normalized_vehicle_mode = _normalize_vehicle_mode(vehicle_mode)
+    return {
+        **vehicle_fields,
+        "motor_rental_monthly_amount": float(motor_rental_monthly_amount or 0),
+        "motor_purchase_start_date": (
+            motor_purchase_start_date.isoformat()
+            if isinstance(motor_purchase_start_date, date)
+            else None
+        ),
+        "motor_purchase_commitment_months": int(motor_purchase_commitment_months or 0),
+        "motor_purchase_sale_price": float(motor_purchase_sale_price or 0),
+        "motor_purchase_monthly_deduction": float(motor_purchase_monthly_deduction or 0),
+        "vehicle_mode": normalized_vehicle_mode,
+    }
 
 
 def _role_code_prefix(role: str) -> str:
@@ -307,6 +349,118 @@ def _sync_plate_history_after_personnel_write(
             reason=reason,
             active=True,
         )
+
+
+def _sync_personnel_vehicle_history_baselines(conn: psycopg.Connection) -> None:
+    changed = False
+    for row in fetch_personnel_vehicle_baseline_candidates(conn):
+        if int(row.get("vehicle_history_count") or 0) > 0:
+            continue
+        vehicle_mode = _derive_vehicle_mode(row)
+        payload = _build_vehicle_payload(
+            vehicle_mode=vehicle_mode,
+            motor_rental_monthly_amount=float(row.get("motor_rental_monthly_amount") or 0),
+            motor_purchase_start_date=row.get("motor_purchase_start_date"),
+            motor_purchase_commitment_months=int(row.get("motor_purchase_commitment_months") or 0),
+            motor_purchase_sale_price=float(row.get("motor_purchase_sale_price") or 0),
+            motor_purchase_monthly_deduction=float(row.get("motor_purchase_monthly_deduction") or 0),
+        )
+        start_date = row.get("start_date")
+        insert_vehicle_history_record(
+            conn,
+            personnel_id=int(row["id"]),
+            vehicle_type=str(payload["vehicle_type"] or ""),
+            motor_rental=str(payload["motor_rental"] or "Hayır"),
+            motor_rental_monthly_amount=float(payload["motor_rental_monthly_amount"] or 0),
+            motor_purchase=str(payload["motor_purchase"] or "Hayır"),
+            motor_purchase_start_date=str(payload["motor_purchase_start_date"] or "") or None,
+            motor_purchase_commitment_months=int(payload["motor_purchase_commitment_months"] or 0),
+            motor_purchase_sale_price=float(payload["motor_purchase_sale_price"] or 0),
+            motor_purchase_monthly_deduction=float(payload["motor_purchase_monthly_deduction"] or 0),
+            effective_date=(
+                start_date.isoformat()
+                if isinstance(start_date, date)
+                else str(start_date or date.today().isoformat())
+            ),
+            notes="Sistem: Başlangıç motor kaydı",
+        )
+        changed = True
+    if changed:
+        conn.commit()
+
+
+def _sync_vehicle_history_after_personnel_write(
+    conn: psycopg.Connection,
+    *,
+    person_id: int,
+    previous_vehicle_mode: str,
+    current_vehicle_mode: str,
+    motor_rental_monthly_amount: float,
+    motor_purchase_start_date: date | None,
+    motor_purchase_commitment_months: int,
+    motor_purchase_sale_price: float,
+    motor_purchase_monthly_deduction: float,
+    effective_date: date | None,
+    reason: str,
+) -> None:
+    normalized_current_mode = _normalize_vehicle_mode(current_vehicle_mode)
+    current_payload = _build_vehicle_payload(
+        vehicle_mode=normalized_current_mode,
+        motor_rental_monthly_amount=motor_rental_monthly_amount,
+        motor_purchase_start_date=motor_purchase_start_date,
+        motor_purchase_commitment_months=motor_purchase_commitment_months,
+        motor_purchase_sale_price=motor_purchase_sale_price,
+        motor_purchase_monthly_deduction=motor_purchase_monthly_deduction,
+    )
+    latest_row = fetch_latest_vehicle_history_record(conn, person_id)
+    effective_date_text = (effective_date or date.today()).isoformat()
+
+    if _normalize_vehicle_mode(previous_vehicle_mode) == normalized_current_mode and latest_row is None:
+        insert_vehicle_history_record(
+            conn,
+            personnel_id=person_id,
+            vehicle_type=str(current_payload["vehicle_type"] or ""),
+            motor_rental=str(current_payload["motor_rental"] or "Hayır"),
+            motor_rental_monthly_amount=float(current_payload["motor_rental_monthly_amount"] or 0),
+            motor_purchase=str(current_payload["motor_purchase"] or "Hayır"),
+            motor_purchase_start_date=str(current_payload["motor_purchase_start_date"] or "") or None,
+            motor_purchase_commitment_months=int(current_payload["motor_purchase_commitment_months"] or 0),
+            motor_purchase_sale_price=float(current_payload["motor_purchase_sale_price"] or 0),
+            motor_purchase_monthly_deduction=float(current_payload["motor_purchase_monthly_deduction"] or 0),
+            effective_date=effective_date_text,
+            notes=reason,
+        )
+        return
+
+    if latest_row:
+        latest_mode = _derive_vehicle_mode(latest_row)
+        latest_start_date = str(latest_row.get("motor_purchase_start_date") or "") or None
+        if (
+            latest_mode == normalized_current_mode
+            and float(latest_row.get("motor_rental_monthly_amount") or 0) == float(current_payload["motor_rental_monthly_amount"] or 0)
+            and int(latest_row.get("motor_purchase_commitment_months") or 0)
+            == int(current_payload["motor_purchase_commitment_months"] or 0)
+            and float(latest_row.get("motor_purchase_sale_price") or 0) == float(current_payload["motor_purchase_sale_price"] or 0)
+            and float(latest_row.get("motor_purchase_monthly_deduction") or 0)
+            == float(current_payload["motor_purchase_monthly_deduction"] or 0)
+            and latest_start_date == (str(current_payload["motor_purchase_start_date"] or "") or None)
+        ):
+            return
+
+    insert_vehicle_history_record(
+        conn,
+        personnel_id=person_id,
+        vehicle_type=str(current_payload["vehicle_type"] or ""),
+        motor_rental=str(current_payload["motor_rental"] or "Hayır"),
+        motor_rental_monthly_amount=float(current_payload["motor_rental_monthly_amount"] or 0),
+        motor_purchase=str(current_payload["motor_purchase"] or "Hayır"),
+        motor_purchase_start_date=str(current_payload["motor_purchase_start_date"] or "") or None,
+        motor_purchase_commitment_months=int(current_payload["motor_purchase_commitment_months"] or 0),
+        motor_purchase_sale_price=float(current_payload["motor_purchase_sale_price"] or 0),
+        motor_purchase_monthly_deduction=float(current_payload["motor_purchase_monthly_deduction"] or 0),
+        effective_date=effective_date_text,
+        notes=reason,
+    )
 
 
 def _sync_personnel_role_history_baselines(conn: psycopg.Connection) -> None:
@@ -561,6 +715,64 @@ def build_personnel_role_workspace(
     )
 
 
+def build_personnel_vehicle_workspace(
+    conn: psycopg.Connection,
+    *,
+    limit: int,
+) -> PersonnelVehicleWorkspaceResponse:
+    _sync_personnel_vehicle_history_baselines(conn)
+    people = fetch_personnel_vehicle_candidates(conn, limit=limit)
+    history_rows = fetch_recent_vehicle_history_records(conn, limit=limit)
+    return PersonnelVehicleWorkspaceResponse(
+        summary=PersonnelVehicleSummary(
+            total_history_records=count_total_vehicle_history_records(conn),
+            active_catkapinda_vehicle_personnel=count_active_catkapinda_vehicle_personnel(conn),
+            rental_cards=count_active_motor_rental_cards(conn),
+            sale_cards=count_active_motor_sale_cards(conn),
+        ),
+        people=[
+            PersonnelVehicleCandidateEntry(
+                id=int(row["id"]),
+                person_code=str(row["person_code"] or ""),
+                full_name=str(row["full_name"] or ""),
+                role=_display_role(str(row["role"] or "")),
+                status=str(row["status"] or ""),
+                restaurant_label=str(row["restaurant_label"] or "-"),
+                vehicle_mode=_display_vehicle_mode(_derive_vehicle_mode(row)),
+                current_plate=str(row["current_plate"] or ""),
+                motor_rental_monthly_amount=float(row["motor_rental_monthly_amount"] or 0),
+                motor_purchase_start_date=row["motor_purchase_start_date"],
+                motor_purchase_commitment_months=int(row["motor_purchase_commitment_months"] or 0),
+                motor_purchase_sale_price=float(row["motor_purchase_sale_price"] or 0),
+                motor_purchase_monthly_deduction=float(row["motor_purchase_monthly_deduction"] or 0),
+                vehicle_history_count=int(row["vehicle_history_count"] or 0),
+            )
+            for row in people
+        ],
+        history=[
+            PersonnelVehicleHistoryEntry(
+                id=int(row["id"]),
+                personnel_id=int(row["personnel_id"]),
+                person_code=str(row["person_code"] or ""),
+                full_name=str(row["full_name"] or ""),
+                role=_display_role(str(row["role"] or "")),
+                status=str(row["status"] or ""),
+                restaurant_label=str(row["restaurant_label"] or "-"),
+                vehicle_mode=_display_vehicle_mode(_derive_vehicle_mode(row)),
+                current_plate=str(row["current_plate"] or ""),
+                motor_rental_monthly_amount=float(row["motor_rental_monthly_amount"] or 0),
+                motor_purchase_start_date=row["motor_purchase_start_date"],
+                motor_purchase_commitment_months=int(row["motor_purchase_commitment_months"] or 0),
+                motor_purchase_sale_price=float(row["motor_purchase_sale_price"] or 0),
+                motor_purchase_monthly_deduction=float(row["motor_purchase_monthly_deduction"] or 0),
+                effective_date=row["effective_date"],
+                notes=str(row["notes"] or ""),
+            )
+            for row in history_rows
+        ],
+    )
+
+
 def create_personnel_role_history_entry(
     conn: psycopg.Connection,
     *,
@@ -595,6 +807,60 @@ def create_personnel_role_history_entry(
         personnel_id=payload.personnel_id,
         role=_display_role(normalized_role),
         message="Rol geçmişi güncellendi.",
+    )
+
+
+def create_personnel_vehicle_history_entry(
+    conn: psycopg.Connection,
+    *,
+    payload: PersonnelVehicleCreateRequest,
+) -> PersonnelVehicleCreateResponse:
+    row = fetch_personnel_record_by_id(conn, payload.personnel_id)
+    if row is None:
+        raise LookupError("Personel kaydı bulunamadı.")
+
+    normalized_vehicle_mode = _normalize_vehicle_mode(payload.vehicle_mode)
+    effective_date = payload.effective_date or date.today()
+    vehicle_payload = _build_vehicle_payload(
+        vehicle_mode=normalized_vehicle_mode,
+        motor_rental_monthly_amount=float(payload.motor_rental_monthly_amount or 0),
+        motor_purchase_start_date=payload.motor_purchase_start_date,
+        motor_purchase_commitment_months=int(payload.motor_purchase_commitment_months or 0),
+        motor_purchase_sale_price=float(payload.motor_purchase_sale_price or 0),
+        motor_purchase_monthly_deduction=float(payload.motor_purchase_monthly_deduction or 0),
+    )
+    history_id = insert_vehicle_history_record(
+        conn,
+        personnel_id=payload.personnel_id,
+        vehicle_type=str(vehicle_payload["vehicle_type"] or ""),
+        motor_rental=str(vehicle_payload["motor_rental"] or "Hayır"),
+        motor_rental_monthly_amount=float(vehicle_payload["motor_rental_monthly_amount"] or 0),
+        motor_purchase=str(vehicle_payload["motor_purchase"] or "Hayır"),
+        motor_purchase_start_date=str(vehicle_payload["motor_purchase_start_date"] or "") or None,
+        motor_purchase_commitment_months=int(vehicle_payload["motor_purchase_commitment_months"] or 0),
+        motor_purchase_sale_price=float(vehicle_payload["motor_purchase_sale_price"] or 0),
+        motor_purchase_monthly_deduction=float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
+        effective_date=effective_date.isoformat(),
+        notes=str(payload.notes or "").strip() or "Sistem: Motor geçiş kaydı",
+    )
+    update_personnel_vehicle_fields(
+        conn,
+        payload.personnel_id,
+        vehicle_type=str(vehicle_payload["vehicle_type"] or ""),
+        motor_rental=str(vehicle_payload["motor_rental"] or "Hayır"),
+        motor_rental_monthly_amount=float(vehicle_payload["motor_rental_monthly_amount"] or 0),
+        motor_purchase=str(vehicle_payload["motor_purchase"] or "Hayır"),
+        motor_purchase_start_date=str(vehicle_payload["motor_purchase_start_date"] or "") or None,
+        motor_purchase_commitment_months=int(vehicle_payload["motor_purchase_commitment_months"] or 0),
+        motor_purchase_sale_price=float(vehicle_payload["motor_purchase_sale_price"] or 0),
+        motor_purchase_monthly_deduction=float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
+    )
+    conn.commit()
+    return PersonnelVehicleCreateResponse(
+        history_id=history_id,
+        personnel_id=payload.personnel_id,
+        vehicle_mode=_display_vehicle_mode(normalized_vehicle_mode),
+        message="Motor geçmişi güncellendi.",
     )
 
 
@@ -665,7 +931,14 @@ def create_personnel_record(
     )
     normalized_status = payload.status if payload.status in PERSONNEL_STATUS_OPTIONS else "Aktif"
     person_code = _build_next_person_code(conn, role=normalized_role)
-    vehicle_fields = _resolve_vehicle_fields(normalized_vehicle_mode)
+    vehicle_payload = _build_vehicle_payload(
+        vehicle_mode=normalized_vehicle_mode,
+        motor_rental_monthly_amount=float(payload.motor_rental_monthly_amount or 0),
+        motor_purchase_start_date=payload.motor_purchase_start_date,
+        motor_purchase_commitment_months=int(payload.motor_purchase_commitment_months or 0),
+        motor_purchase_sale_price=float(payload.motor_purchase_sale_price or 0),
+        motor_purchase_monthly_deduction=float(payload.motor_purchase_monthly_deduction or 0),
+    )
     person_id = insert_personnel_record(
         conn,
         {
@@ -677,9 +950,14 @@ def create_personnel_record(
             "accounting_type": "Kendi Muhasebecisi",
             "new_company_setup": "Hayır",
             "assigned_restaurant_id": payload.assigned_restaurant_id,
-            "vehicle_type": vehicle_fields["vehicle_type"],
-            "motor_rental": vehicle_fields["motor_rental"],
-            "motor_purchase": vehicle_fields["motor_purchase"],
+            "vehicle_type": vehicle_payload["vehicle_type"],
+            "motor_rental": vehicle_payload["motor_rental"],
+            "motor_purchase": vehicle_payload["motor_purchase"],
+            "motor_rental_monthly_amount": float(vehicle_payload["motor_rental_monthly_amount"] or 0),
+            "motor_purchase_start_date": vehicle_payload["motor_purchase_start_date"],
+            "motor_purchase_commitment_months": int(vehicle_payload["motor_purchase_commitment_months"] or 0),
+            "motor_purchase_sale_price": float(vehicle_payload["motor_purchase_sale_price"] or 0),
+            "motor_purchase_monthly_deduction": float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
             "current_plate": str(payload.current_plate or "").strip() if allow_vehicle_fields else "",
             "start_date": payload.start_date,
             "exit_date": date.today().isoformat() if normalized_status == "Pasif" else None,
@@ -695,6 +973,19 @@ def create_personnel_record(
         current_plate=str(payload.current_plate or "").strip() if allow_vehicle_fields else "",
         effective_date=payload.start_date,
         reason="Sistem: Başlangıç plakası",
+    )
+    _sync_vehicle_history_after_personnel_write(
+        conn,
+        person_id=person_id,
+        previous_vehicle_mode="",
+        current_vehicle_mode=normalized_vehicle_mode,
+        motor_rental_monthly_amount=float(vehicle_payload["motor_rental_monthly_amount"] or 0),
+        motor_purchase_start_date=payload.motor_purchase_start_date,
+        motor_purchase_commitment_months=int(vehicle_payload["motor_purchase_commitment_months"] or 0),
+        motor_purchase_sale_price=float(vehicle_payload["motor_purchase_sale_price"] or 0),
+        motor_purchase_monthly_deduction=float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
+        effective_date=payload.start_date,
+        reason="Sistem: Başlangıç motor kaydı",
     )
     _sync_role_history_after_personnel_write(
         conn,
@@ -738,17 +1029,31 @@ def update_personnel_record_entry(
     if _role_code_prefix(existing_row.get("role") or "") != _role_code_prefix(normalized_role):
         person_code = next_person_code
 
+    previous_vehicle_mode = _derive_vehicle_mode(existing_row)
     if allow_vehicle_fields:
         normalized_vehicle_mode = _normalize_vehicle_mode(payload.vehicle_mode)
-        vehicle_fields = _resolve_vehicle_fields(normalized_vehicle_mode)
+        vehicle_payload = _build_vehicle_payload(
+            vehicle_mode=normalized_vehicle_mode,
+            motor_rental_monthly_amount=float(payload.motor_rental_monthly_amount or 0),
+            motor_purchase_start_date=payload.motor_purchase_start_date,
+            motor_purchase_commitment_months=int(payload.motor_purchase_commitment_months or 0),
+            motor_purchase_sale_price=float(payload.motor_purchase_sale_price or 0),
+            motor_purchase_monthly_deduction=float(payload.motor_purchase_monthly_deduction or 0),
+        )
         current_plate = str(payload.current_plate or "").strip()
         previous_plate = str(existing_row.get("current_plate") or "").strip()
     else:
-        vehicle_fields = {
+        vehicle_payload = {
             "vehicle_type": str(existing_row.get("vehicle_type") or ""),
             "motor_rental": str(existing_row.get("motor_rental") or "Hayır"),
             "motor_purchase": str(existing_row.get("motor_purchase") or "Hayır"),
+            "motor_rental_monthly_amount": float(existing_row.get("motor_rental_monthly_amount") or 0),
+            "motor_purchase_start_date": existing_row.get("motor_purchase_start_date"),
+            "motor_purchase_commitment_months": int(existing_row.get("motor_purchase_commitment_months") or 0),
+            "motor_purchase_sale_price": float(existing_row.get("motor_purchase_sale_price") or 0),
+            "motor_purchase_monthly_deduction": float(existing_row.get("motor_purchase_monthly_deduction") or 0),
         }
+        normalized_vehicle_mode = previous_vehicle_mode
         current_plate = str(existing_row.get("current_plate") or "")
         previous_plate = current_plate
     update_personnel_record(
@@ -761,9 +1066,14 @@ def update_personnel_record_entry(
             "status": normalized_status,
             "phone": str(payload.phone or "").strip(),
             "assigned_restaurant_id": payload.assigned_restaurant_id,
-            "vehicle_type": vehicle_fields["vehicle_type"],
-            "motor_rental": vehicle_fields["motor_rental"],
-            "motor_purchase": vehicle_fields["motor_purchase"],
+            "vehicle_type": vehicle_payload["vehicle_type"],
+            "motor_rental": vehicle_payload["motor_rental"],
+            "motor_purchase": vehicle_payload["motor_purchase"],
+            "motor_rental_monthly_amount": float(vehicle_payload["motor_rental_monthly_amount"] or 0),
+            "motor_purchase_start_date": vehicle_payload["motor_purchase_start_date"],
+            "motor_purchase_commitment_months": int(vehicle_payload["motor_purchase_commitment_months"] or 0),
+            "motor_purchase_sale_price": float(vehicle_payload["motor_purchase_sale_price"] or 0),
+            "motor_purchase_monthly_deduction": float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
             "current_plate": current_plate,
             "start_date": payload.start_date,
             "exit_date": date.today().isoformat() if normalized_status == "Pasif" else None,
@@ -780,6 +1090,19 @@ def update_personnel_record_entry(
             current_plate=current_plate,
             effective_date=date.today(),
             reason="Sistem: Personel kartından plaka değişimi",
+        )
+        _sync_vehicle_history_after_personnel_write(
+            conn,
+            person_id=person_id,
+            previous_vehicle_mode=previous_vehicle_mode,
+            current_vehicle_mode=normalized_vehicle_mode,
+            motor_rental_monthly_amount=float(vehicle_payload["motor_rental_monthly_amount"] or 0),
+            motor_purchase_start_date=payload.motor_purchase_start_date,
+            motor_purchase_commitment_months=int(vehicle_payload["motor_purchase_commitment_months"] or 0),
+            motor_purchase_sale_price=float(vehicle_payload["motor_purchase_sale_price"] or 0),
+            motor_purchase_monthly_deduction=float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
+            effective_date=date.today(),
+            reason="Sistem: Personel kartından motor geçişi",
         )
     _sync_role_history_after_personnel_write(
         conn,

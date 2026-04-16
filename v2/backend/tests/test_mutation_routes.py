@@ -412,6 +412,88 @@ def test_personnel_role_routes(monkeypatch):
     assert create_response.json()["history_id"] == 55
 
 
+def test_personnel_vehicle_routes(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.personnel.create_personnel_vehicle_history_entry",
+        lambda conn, payload: {
+            "history_id": 77,
+            "personnel_id": payload.personnel_id,
+            "vehicle_mode": payload.vehicle_mode,
+            "message": "Motor geçmişi güncellendi.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.personnel.build_personnel_vehicle_workspace",
+        lambda conn, limit: {
+            "summary": {
+                "total_history_records": 6,
+                "active_catkapinda_vehicle_personnel": 4,
+                "rental_cards": 2,
+                "sale_cards": 1,
+            },
+            "people": [
+                {
+                    "id": 9,
+                    "person_code": "CK-K09",
+                    "full_name": "Motor Test",
+                    "role": "Kurye",
+                    "status": "Aktif",
+                    "restaurant_label": "Test - Şube",
+                    "vehicle_mode": "Çat Kapında Motor Satışı",
+                    "current_plate": "34 TEST 09",
+                    "motor_rental_monthly_amount": 0,
+                    "motor_purchase_start_date": "2026-04-17",
+                    "motor_purchase_commitment_months": 12,
+                    "motor_purchase_sale_price": 85000,
+                    "motor_purchase_monthly_deduction": 7000,
+                    "vehicle_history_count": 2,
+                }
+            ],
+            "history": [
+                {
+                    "id": 77,
+                    "personnel_id": 9,
+                    "person_code": "CK-K09",
+                    "full_name": "Motor Test",
+                    "role": "Kurye",
+                    "status": "Aktif",
+                    "restaurant_label": "Test - Şube",
+                    "vehicle_mode": "Çat Kapında Motor Satışı",
+                    "current_plate": "34 TEST 09",
+                    "motor_rental_monthly_amount": 0,
+                    "motor_purchase_start_date": "2026-04-17",
+                    "motor_purchase_commitment_months": 12,
+                    "motor_purchase_sale_price": 85000,
+                    "motor_purchase_monthly_deduction": 7000,
+                    "effective_date": "2026-04-17",
+                    "notes": "Motor geçişi",
+                }
+            ],
+        },
+    )
+    client = _build_client()
+
+    workspace_response = client.get("/api/personnel/vehicle-workspace")
+    create_response = client.post(
+        "/api/personnel/vehicle-history",
+        json={
+            "personnel_id": 9,
+            "vehicle_mode": "Çat Kapında Motor Satışı",
+            "motor_purchase_start_date": "2026-04-17",
+            "motor_purchase_commitment_months": 12,
+            "motor_purchase_sale_price": 85000,
+            "motor_purchase_monthly_deduction": 7000,
+            "effective_date": "2026-04-17",
+            "notes": "Motor geçişi",
+        },
+    )
+
+    assert workspace_response.status_code == 200
+    assert workspace_response.json()["summary"]["sale_cards"] == 1
+    assert create_response.status_code == 201
+    assert create_response.json()["history_id"] == 77
+
+
 def test_deductions_mutation_routes(monkeypatch):
     audit_calls = []
     monkeypatch.setattr(

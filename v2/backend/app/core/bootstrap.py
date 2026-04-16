@@ -108,11 +108,26 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
         id BIGSERIAL PRIMARY KEY,
         personnel_id BIGINT NOT NULL,
         vehicle_type TEXT,
-        plate TEXT,
+        motor_rental TEXT,
+        motor_rental_monthly_amount NUMERIC NOT NULL DEFAULT 13000,
+        motor_purchase TEXT,
+        motor_purchase_start_date DATE,
+        motor_purchase_commitment_months BIGINT,
+        motor_purchase_sale_price NUMERIC NOT NULL DEFAULT 0,
+        motor_purchase_monthly_deduction NUMERIC NOT NULL DEFAULT 0,
+        effective_date DATE,
         changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
         notes TEXT
     )
     """,
+    "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS motor_rental TEXT",
+    "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS motor_rental_monthly_amount NUMERIC NOT NULL DEFAULT 13000",
+    "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS motor_purchase TEXT",
+    "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS motor_purchase_start_date DATE",
+    "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS motor_purchase_commitment_months BIGINT",
+    "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS motor_purchase_sale_price NUMERIC NOT NULL DEFAULT 0",
+    "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS motor_purchase_monthly_deduction NUMERIC NOT NULL DEFAULT 0",
+    "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS effective_date DATE",
     """
     CREATE TABLE IF NOT EXISTS plate_history (
         id BIGSERIAL PRIMARY KEY,
@@ -124,6 +139,12 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
         active BOOLEAN NOT NULL DEFAULT TRUE
     )
     """,
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS motor_rental_monthly_amount NUMERIC NOT NULL DEFAULT 13000",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS motor_purchase TEXT DEFAULT 'Hayır'",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS motor_purchase_start_date DATE",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS motor_purchase_commitment_months BIGINT",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS motor_purchase_sale_price NUMERIC NOT NULL DEFAULT 0",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS motor_purchase_monthly_deduction NUMERIC NOT NULL DEFAULT 0",
     """
     CREATE TABLE IF NOT EXISTS sales_leads (
         id BIGSERIAL PRIMARY KEY,
@@ -239,7 +260,14 @@ AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         personnel_id INTEGER NOT NULL,
         vehicle_type TEXT,
-        plate TEXT,
+        motor_rental TEXT,
+        motor_rental_monthly_amount REAL NOT NULL DEFAULT 13000,
+        motor_purchase TEXT,
+        motor_purchase_start_date TEXT,
+        motor_purchase_commitment_months INTEGER,
+        motor_purchase_sale_price REAL NOT NULL DEFAULT 0,
+        motor_purchase_monthly_deduction REAL NOT NULL DEFAULT 0,
+        effective_date TEXT,
         changed_at TEXT NOT NULL,
         notes TEXT
     )
@@ -301,6 +329,7 @@ LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
         ("motor_purchase", "ALTER TABLE personnel ADD COLUMN motor_purchase TEXT DEFAULT 'Hayır'"),
         ("motor_purchase_start_date", "ALTER TABLE personnel ADD COLUMN motor_purchase_start_date TEXT"),
         ("motor_purchase_commitment_months", "ALTER TABLE personnel ADD COLUMN motor_purchase_commitment_months INTEGER"),
+        ("motor_purchase_sale_price", "ALTER TABLE personnel ADD COLUMN motor_purchase_sale_price REAL DEFAULT 0"),
         ("motor_purchase_monthly_deduction", "ALTER TABLE personnel ADD COLUMN motor_purchase_monthly_deduction REAL DEFAULT 0"),
         ("sgk_job_code", "ALTER TABLE personnel ADD COLUMN sgk_job_code TEXT"),
     ),
@@ -319,6 +348,16 @@ LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
         ("cost_model", "ALTER TABLE personnel_role_history ADD COLUMN cost_model TEXT"),
         ("monthly_fixed_cost", "ALTER TABLE personnel_role_history ADD COLUMN monthly_fixed_cost REAL DEFAULT 0"),
         ("effective_date", "ALTER TABLE personnel_role_history ADD COLUMN effective_date TEXT"),
+    ),
+    "personnel_vehicle_history": (
+        ("motor_rental", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_rental TEXT"),
+        ("motor_rental_monthly_amount", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_rental_monthly_amount REAL DEFAULT 13000"),
+        ("motor_purchase", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase TEXT"),
+        ("motor_purchase_start_date", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase_start_date TEXT"),
+        ("motor_purchase_commitment_months", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase_commitment_months INTEGER"),
+        ("motor_purchase_sale_price", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase_sale_price REAL DEFAULT 0"),
+        ("motor_purchase_monthly_deduction", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase_monthly_deduction REAL DEFAULT 0"),
+        ("effective_date", "ALTER TABLE personnel_vehicle_history ADD COLUMN effective_date TEXT"),
     ),
 }
 

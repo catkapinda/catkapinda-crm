@@ -179,6 +179,9 @@ def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
         ).fetchone()
         daily_entry_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(daily_entries)").fetchall()}
         personnel_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(personnel)").fetchall()}
+        vehicle_history_cols = {
+            row[1] for row in raw_conn.execute("PRAGMA table_info(personnel_vehicle_history)").fetchall()
+        }
         restaurant_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(restaurants)").fetchall()}
         deduction_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(deductions)").fetchall()}
         equipment_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(courier_equipment_issues)").fetchall()}
@@ -191,7 +194,17 @@ def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
     assert plate_history_table is not None
     assert sales_table is not None
     assert {"monthly_invoice_amount", "absence_reason", "coverage_type"} <= daily_entry_cols
-    assert {"motor_purchase", "address"} <= personnel_cols
+    assert {"motor_purchase", "motor_purchase_sale_price", "address"} <= personnel_cols
+    assert {
+        "motor_rental",
+        "motor_rental_monthly_amount",
+        "motor_purchase",
+        "motor_purchase_start_date",
+        "motor_purchase_commitment_months",
+        "motor_purchase_sale_price",
+        "motor_purchase_monthly_deduction",
+        "effective_date",
+    } <= vehicle_history_cols
     assert {"company_title", "address"} <= restaurant_cols
     assert {"auto_source_key"} <= deduction_cols
     assert {"vat_rate", "auto_source_key"} <= equipment_cols

@@ -328,6 +328,66 @@ def test_personnel_role_workspace_route_smoke(monkeypatch):
     assert payload["people"][0]["role_history_count"] == 3
 
 
+def test_personnel_vehicle_workspace_route_smoke(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.personnel.build_personnel_vehicle_workspace",
+        lambda conn, limit: {
+            "summary": {
+                "total_history_records": 8,
+                "active_catkapinda_vehicle_personnel": 5,
+                "rental_cards": 2,
+                "sale_cards": 1,
+            },
+            "people": [
+                {
+                    "id": 31,
+                    "person_code": "CK-K31",
+                    "full_name": "Motor Görünümü",
+                    "role": "Kurye",
+                    "status": "Aktif",
+                    "restaurant_label": "Burger@ - Kavacık",
+                    "vehicle_mode": "Çat Kapında Motor Kirası",
+                    "current_plate": "34 MTR 31",
+                    "motor_rental_monthly_amount": 13000,
+                    "motor_purchase_start_date": None,
+                    "motor_purchase_commitment_months": 0,
+                    "motor_purchase_sale_price": 0,
+                    "motor_purchase_monthly_deduction": 0,
+                    "vehicle_history_count": 2,
+                }
+            ],
+            "history": [
+                {
+                    "id": 118,
+                    "personnel_id": 31,
+                    "person_code": "CK-K31",
+                    "full_name": "Motor Görünümü",
+                    "role": "Kurye",
+                    "status": "Aktif",
+                    "restaurant_label": "Burger@ - Kavacık",
+                    "vehicle_mode": "Çat Kapında Motor Kirası",
+                    "current_plate": "34 MTR 31",
+                    "motor_rental_monthly_amount": 13000,
+                    "motor_purchase_start_date": None,
+                    "motor_purchase_commitment_months": 0,
+                    "motor_purchase_sale_price": 0,
+                    "motor_purchase_monthly_deduction": 0,
+                    "effective_date": "2026-04-17",
+                    "notes": "Motor geçişi",
+                }
+            ],
+        },
+    )
+    client = _build_app()
+
+    response = client.get("/api/personnel/vehicle-workspace")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["rental_cards"] == 2
+    assert payload["people"][0]["vehicle_history_count"] == 2
+
+
 def test_deductions_routes_smoke(monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.deductions.build_deductions_dashboard",

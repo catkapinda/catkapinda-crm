@@ -21,6 +21,8 @@ def test_create_personnel_record_syncs_mobile_auth(monkeypatch):
     monkeypatch.setattr(personnel_service, "count_plate_history_records_for_personnel", lambda *args, **kwargs: 0)
     monkeypatch.setattr(personnel_service, "fetch_active_plate_history_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "insert_plate_history_record", lambda *args, **kwargs: 11)
+    monkeypatch.setattr(personnel_service, "fetch_latest_vehicle_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_vehicle_history_record", lambda *args, **kwargs: 14)
     monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 12)
     monkeypatch.setattr(
@@ -56,6 +58,8 @@ def test_update_personnel_record_syncs_mobile_auth(monkeypatch):
     )
     monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
     monkeypatch.setattr(personnel_service, "update_personnel_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "fetch_latest_vehicle_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_vehicle_history_record", lambda *args, **kwargs: 15)
     monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 13)
     monkeypatch.setattr(
@@ -88,6 +92,8 @@ def test_create_personnel_record_creates_plate_history_baseline(monkeypatch):
     monkeypatch.setattr(personnel_service, "sync_mobile_auth_user_for_personnel", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "count_plate_history_records_for_personnel", lambda *args, **kwargs: 0)
     monkeypatch.setattr(personnel_service, "fetch_active_plate_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "fetch_latest_vehicle_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_vehicle_history_record", lambda *args, **kwargs: 18)
     monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 19)
     monkeypatch.setattr(
@@ -128,6 +134,8 @@ def test_update_personnel_record_writes_plate_history_on_plate_change(monkeypatc
     monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
     monkeypatch.setattr(personnel_service, "update_personnel_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "sync_mobile_auth_user_for_personnel", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "fetch_latest_vehicle_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_vehicle_history_record", lambda *args, **kwargs: 20)
     monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 21)
     monkeypatch.setattr(
@@ -173,6 +181,8 @@ def test_create_personnel_record_ignores_plate_fields_without_permission(monkeyp
         "sync_mobile_auth_user_for_personnel",
         lambda *args, **kwargs: None,
     )
+    monkeypatch.setattr(personnel_service, "fetch_latest_vehicle_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_vehicle_history_record", lambda *args, **kwargs: 22)
     monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 23)
 
@@ -222,6 +232,8 @@ def test_update_personnel_record_preserves_plate_fields_without_permission(monke
         "sync_mobile_auth_user_for_personnel",
         lambda *args, **kwargs: None,
     )
+    monkeypatch.setattr(personnel_service, "fetch_latest_vehicle_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_vehicle_history_record", lambda *args, **kwargs: 24)
     monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 13)
 
@@ -310,6 +322,8 @@ def test_create_personnel_record_creates_role_history_baseline(monkeypatch):
     monkeypatch.setattr(personnel_service, "count_plate_history_records_for_personnel", lambda *args, **kwargs: 0)
     monkeypatch.setattr(personnel_service, "fetch_active_plate_history_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "insert_plate_history_record", lambda *args, **kwargs: 21)
+    monkeypatch.setattr(personnel_service, "fetch_latest_vehicle_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_vehicle_history_record", lambda *args, **kwargs: 25)
     monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         personnel_service,
@@ -350,6 +364,8 @@ def test_update_personnel_record_writes_role_history_on_role_change(monkeypatch)
     )
     monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
     monkeypatch.setattr(personnel_service, "update_personnel_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "fetch_latest_vehicle_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_vehicle_history_record", lambda *args, **kwargs: 26)
     monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         personnel_service,
@@ -371,6 +387,97 @@ def test_update_personnel_record_writes_role_history_on_role_change(monkeypatch)
     assert response.person_id == 19
     assert role_calls[0]["role"] == "Joker"
     assert role_calls[0]["monthly_fixed_cost"] == 22000
+
+
+def test_create_personnel_record_creates_vehicle_history_baseline(monkeypatch):
+    conn = FakeConnection()
+    vehicle_calls: list[dict] = []
+
+    monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
+    monkeypatch.setattr(personnel_service, "insert_personnel_record", lambda *args, **kwargs: 71)
+    monkeypatch.setattr(personnel_service, "count_plate_history_records_for_personnel", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(personnel_service, "fetch_active_plate_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_plate_history_record", lambda *args, **kwargs: 31)
+    monkeypatch.setattr(personnel_service, "fetch_latest_vehicle_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        personnel_service,
+        "insert_vehicle_history_record",
+        lambda _conn, **kwargs: vehicle_calls.append(kwargs) or 41,
+    )
+    monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 42)
+    monkeypatch.setattr(personnel_service, "sync_mobile_auth_user_for_personnel", lambda *args, **kwargs: None)
+
+    response = personnel_service.create_personnel_record(
+        conn,
+        payload=PersonnelCreateRequest(
+            full_name="Motor Baslangıcı",
+            role="Kurye",
+            vehicle_mode="Çat Kapında Motor Kirası",
+            motor_rental_monthly_amount=14500,
+            start_date=date(2026, 4, 17),
+        ),
+    )
+
+    assert response.person_id == 71
+    assert vehicle_calls[0]["vehicle_type"] == "Çat Kapında"
+    assert vehicle_calls[0]["motor_rental"] == "Evet"
+    assert vehicle_calls[0]["motor_rental_monthly_amount"] == 14500
+    assert vehicle_calls[0]["notes"] == "Sistem: Başlangıç motor kaydı"
+
+
+def test_update_personnel_record_writes_vehicle_history_on_mode_change(monkeypatch):
+    conn = FakeConnection()
+    vehicle_calls: list[dict] = []
+
+    monkeypatch.setattr(
+        personnel_service,
+        "fetch_personnel_record_by_id",
+        lambda *args, **kwargs: {
+            "id": 28,
+            "person_code": "CK-K28",
+            "role": "Kurye",
+            "vehicle_type": "Kendi Motoru",
+            "motor_rental": "Hayır",
+            "motor_purchase": "Hayır",
+            "motor_rental_monthly_amount": 0,
+            "motor_purchase_start_date": None,
+            "motor_purchase_commitment_months": 0,
+            "motor_purchase_sale_price": 0,
+            "motor_purchase_monthly_deduction": 0,
+            "current_plate": "",
+        },
+    )
+    monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
+    monkeypatch.setattr(personnel_service, "update_personnel_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "fetch_latest_vehicle_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        personnel_service,
+        "insert_vehicle_history_record",
+        lambda _conn, **kwargs: vehicle_calls.append(kwargs) or 51,
+    )
+    monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 52)
+    monkeypatch.setattr(personnel_service, "sync_mobile_auth_user_for_personnel", lambda *args, **kwargs: None)
+
+    response = personnel_service.update_personnel_record_entry(
+        conn,
+        person_id=28,
+        payload=PersonnelUpdateRequest(
+            full_name="Motor Gecisi",
+            role="Kurye",
+            vehicle_mode="Çat Kapında Motor Satışı",
+            motor_purchase_start_date=date(2026, 4, 17),
+            motor_purchase_commitment_months=12,
+            motor_purchase_sale_price=84000,
+            motor_purchase_monthly_deduction=7000,
+        ),
+    )
+
+    assert response.person_id == 28
+    assert vehicle_calls[0]["motor_purchase"] == "Evet"
+    assert vehicle_calls[0]["motor_purchase_commitment_months"] == 12
+    assert vehicle_calls[0]["motor_purchase_sale_price"] == 84000
 
 
 def test_delete_personnel_record_syncs_mobile_auth_with_passive_fallback(monkeypatch):

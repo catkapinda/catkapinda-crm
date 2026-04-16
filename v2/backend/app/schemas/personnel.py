@@ -30,6 +30,13 @@ class PersonnelRoleSummary(BaseModel):
     fixed_cost_cards: int
 
 
+class PersonnelVehicleSummary(BaseModel):
+    total_history_records: int
+    active_catkapinda_vehicle_personnel: int
+    rental_cards: int
+    sale_cards: int
+
+
 class PersonnelManagementEntry(BaseModel):
     id: int
     person_code: str
@@ -100,6 +107,42 @@ class PersonnelRoleHistoryEntry(BaseModel):
     notes: str
 
 
+class PersonnelVehicleCandidateEntry(BaseModel):
+    id: int
+    person_code: str
+    full_name: str
+    role: str
+    status: str
+    restaurant_label: str
+    vehicle_mode: str
+    current_plate: str
+    motor_rental_monthly_amount: float
+    motor_purchase_start_date: date | None
+    motor_purchase_commitment_months: int
+    motor_purchase_sale_price: float
+    motor_purchase_monthly_deduction: float
+    vehicle_history_count: int
+
+
+class PersonnelVehicleHistoryEntry(BaseModel):
+    id: int
+    personnel_id: int
+    person_code: str
+    full_name: str
+    role: str
+    status: str
+    restaurant_label: str
+    vehicle_mode: str
+    current_plate: str
+    motor_rental_monthly_amount: float
+    motor_purchase_start_date: date | None
+    motor_purchase_commitment_months: int
+    motor_purchase_sale_price: float
+    motor_purchase_monthly_deduction: float
+    effective_date: date | None
+    notes: str
+
+
 class PersonnelDashboardResponse(BaseModel):
     module: str
     status: str
@@ -128,6 +171,11 @@ class PersonnelCreateRequest(BaseModel):
     status: str = "Aktif"
     start_date: date | None = None
     vehicle_mode: str = "Kendi Motoru"
+    motor_rental_monthly_amount: float = 13000.0
+    motor_purchase_start_date: date | None = None
+    motor_purchase_commitment_months: int = 0
+    motor_purchase_sale_price: float = 0.0
+    motor_purchase_monthly_deduction: float = 0.0
     current_plate: str = ""
     monthly_fixed_cost: float = 0.0
     notes: str = ""
@@ -160,6 +208,12 @@ class PersonnelRoleWorkspaceResponse(BaseModel):
     history: list[PersonnelRoleHistoryEntry]
 
 
+class PersonnelVehicleWorkspaceResponse(BaseModel):
+    summary: PersonnelVehicleSummary
+    people: list[PersonnelVehicleCandidateEntry]
+    history: list[PersonnelVehicleHistoryEntry]
+
+
 class PersonnelUpdateRequest(BaseModel):
     full_name: str
     role: str
@@ -168,6 +222,11 @@ class PersonnelUpdateRequest(BaseModel):
     status: str = "Aktif"
     start_date: date | None = None
     vehicle_mode: str = "Kendi Motoru"
+    motor_rental_monthly_amount: float = 13000.0
+    motor_purchase_start_date: date | None = None
+    motor_purchase_commitment_months: int = 0
+    motor_purchase_sale_price: float = 0.0
+    motor_purchase_monthly_deduction: float = 0.0
     current_plate: str = ""
     monthly_fixed_cost: float = 0.0
     notes: str = ""
@@ -200,6 +259,25 @@ class PersonnelRoleCreateResponse(BaseModel):
     history_id: int
     personnel_id: int
     role: str
+    message: str
+
+
+class PersonnelVehicleCreateRequest(BaseModel):
+    personnel_id: int
+    vehicle_mode: str
+    motor_rental_monthly_amount: float = 13000.0
+    motor_purchase_start_date: date | None = None
+    motor_purchase_commitment_months: int = 0
+    motor_purchase_sale_price: float = 0.0
+    motor_purchase_monthly_deduction: float = 0.0
+    effective_date: date | None = None
+    notes: str = ""
+
+
+class PersonnelVehicleCreateResponse(BaseModel):
+    history_id: int
+    personnel_id: int
+    vehicle_mode: str
     message: str
 
 

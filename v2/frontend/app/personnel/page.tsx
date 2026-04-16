@@ -7,6 +7,7 @@ import { PersonnelEntryWorkspace } from "../../components/personnel/personnel-en
 import { PersonnelManagementWorkspace } from "../../components/personnel/personnel-management-workspace";
 import { PersonnelPlateWorkspace } from "../../components/personnel/personnel-plate-workspace";
 import { PersonnelRoleWorkspace } from "../../components/personnel/personnel-role-workspace";
+import { PersonnelVehicleWorkspace } from "../../components/personnel/personnel-vehicle-workspace";
 import { useAuth } from "../../components/auth/auth-provider";
 import { AppShell } from "../../components/shell/app-shell";
 import { apiFetch } from "../../lib/api";
@@ -310,6 +311,7 @@ export default function PersonnelPage() {
   const canManageRoles =
     (user?.allowed_actions.includes("personnel.list") ?? false) &&
     (user?.allowed_actions.includes("personnel.update") ?? false);
+  const canManageVehicleHistory = canManageRoles;
   const decisionDeck = useMemo(() => {
     if (!dashboard) {
       return [];
@@ -692,6 +694,15 @@ export default function PersonnelPage() {
                   "Rol geçişlerini ve maliyet çizgisini ayrı izle.",
                   "Kadro kayarken yalnız son rolü değil, ne zaman ve hangi sabit maliyetle geçtiğini de ayrı bir geçmiş olarak tutuyoruz.",
                   <PersonnelRoleWorkspace />,
+                )
+              : null}
+
+            {canManageVehicleHistory
+              ? workspaceFrame(
+                  "Motor Hattı",
+                  "Motor kirası ve satış geçişlerini ayrı izle.",
+                  "Çat Kapında motor kirası, motor satışı ve kendi motoru geçişlerini personel kartından ayırıp ayrı bir geçmiş masasında topluyoruz.",
+                  <PersonnelVehicleWorkspace />,
                 )
               : null}
 

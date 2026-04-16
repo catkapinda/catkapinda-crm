@@ -22,6 +22,9 @@ from app.schemas.personnel import (
     PersonnelRoleCreateRequest,
     PersonnelRoleCreateResponse,
     PersonnelRoleWorkspaceResponse,
+    PersonnelVehicleCreateRequest,
+    PersonnelVehicleCreateResponse,
+    PersonnelVehicleWorkspaceResponse,
     PersonnelStatusUpdateResponse,
     PersonnelUpdateRequest,
     PersonnelUpdateResponse,
@@ -33,9 +36,11 @@ from app.services.personnel import (
     build_personnel_management,
     build_personnel_plate_workspace,
     build_personnel_role_workspace,
+    build_personnel_vehicle_workspace,
     build_personnel_status,
     create_personnel_plate_history_entry,
     create_personnel_role_history_entry,
+    create_personnel_vehicle_history_entry,
     create_personnel_record,
     delete_personnel_record_entry,
     toggle_personnel_record_status,
@@ -141,6 +146,15 @@ def get_personnel_role_workspace(
     return build_personnel_role_workspace(conn, limit=limit)
 
 
+@router.get("/vehicle-workspace", response_model=PersonnelVehicleWorkspaceResponse)
+def get_personnel_vehicle_workspace(
+    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.list"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+    limit: int = Query(default=80, ge=1, le=300),
+) -> PersonnelVehicleWorkspaceResponse:
+    return build_personnel_vehicle_workspace(conn, limit=limit)
+
+
 @router.post("/plate-history", response_model=PersonnelPlateCreateResponse, status_code=201)
 def create_personnel_plate_history_route(
     payload: PersonnelPlateCreateRequest,
@@ -154,6 +168,33 @@ def create_personnel_plate_history_route(
             conn,
             user=user,
             entity_type="plaka",
+            action_type="oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("history_id"),
+            details={**payload.model_dump(mode="json"), "history_id": response_data.get("history_id")},
+        )
+        return response
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/vehicle-history", response_model=PersonnelVehicleCreateResponse, status_code=201)
+def create_personnel_vehicle_history_route(
+    payload: PersonnelVehicleCreateRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_action("personnel.update"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> PersonnelVehicleCreateResponse:
+    try:
+        response = create_personnel_vehicle_history_entry(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="motor",
             action_type="oluştur",
             summary=str(response_data.get("message") or ""),
             entity_id=response_data.get("history_id"),
