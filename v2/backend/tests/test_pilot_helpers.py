@@ -265,6 +265,150 @@ def make_fake_preflight_bundle(
     return fake_preflight_bundle
 
 
+def test_pilot_smoke_accepts_local_sqlite_backend_for_localhost(monkeypatch):
+    def fake_fetch_json(base_url: str, path: str, timeout: int):
+        assert base_url == "http://127.0.0.1:3001"
+        payloads = {
+            "/api/health": (200, {"status": "ok", "service": "frontend"}),
+            "/api/ready": (
+                200,
+                {
+                    "proxyConfigured": True,
+                    "proxyMode": "explicit_base_url",
+                    "sourceEnvKey": "CK_V2_INTERNAL_API_BASE_URL",
+                    "backendReachable": True,
+                    "backendStatus": "ok",
+                },
+            ),
+            "/api/pilot-status": (
+                200,
+                {
+                    "frontend": {
+                        "proxyConfigured": True,
+                        "proxyMode": "explicit_base_url",
+                        "backendReachable": True,
+                        "backendStatus": "ok",
+                        "releaseLabel": "crmcatkapinda-v2",
+                    },
+                    "backend": {
+                        "release_label": None,
+                        "cutover": {"phase": "not_ready"},
+                    },
+                },
+            ),
+            "/v2-api/health": (200, {"status": "ok", "service": "backend"}),
+            "/v2-api/health/ready": (200, {"status": "degraded", "checks": [{"name": "database_url"}]}),
+            "/v2-api/health/pilot": (
+                200,
+                {
+                    "status": "degraded",
+                    "modules": [{"module": f"m-{index}"} for index in range(11)],
+                    "auth": {"email_login": True, "phone_login": True, "sms_login": False},
+                    "required_missing_env_vars": ["CK_V2_DATABASE_URL"],
+                    "optional_missing_env_vars": ["SMS_PROVIDER"],
+                    "cutover": {"phase": "not_ready", "ready": False, "modules_ready_count": 11},
+                    "checks": [{"name": "database_url", "detail": "Local sqlite fallback aktif"}],
+                },
+            ),
+        }
+        return payloads[path]
+
+    monkeypatch.setattr(pilot_smoke, "fetch_json", fake_fetch_json)
+    monkeypatch.setattr(
+        pilot_smoke,
+        "fetch_text",
+        lambda base_url, path, timeout: (200, "text/html; charset=utf-8", "<html></html>"),
+    )
+
+    results = pilot_smoke.run_smoke_checks(
+        "http://127.0.0.1:3001",
+        12,
+        legacy_url="https://crmcatkapinda.com",
+        legacy_cutover_mode="banner",
+    )
+    result_map = {result.name: result for result in results}
+
+    assert result_map["backend_pilot"].ok is True
+    assert "local_sqlite_hazir=True" in result_map["backend_pilot"].detail
+    assert result_map["legacy_banner_bridge"].ok is True
+    assert result_map["legacy_banner_bridge"].detail == "Yerel calismada legacy banner koprusu atlandi."
+
+
+def test_pilot_smoke_localhost_report_becomes_clean_with_local_sqlite(monkeypatch):
+    def fake_fetch_json(base_url: str, path: str, timeout: int):
+        payloads = {
+            "/api/health": (200, {"status": "ok", "service": "frontend"}),
+            "/api/ready": (
+                200,
+                {
+                    "proxyConfigured": True,
+                    "proxyMode": "explicit_base_url",
+                    "sourceEnvKey": "CK_V2_INTERNAL_API_BASE_URL",
+                    "backendReachable": True,
+                    "backendStatus": "ok",
+                },
+            ),
+            "/api/pilot-status": (
+                200,
+                {
+                    "frontend": {
+                        "proxyConfigured": True,
+                        "proxyMode": "explicit_base_url",
+                        "backendReachable": True,
+                        "backendStatus": "ok",
+                        "releaseLabel": "crmcatkapinda-v2",
+                    },
+                    "backend": {
+                        "release_label": None,
+                        "cutover": {"phase": "not_ready"},
+                    },
+                },
+            ),
+            "/v2-api/health": (200, {"status": "ok", "service": "backend"}),
+            "/v2-api/health/ready": (200, {"status": "degraded", "checks": [{"name": "database_url"}]}),
+            "/v2-api/health/pilot": (
+                200,
+                {
+                    "status": "degraded",
+                    "modules": [{"module": f"m-{index}"} for index in range(11)],
+                    "auth": {"email_login": True, "phone_login": True, "sms_login": False},
+                    "required_missing_env_vars": ["CK_V2_DATABASE_URL"],
+                    "optional_missing_env_vars": ["SMS_PROVIDER"],
+                    "cutover": {"phase": "not_ready", "ready": False, "modules_ready_count": 11},
+                    "checks": [{"name": "database_url", "detail": "Local sqlite fallback aktif"}],
+                },
+            ),
+        }
+        return payloads[path]
+
+    monkeypatch.setattr(pilot_smoke, "fetch_json", fake_fetch_json)
+    monkeypatch.setattr(
+        pilot_smoke,
+        "fetch_text",
+        lambda base_url, path, timeout: (200, "text/html; charset=utf-8", "<html></html>"),
+    )
+
+    results = pilot_smoke.run_smoke_checks(
+        "http://localhost:3001",
+        12,
+        legacy_url="https://crmcatkapinda.com",
+        legacy_cutover_mode="banner",
+    )
+    report = pilot_smoke.build_report(
+        base_url="http://localhost:3001",
+        timeout=12,
+        preset="pilot",
+        identity=None,
+        legacy_url="https://crmcatkapinda.com",
+        legacy_cutover_mode="banner",
+        results=results,
+    )
+
+    assert report["overall_ok"] is True
+    assert report["decision"]["status"] == "pass"
+    assert report["decision"]["failing_checks"] == []
+
+
 def test_pilot_gate_passes_when_phase_is_ready_for_pilot():
     result = pilot_gate.build_gate_result(mode="pilot", payload=sample_payload())
 
