@@ -428,18 +428,18 @@ export default function ReportsPage() {
         title: topRestaurant ? topRestaurant.restaurant : "Restoran sinyali henüz yok.",
         body: topRestaurant
           ? `${topRestaurant.pricing_model} modeli ile ${formatMoney(topRestaurant.gross_invoice)} fatura üretiyor; ${formatNumber(topRestaurant.total_hours, 1)} saat ve ${formatNumber(topRestaurant.total_packages)} paket hacmi taşıyor.`
-          : "Ilk restoran sinyali geldikçe bu kart ilgili ciro hareketini öne çıkaracak.",
+          : "İlk restoran sinyali geldikçe bu kart ilgili ciro hareketini öne çıkaracak.",
         tone: "paper",
       },
       {
-        eyebrow: sideIncomePositive ? "Denge Katkisi" : "Risk Alani",
+        eyebrow: sideIncomePositive ? "Denge Katkısı" : "Risk Alanı",
         title: topCourier ? topCourier.personnel : "Maliyet lideri henüz yok.",
         body: topCourier
           ? `${topCourier.role} rolünde ${formatMoney(topCourier.net_cost)} net maliyet taşıyor. ${formatMoney(topCourier.total_deductions)} kesinti etkisiyle birlikte ${
               topModel ? `${topModel.pricing_model} modeli ayın ana hacmini sürüklüyor.` : "model dağılımı bu maliyeti okumakta kritik."
             }`
           : sideIncomePositive
-            ? `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Kesinti ve ek gelirler genel resmi su anda destekliyor.`
+            ? `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Kesinti ve ek gelirler genel resmi şu anda destekliyor.`
             : `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Kesinti ve ek gelir tarafını daha yakından izlemek gerekiyor.`,
         tone: sideIncomePositive ? "paper" : "accent",
       },
@@ -529,7 +529,7 @@ export default function ReportsPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Aylık resmi yalnızca okumuyor, artık yonlendiriyoruz.
+                  Aylık resmi yalnızca okumuyor, artık yönlendiriyoruz.
                 </h1>
                 <p
                   style={{
@@ -541,8 +541,8 @@ export default function ReportsPage() {
                   }}
                 >
                   Fatura, maliyet, marj ve model dağılımlarını aynı editoryal yüzeyde
-                  toplayip hangi hattın iyi gittigini, hangi alanin dikkat istedigini
-                  daha hızlı gormeyi hedefliyoruz.
+                  toplayıp hangi hattın iyi gittiğini, hangi alanın dikkat istediğini
+                  daha hızlı görmeyi hedefliyoruz.
                 </p>
               </div>
               <div
@@ -709,7 +709,7 @@ export default function ReportsPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Brut Fark
+                      Brüt Fark
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
                       {formatMoney(dashboard?.summary?.gross_profit ?? 0)}
@@ -747,7 +747,7 @@ export default function ReportsPage() {
                   }}
                 >
                   Bu yüzeyde önce fark ve marja, sonra model dağılımı ile en yüksek
-                  fatura ve maliyet taşıyan isimlere bakmak en sağlıklı okuma sirasini verir.
+                  fatura ve maliyet taşıyan isimlere bakmak en sağlıklı okuma sırasını verir.
                 </div>
               </article>
             </div>
@@ -777,7 +777,7 @@ export default function ReportsPage() {
               lineHeight: 1.7,
             }}
           >
-            Rapor servisine su anda erisilemiyor. Backend hazır oldugunda restoran
+            Rapor servisine şu anda erişilemiyor. Arka uç hazır olduğunda restoran
             faturası ve kurye maliyeti burada gerçek veriden açılacak.
           </div>
         ) : (

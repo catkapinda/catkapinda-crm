@@ -340,9 +340,9 @@ export default function AuditPage() {
 
     return [
       {
-        eyebrow: "Kayıt Nabzi",
-        title: recentPressure ? "Son 7 gün daha hızlı akiyor." : "Kayıt ritmi kontrollü görünüyor.",
-        body: `${dashboard.summary.last_7_days} kayıt son 7 gunde olustu. Toplam ${dashboard.summary.total_entries} kayıt içinde bu ritim, sistemde degisimin ne kadar taze oldugunu hizla anlatır.`,
+        eyebrow: "Kayıt Nabzı",
+        title: recentPressure ? "Son 7 gün daha hızlı akıyor." : "Kayıt ritmi kontrollü görünüyor.",
+        body: `${dashboard.summary.last_7_days} kayıt son 7 günde oluştu. Toplam ${dashboard.summary.total_entries} kayıt içinde bu ritim, sistemde değişimin ne kadar taze olduğunu hızla anlatır.`,
         tone: recentPressure ? "ink" : "paper",
       },
       {
@@ -351,22 +351,22 @@ export default function AuditPage() {
           ? `${topEntry.action_type} · ${topEntry.entity_type}`
           : "Aksiyon sinyali henüz yok.",
         body: topEntry
-          ? `${formatActor(topEntry)} tarafindan ${formatTimestamp(topEntry.created_at)} aninda tetiklendi. ${topEntry.summary || "Bu hareket detay akışı içinde ilk okunacak olaylardan biri."}`
-          : "Yeni audit hareketleri geldikçe burada ilk dikkat isteyen aksiyon görünecek.",
+          ? `${formatActor(topEntry)} tarafından ${formatTimestamp(topEntry.created_at)} anında tetiklendi. ${topEntry.summary || "Bu hareket detay akışı içinde ilk okunacak olaylardan biri."}`
+          : "Yeni denetim hareketleri geldikçe burada ilk dikkat isteyen aksiyon görünecek.",
         tone: "paper",
       },
       {
-        eyebrow: actorSpreadWide ? "Oyuncu Dagilimi" : "Varlık Baskisi",
+        eyebrow: actorSpreadWide ? "Oyuncu Dağılımı" : "Varlık Baskısı",
         title: actorSpreadWide
-          ? "Kayıt izi ekibe yayiliyor."
+          ? "Kayıt izi ekibe yayılıyor."
           : dominantEntity
             ? `${dominantEntity[0]} önde gidiyor.`
-            : "Dagilim sinyali henüz yok.",
+            : "Dağılım sinyali henüz yok.",
         body: actorSpreadWide
           ? `${dashboard.summary.unique_actors} farklı kullanıcı ve ${dashboard.summary.unique_entities} farklı varlık izleniyor. Bu dağılım, denetim akışının tek kişiye bağlı kalmadığını gösterir.`
           : dominantEntity
-            ? `${dominantEntity[0]} tarafında ${dominantEntity[1]} hareket goruluyor. ${dominantAction ? `${dominantAction[0]} aksiyonu ${dominantAction[1]} kez tekrar etti.` : "Aksiyon dağılımı burada yogunlasiyor."}`
-            : "Aksiyon ve varlık karmasi geldikçe burada baskı noktasi öne cikacak.",
+            ? `${dominantEntity[0]} tarafında ${dominantEntity[1]} hareket görülüyor. ${dominantAction ? `${dominantAction[0]} aksiyonu ${dominantAction[1]} kez tekrar etti.` : "Aksiyon dağılımı burada yoğunlaşıyor."}`
+            : "Aksiyon ve varlık karması geldikçe burada baskı noktası öne çıkacak.",
         tone: actorSpreadWide ? "accent" : "paper",
       },
     ] as const;
@@ -434,7 +434,7 @@ export default function AuditPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Audit Control
+                Denetim Kontrolü
               </div>
               <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
                 <h1
@@ -457,8 +457,8 @@ export default function AuditPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Kim, neyi, hangi ritimde değiştiriyor sorusunu daha okunur bir karar katmanina
-                  taşıyoruz. Hedefimiz, denetim hattini sadece arama masasi değil; erken sinyal
+                  Kim, neyi, hangi ritimde değiştiriyor sorusunu daha okunur bir karar katmanına
+                  taşıyoruz. Hedefimiz, denetim hattını sadece arama masası değil; erken sinyal
                   ve güven katmanı gibi hissettirmek.
                 </p>
               </div>
@@ -534,7 +534,7 @@ export default function AuditPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Akim Nabzi
+                      Akım Nabzı
                     </div>
                     <div
                       style={{
@@ -558,7 +558,7 @@ export default function AuditPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Audit Room
+                    Denetim Odası
                   </div>
                 </div>
                 <div
@@ -643,7 +643,7 @@ export default function AuditPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce son 7 gün ritmine, sonra aksiyon dagilimina ve en son tekil
+                  Bu ekranda önce son 7 gün ritmine, sonra aksiyon dağılımına ve en son tekil
                   varlık baskısına bakmak, hangi modülde yakından izleme gerektiğini daha hızlı
                   hissettirir.
                 </div>
@@ -675,7 +675,7 @@ export default function AuditPage() {
               lineHeight: 1.7,
             }}
           >
-            Audit servisine su anda erisilemiyor. Backend hazır oldugunda bu ekran sistem
+            Denetim servisine şu anda erişilemiyor. Arka uç hazır olduğunda bu ekran sistem
             kayıtlarını ritim, aksiyon ve varlık sinyalleriyle birlikte gerçek veriden gösterecek.
           </div>
         ) : (
@@ -687,10 +687,10 @@ export default function AuditPage() {
                 gap: "14px",
               }}
             >
-              {metricCard("Toplam Kayıt", String(dashboard.summary.total_entries), "Denetim omurgasindaki tüm olaylar", "accent")}
+              {metricCard("Toplam Kayıt", String(dashboard.summary.total_entries), "Denetim omurgasındaki tüm olaylar", "accent")}
               {metricCard("Son 7 Gün", String(dashboard.summary.last_7_days), "Yeni ritim ve taze hareketler")}
-              {metricCard("Esiz Kullanıcı", String(dashboard.summary.unique_actors), "Kayıt izi birden fazla elde mi")}
-              {metricCard("Esiz Varlık", String(dashboard.summary.unique_entities), "Hangi modüller daha cok oynuyor")}
+              {metricCard("Eşsiz Kullanıcı", String(dashboard.summary.unique_actors), "Kayıt izi birden fazla elde mi")}
+              {metricCard("Eşsiz Varlık", String(dashboard.summary.unique_entities), "Hangi modüller daha çok oynuyor")}
             </div>
 
             <div
@@ -714,7 +714,7 @@ export default function AuditPage() {
             >
               {listCard(
                 "Son Sistem Sinyalleri",
-                "En yeni audit hareketlerini actor, aksiyon ve varlık bağlamıyla birlikte oku.",
+                "En yeni denetim hareketlerini kullanıcı, aksiyon ve varlık bağlamıyla birlikte oku.",
                 dashboard.recent_entries.map((entry) => ({
                   title: `${entry.action_type} · ${entry.entity_type} #${entry.entity_id}`,
                   meta: `${formatTimestamp(entry.created_at)} · ${formatActor(entry)}${entry.actor_role ? ` · ${entry.actor_role}` : ""} · ${entry.summary || "Özet bilgisi yok."}`,
@@ -722,20 +722,20 @@ export default function AuditPage() {
                 })),
               )}
               {listCard(
-                "Aksiyon Dagilimi",
-                "Son hareketler hangi aksiyon türünde yogunlasiyor bak.",
+                "Aksiyon Dağılımı",
+                "Son hareketler hangi aksiyon türünde yoğunlaşıyor bak.",
                 actionMix.map(([action, count]) => ({
                   title: action,
-                  meta: "Son audit hareketleri icindeki tekrar sayisi",
+                  meta: "Son denetim hareketleri içindeki tekrar sayısı",
                   value: `${count} kayıt`,
                 })),
               )}
               {listCard(
-                "Varlık Baskisi",
-                "Hangi modüller sistem kayıtlarını daha cok uretmis görünüyor.",
+                "Varlık Baskısı",
+                "Hangi modüller sistem kayıtlarını daha çok üretmiş görünüyor.",
                 entityMix.map(([entity, count]) => ({
                   title: entity,
-                  meta: "Son audit kayıtları icindeki varlık yoğunluğu",
+                  meta: "Son denetim kayıtları içindeki varlık yoğunluğu",
                   value: `${count} kayıt`,
                 })),
               )}
