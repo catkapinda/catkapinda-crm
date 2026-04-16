@@ -304,6 +304,7 @@ export default function PersonnelPage() {
     dashboard?.summary.total_personnel && dashboard.summary.total_personnel > 0
       ? Math.round((dashboard.summary.assigned_restaurants / dashboard.summary.total_personnel) * 100)
       : 0;
+  const canViewPlateArea = user?.allowed_actions.includes("personnel.plate") ?? false;
   const decisionDeck = useMemo(() => {
     if (!dashboard) {
       return [];
@@ -333,7 +334,9 @@ export default function PersonnelPage() {
         eyebrow: "En Sıcak Kart",
         title: topEntry ? topEntry.full_name : "Kadro sinyali henüz yok.",
         body: topEntry
-          ? `${topEntry.role} rolünde ${topEntry.restaurant_label || "atamasız"} bağlamı ile öne çıkıyor. ${topEntry.vehicle_mode} ve ${topEntry.phone || "telefon yok"} bilgisiyle sahaya hazırlık seviyesi görünüyor.`
+          ? canViewPlateArea && topEntry.vehicle_mode
+            ? `${topEntry.role} rolünde ${topEntry.restaurant_label || "atamasız"} bağlamı ile öne çıkıyor. ${topEntry.vehicle_mode} ve ${topEntry.phone || "telefon yok"} bilgisiyle sahaya hazırlık seviyesi görünüyor.`
+            : `${topEntry.role} rolünde ${topEntry.restaurant_label || "atamasız"} bağlamı ile öne çıkıyor. ${topEntry.phone || "telefon yok"} bilgisiyle sahaya hazırlık seviyesi görünüyor.`
           : "Yeni kart ve güncellemeler geldikçe burada dikkat isteyen personel kartı öne çıkarılacak.",
         tone: "paper",
       },
@@ -349,7 +352,7 @@ export default function PersonnelPage() {
         tone: unassignedCount > 0 ? "accent" : "paper",
       },
     ] as const;
-  }, [dashboard, restaurantCoverage, roleBreakdown]);
+  }, [canViewPlateArea, dashboard, restaurantCoverage, roleBreakdown]);
 
   return (
     <AppShell activeItem="Personel">
@@ -732,7 +735,15 @@ export default function PersonnelPage() {
                           background: "rgba(239,232,219,0.56)",
                         }}
                       >
-                        {["Kod", "Ad Soyad", "Rol", "Durum", "Şube", "Arac", "Telefon"].map((header) => (
+                        {[
+                          "Kod",
+                          "Ad Soyad",
+                          "Rol",
+                          "Durum",
+                          "Şube",
+                          ...(canViewPlateArea ? ["Arac"] : []),
+                          "Telefon",
+                        ].map((header) => (
                           <th
                             key={header}
                             style={{
@@ -782,7 +793,7 @@ export default function PersonnelPage() {
                             </span>
                           </td>
                           <td style={tableCellStyle}>{entry.restaurant_label || "-"}</td>
-                          <td style={tableCellStyle}>{entry.vehicle_mode}</td>
+                          {canViewPlateArea ? <td style={tableCellStyle}>{entry.vehicle_mode || "-"}</td> : null}
                           <td style={tableCellStyle}>{entry.phone || "-"}</td>
                         </tr>
                       ))}

@@ -72,6 +72,122 @@ def test_update_personnel_record_syncs_mobile_auth(monkeypatch):
     assert conn.commit_count == 1
 
 
+def test_create_personnel_record_ignores_plate_fields_without_permission(monkeypatch):
+    conn = FakeConnection()
+    inserted_payloads: list[dict] = []
+
+    monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        personnel_service,
+        "insert_personnel_record",
+        lambda _conn, values: inserted_payloads.append(values) or 52,
+    )
+    monkeypatch.setattr(
+        personnel_service,
+        "sync_mobile_auth_user_for_personnel",
+        lambda *args, **kwargs: None,
+    )
+
+    response = personnel_service.create_personnel_record(
+        conn,
+        payload=PersonnelCreateRequest(
+            full_name="Plaka Kapalı",
+            role="Kurye",
+            vehicle_mode="Çat Kapında Motor Kirası",
+            current_plate="34 ABC 123",
+        ),
+        allow_vehicle_fields=False,
+    )
+
+    assert response.person_id == 52
+    assert inserted_payloads[0]["vehicle_type"] == "Kendi Motoru"
+    assert inserted_payloads[0]["motor_rental"] == "Hayır"
+    assert inserted_payloads[0]["motor_purchase"] == "Hayır"
+    assert inserted_payloads[0]["current_plate"] == ""
+
+
+def test_update_personnel_record_preserves_plate_fields_without_permission(monkeypatch):
+    conn = FakeConnection()
+    updated_payloads: list[dict] = []
+
+    monkeypatch.setattr(
+        personnel_service,
+        "fetch_personnel_record_by_id",
+        lambda *args, **kwargs: {
+            "id": 15,
+            "person_code": "CK-K01",
+            "role": "Kurye",
+            "vehicle_type": "Çat Kapında",
+            "motor_rental": "Evet",
+            "motor_purchase": "Hayır",
+            "current_plate": "34 XYZ 34",
+        },
+    )
+    monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        personnel_service,
+        "update_personnel_record",
+        lambda _conn, _person_id, values: updated_payloads.append(values),
+    )
+    monkeypatch.setattr(
+        personnel_service,
+        "sync_mobile_auth_user_for_personnel",
+        lambda *args, **kwargs: None,
+    )
+
+    response = personnel_service.update_personnel_record_entry(
+        conn,
+        person_id=15,
+        payload=PersonnelUpdateRequest(
+            full_name="Tunç Test",
+            role="Joker",
+            phone="05321112233",
+            vehicle_mode="Kendi Motoru",
+            current_plate="34 NEW 99",
+        ),
+        allow_vehicle_fields=False,
+    )
+
+    assert response.message == "Personel kaydı güncellendi."
+    assert updated_payloads[0]["vehicle_type"] == "Çat Kapında"
+    assert updated_payloads[0]["motor_rental"] == "Evet"
+    assert updated_payloads[0]["motor_purchase"] == "Hayır"
+    assert updated_payloads[0]["current_plate"] == "34 XYZ 34"
+
+
+def test_build_personnel_detail_masks_plate_fields_without_permission(monkeypatch):
+    monkeypatch.setattr(
+        personnel_service,
+        "fetch_personnel_record_by_id",
+        lambda *args, **kwargs: {
+            "id": 21,
+            "person_code": "CK-K21",
+            "full_name": "Gizli Plaka",
+            "role": "Kurye",
+            "status": "Aktif",
+            "phone": "05320000000",
+            "restaurant_id": 3,
+            "restaurant_label": "Test - Şube",
+            "vehicle_type": "Çat Kapında",
+            "motor_rental": "Evet",
+            "motor_purchase": "Hayır",
+            "current_plate": "34 PLT 34",
+            "start_date": None,
+            "monthly_fixed_cost": 0,
+            "notes": "",
+        },
+    )
+
+    response = personnel_service.build_personnel_detail(
+        FakeConnection(),
+        person_id=21,
+        include_vehicle_fields=False,
+    )
+
+    assert response.entry.vehicle_mode == ""
+    assert response.entry.current_plate == ""
+
+
 def test_toggle_personnel_record_status_syncs_mobile_auth(monkeypatch):
     conn = FakeConnection()
     sync_calls: list[tuple[int, dict | None]] = []

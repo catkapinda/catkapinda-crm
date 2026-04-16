@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { apiFetch } from "../../lib/api";
+import { useAuth } from "../../components/auth/auth-provider";
 
 type PersonnelFormOptions = {
   restaurants: Array<{
@@ -29,6 +30,7 @@ const fieldStyle: CSSProperties = {
 
 export function PersonnelEntryWorkspace() {
   const router = useRouter();
+  const { user } = useAuth();
   const [isPending, startTransition] = useTransition();
   const [options, setOptions] = useState<PersonnelFormOptions | null>(null);
   const [loadingOptions, setLoadingOptions] = useState(true);
@@ -46,6 +48,7 @@ export function PersonnelEntryWorkspace() {
   const [currentPlate, setCurrentPlate] = useState("");
   const [monthlyFixedCost, setMonthlyFixedCost] = useState("0");
   const [notes, setNotes] = useState("");
+  const canViewPlateArea = user?.allowed_actions.includes("personnel.plate") ?? false;
 
   useEffect(() => {
     async function loadOptions() {
@@ -239,20 +242,24 @@ export function PersonnelEntryWorkspace() {
                   <span style={{ fontWeight: 700 }}>Ise Giriş</span>
                   <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} style={fieldStyle} />
                 </label>
-                <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Arac Modu</span>
-                  <select value={vehicleMode} onChange={(event) => setVehicleMode(event.target.value)} style={fieldStyle}>
-                    {options?.vehicle_mode_options.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Plaka</span>
-                  <input value={currentPlate} onChange={(event) => setCurrentPlate(event.target.value)} style={fieldStyle} />
-                </label>
+                {canViewPlateArea ? (
+                  <label style={{ display: "grid", gap: "8px" }}>
+                    <span style={{ fontWeight: 700 }}>Arac Modu</span>
+                    <select value={vehicleMode} onChange={(event) => setVehicleMode(event.target.value)} style={fieldStyle}>
+                      {options?.vehicle_mode_options.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {canViewPlateArea ? (
+                  <label style={{ display: "grid", gap: "8px" }}>
+                    <span style={{ fontWeight: 700 }}>Plaka</span>
+                    <input value={currentPlate} onChange={(event) => setCurrentPlate(event.target.value)} style={fieldStyle} />
+                  </label>
+                ) : null}
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Aylık Sabit Tutar</span>
                   <input
@@ -305,7 +312,7 @@ export function PersonnelEntryWorkspace() {
               <h3 style={{ margin: 0, fontSize: "1rem" }}>Kayıt Ozeti</h3>
               <SummaryItem label="Rol" value={role} />
               <SummaryItem label="Şube" value={selectedRestaurantLabel} />
-              <SummaryItem label="Arac" value={vehicleMode} />
+              {canViewPlateArea ? <SummaryItem label="Arac" value={vehicleMode} /> : null}
               <SummaryItem label="Durum" value={status} />
               <SummaryItem
                 label="Sabit Tutar"

@@ -923,6 +923,7 @@ export const PREVIEW_USER = {
     "personnel.update",
     "personnel.delete",
     "personnel.status_change",
+    "personnel.plate",
     "deduction.view",
     "deduction.create",
     "deduction.update",

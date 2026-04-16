@@ -39,6 +39,7 @@ ROLE_ACTIONS = {
         "personnel.create",
         "personnel.update",
         "personnel.status_change",
+        "personnel.plate",
         "personnel.delete",
         "purchase.view",
         "purchase.create",
@@ -72,6 +73,7 @@ ROLE_ACTIONS = {
         "personnel.list",
         "personnel.create",
         "personnel.update",
+        "personnel.plate",
     },
     "mobile_ops": {
         "attendance.view",

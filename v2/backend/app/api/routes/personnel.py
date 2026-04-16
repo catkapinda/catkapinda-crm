@@ -35,6 +35,10 @@ from app.services.personnel import (
 router = APIRouter()
 
 
+def _can_view_personnel_plate(user: AuthenticatedUser) -> bool:
+    return "personnel.plate" in set(user.allowed_actions or [])
+
+
 @router.get("/status", response_model=PersonnelModuleStatus)
 def get_personnel_status() -> PersonnelModuleStatus:
     return build_personnel_status()
@@ -42,11 +46,15 @@ def get_personnel_status() -> PersonnelModuleStatus:
 
 @router.get("/dashboard", response_model=PersonnelDashboardResponse)
 def get_personnel_dashboard(
-    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.view"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("personnel.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     limit: int = Query(default=12, ge=1, le=100),
 ) -> PersonnelDashboardResponse:
-    return build_personnel_dashboard(conn, limit=limit)
+    return build_personnel_dashboard(
+        conn,
+        limit=limit,
+        include_vehicle_fields=_can_view_personnel_plate(user),
+    )
 
 
 @router.get("/form-options", response_model=PersonnelFormOptionsResponse)
@@ -65,7 +73,11 @@ def create_personnel_record_route(
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> PersonnelCreateResponse:
     try:
-        response = create_personnel_record(conn, payload=payload)
+        response = create_personnel_record(
+            conn,
+            payload=payload,
+            allow_vehicle_fields=_can_view_personnel_plate(user),
+        )
         response_data = response_to_dict(response)
         safe_record_audit_event(
             conn,
@@ -84,7 +96,7 @@ def create_personnel_record_route(
 
 @router.get("/records", response_model=PersonnelManagementResponse)
 def get_personnel_records(
-    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.list"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("personnel.list"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     limit: int = Query(default=80, ge=1, le=300),
     restaurant_id: int | None = None,
@@ -97,17 +109,22 @@ def get_personnel_records(
         restaurant_id=restaurant_id,
         role=role,
         search=search,
+        include_vehicle_fields=_can_view_personnel_plate(user),
     )
 
 
 @router.get("/records/{person_id}", response_model=PersonnelDetailResponse)
 def get_personnel_record_detail(
     person_id: int,
-    _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.list"))],
+    user: Annotated[AuthenticatedUser, Depends(require_action("personnel.list"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> PersonnelDetailResponse:
     try:
-        return build_personnel_detail(conn, person_id=person_id)
+        return build_personnel_detail(
+            conn,
+            person_id=person_id,
+            include_vehicle_fields=_can_view_personnel_plate(user),
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -120,7 +137,12 @@ def update_personnel_record_route(
     conn: Annotated[psycopg.Connection, Depends(get_db)],
 ) -> PersonnelUpdateResponse:
     try:
-        response = update_personnel_record_entry(conn, person_id=person_id, payload=payload)
+        response = update_personnel_record_entry(
+            conn,
+            person_id=person_id,
+            payload=payload,
+            allow_vehicle_fields=_can_view_personnel_plate(user),
+        )
         response_data = response_to_dict(response)
         safe_record_audit_event(
             conn,

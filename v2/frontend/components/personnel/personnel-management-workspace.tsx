@@ -211,6 +211,7 @@ export function PersonnelManagementWorkspace() {
   );
   const canToggleStatus = user?.allowed_actions.includes("personnel.status_change") ?? false;
   const canDeletePersonnel = user?.allowed_actions.includes("personnel.delete") ?? false;
+  const canViewPlateArea = user?.allowed_actions.includes("personnel.plate") ?? false;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -456,7 +457,9 @@ export function PersonnelManagementWorkspace() {
                   >
                     <span style={pill("soft")}>{entry.role}</span>
                     <span style={pill("soft")}>{entry.status}</span>
-                    <span style={pill("soft")}>{entry.vehicle_mode}</span>
+                    {canViewPlateArea && entry.vehicle_mode ? (
+                      <span style={pill("soft")}>{entry.vehicle_mode}</span>
+                    ) : null}
                   </div>
                   <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
                     {entry.restaurant_label}
@@ -543,24 +546,28 @@ export function PersonnelManagementWorkspace() {
                       ))}
                     </select>
                   </label>
-                  <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Arac Modu</span>
-                    <select
-                      value={editVehicleMode}
-                      onChange={(event) => setEditVehicleMode(event.target.value)}
-                      style={fieldStyle}
-                    >
-                      {options?.vehicle_mode_options.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Plaka</span>
-                    <input value={editCurrentPlate} onChange={(event) => setEditCurrentPlate(event.target.value)} style={fieldStyle} />
-                  </label>
+                  {canViewPlateArea ? (
+                    <label style={{ display: "grid", gap: "8px" }}>
+                      <span style={{ fontWeight: 700 }}>Arac Modu</span>
+                      <select
+                        value={editVehicleMode}
+                        onChange={(event) => setEditVehicleMode(event.target.value)}
+                        style={fieldStyle}
+                      >
+                        {options?.vehicle_mode_options.map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  {canViewPlateArea ? (
+                    <label style={{ display: "grid", gap: "8px" }}>
+                      <span style={{ fontWeight: 700 }}>Plaka</span>
+                      <input value={editCurrentPlate} onChange={(event) => setEditCurrentPlate(event.target.value)} style={fieldStyle} />
+                    </label>
+                  ) : null}
                   <label style={{ display: "grid", gap: "8px" }}>
                     <span style={{ fontWeight: 700 }}>Ise Giriş</span>
                     <input type="date" value={editStartDate} onChange={(event) => setEditStartDate(event.target.value)} style={fieldStyle} />
@@ -643,7 +650,7 @@ export function PersonnelManagementWorkspace() {
                 <SummaryItem label="Kod" value={editPersonCode} />
                 <SummaryItem label="Rol" value={editRole} />
                 <SummaryItem label="Şube" value={selectedEntry.restaurant_label} />
-                <SummaryItem label="Arac" value={editVehicleMode} />
+                {canViewPlateArea ? <SummaryItem label="Arac" value={editVehicleMode} /> : null}
                 <SummaryItem label="Durum" value={editStatus} />
               </aside>
             </div>

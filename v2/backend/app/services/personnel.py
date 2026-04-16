@@ -158,7 +158,13 @@ def _resolve_cost_model_for_role(role: str) -> str:
     return FIXED_COST_MODEL_BY_ROLE.get(_normalize_role(role), "fixed_kurye")
 
 
-def _build_management_entry(row: dict[str, object]) -> PersonnelManagementEntry:
+def _build_management_entry(
+    row: dict[str, object],
+    *,
+    include_vehicle_fields: bool = True,
+) -> PersonnelManagementEntry:
+    vehicle_mode = _display_vehicle_mode(_derive_vehicle_mode(row)) if include_vehicle_fields else ""
+    current_plate = str(row["current_plate"] or "") if include_vehicle_fields else ""
     return PersonnelManagementEntry(
         id=int(row["id"]),
         person_code=str(row["person_code"] or ""),
@@ -168,8 +174,8 @@ def _build_management_entry(row: dict[str, object]) -> PersonnelManagementEntry:
         phone=str(row["phone"] or ""),
         restaurant_id=int(row["restaurant_id"]) if row["restaurant_id"] else None,
         restaurant_label=str(row["restaurant_label"] or "-"),
-        vehicle_mode=_display_vehicle_mode(_derive_vehicle_mode(row)),
-        current_plate=str(row["current_plate"] or ""),
+        vehicle_mode=vehicle_mode,
+        current_plate=current_plate,
         start_date=row["start_date"],
         monthly_fixed_cost=float(row["monthly_fixed_cost"] or 0),
         notes=str(row["notes"] or ""),
@@ -207,6 +213,7 @@ def build_personnel_dashboard(
     conn: psycopg.Connection,
     *,
     limit: int,
+    include_vehicle_fields: bool = True,
 ) -> PersonnelDashboardResponse:
     summary_values = fetch_personnel_summary(conn)
     recent_rows = fetch_recent_personnel_records(conn, limit=limit)
@@ -214,7 +221,10 @@ def build_personnel_dashboard(
         module="personnel",
         status="active",
         summary=PersonnelSummary(**summary_values),
-        recent_entries=[_build_management_entry(row) for row in recent_rows],
+        recent_entries=[
+            _build_management_entry(row, include_vehicle_fields=include_vehicle_fields)
+            for row in recent_rows
+        ],
     )
 
 
@@ -249,6 +259,7 @@ def build_personnel_management(
     restaurant_id: int | None = None,
     role: str | None = None,
     search: str | None = None,
+    include_vehicle_fields: bool = True,
 ) -> PersonnelManagementResponse:
     normalized_role = _normalize_role(role) if role else None
     rows = fetch_personnel_management_records(
@@ -265,7 +276,10 @@ def build_personnel_management(
             role=normalized_role,
             search=search,
         ),
-        entries=[_build_management_entry(row) for row in rows],
+        entries=[
+            _build_management_entry(row, include_vehicle_fields=include_vehicle_fields)
+            for row in rows
+        ],
     )
 
 
@@ -273,24 +287,30 @@ def build_personnel_detail(
     conn: psycopg.Connection,
     *,
     person_id: int,
+    include_vehicle_fields: bool = True,
 ) -> PersonnelDetailResponse:
     row = fetch_personnel_record_by_id(conn, person_id)
     if row is None:
         raise LookupError("Personel kaydı bulunamadı.")
-    return PersonnelDetailResponse(entry=_build_management_entry(row))
+    return PersonnelDetailResponse(
+        entry=_build_management_entry(row, include_vehicle_fields=include_vehicle_fields)
+    )
 
 
 def create_personnel_record(
     conn: psycopg.Connection,
     *,
     payload: PersonnelCreateRequest,
+    allow_vehicle_fields: bool = True,
 ) -> PersonnelCreateResponse:
     full_name = str(payload.full_name or "").strip()
     if not full_name:
         raise ValueError("Ad soyad zorunlu.")
 
     normalized_role = _normalize_role(payload.role)
-    normalized_vehicle_mode = _normalize_vehicle_mode(payload.vehicle_mode)
+    normalized_vehicle_mode = (
+        _normalize_vehicle_mode(payload.vehicle_mode) if allow_vehicle_fields else "Kendi Motoru"
+    )
     normalized_status = payload.status if payload.status in PERSONNEL_STATUS_OPTIONS else "Aktif"
     person_code = _build_next_person_code(conn, role=normalized_role)
     vehicle_fields = _resolve_vehicle_fields(normalized_vehicle_mode)
@@ -308,7 +328,7 @@ def create_personnel_record(
             "vehicle_type": vehicle_fields["vehicle_type"],
             "motor_rental": vehicle_fields["motor_rental"],
             "motor_purchase": vehicle_fields["motor_purchase"],
-            "current_plate": str(payload.current_plate or "").strip(),
+            "current_plate": str(payload.current_plate or "").strip() if allow_vehicle_fields else "",
             "start_date": payload.start_date,
             "exit_date": date.today().isoformat() if normalized_status == "Pasif" else None,
             "cost_model": _resolve_cost_model_for_role(normalized_role),
@@ -330,6 +350,7 @@ def update_personnel_record_entry(
     *,
     person_id: int,
     payload: PersonnelUpdateRequest,
+    allow_vehicle_fields: bool = True,
 ) -> PersonnelUpdateResponse:
     existing_row = fetch_personnel_record_by_id(conn, person_id)
     if existing_row is None:
@@ -340,7 +361,6 @@ def update_personnel_record_entry(
         raise ValueError("Ad soyad zorunlu.")
 
     normalized_role = _normalize_role(payload.role)
-    normalized_vehicle_mode = _normalize_vehicle_mode(payload.vehicle_mode)
     normalized_status = payload.status if payload.status in PERSONNEL_STATUS_OPTIONS else "Aktif"
     next_person_code = _build_next_person_code(conn, role=normalized_role, exclude_id=person_id)
     current_code = str(existing_row.get("person_code") or "").strip()
@@ -348,7 +368,17 @@ def update_personnel_record_entry(
     if _role_code_prefix(existing_row.get("role") or "") != _role_code_prefix(normalized_role):
         person_code = next_person_code
 
-    vehicle_fields = _resolve_vehicle_fields(normalized_vehicle_mode)
+    if allow_vehicle_fields:
+        normalized_vehicle_mode = _normalize_vehicle_mode(payload.vehicle_mode)
+        vehicle_fields = _resolve_vehicle_fields(normalized_vehicle_mode)
+        current_plate = str(payload.current_plate or "").strip()
+    else:
+        vehicle_fields = {
+            "vehicle_type": str(existing_row.get("vehicle_type") or ""),
+            "motor_rental": str(existing_row.get("motor_rental") or "Hayır"),
+            "motor_purchase": str(existing_row.get("motor_purchase") or "Hayır"),
+        }
+        current_plate = str(existing_row.get("current_plate") or "")
     update_personnel_record(
         conn,
         person_id,
@@ -362,7 +392,7 @@ def update_personnel_record_entry(
             "vehicle_type": vehicle_fields["vehicle_type"],
             "motor_rental": vehicle_fields["motor_rental"],
             "motor_purchase": vehicle_fields["motor_purchase"],
-            "current_plate": str(payload.current_plate or "").strip(),
+            "current_plate": current_plate,
             "start_date": payload.start_date,
             "exit_date": date.today().isoformat() if normalized_status == "Pasif" else None,
             "cost_model": _resolve_cost_model_for_role(normalized_role),

@@ -39,6 +39,7 @@ def _fake_admin_user() -> AuthenticatedUser:
             "personnel.update",
             "personnel.list",
             "personnel.status_change",
+            "personnel.plate",
             "personnel.delete",
             "purchase.create",
             "purchase.update",
@@ -206,7 +207,7 @@ def test_attendance_mutation_routes(monkeypatch):
 def test_personnel_mutation_routes(monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.personnel.create_personnel_record",
-        lambda conn, payload: {
+        lambda conn, payload, allow_vehicle_fields=True: {
             "person_id": 33,
             "person_code": "CK-K33",
             "message": "Personel oluşturuldu.",
@@ -214,7 +215,7 @@ def test_personnel_mutation_routes(monkeypatch):
     )
     monkeypatch.setattr(
         "app.api.routes.personnel.update_personnel_record_entry",
-        lambda conn, person_id, payload: {
+        lambda conn, person_id, payload, allow_vehicle_fields=True: {
             "person_id": person_id,
             "person_code": "CK-K33",
             "message": "Personel güncellendi.",
