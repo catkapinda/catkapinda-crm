@@ -592,7 +592,7 @@ export default function HomePage() {
               background: "rgba(255, 250, 241, 0.82)",
             }}
           >
-            Genel bakış newsroom paneli yükleniyor...
+            Genel bakış paneli yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -605,8 +605,8 @@ export default function HomePage() {
               background: "rgba(255, 250, 241, 0.82)",
             }}
           >
-            Overview backend şu anda cevap vermiyor. Veri geri geldiğinde bu yeni yüzey gerçek
-            operasyon nabzını ve son hareketleri daha premium bir dille gösterecek.
+            Genel bakış servisi şu anda cevap vermiyor. Veri geri geldiğinde bu yeni yüzey gerçek
+            operasyon nabzını ve son hareketleri daha güçlü bir dille gösterecek.
           </div>
         ) : (
           <>
@@ -620,12 +620,12 @@ export default function HomePage() {
               {pulseCard(
                 "Aktif Şube",
                 String(dashboard.hero.active_restaurants),
-                "Operasyon omurgasinda bugün hareketli olan restoran havuzu.",
+                "Operasyon omurgasında bugün hareketli olan restoran havuzu.",
               )}
               {pulseCard(
                 "Aktif Personel",
                 String(dashboard.hero.active_personnel),
-                "Sistemde anlik aktif gorebilecegin saha ve destek personeli.",
+                "Sistemde anlık aktif görebileceğin saha ve destek personeli.",
               )}
               {pulseCard(
                 "Bu Ay Puantaj",

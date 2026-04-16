@@ -2165,7 +2165,7 @@ export default function StatusPage() {
                       </div>
                     </div>
                     {frontend.sourceEnvKey ? (
-                      <div style={{ color: "#5f7294", fontSize: "0.92rem" }}>Kaynak env: {frontend.sourceEnvKey}</div>
+                      <div style={{ color: "#5f7294", fontSize: "0.92rem" }}>Kaynak değişken: {frontend.sourceEnvKey}</div>
                     ) : null}
                     {frontend.targetBaseUrl ? (
                       <div style={{ color: "#5f7294", fontSize: "0.92rem" }}>İç hedef: {frontend.targetBaseUrl}</div>
@@ -2199,7 +2199,7 @@ export default function StatusPage() {
                         SMS {backend.auth.sms_allowlist_count ? `(${backend.auth.sms_allowlist_count})` : ""}
                       </div>
                       <div style={statusPill((backend.auth.admin_user_count ?? 0) > 0)}>
-                        Admin {(backend.auth.admin_user_count ?? 0)}
+                        Yönetici {(backend.auth.admin_user_count ?? 0)}
                       </div>
                       <div style={statusPill((backend.auth.mobile_ops_user_count ?? 0) > 0)}>
                         Mobil {(backend.auth.mobile_ops_user_count ?? 0)}
