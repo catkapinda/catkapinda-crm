@@ -14,6 +14,7 @@ MOBILE_AUTH_EMAIL_DOMAIN = "auth.catkapinda.local"
 
 ROLE_ACTIONS = {
     "admin": {
+        "backup.manage",
         "dashboard.view",
         "attendance.view",
         "attendance.create",
@@ -69,10 +70,14 @@ ROLE_ACTIONS = {
         "deduction.update",
         "deduction.delete",
         "deduction.bulk_delete",
+        "sales.view",
+        "sales.create",
+        "sales.update",
         "personnel.view",
         "personnel.list",
         "personnel.create",
         "personnel.update",
+        "personnel.status_change",
         "personnel.plate",
     },
     "mobile_ops": {

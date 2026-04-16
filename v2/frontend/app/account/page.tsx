@@ -8,6 +8,7 @@ import { useAuth } from "../../components/auth/auth-provider";
 import { AppShell } from "../../components/shell/app-shell";
 import { apiFetch, readStoredAuthNotice, writeStoredAuthNotice } from "../../lib/api";
 import { resolveDefaultPath } from "../../lib/navigation";
+import { isPreviewModeBrowser } from "../../lib/preview";
 
 type ChangePasswordResponse = {
   message: string;
@@ -23,6 +24,28 @@ type ChangePasswordResponse = {
     allowed_actions: string[];
     expires_at: string;
   };
+};
+
+type BackupStatusResponse = {
+  module: string;
+  status: string;
+  active_backend: string;
+  active_backend_label: string;
+  can_download_archive: boolean;
+  archive_download_label: string;
+  suggested_archive_name: string;
+  can_download_sqlite_file: boolean;
+  sqlite_download_label: string;
+  suggested_sqlite_name?: string | null;
+  sqlite_download_note: string;
+  can_import_sqlite_backup: boolean;
+  import_title: string;
+  import_note: string;
+};
+
+type BackupImportResponse = {
+  message: string;
+  imported_anything: boolean;
 };
 
 const serifStyle = {
@@ -52,6 +75,28 @@ function formatExpiry(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function parseApiError(detail: unknown, fallback: string) {
+  if (typeof detail === "string" && detail.trim()) {
+    return detail;
+  }
+  return fallback;
+}
+
+function resolveDownloadName(response: Response, fallback: string) {
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename=\"([^\"]+)\"/i);
+  return match?.[1] || fallback;
+}
+
+function triggerBrowserDownload(blob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(objectUrl);
 }
 
 function narrativeCard({
@@ -140,6 +185,8 @@ function narrativeCard({
 export default function AccountPage() {
   const router = useRouter();
   const { user, updateUser } = useAuth();
+  const isPreview = isPreviewModeBrowser();
+  const canManageBackup = Boolean(user?.allowed_actions.includes("backup.manage"));
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -147,6 +194,11 @@ export default function AccountPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [backupStatus, setBackupStatus] = useState<BackupStatusResponse | null>(null);
+  const [backupBusy, setBackupBusy] = useState<"" | "archive" | "sqlite" | "import">("");
+  const [backupMessage, setBackupMessage] = useState("");
+  const [backupError, setBackupError] = useState("");
+  const [sqliteImportFile, setSqliteImportFile] = useState<File | null>(null);
 
   useEffect(() => {
     const nextNotice = readStoredAuthNotice();
@@ -156,6 +208,58 @@ export default function AccountPage() {
     setNotice(nextNotice);
     writeStoredAuthNotice("");
   }, []);
+
+  useEffect(() => {
+    if (!canManageBackup) {
+      setBackupStatus(null);
+      return;
+    }
+
+    if (isPreview) {
+      setBackupStatus({
+        module: "backups",
+        status: "active",
+        active_backend: "sqlite",
+        active_backend_label: "Yerel ön izleme veritabanı",
+        can_download_archive: false,
+        archive_download_label: "Tüm tabloları yedek olarak indir",
+        suggested_archive_name: "catkapinda_tam_yedek_preview.zip",
+        can_download_sqlite_file: false,
+        sqlite_download_label: "SQLite veritabanı dosyasını indir",
+        suggested_sqlite_name: "catkapinda_crm_preview.db",
+        sqlite_download_note: "Ön izleme modunda gerçek dosya indirme açılmıyor.",
+        can_import_sqlite_backup: false,
+        import_title: "SQLite yedeğini içe aktar",
+        import_note: "Ön izleme modunda içe aktarma kapalı tutulur.",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await apiFetch("/backups/status");
+        const payload = (await response.json().catch(() => null)) as
+          | { detail?: string }
+          | BackupStatusResponse
+          | null;
+        if (!response.ok || !payload || !("module" in payload)) {
+          throw new Error(parseApiError(payload && "detail" in payload ? payload.detail : "", "Yedek durumu okunamadı."));
+        }
+        if (!cancelled) {
+          setBackupStatus(payload);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setBackupError(loadError instanceof Error ? loadError.message : "Yedek durumu okunamadı.");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canManageBackup, isPreview]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -203,6 +307,78 @@ export default function AccountPage() {
     }
   }
 
+  async function handleBackupDownload(kind: "archive" | "sqlite") {
+    if (isPreview) {
+      setBackupError("Ön izleme modunda gerçek dosya indirme açılmıyor.");
+      return;
+    }
+    setBackupBusy(kind);
+    setBackupError("");
+    setBackupMessage("");
+    try {
+      const path = kind === "archive" ? "/backups/archive" : "/backups/sqlite-file";
+      const fallbackName =
+        kind === "archive"
+          ? backupStatus?.suggested_archive_name || "catkapinda_tam_yedek.zip"
+          : backupStatus?.suggested_sqlite_name || "catkapinda_crm.db";
+      const response = await apiFetch(path);
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+        throw new Error(parseApiError(payload?.detail, "Yedek indirilemedi."));
+      }
+      const blob = await response.blob();
+      triggerBrowserDownload(blob, resolveDownloadName(response, fallbackName));
+      setBackupMessage(kind === "archive" ? "Tam yedek indirildi." : "SQLite dosyası indirildi.");
+    } catch (downloadError) {
+      setBackupError(downloadError instanceof Error ? downloadError.message : "Yedek indirilemedi.");
+    } finally {
+      setBackupBusy("");
+    }
+  }
+
+  async function handleSqliteImport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!sqliteImportFile) {
+      setBackupError("Önce bir `.db` dosyası seçmelisin.");
+      return;
+    }
+    if (isPreview) {
+      setBackupError("Ön izleme modunda içe aktarma kapalı.");
+      return;
+    }
+    setBackupBusy("import");
+    setBackupError("");
+    setBackupMessage("");
+    try {
+      const response = await apiFetch("/backups/import-sqlite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Backup-File-Name": sqliteImportFile.name,
+        },
+        body: sqliteImportFile,
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { detail?: string }
+        | BackupImportResponse
+        | null;
+      if (!response.ok || !payload || !("message" in payload)) {
+        throw new Error(parseApiError(payload && "detail" in payload ? payload.detail : "", "SQLite yedeği içe aktarılamadı."));
+      }
+      setBackupMessage(payload.message || "SQLite yedeği işlendi.");
+      setSqliteImportFile(null);
+      const statusResponse = await apiFetch("/backups/status");
+      const statusPayload = (await statusResponse.json().catch(() => null)) as BackupStatusResponse | null;
+      if (statusResponse.ok && statusPayload) {
+        setBackupStatus(statusPayload);
+      }
+    } catch (importError) {
+      setBackupError(importError instanceof Error ? importError.message : "SQLite yedeği içe aktarılamadı.");
+    } finally {
+      setBackupBusy("");
+    }
+  }
+
   const securityDeck = useMemo(() => {
     if (!user) {
       return [];
@@ -213,27 +389,27 @@ export default function AccountPage() {
 
     return [
       {
-        eyebrow: "Guvenlik Karari",
-        title: user.must_change_password ? "Geçici şifre halen aktif." : "Hesap sabit guvenlikte görünüyor.",
+        eyebrow: "Güvenlik Kararı",
+        title: user.must_change_password ? "Geçici şifre hâlâ aktif." : "Hesap sabit güvenlikte görünüyor.",
         body: user.must_change_password
           ? "Bu hesap ilk kurulum şifresiyle açılmış. Kalıcı şifreye geçiş tamamlanmadan bu yüzey güvenli kabul edilmez."
-          : "Şifre degisimi tamamlanmis durumda. Bundan sonra odak, hesabın tekil ve güncel bir erisim hattında kalmasi.",
+          : "Şifre değişimi tamamlanmış durumda. Bundan sonra odak, hesabın tekil ve güncel bir erişim hattında kalması.",
         tone: user.must_change_password ? "ink" : "paper",
       },
       {
         eyebrow: "Kimlik Hattı",
-        title: hasContact ? "Hesap kimlik sinyali tamamlaniyor." : "Iletisim izi zayif görünüyor.",
+        title: hasContact ? "Hesap kimlik sinyali tamamlanıyor." : "İletişim izi zayıf görünüyor.",
         body: hasContact
-          ? `${user.email ? "E-posta" : "E-posta yok"}${user.email && user.phone ? " ve " : ""}${user.phone ? "telefon" : ""} bu hesapta görünür. Bu, pilot geciste destek ve kurtarma adimlarini kolaylaştırır.`
-          : "Bu hesapta görünen e-posta ya da telefon yok. Destek ve kimlik teyidi için iletisim izini guclendirmek gerekir.",
+          ? `${user.email ? "E-posta" : "E-posta yok"}${user.email && user.phone ? " ve " : ""}${user.phone ? "telefon" : ""} bu hesapta görünür. Bu, pilot geçişte destek ve kurtarma adımlarını kolaylaştırır.`
+          : "Bu hesapta görünen e-posta ya da telefon yok. Destek ve kimlik teyidi için iletişim izini güçlendirmek gerekir.",
         tone: hasContact ? "paper" : "accent",
       },
       {
-        eyebrow: "Oturum Nabzi",
-        title: sessionReady ? "Erisim zamani okunabiliyor." : "Oturum izi eksik görünüyor.",
+        eyebrow: "Oturum Nabzı",
+        title: sessionReady ? "Erişim zamanı okunabiliyor." : "Oturum izi eksik görünüyor.",
         body: sessionReady
-          ? `${formatExpiry(user.expires_at)} oturum sınırı olarak görünüyor. Bu sinyal, kullanicinin aktif ve takip edilebilir bir oturumda oldugunu anlatır.`
-          : "Bu hesap için okunabilir bir oturum bitis bilgisi yok. Guvenlik akışını gozden gecirmek faydali olur.",
+          ? `${formatExpiry(user.expires_at)} oturum sınırı olarak görünüyor. Bu sinyal, kullanıcının aktif ve takip edilebilir bir oturumda olduğunu anlatır.`
+          : "Bu hesap için okunabilir bir oturum bitiş bilgisi yok. Güvenlik akışını gözden geçirmek faydalı olur.",
         tone: sessionReady ? "accent" : "paper",
       },
     ] as const;
@@ -282,7 +458,7 @@ export default function AccountPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Profil ve Guvenlik
+                Profil ve Güvenlik
               </div>
               <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
                 <h1
@@ -294,7 +470,7 @@ export default function AccountPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Hesabi sadece ayar olarak değil, guvenlik ve kimlik masasi olarak ele aliyoruz.
+                  Hesabı sadece ayar olarak değil, güvenlik ve kimlik masası olarak ele alıyoruz.
                 </h1>
                 <p
                   style={{
@@ -306,8 +482,8 @@ export default function AccountPage() {
                   }}
                 >
                   Pilot kullanımda en kritik şey güçlü şifre, okunabilir oturum izi ve hesap
-                  kimliginin temiz kalmasi. Bu yüzeyi sadece şifre değiştirme alani değil; hesabın
-                  ne kadar sağlıklı oldugunu gösteren bir guvenlik katmanı gibi kurguladik.
+                  kimliğinin temiz kalması. Bu yüzeyi sadece şifre değiştirme alanı değil; hesabın
+                  ne kadar sağlıklı olduğunu gösteren bir güvenlik katmanı gibi kurguladık.
                 </p>
               </div>
               <div
@@ -382,7 +558,7 @@ export default function AccountPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Guvenlik Nabzi
+                      Güvenlik Nabzı
                     </div>
                     <div
                       style={{
@@ -406,7 +582,7 @@ export default function AccountPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Security Desk
+                    Güvenlik Masası
                   </div>
                 </div>
                 <div
@@ -491,8 +667,8 @@ export default function AccountPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce geçici şifre durumuna, sonra hesap kimlik kanallarina ve en
-                  son oturum izine bakmak en sağlıklı profil okumasini verir.
+                  Bu ekranda önce geçici şifre durumuna, sonra hesap kimlik kanallarına ve en
+                  son oturum izine bakmak en sağlıklı profil okumasını verir.
                 </div>
               </article>
             </div>
@@ -531,9 +707,9 @@ export default function AccountPage() {
             }}
           >
             <div style={{ display: "grid", gap: "6px" }}>
-              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Profil Ozeti</h2>
+              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Profil Özeti</h2>
               <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.6 }}>
-                Hesabin kimlik, rol ve oturum izini tek yerde oku.
+                Hesabın kimlik, rol ve oturum izini tek yerde oku.
               </p>
             </div>
             <InfoRow label="Ad Soyad" value={user?.full_name || "-"} />
@@ -557,7 +733,7 @@ export default function AccountPage() {
             <div style={{ display: "grid", gap: "6px" }}>
               <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Şifre Güncelle</h2>
               <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.6 }}>
-                Yeni sisteme gectigimizde herkesin tekil ve güçlü şifre kullanmasi gerekiyor.
+                Yeni sisteme geçtiğimizde herkesin tekil ve güçlü şifre kullanması gerekiyor.
               </p>
             </div>
 
@@ -666,11 +842,176 @@ export default function AccountPage() {
                   opacity: submitting ? 0.6 : 1,
                 }}
               >
-                {submitting ? "Kaydediliyor..." : "Sifreyi Güncelle"}
+                {submitting ? "Kaydediliyor..." : "Şifreyi Güncelle"}
               </button>
             </form>
           </section>
         </div>
+
+        {canManageBackup ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(320px, 420px) minmax(360px, 1fr)",
+              gap: "18px",
+              alignItems: "start",
+            }}
+          >
+            <section
+              style={{
+                padding: "22px",
+                borderRadius: "24px",
+                border: "1px solid var(--line)",
+                background: "var(--surface-strong)",
+                boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+                display: "grid",
+                gap: "16px",
+              }}
+            >
+              <div style={{ display: "grid", gap: "6px" }}>
+                <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Yedek ve Veri Yönetimi</h2>
+                <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.6 }}>
+                  Streamlit tarafındaki yedek araçlarını buraya taşıdık. Önce tam tablo yedeğini, sonra gerekiyorsa SQLite dosyasını indir.
+                </p>
+              </div>
+
+              <InfoRow label="Aktif kayıt altyapısı" value={backupStatus?.active_backend_label || "-"} />
+
+              <div style={{ display: "grid", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => void handleBackupDownload("archive")}
+                  disabled={backupBusy !== "" || !backupStatus?.can_download_archive}
+                  style={{
+                    padding: "14px 18px",
+                    borderRadius: "16px",
+                    border: "none",
+                    background: "var(--accent)",
+                    color: "#fff",
+                    fontWeight: 800,
+                    fontSize: "0.98rem",
+                    cursor: "pointer",
+                    opacity: backupBusy !== "" || !backupStatus?.can_download_archive ? 0.6 : 1,
+                  }}
+                >
+                  {backupBusy === "archive"
+                    ? "Yedek hazırlanıyor..."
+                    : backupStatus?.archive_download_label || "Tüm tabloları yedek olarak indir"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleBackupDownload("sqlite")}
+                  disabled={backupBusy !== "" || !backupStatus?.can_download_sqlite_file}
+                  style={{
+                    padding: "14px 18px",
+                    borderRadius: "16px",
+                    border: "1px solid var(--line)",
+                    background: "rgba(255,255,255,0.92)",
+                    color: "var(--text)",
+                    fontWeight: 800,
+                    fontSize: "0.98rem",
+                    cursor: "pointer",
+                    opacity: backupBusy !== "" || !backupStatus?.can_download_sqlite_file ? 0.6 : 1,
+                  }}
+                >
+                  {backupBusy === "sqlite"
+                    ? "SQLite hazırlanıyor..."
+                    : backupStatus?.sqlite_download_label || "SQLite veritabanı dosyasını indir"}
+                </button>
+              </div>
+
+              <div
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: "16px",
+                  background: "rgba(255,255,255,0.72)",
+                  border: "1px solid var(--line)",
+                  color: "var(--muted)",
+                  lineHeight: 1.6,
+                }}
+              >
+                {backupStatus?.sqlite_download_note || "Yedek durumu okunuyor."}
+              </div>
+
+              {backupError ? (
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: "16px",
+                    background: "rgba(207, 65, 65, 0.08)",
+                    color: "#b73636",
+                    border: "1px solid rgba(207, 65, 65, 0.12)",
+                  }}
+                >
+                  {backupError}
+                </div>
+              ) : null}
+
+              {backupMessage ? (
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: "16px",
+                    background: "rgba(44, 138, 84, 0.08)",
+                    color: "#1c6c3f",
+                    border: "1px solid rgba(44, 138, 84, 0.14)",
+                  }}
+                >
+                  {backupMessage}
+                </div>
+              ) : null}
+            </section>
+
+            <section
+              style={{
+                padding: "22px",
+                borderRadius: "24px",
+                border: "1px solid var(--line)",
+                background: "var(--surface-strong)",
+                boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+                display: "grid",
+                gap: "16px",
+              }}
+            >
+              <div style={{ display: "grid", gap: "6px" }}>
+                <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{backupStatus?.import_title || "SQLite yedeğini içe aktar"}</h2>
+                <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.6 }}>
+                  {backupStatus?.import_note || "İçe aktarma durumu okunuyor."}
+                </p>
+              </div>
+
+              <form onSubmit={handleSqliteImport} style={{ display: "grid", gap: "14px" }}>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>SQLite yedeği</span>
+                  <input
+                    type="file"
+                    accept=".db"
+                    onChange={(event) => setSqliteImportFile(event.target.files?.[0] || null)}
+                    style={fieldStyle}
+                    disabled={!backupStatus?.can_import_sqlite_backup || backupBusy !== ""}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={!backupStatus?.can_import_sqlite_backup || backupBusy !== "" || !sqliteImportFile}
+                  style={{
+                    padding: "14px 18px",
+                    borderRadius: "16px",
+                    border: "none",
+                    background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+                    color: "#fff7ea",
+                    fontWeight: 800,
+                    fontSize: "0.98rem",
+                    cursor: "pointer",
+                    opacity: !backupStatus?.can_import_sqlite_backup || backupBusy !== "" || !sqliteImportFile ? 0.6 : 1,
+                  }}
+                >
+                  {backupBusy === "import" ? "Yedek içe aktarılıyor..." : "Yedeği içe aktar"}
+                </button>
+              </form>
+            </section>
+          </div>
+        ) : null}
       </section>
     </AppShell>
   );

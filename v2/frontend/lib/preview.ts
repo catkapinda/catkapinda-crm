@@ -910,6 +910,7 @@ export const PREVIEW_USER = {
   role_display: "Tasarım Preview / Yönetici",
   must_change_password: false,
   allowed_actions: [
+    "backup.manage",
     "dashboard.view",
     "announcements.view",
     "audit.view",
