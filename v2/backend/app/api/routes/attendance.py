@@ -9,6 +9,8 @@ from app.core.audit import response_to_dict, safe_record_audit_event
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.attendance import (
+    AttendanceBulkCreateRequest,
+    AttendanceBulkCreateResponse,
     AttendanceBulkDeleteRequest,
     AttendanceBulkDeleteResponse,
     AttendanceCreateRequest,
@@ -26,6 +28,7 @@ from app.schemas.attendance import (
 )
 from app.services.attendance import (
     bulk_delete_attendance_entries,
+    create_attendance_entries_bulk,
     build_attendance_entry_detail,
     build_attendance_management,
     build_attendance_dashboard,
@@ -64,8 +67,13 @@ def get_attendance_form_options(
     _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     restaurant_id: int | None = None,
+    include_all_active: bool = False,
 ) -> AttendanceFormOptionsResponse:
-    return build_attendance_form_options(conn, restaurant_id=restaurant_id)
+    return build_attendance_form_options(
+        conn,
+        restaurant_id=restaurant_id,
+        include_all_active=include_all_active,
+    )
 
 
 @router.post("/entries", response_model=AttendanceCreateResponse, status_code=201)
@@ -85,6 +93,30 @@ def create_attendance_entry_route(
             summary=str(response_data.get("message") or ""),
             entity_id=response_data.get("entry_id"),
             details={**payload.model_dump(mode="json"), "entry_id": response_data.get("entry_id")},
+        )
+        return response
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/entries/bulk", response_model=AttendanceBulkCreateResponse, status_code=201)
+def create_attendance_entries_bulk_route(
+    payload: AttendanceBulkCreateRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_action("attendance.bulk_create"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> AttendanceBulkCreateResponse:
+    try:
+        response = create_attendance_entries_bulk(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="puantaj",
+            action_type="toplu oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=",".join(str(entry_id) for entry_id in response_data.get("entry_ids") or []),
+            details={**payload.model_dump(mode="json"), "created_count": response_data.get("created_count")},
         )
         return response
     except ValueError as exc:

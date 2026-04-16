@@ -1027,18 +1027,23 @@ function buildPersonnelEntry(record: PreviewPersonnelRecord) {
   };
 }
 
-function buildAttendancePeople(restaurantId: number | null) {
+function buildAttendancePeople(restaurantId: number | null, includeAllActive = false) {
   return previewPersonnelRecords
     .filter((entry) => entry.status === "Aktif")
-    .filter((entry) => (restaurantId ? entry.restaurant_id === restaurantId : true))
+    .filter((entry) => {
+      if (includeAllActive) {
+        return true;
+      }
+      return restaurantId ? entry.restaurant_id === restaurantId : true;
+    })
     .map((entry) => ({
       id: entry.id,
-      label: entry.full_name,
+      label: `${entry.full_name} (${entry.role})`,
       role: entry.role,
     }));
 }
 
-function buildAttendanceFormOptions(restaurantId: number | null) {
+function buildAttendanceFormOptions(restaurantId: number | null, includeAllActive = false) {
   const defaultRestaurantId = restaurantId ?? previewRestaurants[0]?.id ?? null;
   const selectedRestaurant = findRestaurant(defaultRestaurantId);
   return {
@@ -1048,9 +1053,10 @@ function buildAttendanceFormOptions(restaurantId: number | null) {
       pricing_model: restaurant.pricing_model,
       fixed_monthly_fee: restaurant.fixed_monthly_fee,
     })),
-    people: buildAttendancePeople(defaultRestaurantId),
+    people: buildAttendancePeople(defaultRestaurantId, includeAllActive),
     entry_modes: previewEntryModes,
     absence_reasons: previewAbsenceReasons,
+    bulk_statuses: ["Normal", "Joker", "İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Çıkış yaptı", "Şef"],
     selected_restaurant_id: defaultRestaurantId,
     selected_pricing_model: selectedRestaurant?.pricing_model ?? null,
     selected_fixed_monthly_fee: selectedRestaurant?.fixed_monthly_fee ?? 0,
@@ -2313,7 +2319,10 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
 
   if (pathname === "/attendance/form-options" && method === "GET") {
     const restaurantId = Number(url.searchParams.get("restaurant_id") || "");
-    return buildJsonResponse(buildAttendanceFormOptions(Number.isFinite(restaurantId) ? restaurantId : null));
+    const includeAllActive = url.searchParams.get("include_all_active") === "true";
+    return buildJsonResponse(
+      buildAttendanceFormOptions(Number.isFinite(restaurantId) ? restaurantId : null, includeAllActive),
+    );
   }
 
   if (pathname === "/deductions/form-options" && method === "GET") {
@@ -2363,6 +2372,50 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
       message: "Preview kaydı oluşturuldu.",
       entry_id: nextRecord.id,
     });
+  }
+
+  if (pathname === "/attendance/entries/bulk" && method === "POST") {
+    const rows = Array.isArray(body.rows) ? body.rows : [];
+    const createdIds: number[] = [];
+    rows.forEach((row) => {
+      const personId = Number(row?.person_id || 0);
+      const workedHours = Number(row?.worked_hours || 0);
+      const packageCount = Number(row?.package_count || 0);
+      const entryStatus = String(row?.entry_status || "Normal");
+      const notes = String(row?.notes || "");
+      if (!personId) {
+        return;
+      }
+      if (workedHours === 0 && packageCount === 0 && entryStatus === "Normal") {
+        return;
+      }
+      const recordId = nextAttendanceId();
+      previewAttendanceRecords = [
+        {
+          id: recordId,
+          entry_date: String(body.entry_date || "2026-04-15"),
+          restaurant_id: Number(body.restaurant_id || previewRestaurants[0]?.id || 1),
+          entry_mode: "Restoran Kuryesi",
+          primary_person_id: personId,
+          replacement_person_id: personId,
+          absence_reason: "",
+          worked_hours: workedHours,
+          package_count: packageCount,
+          monthly_invoice_amount: 0,
+          notes: notes ? `${notes} | Kaynak: Toplu Puantaj` : "Kaynak: Toplu Puantaj",
+        },
+        ...previewAttendanceRecords,
+      ];
+      createdIds.push(recordId);
+    });
+    return buildJsonResponse(
+      {
+        entry_ids: createdIds,
+        created_count: createdIds.length,
+        message: `${createdIds.length} toplu puantaj kaydı oluşturuldu.`,
+      },
+      createdIds.length ? 201 : 422,
+    );
   }
 
   if (pathname === "/attendance/entries" && method === "DELETE") {

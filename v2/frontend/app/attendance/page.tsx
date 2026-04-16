@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { AttendanceBulkWorkspace } from "../../components/attendance/attendance-bulk-workspace";
 import { AttendanceEntryWorkspace } from "../../components/attendance/attendance-entry-workspace";
 import { AttendanceManagementWorkspace } from "../../components/attendance/attendance-management-workspace";
 import { useAuth } from "../../components/auth/auth-provider";
@@ -646,15 +647,22 @@ export default function AttendancePage() {
             </div>
 
             {workspaceFrame(
-              "Giriş Masasi",
-              "Yeni kayıt alani daha net bir sahneye çıktı.",
+              "Giriş Masası",
+              "Yeni kayıt alanı daha net bir sahneye çıktı.",
               "Günlük puantaj formunu burada daha temiz bir çerçeve içinde ilerletiyoruz. Amaç veri alanını korkutmak değil, hızlandırmak.",
               <AttendanceEntryWorkspace />,
             )}
 
             {workspaceFrame(
-              "Yönetim Masasi",
-              "Duzeltme, seçme ve ay bazli temizlik aynı yüzeyde.",
+              "Toplu Masa",
+              "Şube bazlı çoklu giriş aynı sahnede toplanıyor.",
+              "Toplu puantaj artık tek tek kart açmadan, aynı şubedeki birden fazla personel için saat, paket ve durum girişiyle ilerliyor. İstersen mesaj metnini yapıştırıp tabloyu da hızlandırabiliyorsun.",
+              <AttendanceBulkWorkspace />,
+            )}
+
+            {workspaceFrame(
+              "Yönetim Masası",
+              "Düzeltme, seçme ve ay bazlı temizlik aynı yüzeyde.",
               "Kayıt listesi artık sadece tablo değil; düzeltme, seçili silme ve ay filtresiyle toplu temizlik için daha görünür bir operasyon masası.",
               <AttendanceManagementWorkspace />,
             )}

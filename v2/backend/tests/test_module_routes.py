@@ -116,7 +116,7 @@ def test_attendance_routes_smoke(monkeypatch):
     )
     monkeypatch.setattr(
         "app.api.routes.attendance.build_attendance_form_options",
-        lambda conn, restaurant_id=None: {
+        lambda conn, restaurant_id=None, include_all_active=False: {
             "restaurants": [
                 {
                     "id": 10,
@@ -134,6 +134,7 @@ def test_attendance_routes_smoke(monkeypatch):
             ],
             "entry_modes": ["Restoran Kuryesi", "Joker", "Destek", "Haftalik Izin"],
             "absence_reasons": ["Izinli", "Raporlu"],
+            "bulk_statuses": ["Normal", "Joker", "İzin"],
             "selected_restaurant_id": restaurant_id,
             "selected_pricing_model": "hourly_plus_package",
             "selected_fixed_monthly_fee": 0.0,

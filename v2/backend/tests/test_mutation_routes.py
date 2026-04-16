@@ -22,6 +22,7 @@ def _fake_admin_user() -> AuthenticatedUser:
         role_display="Admin",
         must_change_password=False,
         allowed_actions=[
+            "attendance.bulk_create",
             "attendance.create",
             "attendance.update",
             "attendance.delete",
@@ -72,6 +73,14 @@ def test_attendance_mutation_routes(monkeypatch):
         lambda conn, payload: {
             "entry_id": 101,
             "message": "Puantaj kaydi olusturuldu.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.attendance.create_attendance_entries_bulk",
+        lambda conn, payload: {
+            "entry_ids": [201, 202],
+            "created_count": 2,
+            "message": "2 toplu puantaj kaydi olusturuldu.",
         },
     )
     monkeypatch.setattr(
@@ -134,6 +143,29 @@ def test_attendance_mutation_routes(monkeypatch):
             "notes": "Guncel kayit",
         },
     )
+    bulk_create_response = client.post(
+        "/api/attendance/entries/bulk",
+        json={
+            "entry_date": "2026-04-11",
+            "restaurant_id": 10,
+            "include_all_active": True,
+            "rows": [
+                {
+                    "person_id": 20,
+                    "worked_hours": 8,
+                    "package_count": 20,
+                    "entry_status": "Normal",
+                },
+                {
+                    "person_id": 21,
+                    "worked_hours": 6,
+                    "package_count": 14,
+                    "entry_status": "Joker",
+                    "notes": "Geç kaldı",
+                },
+            ],
+        },
+    )
     delete_response = client.delete("/api/attendance/entries/101")
     bulk_delete_response = client.request(
         "DELETE",
@@ -156,6 +188,10 @@ def test_attendance_mutation_routes(monkeypatch):
     assert create_response.json()["entry_id"] == 101
     assert audit_calls[0]["action_type"] == "oluştur"
     assert audit_calls[0]["entity_type"] == "puantaj"
+    assert bulk_create_response.status_code == 201
+    assert bulk_create_response.json()["created_count"] == 2
+    assert audit_calls[1]["action_type"] == "güncelle"
+    assert audit_calls[2]["action_type"] == "toplu oluştur"
     assert update_response.status_code == 200
     assert update_response.json()["message"] == "Puantaj kaydi guncellendi."
     assert delete_response.status_code == 200

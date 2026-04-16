@@ -55,6 +55,7 @@ class AttendanceFormOptionsResponse(BaseModel):
     people: list[AttendancePersonOption]
     entry_modes: list[str]
     absence_reasons: list[str]
+    bulk_statuses: list[str]
     selected_restaurant_id: int | None
     selected_pricing_model: str | None
     selected_fixed_monthly_fee: float
@@ -75,6 +76,27 @@ class AttendanceCreateRequest(BaseModel):
 
 class AttendanceCreateResponse(BaseModel):
     entry_id: int
+    message: str
+
+
+class AttendanceBulkCreateRowRequest(BaseModel):
+    person_id: int | None = None
+    worked_hours: float = 0.0
+    package_count: float = 0.0
+    entry_status: str = "Normal"
+    notes: str = ""
+
+
+class AttendanceBulkCreateRequest(BaseModel):
+    entry_date: date
+    restaurant_id: int
+    include_all_active: bool = False
+    rows: list[AttendanceBulkCreateRowRequest] = Field(default_factory=list)
+
+
+class AttendanceBulkCreateResponse(BaseModel):
+    entry_ids: list[int]
+    created_count: int
     message: str
 
 

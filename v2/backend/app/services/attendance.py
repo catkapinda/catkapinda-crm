@@ -20,6 +20,8 @@ from app.repositories.attendance import (
     update_attendance_entry,
 )
 from app.schemas.attendance import (
+    AttendanceBulkCreateRequest,
+    AttendanceBulkCreateResponse,
     AttendanceCreateRequest,
     AttendanceCreateResponse,
     AttendanceBulkDeleteRequest,
@@ -48,9 +50,36 @@ ATTENDANCE_ENTRY_MODE_OPTIONS = [
     "Haftalık İzin",
 ]
 ABSENCE_REASON_OPTIONS = ["İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Diğer"]
+ATTENDANCE_BULK_STATUS_OPTIONS = [
+    "Normal",
+    "Joker",
+    "İzin",
+    "Raporlu",
+    "İhbarsız Çıkış",
+    "Gelmedi",
+    "Çıkış yaptı",
+    "Şef",
+]
 ENTRY_MODE_ALIASES = {
     "Haftalik Buyume": "Haftalik Izin",
     "Haftalık Büyüme": "Haftalik Izin",
+}
+ENTRY_STATUS_ALIASES = {
+    "normal": "Normal",
+    "joker": "Joker",
+    "izin": "İzin",
+    "i̇zin": "İzin",
+    "raporlu": "Raporlu",
+    "ihbarsız çıkış": "İhbarsız Çıkış",
+    "ihbarsiz cikis": "İhbarsız Çıkış",
+    "ihbarsiz çıkış": "İhbarsız Çıkış",
+    "ihbarsız cikis": "İhbarsız Çıkış",
+    "gelmedi": "Gelmedi",
+    "çıkış": "Çıkış yaptı",
+    "cikis": "Çıkış yaptı",
+    "çıkış yaptı": "Çıkış yaptı",
+    "sef": "Şef",
+    "şef": "Şef",
 }
 NON_WORKING_STATUSES = {"İzin", "Gelmedi", "Raporlu", "İhbarsız Çıkış"}
 
@@ -58,6 +87,11 @@ NON_WORKING_STATUSES = {"İzin", "Gelmedi", "Raporlu", "İhbarsız Çıkış"}
 def _normalize_entry_mode(value: str) -> str:
     normalized = str(value or "").strip()
     return ENTRY_MODE_ALIASES.get(normalized, normalized or "Restoran Kuryesi")
+
+
+def _normalize_entry_status(value: str) -> str:
+    normalized = str(value or "").strip()
+    return ENTRY_STATUS_ALIASES.get(normalized.lower(), normalized or "Normal")
 
 
 def _normalize_bulk_entry_ids(entry_ids: list[int]) -> list[int]:
@@ -230,6 +264,7 @@ def build_attendance_form_options(
     conn: psycopg.Connection,
     *,
     restaurant_id: int | None,
+    include_all_active: bool = False,
 ) -> AttendanceFormOptionsResponse:
     restaurants = fetch_attendance_restaurants(conn)
     selected_restaurant = None
@@ -243,7 +278,11 @@ def build_attendance_form_options(
         float(selected_restaurant["fixed_monthly_fee"] or 0) if selected_restaurant else 0.0
     )
     people_rows = (
-        fetch_attendance_people(conn, restaurant_id=selected_restaurant_id, include_all_active=False)
+        fetch_attendance_people(
+            conn,
+            restaurant_id=selected_restaurant_id,
+            include_all_active=include_all_active,
+        )
         if selected_restaurant_id is not None
         else []
     )
@@ -267,6 +306,7 @@ def build_attendance_form_options(
         ],
         entry_modes=ATTENDANCE_ENTRY_MODE_OPTIONS,
         absence_reasons=ABSENCE_REASON_OPTIONS,
+        bulk_statuses=ATTENDANCE_BULK_STATUS_OPTIONS,
         selected_restaurant_id=selected_restaurant_id,
         selected_pricing_model=selected_pricing_model,
         selected_fixed_monthly_fee=selected_fixed_monthly_fee,
@@ -296,6 +336,70 @@ def create_attendance_entry(
     return AttendanceCreateResponse(
         entry_id=entry_id,
         message="Günlük puantaj kaydı oluşturuldu.",
+    )
+
+
+def create_attendance_entries_bulk(
+    conn: psycopg.Connection,
+    *,
+    payload: AttendanceBulkCreateRequest,
+) -> AttendanceBulkCreateResponse:
+    people_rows = fetch_attendance_people(
+        conn,
+        restaurant_id=payload.restaurant_id,
+        include_all_active=payload.include_all_active,
+    )
+    allowed_person_ids = {int(row["id"]) for row in people_rows}
+    if not allowed_person_ids:
+        raise ValueError("Bu şube için toplu puantaj oluşturulacak aktif personel bulunamadı.")
+
+    created_ids: list[int] = []
+    for index, row in enumerate(payload.rows, start=1):
+        person_id = int(row.person_id or 0)
+        if person_id <= 0:
+            continue
+        if person_id not in allowed_person_ids:
+            raise ValueError(f"{index}. satırdaki personel bu şube için kullanılamıyor.")
+
+        worked_hours = float(row.worked_hours or 0)
+        package_count = float(row.package_count or 0)
+        entry_status = _normalize_entry_status(row.entry_status)
+        notes = str(row.notes or "").strip()
+
+        if entry_status not in ATTENDANCE_BULK_STATUS_OPTIONS:
+            raise ValueError(f"{index}. satırdaki puantaj durumu geçersiz.")
+
+        if worked_hours == 0 and package_count == 0 and entry_status == "Normal":
+            continue
+
+        note_parts = [part for part in [notes, "Kaynak: Toplu Puantaj"] if part]
+        entry_id = insert_attendance_entry(
+            conn,
+            {
+                "entry_date": payload.entry_date,
+                "restaurant_id": payload.restaurant_id,
+                "planned_personnel_id": person_id,
+                "actual_personnel_id": person_id,
+                "status": entry_status,
+                "worked_hours": worked_hours,
+                "package_count": package_count,
+                "monthly_invoice_amount": 0.0,
+                "absence_reason": "",
+                "coverage_type": "",
+                "notes": " | ".join(note_parts),
+            },
+        )
+        created_ids.append(entry_id)
+
+    if not created_ids:
+        raise ValueError("Kaydedilecek en az bir toplu puantaj satırı girilmelidir.")
+
+    conn.commit()
+    created_count = len(created_ids)
+    return AttendanceBulkCreateResponse(
+        entry_ids=created_ids,
+        created_count=created_count,
+        message=f"{created_count} toplu puantaj kaydı oluşturuldu.",
     )
 
 
