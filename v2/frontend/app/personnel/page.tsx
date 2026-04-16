@@ -326,7 +326,7 @@ export default function PersonnelPage() {
             : activeRatio >= 60
               ? "Aktif kadro korunuyor."
               : "Aktif kadro dikkat istiyor.",
-        body: `${dashboard.summary.total_personnel} kartin %${activeRatio.toFixed(1)} aktif durumda. Bu oran sahaya cikabilecek gerçek kadro gucunu hızlı okumayı saglar.`,
+        body: `${dashboard.summary.total_personnel} kartın %${activeRatio.toFixed(1)} aktif durumda. Bu oran sahaya çıkabilecek gerçek kadro gücünü hızlı okumayı sağlar.`,
         tone: activeRatio >= 80 ? "ink" : "accent",
       },
       {
@@ -402,7 +402,7 @@ export default function PersonnelPage() {
                 textTransform: "uppercase",
               }}
             >
-              kadro komuta masasi
+              kadro komuta masası
             </div>
             <h1
               style={{
@@ -426,7 +426,7 @@ export default function PersonnelPage() {
               }}
             >
               Kart oluşturma, aktif-pasif takibi, şube atamaları ve son hareketler tek editoryal
-              yüzeyde toplanıyor. Hedefimiz bu ekrani ofisin gerçek çalışma masasi gibi hissettirmek.
+              yüzeyde toplanıyor. Hedefimiz bu ekranı ofisin gerçek çalışma masası gibi hissettirmek.
             </p>
 
             <div
@@ -438,9 +438,9 @@ export default function PersonnelPage() {
               }}
             >
               {[
-                ["Kayıt", "Yeni personel kartı, sahadan kopmadan hızlı olussun."],
-                ["Takip", "Durum, şube ve arac sinyalleri tek yerde toplansin."],
-                ["Denge", "Operasyon eksiği veya yigilma daha ilk bakışta görünsun."],
+                ["Kayıt", "Yeni personel kartı, sahadan kopmadan hızlı oluşsun."],
+                ["Takip", "Durum, şube ve araç sinyalleri tek yerde toplansın."],
+                ["Denge", "Operasyon eksiği veya yığılma daha ilk bakışta görünsün."],
               ].map(([title, text]) => (
                 <article
                   key={title}
@@ -482,7 +482,7 @@ export default function PersonnelPage() {
                   fontWeight: 800,
                 }}
               >
-                Kadro Nabzi
+                Kadro Nabzı
               </div>
               <div
                 style={{
@@ -497,7 +497,7 @@ export default function PersonnelPage() {
               <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
                 {dashboard
                   ? `${dashboard.summary.active_personnel} aktif, ${dashboard.summary.passive_personnel} pasif kart aynı yüzeyde izleniyor.`
-                  : "Toplam kart havuzu. Bu yüzey aktiflik, atama ve son hareketleri aynı ritimde okumaya odakli."}
+                  : "Toplam kart havuzu. Bu yüzey aktiflik, atama ve son hareketleri aynı ritimde okumaya odaklı."}
               </div>
             </article>
 
@@ -528,7 +528,7 @@ export default function PersonnelPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Şube Kapsami
+                  Şube Kapsamı
                 </div>
                 <div style={{ fontWeight: 800, color: "var(--text)" }}>%{restaurantCoverage}</div>
               </div>
@@ -551,7 +551,7 @@ export default function PersonnelPage() {
                 />
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.65, fontSize: "0.92rem" }}>
-                Atanmis şube sayisinin toplam personele oranini hızlı sinyal olarak veriyoruz.
+                Atanmış şube sayısının toplam personele oranını hızlı sinyal olarak veriyoruz.
               </div>
             </article>
 
@@ -574,7 +574,7 @@ export default function PersonnelPage() {
                   fontWeight: 800,
                 }}
               >
-                Son Rollerde Dagilim
+                Son Rollerde Dağılım
               </div>
               {roleBreakdown.length ? (
                 <div style={{ display: "grid", gap: "10px" }}>
@@ -625,7 +625,7 @@ export default function PersonnelPage() {
               lineHeight: 1.75,
             }}
           >
-            Personel servisine su anda erisilemiyor. Pilot backend ayağa kalktiginda bu ekran
+            Personel servisine şu anda erişilemiyor. Pilot arka uç ayağa kalktığında bu ekran
             kadro özetini ve son hareketleri gerçek veriden besleyecek.
           </div>
         ) : (
@@ -638,9 +638,9 @@ export default function PersonnelPage() {
               }}
             >
               {metricCard("Toplam Personel", String(dashboard.summary.total_personnel), "Kayıt havuzundaki tüm kartlar")}
-              {metricCard("Aktif", String(dashboard.summary.active_personnel), "Sahaya cikabilecek aktif kadro")}
+              {metricCard("Aktif", String(dashboard.summary.active_personnel), "Sahaya çıkabilecek aktif kadro")}
               {metricCard("Pasif", String(dashboard.summary.passive_personnel), "Pasif veya beklemede duran kartlar")}
-              {metricCard("Atanmis Şube", String(dashboard.summary.assigned_restaurants), "Kadro içinde görünen aktif atamalar")}
+              {metricCard("Atanmış Şube", String(dashboard.summary.assigned_restaurants), "Kadro içinde görünen aktif atamalar")}
             </div>
 
             <div
@@ -657,15 +657,15 @@ export default function PersonnelPage() {
 
             {workspaceFrame(
               "Kayıt Hattı",
-              "Yeni personel kartini hızlı ac.",
-              "Sahadan gelen yeni kurye ya da saha personeli, ofis tarafında ekstra surtunme olmadan sisteme eklenebilsin.",
+              "Yeni personel kartını hızlı aç.",
+              "Sahadan gelen yeni kurye ya da saha personeli, ofis tarafında ekstra sürtünme olmadan sisteme eklenebilsin.",
               <PersonnelEntryWorkspace />,
             )}
 
             {workspaceFrame(
               "Yönetim Hattı",
-              "Kartlari düzenle, durumlari dengele.",
-              "Rol, şube, arac modu ve aktiflik degisimleri daha net bir operasyon cercevesinde görünsun diye bu bolumu daha editoral bir panele tasidik.",
+              "Kartları düzenle, durumları dengele.",
+              "Rol, şube, araç modu ve aktiflik değişimleri daha net bir operasyon çerçevesinde görünsün diye bu bölümü daha editoryal bir panele taşıdık.",
               <PersonnelManagementWorkspace />,
             )}
 
