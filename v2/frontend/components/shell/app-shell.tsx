@@ -34,6 +34,20 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     signal: "Bu yüzey artık sadece pano değil, tüm ön izleme deneyiminin ana komuta masası gibi davranıyor.",
     flowNote: "Bu noktadan sonra saha omurgasına geçmek için önce Puantaj, finans resmi içinse Satış veya Ekipman iyi bir devam rotası.",
   },
+  Duyurular: {
+    kicker: "Yayın Panosu",
+    title: "Son iyileştirmeler ve saha notları burada toplanıyor",
+    description:
+      "Canlıya çıkan güncellemeleri, operasyon notlarını ve ekibin bilmesi gereken kısa değişiklik özetlerini tek bakışta okumak için hazır.",
+    relatedLabels: ["Genel Bakış", "Puantaj", "Raporlar"],
+    reviewPoints: [
+      "Yayın notlarının hızlı taranıp taranamadığına bak.",
+      "Operasyon ekibinin burada gerçekten gündem okuyup okuyamayacağını kontrol et.",
+      "Sabit panonun ürün dilinden kopmadan durup durmadığını incele.",
+    ],
+    signal: "Bu yüzey, sistemin sadece işlem değil iletişim katmanını da aynı ürün kalitesiyle taşıdığını gösteriyor.",
+    flowNote: "Duyurular sonrası Genel Bakış veya Puantaj ekranına geçmek, okunan notların akışa nasıl yansıdığını görmek için iyi bir devam olur.",
+  },
   "Puantaj": {
     kicker: "Saha Omurgası",
     title: "Günlük puantaj akışı yeni katta",
@@ -206,6 +220,7 @@ export function AppShell({
     if (previewMode) {
       const previewItemMap: Record<string, string> = {
         "/": "/preview",
+        "/announcements": "/preview/announcements",
         "/attendance": "/preview/attendance",
         "/personnel": "/preview/personnel",
         "/deductions": "/preview/deductions",

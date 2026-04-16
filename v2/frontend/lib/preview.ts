@@ -911,6 +911,7 @@ export const PREVIEW_USER = {
   must_change_password: false,
   allowed_actions: [
     "dashboard.view",
+    "announcements.view",
     "audit.view",
     "attendance.view",
     "attendance.create",

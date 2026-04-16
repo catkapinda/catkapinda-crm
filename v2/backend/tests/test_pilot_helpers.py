@@ -477,6 +477,18 @@ def test_pilot_smoke_checks_all_protected_module_pages(monkeypatch):
         if path == "/v2-api/auth/me":
             return (200, {"email": "mert.kurtulus@catkapinda.com"})
         endpoint_payloads = {
+            "/v2-api/announcements/dashboard": {
+                "module": "announcements",
+                "status": "active",
+                "kicker": "Güncellemeler ve Duyurular",
+                "title": "Sistemdeki son iyileştirmeler ve takip notları",
+                "description": "Operasyon ekibi için hızlı özet alanı.",
+                "metrics": [],
+                "snapshots": [],
+                "notes_title": "Notlar",
+                "notes_body": "Yayın sonrası sert yenileme güvenli kontroldür.",
+                "footer_note": "Bu alan yeni notlarla genişletilebilir.",
+            },
             "/v2-api/overview/dashboard": {
                 "module": "overview",
                 "status": "active",
@@ -644,6 +656,7 @@ def test_pilot_smoke_checks_all_protected_module_pages(monkeypatch):
     result_names = {result.name for result in results}
 
     assert {
+        "protected_announcements_page",
         "protected_attendance_page",
         "protected_personnel_page",
         "protected_deductions_page",
@@ -654,6 +667,7 @@ def test_pilot_smoke_checks_all_protected_module_pages(monkeypatch):
         "protected_equipment_page",
         "protected_audit_page",
         "protected_reports_page",
+        "announcements_dashboard_data",
         "overview_dashboard_data",
         "attendance_dashboard_data",
         "attendance_entries_data",
@@ -728,6 +742,18 @@ def test_pilot_smoke_fails_when_json_endpoint_shape_is_invalid(monkeypatch):
         if path == "/v2-api/auth/me":
             return (200, {"email": "mert.kurtulus@catkapinda.com"})
         endpoint_payloads = {
+            "/v2-api/announcements/dashboard": {
+                "module": "announcements",
+                "status": "active",
+                "kicker": "Güncellemeler ve Duyurular",
+                "title": "Sistemdeki son iyileştirmeler ve takip notları",
+                "description": "Operasyon ekibi için hızlı özet alanı.",
+                "metrics": [],
+                "snapshots": [],
+                "notes_title": "Notlar",
+                "notes_body": "Yayın sonrası sert yenileme güvenli kontroldür.",
+                "footer_note": "Bu alan yeni notlarla genişletilebilir.",
+            },
             "/v2-api/overview/dashboard": {
                 "module": "overview",
                 "status": "active",

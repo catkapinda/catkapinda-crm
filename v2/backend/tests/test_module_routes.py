@@ -18,6 +18,7 @@ def _fake_admin_user() -> AuthenticatedUser:
         must_change_password=False,
         allowed_actions=[
             "dashboard.view",
+            "announcements.view",
             "attendance.view",
             "deduction.view",
             "equipment.view",
@@ -177,6 +178,50 @@ def test_attendance_routes_smoke(monkeypatch):
     assert form_options.json()["restaurants"][0]["label"] == "Burger@ - Kavacik"
     assert entries.status_code == 200
     assert entries.json()["entries"][0]["primary_person_label"] == "Beytullah Belen (Kurye)"
+
+
+def test_announcements_routes_smoke(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.announcements.build_announcements_dashboard",
+        lambda: {
+            "module": "announcements",
+            "status": "active",
+            "kicker": "Güncellemeler ve Duyurular",
+            "title": "Sistemdeki son iyileştirmeler ve takip notları",
+            "description": "Operasyon ekibinin son yayınlanan geliştirmeleri tek ekranda görmesi için hazırlanır.",
+            "metrics": [
+                {"label": "Giriş Deneyimi", "value": "Yenilendi"},
+            ],
+            "snapshots": [
+                {
+                    "title": "Operasyon ve Form Akışları",
+                    "items": [
+                        {"label": "Personel Yönetimi", "value": "Başarı mesajı güçlendi."},
+                    ],
+                }
+            ],
+            "notes_title": "Notlar",
+            "notes_body": "Gerekirse yayın sonrası sert yenileme yapılır.",
+            "footer_note": "Bu alan yeni notlarla genişletilebilir.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.announcements.build_announcements_status",
+        lambda: {
+            "module": "announcements",
+            "status": "active",
+            "next_slice": "release-notes-board",
+        },
+    )
+    client = _build_app()
+
+    status_response = client.get("/api/announcements/status")
+    dashboard_response = client.get("/api/announcements/dashboard")
+
+    assert status_response.status_code == 200
+    assert status_response.json()["module"] == "announcements"
+    assert dashboard_response.status_code == 200
+    assert dashboard_response.json()["metrics"][0]["value"] == "Yenilendi"
 
 
 def test_deductions_routes_smoke(monkeypatch):

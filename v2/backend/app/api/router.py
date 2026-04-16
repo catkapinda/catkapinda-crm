@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 
-from app.api.routes import attendance, audit, auth, deductions, equipment, health, overview, payroll, personnel, purchases, reports, restaurants, sales
+from app.api.routes import announcements, attendance, audit, auth, deductions, equipment, health, overview, payroll, personnel, purchases, reports, restaurants, sales
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(announcements.router, prefix="/announcements", tags=["announcements"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
 api_router.include_router(overview.router, prefix="/overview", tags=["overview"])
 api_router.include_router(attendance.router, prefix="/attendance", tags=["attendance"])

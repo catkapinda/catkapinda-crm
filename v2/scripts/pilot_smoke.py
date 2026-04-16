@@ -15,6 +15,7 @@ from dataclasses import dataclass
 DEFAULT_TIMEOUT = 12
 DEFAULT_LEGACY_URL = "https://crmcatkapinda.com"
 PROTECTED_PAGES = [
+    ("/announcements", "protected_announcements_page"),
     ("/attendance", "protected_attendance_page"),
     ("/personnel", "protected_personnel_page"),
     ("/deductions", "protected_deductions_page"),
@@ -27,6 +28,23 @@ PROTECTED_PAGES = [
     ("/reports", "protected_reports_page"),
 ]
 AUTH_JSON_ENDPOINTS = [
+    {
+        "path": "/v2-api/announcements/dashboard",
+        "check_name": "announcements_dashboard_data",
+        "required_keys": (
+            "module",
+            "status",
+            "kicker",
+            "title",
+            "description",
+            "metrics",
+            "snapshots",
+            "notes_title",
+            "notes_body",
+            "footer_note",
+        ),
+        "list_keys": ("metrics", "snapshots"),
+    },
     {
         "path": "/v2-api/overview/dashboard",
         "check_name": "overview_dashboard_data",
@@ -227,6 +245,10 @@ CHECK_GUIDANCE: dict[str, tuple[str, str]] = {
         "Login sonrasi auth/me dogrulanamadi.",
         "Token/cookie akisini ve backend auth endpointlerini kontrol edelim.",
     ),
+    "protected_announcements_page": (
+        "Giris sonrasi Duyurular sayfasi acilmadi.",
+        "Announcements route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
     "protected_attendance_page": (
         "Giris sonrasi Puantaj sayfasi acilmadi.",
         "Attendance route ve korumali sayfa cookie akisini kontrol edelim.",
@@ -266,6 +288,10 @@ CHECK_GUIDANCE: dict[str, tuple[str, str]] = {
     "protected_reports_page": (
         "Giris sonrasi Raporlar sayfasi acilmadi.",
         "Reports route ve korumali sayfa cookie akisini kontrol edelim.",
+    ),
+    "announcements_dashboard_data": (
+        "Duyurular veri omurgasi acilmadi.",
+        "Announcements dashboard endpoint'ini ve sabit pano verisini kontrol edelim.",
     ),
     "overview_dashboard_data": (
         "Genel Bakis veri omurgasi cevap vermiyor.",
@@ -368,6 +394,7 @@ CHECK_PRIORITY = [
     "login_page",
     "auth_login",
     "auth_me",
+    "protected_announcements_page",
     "protected_attendance_page",
     "protected_personnel_page",
     "protected_deductions_page",
@@ -378,6 +405,7 @@ CHECK_PRIORITY = [
     "protected_equipment_page",
     "protected_audit_page",
     "protected_reports_page",
+    "announcements_dashboard_data",
     "overview_dashboard_data",
     "attendance_dashboard_data",
     "attendance_entries_data",
