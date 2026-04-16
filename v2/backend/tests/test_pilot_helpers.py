@@ -4598,3 +4598,27 @@ def test_day_zero_exit_code_can_enforce_strict_smoke_mode():
 
     assert pilot_day_zero.compute_exit_code(manifest, strict=False, strict_smoke=False) == 0
     assert pilot_day_zero.compute_exit_code(manifest, strict=False, strict_smoke=True) == 2
+
+
+def test_day_zero_exit_code_allows_local_verify_clean_bundle():
+    manifest = {
+        "frontend_url": "http://127.0.0.1:3001",
+        "pilot_gate_passed": False,
+        "verify_passed": True,
+        "smoke_included": True,
+        "smoke_overall_ok": True,
+    }
+
+    assert pilot_day_zero.compute_exit_code(manifest, strict=False, strict_smoke=False) == 0
+
+
+def test_day_zero_exit_code_keeps_non_local_pilot_gate_blocking():
+    manifest = {
+        "frontend_url": "https://pilot.example.com",
+        "pilot_gate_passed": False,
+        "verify_passed": True,
+        "smoke_included": True,
+        "smoke_overall_ok": True,
+    }
+
+    assert pilot_day_zero.compute_exit_code(manifest, strict=False, strict_smoke=False) == 2

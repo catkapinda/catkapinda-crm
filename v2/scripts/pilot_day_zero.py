@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import urllib.parse
 import zipfile
 
 from pilot_cutover_guard import build_guard_result, render_env_text as render_guard_env_text
@@ -18,6 +19,14 @@ from render_env_bundle import build_bundle, filter_bundle, normalize_url, render
 
 
 DEFAULT_TIMEOUT = 12
+
+
+def _is_local_runtime_url(raw: str | None) -> bool:
+    if not raw:
+        return False
+    parsed = urllib.parse.urlparse(raw)
+    hostname = (parsed.hostname or "").lower()
+    return hostname in {"127.0.0.1", "localhost"}
 
 
 def _derive_api_url(payload: dict) -> str | None:
@@ -516,7 +525,10 @@ def render_console_summary(manifest: dict) -> str:
 
 
 def compute_exit_code(manifest: dict, *, strict: bool, strict_smoke: bool) -> int:
-    if not manifest["pilot_gate_passed"]:
+    local_runtime = _is_local_runtime_url(manifest.get("frontend_url"))
+    local_verify_ready = local_runtime and bool(manifest.get("verify_passed"))
+
+    if not manifest["pilot_gate_passed"] and not local_verify_ready:
         return 2
     if strict and not manifest.get("verify_passed", False):
         return 2
