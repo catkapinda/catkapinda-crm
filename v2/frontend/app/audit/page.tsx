@@ -341,7 +341,7 @@ export default function AuditPage() {
     return [
       {
         eyebrow: "Kayıt Nabzı",
-        title: recentPressure ? "Son 7 gün daha hızlı akıyor." : "Kayıt ritmi kontrollü görünüyor.",
+        title: recentPressure ? "Son 7 gün daha hızlı akıyor." : "Kayıt ritmi dengeli görünüyor.",
         body: `${dashboard.summary.last_7_days} kayıt son 7 günde oluştu. Toplam ${dashboard.summary.total_entries} kayıt içinde bu ritim, sistemde değişimin ne kadar taze olduğunu hızla anlatır.`,
         tone: recentPressure ? "ink" : "paper",
       },
@@ -351,7 +351,7 @@ export default function AuditPage() {
           ? `${topEntry.action_type} · ${topEntry.entity_type}`
           : "Aksiyon sinyali henüz yok.",
         body: topEntry
-          ? `${formatActor(topEntry)} tarafından ${formatTimestamp(topEntry.created_at)} anında tetiklendi. ${topEntry.summary || "Bu hareket detay akışı içinde ilk okunacak olaylardan biri."}`
+          ? `${formatActor(topEntry)} tarafından ${formatTimestamp(topEntry.created_at)} anında tetiklendi. ${topEntry.summary || "Bu hareket ayrıntı akışı içinde ilk okunacak olaylardan biri."}`
           : "Yeni denetim hareketleri geldikçe burada ilk dikkat isteyen aksiyon görünecek.",
         tone: "paper",
       },
@@ -457,7 +457,7 @@ export default function AuditPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Kim, neyi, hangi ritimde değiştiriyor sorusunu daha okunur bir karar katmanına
+                  Kim, neyi, hangi ritimde değiştiriyor sorusunu daha okunur bir karar yüzeyine
                   taşıyoruz. Hedefimiz, denetim hattını sadece arama masası değil; erken sinyal
                   ve güven katmanı gibi hissettirmek.
                 </p>
@@ -480,7 +480,7 @@ export default function AuditPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Kim / ne / ne zaman aynı hatta
+                  Kim / ne / ne zaman aynı çerçevede
                 </span>
                 <span
                   style={{
@@ -534,7 +534,7 @@ export default function AuditPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Akım Nabzı
+                      Akış Nabzı
                     </div>
                     <div
                       style={{
@@ -690,7 +690,7 @@ export default function AuditPage() {
               {metricCard("Toplam Kayıt", String(dashboard.summary.total_entries), "Denetim omurgasındaki tüm olaylar", "accent")}
               {metricCard("Son 7 Gün", String(dashboard.summary.last_7_days), "Yeni ritim ve taze hareketler")}
               {metricCard("Eşsiz Kullanıcı", String(dashboard.summary.unique_actors), "Kayıt izi birden fazla elde mi")}
-              {metricCard("Eşsiz Varlık", String(dashboard.summary.unique_entities), "Hangi modüller daha çok oynuyor")}
+              {metricCard("Eşsiz Varlık", String(dashboard.summary.unique_entities), "Hangi modüller daha yoğun iz bırakıyor")}
             </div>
 
             <div

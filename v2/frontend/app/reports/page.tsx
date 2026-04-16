@@ -419,7 +419,7 @@ export default function ReportsPage() {
             ? "Marj resmi sağlam görünüyor."
             : marginRatio >= 10
               ? "Marj korunuyor ama dikkat istiyor."
-              : "Marj alarm seviyesine yakin.",
+              : "Marj alarm seviyesine yakın.",
         body: `${dashboard.summary.selected_month} döneminde brüt fark ${formatMoney(dashboard.summary.gross_profit)} ve marj %${formatNumber(marginRatio, 1)} seviyesinde.`,
         tone: marginRatio >= 18 ? "ink" : "accent",
       },
@@ -747,7 +747,7 @@ export default function ReportsPage() {
                   }}
                 >
                   Bu yüzeyde önce fark ve marja, sonra model dağılımı ile en yüksek
-                  fatura ve maliyet taşıyan isimlere bakmak en sağlıklı okuma sırasını verir.
+                  fatura ve maliyet taşıyan isimlere bakmak en sağlıklı okuma akışını verir.
                 </div>
               </article>
             </div>
