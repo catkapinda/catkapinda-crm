@@ -343,6 +343,75 @@ def test_personnel_plate_routes(monkeypatch):
     assert create_response.json()["history_id"] == 44
 
 
+def test_personnel_role_routes(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.personnel.create_personnel_role_history_entry",
+        lambda conn, payload: {
+            "history_id": 55,
+            "personnel_id": payload.personnel_id,
+            "role": payload.role,
+            "message": "Rol geçmişi güncellendi.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.personnel.build_personnel_role_workspace",
+        lambda conn, limit: {
+            "summary": {
+                "total_history_records": 6,
+                "active_personnel": 4,
+                "distinct_roles": 3,
+                "fixed_cost_cards": 2,
+            },
+            "people": [
+                {
+                    "id": 9,
+                    "person_code": "CK-K09",
+                    "full_name": "Rol Test",
+                    "role": "Kurye",
+                    "status": "Aktif",
+                    "restaurant_label": "Test - Şube",
+                    "cost_model": "fixed_kurye",
+                    "monthly_fixed_cost": 12000,
+                    "role_history_count": 2,
+                }
+            ],
+            "history": [
+                {
+                    "id": 55,
+                    "personnel_id": 9,
+                    "person_code": "CK-K09",
+                    "full_name": "Rol Test",
+                    "status": "Aktif",
+                    "restaurant_label": "Test - Şube",
+                    "role": "Joker",
+                    "cost_model": "fixed_joker",
+                    "monthly_fixed_cost": 22000,
+                    "effective_date": "2026-04-17",
+                    "notes": "Rol geçişi",
+                }
+            ],
+        },
+    )
+    client = _build_client()
+
+    workspace_response = client.get("/api/personnel/role-workspace")
+    create_response = client.post(
+        "/api/personnel/role-history",
+        json={
+            "personnel_id": 9,
+            "role": "Joker",
+            "monthly_fixed_cost": 22000,
+            "effective_date": "2026-04-17",
+            "notes": "Rol geçişi",
+        },
+    )
+
+    assert workspace_response.status_code == 200
+    assert workspace_response.json()["summary"]["total_history_records"] == 6
+    assert create_response.status_code == 201
+    assert create_response.json()["history_id"] == 55
+
+
 def test_deductions_mutation_routes(monkeypatch):
     audit_calls = []
     monkeypatch.setattr(

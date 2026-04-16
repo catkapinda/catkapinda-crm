@@ -93,10 +93,16 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
         id BIGSERIAL PRIMARY KEY,
         personnel_id BIGINT NOT NULL,
         role TEXT,
+        cost_model TEXT,
+        monthly_fixed_cost NUMERIC NOT NULL DEFAULT 0,
+        effective_date DATE,
         changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
         notes TEXT
     )
     """,
+    "ALTER TABLE personnel_role_history ADD COLUMN IF NOT EXISTS cost_model TEXT",
+    "ALTER TABLE personnel_role_history ADD COLUMN IF NOT EXISTS monthly_fixed_cost NUMERIC NOT NULL DEFAULT 0",
+    "ALTER TABLE personnel_role_history ADD COLUMN IF NOT EXISTS effective_date DATE",
     """
     CREATE TABLE IF NOT EXISTS personnel_vehicle_history (
         id BIGSERIAL PRIMARY KEY,
@@ -221,6 +227,9 @@ AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         personnel_id INTEGER NOT NULL,
         role TEXT,
+        cost_model TEXT,
+        monthly_fixed_cost REAL NOT NULL DEFAULT 0,
+        effective_date TEXT,
         changed_at TEXT NOT NULL,
         notes TEXT
     )
@@ -305,6 +314,11 @@ LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
     "courier_equipment_issues": (
         ("vat_rate", "ALTER TABLE courier_equipment_issues ADD COLUMN vat_rate REAL DEFAULT 20"),
         ("auto_source_key", "ALTER TABLE courier_equipment_issues ADD COLUMN auto_source_key TEXT"),
+    ),
+    "personnel_role_history": (
+        ("cost_model", "ALTER TABLE personnel_role_history ADD COLUMN cost_model TEXT"),
+        ("monthly_fixed_cost", "ALTER TABLE personnel_role_history ADD COLUMN monthly_fixed_cost REAL DEFAULT 0"),
+        ("effective_date", "ALTER TABLE personnel_role_history ADD COLUMN effective_date TEXT"),
     ),
 }
 

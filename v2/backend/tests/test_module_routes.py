@@ -22,6 +22,7 @@ def _fake_admin_user() -> AuthenticatedUser:
             "attendance.view",
             "deduction.view",
             "equipment.view",
+            "personnel.list",
             "personnel.plate",
             "purchase.view",
             "restaurant.view",
@@ -275,6 +276,56 @@ def test_personnel_plate_workspace_route_smoke(monkeypatch):
     payload = response.json()
     assert payload["summary"]["active_plate_assignments"] == 3
     assert payload["people"][0]["current_plate"] == "34 ABC 18"
+
+
+def test_personnel_role_workspace_route_smoke(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.personnel.build_personnel_role_workspace",
+        lambda conn, limit: {
+            "summary": {
+                "total_history_records": 9,
+                "active_personnel": 5,
+                "distinct_roles": 4,
+                "fixed_cost_cards": 3,
+            },
+            "people": [
+                {
+                    "id": 27,
+                    "person_code": "CK-J27",
+                    "full_name": "Rol Görünümü",
+                    "role": "Joker",
+                    "status": "Aktif",
+                    "restaurant_label": "Burger@ - Kavacık",
+                    "cost_model": "fixed_joker",
+                    "monthly_fixed_cost": 22000,
+                    "role_history_count": 3,
+                }
+            ],
+            "history": [
+                {
+                    "id": 103,
+                    "personnel_id": 27,
+                    "person_code": "CK-J27",
+                    "full_name": "Rol Görünümü",
+                    "status": "Aktif",
+                    "restaurant_label": "Burger@ - Kavacık",
+                    "role": "Joker",
+                    "cost_model": "fixed_joker",
+                    "monthly_fixed_cost": 22000,
+                    "effective_date": "2026-04-17",
+                    "notes": "Rol geçişi",
+                }
+            ],
+        },
+    )
+    client = _build_app()
+
+    response = client.get("/api/personnel/role-workspace")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["distinct_roles"] == 4
+    assert payload["people"][0]["role_history_count"] == 3
 
 
 def test_deductions_routes_smoke(monkeypatch):

@@ -590,6 +590,210 @@ def update_personnel_current_plate(
     )
 
 
+def fetch_personnel_role_baseline_candidates(conn: psycopg.Connection) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            p.id,
+            p.start_date,
+            COALESCE(p.role, '') AS role,
+            COALESCE(p.cost_model, '') AS cost_model,
+            COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
+            COALESCE(
+                (
+                    SELECT COUNT(*)
+                    FROM personnel_role_history prh
+                    WHERE prh.personnel_id = p.id
+                ),
+                0
+            ) AS role_history_count
+        FROM personnel p
+        """
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def fetch_personnel_role_candidates(
+    conn: psycopg.Connection,
+    *,
+    limit: int,
+) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            p.id,
+            COALESCE(p.person_code, '') AS person_code,
+            COALESCE(p.full_name, '') AS full_name,
+            COALESCE(p.role, '') AS role,
+            COALESCE(p.status, '') AS status,
+            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
+            COALESCE(p.cost_model, '') AS cost_model,
+            COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
+            COALESCE(
+                (
+                    SELECT COUNT(*)
+                    FROM personnel_role_history prh
+                    WHERE prh.personnel_id = p.id
+                ),
+                0
+            ) AS role_history_count
+        FROM personnel p
+        LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+        ORDER BY
+            CASE WHEN COALESCE(p.status, '') = 'Aktif' THEN 0 ELSE 1 END,
+            p.full_name,
+            p.id DESC
+        LIMIT %s
+        """,
+        (limit,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def fetch_recent_role_history_records(
+    conn: psycopg.Connection,
+    *,
+    limit: int,
+) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            prh.id,
+            prh.personnel_id,
+            COALESCE(p.person_code, '') AS person_code,
+            COALESCE(p.full_name, '') AS full_name,
+            COALESCE(p.status, '') AS status,
+            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
+            COALESCE(prh.role, '') AS role,
+            COALESCE(prh.cost_model, '') AS cost_model,
+            COALESCE(prh.monthly_fixed_cost, 0) AS monthly_fixed_cost,
+            prh.effective_date,
+            COALESCE(prh.notes, '') AS notes
+        FROM personnel_role_history prh
+        JOIN personnel p ON p.id = prh.personnel_id
+        LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+        ORDER BY
+            COALESCE(prh.effective_date, DATE(prh.changed_at)) DESC,
+            prh.id DESC
+        LIMIT %s
+        """,
+        (limit,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def count_total_role_history_records(conn: psycopg.Connection) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM personnel_role_history
+        """
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_active_personnel_records(conn: psycopg.Connection) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM personnel
+        WHERE COALESCE(status, '') = 'Aktif'
+        """
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_distinct_role_history_roles(conn: psycopg.Connection) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(DISTINCT COALESCE(role, '')) AS total_count
+        FROM personnel_role_history
+        """
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def count_role_history_records_for_personnel(
+    conn: psycopg.Connection,
+    person_id: int,
+) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_count
+        FROM personnel_role_history
+        WHERE personnel_id = %s
+        """,
+        (person_id,),
+    ).fetchone()
+    return int(row["total_count"] or 0) if row else 0
+
+
+def fetch_latest_role_history_record(
+    conn: psycopg.Connection,
+    person_id: int,
+) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, role, cost_model, monthly_fixed_cost, effective_date, notes
+        FROM personnel_role_history
+        WHERE personnel_id = %s
+        ORDER BY COALESCE(effective_date, DATE(changed_at)) DESC, id DESC
+        LIMIT 1
+        """,
+        (person_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def insert_role_history_record(
+    conn: psycopg.Connection,
+    *,
+    personnel_id: int,
+    role: str,
+    cost_model: str,
+    monthly_fixed_cost: float,
+    effective_date: str,
+    notes: str,
+) -> int:
+    row = conn.execute(
+        """
+        INSERT INTO personnel_role_history (
+            personnel_id,
+            role,
+            cost_model,
+            monthly_fixed_cost,
+            effective_date,
+            changed_at,
+            notes
+        )
+        VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)
+        RETURNING id
+        """,
+        (personnel_id, role, cost_model, monthly_fixed_cost, effective_date, notes),
+    ).fetchone()
+    return int(row["id"])
+
+
+def update_personnel_role_fields(
+    conn: psycopg.Connection,
+    person_id: int,
+    *,
+    role: str,
+    cost_model: str,
+    monthly_fixed_cost: float,
+) -> None:
+    conn.execute(
+        """
+        UPDATE personnel
+        SET role = %s,
+            cost_model = %s,
+            monthly_fixed_cost = %s
+        WHERE id = %s
+        """,
+        (role, cost_model, monthly_fixed_cost, person_id),
+    )
+
+
 def count_personnel_linked_daily_entries(conn: psycopg.Connection, person_id: int) -> int:
     row = conn.execute(
         """

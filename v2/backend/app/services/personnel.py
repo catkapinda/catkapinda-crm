@@ -8,6 +8,7 @@ import psycopg
 from app.core.auth_sync import sync_mobile_auth_user_for_personnel
 from app.repositories.personnel import (
     close_active_plate_history_records,
+    count_active_personnel_records,
     count_personnel_linked_box_returns,
     count_personnel_linked_daily_entries,
     count_personnel_linked_deductions,
@@ -20,21 +21,30 @@ from app.repositories.personnel import (
     count_active_plate_history_records,
     count_personnel_management_records,
     count_plate_history_records_for_personnel,
+    count_distinct_role_history_roles,
+    count_role_history_records_for_personnel,
+    count_total_role_history_records,
     count_total_plate_history_records,
     delete_personnel_and_dependencies,
     fetch_active_plate_history_record,
     fetch_person_code_values,
     fetch_personnel_plate_baseline_candidates,
     fetch_personnel_plate_candidates,
+    fetch_personnel_role_baseline_candidates,
+    fetch_personnel_role_candidates,
     fetch_recent_plate_history_records,
+    fetch_recent_role_history_records,
     fetch_personnel_management_records,
     fetch_personnel_record_by_id,
     fetch_personnel_restaurants,
     fetch_personnel_summary,
     fetch_recent_personnel_records,
+    fetch_latest_role_history_record,
     insert_plate_history_record,
     insert_personnel_record,
+    insert_role_history_record,
     update_personnel_current_plate,
+    update_personnel_role_fields,
     update_personnel_status,
     update_personnel_record,
 )
@@ -51,6 +61,12 @@ from app.schemas.personnel import (
     PersonnelPlateHistoryEntry,
     PersonnelPlateSummary,
     PersonnelPlateWorkspaceResponse,
+    PersonnelRoleCandidateEntry,
+    PersonnelRoleCreateRequest,
+    PersonnelRoleCreateResponse,
+    PersonnelRoleHistoryEntry,
+    PersonnelRoleSummary,
+    PersonnelRoleWorkspaceResponse,
     PersonnelManagementEntry,
     PersonnelManagementResponse,
     PersonnelModuleStatus,
@@ -293,6 +309,77 @@ def _sync_plate_history_after_personnel_write(
         )
 
 
+def _sync_personnel_role_history_baselines(conn: psycopg.Connection) -> None:
+    changed = False
+    for row in fetch_personnel_role_baseline_candidates(conn):
+        if int(row.get("role_history_count") or 0) > 0:
+            continue
+        role = str(row.get("role") or "").strip()
+        if not role:
+            continue
+        start_date = row.get("start_date")
+        insert_role_history_record(
+            conn,
+            personnel_id=int(row["id"]),
+            role=role,
+            cost_model=str(row.get("cost_model") or _resolve_cost_model_for_role(role)),
+            monthly_fixed_cost=float(row.get("monthly_fixed_cost") or 0),
+            effective_date=(
+                start_date.isoformat()
+                if isinstance(start_date, date)
+                else str(start_date or date.today().isoformat())
+            ),
+            notes="Sistem: Başlangıç rol kaydı",
+        )
+        changed = True
+    if changed:
+        conn.commit()
+
+
+def _sync_role_history_after_personnel_write(
+    conn: psycopg.Connection,
+    *,
+    person_id: int,
+    previous_role: str,
+    current_role: str,
+    monthly_fixed_cost: float,
+    effective_date: date | None,
+    reason: str,
+) -> None:
+    normalized_previous_role = str(previous_role or "").strip()
+    normalized_current_role = str(current_role or "").strip()
+    if not normalized_current_role:
+        return
+    effective_date_text = (effective_date or date.today()).isoformat()
+    latest_row = fetch_latest_role_history_record(conn, person_id)
+
+    if normalized_current_role == normalized_previous_role:
+        if latest_row is None:
+            insert_role_history_record(
+                conn,
+                personnel_id=person_id,
+                role=normalized_current_role,
+                cost_model=_resolve_cost_model_for_role(normalized_current_role),
+                monthly_fixed_cost=monthly_fixed_cost,
+                effective_date=effective_date_text,
+                notes=reason,
+            )
+        return
+
+    if latest_row and str(latest_row.get("role") or "").strip() == normalized_current_role:
+        return
+
+    insert_role_history_record(
+        conn,
+        personnel_id=person_id,
+        role=normalized_current_role,
+        cost_model=_resolve_cost_model_for_role(normalized_current_role),
+        monthly_fixed_cost=monthly_fixed_cost,
+        effective_date=effective_date_text,
+        notes=reason,
+    )
+
+
 def build_personnel_status() -> PersonnelModuleStatus:
     return PersonnelModuleStatus(
         module="personnel",
@@ -425,6 +512,92 @@ def build_personnel_plate_workspace(
     )
 
 
+def build_personnel_role_workspace(
+    conn: psycopg.Connection,
+    *,
+    limit: int,
+) -> PersonnelRoleWorkspaceResponse:
+    _sync_personnel_role_history_baselines(conn)
+    people = fetch_personnel_role_candidates(conn, limit=limit)
+    history_rows = fetch_recent_role_history_records(conn, limit=limit)
+    fixed_cost_cards = sum(1 for row in people if float(row.get("monthly_fixed_cost") or 0) > 0)
+    return PersonnelRoleWorkspaceResponse(
+        summary=PersonnelRoleSummary(
+            total_history_records=count_total_role_history_records(conn),
+            active_personnel=count_active_personnel_records(conn),
+            distinct_roles=count_distinct_role_history_roles(conn),
+            fixed_cost_cards=fixed_cost_cards,
+        ),
+        people=[
+            PersonnelRoleCandidateEntry(
+                id=int(row["id"]),
+                person_code=str(row["person_code"] or ""),
+                full_name=str(row["full_name"] or ""),
+                role=_display_role(str(row["role"] or "")),
+                status=str(row["status"] or ""),
+                restaurant_label=str(row["restaurant_label"] or "-"),
+                cost_model=str(row["cost_model"] or ""),
+                monthly_fixed_cost=float(row["monthly_fixed_cost"] or 0),
+                role_history_count=int(row["role_history_count"] or 0),
+            )
+            for row in people
+        ],
+        history=[
+            PersonnelRoleHistoryEntry(
+                id=int(row["id"]),
+                personnel_id=int(row["personnel_id"]),
+                person_code=str(row["person_code"] or ""),
+                full_name=str(row["full_name"] or ""),
+                status=str(row["status"] or ""),
+                restaurant_label=str(row["restaurant_label"] or "-"),
+                role=_display_role(str(row["role"] or "")),
+                cost_model=str(row["cost_model"] or ""),
+                monthly_fixed_cost=float(row["monthly_fixed_cost"] or 0),
+                effective_date=row["effective_date"],
+                notes=str(row["notes"] or ""),
+            )
+            for row in history_rows
+        ],
+    )
+
+
+def create_personnel_role_history_entry(
+    conn: psycopg.Connection,
+    *,
+    payload: PersonnelRoleCreateRequest,
+) -> PersonnelRoleCreateResponse:
+    row = fetch_personnel_record_by_id(conn, payload.personnel_id)
+    if row is None:
+        raise LookupError("Personel kaydı bulunamadı.")
+
+    normalized_role = _normalize_role(payload.role)
+    effective_date = payload.effective_date or date.today()
+    history_id = insert_role_history_record(
+        conn,
+        personnel_id=payload.personnel_id,
+        role=_display_role(normalized_role),
+        cost_model=_resolve_cost_model_for_role(normalized_role),
+        monthly_fixed_cost=float(payload.monthly_fixed_cost or 0),
+        effective_date=effective_date.isoformat(),
+        notes=str(payload.notes or "").strip() or "Sistem: Rol geçiş kaydı",
+    )
+    update_personnel_role_fields(
+        conn,
+        payload.personnel_id,
+        role=_display_role(normalized_role),
+        cost_model=_resolve_cost_model_for_role(normalized_role),
+        monthly_fixed_cost=float(payload.monthly_fixed_cost or 0),
+    )
+    sync_mobile_auth_user_for_personnel(conn, personnel_id=payload.personnel_id)
+    conn.commit()
+    return PersonnelRoleCreateResponse(
+        history_id=history_id,
+        personnel_id=payload.personnel_id,
+        role=_display_role(normalized_role),
+        message="Rol geçmişi güncellendi.",
+    )
+
+
 def create_personnel_plate_history_entry(
     conn: psycopg.Connection,
     *,
@@ -523,6 +696,15 @@ def create_personnel_record(
         effective_date=payload.start_date,
         reason="Sistem: Başlangıç plakası",
     )
+    _sync_role_history_after_personnel_write(
+        conn,
+        person_id=person_id,
+        previous_role="",
+        current_role=_display_role(normalized_role),
+        monthly_fixed_cost=float(payload.monthly_fixed_cost or 0),
+        effective_date=payload.start_date,
+        reason="Sistem: Başlangıç rol kaydı",
+    )
     sync_mobile_auth_user_for_personnel(conn, personnel_id=person_id)
     conn.commit()
     return PersonnelCreateResponse(
@@ -547,6 +729,7 @@ def update_personnel_record_entry(
     if not full_name:
         raise ValueError("Ad soyad zorunlu.")
 
+    previous_role = str(existing_row.get("role") or "").strip()
     normalized_role = _normalize_role(payload.role)
     normalized_status = payload.status if payload.status in PERSONNEL_STATUS_OPTIONS else "Aktif"
     next_person_code = _build_next_person_code(conn, role=normalized_role, exclude_id=person_id)
@@ -598,6 +781,15 @@ def update_personnel_record_entry(
             effective_date=date.today(),
             reason="Sistem: Personel kartından plaka değişimi",
         )
+    _sync_role_history_after_personnel_write(
+        conn,
+        person_id=person_id,
+        previous_role=previous_role,
+        current_role=_display_role(normalized_role),
+        monthly_fixed_cost=float(payload.monthly_fixed_cost or 0),
+        effective_date=date.today(),
+        reason="Sistem: Personel kartından rol değişimi",
+    )
     sync_mobile_auth_user_for_personnel(conn, personnel_id=person_id)
     conn.commit()
     return PersonnelUpdateResponse(

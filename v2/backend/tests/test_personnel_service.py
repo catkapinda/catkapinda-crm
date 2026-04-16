@@ -18,6 +18,11 @@ def test_create_personnel_record_syncs_mobile_auth(monkeypatch):
 
     monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
     monkeypatch.setattr(personnel_service, "insert_personnel_record", lambda *args, **kwargs: 42)
+    monkeypatch.setattr(personnel_service, "count_plate_history_records_for_personnel", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(personnel_service, "fetch_active_plate_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_plate_history_record", lambda *args, **kwargs: 11)
+    monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 12)
     monkeypatch.setattr(
         personnel_service,
         "sync_mobile_auth_user_for_personnel",
@@ -47,10 +52,12 @@ def test_update_personnel_record_syncs_mobile_auth(monkeypatch):
     monkeypatch.setattr(
         personnel_service,
         "fetch_personnel_record_by_id",
-        lambda *args, **kwargs: {"id": 15, "person_code": "CK-K01", "role": "Kurye"},
+        lambda *args, **kwargs: {"id": 15, "person_code": "CK-K01", "role": "Kurye", "current_plate": ""},
     )
     monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
     monkeypatch.setattr(personnel_service, "update_personnel_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 13)
     monkeypatch.setattr(
         personnel_service,
         "sync_mobile_auth_user_for_personnel",
@@ -81,6 +88,8 @@ def test_create_personnel_record_creates_plate_history_baseline(monkeypatch):
     monkeypatch.setattr(personnel_service, "sync_mobile_auth_user_for_personnel", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "count_plate_history_records_for_personnel", lambda *args, **kwargs: 0)
     monkeypatch.setattr(personnel_service, "fetch_active_plate_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 19)
     monkeypatch.setattr(
         personnel_service,
         "insert_plate_history_record",
@@ -119,6 +128,8 @@ def test_update_personnel_record_writes_plate_history_on_plate_change(monkeypatc
     monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
     monkeypatch.setattr(personnel_service, "update_personnel_record", lambda *args, **kwargs: None)
     monkeypatch.setattr(personnel_service, "sync_mobile_auth_user_for_personnel", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 21)
     monkeypatch.setattr(
         personnel_service,
         "close_active_plate_history_records",
@@ -162,6 +173,8 @@ def test_create_personnel_record_ignores_plate_fields_without_permission(monkeyp
         "sync_mobile_auth_user_for_personnel",
         lambda *args, **kwargs: None,
     )
+    monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 23)
 
     response = personnel_service.create_personnel_record(
         conn,
@@ -209,6 +222,8 @@ def test_update_personnel_record_preserves_plate_fields_without_permission(monke
         "sync_mobile_auth_user_for_personnel",
         lambda *args, **kwargs: None,
     )
+    monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_role_history_record", lambda *args, **kwargs: 13)
 
     response = personnel_service.update_personnel_record_entry(
         conn,
@@ -284,6 +299,78 @@ def test_toggle_personnel_record_status_syncs_mobile_auth(monkeypatch):
     assert response.message == "Personel pasife alındı."
     assert sync_calls == [(16, None)]
     assert conn.commit_count == 1
+
+
+def test_create_personnel_record_creates_role_history_baseline(monkeypatch):
+    conn = FakeConnection()
+    role_calls: list[dict] = []
+
+    monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
+    monkeypatch.setattr(personnel_service, "insert_personnel_record", lambda *args, **kwargs: 61)
+    monkeypatch.setattr(personnel_service, "count_plate_history_records_for_personnel", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(personnel_service, "fetch_active_plate_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "insert_plate_history_record", lambda *args, **kwargs: 21)
+    monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        personnel_service,
+        "insert_role_history_record",
+        lambda _conn, **kwargs: role_calls.append(kwargs) or 31,
+    )
+    monkeypatch.setattr(personnel_service, "sync_mobile_auth_user_for_personnel", lambda *args, **kwargs: None)
+
+    response = personnel_service.create_personnel_record(
+        conn,
+        payload=PersonnelCreateRequest(
+            full_name="Rol Baslangıcı",
+            role="Joker",
+            monthly_fixed_cost=24000,
+            start_date=date(2026, 4, 17),
+        ),
+    )
+
+    assert response.person_id == 61
+    assert role_calls[0]["role"] == "Joker"
+    assert role_calls[0]["monthly_fixed_cost"] == 24000
+    assert role_calls[0]["notes"] == "Sistem: Başlangıç rol kaydı"
+
+
+def test_update_personnel_record_writes_role_history_on_role_change(monkeypatch):
+    conn = FakeConnection()
+    role_calls: list[dict] = []
+
+    monkeypatch.setattr(
+        personnel_service,
+        "fetch_personnel_record_by_id",
+        lambda *args, **kwargs: {
+            "id": 19,
+            "person_code": "CK-K19",
+            "role": "Kurye",
+            "current_plate": "",
+        },
+    )
+    monkeypatch.setattr(personnel_service, "fetch_person_code_values", lambda *args, **kwargs: [])
+    monkeypatch.setattr(personnel_service, "update_personnel_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(personnel_service, "fetch_latest_role_history_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        personnel_service,
+        "insert_role_history_record",
+        lambda _conn, **kwargs: role_calls.append(kwargs) or 41,
+    )
+    monkeypatch.setattr(personnel_service, "sync_mobile_auth_user_for_personnel", lambda *args, **kwargs: None)
+
+    response = personnel_service.update_personnel_record_entry(
+        conn,
+        person_id=19,
+        payload=PersonnelUpdateRequest(
+            full_name="Rol Geçişi",
+            role="Joker",
+            monthly_fixed_cost=22000,
+        ),
+    )
+
+    assert response.person_id == 19
+    assert role_calls[0]["role"] == "Joker"
+    assert role_calls[0]["monthly_fixed_cost"] == 22000
 
 
 def test_delete_personnel_record_syncs_mobile_auth_with_passive_fallback(monkeypatch):

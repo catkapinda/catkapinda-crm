@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PersonnelEntryWorkspace } from "../../components/personnel/personnel-entry-workspace";
 import { PersonnelManagementWorkspace } from "../../components/personnel/personnel-management-workspace";
 import { PersonnelPlateWorkspace } from "../../components/personnel/personnel-plate-workspace";
+import { PersonnelRoleWorkspace } from "../../components/personnel/personnel-role-workspace";
 import { useAuth } from "../../components/auth/auth-provider";
 import { AppShell } from "../../components/shell/app-shell";
 import { apiFetch } from "../../lib/api";
@@ -306,6 +307,9 @@ export default function PersonnelPage() {
       ? Math.round((dashboard.summary.assigned_restaurants / dashboard.summary.total_personnel) * 100)
       : 0;
   const canViewPlateArea = user?.allowed_actions.includes("personnel.plate") ?? false;
+  const canManageRoles =
+    (user?.allowed_actions.includes("personnel.list") ?? false) &&
+    (user?.allowed_actions.includes("personnel.update") ?? false);
   const decisionDeck = useMemo(() => {
     if (!dashboard) {
       return [];
@@ -679,6 +683,15 @@ export default function PersonnelPage() {
                   "Plaka ve motor geçmişini ayrı masada yönet.",
                   "Araç zimmeti, plaka değişimi ve açık motor hattını personel düzenleme akışından ayırıp daha net bir operasyon yüzeyine taşıyoruz.",
                   <PersonnelPlateWorkspace />,
+                )
+              : null}
+
+            {canManageRoles
+              ? workspaceFrame(
+                  "Rol Hattı",
+                  "Rol geçişlerini ve maliyet çizgisini ayrı izle.",
+                  "Kadro kayarken yalnız son rolü değil, ne zaman ve hangi sabit maliyetle geçtiğini de ayrı bir geçmiş olarak tutuyoruz.",
+                  <PersonnelRoleWorkspace />,
                 )
               : null}
 

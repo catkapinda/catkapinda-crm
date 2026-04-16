@@ -23,6 +23,13 @@ class PersonnelPlateSummary(BaseModel):
     active_missing_plate_personnel: int
 
 
+class PersonnelRoleSummary(BaseModel):
+    total_history_records: int
+    active_personnel: int
+    distinct_roles: int
+    fixed_cost_cards: int
+
+
 class PersonnelManagementEntry(BaseModel):
     id: int
     person_code: str
@@ -65,6 +72,32 @@ class PersonnelPlateHistoryEntry(BaseModel):
     end_date: date | None
     reason: str
     active: bool
+
+
+class PersonnelRoleCandidateEntry(BaseModel):
+    id: int
+    person_code: str
+    full_name: str
+    role: str
+    status: str
+    restaurant_label: str
+    cost_model: str
+    monthly_fixed_cost: float
+    role_history_count: int
+
+
+class PersonnelRoleHistoryEntry(BaseModel):
+    id: int
+    personnel_id: int
+    person_code: str
+    full_name: str
+    status: str
+    restaurant_label: str
+    role: str
+    cost_model: str
+    monthly_fixed_cost: float
+    effective_date: date | None
+    notes: str
 
 
 class PersonnelDashboardResponse(BaseModel):
@@ -121,6 +154,12 @@ class PersonnelPlateWorkspaceResponse(BaseModel):
     history: list[PersonnelPlateHistoryEntry]
 
 
+class PersonnelRoleWorkspaceResponse(BaseModel):
+    summary: PersonnelRoleSummary
+    people: list[PersonnelRoleCandidateEntry]
+    history: list[PersonnelRoleHistoryEntry]
+
+
 class PersonnelUpdateRequest(BaseModel):
     full_name: str
     role: str
@@ -146,6 +185,21 @@ class PersonnelPlateCreateResponse(BaseModel):
     history_id: int
     personnel_id: int
     plate: str
+    message: str
+
+
+class PersonnelRoleCreateRequest(BaseModel):
+    personnel_id: int
+    role: str
+    monthly_fixed_cost: float = 0.0
+    effective_date: date | None = None
+    notes: str = ""
+
+
+class PersonnelRoleCreateResponse(BaseModel):
+    history_id: int
+    personnel_id: int
+    role: str
     message: str
 
 
