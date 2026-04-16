@@ -373,14 +373,17 @@ def fetch_attendance_entry_ids(
     *,
     entry_ids: list[int],
 ) -> list[int]:
+    if not entry_ids:
+        return []
+    placeholders = ", ".join(["%s"] * len(entry_ids))
     rows = conn.execute(
-        """
+        f"""
         SELECT id
         FROM daily_entries
-        WHERE id = ANY(%s)
+        WHERE id IN ({placeholders})
         ORDER BY id
         """,
-        (entry_ids,),
+        tuple(entry_ids),
     ).fetchall()
     return [int(row["id"]) for row in rows]
 
@@ -425,12 +428,15 @@ def delete_attendance_entry(conn: psycopg.Connection, entry_id: int) -> None:
 
 
 def delete_attendance_entries(conn: psycopg.Connection, entry_ids: list[int]) -> list[int]:
+    if not entry_ids:
+        return []
+    placeholders = ", ".join(["%s"] * len(entry_ids))
     rows = conn.execute(
-        """
+        f"""
         DELETE FROM daily_entries
-        WHERE id = ANY(%s)
+        WHERE id IN ({placeholders})
         RETURNING id
         """,
-        (entry_ids,),
+        tuple(entry_ids),
     ).fetchall()
     return [int(row["id"]) for row in rows]
