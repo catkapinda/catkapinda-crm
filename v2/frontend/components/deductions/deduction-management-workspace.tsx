@@ -4,6 +4,7 @@ import type { CSSProperties, FormEvent } from "react";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { useAuth } from "../../components/auth/auth-provider";
 import { apiFetch } from "../../lib/api";
 
 type DeductionEntry = {
@@ -36,6 +37,12 @@ type DeductionsFormOptions = {
 
 type DeductionDetailResponse = {
   entry: DeductionEntry;
+};
+
+type DeductionBulkDeleteResponse = {
+  deduction_ids: number[];
+  deleted_count: number;
+  message: string;
 };
 
 function pill(kind: "accent" | "muted" | "warn"): CSSProperties {
@@ -85,8 +92,33 @@ function formatCurrency(value: number) {
   }).format(value || 0);
 }
 
+const secondaryButtonStyle: CSSProperties = {
+  borderRadius: "16px",
+  padding: "13px 14px",
+  border: "1px solid var(--line)",
+  background: "rgba(255, 255, 255, 0.9)",
+  color: "var(--text)",
+  fontWeight: 800,
+  fontSize: "0.92rem",
+  cursor: "pointer",
+};
+
+function dangerButtonStyle(disabled: boolean): CSSProperties {
+  return {
+    borderRadius: "16px",
+    padding: "13px 14px",
+    border: "1px solid rgba(205, 70, 66, 0.18)",
+    background: disabled ? "rgba(205, 70, 66, 0.04)" : "rgba(205, 70, 66, 0.08)",
+    color: disabled ? "rgba(181, 54, 50, 0.5)" : "#b53632",
+    fontWeight: 800,
+    fontSize: "0.92rem",
+    cursor: disabled ? "not-allowed" : "pointer",
+  };
+}
+
 export function DeductionManagementWorkspace() {
   const router = useRouter();
+  const { user } = useAuth();
   const [isPending, startTransition] = useTransition();
 
   const [options, setOptions] = useState<DeductionsFormOptions | null>(null);
@@ -102,6 +134,7 @@ export function DeductionManagementWorkspace() {
   const [filterPersonnelId, setFilterPersonnelId] = useState<number | "">("");
   const [filterDeductionType, setFilterDeductionType] = useState("");
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([]);
 
   const [editPersonnelId, setEditPersonnelId] = useState<number | "">("");
   const [editDeductionDate, setEditDeductionDate] = useState("");
@@ -109,6 +142,7 @@ export function DeductionManagementWorkspace() {
   const [editAmount, setEditAmount] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editIsAuto, setEditIsAuto] = useState(false);
+  const [bulkDeletePending, setBulkDeletePending] = useState(false);
 
   async function loadOptions() {
     const response = await apiFetch("/deductions/form-options");
@@ -142,8 +176,14 @@ export function DeductionManagementWorkspace() {
         throw new Error("Kesinti listesi yuklenemedi.");
       }
       const payload = (await response.json()) as DeductionsManagementResponse;
+      const visibleManualIdSet = new Set(
+        payload.entries.filter((entry) => !entry.is_auto_record).map((entry) => entry.id),
+      );
       setEntries(payload.entries);
       setTotalEntries(payload.total_entries);
+      setSelectedEntryIds((current) =>
+        current.filter((entryId) => visibleManualIdSet.has(entryId)),
+      );
       setSelectedEntryId((current) => {
         if (!payload.entries.length) {
           return null;
@@ -208,6 +248,16 @@ export function DeductionManagementWorkspace() {
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
     [entries, selectedEntryId],
+  );
+  const canBulkDelete = user?.allowed_actions.includes("deduction.bulk_delete") ?? false;
+  const selectableEntries = useMemo(
+    () => entries.filter((entry) => !entry.is_auto_record),
+    [entries],
+  );
+  const selectedEntryIdSet = useMemo(() => new Set(selectedEntryIds), [selectedEntryIds]);
+  const selectedManualCount = useMemo(
+    () => selectableEntries.filter((entry) => selectedEntryIdSet.has(entry.id)).length,
+    [selectableEntries, selectedEntryIdSet],
   );
 
   const selectedCaption = useMemo(() => {
@@ -280,6 +330,61 @@ export function DeductionManagementWorkspace() {
       router.refresh();
     });
     await loadEntries();
+  }
+
+  async function handleBulkDelete() {
+    if (!selectedEntryIds.length) {
+      setSaveError("Önce en az bir manuel kesinti kaydı seçmelisin.");
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Seçili ${selectedEntryIds.length} kesinti kaydı silinsin mi?`,
+    );
+    if (!shouldDelete) {
+      return;
+    }
+
+    setSaveError("");
+    setSaveSuccess("");
+    setBulkDeletePending(true);
+
+    try {
+      const response = await apiFetch("/deductions/records", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deduction_ids: selectedEntryIds,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | ({ detail?: string } & Partial<DeductionBulkDeleteResponse>)
+        | null;
+      if (!response.ok) {
+        setSaveError(payload?.detail || "Seçili kesinti kayıtları silinemedi.");
+        return;
+      }
+
+      const deletedEntryIds = Array.isArray(payload?.deduction_ids)
+        ? payload.deduction_ids
+        : selectedEntryIds;
+      const deletedEntryIdSet = new Set(deletedEntryIds);
+      setSelectedEntryIds((current) =>
+        current.filter((entryId) => !deletedEntryIdSet.has(entryId)),
+      );
+      setSelectedEntryId((current) =>
+        current !== null && deletedEntryIdSet.has(current) ? null : current,
+      );
+      setSaveSuccess(payload?.message || "Seçili kesinti kayıtları silindi.");
+      await loadEntries();
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      setBulkDeletePending(false);
+    }
   }
 
   return (
@@ -357,6 +462,85 @@ export function DeductionManagementWorkspace() {
               placeholder="Personel, tip veya not ara"
               style={fieldStyle}
             />
+          </div>
+
+          <div
+            style={{
+              padding: "16px",
+              borderRadius: "20px",
+              border: "1px solid var(--line)",
+              background: "rgba(255, 255, 255, 0.84)",
+              display: "grid",
+              gap: "12px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontWeight: 900 }}>Toplu Kesinti Sil</div>
+                <div style={{ marginTop: "4px", color: "var(--muted)", lineHeight: 1.6 }}>
+                  Yalnızca manuel kesinti kayıtları seçilebilir. Otomatik satırlar korumalı kalır.
+                </div>
+              </div>
+              <span style={pill(selectedManualCount > 0 ? "accent" : "muted")}>
+                {selectedManualCount} seçili
+              </span>
+            </div>
+
+            {selectableEntries.length === 0 ? (
+              <div style={{ color: "var(--muted)" }}>Toplu silme için uygun manuel kesinti kaydı görünmüyor.</div>
+            ) : (
+              <>
+                <select
+                  multiple
+                  value={selectedEntryIds.map(String)}
+                  onChange={(event) =>
+                    setSelectedEntryIds(
+                      Array.from(event.target.selectedOptions, (option) => Number(option.value)),
+                    )
+                  }
+                  style={{ ...fieldStyle, minHeight: "156px" }}
+                >
+                  {selectableEntries.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.personnel_label} · {entry.deduction_type} · {entry.deduction_date} · {formatCurrency(entry.amount)}
+                    </option>
+                  ))}
+                </select>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEntryIds(selectableEntries.map((entry) => entry.id))}
+                    style={secondaryButtonStyle}
+                  >
+                    Tümünü Seç
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEntryIds([])}
+                    style={secondaryButtonStyle}
+                  >
+                    Seçimi Temizle
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleBulkDelete();
+                    }}
+                    disabled={!canBulkDelete || bulkDeletePending || !selectedEntryIds.length}
+                    style={dangerButtonStyle(!canBulkDelete || bulkDeletePending || !selectedEntryIds.length)}
+                  >
+                    {bulkDeletePending ? "Siliniyor..." : "Seçili Kesintileri Sil"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           <div

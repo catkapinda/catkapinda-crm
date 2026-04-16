@@ -9,6 +9,8 @@ from app.core.audit import response_to_dict, safe_record_audit_event
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.schemas.deductions import (
+    DeductionBulkDeleteRequest,
+    DeductionBulkDeleteResponse,
     DeductionCreateRequest,
     DeductionCreateResponse,
     DeductionDeleteResponse,
@@ -21,6 +23,7 @@ from app.schemas.deductions import (
     DeductionUpdateResponse,
 )
 from app.services.deductions import (
+    bulk_delete_deduction_entries,
     build_deduction_detail,
     build_deductions_dashboard,
     build_deductions_form_options,
@@ -102,6 +105,33 @@ def get_deduction_records(
         deduction_type=deduction_type,
         search=search,
     )
+
+
+@router.delete("/records", response_model=DeductionBulkDeleteResponse)
+def bulk_delete_deduction_records_route(
+    payload: DeductionBulkDeleteRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_action("deduction.bulk_delete"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> DeductionBulkDeleteResponse:
+    try:
+        response = bulk_delete_deduction_entries(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="kesinti",
+            action_type="toplu sil",
+            summary=str(response_data.get("message") or ""),
+            entity_id=",".join(str(deduction_id) for deduction_id in response_data.get("deduction_ids") or []),
+            details={**payload.model_dump(mode="json"), "deleted_count": response_data.get("deleted_count")},
+        )
+        return response
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/records/{deduction_id}", response_model=DeductionDetailResponse)

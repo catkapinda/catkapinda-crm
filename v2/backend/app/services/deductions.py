@@ -6,16 +6,20 @@ import psycopg
 
 from app.repositories.deductions import (
     count_deduction_management_records,
+    delete_deduction_records,
     delete_deduction_record,
     fetch_deduction_management_records,
     fetch_deduction_personnel_options,
     fetch_deduction_record_by_id,
+    fetch_deduction_records_by_ids,
     fetch_deduction_summary,
     fetch_recent_deduction_records,
     insert_deduction_record,
     update_deduction_record,
 )
 from app.schemas.deductions import (
+    DeductionBulkDeleteRequest,
+    DeductionBulkDeleteResponse,
     DeductionCreateRequest,
     DeductionCreateResponse,
     DeductionDeleteResponse,
@@ -83,6 +87,23 @@ DEDUCTION_TYPE_OPTIONS = [
     ADVANCE_DEDUCTION_TYPE,
     PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE,
 ]
+
+
+def _normalize_bulk_deduction_ids(values: list[int]) -> list[int]:
+    seen_ids: set[int] = set()
+    normalized_ids: list[int] = []
+    for raw_value in values:
+        try:
+            deduction_id = int(raw_value)
+        except (TypeError, ValueError):
+            continue
+        if deduction_id <= 0 or deduction_id in seen_ids:
+            continue
+        seen_ids.add(deduction_id)
+        normalized_ids.append(deduction_id)
+    if not normalized_ids:
+        raise ValueError("Önce en az bir manuel kesinti kaydı seçmelisin.")
+    return normalized_ids
 
 
 def _normalize_deduction_type(value: str) -> str:
@@ -285,4 +306,41 @@ def delete_deduction_entry(
     return DeductionDeleteResponse(
         deduction_id=deduction_id,
         message="Kesinti kaydı silindi.",
+    )
+
+
+def bulk_delete_deduction_entries(
+    conn: psycopg.Connection,
+    *,
+    payload: DeductionBulkDeleteRequest,
+) -> DeductionBulkDeleteResponse:
+    deduction_ids = _normalize_bulk_deduction_ids(payload.deduction_ids)
+    existing_rows = fetch_deduction_records_by_ids(conn, deduction_ids)
+    existing_rows_by_id = {int(row["id"]): row for row in existing_rows}
+    missing_ids = [deduction_id for deduction_id in deduction_ids if deduction_id not in existing_rows_by_id]
+    if missing_ids:
+        missing_labels = ", ".join(str(deduction_id) for deduction_id in missing_ids)
+        raise LookupError(f"Seçilen kesinti kayıtları bulunamadı: {missing_labels}.")
+
+    auto_record_ids = [
+        deduction_id
+        for deduction_id in deduction_ids
+        if str(existing_rows_by_id[deduction_id].get("auto_source_key") or "").strip()
+    ]
+    if auto_record_ids:
+        blocked_labels = ", ".join(str(deduction_id) for deduction_id in auto_record_ids)
+        raise ValueError(
+            f"Otomatik oluşan kesinti kayıtları toplu silinemez: {blocked_labels}."
+        )
+
+    deleted_ids = sorted(delete_deduction_records(conn, deduction_ids))
+    if len(deleted_ids) != len(deduction_ids):
+        raise LookupError("Seçilen kesinti kayıtlarının bir kısmı silinemedi.")
+
+    conn.commit()
+    deleted_count = len(deleted_ids)
+    return DeductionBulkDeleteResponse(
+        deduction_ids=deleted_ids,
+        deleted_count=deleted_count,
+        message=f"{deleted_count} kesinti kaydı silindi.",
     )

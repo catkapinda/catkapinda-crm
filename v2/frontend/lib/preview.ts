@@ -927,6 +927,7 @@ export const PREVIEW_USER = {
     "deduction.create",
     "deduction.update",
     "deduction.delete",
+    "deduction.bulk_delete",
     "equipment.view",
     "payroll.view",
     "purchase.view",
@@ -2543,6 +2544,40 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     return buildJsonResponse({
       total_entries: entries.length,
       entries,
+    });
+  }
+
+  if (pathname === "/deductions/records" && method === "DELETE") {
+    const deductionIds = Array.isArray(body.deduction_ids)
+      ? body.deduction_ids.map((value) => Number(value)).filter((value) => Number.isInteger(value) && value > 0)
+      : [];
+    if (!deductionIds.length) {
+      return buildJsonResponse({ detail: "Önce en az bir manuel kesinti kaydı seçmelisin." }, 422);
+    }
+    const blockedEntries = previewDeductionRecords.filter(
+      (entry) => deductionIds.includes(entry.id) && entry.is_auto_record,
+    );
+    if (blockedEntries.length) {
+      return buildJsonResponse(
+        { detail: "Otomatik oluşan kesinti kayıtları preview modunda toplu silinemez." },
+        422,
+      );
+    }
+    const existingIds = new Set(previewDeductionRecords.map((entry) => entry.id));
+    const missingIds = deductionIds.filter((deductionId) => !existingIds.has(deductionId));
+    if (missingIds.length) {
+      return buildJsonResponse(
+        { detail: `Seçilen kesinti kayıtları bulunamadı: ${missingIds.join(", ")}.` },
+        404,
+      );
+    }
+    previewDeductionRecords = previewDeductionRecords.filter(
+      (entry) => !deductionIds.includes(entry.id),
+    );
+    return buildJsonResponse({
+      deduction_ids: deductionIds,
+      deleted_count: deductionIds.length,
+      message: `${deductionIds.length} kesinti kaydı silindi.`,
     });
   }
 

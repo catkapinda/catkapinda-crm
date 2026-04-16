@@ -209,6 +209,34 @@ def fetch_deduction_record_by_id(
     return dict(row) if row else None
 
 
+def fetch_deduction_records_by_ids(
+    conn: psycopg.Connection,
+    deduction_ids: list[int],
+) -> list[dict]:
+    if not deduction_ids:
+        return []
+    placeholders = ", ".join(["%s"] * len(deduction_ids))
+    rows = conn.execute(
+        f"""
+        SELECT
+            d.id,
+            d.personnel_id,
+            COALESCE(p.full_name, '-') AS personnel_label,
+            d.deduction_date,
+            COALESCE(d.deduction_type, '') AS deduction_type,
+            COALESCE(d.amount, 0) AS amount,
+            COALESCE(d.notes, '') AS notes,
+            COALESCE(d.auto_source_key, '') AS auto_source_key
+        FROM deductions d
+        LEFT JOIN personnel p ON p.id = d.personnel_id
+        WHERE d.id IN ({placeholders})
+        ORDER BY d.id
+        """,
+        tuple(deduction_ids),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def insert_deduction_record(
     conn: psycopg.Connection,
     values: dict[str, object],
@@ -265,3 +293,18 @@ def update_deduction_record(
 
 def delete_deduction_record(conn: psycopg.Connection, deduction_id: int) -> None:
     conn.execute("DELETE FROM deductions WHERE id = %s", (deduction_id,))
+
+
+def delete_deduction_records(conn: psycopg.Connection, deduction_ids: list[int]) -> list[int]:
+    if not deduction_ids:
+        return []
+    placeholders = ", ".join(["%s"] * len(deduction_ids))
+    rows = conn.execute(
+        f"""
+        DELETE FROM deductions
+        WHERE id IN ({placeholders})
+        RETURNING id
+        """,
+        tuple(deduction_ids),
+    ).fetchall()
+    return [int(row["id"]) for row in rows]

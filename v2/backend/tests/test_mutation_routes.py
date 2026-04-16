@@ -30,6 +30,7 @@ def _fake_admin_user() -> AuthenticatedUser:
             "deduction.create",
             "deduction.update",
             "deduction.delete",
+            "deduction.bulk_delete",
             "equipment.create",
             "equipment.bulk_update",
             "equipment.bulk_delete",
@@ -272,6 +273,11 @@ def test_personnel_mutation_routes(monkeypatch):
 
 
 def test_deductions_mutation_routes(monkeypatch):
+    audit_calls = []
+    monkeypatch.setattr(
+        "app.api.routes.deductions.safe_record_audit_event",
+        lambda conn, **kwargs: audit_calls.append(kwargs) or True,
+    )
     monkeypatch.setattr(
         "app.api.routes.deductions.create_deduction_entry",
         lambda conn, payload: {
@@ -291,6 +297,14 @@ def test_deductions_mutation_routes(monkeypatch):
         lambda conn, deduction_id: {
             "deduction_id": deduction_id,
             "message": "Kesinti kaydi silindi.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.deductions.bulk_delete_deduction_entries",
+        lambda conn, payload: {
+            "deduction_ids": payload.deduction_ids,
+            "deleted_count": len(payload.deduction_ids),
+            "message": f"{len(payload.deduction_ids)} kesinti kaydi silindi.",
         },
     )
     client = _build_client()
@@ -316,13 +330,26 @@ def test_deductions_mutation_routes(monkeypatch):
         },
     )
     delete_response = client.delete("/api/deductions/records/44")
+    bulk_delete_response = client.request(
+        "DELETE",
+        "/api/deductions/records",
+        json={
+            "deduction_ids": [44, 45],
+        },
+    )
 
     assert create_response.status_code == 201
     assert create_response.json()["deduction_id"] == 44
+    assert audit_calls[0]["action_type"] == "oluştur"
     assert update_response.status_code == 200
     assert update_response.json()["message"] == "Kesinti kaydi guncellendi."
+    assert audit_calls[1]["action_type"] == "güncelle"
     assert delete_response.status_code == 200
     assert delete_response.json()["deduction_id"] == 44
+    assert audit_calls[2]["action_type"] == "sil"
+    assert bulk_delete_response.status_code == 200
+    assert bulk_delete_response.json()["deleted_count"] == 2
+    assert audit_calls[3]["action_type"] == "toplu sil"
 
 
 def test_restaurants_mutation_routes(monkeypatch):

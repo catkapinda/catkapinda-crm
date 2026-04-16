@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DeductionsModuleStatus(BaseModel):
@@ -85,4 +85,14 @@ class DeductionUpdateResponse(BaseModel):
 
 class DeductionDeleteResponse(BaseModel):
     deduction_id: int
+    message: str
+
+
+class DeductionBulkDeleteRequest(BaseModel):
+    deduction_ids: list[int] = Field(default_factory=list)
+
+
+class DeductionBulkDeleteResponse(BaseModel):
+    deduction_ids: list[int]
+    deleted_count: int
     message: str
