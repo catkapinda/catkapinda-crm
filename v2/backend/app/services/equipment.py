@@ -42,6 +42,10 @@ from app.schemas.equipment import (
     EquipmentInstallmentEntry,
     EquipmentIssueCreateRequest,
     EquipmentIssueCreateResponse,
+    EquipmentIssueBulkDeleteRequest,
+    EquipmentIssueBulkDeleteResponse,
+    EquipmentIssueBulkUpdateRequest,
+    EquipmentIssueBulkUpdateResponse,
     EquipmentIssueDeleteResponse,
     EquipmentIssueDetailResponse,
     EquipmentIssueManagementEntry,
@@ -144,6 +148,12 @@ def _add_months(value: date, months: int) -> date:
     return date(year, month, day)
 
 
+def _coerce_date(value: object) -> date:
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value or date.today().isoformat()))
+
+
 def _rebuild_issue_installments(
     conn: psycopg.Connection,
     *,
@@ -220,6 +230,26 @@ def _build_box_return_entry(row: dict[str, object]) -> BoxReturnManagementEntry:
         waived=bool(row.get("waived") or 0),
         notes=str(row.get("notes") or ""),
     )
+
+
+def _build_issue_label(row: dict[str, object]) -> str:
+    issue_date = str(row.get("issue_date") or "-")
+    personnel_label = str(row.get("personnel_label") or "-")
+    item_name = str(row.get("item_name") or "-")
+    issue_id = int(row.get("id") or 0)
+    return f"{issue_date} | {personnel_label} | {item_name} | ID:{issue_id}"
+
+
+def _normalize_issue_ids(issue_ids: list[int]) -> list[int]:
+    normalized: list[int] = []
+    seen: set[int] = set()
+    for raw_value in issue_ids:
+        issue_id = int(raw_value or 0)
+        if issue_id <= 0 or issue_id in seen:
+            continue
+        seen.add(issue_id)
+        normalized.append(issue_id)
+    return normalized
 
 
 def build_equipment_status() -> EquipmentModuleStatus:
@@ -462,6 +492,106 @@ def update_equipment_issue_entry(
     )
 
 
+def bulk_update_equipment_issue_entries(
+    conn: psycopg.Connection,
+    *,
+    payload: EquipmentIssueBulkUpdateRequest,
+) -> EquipmentIssueBulkUpdateResponse:
+    issue_ids = _normalize_issue_ids(payload.issue_ids)
+    if not issue_ids:
+        raise ValueError("Önce en az bir zimmet kaydı seçmelisin.")
+    if (
+        payload.issue_date is None
+        and payload.unit_cost is None
+        and payload.unit_sale_price is None
+        and payload.vat_rate is None
+        and payload.installment_count is None
+        and payload.sale_type is None
+        and not str(payload.note_append_text or "").strip()
+    ):
+        raise ValueError("Toplu güncelleme için en az bir alan seçmeli veya not eklemelisin.")
+    if payload.unit_cost is not None and payload.unit_cost < 0:
+        raise ValueError("Maliyet tutarı negatif olamaz.")
+    if payload.unit_sale_price is not None and payload.unit_sale_price < 0:
+        raise ValueError("Satış tutarı negatif olamaz.")
+    if payload.vat_rate is not None and payload.vat_rate < 0:
+        raise ValueError("KDV oranı negatif olamaz.")
+    if payload.installment_count is not None and payload.installment_count <= 0:
+        raise ValueError("Taksit sayısı en az 1 olmalı.")
+
+    existing_rows: list[dict[str, object]] = []
+    blocked_labels: list[str] = []
+    for issue_id in issue_ids:
+        row = fetch_equipment_issue_by_id(conn, issue_id)
+        if row is None:
+            raise LookupError("Zimmet kaydı bulunamadı.")
+        existing_rows.append(row)
+        if str(row.get("auto_source_key") or "").strip():
+            blocked_labels.append(_build_issue_label(row))
+    if blocked_labels:
+        raise ValueError(
+            "Otomatik oluşan zimmet kayıtları toplu güncellenemez: "
+            + ", ".join(blocked_labels)
+            + "."
+        )
+
+    note_append_text = str(payload.note_append_text or "").strip()
+    for row in existing_rows:
+        issue_id = int(row["id"])
+        issue_date = payload.issue_date or _coerce_date(row["issue_date"])
+        item_name = _normalize_issue_item(str(row.get("item_name") or ISSUE_ITEMS[0]))
+        sale_type = _normalize_sale_type(payload.sale_type or str(row.get("sale_type") or SALE_TYPE_OPTIONS[0]))
+        installment_seed = (
+            payload.installment_count
+            if payload.installment_count is not None
+            else int(row.get("installment_count") or 1)
+        )
+        installment_count = _normalize_installment_count(sale_type, installment_seed)
+        quantity = int(row.get("quantity") or 0)
+        unit_cost = float(payload.unit_cost if payload.unit_cost is not None else row.get("unit_cost") or 0)
+        unit_sale_price = float(
+            payload.unit_sale_price if payload.unit_sale_price is not None else row.get("unit_sale_price") or 0
+        )
+        notes = str(row.get("notes") or "").strip()
+        if note_append_text:
+            notes = f"{notes}\n{note_append_text}".strip() if notes else note_append_text
+        vat_rate = float(payload.vat_rate if payload.vat_rate is not None else row.get("vat_rate") or VAT_RATE_DEFAULT)
+
+        update_equipment_issue_record(
+            conn,
+            issue_id,
+            {
+                "personnel_id": int(row.get("personnel_id") or 0),
+                "issue_date": issue_date,
+                "item_name": item_name,
+                "quantity": quantity,
+                "unit_cost": unit_cost,
+                "unit_sale_price": unit_sale_price,
+                "vat_rate": vat_rate,
+                "installment_count": installment_count,
+                "sale_type": sale_type,
+                "notes": notes,
+            },
+        )
+        total_sale_amount = float(quantity) * unit_sale_price
+        _rebuild_issue_installments(
+            conn,
+            issue_id=issue_id,
+            personnel_id=int(row.get("personnel_id") or 0),
+            issue_date=issue_date,
+            item_name=item_name,
+            total_sale_amount=total_sale_amount,
+            installment_count=installment_count,
+            sale_type=sale_type,
+        )
+
+    conn.commit()
+    return EquipmentIssueBulkUpdateResponse(
+        updated_count=len(existing_rows),
+        message=f"{len(existing_rows)} zimmet kaydı güncellendi.",
+    )
+
+
 def delete_equipment_issue_entry(
     conn: psycopg.Connection,
     *,
@@ -478,6 +608,42 @@ def delete_equipment_issue_entry(
     return EquipmentIssueDeleteResponse(
         equipment_issue_id=issue_id,
         message="Zimmet kaydı ve bağlı taksitler silindi.",
+    )
+
+
+def bulk_delete_equipment_issue_entries(
+    conn: psycopg.Connection,
+    *,
+    payload: EquipmentIssueBulkDeleteRequest,
+) -> EquipmentIssueBulkDeleteResponse:
+    issue_ids = _normalize_issue_ids(payload.issue_ids)
+    if not issue_ids:
+        raise ValueError("Önce en az bir zimmet kaydı seçmelisin.")
+
+    existing_rows: list[dict[str, object]] = []
+    blocked_labels: list[str] = []
+    for issue_id in issue_ids:
+        row = fetch_equipment_issue_by_id(conn, issue_id)
+        if row is None:
+            raise LookupError("Zimmet kaydı bulunamadı.")
+        existing_rows.append(row)
+        if str(row.get("auto_source_key") or "").strip():
+            blocked_labels.append(_build_issue_label(row))
+    if blocked_labels:
+        raise ValueError(
+            "Otomatik oluşan zimmet kayıtları toplu silinemez: "
+            + ", ".join(blocked_labels)
+            + "."
+        )
+
+    for row in existing_rows:
+        issue_id = int(row["id"])
+        delete_equipment_issue_installments(conn, issue_id)
+        delete_equipment_issue_record(conn, issue_id)
+    conn.commit()
+    return EquipmentIssueBulkDeleteResponse(
+        deleted_count=len(existing_rows),
+        message=f"{len(existing_rows)} zimmet kaydı ve bağlı taksitler silindi.",
     )
 
 

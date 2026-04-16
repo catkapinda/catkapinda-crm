@@ -18,6 +18,10 @@ from app.schemas.equipment import (
     BoxReturnsManagementResponse,
     EquipmentDashboardResponse,
     EquipmentFormOptionsResponse,
+    EquipmentIssueBulkDeleteRequest,
+    EquipmentIssueBulkDeleteResponse,
+    EquipmentIssueBulkUpdateRequest,
+    EquipmentIssueBulkUpdateResponse,
     EquipmentIssueCreateRequest,
     EquipmentIssueCreateResponse,
     EquipmentIssueDeleteResponse,
@@ -35,6 +39,8 @@ from app.services.equipment import (
     build_equipment_issue_detail,
     build_equipment_issue_management,
     build_equipment_status,
+    bulk_delete_equipment_issue_entries,
+    bulk_update_equipment_issue_entries,
     create_box_return_entry,
     create_equipment_issue_entry,
     delete_box_return_entry,
@@ -155,6 +161,32 @@ def update_equipment_issue_route(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+@router.post("/issues/bulk-update", response_model=EquipmentIssueBulkUpdateResponse)
+def bulk_update_equipment_issue_route(
+    payload: EquipmentIssueBulkUpdateRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_action("equipment.bulk_update"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> EquipmentIssueBulkUpdateResponse:
+    try:
+        response = bulk_update_equipment_issue_entries(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="zimmet",
+            action_type="toplu güncelle",
+            summary=str(response_data.get("message") or ""),
+            details={"issue_ids": payload.issue_ids, **payload.model_dump(mode="json")},
+        )
+        return response
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @router.delete("/issues/{issue_id}", response_model=EquipmentIssueDeleteResponse)
 def delete_equipment_issue_route(
     issue_id: int,
@@ -172,6 +204,32 @@ def delete_equipment_issue_route(
             summary=str(response_data.get("message") or ""),
             entity_id=issue_id,
             details={"equipment_issue_id": issue_id},
+        )
+        return response
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/issues/bulk-delete", response_model=EquipmentIssueBulkDeleteResponse)
+def bulk_delete_equipment_issue_route(
+    payload: EquipmentIssueBulkDeleteRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_action("equipment.bulk_delete"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> EquipmentIssueBulkDeleteResponse:
+    try:
+        response = bulk_delete_equipment_issue_entries(conn, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="zimmet",
+            action_type="toplu sil",
+            summary=str(response_data.get("message") or ""),
+            details={"issue_ids": payload.issue_ids},
         )
         return response
     except LookupError as exc:

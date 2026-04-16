@@ -142,8 +142,33 @@ class EquipmentIssueUpdateResponse(BaseModel):
     message: str
 
 
+class EquipmentIssueBulkUpdateRequest(BaseModel):
+    issue_ids: list[int]
+    issue_date: date | None = None
+    unit_cost: float | None = None
+    unit_sale_price: float | None = None
+    vat_rate: float | None = None
+    installment_count: int | None = None
+    sale_type: str | None = None
+    note_append_text: str = ""
+
+
+class EquipmentIssueBulkUpdateResponse(BaseModel):
+    updated_count: int
+    message: str
+
+
 class EquipmentIssueDeleteResponse(BaseModel):
     equipment_issue_id: int
+    message: str
+
+
+class EquipmentIssueBulkDeleteRequest(BaseModel):
+    issue_ids: list[int]
+
+
+class EquipmentIssueBulkDeleteResponse(BaseModel):
+    deleted_count: int
     message: str
 
 

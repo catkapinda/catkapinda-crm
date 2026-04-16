@@ -544,10 +544,24 @@ def test_equipment_mutation_routes(monkeypatch):
         },
     )
     monkeypatch.setattr(
+        "app.api.routes.equipment.bulk_update_equipment_issue_entries",
+        lambda conn, payload: {
+            "updated_count": len(payload.issue_ids),
+            "message": f"{len(payload.issue_ids)} zimmet kaydı güncellendi.",
+        },
+    )
+    monkeypatch.setattr(
         "app.api.routes.equipment.delete_equipment_issue_entry",
         lambda conn, issue_id: {
             "equipment_issue_id": issue_id,
             "message": "Zimmet kaydı silindi.",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.equipment.bulk_delete_equipment_issue_entries",
+        lambda conn, payload: {
+            "deleted_count": len(payload.issue_ids),
+            "message": f"{len(payload.issue_ids)} zimmet kaydı ve bağlı taksitler silindi.",
         },
     )
     monkeypatch.setattr(
@@ -595,7 +609,15 @@ def test_equipment_mutation_routes(monkeypatch):
 
     create_issue_response = client.post("/api/equipment/issues", json=issue_payload)
     update_issue_response = client.put("/api/equipment/issues/61", json={**issue_payload, "quantity": 2})
+    bulk_update_issue_response = client.post(
+        "/api/equipment/issues/bulk-update",
+        json={"issue_ids": [61, 62], "unit_cost": 2700, "note_append_text": "Nisan düzenlemesi"},
+    )
     delete_issue_response = client.delete("/api/equipment/issues/61")
+    bulk_delete_issue_response = client.post(
+        "/api/equipment/issues/bulk-delete",
+        json={"issue_ids": [61, 62]},
+    )
     create_return_response = client.post("/api/equipment/box-returns", json=return_payload)
     update_return_response = client.put("/api/equipment/box-returns/71", json={**return_payload, "condition_status": "Hasarlı"})
     delete_return_response = client.delete("/api/equipment/box-returns/71")
@@ -604,8 +626,12 @@ def test_equipment_mutation_routes(monkeypatch):
     assert create_issue_response.json()["equipment_issue_id"] == 61
     assert update_issue_response.status_code == 200
     assert update_issue_response.json()["message"] == "Zimmet kaydı güncellendi."
+    assert bulk_update_issue_response.status_code == 200
+    assert bulk_update_issue_response.json()["updated_count"] == 2
     assert delete_issue_response.status_code == 200
     assert delete_issue_response.json()["equipment_issue_id"] == 61
+    assert bulk_delete_issue_response.status_code == 200
+    assert bulk_delete_issue_response.json()["deleted_count"] == 2
     assert create_return_response.status_code == 201
     assert create_return_response.json()["box_return_id"] == 71
     assert update_return_response.status_code == 200

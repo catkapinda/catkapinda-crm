@@ -4,6 +4,7 @@ import type { CSSProperties, FormEvent } from "react";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { useAuth } from "../auth/auth-provider";
 import { apiFetch } from "../../lib/api";
 
 type EquipmentIssueEntry = {
@@ -28,6 +29,16 @@ type EquipmentIssueEntry = {
 
 type EquipmentIssueDetailResponse = {
   entry: EquipmentIssueEntry;
+};
+
+type EquipmentIssueBulkUpdateResponse = {
+  updated_count: number;
+  message: string;
+};
+
+type EquipmentIssueBulkDeleteResponse = {
+  deleted_count: number;
+  message: string;
 };
 
 type EquipmentIssuesManagementResponse = {
@@ -124,8 +135,11 @@ function pill(kind: "accent" | "muted" | "warn"): CSSProperties {
 
 export function EquipmentManagementWorkspace() {
   const router = useRouter();
+  const { user } = useAuth();
   const [isPending, startTransition] = useTransition();
   const [options, setOptions] = useState<EquipmentFormOptions | null>(null);
+  const canBulkUpdateIssue = Boolean(user?.allowed_actions.includes("equipment.bulk_update"));
+  const canBulkDeleteIssue = Boolean(user?.allowed_actions.includes("equipment.bulk_delete"));
 
   const [issueEntries, setIssueEntries] = useState<EquipmentIssueEntry[]>([]);
   const [issueTotalEntries, setIssueTotalEntries] = useState(0);
@@ -138,7 +152,24 @@ export function EquipmentManagementWorkspace() {
   const [issueFilterPersonnelId, setIssueFilterPersonnelId] = useState<number | "">("");
   const [issueFilterItemName, setIssueFilterItemName] = useState("");
   const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
+  const [selectedBulkIssueIds, setSelectedBulkIssueIds] = useState<number[]>([]);
   const [issueDetailLoading, setIssueDetailLoading] = useState(false);
+  const [issueBulkBusy, setIssueBulkBusy] = useState(false);
+  const [issueBulkError, setIssueBulkError] = useState("");
+  const [issueBulkSuccess, setIssueBulkSuccess] = useState("");
+  const [bulkUpdateDateEnabled, setBulkUpdateDateEnabled] = useState(false);
+  const [bulkUpdateCostEnabled, setBulkUpdateCostEnabled] = useState(false);
+  const [bulkUpdateSaleEnabled, setBulkUpdateSaleEnabled] = useState(false);
+  const [bulkUpdateVatEnabled, setBulkUpdateVatEnabled] = useState(false);
+  const [bulkUpdateInstallmentEnabled, setBulkUpdateInstallmentEnabled] = useState(false);
+  const [bulkUpdateSaleTypeEnabled, setBulkUpdateSaleTypeEnabled] = useState(false);
+  const [bulkIssueDate, setBulkIssueDate] = useState("");
+  const [bulkUnitCost, setBulkUnitCost] = useState("0");
+  const [bulkUnitSalePrice, setBulkUnitSalePrice] = useState("0");
+  const [bulkVatRate, setBulkVatRate] = useState("20");
+  const [bulkInstallmentCount, setBulkInstallmentCount] = useState("1");
+  const [bulkSaleType, setBulkSaleType] = useState("Satış");
+  const [bulkNoteText, setBulkNoteText] = useState("");
 
   const [editIssuePersonnelId, setEditIssuePersonnelId] = useState<number | "">("");
   const [editIssueDate, setEditIssueDate] = useState("");
@@ -173,7 +204,7 @@ export function EquipmentManagementWorkspace() {
   async function loadOptions() {
     const response = await apiFetch("/equipment/form-options");
     if (!response.ok) {
-      throw new Error("Ekipman referans verileri yuklenemedi.");
+      throw new Error("Ekipman referans verileri yüklenemedi.");
     }
     const payload = (await response.json()) as EquipmentFormOptions;
     setOptions(payload);
@@ -182,6 +213,12 @@ export function EquipmentManagementWorkspace() {
     }
     if (!boxFilterPersonnelId && payload.selected_personnel_id) {
       setBoxFilterPersonnelId(payload.selected_personnel_id);
+    }
+    if (!bulkIssueDate) {
+      setBulkIssueDate(new Date().toISOString().slice(0, 10));
+    }
+    if (!bulkInstallmentCount) {
+      setBulkInstallmentCount(String(payload.installment_count_options[0] || 1));
     }
   }
 
@@ -202,11 +239,14 @@ export function EquipmentManagementWorkspace() {
       }
       const response = await apiFetch(`/equipment/issues?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Ekipman zimmet listesi yuklenemedi.");
+        throw new Error("Ekipman zimmet listesi yüklenemedi.");
       }
       const payload = (await response.json()) as EquipmentIssuesManagementResponse;
       setIssueEntries(payload.entries);
       setIssueTotalEntries(payload.total_entries);
+      setSelectedBulkIssueIds((current) =>
+        current.filter((issueId) => payload.entries.some((entry) => entry.id === issueId)),
+      );
       setSelectedIssueId((current) => {
         if (!payload.entries.length) {
           return null;
@@ -218,7 +258,7 @@ export function EquipmentManagementWorkspace() {
       });
     } catch (error) {
       setIssueListError(
-        error instanceof Error ? error.message : "Ekipman zimmet listesi yuklenemedi.",
+        error instanceof Error ? error.message : "Ekipman zimmet listesi yüklenemedi.",
       );
       setIssueEntries([]);
       setIssueTotalEntries(0);
@@ -235,7 +275,7 @@ export function EquipmentManagementWorkspace() {
     try {
       const response = await apiFetch(`/equipment/issues/${entryId}`);
       if (!response.ok) {
-        throw new Error("Zimmet detayi yuklenemedi.");
+        throw new Error("Zimmet detayı yüklenemedi.");
       }
       const payload = (await response.json()) as EquipmentIssueDetailResponse;
       const entry = payload.entry;
@@ -250,7 +290,7 @@ export function EquipmentManagementWorkspace() {
       setEditIssueNotes(entry.notes ?? "");
       setEditIssueIsAuto(entry.is_auto_record);
     } catch (error) {
-      setIssueSaveError(error instanceof Error ? error.message : "Zimmet detayi yuklenemedi.");
+      setIssueSaveError(error instanceof Error ? error.message : "Zimmet detayı yüklenemedi.");
     } finally {
       setIssueDetailLoading(false);
     }
@@ -270,7 +310,7 @@ export function EquipmentManagementWorkspace() {
       }
       const response = await apiFetch(`/equipment/box-returns?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Box geri alım listesi yuklenemedi.");
+        throw new Error("Box geri alım listesi yüklenemedi.");
       }
       const payload = (await response.json()) as BoxReturnsManagementResponse;
       setBoxEntries(payload.entries);
@@ -286,7 +326,7 @@ export function EquipmentManagementWorkspace() {
       });
     } catch (error) {
       setBoxListError(
-        error instanceof Error ? error.message : "Box geri alım listesi yuklenemedi.",
+        error instanceof Error ? error.message : "Box geri alım listesi yüklenemedi.",
       );
       setBoxEntries([]);
       setBoxTotalEntries(0);
@@ -303,7 +343,7 @@ export function EquipmentManagementWorkspace() {
     try {
       const response = await apiFetch(`/equipment/box-returns/${entryId}`);
       if (!response.ok) {
-        throw new Error("Box geri alım detayi yuklenemedi.");
+        throw new Error("Box geri alım detayı yüklenemedi.");
       }
       const payload = (await response.json()) as BoxReturnDetailResponse;
       const entry = payload.entry;
@@ -315,7 +355,7 @@ export function EquipmentManagementWorkspace() {
       setEditBoxNotes(entry.notes ?? "");
     } catch (error) {
       setBoxSaveError(
-        error instanceof Error ? error.message : "Box geri alım detayi yuklenemedi.",
+        error instanceof Error ? error.message : "Box geri alım detayı yüklenemedi.",
       );
     } finally {
       setBoxDetailLoading(false);
@@ -367,7 +407,7 @@ export function EquipmentManagementWorkspace() {
   async function handleIssueSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedIssueId || typeof editIssuePersonnelId !== "number") {
-      setIssueSaveError("Duzenlenecek zimmet kaydini seç.");
+      setIssueSaveError("Düzenlenecek zimmet kaydını seç.");
       return;
     }
     setIssueSaveError("");
@@ -406,7 +446,7 @@ export function EquipmentManagementWorkspace() {
 
   async function handleIssueDelete() {
     if (!selectedIssueId) {
-      setIssueSaveError("Silinecek zimmet kaydini seç.");
+      setIssueSaveError("Silinecek zimmet kaydını seç.");
       return;
     }
     setIssueSaveError("");
@@ -428,10 +468,102 @@ export function EquipmentManagementWorkspace() {
     await loadIssueEntries();
   }
 
+  function toggleBulkIssueSelection(issueId: number, checked: boolean) {
+    setSelectedBulkIssueIds((current) => {
+      if (checked) {
+        return current.includes(issueId) ? current : [...current, issueId];
+      }
+      return current.filter((value) => value !== issueId);
+    });
+  }
+
+  async function handleIssueBulkUpdate() {
+    setIssueBulkError("");
+    setIssueBulkSuccess("");
+    setIssueSaveError("");
+    setIssueSaveSuccess("");
+    setIssueBulkBusy(true);
+    try {
+      const response = await apiFetch("/equipment/issues/bulk-update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          issue_ids: selectedBulkIssueIds,
+          issue_date: bulkUpdateDateEnabled ? bulkIssueDate : null,
+          unit_cost: bulkUpdateCostEnabled ? Number(bulkUnitCost || 0) : null,
+          unit_sale_price: bulkUpdateSaleEnabled ? Number(bulkUnitSalePrice || 0) : null,
+          vat_rate: bulkUpdateVatEnabled ? Number(bulkVatRate || 0) : null,
+          installment_count: bulkUpdateInstallmentEnabled ? Number(bulkInstallmentCount || 1) : null,
+          sale_type: bulkUpdateSaleTypeEnabled ? bulkSaleType : null,
+          note_append_text: bulkNoteText,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { detail?: string; message?: string }
+        | EquipmentIssueBulkUpdateResponse
+        | null;
+      if (!response.ok) {
+        const detail =
+          payload && "detail" in payload ? payload.detail : undefined;
+        setIssueBulkError(detail || "Toplu zimmet güncellemesi yapılamadı.");
+        return;
+      }
+      setIssueBulkSuccess(payload?.message || "Toplu zimmet güncellemesi tamamlandı.");
+      startTransition(() => {
+        router.refresh();
+      });
+      await loadIssueEntries();
+      if (selectedIssueId) {
+        await loadIssueDetail(selectedIssueId);
+      }
+    } finally {
+      setIssueBulkBusy(false);
+    }
+  }
+
+  async function handleIssueBulkDelete() {
+    setIssueBulkError("");
+    setIssueBulkSuccess("");
+    setIssueSaveError("");
+    setIssueSaveSuccess("");
+    setIssueBulkBusy(true);
+    try {
+      const response = await apiFetch("/equipment/issues/bulk-delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          issue_ids: selectedBulkIssueIds,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { detail?: string; message?: string }
+        | EquipmentIssueBulkDeleteResponse
+        | null;
+      if (!response.ok) {
+        const detail =
+          payload && "detail" in payload ? payload.detail : undefined;
+        setIssueBulkError(detail || "Toplu zimmet silme yapılamadı.");
+        return;
+      }
+      setIssueBulkSuccess(payload?.message || "Toplu zimmet silme tamamlandı.");
+      setSelectedBulkIssueIds([]);
+      startTransition(() => {
+        router.refresh();
+      });
+      await loadIssueEntries();
+    } finally {
+      setIssueBulkBusy(false);
+    }
+  }
+
   async function handleBoxSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedBoxId || typeof editBoxPersonnelId !== "number") {
-      setBoxSaveError("Duzenlenecek box kaydini seç.");
+      setBoxSaveError("Düzenlenecek box kaydını seç.");
       return;
     }
     setBoxSaveError("");
@@ -467,7 +599,7 @@ export function EquipmentManagementWorkspace() {
 
   async function handleBoxDelete() {
     if (!selectedBoxId) {
-      setBoxSaveError("Silinecek box kaydini seç.");
+      setBoxSaveError("Silinecek box kaydını seç.");
       return;
     }
     setBoxSaveError("");
@@ -502,7 +634,7 @@ export function EquipmentManagementWorkspace() {
         }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Zimmet Yonetimi</h2>
+          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Zimmet Yönetimi</h2>
           <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
             Zimmet kayıtlarını filtrele, seç, güncelle ve bağlı taksitleriyle temizle.
           </p>
@@ -569,7 +701,232 @@ export function EquipmentManagementWorkspace() {
                 fontWeight: 700,
               }}
             >
-              Toplam eslesen zimmet: {issueTotalEntries}
+              Toplam eşleşen zimmet: {issueTotalEntries}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid var(--line)",
+                background: "rgba(255, 255, 255, 0.86)",
+              }}
+            >
+              <div style={{ display: "grid", gap: "4px" }}>
+                <strong>Toplu güncelle / sil</strong>
+                <div style={{ color: "var(--muted)", fontSize: "0.92rem", lineHeight: 1.6 }}>
+                  Seçili zimmet kayıtlarını tek seferde güncelleyebilir veya bağlı taksitleriyle temizleyebilirsin.
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Tarih</span>
+                  <input
+                    type="date"
+                    value={bulkIssueDate}
+                    onChange={(event) => setBulkIssueDate(event.target.value)}
+                    style={fieldStyle}
+                    disabled={!bulkUpdateDateEnabled}
+                  />
+                  <label style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.88rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={bulkUpdateDateEnabled}
+                      onChange={(event) => setBulkUpdateDateEnabled(event.target.checked)}
+                    />
+                    Tarihi güncelle
+                  </label>
+                </label>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Birim Maliyet</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={bulkUnitCost}
+                    onChange={(event) => setBulkUnitCost(event.target.value)}
+                    style={fieldStyle}
+                    disabled={!bulkUpdateCostEnabled}
+                  />
+                  <label style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.88rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={bulkUpdateCostEnabled}
+                      onChange={(event) => setBulkUpdateCostEnabled(event.target.checked)}
+                    />
+                    Maliyeti güncelle
+                  </label>
+                </label>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Birim Satış</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={bulkUnitSalePrice}
+                    onChange={(event) => setBulkUnitSalePrice(event.target.value)}
+                    style={fieldStyle}
+                    disabled={!bulkUpdateSaleEnabled}
+                  />
+                  <label style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.88rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={bulkUpdateSaleEnabled}
+                      onChange={(event) => setBulkUpdateSaleEnabled(event.target.checked)}
+                    />
+                    Satışı güncelle
+                  </label>
+                </label>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>KDV</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={bulkVatRate}
+                    onChange={(event) => setBulkVatRate(event.target.value)}
+                    style={fieldStyle}
+                    disabled={!bulkUpdateVatEnabled}
+                  />
+                  <label style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.88rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={bulkUpdateVatEnabled}
+                      onChange={(event) => setBulkUpdateVatEnabled(event.target.checked)}
+                    />
+                    KDV güncelle
+                  </label>
+                </label>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Taksit</span>
+                  <select
+                    value={bulkInstallmentCount}
+                    onChange={(event) => setBulkInstallmentCount(event.target.value)}
+                    style={fieldStyle}
+                    disabled={!bulkUpdateInstallmentEnabled}
+                  >
+                    {options?.installment_count_options.map((count) => (
+                      <option key={count} value={count}>
+                        {count}
+                      </option>
+                    ))}
+                  </select>
+                  <label style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.88rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={bulkUpdateInstallmentEnabled}
+                      onChange={(event) => setBulkUpdateInstallmentEnabled(event.target.checked)}
+                    />
+                    Taksiti güncelle
+                  </label>
+                </label>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>İşlem Tipi</span>
+                  <select
+                    value={bulkSaleType}
+                    onChange={(event) => setBulkSaleType(event.target.value)}
+                    style={fieldStyle}
+                    disabled={!bulkUpdateSaleTypeEnabled}
+                  >
+                    {options?.sale_type_options.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                  <label style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.88rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={bulkUpdateSaleTypeEnabled}
+                      onChange={(event) => setBulkUpdateSaleTypeEnabled(event.target.checked)}
+                    />
+                    Tipi güncelle
+                  </label>
+                </label>
+              </div>
+
+              <label style={{ display: "grid", gap: "8px" }}>
+                <span style={{ fontWeight: 700 }}>Not ekle</span>
+                <input
+                  value={bulkNoteText}
+                  onChange={(event) => setBulkNoteText(event.target.value)}
+                  placeholder="Örn: Nisan revizyonu"
+                  style={fieldStyle}
+                />
+              </label>
+
+              {(issueBulkError || issueBulkSuccess) && (
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "16px",
+                    border: issueBulkError
+                      ? "1px solid rgba(205, 70, 66, 0.18)"
+                      : "1px solid rgba(35, 148, 94, 0.18)",
+                    background: issueBulkError
+                      ? "rgba(205, 70, 66, 0.08)"
+                      : "rgba(35, 148, 94, 0.08)",
+                    color: issueBulkError ? "#b53632" : "#1d7b4d",
+                    fontWeight: 700,
+                  }}
+                >
+                  {issueBulkError || issueBulkSuccess}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ ...pill("muted"), fontSize: "0.82rem" }}>
+                  Seçili kayıt: {selectedBulkIssueIds.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleIssueBulkUpdate()}
+                  disabled={!canBulkUpdateIssue || issueBulkBusy || selectedBulkIssueIds.length === 0}
+                  style={{
+                    border: "none",
+                    borderRadius: "16px",
+                    padding: "14px 16px",
+                    background: "linear-gradient(135deg, #0f5fd7, #1a73e8)",
+                    color: "white",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    opacity: !canBulkUpdateIssue || issueBulkBusy || selectedBulkIssueIds.length === 0 ? 0.6 : 1,
+                  }}
+                >
+                  {issueBulkBusy ? "İşleniyor..." : "Seçili Kayıtları Güncelle"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleIssueBulkDelete()}
+                  disabled={!canBulkDeleteIssue || issueBulkBusy || selectedBulkIssueIds.length === 0}
+                  style={{
+                    borderRadius: "16px",
+                    padding: "14px 16px",
+                    border: "1px solid rgba(205, 70, 66, 0.18)",
+                    background: "rgba(205, 70, 66, 0.08)",
+                    color: "#b53632",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    opacity: !canBulkDeleteIssue || issueBulkBusy || selectedBulkIssueIds.length === 0 ? 0.6 : 1,
+                  }}
+                >
+                  Seçili Kayıtları Sil
+                </button>
+              </div>
             </div>
 
             {issueListLoading ? (
@@ -607,6 +964,7 @@ export function EquipmentManagementWorkspace() {
               >
                 {issueEntries.map((entry) => {
                   const selected = entry.id === selectedIssueId;
+                  const bulkSelected = selectedBulkIssueIds.includes(entry.id);
                   return (
                     <button
                       key={entry.id}
@@ -640,6 +998,24 @@ export function EquipmentManagementWorkspace() {
                           {entry.is_auto_record ? "Otomatik" : entry.sale_type}
                         </span>
                       </div>
+                      <label
+                        style={{
+                          display: "inline-flex",
+                          gap: "8px",
+                          alignItems: "center",
+                          color: "var(--muted)",
+                          fontSize: "0.85rem",
+                          width: "fit-content",
+                        }}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={bulkSelected}
+                          onChange={(event) => toggleBulkIssueSelection(entry.id, event.target.checked)}
+                        />
+                        Toplu işleme ekle
+                      </label>
                       <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
                         {entry.personnel_label}
                       </div>
@@ -846,7 +1222,7 @@ export function EquipmentManagementWorkspace() {
                     <strong style={{ color: "var(--text)" }}>{formatCurrency(selectedIssue.total_sale)}</strong>
                   </div>
                   <div>
-                    <div>Brut Kar</div>
+                    <div>Brüt Kâr</div>
                     <strong style={{ color: "var(--text)" }}>{formatCurrency(selectedIssue.gross_profit)}</strong>
                   </div>
                   <div>
@@ -936,7 +1312,7 @@ export function EquipmentManagementWorkspace() {
         }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Box Geri Alım Yonetimi</h2>
+          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Box Geri Alım Yönetimi</h2>
           <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
             İade kayıtlarını filtrele, seç, güncelle ve ödeme durumuyla takip et.
           </p>
@@ -991,7 +1367,7 @@ export function EquipmentManagementWorkspace() {
                 fontWeight: 700,
               }}
             >
-              Toplam eslesen box iadesi: {boxTotalEntries}
+              Toplam eşleşen box iadesi: {boxTotalEntries}
             </div>
 
             {boxListLoading ? (
@@ -1104,7 +1480,7 @@ export function EquipmentManagementWorkspace() {
                       fontWeight: 800,
                     }}
                   >
-                    Seçili Box Iadesi
+                    Seçili Box İadesi
                   </div>
                   <h3 style={{ margin: "6px 0 0" }}>{selectedBox.personnel_label}</h3>
                 </div>
@@ -1220,7 +1596,7 @@ export function EquipmentManagementWorkspace() {
                       cursor: "pointer",
                     }}
                   >
-                    {isPending ? "Kaydediliyor..." : "Box Kaydini Güncelle"}
+                    {isPending ? "Kaydediliyor..." : "Box Kaydını Güncelle"}
                   </button>
                   <button
                     type="button"
@@ -1236,7 +1612,7 @@ export function EquipmentManagementWorkspace() {
                       cursor: "pointer",
                     }}
                   >
-                    Box Kaydini Sil
+                    Box Kaydını Sil
                   </button>
                 </div>
               </div>

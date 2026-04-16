@@ -931,6 +931,9 @@ export const PREVIEW_USER = {
     "deduction.delete",
     "deduction.bulk_delete",
     "equipment.view",
+    "equipment.bulk_update",
+    "equipment.bulk_delete",
+    "equipment.box_return",
     "payroll.view",
     "purchase.view",
     "purchase.create",
@@ -2791,6 +2794,83 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     return buildJsonResponse({
       message: "Preview zimmet kaydı oluşturuldu.",
       entry_id: nextRecord.id,
+    });
+  }
+
+  if (pathname === "/equipment/issues/bulk-update" && method === "POST") {
+    const issueIds = Array.isArray(body.issue_ids)
+      ? body.issue_ids.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+      : [];
+    if (!issueIds.length) {
+      return buildJsonResponse({ detail: "Önce en az bir zimmet kaydı seçmelisin." }, 422);
+    }
+    const blockedEntries = previewEquipmentIssueRecords.filter(
+      (entry) => issueIds.includes(entry.id) && entry.is_auto_record,
+    );
+    if (blockedEntries.length) {
+      return buildJsonResponse(
+        {
+          detail: `Otomatik oluşan zimmet kayıtları preview modunda toplu güncellenemez: ${blockedEntries
+            .map((entry) => `${entry.issue_date} | ${personnelLabel(entry.personnel_id) || "Personel"} | ${entry.item_name}`)
+            .join(", ")}.`,
+        },
+        422,
+      );
+    }
+    previewEquipmentIssueRecords = previewEquipmentIssueRecords.map((entry) => {
+      if (!issueIds.includes(entry.id)) {
+        return entry;
+      }
+      const nextNotes = String(body.note_append_text || "").trim();
+      return {
+        ...entry,
+        issue_date: body.issue_date ? String(body.issue_date) : entry.issue_date,
+        unit_cost:
+          body.unit_cost !== null && body.unit_cost !== undefined ? Number(body.unit_cost || 0) : entry.unit_cost,
+        unit_sale_price:
+          body.unit_sale_price !== null && body.unit_sale_price !== undefined
+            ? Number(body.unit_sale_price || 0)
+            : entry.unit_sale_price,
+        vat_rate:
+          body.vat_rate !== null && body.vat_rate !== undefined ? Number(body.vat_rate || 0) : entry.vat_rate,
+        installment_count:
+          body.installment_count !== null && body.installment_count !== undefined
+            ? Number(body.installment_count || 1)
+            : entry.installment_count,
+        sale_type: body.sale_type ? String(body.sale_type) : entry.sale_type,
+        notes: nextNotes ? [entry.notes, nextNotes].filter(Boolean).join("\n") : entry.notes,
+      };
+    });
+    return buildJsonResponse({
+      updated_count: issueIds.length,
+      message: `${issueIds.length} zimmet kaydı güncellendi.`,
+    });
+  }
+
+  if (pathname === "/equipment/issues/bulk-delete" && method === "POST") {
+    const issueIds = Array.isArray(body.issue_ids)
+      ? body.issue_ids.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+      : [];
+    if (!issueIds.length) {
+      return buildJsonResponse({ detail: "Önce en az bir zimmet kaydı seçmelisin." }, 422);
+    }
+    const blockedEntries = previewEquipmentIssueRecords.filter(
+      (entry) => issueIds.includes(entry.id) && entry.is_auto_record,
+    );
+    if (blockedEntries.length) {
+      return buildJsonResponse(
+        {
+          detail: `Otomatik oluşan zimmet kayıtları preview modunda toplu silinemez: ${blockedEntries
+            .map((entry) => `${entry.issue_date} | ${personnelLabel(entry.personnel_id) || "Personel"} | ${entry.item_name}`)
+            .join(", ")}.`,
+        },
+        422,
+      );
+    }
+    previewEquipmentIssueRecords = previewEquipmentIssueRecords.filter((entry) => !issueIds.includes(entry.id));
+    return buildJsonResponse({
+      deleted_count: issueIds.length,
+      message: `${issueIds.length} zimmet kaydı ve bağlı taksitler silindi.`,
     });
   }
 
