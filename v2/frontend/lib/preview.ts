@@ -2104,6 +2104,7 @@ function buildReportsDashboard(month: string | null) {
   const attendanceRows = previewAttendanceRecords.filter((entry) => entry.entry_date.startsWith(selectedMonth));
   const activePersonnelIds = new Set(attendanceRows.map((entry) => entry.primary_person_id).filter(Boolean));
   const restaurantIds = new Set(attendanceRows.map((entry) => entry.restaurant_id));
+  const activeRestaurants = previewRestaurants.filter((entry) => entry.active);
 
   const invoiceEntries = previewRestaurants.map((restaurant) => {
     const rows = attendanceRows.filter((entry) => entry.restaurant_id === restaurant.id);
@@ -2116,13 +2117,13 @@ function buildReportsDashboard(month: string | null) {
     const netInvoice = grossInvoice / 1.2;
     return {
       restaurant: restaurant.label,
-      pricing_model: restaurant.pricing_model === "fixed_monthly" ? "Sabit Aylık" : "Paket Bazli",
+      pricing_model: restaurant.pricing_model === "fixed_monthly" ? "Sabit Aylık" : "Paket Bazlı",
       total_hours: totalHours,
       total_packages: totalPackages,
       net_invoice: Math.round(netInvoice),
       gross_invoice: Math.round(grossInvoice),
     };
-  });
+  }).sort((left, right) => right.gross_invoice - left.gross_invoice);
 
   const costEntries = previewPersonnelRecords
     .filter((entry) => activePersonnelIds.has(entry.id))
@@ -2147,9 +2148,10 @@ function buildReportsDashboard(month: string | null) {
         total_packages: totalPackages,
         total_deductions: totalDeductions,
         net_cost: netCost,
-        cost_model: entry.monthly_fixed_cost > 0 ? "Sabit + Saat" : "Saat Bazli",
+        cost_model: entry.monthly_fixed_cost > 0 ? "Sabit + Saat" : "Saat Bazlı",
       };
-    });
+    })
+    .sort((left, right) => right.net_cost - left.net_cost);
 
   const totalRevenue = invoiceEntries.reduce((sum, row) => sum + row.gross_invoice, 0);
   const totalPersonnelCost = costEntries.reduce((sum, row) => sum + row.net_cost, 0);
@@ -2157,6 +2159,10 @@ function buildReportsDashboard(month: string | null) {
   const totalPackages = invoiceEntries.reduce((sum, row) => sum + row.total_packages, 0);
   const grossProfit = totalRevenue - totalPersonnelCost;
   const sideIncomeNet = Math.round(totalRevenue * 0.045);
+  const fuelReflectionAmount = Math.round(totalPackages * 18);
+  const companyFuelReflectionAmount = Math.round(fuelReflectionAmount * 0.42);
+  const uttsFuelDiscountAmount = Math.round(companyFuelReflectionAmount * 0.07);
+  const partnerCardDiscountAmount = Math.max(sideIncomeNet - uttsFuelDiscountAmount, 0);
 
   const modelBreakdown = invoiceEntries.reduce<
     Array<{
@@ -2185,6 +2191,63 @@ function buildReportsDashboard(month: string | null) {
     return accumulator;
   }, []);
 
+  const sharedOverheadEntries = previewPersonnelRecords
+    .filter(
+      (entry) =>
+        entry.status === "Aktif" &&
+        ["Joker", "Bölge Müdürü"].includes(entry.role) &&
+        entry.monthly_fixed_cost > 0,
+    )
+    .map((entry) => ({
+      personnel: entry.full_name,
+      role: entry.role,
+      gross_cost: entry.monthly_fixed_cost,
+      total_deductions: 0,
+      net_cost: entry.monthly_fixed_cost,
+      allocated_restaurant_count: activeRestaurants.length,
+      share_per_restaurant:
+        activeRestaurants.length > 0 ? entry.monthly_fixed_cost / activeRestaurants.length : 0,
+    }));
+
+  const distributionEntries = attendanceRows
+    .map((entry) => {
+      const personnel = previewPersonnelRecords.find((item) => item.id === entry.primary_person_id);
+      const restaurant = previewRestaurants.find((item) => item.id === entry.restaurant_id);
+      if (!personnel || !restaurant) {
+        return null;
+      }
+      const personnelCost = costEntries.find((item) => item.personnel === personnel.full_name);
+      return {
+        restaurant: restaurant.label,
+        personnel: personnel.full_name,
+        role: personnel.role,
+        total_hours: entry.worked_hours,
+        total_packages: entry.package_count,
+        allocated_cost: personnelCost ? Math.round(personnelCost.net_cost / Math.max(attendanceRows.length, 1)) : 0,
+        allocation_source:
+          personnel.monthly_fixed_cost > 0 && entry.worked_hours <= 0
+            ? "Sabit maliyet payı"
+            : "Değişken maliyet",
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 18);
+
+  const sideIncomeEntries = [
+    {
+      item: "UTTS Yakıt İndirimi",
+      revenue: uttsFuelDiscountAmount,
+      cost: 0,
+      net_profit: uttsFuelDiscountAmount,
+    },
+    {
+      item: "Partner Kart İndirimi",
+      revenue: partnerCardDiscountAmount,
+      cost: 0,
+      net_profit: partnerCardDiscountAmount,
+    },
+  ];
+
   return {
     module: "reports",
     status: "preview",
@@ -2204,9 +2267,7 @@ function buildReportsDashboard(month: string | null) {
     invoice_entries: invoiceEntries,
     cost_entries: costEntries,
     model_breakdown: modelBreakdown,
-    top_restaurants: [...invoiceEntries]
-      .sort((left, right) => right.gross_invoice - left.gross_invoice)
-      .slice(0, 5)
+    top_restaurants: [...invoiceEntries].slice(0, 5)
       .map((entry) => ({
         restaurant: entry.restaurant,
         pricing_model: entry.pricing_model,
@@ -2214,9 +2275,7 @@ function buildReportsDashboard(month: string | null) {
         total_packages: entry.total_packages,
         gross_invoice: entry.gross_invoice,
       })),
-    top_couriers: [...costEntries]
-      .sort((left, right) => right.net_cost - left.net_cost)
-      .slice(0, 5)
+    top_couriers: [...costEntries].slice(0, 5)
       .map((entry) => ({
         personnel: entry.personnel,
         role: entry.role,
@@ -2225,6 +2284,19 @@ function buildReportsDashboard(month: string | null) {
         net_cost: entry.net_cost,
         cost_model: entry.cost_model,
       })),
+    coverage: {
+      covered_restaurant_count: restaurantIds.size,
+      operational_restaurant_count: activeRestaurants.length,
+    },
+    shared_overhead_entries: sharedOverheadEntries,
+    distribution_entries: distributionEntries,
+    side_income_entries: sideIncomeEntries,
+    side_income_snapshot: {
+      fuel_reflection_amount: fuelReflectionAmount,
+      company_fuel_reflection_amount: companyFuelReflectionAmount,
+      utts_fuel_discount_amount: uttsFuelDiscountAmount,
+      partner_card_discount_amount: partnerCardDiscountAmount,
+    },
   };
 }
 

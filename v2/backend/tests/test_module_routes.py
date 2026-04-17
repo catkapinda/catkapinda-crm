@@ -1108,6 +1108,52 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
                     "cost_model": "Saatlik + Paket",
                 }
             ],
+            "coverage": {
+                "covered_restaurant_count": 18,
+                "operational_restaurant_count": 21,
+            },
+            "shared_overhead_entries": [
+                {
+                    "personnel": "Merve Korkmaz",
+                    "role": "Joker",
+                    "gross_cost": 72000.0,
+                    "total_deductions": 2000.0,
+                    "net_cost": 70000.0,
+                    "allocated_restaurant_count": 21,
+                    "share_per_restaurant": 3333.33,
+                }
+            ],
+            "distribution_entries": [
+                {
+                    "restaurant": "Burger@ - Kavacik",
+                    "personnel": "Beytullah Belen",
+                    "role": "Kurye",
+                    "total_hours": 218.0,
+                    "total_packages": 263.0,
+                    "allocated_cost": 59760.0,
+                    "allocation_source": "Değişken maliyet",
+                }
+            ],
+            "side_income_entries": [
+                {
+                    "item": "UTTS Yakıt İndirimi",
+                    "revenue": 18000.0,
+                    "cost": 0.0,
+                    "net_profit": 18000.0,
+                },
+                {
+                    "item": "Partner Kart İndirimi",
+                    "revenue": 24000.0,
+                    "cost": 0.0,
+                    "net_profit": 24000.0,
+                },
+            ],
+            "side_income_snapshot": {
+                "fuel_reflection_amount": 125000.0,
+                "company_fuel_reflection_amount": 84000.0,
+                "utts_fuel_discount_amount": 18000.0,
+                "partner_card_discount_amount": 24000.0,
+            },
         },
     )
     client = _build_app()
@@ -1128,3 +1174,6 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
     assert box_returns.json()["entries"][0]["condition_status"] == "Saglam"
     assert reports_dashboard.status_code == 200
     assert reports_dashboard.json()["summary"]["gross_profit"] == 530000.0
+    assert reports_dashboard.json()["coverage"]["operational_restaurant_count"] == 21
+    assert reports_dashboard.json()["shared_overhead_entries"][0]["role"] == "Joker"
+    assert reports_dashboard.json()["side_income_snapshot"]["utts_fuel_discount_amount"] == 18000.0

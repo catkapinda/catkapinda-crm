@@ -61,6 +61,40 @@ type ReportsDashboard = {
     net_cost: number;
     cost_model: string;
   }>;
+  coverage: {
+    covered_restaurant_count: number;
+    operational_restaurant_count: number;
+  };
+  shared_overhead_entries: Array<{
+    personnel: string;
+    role: string;
+    gross_cost: number;
+    total_deductions: number;
+    net_cost: number;
+    allocated_restaurant_count: number;
+    share_per_restaurant: number;
+  }>;
+  distribution_entries: Array<{
+    restaurant: string;
+    personnel: string;
+    role: string;
+    total_hours: number;
+    total_packages: number;
+    allocated_cost: number;
+    allocation_source: string;
+  }>;
+  side_income_entries: Array<{
+    item: string;
+    revenue: number;
+    cost: number;
+    net_profit: number;
+  }>;
+  side_income_snapshot: {
+    fuel_reflection_amount: number;
+    company_fuel_reflection_amount: number;
+    utts_fuel_discount_amount: number;
+    partner_card_discount_amount: number;
+  };
 };
 
 const serifStyle = {
@@ -458,6 +492,58 @@ export default function ReportsPage() {
       },
     ] as const;
   }, [dashboard]);
+
+  const coverageGap = useMemo(() => {
+    if (!dashboard) {
+      return 0;
+    }
+    return Math.max(
+      dashboard.coverage.operational_restaurant_count - dashboard.coverage.covered_restaurant_count,
+      0,
+    );
+  }, [dashboard]);
+
+  const extendedSignalCards = useMemo(() => {
+    if (!dashboard) {
+      return [];
+    }
+    const sharedOverheadTotal = dashboard.shared_overhead_entries.reduce(
+      (total, entry) => total + entry.net_cost,
+      0,
+    );
+    return [
+      metricCard(
+        "Kapsanan Şube",
+        formatNumber(dashboard.coverage.covered_restaurant_count),
+        "Rapor tablosunda satırı olan şube sayısı",
+      ),
+      metricCard(
+        "Operasyon Şubesi",
+        formatNumber(dashboard.coverage.operational_restaurant_count),
+        "Ay içinde aktif kabul edilen toplam şube",
+      ),
+      metricCard(
+        "Açıkta Kalan",
+        formatNumber(coverageGap),
+        coverageGap > 0 ? "Henüz faturaya düşmeyen operasyon hacmi" : "Kapsama şu anda tam görünüyor",
+      ),
+      metricCard(
+        "Ortak Operasyon",
+        formatMoney(sharedOverheadTotal),
+        "Joker ve yönetim desteğinin toplam net yükü",
+      ),
+      metricCard(
+        "UTTS İndirimi",
+        formatMoney(dashboard.side_income_snapshot.utts_fuel_discount_amount),
+        "Şirket motorundan gelen yakıt avantajı",
+      ),
+      metricCard(
+        "Partner Kartı",
+        formatMoney(dashboard.side_income_snapshot.partner_card_discount_amount),
+        "Kart indiriminin yan gelire katkısı",
+      ),
+    ];
+  }, [coverageGap, dashboard]);
 
   const filteredInvoiceEntries = useMemo(() => {
     const rows = dashboard?.invoice_entries ?? [];
@@ -977,6 +1063,48 @@ export default function ReportsPage() {
             <div
               style={{
                 display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {extendedSignalCards}
+            </div>
+
+            {coverageGap > 0 ? (
+              <section
+                style={{
+                  padding: "18px 20px",
+                  borderRadius: "22px",
+                  border: "1px solid rgba(185,116,41,0.22)",
+                  background: "rgba(255,248,236,0.92)",
+                  display: "grid",
+                  gap: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    color: "var(--accent-strong)",
+                    fontSize: "0.78rem",
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Kısmi Kapsama Uyarısı
+                </div>
+                <div style={{ fontSize: "1.02rem", fontWeight: 800 }}>
+                  {formatNumber(coverageGap)} şube operasyonel görünüyor ama bu ayın rapor tablosuna henüz düşmemiş.
+                </div>
+                <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                  Puantaj, fatura ya da şube hareketi aynı dönemde eksik kalmış olabilir. Önce restoran fatura listesiyle
+                  personel-şube dağılımını birlikte kontrol etmek en sağlıklı okuma olur.
+                </div>
+              </section>
+            ) : null}
+
+            <div
+              style={{
+                display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
                 gap: "18px",
               }}
@@ -1080,6 +1208,110 @@ export default function ReportsPage() {
               }}
             >
               <ScrollCard
+                title="Ortak Operasyon Payı"
+                subtitle="Joker ve yönetim desteğinin şubelere nasıl yayıldığını kişi bazında oku."
+              >
+                <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                  {dashboard.shared_overhead_entries.length ? (
+                    dashboard.shared_overhead_entries.map((row) => (
+                      <article
+                        key={`${row.personnel}-${row.role}`}
+                        style={{
+                          display: "grid",
+                          gap: "8px",
+                          padding: "14px",
+                          borderRadius: "18px",
+                          border: "1px solid rgba(219, 228, 243, 0.8)",
+                          background: "rgba(248, 250, 255, 0.9)",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                          <strong>{row.personnel}</strong>
+                          <span style={{ color: "var(--muted)" }}>{formatMoney(row.net_cost)}</span>
+                        </div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>{row.role}</div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                          {formatNumber(row.allocated_restaurant_count)} şubeye dağılıyor • şube başı {formatMoney(row.share_per_restaurant)}
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                      Bu ay ortak operasyon payı görünmüyor. Joker ya da yönetim desteği oluştuğunda burada şube başına etkisini açacağız.
+                    </div>
+                  )}
+                </div>
+              </ScrollCard>
+
+              <ScrollCard
+                title="Yan Gelir Analizi"
+                subtitle="Yakıt ve kart indirimi başta olmak üzere yan gelir katkısını aynı blokta gör."
+              >
+                <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                      gap: "10px",
+                    }}
+                  >
+                    {[
+                      ["Yakıt Tahsilatı", dashboard.side_income_snapshot.fuel_reflection_amount],
+                      ["Şirket Motoru Yakıtı", dashboard.side_income_snapshot.company_fuel_reflection_amount],
+                      ["UTTS İndirimi", dashboard.side_income_snapshot.utts_fuel_discount_amount],
+                      ["Partner Kartı", dashboard.side_income_snapshot.partner_card_discount_amount],
+                    ].map(([label, value]) => (
+                      <article
+                        key={label}
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(219, 228, 243, 0.8)",
+                          background: "rgba(248, 250, 255, 0.9)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: "0.72rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          {label}
+                        </div>
+                        <div style={{ marginTop: "8px", fontWeight: 900 }}>{formatMoney(Number(value))}</div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                    }}
+                  >
+                    <thead>
+                      <tr>
+                        {["Kalem", "Gelir", "Maliyet", "Net Kâr"].map(tableHeaderCell)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dashboard.side_income_entries.map((row) => (
+                        <tr key={row.item}>
+                          {tableCell(row.item)}
+                          {tableCell(formatMoney(row.revenue), "right")}
+                          {tableCell(formatMoney(row.cost), "right")}
+                          {tableCell(formatMoney(row.net_profit), "right")}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </ScrollCard>
+
+              <ScrollCard
                 title="Model Dağılımı"
                 subtitle="Aynı ayda hangi anlaşma modelinin ne kadar hacim ürettiğini tek bakışta izle."
               >
@@ -1182,6 +1414,51 @@ export default function ReportsPage() {
                 </div>
               </ScrollCard>
             </div>
+
+            <ScrollCard
+              title="Personel-Şube Dağılımı"
+              subtitle="Personel maliyetinin hangi şubeye, hangi yoğunlukla aktığını daha seçilebilir bir listede izle."
+            >
+              {dashboard.distribution_entries.length ? (
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      {["Şube", "Personel", "Rol", "Saat", "Paket", "Maliyet Payı", "Kaynak"].map(
+                        tableHeaderCell,
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboard.distribution_entries.map((row) => (
+                      <tr key={`${row.restaurant}-${row.personnel}-${row.role}`}>
+                        {tableCell(row.restaurant)}
+                        {tableCell(row.personnel)}
+                        {tableCell(row.role, "left", true)}
+                        {tableCell(formatNumber(row.total_hours, 1), "right")}
+                        {tableCell(formatNumber(row.total_packages, 0), "right")}
+                        {tableCell(formatMoney(row.allocated_cost), "right")}
+                        {tableCell(row.allocation_source, "left", true)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div
+                  style={{
+                    padding: "18px 20px",
+                    color: "var(--muted)",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  Bu ay personel-şube dağılımı için yeterli puantaj verisi oluşmamış görünüyor.
+                </div>
+              )}
+            </ScrollCard>
           </>
         )}
       </section>

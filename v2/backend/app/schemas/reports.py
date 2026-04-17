@@ -63,6 +63,45 @@ class ReportTopCourierEntry(BaseModel):
     cost_model: str
 
 
+class ReportsCoverageSummary(BaseModel):
+    covered_restaurant_count: int
+    operational_restaurant_count: int
+
+
+class ReportSharedOverheadEntry(BaseModel):
+    personnel: str
+    role: str
+    gross_cost: float
+    total_deductions: float
+    net_cost: float
+    allocated_restaurant_count: int
+    share_per_restaurant: float
+
+
+class ReportDistributionEntry(BaseModel):
+    restaurant: str
+    personnel: str
+    role: str
+    total_hours: float
+    total_packages: float
+    allocated_cost: float
+    allocation_source: str
+
+
+class ReportSideIncomeEntry(BaseModel):
+    item: str
+    revenue: float
+    cost: float
+    net_profit: float
+
+
+class ReportSideIncomeSnapshot(BaseModel):
+    fuel_reflection_amount: float
+    company_fuel_reflection_amount: float
+    utts_fuel_discount_amount: float
+    partner_card_discount_amount: float
+
+
 class ReportsDashboardResponse(BaseModel):
     module: str
     status: str
@@ -74,3 +113,8 @@ class ReportsDashboardResponse(BaseModel):
     model_breakdown: list[ReportModelBreakdownEntry]
     top_restaurants: list[ReportTopRestaurantEntry]
     top_couriers: list[ReportTopCourierEntry]
+    coverage: ReportsCoverageSummary
+    shared_overhead_entries: list[ReportSharedOverheadEntry]
+    distribution_entries: list[ReportDistributionEntry]
+    side_income_entries: list[ReportSideIncomeEntry]
+    side_income_snapshot: ReportSideIncomeSnapshot
