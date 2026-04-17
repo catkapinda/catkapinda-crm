@@ -106,16 +106,25 @@ python3 v2/scripts/pilot_smoke.py \
   --json
 ```
 
+Canli PostgreSQL omurgasi dogrulamasi:
+
+```bash
+python3 v2/scripts/database_preflight.py \
+  --database-url 'postgresql://<...>?sslmode=require' \
+  --json
+```
+
 ## 7. Guvenli Pilot Sirasi
 
 1. Render backend env'lerini gir.
 2. Render frontend env'lerini gir.
 3. API deploy al.
 4. Frontend deploy al.
-5. `/api/health`, `/api/health/pilot`, `/status` kontrol et.
-6. `pilot_deploy_guard.py` calistir.
-7. Gercek login ve temel akislari ofis icinde dene.
-8. Streamlit acik kalsin; v2 ilk asamada sadece pilot linkten kullanilsin.
+5. `database_preflight.py` ile canli PostgreSQL'i salt-okunur kontrol et.
+6. `/api/health`, `/api/health/pilot`, `/status` kontrol et.
+7. `pilot_deploy_guard.py` calistir.
+8. Gercek login ve temel akislari ofis icinde dene.
+9. Streamlit acik kalsin; v2 ilk asamada sadece pilot linkten kullanilsin.
 
 ## 8. crmcatkapinda.com Cutover Sirasi
 
@@ -149,6 +158,7 @@ Go demek icin bu dort madde birlikte yesil olmali:
 
 - `pilot_deploy_guard.py` passed
 - `pilot_smoke.py` passed
+- `database_preflight.py` passed
 - `CK_V2_DATABASE_URL` gercek degerde
 - `CK_V2_DEFAULT_AUTH_PASSWORD` guclu gercek degerde
 

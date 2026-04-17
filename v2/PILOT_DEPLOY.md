@@ -53,6 +53,9 @@ Yerel smoke check:
 - opsiyonel eski Streamlit redirect smoke:
   - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --legacy-url https://crmcatkapinda.com --legacy-cutover-mode redirect`
 
+Canli PostgreSQL omurgasini deploy oncesi kontrol etmek icin:
+- `python v2/scripts/database_preflight.py --database-url 'postgresql://<...>?sslmode=require' --json`
+
 Env bloklarini tek komutta hazirlamak icin:
 - `python v2/scripts/render_env_bundle.py --frontend-url https://<v2-frontend-domain> --api-url https://<v2-api-domain>`
 - JSON cikti istenirse:
@@ -296,7 +299,9 @@ Bu iki alan Render Environment veya `secrets.toml` icindeki `[v2]` bolumu ile de
 7. `login` ekrani acilmali
 8. e-posta/sifre girisi calismali
 9. SMS login env'leri girildiyse telefon kodu akisi da calismali
-10. smoke script temiz donmeli:
+10. canli PostgreSQL preflight temiz donmeli:
+   - `python v2/scripts/database_preflight.py --database-url 'postgresql://<...>?sslmode=require' --json`
+11. smoke script temiz donmeli:
    - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain>`
    - istenirse JSON raporu da alinabilir:
      - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --json --output pilot-report.json`
@@ -304,9 +309,9 @@ Bu iki alan Render Environment veya `secrets.toml` icindeki `[v2]` bolumu ile de
      - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --markdown --output pilot-report.md`
    - istenirse login de dogrulanabilir:
      - `python v2/scripts/pilot_smoke.py --base-url https://<v2-frontend-domain> --identity ebru@catkapinda.com --password <sifre>`
-11. `status` ekranindaki `zorunlu eksik env` sayisi `0` olmali
-12. `status` ekranindaki `Streamlit'ten cikis ozeti` karti en az `Pilot Acilabilir` seviyesinde olmali
-13. `status` ekranindaki `Pilot Acilis Sirasi` kartinda adimlar bloklu olmamali
+12. `status` ekranindaki `zorunlu eksik env` sayisi `0` olmali
+13. `status` ekranindaki `Streamlit'ten cikis ozeti` karti en az `Pilot Acilabilir` seviyesinde olmali
+14. `status` ekranindaki `Pilot Acilis Sirasi` kartinda adimlar bloklu olmamali
 
 Not:
 - smoke script artik opsiyonel SMS env eksiklerini blokaj saymaz
