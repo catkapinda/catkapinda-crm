@@ -47,6 +47,10 @@ type OverviewDashboard = {
     missing_attendance_count: number;
     under_target_count: number;
     joker_usage_count: number;
+    critical_signal_count: number;
+    profitable_restaurant_count: number;
+    risky_restaurant_count: number;
+    shared_operation_total: number;
     action_alerts: Array<{
       tone: string;
       badge: string;
@@ -1498,6 +1502,120 @@ export default function HomePage() {
                       Marka bazlı özet için bu ay puantaj verisi henüz oluşmadı.
                     </div>
                   )}
+                </div>
+              </article>
+            </section>
+
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: "18px",
+                alignItems: "start",
+              }}
+            >
+              <article
+                style={{
+                  ...paperCardStyle,
+                  padding: "22px",
+                  display: "grid",
+                  gap: "14px",
+                  background: "rgba(255,255,255,0.94)",
+                }}
+              >
+                <header style={{ display: "grid", gap: "8px" }}>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontWeight: 800,
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Kritik Uyarılar
+                  </div>
+                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                    Günün kritik operasyon ve veri hijyeni sinyallerini tek özet satırında tutuyoruz.
+                  </p>
+                </header>
+
+                <div style={{ display: "grid", gap: "10px" }}>
+                  {[
+                    ["Bugün puantaj bekleyen şube", String(dashboard.operations.missing_attendance_count)],
+                    ["Hedef kadro altında kalan şube", String(dashboard.operations.under_target_count)],
+                    ["Bugün joker kullanılan şube", String(dashboard.operations.joker_usage_count)],
+                    ["Eksik personel kartı", String(dashboard.hygiene.missing_personnel_cards)],
+                    ["Eksik restoran kartı", String(dashboard.hygiene.missing_restaurant_cards)],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        paddingBottom: "10px",
+                        borderBottom: "1px solid rgba(24,40,59,0.08)",
+                      }}
+                    >
+                      <span style={{ color: "var(--muted)", lineHeight: 1.6 }}>{label}</span>
+                      <strong>{value}</strong>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article
+                style={{
+                  ...paperCardStyle,
+                  padding: "22px",
+                  display: "grid",
+                  gap: "14px",
+                  background:
+                    "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,241,229,0.96))",
+                }}
+              >
+                <header style={{ display: "grid", gap: "8px" }}>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontWeight: 800,
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Bu Ay Yönetim Özeti
+                  </div>
+                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                    Gelir, operasyon farkı ve ortak yükü kısa bir yönetim özeti halinde topluyoruz.
+                  </p>
+                </header>
+
+                <div style={{ display: "grid", gap: "10px" }}>
+                  {[
+                    ["Restoran faturası", formatCurrency(dashboard.finance.total_revenue)],
+                    ["Operasyon farkı", formatCurrency(dashboard.finance.gross_profit)],
+                    ["Ortak operasyon payı", formatCurrency(dashboard.operations.shared_operation_total)],
+                    ["Kârlı restoran", String(dashboard.operations.profitable_restaurant_count)],
+                    ["Riskli restoran", String(dashboard.operations.risky_restaurant_count)],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        paddingBottom: "10px",
+                        borderBottom: "1px solid rgba(24,40,59,0.08)",
+                      }}
+                    >
+                      <span style={{ color: "var(--muted)", lineHeight: 1.6 }}>{label}</span>
+                      <strong>{value}</strong>
+                    </div>
+                  ))}
                 </div>
               </article>
             </section>

@@ -76,6 +76,10 @@ class OverviewOperationsSummary(BaseModel):
     missing_attendance_count: int
     under_target_count: int
     joker_usage_count: int
+    critical_signal_count: int
+    profitable_restaurant_count: int
+    risky_restaurant_count: int
+    shared_operation_total: float
     action_alerts: list[OverviewActionAlert]
     brand_summary: list[OverviewBrandSummaryEntry]
     daily_trend: list[OverviewDailyTrendPoint]

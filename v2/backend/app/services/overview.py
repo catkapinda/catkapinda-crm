@@ -266,6 +266,29 @@ def _build_operations_summary(
         """,
         (month_key,),
     ).fetchall()
+    restaurant_profit_rows = conn.execute(
+        """
+        SELECT
+            r.id,
+            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant,
+            COALESCE((
+                SELECT SUM(d.monthly_invoice_amount)
+                FROM daily_entries d
+                WHERE d.restaurant_id = r.id
+                  AND substr(COALESCE(d.entry_date, ''), 1, 7) = %s
+            ), 0) AS gross_invoice,
+            COALESCE((
+                SELECT SUM(COALESCE(p.monthly_fixed_cost, 0))
+                FROM personnel p
+                WHERE p.assigned_restaurant_id = r.id
+                  AND COALESCE(p.status, '') = 'Aktif'
+            ), 0) AS personnel_cost
+        FROM restaurants r
+        WHERE COALESCE(r.active, TRUE) = TRUE
+        ORDER BY restaurant
+        """,
+        (month_key,),
+    ).fetchall()
     brand_rows = conn.execute(
         """
         WITH invoice AS (
@@ -303,6 +326,15 @@ def _build_operations_summary(
         """,
         (month_key,),
     ).fetchall()
+    shared_operation_row = conn.execute(
+        """
+        SELECT
+            COALESCE(SUM(COALESCE(monthly_fixed_cost, 0)), 0) AS shared_operation_total
+        FROM personnel
+        WHERE COALESCE(status, '') = 'Aktif'
+          AND COALESCE(assigned_restaurant_id, 0) <= 0
+        """
+    ).fetchone()
 
     action_alerts: list[OverviewActionAlert] = []
     for row in missing_attendance_rows:
@@ -355,10 +387,33 @@ def _build_operations_summary(
             )
         )
 
+    profitable_restaurant_count = 0
+    risky_restaurant_count = 0
+    for row in restaurant_profit_rows:
+        operation_gap = float(row["gross_invoice"] or 0) - float(row["personnel_cost"] or 0)
+        if operation_gap >= 0:
+            profitable_restaurant_count += 1
+        else:
+            risky_restaurant_count += 1
+
+    critical_signal_count = (
+        len(missing_attendance_rows)
+        + len(under_target_rows)
+        + len(joker_usage_rows)
+    )
+
+    shared_operation_total = 0.0
+    if shared_operation_row is not None:
+        shared_operation_total = float(shared_operation_row["shared_operation_total"] or 0)
+
     return OverviewOperationsSummary(
         missing_attendance_count=len(missing_attendance_rows),
         under_target_count=len(under_target_rows),
         joker_usage_count=len(joker_usage_rows),
+        critical_signal_count=critical_signal_count,
+        profitable_restaurant_count=profitable_restaurant_count,
+        risky_restaurant_count=risky_restaurant_count,
+        shared_operation_total=shared_operation_total,
         action_alerts=action_alerts[:8],
         brand_summary=brand_summary,
         daily_trend=[

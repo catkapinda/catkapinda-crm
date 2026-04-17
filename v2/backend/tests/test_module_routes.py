@@ -80,6 +80,10 @@ def test_overview_dashboard_route_smoke(monkeypatch):
                 "missing_attendance_count": 3,
                 "under_target_count": 2,
                 "joker_usage_count": 1,
+                "critical_signal_count": 6,
+                "profitable_restaurant_count": 5,
+                "risky_restaurant_count": 2,
+                "shared_operation_total": 14000.0,
                 "action_alerts": [
                     {
                         "tone": "critical",
@@ -158,6 +162,7 @@ def test_overview_dashboard_route_smoke(monkeypatch):
     assert payload["operations"]["under_target_count"] == 2
     assert payload["operations"]["top_restaurants"][0]["restaurant"] == "Burger@ - Kavacık"
     assert payload["operations"]["joker_restaurants"][0]["joker_count"] == 2
+    assert payload["operations"]["shared_operation_total"] == 14000.0
     assert payload["modules"][0]["href"] == "/attendance"
 
 
