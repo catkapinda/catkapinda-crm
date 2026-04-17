@@ -53,3 +53,16 @@ def test_sqlite_compat_connection_normalizes_ilike_and_nulls_last():
     ).fetchall()
 
     assert [row["name"] for row in rows] == ["alpine", "Alpha"]
+
+
+def test_trusted_hostnames_include_render_service_name(monkeypatch):
+    monkeypatch.setattr(settings, "frontend_base_url", "https://crmcatkapinda-v2.onrender.com")
+    monkeypatch.setattr(settings, "public_app_url", "https://crmcatkapinda.com")
+    monkeypatch.setattr(settings, "api_public_url", "https://crmcatkapinda-v2-api.onrender.com")
+    monkeypatch.setattr(settings, "render_service_name", "crmcatkapinda-v2-api")
+
+    trusted_hostnames = settings.trusted_hostnames
+
+    assert "crmcatkapinda-v2-api" in trusted_hostnames
+    assert "crmcatkapinda-v2.onrender.com" in trusted_hostnames
+    assert "crmcatkapinda.com" in trusted_hostnames

@@ -108,6 +108,9 @@ class Settings(BaseSettings):
             hostname = urlparse(str(raw_url or "").strip()).hostname or ""
             if hostname:
                 hostnames.add(hostname)
+        render_hostname = str(self.render_service_name or "").strip()
+        if render_hostname:
+            hostnames.add(render_hostname)
         return sorted(hostnames)
 
     @property
