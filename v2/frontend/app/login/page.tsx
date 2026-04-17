@@ -550,6 +550,16 @@ function LoginPageContent() {
     };
   }, [localPilotStatus, runningOnLocalhost]);
 
+  const recoveryModeActive = authPanelMode === "recovery";
+  const smsPanelActive = smsLoginEnabled && authPanelMode === "sms";
+  const supportPanelVisible = smsLoginEnabled || authModesUnavailable;
+  const supportCardTitle = recoveryModeActive ? "Şifre kurtarma" : smsPanelActive ? "SMS ile giriş" : "Destek akışı";
+  const supportCardBody = recoveryModeActive
+    ? "Kayıtlı telefonunla kod al, yeni şifreni belirle ve girişe dön."
+    : smsPanelActive
+      ? "Tek kullanımlık kodla hızlı doğrulama yap."
+      : "İhtiyaç olursa SMS veya şifre kurtarma akışı buradan açılır.";
+
   return (
     <main
       style={{
@@ -557,49 +567,51 @@ function LoginPageContent() {
         padding: "24px",
         display: "grid",
         placeItems: "center",
+        background:
+          "radial-gradient(circle at top left, rgba(18, 59, 116, 0.08), transparent 26%), linear-gradient(180deg, #f7f2e8 0%, #f2ece1 100%)",
       }}
     >
       <section
         style={{
-          width: "min(1180px, 100%)",
+          width: "min(1040px, 100%)",
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-          gap: "20px",
-          alignItems: "stretch",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gap: "18px",
+          alignItems: "start",
         }}
       >
         <article
           style={{
-            padding: "34px",
-            borderRadius: "36px",
-            background:
-              "linear-gradient(145deg, rgba(22, 38, 58, 0.98), rgba(38, 58, 82, 0.96))",
+            padding: "30px",
+            borderRadius: "34px",
+            background: "linear-gradient(160deg, rgba(20, 35, 58, 0.98), rgba(28, 58, 97, 0.96))",
             boxShadow: "var(--shadow-deep)",
             color: "#fff7ea",
             position: "relative",
             overflow: "hidden",
             display: "grid",
             gap: "24px",
+            minHeight: "100%",
           }}
         >
           <div
             style={{
               position: "absolute",
-              inset: "auto auto -120px -80px",
-              width: "280px",
-              height: "280px",
+              inset: "auto auto -110px -80px",
+              width: "240px",
+              height: "240px",
               borderRadius: "999px",
-              background: "radial-gradient(circle, rgba(185,116,41,0.35), transparent 70%)",
+              background: "radial-gradient(circle, rgba(244, 175, 74, 0.28), transparent 70%)",
             }}
           />
           <div
             style={{
               position: "absolute",
-              inset: "36px 34px auto auto",
-              width: "180px",
-              height: "180px",
+              inset: "20px 22px auto auto",
+              width: "160px",
+              height: "160px",
               borderRadius: "999px",
-              background: "radial-gradient(circle, rgba(255,255,255,0.1), transparent 72%)",
+              background: "radial-gradient(circle, rgba(255,255,255,0.08), transparent 72%)",
             }}
           />
 
@@ -614,29 +626,29 @@ function LoginPageContent() {
             >
               <div
                 style={{
-                  width: "64px",
-                  height: "64px",
-                  borderRadius: "20px",
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "18px",
                   background: "rgba(255,255,255,0.08)",
                   border: "1px solid rgba(255,255,255,0.12)",
                   display: "grid",
                   placeItems: "center",
-                  boxShadow: "0 18px 36px rgba(10, 20, 35, 0.24)",
+                  boxShadow: "0 16px 32px rgba(10, 20, 35, 0.22)",
                 }}
               >
                 <img
                   src="/catkapinda_logo.png"
                   alt="Cat Kapinda"
-                  width={38}
-                  height={38}
-                  style={{ width: "38px", height: "38px", objectFit: "contain" }}
+                  width={34}
+                  height={34}
+                  style={{ width: "34px", height: "34px", objectFit: "contain" }}
                 />
               </div>
               <div style={{ display: "grid", gap: "4px" }}>
                 <div
                   style={{
                     color: "#f2cf9e",
-                    fontSize: "0.74rem",
+                    fontSize: "0.68rem",
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
                     fontWeight: 800,
@@ -647,13 +659,13 @@ function LoginPageContent() {
                 <div
                   style={{
                     ...serifTitleStyle,
-                    fontSize: "1.55rem",
-                    lineHeight: 0.92,
+                    fontSize: "1.35rem",
+                    lineHeight: 0.96,
                     fontWeight: 700,
                     color: "#fff7ea",
                   }}
                 >
-                  Operasyon Masasi v2
+                  CRM v2
                 </div>
               </div>
             </div>
@@ -661,113 +673,73 @@ function LoginPageContent() {
               style={{
                 display: "inline-flex",
                 width: "fit-content",
-                padding: "7px 12px",
+                padding: "6px 10px",
                 borderRadius: "999px",
                 background: "rgba(255,255,255,0.08)",
                 border: "1px solid rgba(255,255,255,0.12)",
                 color: "#f2cf9e",
-                fontSize: "0.74rem",
+                fontSize: "0.66rem",
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
                 fontWeight: 800,
               }}
             >
-              v2 pilot giriş masasi
+              şube · puantaj · rapor
             </div>
-            <div style={{ display: "grid", gap: "12px" }}>
+            <div style={{ display: "grid", gap: "10px" }}>
               <h1
                 style={{
                   ...serifTitleStyle,
                   margin: 0,
-                  fontSize: "clamp(2.8rem, 6vw, 5rem)",
-                  lineHeight: 0.9,
+                  fontSize: "clamp(2.5rem, 5vw, 3.7rem)",
+                  lineHeight: 0.94,
                   fontWeight: 700,
-                  maxWidth: "8ch",
+                  maxWidth: "11ch",
                 }}
               >
-                {authPanelMode === "recovery"
-                  ? "Hesabına güvenli şekilde geri dön."
-                  : "Yeni operasyon paneline giriş."}
+                Çat Kapında CRM
               </h1>
               <p
                 style={{
                   margin: 0,
-                  maxWidth: "58ch",
+                  maxWidth: "46ch",
                   color: "rgba(255, 247, 234, 0.76)",
-                  lineHeight: 1.8,
-                  fontSize: "1rem",
+                  lineHeight: 1.68,
+                  fontSize: "0.96rem",
                 }}
               >
-                {authPanelMode === "recovery"
-                  ? "Şifreni unuttuysan ekibi beklemeden kimliğini telefon koduyla doğrulayıp hesabına geri dönebilirsin. Kurtarma akışı artık bu masanın ilk seviye yollarından biri."
-                  : "Bu yüzeyi yalnızca kimlik doğrulama için değil, yeni sistemin karakterini ilk andan hissettirmek için kurduk. Şifreyle giriş, SMS akışı ve yönlendirme tek bir yüzeyde toplanmış durumda."}
+                Şube yönetimi, puantaj, personel, ekipman ve rapor akışlarını tek operasyon ekranında
+                toplar. Giriş sonrası sistem seni doğrudan yetkine uygun modüle taşır.
               </p>
             </div>
-
-            {smsLoginEnabled ? (
-              <div
-                style={{
-                  display: "flex",
-                  gap: "10px",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => switchAuthPanelMode("recovery")}
-                  style={heroQuickActionStyle(authPanelMode === "recovery")}
-                >
-                  {authPanelMode === "recovery" ? "Kurtarma Akışı Açık" : "Şifremi Unuttum"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchAuthPanelMode("sms")}
-                  style={heroSecondaryActionStyle(authPanelMode === "sms")}
-                >
-                  SMS ile Giriş
-                </button>
-              </div>
-            ) : null}
           </div>
 
           <div
             style={{
               position: "relative",
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: "14px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+              gap: "12px",
             }}
           >
             {[
-              [
-                authPanelMode === "recovery" ? "Kurtarma Hattı" : "Giriş Hattı",
-                authPanelMode === "recovery"
-                  ? "SMS doğrulama ve yeni şifre akışı aynı kontrol masası içinde."
-                  : "Şifre ve SMS akışı aynı kontrol masası içinde.",
-              ],
-              ["Yetki", "Rol bazlı yönlendirme giriş sonrası otomatik işliyor."],
-              [
-                authPanelMode === "recovery" ? "Güvenlik Akışı" : "Pilot Akışı",
-                authPanelMode === "recovery"
-                  ? "Kimliğini doğrulayan ekip aynı panelde yeni şifre belirleyip girişe dönebiliyor."
-                  : "Giriş yapan ekip ilgili modüllere temiz şekilde düşüyor.",
-              ],
+              ["Puantaj", "Günlük saha kayıtları ve vardiya takibi aynı akışta."],
+              ["Personel", "Kadro, araç ve kesinti geçmişi tek yerde."],
+              ["Rapor", "Kârlılık ve hakediş yüzeyleri giriş sonrası hazır."],
             ].map(([title, text]) => (
               <article
                 key={title}
                 style={{
-                  padding: "18px 16px",
-                  borderRadius: "22px",
+                  padding: "15px 14px",
+                  borderRadius: "18px",
                   background: "rgba(255,255,255,0.07)",
                   border: "1px solid rgba(255,255,255,0.09)",
-                  backdropFilter: "blur(10px)",
                   display: "grid",
-                  gap: "8px",
+                  gap: "6px",
                 }}
               >
-                <div style={{ color: "#fff4e5", fontWeight: 800 }}>{title}</div>
-                <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.65, fontSize: "0.92rem" }}>
+                <div style={{ color: "#fff4e5", fontWeight: 800, fontSize: "0.9rem" }}>{title}</div>
+                <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.55, fontSize: "0.86rem" }}>
                   {text}
                 </div>
               </article>
@@ -778,221 +750,182 @@ function LoginPageContent() {
             style={{
               position: "relative",
               display: "grid",
-              gridTemplateColumns: "1.2fr 0.8fr",
-              gap: "14px",
+              gap: "10px",
+              alignContent: "start",
             }}
           >
-            <article
-              style={{
-                padding: "20px",
-                borderRadius: "24px",
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                display: "grid",
-                gap: "8px",
-              }}
-            >
+            {[
+              "Giriş sonrası seni doğrudan yetkine uygun ilk modüle yönlendirir.",
+              "SMS giriş ve şifre kurtarma aynı sade destek kartında çalışır.",
+              "Demo dili yerine gerçek operasyon akışına odaklanan temiz bir yüzey sunar.",
+            ].map((item) => (
               <div
+                key={item}
                 style={{
-                  color: "#f2cf9e",
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  fontSize: "0.72rem",
-                  letterSpacing: "0.08em",
+                  display: "flex",
+                  gap: "10px",
+                  alignItems: "start",
+                  padding: "12px 14px",
+                  borderRadius: "16px",
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.08)",
                 }}
               >
-                İlk bakışta
+                <div
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "999px",
+                    marginTop: "7px",
+                    background: "#f2cf9e",
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ color: "rgba(255,247,234,0.78)", lineHeight: 1.58, fontSize: "0.9rem" }}>{item}</div>
               </div>
-              <div
-                style={{
-                  ...serifTitleStyle,
-                  fontSize: "1.8rem",
-                  lineHeight: 0.96,
-                  fontWeight: 700,
-                }}
-              >
-                {authPanelMode === "recovery"
-                  ? "Telefonla doğrula, şifreni yenile, kaldığın yerden devam et."
-                  : "Hızlı giriş, temiz yönlendirme, daha az sürtünme."}
-              </div>
-              <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.7 }}>
-                {authPanelMode === "recovery"
-                  ? "Kurtarma akışı artık yardımcı bir dip bağlantı değil; giriş deneyiminin doğal bir parçası. Kullanıcı doğrudan doğrulama alanına inip hesabını toparlayabiliyor."
-                  : "Giriş sonrası ekranlar artık beyazlayıp yeniden yükleniyormuş gibi his vermesin diye yapının geri kalanını da aynı dille taşıyoruz."}
-              </div>
-            </article>
-
-            <article
-              style={{
-                padding: "20px",
-                borderRadius: "24px",
-                background: "linear-gradient(180deg, rgba(185,116,41,0.24), rgba(255,255,255,0.06))",
-                border: "1px solid rgba(241,194,143,0.2)",
-                display: "grid",
-                gap: "6px",
-                alignContent: "start",
-              }}
-            >
-              <div style={{ color: "#f6ddbb", fontSize: "0.74rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 800 }}>
-                Hazır Modüller
-              </div>
-              <div style={{ ...serifTitleStyle, fontSize: "2.4rem", lineHeight: 0.9, fontWeight: 700 }}>
-                {authPanelMode === "recovery" ? "3 Adım" : "10+"}
-              </div>
-              <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.6, fontSize: "0.92rem" }}>
-                {authPanelMode === "recovery"
-                  ? "Telefon, kod ve yeni şifre. Kurtarma akışı net ve tek hatta toplanıyor."
-                  : "Puantaj, personel, kesintiler, raporlar ve daha fazlası aynı pilot omurgasında."}
-              </div>
-            </article>
+            ))}
           </div>
         </article>
 
-        <div style={{ display: "grid", gap: "18px", alignContent: "start" }}>
+        <div style={{ display: "grid", gap: "14px", alignContent: "start" }}>
           <section
             style={{
               ...paperCardStyle,
-              padding: "26px",
+              padding: "24px",
               display: "grid",
-              gap: "18px",
-              background:
-                "linear-gradient(180deg, rgba(255,253,247,0.99), rgba(247,241,230,0.96))",
+              gap: "12px",
+              background: "linear-gradient(180deg, rgba(255,253,247,0.99), rgba(249,245,237,0.97))",
             }}
           >
-            <div style={{ display: "grid", gap: "8px" }}>
-              <div style={eyebrowStyle}>Şifre ile Giriş</div>
+            <div style={{ display: "grid", gap: "6px" }}>
+              <div style={eyebrowStyle}>Giriş</div>
               <h2
                 style={{
                   ...serifTitleStyle,
                   margin: 0,
-                  fontSize: "2rem",
-                  lineHeight: 0.96,
+                  fontSize: "1.72rem",
+                  lineHeight: 0.98,
                   fontWeight: 700,
                 }}
               >
-                E-posta veya telefonla doğrudan gir.
+                Hesabınla devam et
               </h2>
               <p style={cardBodyStyle}>
-                Ofis için en hızlı akış. Giriş sonrası sistem seni yetkine uygun ilk ekrana alır.
+                E-posta ya da telefon ve şifrenle oturumu aç. Gerekirse aşağıdaki karttan SMS veya şifre
+                kurtarma akışına geçebilirsin.
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
-              {localLoginHint ? (
-                <div style={infoBannerStyle}>
-                  <div style={{ display: "grid", gap: "6px", maxWidth: "54ch" }}>
-                    <strong>{localLoginHint.title}</strong>
-                    <span>{localLoginHint.detail}</span>
-                    {localLoginHint.command ? (
-                      <code style={inlineCodeStyle}>{localLoginHint.command}</code>
-                    ) : null}
-                  </div>
-                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                    {localLoginHint.command ? (
+            {localLoginHint ? (
+              <div style={{ ...infoBannerStyle, padding: "12px 14px", fontSize: "0.9rem" }}>
+                <div style={{ display: "grid", gap: "6px", maxWidth: "54ch" }}>
+                  <strong>{localLoginHint.title}</strong>
+                  <span>{localLoginHint.detail}</span>
+                  {localLoginHint.command ? <code style={inlineCodeStyle}>{localLoginHint.command}</code> : null}
+                </div>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                  {localLoginHint.command ? (
+                    <button
+                      type="button"
+                      onClick={() => void copyLocalHintCommand(localLoginHint.command!)}
+                      style={infoBannerButtonStyle}
+                    >
+                      {copiedLocalHintCommand ? "Komut Kopyalandı" : "Komutu Kopyala"}
+                    </button>
+                  ) : null}
+                  <Link href="/status" style={infoBannerLinkStyle}>
+                    Durum
+                  </Link>
+                  <Link href="/preview" style={secondaryInfoBannerLinkStyle}>
+                    Ön İzleme
+                  </Link>
+                </div>
+              </div>
+            ) : authModesUnavailable ? (
+              <div style={{ ...infoBannerStyle, padding: "12px 14px", fontSize: "0.9rem" }}>
+                <div style={{ display: "grid", gap: "5px" }}>
+                  <strong>Bu ekran gerçek v2 giriş yüzeyi.</strong>
+                  <span>Arka uç bağlı değilse SMS ve kurtarma akışları çalışmaz; sadece ön yüzü gezebilirsin.</span>
+                </div>
+                {runningOnLocalhost ? (
+                  <Link href="/preview" style={infoBannerLinkStyle}>
+                    Ön İzlemeye Git
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+
+            {localReadyLogin ? (
+              <div
+                style={{
+                  borderRadius: "18px",
+                  border: "1px solid rgba(15, 95, 215, 0.12)",
+                  background: "linear-gradient(180deg, rgba(239,246,255,0.94), rgba(255,255,255,0.98))",
+                  padding: "14px",
+                  display: "grid",
+                  gap: "10px",
+                }}
+              >
+                <div style={{ display: "grid", gap: "4px" }}>
+                  <strong style={{ color: "#0f3f91" }}>Yerel giriş hazır</strong>
+                  <span style={{ color: "#4f6283", lineHeight: 1.58, fontSize: "0.9rem" }}>
+                    Bu makinede sqlite destekli örnek hesaplarla akışı hızlıca deneyebiliriz.
+                  </span>
+                </div>
+                <div style={{ display: "grid", gap: "8px" }}>
+                  {localReadyLogin.accounts.map((account) => (
+                    <div
+                      key={account.email}
+                      style={{
+                        borderRadius: "14px",
+                        border: "1px solid rgba(15, 95, 215, 0.1)",
+                        background: "rgba(255,255,255,0.84)",
+                        padding: "11px 12px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div style={{ display: "grid", gap: "2px" }}>
+                        <strong style={{ color: "#16274a" }}>{account.full_name}</strong>
+                        <span style={{ color: "#5f7294", fontSize: "0.88rem" }}>
+                          {account.role} · {account.email}
+                        </span>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => void copyLocalHintCommand(localLoginHint.command!)}
-                        style={infoBannerButtonStyle}
-                      >
-                        {copiedLocalHintCommand ? "Komut Kopyalandı" : "İlk Komutu Kopyala"}
-                      </button>
-                    ) : null}
-                    <Link href="/status" style={infoBannerLinkStyle}>
-                      Pilot Durumu
-                    </Link>
-                    <Link href="/preview" style={secondaryInfoBannerLinkStyle}>
-                      Ön İzlemeye Git
-                    </Link>
-                  </div>
-                </div>
-              ) : authModesUnavailable ? (
-                <div style={infoBannerStyle}>
-                  <div style={{ display: "grid", gap: "5px" }}>
-                    <strong>Bu ekran gerçek v2 giriş yüzeyi.</strong>
-                    <span>
-                      Arka uç bağlı değilse giriş ve şifre kurtarma burada çalışmaz. Tasarımı gezmek
-                      için ön izleme kipini kullanabilirsin.
-                    </span>
-                  </div>
-                  {runningOnLocalhost ? (
-                    <Link href="/preview" style={infoBannerLinkStyle}>
-                      Ön İzlemeye Git
-                    </Link>
-                  ) : null}
-                </div>
-              ) : null}
-              {localReadyLogin ? (
-                <div
-                  style={{
-                    borderRadius: "22px",
-                    border: "1px solid rgba(15, 95, 215, 0.14)",
-                    background: "linear-gradient(180deg, rgba(239,246,255,0.94), rgba(255,255,255,0.98))",
-                    padding: "18px",
-                    display: "grid",
-                    gap: "12px",
-                  }}
-                >
-                  <div style={{ display: "grid", gap: "4px" }}>
-                    <strong style={{ color: "#0f3f91" }}>Yerelde gerçek giriş hazır.</strong>
-                    <span style={{ color: "#4f6283", lineHeight: 1.65 }}>
-                      Bu makinede arka uç yerel sqlite desteğiyle çalışıyor. PostgreSQL olmadan da e-posta/şifre
-                      akışını deneyebiliriz; sadece bu kip yerel geliştirme için geçerli.
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                    {localReadyLogin.accounts.map((account) => (
-                      <div
-                        key={account.email}
+                        onClick={() => fillLocalCredentials(account)}
                         style={{
-                          borderRadius: "16px",
-                          border: "1px solid rgba(15, 95, 215, 0.12)",
-                          background: "rgba(255,255,255,0.82)",
-                          padding: "12px 14px",
-                          display: "grid",
-                          gap: "4px",
-                          minWidth: "220px",
+                          borderRadius: "10px",
+                          border: "1px solid rgba(15, 95, 215, 0.16)",
+                          background: "rgba(15, 95, 215, 0.08)",
+                          color: "#0f3f91",
+                          fontWeight: 800,
+                          padding: "8px 12px",
+                          cursor: "pointer",
                         }}
                       >
-                        <strong style={{ color: "#16274a" }}>{account.full_name}</strong>
-                        <code style={inlineCodeStyle}>{account.email}</code>
-                        <span style={{ color: "#5f7294", fontSize: "0.9rem" }}>{account.role}</span>
-                        <span style={{ color: "#5f7294", fontSize: "0.86rem" }}>
-                          {account.defaultPasswordActive
-                            ? "Varsayılan şifre aktif görünüyor."
-                            : account.mustChangePassword
-                              ? "Geçici şifre bekliyor; güncel şifreyi elle gir."
-                              : "Şifre daha önce değiştirilmiş görünüyor."}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => fillLocalCredentials(account)}
-                          style={{
-                            marginTop: "6px",
-                            borderRadius: "12px",
-                            border: "1px solid rgba(15, 95, 215, 0.18)",
-                            background: "rgba(15, 95, 215, 0.08)",
-                            color: "#0f3f91",
-                            fontWeight: 800,
-                            padding: "10px 12px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Formu Bu Hesapla Doldur
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ color: "#4f6283", lineHeight: 1.65 }}>
-                    {localReadyLogin.defaultPasswordIsDefault &&
-                    localReadyLogin.accounts.some((account) => account.defaultPasswordActive)
-                        ? "Sadece 'Varsayılan şifre aktif' yazan hesaplarda yerel şifre 123456 olarak kullanılabilir."
-                      : localReadyLogin.defaultPasswordPresent
-                        ? "Yerel hesapların şifresi bu makinede değişmiş olabilir; kart sadece e-postayı doldurur, şifreyi güncel haliyle elle girmek gerekir."
-                        : "Şifre tanımlı görünmüyor; giriş denemesi öncesi backend/.env tarafını kontrol et."}
-                  </div>
+                        Formu Doldur
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ) : null}
-              {notice ? <div style={noticeStyle}>{notice}</div> : null}
+                <div style={{ color: "#4f6283", lineHeight: 1.58, fontSize: "0.88rem" }}>
+                  {localReadyLogin.defaultPasswordIsDefault &&
+                  localReadyLogin.accounts.some((account) => account.defaultPasswordActive)
+                    ? "Varsayılan şifre aktif hesaplarda yerel parola 123456 olabilir."
+                    : localReadyLogin.defaultPasswordPresent
+                      ? "Şifre daha önce değişmiş olabilir; güncel parolayı elle girmen gerekir."
+                      : "Şifre tanımlı görünmüyor; backend/.env tarafını kontrol et."}
+                </div>
+              </div>
+            ) : null}
+
+            {notice ? <div style={noticeStyle}>{notice}</div> : null}
+
+            <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
               <label style={labelStyle}>
                 <span style={labelTitleStyle}>E-posta veya Telefon</span>
                 <input
@@ -1014,529 +947,279 @@ function LoginPageContent() {
                 />
               </label>
 
-              {smsLoginEnabled ? (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "10px",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                    Şifreni mi unuttun?
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => switchAuthPanelMode("recovery")}
-                    style={inlineLinkButtonStyle}
-                  >
-                    SMS ile kurtar
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "10px",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  color: "var(--muted)",
+                  fontSize: "0.9rem",
+                }}
+              >
+                <span>Yetkine uygun modüle yönlendirilirsin.</span>
+                {smsLoginEnabled ? (
+                  <button type="button" onClick={() => switchAuthPanelMode("recovery")} style={inlineLinkButtonStyle}>
+                    Şifremi unuttum
                   </button>
-                </div>
-              ) : authModesUnavailable ? (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "10px",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                    Kurtarma akışı backend ile aktifleşir.
-                  </span>
-                  {runningOnLocalhost ? (
-                    <Link href="/preview" style={inlinePreviewLinkStyle}>
-                      Demo yüzeyini aç
-                    </Link>
-                  ) : null}
-                </div>
-              ) : null}
+                ) : authModesUnavailable && runningOnLocalhost ? (
+                  <Link href="/preview" style={inlinePreviewLinkStyle}>
+                    Ön izlemeyi aç
+                  </Link>
+                ) : null}
+              </div>
 
               {error ? <div style={errorStyle}>{error}</div> : null}
 
               <button type="submit" disabled={submitting || loading} style={primaryButtonStyle(submitting || loading)}>
-                {submitting ? "Giriş Yapiliyor..." : "Giriş Yap"}
+                {submitting ? "Giriş yapılıyor..." : "Giriş Yap"}
               </button>
             </form>
           </section>
 
-          <section
-            ref={recoveryPanelRef}
-            style={{
-              ...paperCardStyle,
-              padding: "24px",
-              display: "grid",
-              gap: "16px",
-              background:
-                authPanelMode === "recovery"
-                  ? "linear-gradient(180deg, rgba(231,244,255,0.99), rgba(255,250,241,0.98))"
-                  : "linear-gradient(180deg, rgba(240,247,255,0.98), rgba(255,252,246,0.96))",
-              border:
-                authPanelMode === "recovery"
-                  ? "1px solid rgba(15,95,215,0.22)"
-                  : "1px solid rgba(15,95,215,0.12)",
-              boxShadow:
-                authPanelMode === "recovery"
-                  ? "0 24px 54px rgba(15,95,215,0.14)"
-                  : "var(--shadow-soft)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "14px",
-                alignItems: "start",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ display: "grid", gap: "8px", maxWidth: "42ch" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div style={{ ...eyebrowStyle, color: "#0f5fd7" }}>Şifre Kurtarma</div>
-                  {authPanelMode === "recovery" ? (
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        padding: "6px 10px",
-                        borderRadius: "999px",
-                        background: "rgba(15,95,215,0.12)",
-                        color: "#0f5fd7",
-                        fontSize: "0.76rem",
-                        fontWeight: 800,
-                      }}
-                    >
-                      Kurtarma modu açık
-                    </span>
-                  ) : null}
-                </div>
-                <h2
-                  style={{
-                    ...serifTitleStyle,
-                    margin: 0,
-                    fontSize: "1.85rem",
-                    lineHeight: 0.96,
-                    fontWeight: 700,
-                  }}
-                >
-                  Şifreni unuttuysan buradan güvenli şekilde geri dön.
-                </h2>
-                <p style={cardBodyStyle}>
-                  Kayıtlı telefon numarana tek kullanımlık kod gönderelim. Kimligini
-                  doğruladığında aynı kartta yeni şifreni belirleyip hesabına geri dönebilirsin.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  minWidth: "160px",
-                  padding: "16px",
-                  borderRadius: "20px",
-                  background: "rgba(15,95,215,0.08)",
-                  border: "1px solid rgba(15,95,215,0.12)",
-                  display: "grid",
-                  gap: "6px",
-                }}
-              >
-                <div
-                  style={{
-                    color: "#0f5fd7",
-                    fontWeight: 800,
-                    textTransform: "uppercase",
-                    fontSize: "0.72rem",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  Kurtarma Hattı
-                </div>
-                <div
-                  style={{
-                    ...serifTitleStyle,
-                    fontSize: "1.7rem",
-                    lineHeight: 0.92,
-                    fontWeight: 700,
-                    color: "var(--text)",
-                  }}
-                >
-                  SMS
-                </div>
-                <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.9rem" }}>
-                  Telefon koduyla doğrulama, sonra yeni şifre.
-                </div>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                gap: "14px",
-                alignItems: "start",
-              }}
-            >
-              <div style={{ display: "grid", gap: "12px" }}>
-                {[
-                  ["1. Kimlik", "Kayıtlı telefon numarani gir."],
-                  ["2. Kod", "Tek kullanımlık SMS kodunu al."],
-                  ["3. Şifre", "Aynı kartta yeni şifreni belirle."],
-                ].map(([title, text]) => (
-                  <article
-                    key={title}
-                    style={{
-                      padding: "16px",
-                      borderRadius: "18px",
-                      border: "1px solid rgba(15,95,215,0.1)",
-                      background: "rgba(255,255,255,0.84)",
-                      display: "grid",
-                      gap: "6px",
-                    }}
-                  >
-                    <div style={{ color: "#0f5fd7", fontWeight: 800 }}>{title}</div>
-                    <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
-                      {text}
-                    </div>
-                  </article>
-                ))}
-
-                <div
-                  style={{
-                    padding: "16px",
-                    borderRadius: "18px",
-                    border: "1px solid rgba(15,95,215,0.1)",
-                    background: "rgba(255,255,255,0.84)",
-                    display: "grid",
-                    gap: "10px",
-                  }}
-                >
-                  <div style={{ color: "#0f5fd7", fontWeight: 800 }}>Hat Durumu</div>
-                  <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
-                    {smsLoginEnabled
-                      ? "SMS kurtarma hattı aktif. Telefon doğrulamasıyla hesaba geri dönebilirsin."
-                      : "SMS kurtarma hattı aktif değilse ofis yöneticisiyle iletişime gecerek şifre desteği alabilirsin."}
-                  </div>
-              </div>
-            </div>
-
-              <article
-                style={{
-                  padding: "18px",
-                  borderRadius: "22px",
-                  border:
-                    authPanelMode === "recovery"
-                      ? "1px solid rgba(15,95,215,0.18)"
-                      : "1px solid rgba(15,95,215,0.12)",
-                  background:
-                    authPanelMode === "recovery"
-                      ? "linear-gradient(180deg, rgba(20,40,66,0.96), rgba(34,57,86,0.94))"
-                      : "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(244,248,255,0.94))",
-                  color: authPanelMode === "recovery" ? "#fff7ea" : "var(--text)",
-                  boxShadow:
-                    authPanelMode === "recovery"
-                      ? "0 24px 54px rgba(15,95,215,0.16)"
-                      : "0 20px 44px rgba(22,42,74,0.08)",
-                  display: "grid",
-                  gap: "14px",
-                }}
-              >
-                <div style={{ display: "grid", gap: "6px" }}>
-                  <div
-                    style={{
-                      color: authPanelMode === "recovery" ? "#f2cf9e" : "#0f5fd7",
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      fontSize: "0.72rem",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    {authPanelMode === "recovery" ? "Kurtarma Aksiyonu" : "Hazır Oldugunda"}
-                  </div>
-                  <div
-                    style={{
-                      ...serifTitleStyle,
-                      fontSize: authPanelMode === "recovery" ? "2rem" : "1.7rem",
-                      lineHeight: 0.96,
-                      fontWeight: 700,
-                      color: authPanelMode === "recovery" ? "#fff7ea" : "var(--text)",
-                    }}
-                  >
-                    {authPanelMode === "recovery"
-                      ? "Telefonu doğrula, şifreni burada yenile."
-                      : "Kurtarma hattini tek tikla ac."}
-                  </div>
-                  <div
-                    style={{
-                      color: authPanelMode === "recovery" ? "rgba(255,247,234,0.72)" : "var(--muted)",
-                      lineHeight: 1.65,
-                      fontSize: "0.93rem",
-                    }}
-                  >
-                    {authPanelMode === "recovery"
-                      ? "Bu blok artık sadece bilgi vermiyor; telefon, kod ve yeni şifre adımlarını doğrudan aynı yüzeyde topluyor."
-                      : "Şifre kurtarma modunu actiginda ek bir asagi arama gerekmeden aynı kart içinde tüm aksiyonu goreceksin."}
-                  </div>
-                </div>
-
-                {authPanelMode === "recovery" ? (
-                  <>
-                    <form onSubmit={handleSendCode} style={{ display: "grid", gap: "12px" }}>
-                      <label style={labelStyle}>
-                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Kayıtlı Telefon</span>
-                        <input
-                          ref={recoveryPhoneInputRef}
-                          value={phone}
-                          onChange={(event) => setPhone(event.target.value)}
-                          placeholder="05xxxxxxxxx"
-                          style={darkFieldStyle}
-                        />
-                      </label>
-                      <button
-                        type="submit"
-                        disabled={smsSubmitting || !phone.trim()}
-                        style={secondaryButtonStyle(smsSubmitting || !phone.trim())}
-                      >
-                        {smsSubmitting ? "Kod Hazırlanıyor..." : "Dogrulama Kodu Gönder"}
-                      </button>
-                    </form>
-
-                    {smsMessage ? (
-                      <div style={successStyle}>
-                        {smsMessage}
-                        {maskedPhone ? ` (${maskedPhone})` : ""}
-                      </div>
-                    ) : null}
-
-                    <form onSubmit={handleVerifyCode} style={{ display: "grid", gap: "12px" }}>
-                      <label style={labelStyle}>
-                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>6 Haneli Kod</span>
-                        <input
-                          value={loginCode}
-                          onChange={(event) => setLoginCode(event.target.value)}
-                          placeholder="000000"
-                          style={darkFieldStyle}
-                          inputMode="numeric"
-                          maxLength={6}
-                        />
-                      </label>
-                      <label style={labelStyle}>
-                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Şifre</span>
-                        <input
-                          type="password"
-                          value={recoveryNewPassword}
-                          onChange={(event) => setRecoveryNewPassword(event.target.value)}
-                          placeholder="En az 6 karakter"
-                          style={darkFieldStyle}
-                        />
-                      </label>
-                      <label style={labelStyle}>
-                        <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Şifre Tekrar</span>
-                        <input
-                          type="password"
-                          value={recoveryConfirmPassword}
-                          onChange={(event) => setRecoveryConfirmPassword(event.target.value)}
-                          placeholder="Yeni şifreni tekrar gir"
-                          style={darkFieldStyle}
-                        />
-                      </label>
-
-                      {smsError ? <div style={darkErrorStyle}>{smsError}</div> : null}
-
-                      <button
-                        type="submit"
-                        disabled={
-                          smsSubmitting ||
-                          !loginCode.trim() ||
-                          !recoveryNewPassword.trim() ||
-                          !recoveryConfirmPassword.trim()
-                        }
-                        style={goldButtonStyle(
-                          smsSubmitting ||
-                            !loginCode.trim() ||
-                            !recoveryNewPassword.trim() ||
-                            !recoveryConfirmPassword.trim(),
-                        )}
-                      >
-                        {smsSubmitting ? "Kod Doğrulanıyor..." : "Kimliğimi Doğrula ve Şifreyi Yenile"}
-                      </button>
-                    </form>
-                  </>
-                ) : (
-                  <>
-                    <div
-                      style={{
-                        padding: "14px 16px",
-                        borderRadius: "18px",
-                        background: "rgba(15,95,215,0.08)",
-                        border: "1px solid rgba(15,95,215,0.12)",
-                        display: "grid",
-                        gap: "6px",
-                      }}
-                    >
-                      <div style={{ color: "#0f5fd7", fontWeight: 800 }}>Kurtarma Hattı</div>
-                      <div
-                        style={{
-                          ...serifTitleStyle,
-                          fontSize: "2rem",
-                          lineHeight: 0.92,
-                          fontWeight: 700,
-                        }}
-                      >
-                        SMS
-                      </div>
-                      <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.92rem" }}>
-                        Telefon koduyla doğrulama, sonra yeni şifre.
-                      </div>
-                    </div>
-
-                    {smsLoginEnabled ? (
-                      <button
-                        type="button"
-                        onClick={() => switchAuthPanelMode("recovery")}
-                        style={recoveryCtaStyle(false)}
-                      >
-                        Şifremi Unuttum
-                      </button>
-                    ) : null}
-
-                    {authModesUnavailable && runningOnLocalhost ? (
-                      <Link href="/preview" style={recoveryFallbackLinkStyle}>
-                        Bu yerel oturumda tanıtım yüzeyini aç
-                      </Link>
-                    ) : null}
-                  </>
-                )}
-              </article>
-            </div>
-          </section>
-
-          {smsLoginEnabled && authPanelMode === "sms" ? (
+          {supportPanelVisible ? (
             <section
               style={{
                 ...paperCardStyle,
-                padding: "24px",
+                padding: "20px",
                 display: "grid",
-                gap: "18px",
+                gap: "14px",
                 background:
-                  "linear-gradient(145deg, rgba(27,43,63,0.98), rgba(43,62,85,0.95))",
-                color: "#fff7ea",
+                  recoveryModeActive
+                    ? "linear-gradient(180deg, rgba(24,42,68,0.98), rgba(32,56,86,0.96))"
+                    : "linear-gradient(180deg, rgba(248,250,255,0.98), rgba(255,252,246,0.96))",
+                color: recoveryModeActive ? "#fff7ea" : "var(--text)",
+                border: recoveryModeActive
+                  ? "1px solid rgba(15,95,215,0.18)"
+                  : "1px solid rgba(15,95,215,0.12)",
               }}
             >
-              <div style={{ display: "grid", gap: "8px" }}>
+              <div style={{ display: "grid", gap: "10px" }}>
                 <div
                   style={{
                     display: "inline-flex",
-                    width: "fit-content",
                     padding: "6px",
                     borderRadius: "999px",
-                    background: "rgba(255,255,255,0.08)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: recoveryModeActive ? "rgba(255,255,255,0.08)" : "rgba(15,95,215,0.08)",
+                    border: recoveryModeActive
+                      ? "1px solid rgba(255,255,255,0.08)"
+                      : "1px solid rgba(15,95,215,0.12)",
                     gap: "6px",
+                    width: "fit-content",
                   }}
                 >
                   <button
                     type="button"
                     onClick={() => switchAuthPanelMode("sms")}
-                    style={panelToggleStyle(authPanelMode === "sms")}
+                    style={supportToggleStyle(smsPanelActive, recoveryModeActive)}
                   >
                     SMS ile Giriş
                   </button>
                   <button
                     type="button"
                     onClick={() => switchAuthPanelMode("recovery")}
-                    style={panelToggleStyle(false)}
+                    style={supportToggleStyle(recoveryModeActive, recoveryModeActive)}
                   >
-                    Şifremi Unuttum
+                    Şifre Kurtarma
                   </button>
                 </div>
                 <div
                   style={{
-                    color: "#f2cf9e",
+                    color: recoveryModeActive ? "#f2cf9e" : "#0f5fd7",
                     fontWeight: 800,
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
                     fontSize: "0.72rem",
                   }}
                 >
-                  SMS ile Giriş
+                  {supportCardTitle}
                 </div>
                 <h2
                   style={{
                     ...serifTitleStyle,
                     margin: 0,
-                    fontSize: "1.9rem",
-                    lineHeight: 0.96,
+                    fontSize: "1.45rem",
+                    lineHeight: 0.98,
                     fontWeight: 700,
                   }}
                 >
-                  Tek kullanımlık kodla hızlı doğrulama.
+                  {recoveryModeActive
+                    ? "Telefon koduyla şifreni yenile."
+                    : smsPanelActive
+                      ? "Tek kullanımlık kodla hızlı doğrulama."
+                      : "İhtiyaç olduğunda destek akışına geç."}
                 </h2>
                 <p
                   style={{
                     margin: 0,
-                    color: "rgba(255,247,234,0.72)",
-                    lineHeight: 1.75,
-                    fontSize: "0.95rem",
+                    color: recoveryModeActive ? "rgba(255,247,234,0.72)" : "var(--muted)",
+                    lineHeight: 1.58,
+                    fontSize: "0.92rem",
                   }}
                 >
-                  Bölge muduru ve izinli yönetici numaraları bu akışı kullanabilir. Kod gönder ve aynı kart içinde doğrulamayı tamamla.
+                  {supportCardBody}
                 </p>
               </div>
 
-              <form onSubmit={handleSendCode} style={{ display: "grid", gap: "12px" }}>
-                <label style={labelStyle}>
-                  <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Telefon</span>
-                  <input
-                    ref={recoveryPhoneInputRef}
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="05xxxxxxxxx"
-                    style={darkFieldStyle}
-                  />
-                </label>
-                <button type="submit" disabled={smsSubmitting} style={secondaryButtonStyle(smsSubmitting)}>
-                  {smsSubmitting ? "Kod Hazırlanıyor..." : "SMS Kodu Gönder"}
-                </button>
-              </form>
+              {recoveryModeActive ? (
+                <>
+                  <form onSubmit={handleSendCode} style={{ display: "grid", gap: "12px" }}>
+                    <label style={labelStyle}>
+                      <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Kayitli Telefon</span>
+                      <input
+                        ref={recoveryPhoneInputRef}
+                        value={phone}
+                        onChange={(event) => setPhone(event.target.value)}
+                        placeholder="05xxxxxxxxx"
+                        style={darkFieldStyle}
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={smsSubmitting || !phone.trim()}
+                      style={secondaryButtonStyle(smsSubmitting || !phone.trim())}
+                    >
+                      {smsSubmitting ? "Kod hazırlanıyor..." : "Doğrulama Kodu Gönder"}
+                    </button>
+                  </form>
 
-              {smsMessage ? (
-                <div style={successStyle}>
-                  {smsMessage}
-                  {maskedPhone ? ` (${maskedPhone})` : ""}
-                </div>
-              ) : null}
+                  {smsMessage ? (
+                    <div style={successStyle}>
+                      {smsMessage}
+                      {maskedPhone ? ` (${maskedPhone})` : ""}
+                    </div>
+                  ) : null}
 
-              <form onSubmit={handleVerifyCode} style={{ display: "grid", gap: "12px" }}>
-                <label style={labelStyle}>
-                  <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>6 Haneli Kod</span>
-                  <input
-                    value={loginCode}
-                    onChange={(event) => setLoginCode(event.target.value)}
-                    placeholder="000000"
-                    style={darkFieldStyle}
-                    inputMode="numeric"
-                    maxLength={6}
-                  />
-                </label>
+                  <form onSubmit={handleVerifyCode} style={{ display: "grid", gap: "12px" }}>
+                    <label style={labelStyle}>
+                      <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>6 Haneli Kod</span>
+                      <input
+                        value={loginCode}
+                        onChange={(event) => setLoginCode(event.target.value)}
+                        placeholder="000000"
+                        style={darkFieldStyle}
+                        inputMode="numeric"
+                        maxLength={6}
+                      />
+                    </label>
+                    <label style={labelStyle}>
+                      <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Sifre</span>
+                      <input
+                        type="password"
+                        value={recoveryNewPassword}
+                        onChange={(event) => setRecoveryNewPassword(event.target.value)}
+                        placeholder="En az 6 karakter"
+                        style={darkFieldStyle}
+                      />
+                    </label>
+                    <label style={labelStyle}>
+                      <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Yeni Sifre Tekrar</span>
+                      <input
+                        type="password"
+                        value={recoveryConfirmPassword}
+                        onChange={(event) => setRecoveryConfirmPassword(event.target.value)}
+                        placeholder="Yeni sifreni tekrar gir"
+                        style={darkFieldStyle}
+                      />
+                    </label>
 
-                {smsError ? <div style={darkErrorStyle}>{smsError}</div> : null}
+                    {smsError ? <div style={darkErrorStyle}>{smsError}</div> : null}
 
-                <button
-                  type="submit"
-                  disabled={smsSubmitting || !loginCode.trim()}
-                  style={goldButtonStyle(smsSubmitting || !loginCode.trim())}
+                    <button
+                      type="submit"
+                      disabled={
+                        smsSubmitting ||
+                        !loginCode.trim() ||
+                        !recoveryNewPassword.trim() ||
+                        !recoveryConfirmPassword.trim()
+                      }
+                      style={goldButtonStyle(
+                        smsSubmitting ||
+                          !loginCode.trim() ||
+                          !recoveryNewPassword.trim() ||
+                          !recoveryConfirmPassword.trim(),
+                      )}
+                    >
+                      {smsSubmitting ? "Kod doğrulanıyor..." : "Şifreyi Yenile"}
+                    </button>
+                  </form>
+                </>
+              ) : smsPanelActive ? (
+                <>
+                  <form onSubmit={handleSendCode} style={{ display: "grid", gap: "12px" }}>
+                    <label style={labelStyle}>
+                      <span style={labelTitleStyle}>Telefon</span>
+                      <input
+                        ref={recoveryPhoneInputRef}
+                        value={phone}
+                        onChange={(event) => setPhone(event.target.value)}
+                        placeholder="05xxxxxxxxx"
+                        style={fieldStyle}
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={smsSubmitting || !phone.trim()}
+                      style={ghostButtonStyle(smsSubmitting || !phone.trim())}
+                    >
+                      {smsSubmitting ? "Kod hazırlanıyor..." : "SMS Kodu Gönder"}
+                    </button>
+                  </form>
+
+                  {smsMessage ? (
+                    <div style={noticeStyle}>
+                      {smsMessage}
+                      {maskedPhone ? ` (${maskedPhone})` : ""}
+                    </div>
+                  ) : null}
+
+                  <form onSubmit={handleVerifyCode} style={{ display: "grid", gap: "12px" }}>
+                    <label style={labelStyle}>
+                      <span style={labelTitleStyle}>6 Haneli Kod</span>
+                      <input
+                        value={loginCode}
+                        onChange={(event) => setLoginCode(event.target.value)}
+                        placeholder="000000"
+                        style={fieldStyle}
+                        inputMode="numeric"
+                        maxLength={6}
+                      />
+                    </label>
+
+                    {smsError ? <div style={errorStyle}>{smsError}</div> : null}
+
+                    <button
+                      type="submit"
+                      disabled={smsSubmitting || !loginCode.trim()}
+                      style={primaryButtonStyle(smsSubmitting || !loginCode.trim())}
+                    >
+                      {smsSubmitting ? "Kod doğrulanıyor..." : "Kodu Doğrula"}
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "18px",
+                    background: "rgba(15,95,215,0.06)",
+                    border: "1px solid rgba(15,95,215,0.1)",
+                    display: "grid",
+                    gap: "8px",
+                  }}
                 >
-                  {smsSubmitting ? "Kod Dogrulaniyor..." : "Kodu Dogrula"}
-                </button>
-              </form>
+                  <div style={{ color: "#0f5fd7", fontWeight: 800 }}>Ek Giriş Seçenekleri</div>
+                  <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
+                    SMS girişi ve şifre kurtarma aynı alanda hazır. İhtiyaç olduğunda yukarıdaki düğmelerden ilgili akışa geçebilirsin.
+                  </div>
+                  {authModesUnavailable && runningOnLocalhost ? (
+                    <Link href="/preview" style={recoveryFallbackLinkStyle}>
+                      Yerel ön izlemeyi aç
+                    </Link>
+                  ) : null}
+                </div>
+              )}
             </section>
           ) : null}
         </div>
@@ -1809,6 +1492,23 @@ const inlinePreviewLinkStyle = {
   fontSize: "0.92rem",
   textDecoration: "none",
 } satisfies CSSProperties;
+
+function supportToggleStyle(active: boolean, darkMode: boolean): CSSProperties {
+  return {
+    padding: "8px 12px",
+    borderRadius: "999px",
+    border: "none",
+    background: active
+      ? darkMode
+        ? "rgba(241,194,143,0.96)"
+        : "rgba(15,95,215,0.12)"
+      : "transparent",
+    color: active ? (darkMode ? "#2f1b09" : "#0f5fd7") : darkMode ? "rgba(255,247,234,0.78)" : "var(--muted)",
+    fontWeight: 800,
+    fontSize: "0.82rem",
+    cursor: "pointer",
+  };
+}
 
 function heroQuickActionStyle(active: boolean): CSSProperties {
   return {
