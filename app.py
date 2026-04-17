@@ -1003,6 +1003,8 @@ def login_gate(conn: sqlite3.Connection) -> bool:
     if st.session_state.authenticated or restore_auth_session(conn):
         return True
 
+    v2_cutover_mode = resolve_v2_cutover_mode()
+    v2_cutover_url = resolve_v2_cutover_url()
     logo_markup = build_login_logo_markup()
     st.markdown(
         """
@@ -1481,6 +1483,9 @@ def login_gate(conn: sqlite3.Connection) -> bool:
         """,
         unsafe_allow_html=True,
     )
+
+    if v2_cutover_mode == "banner" and v2_cutover_url:
+        render_v2_cutover_surface(mode="banner", url=v2_cutover_url)
 
     left, center, right = st.columns([0.04, 1.0, 0.04])
     with center:
@@ -7755,11 +7760,11 @@ def main() -> None:
                 language="toml",
             )
         return
-    if v2_cutover_mode == "banner" and v2_cutover_url:
-        render_v2_cutover_surface(mode="banner", url=v2_cutover_url)
-
     if not login_gate(conn):
         return
+
+    if v2_cutover_mode == "banner" and v2_cutover_url:
+        render_v2_cutover_surface(mode="banner", url=v2_cutover_url)
 
     role = st.session_state.get("role", "")
     render_sidebar_brand()
