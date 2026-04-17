@@ -192,11 +192,12 @@ def build_database_preflight_report(
 
 
 def render_report_text(report: dict[str, object]) -> str:
+    database_url_masked = str(report.get("database_url_masked") or "-")
     lines = [
         "Cat Kapinda CRM v2 Database Preflight",
         f"Passed: {report['passed']}",
         f"Summary: {report['summary']}",
-        f"Database: {report['database_url_masked']}",
+        f"Database: {database_url_masked}",
         "",
         "Required Tables:",
     ]

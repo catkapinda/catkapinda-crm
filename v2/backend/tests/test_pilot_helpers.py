@@ -1237,6 +1237,7 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert manifest["cutover_gate_passed"] is False
     assert manifest["banner_guard_allowed"] is True
     assert manifest["redirect_guard_allowed"] is False
+    assert manifest["database_preflight_passed"] is False
     assert manifest["release_snapshot"]["frontend_release"] == "front123"
     assert manifest["release_snapshot"]["backend_release"] == "back123"
     assert manifest["release_snapshot"]["release_alignment"] == "mismatch"
@@ -1254,6 +1255,8 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert (tmp_path / "render-env-bundle.env").exists()
     assert (tmp_path / "render-env-validation.json").exists()
     assert (tmp_path / "render-env-validation.md").exists()
+    assert (tmp_path / "database-preflight.json").exists()
+    assert (tmp_path / "database-preflight.md").exists()
     assert (tmp_path / "streamlit-banner.env").exists()
     assert (tmp_path / "streamlit-redirect.env").exists()
     assert (tmp_path / "streamlit-banner-guard.json").exists()
@@ -1279,7 +1282,9 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     start_here = (tmp_path / "00-START-HERE.md").read_text(encoding="utf-8")
     assert "Verify: `PASS`" in start_here
     assert "Day-zero kiti kullanima hazir." in start_here
+    assert "Database Preflight: `FAIL`" in start_here
     assert "--validate-only" in (tmp_path / "pilot-launch.md").read_text(encoding="utf-8")
+    assert "database_preflight.py" in (tmp_path / "pilot-launch.md").read_text(encoding="utf-8")
     assert "`--validate-only` komutuyla deploy env degerlerini son kez dogrula." in start_here
 
 
@@ -4289,6 +4294,38 @@ def test_day_zero_verify_fails_when_render_env_validation_json_is_wrong(monkeypa
     assert result["env_checked"] is True
     assert result["env_ok"] is False
     assert any("render-env-validation.json" in item for item in result["consistency_issues"])
+
+
+def test_day_zero_verify_fails_when_database_preflight_json_is_wrong(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    database_preflight_json_path = tmp_path / "database-preflight.json"
+    payload = json.loads(database_preflight_json_path.read_text(encoding="utf-8"))
+    payload["recommended_next_step"] = "Yanlis sonraki adim"
+    database_preflight_json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["database_preflight_checked"] is True
+    assert result["database_preflight_ok"] is False
+    assert any("database-preflight.json" in item for item in result["consistency_issues"])
 
 
 def test_day_zero_verify_fails_when_banner_guard_json_is_wrong(monkeypatch, tmp_path: Path):

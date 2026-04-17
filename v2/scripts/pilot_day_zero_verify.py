@@ -10,6 +10,7 @@ import urllib.parse
 import zipfile
 from copy import deepcopy
 
+from database_preflight import render_report_text as render_database_preflight_text
 from pilot_smoke import build_decision_summary as build_smoke_decision_summary
 from pilot_smoke import build_markdown_report as build_smoke_markdown_report
 from render_env_bundle import build_validation_report, render_validation_text
@@ -23,6 +24,8 @@ REQUIRED_FILES = (
     "render-env-bundle.json",
     "render-env-validation.json",
     "render-env-validation.md",
+    "database-preflight.json",
+    "database-preflight.md",
     "streamlit-banner.env",
     "streamlit-redirect.env",
     "streamlit-banner-guard.json",
@@ -797,6 +800,11 @@ def _check_start_here_markdown(*, output_dir: Path, manifest: dict) -> tuple[boo
         f"- Frontend Release: `{release_snapshot.get('frontend_release') or '-'}`",
         f"- Backend Release: `{release_snapshot.get('backend_release') or '-'}`",
         f"- Release Alignment: `{release_snapshot.get('release_alignment') or '-'}`",
+        (
+            f"- Database Preflight: `{'PASS' if manifest.get('database_preflight_passed') else 'FAIL'}`"
+            if "database_preflight_passed" in manifest
+            else "- Database Preflight: `BEKLENIYOR`"
+        ),
         f"- Verify: `{verify_state}`",
         f"- Smoke: `{smoke_state}`",
     ]
@@ -808,6 +816,10 @@ def _check_start_here_markdown(*, output_dir: Path, manifest: dict) -> tuple[boo
     verify_next_step = manifest.get("verify_recommended_next_step")
     if verify_next_step and verify_next_step not in content:
         issues.append("00-START-HERE.md icinde verify sonrasi onerilen adim eksik")
+
+    database_preflight_next_step = manifest.get("database_preflight_recommended_next_step")
+    if database_preflight_next_step and database_preflight_next_step not in content:
+        issues.append("00-START-HERE.md icinde veritabani preflight sonrasi onerilen adim eksik")
 
     smoke_next_step = manifest.get("smoke_recommended_next_step")
     if smoke_included and smoke_next_step and smoke_next_step not in content:
@@ -989,6 +1001,29 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
     return (True, issues)
 
 
+def _check_database_preflight_payload(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+    database_preflight_json_path = output_dir / "database-preflight.json"
+    database_preflight_markdown_path = output_dir / "database-preflight.md"
+
+    if not (database_preflight_json_path.exists() and database_preflight_markdown_path.exists()):
+        return (False, ["Veritabani preflight dosyalari eksik oldugu icin kontrol yapilamadi"])
+
+    database_preflight_json = _read_json(database_preflight_json_path)
+    database_preflight_markdown = database_preflight_markdown_path.read_text(encoding="utf-8").strip()
+    expected_markdown = render_database_preflight_text(database_preflight_json).strip()
+
+    if database_preflight_markdown != expected_markdown:
+        issues.append("database-preflight.md icindeki rapor database-preflight.json ile uyusmuyor")
+
+    if "database_preflight_passed" in manifest and manifest.get("database_preflight_passed") != database_preflight_json.get("passed"):
+        issues.append("Manifest database_preflight_passed degeri database-preflight.json ile uyusmuyor")
+    if "database_preflight_recommended_next_step" in manifest and manifest.get("database_preflight_recommended_next_step") != database_preflight_json.get("recommended_next_step"):
+        issues.append("Manifest database_preflight_recommended_next_step degeri database-preflight.json ile uyusmuyor")
+
+    return (True, issues)
+
+
 def _check_launch_packets(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
     issues: list[str] = []
     frontend_url = manifest.get("frontend_url")
@@ -1029,7 +1064,8 @@ def _check_launch_packets(*, output_dir: Path, manifest: dict) -> tuple[bool, li
             f"--frontend-url {frontend_url}",
             f"--api-url {api_url}",
             f"--cutover-mode {packet_meta['cutover_mode']}",
-            f"6. Streamlit tarafında `{packet_meta['cutover_mode']}` modunu hazırlayıp ofis geçişini başlat.",
+            "python v2/scripts/database_preflight.py",
+            f"7. Streamlit tarafında `{packet_meta['cutover_mode']}` modunu hazırlayıp ofis geçişini başlat.",
             f"[{api_service}]",
             f"[{frontend_service}]",
             f"[{streamlit_service}]",
@@ -1265,6 +1301,14 @@ def _check_manifest_summary(*, output_dir: Path, manifest: dict) -> tuple[bool, 
     if manifest.get("redirect_guard_allowed") != redirect_guard_payload.get("allowed"):
         issues.append("Manifest redirect_guard_allowed degeri streamlit-redirect-guard.json ile uyusmuyor")
 
+    database_preflight_json_path = output_dir / "database-preflight.json"
+    if database_preflight_json_path.exists():
+        database_preflight_payload = _read_json(database_preflight_json_path)
+        if "database_preflight_passed" in manifest and manifest.get("database_preflight_passed") != database_preflight_payload.get("passed"):
+            issues.append("Manifest database_preflight_passed degeri database-preflight.json ile uyusmuyor")
+        if "database_preflight_recommended_next_step" in manifest and manifest.get("database_preflight_recommended_next_step") != database_preflight_payload.get("recommended_next_step"):
+            issues.append("Manifest database_preflight_recommended_next_step degeri database-preflight.json ile uyusmuyor")
+
     if verify_json_path.exists():
         verify_payload = _read_json(verify_json_path)
         if "verify_passed" in manifest and manifest.get("verify_passed") != verify_payload.get("passed"):
@@ -1287,6 +1331,8 @@ def _check_manifest_file_map(*, output_dir: Path, manifest: dict) -> tuple[bool,
         "render_env_bundle_json": "render-env-bundle.json",
         "render_env_validation_json": "render-env-validation.json",
         "render_env_validation_markdown": "render-env-validation.md",
+        "database_preflight_json": "database-preflight.json",
+        "database_preflight_markdown": "database-preflight.md",
         "streamlit_banner_env": "streamlit-banner.env",
         "streamlit_redirect_env": "streamlit-redirect.env",
         "streamlit_banner_guard_json": "streamlit-banner-guard.json",
@@ -1525,6 +1571,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(env_issues)
 
+    database_preflight_checked, database_preflight_issues = _check_database_preflight_payload(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(database_preflight_issues)
+
     packet_checked, packet_issues = _check_launch_packets(
         output_dir=output_dir,
         manifest=manifest,
@@ -1603,6 +1655,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
         "start_here_ok": True if start_here_checked and not start_here_issues else (False if start_here_checked else None),
         "env_checked": env_checked,
         "env_ok": True if env_checked and not env_issues else (False if env_checked else None),
+        "database_preflight_checked": database_preflight_checked,
+        "database_preflight_ok": (
+            True
+            if database_preflight_checked and not database_preflight_issues
+            else (False if database_preflight_checked else None)
+        ),
         "packet_checked": packet_checked,
         "packet_ok": True if packet_checked and not packet_issues else (False if packet_checked else None),
         "reports_checked": reports_checked,

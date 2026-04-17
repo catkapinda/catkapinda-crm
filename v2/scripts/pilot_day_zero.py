@@ -10,6 +10,7 @@ import shutil
 import urllib.parse
 import zipfile
 
+from database_preflight import build_database_preflight_report, render_report_text as render_database_preflight_text
 from pilot_cutover_guard import build_guard_result, render_env_text as render_guard_env_text
 from pilot_launch_packet import build_packet
 from pilot_preflight import build_preflight_bundle
@@ -72,6 +73,8 @@ def _build_start_here_markdown(
     banner_guard_allowed: bool,
     redirect_guard_allowed: bool,
     release_snapshot: dict | None = None,
+    database_preflight_passed: bool | None = None,
+    database_preflight_next_step: str | None = None,
     verify_passed: bool | None = None,
     verify_next_step: str | None = None,
     smoke_overall_ok: bool | None = None,
@@ -104,6 +107,11 @@ def _build_start_here_markdown(
             else "- Release Alignment: `-`"
         ),
         (
+            f"- Database Preflight: `{'PASS' if database_preflight_passed else 'FAIL'}`"
+            if database_preflight_passed is not None
+            else "- Database Preflight: `BEKLENIYOR`"
+        ),
+        (
             f"- Verify: `{'PASS' if verify_passed else 'FAIL'}`"
             if verify_passed is not None
             else "- Verify: `BEKLENIYOR`"
@@ -119,13 +127,16 @@ def _build_start_here_markdown(
         "1. `pilot-preflight-summary.md` dosyasini ac.",
         "2. `pilot-status-live.md` ile canli durumu oku.",
         "3. Render'a yapistirmak icin `render-env-bundle.env` dosyasini kullan.",
-        "4. `pilot-launch.md` icindeki `--validate-only` komutuyla deploy env degerlerini son kez dogrula.",
-        "5. Eski panelde kontrollu gecis icin `streamlit-banner-guarded.env` dosyasina bak.",
-        "6. Redirect only if `streamlit-redirect-guarded.env` bos degilse ve guard PASS ise gec.",
+        "4. `database-preflight.json` ve `database-preflight.md` ile canli PostgreSQL omurgasini kontrol et.",
+        "5. `pilot-launch.md` icindeki `--validate-only` komutuyla deploy env degerlerini son kez dogrula.",
+        "6. Eski panelde kontrollu gecis icin `streamlit-banner-guarded.env` dosyasina bak.",
+        "7. Redirect only if `streamlit-redirect-guarded.env` bos degilse ve guard PASS ise gec.",
         "",
         "## Onemli Dosyalar",
         "",
         "- `render-env-bundle.env`: tum servisler icin temel env plani",
+        "- `database-preflight.json`: canli PostgreSQL tablo omurgasi ozeti",
+        "- `database-preflight.md`: veritabani preflight okunabilir raporu",
         "- `pilot-launch.md`: pilot acilis paketi",
         "- `pilot-cutover.md`: redirect provasi paketi",
         "- `pilot-status-live.md`: canli /api/pilot-status ozeti",
@@ -143,6 +154,15 @@ def _build_start_here_markdown(
                 "## Verify Sonrasi Sonraki Adim",
                 "",
                 verify_next_step,
+                "",
+            ]
+        )
+    if database_preflight_next_step:
+        lines.extend(
+            [
+                "## Veritabani Preflight Sonrasi Sonraki Adim",
+                "",
+                database_preflight_next_step,
                 "",
             ]
         )
@@ -277,6 +297,25 @@ def build_day_zero_bundle(
         encoding="utf-8",
     )
 
+    try:
+        database_preflight = build_database_preflight_report(database_url=database_url)
+    except Exception as exc:
+        database_preflight = {
+            "passed": False,
+            "summary": "Veritabani preflight basarisiz.",
+            "blocking_items": [str(exc)],
+            "warnings": [],
+            "recommended_next_step": "Veritabani baglantisini ve tablo omurgasini tekrar kontrol et.",
+        }
+    (output_dir / "database-preflight.json").write_text(
+        json.dumps(database_preflight, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "database-preflight.md").write_text(
+        render_database_preflight_text(database_preflight),
+        encoding="utf-8",
+    )
+
     streamlit_banner = filter_bundle(
         env_bundle,
         "streamlit",
@@ -395,12 +434,16 @@ def build_day_zero_bundle(
         "cutover_gate_passed": preflight_result["cutover_gate"]["passed"],
         "banner_guard_allowed": banner_guard["allowed"],
         "redirect_guard_allowed": cutover_guard["allowed"],
+        "database_preflight_passed": database_preflight["passed"],
+        "database_preflight_recommended_next_step": database_preflight["recommended_next_step"],
         "smoke_included": include_smoke,
         "files": {
             "render_env_bundle_env": str(output_dir / "render-env-bundle.env"),
             "render_env_bundle_json": str(output_dir / "render-env-bundle.json"),
             "render_env_validation_json": str(output_dir / "render-env-validation.json"),
             "render_env_validation_markdown": str(output_dir / "render-env-validation.md"),
+            "database_preflight_json": str(output_dir / "database-preflight.json"),
+            "database_preflight_markdown": str(output_dir / "database-preflight.md"),
             "streamlit_banner_env": str(output_dir / "streamlit-banner.env"),
             "streamlit_redirect_env": str(output_dir / "streamlit-redirect.env"),
             "streamlit_banner_guard_json": str(output_dir / "streamlit-banner-guard.json"),
@@ -427,6 +470,8 @@ def build_day_zero_bundle(
             banner_guard_allowed=banner_guard["allowed"],
             redirect_guard_allowed=cutover_guard["allowed"],
             release_snapshot=manifest["release_snapshot"],
+            database_preflight_passed=database_preflight["passed"],
+            database_preflight_next_step=database_preflight["recommended_next_step"],
         ),
         encoding="utf-8",
     )
@@ -462,6 +507,8 @@ def build_day_zero_bundle(
             banner_guard_allowed=banner_guard["allowed"],
             redirect_guard_allowed=cutover_guard["allowed"],
             release_snapshot=manifest["release_snapshot"],
+            database_preflight_passed=database_preflight["passed"],
+            database_preflight_next_step=database_preflight["recommended_next_step"],
             verify_passed=initial_verify_result["passed"],
             verify_next_step=initial_verify_result["recommended_next_step"],
             smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,
@@ -505,6 +552,8 @@ def build_day_zero_bundle(
             banner_guard_allowed=banner_guard["allowed"],
             redirect_guard_allowed=cutover_guard["allowed"],
             release_snapshot=manifest["release_snapshot"],
+            database_preflight_passed=database_preflight["passed"],
+            database_preflight_next_step=database_preflight["recommended_next_step"],
             verify_passed=final_verify_result["passed"],
             verify_next_step=final_verify_result["recommended_next_step"],
             smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,
@@ -532,6 +581,7 @@ def render_console_summary(manifest: dict) -> str:
         f"Cutover Gate: {'PASS' if manifest['cutover_gate_passed'] else 'FAIL'}",
         f"Banner Guard: {'PASS' if manifest['banner_guard_allowed'] else 'BLOCK'}",
         f"Redirect Guard: {'PASS' if manifest['redirect_guard_allowed'] else 'BLOCK'}",
+        f"Database Preflight: {'PASS' if manifest.get('database_preflight_passed') else 'FAIL'}",
         f"Verify: {'PASS' if manifest.get('verify_passed') else 'FAIL'}",
         f"Verify Next Step: {manifest.get('verify_recommended_next_step', 'Yok')}",
         *(
