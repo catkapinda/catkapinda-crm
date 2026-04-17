@@ -85,9 +85,9 @@ function pill(kind: "accent" | "muted"): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
-    padding: "6px 10px",
+    padding: "4px 8px",
     borderRadius: "999px",
-    fontSize: "0.76rem",
+    fontSize: "0.68rem",
     fontWeight: 800,
     ...palette,
   };
@@ -405,7 +405,7 @@ export function SalesManagementWorkspace() {
             <div
               style={{
                 display: "grid",
-                gap: "10px",
+                gap: "8px",
                 maxHeight: "620px",
                 overflow: "auto",
                 paddingRight: "4px",
@@ -443,38 +443,73 @@ export function SalesManagementWorkspace() {
                       key={entry.id}
                       type="button"
                       onClick={() => setSelectedEntryId(entry.id)}
-                      style={{
-                        textAlign: "left",
-                        borderRadius: "20px",
-                        border: isActive ? "1px solid rgba(15, 95, 215, 0.28)" : "1px solid var(--line)",
-                        background: isActive ? "rgba(15, 95, 215, 0.08)" : "rgba(255, 255, 255, 0.88)",
-                        padding: "16px",
-                        display: "grid",
-                        gap: "10px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "start" }}>
-                        <div>
-                          <div style={{ fontWeight: 800 }}>{entry.restaurant_name}</div>
-                          <div style={{ color: "var(--muted)", fontSize: "0.92rem", marginTop: "4px" }}>
-                            {entry.city} / {entry.district}
-                          </div>
+                    style={{
+                      textAlign: "left",
+                      borderRadius: "14px",
+                      border: isActive ? "1px solid rgba(15, 95, 215, 0.28)" : "1px solid var(--line)",
+                      background: isActive ? "rgba(15, 95, 215, 0.08)" : "rgba(255, 255, 255, 0.88)",
+                      padding: "10px 12px",
+                      display: "grid",
+                      gap: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "start" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            fontSize: "0.92rem",
+                            lineHeight: 1.3,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 1,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {entry.restaurant_name}
                         </div>
-                        <span style={pill(isActive ? "accent" : "muted")}>{entry.status}</span>
+                        <div
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: "0.8rem",
+                            marginTop: "2px",
+                            lineHeight: 1.35,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 1,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {entry.city} / {entry.district}
+                        </div>
                       </div>
+                      <span style={pill(isActive ? "accent" : "muted")}>{entry.status}</span>
+                    </div>
                       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                         <span style={pill("muted")}>{entry.pricing_model_label}</span>
                         <span style={pill("muted")}>{entry.lead_source || "Kaynak yok"}</span>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
                         <div>
-                          <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>Yetkili</div>
-                          <div style={{ fontWeight: 700 }}>{entry.contact_name || "-"}</div>
+                          <div style={{ fontSize: "0.66rem", color: "var(--muted)" }}>Yetkili</div>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: "0.84rem",
+                              lineHeight: 1.35,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 1,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            {entry.contact_name || "-"}
+                          </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>Teklif</div>
-                          <div style={{ fontWeight: 700 }}>{formatCurrency(entry.proposed_quote)}</div>
+                          <div style={{ fontSize: "0.66rem", color: "var(--muted)" }}>Teklif</div>
+                          <div style={{ fontWeight: 700, fontSize: "0.84rem" }}>{formatCurrency(entry.proposed_quote)}</div>
                         </div>
                       </div>
                     </button>

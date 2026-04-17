@@ -336,7 +336,7 @@ export function PurchaseManagementWorkspace() {
             <div
               style={{
                 display: "grid",
-                gap: "10px",
+                gap: "8px",
                 maxHeight: "560px",
                 overflowY: "auto",
                 paddingRight: "4px",
@@ -351,31 +351,54 @@ export function PurchaseManagementWorkspace() {
                     onClick={() => setSelectedEntryId(entry.id)}
                     style={{
                       textAlign: "left",
-                      padding: "16px 18px",
-                      borderRadius: "18px",
+                      padding: "10px 12px",
+                      borderRadius: "14px",
                       border: isActive ? "1px solid rgba(15, 95, 215, 0.22)" : "1px solid var(--line)",
                       background: isActive ? "rgba(15, 95, 215, 0.08)" : "rgba(255, 255, 255, 0.88)",
                       cursor: "pointer",
                       display: "grid",
-                      gap: "10px",
+                      gap: "6px",
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                      <strong style={{ fontSize: "1rem" }}>{entry.item_name}</strong>
-                      <span style={{ color: "var(--muted)", fontWeight: 700 }}>{entry.purchase_date}</span>
+                      <strong
+                        style={{
+                          fontSize: "0.92rem",
+                          lineHeight: 1.3,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 1,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          minWidth: 0,
+                        }}
+                      >
+                        {entry.item_name}
+                      </strong>
+                      <span style={{ color: "var(--muted)", fontWeight: 700, fontSize: "0.78rem", whiteSpace: "nowrap" }}>
+                        {entry.purchase_date}
+                      </span>
                     </div>
                     <div
                       style={{
                         display: "grid",
                         gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                        gap: "10px",
+                        gap: "8px",
                         color: "var(--muted)",
-                        fontSize: "0.9rem",
+                        fontSize: "0.8rem",
                       }}
                     >
                       <span>{entry.quantity} adet</span>
                       <span>{formatCurrency(entry.total_invoice_amount)}</span>
-                      <span>{entry.supplier || "Tedarikçi yok"}</span>
+                      <span
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 1,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {entry.supplier || "Tedarikçi yok"}
+                      </span>
                     </div>
                   </button>
                 );

@@ -436,7 +436,7 @@ export function RestaurantManagementWorkspace() {
           <div
             style={{
               display: "grid",
-              gap: "10px",
+              gap: "8px",
               maxHeight: "620px",
               overflow: "auto",
               paddingRight: "4px",
@@ -456,8 +456,8 @@ export function RestaurantManagementWorkspace() {
                   onClick={() => setSelectedEntryId(entry.id)}
                   style={{
                     textAlign: "left",
-                    padding: "16px",
-                    borderRadius: "18px",
+                    padding: "10px 12px",
+                    borderRadius: "14px",
                     border:
                       entry.id === selectedEntryId
                         ? "1px solid rgba(15, 95, 215, 0.28)"
@@ -468,20 +468,45 @@ export function RestaurantManagementWorkspace() {
                         : "rgba(255, 255, 255, 0.92)",
                     cursor: "pointer",
                     display: "grid",
-                    gap: "10px",
+                    gap: "6px",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontWeight: 900 }}>{entry.brand} - {entry.branch}</div>
-                      <div style={{ color: "var(--muted)", marginTop: "4px" }}>{entry.pricing_model_label}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontWeight: 900,
+                          fontSize: "0.92rem",
+                          lineHeight: 1.3,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 1,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {entry.brand} - {entry.branch}
+                      </div>
+                      <div
+                        style={{
+                          color: "var(--muted)",
+                          marginTop: "2px",
+                          fontSize: "0.8rem",
+                          lineHeight: 1.35,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 1,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {entry.pricing_model_label}
+                      </div>
                     </div>
                     <span
                       style={{
                         display: "inline-flex",
-                        padding: "6px 10px",
+                        padding: "4px 8px",
                         borderRadius: "999px",
-                        fontSize: "0.76rem",
+                        fontSize: "0.68rem",
                         fontWeight: 800,
                         color: entry.active ? "#0f5fd7" : "#7b879c",
                         background: entry.active ? "rgba(15, 95, 215, 0.1)" : "rgba(95, 118, 152, 0.1)",
@@ -497,9 +522,9 @@ export function RestaurantManagementWorkspace() {
                     style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                      gap: "10px",
+                      gap: "8px",
                       color: "var(--muted)",
-                      fontSize: "0.9rem",
+                      fontSize: "0.8rem",
                     }}
                   >
                     <div>Yetkili: {entry.contact_name || "-"}</div>
