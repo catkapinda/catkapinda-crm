@@ -236,3 +236,52 @@ def fetch_personnel_role_status(
         (personnel_id,),
     ).fetchone()
     return dict(row) if row else None
+
+
+def fetch_login_attempt(
+    conn: psycopg.Connection,
+    *,
+    identity: str,
+) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT identity, failed_count, first_failed_at, last_failed_at, blocked_until
+        FROM auth_login_attempts
+        WHERE identity = %s
+        LIMIT 1
+        """,
+        (identity,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def upsert_login_attempt(
+    conn: psycopg.Connection,
+    *,
+    identity: str,
+    failed_count: int,
+    first_failed_at: str,
+    last_failed_at: str,
+    blocked_until: str | None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO auth_login_attempts (
+            identity, failed_count, first_failed_at, last_failed_at, blocked_until
+        ) VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (identity) DO UPDATE SET
+            failed_count = EXCLUDED.failed_count,
+            first_failed_at = EXCLUDED.first_failed_at,
+            last_failed_at = EXCLUDED.last_failed_at,
+            blocked_until = EXCLUDED.blocked_until
+        """,
+        (identity, failed_count, first_failed_at, last_failed_at, blocked_until),
+    )
+
+
+def clear_login_attempt(
+    conn: psycopg.Connection,
+    *,
+    identity: str,
+) -> None:
+    conn.execute("DELETE FROM auth_login_attempts WHERE identity = %s", (identity,))

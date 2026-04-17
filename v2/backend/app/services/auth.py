@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import psycopg
 
@@ -23,9 +23,11 @@ from app.core.sms import send_phone_login_code_sms, sms_delivery_enabled
 from app.repositories.auth import (
     cleanup_expired_auth_sessions,
     cleanup_expired_phone_codes,
+    clear_login_attempt,
     consume_phone_code,
     delete_auth_session,
     delete_pending_phone_codes,
+    fetch_login_attempt,
     fetch_active_phone_code,
     fetch_auth_session,
     fetch_auth_user_by_identity,
@@ -33,6 +35,7 @@ from app.repositories.auth import (
     increment_phone_code_attempt,
     insert_auth_session,
     insert_phone_code,
+    upsert_login_attempt,
     update_auth_user_password,
 )
 from app.schemas.auth import (
@@ -46,6 +49,13 @@ from app.schemas.auth import (
 PHONE_LOGIN_CODE_MINUTES = 10
 PHONE_LOGIN_CODE_ATTEMPT_LIMIT = 5
 SMS_PHONE_AUTH_PERSONNEL_ROLES = {"Bölge Müdürü"}
+LOGIN_FAILURE_LIMIT = 5
+LOGIN_FAILURE_WINDOW_MINUTES = 15
+LOGIN_BLOCK_MINUTES = 15
+
+
+class AuthRateLimitError(ValueError):
+    pass
 
 
 def build_auth_modes() -> AuthModesResponse:
@@ -62,16 +72,100 @@ def authenticate_user(
     identity: str,
     password: str,
 ) -> AuthenticatedUser:
+    normalized_identity = normalize_auth_identity(identity)
+    now = datetime.now(UTC)
+    _ensure_login_not_blocked(conn, identity=normalized_identity, now=now)
     user_row = fetch_auth_user_by_identity(conn, identity=identity)
     if not user_row:
+        _record_login_failure(conn, identity=normalized_identity, now=now)
         raise ValueError("Giriş bilgileri geçersiz.")
     if int(user_row.get("is_active") or 0) != 1:
         raise ValueError("Bu hesap aktif degil.")
     if not verify_auth_password(password, str(user_row.get("password_hash") or "")):
+        _record_login_failure(conn, identity=normalized_identity, now=now)
         raise ValueError("Giriş bilgileri geçersiz.")
 
+    if normalized_identity:
+        clear_login_attempt(conn, identity=normalized_identity)
     token = create_auth_session(conn, username=resolve_session_identity(user_row))
     return build_authenticated_user(user_row=user_row, token=token)
+
+
+def _parse_attempt_timestamp(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return None
+    try:
+        return datetime.fromisoformat(raw_value)
+    except ValueError:
+        return None
+
+
+def _ensure_login_not_blocked(
+    conn: psycopg.Connection,
+    *,
+    identity: str,
+    now: datetime,
+) -> None:
+    if not identity:
+        return
+    row = fetch_login_attempt(conn, identity=identity)
+    if not row:
+        return
+
+    last_failed_at = _parse_attempt_timestamp(row.get("last_failed_at"))
+    blocked_until = _parse_attempt_timestamp(row.get("blocked_until"))
+    window_start = now - timedelta(minutes=LOGIN_FAILURE_WINDOW_MINUTES)
+
+    if last_failed_at is None or last_failed_at < window_start:
+        clear_login_attempt(conn, identity=identity)
+        return
+    if blocked_until and blocked_until <= now:
+        clear_login_attempt(conn, identity=identity)
+        return
+    if blocked_until and blocked_until > now:
+        raise AuthRateLimitError(
+            f"Çok fazla hatalı giriş denemesi. Lütfen {LOGIN_BLOCK_MINUTES} dakika sonra tekrar dene."
+        )
+
+
+def _record_login_failure(
+    conn: psycopg.Connection,
+    *,
+    identity: str,
+    now: datetime,
+) -> None:
+    if not identity:
+        return
+
+    row = fetch_login_attempt(conn, identity=identity)
+    window_start = now - timedelta(minutes=LOGIN_FAILURE_WINDOW_MINUTES)
+    current_failed_count = 0
+    first_failed_at_text = now.isoformat(timespec="seconds")
+
+    if row:
+        last_failed_at = _parse_attempt_timestamp(row.get("last_failed_at"))
+        if last_failed_at and last_failed_at >= window_start:
+            current_failed_count = int(row.get("failed_count") or 0)
+            first_failed_at_text = str(row.get("first_failed_at") or first_failed_at_text)
+
+    failed_count = current_failed_count + 1
+    blocked_until = (
+        (now + timedelta(minutes=LOGIN_BLOCK_MINUTES)).isoformat(timespec="seconds")
+        if failed_count >= LOGIN_FAILURE_LIMIT
+        else None
+    )
+    upsert_login_attempt(
+        conn,
+        identity=identity,
+        failed_count=failed_count,
+        first_failed_at=first_failed_at_text,
+        last_failed_at=now.isoformat(timespec="seconds"),
+        blocked_until=blocked_until,
+    )
+    conn.commit()
 
 
 def create_auth_session(conn: psycopg.Connection, *, username: str) -> str:
@@ -190,8 +284,8 @@ def _issue_phone_code(
 ) -> AuthPhoneCodeRequestResponse:
     cleanup_expired_phone_codes(conn)
     issued_code = generate_phone_login_code()
-    now_text = datetime.utcnow().isoformat(timespec="seconds")
-    expires_at = (datetime.utcnow() + timedelta(minutes=PHONE_LOGIN_CODE_MINUTES)).isoformat(
+    now_text = datetime.now(UTC).isoformat(timespec="seconds")
+    expires_at = (datetime.now(UTC) + timedelta(minutes=PHONE_LOGIN_CODE_MINUTES)).isoformat(
         timespec="seconds"
     )
 
@@ -297,7 +391,7 @@ def verify_phone_login_code_and_login(
         raise ValueError("Telefon numarası veya kod geçersiz.")
 
     cleanup_expired_phone_codes(conn)
-    now_text = datetime.utcnow().isoformat(timespec="seconds")
+    now_text = datetime.now(UTC).isoformat(timespec="seconds")
     row = fetch_active_phone_code(
         conn,
         phone=normalized_phone,
@@ -350,7 +444,7 @@ def reset_password_with_phone_code(
         raise ValueError("Yeni şifre en az 6 karakter olmalı.")
 
     cleanup_expired_phone_codes(conn)
-    now_text = datetime.utcnow().isoformat(timespec="seconds")
+    now_text = datetime.now(UTC).isoformat(timespec="seconds")
     row = fetch_active_phone_code(
         conn,
         phone=normalized_phone,

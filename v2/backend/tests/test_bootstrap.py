@@ -55,6 +55,7 @@ def test_runtime_bootstrap_executes_auth_schema_sql(monkeypatch):
     assert mobile_sync_called["value"] is True
     assert any("CREATE TABLE IF NOT EXISTS auth_users" in sql for sql in fake_conn.executed)
     assert any("CREATE TABLE IF NOT EXISTS auth_phone_codes" in sql for sql in fake_conn.executed)
+    assert any("CREATE TABLE IF NOT EXISTS auth_login_attempts" in sql for sql in fake_conn.executed)
     assert any("INSERT INTO auth_users" in sql for sql in fake_conn.executed)
 
 
@@ -162,6 +163,9 @@ def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
         phone_code_table = raw_conn.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'auth_phone_codes'"
         ).fetchone()
+        login_attempt_table = raw_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'auth_login_attempts'"
+        ).fetchone()
         audit_table = raw_conn.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'audit_logs'"
         ).fetchone()
@@ -188,6 +192,7 @@ def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
 
     assert auth_user_count == 3
     assert phone_code_table is not None
+    assert login_attempt_table is not None
     assert audit_table is not None
     assert role_history_table is not None
     assert vehicle_history_table is not None

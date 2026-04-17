@@ -23,6 +23,7 @@ from app.schemas.auth import (
     AuthPhoneCodeVerifyRequest,
 )
 from app.services.auth import (
+    AuthRateLimitError,
     authenticate_user,
     build_auth_modes,
     build_login_response,
@@ -104,6 +105,8 @@ def login_route(
             identity=payload.identity,
             password=payload.password,
         )
+    except AuthRateLimitError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=401, detail=str(exc)) from exc

@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.main import create_app
+from app.services.auth import AuthRateLimitError
 
 
 class FakeConnection:
@@ -138,6 +139,24 @@ def test_request_password_reset_code_route_returns_validation_error(monkeypatch)
 
     assert response.status_code == 422
     assert response.json()["detail"] == "Telefon numarası geçersiz."
+
+
+def test_login_route_returns_429_when_identity_is_temporarily_blocked(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.auth.authenticate_user",
+        lambda conn, identity, password: (_ for _ in ()).throw(
+            AuthRateLimitError("Çok fazla hatalı giriş denemesi. Lütfen 15 dakika sonra tekrar dene.")
+        ),
+    )
+    client = _build_app()
+
+    response = client.post(
+        "/api/auth/login",
+        json={"identity": "mert.kurtulus@catkapinda.com", "password": "yanlış"},
+    )
+
+    assert response.status_code == 429
+    assert "Çok fazla hatalı giriş denemesi." in response.json()["detail"]
 
 
 def test_reset_password_with_code_route_returns_message(monkeypatch):

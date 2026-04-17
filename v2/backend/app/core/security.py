@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import hashlib
 import hmac
 import re
@@ -194,7 +194,7 @@ def generate_phone_login_code() -> str:
 
 
 def build_session_window() -> tuple[str, str]:
-    created_at = datetime.utcnow()
+    created_at = datetime.now(UTC)
     expires_at = created_at + timedelta(days=settings.auth_session_days or 30)
     return (
         created_at.isoformat(timespec="seconds"),

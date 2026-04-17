@@ -74,6 +74,15 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     """,
     "CREATE INDEX IF NOT EXISTS idx_auth_phone_codes_phone_purpose ON auth_phone_codes (phone, purpose)",
     """
+    CREATE TABLE IF NOT EXISTS auth_login_attempts (
+        identity TEXT PRIMARY KEY,
+        failed_count BIGINT NOT NULL DEFAULT 0,
+        first_failed_at TIMESTAMP NOT NULL,
+        last_failed_at TIMESTAMP NOT NULL,
+        blocked_until TIMESTAMP NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS audit_logs (
         id BIGSERIAL PRIMARY KEY,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -228,6 +237,15 @@ AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_auth_phone_codes_phone_purpose ON auth_phone_codes (phone, purpose)",
+    """
+    CREATE TABLE IF NOT EXISTS auth_login_attempts (
+        identity TEXT PRIMARY KEY,
+        failed_count INTEGER NOT NULL DEFAULT 0,
+        first_failed_at TEXT NOT NULL,
+        last_failed_at TEXT NOT NULL,
+        blocked_until TEXT NULL
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS audit_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
