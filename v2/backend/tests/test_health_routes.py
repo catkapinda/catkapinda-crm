@@ -285,6 +285,20 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "--base-url https://pilot.example.com --mode redirect"
     )
     assert helper_map["Guarded Redirect Env"]["category"] == "env"
+    assert helper_map["Pilot Deploy Guard"]["command"] == (
+        "python v2/scripts/pilot_deploy_guard.py "
+        "--base-url https://pilot.example.com --api-url https://pilot-api.example.com "
+        "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+        "--default-auth-password '<guclu-varsayilan-sifre>'"
+    )
+    assert helper_map["Pilot Deploy Guard"]["category"] == "quick-check"
+    assert helper_map["Cutover Deploy Guard"]["command"] == (
+        "python v2/scripts/pilot_deploy_guard.py "
+        "--base-url https://pilot.example.com --api-url https://pilot-api.example.com "
+        "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+        "--default-auth-password '<guclu-varsayilan-sifre>' --mode cutover"
+    )
+    assert helper_map["Cutover Deploy Guard"]["category"] == "quick-check"
     assert helper_map["API Env"]["command"] == (
         "python v2/scripts/render_env_bundle.py "
         "--frontend-url https://pilot.example.com --api-url https://pilot-api.example.com --service api"
@@ -366,7 +380,10 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "python v2/scripts/pilot_smoke.py --base-url https://pilot.example.com --preset pilot"
     )
     assert payload["command_pack"][4]["command"] == (
-        "python v2/scripts/pilot_gate.py --base-url https://pilot.example.com --mode pilot"
+        "python v2/scripts/pilot_deploy_guard.py "
+        "--base-url https://pilot.example.com --api-url https://pilot-api.example.com "
+        "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+        "--default-auth-password '<guclu-varsayilan-sifre>'"
     )
     assert "--identity ebru@catkapinda.com --password <sifre>" in payload["command_pack"][5]["command"]
     assert payload["command_pack"][6]["command"] == (

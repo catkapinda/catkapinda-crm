@@ -11,6 +11,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 import pilot_cutover_guard  # noqa: E402
 import pilot_day_zero  # noqa: E402
 import pilot_day_zero_verify  # noqa: E402
+import pilot_deploy_guard  # noqa: E402
 import pilot_gate  # noqa: E402
 import pilot_preflight  # noqa: E402
 import pilot_smoke  # noqa: E402
@@ -1050,6 +1051,39 @@ def test_cutover_guard_allows_force_override():
     assert blocked["allowed"] is False
     assert forced["allowed"] is True
     assert forced["env_bundle"]["crmcatkapinda"]["CK_V2_CUTOVER_MODE"] == "redirect"
+
+
+def test_pilot_deploy_guard_blocks_when_env_values_are_placeholders():
+    result = pilot_deploy_guard.build_guard_result(
+        base_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        mode="pilot",
+        payload=sample_payload(),
+        database_url="<mevcut-postgresql-url-sslmode-require>",
+        default_auth_password="<guclu-varsayilan-sifre>",
+    )
+
+    assert result["passed"] is False
+    assert result["gate_passed"] is True
+    assert result["env_passed"] is False
+    assert any("gercek bir deger girilmeli" in item for item in result["blocking_items"])
+
+
+def test_pilot_deploy_guard_passes_when_gate_and_env_are_ready():
+    result = pilot_deploy_guard.build_guard_result(
+        base_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        mode="pilot",
+        payload=sample_payload(),
+        database_url="postgresql://pilot:secret@db.example.com/catkapinda?sslmode=require",
+        default_auth_password="GucluPilotSifre!2026",
+    )
+
+    assert result["passed"] is True
+    assert result["gate_passed"] is True
+    assert result["env_passed"] is True
+    assert result["blocking_items"] == []
+    assert result["summary"] == "Pilot deploy acilabilir."
 
 
 def test_pilot_status_report_markdown_includes_key_sections():

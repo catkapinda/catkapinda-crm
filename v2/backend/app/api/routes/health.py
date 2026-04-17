@@ -864,6 +864,26 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             ),
         ),
         PilotHelperCommand(
+            label="Pilot Deploy Guard",
+            category="quick-check",
+            command=(
+                "python v2/scripts/pilot_deploy_guard.py "
+                f"--base-url {frontend_url} --api-url {backend_url} "
+                "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+                "--default-auth-password '<guclu-varsayilan-sifre>'"
+            ),
+        ),
+        PilotHelperCommand(
+            label="Cutover Deploy Guard",
+            category="quick-check",
+            command=(
+                "python v2/scripts/pilot_deploy_guard.py "
+                f"--base-url {frontend_url} --api-url {backend_url} "
+                "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+                "--default-auth-password '<guclu-varsayilan-sifre>' --mode cutover"
+            ),
+        ),
+        PilotHelperCommand(
             label="API Env",
             category="env",
             command=(
@@ -1019,9 +1039,14 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             command=f"python v2/scripts/pilot_smoke.py --base-url {frontend_url} --preset pilot",
         ),
         PilotCommandPackEntry(
-            title="5. Pilot gate kararini al",
-            detail="Canli /api/pilot-status verisine gore pilot acilabilir mi bak.",
-            command=f"python v2/scripts/pilot_gate.py --base-url {frontend_url} --mode pilot",
+            title="5. Deploy guard kararini al",
+            detail="Canli gate ve Render env blokajlarini tek komutta birlikte oku.",
+            command=(
+                "python v2/scripts/pilot_deploy_guard.py "
+                f"--base-url {frontend_url} --api-url {backend_url} "
+                "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+                "--default-auth-password '<guclu-varsayilan-sifre>'"
+            ),
         ),
         PilotCommandPackEntry(
             title="6. Gercek login smoke'u kos",
