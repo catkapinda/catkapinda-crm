@@ -214,6 +214,7 @@ export function PersonnelRoleWorkspace() {
     () => workspace?.people.find((person) => person.id === selectedPersonId) ?? null,
     [selectedPersonId, workspace],
   );
+  const hasSelectedPerson = Boolean(selectedPerson);
 
   const selectedHistory = useMemo(
     () => workspace?.history.filter((entry) => entry.personnel_id === selectedPersonId).slice(0, 6) ?? [],
@@ -330,7 +331,9 @@ export function PersonnelRoleWorkspace() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(320px, 0.95fr) minmax(0, 1.05fr)",
+              gridTemplateColumns: hasSelectedPerson
+                ? "minmax(320px, 0.95fr) minmax(0, 1.05fr)"
+                : "minmax(0, 1fr)",
               gap: "16px",
               alignItems: "start",
             }}
@@ -395,9 +398,8 @@ export function PersonnelRoleWorkspace() {
               )}
             </aside>
 
-            <div style={{ display: "grid", gap: "16px" }}>
-              {selectedPerson ? (
-                <>
+            {selectedPerson ? (
+              <div style={{ display: "grid", gap: "16px" }}>
                   <article
                     style={{
                       padding: "18px",
@@ -548,20 +550,8 @@ export function PersonnelRoleWorkspace() {
                       </div>
                     )}
                   </article>
-                </>
-              ) : (
-                <div
-                  style={{
-                    padding: "18px",
-                    borderRadius: "18px",
-                    border: "1px dashed var(--line)",
-                    color: "var(--muted)",
-                  }}
-                >
-                  Rol hattını başlatmak için soldan bir personel seç.
-                </div>
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
         </>
       )}

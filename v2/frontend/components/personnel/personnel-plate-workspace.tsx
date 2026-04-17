@@ -194,6 +194,7 @@ export function PersonnelPlateWorkspace() {
     () => workspace?.people.find((person) => person.id === selectedPersonId) ?? null,
     [selectedPersonId, workspace],
   );
+  const hasSelectedPerson = Boolean(selectedPerson);
 
   const selectedHistory = useMemo(
     () =>
@@ -323,7 +324,9 @@ export function PersonnelPlateWorkspace() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(320px, 0.95fr) minmax(0, 1.05fr)",
+              gridTemplateColumns: hasSelectedPerson
+                ? "minmax(320px, 0.95fr) minmax(0, 1.05fr)"
+                : "minmax(0, 1fr)",
               gap: "16px",
               alignItems: "start",
             }}
@@ -404,9 +407,8 @@ export function PersonnelPlateWorkspace() {
               )}
             </aside>
 
-            <div style={{ display: "grid", gap: "16px" }}>
-              {selectedPerson ? (
-                <>
+            {selectedPerson ? (
+              <div style={{ display: "grid", gap: "16px" }}>
                   <article
                     style={{
                       padding: "18px",
@@ -606,20 +608,8 @@ export function PersonnelPlateWorkspace() {
                       </div>
                     )}
                   </article>
-                </>
-              ) : (
-                <div
-                  style={{
-                    padding: "18px",
-                    borderRadius: "18px",
-                    border: "1px dashed var(--line)",
-                    color: "var(--muted)",
-                  }}
-                >
-                  Plaka hattını başlatmak için soldan bir personel seç.
-                </div>
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
 
           <article

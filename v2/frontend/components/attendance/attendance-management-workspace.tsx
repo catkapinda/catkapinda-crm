@@ -200,6 +200,7 @@ export function AttendanceManagementWorkspace() {
   const allVisibleSelected =
     entries.length > 0 && entries.every((entry) => selectedEntryIdSet.has(entry.id));
   const selectedVisibleCount = entries.filter((entry) => selectedEntryIdSet.has(entry.id)).length;
+  const hasSelectedEntry = Boolean(selectedEntryId);
   const isAnyMutationPending =
     isPending || deletePending || bulkDeletePending || filteredDeletePending;
 
@@ -611,7 +612,9 @@ export function AttendanceManagementWorkspace() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1.2fr) minmax(340px, 0.9fr)",
+          gridTemplateColumns: hasSelectedEntry
+            ? "minmax(0, 1.2fr) minmax(340px, 0.9fr)"
+            : "minmax(0, 1fr)",
           gap: "18px",
           alignItems: "start",
         }}
@@ -891,69 +894,69 @@ export function AttendanceManagementWorkspace() {
           )}
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gap: "14px",
-          }}
-        >
+        {hasSelectedEntry ? (
           <div
             style={{
-              borderRadius: "26px",
-              border: "1px solid var(--line)",
-              background: "linear-gradient(180deg, rgba(15, 95, 215, 0.08), rgba(255, 255, 255, 0.96))",
-              padding: "20px 22px",
+              display: "grid",
+              gap: "14px",
             }}
           >
             <div
               style={{
-                display: "inline-flex",
-                padding: "7px 12px",
-                borderRadius: "999px",
-                background: "rgba(255, 255, 255, 0.8)",
-                color: "var(--accent)",
-                fontWeight: 800,
-                fontSize: "0.74rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
+                borderRadius: "26px",
+                border: "1px solid var(--line)",
+                background:
+                  "linear-gradient(180deg, rgba(15, 95, 215, 0.08), rgba(255, 255, 255, 0.96))",
+                padding: "20px 22px",
               }}
             >
-              Seçili Kayıt
+              <div
+                style={{
+                  display: "inline-flex",
+                  padding: "7px 12px",
+                  borderRadius: "999px",
+                  background: "rgba(255, 255, 255, 0.8)",
+                  color: "var(--accent)",
+                  fontWeight: 800,
+                  fontSize: "0.74rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Seçili Kayıt
+              </div>
+              <h3
+                style={{
+                  margin: "14px 0 8px",
+                  fontSize: "1.2rem",
+                }}
+              >
+                Attendance düzenleme akışı
+              </h3>
+              <p
+                style={{
+                  margin: 0,
+                  color: "var(--muted)",
+                  lineHeight: 1.6,
+                }}
+              >
+                Kaydı seç, personel ve vardiya detaylarını güncelle; istersen soldan birden fazla
+                kaydı toplu silebilirsin.
+              </p>
             </div>
-            <h3
-              style={{
-                margin: "14px 0 8px",
-                fontSize: "1.2rem",
-              }}
-            >
-              Attendance düzenleme akışı
-            </h3>
-            <p
-              style={{
-                margin: 0,
-                color: "var(--muted)",
-                lineHeight: 1.6,
-              }}
-            >
-              Kaydı seç, personel ve vardiya detaylarını güncelle; istersen soldan birden fazla
-              kaydı toplu silebilirsin.
-            </p>
-          </div>
 
-          <div
-            style={{
-              borderRadius: "26px",
-              border: "1px solid var(--line)",
-              background: "var(--surface-strong)",
-              padding: "20px 22px",
-            }}
-          >
-            {!selectedEntryId ? (
-              <div style={feedbackBox("info")}>Düzenlemek için soldan bir attendance kaydı seç.</div>
-            ) : detailLoading ? (
-              <div style={feedbackBox("info")}>Seçili kayıt yükleniyor...</div>
-            ) : detailError ? (
-              <div style={feedbackBox("error")}>{detailError}</div>
+            <div
+              style={{
+                borderRadius: "26px",
+                border: "1px solid var(--line)",
+                background: "var(--surface-strong)",
+                padding: "20px 22px",
+              }}
+            >
+              {detailLoading ? (
+                <div style={feedbackBox("info")}>Seçili kayıt yükleniyor...</div>
+              ) : detailError ? (
+                <div style={feedbackBox("error")}>{detailError}</div>
             ) : (
               <form
                 onSubmit={handleSave}
@@ -1157,9 +1160,10 @@ export function AttendanceManagementWorkspace() {
                   </button>
                 </div>
               </form>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </section>
   );

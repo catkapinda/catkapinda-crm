@@ -210,6 +210,7 @@ export function PersonnelManagementWorkspace() {
     () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
     [entries, selectedEntryId],
   );
+  const hasSelectedEntry = Boolean(selectedEntry);
   const canToggleStatus = user?.allowed_actions.includes("personnel.status_change") ?? false;
   const canDeletePersonnel = user?.allowed_actions.includes("personnel.delete") ?? false;
   const canViewPlateArea = user?.allowed_actions.includes("personnel.plate") ?? false;
@@ -342,7 +343,9 @@ export function PersonnelManagementWorkspace() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(320px, 1fr) minmax(0, 1.4fr)",
+          gridTemplateColumns: hasSelectedEntry
+            ? "minmax(320px, 1fr) minmax(0, 1.4fr)"
+            : "minmax(0, 1fr)",
           gap: "12px",
           alignItems: "start",
         }}
@@ -496,13 +499,13 @@ export function PersonnelManagementWorkspace() {
           </div>
         </aside>
 
-        <div
-          style={{
-            display: "grid",
-            gap: "10px",
-          }}
-        >
-          {selectedEntry ? (
+        {selectedEntry ? (
+          <div
+            style={{
+              display: "grid",
+              gap: "10px",
+            }}
+          >
             <div
               style={{
                 display: "grid",
@@ -678,10 +681,8 @@ export function PersonnelManagementWorkspace() {
                 <SummaryItem label="Durum" value={editStatus} />
               </aside>
             </div>
-          ) : (
-            <InlineMessage tone="soft" message="Düzenlemek için soldan bir personel seç." />
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
