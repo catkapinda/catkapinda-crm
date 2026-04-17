@@ -1021,6 +1021,77 @@ export default function PayrollPage() {
 
           <section
             style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 0.85fr)",
+              gap: "14px",
+            }}
+          >
+            <article
+              style={{
+                padding: "18px 20px",
+                borderRadius: "22px",
+                border: "1px solid rgba(15, 95, 215, 0.14)",
+                background: "rgba(15, 95, 215, 0.06)",
+                display: "grid",
+                gap: "8px",
+              }}
+            >
+              <div
+                style={{
+                  color: "#0f5fd7",
+                  fontSize: "0.76rem",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                Hakediş Notu
+              </div>
+              <div style={{ fontSize: "1rem", fontWeight: 800 }}>
+                Kesintiler seçilen ayın son gününe yazılır.
+              </div>
+              <div style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: "0.95rem" }}>
+                Bu ekrandaki net ödeme ay kapanışına göre hesaplanır. Ödeme akışını
+                yorumlarken ay sonu kesinti toplamını ve kapanış tarihini birlikte okumak daha doğru olur.
+              </div>
+            </article>
+
+            <article
+              style={{
+                padding: "18px 20px",
+                borderRadius: "22px",
+                border: "1px solid var(--line)",
+                background: "rgba(255,255,255,0.82)",
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--muted)",
+                  fontSize: "0.76rem",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                Sistem Senkronu
+              </div>
+              <div style={{ display: "grid", gap: "10px" }}>
+                <div style={{ color: "var(--text)", lineHeight: 1.65 }}>
+                  <strong>Kesinti Senkronu:</strong> Puantaj ekleme, güncelleme ve silmede
+                  bordro etkisi yeniden hesaplanır.
+                </div>
+                <div style={{ color: "var(--text)", lineHeight: 1.65 }}>
+                  <strong>Hakediş / Raporlar:</strong> Aylık hakediş ve raporlar ekranı açılırken
+                  sistem kesintileri yeniden senkronlanır.
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section
+            style={{
               borderRadius: "24px",
               border: "1px solid var(--line)",
               background: "rgba(255,255,255,0.78)",
