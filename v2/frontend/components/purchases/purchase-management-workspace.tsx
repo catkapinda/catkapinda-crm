@@ -416,6 +416,54 @@ export function PurchaseManagementWorkspace() {
             </p>
           </div>
 
+          {selectedEntry && !detailLoading ? (
+            <div
+              style={{
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid var(--line)",
+                background: "rgba(15, 95, 215, 0.04)",
+                display: "grid",
+                gap: "10px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                <strong style={{ fontSize: "1rem" }}>{selectedEntry.item_name}</strong>
+                <span style={{ color: "var(--muted)", fontWeight: 700 }}>{selectedEntry.purchase_date}</span>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Adet</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>{selectedEntry.quantity} adet</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Toplam Fatura</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                    {formatCurrency(selectedEntry.total_invoice_amount)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Tedarikçi</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                    {selectedEntry.supplier || "Tedarikçi yok"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Fatura No</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                    {selectedEntry.invoice_no || "-"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {detailLoading ? (
             <div
               style={{

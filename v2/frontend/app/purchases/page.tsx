@@ -192,6 +192,75 @@ function narrativeCard({
   );
 }
 
+function workspaceCard({
+  eyebrow,
+  title,
+  body,
+  href,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  href: string;
+}) {
+  return (
+    <a
+      href={href}
+      style={{
+        display: "grid",
+        gap: "10px",
+        padding: "18px",
+        borderRadius: "22px",
+        border: "1px solid var(--line)",
+        background: "rgba(255,255,255,0.86)",
+        boxShadow: "var(--shadow-soft)",
+        color: "inherit",
+        textDecoration: "none",
+      }}
+    >
+      <div
+        style={{
+          color: "var(--accent-strong)",
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifStyle,
+          fontSize: "1.28rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: "var(--muted)",
+          fontSize: "0.92rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
+      </div>
+      <div
+        style={{
+          fontSize: "0.82rem",
+          fontWeight: 800,
+          color: "#0f5fd7",
+        }}
+      >
+        Çalışma alanını aç
+      </div>
+    </a>
+  );
+}
+
 function listCard(
   title: string,
   subtitle: string,
@@ -401,6 +470,30 @@ export default function PurchasesPage() {
       }));
   }, [dashboard]);
 
+  const workflowDeck = useMemo(
+    () => [
+      {
+        eyebrow: "İlk Adım",
+        title: "Yeni faturayı kaydet",
+        body: "Fatura tarihi, ürün, adet ve toplam tutarı aynı kartta gir; birim maliyeti anında gör.",
+        href: "#purchase-entry-workspace",
+      },
+      {
+        eyebrow: "İkinci Adım",
+        title: "Kayıt havuzunu süz",
+        body: "Ürün ve arama alanıyla faturaları daralt, dikkat isteyen tedarikçiyi hızlıca bul.",
+        href: "#purchase-management-workspace",
+      },
+      {
+        eyebrow: "Üçüncü Adım",
+        title: "Seçili kaydı güncelle",
+        body: "Toplam fatura, tedarikçi ve not bilgisini aynı panelde güncelle ya da kaydı temizle.",
+        href: "#purchase-management-workspace",
+      },
+    ],
+    [],
+  );
+
   return (
     <AppShell activeItem="Satın Alma">
       <section style={{ display: "grid", gap: "18px" }}>
@@ -444,7 +537,7 @@ export default function PurchasesPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Satın Alma Room
+                Satın Alma Akışı
               </div>
               <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
                 <h1
@@ -468,8 +561,8 @@ export default function PurchasesPage() {
                   }}
                 >
                   Fatura hacmi, birim maliyet, tedarikçi yoğunluğu ve son alım hareketlerini aynı
-                  karar katmaninda topluyoruz. Hedefimiz, alış tarafını sadece veri giriş yeri değil;
-                  stok ve maliyet nabzini okutan bir kontrol masasi haline getirmek.
+                  karar katmanında topluyoruz. Hedefimiz, alış tarafını sadece veri giriş yeri değil;
+                  stok ve maliyet nabzını okutan bir kontrol masası haline getirmek.
                 </p>
               </div>
               <div
@@ -544,7 +637,7 @@ export default function PurchasesPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Satın Alma Nabzi
+                      Satın Alma Nabzı
                     </div>
                     <div
                       style={{
@@ -568,7 +661,7 @@ export default function PurchasesPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Purchase Desk
+                    Maliyet Masası
                   </div>
                 </div>
                 <div
@@ -616,7 +709,7 @@ export default function PurchasesPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Tedarikci
+                      Tedarikçi
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
                       {dashboard?.summary.distinct_suppliers ?? 0}
@@ -654,12 +747,45 @@ export default function PurchasesPage() {
                   }}
                 >
                   Bu ekranda önce aylık fatura hacmine, sonra tedarikçi yoğunluğuna ve en son
-                  birim maliyet sinyaline bakmak en sağlıklı satın alma okumasini verir.
+                  birim maliyet sinyaline bakmak en sağlıklı satın alma okumasını verir.
                 </div>
               </article>
             </div>
           </div>
         </div>
+
+        <section
+          style={{
+            padding: "20px",
+            borderRadius: "24px",
+            border: "1px solid var(--line)",
+            background: "var(--surface-strong)",
+            boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+            display: "grid",
+            gap: "14px",
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Çalışma Sırası</h2>
+            <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
+              Eski satın alma akışındaki yeni kayıt ve kayıt yönetimi düzenini aynı sayfada daha
+              görünür kılıyoruz.
+            </p>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "14px",
+            }}
+          >
+            {workflowDeck.map((item) => (
+              <div key={item.title}>
+                {workspaceCard(item)}
+              </div>
+            ))}
+          </div>
+        </section>
 
         {dashboardLoading ? (
           <div
@@ -684,7 +810,7 @@ export default function PurchasesPage() {
               lineHeight: 1.7,
             }}
           >
-            Satın alma servisine su anda erisilemiyor. Backend hazır oldugunda bu ekran faturayi,
+            Satın alma servisine şu anda erişilemiyor. Arka uç hazır olduğunda bu ekran faturayı,
             tedarikçileri ve maliyet sinyallerini gerçek veriden gösterecek.
           </div>
         ) : (
@@ -699,7 +825,7 @@ export default function PurchasesPage() {
               {metricCard("Toplam Kayıt", String(dashboard.summary.total_entries), "Tüm alım zinciri", "accent")}
               {metricCard("Bu Ay", String(dashboard.summary.this_month_entries), "Aylık alım hareketi")}
               {metricCard("Bu Ay Fatura", formatCurrency(dashboard.summary.this_month_total_invoice), "Giren toplam alım faturası")}
-              {metricCard("Tedarikci", String(dashboard.summary.distinct_suppliers), "Aktif alım kaynagi sayisi")}
+              {metricCard("Tedarikçi", String(dashboard.summary.distinct_suppliers), "Aktif alım kaynağı sayısı")}
             </div>
 
             <div
@@ -731,8 +857,8 @@ export default function PurchasesPage() {
                 })),
               )}
               {listCard(
-                "Tedarikci Nabzi",
-                "Son alislar içinde hangi tedarikçi daha agirlikli ilerliyor bak.",
+                "Tedarikçi Nabzı",
+                "Son alışlar içinde hangi tedarikçi daha ağırlıklı ilerliyor bak.",
                 supplierInsights,
               )}
               {listCard(
@@ -742,8 +868,12 @@ export default function PurchasesPage() {
               )}
             </div>
 
-            <PurchaseEntryWorkspace />
-            <PurchaseManagementWorkspace />
+            <section id="purchase-entry-workspace" style={{ scrollMarginTop: "110px" }}>
+              <PurchaseEntryWorkspace />
+            </section>
+            <section id="purchase-management-workspace" style={{ scrollMarginTop: "110px" }}>
+              <PurchaseManagementWorkspace />
+            </section>
           </>
         )}
       </section>
