@@ -81,6 +81,17 @@ def build_packet(
         "",
         "Bu komut gerçek PostgreSQL üzerinde temel operasyon tablolarının yerinde olup olmadığını salt-okunur doğrular.",
         "",
+        "## Tek Ekranda Go-Live Karari",
+        "",
+        "```bash",
+        (
+            f"python v2/scripts/go_live_decision_report.py --base-url {frontend_url} --api-url {api_url} "
+            f"--database-url '{database_url}' --default-auth-password '{default_auth_password}'"
+        ),
+        "```",
+        "",
+        "Bu rapor pilot acilabilir mi, cutover icin ne kaldi ve bir sonraki adim ne olmali tek ciktiyla soyler.",
+        "",
     ]
     if future_cutover_blocking_items:
         lines.extend(
@@ -135,11 +146,12 @@ def build_packet(
         "",
         "1. Render env bloklarını üret ve servislere gir.",
         "2. Veritabanı preflight ile gerçek PostgreSQL omurgasını doğrula.",
-        "3. Frontend ve backend health endpointlerini kontrol et.",
-        "4. `/status` ekranını açıp blokaj kalmadığını gör.",
-        "5. `--preset pilot` ile smoke çalıştır.",
-        "6. Gerekirse gerçek login smoke ile admin girişini doğrula.",
-        f"7. Streamlit tarafında `{cutover_mode}` modunu hazırlayıp ofis geçişini başlat.",
+        "3. Go-live decision raporunu çalıştırıp fazı ve kalan blokajları tek ekranda oku.",
+        "4. Frontend ve backend health endpointlerini kontrol et.",
+        "5. `/status` ekranını açıp blokaj kalmadığını gör.",
+        "6. `--preset pilot` ile smoke çalıştır.",
+        "7. Gerekirse gerçek login smoke ile admin girişini doğrula.",
+        f"8. Streamlit tarafında `{cutover_mode}` modunu hazırlayıp ofis geçişini başlat.",
         "",
     ]
     )

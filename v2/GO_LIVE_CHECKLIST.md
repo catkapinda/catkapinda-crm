@@ -126,6 +126,7 @@ python3 v2/scripts/database_preflight.py \
 
 Not:
 
+- `pilot_day_zero.py` artik bu karari kitin icine de yazar; `go-live-decision.md` ile paket acildiginda tek ekranda fazi gorursun.
 - `database_preflight.py` artik sadece tablo ve kolonlari degil, `cutover` icin aktif restoran, aktif personel, subeye atanmis personel ve guncel puantaj tazeligini de kontrol eder.
 - Ayni script aktif kayitlarda bos kimlik alanlarini ve cakisan is anahtarlarini da tarar; bos marka/sube, bos personel kodu/ad soyad, tekrar eden marka-sube ve personel kodu gibi veri kalite sorunlari varsa `cutover` bloklanir.
 - `auth_users` tablosu mevcutsa en az bir aktif admin hesabi da gorunmeli; aktif auth/admin kapsami yoksa `cutover` bloklanir.

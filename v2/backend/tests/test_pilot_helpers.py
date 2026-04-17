@@ -1355,6 +1355,7 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert "Go-Live Phase: `blocked`" in start_here
     assert "--validate-only" in (tmp_path / "pilot-launch.md").read_text(encoding="utf-8")
     assert "database_preflight.py" in (tmp_path / "pilot-launch.md").read_text(encoding="utf-8")
+    assert "go_live_decision_report.py" in (tmp_path / "pilot-launch.md").read_text(encoding="utf-8")
     assert "- Phase: `blocked`" in (tmp_path / "go-live-decision.md").read_text(encoding="utf-8")
     assert "`--validate-only` komutuyla deploy env degerlerini son kez dogrula." in start_here
 
