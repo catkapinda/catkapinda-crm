@@ -20,11 +20,12 @@ export function writeAuthPresenceMarker(active: boolean) {
   if (typeof window === "undefined") {
     return;
   }
+  const secureFlag = window.location.protocol === "https:" ? "; Secure" : "";
   if (active) {
-    document.cookie = `${AUTH_PRESENCE_COOKIE_NAME}=1; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 12}`;
+    document.cookie = `${AUTH_PRESENCE_COOKIE_NAME}=1; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 12}${secureFlag}`;
     return;
   }
-  document.cookie = `${AUTH_PRESENCE_COOKIE_NAME}=; Path=/; SameSite=Lax; Max-Age=0`;
+  document.cookie = `${AUTH_PRESENCE_COOKIE_NAME}=; Path=/; SameSite=Lax; Max-Age=0${secureFlag}`;
 }
 
 export function readStoredAuthNotice() {

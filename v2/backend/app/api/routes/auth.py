@@ -47,7 +47,7 @@ def set_auth_session_cookies(response: Response, token: str) -> None:
     from app.core.config import settings
 
     cookie_max_age = max(int(settings.auth_session_days or 30), 1) * 24 * 60 * 60
-    is_secure = str(settings.app_env or "").strip().lower() == "production"
+    is_secure = settings.is_production
     response.set_cookie(
         key=AUTH_SESSION_COOKIE_NAME,
         value=token,
@@ -71,7 +71,7 @@ def set_auth_session_cookies(response: Response, token: str) -> None:
 def clear_auth_session_cookies(response: Response) -> None:
     from app.core.config import settings
 
-    is_secure = str(settings.app_env or "").strip().lower() == "production"
+    is_secure = settings.is_production
     response.delete_cookie(
         key=AUTH_SESSION_COOKIE_NAME,
         httponly=True,

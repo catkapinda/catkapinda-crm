@@ -1,6 +1,7 @@
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 class Settings(BaseSettings):
@@ -83,6 +84,31 @@ class Settings(BaseSettings):
         if configured:
             return configured
         return str(Path(__file__).resolve().parents[2] / ".local" / "catkapinda_crm.db")
+
+    @property
+    def is_production(self) -> bool:
+        return str(self.app_env or "").strip().lower() == "production"
+
+    @property
+    def trusted_hostnames(self) -> list[str]:
+        configured_urls = {
+            self.resolved_frontend_base_url,
+            self.resolved_public_app_url,
+            self.resolved_api_public_url,
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+            "http://127.0.0.1:8000",
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:8000",
+            "http://testserver",
+        }
+        hostnames = set[str]()
+        for raw_url in configured_urls:
+            hostname = urlparse(str(raw_url or "").strip()).hostname or ""
+            if hostname:
+                hostnames.add(hostname)
+        return sorted(hostnames)
 
     @property
     def short_release_sha(self) -> str | None:

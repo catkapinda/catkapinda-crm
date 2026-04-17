@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.api.deps.auth import get_current_user
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
+from app.core.config import settings
 from app.main import create_app
 
 
@@ -180,6 +181,19 @@ def test_root_route_guides_to_health_and_docs():
     assert payload["status"] == "ok"
     assert payload["health"] == "/api/health"
     assert payload["docs"] == "/docs"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+
+
+def test_root_route_sets_hsts_header_in_production(monkeypatch):
+    monkeypatch.setattr(settings, "app_env", "production")
+    client = _build_app()
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.headers["strict-transport-security"] == "max-age=31536000; includeSubDomains; preload"
 
 
 def test_payroll_routes_smoke(monkeypatch):

@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.main import create_app
@@ -95,6 +96,37 @@ def test_login_route_records_audit_event(monkeypatch):
     assert "ck_v2_auth_present=1" in response.headers["set-cookie"]
     assert audit_calls[0]["entity_type"] == "oturum"
     assert audit_calls[0]["action_type"] == "giriş"
+
+
+def test_login_route_sets_secure_cookies_in_production(monkeypatch):
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(
+        "app.api.routes.auth.authenticate_user",
+        lambda conn, identity, password: AuthenticatedUser(
+            id=7,
+            identity="mert.kurtulus@catkapinda.com",
+            email="mert.kurtulus@catkapinda.com",
+            phone="",
+            full_name="Mert Kurtuluş",
+            role="admin",
+            role_display="Yönetim Kurulu / Yönetici",
+            must_change_password=False,
+            allowed_actions=[],
+            expires_at="2099-01-01T00:00:00",
+            token="token-123",
+        ),
+    )
+    client = _build_app()
+
+    response = client.post(
+        "/api/auth/login",
+        json={"identity": "mert.kurtulus@catkapinda.com", "password": "123456"},
+    )
+
+    assert response.status_code == 200
+    set_cookie = response.headers["set-cookie"]
+    assert "ck_v2_auth_token=" in set_cookie
+    assert "Secure" in set_cookie
 
 
 def test_logout_route_clears_auth_cookies(monkeypatch):
