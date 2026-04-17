@@ -425,7 +425,7 @@ export function DeductionManagementWorkspace() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(180px, 1fr) minmax(180px, 1fr) minmax(180px, 1.2fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: "12px",
             }}
           >

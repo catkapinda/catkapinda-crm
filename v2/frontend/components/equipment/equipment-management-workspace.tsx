@@ -656,7 +656,7 @@ export function EquipmentManagementWorkspace() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(180px, 0.9fr) minmax(180px, 0.9fr) minmax(220px, 1.2fr)",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                 gap: "12px",
               }}
             >
@@ -1337,7 +1337,7 @@ export function EquipmentManagementWorkspace() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(180px, 0.95fr) minmax(220px, 1.25fr)",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                 gap: "12px",
               }}
             >

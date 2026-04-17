@@ -404,7 +404,7 @@ export function RestaurantManagementWorkspace() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1.3fr) repeat(2, minmax(160px, 0.6fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: "12px",
             }}
           >

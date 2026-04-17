@@ -646,7 +646,7 @@ export function AttendanceManagementWorkspace() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) minmax(220px, 280px) minmax(180px, 220px)",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                 gap: "12px",
               }}
             >

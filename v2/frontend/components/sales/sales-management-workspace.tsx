@@ -355,7 +355,7 @@ export function SalesManagementWorkspace() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(160px, 0.7fr) minmax(170px, 0.8fr) minmax(220px, 1.3fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: "12px",
             }}
           >

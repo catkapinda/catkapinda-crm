@@ -279,7 +279,7 @@ export function PurchaseManagementWorkspace() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(180px, 0.9fr) minmax(220px, 1.3fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: "12px",
             }}
           >
