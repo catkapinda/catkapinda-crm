@@ -37,6 +37,220 @@ BOOTSTRAP_TABLES: tuple[tuple[str, str], ...] = (
     ("plate_history", "Plaka gecmisi"),
 )
 
+REQUIRED_CRITICAL_COLUMNS: dict[str, tuple[str, ...]] = {
+    "restaurants": (
+        "id",
+        "brand",
+        "branch",
+        "pricing_model",
+        "hourly_rate",
+        "package_rate",
+        "package_threshold",
+        "package_rate_low",
+        "package_rate_high",
+        "fixed_monthly_fee",
+        "vat_rate",
+        "target_headcount",
+        "start_date",
+        "end_date",
+        "contact_name",
+        "contact_phone",
+        "company_title",
+        "address",
+        "active",
+        "notes",
+    ),
+    "personnel": (
+        "id",
+        "person_code",
+        "full_name",
+        "role",
+        "status",
+        "phone",
+        "assigned_restaurant_id",
+        "vehicle_type",
+        "motor_rental",
+        "motor_purchase",
+        "motor_rental_monthly_amount",
+        "motor_purchase_start_date",
+        "motor_purchase_commitment_months",
+        "motor_purchase_sale_price",
+        "motor_purchase_monthly_deduction",
+        "current_plate",
+        "start_date",
+        "monthly_fixed_cost",
+        "notes",
+    ),
+    "daily_entries": (
+        "id",
+        "entry_date",
+        "restaurant_id",
+        "planned_personnel_id",
+        "actual_personnel_id",
+        "status",
+        "worked_hours",
+        "package_count",
+        "monthly_invoice_amount",
+        "absence_reason",
+        "coverage_type",
+        "notes",
+    ),
+    "deductions": (
+        "id",
+        "personnel_id",
+        "deduction_date",
+        "deduction_type",
+        "amount",
+        "notes",
+        "auto_source_key",
+        "equipment_issue_id",
+    ),
+    "inventory_purchases": (
+        "id",
+        "purchase_date",
+        "item_name",
+        "quantity",
+        "total_invoice_amount",
+        "unit_cost",
+        "supplier",
+        "invoice_no",
+        "notes",
+    ),
+    "sales_leads": (
+        "id",
+        "restaurant_name",
+        "city",
+        "district",
+        "address",
+        "contact_name",
+        "contact_phone",
+        "contact_email",
+        "requested_courier_count",
+        "lead_source",
+        "proposed_quote",
+        "pricing_model",
+        "hourly_rate",
+        "package_rate",
+        "package_threshold",
+        "package_rate_low",
+        "package_rate_high",
+        "fixed_monthly_fee",
+        "pricing_model_hint",
+        "status",
+        "next_follow_up_date",
+        "assigned_owner",
+        "notes",
+        "created_at",
+        "updated_at",
+    ),
+    "courier_equipment_issues": (
+        "id",
+        "personnel_id",
+        "issue_date",
+        "item_name",
+        "quantity",
+        "unit_cost",
+        "unit_sale_price",
+        "vat_rate",
+        "installment_count",
+        "sale_type",
+        "notes",
+        "auto_source_key",
+    ),
+    "box_returns": (
+        "id",
+        "personnel_id",
+        "return_date",
+        "quantity",
+        "condition_status",
+        "payout_amount",
+        "waived",
+        "notes",
+    ),
+}
+
+BOOTSTRAP_CRITICAL_COLUMNS: dict[str, tuple[str, ...]] = {
+    "auth_users": (
+        "id",
+        "email",
+        "phone",
+        "full_name",
+        "role",
+        "role_display",
+        "password_hash",
+        "is_active",
+        "must_change_password",
+        "created_at",
+        "updated_at",
+    ),
+    "auth_sessions": ("token", "username", "created_at", "expires_at"),
+    "auth_phone_codes": (
+        "id",
+        "auth_user_id",
+        "phone",
+        "code_hash",
+        "purpose",
+        "created_at",
+        "expires_at",
+        "consumed_at",
+        "attempt_count",
+        "last_attempt_at",
+    ),
+    "auth_login_attempts": (
+        "identity",
+        "failed_count",
+        "first_failed_at",
+        "last_failed_at",
+        "blocked_until",
+    ),
+    "audit_logs": (
+        "id",
+        "created_at",
+        "actor_username",
+        "actor_full_name",
+        "actor_role",
+        "entity_type",
+        "entity_id",
+        "action_type",
+        "summary",
+        "details_json",
+    ),
+    "personnel_role_history": (
+        "id",
+        "personnel_id",
+        "role",
+        "cost_model",
+        "monthly_fixed_cost",
+        "effective_date",
+        "changed_at",
+        "notes",
+    ),
+    "personnel_vehicle_history": (
+        "id",
+        "personnel_id",
+        "vehicle_type",
+        "motor_rental",
+        "motor_rental_monthly_amount",
+        "motor_purchase",
+        "motor_purchase_start_date",
+        "motor_purchase_commitment_months",
+        "motor_purchase_sale_price",
+        "motor_purchase_monthly_deduction",
+        "effective_date",
+        "changed_at",
+        "notes",
+    ),
+    "plate_history": (
+        "id",
+        "personnel_id",
+        "plate",
+        "start_date",
+        "end_date",
+        "reason",
+        "active",
+    ),
+}
+
 
 def _is_placeholder(value: str) -> bool:
     normalized = str(value or "").strip()
@@ -92,27 +306,65 @@ def _table_count(conn: psycopg.Connection, table_name: str) -> int | None:
     return int(count)
 
 
+def _table_columns(conn: psycopg.Connection, table_name: str) -> set[str]:
+    rows = conn.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = %s
+          AND table_schema = ANY(current_schemas(false))
+        ORDER BY ordinal_position
+        """,
+        (table_name,),
+    ).fetchall()
+    columns: set[str] = set()
+    for row in rows:
+        item = _row_to_mapping(row)
+        column_name = str(item.get("column_name") or "").strip()
+        if column_name:
+            columns.add(column_name)
+    return columns
+
+
 def _inspect_group(
     conn: psycopg.Connection,
     table_specs: tuple[tuple[str, str], ...],
-) -> tuple[list[dict[str, object]], list[str]]:
+    *,
+    critical_columns_map: dict[str, tuple[str, ...]],
+) -> tuple[list[dict[str, object]], list[str], dict[str, list[str]]]:
     entries: list[dict[str, object]] = []
     missing_tables: list[str] = []
+    missing_columns_by_table: dict[str, list[str]] = {}
 
     for table_name, label in table_specs:
+        critical_columns = list(critical_columns_map.get(table_name, ()))
         present = _table_exists(conn, table_name)
         row_count: int | None = None
         detail = "Tablo bulundu."
+        missing_columns: list[str] = []
         if present:
+            available_columns = _table_columns(conn, table_name)
+            missing_columns = [column for column in critical_columns if column not in available_columns]
+            if missing_columns:
+                missing_columns_by_table[table_name] = missing_columns
             try:
                 row_count = _table_count(conn, table_name)
-                detail = (
-                    f"Tablo bulundu. Satir sayisi: {row_count}."
-                    if row_count is not None
-                    else "Tablo bulundu. Satir sayisi okunamadi."
-                )
+                detail_parts = [
+                    (
+                        f"Tablo bulundu. Satir sayisi: {row_count}."
+                        if row_count is not None
+                        else "Tablo bulundu. Satir sayisi okunamadi."
+                    )
+                ]
             except Exception as exc:  # pragma: no cover
-                detail = f"Tablo bulundu ancak satir sayisi alinamadi: {exc}"
+                detail_parts = [f"Tablo bulundu ancak satir sayisi alinamadi: {exc}"]
+            if missing_columns:
+                detail_parts.append(
+                    f"Eksik kritik kolonlar: {', '.join(missing_columns)}."
+                )
+            elif critical_columns:
+                detail_parts.append(f"Kritik kolonlar dogrulandi ({len(critical_columns)}).")
+            detail = " ".join(detail_parts)
         else:
             missing_tables.append(table_name)
             detail = "Tablo eksik."
@@ -123,11 +375,13 @@ def _inspect_group(
                 "label": label,
                 "present": present,
                 "row_count": row_count,
+                "critical_columns": critical_columns,
+                "missing_columns": missing_columns,
                 "detail": detail,
             }
         )
 
-    return entries, missing_tables
+    return entries, missing_tables, missing_columns_by_table
 
 
 def build_database_preflight_report(
@@ -149,8 +403,16 @@ def build_database_preflight_report(
         connect_timeout=CONNECT_TIMEOUT,
         application_name=APPLICATION_NAME,
     ) as conn:
-        required_entries, required_missing = _inspect_group(conn, REQUIRED_TABLES)
-        bootstrap_entries, bootstrap_missing = _inspect_group(conn, BOOTSTRAP_TABLES)
+        required_entries, required_missing, required_missing_columns = _inspect_group(
+            conn,
+            REQUIRED_TABLES,
+            critical_columns_map=REQUIRED_CRITICAL_COLUMNS,
+        )
+        bootstrap_entries, bootstrap_missing, bootstrap_missing_columns = _inspect_group(
+            conn,
+            BOOTSTRAP_TABLES,
+            critical_columns_map=BOOTSTRAP_CRITICAL_COLUMNS,
+        )
 
     warnings: list[str] = []
     row_count_map = {entry["table"]: entry["row_count"] for entry in required_entries if entry["present"]}
@@ -165,18 +427,28 @@ def build_database_preflight_report(
         warnings.append(
             "Auth ve gecmis tablolarinin bir kismi eksik; v2 bootstrap bunlari acilista tamamlayabilir."
         )
+    for table_name, missing_columns in bootstrap_missing_columns.items():
+        warnings.append(
+            f"`{table_name}` tablosunda eksik kritik kolonlar var: {', '.join(missing_columns)}."
+        )
 
-    passed = not required_missing
     blocking_items = [f"`{table_name}` tablosu eksik." for table_name in required_missing]
+    blocking_items.extend(
+        [
+            f"`{table_name}` tablosunda eksik kritik kolonlar var: {', '.join(missing_columns)}."
+            for table_name, missing_columns in required_missing_columns.items()
+        ]
+    )
+    passed = not blocking_items
     summary = (
         "Veritabani omurgasi v2 pilotu icin hazir."
         if passed
-        else "Veritabani omurgasinda pilotu durduran eksikler var."
+        else "Veritabani omurgasinda pilotu durduran tablo veya kolon eksikleri var."
     )
     recommended_next_step = (
         "Ayni PostgreSQL ile pilot acilabilir; yine de deploy oncesi tam yedek al."
         if passed
-        else "Eksik tablolari tamamla veya dogru canli PostgreSQL baglantisini gir."
+        else "Eksik tablo/kolonlari tamamla veya dogru canli PostgreSQL baglantisini gir."
     )
 
     return {
@@ -186,6 +458,8 @@ def build_database_preflight_report(
         "database_url_masked": mask_database_url(validated_database_url),
         "required_tables": required_entries,
         "bootstrap_tables": bootstrap_entries,
+        "required_missing_columns": required_missing_columns,
+        "bootstrap_missing_columns": bootstrap_missing_columns,
         "blocking_items": blocking_items,
         "warnings": warnings,
     }
@@ -203,13 +477,21 @@ def render_report_text(report: dict[str, object]) -> str:
     ]
     for entry in report.get("required_tables") or []:
         item = entry if isinstance(entry, dict) else {}
-        status = "OK" if item.get("present") else "MISSING"
+        status = (
+            "OK"
+            if item.get("present") and not item.get("missing_columns")
+            else ("MISSING" if not item.get("present") else "SCHEMA")
+        )
         lines.append(f"- [{status}] {item.get('table')}: {item.get('detail')}")
 
     lines.extend(["", "Bootstrap Tables:"])
     for entry in report.get("bootstrap_tables") or []:
         item = entry if isinstance(entry, dict) else {}
-        status = "OK" if item.get("present") else "OPTIONAL"
+        status = (
+            "OK"
+            if item.get("present") and not item.get("missing_columns")
+            else ("OPTIONAL" if not item.get("present") else "WARN")
+        )
         lines.append(f"- [{status}] {item.get('table')}: {item.get('detail')}")
 
     lines.extend(["", "Blocking Items:"])
