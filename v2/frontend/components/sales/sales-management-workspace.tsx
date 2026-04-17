@@ -509,6 +509,44 @@ export function SalesManagementWorkspace() {
                   <span style={pill("accent")}>{selectedEntry.status}</span>
                   <span style={pill("muted")}>{selectedEntry.pricing_model_label}</span>
                 </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Talep</div>
+                    <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                      {selectedEntry.requested_courier_count} kurye
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Kaynak</div>
+                    <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                      {selectedEntry.lead_source || "Kaynak yok"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Telefon</div>
+                    <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                      {selectedEntry.contact_phone || "-"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Teklif</div>
+                    <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                      {formatCurrency(selectedEntry.proposed_quote)}
+                    </div>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Takip</div>
+                    <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                      {selectedEntry.next_follow_up_date || "Takip tarihi planlanmadı"}
+                    </div>
+                  </div>
+                </div>
               </>
             ) : (
               <div style={{ color: "var(--muted)" }}>Düzenlemek için soldan bir kayıt seç.</div>
