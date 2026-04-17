@@ -166,6 +166,18 @@ def test_overview_dashboard_route_smoke(monkeypatch):
     assert payload["modules"][0]["href"] == "/attendance"
 
 
+def test_root_route_guides_to_health_and_docs():
+    client = _build_app()
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["health"] == "/api/health"
+    assert payload["docs"] == "/docs"
+
+
 def test_attendance_routes_smoke(monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.attendance.build_attendance_dashboard",

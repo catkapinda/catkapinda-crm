@@ -31,6 +31,19 @@ def create_app(*, enable_bootstrap: bool = True) -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router, prefix=settings.api_prefix)
+
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        return {
+            "service": settings.app_name,
+            "status": "ok",
+            "message": "API çalışıyor. Sağlık için /api/health, dokümantasyon için /docs bağlantısını aç.",
+            "api_prefix": settings.api_prefix,
+            "health": f"{settings.api_prefix}/health",
+            "docs": "/docs",
+            "openapi": "/openapi.json",
+        }
+
     return app
 
 
