@@ -45,6 +45,7 @@ def build_guard_result(
     database_preflight_result: dict[str, object] | None = None
     database_preflight_passed = False
     database_preflight_mode_summary = "Atlandi"
+    future_cutover_blocking_items: list[str] = []
     if bool(env_validation.get("passed")):
         try:
             database_preflight_result = database_preflight_builder(database_url=database_url)
@@ -70,6 +71,10 @@ def build_guard_result(
             or database_preflight_result.get("summary")
             or "Veritabani preflight sonucu okunamadi."
         )
+        if mode == "pilot":
+            future_cutover_blocking_items = _dedupe_strings(
+                [str(item) for item in database_preflight_result.get("cutover_blocking_items") or []]
+            )
 
     database_preflight_blocking_items = (
         _dedupe_strings(
@@ -109,6 +114,11 @@ def build_guard_result(
                 if database_preflight_result and not database_preflight_passed
                 else ""
             ),
+            (
+                f"Pilot acilsa da cutover oncesi: {str((database_preflight_result or {}).get('cutover_recommended_next_step') or '').strip()}"
+                if mode == "pilot" and future_cutover_blocking_items
+                else ""
+            ),
         ]
     )
     passed = bool(gate_result.get("passed")) and bool(env_validation.get("passed")) and (
@@ -116,7 +126,11 @@ def build_guard_result(
     )
 
     if mode == "pilot":
-        summary = "Pilot deploy acilabilir." if passed else "Pilot deploy bloklu."
+        summary = (
+            "Pilot deploy acilabilir, ancak cutover icin kalan blokajlar var."
+            if passed and future_cutover_blocking_items
+            else ("Pilot deploy acilabilir." if passed else "Pilot deploy bloklu.")
+        )
     else:
         summary = "Cutover deploy acilabilir." if passed else "Cutover deploy bloklu."
 
@@ -133,6 +147,7 @@ def build_guard_result(
         "gate_result": gate_result,
         "env_validation": env_validation,
         "database_preflight": database_preflight_result,
+        "future_cutover_blocking_items": future_cutover_blocking_items,
         "blocking_items": blocking_items,
         "recommended_next_step": " / ".join(recommended_steps) if recommended_steps else "-",
     }
@@ -161,6 +176,9 @@ def render_text(result: dict) -> str:
         lines.extend([f"- {item}" for item in result["blocking_items"]])
     else:
         lines.append("Blocking Items: none")
+    if result.get("future_cutover_blocking_items"):
+        lines.append("Future Cutover Blocking Items:")
+        lines.extend([f"- {item}" for item in result["future_cutover_blocking_items"]])
     return "\n".join(lines) + "\n"
 
 

@@ -1125,6 +1125,37 @@ def test_pilot_deploy_guard_blocks_when_database_preflight_fails():
     assert "Dogru PostgreSQL baglantisini gir." in result["recommended_next_step"]
 
 
+def test_pilot_deploy_guard_surfaces_future_cutover_blockers_without_blocking_pilot():
+    result = pilot_deploy_guard.build_guard_result(
+        base_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        mode="pilot",
+        payload=sample_payload(),
+        database_url="postgresql://pilot:secret@db.example.com/catkapinda?sslmode=require",
+        default_auth_password="GucluPilotSifre!2026",
+        database_preflight_builder=lambda database_url: {
+            "passed": True,
+            "cutover_ready": False,
+            "summary": "Veritabani omurgasi v2 pilotu icin hazir.",
+            "blocking_items": [],
+            "cutover_blocking_items": [
+                "Aktif restoran kartlarinda bos marka/sube alanlari var.",
+            ],
+            "recommended_next_step": "Yedek al.",
+            "cutover_recommended_next_step": "Canli domaine gecmeden once veri kalite sorunlarini temizle.",
+        },
+    )
+
+    assert result["passed"] is True
+    assert result["database_preflight_passed"] is True
+    assert result["blocking_items"] == []
+    assert result["future_cutover_blocking_items"] == [
+        "Aktif restoran kartlarinda bos marka/sube alanlari var."
+    ]
+    assert result["summary"] == "Pilot deploy acilabilir, ancak cutover icin kalan blokajlar var."
+    assert "veri kalite sorunlarini temizle" in result["recommended_next_step"]
+
+
 def test_cutover_deploy_guard_requires_database_cutover_readiness():
     result = pilot_deploy_guard.build_guard_result(
         base_url="https://pilot.example.com",
