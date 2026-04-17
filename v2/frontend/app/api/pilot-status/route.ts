@@ -3,7 +3,7 @@ import path from "node:path";
 
 export const runtime = "nodejs";
 
-const DEFAULT_TIMEOUT_MS = 4000;
+const DEFAULT_TIMEOUT_MS = 12000;
 const LOCAL_SETUP_DETAIL_KEYS = [
   "frontend_env_needs_sync",
   "suggested_frontend_url",
