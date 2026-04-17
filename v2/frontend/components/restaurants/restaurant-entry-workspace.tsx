@@ -76,7 +76,7 @@ export function RestaurantEntryWorkspace() {
       try {
         const response = await apiFetch("/restaurants/form-options");
         if (!response.ok) {
-          throw new Error("Restoran form secenekleri yuklenemedi.");
+          throw new Error("Restoran form seçenekleri yüklenemedi.");
         }
         const payload = (await response.json()) as RestaurantsFormOptions;
         setOptions(payload);
@@ -84,7 +84,7 @@ export function RestaurantEntryWorkspace() {
         setStatus(payload.status_options[0] ?? "Aktif");
       } catch (error) {
         setSubmitError(
-          error instanceof Error ? error.message : "Restoran form secenekleri yuklenemedi.",
+          error instanceof Error ? error.message : "Restoran form seçenekleri yüklenemedi.",
         );
       } finally {
         setLoadingOptions(false);
@@ -178,7 +178,7 @@ export function RestaurantEntryWorkspace() {
       <div>
         <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Restoran Kaydı</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Marka, fiyat modeli ve vergi bilgilerini yeni shell içinde daha hızlı kaydet.
+          Marka, fiyat modeli ve vergi bilgilerini aynı çalışma yüzeyinde daha hızlı kaydet.
         </p>
       </div>
 
@@ -191,7 +191,7 @@ export function RestaurantEntryWorkspace() {
             color: "var(--muted)",
           }}
         >
-          Restoran form secenekleri yükleniyor...
+          Restoran form seçenekleri yükleniyor...
         </div>
       ) : (
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: "16px" }}>
@@ -257,7 +257,7 @@ export function RestaurantEntryWorkspace() {
                   <input value={vatRate} onChange={(event) => setVatRate(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Baslangic Tarihi</span>
+                  <span style={{ fontWeight: 700 }}>Başlangıç Tarihi</span>
                   <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
@@ -276,7 +276,7 @@ export function RestaurantEntryWorkspace() {
                 {pricingModel === "hourly_plus_package" && (
                   <>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Saatlik Ucret</span>
+                      <span style={{ fontWeight: 700 }}>Saatlik Ücret</span>
                       <input value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} style={fieldStyle} />
                     </label>
                     <label style={{ display: "grid", gap: "8px" }}>
@@ -289,11 +289,11 @@ export function RestaurantEntryWorkspace() {
                 {pricingModel === "threshold_package" && (
                   <>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Saatlik Ucret</span>
+                      <span style={{ fontWeight: 700 }}>Saatlik Ücret</span>
                       <input value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} style={fieldStyle} />
                     </label>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Paket Esigi</span>
+                      <span style={{ fontWeight: 700 }}>Paket Eşiği</span>
                       <input
                         value={packageThreshold}
                         onChange={(event) => setPackageThreshold(event.target.value)}
@@ -301,7 +301,7 @@ export function RestaurantEntryWorkspace() {
                       />
                     </label>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Esik Alti Prim</span>
+                      <span style={{ fontWeight: 700 }}>Eşik Altı Prim</span>
                       <input
                         value={packageRateLow}
                         onChange={(event) => setPackageRateLow(event.target.value)}
@@ -309,7 +309,7 @@ export function RestaurantEntryWorkspace() {
                       />
                     </label>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Esik Ustu Prim</span>
+                      <span style={{ fontWeight: 700 }}>Eşik Üstü Prim</span>
                       <input
                         value={packageRateHigh}
                         onChange={(event) => setPackageRateHigh(event.target.value)}
@@ -321,14 +321,14 @@ export function RestaurantEntryWorkspace() {
 
                 {pricingModel === "hourly_only" && (
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Saatlik Ucret</span>
+                    <span style={{ fontWeight: 700 }}>Saatlik Ücret</span>
                     <input value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} style={fieldStyle} />
                   </label>
                 )}
 
                 {pricingModel === "fixed_monthly" && (
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Sabit Aylık Ucret</span>
+                    <span style={{ fontWeight: 700 }}>Sabit Aylık Ücret</span>
                     <input
                       value={fixedMonthlyFee}
                       onChange={(event) => setFixedMonthlyFee(event.target.value)}
@@ -366,7 +366,7 @@ export function RestaurantEntryWorkspace() {
                   <input value={taxOffice} onChange={(event) => setTaxOffice(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Vergi Numarasi</span>
+                  <span style={{ fontWeight: 700 }}>Vergi Numarası</span>
                   <input value={taxNumber} onChange={(event) => setTaxNumber(event.target.value)} style={fieldStyle} />
                 </label>
               </div>
@@ -389,7 +389,7 @@ export function RestaurantEntryWorkspace() {
                 }}
               >
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Ek Kurye Talep Sayisi</span>
+                  <span style={{ fontWeight: 700 }}>Ek Kurye Talep Sayısı</span>
                   <input
                     value={extraHeadcountRequest}
                     onChange={(event) => setExtraHeadcountRequest(event.target.value)}
@@ -406,7 +406,7 @@ export function RestaurantEntryWorkspace() {
                   />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Kurye Azaltma Sayisi</span>
+                  <span style={{ fontWeight: 700 }}>Kurye Azaltma Sayısı</span>
                   <input
                     value={reduceHeadcountRequest}
                     onChange={(event) => setReduceHeadcountRequest(event.target.value)}
@@ -448,7 +448,7 @@ export function RestaurantEntryWorkspace() {
                   cursor: "pointer",
                 }}
               >
-                {isPending ? "Kaydediliyor..." : "Restoran Kaydini Oluştur"}
+                {isPending ? "Kaydediliyor..." : "Restoran Kaydını Oluştur"}
               </button>
             </div>
 
@@ -462,7 +462,7 @@ export function RestaurantEntryWorkspace() {
                 background: "rgba(244, 248, 255, 0.9)",
               }}
             >
-              <h3 style={{ margin: 0, fontSize: "1rem" }}>Kayıt Ozeti</h3>
+              <h3 style={{ margin: 0, fontSize: "1rem" }}>Kayıt Özeti</h3>
               <SummaryItem label="Şube" value={brand && branch ? `${brand} - ${branch}` : "-"} />
               <SummaryItem label="Model" value={pricingLabel} />
               <SummaryItem label="Durum" value={status} />

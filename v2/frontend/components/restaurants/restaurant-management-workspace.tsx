@@ -117,7 +117,7 @@ export function RestaurantManagementWorkspace() {
   async function loadOptions() {
     const response = await apiFetch("/restaurants/form-options");
     if (!response.ok) {
-      throw new Error("Restoran referans verileri yuklenemedi.");
+      throw new Error("Restoran referans verileri yüklenemedi.");
     }
     const payload = (await response.json()) as RestaurantsFormOptions;
     setOptions(payload);
@@ -140,7 +140,7 @@ export function RestaurantManagementWorkspace() {
       }
       const response = await apiFetch(`/restaurants/records?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Restoran listesi yuklenemedi.");
+        throw new Error("Restoran listesi yüklenemedi.");
       }
       const payload = (await response.json()) as RestaurantsManagementResponse;
       setEntries(payload.entries);
@@ -155,7 +155,7 @@ export function RestaurantManagementWorkspace() {
         return payload.entries[0].id;
       });
     } catch (error) {
-      setListError(error instanceof Error ? error.message : "Restoran listesi yuklenemedi.");
+      setListError(error instanceof Error ? error.message : "Restoran listesi yüklenemedi.");
       setEntries([]);
       setTotalEntries(0);
       setSelectedEntryId(null);
@@ -171,7 +171,7 @@ export function RestaurantManagementWorkspace() {
     try {
       const response = await apiFetch(`/restaurants/records/${entryId}`);
       if (!response.ok) {
-        throw new Error("Restoran detayi yuklenemedi.");
+        throw new Error("Restoran detayı yüklenemedi.");
       }
       const payload = (await response.json()) as RestaurantDetailResponse;
       const entry = payload.entry;
@@ -202,7 +202,7 @@ export function RestaurantManagementWorkspace() {
       setEditTaxNumber(entry.tax_number ?? "");
       setEditNotes(entry.notes ?? "");
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Restoran detayi yuklenemedi.");
+      setSaveError(error instanceof Error ? error.message : "Restoran detayı yüklenemedi.");
     } finally {
       setDetailLoading(false);
     }
@@ -239,7 +239,7 @@ export function RestaurantManagementWorkspace() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedEntryId) {
-      setSaveError("Duzenlenecek restoran seç.");
+      setSaveError("Düzenlenecek restoran seç.");
       return;
     }
 
@@ -360,9 +360,9 @@ export function RestaurantManagementWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Restoran Kayıt Yonetimi</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Restoran Kayıt Yönetimi</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Şube kartlarini filtrele, seç, güncelle, pasife al veya kalıcı olarak sil.
+          Şube kartlarını filtrele, seç, güncelle, pasife al veya kalıcı olarak sil.
         </p>
       </div>
 
@@ -589,26 +589,26 @@ export function RestaurantManagementWorkspace() {
               >
                 {editPricingModel === "hourly_plus_package" && (
                   <>
-                    <input value={editHourlyRate} onChange={(event) => setEditHourlyRate(event.target.value)} placeholder="Saatlik Ucret" style={fieldStyle} />
+                    <input value={editHourlyRate} onChange={(event) => setEditHourlyRate(event.target.value)} placeholder="Saatlik Ücret" style={fieldStyle} />
                     <input value={editPackageRate} onChange={(event) => setEditPackageRate(event.target.value)} placeholder="Paket Primi" style={fieldStyle} />
                   </>
                 )}
 
                 {editPricingModel === "threshold_package" && (
                   <>
-                    <input value={editHourlyRate} onChange={(event) => setEditHourlyRate(event.target.value)} placeholder="Saatlik Ucret" style={fieldStyle} />
-                    <input value={editPackageThreshold} onChange={(event) => setEditPackageThreshold(event.target.value)} placeholder="Paket Esigi" style={fieldStyle} />
-                    <input value={editPackageRateLow} onChange={(event) => setEditPackageRateLow(event.target.value)} placeholder="Esik Alti Prim" style={fieldStyle} />
-                    <input value={editPackageRateHigh} onChange={(event) => setEditPackageRateHigh(event.target.value)} placeholder="Esik Ustu Prim" style={fieldStyle} />
+                    <input value={editHourlyRate} onChange={(event) => setEditHourlyRate(event.target.value)} placeholder="Saatlik Ücret" style={fieldStyle} />
+                    <input value={editPackageThreshold} onChange={(event) => setEditPackageThreshold(event.target.value)} placeholder="Paket Eşiği" style={fieldStyle} />
+                    <input value={editPackageRateLow} onChange={(event) => setEditPackageRateLow(event.target.value)} placeholder="Eşik Altı Prim" style={fieldStyle} />
+                    <input value={editPackageRateHigh} onChange={(event) => setEditPackageRateHigh(event.target.value)} placeholder="Eşik Üstü Prim" style={fieldStyle} />
                   </>
                 )}
 
                 {editPricingModel === "hourly_only" && (
-                  <input value={editHourlyRate} onChange={(event) => setEditHourlyRate(event.target.value)} placeholder="Saatlik Ucret" style={fieldStyle} />
+                  <input value={editHourlyRate} onChange={(event) => setEditHourlyRate(event.target.value)} placeholder="Saatlik Ücret" style={fieldStyle} />
                 )}
 
                 {editPricingModel === "fixed_monthly" && (
-                  <input value={editFixedMonthlyFee} onChange={(event) => setEditFixedMonthlyFee(event.target.value)} placeholder="Sabit Aylık Ucret" style={fieldStyle} />
+                  <input value={editFixedMonthlyFee} onChange={(event) => setEditFixedMonthlyFee(event.target.value)} placeholder="Sabit Aylık Ücret" style={fieldStyle} />
                 )}
               </div>
 
@@ -624,7 +624,7 @@ export function RestaurantManagementWorkspace() {
                 <input value={editContactEmail} onChange={(event) => setEditContactEmail(event.target.value)} placeholder="Yetkili E-posta" style={fieldStyle} />
                 <input value={editCompanyTitle} onChange={(event) => setEditCompanyTitle(event.target.value)} placeholder="Unvan" style={fieldStyle} />
                 <input value={editTaxOffice} onChange={(event) => setEditTaxOffice(event.target.value)} placeholder="Vergi Dairesi" style={fieldStyle} />
-                <input value={editTaxNumber} onChange={(event) => setEditTaxNumber(event.target.value)} placeholder="Vergi Numarasi" style={fieldStyle} />
+                <input value={editTaxNumber} onChange={(event) => setEditTaxNumber(event.target.value)} placeholder="Vergi Numarası" style={fieldStyle} />
               </div>
 
               <textarea
@@ -686,7 +686,7 @@ export function RestaurantManagementWorkspace() {
                   {isPending ? "Kaydediliyor..." : "Güncelle"}
                 </button>
                 <button type="button" onClick={handleToggleStatus} style={actionButton("soft")}>
-                  {selectedEntry.active ? "Pasife Al" : "Aktiflestir"}
+                  {selectedEntry.active ? "Pasife Al" : "Aktifleştir"}
                 </button>
                 <button type="button" onClick={handleDelete} style={actionButton("danger")}>
                   Kalıcı Sil

@@ -181,6 +181,75 @@ function narrativeCard({
   );
 }
 
+function workspaceCard({
+  eyebrow,
+  title,
+  body,
+  href,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  href: string;
+}) {
+  return (
+    <a
+      href={href}
+      style={{
+        display: "grid",
+        gap: "10px",
+        padding: "18px",
+        borderRadius: "22px",
+        border: "1px solid var(--line)",
+        background: "rgba(255,255,255,0.86)",
+        boxShadow: "var(--shadow-soft)",
+        color: "inherit",
+        textDecoration: "none",
+      }}
+    >
+      <div
+        style={{
+          color: "var(--accent-strong)",
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifStyle,
+          fontSize: "1.28rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: "var(--muted)",
+          fontSize: "0.92rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
+      </div>
+      <div
+        style={{
+          fontSize: "0.82rem",
+          fontWeight: 800,
+          color: "#0f5fd7",
+        }}
+      >
+        Çalışma alanını aç
+      </div>
+    </a>
+  );
+}
+
 export default function RestaurantsPage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<RestaurantsDashboard | null>(null);
@@ -245,34 +314,58 @@ export default function RestaurantsPage() {
 
     return [
       {
-        eyebrow: "Şube Nabzi",
+        eyebrow: "Şube Nabzı",
         title:
           activeRatio >= 80
             ? "Aktif şube dengesi güçlü görünüyor."
             : activeRatio >= 60
               ? "Aktif şube dengesi korunuyor."
               : "Aktif şube dengesi dikkat istiyor.",
-        body: `${dashboard.summary.total_restaurants} şubenin %${activeRatio.toFixed(1)} aktif. Bu oran operasyonun ne kadar canlı ve yaygın oldugunu hızlı okumayi saglar.`,
+        body: `${dashboard.summary.total_restaurants} şubenin %${activeRatio.toFixed(1)} aktif. Bu oran operasyonun ne kadar canlı ve yaygın olduğunu hızlı okumayı sağlar.`,
         tone: activeRatio >= 80 ? "ink" : "accent",
       },
       {
         eyebrow: "En Sıcak Şube",
         title: topRestaurant ? `${topRestaurant.brand} / ${topRestaurant.branch}` : "Şube sinyali henüz yok.",
         body: topRestaurant
-          ? `${topRestaurant.pricing_model_label} modeliyle ${pricingSummary(topRestaurant)} yapisinda çalışıyor. Hedef kadro ${topRestaurant.target_headcount} ve kontak ${topRestaurant.contact_name}.`
-          : "Yeni restoran kayıtları geldikçe burada dikkat isteyen şube yapisini öne çıkaracağız.",
+          ? `${topRestaurant.pricing_model_label} modeliyle ${pricingSummary(topRestaurant)} yapısında çalışıyor. Hedef kadro ${topRestaurant.target_headcount} ve kontak ${topRestaurant.contact_name}.`
+          : "Yeni restoran kayıtları geldikçe burada dikkat isteyen şube yapısını öne çıkaracağız.",
         tone: "paper",
       },
       {
-        eyebrow: passivePressure ? "Portföy Baskisi" : "Portföy Yapisi",
+        eyebrow: passivePressure ? "Portföy Baskısı" : "Portföy Yapısı",
         title: passivePressure ? "Pasif şube yükselişi izlenmeli." : "Sabit aylık çekirdek olgun görünüyor.",
         body: passivePressure
-          ? `${dashboard.summary.passive_restaurants} pasif şube bulunuyor. Portfoyde kapanan veya bekleyen şubeleri ayiklamak satış ve operasyon gecisini daha temiz yapar.`
+          ? `${dashboard.summary.passive_restaurants} pasif şube bulunuyor. Portföyde kapanan veya bekleyen şubeleri ayıklamak satış ve operasyon geçişini daha temiz yapar.`
           : `${dashboard.summary.fixed_monthly_restaurants} şube sabit aylık modelde. Bu, portföyün %${fixedMonthlyRatio.toFixed(1)} kadarının daha öngörülebilir gelir modeliyle çalıştığını gösteriyor.`,
         tone: passivePressure ? "accent" : "paper",
       },
     ] as const;
   }, [dashboard]);
+
+  const workflowDeck = useMemo(
+    () => [
+      {
+        eyebrow: "İlk Adım",
+        title: "Yeni şube kartını aç",
+        body: "Marka, fiyat modeli, kadro ve vergi alanlarını aynı kartta kurarak yeni restoranı kaydet.",
+        href: "#restaurant-entry-workspace",
+      },
+      {
+        eyebrow: "İkinci Adım",
+        title: "Portföy havuzunu süz",
+        body: "Marka, şube ve fiyat modeli üzerinden kayıtları daralt; dikkat isteyen kartı hızlıca bul.",
+        href: "#restaurant-management-workspace",
+      },
+      {
+        eyebrow: "Üçüncü Adım",
+        title: "Seçili kartı güncelle",
+        body: "Kadro, fiyat, iletişim ve durum alanlarını aynı panelde yenile; gerekirse pasife al.",
+        href: "#restaurant-management-workspace",
+      },
+    ],
+    [],
+  );
 
   return (
     <AppShell activeItem="Restoranlar">
@@ -323,7 +416,7 @@ export default function RestaurantsPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Şube Akisi
+                Şube Akışı
               </div>
               <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
                 <h1
@@ -368,8 +461,8 @@ export default function RestaurantsPage() {
                     fontSize: "0.82rem",
                     fontWeight: 800,
                   }}
-                >
-                  Portföy nabzi açık
+                  >
+                  Portföy nabzı açık
                 </span>
                 <span
                   style={{
@@ -423,7 +516,7 @@ export default function RestaurantsPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Portföy Nabzi
+                      Portföy Nabzı
                     </div>
                     <div
                       style={{
@@ -447,7 +540,7 @@ export default function RestaurantsPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Portfolio Room
+                    Portföy Masası
                   </div>
                 </div>
                 <div
@@ -533,12 +626,45 @@ export default function RestaurantsPage() {
                   }}
                 >
                   Bu ekranda önce aktif-pasif dengeye, sonra fiyat modeline ve son olarak
-                  dikkat isteyen şube kartlarina bakmak en sağlıklı portföy okumasini verir.
+                  dikkat isteyen şube kartlarına bakmak en sağlıklı portföy okumasını verir.
                 </div>
               </article>
             </div>
           </div>
         </div>
+
+        <section
+          style={{
+            padding: "20px",
+            borderRadius: "24px",
+            border: "1px solid var(--line)",
+            background: "var(--surface-strong)",
+            boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+            display: "grid",
+            gap: "14px",
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Çalışma Sırası</h2>
+            <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
+              Eski restoran akışındaki yeni kart, portföy havuzu ve kart güncelleme düzenini aynı
+              sayfada görünür kılıyoruz.
+            </p>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "14px",
+            }}
+          >
+            {workflowDeck.map((item) => (
+              <div key={item.title}>
+                {workspaceCard(item)}
+              </div>
+            ))}
+          </div>
+        </section>
 
         {dashboardLoading ? (
           <div
@@ -563,7 +689,7 @@ export default function RestaurantsPage() {
               lineHeight: 1.7,
             }}
           >
-            Restoran servisine su anda erisilemiyor. Backend hazır oldugunda bu ekran
+            Restoran servisine şu anda erişilemiyor. Arka uç hazır olduğunda bu ekran
             restoran özetini ve yönetim kayıtlarını gerçek veriden gösterecek.
           </div>
         ) : (
@@ -616,7 +742,7 @@ export default function RestaurantsPage() {
                 <div>
                   <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Son Şube Sinyalleri</h2>
                   <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
-                    Portfoyde hangi şubenin dikkat ve aksiyon istedigini hızlandıran son kartlar.
+                    Portföyde hangi şubenin dikkat ve aksiyon istediğini hızlandıran son kartlar.
                   </p>
                 </div>
                 <span
@@ -763,8 +889,12 @@ export default function RestaurantsPage() {
               </div>
             </section>
 
-            <RestaurantEntryWorkspace />
-            <RestaurantManagementWorkspace />
+            <section id="restaurant-entry-workspace" style={{ scrollMarginTop: "110px" }}>
+              <RestaurantEntryWorkspace />
+            </section>
+            <section id="restaurant-management-workspace" style={{ scrollMarginTop: "110px" }}>
+              <RestaurantManagementWorkspace />
+            </section>
           </>
         )}
       </section>
