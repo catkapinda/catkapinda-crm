@@ -1409,6 +1409,59 @@ def test_day_zero_bundle_normalizes_output_dir_before_manifest(monkeypatch, tmp_
     assert pilot_day_zero_verify.verify_day_zero_bundle(alias_output_dir)["passed"] is True
 
 
+def test_day_zero_bundle_surfaces_future_cutover_blockers_in_packets(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+    monkeypatch.setattr(
+        pilot_day_zero,
+        "build_database_preflight_report",
+        lambda database_url: {
+            "passed": True,
+            "cutover_ready": False,
+            "summary": "Veritabani omurgasi v2 pilotu icin hazir.",
+            "blocking_items": [],
+            "cutover_blocking_items": [
+                "Aktif restoran kartlarinda bos marka/sube alanlari var.",
+                "En az bir aktif admin hesabi olmadan cutover yapma.",
+            ],
+            "recommended_next_step": "Pilot oncesi yedek al.",
+            "cutover_recommended_next_step": "Canli domaine gecmeden once veri ve auth blokajlarini temizle.",
+        },
+    )
+
+    manifest = pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    launch_packet = (tmp_path / "pilot-launch.md").read_text(encoding="utf-8")
+    start_here = (tmp_path / "00-START-HERE.md").read_text(encoding="utf-8")
+
+    assert "## Pilot Sonrasi Cutover Icin Kalanlar" in launch_packet
+    assert "Aktif restoran kartlarinda bos marka/sube alanlari var." in launch_packet
+    assert "Canli domaine gecmeden once veri ve auth blokajlarini temizle." in launch_packet
+    assert "## Cutover Icin Kalanlar" in start_here
+    assert "En az bir aktif admin hesabi olmadan cutover yapma." in start_here
+    assert manifest["future_cutover_blocking_items"] == [
+        "Aktif restoran kartlarinda bos marka/sube alanlari var.",
+        "En az bir aktif admin hesabi olmadan cutover yapma.",
+    ]
+    assert (
+        manifest["database_preflight_cutover_recommended_next_step"]
+        == "Canli domaine gecmeden once veri ve auth blokajlarini temizle."
+    )
+
+
 def test_day_zero_verify_accepts_alias_manifest_paths(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
     monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())

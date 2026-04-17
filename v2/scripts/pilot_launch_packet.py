@@ -20,6 +20,8 @@ def build_packet(
     api_service_name: str,
     frontend_service_name: str,
     streamlit_service_name: str,
+    future_cutover_blocking_items: list[str] | None = None,
+    cutover_next_step: str | None = None,
 ) -> str:
     env_bundle = build_bundle(
         frontend_url=frontend_url,
@@ -79,6 +81,22 @@ def build_packet(
         "",
         "Bu komut gerçek PostgreSQL üzerinde temel operasyon tablolarının yerinde olup olmadığını salt-okunur doğrular.",
         "",
+    ]
+    if future_cutover_blocking_items:
+        lines.extend(
+            [
+                "## Pilot Sonrasi Cutover Icin Kalanlar",
+                "",
+                "Pilot açılabilir olsa bile aşağıdaki maddeler `crmcatkapinda.com` geçişini durdurur:",
+                "",
+                *[f"- {item}" for item in future_cutover_blocking_items],
+                "",
+                f"Sonraki Adim: {cutover_next_step or 'Cutover oncesi kalan veri ve auth blokajlarini temizle.'}",
+                "",
+            ]
+        )
+    lines.extend(
+        [
         "## Hazır Env Blokları",
         "",
         "```dotenv",
@@ -124,6 +142,7 @@ def build_packet(
         f"7. Streamlit tarafında `{cutover_mode}` modunu hazırlayıp ofis geçişini başlat.",
         "",
     ]
+    )
     return "\n".join(lines)
 
 

@@ -79,6 +79,8 @@ def _build_start_here_markdown(
     verify_next_step: str | None = None,
     smoke_overall_ok: bool | None = None,
     smoke_next_step: str | None = None,
+    future_cutover_blocking_items: list[str] | None = None,
+    cutover_next_step: str | None = None,
 ) -> str:
     lines = [
         "# Cat Kapinda CRM v2 Day Zero - Start Here",
@@ -172,6 +174,19 @@ def _build_start_here_markdown(
                 "## Smoke Sonrasi Sonraki Adim",
                 "",
                 smoke_next_step,
+                "",
+            ]
+        )
+    if future_cutover_blocking_items:
+        lines.extend(
+            [
+                "## Cutover Icin Kalanlar",
+                "",
+                "Pilot acilabilir olsa bile su maddeler canli domain gecisini durdurur:",
+                "",
+                *[f"- {item}" for item in future_cutover_blocking_items],
+                "",
+                cutover_next_step or "Cutover oncesi kalan veri ve auth blokajlarini temizle.",
                 "",
             ]
         )
@@ -307,6 +322,16 @@ def build_day_zero_bundle(
             "warnings": [],
             "recommended_next_step": "Veritabani baglantisini ve tablo omurgasini tekrar kontrol et.",
         }
+    future_cutover_blocking_items = [
+        str(item)
+        for item in database_preflight.get("cutover_blocking_items") or []
+        if str(item or "").strip()
+    ]
+    cutover_next_step = str(
+        database_preflight.get("cutover_recommended_next_step")
+        or database_preflight.get("recommended_next_step")
+        or ""
+    ).strip()
     (output_dir / "database-preflight.json").write_text(
         json.dumps(database_preflight, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -387,6 +412,8 @@ def build_day_zero_bundle(
         api_service_name=api_service_name,
         frontend_service_name=frontend_service_name,
         streamlit_service_name=streamlit_service_name,
+        future_cutover_blocking_items=future_cutover_blocking_items,
+        cutover_next_step=cutover_next_step,
     )
     (output_dir / "pilot-launch.md").write_text(pilot_launch_packet, encoding="utf-8")
 
@@ -402,6 +429,8 @@ def build_day_zero_bundle(
         api_service_name=api_service_name,
         frontend_service_name=frontend_service_name,
         streamlit_service_name=streamlit_service_name,
+        future_cutover_blocking_items=future_cutover_blocking_items,
+        cutover_next_step=cutover_next_step,
     )
     (output_dir / "pilot-cutover.md").write_text(pilot_cutover_packet, encoding="utf-8")
 
@@ -436,6 +465,9 @@ def build_day_zero_bundle(
         "redirect_guard_allowed": cutover_guard["allowed"],
         "database_preflight_passed": database_preflight["passed"],
         "database_preflight_recommended_next_step": database_preflight["recommended_next_step"],
+        "database_preflight_cutover_ready": database_preflight.get("cutover_ready"),
+        "database_preflight_cutover_recommended_next_step": cutover_next_step,
+        "future_cutover_blocking_items": future_cutover_blocking_items,
         "smoke_included": include_smoke,
         "files": {
             "render_env_bundle_env": str(output_dir / "render-env-bundle.env"),
@@ -472,6 +504,8 @@ def build_day_zero_bundle(
             release_snapshot=manifest["release_snapshot"],
             database_preflight_passed=database_preflight["passed"],
             database_preflight_next_step=database_preflight["recommended_next_step"],
+            future_cutover_blocking_items=future_cutover_blocking_items,
+            cutover_next_step=cutover_next_step,
         ),
         encoding="utf-8",
     )
@@ -513,6 +547,8 @@ def build_day_zero_bundle(
             verify_next_step=initial_verify_result["recommended_next_step"],
             smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,
             smoke_next_step=smoke_report["decision"]["recommended_next_step"] if smoke_report else None,
+            future_cutover_blocking_items=future_cutover_blocking_items,
+            cutover_next_step=cutover_next_step,
         ),
         encoding="utf-8",
     )
@@ -558,6 +594,8 @@ def build_day_zero_bundle(
             verify_next_step=final_verify_result["recommended_next_step"],
             smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,
             smoke_next_step=smoke_report["decision"]["recommended_next_step"] if smoke_report else None,
+            future_cutover_blocking_items=future_cutover_blocking_items,
+            cutover_next_step=cutover_next_step,
         ),
         encoding="utf-8",
     )
