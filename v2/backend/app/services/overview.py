@@ -536,9 +536,9 @@ def build_overview_dashboard(
             OverviewModuleCard(
                 key="attendance",
                 title="Puantaj",
-                description="Gunluk operasyon kayitlari, vardiya akislari ve saha girisleri.",
+                description="Günlük operasyon kayıtları, vardiya akışları ve saha girişleri.",
                 href="/attendance",
-                primary_label="Bugun",
+                primary_label="Bugün",
                 primary_value=str(attendance_dashboard.summary.today_entries),
                 secondary_label="Bu Ay",
                 secondary_value=str(attendance_dashboard.summary.month_entries),
@@ -546,7 +546,7 @@ def build_overview_dashboard(
             OverviewModuleCard(
                 key="personnel",
                 title="Personel",
-                description="Aktif kadro, roller ve saha atamalari tek yerde yonetilir.",
+                description="Aktif kadro, roller ve saha atamaları tek yerde yönetilir.",
                 href="/personnel",
                 primary_label="Aktif",
                 primary_value=str(personnel_dashboard.summary.active_personnel),
@@ -556,7 +556,7 @@ def build_overview_dashboard(
             OverviewModuleCard(
                 key="deductions",
                 title="Kesintiler",
-                description="Manual ve otomatik kesinti akislari, bordro etkisiyle birlikte izlenir.",
+                description="Manuel ve otomatik kesinti akışları, bordro etkisiyle birlikte izlenir.",
                 href="/deductions",
                 primary_label="Bu Ay",
                 primary_value=str(deductions_dashboard.summary.this_month_entries),
@@ -566,11 +566,11 @@ def build_overview_dashboard(
             OverviewModuleCard(
                 key="restaurants",
                 title="Restoranlar",
-                description="Sube, fiyat modeli ve hedef kadro yapisi merkezi olarak takip edilir.",
+                description="Şube, fiyat modeli ve hedef kadro yapısı merkezi olarak takip edilir.",
                 href="/restaurants",
                 primary_label="Aktif",
                 primary_value=str(restaurants_dashboard.summary.active_restaurants),
-                secondary_label="Sabit Aylik",
+                secondary_label="Sabit Aylık",
                 secondary_value=str(restaurants_dashboard.summary.fixed_monthly_restaurants),
             ),
         ],

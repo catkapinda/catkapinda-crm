@@ -129,11 +129,11 @@ def test_overview_dashboard_route_smoke(monkeypatch):
                 {
                     "key": "attendance",
                     "title": "Puantaj",
-                    "description": "Gunluk vardiya ve saat takibi",
+                    "description": "Günlük vardiya ve saat takibi",
                     "href": "/attendance",
                     "primary_label": "Bu Ay",
                     "primary_value": "640",
-                    "secondary_label": "Bugun",
+                    "secondary_label": "Bugün",
                     "secondary_value": "18",
                 }
             ],
@@ -141,8 +141,8 @@ def test_overview_dashboard_route_smoke(monkeypatch):
                 {
                     "module_key": "attendance",
                     "module_label": "Puantaj",
-                    "title": "Burger@ - Kavacik",
-                    "subtitle": "Beytullah Belen vardiyasi kaydedildi",
+                    "title": "Burger@ - Kavacık",
+                    "subtitle": "Beytullah Belen vardiyası kaydedildi",
                     "meta": "6 saat • 10 paket",
                     "entry_date": "2026-04-11",
                     "href": "/attendance",
@@ -164,6 +164,9 @@ def test_overview_dashboard_route_smoke(monkeypatch):
     assert payload["operations"]["joker_restaurants"][0]["joker_count"] == 2
     assert payload["operations"]["shared_operation_total"] == 14000.0
     assert payload["modules"][0]["href"] == "/attendance"
+    assert payload["modules"][0]["description"] == "Günlük vardiya ve saat takibi"
+    assert payload["modules"][0]["secondary_label"] == "Bugün"
+    assert payload["recent_activity"][0]["title"] == "Burger@ - Kavacık"
 
 
 def test_root_route_guides_to_health_and_docs():
