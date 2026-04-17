@@ -33,6 +33,18 @@ type AnnouncementsDashboard = {
   footer_note: string;
 };
 
+type PartialAnnouncementsDashboard = Partial<
+  Omit<AnnouncementsDashboard, "metrics" | "snapshots" | "checklist_items">
+> & {
+  metrics?: Array<Partial<AnnouncementsDashboard["metrics"][number]>>;
+  snapshots?: Array<
+    Partial<Omit<AnnouncementsDashboard["snapshots"][number], "items">> & {
+      items?: Array<Partial<AnnouncementsDashboard["snapshots"][number]["items"][number]>>;
+    }
+  >;
+  checklist_items?: Array<Partial<AnnouncementsDashboard["checklist_items"][number]>>;
+};
+
 const serifTitleStyle = {
   fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
   letterSpacing: "-0.04em",
@@ -44,6 +56,51 @@ const paperCardStyle = {
   background: "var(--surface-raised)",
   boxShadow: "var(--shadow-soft)",
 } as const;
+
+function normalizeAnnouncementsDashboard(
+  payload: PartialAnnouncementsDashboard | null | undefined,
+): AnnouncementsDashboard {
+  return {
+    module: payload?.module || "announcements",
+    status: payload?.status || "active",
+    kicker: payload?.kicker || "Güncellemeler ve Duyurular",
+    title: payload?.title || "Sistemdeki son iyileştirmeler ve takip notları",
+    description:
+      payload?.description ||
+      "Operasyon ekibinin son yayınlanan geliştirmeleri tek ekranda görmesi için hazırlanan hızlı özet alanı.",
+    metrics: Array.isArray(payload?.metrics)
+      ? payload!.metrics.map((metric, index) => ({
+          label: metric?.label || `Başlık ${index + 1}`,
+          value: metric?.value || "-",
+        }))
+      : [],
+    snapshots: Array.isArray(payload?.snapshots)
+      ? payload!.snapshots.map((snapshot, snapshotIndex) => ({
+          title: snapshot?.title || `Özet ${snapshotIndex + 1}`,
+          items: Array.isArray(snapshot?.items)
+            ? snapshot!.items.map((item, itemIndex) => ({
+                label: item?.label || `Madde ${itemIndex + 1}`,
+                value: item?.value || "-",
+              }))
+            : [],
+        }))
+      : [],
+    checklist_title: payload?.checklist_title || "İlk Kontrol Sırası",
+    checklist_items: Array.isArray(payload?.checklist_items)
+      ? payload!.checklist_items.map((item, index) => ({
+          title: item?.title || `${index + 1}. Kontrol adımı`,
+          detail: item?.detail || "Detay bu sürümde paylaşılmadı.",
+        }))
+      : [],
+    notes_title: payload?.notes_title || "Notlar",
+    notes_body:
+      payload?.notes_body ||
+      "Canlı ortamda bir değişiklik görünmüyorsa yayın tarafında bazen elle yeniden dağıtım çalıştırmak gerekebilir.",
+    footer_note:
+      payload?.footer_note ||
+      "Bu alan sabit duyuru panosu gibi çalışır; yeni operasyon notları gerektiğinde kolayca genişletilebilir.",
+  };
+}
 
 export default function AnnouncementsPage() {
   const { user, loading } = useAuth();
@@ -62,7 +119,9 @@ export default function AnnouncementsPage() {
         if (!response.ok) {
           throw new Error("Duyurular panosu şu anda yüklenemiyor.");
         }
-        const payload = (await response.json()) as AnnouncementsDashboard;
+        const payload = normalizeAnnouncementsDashboard(
+          (await response.json()) as PartialAnnouncementsDashboard,
+        );
         if (active) {
           setDashboard(payload);
           setError("");
