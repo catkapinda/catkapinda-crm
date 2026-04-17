@@ -472,6 +472,45 @@ function formatShortDate(value: string) {
   }).format(parsed);
 }
 
+const quickActions = [
+  {
+    title: "Bugünkü Puantajı Aç",
+    subtitle: "Günlük saha kaydına hemen geç.",
+    href: "/attendance",
+    badge: "Puantaj",
+  },
+  {
+    title: "Yeni Personel Kartı",
+    subtitle: "Yeni kurye veya yönetici ekleme ekranını aç.",
+    href: "/personnel",
+    badge: "Personel",
+  },
+  {
+    title: "Yeni Şube Kartı",
+    subtitle: "Restoran anlaşma kartını hızlıca düzenlemeye geç.",
+    href: "/restaurants",
+    badge: "Restoran",
+  },
+  {
+    title: "Kesinti Kaydı Gir",
+    subtitle: "Ay sonu ve manuel kesinti hareketlerini işle.",
+    href: "/deductions",
+    badge: "Kesinti",
+  },
+  {
+    title: "Personel Düzenlemeyi Aç",
+    subtitle: "Ekipman, iade ve düzeltme akışını kart üstünden yönet.",
+    href: "/personnel",
+    badge: "Düzenleme",
+  },
+  {
+    title: "Aylık Raporu Aç",
+    subtitle: "Bu ayın kârlılık ve maliyet ekranına geç.",
+    href: "/reports",
+    badge: "Rapor",
+  },
+] as const;
+
 export default function HomePage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<OverviewDashboard | null>(null);
@@ -1614,6 +1653,106 @@ export default function HomePage() {
                   )}
                 </div>
               </article>
+            </section>
+
+            <section
+              style={{
+                ...paperCardStyle,
+                padding: "22px",
+                display: "grid",
+                gap: "18px",
+                background: "rgba(255,255,255,0.94)",
+              }}
+            >
+              <header style={{ display: "grid", gap: "8px" }}>
+                <div
+                  style={{
+                    color: "var(--accent-strong)",
+                    fontWeight: 800,
+                    fontSize: "0.75rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Hızlı Komuta Alanı
+                </div>
+                <h2
+                  style={{
+                    ...serifTitleStyle,
+                    margin: 0,
+                    fontSize: "2rem",
+                    lineHeight: 0.98,
+                    fontWeight: 700,
+                  }}
+                >
+                  Sık kullanılan ekranlara tek dokunuşla geçiyoruz.
+                </h2>
+                <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                  Günün operasyonu başlarken en sık açılan modülleri tek masada topluyoruz.
+                </p>
+              </header>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "14px",
+                }}
+              >
+                {quickActions.map((item) => (
+                  <Link
+                    key={item.title}
+                    href={item.href}
+                    style={{
+                      ...paperCardStyle,
+                      padding: "18px",
+                      display: "grid",
+                      gap: "10px",
+                      background:
+                        "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,241,229,0.96))",
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignSelf: "start",
+                        padding: "6px 10px",
+                        borderRadius: "999px",
+                        background: "rgba(185,116,41,0.12)",
+                        color: "var(--accent-strong)",
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        letterSpacing: "0.05em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {item.badge}
+                    </div>
+                    <div
+                      style={{
+                        ...serifTitleStyle,
+                        fontSize: "1.4rem",
+                        lineHeight: 1,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {item.title}
+                    </div>
+                    <div style={{ color: "var(--muted)", lineHeight: 1.65 }}>{item.subtitle}</div>
+                    <div
+                      style={{
+                        color: "var(--accent-strong)",
+                        fontSize: "0.9rem",
+                        fontWeight: 800,
+                      }}
+                    >
+                      Ekranı Aç
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </section>
           </>
         )}
