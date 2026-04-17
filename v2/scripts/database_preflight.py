@@ -367,6 +367,31 @@ def _table_sequence_name(conn: psycopg.Connection, table_name: str) -> str | Non
     return sequence_name or None
 
 
+def _table_max_id(conn: psycopg.Connection, table_name: str) -> int:
+    cursor = conn.execute(f"SELECT COALESCE(MAX(id), 0) AS max_id FROM {table_name}")
+    row = _row_to_mapping(cursor.fetchone())
+    return int(row.get("max_id") or 0)
+
+
+def _sequence_last_value(conn: psycopg.Connection, sequence_name: str) -> int | None:
+    if "." in sequence_name:
+        schema_name, sequence_only_name = sequence_name.split(".", 1)
+    else:
+        schema_name, sequence_only_name = "public", sequence_name
+    cursor = conn.execute(
+        """
+        SELECT last_value
+        FROM pg_sequences
+        WHERE schemaname = %s
+          AND sequencename = %s
+        """,
+        (schema_name, sequence_only_name),
+    )
+    row = _row_to_mapping(cursor.fetchone())
+    value = row.get("last_value")
+    return int(value) if value is not None else None
+
+
 def _sequence_privileges(
     conn: psycopg.Connection,
     sequence_name: str,
@@ -614,12 +639,20 @@ def _inspect_group(
     *,
     critical_columns_map: dict[str, tuple[str, ...]],
     required_privileges: tuple[str, ...],
-) -> tuple[list[dict[str, object]], list[str], dict[str, list[str]], dict[str, list[str]]]:
+) -> tuple[
+    list[dict[str, object]],
+    list[str],
+    dict[str, list[str]],
+    dict[str, list[str]],
+    dict[str, list[str]],
+    dict[str, dict[str, int | str | None]],
+]:
     entries: list[dict[str, object]] = []
     missing_tables: list[str] = []
     missing_columns_by_table: dict[str, list[str]] = {}
     missing_privileges_by_table: dict[str, list[str]] = {}
     missing_sequence_privileges_by_table: dict[str, list[str]] = {}
+    sequence_alignment_issues_by_table: dict[str, dict[str, int | str | None]] = {}
 
     for table_name, label in table_specs:
         critical_columns = list(critical_columns_map.get(table_name, ()))
@@ -630,6 +663,9 @@ def _inspect_group(
         missing_privileges: list[str] = []
         sequence_name: str | None = None
         missing_sequence_privileges: list[str] = []
+        sequence_last_value: int | None = None
+        table_max_id: int | None = None
+        sequence_out_of_sync = False
         if present:
             available_columns = _table_columns(conn, table_name)
             missing_columns = [column for column in critical_columns if column not in available_columns]
@@ -648,6 +684,8 @@ def _inspect_group(
             if "id" in available_columns:
                 sequence_name = _table_sequence_name(conn, table_name)
                 if sequence_name:
+                    table_max_id = _table_max_id(conn, table_name)
+                    sequence_last_value = _sequence_last_value(conn, sequence_name)
                     sequence_privileges = _sequence_privileges(
                         conn,
                         sequence_name,
@@ -660,6 +698,13 @@ def _inspect_group(
                     ]
                     if missing_sequence_privileges:
                         missing_sequence_privileges_by_table[table_name] = missing_sequence_privileges
+                    if table_max_id > 0 and (sequence_last_value is None or sequence_last_value < table_max_id):
+                        sequence_out_of_sync = True
+                        sequence_alignment_issues_by_table[table_name] = {
+                            "sequence_name": sequence_name,
+                            "sequence_last_value": sequence_last_value,
+                            "max_id": table_max_id,
+                        }
             try:
                 row_count = _table_count(conn, table_name)
                 detail_parts = [
@@ -685,6 +730,10 @@ def _inspect_group(
                 detail_parts.append(
                     f"Eksik sequence yetkileri ({sequence_name}): {', '.join(missing_sequence_privileges)}."
                 )
+            if sequence_out_of_sync and sequence_name:
+                detail_parts.append(
+                    f"Sequence geride kalmis ({sequence_name}): last_value={sequence_last_value}, max_id={table_max_id}."
+                )
             detail = " ".join(detail_parts)
         else:
             missing_tables.append(table_name)
@@ -701,6 +750,9 @@ def _inspect_group(
                 "missing_privileges": missing_privileges,
                 "sequence_name": sequence_name,
                 "missing_sequence_privileges": missing_sequence_privileges,
+                "sequence_last_value": sequence_last_value,
+                "table_max_id": table_max_id,
+                "sequence_out_of_sync": sequence_out_of_sync,
                 "detail": detail,
             }
         )
@@ -711,6 +763,7 @@ def _inspect_group(
         missing_columns_by_table,
         missing_privileges_by_table,
         missing_sequence_privileges_by_table,
+        sequence_alignment_issues_by_table,
     )
 
 
@@ -741,6 +794,7 @@ def build_database_preflight_report(
             required_missing_columns,
             required_missing_privileges,
             required_missing_sequence_privileges,
+            required_sequence_alignment_issues,
         ) = _inspect_group(
             conn,
             REQUIRED_TABLES,
@@ -753,6 +807,7 @@ def build_database_preflight_report(
             bootstrap_missing_columns,
             bootstrap_missing_privileges,
             bootstrap_missing_sequence_privileges,
+            bootstrap_sequence_alignment_issues,
         ) = _inspect_group(
             conn,
             BOOTSTRAP_TABLES,
@@ -805,6 +860,16 @@ def build_database_preflight_report(
             cutover_blocking_items.append(message)
         else:
             warnings.append(message)
+    for table_name, issue in bootstrap_sequence_alignment_issues.items():
+        message = (
+            f"`{table_name}` tablosunun sequence degeri geride: "
+            f"{issue.get('sequence_name') or 'sequence'} "
+            f"(last_value={issue.get('sequence_last_value')}, max_id={issue.get('max_id')})."
+        )
+        if table_name in BOOTSTRAP_BLOCKING_PRIVILEGE_TABLES:
+            cutover_blocking_items.append(message)
+        else:
+            warnings.append(message)
 
     cutover_blocking_items.extend(relation_blocking_items)
 
@@ -833,6 +898,16 @@ def build_database_preflight_report(
     )
     blocking_items.extend(
         [
+            (
+                f"`{table_name}` tablosunun sequence degeri geride: "
+                f"{issue.get('sequence_name') or 'sequence'} "
+                f"(last_value={issue.get('sequence_last_value')}, max_id={issue.get('max_id')})."
+            )
+            for table_name, issue in required_sequence_alignment_issues.items()
+        ]
+    )
+    blocking_items.extend(
+        [
             f"`{table_name}` tablosunda eksik tablo yetkileri var: {', '.join(missing_privileges)}."
             for table_name, missing_privileges in bootstrap_missing_privileges.items()
             if table_name in BOOTSTRAP_BLOCKING_PRIVILEGE_TABLES
@@ -846,6 +921,17 @@ def build_database_preflight_report(
                 f"({', '.join(missing_sequence_privileges)})."
             )
             for table_name, missing_sequence_privileges in bootstrap_missing_sequence_privileges.items()
+            if table_name in BOOTSTRAP_BLOCKING_PRIVILEGE_TABLES
+        ]
+    )
+    blocking_items.extend(
+        [
+            (
+                f"`{table_name}` tablosunun sequence degeri geride: "
+                f"{issue.get('sequence_name') or 'sequence'} "
+                f"(last_value={issue.get('sequence_last_value')}, max_id={issue.get('max_id')})."
+            )
+            for table_name, issue in bootstrap_sequence_alignment_issues.items()
             if table_name in BOOTSTRAP_BLOCKING_PRIVILEGE_TABLES
         ]
     )
@@ -882,6 +968,8 @@ def build_database_preflight_report(
         "bootstrap_missing_privileges": bootstrap_missing_privileges,
         "required_missing_sequence_privileges": required_missing_sequence_privileges,
         "bootstrap_missing_sequence_privileges": bootstrap_missing_sequence_privileges,
+        "required_sequence_alignment_issues": required_sequence_alignment_issues,
+        "bootstrap_sequence_alignment_issues": bootstrap_sequence_alignment_issues,
         "data_health": data_health,
         "relation_health": relation_health,
         "blocking_items": blocking_items,
@@ -908,10 +996,15 @@ def render_report_text(report: dict[str, object]) -> str:
             and not item.get("missing_columns")
             and not item.get("missing_privileges")
             and not item.get("missing_sequence_privileges")
+            and not item.get("sequence_out_of_sync")
             else (
                 "MISSING"
                 if not item.get("present")
-                else ("PRIV" if item.get("missing_privileges") or item.get("missing_sequence_privileges") else "SCHEMA")
+                else (
+                    "SEQ"
+                    if item.get("missing_sequence_privileges") or item.get("sequence_out_of_sync")
+                    else ("PRIV" if item.get("missing_privileges") else "SCHEMA")
+                )
             )
         )
         lines.append(f"- [{status}] {item.get('table')}: {item.get('detail')}")
@@ -925,12 +1018,16 @@ def render_report_text(report: dict[str, object]) -> str:
             and not item.get("missing_columns")
             and not item.get("missing_privileges")
             and not item.get("missing_sequence_privileges")
+            and not item.get("sequence_out_of_sync")
             else (
                 "OPTIONAL"
                 if not item.get("present")
                 else (
                     "WARN"
-                    if item.get("missing_columns") or item.get("missing_privileges") or item.get("missing_sequence_privileges")
+                    if item.get("missing_columns")
+                    or item.get("missing_privileges")
+                    or item.get("missing_sequence_privileges")
+                    or item.get("sequence_out_of_sync")
                     else "WARN"
                 )
             )

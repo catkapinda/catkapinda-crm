@@ -92,6 +92,19 @@ class FakeConnection:
             privilege = str(params[1]).upper()
             return FakeCursor({"allowed": self.sequence_privileges.get(sequence_name, {}).get(privilege, False)})
 
+        if normalized == (
+            "SELECT last_value FROM pg_sequences "
+            "WHERE schemaname = %s AND sequencename = %s"
+        ):
+            assert params is not None
+            schema_name = str(params[0])
+            sequence_name = str(params[1])
+            full_name = f"{schema_name}.{sequence_name}"
+            row = {
+                "last_value": self.sequence_privileges.get(full_name, {}).get("_LAST_VALUE")
+            }
+            return FakeCursor(row)
+
         if normalized == "SELECT COUNT(*) AS count FROM restaurants WHERE COALESCE(active, TRUE) = TRUE":
             return FakeCursor({"count": self.data_health_counts.get("active_restaurants", 0)})
 
@@ -156,6 +169,10 @@ class FakeConnection:
             table_name = normalized.removeprefix("SELECT COUNT(*) AS count FROM ").strip()
             return FakeCursor({"count": self.row_counts.get(table_name, 0)})
 
+        if normalized.startswith("SELECT COALESCE(MAX(id), 0) AS max_id FROM "):
+            table_name = normalized.removeprefix("SELECT COALESCE(MAX(id), 0) AS max_id FROM ").strip()
+            return FakeCursor({"max_id": self.row_counts.get(table_name, 0)})
+
         raise AssertionError(f"Beklenmeyen sorgu: {query}")
 
 
@@ -202,6 +219,10 @@ def connect_factory(
         for sequence_name in resolved_sequences.values()
         if sequence_name
     }
+    for table_name, sequence_name in resolved_sequences.items():
+        if sequence_name:
+            resolved_sequence_privileges.setdefault(sequence_name, {})
+            resolved_sequence_privileges[sequence_name].setdefault("_LAST_VALUE", row_counts.get(table_name, 0))
     resolved_health_counts = data_health_counts or {
         "active_restaurants": row_counts.get("restaurants", 0),
         "active_personnel": row_counts.get("personnel", 0),
@@ -443,6 +464,50 @@ def test_build_database_preflight_report_blocks_when_required_table_has_missing_
     )
     sales_entry = next(entry for entry in report["required_tables"] if entry["table"] == "sales_leads")
     assert sales_entry["missing_sequence_privileges"] == ["USAGE"]
+
+
+def test_build_database_preflight_report_blocks_when_sequence_is_behind_max_id():
+    present_tables = {name for name, _ in database_preflight.REQUIRED_TABLES}
+    table_sequences = {
+        table_name: f"public.{table_name}_id_seq"
+        for table_name in present_tables
+    }
+    sequence_privileges = {
+        sequence_name: {
+            privilege: True
+            for privilege in database_preflight.SEQUENCE_REQUIRED_PRIVILEGES
+        }
+        for sequence_name in table_sequences.values()
+    }
+    sequence_privileges["public.inventory_purchases_id_seq"]["_LAST_VALUE"] = 3
+    report = database_preflight.build_database_preflight_report(
+        database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
+        connect_fn=connect_factory(
+            present_tables,
+            {
+                "restaurants": 12,
+                "personnel": 54,
+                "daily_entries": 3200,
+                "deductions": 88,
+                "inventory_purchases": 14,
+                "sales_leads": 7,
+                "courier_equipment_issues": 9,
+                "box_returns": 2,
+            },
+            table_sequences=table_sequences,
+            sequence_privileges=sequence_privileges,
+        ),
+        reference_date=date(2026, 4, 17),
+    )
+
+    assert report["passed"] is False
+    assert (
+        "`inventory_purchases` tablosunun sequence degeri geride: "
+        "public.inventory_purchases_id_seq (last_value=3, max_id=14)."
+        in report["blocking_items"]
+    )
+    purchase_entry = next(entry for entry in report["required_tables"] if entry["table"] == "inventory_purchases")
+    assert purchase_entry["sequence_out_of_sync"] is True
 
 
 def test_build_database_preflight_report_warns_when_core_tables_are_empty():

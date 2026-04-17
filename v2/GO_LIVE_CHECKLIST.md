@@ -118,6 +118,7 @@ Not:
 
 - `database_preflight.py` artik sadece tablo ve kolonlari degil, `cutover` icin aktif restoran, aktif personel, subeye atanmis personel ve guncel puantaj tazeligini de kontrol eder.
 - Ayni script artik PostgreSQL kullanicisinin tablo ve sequence yetkilerini de kontrol eder; `restaurants`, `personnel`, `daily_entries`, `deductions`, `inventory_purchases`, `sales_leads`, `courier_equipment_issues`, `box_returns` ile auth/session/audit tarafinda en az `SELECT`, `INSERT`, `UPDATE`, `DELETE` tablo yetkileri ve `id` sequence'lerinde `USAGE` yetkisi olmali.
+- Ayni script import/yedek sonrasi sequence geride kalma riskini de kontrol eder; `MAX(id)` tablodan ilerideyse `cutover` bloklanir ve sequence hizasi duzeltilmeden canliya cikilmaz.
 - Ayni script kritik iliski kopukluklarini da tarar; `personel -> restoran`, `puantaj -> restoran/personel`, `kesinti -> personel`, `ekipman -> personel`, `box iade -> personel` zincirinde orphan kayit varsa `cutover` bloklanir.
 - `pilot` acilisi ile `crmcatkapinda.com` cutover ayni esik degildir; `cutover` daha siki kalir.
 
