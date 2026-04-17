@@ -2,6 +2,10 @@
 
 Bu runbook, Streamlit sistemi kapatmadan v2'yi paralel pilot olarak açmak icin kullanilir.
 
+Kisa operasyon ozeti icin:
+
+- `GO_LIVE_CHECKLIST.md`
+
 ## Hedef
 
 - Mevcut `crmcatkapinda.com` Streamlit olarak calismaya devam eder.
