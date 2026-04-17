@@ -76,6 +76,30 @@ def test_overview_dashboard_route_smoke(monkeypatch):
                     {"title": "Burger@ - Kavacık", "subtitle": "Adres"},
                 ],
             },
+            "operations": {
+                "missing_attendance_count": 3,
+                "under_target_count": 2,
+                "joker_usage_count": 1,
+                "action_alerts": [
+                    {
+                        "tone": "critical",
+                        "badge": "Bugün",
+                        "title": "Burger@ - Kavacık",
+                        "detail": "Bugün puantaj bekleniyor. Günlük kayıt henüz girilmedi.",
+                    }
+                ],
+                "brand_summary": [
+                    {
+                        "brand": "Burger@",
+                        "restaurant_count": 4,
+                        "total_packages": 820.0,
+                        "total_hours": 312.0,
+                        "gross_invoice": 120000.0,
+                        "operation_gap": 34000.0,
+                        "status": "Sağlam",
+                    }
+                ],
+            },
             "modules": [
                 {
                     "key": "attendance",
@@ -110,6 +134,7 @@ def test_overview_dashboard_route_smoke(monkeypatch):
     assert payload["hero"]["active_restaurants"] == 12
     assert payload["finance"]["gross_profit"] == 87000.0
     assert payload["hygiene"]["missing_personnel_cards"] == 2
+    assert payload["operations"]["under_target_count"] == 2
     assert payload["modules"][0]["href"] == "/attendance"
 
 

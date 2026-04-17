@@ -43,6 +43,26 @@ type OverviewDashboard = {
       subtitle: string;
     }>;
   };
+  operations: {
+    missing_attendance_count: number;
+    under_target_count: number;
+    joker_usage_count: number;
+    action_alerts: Array<{
+      tone: string;
+      badge: string;
+      title: string;
+      detail: string;
+    }>;
+    brand_summary: Array<{
+      brand: string;
+      restaurant_count: number;
+      total_packages: number;
+      total_hours: number;
+      gross_invoice: number;
+      operation_gap: number;
+      status: string;
+    }>;
+  };
   modules: Array<{
     key: string;
     title: string;
@@ -404,6 +424,31 @@ function snapshotList(
       )}
     </article>
   );
+}
+
+function toneSurface(tone: string) {
+  if (tone === "critical") {
+    return {
+      background: "rgba(168, 59, 28, 0.12)",
+      border: "1px solid rgba(168, 59, 28, 0.18)",
+      badgeBackground: "rgba(168, 59, 28, 0.16)",
+      badgeColor: "#8a3516",
+    };
+  }
+  if (tone === "warning") {
+    return {
+      background: "rgba(185, 116, 41, 0.1)",
+      border: "1px solid rgba(185, 116, 41, 0.16)",
+      badgeBackground: "rgba(185, 116, 41, 0.15)",
+      badgeColor: "var(--accent-strong)",
+    };
+  }
+  return {
+    background: "rgba(18, 82, 52, 0.08)",
+    border: "1px solid rgba(18, 82, 52, 0.14)",
+    badgeBackground: "rgba(18, 82, 52, 0.12)",
+    badgeColor: "#18563b",
+  };
 }
 
 export default function HomePage() {
@@ -1064,6 +1109,281 @@ export default function HomePage() {
 
                 {snapshotList("Eksik Personel Kartları", dashboard.hygiene.personnel_samples, "subtitle")}
                 {snapshotList("Eksik Restoran Kartları", dashboard.hygiene.restaurant_samples, "subtitle")}
+              </article>
+            </section>
+
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 0.95fr) minmax(320px, 1.05fr)",
+                gap: "18px",
+                alignItems: "start",
+              }}
+            >
+              <article
+                style={{
+                  ...paperCardStyle,
+                  padding: "22px",
+                  display: "grid",
+                  gap: "18px",
+                  background: "rgba(255,255,255,0.94)",
+                }}
+              >
+                <header style={{ display: "grid", gap: "8px" }}>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontWeight: 800,
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Bugün Acil Aksiyon
+                  </div>
+                  <h2
+                    style={{
+                      ...serifTitleStyle,
+                      margin: 0,
+                      fontSize: "1.95rem",
+                      lineHeight: 0.98,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Hangi şubenin beklediğini tek bakışta görüyoruz.
+                  </h2>
+                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                    Puantaj bekleyen, hedef kadronun altında kalan ve joker desteği alan şubeleri tek panelde topluyoruz.
+                  </p>
+                </header>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    gap: "12px",
+                  }}
+                >
+                  {pulseCard(
+                    "Puantaj Bekleyen",
+                    String(dashboard.operations.missing_attendance_count),
+                    "Bugün kaydı henüz düşmeyen aktif şubeler.",
+                  )}
+                  {pulseCard(
+                    "Açık Kadro",
+                    String(dashboard.operations.under_target_count),
+                    "Hedef kadronun altında duran aktif şubeler.",
+                  )}
+                  {pulseCard(
+                    "Joker Kullanımı",
+                    String(dashboard.operations.joker_usage_count),
+                    "Bugün destekle dönen şube sayısı.",
+                  )}
+                </div>
+
+                <div style={{ display: "grid", gap: "12px" }}>
+                  {dashboard.operations.action_alerts.length ? (
+                    dashboard.operations.action_alerts.map((item, index) => {
+                      const tone = toneSurface(item.tone);
+                      return (
+                        <article
+                          key={`${item.badge}-${item.title}-${index}`}
+                          style={{
+                            padding: "16px",
+                            borderRadius: "22px",
+                            background: tone.background,
+                            border: tone.border,
+                            display: "grid",
+                            gap: "8px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: "12px",
+                            }}
+                          >
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                padding: "6px 10px",
+                                borderRadius: "999px",
+                                background: tone.badgeBackground,
+                                color: tone.badgeColor,
+                                fontSize: "0.72rem",
+                                fontWeight: 800,
+                                letterSpacing: "0.04em",
+                                textTransform: "uppercase",
+                              }}
+                            >
+                              {item.badge}
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              ...serifTitleStyle,
+                              fontSize: "1.35rem",
+                              lineHeight: 1,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {item.title}
+                          </div>
+                          <div style={{ color: "var(--muted)", lineHeight: 1.65 }}>{item.detail}</div>
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                      Bugün öne çıkan aksiyon uyarısı görünmüyor.
+                    </div>
+                  )}
+                </div>
+              </article>
+
+              <article
+                style={{
+                  ...paperCardStyle,
+                  padding: "22px",
+                  display: "grid",
+                  gap: "18px",
+                  background:
+                    "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,241,229,0.96))",
+                }}
+              >
+                <header style={{ display: "grid", gap: "8px" }}>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontWeight: 800,
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Marka Bazlı Özet
+                  </div>
+                  <h2
+                    style={{
+                      ...serifTitleStyle,
+                      margin: 0,
+                      fontSize: "1.95rem",
+                      lineHeight: 0.98,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Hacim ve risk aynı tabloda okunuyor.
+                  </h2>
+                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                    Aylık paket, saat, fatura ve operasyon farkını marka seviyesinde yan yana görüyoruz.
+                  </p>
+                </header>
+
+                <div style={{ display: "grid", gap: "12px" }}>
+                  {dashboard.operations.brand_summary.length ? (
+                    dashboard.operations.brand_summary.map((entry, index) => (
+                      <article
+                        key={`${entry.brand}-${index}`}
+                        style={{
+                          padding: "16px",
+                          borderRadius: "22px",
+                          background: "rgba(255,255,255,0.78)",
+                          border: "1px solid rgba(24,40,59,0.08)",
+                          display: "grid",
+                          gap: "10px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "12px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              ...serifTitleStyle,
+                              fontSize: "1.4rem",
+                              lineHeight: 1,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {entry.brand}
+                          </div>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              padding: "6px 10px",
+                              borderRadius: "999px",
+                              background:
+                                entry.status === "Riskte"
+                                  ? "rgba(168, 59, 28, 0.14)"
+                                  : entry.status === "Dengede"
+                                    ? "rgba(185, 116, 41, 0.14)"
+                                    : "rgba(18, 82, 52, 0.12)",
+                              color:
+                                entry.status === "Riskte"
+                                  ? "#8a3516"
+                                  : entry.status === "Dengede"
+                                    ? "var(--accent-strong)"
+                                    : "#18563b",
+                              fontSize: "0.72rem",
+                              fontWeight: 800,
+                              letterSpacing: "0.04em",
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {entry.status}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                            gap: "10px",
+                          }}
+                        >
+                          <div>
+                            <div style={{ color: "var(--muted)", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase" }}>
+                              Şube
+                            </div>
+                            <div style={{ fontWeight: 800 }}>{entry.restaurant_count}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: "var(--muted)", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase" }}>
+                              Hacim
+                            </div>
+                            <div style={{ fontWeight: 800 }}>
+                              {`${entry.total_packages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} paket`}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ color: "var(--muted)", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase" }}>
+                              Fatura
+                            </div>
+                            <div style={{ fontWeight: 800 }}>{formatCurrency(entry.gross_invoice)}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: "var(--muted)", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase" }}>
+                              Operasyon Farkı
+                            </div>
+                            <div style={{ fontWeight: 800 }}>{formatCurrency(entry.operation_gap)}</div>
+                          </div>
+                        </div>
+                        <div style={{ color: "var(--muted)", lineHeight: 1.65 }}>
+                          {`${entry.total_hours.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} saatlik toplam çalışma ile bu ayki marka ritmi burada okunuyor.`}
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                      Marka bazlı özet için bu ay puantaj verisi henüz oluşmadı.
+                    </div>
+                  )}
+                </div>
               </article>
             </section>
           </>

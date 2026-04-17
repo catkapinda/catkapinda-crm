@@ -6,6 +6,8 @@ import psycopg
 
 from app.schemas.overview import (
     OverviewActivityItem,
+    OverviewActionAlert,
+    OverviewBrandSummaryEntry,
     OverviewDashboardResponse,
     OverviewFinanceHighlight,
     OverviewFinanceSummary,
@@ -13,6 +15,7 @@ from app.schemas.overview import (
     OverviewHygieneEntry,
     OverviewHygieneSummary,
     OverviewModuleCard,
+    OverviewOperationsSummary,
 )
 from app.services.attendance import build_attendance_dashboard
 from app.services.deductions import build_deductions_dashboard
@@ -23,6 +26,10 @@ from app.services.restaurants import build_restaurants_dashboard
 
 def _format_currency(value: float) -> str:
     return f"{float(value or 0):,.0f} TL"
+
+
+def _format_number(value: float) -> str:
+    return f"{float(value or 0):,.0f}"
 
 
 def _build_finance_summary(
@@ -166,6 +173,165 @@ def _build_hygiene_summary(conn: psycopg.Connection) -> OverviewHygieneSummary:
     )
 
 
+def _build_operations_summary(
+    conn: psycopg.Connection,
+    *,
+    reference_date: date,
+    selected_month: str | None,
+) -> OverviewOperationsSummary:
+    month_key = selected_month or reference_date.strftime("%Y-%m")
+    missing_attendance_rows = conn.execute(
+        """
+        SELECT
+            COALESCE(r.brand, '') AS brand,
+            COALESCE(r.branch, '') AS branch
+        FROM restaurants r
+        WHERE COALESCE(r.active, TRUE) = TRUE
+          AND NOT EXISTS (
+            SELECT 1
+            FROM daily_entries d
+            WHERE d.restaurant_id = r.id
+              AND d.entry_date = %s
+          )
+        ORDER BY r.brand, r.branch
+        LIMIT 5
+        """,
+        (reference_date,),
+    ).fetchall()
+    under_target_rows = conn.execute(
+        """
+        SELECT
+            COALESCE(r.brand, '') AS brand,
+            COALESCE(r.branch, '') AS branch,
+            COALESCE(r.target_headcount, 0) AS target_headcount,
+            COALESCE(SUM(CASE WHEN p.status = 'Aktif' THEN 1 ELSE 0 END), 0) AS active_personnel
+        FROM restaurants r
+        LEFT JOIN personnel p ON p.assigned_restaurant_id = r.id
+        WHERE COALESCE(r.active, TRUE) = TRUE
+        GROUP BY r.id, r.brand, r.branch, r.target_headcount
+        HAVING COALESCE(r.target_headcount, 0) > COALESCE(SUM(CASE WHEN p.status = 'Aktif' THEN 1 ELSE 0 END), 0)
+        ORDER BY (COALESCE(r.target_headcount, 0) - COALESCE(SUM(CASE WHEN p.status = 'Aktif' THEN 1 ELSE 0 END), 0)) DESC, r.brand, r.branch
+        LIMIT 5
+        """
+    ).fetchall()
+    joker_usage_rows = conn.execute(
+        """
+        SELECT
+            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant,
+            COUNT(*) AS joker_count,
+            COALESCE(SUM(d.package_count), 0) AS package_count
+        FROM daily_entries d
+        JOIN restaurants r ON r.id = d.restaurant_id
+        LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
+        WHERE d.entry_date = %s
+          AND (
+            COALESCE(d.coverage_type, '') = 'Joker'
+            OR COALESCE(ap.role, '') = 'Joker'
+          )
+        GROUP BY restaurant
+        ORDER BY joker_count DESC, package_count DESC, restaurant
+        LIMIT 5
+        """,
+        (reference_date,),
+    ).fetchall()
+    brand_rows = conn.execute(
+        """
+        WITH invoice AS (
+            SELECT
+                COALESCE(r.brand, '-') AS brand,
+                COUNT(DISTINCT d.restaurant_id) AS restaurant_count,
+                COALESCE(SUM(d.package_count), 0) AS total_packages,
+                COALESCE(SUM(d.worked_hours), 0) AS total_hours,
+                COALESCE(SUM(d.monthly_invoice_amount), 0) AS gross_invoice
+            FROM daily_entries d
+            JOIN restaurants r ON r.id = d.restaurant_id
+            WHERE substr(COALESCE(d.entry_date, ''), 1, 7) = %s
+            GROUP BY COALESCE(r.brand, '-')
+        ),
+        personnel_cost AS (
+            SELECT
+                COALESCE(r.brand, '-') AS brand,
+                COALESCE(SUM(CASE WHEN p.status = 'Aktif' THEN COALESCE(p.monthly_fixed_cost, 0) ELSE 0 END), 0) AS personnel_cost
+            FROM restaurants r
+            LEFT JOIN personnel p ON p.assigned_restaurant_id = r.id
+            WHERE COALESCE(r.active, TRUE) = TRUE
+            GROUP BY COALESCE(r.brand, '-')
+        )
+        SELECT
+            invoice.brand,
+            invoice.restaurant_count,
+            invoice.total_packages,
+            invoice.total_hours,
+            invoice.gross_invoice,
+            COALESCE(personnel_cost.personnel_cost, 0) AS personnel_cost
+        FROM invoice
+        LEFT JOIN personnel_cost ON personnel_cost.brand = invoice.brand
+        ORDER BY invoice.gross_invoice DESC, invoice.brand
+        LIMIT 8
+        """,
+        (month_key,),
+    ).fetchall()
+
+    action_alerts: list[OverviewActionAlert] = []
+    for row in missing_attendance_rows:
+        action_alerts.append(
+            OverviewActionAlert(
+                tone="critical",
+                badge="Bugün",
+                title=" - ".join(part for part in [str(row["brand"] or "").strip(), str(row["branch"] or "").strip()] if part) or "-",
+                detail="Bugün puantaj bekleniyor. Günlük kayıt henüz girilmedi.",
+            )
+        )
+    for row in under_target_rows:
+        gap = int(row["target_headcount"] or 0) - int(row["active_personnel"] or 0)
+        action_alerts.append(
+            OverviewActionAlert(
+                tone="critical" if gap >= 2 else "warning",
+                badge="Kadro",
+                title=" - ".join(part for part in [str(row["brand"] or "").strip(), str(row["branch"] or "").strip()] if part) or "-",
+                detail=f"Hedef kadronun altında. Açık kadro: {gap}.",
+            )
+        )
+    for row in joker_usage_rows:
+        action_alerts.append(
+            OverviewActionAlert(
+                tone="warning",
+                badge="Joker",
+                title=str(row["restaurant"] or "-"),
+                detail=f"Bugün {int(row['joker_count'] or 0)} joker kullanıldı. Paket yükü: {_format_number(float(row['package_count'] or 0))}.",
+            )
+        )
+
+    brand_summary: list[OverviewBrandSummaryEntry] = []
+    for row in brand_rows:
+        operation_gap = float(row["gross_invoice"] or 0) - float(row["personnel_cost"] or 0)
+        if operation_gap < 0:
+            status = "Riskte"
+        elif operation_gap < 25000:
+            status = "Dengede"
+        else:
+            status = "Sağlam"
+        brand_summary.append(
+            OverviewBrandSummaryEntry(
+                brand=str(row["brand"] or "-"),
+                restaurant_count=int(row["restaurant_count"] or 0),
+                total_packages=float(row["total_packages"] or 0),
+                total_hours=float(row["total_hours"] or 0),
+                gross_invoice=float(row["gross_invoice"] or 0),
+                operation_gap=operation_gap,
+                status=status,
+            )
+        )
+
+    return OverviewOperationsSummary(
+        missing_attendance_count=len(missing_attendance_rows),
+        under_target_count=len(under_target_rows),
+        joker_usage_count=len(joker_usage_rows),
+        action_alerts=action_alerts[:8],
+        brand_summary=brand_summary,
+    )
+
+
 def build_overview_dashboard(
     conn: psycopg.Connection,
     *,
@@ -177,6 +343,11 @@ def build_overview_dashboard(
     restaurants_dashboard = build_restaurants_dashboard(conn, limit=6)
     finance_summary = _build_finance_summary(conn)
     hygiene_summary = _build_hygiene_summary(conn)
+    operations_summary = _build_operations_summary(
+        conn,
+        reference_date=reference_date,
+        selected_month=finance_summary.selected_month,
+    )
 
     recent_activity: list[OverviewActivityItem] = []
 
@@ -248,6 +419,7 @@ def build_overview_dashboard(
         ),
         finance=finance_summary,
         hygiene=hygiene_summary,
+        operations=operations_summary,
         modules=[
             OverviewModuleCard(
                 key="attendance",

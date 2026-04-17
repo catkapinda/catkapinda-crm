@@ -48,12 +48,13 @@ AUTH_JSON_ENDPOINTS = [
     {
         "path": "/v2-api/overview/dashboard",
         "check_name": "overview_dashboard_data",
-        "required_keys": ("module", "status", "hero", "finance", "hygiene", "modules", "recent_activity"),
+        "required_keys": ("module", "status", "hero", "finance", "hygiene", "operations", "modules", "recent_activity"),
         "list_keys": ("modules", "recent_activity"),
         "nested_dict_keys": {
             "hero": ("active_restaurants", "active_personnel", "month_attendance_entries", "month_deduction_entries"),
             "finance": ("total_revenue", "gross_profit", "total_personnel_cost", "side_income_net", "top_restaurants", "risk_restaurants"),
             "hygiene": ("missing_personnel_cards", "missing_restaurant_cards", "personnel_samples", "restaurant_samples"),
+            "operations": ("missing_attendance_count", "under_target_count", "joker_usage_count", "action_alerts", "brand_summary"),
         },
     },
     {

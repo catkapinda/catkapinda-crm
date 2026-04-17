@@ -37,6 +37,31 @@ class OverviewHygieneSummary(BaseModel):
     restaurant_samples: list[OverviewHygieneEntry]
 
 
+class OverviewActionAlert(BaseModel):
+    tone: str
+    badge: str
+    title: str
+    detail: str
+
+
+class OverviewBrandSummaryEntry(BaseModel):
+    brand: str
+    restaurant_count: int
+    total_packages: float
+    total_hours: float
+    gross_invoice: float
+    operation_gap: float
+    status: str
+
+
+class OverviewOperationsSummary(BaseModel):
+    missing_attendance_count: int
+    under_target_count: int
+    joker_usage_count: int
+    action_alerts: list[OverviewActionAlert]
+    brand_summary: list[OverviewBrandSummaryEntry]
+
+
 class OverviewModuleCard(BaseModel):
     key: str
     title: str
@@ -64,5 +89,6 @@ class OverviewDashboardResponse(BaseModel):
     hero: OverviewHeroSummary
     finance: OverviewFinanceSummary
     hygiene: OverviewHygieneSummary
+    operations: OverviewOperationsSummary
     modules: list[OverviewModuleCard]
     recent_activity: list[OverviewActivityItem]
