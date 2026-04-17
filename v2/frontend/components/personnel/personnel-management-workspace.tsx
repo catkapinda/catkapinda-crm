@@ -47,9 +47,9 @@ function pill(kind: "accent" | "soft"): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
-    padding: "6px 10px",
+    padding: "4px 8px",
     borderRadius: "999px",
-    fontSize: "0.76rem",
+    fontSize: "0.68rem",
     fontWeight: 800,
     ...(kind === "accent"
       ? {
@@ -416,7 +416,7 @@ export function PersonnelManagementWorkspace() {
               maxHeight: "560px",
               overflow: "auto",
               display: "grid",
-              gap: "10px",
+              gap: "8px",
             }}
           >
             {listLoading ? (
@@ -429,9 +429,9 @@ export function PersonnelManagementWorkspace() {
                   onClick={() => setSelectedEntryId(entry.id)}
                   style={{
                     display: "grid",
-                    gap: "10px",
-                    padding: "14px",
-                    borderRadius: "18px",
+                    gap: "6px",
+                    padding: "10px 12px",
+                    borderRadius: "14px",
                     border: selectedEntryId === entry.id ? "1px solid rgba(15, 95, 215, 0.28)" : "1px solid var(--line)",
                     background: selectedEntryId === entry.id ? "rgba(15, 95, 215, 0.08)" : "#fff",
                     textAlign: "left",
@@ -443,16 +443,29 @@ export function PersonnelManagementWorkspace() {
                       display: "flex",
                       justifyContent: "space-between",
                       gap: "10px",
+                      alignItems: "flex-start",
                     }}
                   >
-                    <div style={{ fontWeight: 800 }}>{entry.full_name}</div>
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: "0.92rem",
+                        lineHeight: 1.3,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 1,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {entry.full_name}
+                    </div>
                     <span style={pill("accent")}>{entry.person_code}</span>
                   </div>
                   <div
                     style={{
                       display: "flex",
                       flexWrap: "wrap",
-                      gap: "8px",
+                      gap: "6px",
                     }}
                   >
                     <span style={pill("soft")}>{entry.role}</span>
@@ -461,7 +474,17 @@ export function PersonnelManagementWorkspace() {
                       <span style={pill("soft")}>{entry.vehicle_mode}</span>
                     ) : null}
                   </div>
-                  <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                  <div
+                    style={{
+                      color: "var(--muted)",
+                      fontSize: "0.8rem",
+                      lineHeight: 1.35,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 1,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
                     {entry.restaurant_label}
                   </div>
                 </button>
