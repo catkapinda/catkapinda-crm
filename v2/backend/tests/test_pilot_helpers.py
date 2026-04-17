@@ -1066,6 +1066,8 @@ def test_pilot_deploy_guard_blocks_when_env_values_are_placeholders():
     assert result["passed"] is False
     assert result["gate_passed"] is True
     assert result["env_passed"] is False
+    assert result["database_preflight_passed"] is False
+    assert result["database_preflight"] is None
     assert any("gercek bir deger girilmeli" in item for item in result["blocking_items"])
 
 
@@ -1077,13 +1079,44 @@ def test_pilot_deploy_guard_passes_when_gate_and_env_are_ready():
         payload=sample_payload(),
         database_url="postgresql://pilot:secret@db.example.com/catkapinda?sslmode=require",
         default_auth_password="GucluPilotSifre!2026",
+        database_preflight_builder=lambda database_url: {
+            "passed": True,
+            "summary": "Veritabani omurgasi v2 pilotu icin hazir.",
+            "blocking_items": [],
+            "recommended_next_step": "Yedek al.",
+        },
     )
 
     assert result["passed"] is True
     assert result["gate_passed"] is True
     assert result["env_passed"] is True
+    assert result["database_preflight_passed"] is True
     assert result["blocking_items"] == []
     assert result["summary"] == "Pilot deploy acilabilir."
+
+
+def test_pilot_deploy_guard_blocks_when_database_preflight_fails():
+    result = pilot_deploy_guard.build_guard_result(
+        base_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        mode="pilot",
+        payload=sample_payload(),
+        database_url="postgresql://pilot:secret@db.example.com/catkapinda?sslmode=require",
+        default_auth_password="GucluPilotSifre!2026",
+        database_preflight_builder=lambda database_url: {
+            "passed": False,
+            "summary": "Veritabani omurgasinda pilotu durduran eksikler var.",
+            "blocking_items": ["`daily_entries` tablosu eksik."],
+            "recommended_next_step": "Dogru PostgreSQL baglantisini gir.",
+        },
+    )
+
+    assert result["passed"] is False
+    assert result["gate_passed"] is True
+    assert result["env_passed"] is True
+    assert result["database_preflight_passed"] is False
+    assert "`daily_entries` tablosu eksik." in result["blocking_items"]
+    assert "Dogru PostgreSQL baglantisini gir." in result["recommended_next_step"]
 
 
 def test_pilot_status_report_markdown_includes_key_sections():

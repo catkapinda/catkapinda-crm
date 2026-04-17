@@ -285,6 +285,11 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "--base-url https://pilot.example.com --mode redirect"
     )
     assert helper_map["Guarded Redirect Env"]["category"] == "env"
+    assert helper_map["Database Preflight"]["command"] == (
+        "python v2/scripts/database_preflight.py "
+        "--database-url '<mevcut-postgresql-url-sslmode-require>' --json"
+    )
+    assert helper_map["Database Preflight"]["category"] == "quick-check"
     assert helper_map["Pilot Deploy Guard"]["command"] == (
         "python v2/scripts/pilot_deploy_guard.py "
         "--base-url https://pilot.example.com --api-url https://pilot-api.example.com "
@@ -385,16 +390,20 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
         "--database-url '<mevcut-postgresql-url-sslmode-require>' "
         "--default-auth-password '<guclu-varsayilan-sifre>'"
     )
-    assert "--identity ebru@catkapinda.com --password <sifre>" in payload["command_pack"][5]["command"]
-    assert payload["command_pack"][6]["command"] == (
+    assert payload["command_pack"][5]["command"] == (
+        "python v2/scripts/database_preflight.py "
+        "--database-url '<mevcut-postgresql-url-sslmode-require>' --json"
+    )
+    assert "--identity ebru@catkapinda.com --password <sifre>" in payload["command_pack"][6]["command"]
+    assert payload["command_pack"][7]["command"] == (
         "python v2/scripts/pilot_day_zero.py "
         "--base-url https://pilot.example.com --api-url https://pilot-api.example.com --output-dir pilot-day-zero "
         "--fresh-output --strict"
     )
-    assert payload["command_pack"][7]["command"] == (
+    assert payload["command_pack"][8]["command"] == (
         "python v2/scripts/pilot_cutover_guard.py --base-url https://pilot.example.com --mode banner"
     )
-    assert payload["command_pack"][8]["command"] == "python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero"
+    assert payload["command_pack"][9]["command"] == "python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero"
     assert payload["services"][0]["name"] == "crmcatkapinda-v2"
     assert payload["services"][0]["service_type"] == "frontend"
     assert payload["services"][0]["public_url"] == "https://pilot.example.com"

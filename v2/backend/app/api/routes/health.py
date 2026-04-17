@@ -864,6 +864,14 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             ),
         ),
         PilotHelperCommand(
+            label="Database Preflight",
+            category="quick-check",
+            command=(
+                "python v2/scripts/database_preflight.py "
+                "--database-url '<mevcut-postgresql-url-sslmode-require>' --json"
+            ),
+        ),
+        PilotHelperCommand(
             label="Pilot Deploy Guard",
             category="quick-check",
             command=(
@@ -1040,7 +1048,7 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
         ),
         PilotCommandPackEntry(
             title="5. Deploy guard kararini al",
-            detail="Canli gate ve Render env blokajlarini tek komutta birlikte oku.",
+            detail="Canli gate, Render env ve veritabani blokajlarini tek komutta birlikte oku.",
             command=(
                 "python v2/scripts/pilot_deploy_guard.py "
                 f"--base-url {frontend_url} --api-url {backend_url} "
@@ -1049,7 +1057,15 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="6. Gercek login smoke'u kos",
+            title="6. Veritabani preflight kontrolunu kos",
+            detail="Gercek PostgreSQL omurgasinin gerekli tablolarla hazir oldugunu dogrula.",
+            command=(
+                "python v2/scripts/database_preflight.py "
+                "--database-url '<mevcut-postgresql-url-sslmode-require>' --json"
+            ),
+        ),
+        PilotCommandPackEntry(
+            title="7. Gercek login smoke'u kos",
             detail="Yonetici hesapla gercek oturum acilisini dogrula.",
             command=(
                 f"python v2/scripts/pilot_smoke.py --base-url {frontend_url} "
@@ -1057,7 +1073,7 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="7. Day-zero kitini taze ve strict uret",
+            title="8. Day-zero kitini taze ve strict uret",
             detail="Tum acilis artefaktlarini sifirdan olustur ve final verify snapshot'ini bundle'a gom.",
             command=(
                 "python v2/scripts/pilot_day_zero.py "
@@ -1066,7 +1082,7 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="8. Guarded Streamlit banner env'ini uret",
+            title="9. Guarded Streamlit banner env'ini uret",
             detail="Canli pilot gate'e gore eski panelde kontrollu gecis kartini guvenli sekilde hazirla.",
             command=(
                 "python v2/scripts/pilot_cutover_guard.py "
@@ -1074,7 +1090,7 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="9. Day-zero kitini dogrula",
+            title="10. Day-zero kitini dogrula",
             detail="Uretilen klasorde eksik dosya, zip ve guard tutarliligi var mi tek komutta kontrol et.",
             command="python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero",
         ),

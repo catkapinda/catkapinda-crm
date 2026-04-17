@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 
+from database_preflight import build_database_preflight_report
 from pilot_gate import build_gate_result
 from pilot_status_report import fetch_pilot_status
 from render_env_bundle import build_validation_report, normalize_url
@@ -32,6 +33,7 @@ def build_guard_result(
     payload: dict,
     database_url: str,
     default_auth_password: str,
+    database_preflight_builder=build_database_preflight_report,
 ) -> dict:
     gate_result = build_gate_result(mode=mode, payload=payload)
     env_validation = build_validation_report(
@@ -40,19 +42,41 @@ def build_guard_result(
         database_url=database_url,
         default_auth_password=default_auth_password,
     )
+    database_preflight_result: dict[str, object] | None = None
+    database_preflight_passed = False
+    if bool(env_validation.get("passed")):
+        try:
+            database_preflight_result = database_preflight_builder(database_url=database_url)
+        except Exception as exc:
+            database_preflight_result = {
+                "passed": False,
+                "summary": "Veritabani preflight basarisiz.",
+                "blocking_items": [str(exc)],
+                "recommended_next_step": "Veritabani baglantisini ve tablo omurgasini yeniden kontrol et.",
+            }
+        database_preflight_passed = bool(database_preflight_result.get("passed"))
+
     blocking_items = _dedupe_strings(
         [
             *[str(item) for item in gate_result.get("blocking_items") or []],
             *[str(item) for item in env_validation.get("blocking_items") or []],
+            *[str(item) for item in (database_preflight_result or {}).get("blocking_items") or []],
         ]
     )
     recommended_steps = _dedupe_strings(
         [
             str(gate_result.get("recommended_next_step") or "").strip(),
             "Render env validation blokajlarini kapat." if not bool(env_validation.get("passed")) else "",
+            (
+                str((database_preflight_result or {}).get("recommended_next_step") or "").strip()
+                if database_preflight_result and not database_preflight_passed
+                else ""
+            ),
         ]
     )
-    passed = bool(gate_result.get("passed")) and bool(env_validation.get("passed"))
+    passed = bool(gate_result.get("passed")) and bool(env_validation.get("passed")) and (
+        database_preflight_passed if database_preflight_result is not None else False
+    )
 
     if mode == "pilot":
         summary = "Pilot deploy acilabilir." if passed else "Pilot deploy bloklu."
@@ -67,8 +91,10 @@ def build_guard_result(
         "api_url": api_url,
         "gate_passed": bool(gate_result.get("passed")),
         "env_passed": bool(env_validation.get("passed")),
+        "database_preflight_passed": database_preflight_passed,
         "gate_result": gate_result,
         "env_validation": env_validation,
+        "database_preflight": database_preflight_result,
         "blocking_items": blocking_items,
         "recommended_next_step": " / ".join(recommended_steps) if recommended_steps else "-",
     }
@@ -88,6 +114,12 @@ def render_text(result: dict) -> str:
         f"Gate Summary: {gate_result['summary']}",
         f"Env Passed: {result['env_passed']}",
         f"Env Summary: {env_validation['summary']}",
+        f"Database Preflight Passed: {result['database_preflight_passed']}",
+        (
+            f"Database Preflight Summary: {result['database_preflight']['summary']}"
+            if result.get("database_preflight")
+            else "Database Preflight Summary: Atlandi"
+        ),
         f"Recommended Next Step: {result['recommended_next_step']}",
     ]
     if result["blocking_items"]:
