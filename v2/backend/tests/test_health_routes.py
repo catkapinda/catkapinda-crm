@@ -498,6 +498,9 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     assert payload["commit_sha"] is None
     assert payload["release_label"] == "crmcatkapinda-v2-api"
     assert payload["required_missing_env_vars"] == []
+    assert "CK_V2_APP_ENV" in payload["optional_missing_env_vars"]
+    assert "CK_V2_API_PUBLIC_URL" in payload["optional_missing_env_vars"]
+    assert "CK_V2_DEFAULT_AUTH_PASSWORD" in payload["optional_missing_env_vars"]
     assert "AUTH_EBRU_PHONE" in payload["optional_missing_env_vars"]
     assert "SMS_PROVIDER" in payload["optional_missing_env_vars"]
     assert payload["auth"]["default_password_configured"] is True
@@ -505,8 +508,45 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     assert payload["cutover"]["ready"] is True
     assert payload["decision"]["tone"] == "info"
     assert payload["decision"]["primary_href"] == "/login"
+    assert any("production modu" in item.lower() for item in payload["cutover"]["remaining_items"])
+    assert any("guclu bir parola" in item.lower() for item in payload["cutover"]["remaining_items"])
     assert any("Opsiyonel env ayarlari" in item for item in payload["cutover"]["remaining_items"])
     assert payload["rollout_steps"][0]["status"] == "ready"
+
+
+def test_pilot_readiness_reports_ready_for_cutover_when_security_and_envs_are_complete(monkeypatch):
+    reset_runtime_bootstrap_state()
+    mark_runtime_bootstrap_state(ok=True, detail="Auth runtime bootstrap basarili.")
+    monkeypatch.setattr("app.api.routes.health.describe_sms_config", lambda: {"configured": True, "provider": "netgsm", "missing_envs": []})
+    monkeypatch.setattr("app.services.auth.sms_delivery_enabled", lambda: True)
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "database_url", "postgresql://pilot")
+    monkeypatch.setattr(settings, "frontend_base_url", "https://pilot.example.com")
+    monkeypatch.setattr(settings, "public_app_url", "https://pilot.example.com")
+    monkeypatch.setattr(settings, "api_public_url", "https://pilot-api.example.com")
+    monkeypatch.setattr(settings, "release_sha", "abcdef1234567890")
+    monkeypatch.setattr(settings, "render_service_name", "crmcatkapinda-v2-api")
+    monkeypatch.setattr(settings, "auth_ebru_phone", "05321234567")
+    monkeypatch.setattr(settings, "auth_mert_phone", "05331234567")
+    monkeypatch.setattr(settings, "auth_muhammed_phone", "05341234567")
+    monkeypatch.setattr(settings, "default_auth_password", "GucluPilot!2026")
+
+    app = create_app(enable_bootstrap=False)
+    app.dependency_overrides[get_db] = lambda: HealthyConnection()
+    client = TestClient(app)
+
+    response = client.get("/api/health/pilot")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["required_missing_env_vars"] == []
+    assert payload["optional_missing_env_vars"] == []
+    assert payload["cutover"]["phase"] == "ready_for_cutover"
+    assert payload["cutover"]["ready"] is True
+    assert payload["decision"]["tone"] == "success"
+    assert any(entry["name"] == "app_env" and entry["ok"] is True for entry in payload["config"])
+    assert any(entry["name"] == "api_public_https" and entry["ok"] is True for entry in payload["config"])
 
 
 def test_readiness_route_reports_degraded_when_runtime_bootstrap_failed():

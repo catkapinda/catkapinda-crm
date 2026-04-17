@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends
 import psycopg
@@ -69,6 +70,29 @@ MODULE_TABLES: dict[str, tuple[str, ...]] = {
     "restaurants": ("restaurants", "personnel", "daily_entries", "deductions"),
     "reports": ("daily_entries", "personnel", "restaurants", "deductions"),
 }
+
+
+def _is_local_hostname(hostname: str) -> bool:
+    normalized = str(hostname or "").strip().lower()
+    return normalized in {"127.0.0.1", "localhost"}
+
+
+def _is_https_or_local(url: str | None) -> bool:
+    parsed = urlparse(str(url or "").strip())
+    if not parsed.scheme or not parsed.hostname:
+        return False
+    return parsed.scheme == "https" or _is_local_hostname(parsed.hostname)
+
+
+def _is_strong_password(value: str | None) -> bool:
+    password = str(value or "")
+    if len(password) < 12:
+        return False
+    has_upper = any(ch.isupper() for ch in password)
+    has_lower = any(ch.islower() for ch in password)
+    has_digit = any(ch.isdigit() for ch in password)
+    has_symbol = any(not ch.isalnum() for ch in password)
+    return has_upper and has_lower and has_digit and has_symbol
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -362,6 +386,10 @@ def _build_readiness_response(conn: psycopg.Connection) -> ReadinessResponse:
 def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], list[str], list[str]]:
     sms_setup = describe_sms_config()
     has_any_frontend_url = bool(settings.frontend_base_url or settings.public_app_url)
+    frontend_url_secure = has_any_frontend_url and _is_https_or_local(settings.resolved_frontend_base_url)
+    public_app_url_secure = has_any_frontend_url and _is_https_or_local(settings.resolved_public_app_url)
+    api_public_url_secure = bool(settings.api_public_url) and _is_https_or_local(settings.resolved_api_public_url)
+    strong_default_password = _is_strong_password(settings.default_auth_password)
     config_entries: list[PilotConfigEntry] = [
         PilotConfigEntry(
             name="app_env",
@@ -369,9 +397,9 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
             ok=settings.app_env == "production",
             required=False,
             detail=(
-                "production"
+                "production modu aktif; secure cookie ve HSTS devrede"
                 if settings.app_env == "production"
-                else f"Su an {settings.app_env}; Render pilotta production onerilir"
+                else f"Su an {settings.app_env}; canliya gecis oncesi production olmali"
             ),
             missing_envs=[] if settings.app_env == "production" else ["CK_V2_APP_ENV"],
         ),
@@ -408,6 +436,30 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
             missing_envs=[] if settings.api_public_url else ["CK_V2_API_PUBLIC_URL"],
         ),
         PilotConfigEntry(
+            name="frontend_https",
+            service="backend",
+            ok=frontend_url_secure and public_app_url_secure,
+            required=False,
+            detail=(
+                "Frontend pilot URL'leri https veya local"
+                if frontend_url_secure and public_app_url_secure
+                else "Canli geciste frontend/public URL https olmali"
+            ),
+            missing_envs=[] if frontend_url_secure and public_app_url_secure else ["CK_V2_FRONTEND_BASE_URL", "CK_V2_PUBLIC_APP_URL"],
+        ),
+        PilotConfigEntry(
+            name="api_public_https",
+            service="backend",
+            ok=api_public_url_secure,
+            required=False,
+            detail=(
+                "API public URL https veya local"
+                if api_public_url_secure
+                else "Canli geciste API public URL https olmali"
+            ),
+            missing_envs=[] if api_public_url_secure else ["CK_V2_API_PUBLIC_URL"],
+        ),
+        PilotConfigEntry(
             name="sms_allowlist",
             service="backend",
             required=False,
@@ -435,13 +487,13 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
             name="default_auth_password",
             service="backend",
             required=False,
-            ok=settings.default_auth_password != "123456",
+            ok=strong_default_password,
             detail=(
-                "Varsayilan sifre degistirilmis"
-                if settings.default_auth_password != "123456"
-                else "Pilot oncesi varsayilan v2 sifresini degistirmen onerilir"
+                "Varsayilan giris sifresi guclu bir degerle degistirilmis"
+                if strong_default_password
+                else "Varsayilan giris sifresi canli icin daha guclu bir deger olmali"
             ),
-            missing_envs=[] if settings.default_auth_password != "123456" else ["CK_V2_DEFAULT_AUTH_PASSWORD"],
+            missing_envs=[] if strong_default_password else ["CK_V2_DEFAULT_AUTH_PASSWORD"],
         ),
     ]
 
@@ -450,6 +502,8 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
     for entry in config_entries:
         for env_name in entry.missing_envs:
             target = required_missing_env_vars if entry.required else optional_missing_env_vars
+            if target is optional_missing_env_vars and env_name in required_missing_env_vars:
+                continue
             if env_name not in target:
                 target.append(env_name)
 
@@ -458,14 +512,18 @@ def _build_pilot_config_summary() -> tuple[list[PilotConfigEntry], list[str], li
         next_actions.append("Backend servisine veritabanı URL'sini gir.")
     if any(name in required_missing_env_vars for name in {"CK_V2_FRONTEND_BASE_URL", "CK_V2_PUBLIC_APP_URL"}):
         next_actions.append("Backend tarafinda en az bir pilot uygulama URL'si tanimla.")
+    if "CK_V2_APP_ENV" in optional_missing_env_vars:
+        next_actions.append("Canliya cikis oncesi CK_V2_APP_ENV degerini production yap.")
     if "CK_V2_API_PUBLIC_URL" in optional_missing_env_vars:
-        next_actions.append("Render'da backend servis public URL'sini de girersen status ekrani daha net olur.")
+        next_actions.append("Render'da backend servis public URL'sini https adresiyle gir.")
+    if any(name in optional_missing_env_vars for name in {"CK_V2_FRONTEND_BASE_URL", "CK_V2_PUBLIC_APP_URL"}):
+        next_actions.append("Frontend ve public uygulama URL'lerini https alan adina bagla.")
     if any(name in optional_missing_env_vars for name in {"AUTH_EBRU_PHONE", "AUTH_MERT_PHONE", "AUTH_MUHAMMED_PHONE"}):
         next_actions.append("SMS login acilacaksa yonetici telefon allowlist degerlerini gir.")
     if sms_setup["missing_envs"]:
         next_actions.append("SMS login istenecekse NetGSM/SMS environment degiskenlerini tamamla.")
-    if settings.default_auth_password == "123456":
-        next_actions.append("Pilot oncesi varsayilan v2 sifresini degistir.")
+    if "CK_V2_DEFAULT_AUTH_PASSWORD" in optional_missing_env_vars:
+        next_actions.append("CK_V2_DEFAULT_AUTH_PASSWORD icin guclu bir parola kullan.")
     if not next_actions:
         next_actions.append("Pilot acilisi icin zorunlu environment ayarlari tamam.")
 
@@ -1002,6 +1060,7 @@ def _build_pilot_services() -> list[PilotServiceEntry]:
     frontend_url = settings.resolved_public_app_url.rstrip("/")
     backend_url = settings.resolved_api_public_url.rstrip("/")
     sms_setup = describe_sms_config()
+    sms_missing_envs = list(sms_setup.get("missing_envs") or [])
     return [
         PilotServiceEntry(
             name="crmcatkapinda-v2",
@@ -1104,37 +1163,37 @@ def _build_pilot_services() -> list[PilotServiceEntry]:
                 PilotServiceEnvEntry(
                     key="SMS_PROVIDER",
                     required=False,
-                    configured=bool(sms_setup["provider"]),
+                    configured=bool(sms_setup.get("provider")),
                     detail="NetGSM icin netgsm",
                 ),
                 PilotServiceEnvEntry(
                     key="SMS_API_URL",
                     required=False,
-                    configured=bool(sms_setup["api_url"]),
+                    configured=bool(sms_setup.get("api_url")),
                     detail="NetGSM REST endpoint",
                 ),
                 PilotServiceEnvEntry(
                     key="SMS_NETGSM_USERNAME",
                     required=False,
-                    configured="SMS_NETGSM_USERNAME" not in sms_setup["missing_envs"],
+                    configured="SMS_NETGSM_USERNAME" not in sms_missing_envs,
                     detail="NetGSM API kullanici/adone numarasi",
                 ),
                 PilotServiceEnvEntry(
                     key="SMS_NETGSM_PASSWORD",
                     required=False,
-                    configured="SMS_NETGSM_PASSWORD" not in sms_setup["missing_envs"],
+                    configured="SMS_NETGSM_PASSWORD" not in sms_missing_envs,
                     detail="NetGSM API sifresi",
                 ),
                 PilotServiceEnvEntry(
                     key="SMS_SENDER",
                     required=False,
-                    configured="SMS_SENDER" not in sms_setup["missing_envs"],
+                    configured="SMS_SENDER" not in sms_missing_envs,
                     detail="SMS gonderici basligi",
                 ),
                 PilotServiceEnvEntry(
                     key="SMS_NETGSM_ENCODING",
                     required=False,
-                    configured="SMS_NETGSM_ENCODING" not in sms_setup["missing_envs"],
+                    configured="SMS_NETGSM_ENCODING" not in sms_missing_envs,
                     detail="TR",
                 ),
             ],
@@ -1270,6 +1329,12 @@ def _build_cutover_summary(
     elif not phone_login_ready:
         remaining_items.append("Telefonla giris akisi mobil operasyon icin acilmali.")
 
+    if "CK_V2_APP_ENV" in optional_missing_env_vars:
+        remaining_items.append("Canli gecis oncesi production modu acilmali.")
+    if any(name in optional_missing_env_vars for name in {"CK_V2_FRONTEND_BASE_URL", "CK_V2_PUBLIC_APP_URL", "CK_V2_API_PUBLIC_URL"}):
+        remaining_items.append("Canli alan adlari ve https URL'leri tamamlanmali.")
+    if "CK_V2_DEFAULT_AUTH_PASSWORD" in optional_missing_env_vars:
+        remaining_items.append("Varsayilan v2 sifresi guclu bir parola ile yenilenmeli.")
     if optional_missing_env_vars:
         remaining_items.append("Opsiyonel env ayarlari tamamlanirsa SMS ve gecis akislari guclenir.")
 
