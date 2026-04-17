@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import shutil
 
+from go_live_decision_report import build_report as build_go_live_decision_report, render_markdown as render_go_live_decision_markdown
 from pilot_gate import build_gate_result
 from pilot_smoke import build_markdown_report as build_smoke_markdown_report, build_report as build_smoke_report, run_smoke_checks
 from pilot_status_report import build_markdown_report, fetch_pilot_status
@@ -14,6 +15,8 @@ from render_env_bundle import normalize_url
 
 
 DEFAULT_TIMEOUT = 12
+DEFAULT_DATABASE_URL = "<mevcut-postgresql-url-sslmode-require>"
+DEFAULT_AUTH_PASSWORD = "<guclu-varsayilan-sifre>"
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -37,6 +40,15 @@ def _remove_stale_smoke_files(output_dir: Path) -> None:
             path.unlink()
 
 
+def _derive_api_url(payload: dict) -> str | None:
+    backend = payload.get("backend") or {}
+    services = backend.get("services") or []
+    for service in services:
+        if service.get("service_type") == "backend" and service.get("public_url"):
+            return normalize_url(service["public_url"])
+    return None
+
+
 def _build_summary_markdown(
     *,
     base_url: str,
@@ -45,6 +57,7 @@ def _build_summary_markdown(
     pilot_gate: dict,
     cutover_gate: dict,
     output_dir: Path,
+    go_live_report: dict,
     smoke_report: dict | None = None,
 ) -> str:
     backend = payload.get("backend") or {}
@@ -63,6 +76,7 @@ def _build_summary_markdown(
         f"- Decision: {decision.get('title') or '-'}",
         f"- Pilot Gate: `{'PASS' if pilot_gate['passed'] else 'FAIL'}`",
         f"- Cutover Gate: `{'PASS' if cutover_gate['passed'] else 'FAIL'}`",
+        f"- Go-Live Phase: `{go_live_report.get('phase') or '-'}`",
         (
             f"- Smoke: `{'PASS' if smoke_report['overall_ok'] else 'FAIL'}`"
             if smoke_report
@@ -75,6 +89,8 @@ def _build_summary_markdown(
         f"- [Status JSON]({(output_dir / 'pilot-status-live.json').name})",
         f"- [Pilot Gate JSON]({(output_dir / 'pilot-gate-pilot.json').name})",
         f"- [Cutover Gate JSON]({(output_dir / 'pilot-gate-cutover.json').name})",
+        f"- [Go-Live Decision Markdown]({(output_dir / 'go-live-decision.md').name})",
+        f"- [Go-Live Decision JSON]({(output_dir / 'go-live-decision.json').name})",
         *(
             [
                 f"- [Smoke Markdown]({(output_dir / 'pilot-smoke-live.md').name})",
@@ -101,6 +117,15 @@ def _build_summary_markdown(
         "### Blocking Items",
         "",
         *([f"- {item}" for item in cutover_gate["blocking_items"]] or ["- Yok"]),
+        "",
+        "## Go-Live Karari",
+        "",
+        f"- Summary: {go_live_report.get('summary') or '-'}",
+        f"- Recommended Next Step: {go_live_report.get('recommended_next_step') or '-'}",
+        "",
+        "### Future Cutover Blocking Items",
+        "",
+        *([f"- {item}" for item in go_live_report.get("future_cutover_blocking_items") or []] or ["- Yok"]),
         "",
     ]
     if smoke_report:
@@ -129,6 +154,9 @@ def build_preflight_bundle(
     output_dir: Path,
     include_smoke: bool = False,
     fresh_output: bool = False,
+    api_url: str | None = None,
+    database_url: str = DEFAULT_DATABASE_URL,
+    default_auth_password: str = DEFAULT_AUTH_PASSWORD,
     identity: str | None = None,
     password: str | None = None,
     preset: str | None = None,
@@ -139,8 +167,16 @@ def build_preflight_bundle(
     if fresh_output:
         _clear_output_dir(output_dir)
     payload = fetch_pilot_status(base_url, timeout)
+    resolved_api_url = normalize_url(api_url) if api_url else (_derive_api_url(payload) or base_url)
     pilot_gate = build_gate_result(mode="pilot", payload=payload)
     cutover_gate = build_gate_result(mode="cutover", payload=payload)
+    go_live_report = build_go_live_decision_report(
+        base_url=base_url,
+        api_url=resolved_api_url,
+        payload=payload,
+        database_url=database_url,
+        default_auth_password=default_auth_password,
+    )
     generated_at = datetime.now(UTC).isoformat()
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -180,6 +216,7 @@ def build_preflight_bundle(
         pilot_gate=pilot_gate,
         cutover_gate=cutover_gate,
         output_dir=output_dir,
+        go_live_report=go_live_report,
         smoke_report=smoke_report,
     )
 
@@ -187,20 +224,29 @@ def build_preflight_bundle(
     _write_json(output_dir / "pilot-status-live.json", payload)
     _write_json(output_dir / "pilot-gate-pilot.json", pilot_gate)
     _write_json(output_dir / "pilot-gate-cutover.json", cutover_gate)
+    _write_json(output_dir / "go-live-decision.json", go_live_report)
+    (output_dir / "go-live-decision.md").write_text(
+        render_go_live_decision_markdown(go_live_report),
+        encoding="utf-8",
+    )
     (output_dir / "pilot-preflight-summary.md").write_text(summary_markdown, encoding="utf-8")
 
     result = {
         "generated_at": generated_at,
         "base_url": base_url,
+        "api_url": resolved_api_url,
         "output_dir": str(output_dir),
         "pilot_gate": pilot_gate,
         "cutover_gate": cutover_gate,
+        "go_live_report": go_live_report,
         "files": {
             "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
             "status_markdown": str(output_dir / "pilot-status-live.md"),
             "status_json": str(output_dir / "pilot-status-live.json"),
             "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
             "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
+            "go_live_decision_markdown": str(output_dir / "go-live-decision.md"),
+            "go_live_decision_json": str(output_dir / "go-live-decision.json"),
         },
     }
     if smoke_report:
@@ -214,10 +260,12 @@ def render_console_summary(result: dict) -> str:
     lines = [
         "Cat Kapinda CRM v2 Preflight Bundle",
         f"Base URL: {result['base_url']}",
+        f"API URL: {result['api_url']}",
         f"Output Dir: {result['output_dir']}",
         f"Generated At: {result['generated_at']}",
         f"Pilot Gate: {'PASS' if result['pilot_gate']['passed'] else 'FAIL'} - {result['pilot_gate']['summary']}",
         f"Cutover Gate: {'PASS' if result['cutover_gate']['passed'] else 'FAIL'} - {result['cutover_gate']['summary']}",
+        f"Go-Live: {result['go_live_report']['phase']} - {result['go_live_report']['summary']}",
         *(
             [
                 (
@@ -258,6 +306,17 @@ def main() -> int:
         default="pilot-preflight",
         help="Directory where markdown/json outputs will be written",
     )
+    parser.add_argument("--api-url", default="", help="Optional public v2 backend URL")
+    parser.add_argument(
+        "--database-url",
+        default=DEFAULT_DATABASE_URL,
+        help="Shared PostgreSQL URL placeholder or real value for the embedded go-live decision",
+    )
+    parser.add_argument(
+        "--default-auth-password",
+        default=DEFAULT_AUTH_PASSWORD,
+        help="Initial admin/mobile_ops password placeholder or real value for the embedded go-live decision",
+    )
     parser.add_argument(
         "--json",
         action="store_true",
@@ -297,6 +356,9 @@ def main() -> int:
         output_dir=Path(args.output_dir),
         include_smoke=args.include_smoke,
         fresh_output=args.fresh_output,
+        api_url=args.api_url.strip() or None,
+        database_url=args.database_url.strip(),
+        default_auth_password=args.default_auth_password.strip(),
         identity=args.identity.strip() or None,
         password=args.password.strip() or None,
         preset=args.preset,

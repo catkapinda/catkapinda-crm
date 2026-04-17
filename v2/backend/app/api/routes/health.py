@@ -955,7 +955,9 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             category="packet",
             command=(
                 "python v2/scripts/pilot_preflight.py "
-                f"--base-url {frontend_url} --output-dir pilot-preflight --fresh-output"
+                f"--base-url {frontend_url} --api-url {backend_url} --output-dir pilot-preflight "
+                "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+                "--default-auth-password '<guclu-varsayilan-sifre>' --fresh-output"
             ),
         ),
         PilotHelperCommand(
@@ -963,7 +965,9 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             category="packet",
             command=(
                 "python v2/scripts/pilot_preflight.py "
-                f"--base-url {frontend_url} --output-dir pilot-preflight "
+                f"--base-url {frontend_url} --api-url {backend_url} --output-dir pilot-preflight "
+                "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+                "--default-auth-password '<guclu-varsayilan-sifre>' "
                 "--fresh-output --include-smoke --preset pilot --strict-smoke"
             ),
         ),

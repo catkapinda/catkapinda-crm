@@ -13,6 +13,7 @@ import pilot_day_zero  # noqa: E402
 import pilot_day_zero_verify  # noqa: E402
 import pilot_deploy_guard  # noqa: E402
 import pilot_gate  # noqa: E402
+import go_live_decision_report  # noqa: E402
 import pilot_preflight  # noqa: E402
 import pilot_smoke  # noqa: E402
 import pilot_status_report  # noqa: E402
@@ -105,6 +106,7 @@ def write_valid_preflight_artifacts(
     payload: dict | None = None,
     pilot_gate_result: dict | None = None,
     cutover_gate_result: dict | None = None,
+    go_live_report: dict | None = None,
     smoke_report: dict | None = None,
 ) -> dict[str, str]:
     payload = payload or sample_payload()
@@ -119,6 +121,21 @@ def write_valid_preflight_artifacts(
         "summary": "Redirect cutover'a gecilemez.",
         "recommended_next_step": "Bekle",
         "blocking_items": [],
+    }
+    go_live_report = go_live_report or {
+        "generated_at": "2026-01-01T00:00:00+00:00",
+        "base_url": "https://pilot.example.com",
+        "api_url": "https://pilot-api.example.com",
+        "phase": "ready_for_pilot",
+        "summary": "Pilot acilabilir, ancak cutover icin kalan blokajlar var.",
+        "recommended_next_step": "Cutover blokajlarini temizle.",
+        "pilot_passed": True,
+        "cutover_passed": False,
+        "pilot_blocking_items": [],
+        "future_cutover_blocking_items": ["Ornek cutover blokaji"],
+        "cutover_blocking_items": ["Ornek cutover blokaji"],
+        "pilot_result": {"summary": "Pilot deploy acilabilir."},
+        "cutover_result": {"summary": "Cutover deploy bloklu."},
     }
 
     base_url = "https://pilot.example.com"
@@ -157,6 +174,11 @@ def write_valid_preflight_artifacts(
     (output_dir / "pilot-status-live.json").write_text(json.dumps(payload), encoding="utf-8")
     (output_dir / "pilot-gate-pilot.json").write_text(json.dumps(pilot_gate_result), encoding="utf-8")
     (output_dir / "pilot-gate-cutover.json").write_text(json.dumps(cutover_gate_result), encoding="utf-8")
+    (output_dir / "go-live-decision.json").write_text(json.dumps(go_live_report), encoding="utf-8")
+    (output_dir / "go-live-decision.md").write_text(
+        go_live_decision_report.render_markdown(go_live_report),
+        encoding="utf-8",
+    )
     (output_dir / "pilot-preflight-summary.md").write_text(
         pilot_preflight._build_summary_markdown(
             base_url=base_url,
@@ -165,6 +187,7 @@ def write_valid_preflight_artifacts(
             pilot_gate=pilot_gate_result,
             cutover_gate=cutover_gate_result,
             output_dir=output_dir,
+            go_live_report=go_live_report,
             smoke_report=normalized_smoke_report,
         ),
         encoding="utf-8",
@@ -176,6 +199,8 @@ def write_valid_preflight_artifacts(
         "status_json": str(output_dir / "pilot-status-live.json"),
         "pilot_gate_json": str(output_dir / "pilot-gate-pilot.json"),
         "cutover_gate_json": str(output_dir / "pilot-gate-cutover.json"),
+        "go_live_decision_markdown": str(output_dir / "go-live-decision.md"),
+        "go_live_decision_json": str(output_dir / "go-live-decision.json"),
     }
     if normalized_smoke_report is not None:
         (output_dir / "pilot-smoke-live.md").write_text(
@@ -193,6 +218,7 @@ def make_fake_preflight_bundle(
     payload: dict | None = None,
     pilot_gate_result: dict | None = None,
     cutover_gate_result: dict | None = None,
+    go_live_report: dict | None = None,
     smoke_report: dict | None = None,
 ):
     payload = payload or sample_payload()
@@ -247,16 +273,27 @@ def make_fake_preflight_bundle(
             smoke_report["failed_count"] = sum(1 for result in smoke_report["results"] if not result.get("ok"))
 
     def fake_preflight_bundle(*, base_url: str, timeout: int, output_dir: Path, **kwargs) -> dict:
+        effective_go_live_report = go_live_report
+        if effective_go_live_report is None:
+            effective_go_live_report = go_live_decision_report.build_report(
+                base_url=base_url,
+                api_url=kwargs.get("api_url") or "https://pilot-api.example.com",
+                payload=payload,
+                database_url=kwargs.get("database_url") or "<mevcut-postgresql-url-sslmode-require>",
+                default_auth_password=kwargs.get("default_auth_password") or "<guclu-varsayilan-sifre>",
+            )
         files = write_valid_preflight_artifacts(
             output_dir,
             payload=payload,
             pilot_gate_result=pilot_gate_result,
             cutover_gate_result=cutover_gate_result,
+            go_live_report=effective_go_live_report,
             smoke_report=smoke_report,
         )
         result = {
             "pilot_gate": json.loads(json.dumps(pilot_gate_result)),
             "cutover_gate": json.loads(json.dumps(cutover_gate_result)),
+            "go_live_report": json.loads((output_dir / "go-live-decision.json").read_text(encoding="utf-8")),
             "files": files,
         }
         if smoke_report is not None:
@@ -1209,7 +1246,11 @@ def test_preflight_bundle_writes_expected_files(monkeypatch, tmp_path: Path):
     assert (tmp_path / "pilot-status-live.json").exists()
     assert (tmp_path / "pilot-gate-pilot.json").exists()
     assert (tmp_path / "pilot-gate-cutover.json").exists()
+    assert (tmp_path / "go-live-decision.json").exists()
+    assert (tmp_path / "go-live-decision.md").exists()
     assert (tmp_path / "pilot-preflight-summary.md").exists()
+    assert result["go_live_report"]["phase"] == "blocked"
+    assert result["api_url"] == "https://pilot-api.example.com"
 
 
 def test_preflight_bundle_can_embed_smoke_outputs(monkeypatch, tmp_path: Path):
@@ -1236,6 +1277,8 @@ def test_preflight_bundle_can_embed_smoke_outputs(monkeypatch, tmp_path: Path):
     summary = (tmp_path / "pilot-preflight-summary.md").read_text(encoding="utf-8")
     assert "## Smoke" in summary
     assert "Smoke Markdown" in summary
+    assert "## Go-Live Karari" in summary
+    assert "Go-Live Decision Markdown" in summary
 
 
 def test_preflight_bundle_removes_stale_smoke_files_when_smoke_is_disabled(monkeypatch, tmp_path: Path):

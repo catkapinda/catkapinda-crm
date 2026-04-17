@@ -343,12 +343,16 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert helper_map["Live Pilot Status JSON"]["category"] == "packet"
     assert helper_map["Pilot Preflight Bundle"]["command"] == (
         "python v2/scripts/pilot_preflight.py "
-        "--base-url https://pilot.example.com --output-dir pilot-preflight --fresh-output"
+        "--base-url https://pilot.example.com --api-url https://pilot-api.example.com --output-dir pilot-preflight "
+        "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+        "--default-auth-password '<guclu-varsayilan-sifre>' --fresh-output"
     )
     assert helper_map["Pilot Preflight Bundle"]["category"] == "packet"
     assert helper_map["Pilot Preflight + Smoke"]["command"] == (
         "python v2/scripts/pilot_preflight.py "
-        "--base-url https://pilot.example.com --output-dir pilot-preflight "
+        "--base-url https://pilot.example.com --api-url https://pilot-api.example.com --output-dir pilot-preflight "
+        "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+        "--default-auth-password '<guclu-varsayilan-sifre>' "
         "--fresh-output --include-smoke --preset pilot --strict-smoke"
     )
     assert helper_map["Pilot Preflight + Smoke"]["category"] == "packet"

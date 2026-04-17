@@ -482,6 +482,9 @@ def build_day_zero_bundle(
         preset=smoke_preset,
         legacy_url=smoke_legacy_url,
         legacy_cutover_mode=smoke_legacy_cutover_mode,
+        api_url=api_url,
+        database_url=database_url,
+        default_auth_password=default_auth_password,
     )
     smoke_report = preflight_result.get("smoke_report")
 
