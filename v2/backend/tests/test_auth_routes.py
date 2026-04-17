@@ -90,8 +90,41 @@ def test_login_route_records_audit_event(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["user"]["identity"] == "mert.kurtulus@catkapinda.com"
+    assert "ck_v2_auth_token=" in response.headers["set-cookie"]
+    assert "ck_v2_auth_present=1" in response.headers["set-cookie"]
     assert audit_calls[0]["entity_type"] == "oturum"
     assert audit_calls[0]["action_type"] == "giriş"
+
+
+def test_logout_route_clears_auth_cookies(monkeypatch):
+    monkeypatch.setattr("app.api.routes.auth.revoke_authenticated_session", lambda conn, token: None)
+    app = create_app(enable_bootstrap=False)
+    app.dependency_overrides[get_db] = lambda: FakeConnection()
+    app.dependency_overrides["unused"] = lambda: None
+
+    from app.api.deps.auth import get_current_user
+
+    app.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(
+        id=7,
+        identity="mert.kurtulus@catkapinda.com",
+        email="mert.kurtulus@catkapinda.com",
+        phone="",
+        full_name="Mert Kurtuluş",
+        role="admin",
+        role_display="Yönetim Kurulu / Yönetici",
+        must_change_password=False,
+        allowed_actions=[],
+        expires_at="2099-01-01T00:00:00",
+        token="token-123",
+    )
+    client = TestClient(app)
+
+    response = client.post("/api/auth/logout")
+
+    assert response.status_code == 200
+    set_cookie = response.headers["set-cookie"]
+    assert "ck_v2_auth_token=" in set_cookie
+    assert "ck_v2_auth_present=" in set_cookie
 
 
 def test_request_password_reset_code_route_returns_validation_error(monkeypatch):

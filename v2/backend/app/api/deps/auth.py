@@ -3,19 +3,22 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 import psycopg
 
 from app.core.database import get_db
 from app.core.security import AuthenticatedUser
 from app.services.auth import resolve_authenticated_user
 
+AUTH_SESSION_COOKIE_NAME = "ck_v2_auth_token"
+
 
 def get_current_user(
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
+    session_cookie: Annotated[str | None, Cookie(alias=AUTH_SESSION_COOKIE_NAME)] = None,
 ) -> AuthenticatedUser:
-    token = extract_bearer_token(authorization)
+    token = extract_bearer_token(authorization) or str(session_cookie or "").strip()
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

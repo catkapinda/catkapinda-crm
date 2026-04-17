@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-import { AUTH_TOKEN_COOKIE_NAME } from "./lib/api";
+import { AUTH_PRESENCE_COOKIE_NAME } from "./lib/api";
 
 const PUBLIC_PATHS = new Set(["/login", "/status"]);
 
@@ -17,7 +17,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const authToken = request.cookies.get(AUTH_TOKEN_COOKIE_NAME)?.value ?? "";
+  const authToken = request.cookies.get(AUTH_PRESENCE_COOKIE_NAME)?.value ?? "";
   if (authToken) {
     return NextResponse.next();
   }

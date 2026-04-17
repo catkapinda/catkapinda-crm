@@ -1,7 +1,7 @@
 import { buildPreviewResponse, isPreviewModeBrowser } from "./preview";
 
-export const AUTH_TOKEN_STORAGE_KEY = "ck_v2_auth_token";
 export const AUTH_TOKEN_COOKIE_NAME = "ck_v2_auth_token";
+export const AUTH_PRESENCE_COOKIE_NAME = "ck_v2_auth_present";
 export const AUTH_NOTICE_STORAGE_KEY = "ck_v2_auth_notice";
 export const AUTH_UNAUTHORIZED_EVENT = "ck-v2-auth-unauthorized";
 
@@ -16,24 +16,15 @@ export function resolveApiBaseUrl() {
   return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
 }
 
-export function readStoredAuthToken() {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) ?? "";
-}
-
-export function writeStoredAuthToken(token: string) {
+export function writeAuthPresenceMarker(active: boolean) {
   if (typeof window === "undefined") {
     return;
   }
-  if (token) {
-    window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
-    document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 12}`;
+  if (active) {
+    document.cookie = `${AUTH_PRESENCE_COOKIE_NAME}=1; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 12}`;
     return;
   }
-  window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
-  document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=; Path=/; SameSite=Lax; Max-Age=0`;
+  document.cookie = `${AUTH_PRESENCE_COOKIE_NAME}=; Path=/; SameSite=Lax; Max-Age=0`;
 }
 
 export function readStoredAuthNotice() {
@@ -63,7 +54,7 @@ function emitUnauthorizedEvent() {
   if (typeof window === "undefined") {
     return;
   }
-  writeStoredAuthToken("");
+  writeAuthPresenceMarker(false);
   writeStoredAuthNotice("Oturumun sona erdi. Devam etmek için tekrar giriş yap.");
   window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
 }
@@ -76,13 +67,10 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
     }
   }
   const headers = new Headers(init.headers ?? {});
-  const token = readStoredAuthToken();
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
   const response = await fetch(buildApiUrl(path), {
     ...init,
     headers,
+    credentials: init.credentials ?? "same-origin",
     cache: init.cache ?? "no-store",
   });
   if (response.status === 401 && !path.startsWith("/auth/login") && !path.startsWith("/auth/verify-phone-code")) {

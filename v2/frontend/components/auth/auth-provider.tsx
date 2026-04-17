@@ -14,8 +14,8 @@ import {
   AUTH_UNAUTHORIZED_EVENT,
   apiFetch,
   buildApiUrl,
+  writeAuthPresenceMarker,
   writeStoredAuthNotice,
-  writeStoredAuthToken,
 } from "../../lib/api";
 import { isPreviewModeBrowser, PREVIEW_USER } from "../../lib/preview";
 
@@ -57,14 +57,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiFetch("/auth/me");
       if (!response.ok) {
-        writeStoredAuthToken("");
+        writeAuthPresenceMarker(false);
         setUser(null);
         return;
       }
       const payload = (await response.json()) as AuthUser;
       setUser(payload);
     } catch {
-      writeStoredAuthToken("");
+      writeAuthPresenceMarker(false);
       setUser(null);
     }
   }, []);
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     function handleUnauthorized() {
-      writeStoredAuthToken("");
+      writeAuthPresenceMarker(false);
       setUser(null);
       setLoading(false);
     }
@@ -118,11 +118,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       | { detail?: string; access_token?: string; user?: AuthUser }
       | null;
 
-    if (!response.ok || !payload?.access_token || !payload.user) {
+    if (!response.ok || !payload?.user) {
       throw new Error(payload?.detail || "Giriş yapilamadi.");
     }
 
-    writeStoredAuthToken(payload.access_token);
+    writeAuthPresenceMarker(true);
     setUser(payload.user);
     return payload.user;
   }, []);
@@ -171,18 +171,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       | { detail?: string; access_token?: string; user?: AuthUser }
       | null;
 
-    if (!response.ok || !payload?.access_token || !payload.user) {
+    if (!response.ok || !payload?.user) {
       throw new Error(payload?.detail || "SMS kodu doğrulanamadı.");
     }
 
-    writeStoredAuthToken(payload.access_token);
+    writeAuthPresenceMarker(true);
     setUser(payload.user);
     return payload.user;
   }, []);
 
   const logout = useCallback(async () => {
     if (isPreviewModeBrowser()) {
-      writeStoredAuthToken("");
+      writeAuthPresenceMarker(false);
       writeStoredAuthNotice("");
       setUser(null);
       return;
@@ -190,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await apiFetch("/auth/logout", { method: "POST" });
     } finally {
-      writeStoredAuthToken("");
+      writeAuthPresenceMarker(false);
       writeStoredAuthNotice("");
       setUser(null);
     }
