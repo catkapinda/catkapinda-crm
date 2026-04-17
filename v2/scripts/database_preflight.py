@@ -17,6 +17,7 @@ APPLICATION_NAME = "catkapinda-crm-v2-db-preflight"
 CONNECT_TIMEOUT = 5
 CUTOVER_ATTENDANCE_STALENESS_DAYS = 45
 WRITE_REQUIRED_PRIVILEGES: tuple[str, ...] = ("SELECT", "INSERT", "UPDATE", "DELETE")
+SEQUENCE_REQUIRED_PRIVILEGES: tuple[str, ...] = ("USAGE",)
 
 REQUIRED_TABLES: tuple[tuple[str, str], ...] = (
     ("restaurants", "Restoran kartlari"),
@@ -356,6 +357,33 @@ def _table_privileges(
     return privileges
 
 
+def _table_sequence_name(conn: psycopg.Connection, table_name: str) -> str | None:
+    cursor = conn.execute(
+        "SELECT pg_get_serial_sequence(%s, 'id') AS sequence_name",
+        (table_name,),
+    )
+    row = _row_to_mapping(cursor.fetchone())
+    sequence_name = str(row.get("sequence_name") or "").strip()
+    return sequence_name or None
+
+
+def _sequence_privileges(
+    conn: psycopg.Connection,
+    sequence_name: str,
+    *,
+    required_privileges: tuple[str, ...],
+) -> dict[str, bool]:
+    privileges: dict[str, bool] = {}
+    for privilege in required_privileges:
+        cursor = conn.execute(
+            "SELECT has_sequence_privilege(current_user, %s, %s) AS allowed",
+            (sequence_name, privilege),
+        )
+        row = _row_to_mapping(cursor.fetchone())
+        privileges[privilege] = bool(row.get("allowed"))
+    return privileges
+
+
 def _scalar_value(conn: psycopg.Connection, query: str, params: tuple[object, ...] = ()) -> object:
     cursor = conn.execute(query, params)
     row = _row_to_mapping(cursor.fetchone())
@@ -477,6 +505,7 @@ def _inspect_group(
     missing_tables: list[str] = []
     missing_columns_by_table: dict[str, list[str]] = {}
     missing_privileges_by_table: dict[str, list[str]] = {}
+    missing_sequence_privileges_by_table: dict[str, list[str]] = {}
 
     for table_name, label in table_specs:
         critical_columns = list(critical_columns_map.get(table_name, ()))
@@ -485,6 +514,8 @@ def _inspect_group(
         detail = "Tablo bulundu."
         missing_columns: list[str] = []
         missing_privileges: list[str] = []
+        sequence_name: str | None = None
+        missing_sequence_privileges: list[str] = []
         if present:
             available_columns = _table_columns(conn, table_name)
             missing_columns = [column for column in critical_columns if column not in available_columns]
@@ -500,6 +531,21 @@ def _inspect_group(
             ]
             if missing_privileges:
                 missing_privileges_by_table[table_name] = missing_privileges
+            if "id" in available_columns:
+                sequence_name = _table_sequence_name(conn, table_name)
+                if sequence_name:
+                    sequence_privileges = _sequence_privileges(
+                        conn,
+                        sequence_name,
+                        required_privileges=SEQUENCE_REQUIRED_PRIVILEGES,
+                    )
+                    missing_sequence_privileges = [
+                        privilege
+                        for privilege in SEQUENCE_REQUIRED_PRIVILEGES
+                        if not sequence_privileges.get(privilege, False)
+                    ]
+                    if missing_sequence_privileges:
+                        missing_sequence_privileges_by_table[table_name] = missing_sequence_privileges
             try:
                 row_count = _table_count(conn, table_name)
                 detail_parts = [
@@ -521,6 +567,10 @@ def _inspect_group(
                 detail_parts.append(
                     f"Eksik tablo yetkileri: {', '.join(missing_privileges)}."
                 )
+            if missing_sequence_privileges and sequence_name:
+                detail_parts.append(
+                    f"Eksik sequence yetkileri ({sequence_name}): {', '.join(missing_sequence_privileges)}."
+                )
             detail = " ".join(detail_parts)
         else:
             missing_tables.append(table_name)
@@ -535,11 +585,19 @@ def _inspect_group(
                 "critical_columns": critical_columns,
                 "missing_columns": missing_columns,
                 "missing_privileges": missing_privileges,
+                "sequence_name": sequence_name,
+                "missing_sequence_privileges": missing_sequence_privileges,
                 "detail": detail,
             }
         )
 
-    return entries, missing_tables, missing_columns_by_table, missing_privileges_by_table
+    return (
+        entries,
+        missing_tables,
+        missing_columns_by_table,
+        missing_privileges_by_table,
+        missing_sequence_privileges_by_table,
+    )
 
 
 def build_database_preflight_report(
@@ -563,13 +621,25 @@ def build_database_preflight_report(
         connect_timeout=CONNECT_TIMEOUT,
         application_name=APPLICATION_NAME,
     ) as conn:
-        required_entries, required_missing, required_missing_columns, required_missing_privileges = _inspect_group(
+        (
+            required_entries,
+            required_missing,
+            required_missing_columns,
+            required_missing_privileges,
+            required_missing_sequence_privileges,
+        ) = _inspect_group(
             conn,
             REQUIRED_TABLES,
             critical_columns_map=REQUIRED_CRITICAL_COLUMNS,
             required_privileges=WRITE_REQUIRED_PRIVILEGES,
         )
-        bootstrap_entries, bootstrap_missing, bootstrap_missing_columns, bootstrap_missing_privileges = _inspect_group(
+        (
+            bootstrap_entries,
+            bootstrap_missing,
+            bootstrap_missing_columns,
+            bootstrap_missing_privileges,
+            bootstrap_missing_sequence_privileges,
+        ) = _inspect_group(
             conn,
             BOOTSTRAP_TABLES,
             critical_columns_map=BOOTSTRAP_CRITICAL_COLUMNS,
@@ -603,6 +673,23 @@ def build_database_preflight_report(
             cutover_blocking_items.append(message)
         else:
             warnings.append(message)
+    for table_name, missing_sequence_privileges in bootstrap_missing_sequence_privileges.items():
+        sequence_name = next(
+            (
+                str(entry.get("sequence_name") or "")
+                for entry in bootstrap_entries
+                if entry.get("table") == table_name
+            ),
+            "",
+        )
+        message = (
+            f"`{table_name}` tablosunun sequence yetkileri eksik: "
+            f"{sequence_name or 'sequence'} ({', '.join(missing_sequence_privileges)})."
+        )
+        if table_name in BOOTSTRAP_BLOCKING_PRIVILEGE_TABLES:
+            cutover_blocking_items.append(message)
+        else:
+            warnings.append(message)
 
     blocking_items = [f"`{table_name}` tablosu eksik." for table_name in required_missing]
     blocking_items.extend(
@@ -619,8 +706,29 @@ def build_database_preflight_report(
     )
     blocking_items.extend(
         [
+            (
+                f"`{table_name}` tablosunun sequence yetkileri eksik: "
+                f"{next((str(entry.get('sequence_name') or '') for entry in required_entries if entry.get('table') == table_name), '') or 'sequence'} "
+                f"({', '.join(missing_sequence_privileges)})."
+            )
+            for table_name, missing_sequence_privileges in required_missing_sequence_privileges.items()
+        ]
+    )
+    blocking_items.extend(
+        [
             f"`{table_name}` tablosunda eksik tablo yetkileri var: {', '.join(missing_privileges)}."
             for table_name, missing_privileges in bootstrap_missing_privileges.items()
+            if table_name in BOOTSTRAP_BLOCKING_PRIVILEGE_TABLES
+        ]
+    )
+    blocking_items.extend(
+        [
+            (
+                f"`{table_name}` tablosunun sequence yetkileri eksik: "
+                f"{next((str(entry.get('sequence_name') or '') for entry in bootstrap_entries if entry.get('table') == table_name), '') or 'sequence'} "
+                f"({', '.join(missing_sequence_privileges)})."
+            )
+            for table_name, missing_sequence_privileges in bootstrap_missing_sequence_privileges.items()
             if table_name in BOOTSTRAP_BLOCKING_PRIVILEGE_TABLES
         ]
     )
@@ -655,6 +763,8 @@ def build_database_preflight_report(
         "bootstrap_missing_columns": bootstrap_missing_columns,
         "required_missing_privileges": required_missing_privileges,
         "bootstrap_missing_privileges": bootstrap_missing_privileges,
+        "required_missing_sequence_privileges": required_missing_sequence_privileges,
+        "bootstrap_missing_sequence_privileges": bootstrap_missing_sequence_privileges,
         "data_health": data_health,
         "blocking_items": blocking_items,
         "cutover_blocking_items": cutover_blocking_items,
@@ -676,11 +786,14 @@ def render_report_text(report: dict[str, object]) -> str:
         item = entry if isinstance(entry, dict) else {}
         status = (
             "OK"
-            if item.get("present") and not item.get("missing_columns") and not item.get("missing_privileges")
+            if item.get("present")
+            and not item.get("missing_columns")
+            and not item.get("missing_privileges")
+            and not item.get("missing_sequence_privileges")
             else (
                 "MISSING"
                 if not item.get("present")
-                else ("PRIV" if item.get("missing_privileges") else "SCHEMA")
+                else ("PRIV" if item.get("missing_privileges") or item.get("missing_sequence_privileges") else "SCHEMA")
             )
         )
         lines.append(f"- [{status}] {item.get('table')}: {item.get('detail')}")
@@ -690,11 +803,18 @@ def render_report_text(report: dict[str, object]) -> str:
         item = entry if isinstance(entry, dict) else {}
         status = (
             "OK"
-            if item.get("present") and not item.get("missing_columns") and not item.get("missing_privileges")
+            if item.get("present")
+            and not item.get("missing_columns")
+            and not item.get("missing_privileges")
+            and not item.get("missing_sequence_privileges")
             else (
                 "OPTIONAL"
                 if not item.get("present")
-                else ("WARN" if item.get("missing_columns") or item.get("missing_privileges") else "WARN")
+                else (
+                    "WARN"
+                    if item.get("missing_columns") or item.get("missing_privileges") or item.get("missing_sequence_privileges")
+                    else "WARN"
+                )
             )
         )
         lines.append(f"- [{status}] {item.get('table')}: {item.get('detail')}")

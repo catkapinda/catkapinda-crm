@@ -35,6 +35,8 @@ class FakeConnection:
         row_counts: dict[str, int],
         table_columns: dict[str, list[str]],
         table_privileges: dict[str, dict[str, bool]],
+        table_sequences: dict[str, str | None],
+        sequence_privileges: dict[str, dict[str, bool]],
         data_health_counts: dict[str, int],
         latest_dates: dict[str, str | None],
     ):
@@ -42,6 +44,8 @@ class FakeConnection:
         self.row_counts = row_counts
         self.table_columns = table_columns
         self.table_privileges = table_privileges
+        self.table_sequences = table_sequences
+        self.sequence_privileges = sequence_privileges
         self.data_health_counts = data_health_counts
         self.latest_dates = latest_dates
 
@@ -74,6 +78,17 @@ class FakeConnection:
             table_name = str(params[0])
             privilege = str(params[1]).upper()
             return FakeCursor({"allowed": self.table_privileges.get(table_name, {}).get(privilege, False)})
+
+        if normalized == "SELECT pg_get_serial_sequence(%s, 'id') AS sequence_name":
+            assert params is not None
+            table_name = str(params[0])
+            return FakeCursor({"sequence_name": self.table_sequences.get(table_name)})
+
+        if normalized == "SELECT has_sequence_privilege(current_user, %s, %s) AS allowed":
+            assert params is not None
+            sequence_name = str(params[0])
+            privilege = str(params[1]).upper()
+            return FakeCursor({"allowed": self.sequence_privileges.get(sequence_name, {}).get(privilege, False)})
 
         if normalized == "SELECT COUNT(*) AS count FROM restaurants WHERE COALESCE(active, TRUE) = TRUE":
             return FakeCursor({"count": self.data_health_counts.get("active_restaurants", 0)})
@@ -125,6 +140,8 @@ def connect_factory(
     row_counts: dict[str, int],
     table_columns: dict[str, list[str]] | None = None,
     table_privileges: dict[str, dict[str, bool]] | None = None,
+    table_sequences: dict[str, str | None] | None = None,
+    sequence_privileges: dict[str, dict[str, bool]] | None = None,
     data_health_counts: dict[str, int] | None = None,
     latest_dates: dict[str, str | None] | None = None,
 ):
@@ -135,6 +152,19 @@ def connect_factory(
             for privilege in database_preflight.WRITE_REQUIRED_PRIVILEGES
         }
         for table_name in present_tables
+    }
+    resolved_sequences = table_sequences or {
+        table_name: f"public.{table_name}_id_seq"
+        for table_name in present_tables
+        if "id" in resolved_columns.get(table_name, [])
+    }
+    resolved_sequence_privileges = sequence_privileges or {
+        sequence_name: {
+            privilege: True
+            for privilege in database_preflight.SEQUENCE_REQUIRED_PRIVILEGES
+        }
+        for sequence_name in resolved_sequences.values()
+        if sequence_name
     }
     resolved_health_counts = data_health_counts or {
         "active_restaurants": row_counts.get("restaurants", 0),
@@ -155,6 +185,8 @@ def connect_factory(
             row_counts=row_counts,
             table_columns=resolved_columns,
             table_privileges=resolved_privileges,
+            table_sequences=resolved_sequences,
+            sequence_privileges=resolved_sequence_privileges,
             data_health_counts=resolved_health_counts,
             latest_dates=resolved_latest_dates,
         )
@@ -321,6 +353,49 @@ def test_build_database_preflight_report_blocks_when_auth_tables_have_missing_pr
         "`auth_sessions` tablosunda eksik tablo yetkileri var: INSERT."
         in report["blocking_items"]
     )
+
+
+def test_build_database_preflight_report_blocks_when_required_table_has_missing_sequence_privileges():
+    present_tables = {name for name, _ in database_preflight.REQUIRED_TABLES}
+    table_sequences = {
+        table_name: f"public.{table_name}_id_seq"
+        for table_name in present_tables
+    }
+    sequence_privileges = {
+        sequence_name: {
+            privilege: True
+            for privilege in database_preflight.SEQUENCE_REQUIRED_PRIVILEGES
+        }
+        for sequence_name in table_sequences.values()
+    }
+    sequence_privileges["public.sales_leads_id_seq"]["USAGE"] = False
+    report = database_preflight.build_database_preflight_report(
+        database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
+        connect_fn=connect_factory(
+            present_tables,
+            {
+                "restaurants": 12,
+                "personnel": 54,
+                "daily_entries": 3200,
+                "deductions": 88,
+                "inventory_purchases": 14,
+                "sales_leads": 7,
+                "courier_equipment_issues": 9,
+                "box_returns": 2,
+            },
+            table_sequences=table_sequences,
+            sequence_privileges=sequence_privileges,
+        ),
+        reference_date=date(2026, 4, 17),
+    )
+
+    assert report["passed"] is False
+    assert (
+        "`sales_leads` tablosunun sequence yetkileri eksik: public.sales_leads_id_seq (USAGE)."
+        in report["blocking_items"]
+    )
+    sales_entry = next(entry for entry in report["required_tables"] if entry["table"] == "sales_leads")
+    assert sales_entry["missing_sequence_privileges"] == ["USAGE"]
 
 
 def test_build_database_preflight_report_warns_when_core_tables_are_empty():
