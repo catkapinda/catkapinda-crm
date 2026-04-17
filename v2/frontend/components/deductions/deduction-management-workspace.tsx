@@ -627,21 +627,21 @@ export function DeductionManagementWorkspace() {
           )}
         </div>
 
-        {selectedEntry ? (
+            {selectedEntry ? (
           <div
             style={{
               display: "grid",
-              gap: "14px",
+              gap: "10px",
             }}
           >
             <div
               style={{
-                padding: "16px",
+                padding: "12px",
                 borderRadius: "20px",
                 border: "1px solid var(--line)",
                 background: "rgba(255, 255, 255, 0.86)",
                 display: "grid",
-                gap: "10px",
+                gap: "6px",
               }}
             >
               <div style={{ fontWeight: 900 }}>Seçili Kayıt</div>
@@ -680,8 +680,8 @@ export function DeductionManagementWorkspace() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "12px",
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                gap: "10px",
               }}
             >
               <label style={{ display: "grid", gap: "8px" }}>
@@ -730,7 +730,7 @@ export function DeductionManagementWorkspace() {
                 borderRadius: "18px",
                 border: "1px solid var(--line)",
                 background: "rgba(255, 255, 255, 0.85)",
-                padding: "14px 16px",
+                padding: "10px 12px",
                 color: "var(--muted)",
                 lineHeight: 1.7,
               }}
@@ -746,8 +746,8 @@ export function DeductionManagementWorkspace() {
               <textarea
                 value={editNotes}
                 onChange={(event) => setEditNotes(event.target.value)}
-                rows={3}
-                style={{ ...fieldStyle, resize: "vertical" }}
+                rows={2}
+                style={{ ...fieldStyle, resize: "vertical", minHeight: "60px" }}
                 disabled={detailLoading || editIsAuto}
               />
             </label>
@@ -755,7 +755,7 @@ export function DeductionManagementWorkspace() {
             {editIsAuto && (
               <div
                 style={{
-                  padding: "14px 16px",
+                  padding: "10px 12px",
                   borderRadius: "16px",
                   border: "1px solid rgba(230, 140, 55, 0.16)",
                   background: "rgba(230, 140, 55, 0.08)",
@@ -770,7 +770,7 @@ export function DeductionManagementWorkspace() {
             {(saveError || saveSuccess) && (
               <div
                 style={{
-                  padding: "14px 16px",
+                  padding: "10px 12px",
                   borderRadius: "16px",
                   border: saveError ? "1px solid rgba(205, 70, 66, 0.18)" : "1px solid rgba(35, 148, 94, 0.18)",
                   background: saveError ? "rgba(205, 70, 66, 0.08)" : "rgba(35, 148, 94, 0.08)",
@@ -782,15 +782,20 @@ export function DeductionManagementWorkspace() {
               </div>
             )}
 
-            <div style={{ display: "flex", gap: "12px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                gap: "8px",
+              }}
+            >
               <button
                 type="submit"
                 disabled={isPending || detailLoading || editIsAuto || !selectedEntryId}
                 style={{
-                  flex: 1,
                   border: "none",
                   borderRadius: "18px",
-                  padding: "15px 18px",
+                  padding: "10px 12px",
                   background: "linear-gradient(135deg, #0f5fd7, #1a73e8)",
                   color: "white",
                   fontWeight: 800,
@@ -807,9 +812,8 @@ export function DeductionManagementWorkspace() {
                 }}
                 disabled={isPending || detailLoading || editIsAuto || !selectedEntryId}
                 style={{
-                  flex: 1,
                   borderRadius: "18px",
-                  padding: "15px 18px",
+                  padding: "10px 12px",
                   background: "rgba(205, 70, 66, 0.08)",
                   color: "#b53632",
                   border: "1px solid rgba(205, 70, 66, 0.18)",

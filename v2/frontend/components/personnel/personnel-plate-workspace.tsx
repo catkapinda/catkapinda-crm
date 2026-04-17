@@ -408,15 +408,15 @@ export function PersonnelPlateWorkspace() {
             </aside>
 
             {selectedPerson ? (
-              <div style={{ display: "grid", gap: "16px" }}>
+              <div style={{ display: "grid", gap: "12px" }}>
                   <article
                     style={{
-                      padding: "18px",
+                      padding: "14px",
                       borderRadius: "20px",
                       border: "1px solid var(--line)",
                       background: "rgba(255,255,255,0.9)",
                       display: "grid",
-                      gap: "12px",
+                      gap: "8px",
                     }}
                   >
                     <div
@@ -439,8 +439,8 @@ export function PersonnelPlateWorkspace() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                        gap: "12px",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                        gap: "8px",
                       }}
                     >
                       <div>
@@ -472,8 +472,8 @@ export function PersonnelPlateWorkspace() {
                     onSubmit={handleSubmit}
                     style={{
                       display: "grid",
-                      gap: "14px",
-                      padding: "18px",
+                      gap: "10px",
+                      padding: "14px",
                       borderRadius: "20px",
                       border: "1px solid var(--line)",
                       background: "rgba(255,253,247,0.92)",
@@ -482,8 +482,8 @@ export function PersonnelPlateWorkspace() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                        gap: "12px",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                        gap: "10px",
                       }}
                     >
                       <label style={{ display: "grid", gap: "8px" }}>
@@ -512,7 +512,7 @@ export function PersonnelPlateWorkspace() {
                     {error ? (
                       <div
                         style={{
-                          padding: "12px 14px",
+                          padding: "10px 12px",
                           borderRadius: "14px",
                           background: "rgba(208, 67, 35, 0.08)",
                           color: "#b6482b",
@@ -524,7 +524,7 @@ export function PersonnelPlateWorkspace() {
                     {success ? (
                       <div
                         style={{
-                          padding: "12px 14px",
+                          padding: "10px 12px",
                           borderRadius: "14px",
                           background: "rgba(34, 139, 93, 0.1)",
                           color: "#1d7d53",
@@ -539,7 +539,7 @@ export function PersonnelPlateWorkspace() {
                       style={{
                         border: 0,
                         borderRadius: "16px",
-                        padding: "14px 18px",
+                        padding: "10px 12px",
                         background: "linear-gradient(135deg, var(--accent-strong), #9c5d14)",
                         color: "#fff7ea",
                         fontWeight: 800,
@@ -552,12 +552,12 @@ export function PersonnelPlateWorkspace() {
 
                   <article
                     style={{
-                      padding: "18px",
+                      padding: "14px",
                       borderRadius: "20px",
                       border: "1px solid var(--line)",
                       background: "rgba(255,255,255,0.9)",
                       display: "grid",
-                      gap: "12px",
+                      gap: "8px",
                     }}
                   >
                     <div>

@@ -399,15 +399,15 @@ export function PersonnelRoleWorkspace() {
             </aside>
 
             {selectedPerson ? (
-              <div style={{ display: "grid", gap: "16px" }}>
+              <div style={{ display: "grid", gap: "12px" }}>
                   <article
                     style={{
-                      padding: "18px",
+                      padding: "14px",
                       borderRadius: "20px",
                       border: "1px solid var(--line)",
                       background: "rgba(255,255,255,0.9)",
                       display: "grid",
-                      gap: "12px",
+                      gap: "8px",
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
@@ -419,7 +419,7 @@ export function PersonnelRoleWorkspace() {
                       </div>
                       {pill(costModelLabels[selectedPerson.cost_model] || selectedPerson.cost_model, "soft")}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "8px" }}>
                       <div>
                         <div style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Güncel Rol</div>
                         <div style={{ marginTop: "6px", fontWeight: 800 }}>{selectedPerson.role}</div>
@@ -439,8 +439,8 @@ export function PersonnelRoleWorkspace() {
                     onSubmit={handleSubmit}
                     style={{
                       display: "grid",
-                      gap: "14px",
-                      padding: "18px",
+                      gap: "10px",
+                      padding: "14px",
                       borderRadius: "20px",
                       border: "1px solid var(--line)",
                       background: "rgba(255,253,247,0.92)",
@@ -449,8 +449,8 @@ export function PersonnelRoleWorkspace() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                        gap: "12px",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                        gap: "10px",
                       }}
                     >
                       <label style={{ display: "grid", gap: "8px" }}>
@@ -477,12 +477,12 @@ export function PersonnelRoleWorkspace() {
                       </label>
                     </div>
                     {error ? (
-                      <div style={{ padding: "12px 14px", borderRadius: "14px", background: "rgba(208, 67, 35, 0.08)", color: "#b6482b" }}>
+                      <div style={{ padding: "10px 12px", borderRadius: "14px", background: "rgba(208, 67, 35, 0.08)", color: "#b6482b" }}>
                         {error}
                       </div>
                     ) : null}
                     {success ? (
-                      <div style={{ padding: "12px 14px", borderRadius: "14px", background: "rgba(34, 139, 93, 0.1)", color: "#1d7d53" }}>
+                      <div style={{ padding: "10px 12px", borderRadius: "14px", background: "rgba(34, 139, 93, 0.1)", color: "#1d7d53" }}>
                         {success}
                       </div>
                     ) : null}
@@ -492,7 +492,7 @@ export function PersonnelRoleWorkspace() {
                       style={{
                         border: 0,
                         borderRadius: "16px",
-                        padding: "14px 18px",
+                        padding: "10px 12px",
                         background: "linear-gradient(135deg, var(--accent-strong), #9c5d14)",
                         color: "#fff7ea",
                         fontWeight: 800,
@@ -505,12 +505,12 @@ export function PersonnelRoleWorkspace() {
 
                   <article
                     style={{
-                      padding: "18px",
+                      padding: "14px",
                       borderRadius: "20px",
                       border: "1px solid var(--line)",
                       background: "rgba(255,255,255,0.9)",
                       display: "grid",
-                      gap: "12px",
+                      gap: "8px",
                     }}
                   >
                     <div>
