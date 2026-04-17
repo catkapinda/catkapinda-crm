@@ -180,6 +180,75 @@ function narrativeCard({
   );
 }
 
+function workspaceCard({
+  eyebrow,
+  title,
+  body,
+  href,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  href: string;
+}) {
+  return (
+    <a
+      href={href}
+      style={{
+        display: "grid",
+        gap: "10px",
+        padding: "18px",
+        borderRadius: "22px",
+        border: "1px solid var(--line)",
+        background: "rgba(255,255,255,0.86)",
+        boxShadow: "var(--shadow-soft)",
+        color: "inherit",
+        textDecoration: "none",
+      }}
+    >
+      <div
+        style={{
+          color: "var(--accent-strong)",
+          fontSize: "0.74rem",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div
+        style={{
+          ...serifStyle,
+          fontSize: "1.28rem",
+          lineHeight: 0.98,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: "var(--muted)",
+          fontSize: "0.92rem",
+          lineHeight: 1.65,
+        }}
+      >
+        {body}
+      </div>
+      <div
+        style={{
+          fontSize: "0.82rem",
+          fontWeight: 800,
+          color: "#0f5fd7",
+        }}
+      >
+        Çalışma alanını aç
+      </div>
+    </a>
+  );
+}
+
 export default function SalesPage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<SalesDashboard | null>(null);
@@ -277,6 +346,30 @@ export default function SalesPage() {
       },
     ] as const;
   }, [dashboard]);
+
+  const workflowDeck = useMemo(
+    () => [
+      {
+        eyebrow: "İlk Adım",
+        title: "Yeni fırsatı aç",
+        body: "Talep yeri, yetkili bilgisi, teklif modeli ve takip tarihini aynı kartta kaydet.",
+        href: "#sales-entry-workspace",
+      },
+      {
+        eyebrow: "İkinci Adım",
+        title: "Fırsat havuzunu tara",
+        body: "Gelen restoran taleplerini soldaki havuzda süz, sıcak kayıtları hızlıca seç.",
+        href: "#sales-management-workspace",
+      },
+      {
+        eyebrow: "Üçüncü Adım",
+        title: "Seçili fırsatı güncelle",
+        body: "Teklifi, durumu ve takip tarihini aynı panelde yenile; gerekirse kaydı kapat.",
+        href: "#sales-management-workspace",
+      },
+    ],
+    [],
+  );
 
   return (
     <AppShell activeItem="Satış">
@@ -539,6 +632,39 @@ export default function SalesPage() {
           </div>
         </div>
 
+        <section
+          style={{
+            padding: "20px",
+            borderRadius: "24px",
+            border: "1px solid var(--line)",
+            background: "var(--surface-strong)",
+            boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+            display: "grid",
+            gap: "14px",
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Çalışma Sırası</h2>
+            <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
+              Eski satış akışındaki yeni kayıt, fırsat havuzu ve güncelleme düzenini aynı sayfada
+              görünür kılıyoruz.
+            </p>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "14px",
+            }}
+          >
+            {workflowDeck.map((item) => (
+              <div key={item.title}>
+                {workspaceCard(item)}
+              </div>
+            ))}
+          </div>
+        </section>
+
         {dashboardLoading ? (
           <div
             style={{
@@ -764,8 +890,12 @@ export default function SalesPage() {
               </div>
             </section>
 
-            <SalesEntryWorkspace />
-            <SalesManagementWorkspace />
+            <section id="sales-entry-workspace" style={{ scrollMarginTop: "110px" }}>
+              <SalesEntryWorkspace />
+            </section>
+            <section id="sales-management-workspace" style={{ scrollMarginTop: "110px" }}>
+              <SalesManagementWorkspace />
+            </section>
           </>
         )}
       </section>

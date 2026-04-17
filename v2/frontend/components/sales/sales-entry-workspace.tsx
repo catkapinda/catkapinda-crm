@@ -90,7 +90,7 @@ export function SalesEntryWorkspace() {
       try {
         const response = await apiFetch("/sales/form-options");
         if (!response.ok) {
-          throw new Error("Satış form secenekleri yuklenemedi.");
+          throw new Error("Satış form seçenekleri yüklenemedi.");
         }
         const payload = (await response.json()) as SalesFormOptions;
         setOptions(payload);
@@ -98,7 +98,7 @@ export function SalesEntryWorkspace() {
         setLeadSource(payload.source_options[0] ?? "Mail");
         setStatus(payload.status_options[0] ?? "Yeni Talep");
       } catch (error) {
-        setSubmitError(error instanceof Error ? error.message : "Satış form secenekleri yuklenemedi.");
+        setSubmitError(error instanceof Error ? error.message : "Satış form seçenekleri yüklenemedi.");
       } finally {
         setLoadingOptions(false);
       }
@@ -192,9 +192,9 @@ export function SalesEntryWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Satış Firsati</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Satış Fırsatı</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Talep kanali, teklif modeli ve takip bilgisini yeni shell içinde kaydet.
+          Talep kanalı, teklif modeli ve takip bilgisini aynı çalışma yüzeyinde kaydet.
         </p>
       </div>
 
@@ -207,7 +207,7 @@ export function SalesEntryWorkspace() {
             color: "var(--muted)",
           }}
         >
-          Satış form secenekleri yükleniyor...
+          Satış form seçenekleri yükleniyor...
         </div>
       ) : (
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: "16px" }}>
@@ -228,7 +228,7 @@ export function SalesEntryWorkspace() {
                 }}
               >
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Restoran Adi</span>
+                  <span style={{ fontWeight: 700 }}>Restoran Adı</span>
                   <input value={restaurantName} onChange={(event) => setRestaurantName(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
@@ -240,15 +240,15 @@ export function SalesEntryWorkspace() {
                   </select>
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Il</span>
+                  <span style={{ fontWeight: 700 }}>İl</span>
                   <input value={city} onChange={(event) => setCity(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Ilce</span>
+                  <span style={{ fontWeight: 700 }}>İlçe</span>
                   <input value={district} onChange={(event) => setDistrict(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Talep Edilen Kurye Sayisi</span>
+                  <span style={{ fontWeight: 700 }}>Talep Edilen Kurye Sayısı</span>
                   <input value={requestedCourierCount} onChange={(event) => setRequestedCourierCount(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
@@ -286,7 +286,7 @@ export function SalesEntryWorkspace() {
                   <input value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Ilgilenen Kisi</span>
+                  <span style={{ fontWeight: 700 }}>İlgilenen Kişi</span>
                   <input value={assignedOwner} onChange={(event) => setAssignedOwner(event.target.value)} style={fieldStyle} />
                 </label>
               </div>
@@ -310,11 +310,11 @@ export function SalesEntryWorkspace() {
                 {pricingModel === "hourly_plus_package" && (
                   <>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Saatlik Ucret</span>
+                      <span style={{ fontWeight: 700 }}>Saatlik Ücret</span>
                       <input value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} style={fieldStyle} />
                     </label>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Paket Ucreti</span>
+                      <span style={{ fontWeight: 700 }}>Paket Ücreti</span>
                       <input value={packageRate} onChange={(event) => setPackageRate(event.target.value)} style={fieldStyle} />
                     </label>
                   </>
@@ -323,19 +323,19 @@ export function SalesEntryWorkspace() {
                 {pricingModel === "threshold_package" && (
                   <>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Saatlik Ucret</span>
+                      <span style={{ fontWeight: 700 }}>Saatlik Ücret</span>
                       <input value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} style={fieldStyle} />
                     </label>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Esik</span>
+                      <span style={{ fontWeight: 700 }}>Eşik</span>
                       <input value={packageThreshold} onChange={(event) => setPackageThreshold(event.target.value)} style={fieldStyle} />
                     </label>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Esik Alti</span>
+                      <span style={{ fontWeight: 700 }}>Eşik Altı</span>
                       <input value={packageRateLow} onChange={(event) => setPackageRateLow(event.target.value)} style={fieldStyle} />
                     </label>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Esik Ustu</span>
+                      <span style={{ fontWeight: 700 }}>Eşik Üstü</span>
                       <input value={packageRateHigh} onChange={(event) => setPackageRateHigh(event.target.value)} style={fieldStyle} />
                     </label>
                   </>
@@ -343,7 +343,7 @@ export function SalesEntryWorkspace() {
 
                 {pricingModel === "hourly_only" && (
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Saatlik Ucret</span>
+                    <span style={{ fontWeight: 700 }}>Saatlik Ücret</span>
                     <input value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} style={fieldStyle} />
                   </label>
                 )}
@@ -356,7 +356,7 @@ export function SalesEntryWorkspace() {
                 )}
 
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Onerilen Teklif</span>
+                  <span style={{ fontWeight: 700 }}>Önerilen Teklif</span>
                   <input value={proposedQuote} onChange={(event) => setProposedQuote(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
@@ -382,14 +382,14 @@ export function SalesEntryWorkspace() {
               }}
             >
               <div style={{ fontSize: "0.82rem", letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--accent)", fontWeight: 800 }}>
-                Teklif Ozeti
+                Teklif Özeti
               </div>
               <div>
                 <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Model</div>
                 <div style={{ marginTop: "4px", fontWeight: 800 }}>{pricingLabel}</div>
               </div>
               <div>
-                <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Acilim</div>
+                <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Açılım</div>
                 <div style={{ marginTop: "4px", fontWeight: 700, lineHeight: 1.6 }}>{summaryText}</div>
               </div>
               <div>

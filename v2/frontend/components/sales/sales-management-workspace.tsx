@@ -134,7 +134,7 @@ export function SalesManagementWorkspace() {
   async function loadOptions() {
     const response = await apiFetch("/sales/form-options");
     if (!response.ok) {
-      throw new Error("Satış referans verileri yuklenemedi.");
+      throw new Error("Satış referans verileri yüklenemedi.");
     }
     const payload = (await response.json()) as SalesFormOptions;
     setOptions(payload);
@@ -154,7 +154,7 @@ export function SalesManagementWorkspace() {
       }
       const response = await apiFetch(`/sales/records?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Satış listesi yuklenemedi.");
+        throw new Error("Satış listesi yüklenemedi.");
       }
       const payload = (await response.json()) as SalesManagementResponse;
       setEntries(payload.entries);
@@ -169,7 +169,7 @@ export function SalesManagementWorkspace() {
         return payload.entries[0].id;
       });
     } catch (error) {
-      setListError(error instanceof Error ? error.message : "Satış listesi yuklenemedi.");
+      setListError(error instanceof Error ? error.message : "Satış listesi yüklenemedi.");
       setEntries([]);
       setTotalEntries(0);
       setSelectedEntryId(null);
@@ -185,7 +185,7 @@ export function SalesManagementWorkspace() {
     try {
       const response = await apiFetch(`/sales/records/${entryId}`);
       if (!response.ok) {
-        throw new Error("Satış detayi yuklenemedi.");
+        throw new Error("Satış detayı yüklenemedi.");
       }
       const payload = (await response.json()) as SalesDetailResponse;
       const entry = payload.entry;
@@ -211,7 +211,7 @@ export function SalesManagementWorkspace() {
       setEditAssignedOwner(entry.assigned_owner ?? "");
       setEditNotes(entry.notes ?? "");
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Satış detayi yuklenemedi.");
+      setSaveError(error instanceof Error ? error.message : "Satış detayı yüklenemedi.");
     } finally {
       setDetailLoading(false);
     }
@@ -243,7 +243,7 @@ export function SalesManagementWorkspace() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedEntryId) {
-      setSaveError("Duzenlenecek satış kaydı seç.");
+      setSaveError("Düzenlenecek satış kaydı seç.");
       return;
     }
 
@@ -296,7 +296,7 @@ export function SalesManagementWorkspace() {
 
   async function handleDelete() {
     if (!selectedEntryId) {
-      setSaveError("Silinecek satış kaydini seç.");
+      setSaveError("Silinecek satış kaydını seç.");
       return;
     }
     setSaveError("");
@@ -329,9 +329,9 @@ export function SalesManagementWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Satış Kayıt Yonetimi</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Satış Kayıt Yönetimi</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Firsatlari filtrele, seç, güncelle ve tek panelden takip et.
+          Fırsatları filtrele, seç, güncelle ve tek panelden takip et.
         </p>
       </div>
 
@@ -375,7 +375,7 @@ export function SalesManagementWorkspace() {
               fontWeight: 700,
             }}
           >
-            Toplam eslesen fırsat: {totalEntries}
+            Toplam eşleşen fırsat: {totalEntries}
           </div>
 
           {listError ? (
@@ -423,7 +423,7 @@ export function SalesManagementWorkspace() {
                     color: "var(--muted)",
                   }}
                 >
-                  Bu filtrelerle eslesen satış kaydı bulunamadı.
+                  Bu filtrelerle eşleşen satış kaydı bulunamadı.
                 </div>
               ) : (
                 entries.map((entry) => {
@@ -512,14 +512,14 @@ export function SalesManagementWorkspace() {
               gap: "12px",
             }}
           >
-            <input value={editRestaurantName} onChange={(event) => setEditRestaurantName(event.target.value)} placeholder="Restoran Adi" style={fieldStyle} />
-            <input value={editCity} onChange={(event) => setEditCity(event.target.value)} placeholder="Il" style={fieldStyle} />
-            <input value={editDistrict} onChange={(event) => setEditDistrict(event.target.value)} placeholder="Ilce" style={fieldStyle} />
-            <input value={editRequestedCourierCount} onChange={(event) => setEditRequestedCourierCount(event.target.value)} placeholder="Kurye Sayisi" style={fieldStyle} />
+            <input value={editRestaurantName} onChange={(event) => setEditRestaurantName(event.target.value)} placeholder="Restoran Adı" style={fieldStyle} />
+            <input value={editCity} onChange={(event) => setEditCity(event.target.value)} placeholder="İl" style={fieldStyle} />
+            <input value={editDistrict} onChange={(event) => setEditDistrict(event.target.value)} placeholder="İlçe" style={fieldStyle} />
+            <input value={editRequestedCourierCount} onChange={(event) => setEditRequestedCourierCount(event.target.value)} placeholder="Kurye Sayısı" style={fieldStyle} />
             <input value={editContactName} onChange={(event) => setEditContactName(event.target.value)} placeholder="Yetkili" style={fieldStyle} />
             <input value={editContactPhone} onChange={(event) => setEditContactPhone(event.target.value)} placeholder="Telefon" style={fieldStyle} />
             <input value={editContactEmail} onChange={(event) => setEditContactEmail(event.target.value)} placeholder="Mail" style={fieldStyle} />
-            <input value={editAssignedOwner} onChange={(event) => setEditAssignedOwner(event.target.value)} placeholder="Ilgilenen Kisi" style={fieldStyle} />
+            <input value={editAssignedOwner} onChange={(event) => setEditAssignedOwner(event.target.value)} placeholder="İlgilenen Kişi" style={fieldStyle} />
             <select value={editLeadSource} onChange={(event) => setEditLeadSource(event.target.value)} style={fieldStyle}>
               {options?.source_options.map((item) => (
                 <option key={item} value={item}>{item}</option>
@@ -548,22 +548,22 @@ export function SalesManagementWorkspace() {
             }}
           >
             {(editPricingModel === "hourly_plus_package" || editPricingModel === "hourly_only" || editPricingModel === "threshold_package") && (
-              <input value={editHourlyRate} onChange={(event) => setEditHourlyRate(event.target.value)} placeholder="Saatlik Ucret" style={fieldStyle} />
+              <input value={editHourlyRate} onChange={(event) => setEditHourlyRate(event.target.value)} placeholder="Saatlik Ücret" style={fieldStyle} />
             )}
             {editPricingModel === "hourly_plus_package" && (
-              <input value={editPackageRate} onChange={(event) => setEditPackageRate(event.target.value)} placeholder="Paket Ucreti" style={fieldStyle} />
+              <input value={editPackageRate} onChange={(event) => setEditPackageRate(event.target.value)} placeholder="Paket Ücreti" style={fieldStyle} />
             )}
             {editPricingModel === "threshold_package" && (
               <>
-                <input value={editPackageThreshold} onChange={(event) => setEditPackageThreshold(event.target.value)} placeholder="Esik" style={fieldStyle} />
-                <input value={editPackageRateLow} onChange={(event) => setEditPackageRateLow(event.target.value)} placeholder="Esik Alti" style={fieldStyle} />
-                <input value={editPackageRateHigh} onChange={(event) => setEditPackageRateHigh(event.target.value)} placeholder="Esik Ustu" style={fieldStyle} />
+                <input value={editPackageThreshold} onChange={(event) => setEditPackageThreshold(event.target.value)} placeholder="Eşik" style={fieldStyle} />
+                <input value={editPackageRateLow} onChange={(event) => setEditPackageRateLow(event.target.value)} placeholder="Eşik Altı" style={fieldStyle} />
+                <input value={editPackageRateHigh} onChange={(event) => setEditPackageRateHigh(event.target.value)} placeholder="Eşik Üstü" style={fieldStyle} />
               </>
             )}
             {editPricingModel === "fixed_monthly" && (
               <input value={editFixedMonthlyFee} onChange={(event) => setEditFixedMonthlyFee(event.target.value)} placeholder="Aylık Tutar" style={fieldStyle} />
             )}
-            <input value={editProposedQuote} onChange={(event) => setEditProposedQuote(event.target.value)} placeholder="Onerilen Teklif" style={fieldStyle} />
+            <input value={editProposedQuote} onChange={(event) => setEditProposedQuote(event.target.value)} placeholder="Önerilen Teklif" style={fieldStyle} />
           </div>
 
           <textarea value={editNotes} onChange={(event) => setEditNotes(event.target.value)} rows={3} placeholder="Notlar" style={{ ...fieldStyle, resize: "vertical" }} />
