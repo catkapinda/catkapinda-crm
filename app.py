@@ -7754,11 +7754,11 @@ def main() -> None:
                 language="toml",
             )
         return
-    if not login_gate(conn):
-        return
-
     if v2_cutover_mode == "banner" and v2_cutover_url:
         render_v2_cutover_surface(mode="banner", url=v2_cutover_url)
+
+    if not login_gate(conn):
+        return
 
     role = st.session_state.get("role", "")
     render_sidebar_brand()
