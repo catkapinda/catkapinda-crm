@@ -12,6 +12,7 @@ from copy import deepcopy
 
 from pilot_smoke import build_decision_summary as build_smoke_decision_summary
 from pilot_smoke import build_markdown_report as build_smoke_markdown_report
+from render_env_bundle import build_validation_report, render_validation_text
 
 
 DEFAULT_OUTPUT_DIR = "pilot-day-zero"
@@ -20,6 +21,8 @@ REQUIRED_FILES = (
     "00-START-HERE.md",
     "render-env-bundle.env",
     "render-env-bundle.json",
+    "render-env-validation.json",
+    "render-env-validation.md",
     "streamlit-banner.env",
     "streamlit-redirect.env",
     "streamlit-banner-guard.json",
@@ -822,12 +825,16 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
 
     render_bundle_path = output_dir / "render-env-bundle.env"
     render_bundle_json_path = output_dir / "render-env-bundle.json"
+    render_validation_json_path = output_dir / "render-env-validation.json"
+    render_validation_markdown_path = output_dir / "render-env-validation.md"
     banner_env_path = output_dir / "streamlit-banner.env"
     redirect_env_path = output_dir / "streamlit-redirect.env"
 
     if not (
         render_bundle_path.exists()
         and render_bundle_json_path.exists()
+        and render_validation_json_path.exists()
+        and render_validation_markdown_path.exists()
         and banner_env_path.exists()
         and redirect_env_path.exists()
     ):
@@ -835,6 +842,8 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
 
     render_bundle = _parse_env_bundle(render_bundle_path)
     render_bundle_json = _read_json(render_bundle_json_path)
+    render_validation_json = _read_json(render_validation_json_path)
+    render_validation_markdown = render_validation_markdown_path.read_text(encoding="utf-8").strip()
     banner_bundle = _parse_env_bundle(banner_env_path)
     redirect_bundle = _parse_env_bundle(redirect_env_path)
     expected_render_services = {
@@ -944,6 +953,19 @@ def _check_env_payloads(*, output_dir: Path, manifest: dict) -> tuple[bool, list
         issues.append("render-env-bundle.json icinde streamlit CK_V2_PILOT_URL uyusmuyor")
     if streamlit_env_json.get("CK_V2_CUTOVER_MODE") != "banner":
         issues.append("render-env-bundle.json icinde streamlit CK_V2_CUTOVER_MODE banner olmali")
+
+    if api_env:
+        expected_validation_report = build_validation_report(
+            frontend_url=str(api_env.get("CK_V2_FRONTEND_BASE_URL") or ""),
+            api_url=str(api_env.get("CK_V2_API_PUBLIC_URL") or ""),
+            database_url=str(api_env.get("CK_V2_DATABASE_URL") or ""),
+            default_auth_password=str(api_env.get("CK_V2_DEFAULT_AUTH_PASSWORD") or ""),
+        )
+        if render_validation_json != expected_validation_report:
+            issues.append("render-env-validation.json icindeki degerler render-env-bundle ile uyusmuyor")
+        expected_validation_markdown = render_validation_text(expected_validation_report).strip()
+        if render_validation_markdown != expected_validation_markdown:
+            issues.append("render-env-validation.md icindeki rapor render-env-bundle ile uyusmuyor")
 
     for service_name, env_payload in [
         (api_service, api_env),
@@ -1263,6 +1285,8 @@ def _check_manifest_file_map(*, output_dir: Path, manifest: dict) -> tuple[bool,
     expected_files = {
         "render_env_bundle_env": "render-env-bundle.env",
         "render_env_bundle_json": "render-env-bundle.json",
+        "render_env_validation_json": "render-env-validation.json",
+        "render_env_validation_markdown": "render-env-validation.md",
         "streamlit_banner_env": "streamlit-banner.env",
         "streamlit_redirect_env": "streamlit-redirect.env",
         "streamlit_banner_guard_json": "streamlit-banner-guard.json",

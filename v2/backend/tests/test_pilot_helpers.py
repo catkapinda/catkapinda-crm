@@ -1185,6 +1185,8 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert manifest["smoke_overall_ok"] is None
     assert "archive_path" in manifest
     assert (tmp_path / "render-env-bundle.env").exists()
+    assert (tmp_path / "render-env-validation.json").exists()
+    assert (tmp_path / "render-env-validation.md").exists()
     assert (tmp_path / "streamlit-banner.env").exists()
     assert (tmp_path / "streamlit-redirect.env").exists()
     assert (tmp_path / "streamlit-banner-guard.json").exists()
@@ -1205,6 +1207,8 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     embedded_verify = json.loads((tmp_path / "pilot-day-zero-verify.json").read_text(encoding="utf-8"))
     assert embedded_verify["verify_reports_checked"] is True
     assert embedded_verify["verify_reports_ok"] is True
+    env_validation = json.loads((tmp_path / "render-env-validation.json").read_text(encoding="utf-8"))
+    assert env_validation["passed"] is False
     start_here = (tmp_path / "00-START-HERE.md").read_text(encoding="utf-8")
     assert "Verify: `PASS`" in start_here
     assert "Day-zero kiti kullanima hazir." in start_here
@@ -4186,6 +4190,38 @@ def test_day_zero_verify_fails_when_render_env_bundle_json_is_wrong(monkeypatch,
     assert result["env_checked"] is True
     assert result["env_ok"] is False
     assert any("render-env-bundle.json" in item for item in result["consistency_issues"])
+
+
+def test_day_zero_verify_fails_when_render_env_validation_json_is_wrong(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    validation_json_path = tmp_path / "render-env-validation.json"
+    payload = json.loads(validation_json_path.read_text(encoding="utf-8"))
+    payload["passed"] = True
+    validation_json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["env_checked"] is True
+    assert result["env_ok"] is False
+    assert any("render-env-validation.json" in item for item in result["consistency_issues"])
 
 
 def test_day_zero_verify_fails_when_banner_guard_json_is_wrong(monkeypatch, tmp_path: Path):

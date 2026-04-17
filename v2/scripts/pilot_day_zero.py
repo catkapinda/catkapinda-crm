@@ -15,7 +15,14 @@ from pilot_launch_packet import build_packet
 from pilot_preflight import build_preflight_bundle
 from pilot_status_report import fetch_pilot_status
 from pilot_day_zero_verify import render_markdown_report as render_verify_markdown_report, verify_day_zero_bundle
-from render_env_bundle import build_bundle, filter_bundle, normalize_url, render_text
+from render_env_bundle import (
+    build_bundle,
+    build_validation_report,
+    filter_bundle,
+    normalize_url,
+    render_text,
+    render_validation_text,
+)
 
 
 DEFAULT_TIMEOUT = 12
@@ -255,6 +262,20 @@ def build_day_zero_bundle(
         json.dumps(env_bundle, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    env_validation = build_validation_report(
+        frontend_url=frontend_url,
+        api_url=api_url,
+        database_url=database_url,
+        default_auth_password=default_auth_password,
+    )
+    (output_dir / "render-env-validation.json").write_text(
+        json.dumps(env_validation, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "render-env-validation.md").write_text(
+        render_validation_text(env_validation),
+        encoding="utf-8",
+    )
 
     streamlit_banner = filter_bundle(
         env_bundle,
@@ -378,6 +399,8 @@ def build_day_zero_bundle(
         "files": {
             "render_env_bundle_env": str(output_dir / "render-env-bundle.env"),
             "render_env_bundle_json": str(output_dir / "render-env-bundle.json"),
+            "render_env_validation_json": str(output_dir / "render-env-validation.json"),
+            "render_env_validation_markdown": str(output_dir / "render-env-validation.md"),
             "streamlit_banner_env": str(output_dir / "streamlit-banner.env"),
             "streamlit_redirect_env": str(output_dir / "streamlit-redirect.env"),
             "streamlit_banner_guard_json": str(output_dir / "streamlit-banner-guard.json"),
