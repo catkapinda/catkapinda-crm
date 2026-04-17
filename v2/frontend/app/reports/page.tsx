@@ -83,6 +83,17 @@ function formatNumber(value: number, decimals = 0) {
   }).format(value || 0);
 }
 
+function triggerBrowserDownload(blob: Blob, fileName: string) {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 function metricCard(label: string, value: string, note: string) {
   return (
     <article
@@ -309,6 +320,8 @@ export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [invoiceQuery, setInvoiceQuery] = useState("");
   const [costQuery, setCostQuery] = useState("");
+  const [exportMessage, setExportMessage] = useState("");
+  const [exportError, setExportError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -467,6 +480,61 @@ export default function ReportsPage() {
       `${row.personnel} ${row.role} ${row.cost_model}`.toLocaleLowerCase("tr-TR").includes(query),
     );
   }, [dashboard?.cost_entries, costQuery]);
+
+  function downloadInvoiceCsv() {
+    if (!filteredInvoiceEntries.length) {
+      setExportError("Dışa aktarmak için önce görünür fatura kaydı oluşmalı.");
+      setExportMessage("");
+      return;
+    }
+    const headers = ["Şube", "Model", "Toplam Saat", "Toplam Paket", "KDV Hariç", "KDV Dahil"];
+    const rows = filteredInvoiceEntries.map((entry) => [
+      entry.restaurant,
+      entry.pricing_model,
+      String(entry.total_hours),
+      String(entry.total_packages),
+      String(entry.net_invoice),
+      String(entry.gross_invoice),
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const month = dashboard?.selected_month || selectedMonth || "rapor";
+    triggerBrowserDownload(
+      new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" }),
+      `catkapinda_restoran_faturasi_${month}.csv`,
+    );
+    setExportError("");
+    setExportMessage("Restoran faturası tablosu indirildi.");
+  }
+
+  function downloadCostCsv() {
+    if (!filteredCostEntries.length) {
+      setExportError("Dışa aktarmak için önce görünür maliyet kaydı oluşmalı.");
+      setExportMessage("");
+      return;
+    }
+    const headers = ["Personel", "Rol", "Toplam Saat", "Toplam Paket", "Toplam Kesinti", "Net Maliyet", "Maliyet Modeli"];
+    const rows = filteredCostEntries.map((entry) => [
+      entry.personnel,
+      entry.role,
+      String(entry.total_hours),
+      String(entry.total_packages),
+      String(entry.total_deductions),
+      String(entry.net_cost),
+      entry.cost_model,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const month = dashboard?.selected_month || selectedMonth || "rapor";
+    triggerBrowserDownload(
+      new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" }),
+      `catkapinda_kurye_maliyeti_${month}.csv`,
+    );
+    setExportError("");
+    setExportMessage("Kurye maliyeti tablosu indirildi.");
+  }
 
   return (
     <AppShell activeItem="Raporlar">
@@ -752,6 +820,96 @@ export default function ReportsPage() {
               </article>
             </div>
           </div>
+
+          <section
+            style={{
+              borderRadius: "24px",
+              border: "1px solid var(--line)",
+              background: "rgba(255,255,255,0.78)",
+              padding: "18px 20px",
+              display: "grid",
+              gap: "14px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "16px",
+                alignItems: "start",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ display: "grid", gap: "6px" }}>
+                <div
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.74rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Dışa Aktarım
+                </div>
+                <div style={{ fontSize: "1rem", fontWeight: 800 }}>
+                  Filtrelenmiş rapor tablolarını tek tıkla dışa aktar.
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={downloadInvoiceCsv}
+                  disabled={!filteredInvoiceEntries.length}
+                  style={{
+                    padding: "12px 16px",
+                    borderRadius: "14px",
+                    border: "1px solid rgba(15,95,215,0.15)",
+                    background: "rgba(15,95,215,0.08)",
+                    color: "#0f5fd7",
+                    fontWeight: 800,
+                    cursor: filteredInvoiceEntries.length ? "pointer" : "not-allowed",
+                    opacity: filteredInvoiceEntries.length ? 1 : 0.6,
+                  }}
+                >
+                  Restoran faturasını indir
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadCostCsv}
+                  disabled={!filteredCostEntries.length}
+                  style={{
+                    padding: "12px 16px",
+                    borderRadius: "14px",
+                    border: "1px solid rgba(185,116,41,0.18)",
+                    background: "rgba(185,116,41,0.1)",
+                    color: "var(--accent-strong)",
+                    fontWeight: 800,
+                    cursor: filteredCostEntries.length ? "pointer" : "not-allowed",
+                    opacity: filteredCostEntries.length ? 1 : 0.6,
+                  }}
+                >
+                  Kurye maliyetini indir
+                </button>
+              </div>
+            </div>
+            {exportError ? (
+              <div style={{ color: "#9e2430", fontSize: "0.92rem", fontWeight: 700 }}>
+                {exportError}
+              </div>
+            ) : null}
+            {exportMessage ? (
+              <div style={{ color: "#22663c", fontSize: "0.92rem", fontWeight: 700 }}>
+                {exportMessage}
+              </div>
+            ) : null}
+          </section>
         </div>
 
         {dashboardLoading ? (
