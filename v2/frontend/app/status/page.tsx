@@ -500,6 +500,16 @@ export default function StatusPage() {
       `Rollout: ${readinessSummary.readyRolloutSteps}/${readinessSummary.totalRolloutSteps || 0}`,
       `Arka uç ortamı: ${readinessSummary.configuredRequiredBackendEnv}/${readinessSummary.totalRequiredBackendEnv || 0}`,
       `Pilot hesap: ${readinessSummary.phoneReadyAccounts}/${readinessSummary.totalPilotAccounts || 0}`,
+      backend?.cutover
+        ? `Go-live fazı: ${
+            backend.cutover.phase === "ready_for_cutover"
+              ? "ready_for_cutover"
+              : backend.cutover.phase === "ready_for_pilot"
+                ? "ready_for_pilot"
+                : "blocked"
+          }`
+        : null,
+      backend?.next_actions?.[0] ? `Sonraki adım: ${backend.next_actions[0]}` : null,
       backend?.cutover?.blocking_items?.length
         ? `Blokajlar: ${backend.cutover.blocking_items.join(" | ")}`
         : "Blokajlar: yok",
@@ -556,6 +566,55 @@ export default function StatusPage() {
       : backend?.cutover.phase === "ready_for_pilot"
         ? true
         : false;
+  const goLiveDecisionCommand = useMemo(
+    () => helperCommands.find((command) => command.label === "Go-Live Decision Report")?.command ?? null,
+    [helperCommands],
+  );
+  const goLiveSummary = useMemo(() => {
+    if (!backend?.cutover) {
+      return null;
+    }
+
+    const phase =
+      backend.cutover.phase === "ready_for_cutover"
+        ? "ready_for_cutover"
+        : backend.cutover.phase === "ready_for_pilot"
+          ? "ready_for_pilot"
+          : "blocked";
+    const phaseLabel =
+      phase === "ready_for_cutover"
+        ? "Cutover Hazır"
+        : phase === "ready_for_pilot"
+          ? "Pilot Açılabilir"
+          : "Blokaj Var";
+    const tone = phase === "blocked" ? "warning" : phase === "ready_for_cutover" ? "success" : "info";
+    const futureCutoverItems =
+      phase === "ready_for_cutover"
+        ? []
+        : phase === "ready_for_pilot"
+          ? backend.cutover.remaining_items
+          : [...backend.cutover.blocking_items, ...backend.cutover.remaining_items];
+    const summary =
+      phase === "ready_for_cutover"
+        ? "Pilot ve kontrollü domain geçişi için ana eşikler yeşil görünüyor."
+        : phase === "ready_for_pilot"
+          ? "Pilot açılabilir, ama ana domaine geçmeden önce kapanması gereken maddeler duruyor."
+          : "Pilot açılışından önce zorunlu halkaları kapatmamız gerekiyor.";
+    const nextStep =
+      backend.next_actions[0] ||
+      futureCutoverItems[0] ||
+      backend.decision?.detail ||
+      backend.cutover.summary;
+
+    return {
+      phase,
+      phaseLabel,
+      tone,
+      summary,
+      nextStep,
+      futureCutoverItems,
+    };
+  }, [backend]);
   const localBackendEnvRestartNeeded =
     !!localSetup &&
     (localSetup.backend_restart_required ||
@@ -872,6 +931,101 @@ export default function StatusPage() {
             </article>
           </div>
         </section>
+
+        {goLiveSummary ? (
+          <section
+            style={{
+              ...cardStyle(),
+              display: "grid",
+              gap: "16px",
+              background:
+                goLiveSummary.phase === "ready_for_cutover"
+                  ? "linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(255,255,255,0.98))"
+                  : goLiveSummary.phase === "ready_for_pilot"
+                    ? "linear-gradient(135deg, rgba(15, 95, 215, 0.06), rgba(255,255,255,0.98))"
+                    : "linear-gradient(135deg, rgba(239, 68, 68, 0.06), rgba(255,255,255,0.98))",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.15fr) minmax(280px, 0.85fr)",
+                gap: "18px",
+              }}
+            >
+              <div style={{ display: "grid", gap: "12px" }}>
+                <div style={tonePill(goLiveSummary.tone)}>{goLiveSummary.phaseLabel}</div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Go-live kararı</h2>
+                  <p style={{ margin: "8px 0 0", color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
+                    {goLiveSummary.summary}
+                  </p>
+                </div>
+                <article
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "16px",
+                    border: "1px solid rgba(219, 228, 243, 0.9)",
+                    background: "rgba(255,255,255,0.92)",
+                    display: "grid",
+                    gap: "8px",
+                  }}
+                >
+                  <strong>Sonraki adım</strong>
+                  <div style={{ color: "#5f7294", lineHeight: 1.7 }}>{goLiveSummary.nextStep}</div>
+                </article>
+                {goLiveSummary.futureCutoverItems.length ? (
+                  <article
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: "16px",
+                      border: "1px solid rgba(245, 158, 11, 0.18)",
+                      background: "rgba(245, 158, 11, 0.08)",
+                      color: "#9a6700",
+                      display: "grid",
+                      gap: "8px",
+                    }}
+                  >
+                    <strong>
+                      {goLiveSummary.phase === "blocked" ? "Açılış blokajları" : "Cutover için kalanlar"}
+                    </strong>
+                    {goLiveSummary.futureCutoverItems.slice(0, 4).map((item) => (
+                      <div key={item} style={{ lineHeight: 1.6 }}>
+                        • {item}
+                      </div>
+                    ))}
+                  </article>
+                ) : null}
+              </div>
+              <div style={{ display: "grid", gap: "12px", alignContent: "start" }}>
+                <div style={statusPill(goLiveSummary.phase !== "blocked")}>
+                  Pilot: {goLiveSummary.phase === "blocked" ? "bloklu" : "açılabilir"}
+                </div>
+                <div style={statusPill(goLiveSummary.phase === "ready_for_cutover")}>
+                  Cutover: {goLiveSummary.phase === "ready_for_cutover" ? "hazır" : "bekliyor"}
+                </div>
+                <Link href="#deploy-readiness" style={actionButtonStyle("primary")}>
+                  Deploy Hazırlığını Aç
+                </Link>
+                <Link href="#rollout-steps" style={actionButtonStyle()}>
+                  Açılış Sırasına Git
+                </Link>
+                {goLiveDecisionCommand ? (
+                  <button
+                    type="button"
+                    onClick={() => void copyText("go-live-decision-command", goLiveDecisionCommand)}
+                    style={{
+                      ...actionButtonStyle(),
+                      cursor: "pointer",
+                    }}
+                  >
+                    {copiedKey === "go-live-decision-command" ? "Komut Kopyalandı" : "Go-Live Komutunu Kopyala"}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {localSetupGuidance ? (
           <section
