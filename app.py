@@ -1484,11 +1484,34 @@ def login_gate(conn: sqlite3.Connection) -> bool:
         unsafe_allow_html=True,
     )
 
-    if v2_cutover_mode == "banner" and v2_cutover_url:
-        render_v2_cutover_surface(mode="banner", url=v2_cutover_url)
-
     left, center, right = st.columns([0.04, 1.0, 0.04])
     with center:
+        if v2_cutover_mode == "banner" and v2_cutover_url:
+            status_url = resolve_v2_status_url(v2_cutover_url)
+            st.markdown(
+                """
+                <div style="
+                    margin: 0 0 18px 0;
+                    padding: 18px 20px;
+                    border-radius: 24px;
+                    background: rgba(255,255,255,0.96);
+                    border: 1px solid rgba(193, 209, 232, 0.9);
+                    box-shadow: 0 16px 34px rgba(20, 39, 67, 0.06);
+                ">
+                    <div style="font-size:0.84rem; font-weight:800; color:#0f5fd7; text-transform:uppercase;">v2 pilot hazir</div>
+                    <div style="margin-top:8px; font-size:1.18rem; font-weight:800; color:#16345d;">Yeni sisteme gecis basladi</div>
+                    <div style="margin-top:8px; color:#5f7294; line-height:1.7;">
+                        Yeni panel artik test edilmeye hazir. Bu ekrandan devam etmek yerine yeni linkten ilerleyebilirsin.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            banner_cols = st.columns(2 if status_url else 1)
+            banner_cols[0].link_button("v2 pilotu ac", v2_cutover_url, use_container_width=True, type="primary")
+            if status_url:
+                banner_cols[1].link_button("v2 durum ekranini ac", status_url, use_container_width=True)
+
         hero_col, form_col = st.columns([1.12, 0.88], gap="large")
 
         with hero_col:
