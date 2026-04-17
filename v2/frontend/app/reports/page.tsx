@@ -110,6 +110,40 @@ type ReportsDashboard = {
   };
 };
 
+const EMPTY_REPORTS_COVERAGE = {
+  covered_restaurant_count: 0,
+  operational_restaurant_count: 0,
+} as const;
+
+const EMPTY_REPORTS_SIDE_INCOME_SNAPSHOT = {
+  fuel_reflection_amount: 0,
+  company_fuel_reflection_amount: 0,
+  utts_fuel_discount_amount: 0,
+  partner_card_discount_amount: 0,
+} as const;
+
+function normalizeReportsDashboard(payload: Partial<ReportsDashboard>): ReportsDashboard {
+  return {
+    module: payload.module ?? "reports",
+    status: payload.status ?? "active",
+    month_options: payload.month_options ?? [],
+    selected_month: payload.selected_month ?? null,
+    summary: payload.summary ?? null,
+    invoice_entries: payload.invoice_entries ?? [],
+    cost_entries: payload.cost_entries ?? [],
+    profit_entries: payload.profit_entries ?? [],
+    model_breakdown: payload.model_breakdown ?? [],
+    top_restaurants: payload.top_restaurants ?? [],
+    top_couriers: payload.top_couriers ?? [],
+    coverage: payload.coverage ?? EMPTY_REPORTS_COVERAGE,
+    shared_overhead_entries: payload.shared_overhead_entries ?? [],
+    distribution_entries: payload.distribution_entries ?? [],
+    side_income_entries: payload.side_income_entries ?? [],
+    side_income_snapshot:
+      payload.side_income_snapshot ?? EMPTY_REPORTS_SIDE_INCOME_SNAPSHOT,
+  };
+}
+
 const serifStyle = {
   fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
   letterSpacing: "-0.04em",
@@ -396,7 +430,9 @@ export default function ReportsPage() {
           }
           return;
         }
-        const payload = (await response.json()) as ReportsDashboard;
+        const payload = normalizeReportsDashboard(
+          (await response.json()) as Partial<ReportsDashboard>,
+        );
         if (active) {
           setDashboard(payload);
           if (!selectedMonth && payload.selected_month) {
