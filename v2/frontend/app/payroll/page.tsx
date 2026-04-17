@@ -77,6 +77,17 @@ function formatNumber(value: number, decimals = 0) {
   }).format(value || 0);
 }
 
+function triggerBrowserDownload(blob: Blob, fileName: string) {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 function metricCard(label: string, value: string, note: string) {
   return (
     <article
@@ -304,6 +315,10 @@ export default function PayrollPage() {
   const [selectedRole, setSelectedRole] = useState("Tümü");
   const [selectedRestaurant, setSelectedRestaurant] = useState("Tümü");
   const [entryQuery, setEntryQuery] = useState("");
+  const [documentPersonId, setDocumentPersonId] = useState<number | "">("");
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [documentError, setDocumentError] = useState("");
+  const [documentMessage, setDocumentMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -459,6 +474,116 @@ export default function PayrollPage() {
       `${row.personnel} ${row.role} ${row.cost_model}`.toLocaleLowerCase("tr-TR").includes(query),
     );
   }, [dashboard?.entries, entryQuery]);
+
+  const documentOptions = useMemo(
+    () =>
+      (dashboard?.entries ?? []).map((entry) => ({
+        id: entry.personnel_id,
+        label: `${entry.personnel} | ${entry.role}`,
+      })),
+    [dashboard?.entries],
+  );
+
+  useEffect(() => {
+    if (!documentOptions.length) {
+      setDocumentPersonId("");
+      return;
+    }
+    if (
+      typeof documentPersonId !== "number" ||
+      !documentOptions.some((option) => option.id === documentPersonId)
+    ) {
+      setDocumentPersonId(documentOptions[0].id);
+    }
+  }, [documentOptions, documentPersonId]);
+
+  async function handleDocumentDownload() {
+    if (typeof documentPersonId !== "number") {
+      setDocumentError("Belge oluşturmak için önce personel seçmelisin.");
+      setDocumentMessage("");
+      return;
+    }
+    const month = dashboard?.selected_month || selectedMonth;
+    if (!month) {
+      setDocumentError("Belge oluşturmak için önce ay seçmelisin.");
+      setDocumentMessage("");
+      return;
+    }
+
+    setDocumentBusy(true);
+    setDocumentError("");
+    setDocumentMessage("");
+    try {
+      const params = new URLSearchParams({
+        personnel_id: String(documentPersonId),
+        month,
+      });
+      const response = await apiFetch(`/payroll/document?${params.toString()}`);
+      if (!response.ok) {
+        let detail = "Hakediş belgesi indirilemedi.";
+        try {
+          const payload = (await response.json()) as { detail?: string };
+          if (payload?.detail) {
+            detail = payload.detail;
+          }
+        } catch {}
+        throw new Error(detail);
+      }
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const fileNameMatch = disposition.match(/filename=\"?([^"]+)\"?/i);
+      const fileName = fileNameMatch?.[1] || `hakedis_${documentPersonId}_${month}.pdf`;
+      const blob = await response.blob();
+      triggerBrowserDownload(blob, fileName);
+      setDocumentMessage("Hakediş belgesi indirildi.");
+    } catch (nextError) {
+      setDocumentError(
+        nextError instanceof Error ? nextError.message : "Hakediş belgesi indirilemedi.",
+      );
+    } finally {
+      setDocumentBusy(false);
+    }
+  }
+
+  function handleCsvDownload() {
+    if (!filteredEntries.length) {
+      setDocumentError("Dışa aktarmak için önce görünür bordro kaydı oluşmalı.");
+      setDocumentMessage("");
+      return;
+    }
+
+    const headers = [
+      "Personel",
+      "Rol",
+      "Durum",
+      "Toplam Saat",
+      "Toplam Paket",
+      "Brüt Hakediş",
+      "Toplam Kesinti",
+      "Net Ödeme",
+      "Restoran Sayısı",
+      "Maliyet Modeli",
+    ];
+    const rows = filteredEntries.map((entry) => [
+      entry.personnel,
+      entry.role,
+      entry.status,
+      String(entry.total_hours),
+      String(entry.total_packages),
+      String(entry.gross_pay),
+      String(entry.total_deductions),
+      String(entry.net_payment),
+      String(entry.restaurant_count),
+      entry.cost_model,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const month = dashboard?.selected_month || selectedMonth || "bordro";
+    const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" });
+    triggerBrowserDownload(blob, `catkapinda_aylik_hakedis_${month}.csv`);
+    setDocumentError("");
+    setDocumentMessage("Aylık hakediş tablosu indirildi.");
+  }
 
   return (
     <AppShell activeItem="Aylık Hakediş">
@@ -797,6 +922,127 @@ export default function PayrollPage() {
               </select>
             </div>
           </div>
+
+          <section
+            style={{
+              borderRadius: "24px",
+              border: "1px solid var(--line)",
+              background: "rgba(255,255,255,0.78)",
+              padding: "18px 20px",
+              display: "grid",
+              gap: "14px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "16px",
+                alignItems: "start",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ display: "grid", gap: "6px" }}>
+                <div
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.74rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Belge ve Dışa Aktarım
+                </div>
+                <div style={{ fontSize: "1rem", fontWeight: 800 }}>
+                  Aylık tabloyu dışa aktar, seçili personel için hakediş belgesini indir.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCsvDownload}
+                disabled={!filteredEntries.length}
+                style={{
+                  padding: "12px 16px",
+                  borderRadius: "14px",
+                  border: "1px solid rgba(15,95,215,0.15)",
+                  background: "rgba(15,95,215,0.08)",
+                  color: "#0f5fd7",
+                  fontWeight: 800,
+                  cursor: filteredEntries.length ? "pointer" : "not-allowed",
+                  opacity: filteredEntries.length ? 1 : 0.6,
+                }}
+              >
+                Aylık hakediş tablosunu indir
+              </button>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(220px, 1fr) auto",
+                gap: "12px",
+                alignItems: "end",
+              }}
+            >
+              <div style={{ display: "grid", gap: "8px" }}>
+                <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>
+                  Belgesi oluşturulacak personel
+                </label>
+                <select
+                  value={documentPersonId}
+                  onChange={(event) =>
+                    setDocumentPersonId(event.target.value ? Number(event.target.value) : "")
+                  }
+                  disabled={documentBusy || !documentOptions.length}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "16px",
+                    border: "1px solid var(--line)",
+                    background: "rgba(255,255,255,0.96)",
+                    color: "var(--text)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {documentOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={handleDocumentDownload}
+                disabled={documentBusy || typeof documentPersonId !== "number"}
+                style={{
+                  padding: "14px 18px",
+                  borderRadius: "16px",
+                  border: "none",
+                  background:
+                    "linear-gradient(135deg, rgba(185,116,41,1), rgba(212,144,61,0.96))",
+                  color: "#fff7ea",
+                  fontWeight: 900,
+                  cursor:
+                    documentBusy || typeof documentPersonId !== "number"
+                      ? "not-allowed"
+                      : "pointer",
+                  opacity: documentBusy || typeof documentPersonId !== "number" ? 0.6 : 1,
+                }}
+              >
+                {documentBusy ? "Belge hazırlanıyor..." : "Hakediş belgesini indir"}
+              </button>
+            </div>
+            {documentError ? (
+              <div style={{ color: "#9e2430", fontSize: "0.92rem", fontWeight: 700 }}>
+                {documentError}
+              </div>
+            ) : null}
+            {documentMessage ? (
+              <div style={{ color: "#22663c", fontSize: "0.92rem", fontWeight: 700 }}>
+                {documentMessage}
+              </div>
+            ) : null}
+          </section>
         </div>
 
         {dashboardLoading ? (

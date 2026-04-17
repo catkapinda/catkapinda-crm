@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from io import BytesIO
+import re
 import sys
 from pathlib import Path
 
@@ -62,12 +65,221 @@ _COST_MODEL_LABELS = {
 }
 
 
+@dataclass
+class PayrollDocumentPayload:
+    selected_month: str
+    personnel_id: int
+    personnel: str
+    person_code: str
+    role: str
+    status: str
+    total_hours: float
+    total_packages: float
+    gross_pay: float
+    total_deductions: float
+    net_payment: float
+    restaurant_names: list[str]
+    deduction_items: list[tuple[str, float]]
+
+
 def build_payroll_status() -> PayrollModuleStatus:
     return PayrollModuleStatus(
         module="payroll",
         status="active",
         next_slice="payroll-dashboard",
     )
+
+
+def _format_currency_pdf(value: float) -> str:
+    return f"{_safe_float(value):,.0f}".replace(",", ".") + " TL"
+
+
+def _register_pdf_font() -> str:
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/local/share/fonts/DejaVuSans.ttf",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+    ]
+    for path in candidates:
+        if Path(path).exists():
+            try:
+                pdfmetrics.registerFont(TTFont("CRMFont", path))
+                return "CRMFont"
+            except Exception:
+                continue
+    return "Helvetica"
+
+
+def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+    except ModuleNotFoundError:
+        return _render_basic_payroll_pdf(payload)
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    font_name = _register_pdf_font()
+
+    def write_line(text: str, x: int, y: float, size: int = 10) -> None:
+        pdf.setFont(font_name, size)
+        pdf.drawString(x, y, str(text))
+
+    y = height - 50
+    write_line("Çat Kapında", 40, y, 16)
+    y -= 22
+    write_line("Kurye Hakediş Raporu", 40, y, 14)
+    y -= 28
+
+    lines = [
+        f"Personel: {payload.personnel}",
+        f"Kod: {payload.person_code or '-'}",
+        f"Rol: {payload.role or '-'}",
+        f"Ay: {payload.selected_month}",
+        f"Durum: {payload.status or '-'}",
+        "Restoranlar: " + (", ".join(payload.restaurant_names) if payload.restaurant_names else "-"),
+    ]
+    for line in lines:
+        write_line(line, 40, y, 10)
+        y -= 16
+
+    y -= 4
+    pdf.line(40, y, width - 40, y)
+    y -= 20
+
+    write_line("Çalışma Özeti", 40, y, 12)
+    y -= 18
+    write_line(f"Toplam Saat: {int(_safe_float(payload.total_hours))}", 40, y)
+    y -= 16
+    write_line(f"Toplam Paket: {int(_safe_float(payload.total_packages))}", 40, y)
+    y -= 22
+
+    write_line("Hakediş Özeti", 40, y, 12)
+    y -= 18
+    write_line(f"Brüt Hakediş: {_format_currency_pdf(payload.gross_pay)}", 40, y)
+    y -= 16
+    write_line(f"Toplam Kesinti: {_format_currency_pdf(payload.total_deductions)}", 40, y)
+    y -= 16
+    write_line(f"Net Ödeme: {_format_currency_pdf(payload.net_payment)}", 40, y, 11)
+    y -= 24
+
+    write_line("Kesinti Detayı", 40, y, 12)
+    y -= 18
+    if not payload.deduction_items:
+        write_line("Bu ay için kesinti kaydı bulunamadı.", 40, y)
+        y -= 16
+    else:
+        for deduction_type, amount in payload.deduction_items:
+            write_line(f"{deduction_type}: -{_format_currency_pdf(amount)}", 40, y)
+            y -= 16
+            if y < 80:
+                pdf.showPage()
+                y = height - 50
+
+    pdf.save()
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def _render_basic_payroll_pdf(payload: PayrollDocumentPayload) -> bytes:
+    transliteration = str.maketrans(
+        {
+            "Ç": "C",
+            "ç": "c",
+            "Ğ": "G",
+            "ğ": "g",
+            "İ": "I",
+            "ı": "i",
+            "Ö": "O",
+            "ö": "o",
+            "Ş": "S",
+            "ş": "s",
+            "Ü": "U",
+            "ü": "u",
+        }
+    )
+
+    def escape_pdf_text(value: str) -> str:
+        normalized = str(value).translate(transliteration)
+        return normalized.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+    lines = [
+        ("16", "Cat Kapinda"),
+        ("14", "Kurye Hakedis Raporu"),
+        ("10", f"Personel: {payload.personnel}"),
+        ("10", f"Kod: {payload.person_code or '-'}"),
+        ("10", f"Rol: {payload.role or '-'}"),
+        ("10", f"Ay: {payload.selected_month}"),
+        ("10", f"Durum: {payload.status or '-'}"),
+        ("10", "Restoranlar: " + (", ".join(payload.restaurant_names) if payload.restaurant_names else "-")),
+        ("12", "Calisma Ozeti"),
+        ("10", f"Toplam Saat: {int(_safe_float(payload.total_hours))}"),
+        ("10", f"Toplam Paket: {int(_safe_float(payload.total_packages))}"),
+        ("12", "Hakedis Ozeti"),
+        ("10", f"Brut Hakedis: {_format_currency_pdf(payload.gross_pay)}"),
+        ("10", f"Toplam Kesinti: {_format_currency_pdf(payload.total_deductions)}"),
+        ("11", f"Net Odeme: {_format_currency_pdf(payload.net_payment)}"),
+        ("12", "Kesinti Detayi"),
+    ]
+    if payload.deduction_items:
+        lines.extend(
+            [("10", f"{deduction_type}: -{_format_currency_pdf(amount)}") for deduction_type, amount in payload.deduction_items]
+        )
+    else:
+        lines.append(("10", "Bu ay icin kesinti kaydi bulunamadi."))
+
+    content_lines = ["BT"]
+    y_position = 800
+    for index, (font_size, text) in enumerate(lines):
+        if index == 0:
+            content_lines.append(f"/F1 {font_size} Tf")
+            content_lines.append(f"40 {y_position} Td")
+        else:
+            step = 22 if index == 1 else 16
+            y_position -= step
+            content_lines.append(f"1 0 0 1 40 {y_position} Tm")
+            content_lines.append(f"/F1 {font_size} Tf")
+        content_lines.append(f"({escape_pdf_text(text)}) Tj")
+    content_lines.append("ET")
+    stream = "\n".join(content_lines) + "\n"
+    stream_bytes = stream.encode("latin-1", errors="replace")
+
+    objects = [
+        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n",
+        f"4 0 obj\n<< /Length {len(stream_bytes)} >>\nstream\n".encode("latin-1") + stream_bytes + b"endstream\nendobj\n",
+        b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+    ]
+
+    pdf = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets = [0]
+    for obj in objects:
+        offsets.append(len(pdf))
+        pdf.extend(obj)
+
+    xref_start = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode("latin-1"))
+    pdf.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode("latin-1"))
+    pdf.extend(
+        (
+            f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_start}\n%%EOF"
+        ).encode("latin-1")
+    )
+    return bytes(pdf)
+
+
+def _resolve_month_key(month_options: list[str], selected_month: str | None) -> str:
+    if not month_options:
+        raise ValueError("Belge oluşturmak için önce hakediş verisi oluşmalı.")
+    return selected_month if selected_month in month_options else month_options[0]
 
 
 def build_payroll_dashboard(
@@ -292,6 +504,225 @@ def build_payroll_dashboard(
         entries=entries_payload,
         cost_model_breakdown=cost_model_breakdown,
         top_personnel=top_personnel,
+    )
+
+
+def build_payroll_document_file(
+    conn: psycopg.Connection,
+    *,
+    selected_month: str | None,
+    personnel_id: int,
+) -> tuple[str, bytes]:
+    payload = (
+        _build_local_payroll_document_payload(conn, selected_month=selected_month, personnel_id=personnel_id)
+        if is_sqlite_backend(conn)
+        else _build_remote_payroll_document_payload(conn, selected_month=selected_month, personnel_id=personnel_id)
+    )
+    safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", payload.personnel).strip("_") or f"personel_{payload.personnel_id}"
+    file_name = f"hakedis_{safe_name}_{payload.selected_month}.pdf"
+    return file_name, _render_payroll_document_pdf(payload)
+
+
+def _build_remote_payroll_document_payload(
+    conn: psycopg.Connection,
+    *,
+    selected_month: str | None,
+    personnel_id: int,
+) -> PayrollDocumentPayload:
+    _ensure_repo_root_on_path()
+    from engines.finance_engine import calculate_personnel_cost
+    from rules.deduction_rules import filter_payroll_effective_deductions_df
+    from rules.reporting_rules import month_bounds
+    from services.reporting_service import load_monthly_payroll_source_payload
+
+    compat_conn = _build_compat_connection(conn)
+    payload = load_monthly_payroll_source_payload(compat_conn)
+    month_options = payload.month_options
+    resolved_month = _resolve_month_key(month_options, selected_month)
+
+    entries = payload.entries.copy() if not payload.entries.empty else pd.DataFrame()
+    deductions = payload.deductions.copy() if not payload.deductions.empty else pd.DataFrame()
+    personnel_df = payload.personnel_df.copy() if not payload.personnel_df.empty else pd.DataFrame()
+    role_history_df = (
+        payload.role_history_df.copy()
+        if payload.role_history_df is not None and not payload.role_history_df.empty
+        else pd.DataFrame()
+    )
+
+    start_date, end_date = month_bounds(resolved_month)
+    month_entries = (
+        entries[(entries["entry_date"] >= start_date) & (entries["entry_date"] <= end_date)].copy()
+        if not entries.empty
+        else pd.DataFrame()
+    )
+    month_deductions = (
+        deductions[(deductions["deduction_date"] >= start_date) & (deductions["deduction_date"] <= end_date)].copy()
+        if not deductions.empty
+        else pd.DataFrame()
+    )
+    payroll_deductions = filter_payroll_effective_deductions_df(month_deductions, personnel_df)
+    cost_df = calculate_personnel_cost(
+        month_entries,
+        personnel_df,
+        payroll_deductions,
+        role_history_df=role_history_df if not role_history_df.empty else None,
+    )
+    if cost_df.empty or "personnel_id" not in cost_df.columns:
+        raise LookupError("Belgesi oluşturulacak personel için hakediş kaydı bulunamadı.")
+
+    match_rows = cost_df[cost_df["personnel_id"] == personnel_id]
+    if match_rows.empty:
+        raise LookupError("Belgesi oluşturulacak personel için hakediş kaydı bulunamadı.")
+    payroll_row = match_rows.iloc[0]
+
+    person_match = personnel_df[personnel_df["id"] == personnel_id] if not personnel_df.empty else pd.DataFrame()
+    person_code = str(person_match.iloc[0]["person_code"] or "") if not person_match.empty and "person_code" in person_match.columns else ""
+
+    deduction_items: list[tuple[str, float]] = []
+    if not payroll_deductions.empty:
+        person_deductions = payroll_deductions[payroll_deductions["personnel_id"] == personnel_id].copy()
+        if not person_deductions.empty:
+            grouped = (
+                person_deductions.groupby("deduction_type", dropna=False)["amount"]
+                .sum()
+                .reset_index()
+            )
+            deduction_items = [
+                (str(row["deduction_type"] or "Kesinti"), _safe_float(row["amount"]))
+                for _, row in grouped.iterrows()
+            ]
+
+    restaurant_names: list[str] = []
+    if not month_entries.empty:
+        rest_series = (
+            month_entries.loc[month_entries["actual_personnel_id"] == personnel_id, "brand"].fillna("").astype(str)
+            + " - "
+            + month_entries.loc[month_entries["actual_personnel_id"] == personnel_id, "branch"].fillna("").astype(str)
+        )
+        restaurant_names = [value.strip(" -") for value in sorted(rest_series.unique().tolist()) if value.strip(" -")]
+
+    gross_pay = _safe_float(payroll_row.get("brut_maliyet"))
+    total_deductions = _safe_float(payroll_row.get("kesinti"))
+
+    return PayrollDocumentPayload(
+        selected_month=resolved_month,
+        personnel_id=personnel_id,
+        personnel=str(payroll_row.get("personel") or "-"),
+        person_code=person_code,
+        role=str(payroll_row.get("rol") or "-"),
+        status=str(payroll_row.get("durum") or "-"),
+        total_hours=_safe_float(payroll_row.get("calisma_saati")),
+        total_packages=_safe_float(payroll_row.get("paket")),
+        gross_pay=gross_pay,
+        total_deductions=total_deductions,
+        net_payment=_safe_float(payroll_row.get("net_maliyet")),
+        restaurant_names=restaurant_names,
+        deduction_items=deduction_items,
+    )
+
+
+def _build_local_payroll_document_payload(
+    conn: psycopg.Connection,
+    *,
+    selected_month: str | None,
+    personnel_id: int,
+) -> PayrollDocumentPayload:
+    month_rows = conn.execute(
+        """
+        SELECT month_key
+        FROM (
+            SELECT DISTINCT substr(COALESCE(entry_date, ''), 1, 7) AS month_key
+            FROM daily_entries
+            WHERE COALESCE(entry_date, '') <> ''
+            UNION
+            SELECT DISTINCT substr(COALESCE(deduction_date, ''), 1, 7) AS month_key
+            FROM deductions
+            WHERE COALESCE(deduction_date, '') <> ''
+        )
+        WHERE month_key <> ''
+        ORDER BY month_key DESC
+        """
+    ).fetchall()
+    month_options = [str(row["month_key"]) for row in month_rows if row["month_key"]]
+    resolved_month = _resolve_month_key(month_options, selected_month)
+
+    person_row = conn.execute(
+        """
+        SELECT
+            id,
+            COALESCE(full_name, '-') AS full_name,
+            COALESCE(person_code, '') AS person_code,
+            COALESCE(role, '-') AS role,
+            COALESCE(status, '-') AS status,
+            COALESCE(monthly_fixed_cost, 0) AS monthly_fixed_cost
+        FROM personnel
+        WHERE id = %s
+        """,
+        (personnel_id,),
+    ).fetchone()
+    if person_row is None:
+        raise LookupError("Belgesi oluşturulacak personel bulunamadı.")
+
+    attendance_row = conn.execute(
+        """
+        SELECT
+            COALESCE(SUM(worked_hours), 0) AS total_hours,
+            COALESCE(SUM(package_count), 0) AS total_packages
+        FROM daily_entries
+        WHERE substr(COALESCE(entry_date, ''), 1, 7) = %s
+          AND COALESCE(actual_personnel_id, planned_personnel_id) = %s
+        """,
+        (resolved_month, personnel_id),
+    ).fetchone()
+
+    deduction_rows = conn.execute(
+        """
+        SELECT
+            COALESCE(deduction_type, 'Kesinti') AS deduction_type,
+            COALESCE(SUM(amount), 0) AS total_amount
+        FROM deductions
+        WHERE substr(COALESCE(deduction_date, ''), 1, 7) = %s
+          AND personnel_id = %s
+        GROUP BY COALESCE(deduction_type, 'Kesinti')
+        ORDER BY deduction_type
+        """,
+        (resolved_month, personnel_id),
+    ).fetchall()
+
+    restaurant_rows = conn.execute(
+        """
+        SELECT DISTINCT COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label
+        FROM daily_entries d
+        LEFT JOIN restaurants r ON r.id = d.restaurant_id
+        WHERE substr(COALESCE(d.entry_date, ''), 1, 7) = %s
+          AND COALESCE(d.actual_personnel_id, d.planned_personnel_id) = %s
+        ORDER BY restaurant_label
+        """,
+        (resolved_month, personnel_id),
+    ).fetchall()
+
+    total_hours = _safe_float(attendance_row["total_hours"]) if attendance_row else 0.0
+    total_packages = _safe_float(attendance_row["total_packages"]) if attendance_row else 0.0
+    gross_pay = _safe_float(person_row["monthly_fixed_cost"])
+    total_deductions = _safe_float(sum(_safe_float(row["total_amount"]) for row in deduction_rows))
+    net_payment = max(gross_pay - total_deductions, 0.0)
+    restaurant_names = [str(row["restaurant_label"]) for row in restaurant_rows if str(row["restaurant_label"]).strip()]
+    deduction_items = [(str(row["deduction_type"]), _safe_float(row["total_amount"])) for row in deduction_rows]
+
+    return PayrollDocumentPayload(
+        selected_month=resolved_month,
+        personnel_id=personnel_id,
+        personnel=str(person_row["full_name"] or "-"),
+        person_code=str(person_row["person_code"] or ""),
+        role=str(person_row["role"] or "-"),
+        status=str(person_row["status"] or "-"),
+        total_hours=total_hours,
+        total_packages=total_packages,
+        gross_pay=gross_pay,
+        total_deductions=total_deductions,
+        net_payment=net_payment,
+        restaurant_names=restaurant_names,
+        deduction_items=deduction_items,
     )
 
 

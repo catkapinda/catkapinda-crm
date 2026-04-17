@@ -25,6 +25,7 @@ def _fake_admin_user() -> AuthenticatedUser:
             "personnel.list",
             "personnel.plate",
             "purchase.view",
+            "payroll.view",
             "restaurant.view",
             "reporting.view",
             "sales.view",
@@ -179,6 +180,87 @@ def test_root_route_guides_to_health_and_docs():
     assert payload["status"] == "ok"
     assert payload["health"] == "/api/health"
     assert payload["docs"] == "/docs"
+
+
+def test_payroll_routes_smoke(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.payroll.build_payroll_dashboard",
+        lambda conn, selected_month, role_filter, restaurant_filter, limit: {
+            "module": "payroll",
+            "status": "active",
+            "month_options": ["2026-04"],
+            "selected_month": "2026-04",
+            "role_options": ["Tümü", "Kurye"],
+            "restaurant_options": ["Tümü", "Burger@ - Kavacık"],
+            "selected_role": "Tümü",
+            "selected_restaurant": "Tümü",
+            "summary": {
+                "selected_month": "2026-04",
+                "personnel_count": 1,
+                "total_hours": 9.0,
+                "total_packages": 24.0,
+                "gross_payroll": 32000.0,
+                "total_deductions": 1500.0,
+                "net_payment": 30500.0,
+            },
+            "entries": [
+                {
+                    "personnel_id": 1,
+                    "personnel": "Mert Kurtuluş",
+                    "role": "Kurye",
+                    "status": "Aktif",
+                    "total_hours": 9.0,
+                    "total_packages": 24.0,
+                    "gross_pay": 32000.0,
+                    "total_deductions": 1500.0,
+                    "net_payment": 30500.0,
+                    "restaurant_count": 1,
+                    "cost_model": "Sabit Aylık",
+                }
+            ],
+            "cost_model_breakdown": [
+                {
+                    "cost_model": "Sabit Aylık",
+                    "personnel_count": 1,
+                    "total_hours": 9.0,
+                    "total_packages": 24.0,
+                    "net_payment": 30500.0,
+                }
+            ],
+            "top_personnel": [
+                {
+                    "personnel_id": 1,
+                    "personnel": "Mert Kurtuluş",
+                    "role": "Kurye",
+                    "total_hours": 9.0,
+                    "total_packages": 24.0,
+                    "total_deductions": 1500.0,
+                    "net_payment": 30500.0,
+                    "restaurant_count": 1,
+                    "cost_model": "Sabit Aylık",
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes.payroll.build_payroll_document_file",
+        lambda conn, selected_month, personnel_id: ("hakedis_Mert_Kurtulus_2026-04.pdf", b"%PDF-1.4 test"),
+    )
+
+    client = _build_app()
+
+    dashboard_response = client.get("/api/payroll/dashboard")
+    document_response = client.get("/api/payroll/document?month=2026-04&personnel_id=1")
+
+    assert dashboard_response.status_code == 200
+    dashboard_payload = dashboard_response.json()
+    assert dashboard_payload["summary"]["net_payment"] == 30500.0
+    assert dashboard_payload["entries"][0]["personnel"] == "Mert Kurtuluş"
+
+    assert document_response.status_code == 200
+    assert document_response.headers["content-type"] == "application/pdf"
+    assert "hakedis_Mert_Kurtulus_2026-04.pdf" in document_response.headers["content-disposition"]
+    assert document_response.content.startswith(b"%PDF")
 
 
 def test_attendance_routes_smoke(monkeypatch):

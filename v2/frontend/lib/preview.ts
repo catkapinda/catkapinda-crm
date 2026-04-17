@@ -2316,6 +2316,20 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     );
   }
 
+  if (pathname === "/payroll/document" && method === "GET") {
+    const personnelId = url.searchParams.get("personnel_id") || "personel";
+    const month = url.searchParams.get("month") || "2026-04";
+    const fileName = `hakedis_${personnelId}_${month}.pdf`;
+    const pdfStub = `%PDF-1.4\n% Preview payroll document\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<<>>\n%%EOF`;
+    return new Response(pdfStub, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+      },
+    });
+  }
+
   if (pathname === "/equipment/dashboard" && method === "GET") {
     return buildJsonResponse(buildEquipmentDashboard());
   }
