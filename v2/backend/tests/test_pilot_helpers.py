@@ -45,6 +45,17 @@ def sample_payload(*, phase: str = "ready_for_pilot", ready: bool = False, requi
                 "primary_label": "Pilot login",
                 "primary_href": "/login",
             },
+            "go_live": {
+                "phase": "ready_for_cutover" if phase == "ready_for_cutover" and ready else ("ready_for_pilot" if phase == "ready_for_pilot" else "blocked"),
+                "phase_label": "Cutover Hazir" if phase == "ready_for_cutover" and ready else ("Pilot Acilabilir" if phase == "ready_for_pilot" else "Blokaj Var"),
+                "tone": "success" if phase == "ready_for_cutover" and ready else ("info" if phase == "ready_for_pilot" else "warning"),
+                "summary": "Pilot ve cutover karari tek ekranda gorunuyor.",
+                "recommended_next_step": "Pilot login ekranini ac",
+                "pilot_ready": phase != "not_ready",
+                "cutover_ready": phase == "ready_for_cutover" and ready,
+                "blocking_items": [] if phase != "not_ready" else ["Zorunlu blokaj var."],
+                "future_cutover_blocking_items": [] if phase == "ready_for_cutover" and ready else ["Cutover icin bir madde kaldi."],
+            },
             "cutover": {
                 "phase": phase,
                 "ready": ready,
@@ -330,6 +341,7 @@ def test_pilot_smoke_accepts_local_sqlite_backend_for_localhost(monkeypatch):
                     },
                     "backend": {
                         "release_label": None,
+                        "go_live": {"phase": "blocked"},
                         "cutover": {"phase": "not_ready"},
                     },
                 },
@@ -398,6 +410,7 @@ def test_pilot_smoke_localhost_report_becomes_clean_with_local_sqlite(monkeypatc
                     },
                     "backend": {
                         "release_label": None,
+                        "go_live": {"phase": "blocked"},
                         "cutover": {"phase": "not_ready"},
                     },
                 },
@@ -447,6 +460,67 @@ def test_pilot_smoke_localhost_report_becomes_clean_with_local_sqlite(monkeypatc
     assert report["decision"]["failing_checks"] == []
 
 
+def test_pilot_smoke_requires_go_live_summary_in_pilot_status(monkeypatch):
+    def fake_fetch_json(base_url: str, path: str, timeout: int):
+        payloads = {
+            "/api/health": (200, {"status": "ok", "service": "frontend"}),
+            "/api/ready": (
+                200,
+                {
+                    "proxyConfigured": True,
+                    "proxyMode": "explicit_base_url",
+                    "sourceEnvKey": "CK_V2_INTERNAL_API_BASE_URL",
+                    "backendReachable": True,
+                    "backendStatus": "ok",
+                },
+            ),
+            "/api/pilot-status": (
+                200,
+                {
+                    "frontend": {
+                        "proxyConfigured": True,
+                        "proxyMode": "explicit_base_url",
+                        "backendReachable": True,
+                        "backendStatus": "ok",
+                        "releaseLabel": "crmcatkapinda-v2",
+                    },
+                    "backend": {
+                        "release_label": None,
+                        "cutover": {"phase": "not_ready"},
+                    },
+                },
+            ),
+            "/v2-api/health": (200, {"status": "ok", "service": "backend"}),
+            "/v2-api/health/ready": (200, {"status": "degraded", "checks": [{"name": "database_url"}]}),
+            "/v2-api/health/pilot": (
+                200,
+                {
+                    "status": "degraded",
+                    "modules": [{"module": f"m-{index}"} for index in range(11)],
+                    "auth": {"email_login": True, "phone_login": True, "sms_login": False},
+                    "required_missing_env_vars": ["CK_V2_DATABASE_URL"],
+                    "optional_missing_env_vars": ["SMS_PROVIDER"],
+                    "cutover": {"phase": "not_ready", "ready": False, "modules_ready_count": 11},
+                    "checks": [{"name": "database_url", "detail": "Local sqlite fallback aktif"}],
+                },
+            ),
+        }
+        return payloads[path]
+
+    monkeypatch.setattr(pilot_smoke, "fetch_json", fake_fetch_json)
+    monkeypatch.setattr(
+        pilot_smoke,
+        "fetch_text",
+        lambda base_url, path, timeout: (200, "text/html; charset=utf-8", "<html></html>"),
+    )
+
+    results = pilot_smoke.run_smoke_checks("http://127.0.0.1:3001", 12)
+    result_map = {result.name: result for result in results}
+
+    assert result_map["frontend_pilot_status"].ok is False
+    assert "goLivePhase=-" in result_map["frontend_pilot_status"].detail
+
+
 def test_pilot_smoke_checks_all_protected_module_pages(monkeypatch):
     def fake_fetch_json(base_url: str, path: str, timeout: int):
         payloads = {
@@ -473,6 +547,7 @@ def test_pilot_smoke_checks_all_protected_module_pages(monkeypatch):
                     },
                     "backend": {
                         "release_label": None,
+                        "go_live": {"phase": "blocked"},
                         "cutover": {"phase": "not_ready"},
                     },
                 },
@@ -784,6 +859,7 @@ def test_pilot_smoke_fails_when_json_endpoint_shape_is_invalid(monkeypatch):
                     },
                     "backend": {
                         "release_label": None,
+                        "go_live": {"phase": "blocked"},
                         "cutover": {"phase": "not_ready"},
                     },
                 },
@@ -1229,6 +1305,8 @@ def test_pilot_status_report_markdown_includes_key_sections():
     assert "Cat Kapinda CRM v2 Pilot Status Report" in markdown
     assert "## Bugunun Karari" in markdown
     assert "## Cutover Ozet" in markdown
+    assert "## Go-Live Karari" in markdown
+    assert "Recommended Next Step: Pilot login ekranini ac" in markdown
     assert "Pilot Login" in markdown
 
 

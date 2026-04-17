@@ -750,6 +750,7 @@ def run_smoke_checks(
         status, payload = fetch_json(base_url, "/api/pilot-status", timeout)
         frontend_payload = payload.get("frontend", {})
         backend_payload = payload.get("backend", {})
+        go_live_payload = backend_payload.get("go_live", {}) if isinstance(backend_payload, dict) else {}
         frontend_release = frontend_payload.get("releaseLabel") if isinstance(frontend_payload, dict) else None
         backend_release = backend_payload.get("release_label") if isinstance(backend_payload, dict) else None
         ok = (
@@ -757,6 +758,7 @@ def run_smoke_checks(
             and bool(frontend_payload.get("proxyConfigured"))
             and bool(frontend_payload.get("backendReachable"))
             and bool(backend_payload)
+            and bool(go_live_payload.get("phase"))
         )
         results.append(
             CheckResult(
@@ -765,7 +767,8 @@ def run_smoke_checks(
                 detail=(
                     f"HTTP {status} • proxyMode={frontend_payload.get('proxyMode')} • "
                     f"backend={frontend_payload.get('backendStatus')} • "
-                    f"pilotPhase={backend_payload.get('cutover', {}).get('phase') if isinstance(backend_payload, dict) else '-'}"
+                    f"pilotPhase={backend_payload.get('cutover', {}).get('phase') if isinstance(backend_payload, dict) else '-'} • "
+                    f"goLivePhase={go_live_payload.get('phase', '-')}"
                 ),
             )
         )

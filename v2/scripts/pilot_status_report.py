@@ -52,6 +52,7 @@ def build_markdown_report(*, base_url: str, payload: dict) -> str:
     backend = payload.get("backend") or {}
     auth = backend.get("auth") or {}
     cutover = backend.get("cutover") or {}
+    go_live = backend.get("go_live") or {}
     decision = backend.get("decision") or {}
     pilot_links = backend.get("pilot_links") or []
     command_pack = backend.get("command_pack") or []
@@ -99,6 +100,19 @@ def build_markdown_report(*, base_url: str, payload: dict) -> str:
         "### Remaining Items",
         "",
         *_format_list(cutover.get("remaining_items") or []),
+        "",
+        "## Go-Live Karari",
+        "",
+        f"- Phase: `{go_live.get('phase') or '-'}`",
+        f"- Label: {go_live.get('phase_label') or '-'}",
+        f"- Pilot Ready: `{go_live.get('pilot_ready')}`",
+        f"- Cutover Ready: `{go_live.get('cutover_ready')}`",
+        f"- Summary: {go_live.get('summary') or '-'}",
+        f"- Recommended Next Step: {go_live.get('recommended_next_step') or '-'}",
+        "",
+        "### Future Cutover Blocking Items",
+        "",
+        *_format_list(go_live.get("future_cutover_blocking_items") or []),
         "",
         "### Missing Env",
         "",
