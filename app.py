@@ -347,6 +347,7 @@ def resolve_v2_cutover_url() -> str:
     return (
         str(os.getenv("CK_V2_PILOT_URL", "") or "").strip()
         or _read_optional_secret_value("v2", "pilot_url")
+        or "https://crmcatkapinda-v2.onrender.com"
     )
 
 
@@ -355,7 +356,7 @@ def resolve_v2_cutover_mode() -> str:
         str(os.getenv("CK_V2_CUTOVER_MODE", "") or "").strip().lower()
         or _read_optional_secret_value("v2", "cutover_mode").lower()
     )
-    return raw_mode if raw_mode in V2_CUTOVER_MODE_OPTIONS else "off"
+    return raw_mode if raw_mode in V2_CUTOVER_MODE_OPTIONS else "banner"
 
 
 def resolve_v2_status_url(url: str) -> str:
