@@ -1208,6 +1208,8 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     start_here = (tmp_path / "00-START-HERE.md").read_text(encoding="utf-8")
     assert "Verify: `PASS`" in start_here
     assert "Day-zero kiti kullanima hazir." in start_here
+    assert "--validate-only" in (tmp_path / "pilot-launch.md").read_text(encoding="utf-8")
+    assert "`--validate-only` komutuyla deploy env degerlerini son kez dogrula." in start_here
 
 
 def test_day_zero_bundle_embeds_final_verify_snapshot(monkeypatch, tmp_path: Path):

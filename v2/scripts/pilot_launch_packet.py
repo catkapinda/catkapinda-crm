@@ -60,6 +60,17 @@ def build_packet(
         f"python v2/scripts/render_env_bundle.py --frontend-url {frontend_url} --api-url {api_url} --service streamlit --cutover-mode {cutover_mode}",
         "```",
         "",
+        "## Deploy Öncesi Env Doğrulaması",
+        "",
+        "```bash",
+        (
+            f"python v2/scripts/render_env_bundle.py --frontend-url {frontend_url} --api-url {api_url} "
+            f"--database-url '{database_url}' --default-auth-password '{default_auth_password}' --validate-only"
+        ),
+        "```",
+        "",
+        "Bu komut canlıya çıkmadan önce URL, PostgreSQL SSL ve parola gücü tarafını tek çıktıda doğrular.",
+        "",
         "## Hazır Env Blokları",
         "",
         "```dotenv",
