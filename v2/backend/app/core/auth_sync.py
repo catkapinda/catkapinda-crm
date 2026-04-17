@@ -113,9 +113,9 @@ def _fetch_mobile_auth_candidate_rows(conn: psycopg.Connection) -> list[dict]:
         """
         SELECT id, full_name, role, status, phone
         FROM personnel
-        WHERE role IN %s
+        WHERE role = ANY(%s)
         """,
-        (tuple(MOBILE_AUTH_PERSONNEL_ROLES),),
+        (list(MOBILE_AUTH_PERSONNEL_ROLES),),
     ).fetchall()
     return [dict(row) for row in rows]
 

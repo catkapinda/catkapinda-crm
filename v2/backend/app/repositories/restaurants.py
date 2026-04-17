@@ -5,8 +5,16 @@ import psycopg
 from app.core.database import is_sqlite_backend
 
 
+def _active_is_true_sql(column: str = "r.active") -> str:
+    return f"COALESCE(LOWER(CAST({column} AS TEXT)), 'true') IN ('1', 't', 'true')"
+
+
+def _active_is_false_sql(column: str = "r.active") -> str:
+    return f"NOT ({_active_is_true_sql(column)})"
+
+
 def _restaurant_select_sql() -> str:
-    return """
+    return f"""
         SELECT
             r.id,
             COALESCE(r.brand, '') AS brand,
@@ -33,7 +41,7 @@ def _restaurant_select_sql() -> str:
             COALESCE(r.address, '') AS address,
             COALESCE(r.tax_office, '') AS tax_office,
             COALESCE(r.tax_number, '') AS tax_number,
-            COALESCE(r.active, TRUE) AS active,
+            {_active_is_true_sql('r.active')} AS active,
             COALESCE(r.notes, '') AS notes
         FROM restaurants r
     """
@@ -53,11 +61,11 @@ def fetch_restaurant_summary(conn: psycopg.Connection) -> dict[str, int]:
         ).fetchone()
     else:
         row = conn.execute(
-            """
+            f"""
             SELECT
                 COUNT(*) AS total_restaurants,
-                COUNT(*) FILTER (WHERE COALESCE(active, TRUE) = TRUE) AS active_restaurants,
-                COUNT(*) FILTER (WHERE COALESCE(active, TRUE) = FALSE) AS passive_restaurants,
+                COUNT(*) FILTER (WHERE {_active_is_true_sql('active')}) AS active_restaurants,
+                COUNT(*) FILTER (WHERE {_active_is_false_sql('active')}) AS passive_restaurants,
                 COUNT(*) FILTER (WHERE pricing_model = 'fixed_monthly') AS fixed_monthly_restaurants
             FROM restaurants
             """
@@ -106,7 +114,7 @@ def fetch_restaurant_management_records(
         f"""
         {_restaurant_select_sql()}
         WHERE (%s IS NULL OR r.pricing_model = %s)
-          AND (%s IS NULL OR COALESCE(r.active, TRUE) = %s)
+          AND (%s IS NULL OR {_active_is_true_sql('r.active')} = %s)
           AND (
             %s IS NULL
             OR COALESCE(r.brand, '') ILIKE %s
@@ -146,11 +154,11 @@ def count_restaurant_management_records(
 ) -> int:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM restaurants r
         WHERE (%s IS NULL OR r.pricing_model = %s)
-          AND (%s IS NULL OR COALESCE(r.active, TRUE) = %s)
+          AND (%s IS NULL OR {_active_is_true_sql('r.active')} = %s)
           AND (
             %s IS NULL
             OR COALESCE(r.brand, '') ILIKE %s

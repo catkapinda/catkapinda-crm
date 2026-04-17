@@ -30,7 +30,7 @@ class FakeConnection:
             row = self.personnel_rows.get(int(params[0]))
             return FakeResult([dict(row)] if row else [])
 
-        if "FROM personnel WHERE role IN %s" in normalized:
+        if "FROM personnel WHERE role IN %s" in normalized or "FROM personnel WHERE role = ANY(%s)" in normalized:
             roles = {str(value) for value in params[0]}
             rows = [
                 dict(row)

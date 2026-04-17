@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import logging
 
 import psycopg
+from psycopg.rows import dict_row
 
 from app.core.auth_sync import sync_mobile_auth_users
 from app.core.config import settings
@@ -112,6 +113,7 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     "ALTER TABLE personnel_role_history ADD COLUMN IF NOT EXISTS cost_model TEXT",
     "ALTER TABLE personnel_role_history ADD COLUMN IF NOT EXISTS monthly_fixed_cost NUMERIC NOT NULL DEFAULT 0",
     "ALTER TABLE personnel_role_history ADD COLUMN IF NOT EXISTS effective_date DATE",
+    "ALTER TABLE personnel_role_history ADD COLUMN IF NOT EXISTS changed_at TIMESTAMP NOT NULL DEFAULT NOW()",
     """
     CREATE TABLE IF NOT EXISTS personnel_vehicle_history (
         id BIGSERIAL PRIMARY KEY,
@@ -137,6 +139,7 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS motor_purchase_sale_price NUMERIC NOT NULL DEFAULT 0",
     "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS motor_purchase_monthly_deduction NUMERIC NOT NULL DEFAULT 0",
     "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS effective_date DATE",
+    "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS changed_at TIMESTAMP NOT NULL DEFAULT NOW()",
     """
     CREATE TABLE IF NOT EXISTS plate_history (
         id BIGSERIAL PRIMARY KEY,
@@ -366,6 +369,7 @@ LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
         ("cost_model", "ALTER TABLE personnel_role_history ADD COLUMN cost_model TEXT"),
         ("monthly_fixed_cost", "ALTER TABLE personnel_role_history ADD COLUMN monthly_fixed_cost REAL DEFAULT 0"),
         ("effective_date", "ALTER TABLE personnel_role_history ADD COLUMN effective_date TEXT"),
+        ("changed_at", "ALTER TABLE personnel_role_history ADD COLUMN changed_at TEXT"),
     ),
     "personnel_vehicle_history": (
         ("motor_rental", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_rental TEXT"),
@@ -376,6 +380,7 @@ LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
         ("motor_purchase_sale_price", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase_sale_price REAL DEFAULT 0"),
         ("motor_purchase_monthly_deduction", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase_monthly_deduction REAL DEFAULT 0"),
         ("effective_date", "ALTER TABLE personnel_vehicle_history ADD COLUMN effective_date TEXT"),
+        ("changed_at", "ALTER TABLE personnel_vehicle_history ADD COLUMN changed_at TEXT"),
     ),
 }
 
@@ -421,6 +426,7 @@ def ensure_runtime_bootstrap() -> None:
                 settings.database_url,
                 connect_timeout=5,
                 application_name="catkapinda-crm-v2-bootstrap",
+                row_factory=dict_row,
             ) as conn:
                 _run_auth_bootstrap(conn, allow_mobile_sync=True)
         else:

@@ -433,6 +433,11 @@ def _scalar_value(conn: psycopg.Connection, query: str, params: tuple[object, ..
     return next(iter(row.values()))
 
 
+def _truthy_sql(column: str, *, default_true: bool = True) -> str:
+    default_value = "true" if default_true else "false"
+    return f"COALESCE(LOWER(CAST({column} AS TEXT)), '{default_value}') IN ('1', 't', 'true')"
+
+
 def _normalize_date_value(raw_value: object) -> date | None:
     if raw_value is None:
         return None
@@ -457,7 +462,7 @@ def _build_data_health(conn: psycopg.Connection, *, reference_date: date) -> tup
     active_restaurants = int(
         _scalar_value(
             conn,
-            "SELECT COUNT(*) AS count FROM restaurants WHERE COALESCE(active, TRUE) = TRUE",
+            f"SELECT COUNT(*) AS count FROM restaurants WHERE {_truthy_sql('active')}",
         )
         or 0
     )
@@ -544,10 +549,10 @@ def _build_data_quality(
         "active_restaurants_missing_identity": int(
             _scalar_value(
                 conn,
-                """
+                f"""
                 SELECT COUNT(*) AS count
                 FROM restaurants
-                WHERE COALESCE(active, TRUE) = TRUE
+                WHERE {_truthy_sql('active')}
                   AND (
                     NULLIF(BTRIM(COALESCE(brand, '')), '') IS NULL
                     OR NULLIF(BTRIM(COALESCE(branch, '')), '') IS NULL
@@ -574,13 +579,13 @@ def _build_data_quality(
         "duplicate_restaurant_keys": int(
             _scalar_value(
                 conn,
-                """
+                f"""
                 SELECT COUNT(*) AS count
                 FROM (
                     SELECT LOWER(BTRIM(COALESCE(brand, ''))) AS brand_key,
                            LOWER(BTRIM(COALESCE(branch, ''))) AS branch_key
                     FROM restaurants
-                    WHERE COALESCE(active, TRUE) = TRUE
+                    WHERE {_truthy_sql('active')}
                       AND NULLIF(BTRIM(COALESCE(brand, '')), '') IS NOT NULL
                       AND NULLIF(BTRIM(COALESCE(branch, '')), '') IS NOT NULL
                     GROUP BY 1, 2

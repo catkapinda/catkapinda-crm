@@ -35,6 +35,10 @@ def _format_number(value: float) -> str:
     return f"{float(value or 0):,.0f}"
 
 
+def _restaurant_active_sql(column: str = "r.active") -> str:
+    return f"COALESCE(LOWER(CAST({column} AS TEXT)), 'true') IN ('1', 't', 'true')"
+
+
 def _build_finance_summary(
     conn: psycopg.Connection,
 ) -> OverviewFinanceSummary:
@@ -184,12 +188,12 @@ def _build_operations_summary(
 ) -> OverviewOperationsSummary:
     month_key = selected_month or reference_date.strftime("%Y-%m")
     missing_attendance_rows = conn.execute(
-        """
+        f"""
         SELECT
             COALESCE(r.brand, '') AS brand,
             COALESCE(r.branch, '') AS branch
         FROM restaurants r
-        WHERE COALESCE(r.active, TRUE) = TRUE
+        WHERE {_restaurant_active_sql('r.active')}
           AND NOT EXISTS (
             SELECT 1
             FROM daily_entries d
@@ -202,7 +206,7 @@ def _build_operations_summary(
         (reference_date,),
     ).fetchall()
     under_target_rows = conn.execute(
-        """
+        f"""
         SELECT
             COALESCE(r.brand, '') AS brand,
             COALESCE(r.branch, '') AS branch,
@@ -210,7 +214,7 @@ def _build_operations_summary(
             COALESCE(SUM(CASE WHEN p.status = 'Aktif' THEN 1 ELSE 0 END), 0) AS active_personnel
         FROM restaurants r
         LEFT JOIN personnel p ON p.assigned_restaurant_id = r.id
-        WHERE COALESCE(r.active, TRUE) = TRUE
+        WHERE {_restaurant_active_sql('r.active')}
         GROUP BY r.id, r.brand, r.branch, r.target_headcount
         HAVING COALESCE(r.target_headcount, 0) > COALESCE(SUM(CASE WHEN p.status = 'Aktif' THEN 1 ELSE 0 END), 0)
         ORDER BY (COALESCE(r.target_headcount, 0) - COALESCE(SUM(CASE WHEN p.status = 'Aktif' THEN 1 ELSE 0 END), 0)) DESC, r.brand, r.branch
@@ -267,7 +271,7 @@ def _build_operations_summary(
         (month_key,),
     ).fetchall()
     restaurant_profit_rows = conn.execute(
-        """
+        f"""
         SELECT
             r.id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant,
@@ -284,13 +288,13 @@ def _build_operations_summary(
                   AND COALESCE(p.status, '') = 'Aktif'
             ), 0) AS personnel_cost
         FROM restaurants r
-        WHERE COALESCE(r.active, TRUE) = TRUE
+        WHERE {_restaurant_active_sql('r.active')}
         ORDER BY restaurant
         """,
         (month_key,),
     ).fetchall()
     brand_rows = conn.execute(
-        """
+        f"""
         WITH invoice AS (
             SELECT
                 COALESCE(r.brand, '-') AS brand,
@@ -309,7 +313,7 @@ def _build_operations_summary(
                 COALESCE(SUM(CASE WHEN p.status = 'Aktif' THEN COALESCE(p.monthly_fixed_cost, 0) ELSE 0 END), 0) AS personnel_cost
             FROM restaurants r
             LEFT JOIN personnel p ON p.assigned_restaurant_id = r.id
-            WHERE COALESCE(r.active, TRUE) = TRUE
+            WHERE {_restaurant_active_sql('r.active')}
             GROUP BY COALESCE(r.brand, '-')
         )
         SELECT

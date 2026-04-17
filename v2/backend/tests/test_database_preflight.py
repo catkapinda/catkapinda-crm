@@ -65,6 +65,7 @@ class FakeConnection:
 
     def execute(self, query: str, params: tuple[object, ...] | None = None):
         normalized = " ".join(query.split())
+        restaurant_active_sql = " ".join(database_preflight._truthy_sql("active").split())
         if normalized == "SELECT current_schema() AS schema_name":
             return FakeCursor({"schema_name": "public"})
 
@@ -118,7 +119,7 @@ class FakeConnection:
             }
             return FakeCursor(row)
 
-        if normalized == "SELECT COUNT(*) AS count FROM restaurants WHERE COALESCE(active, TRUE) = TRUE":
+        if normalized == f"SELECT COUNT(*) AS count FROM restaurants WHERE {restaurant_active_sql}":
             return FakeCursor({"count": self.data_health_counts.get("active_restaurants", 0)})
 
         if normalized == "SELECT COUNT(*) AS count FROM personnel WHERE COALESCE(status, '') = 'Aktif'":
@@ -145,30 +146,29 @@ class FakeConnection:
         if normalized == "SELECT MAX(issue_date) AS latest_value FROM courier_equipment_issues":
             return FakeCursor({"latest_value": self.latest_dates.get("courier_equipment_issues")})
 
+        if (
+            normalized.startswith("SELECT COUNT(*) AS count FROM restaurants ")
+            and "NULLIF(BTRIM(COALESCE(brand, '')), '') IS NULL" in normalized
+            and "NULLIF(BTRIM(COALESCE(branch, '')), '') IS NULL" in normalized
+        ):
+            return FakeCursor(
+                {"count": self.data_quality_counts.get("active_restaurants_missing_identity", 0)}
+            )
+
+        if (
+            normalized.startswith("SELECT COUNT(*) AS count FROM ( SELECT LOWER(BTRIM(COALESCE(brand, ''))) AS brand_key,")
+            and "FROM restaurants" in normalized
+            and "GROUP BY 1, 2 HAVING COUNT(*) > 1" in normalized
+        ):
+            return FakeCursor({"count": self.data_quality_counts.get("duplicate_restaurant_keys", 0)})
+
         quality_query_map = {
-            (
-                "SELECT COUNT(*) AS count FROM restaurants "
-                "WHERE COALESCE(active, TRUE) = TRUE "
-                "AND ( NULLIF(BTRIM(COALESCE(brand, '')), '') IS NULL "
-                "OR NULLIF(BTRIM(COALESCE(branch, '')), '') IS NULL )"
-            ): "active_restaurants_missing_identity",
             (
                 "SELECT COUNT(*) AS count FROM personnel "
                 "WHERE COALESCE(status, '') = 'Aktif' "
                 "AND ( NULLIF(BTRIM(COALESCE(person_code, '')), '') IS NULL "
                 "OR NULLIF(BTRIM(COALESCE(full_name, '')), '') IS NULL )"
             ): "active_personnel_missing_identity",
-            (
-                "SELECT COUNT(*) AS count FROM ( "
-                "SELECT LOWER(BTRIM(COALESCE(brand, ''))) AS brand_key, "
-                "LOWER(BTRIM(COALESCE(branch, ''))) AS branch_key "
-                "FROM restaurants "
-                "WHERE COALESCE(active, TRUE) = TRUE "
-                "AND NULLIF(BTRIM(COALESCE(brand, '')), '') IS NOT NULL "
-                "AND NULLIF(BTRIM(COALESCE(branch, '')), '') IS NOT NULL "
-                "GROUP BY 1, 2 HAVING COUNT(*) > 1 "
-                ") duplicates"
-            ): "duplicate_restaurant_keys",
             (
                 "SELECT COUNT(*) AS count FROM ( "
                 "SELECT LOWER(BTRIM(COALESCE(person_code, ''))) AS person_code_key "
