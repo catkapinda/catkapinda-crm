@@ -16,6 +16,33 @@ type OverviewDashboard = {
     month_attendance_entries: number;
     month_deduction_entries: number;
   };
+  finance: {
+    selected_month: string | null;
+    total_revenue: number;
+    gross_profit: number;
+    total_personnel_cost: number;
+    side_income_net: number;
+    top_restaurants: Array<{
+      label: string;
+      value: string;
+    }>;
+    risk_restaurants: Array<{
+      label: string;
+      value: string;
+    }>;
+  };
+  hygiene: {
+    missing_personnel_cards: number;
+    missing_restaurant_cards: number;
+    personnel_samples: Array<{
+      title: string;
+      subtitle: string;
+    }>;
+    restaurant_samples: Array<{
+      title: string;
+      subtitle: string;
+    }>;
+  };
   modules: Array<{
     key: string;
     title: string;
@@ -69,6 +96,14 @@ function formatActivityDate(value: string | null) {
     return "Takvim yok";
   }
   return value;
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  }).format(value || 0);
 }
 
 function pulseCard(label: string, value: string, note: string) {
@@ -297,7 +332,7 @@ function moduleCard(
           boxShadow: "var(--shadow-deep)",
         }}
       >
-        <span>Modülü Ac</span>
+        <span>Modülü Aç</span>
         <span
           style={{
             width: "28px",
@@ -311,6 +346,62 @@ function moduleCard(
           +
         </span>
       </Link>
+    </article>
+  );
+}
+
+function snapshotList(
+  title: string,
+  items: Array<{ label: string; value: string }> | Array<{ title: string; subtitle: string }>,
+  mode: "value" | "subtitle",
+) {
+  return (
+    <article
+      style={{
+        ...paperCardStyle,
+        padding: "18px",
+        background: "rgba(255,255,255,0.9)",
+        display: "grid",
+        gap: "12px",
+      }}
+    >
+      <div
+        style={{
+          color: "var(--accent-strong)",
+          fontWeight: 800,
+          fontSize: "0.75rem",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {title}
+      </div>
+      {items.length ? (
+        <div style={{ display: "grid", gap: "10px" }}>
+          {items.map((item, index) => (
+            <div
+              key={`${title}-${index}`}
+              style={{
+                display: "grid",
+                gap: "4px",
+                paddingBottom: "10px",
+                borderBottom: "1px solid rgba(24,40,59,0.08)",
+              }}
+            >
+              <div style={{ fontWeight: 800 }}>
+                {"label" in item ? item.label : item.title}
+              </div>
+              <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
+                {mode === "value" && "value" in item ? item.value : "subtitle" in item ? item.subtitle : "-"}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+          Bu alanda henüz gösterilecek öne çıkan kayıt yok.
+        </div>
+      )}
     </article>
   );
 }
@@ -404,7 +495,7 @@ export default function HomePage() {
                 background: "radial-gradient(circle, rgba(185,116,41,0.3), transparent 70%)",
               }}
             />
-            <div style={kickerStyle}>Operations Newsroom</div>
+            <div style={kickerStyle}>Operasyon Masası</div>
             <h1
               style={{
                 ...serifTitleStyle,
@@ -440,8 +531,8 @@ export default function HomePage() {
               }}
             >
               {[
-                ["Yönetim Notu", "Bugunun en yoğun alanlari puantaj ve personel senkronu."],
-                ["Kullanim Hissi", "Daha az kart kalabaligi, daha net aksiyon akışı."],
+                ["Yönetim Notu", "Bugünün en yoğun alanları puantaj ve personel senkronu."],
+                ["Kullanım Hissi", "Daha az kart kalabalığı, daha net aksiyon akışı."],
                 ["Tasarlanan Ton", "Premium ama sıcak; operasyonel ama editoryal."],
               ].map(([label, text]) => (
                 <div
@@ -502,7 +593,7 @@ export default function HomePage() {
                   textTransform: "uppercase",
                 }}
               >
-                Bugunun Vurgusu
+                Bugünün Vurgusu
               </div>
               <div
                 style={{
@@ -513,7 +604,7 @@ export default function HomePage() {
                   fontWeight: 700,
                 }}
               >
-                Daha cesur, daha editorial, daha ürün gibi.
+                Daha cesur, daha editoryal, daha ürün gibi.
               </div>
               <p
                 style={{
@@ -667,7 +758,7 @@ export default function HomePage() {
                       letterSpacing: "0.08em",
                     }}
                   >
-                    Komuta Masasi
+                    Komuta Masası
                   </div>
                   <h2
                     style={{
@@ -720,7 +811,7 @@ export default function HomePage() {
                     borderBottom: "1px solid rgba(255,255,255,0.08)",
                   }}
                 >
-                  <div style={kickerStyle}>Activity Wire</div>
+                  <div style={kickerStyle}>Hareket Akışı</div>
                   <h2
                     style={{
                       ...serifTitleStyle,
@@ -824,6 +915,156 @@ export default function HomePage() {
                   ))}
                 </div>
               </aside>
+            </section>
+
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.15fr) minmax(320px, 0.85fr)",
+                gap: "18px",
+                alignItems: "start",
+              }}
+            >
+              <article
+                style={{
+                  ...paperCardStyle,
+                  padding: "22px",
+                  display: "grid",
+                  gap: "18px",
+                  background:
+                    "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,241,229,0.96))",
+                }}
+              >
+                <header style={{ display: "grid", gap: "8px" }}>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontWeight: 800,
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Bu Ay Karlılık Özeti
+                  </div>
+                  <h2
+                    style={{
+                      ...serifTitleStyle,
+                      margin: 0,
+                      fontSize: "2.15rem",
+                      lineHeight: 0.96,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Gelir, maliyet ve kâr aynı masada okunuyor.
+                  </h2>
+                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                    {dashboard.finance.selected_month
+                      ? `${dashboard.finance.selected_month} dönemi için restoran faturası, personel maliyeti ve yan gelir toplamını tek yerde topluyoruz.`
+                      : "Rapor verisi geldikçe aylık kârlılık sinyallerini burada birlikte okuyacağız."}
+                  </p>
+                </header>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: "12px",
+                  }}
+                >
+                  {pulseCard(
+                    "Restoran Faturası",
+                    formatCurrency(dashboard.finance.total_revenue),
+                    "Bu ay oluşan toplam restoran faturası.",
+                  )}
+                  {pulseCard(
+                    "Personel Maliyeti",
+                    formatCurrency(dashboard.finance.total_personnel_cost),
+                    "Net maliyet tarafında okunan toplam kadro yükü.",
+                  )}
+                  {pulseCard(
+                    "Brüt Kâr",
+                    formatCurrency(dashboard.finance.gross_profit),
+                    "Gelir ve personel maliyeti arasındaki ana fark.",
+                  )}
+                  {pulseCard(
+                    "Yan Gelir",
+                    formatCurrency(dashboard.finance.side_income_net),
+                    "Muhasebe ve ek işlerden gelen net katkı.",
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                    gap: "14px",
+                  }}
+                >
+                  {snapshotList("En Güçlü Restoranlar", dashboard.finance.top_restaurants, "value")}
+                  {snapshotList("Dikkat İsteyen Restoranlar", dashboard.finance.risk_restaurants, "value")}
+                </div>
+              </article>
+
+              <article
+                style={{
+                  ...paperCardStyle,
+                  padding: "22px",
+                  display: "grid",
+                  gap: "16px",
+                  background: "rgba(255,255,255,0.94)",
+                }}
+              >
+                <header style={{ display: "grid", gap: "8px" }}>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontWeight: 800,
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Kart ve Zimmet Kontrolü
+                  </div>
+                  <h2
+                    style={{
+                      ...serifTitleStyle,
+                      margin: 0,
+                      fontSize: "1.85rem",
+                      lineHeight: 0.98,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Eksik kartları masanın üstünde tutuyoruz.
+                  </h2>
+                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                    Eksik alanlı personel ve restoran kartlarını hızlıca görüp operasyon öncesi düzenlemek için.
+                  </p>
+                </header>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "12px",
+                  }}
+                >
+                  {pulseCard(
+                    "Eksik Personel",
+                    String(dashboard.hygiene.missing_personnel_cards),
+                    "Telefon, işe giriş, şube veya plaka eksiği olan aktif kartlar.",
+                  )}
+                  {pulseCard(
+                    "Eksik Restoran",
+                    String(dashboard.hygiene.missing_restaurant_cards),
+                    "Kontak, hedef kadro veya adresi eksik duran şube kartları.",
+                  )}
+                </div>
+
+                {snapshotList("Eksik Personel Kartları", dashboard.hygiene.personnel_samples, "subtitle")}
+                {snapshotList("Eksik Restoran Kartları", dashboard.hygiene.restaurant_samples, "subtitle")}
+              </article>
             </section>
           </>
         )}

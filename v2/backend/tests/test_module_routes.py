@@ -53,6 +53,29 @@ def test_overview_dashboard_route_smoke(monkeypatch):
                 "month_attendance_entries": 640,
                 "month_deduction_entries": 92,
             },
+            "finance": {
+                "selected_month": "2026-04",
+                "total_revenue": 240000.0,
+                "gross_profit": 87000.0,
+                "total_personnel_cost": 131000.0,
+                "side_income_net": 12000.0,
+                "top_restaurants": [
+                    {"label": "Burger@ - Kavacık", "value": "120.000 TL"},
+                ],
+                "risk_restaurants": [
+                    {"label": "Kod Deneme - Rapor 20260416", "value": "8.000 TL"},
+                ],
+            },
+            "hygiene": {
+                "missing_personnel_cards": 2,
+                "missing_restaurant_cards": 1,
+                "personnel_samples": [
+                    {"title": "Beytullah Belen", "subtitle": "Telefon, Şube"},
+                ],
+                "restaurant_samples": [
+                    {"title": "Burger@ - Kavacık", "subtitle": "Adres"},
+                ],
+            },
             "modules": [
                 {
                     "key": "attendance",
@@ -85,6 +108,8 @@ def test_overview_dashboard_route_smoke(monkeypatch):
     assert response.status_code == 200
     payload = response.json()
     assert payload["hero"]["active_restaurants"] == 12
+    assert payload["finance"]["gross_profit"] == 87000.0
+    assert payload["hygiene"]["missing_personnel_cards"] == 2
     assert payload["modules"][0]["href"] == "/attendance"
 
 

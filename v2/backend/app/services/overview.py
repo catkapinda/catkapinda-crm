@@ -7,13 +7,163 @@ import psycopg
 from app.schemas.overview import (
     OverviewActivityItem,
     OverviewDashboardResponse,
+    OverviewFinanceHighlight,
+    OverviewFinanceSummary,
     OverviewHeroSummary,
+    OverviewHygieneEntry,
+    OverviewHygieneSummary,
     OverviewModuleCard,
 )
 from app.services.attendance import build_attendance_dashboard
 from app.services.deductions import build_deductions_dashboard
 from app.services.personnel import build_personnel_dashboard
+from app.services.reports import build_reports_dashboard
 from app.services.restaurants import build_restaurants_dashboard
+
+
+def _format_currency(value: float) -> str:
+    return f"{float(value or 0):,.0f} TL"
+
+
+def _build_finance_summary(
+    conn: psycopg.Connection,
+) -> OverviewFinanceSummary:
+    reports_dashboard = build_reports_dashboard(conn, limit=24)
+    summary = reports_dashboard.summary
+    if summary is None:
+        return OverviewFinanceSummary(
+            selected_month=None,
+            total_revenue=0.0,
+            gross_profit=0.0,
+            total_personnel_cost=0.0,
+            side_income_net=0.0,
+            top_restaurants=[],
+            risk_restaurants=[],
+        )
+
+    top_restaurants = [
+        OverviewFinanceHighlight(
+            label=str(entry.restaurant or "-"),
+            value=_format_currency(entry.gross_invoice),
+        )
+        for entry in reports_dashboard.top_restaurants[:5]
+    ]
+
+    risk_restaurants = [
+        OverviewFinanceHighlight(
+            label=str(entry.restaurant or "-"),
+            value=_format_currency(entry.gross_invoice),
+        )
+        for entry in sorted(
+            reports_dashboard.invoice_entries,
+            key=lambda entry: float(entry.gross_invoice or 0),
+        )[:5]
+    ]
+
+    return OverviewFinanceSummary(
+        selected_month=summary.selected_month,
+        total_revenue=float(summary.total_revenue or 0),
+        gross_profit=float(summary.gross_profit or 0),
+        total_personnel_cost=float(summary.total_personnel_cost or 0),
+        side_income_net=float(summary.side_income_net or 0),
+        top_restaurants=top_restaurants,
+        risk_restaurants=risk_restaurants,
+    )
+
+
+def _build_hygiene_summary(conn: psycopg.Connection) -> OverviewHygieneSummary:
+    personnel_rows = conn.execute(
+        """
+        SELECT
+            COALESCE(person_code, '') AS person_code,
+            COALESCE(full_name, '') AS full_name,
+            COALESCE(role, '') AS role,
+            COALESCE(phone, '') AS phone,
+            start_date,
+            assigned_restaurant_id,
+            COALESCE(status, '') AS status,
+            COALESCE(vehicle_type, '') AS vehicle_type,
+            COALESCE(motor_rental, '') AS motor_rental,
+            COALESCE(motor_purchase, '') AS motor_purchase,
+            COALESCE(current_plate, '') AS current_plate
+        FROM personnel
+        ORDER BY full_name, person_code
+        """
+    ).fetchall()
+    restaurant_rows = conn.execute(
+        """
+        SELECT
+            COALESCE(brand, '') AS brand,
+            COALESCE(branch, '') AS branch,
+            COALESCE(contact_name, '') AS contact_name,
+            COALESCE(target_headcount, 0) AS target_headcount,
+            COALESCE(address, '') AS address
+        FROM restaurants
+        ORDER BY brand, branch
+        """
+    ).fetchall()
+
+    personnel_samples: list[OverviewHygieneEntry] = []
+    restaurant_samples: list[OverviewHygieneEntry] = []
+    missing_personnel_cards = 0
+    missing_restaurant_cards = 0
+
+    for row in personnel_rows:
+        row_data = dict(row)
+        missing_fields: list[str] = []
+        if not str(row_data.get("phone") or "").strip():
+            missing_fields.append("Telefon")
+        if not row_data.get("start_date"):
+            missing_fields.append("İşe giriş")
+        if str(row_data.get("status") or "").strip() == "Aktif" and int(row_data.get("assigned_restaurant_id") or 0) <= 0:
+            missing_fields.append("Şube")
+        if (
+            str(row_data.get("vehicle_type") or "").strip() == "Çat Kapında"
+            and (
+                str(row_data.get("motor_rental") or "").strip() == "Evet"
+                or str(row_data.get("motor_purchase") or "").strip() == "Evet"
+            )
+            and not str(row_data.get("current_plate") or "").strip()
+        ):
+            missing_fields.append("Plaka")
+        if missing_fields:
+            missing_personnel_cards += 1
+            if len(personnel_samples) < 5:
+                personnel_samples.append(
+                    OverviewHygieneEntry(
+                        title=str(row_data.get("full_name") or row_data.get("person_code") or "-"),
+                        subtitle=", ".join(missing_fields),
+                    )
+                )
+
+    for row in restaurant_rows:
+        row_data = dict(row)
+        missing_fields: list[str] = []
+        if not str(row_data.get("contact_name") or "").strip():
+            missing_fields.append("Kontak")
+        if float(row_data.get("target_headcount") or 0) <= 0:
+            missing_fields.append("Hedef kadro")
+        if not str(row_data.get("address") or "").strip():
+            missing_fields.append("Adres")
+        if missing_fields:
+            missing_restaurant_cards += 1
+            if len(restaurant_samples) < 5:
+                restaurant_samples.append(
+                    OverviewHygieneEntry(
+                        title=" - ".join(
+                            part for part in [str(row_data.get("brand") or "").strip(), str(row_data.get("branch") or "").strip()] if part
+                        )
+                        or "-",
+                        subtitle=", ".join(missing_fields),
+                    )
+                )
+
+    return OverviewHygieneSummary(
+        missing_personnel_cards=missing_personnel_cards,
+        missing_restaurant_cards=missing_restaurant_cards,
+        personnel_samples=personnel_samples,
+        restaurant_samples=restaurant_samples,
+    )
 
 
 def build_overview_dashboard(
@@ -25,6 +175,8 @@ def build_overview_dashboard(
     personnel_dashboard = build_personnel_dashboard(conn, limit=6)
     deductions_dashboard = build_deductions_dashboard(conn, reference_date=reference_date, limit=6)
     restaurants_dashboard = build_restaurants_dashboard(conn, limit=6)
+    finance_summary = _build_finance_summary(conn)
+    hygiene_summary = _build_hygiene_summary(conn)
 
     recent_activity: list[OverviewActivityItem] = []
 
@@ -94,6 +246,8 @@ def build_overview_dashboard(
             month_attendance_entries=attendance_dashboard.summary.month_entries,
             month_deduction_entries=deductions_dashboard.summary.this_month_entries,
         ),
+        finance=finance_summary,
+        hygiene=hygiene_summary,
         modules=[
             OverviewModuleCard(
                 key="attendance",
