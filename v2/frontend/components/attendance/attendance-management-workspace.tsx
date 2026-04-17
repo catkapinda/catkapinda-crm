@@ -962,14 +962,14 @@ export function AttendanceManagementWorkspace() {
                 onSubmit={handleSave}
                 style={{
                   display: "grid",
-                  gap: "14px",
+                  gap: "10px",
                 }}
               >
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                    gap: "12px",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                    gap: "10px",
                   }}
                 >
                   <label style={{ display: "grid", gap: "7px" }}>
@@ -1016,8 +1016,8 @@ export function AttendanceManagementWorkspace() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                    gap: "12px",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                    gap: "10px",
                   }}
                 >
                   <label style={{ display: "grid", gap: "7px" }}>
@@ -1081,9 +1081,9 @@ export function AttendanceManagementWorkspace() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: isFixedMonthly
-                      ? "repeat(auto-fit, minmax(160px, 1fr))"
-                      : "repeat(auto-fit, minmax(200px, 1fr))",
-                    gap: "12px",
+                      ? "repeat(auto-fit, minmax(150px, 1fr))"
+                      : "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: "10px",
                   }}
                 >
                   <label style={{ display: "grid", gap: "7px" }}>
@@ -1128,7 +1128,7 @@ export function AttendanceManagementWorkspace() {
                   <textarea
                     value={editNotes}
                     onChange={(event) => setEditNotes(event.target.value)}
-                    rows={4}
+                    rows={3}
                     style={{
                       ...fieldStyle,
                       resize: "vertical",

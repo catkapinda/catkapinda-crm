@@ -553,8 +553,8 @@ export function RestaurantManagementWorkspace() {
             onSubmit={handleSubmit}
             style={{
               display: "grid",
-              gap: "10px",
-              padding: "14px",
+              gap: "8px",
+              padding: "12px",
               borderRadius: "18px",
               border: "1px solid var(--line)",
               background: "rgba(255, 255, 255, 0.86)",
@@ -593,12 +593,12 @@ export function RestaurantManagementWorkspace() {
           {selectedEntry && !detailLoading ? (
             <div
               style={{
-                padding: "12px 14px",
+                padding: "10px 12px",
                 borderRadius: "14px",
                 border: "1px solid var(--line)",
                 background: "rgba(15, 95, 215, 0.04)",
                 display: "grid",
-                gap: "8px",
+                gap: "6px",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
@@ -612,8 +612,8 @@ export function RestaurantManagementWorkspace() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: "8px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: "6px",
                 }}
               >
                 <div>
@@ -669,8 +669,8 @@ export function RestaurantManagementWorkspace() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: "10px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "8px",
                 }}
               >
                 <input value={editBrand} onChange={(event) => setEditBrand(event.target.value)} placeholder="Marka" style={fieldStyle} />
@@ -699,7 +699,7 @@ export function RestaurantManagementWorkspace() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                  gap: "10px",
+                  gap: "8px",
                 }}
               >
                 {editPricingModel === "hourly_plus_package" && (
@@ -730,8 +730,8 @@ export function RestaurantManagementWorkspace() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: "10px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "8px",
                 }}
               >
                 <input value={editContactName} onChange={(event) => setEditContactName(event.target.value)} placeholder="Yetkili Ad Soyad" style={fieldStyle} />
@@ -747,14 +747,14 @@ export function RestaurantManagementWorkspace() {
                 onChange={(event) => setEditAddress(event.target.value)}
                 placeholder="Adres"
                 rows={2}
-                style={{ ...fieldStyle, resize: "vertical" }}
+                style={{ ...fieldStyle, resize: "vertical", minHeight: "60px" }}
               />
 
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: "10px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "8px",
                 }}
               >
                 <input value={editExtraHeadcountRequest} onChange={(event) => setEditExtraHeadcountRequest(event.target.value)} placeholder="Ek Kurye Talebi" style={fieldStyle} />
@@ -768,7 +768,7 @@ export function RestaurantManagementWorkspace() {
                 onChange={(event) => setEditNotes(event.target.value)}
                 placeholder="Not"
                 rows={2}
-                style={{ ...fieldStyle, resize: "vertical", minHeight: "72px" }}
+                style={{ ...fieldStyle, resize: "vertical", minHeight: "60px" }}
               />
 
               {(saveError || saveSuccess) && (
@@ -790,7 +790,7 @@ export function RestaurantManagementWorkspace() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                   gap: "8px",
                 }}
               >

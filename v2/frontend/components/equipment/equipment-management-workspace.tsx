@@ -1061,8 +1061,8 @@ export function EquipmentManagementWorkspace() {
               <div
                 style={{
                   display: "grid",
-                  gap: "14px",
-                  padding: "18px",
+                  gap: "10px",
+                  padding: "14px",
                   borderRadius: "20px",
                   border: "1px solid var(--line)",
                   background: "rgba(255, 255, 255, 0.9)",
@@ -1098,8 +1098,8 @@ export function EquipmentManagementWorkspace() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                    gap: "12px",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                    gap: "10px",
                   }}
                 >
                   <label style={{ display: "grid", gap: "8px" }}>
@@ -1215,7 +1215,7 @@ export function EquipmentManagementWorkspace() {
                   <textarea
                     value={editIssueNotes}
                     onChange={(event) => setEditIssueNotes(event.target.value)}
-                    rows={3}
+                    rows={2}
                     style={{ ...fieldStyle, resize: "vertical" }}
                     disabled={editIssueIsAuto}
                   />
@@ -1224,8 +1224,8 @@ export function EquipmentManagementWorkspace() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                    gap: "12px",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                    gap: "10px",
                     color: "var(--muted)",
                     fontSize: "0.92rem",
                   }}
