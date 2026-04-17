@@ -288,6 +288,10 @@ function narrativeCard({
           fontSize: "1.16rem",
           lineHeight: 0.98,
           fontWeight: 700,
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
         }}
       >
         {title}
@@ -297,6 +301,10 @@ function narrativeCard({
           color: palette.body,
           fontSize: "0.84rem",
           lineHeight: 1.5,
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
         }}
       >
         {body}
@@ -385,7 +393,7 @@ function ScrollCard({
       </div>
       <div
         style={{
-          maxHeight: "460px",
+          maxHeight: "380px",
           overflow: "auto",
         }}
       >
@@ -525,20 +533,20 @@ export default function ReportsPage() {
         eyebrow: "En Güçlü Restoran",
         title: topRestaurant ? topRestaurant.restaurant : "Restoran sinyali henüz yok.",
         body: topRestaurant
-          ? `${topRestaurant.pricing_model} modeli ile ${formatMoney(topRestaurant.gross_invoice)} fatura üretiyor; ${formatNumber(topRestaurant.total_hours, 1)} saat ve ${formatNumber(topRestaurant.total_packages)} paket hacmi taşıyor.`
-          : "İlk restoran sinyali geldikçe bu kart ilgili ciro hareketini öne çıkaracak.",
+          ? `${topRestaurant.pricing_model} modeliyle ${formatMoney(topRestaurant.gross_invoice)} fatura üretiyor. ${formatNumber(topRestaurant.total_hours, 1)} saat ve ${formatNumber(topRestaurant.total_packages)} paket taşıyor.`
+          : "İlk restoran sinyali geldikçe bu kart ciro hareketini öne çıkaracak.",
         tone: "paper",
       },
       {
         eyebrow: sideIncomePositive ? "Denge Katkısı" : "Risk Alanı",
         title: topCourier ? topCourier.personnel : "Maliyet lideri henüz yok.",
         body: topCourier
-          ? `${topCourier.role} rolünde ${formatMoney(topCourier.net_cost)} net maliyet taşıyor. ${formatMoney(topCourier.total_deductions)} kesinti etkisiyle birlikte ${
-              topModel ? `${topModel.pricing_model} modeli ayın ana hacmini sürüklüyor.` : "model dağılımı bu maliyeti okumakta kritik."
+          ? `${topCourier.role} rolünde ${formatMoney(topCourier.net_cost)} net maliyet taşıyor. ${formatMoney(topCourier.total_deductions)} kesinti etkisi görünüyor. ${
+              topModel ? `${topModel.pricing_model} modeli ayın ana hacmini sürüklüyor.` : "Model dağılımı bu maliyeti okumakta kritik."
             }`
           : sideIncomePositive
-            ? `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Kesinti ve ek gelirler genel resmi şu anda destekliyor.`
-            : `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Kesinti ve ek gelir tarafını daha yakından izlemek gerekiyor.`,
+            ? `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Genel resmi destekliyor.`
+            : `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Bu alan daha yakından izlenmeli.`,
         tone: sideIncomePositive ? "paper" : "accent",
       },
     ] as const;
@@ -789,7 +797,7 @@ export default function ReportsPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Aylık resmi daha sade okuyoruz.
+                  Aylık resmi daha kısa yoldan okuyoruz.
                 </h1>
                 <p
                   style={{
@@ -800,9 +808,7 @@ export default function ReportsPage() {
                     lineHeight: 1.55,
                   }}
                 >
-                  Fatura, maliyet, marj ve model dağılımlarını aynı editoryal yüzeyde
-                  toplayıp hangi hattın iyi gittiğini, hangi alanın dikkat istediğini
-                  daha hızlı görmeyi hedefliyoruz.
+                  Fatura, maliyet, marj ve model dağılımını aynı yerde toplayıp iyi giden ve dikkat isteyen alanı hızlıca görüyoruz.
                 </p>
               </div>
               <div
@@ -1006,8 +1012,7 @@ export default function ReportsPage() {
                     lineHeight: 1.5,
                   }}
                 >
-                  Bu yüzeyde önce fark ve marja, sonra model dağılımı ile en yüksek
-                  fatura ve maliyet taşıyan isimlere bakmak en sağlıklı okuma akışını verir.
+                  Önce fark ve marja, sonra model ve en yüksek maliyetli alanlara bakmak en hızlı okuma yoludur.
                 </div>
               </article>
             </div>
@@ -1109,12 +1114,12 @@ export default function ReportsPage() {
               </div>
             </div>
             {exportError ? (
-              <div style={{ color: "#9e2430", fontSize: "0.92rem", fontWeight: 700 }}>
-                {exportError}
-              </div>
-            ) : null}
+                <div style={{ color: "#9e2430", fontSize: "0.84rem", fontWeight: 700 }}>
+                  {exportError}
+                </div>
+              ) : null}
             {exportMessage ? (
-              <div style={{ color: "#22663c", fontSize: "0.92rem", fontWeight: 700 }}>
+              <div style={{ color: "#22663c", fontSize: "0.84rem", fontWeight: 700 }}>
                 {exportMessage}
               </div>
             ) : null}
@@ -1219,8 +1224,7 @@ export default function ReportsPage() {
                   {formatNumber(coverageGap)} şube operasyonel görünüyor ama bu ayın rapor tablosuna henüz düşmemiş.
                 </div>
                 <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                  Puantaj, fatura ya da şube hareketi aynı dönemde eksik kalmış olabilir. Önce restoran fatura listesiyle
-                  personel-şube dağılımını birlikte kontrol etmek en sağlıklı okuma olur.
+                  Puantaj, fatura ya da şube hareketi eksik kalmış olabilir. Önce restoran faturası ve personel dağılımını birlikte kontrol etmek en sağlıklısı.
                 </div>
               </section>
             ) : null}
@@ -1247,6 +1251,7 @@ export default function ReportsPage() {
                       border: "1px solid var(--line)",
                       background: "rgba(255,255,255,0.96)",
                       color: "var(--text)",
+                      fontSize: "0.84rem",
                     }}
                   />
                 }
@@ -1287,11 +1292,12 @@ export default function ReportsPage() {
                     placeholder="Personel veya rol ara"
                     style={{
                       minWidth: "220px",
-                      padding: "12px 14px",
-                      borderRadius: "14px",
+                      padding: "10px 12px",
+                      borderRadius: "12px",
                       border: "1px solid var(--line)",
                       background: "rgba(255,255,255,0.96)",
                       color: "var(--text)",
+                      fontSize: "0.84rem",
                     }}
                   />
                 }
@@ -1333,11 +1339,12 @@ export default function ReportsPage() {
                   placeholder="Şube veya model ara"
                   style={{
                     minWidth: "220px",
-                    padding: "12px 14px",
-                    borderRadius: "14px",
+                    padding: "10px 12px",
+                    borderRadius: "12px",
                     border: "1px solid var(--line)",
                     background: "rgba(255,255,255,0.96)",
                     color: "var(--text)",
+                    fontSize: "0.84rem",
                   }}
                 />
               }
@@ -1386,7 +1393,7 @@ export default function ReportsPage() {
                 title="Ortak Operasyon Payı"
                 subtitle="Joker ve yönetim desteğinin şubelere nasıl yayıldığını kişi bazında oku."
               >
-                <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                <div style={{ padding: "12px 14px", display: "grid", gap: "10px" }}>
                   {dashboard.shared_overhead_entries.length ? (
                     dashboard.shared_overhead_entries.map((row) => (
                       <article
@@ -1394,8 +1401,8 @@ export default function ReportsPage() {
                         style={{
                           display: "grid",
                           gap: "8px",
-                          padding: "14px",
-                          borderRadius: "18px",
+                          padding: "12px",
+                          borderRadius: "16px",
                           border: "1px solid rgba(219, 228, 243, 0.8)",
                           background: "rgba(248, 250, 255, 0.9)",
                         }}
@@ -1404,14 +1411,14 @@ export default function ReportsPage() {
                           <strong>{row.personnel}</strong>
                           <span style={{ color: "var(--muted)" }}>{formatMoney(row.net_cost)}</span>
                         </div>
-                        <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>{row.role}</div>
-                        <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                        <div style={{ color: "var(--muted)", fontSize: "0.84rem" }}>{row.role}</div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.84rem" }}>
                           {formatNumber(row.allocated_restaurant_count)} şubeye dağılıyor • şube başı {formatMoney(row.share_per_restaurant)}
                         </div>
                       </article>
                     ))
                   ) : (
-                    <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                    <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.84rem" }}>
                       Bu ay ortak operasyon payı görünmüyor. Joker ya da yönetim desteği oluştuğunda burada şube başına etkisini açacağız.
                     </div>
                   )}
@@ -1422,7 +1429,7 @@ export default function ReportsPage() {
                 title="Yan Gelir Analizi"
                 subtitle="Yakıt ve kart indirimi başta olmak üzere yan gelir katkısını aynı blokta gör."
               >
-                <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                <div style={{ padding: "12px 14px", display: "grid", gap: "10px" }}>
                   <div
                     style={{
                       display: "grid",
@@ -1439,8 +1446,8 @@ export default function ReportsPage() {
                       <article
                         key={label}
                         style={{
-                          padding: "12px 14px",
-                          borderRadius: "16px",
+                          padding: "10px 12px",
+                          borderRadius: "14px",
                           border: "1px solid rgba(219, 228, 243, 0.8)",
                           background: "rgba(248, 250, 255, 0.9)",
                         }}
@@ -1448,15 +1455,15 @@ export default function ReportsPage() {
                         <div
                           style={{
                             color: "var(--muted)",
-                            fontSize: "0.72rem",
+                            fontSize: "0.64rem",
                             fontWeight: 800,
                             textTransform: "uppercase",
-                            letterSpacing: "0.08em",
+                            letterSpacing: "0.06em",
                           }}
                         >
                           {label}
                         </div>
-                        <div style={{ marginTop: "8px", fontWeight: 900 }}>{formatMoney(Number(value))}</div>
+                        <div style={{ marginTop: "6px", fontWeight: 900, fontSize: "0.92rem" }}>{formatMoney(Number(value))}</div>
                       </article>
                     ))}
                   </div>
@@ -1490,15 +1497,15 @@ export default function ReportsPage() {
                 title="Model Dağılımı"
                 subtitle="Aynı ayda hangi anlaşma modelinin ne kadar hacim ürettiğini tek bakışta izle."
               >
-                <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                <div style={{ padding: "12px 14px", display: "grid", gap: "10px" }}>
                   {dashboard.model_breakdown.map((row) => (
                     <article
                       key={row.pricing_model}
                       style={{
                         display: "grid",
                         gap: "8px",
-                        padding: "14px",
-                        borderRadius: "18px",
+                        padding: "12px",
+                        borderRadius: "16px",
                         border: "1px solid rgba(219, 228, 243, 0.8)",
                         background: "rgba(248, 250, 255, 0.9)",
                       }}
@@ -1507,7 +1514,7 @@ export default function ReportsPage() {
                         <strong>{row.pricing_model}</strong>
                         <span style={{ color: "var(--muted)" }}>{formatMoney(row.gross_invoice)}</span>
                       </div>
-                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                      <div style={{ color: "var(--muted)", fontSize: "0.84rem" }}>
                         {formatNumber(row.restaurant_count)} şube • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
                       </div>
                     </article>
@@ -1519,28 +1526,28 @@ export default function ReportsPage() {
                 title="En Yüksek Fatura Şubeler"
                 subtitle="Ay içindeki en büyük restoran faturalarını hızlıca kontrol et."
               >
-                <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                <div style={{ padding: "12px 14px", display: "grid", gap: "10px" }}>
                   {dashboard.top_restaurants.map((row) => (
                     <article
                       key={`${row.restaurant}-${row.pricing_model}`}
                       style={{
                         display: "grid",
                         gap: "6px",
-                        padding: "14px",
-                        borderRadius: "18px",
+                        padding: "12px",
+                        borderRadius: "16px",
                         border: "1px solid rgba(219, 228, 243, 0.8)",
                         background: "rgba(248, 250, 255, 0.9)",
                       }}
                     >
                       <strong>{row.restaurant}</strong>
-                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>{row.pricing_model}</div>
+                      <div style={{ color: "var(--muted)", fontSize: "0.84rem" }}>{row.pricing_model}</div>
                       <div
                         style={{
                           display: "flex",
                           justifyContent: "space-between",
                           gap: "12px",
                           color: "var(--muted)",
-                          fontSize: "0.92rem",
+                          fontSize: "0.84rem",
                         }}
                       >
                         <span>{formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket</span>
@@ -1555,21 +1562,21 @@ export default function ReportsPage() {
                 title="En Yüksek Maliyetli Kuryeler"
                 subtitle="Net maliyeti en yüksek personelleri ve kesinti etkisini bir arada gör."
               >
-                <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                <div style={{ padding: "12px 14px", display: "grid", gap: "10px" }}>
                   {dashboard.top_couriers.map((row) => (
                     <article
                       key={`${row.personnel}-${row.role}`}
                       style={{
                         display: "grid",
                         gap: "6px",
-                        padding: "14px",
-                        borderRadius: "18px",
+                        padding: "12px",
+                        borderRadius: "16px",
                         border: "1px solid rgba(219, 228, 243, 0.8)",
                         background: "rgba(248, 250, 255, 0.9)",
                       }}
                     >
                       <strong>{row.personnel}</strong>
-                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                      <div style={{ color: "var(--muted)", fontSize: "0.84rem" }}>
                         {row.role} • {row.cost_model}
                       </div>
                       <div
@@ -1578,7 +1585,7 @@ export default function ReportsPage() {
                           justifyContent: "space-between",
                           gap: "12px",
                           color: "var(--muted)",
-                          fontSize: "0.92rem",
+                          fontSize: "0.84rem",
                         }}
                       >
                         <span>{formatNumber(row.total_hours, 1)} saat • {formatMoney(row.total_deductions)} kesinti</span>

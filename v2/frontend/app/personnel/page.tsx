@@ -172,6 +172,10 @@ function narrativeCard({
           fontSize: "1.16rem",
           lineHeight: 0.98,
           fontWeight: 700,
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
         }}
       >
         {title}
@@ -181,6 +185,10 @@ function narrativeCard({
           color: palette.body,
           fontSize: "0.84rem",
           lineHeight: 1.5,
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
         }}
       >
         {body}
@@ -235,6 +243,7 @@ function workspaceFrame(
             color: "var(--muted)",
             lineHeight: 1.55,
             fontSize: "0.84rem",
+            maxWidth: "60ch",
           }}
         >
           {description}
@@ -337,7 +346,7 @@ export default function PersonnelPage() {
             : activeRatio >= 60
               ? "Aktif kadro korunuyor."
               : "Aktif kadro dikkat istiyor.",
-        body: `${dashboard.summary.total_personnel} kartın %${activeRatio.toFixed(1)} aktif durumda. Bu oran sahaya çıkabilecek gerçek kadro gücünü hızlı okumayı sağlar.`,
+        body: `${dashboard.summary.total_personnel} kartın %${activeRatio.toFixed(1)} aktif. Saha gücünü hızlı okumak için ana referans bu oran.`,
         tone: activeRatio >= 80 ? "ink" : "accent",
       },
       {
@@ -345,9 +354,9 @@ export default function PersonnelPage() {
         title: topEntry ? topEntry.full_name : "Kadro sinyali henüz yok.",
         body: topEntry
           ? canViewPlateArea && topEntry.vehicle_mode
-            ? `${topEntry.role} rolünde ${topEntry.restaurant_label || "atamasız"} bağlamı ile öne çıkıyor. ${topEntry.vehicle_mode} ve ${topEntry.phone || "telefon yok"} bilgisiyle sahaya hazırlık seviyesi görünüyor.`
-            : `${topEntry.role} rolünde ${topEntry.restaurant_label || "atamasız"} bağlamı ile öne çıkıyor. ${topEntry.phone || "telefon yok"} bilgisiyle sahaya hazırlık seviyesi görünüyor.`
-          : "Yeni kart ve güncellemeler geldikçe burada dikkat isteyen personel kartı öne çıkarılacak.",
+            ? `${topEntry.role} rolünde ${topEntry.restaurant_label || "atamasız"} için öne çıkıyor. ${topEntry.vehicle_mode} ve ${topEntry.phone || "telefon yok"} bilgisi hazır.`
+            : `${topEntry.role} rolünde ${topEntry.restaurant_label || "atamasız"} için öne çıkıyor. ${topEntry.phone || "telefon yok"} bilgisi hazır.`
+          : "Yeni kartlar geldikçe burada dikkat isteyen personel öne çıkacak.",
         tone: "paper",
       },
       {
@@ -355,10 +364,10 @@ export default function PersonnelPage() {
         title: unassignedCount > 0 ? "Atama bekleyen kartlar var." : topRole ? `${topRole[0]} önde gidiyor.` : "Rol sinyali henüz yok.",
         body:
           unassignedCount > 0
-            ? `Son kartlarda ${unassignedCount} kişi şube ataması olmadan görünüyor. Bu, saha planlaması öncesi hızlı bir kontrol gerektirebilir.`
+            ? `Son kartlarda ${unassignedCount} kişi şube ataması olmadan görünüyor. Saha planı öncesi hızlı kontrol gerekiyor.`
             : topRole
-              ? `Son hareketlerde ${topRole[0]} rolü ${topRole[1]} kartla öne çıkıyor. Aynı anda %${restaurantCoverage} şube kapsamı operasyon dağılımını okumayı kolaylaştırıyor.`
-              : "Rol dağılımı geldikçe burada hangi kadro tipinin ağırlık kazandığı daha erken okunacak.",
+              ? `Son hareketlerde ${topRole[0]} rolü ${topRole[1]} kartla önde. Şube kapsamı %${restaurantCoverage}.`
+              : "Rol dağılımı geldikçe burada hangi kadro tipinin öne çıktığı görünecek.",
         tone: unassignedCount > 0 ? "accent" : "paper",
       },
     ] as const;
@@ -673,14 +682,14 @@ export default function PersonnelPage() {
             {workspaceFrame(
               "Kayıt Hattı",
               "Yeni personel kartını hızlı aç.",
-              "Sahadan gelen yeni kurye ya da saha personeli, ofis tarafında ekstra sürtünme olmadan sisteme eklenebilsin.",
+              "Yeni kurye ya da saha personeli ekleme akışını kısa ve net tutuyoruz.",
               <PersonnelEntryWorkspace />,
             )}
 
             {workspaceFrame(
               "Yönetim Hattı",
               "Kartları düzenle, durumları dengele.",
-              "Rol, şube, araç modu ve aktiflik değişimleri daha net bir operasyon çerçevesinde görünsün diye bu bölümü daha editoryal bir panele taşıdık.",
+              "Rol, şube, araç modu ve aktiflik değişimlerini tek yerde toparlıyoruz.",
               <PersonnelManagementWorkspace />,
             )}
 
@@ -688,7 +697,7 @@ export default function PersonnelPage() {
               ? workspaceFrame(
                   "Plaka Hattı",
                   "Plaka ve motor geçmişini ayrı masada yönet.",
-                  "Araç zimmeti, plaka değişimi ve açık motor hattını personel düzenleme akışından ayırıp daha net bir operasyon yüzeyine taşıyoruz.",
+                  "Plaka ve araç geçmişini personel düzenleme akışından ayırıp daha net tutuyoruz.",
                   <PersonnelPlateWorkspace />,
                 )
               : null}
@@ -697,7 +706,7 @@ export default function PersonnelPage() {
               ? workspaceFrame(
                   "Rol Hattı",
                   "Rol geçişlerini ve maliyet çizgisini ayrı izle.",
-                  "Kadro kayarken yalnız son rolü değil, ne zaman ve hangi sabit maliyetle geçtiğini de ayrı bir geçmiş olarak tutuyoruz.",
+                  "Rol değişimini ve sabit maliyet etkisini ayrı geçmişte izliyoruz.",
                   <PersonnelRoleWorkspace />,
                 )
               : null}
@@ -706,7 +715,7 @@ export default function PersonnelPage() {
               ? workspaceFrame(
                   "Motor Hattı",
                   "Motor kirası ve satış geçişlerini ayrı izle.",
-                  "Çat Kapında motor kirası, motor satışı ve kendi motoru geçişlerini personel kartından ayırıp ayrı bir geçmiş masasında topluyoruz.",
+                  "Motor kirası, satış ve kendi motoru geçişlerini ayrı geçmişte topluyoruz.",
                   <PersonnelVehicleWorkspace />,
                 )
               : null}
@@ -715,7 +724,7 @@ export default function PersonnelPage() {
               ? workspaceFrame(
                   "Ekipman Hattı",
                   "Zimmet ve box geri alımı personel kartından yönet.",
-                  "Seçili personelin ekipman satışlarını, bağlı taksit çizgisini ve box geri alım kayıtlarını ayrı modüle gitmeden aynı operasyon yüzeyinde topluyoruz.",
+                  "Zimmet, taksit ve box geri alımı aynı personel yüzeyinde topluyoruz.",
                   <PersonnelEquipmentWorkspace />,
                 )
               : null}
@@ -884,8 +893,7 @@ export default function PersonnelPage() {
                     Aktif ve pasif dengeyi ekrandan oku.
                   </div>
                   <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                    Buradaki hedef sadece veri görmek değil; sahadaki kadro bosluklarini, atama
-                    yoğunluğunu ve kart kalitesini daha hızlı okumak.
+                    Kadro boşluklarını, atama yoğunluğunu ve kart kalitesini daha hızlı okumak için.
                   </div>
                 </article>
 
@@ -922,8 +930,7 @@ export default function PersonnelPage() {
                     Kadro paneli artık yalnızca form değil, karar yüzeyi.
                   </div>
                   <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                    Bu dilin amaci formlari daha guzel gostermekten ote, ofisin günlük insan ve saha
-                    planlama ritmini ekranda daha net hissettirmek.
+                    Formu değil, günlük insan ve saha planını daha hızlı hissettirmek için.
                   </div>
                 </article>
               </div>
