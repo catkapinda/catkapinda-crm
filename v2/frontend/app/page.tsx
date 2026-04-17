@@ -610,6 +610,37 @@ export default function HomePage() {
               }}
             />
             <div style={kickerStyle}>Operasyon Masası</div>
+            <div
+              style={{
+                marginTop: "14px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "10px",
+                width: "fit-content",
+                padding: "10px 14px",
+                borderRadius: "999px",
+                background: "rgba(255,255,255,0.09)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "#fff4e3",
+                fontWeight: 800,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  width: "30px",
+                  height: "30px",
+                  borderRadius: "999px",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(185,116,41,0.24)",
+                  color: "#f5d7b1",
+                }}
+              >
+                {dashboard?.operations.critical_signal_count ?? 0}
+              </span>
+              <span>Bugünün kritik sinyalleri bu masada toplanıyor.</span>
+            </div>
             <h1
               style={{
                 ...serifTitleStyle,
@@ -682,11 +713,78 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-          </article>
+            </article>
 
-          <div
-            style={{
-              display: "grid",
+            <article
+              style={{
+                ...paperCardStyle,
+                padding: "22px",
+                display: "grid",
+                gap: "16px",
+                background:
+                  "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,241,229,0.96))",
+              }}
+            >
+              <header style={{ display: "grid", gap: "8px" }}>
+                <div
+                  style={{
+                    color: "var(--accent-strong)",
+                    fontWeight: 800,
+                    fontSize: "0.75rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Yönetim Kartları
+                </div>
+                <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                  Hızlı karar için öne çıkan operasyon ve finans sinyallerini tek satırda topluyoruz.
+                </p>
+              </header>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                  gap: "12px",
+                }}
+              >
+                {pulseCard(
+                  "Puantaj Bekleyen",
+                  String(dashboard?.operations.missing_attendance_count ?? 0),
+                  "Bugün kayıt bekleyen şube sayısı.",
+                )}
+                {pulseCard(
+                  "Kadro Riski",
+                  String(dashboard?.operations.under_target_count ?? 0),
+                  "Hedef altında kalan aktif şubeler.",
+                )}
+                {pulseCard(
+                  "Joker Kullanımı",
+                  String(dashboard?.operations.joker_usage_count ?? 0),
+                  "Bugün destek verilen şube sayısı.",
+                )}
+                {pulseCard(
+                  "Bu Ay Fatura",
+                  formatCurrency(dashboard?.finance.total_revenue ?? 0),
+                  "KDV dahil restoran toplamı.",
+                )}
+                {pulseCard(
+                  "Operasyon Farkı",
+                  formatCurrency(dashboard?.finance.gross_profit ?? 0),
+                  "Ay içi brüt operasyon farkı.",
+                )}
+                {pulseCard(
+                  "Riskli Şube",
+                  String(dashboard?.operations.risky_restaurant_count ?? 0),
+                  `${dashboard?.operations.profitable_restaurant_count ?? 0} kârlı şube ile birlikte.`,
+                )}
+              </div>
+            </article>
+
+            <div
+              style={{
+                display: "grid",
               gap: "18px",
             }}
           >
