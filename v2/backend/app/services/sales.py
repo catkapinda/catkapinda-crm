@@ -34,7 +34,7 @@ PRICING_MODEL_LABELS = {
     "hourly_plus_package": "Hacimsiz Primli",
     "threshold_package": "Hacimli Primli",
     "hourly_only": "Sadece Saatlik",
-    "fixed_monthly": "Sabit Aylik Ucret",
+    "fixed_monthly": "Sabit Aylık Ücret",
 }
 STATUS_OPTIONS = [
     "Yeni Talep",
@@ -83,8 +83,8 @@ def _build_pricing_hint(
         threshold_value = package_threshold if int(package_threshold or 0) > 0 else 390
         return (
             f"{_format_compact_currency(hourly_rate)}/saat | "
-            f"{threshold_value} alti {_format_compact_currency(package_rate_low)} | "
-            f"ustu {_format_compact_currency(package_rate_high)}"
+            f"{threshold_value} altı {_format_compact_currency(package_rate_low)} | "
+            f"üstü {_format_compact_currency(package_rate_high)}"
         )
     if pricing_model == "hourly_plus_package":
         return f"{_format_compact_currency(hourly_rate)}/saat + {_format_compact_currency(package_rate)}/paket"
@@ -98,11 +98,11 @@ def _build_pricing_hint(
 def _validate_payload(payload: SalesCreateRequest | SalesUpdateRequest) -> list[str]:
     errors: list[str] = []
     if not str(payload.restaurant_name or "").strip():
-        errors.append("Restoran adi zorunlu.")
+        errors.append("Restoran adı zorunlu.")
     if not str(payload.city or "").strip():
-        errors.append("Il bilgisi zorunlu.")
+        errors.append("İl bilgisi zorunlu.")
     if not str(payload.district or "").strip():
-        errors.append("Ilce bilgisi zorunlu.")
+        errors.append("İlçe bilgisi zorunlu.")
     if not str(payload.contact_name or "").strip():
         errors.append("Yetkili bilgisi zorunlu.")
     if not str(payload.contact_phone or "").strip():
@@ -237,11 +237,23 @@ def build_sales_management(
     *,
     limit: int,
     status: str | None = None,
+    lead_source: str | None = None,
     search: str | None = None,
 ) -> SalesManagementResponse:
-    rows = fetch_sales_management_records(conn, limit=limit, status=status, search=search)
+    rows = fetch_sales_management_records(
+        conn,
+        limit=limit,
+        status=status,
+        lead_source=lead_source,
+        search=search,
+    )
     return SalesManagementResponse(
-        total_entries=count_sales_management_records(conn, status=status, search=search),
+        total_entries=count_sales_management_records(
+            conn,
+            status=status,
+            lead_source=lead_source,
+            search=search,
+        ),
         entries=[_build_entry(row) for row in rows],
     )
 

@@ -80,6 +80,7 @@ def fetch_sales_management_records(
     *,
     limit: int,
     status: str | None = None,
+    lead_source: str | None = None,
     search: str | None = None,
 ) -> list[dict[str, object]]:
     clauses: list[str] = []
@@ -87,6 +88,9 @@ def fetch_sales_management_records(
     if status:
         clauses.append("status = %s")
         params.append(status)
+    if lead_source:
+        clauses.append("lead_source = %s")
+        params.append(lead_source)
     if search:
         clauses.append(
             """
@@ -119,6 +123,7 @@ def count_sales_management_records(
     conn: psycopg.Connection,
     *,
     status: str | None = None,
+    lead_source: str | None = None,
     search: str | None = None,
 ) -> int:
     clauses: list[str] = []
@@ -126,6 +131,9 @@ def count_sales_management_records(
     if status:
         clauses.append("status = %s")
         params.append(status)
+    if lead_source:
+        clauses.append("lead_source = %s")
+        params.append(lead_source)
     if search:
         clauses.append(
             """

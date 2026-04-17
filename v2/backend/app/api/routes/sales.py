@@ -85,9 +85,16 @@ def get_sales_records(
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     limit: int = Query(default=120, ge=1, le=400),
     status: str | None = None,
+    lead_source: str | None = None,
     search: str | None = None,
 ) -> SalesManagementResponse:
-    return build_sales_management(conn, limit=limit, status=status, search=search)
+    return build_sales_management(
+        conn,
+        limit=limit,
+        status=status,
+        lead_source=lead_source,
+        search=search,
+    )
 
 
 @router.get("/records/{sales_id}", response_model=SalesDetailResponse)

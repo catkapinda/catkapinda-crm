@@ -653,6 +653,8 @@ def test_deductions_routes_smoke(monkeypatch):
 
 
 def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
+    seen_sales_filters: dict[str, object] = {}
+
     monkeypatch.setattr(
         "app.api.routes.restaurants.build_restaurants_dashboard",
         lambda conn, limit: {
@@ -798,7 +800,15 @@ def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
     )
     monkeypatch.setattr(
         "app.api.routes.sales.build_sales_management",
-        lambda conn, limit, status=None, search=None: {
+        lambda conn, limit, status=None, lead_source=None, search=None: seen_sales_filters.update(
+            {
+                "limit": limit,
+                "status": status,
+                "lead_source": lead_source,
+                "search": search,
+            }
+        )
+        or {
             "total_entries": 1,
             "entries": [
                 {
@@ -891,7 +901,7 @@ def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
     restaurants_records = client.get("/api/restaurants/records")
     sales_dashboard = client.get("/api/sales/dashboard")
     sales_options = client.get("/api/sales/form-options")
-    sales_records = client.get("/api/sales/records")
+    sales_records = client.get("/api/sales/records?lead_source=Referans")
     purchases_dashboard = client.get("/api/purchases/dashboard")
     purchases_options = client.get("/api/purchases/form-options")
     purchases_records = client.get("/api/purchases/records")
@@ -908,6 +918,7 @@ def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
     assert sales_options.json()["source_options"] == ["Telefon", "Referans"]
     assert sales_records.status_code == 200
     assert sales_records.json()["entries"][0]["restaurant_name"] == "Donerci Celal Usta"
+    assert seen_sales_filters["lead_source"] == "Referans"
     assert purchases_dashboard.status_code == 200
     assert purchases_dashboard.json()["summary"]["distinct_suppliers"] == 2
     assert purchases_options.status_code == 200

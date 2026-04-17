@@ -107,6 +107,7 @@ export function SalesManagementWorkspace() {
   const [searchInput, setSearchInput] = useState("");
   const deferredSearch = useDeferredValue(searchInput);
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterLeadSource, setFilterLeadSource] = useState("");
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
 
   const [editRestaurantName, setEditRestaurantName] = useState("");
@@ -148,6 +149,9 @@ export function SalesManagementWorkspace() {
       query.set("limit", "160");
       if (filterStatus) {
         query.set("status", filterStatus);
+      }
+      if (filterLeadSource) {
+        query.set("lead_source", filterLeadSource);
       }
       if (deferredSearch.trim()) {
         query.set("search", deferredSearch.trim());
@@ -226,7 +230,7 @@ export function SalesManagementWorkspace() {
       return;
     }
     void loadEntries();
-  }, [options, deferredSearch, filterStatus]);
+  }, [options, deferredSearch, filterLeadSource, filterStatus]);
 
   useEffect(() => {
     if (selectedEntryId == null) {
@@ -347,13 +351,19 @@ export function SalesManagementWorkspace() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(160px, 0.8fr) minmax(220px, 1.4fr)",
+              gridTemplateColumns: "minmax(160px, 0.7fr) minmax(170px, 0.8fr) minmax(220px, 1.3fr)",
               gap: "12px",
             }}
           >
             <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)} style={fieldStyle}>
               <option value="">Tüm Durumlar</option>
               {options?.status_options.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+            <select value={filterLeadSource} onChange={(event) => setFilterLeadSource(event.target.value)} style={fieldStyle}>
+              <option value="">Tüm Kaynaklar</option>
+              {options?.source_options.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
             </select>
