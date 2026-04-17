@@ -40,6 +40,7 @@ class FakeConnection:
         data_health_counts: dict[str, int],
         latest_dates: dict[str, str | None],
         relation_health_counts: dict[str, int],
+        schema_create_allowed: bool,
     ):
         self.present_tables = present_tables
         self.row_counts = row_counts
@@ -50,6 +51,7 @@ class FakeConnection:
         self.data_health_counts = data_health_counts
         self.latest_dates = latest_dates
         self.relation_health_counts = relation_health_counts
+        self.schema_create_allowed = schema_create_allowed
 
     def __enter__(self):
         return self
@@ -59,6 +61,13 @@ class FakeConnection:
 
     def execute(self, query: str, params: tuple[object, ...] | None = None):
         normalized = " ".join(query.split())
+        if normalized == "SELECT current_schema() AS schema_name":
+            return FakeCursor({"schema_name": "public"})
+
+        if normalized == "SELECT has_schema_privilege(current_user, %s, 'CREATE') AS allowed":
+            assert params is not None
+            return FakeCursor({"allowed": self.schema_create_allowed})
+
         if normalized == "SELECT to_regclass(%s) AS table_name":
             assert params is not None
             table_name = params[0]
@@ -197,6 +206,7 @@ def connect_factory(
     data_health_counts: dict[str, int] | None = None,
     latest_dates: dict[str, str | None] | None = None,
     relation_health_counts: dict[str, int] | None = None,
+    schema_create_allowed: bool = True,
 ):
     resolved_columns = table_columns or _default_columns_for_tables(present_tables)
     resolved_privileges = table_privileges or {
@@ -256,6 +266,7 @@ def connect_factory(
             data_health_counts=resolved_health_counts,
             latest_dates=resolved_latest_dates,
             relation_health_counts=resolved_relation_health,
+            schema_create_allowed=schema_create_allowed,
         )
 
     return _connect
@@ -306,6 +317,36 @@ def test_build_database_preflight_report_blocks_when_required_table_is_missing()
     assert report["passed"] is False
     assert "`daily_entries` tablosu eksik." in report["blocking_items"]
     assert "eksikler" in report["summary"].lower()
+
+
+def test_build_database_preflight_report_blocks_when_bootstrap_tables_are_missing_without_schema_create():
+    present_tables = {name for name, _ in database_preflight.REQUIRED_TABLES}
+    report = database_preflight.build_database_preflight_report(
+        database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
+        connect_fn=connect_factory(
+            present_tables,
+            {
+                "restaurants": 12,
+                "personnel": 54,
+                "daily_entries": 3200,
+                "deductions": 88,
+                "inventory_purchases": 14,
+                "sales_leads": 7,
+                "courier_equipment_issues": 9,
+                "box_returns": 2,
+            },
+            schema_create_allowed=False,
+        ),
+        reference_date=date(2026, 4, 17),
+    )
+
+    assert report["passed"] is False
+    assert report["schema_name"] == "public"
+    assert report["schema_create_allowed"] is False
+    assert (
+        "Bootstrap tablolarinin bir kismi eksik ve `public` semasinda CREATE yetkisi yok."
+        in report["blocking_items"]
+    )
 
 
 def test_build_database_preflight_report_blocks_when_required_table_has_missing_columns():

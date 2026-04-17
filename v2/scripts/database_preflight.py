@@ -340,6 +340,22 @@ def _table_columns(conn: psycopg.Connection, table_name: str) -> set[str]:
     return columns
 
 
+def _current_schema_name(conn: psycopg.Connection) -> str:
+    cursor = conn.execute("SELECT current_schema() AS schema_name")
+    row = _row_to_mapping(cursor.fetchone())
+    schema_name = str(row.get("schema_name") or "").strip()
+    return schema_name or "public"
+
+
+def _schema_create_allowed(conn: psycopg.Connection, schema_name: str) -> bool:
+    cursor = conn.execute(
+        "SELECT has_schema_privilege(current_user, %s, 'CREATE') AS allowed",
+        (schema_name,),
+    )
+    row = _row_to_mapping(cursor.fetchone())
+    return bool(row.get("allowed"))
+
+
 def _table_privileges(
     conn: psycopg.Connection,
     table_name: str,
@@ -788,6 +804,8 @@ def build_database_preflight_report(
         connect_timeout=CONNECT_TIMEOUT,
         application_name=APPLICATION_NAME,
     ) as conn:
+        current_schema_name = _current_schema_name(conn)
+        schema_create_allowed = _schema_create_allowed(conn, current_schema_name)
         (
             required_entries,
             required_missing,
@@ -874,6 +892,10 @@ def build_database_preflight_report(
     cutover_blocking_items.extend(relation_blocking_items)
 
     blocking_items = [f"`{table_name}` tablosu eksik." for table_name in required_missing]
+    if bootstrap_missing and not schema_create_allowed:
+        blocking_items.append(
+            f"Bootstrap tablolarinin bir kismi eksik ve `{current_schema_name}` semasinda CREATE yetkisi yok."
+        )
     blocking_items.extend(
         [
             f"`{table_name}` tablosunda eksik kritik kolonlar var: {', '.join(missing_columns)}."
@@ -960,6 +982,8 @@ def build_database_preflight_report(
         "recommended_next_step": recommended_next_step,
         "cutover_recommended_next_step": cutover_recommended_next_step,
         "database_url_masked": mask_database_url(validated_database_url),
+        "schema_name": current_schema_name,
+        "schema_create_allowed": schema_create_allowed,
         "required_tables": required_entries,
         "bootstrap_tables": bootstrap_entries,
         "required_missing_columns": required_missing_columns,
@@ -985,6 +1009,8 @@ def render_report_text(report: dict[str, object]) -> str:
         f"Passed: {report['passed']}",
         f"Summary: {report['summary']}",
         f"Database: {database_url_masked}",
+        f"Schema: {report.get('schema_name') or '-'}",
+        f"Schema Create Allowed: {report.get('schema_create_allowed')}",
         "",
         "Required Tables:",
     ]
