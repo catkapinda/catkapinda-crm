@@ -23,6 +23,11 @@ type AnnouncementsDashboard = {
       value: string;
     }>;
   }>;
+  checklist_title: string;
+  checklist_items: Array<{
+    title: string;
+    detail: string;
+  }>;
   notes_title: string;
   notes_body: string;
   footer_note: string;
@@ -262,6 +267,53 @@ export default function AnnouncementsPage() {
                   </div>
                 </article>
               ))}
+            </section>
+
+            <section
+              style={{
+                ...paperCardStyle,
+                padding: "22px",
+                display: "grid",
+                gap: "16px",
+                background:
+                  "linear-gradient(180deg, rgba(246,249,255,0.98), rgba(238,244,255,0.95))",
+              }}
+            >
+              <div
+                style={{
+                  color: "#0f5fd7",
+                  fontWeight: 800,
+                  fontSize: "0.74rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {dashboard.checklist_title}
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                  gap: "14px",
+                }}
+              >
+                {dashboard.checklist_items.map((item) => (
+                  <article
+                    key={item.title}
+                    style={{
+                      padding: "16px",
+                      borderRadius: "18px",
+                      border: "1px solid rgba(15,95,215,0.12)",
+                      background: "rgba(255,255,255,0.78)",
+                      display: "grid",
+                      gap: "8px",
+                    }}
+                  >
+                    <div style={{ fontWeight: 800, color: "var(--text)" }}>{item.title}</div>
+                    <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>{item.detail}</div>
+                  </article>
+                ))}
+              </div>
             </section>
 
             <section

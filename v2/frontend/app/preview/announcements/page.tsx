@@ -42,6 +42,21 @@ const snapshots = [
   },
 ] as const;
 
+const checklistItems = [
+  [
+    "1. Giriş ve durum ekranını aç",
+    "Yayın sonrası önce giriş ekranını ve durum sayfasını aç. Temel omurganın ayakta olduğunu buradan hızlı görürsün.",
+  ],
+  [
+    "2. Sert yenile ve görünür metni doğrula",
+    "Eski ön bellekten kaçınmak için sayfayı sert yenile. Görsel ya da metin farkı bekleniyorsa ilk kontrolü burada yap.",
+  ],
+  [
+    "3. Gerekirse yayını elle yeniden başlat",
+    "Canlı ortamda değişiklik görünmüyorsa yayın tarafında bazen elle yeniden dağıtım gerekir. Yeniden dağıtımdan sonra tekrar sert yenilemek en güvenli kontroldür.",
+  ],
+] as const;
+
 export default function PreviewAnnouncementsPage() {
   return (
     <AppShell activeItem="Duyurular">
@@ -213,6 +228,53 @@ export default function PreviewAnnouncementsPage() {
               </div>
             </article>
           ))}
+        </section>
+
+        <section
+          style={{
+            ...paperCardStyle,
+            padding: "22px",
+            display: "grid",
+            gap: "16px",
+            background:
+              "linear-gradient(180deg, rgba(246,249,255,0.98), rgba(238,244,255,0.95))",
+          }}
+        >
+          <div
+            style={{
+              color: "#0f5fd7",
+              fontWeight: 800,
+              fontSize: "0.74rem",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            İlk Kontrol Sırası
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "14px",
+            }}
+          >
+            {checklistItems.map(([title, detail]) => (
+              <article
+                key={title}
+                style={{
+                  padding: "16px",
+                  borderRadius: "18px",
+                  border: "1px solid rgba(15,95,215,0.12)",
+                  background: "rgba(255,255,255,0.78)",
+                  display: "grid",
+                  gap: "8px",
+                }}
+              >
+                <div style={{ fontWeight: 800, color: "var(--text)" }}>{title}</div>
+                <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>{detail}</div>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section

@@ -1,4 +1,5 @@
 from app.schemas.announcements import (
+    AnnouncementChecklistItem,
     AnnouncementsDashboardResponse,
     AnnouncementsModuleStatus,
     AnnouncementHeroMetric,
@@ -73,6 +74,21 @@ def build_announcements_dashboard() -> AnnouncementsDashboardResponse:
                         value="E-posta ve SMS ile kurtarma akışı desteklenir",
                     ),
                 ],
+            ),
+        ],
+        checklist_title="İlk Kontrol Sırası",
+        checklist_items=[
+            AnnouncementChecklistItem(
+                title="1. Giriş ve durum ekranını aç",
+                detail="Yayın sonrası önce giriş ekranını ve durum sayfasını aç. Temel omurganın ayakta olduğunu buradan hızlı görürsün.",
+            ),
+            AnnouncementChecklistItem(
+                title="2. Sert yenile ve görünür metni doğrula",
+                detail="Eski ön bellekten kaçınmak için sayfayı sert yenile. Görsel ya da metin farkı bekleniyorsa ilk kontrolü burada yap.",
+            ),
+            AnnouncementChecklistItem(
+                title="3. Gerekirse yayını elle yeniden başlat",
+                detail="Canlı ortamda değişiklik görünmüyorsa yayın tarafında bazen elle yeniden dağıtım gerekir. Yeniden dağıtımdan sonra tekrar sert yenilemek en güvenli kontroldür.",
             ),
         ],
         notes_title="Notlar",

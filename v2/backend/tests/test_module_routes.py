@@ -387,6 +387,13 @@ def test_announcements_routes_smoke(monkeypatch):
                     ],
                 }
             ],
+            "checklist_title": "İlk Kontrol Sırası",
+            "checklist_items": [
+                {
+                    "title": "1. Giriş ve durum ekranını aç",
+                    "detail": "Yayın sonrası omurgayı buradan hızlı kontrol et.",
+                }
+            ],
             "notes_title": "Notlar",
             "notes_body": "Gerekirse yayın sonrası sert yenileme yapılır.",
             "footer_note": "Bu alan yeni notlarla genişletilebilir.",
@@ -409,6 +416,7 @@ def test_announcements_routes_smoke(monkeypatch):
     assert status_response.json()["module"] == "announcements"
     assert dashboard_response.status_code == 200
     assert dashboard_response.json()["metrics"][0]["value"] == "Yenilendi"
+    assert dashboard_response.json()["checklist_items"][0]["title"] == "1. Giriş ve durum ekranını aç"
 
 
 def test_personnel_plate_workspace_route_smoke(monkeypatch):

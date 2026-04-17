@@ -22,6 +22,11 @@ class AnnouncementSnapshot(BaseModel):
     items: list[AnnouncementSnapshotItem]
 
 
+class AnnouncementChecklistItem(BaseModel):
+    title: str
+    detail: str
+
+
 class AnnouncementsDashboardResponse(BaseModel):
     module: str
     status: str
@@ -30,6 +35,8 @@ class AnnouncementsDashboardResponse(BaseModel):
     description: str
     metrics: list[AnnouncementHeroMetric]
     snapshots: list[AnnouncementSnapshot]
+    checklist_title: str
+    checklist_items: list[AnnouncementChecklistItem]
     notes_title: str
     notes_body: str
     footer_note: str
