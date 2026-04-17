@@ -34,12 +34,14 @@ class FakeConnection:
         present_tables: set[str],
         row_counts: dict[str, int],
         table_columns: dict[str, list[str]],
+        table_privileges: dict[str, dict[str, bool]],
         data_health_counts: dict[str, int],
         latest_dates: dict[str, str | None],
     ):
         self.present_tables = present_tables
         self.row_counts = row_counts
         self.table_columns = table_columns
+        self.table_privileges = table_privileges
         self.data_health_counts = data_health_counts
         self.latest_dates = latest_dates
 
@@ -49,7 +51,7 @@ class FakeConnection:
     def __exit__(self, exc_type, exc, tb):
         return False
 
-    def execute(self, query: str, params: tuple[str, ...] | None = None):
+    def execute(self, query: str, params: tuple[object, ...] | None = None):
         normalized = " ".join(query.split())
         if normalized == "SELECT to_regclass(%s) AS table_name":
             assert params is not None
@@ -66,6 +68,12 @@ class FakeConnection:
             return FakeRowsCursor(
                 [{"column_name": column_name} for column_name in self.table_columns.get(table_name, [])]
             )
+
+        if normalized == "SELECT has_table_privilege(current_user, %s, %s) AS allowed":
+            assert params is not None
+            table_name = str(params[0])
+            privilege = str(params[1]).upper()
+            return FakeCursor({"allowed": self.table_privileges.get(table_name, {}).get(privilege, False)})
 
         if normalized == "SELECT COUNT(*) AS count FROM restaurants WHERE COALESCE(active, TRUE) = TRUE":
             return FakeCursor({"count": self.data_health_counts.get("active_restaurants", 0)})
@@ -116,10 +124,18 @@ def connect_factory(
     present_tables: set[str],
     row_counts: dict[str, int],
     table_columns: dict[str, list[str]] | None = None,
+    table_privileges: dict[str, dict[str, bool]] | None = None,
     data_health_counts: dict[str, int] | None = None,
     latest_dates: dict[str, str | None] | None = None,
 ):
     resolved_columns = table_columns or _default_columns_for_tables(present_tables)
+    resolved_privileges = table_privileges or {
+        table_name: {
+            privilege: True
+            for privilege in database_preflight.WRITE_REQUIRED_PRIVILEGES
+        }
+        for table_name in present_tables
+    }
     resolved_health_counts = data_health_counts or {
         "active_restaurants": row_counts.get("restaurants", 0),
         "active_personnel": row_counts.get("personnel", 0),
@@ -138,6 +154,7 @@ def connect_factory(
             present_tables=present_tables,
             row_counts=row_counts,
             table_columns=resolved_columns,
+            table_privileges=resolved_privileges,
             data_health_counts=resolved_health_counts,
             latest_dates=resolved_latest_dates,
         )
@@ -225,6 +242,85 @@ def test_build_database_preflight_report_blocks_when_required_table_has_missing_
     )
     sales_entry = next(entry for entry in report["required_tables"] if entry["table"] == "sales_leads")
     assert sales_entry["missing_columns"] == ["pricing_model_hint", "updated_at"]
+
+
+def test_build_database_preflight_report_blocks_when_required_table_has_missing_privileges():
+    present_tables = {name for name, _ in database_preflight.REQUIRED_TABLES}
+    table_privileges = {
+        table_name: {
+            privilege: True
+            for privilege in database_preflight.WRITE_REQUIRED_PRIVILEGES
+        }
+        for table_name in present_tables
+    }
+    table_privileges["deductions"]["UPDATE"] = False
+    table_privileges["deductions"]["DELETE"] = False
+    report = database_preflight.build_database_preflight_report(
+        database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
+        connect_fn=connect_factory(
+            present_tables,
+            {
+                "restaurants": 12,
+                "personnel": 54,
+                "daily_entries": 3200,
+                "deductions": 88,
+                "inventory_purchases": 14,
+                "sales_leads": 7,
+                "courier_equipment_issues": 9,
+                "box_returns": 2,
+            },
+            table_privileges=table_privileges,
+        ),
+        reference_date=date(2026, 4, 17),
+    )
+
+    assert report["passed"] is False
+    assert (
+        "`deductions` tablosunda eksik tablo yetkileri var: UPDATE, DELETE."
+        in report["blocking_items"]
+    )
+    deduction_entry = next(entry for entry in report["required_tables"] if entry["table"] == "deductions")
+    assert deduction_entry["missing_privileges"] == ["UPDATE", "DELETE"]
+
+
+def test_build_database_preflight_report_blocks_when_auth_tables_have_missing_privileges():
+    present_tables = {name for name, _ in database_preflight.REQUIRED_TABLES} | {
+        "auth_users",
+        "auth_sessions",
+        "audit_logs",
+    }
+    table_privileges = {
+        table_name: {
+            privilege: True
+            for privilege in database_preflight.WRITE_REQUIRED_PRIVILEGES
+        }
+        for table_name in present_tables
+    }
+    table_privileges["auth_sessions"]["INSERT"] = False
+    report = database_preflight.build_database_preflight_report(
+        database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
+        connect_fn=connect_factory(
+            present_tables,
+            {
+                "restaurants": 12,
+                "personnel": 54,
+                "daily_entries": 3200,
+                "deductions": 88,
+                "inventory_purchases": 14,
+                "sales_leads": 7,
+                "courier_equipment_issues": 9,
+                "box_returns": 2,
+            },
+            table_privileges=table_privileges,
+        ),
+        reference_date=date(2026, 4, 17),
+    )
+
+    assert report["passed"] is False
+    assert (
+        "`auth_sessions` tablosunda eksik tablo yetkileri var: INSERT."
+        in report["blocking_items"]
+    )
 
 
 def test_build_database_preflight_report_warns_when_core_tables_are_empty():
