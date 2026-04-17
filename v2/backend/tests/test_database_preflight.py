@@ -217,6 +217,17 @@ class FakeConnection:
                 return FakeCursor({"count": self.auth_readiness_counts.get("credential_ready_admin_users", 0)})
             return FakeCursor({"count": 0})
 
+        if normalized == (
+            "SELECT COUNT(*) AS count FROM auth_users WHERE role = %s "
+            "AND COALESCE(is_active, 0) = 1 "
+            "AND COALESCE(password_hash, '') LIKE 'pbkdf2_sha256$%%'"
+        ):
+            assert params is not None
+            role = str(params[0])
+            if role == "admin":
+                return FakeCursor({"count": self.auth_readiness_counts.get("hashed_admin_users", 0)})
+            return FakeCursor({"count": 0})
+
         relation_query_map = {
             (
                 "SELECT COUNT(*) AS count FROM personnel p LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id "
@@ -328,6 +339,7 @@ def connect_factory(
         "active_admin_users": row_counts.get("auth_users", 1 if "auth_users" in present_tables else 0),
         "active_mobile_ops_users": 0,
         "credential_ready_admin_users": row_counts.get("auth_users", 1 if "auth_users" in present_tables else 0),
+        "hashed_admin_users": row_counts.get("auth_users", 1 if "auth_users" in present_tables else 0),
     }
     resolved_latest_dates = latest_dates or {
         "daily_entries": "2026-04-17" if row_counts.get("daily_entries", 0) else None,
@@ -809,6 +821,43 @@ def test_build_database_preflight_report_marks_cutover_unready_when_admin_creden
     assert report["auth_readiness"]["credential_ready_admin_users"] == 0
     assert (
         "Aktif admin hesaplari var ama giris yapabilecek e-posta/telefon + parola omurgasi gorunmuyor."
+        in report["cutover_blocking_items"]
+    )
+
+
+def test_build_database_preflight_report_marks_cutover_unready_when_admin_passwords_are_not_hashed():
+    present_tables = {name for name, _ in database_preflight.REQUIRED_TABLES} | {"auth_users"}
+    report = database_preflight.build_database_preflight_report(
+        database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
+        connect_fn=connect_factory(
+            present_tables,
+            {
+                "restaurants": 12,
+                "personnel": 54,
+                "daily_entries": 3200,
+                "deductions": 88,
+                "inventory_purchases": 14,
+                "sales_leads": 7,
+                "courier_equipment_issues": 9,
+                "box_returns": 2,
+                "auth_users": 4,
+            },
+            auth_readiness_counts={
+                "active_auth_users": 2,
+                "active_admin_users": 1,
+                "active_mobile_ops_users": 1,
+                "credential_ready_admin_users": 1,
+                "hashed_admin_users": 0,
+            },
+        ),
+        reference_date=date(2026, 4, 17),
+    )
+
+    assert report["passed"] is True
+    assert report["cutover_ready"] is False
+    assert report["auth_readiness"]["hashed_admin_users"] == 0
+    assert (
+        "Aktif admin hesaplarinda pbkdf2 parola hash'i gorunmuyor; duz metin sifreyle cutover yapma."
         in report["cutover_blocking_items"]
     )
 

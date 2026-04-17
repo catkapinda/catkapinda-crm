@@ -659,6 +659,7 @@ def _build_auth_readiness(
         "active_admin_users": 0,
         "active_mobile_ops_users": 0,
         "credential_ready_admin_users": 0,
+        "hashed_admin_users": 0,
     }
     if not has_auth_users:
         return readiness_counts, []
@@ -719,6 +720,20 @@ def _build_auth_readiness(
             )
             or 0
         ),
+        "hashed_admin_users": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM auth_users
+                WHERE role = %s
+                  AND COALESCE(is_active, 0) = 1
+                  AND COALESCE(password_hash, '') LIKE 'pbkdf2_sha256$%%'
+                """,
+                ("admin",),
+            )
+            or 0
+        ),
     }
 
     cutover_blocking_items: list[str] = []
@@ -733,6 +748,10 @@ def _build_auth_readiness(
     if readiness_counts["credential_ready_admin_users"] <= 0:
         cutover_blocking_items.append(
             "Aktif admin hesaplari var ama giris yapabilecek e-posta/telefon + parola omurgasi gorunmuyor."
+        )
+    if readiness_counts["credential_ready_admin_users"] > 0 and readiness_counts["hashed_admin_users"] <= 0:
+        cutover_blocking_items.append(
+            "Aktif admin hesaplarinda pbkdf2 parola hash'i gorunmuyor; duz metin sifreyle cutover yapma."
         )
 
     return readiness_counts, cutover_blocking_items
@@ -1324,6 +1343,7 @@ def render_report_text(report: dict[str, object]) -> str:
             f"- Active Admin Users: {auth_readiness.get('active_admin_users', '-')}",
             f"- Active Mobile Ops Users: {auth_readiness.get('active_mobile_ops_users', '-')}",
             f"- Credential Ready Admin Users: {auth_readiness.get('credential_ready_admin_users', '-')}",
+            f"- Hashed Admin Users: {auth_readiness.get('hashed_admin_users', '-')}",
         ]
     )
     relation_health = report.get("relation_health") if isinstance(report.get("relation_health"), dict) else {}

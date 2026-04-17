@@ -120,6 +120,7 @@ Not:
 - Ayni script aktif kayitlarda bos kimlik alanlarini ve cakisan is anahtarlarini da tarar; bos marka/sube, bos personel kodu/ad soyad, tekrar eden marka-sube ve personel kodu gibi veri kalite sorunlari varsa `cutover` bloklanir.
 - `auth_users` tablosu mevcutsa en az bir aktif admin hesabi da gorunmeli; aktif auth/admin kapsami yoksa `cutover` bloklanir.
 - Ayni auth kontrolu artik en az bir admin hesabinda gercek giris omurgasi oldugunu da arar; aktif admin var ama e-posta/telefon + parola omurgasi bos ise `cutover` yine bloklanir.
+- Ek olarak en az bir aktif admin hesabinda `pbkdf2` parola hash'i gorunmeli; duz metin/legacy parola iziyle `cutover` yapma.
 - Ayni script artik PostgreSQL kullanicisinin tablo ve sequence yetkilerini de kontrol eder; `restaurants`, `personnel`, `daily_entries`, `deductions`, `inventory_purchases`, `sales_leads`, `courier_equipment_issues`, `box_returns` ile auth/session/audit tarafinda en az `SELECT`, `INSERT`, `UPDATE`, `DELETE` tablo yetkileri ve `id` sequence'lerinde `USAGE` yetkisi olmali.
 - Auth/audit/history tablolarinin bir kismi eksikse ayni kullanicinin aktif schema uzerinde `CREATE` yetkisi de olmali; yoksa bootstrap ilk acilista tablo olusturamaz.
 - Ayni script import/yedek sonrasi sequence geride kalma riskini de kontrol eder; `MAX(id)` tablodan ilerideyse `cutover` bloklanir ve sequence hizasi duzeltilmeden canliya cikilmaz.
