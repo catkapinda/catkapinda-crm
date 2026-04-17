@@ -70,6 +70,19 @@ function formatCurrency(value: number) {
   }).format(value || 0);
 }
 
+function pricingSummary(entry: RestaurantEntry) {
+  if (entry.pricing_model === "fixed_monthly") {
+    return `${formatCurrency(entry.fixed_monthly_fee)}/ay`;
+  }
+  if (entry.pricing_model === "threshold_package") {
+    return `${formatCurrency(entry.hourly_rate)}/saat | ${entry.package_threshold} altı ${formatCurrency(entry.package_rate_low)} | üstü ${formatCurrency(entry.package_rate_high)}`;
+  }
+  if (entry.pricing_model === "hourly_plus_package") {
+    return `${formatCurrency(entry.hourly_rate)}/saat + ${formatCurrency(entry.package_rate)}/paket`;
+  }
+  return `${formatCurrency(entry.hourly_rate)}/saat`;
+}
+
 export function RestaurantManagementWorkspace() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -546,6 +559,78 @@ export function RestaurantManagementWorkspace() {
               {selectedPricingLabel || "-"}
             </span>
           </div>
+
+          {selectedEntry && !detailLoading ? (
+            <div
+              style={{
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid var(--line)",
+                background: "rgba(15, 95, 215, 0.04)",
+                display: "grid",
+                gap: "10px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                <strong style={{ fontSize: "1rem" }}>
+                  {selectedEntry.brand} - {selectedEntry.branch}
+                </strong>
+                <span style={{ color: "var(--muted)", fontWeight: 700 }}>
+                  {selectedEntry.active ? "Aktif kart" : "Pasif kart"}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Fiyat Yapısı</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>{pricingSummary(selectedEntry)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Hedef Kadro</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>{selectedEntry.target_headcount}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Yetkili</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                    {selectedEntry.contact_name || "-"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Telefon</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                    {selectedEntry.contact_phone || "-"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>KDV</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>%{selectedEntry.vat_rate}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Unvan</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                    {selectedEntry.company_title || "-"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Başlangıç</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                    {selectedEntry.start_date || "-"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Bitiş</div>
+                  <div style={{ marginTop: "4px", fontWeight: 700 }}>
+                    {selectedEntry.end_date || "-"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {detailLoading ? (
             <div style={{ color: "var(--muted)" }}>Detay yükleniyor...</div>
