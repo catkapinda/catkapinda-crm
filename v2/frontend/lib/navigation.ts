@@ -4,7 +4,9 @@ export type SidebarItem = {
   action?: string;
 };
 
-export const sidebarItems: SidebarItem[] = [
+const temporarilyHiddenSidebarLabels = new Set(["Duyurular", "Sistem Kayıtları"]);
+
+const allSidebarItems: SidebarItem[] = [
   { label: "Genel Bakış", href: "/", action: "dashboard.view" },
   { label: "Duyurular", href: "/announcements", action: "announcements.view" },
   { label: "Sistem Kayıtları", href: "/audit", action: "audit.view" },
@@ -19,6 +21,10 @@ export const sidebarItems: SidebarItem[] = [
   { label: "Raporlar", href: "/reports", action: "reporting.view" },
   { label: "Profil", href: "/account" },
 ];
+
+export const sidebarItems: SidebarItem[] = allSidebarItems.filter(
+  (item) => !temporarilyHiddenSidebarLabels.has(item.label),
+);
 
 export function filterSidebarItems(allowedActions: string[]) {
   return sidebarItems.filter((item) => !item.action || allowedActions.includes(item.action));
