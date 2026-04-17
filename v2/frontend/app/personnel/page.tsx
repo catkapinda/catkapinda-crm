@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { PersonnelEntryWorkspace } from "../../components/personnel/personnel-entry-workspace";
+import { PersonnelEquipmentWorkspace } from "../../components/personnel/personnel-equipment-workspace";
 import { PersonnelManagementWorkspace } from "../../components/personnel/personnel-management-workspace";
 import { PersonnelPlateWorkspace } from "../../components/personnel/personnel-plate-workspace";
 import { PersonnelRoleWorkspace } from "../../components/personnel/personnel-role-workspace";
@@ -312,6 +313,7 @@ export default function PersonnelPage() {
     (user?.allowed_actions.includes("personnel.list") ?? false) &&
     (user?.allowed_actions.includes("personnel.update") ?? false);
   const canManageVehicleHistory = canManageRoles;
+  const canViewPersonnelEquipment = user?.allowed_actions.includes("equipment.view") ?? false;
   const decisionDeck = useMemo(() => {
     if (!dashboard) {
       return [];
@@ -703,6 +705,15 @@ export default function PersonnelPage() {
                   "Motor kirası ve satış geçişlerini ayrı izle.",
                   "Çat Kapında motor kirası, motor satışı ve kendi motoru geçişlerini personel kartından ayırıp ayrı bir geçmiş masasında topluyoruz.",
                   <PersonnelVehicleWorkspace />,
+                )
+              : null}
+
+            {canViewPersonnelEquipment
+              ? workspaceFrame(
+                  "Ekipman Hattı",
+                  "Zimmet ve box geri alımı personel kartından yönet.",
+                  "Seçili personelin ekipman satışlarını, bağlı taksit çizgisini ve box geri alım kayıtlarını ayrı modüle gitmeden aynı operasyon yüzeyinde topluyoruz.",
+                  <PersonnelEquipmentWorkspace />,
                 )
               : null}
 
