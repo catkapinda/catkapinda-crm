@@ -658,6 +658,7 @@ def _build_auth_readiness(
         "active_auth_users": 0,
         "active_admin_users": 0,
         "active_mobile_ops_users": 0,
+        "credential_ready_admin_users": 0,
     }
     if not has_auth_users:
         return readiness_counts, []
@@ -700,6 +701,24 @@ def _build_auth_readiness(
             )
             or 0
         ),
+        "credential_ready_admin_users": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM auth_users
+                WHERE role = %s
+                  AND COALESCE(is_active, 0) = 1
+                  AND NULLIF(BTRIM(COALESCE(password_hash, '')), '') IS NOT NULL
+                  AND (
+                    NULLIF(BTRIM(COALESCE(email, '')), '') IS NOT NULL
+                    OR NULLIF(BTRIM(COALESCE(phone, '')), '') IS NOT NULL
+                  )
+                """,
+                ("admin",),
+            )
+            or 0
+        ),
     }
 
     cutover_blocking_items: list[str] = []
@@ -710,6 +729,10 @@ def _build_auth_readiness(
     if readiness_counts["active_admin_users"] <= 0:
         cutover_blocking_items.append(
             "En az bir aktif admin hesabi olmadan cutover yapma."
+        )
+    if readiness_counts["credential_ready_admin_users"] <= 0:
+        cutover_blocking_items.append(
+            "Aktif admin hesaplari var ama giris yapabilecek e-posta/telefon + parola omurgasi gorunmuyor."
         )
 
     return readiness_counts, cutover_blocking_items
@@ -1300,6 +1323,7 @@ def render_report_text(report: dict[str, object]) -> str:
             f"- Active Auth Users: {auth_readiness.get('active_auth_users', '-')}",
             f"- Active Admin Users: {auth_readiness.get('active_admin_users', '-')}",
             f"- Active Mobile Ops Users: {auth_readiness.get('active_mobile_ops_users', '-')}",
+            f"- Credential Ready Admin Users: {auth_readiness.get('credential_ready_admin_users', '-')}",
         ]
     )
     relation_health = report.get("relation_health") if isinstance(report.get("relation_health"), dict) else {}
