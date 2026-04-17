@@ -1328,6 +1328,7 @@ def test_preflight_bundle_writes_expected_files(monkeypatch, tmp_path: Path):
     assert (tmp_path / "go-live-decision.md").exists()
     assert (tmp_path / "pilot-preflight-summary.md").exists()
     assert result["go_live_report"]["phase"] == "blocked"
+    assert result["go_live_alignment"]["ok"] is True
     assert result["api_url"] == "https://pilot-api.example.com"
 
 
@@ -1357,6 +1358,7 @@ def test_preflight_bundle_can_embed_smoke_outputs(monkeypatch, tmp_path: Path):
     assert "Smoke Markdown" in summary
     assert "## Go-Live Karari" in summary
     assert "Go-Live Decision Markdown" in summary
+    assert "Go-Live Alignment: `PASS`" in summary
 
 
 def test_preflight_bundle_removes_stale_smoke_files_when_smoke_is_disabled(monkeypatch, tmp_path: Path):
@@ -1476,6 +1478,7 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     assert "Day-zero kiti kullanima hazir." in start_here
     assert "Database Preflight: `FAIL`" in start_here
     assert "Go-Live Phase: `blocked`" in start_here
+    assert "Go-Live Alignment: `PASS`" in start_here
     assert "--validate-only" in (tmp_path / "pilot-launch.md").read_text(encoding="utf-8")
     assert "database_preflight.py" in (tmp_path / "pilot-launch.md").read_text(encoding="utf-8")
     assert "go_live_decision_report.py" in (tmp_path / "pilot-launch.md").read_text(encoding="utf-8")

@@ -49,6 +49,37 @@ def _derive_api_url(payload: dict) -> str | None:
     return None
 
 
+def _phase_rank(phase: str | None) -> int:
+    normalized = str(phase or "").strip()
+    return {
+        "blocked": 0,
+        "not_ready": 0,
+        "ready_for_pilot": 1,
+        "ready_for_cutover": 2,
+    }.get(normalized, -1)
+
+
+def _build_go_live_alignment(payload: dict, go_live_report: dict) -> tuple[bool, str]:
+    backend = payload.get("backend") or {}
+    status_go_live = backend.get("go_live") or {}
+    if not isinstance(status_go_live, dict) or not status_go_live:
+        return (False, "backend.go_live alani pilot-status icinde gorunmuyor.")
+
+    status_phase = str(status_go_live.get("phase") or "").strip()
+    report_phase = str(go_live_report.get("phase") or "").strip()
+    status_rank = _phase_rank(status_phase)
+    report_rank = _phase_rank(report_phase)
+    if status_rank < 0 or report_rank < 0:
+        return (False, "Go-live faz alanlarindan biri gecersiz.")
+    if report_rank > status_rank:
+        return (False, "go-live report, status payload'dan daha ileri bir hazirlik seviyesi bildiriyor.")
+    if bool(go_live_report.get("pilot_passed")) and not bool(status_go_live.get("pilot_ready")):
+        return (False, "go-live report pilot gecisini onayliyor ama status payload pilot_ready=false diyor.")
+    if bool(go_live_report.get("cutover_passed")) and not bool(status_go_live.get("cutover_ready")):
+        return (False, "go-live report cutover gecisini onayliyor ama status payload cutover_ready=false diyor.")
+    return (True, "Status payload ile go-live raporu ayni hazirlik cizgisinde.")
+
+
 def _build_summary_markdown(
     *,
     base_url: str,
@@ -64,6 +95,7 @@ def _build_summary_markdown(
     frontend = payload.get("frontend") or {}
     cutover = backend.get("cutover") or {}
     decision = backend.get("decision") or {}
+    go_live_alignment_ok, go_live_alignment_detail = _build_go_live_alignment(payload, go_live_report)
 
     lines = [
         "# Cat Kapinda CRM v2 Pilot Preflight Summary",
@@ -77,6 +109,7 @@ def _build_summary_markdown(
         f"- Pilot Gate: `{'PASS' if pilot_gate['passed'] else 'FAIL'}`",
         f"- Cutover Gate: `{'PASS' if cutover_gate['passed'] else 'FAIL'}`",
         f"- Go-Live Phase: `{go_live_report.get('phase') or '-'}`",
+        f"- Go-Live Alignment: `{'PASS' if go_live_alignment_ok else 'FAIL'}`",
         (
             f"- Smoke: `{'PASS' if smoke_report['overall_ok'] else 'FAIL'}`"
             if smoke_report
@@ -122,6 +155,7 @@ def _build_summary_markdown(
         "",
         f"- Summary: {go_live_report.get('summary') or '-'}",
         f"- Recommended Next Step: {go_live_report.get('recommended_next_step') or '-'}",
+        f"- Alignment Detail: {go_live_alignment_detail}",
         "",
         "### Future Cutover Blocking Items",
         "",
@@ -181,6 +215,7 @@ def build_preflight_bundle(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     status_markdown = build_markdown_report(base_url=base_url, payload=payload)
+    go_live_alignment_ok, go_live_alignment_detail = _build_go_live_alignment(payload, go_live_report)
 
     smoke_report: dict | None = None
     if include_smoke:
@@ -239,6 +274,10 @@ def build_preflight_bundle(
         "pilot_gate": pilot_gate,
         "cutover_gate": cutover_gate,
         "go_live_report": go_live_report,
+        "go_live_alignment": {
+            "ok": go_live_alignment_ok,
+            "detail": go_live_alignment_detail,
+        },
         "files": {
             "summary_markdown": str(output_dir / "pilot-preflight-summary.md"),
             "status_markdown": str(output_dir / "pilot-status-live.md"),
@@ -266,6 +305,7 @@ def render_console_summary(result: dict) -> str:
         f"Pilot Gate: {'PASS' if result['pilot_gate']['passed'] else 'FAIL'} - {result['pilot_gate']['summary']}",
         f"Cutover Gate: {'PASS' if result['cutover_gate']['passed'] else 'FAIL'} - {result['cutover_gate']['summary']}",
         f"Go-Live: {result['go_live_report']['phase']} - {result['go_live_report']['summary']}",
+        f"Go-Live Alignment: {'PASS' if result['go_live_alignment']['ok'] else 'FAIL'} - {result['go_live_alignment']['detail']}",
         *(
             [
                 (

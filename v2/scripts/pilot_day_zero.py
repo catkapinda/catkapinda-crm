@@ -84,6 +84,7 @@ def _build_start_here_markdown(
     go_live_phase: str | None = None,
     go_live_summary: str | None = None,
     go_live_next_step: str | None = None,
+    go_live_alignment_ok: bool | None = None,
     future_cutover_blocking_items: list[str] | None = None,
     cutover_next_step: str | None = None,
 ) -> str:
@@ -129,6 +130,11 @@ def _build_start_here_markdown(
             else "- Smoke: `ATLANDI`"
         ),
         f"- Go-Live Phase: `{go_live_phase or 'BEKLENIYOR'}`",
+        (
+            f"- Go-Live Alignment: `{'PASS' if go_live_alignment_ok else 'FAIL'}`"
+            if go_live_alignment_ok is not None
+            else "- Go-Live Alignment: `BEKLENIYOR`"
+        ),
         "",
         "## Nereden Baslayacagiz",
         "",
@@ -261,6 +267,7 @@ def _apply_verify_result_to_manifest(*, manifest: dict, verify_result: dict, smo
     manifest["verify_consistency_issues_count"] = len(verify_result["consistency_issues"])
     manifest["verify_recommended_next_step"] = verify_result["recommended_next_step"]
     manifest["verify_archive_exists"] = verify_result["archive_exists"]
+    manifest["go_live_alignment_ok"] = verify_result.get("go_live_alignment_ok")
     manifest["smoke_overall_ok"] = smoke_report["overall_ok"] if smoke_report else None
     manifest["smoke_failed_count"] = smoke_report["failed_count"] if smoke_report else None
     manifest["smoke_recommended_next_step"] = (
@@ -555,6 +562,7 @@ def build_day_zero_bundle(
             go_live_phase=str(go_live_decision.get("phase") or ""),
             go_live_summary=str(go_live_decision.get("summary") or ""),
             go_live_next_step=str(go_live_decision.get("recommended_next_step") or ""),
+            go_live_alignment_ok=None,
             future_cutover_blocking_items=future_cutover_blocking_items,
             cutover_next_step=cutover_next_step,
         ),
@@ -601,6 +609,7 @@ def build_day_zero_bundle(
             go_live_phase=str(go_live_decision.get("phase") or ""),
             go_live_summary=str(go_live_decision.get("summary") or ""),
             go_live_next_step=str(go_live_decision.get("recommended_next_step") or ""),
+            go_live_alignment_ok=initial_verify_result.get("go_live_alignment_ok"),
             future_cutover_blocking_items=future_cutover_blocking_items,
             cutover_next_step=cutover_next_step,
         ),
@@ -651,6 +660,7 @@ def build_day_zero_bundle(
             go_live_phase=str(go_live_decision.get("phase") or ""),
             go_live_summary=str(go_live_decision.get("summary") or ""),
             go_live_next_step=str(go_live_decision.get("recommended_next_step") or ""),
+            go_live_alignment_ok=final_verify_result.get("go_live_alignment_ok"),
             future_cutover_blocking_items=future_cutover_blocking_items,
             cutover_next_step=cutover_next_step,
         ),
@@ -678,6 +688,7 @@ def render_console_summary(manifest: dict) -> str:
         f"Redirect Guard: {'PASS' if manifest['redirect_guard_allowed'] else 'BLOCK'}",
         f"Database Preflight: {'PASS' if manifest.get('database_preflight_passed') else 'FAIL'}",
         f"Go-Live Phase: {manifest.get('go_live_phase', 'bekleniyor')}",
+        f"Go-Live Alignment: {manifest.get('go_live_alignment_ok')}",
         f"Go-Live Summary: {manifest.get('go_live_summary', 'Yok')}",
         f"Verify: {'PASS' if manifest.get('verify_passed') else 'FAIL'}",
         f"Verify Next Step: {manifest.get('verify_recommended_next_step', 'Yok')}",
