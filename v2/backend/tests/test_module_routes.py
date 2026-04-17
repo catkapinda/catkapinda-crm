@@ -113,6 +113,13 @@ def test_overview_dashboard_route_smoke(monkeypatch):
                         "total_hours": 84.0,
                     }
                 ],
+                "joker_restaurants": [
+                    {
+                        "restaurant": "Burger@ - Kavacık",
+                        "joker_count": 2,
+                        "total_packages": 48.0,
+                    }
+                ],
             },
             "modules": [
                 {
@@ -150,6 +157,7 @@ def test_overview_dashboard_route_smoke(monkeypatch):
     assert payload["hygiene"]["missing_personnel_cards"] == 2
     assert payload["operations"]["under_target_count"] == 2
     assert payload["operations"]["top_restaurants"][0]["restaurant"] == "Burger@ - Kavacık"
+    assert payload["operations"]["joker_restaurants"][0]["joker_count"] == 2
     assert payload["modules"][0]["href"] == "/attendance"
 
 

@@ -54,7 +54,7 @@ AUTH_JSON_ENDPOINTS = [
             "hero": ("active_restaurants", "active_personnel", "month_attendance_entries", "month_deduction_entries"),
             "finance": ("total_revenue", "gross_profit", "total_personnel_cost", "side_income_net", "top_restaurants", "risk_restaurants"),
             "hygiene": ("missing_personnel_cards", "missing_restaurant_cards", "personnel_samples", "restaurant_samples"),
-            "operations": ("missing_attendance_count", "under_target_count", "joker_usage_count", "action_alerts", "brand_summary", "daily_trend", "top_restaurants"),
+            "operations": ("missing_attendance_count", "under_target_count", "joker_usage_count", "action_alerts", "brand_summary", "daily_trend", "top_restaurants", "joker_restaurants"),
         },
     },
     {

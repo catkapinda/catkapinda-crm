@@ -15,6 +15,7 @@ from app.schemas.overview import (
     OverviewHeroSummary,
     OverviewHygieneEntry,
     OverviewHygieneSummary,
+    OverviewJokerUsageEntry,
     OverviewModuleCard,
     OverviewOperationsSummary,
     OverviewRestaurantLoadEntry,
@@ -376,6 +377,14 @@ def _build_operations_summary(
                 total_hours=float(row["total_hours"] or 0),
             )
             for row in top_restaurant_rows
+        ],
+        joker_restaurants=[
+            OverviewJokerUsageEntry(
+                restaurant=str(row["restaurant"] or "-"),
+                joker_count=int(row["joker_count"] or 0),
+                total_packages=float(row["package_count"] or 0),
+            )
+            for row in joker_usage_rows
         ],
     )
 

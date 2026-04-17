@@ -72,6 +72,11 @@ type OverviewDashboard = {
       total_packages: number;
       total_hours: number;
     }>;
+    joker_restaurants: Array<{
+      restaurant: string;
+      joker_count: number;
+      total_packages: number;
+    }>;
   };
   modules: Array<{
     key: string;
@@ -1298,6 +1303,56 @@ export default function HomePage() {
                   ) : (
                     <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
                       Bugün öne çıkan aksiyon uyarısı görünmüyor.
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "10px",
+                    padding: "16px",
+                    borderRadius: "24px",
+                    background: "rgba(255,248,238,0.92)",
+                    border: "1px solid rgba(185,116,41,0.12)",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontSize: "0.75rem",
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Bugün Joker Kullanılan Şubeler
+                  </div>
+                  {dashboard.operations.joker_restaurants.length ? (
+                    dashboard.operations.joker_restaurants.map((item, index) => (
+                      <div
+                        key={`${item.restaurant}-${index}`}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "minmax(0, 1fr) auto auto",
+                          gap: "12px",
+                          alignItems: "center",
+                          paddingBottom: "10px",
+                          borderBottom: "1px solid rgba(24,40,59,0.08)",
+                        }}
+                      >
+                        <div style={{ fontWeight: 800 }}>{item.restaurant}</div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                          {`${item.joker_count} joker`}
+                        </div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                          {`${item.total_packages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} paket`}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                      Bugün joker kullanılan şube görünmüyor.
                     </div>
                   )}
                 </div>
