@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
 import { apiFetch } from "../../lib/api";
+import { managementFieldStyle, managementPillStyle } from "../shared/compact-ui";
 
 type PersonnelPlateSummary = {
   total_history_records: number;
@@ -48,15 +49,7 @@ type PersonnelPlateWorkspaceResponse = {
   history: PersonnelPlateHistory[];
 };
 
-const fieldStyle: CSSProperties = {
-  width: "100%",
-  padding: "13px 14px",
-  borderRadius: "16px",
-  border: "1px solid var(--line)",
-  background: "rgba(255, 255, 255, 0.92)",
-  color: "var(--text)",
-  font: "inherit",
-};
+const fieldStyle: CSSProperties = managementFieldStyle({ density: "roomy", backgroundAlpha: 0.92 });
 
 function metricCard(label: string, value: string, note: string) {
   return (
@@ -98,35 +91,9 @@ function metricCard(label: string, value: string, note: string) {
 }
 
 function statusPill(label: string, tone: "soft" | "accent" | "ink") {
-  const palette =
-    tone === "accent"
-      ? {
-          background: "rgba(15, 95, 215, 0.1)",
-          color: "#0f5fd7",
-          border: "1px solid rgba(15, 95, 215, 0.14)",
-        }
-      : tone === "ink"
-        ? {
-            background: "rgba(27, 42, 63, 0.12)",
-            color: "#1b2a3f",
-            border: "1px solid rgba(27, 42, 63, 0.12)",
-          }
-        : {
-            background: "rgba(95, 118, 152, 0.1)",
-            color: "#5f7698",
-            border: "1px solid rgba(95, 118, 152, 0.12)",
-          };
   return (
     <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "6px 10px",
-        borderRadius: "999px",
-        fontSize: "0.76rem",
-        fontWeight: 800,
-        ...palette,
-      }}
+      style={managementPillStyle(tone, "regular")}
     >
       {label}
     </span>

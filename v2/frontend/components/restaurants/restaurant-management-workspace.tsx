@@ -5,6 +5,7 @@ import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "r
 import { useRouter } from "next/navigation";
 
 import { apiFetch } from "../../lib/api";
+import { managementFieldStyle } from "../shared/compact-ui";
 
 type RestaurantEntry = {
   id: number;
@@ -52,16 +53,7 @@ type RestaurantsFormOptions = {
   selected_pricing_model: string;
 };
 
-const fieldStyle: CSSProperties = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: "12px",
-  border: "1px solid var(--line)",
-  background: "rgba(255, 255, 255, 0.9)",
-  color: "var(--text)",
-  font: "inherit",
-  fontSize: "0.92rem",
-};
+const fieldStyle: CSSProperties = managementFieldStyle();
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("tr-TR", {

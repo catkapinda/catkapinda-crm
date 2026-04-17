@@ -5,6 +5,12 @@ import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "r
 import { useRouter } from "next/navigation";
 
 import { apiFetch } from "../../lib/api";
+import {
+  dangerGradientButtonStyle as dangerButtonStyle,
+  feedbackBoxStyle as feedbackBox,
+  managementFieldStyle,
+  softDangerButtonStyle as secondaryButtonStyle,
+} from "../shared/compact-ui";
 
 type AttendanceEntry = {
   id: number;
@@ -1222,16 +1228,12 @@ function MetricCard({
   );
 }
 
-const fieldStyle: CSSProperties = {
-  width: "100%",
-  padding: "13px 14px",
-  borderRadius: "16px",
-  border: "1px solid var(--line)",
-  background: "rgba(255, 255, 255, 0.92)",
-  color: "var(--text)",
+const fieldStyle: CSSProperties = managementFieldStyle({
+  density: "roomy",
+  backgroundAlpha: 0.92,
   fontSize: "0.98rem",
   outline: "none",
-};
+});
 
 const labelStyle: CSSProperties = {
   fontWeight: 800,
@@ -1269,16 +1271,6 @@ const primaryButtonStyle: CSSProperties = {
   boxShadow: "0 14px 32px rgba(15, 95, 215, 0.18)",
 };
 
-const secondaryButtonStyle: CSSProperties = {
-  padding: "13px 20px",
-  borderRadius: "16px",
-  border: "1px solid rgba(200, 77, 77, 0.18)",
-  background: "rgba(255, 245, 245, 0.92)",
-  color: "#b54747",
-  fontWeight: 800,
-  cursor: "pointer",
-};
-
 const tertiaryButtonStyle: CSSProperties = {
   padding: "13px 18px",
   borderRadius: "16px",
@@ -1288,40 +1280,3 @@ const tertiaryButtonStyle: CSSProperties = {
   fontWeight: 800,
   cursor: "pointer",
 };
-
-const dangerButtonStyle: CSSProperties = {
-  padding: "13px 20px",
-  borderRadius: "16px",
-  border: "1px solid rgba(200, 77, 77, 0.18)",
-  background: "linear-gradient(135deg, rgba(196, 62, 62, 0.96), rgba(224, 88, 88, 0.96))",
-  color: "#fff",
-  fontWeight: 800,
-  cursor: "pointer",
-  boxShadow: "0 12px 28px rgba(196, 62, 62, 0.18)",
-};
-
-function feedbackBox(kind: "info" | "error" | "success"): CSSProperties {
-  const palette = {
-    info: {
-      background: "rgba(15, 95, 215, 0.08)",
-      color: "var(--muted)",
-      border: "1px solid rgba(15, 95, 215, 0.12)",
-    },
-    error: {
-      background: "rgba(217, 67, 67, 0.08)",
-      color: "#b54747",
-      border: "1px solid rgba(217, 67, 67, 0.12)",
-    },
-    success: {
-      background: "rgba(41, 155, 93, 0.08)",
-      color: "#21724a",
-      border: "1px solid rgba(41, 155, 93, 0.12)",
-    },
-  }[kind];
-  return {
-    padding: "14px 16px",
-    borderRadius: "16px",
-    fontSize: "0.94rem",
-    ...palette,
-  };
-}

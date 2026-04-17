@@ -6,6 +6,12 @@ import { useRouter } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
 import { apiFetch } from "../../lib/api";
+import {
+  dangerOutlineButtonStyle as dangerButtonStyle,
+  managementFieldStyle,
+  managementPillStyle,
+  neutralOutlineButtonStyle as secondaryButtonStyle,
+} from "../shared/compact-ui";
 
 type DeductionEntry = {
   id: number;
@@ -45,44 +51,8 @@ type DeductionBulkDeleteResponse = {
   message: string;
 };
 
-function pill(kind: "accent" | "muted" | "warn"): CSSProperties {
-  const palette = {
-    accent: {
-      background: "rgba(15, 95, 215, 0.1)",
-      color: "#0f5fd7",
-      border: "1px solid rgba(15, 95, 215, 0.14)",
-    },
-    muted: {
-      background: "rgba(95, 118, 152, 0.1)",
-      color: "#5f7698",
-      border: "1px solid rgba(95, 118, 152, 0.12)",
-    },
-    warn: {
-      background: "rgba(230, 140, 55, 0.12)",
-      color: "#b96a18",
-      border: "1px solid rgba(230, 140, 55, 0.16)",
-    },
-  }[kind];
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "6px 10px",
-    borderRadius: "999px",
-    fontSize: "0.76rem",
-    fontWeight: 800,
-    ...palette,
-  };
-}
-
-const fieldStyle: CSSProperties = {
-  width: "100%",
-  padding: "13px 14px",
-  borderRadius: "16px",
-  border: "1px solid var(--line)",
-  background: "rgba(255, 255, 255, 0.9)",
-  color: "var(--text)",
-  font: "inherit",
-};
+const pill = (kind: "accent" | "muted" | "warn") => managementPillStyle(kind, "regular");
+const fieldStyle: CSSProperties = managementFieldStyle({ density: "roomy", backgroundAlpha: 0.9 });
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -92,29 +62,6 @@ function formatCurrency(value: number) {
   }).format(value || 0);
 }
 
-const secondaryButtonStyle: CSSProperties = {
-  borderRadius: "16px",
-  padding: "13px 14px",
-  border: "1px solid var(--line)",
-  background: "rgba(255, 255, 255, 0.9)",
-  color: "var(--text)",
-  fontWeight: 800,
-  fontSize: "0.92rem",
-  cursor: "pointer",
-};
-
-function dangerButtonStyle(disabled: boolean): CSSProperties {
-  return {
-    borderRadius: "16px",
-    padding: "13px 14px",
-    border: "1px solid rgba(205, 70, 66, 0.18)",
-    background: disabled ? "rgba(205, 70, 66, 0.04)" : "rgba(205, 70, 66, 0.08)",
-    color: disabled ? "rgba(181, 54, 50, 0.5)" : "#b53632",
-    fontWeight: 800,
-    fontSize: "0.92rem",
-    cursor: disabled ? "not-allowed" : "pointer",
-  };
-}
 
 export function DeductionManagementWorkspace() {
   const router = useRouter();

@@ -5,6 +5,7 @@ import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "r
 import { useRouter } from "next/navigation";
 
 import { apiFetch } from "../../lib/api";
+import { managementFieldStyle, managementPillStyle } from "../shared/compact-ui";
 
 type SalesEntry = {
   id: number;
@@ -51,16 +52,7 @@ type SalesFormOptions = {
   selected_pricing_model: string;
 };
 
-const fieldStyle: CSSProperties = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: "12px",
-  border: "1px solid var(--line)",
-  background: "rgba(255, 255, 255, 0.9)",
-  color: "var(--text)",
-  font: "inherit",
-  fontSize: "0.92rem",
-};
+const fieldStyle: CSSProperties = managementFieldStyle();
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -70,29 +62,7 @@ function formatCurrency(value: number) {
   }).format(value || 0);
 }
 
-function pill(kind: "accent" | "muted"): CSSProperties {
-  const palette = {
-    accent: {
-      background: "rgba(15, 95, 215, 0.1)",
-      color: "#0f5fd7",
-      border: "1px solid rgba(15, 95, 215, 0.14)",
-    },
-    muted: {
-      background: "rgba(95, 118, 152, 0.1)",
-      color: "#5f7698",
-      border: "1px solid rgba(95, 118, 152, 0.12)",
-    },
-  }[kind];
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "4px 8px",
-    borderRadius: "999px",
-    fontSize: "0.68rem",
-    fontWeight: 800,
-    ...palette,
-  };
-}
+const pill = managementPillStyle;
 
 export function SalesManagementWorkspace() {
   const router = useRouter();
