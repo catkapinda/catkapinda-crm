@@ -130,6 +130,14 @@ const paperCardStyle = {
   boxShadow: "var(--shadow-soft)",
 } as const;
 
+const masonryItemStyle = {
+  display: "inline-grid",
+  width: "100%",
+  marginBottom: "12px",
+  breakInside: "avoid",
+  WebkitColumnBreakInside: "avoid",
+} as const;
+
 function formatActivityDate(value: string | null) {
   if (!value) {
     return "Takvim yok";
@@ -1115,17 +1123,16 @@ export default function HomePage() {
               </aside>
             </section>
 
-            <section
+            <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1.1fr) minmax(280px, 0.9fr)",
-                gap: "12px",
-                alignItems: "start",
+                columnWidth: "340px",
+                columnGap: "12px",
               }}
             >
               <article
                 style={{
                   ...paperCardStyle,
+                  ...masonryItemStyle,
                   padding: "16px",
                   display: "grid",
                   gap: "12px",
@@ -1207,6 +1214,7 @@ export default function HomePage() {
               <article
                 style={{
                   ...paperCardStyle,
+                  ...masonryItemStyle,
                   padding: "16px",
                   display: "grid",
                   gap: "12px",
@@ -1263,19 +1271,10 @@ export default function HomePage() {
                 {snapshotList("Eksik Personel Kartları", dashboard.hygiene.personnel_samples, "subtitle")}
                 {snapshotList("Eksik Restoran Kartları", dashboard.hygiene.restaurant_samples, "subtitle")}
               </article>
-            </section>
-
-            <section
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 0.95fr) minmax(280px, 1.05fr)",
-                gap: "12px",
-                alignItems: "start",
-              }}
-            >
               <article
                 style={{
                   ...paperCardStyle,
+                  ...masonryItemStyle,
                   padding: "16px",
                   display: "grid",
                   gap: "12px",
@@ -1449,6 +1448,7 @@ export default function HomePage() {
               <article
                 style={{
                   ...paperCardStyle,
+                  ...masonryItemStyle,
                   padding: "16px",
                   display: "grid",
                   gap: "12px",
@@ -1588,19 +1588,11 @@ export default function HomePage() {
                   )}
                 </div>
               </article>
-            </section>
 
-            <section
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: "12px",
-                alignItems: "start",
-              }}
-            >
               <article
                 style={{
                   ...paperCardStyle,
+                  ...masonryItemStyle,
                   padding: "16px",
                   display: "grid",
                   gap: "12px",
@@ -1653,6 +1645,7 @@ export default function HomePage() {
               <article
                 style={{
                   ...paperCardStyle,
+                  ...masonryItemStyle,
                   padding: "16px",
                   display: "grid",
                   gap: "12px",
@@ -1702,19 +1695,11 @@ export default function HomePage() {
                   ))}
                 </div>
               </article>
-            </section>
 
-            <section
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1.05fr) minmax(320px, 0.95fr)",
-                gap: "12px",
-                alignItems: "start",
-              }}
-            >
               <article
                 style={{
                   ...paperCardStyle,
+                  ...masonryItemStyle,
                   padding: "16px",
                   display: "grid",
                   gap: "12px",
@@ -1819,6 +1804,7 @@ export default function HomePage() {
               <article
                 style={{
                   ...paperCardStyle,
+                  ...masonryItemStyle,
                   padding: "16px",
                   display: "grid",
                   gap: "12px",
@@ -1910,11 +1896,11 @@ export default function HomePage() {
                   )}
                 </div>
               </article>
-            </section>
 
             <section
               style={{
                 ...paperCardStyle,
+                ...masonryItemStyle,
                 padding: "16px",
                 display: "grid",
                 gap: "12px",
@@ -2011,6 +1997,7 @@ export default function HomePage() {
                 ))}
               </div>
             </section>
+            </div>
           </>
         )}
       </section>
