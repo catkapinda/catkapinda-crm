@@ -39,6 +39,7 @@ class FakeConnection:
         sequence_privileges: dict[str, dict[str, bool]],
         data_health_counts: dict[str, int],
         data_quality_counts: dict[str, int],
+        auth_readiness_counts: dict[str, int],
         latest_dates: dict[str, str | None],
         relation_health_counts: dict[str, int],
         schema_create_allowed: bool,
@@ -51,6 +52,7 @@ class FakeConnection:
         self.sequence_privileges = sequence_privileges
         self.data_health_counts = data_health_counts
         self.data_quality_counts = data_quality_counts
+        self.auth_readiness_counts = auth_readiness_counts
         self.latest_dates = latest_dates
         self.relation_health_counts = relation_health_counts
         self.schema_create_allowed = schema_create_allowed
@@ -187,6 +189,21 @@ class FakeConnection:
         if normalized in quality_query_map:
             return FakeCursor({"count": self.data_quality_counts.get(quality_query_map[normalized], 0)})
 
+        if normalized == "SELECT COUNT(*) AS count FROM auth_users WHERE COALESCE(is_active, 0) = 1":
+            return FakeCursor({"count": self.auth_readiness_counts.get("active_auth_users", 0)})
+
+        if normalized == (
+            "SELECT COUNT(*) AS count FROM auth_users WHERE role = %s "
+            "AND COALESCE(is_active, 0) = 1"
+        ):
+            assert params is not None
+            role = str(params[0])
+            if role == "admin":
+                return FakeCursor({"count": self.auth_readiness_counts.get("active_admin_users", 0)})
+            if role == "mobile_ops":
+                return FakeCursor({"count": self.auth_readiness_counts.get("active_mobile_ops_users", 0)})
+            return FakeCursor({"count": 0})
+
         relation_query_map = {
             (
                 "SELECT COUNT(*) AS count FROM personnel p LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id "
@@ -251,6 +268,7 @@ def connect_factory(
     sequence_privileges: dict[str, dict[str, bool]] | None = None,
     data_health_counts: dict[str, int] | None = None,
     data_quality_counts: dict[str, int] | None = None,
+    auth_readiness_counts: dict[str, int] | None = None,
     latest_dates: dict[str, str | None] | None = None,
     relation_health_counts: dict[str, int] | None = None,
     schema_create_allowed: bool = True,
@@ -292,6 +310,11 @@ def connect_factory(
         "duplicate_person_codes": 0,
         "duplicate_auth_emails": 0,
     }
+    resolved_auth_readiness_counts = auth_readiness_counts or {
+        "active_auth_users": row_counts.get("auth_users", 1 if "auth_users" in present_tables else 0),
+        "active_admin_users": row_counts.get("auth_users", 1 if "auth_users" in present_tables else 0),
+        "active_mobile_ops_users": 0,
+    }
     resolved_latest_dates = latest_dates or {
         "daily_entries": "2026-04-17" if row_counts.get("daily_entries", 0) else None,
         "deductions": "2026-04-17" if row_counts.get("deductions", 0) else None,
@@ -319,6 +342,7 @@ def connect_factory(
             sequence_privileges=resolved_sequence_privileges,
             data_health_counts=resolved_health_counts,
             data_quality_counts=resolved_quality_counts,
+            auth_readiness_counts=resolved_auth_readiness_counts,
             latest_dates=resolved_latest_dates,
             relation_health_counts=resolved_relation_health,
             schema_create_allowed=schema_create_allowed,
@@ -705,6 +729,38 @@ def test_build_database_preflight_report_marks_cutover_unready_when_data_quality
     )
     assert "2 personel kodu birden fazla kartta tekrar ediyor." in report["cutover_blocking_items"]
     assert "1 auth e-posta degeri birden fazla kullanicida tekrar ediyor." in report["cutover_blocking_items"]
+
+
+def test_build_database_preflight_report_marks_cutover_unready_when_no_active_admin_exists():
+    present_tables = {name for name, _ in database_preflight.REQUIRED_TABLES} | {"auth_users"}
+    report = database_preflight.build_database_preflight_report(
+        database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
+        connect_fn=connect_factory(
+            present_tables,
+            {
+                "restaurants": 12,
+                "personnel": 54,
+                "daily_entries": 3200,
+                "deductions": 88,
+                "inventory_purchases": 14,
+                "sales_leads": 7,
+                "courier_equipment_issues": 9,
+                "box_returns": 2,
+                "auth_users": 4,
+            },
+            auth_readiness_counts={
+                "active_auth_users": 2,
+                "active_admin_users": 0,
+                "active_mobile_ops_users": 1,
+            },
+        ),
+        reference_date=date(2026, 4, 17),
+    )
+
+    assert report["passed"] is True
+    assert report["cutover_ready"] is False
+    assert report["auth_readiness"]["active_admin_users"] == 0
+    assert "En az bir aktif admin hesabi olmadan cutover yapma." in report["cutover_blocking_items"]
 
 
 def test_build_database_preflight_report_marks_cutover_unready_when_relation_health_is_broken():

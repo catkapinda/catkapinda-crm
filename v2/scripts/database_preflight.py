@@ -649,6 +649,72 @@ def _build_data_quality(
     return quality_counts, cutover_blocking_items
 
 
+def _build_auth_readiness(
+    conn: psycopg.Connection,
+    *,
+    has_auth_users: bool,
+) -> tuple[dict[str, int], list[str]]:
+    readiness_counts = {
+        "active_auth_users": 0,
+        "active_admin_users": 0,
+        "active_mobile_ops_users": 0,
+    }
+    if not has_auth_users:
+        return readiness_counts, []
+
+    readiness_counts = {
+        "active_auth_users": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM auth_users
+                WHERE COALESCE(is_active, 0) = 1
+                """,
+            )
+            or 0
+        ),
+        "active_admin_users": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM auth_users
+                WHERE role = %s
+                  AND COALESCE(is_active, 0) = 1
+                """,
+                ("admin",),
+            )
+            or 0
+        ),
+        "active_mobile_ops_users": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM auth_users
+                WHERE role = %s
+                  AND COALESCE(is_active, 0) = 1
+                """,
+                ("mobile_ops",),
+            )
+            or 0
+        ),
+    }
+
+    cutover_blocking_items: list[str] = []
+    if readiness_counts["active_auth_users"] <= 0:
+        cutover_blocking_items.append(
+            "Auth kullanici tablosu var ama aktif kullanici gorunmuyor."
+        )
+    if readiness_counts["active_admin_users"] <= 0:
+        cutover_blocking_items.append(
+            "En az bir aktif admin hesabi olmadan cutover yapma."
+        )
+
+    return readiness_counts, cutover_blocking_items
+
+
 def _build_relation_health(conn: psycopg.Connection) -> tuple[dict[str, int], list[str]]:
     relation_counts = {
         "personnel_restaurant_orphans": int(
@@ -950,9 +1016,14 @@ def build_database_preflight_report(
             conn,
             reference_date=effective_reference_date,
         )
+        has_auth_users = _table_exists(conn, "auth_users")
         data_quality, data_quality_blocking_items = _build_data_quality(
             conn,
-            has_auth_users=_table_exists(conn, "auth_users"),
+            has_auth_users=has_auth_users,
+        )
+        auth_readiness, auth_readiness_blocking_items = _build_auth_readiness(
+            conn,
+            has_auth_users=has_auth_users,
         )
         relation_health, relation_blocking_items = _build_relation_health(conn)
 
@@ -1008,6 +1079,7 @@ def build_database_preflight_report(
             warnings.append(message)
 
     cutover_blocking_items.extend(data_quality_blocking_items)
+    cutover_blocking_items.extend(auth_readiness_blocking_items)
     cutover_blocking_items.extend(relation_blocking_items)
 
     blocking_items = [f"`{table_name}` tablosu eksik." for table_name in required_missing]
@@ -1115,6 +1187,7 @@ def build_database_preflight_report(
         "bootstrap_sequence_alignment_issues": bootstrap_sequence_alignment_issues,
         "data_health": data_health,
         "data_quality": data_quality,
+        "auth_readiness": auth_readiness,
         "relation_health": relation_health,
         "blocking_items": blocking_items,
         "cutover_blocking_items": cutover_blocking_items,
@@ -1217,6 +1290,16 @@ def render_report_text(report: dict[str, object]) -> str:
             f"- Duplicate Restaurant Keys: {data_quality.get('duplicate_restaurant_keys', '-')}",
             f"- Duplicate Person Codes: {data_quality.get('duplicate_person_codes', '-')}",
             f"- Duplicate Auth Emails: {data_quality.get('duplicate_auth_emails', '-')}",
+        ]
+    )
+    auth_readiness = report.get("auth_readiness") if isinstance(report.get("auth_readiness"), dict) else {}
+    lines.extend(
+        [
+            "",
+            "Auth Readiness:",
+            f"- Active Auth Users: {auth_readiness.get('active_auth_users', '-')}",
+            f"- Active Admin Users: {auth_readiness.get('active_admin_users', '-')}",
+            f"- Active Mobile Ops Users: {auth_readiness.get('active_mobile_ops_users', '-')}",
         ]
     )
     relation_health = report.get("relation_health") if isinstance(report.get("relation_health"), dict) else {}
