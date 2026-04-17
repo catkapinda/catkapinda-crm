@@ -151,9 +151,9 @@ function pulseCard(label: string, value: string, note: string) {
       key={label}
       style={{
         ...paperCardStyle,
-        padding: "20px 20px 18px",
+        padding: "16px 16px 14px",
         display: "grid",
-        gap: "10px",
+        gap: "8px",
         background:
           "linear-gradient(180deg, rgba(255,253,247,0.98), rgba(248,241,229,0.96))",
       }}
@@ -161,10 +161,10 @@ function pulseCard(label: string, value: string, note: string) {
       <div
         style={{
           color: "var(--muted)",
-          fontSize: "0.75rem",
+          fontSize: "0.7rem",
           fontWeight: 800,
           textTransform: "uppercase",
-          letterSpacing: "0.08em",
+          letterSpacing: "0.07em",
         }}
       >
         {label}
@@ -172,8 +172,8 @@ function pulseCard(label: string, value: string, note: string) {
       <div
         style={{
           ...serifTitleStyle,
-          fontSize: "2.4rem",
-          lineHeight: 0.94,
+          fontSize: "1.95rem",
+          lineHeight: 0.96,
           fontWeight: 700,
           color: "var(--text)",
         }}
@@ -183,8 +183,8 @@ function pulseCard(label: string, value: string, note: string) {
       <div
         style={{
           color: "var(--muted)",
-          fontSize: "0.92rem",
-          lineHeight: 1.6,
+          fontSize: "0.86rem",
+          lineHeight: 1.5,
         }}
       >
         {note}
@@ -202,9 +202,9 @@ function moduleCard(
       key={item.key}
       style={{
         ...paperCardStyle,
-        padding: "22px",
+        padding: "18px",
         display: "grid",
-        gap: "18px",
+        gap: "14px",
         background:
           index % 2 === 0
             ? "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,241,229,0.96))"
@@ -227,8 +227,8 @@ function moduleCard(
               gap: "8px",
               color: "var(--accent-strong)",
               fontWeight: 800,
-              fontSize: "0.74rem",
-              letterSpacing: "0.08em",
+              fontSize: "0.7rem",
+              letterSpacing: "0.07em",
               textTransform: "uppercase",
             }}
           >
@@ -250,8 +250,8 @@ function moduleCard(
           <div
             style={{
               ...serifTitleStyle,
-              fontSize: "1.7rem",
-              lineHeight: 0.98,
+              fontSize: "1.42rem",
+              lineHeight: 1,
               fontWeight: 700,
             }}
           >
@@ -261,8 +261,8 @@ function moduleCard(
             style={{
               margin: 0,
               color: "var(--muted)",
-              lineHeight: 1.7,
-              fontSize: "0.96rem",
+              lineHeight: 1.6,
+              fontSize: "0.9rem",
             }}
           >
             {item.description}
@@ -271,14 +271,14 @@ function moduleCard(
         <div
           style={{
             minWidth: "54px",
-            height: "54px",
-            borderRadius: "18px",
+            height: "48px",
+            borderRadius: "16px",
             display: "grid",
             placeItems: "center",
             background: "var(--surface-ink)",
             color: "#f8efe1",
             fontWeight: 900,
-            fontSize: "1.15rem",
+            fontSize: "1rem",
             boxShadow: "var(--shadow-deep)",
           }}
         >
@@ -290,13 +290,13 @@ function moduleCard(
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-          gap: "12px",
+          gap: "10px",
         }}
       >
         <div
           style={{
-            padding: "14px 14px 12px",
-            borderRadius: "20px",
+            padding: "12px 12px 10px",
+            borderRadius: "16px",
             background: "rgba(24, 40, 59, 0.06)",
             border: "1px solid rgba(24, 40, 59, 0.08)",
           }}
@@ -304,10 +304,10 @@ function moduleCard(
           <div
             style={{
               color: "var(--muted)",
-              fontSize: "0.75rem",
+              fontSize: "0.7rem",
               fontWeight: 800,
               textTransform: "uppercase",
-              letterSpacing: "0.08em",
+              letterSpacing: "0.07em",
             }}
           >
             {item.primary_label}
@@ -315,7 +315,7 @@ function moduleCard(
           <div
             style={{
               marginTop: "8px",
-              fontSize: "1.45rem",
+              fontSize: "1.2rem",
               fontWeight: 900,
               letterSpacing: "-0.04em",
             }}
@@ -325,8 +325,8 @@ function moduleCard(
         </div>
         <div
           style={{
-            padding: "14px 14px 12px",
-            borderRadius: "20px",
+            padding: "12px 12px 10px",
+            borderRadius: "16px",
             background: "rgba(185, 116, 41, 0.08)",
             border: "1px solid rgba(185, 116, 41, 0.14)",
           }}
@@ -334,10 +334,10 @@ function moduleCard(
           <div
             style={{
               color: "var(--muted)",
-              fontSize: "0.75rem",
+              fontSize: "0.7rem",
               fontWeight: 800,
               textTransform: "uppercase",
-              letterSpacing: "0.08em",
+              letterSpacing: "0.07em",
             }}
           >
             {item.secondary_label}
@@ -345,7 +345,7 @@ function moduleCard(
           <div
             style={{
               marginTop: "8px",
-              fontSize: "1.45rem",
+              fontSize: "1.2rem",
               fontWeight: 900,
               letterSpacing: "-0.04em",
             }}
@@ -363,8 +363,8 @@ function moduleCard(
           justifyContent: "space-between",
           gap: "12px",
           width: "fit-content",
-          padding: "13px 16px",
-          borderRadius: "18px",
+          padding: "11px 14px",
+          borderRadius: "16px",
           background: "var(--surface-ink)",
           color: "#fff6ea",
           fontWeight: 800,
@@ -577,20 +577,20 @@ export default function HomePage() {
       <section
         style={{
           display: "grid",
-          gap: "24px",
+          gap: "18px",
         }}
       >
         <section
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: "18px",
+            gridTemplateColumns: "minmax(0, 1.45fr) minmax(300px, 0.95fr) minmax(240px, 0.8fr)",
+            gap: "14px",
           }}
         >
           <article
             style={{
-              padding: "30px",
-              borderRadius: "34px",
+              padding: "22px",
+              borderRadius: "28px",
               background:
                 "linear-gradient(145deg, rgba(22, 38, 58, 0.98), rgba(37, 56, 79, 0.96))",
               color: "#fff7ea",
@@ -617,12 +617,13 @@ export default function HomePage() {
                 alignItems: "center",
                 gap: "10px",
                 width: "fit-content",
-                padding: "10px 14px",
+                padding: "8px 12px",
                 borderRadius: "999px",
                 background: "rgba(255,255,255,0.09)",
                 border: "1px solid rgba(255,255,255,0.12)",
                 color: "#fff4e3",
                 fontWeight: 800,
+                fontSize: "0.9rem",
               }}
             >
               <span
@@ -644,10 +645,10 @@ export default function HomePage() {
             <h1
               style={{
                 ...serifTitleStyle,
-                margin: "20px 0 14px",
-                fontSize: "clamp(2.7rem, 6vw, 4.7rem)",
-                lineHeight: 0.92,
-                maxWidth: "10ch",
+                margin: "16px 0 10px",
+                fontSize: "clamp(2.05rem, 4.4vw, 3.45rem)",
+                lineHeight: 0.96,
+                maxWidth: "12ch",
                 fontWeight: 700,
               }}
             >
@@ -658,8 +659,8 @@ export default function HomePage() {
                 margin: 0,
                 maxWidth: "66ch",
                 color: "rgba(255, 247, 234, 0.78)",
-                lineHeight: 1.75,
-                fontSize: "1rem",
+                lineHeight: 1.65,
+                fontSize: "0.94rem",
               }}
             >
               Bu yüzey artık sadece bir dashboard değil; şube, personel, puantaj ve kesinti
@@ -669,10 +670,10 @@ export default function HomePage() {
 
             <div
               style={{
-                marginTop: "24px",
+                marginTop: "18px",
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: "12px",
+                gap: "10px",
               }}
             >
               {[
@@ -683,8 +684,8 @@ export default function HomePage() {
                 <div
                   key={label}
                   style={{
-                    padding: "14px 14px 12px",
-                    borderRadius: "20px",
+                    padding: "12px 12px 10px",
+                    borderRadius: "16px",
                     background: "rgba(255,255,255,0.08)",
                     border: "1px solid rgba(255,255,255,0.1)",
                   }}
@@ -692,20 +693,20 @@ export default function HomePage() {
                   <div
                     style={{
                       color: "#f1c28f",
-                      fontSize: "0.72rem",
+                      fontSize: "0.68rem",
                       fontWeight: 800,
                       textTransform: "uppercase",
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.07em",
                     }}
                   >
                     {label}
                   </div>
                   <div
                     style={{
-                      marginTop: "8px",
+                      marginTop: "6px",
                       color: "rgba(255, 247, 234, 0.84)",
-                      lineHeight: 1.6,
-                      fontSize: "0.93rem",
+                      lineHeight: 1.5,
+                      fontSize: "0.88rem",
                     }}
                   >
                     {text}
@@ -713,26 +714,26 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-            </article>
+          </article>
 
-            <article
-              style={{
-                ...paperCardStyle,
-                padding: "22px",
-                display: "grid",
-                gap: "16px",
-                background:
-                  "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,241,229,0.96))",
-              }}
-            >
+          <article
+            style={{
+              ...paperCardStyle,
+              padding: "18px",
+              display: "grid",
+              gap: "14px",
+              background:
+                "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,241,229,0.96))",
+            }}
+          >
               <header style={{ display: "grid", gap: "8px" }}>
                 <div
                   style={{
                     color: "var(--accent-strong)",
                     fontWeight: 800,
-                    fontSize: "0.75rem",
+                    fontSize: "0.7rem",
                     textTransform: "uppercase",
-                    letterSpacing: "0.08em",
+                    letterSpacing: "0.07em",
                   }}
                 >
                   Yönetim Kartları
@@ -745,8 +746,8 @@ export default function HomePage() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                  gap: "12px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                  gap: "10px",
                 }}
               >
                 {pulseCard(
@@ -780,18 +781,18 @@ export default function HomePage() {
                   `${dashboard?.operations.profitable_restaurant_count ?? 0} kârlı şube ile birlikte.`,
                 )}
               </div>
-            </article>
+          </article>
 
-            <div
-              style={{
-                display: "grid",
-              gap: "18px",
+          <div
+            style={{
+              display: "grid",
+              gap: "14px",
             }}
           >
             <article
               style={{
                 ...paperCardStyle,
-                padding: "24px",
+                padding: "18px",
                 background:
                   "linear-gradient(180deg, rgba(255,250,241,0.98), rgba(245,236,220,0.96))",
               }}
@@ -800,8 +801,8 @@ export default function HomePage() {
                 style={{
                   color: "var(--accent-strong)",
                   fontWeight: 800,
-                  fontSize: "0.75rem",
-                  letterSpacing: "0.08em",
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.07em",
                   textTransform: "uppercase",
                 }}
               >
@@ -810,9 +811,9 @@ export default function HomePage() {
               <div
                 style={{
                   ...serifTitleStyle,
-                  marginTop: "14px",
-                  fontSize: "2rem",
-                  lineHeight: 0.96,
+                  marginTop: "10px",
+                  fontSize: "1.55rem",
+                  lineHeight: 1,
                   fontWeight: 700,
                 }}
               >
@@ -820,10 +821,10 @@ export default function HomePage() {
               </div>
               <p
                 style={{
-                  margin: "12px 0 0",
+                  margin: "8px 0 0",
                   color: "var(--muted)",
-                  lineHeight: 1.7,
-                  fontSize: "0.96rem",
+                  lineHeight: 1.6,
+                  fontSize: "0.9rem",
                 }}
               >
                 Güvenli beyaz kart düzeninden çıkıp daha iddialı bir marka hissi kuruyoruz.
@@ -833,7 +834,7 @@ export default function HomePage() {
             <article
               style={{
                 ...paperCardStyle,
-                padding: "24px",
+                padding: "18px",
                 background: "rgba(255, 253, 247, 0.96)",
               }}
             >
@@ -841,8 +842,8 @@ export default function HomePage() {
                 style={{
                   color: "var(--muted)",
                   fontWeight: 800,
-                  fontSize: "0.75rem",
-                  letterSpacing: "0.08em",
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.07em",
                   textTransform: "uppercase",
                 }}
               >
@@ -850,9 +851,9 @@ export default function HomePage() {
               </div>
               <div
                 style={{
-                  marginTop: "16px",
+                  marginTop: "10px",
                   display: "grid",
-                  gap: "10px",
+                  gap: "8px",
                 }}
               >
                 {quickLaunchItems.length ? (
@@ -865,11 +866,12 @@ export default function HomePage() {
                         alignItems: "center",
                         justifyContent: "space-between",
                         gap: "14px",
-                        padding: "14px 16px",
-                        borderRadius: "18px",
+                        padding: "12px 14px",
+                        borderRadius: "14px",
                         background: "rgba(24, 40, 59, 0.05)",
                         border: "1px solid rgba(24, 40, 59, 0.08)",
                         fontWeight: 800,
+                        fontSize: "0.92rem",
                       }}
                     >
                       <span>{item.title}</span>
@@ -917,7 +919,7 @@ export default function HomePage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-                gap: "14px",
+                gap: "10px",
               }}
             >
               {pulseCard(
@@ -946,13 +948,13 @@ export default function HomePage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                gap: "18px",
+                gap: "14px",
               }}
             >
               <div
                 style={{
                   display: "grid",
-                  gap: "18px",
+                  gap: "14px",
                 }}
               >
                 <header
@@ -965,9 +967,9 @@ export default function HomePage() {
                     style={{
                       color: "var(--accent-strong)",
                       fontWeight: 800,
-                      fontSize: "0.75rem",
+                      fontSize: "0.7rem",
                       textTransform: "uppercase",
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.07em",
                     }}
                   >
                     Komuta Masası
@@ -976,8 +978,8 @@ export default function HomePage() {
                     style={{
                       ...serifTitleStyle,
                       margin: 0,
-                      fontSize: "2.4rem",
-                      lineHeight: 0.96,
+                      fontSize: "1.9rem",
+                      lineHeight: 1,
                       fontWeight: 700,
                     }}
                   >
@@ -987,7 +989,8 @@ export default function HomePage() {
                     style={{
                       margin: 0,
                       color: "var(--muted)",
-                      lineHeight: 1.7,
+                      lineHeight: 1.6,
+                      fontSize: "0.92rem",
                     }}
                   >
                     Her modül artık hem sayı anlatıyor hem de kullanıcıyı doğrudan doğru aksiyona
@@ -999,7 +1002,7 @@ export default function HomePage() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                    gap: "16px",
+                    gap: "12px",
                   }}
                 >
                   {dashboard.modules.map((item, index) => moduleCard(item, index))}
@@ -1019,7 +1022,7 @@ export default function HomePage() {
               >
                 <div
                   style={{
-                    padding: "22px 22px 18px",
+                    padding: "18px 18px 14px",
                     borderBottom: "1px solid rgba(255,255,255,0.08)",
                   }}
                 >
@@ -1027,9 +1030,9 @@ export default function HomePage() {
                   <h2
                     style={{
                       ...serifTitleStyle,
-                      margin: "14px 0 8px",
-                      fontSize: "2rem",
-                      lineHeight: 0.96,
+                      margin: "10px 0 6px",
+                      fontSize: "1.6rem",
+                      lineHeight: 1,
                       fontWeight: 700,
                     }}
                   >
@@ -1039,7 +1042,8 @@ export default function HomePage() {
                     style={{
                       margin: 0,
                       color: "rgba(249, 242, 230, 0.72)",
-                      lineHeight: 1.7,
+                      lineHeight: 1.6,
+                      fontSize: "0.92rem",
                     }}
                   >
                     Akışta ne değiştiğini modül atlamadan tek panelde okuyabiliyorsun.
@@ -1049,8 +1053,8 @@ export default function HomePage() {
                   style={{
                     padding: "10px",
                     display: "grid",
-                    gap: "10px",
-                    maxHeight: "760px",
+                    gap: "8px",
+                    maxHeight: "680px",
                     overflowY: "auto",
                   }}
                 >
@@ -1060,9 +1064,9 @@ export default function HomePage() {
                       href={item.href}
                       style={{
                         display: "grid",
-                        gap: "8px",
-                        padding: "16px",
-                        borderRadius: "20px",
+                        gap: "6px",
+                        padding: "14px",
+                        borderRadius: "16px",
                         background: "rgba(255,255,255,0.05)",
                         border: "1px solid rgba(255,255,255,0.08)",
                       }}
@@ -1082,7 +1086,7 @@ export default function HomePage() {
                             borderRadius: "999px",
                             background: "rgba(185,116,41,0.18)",
                             color: "#f1c28f",
-                            fontSize: "0.72rem",
+                            fontSize: "0.68rem",
                             fontWeight: 800,
                           }}
                         >
@@ -1091,7 +1095,7 @@ export default function HomePage() {
                         <span
                           style={{
                             color: "rgba(249, 242, 230, 0.62)",
-                            fontSize: "0.84rem",
+                            fontSize: "0.8rem",
                           }}
                         >
                           {formatActivityDate(item.entry_date)}
@@ -1100,7 +1104,7 @@ export default function HomePage() {
                       <div
                         style={{
                           ...serifTitleStyle,
-                          fontSize: "1.32rem",
+                          fontSize: "1.12rem",
                           lineHeight: 1,
                           fontWeight: 700,
                         }}
@@ -1110,7 +1114,8 @@ export default function HomePage() {
                       <div
                         style={{
                           color: "#fff7ea",
-                          lineHeight: 1.55,
+                          lineHeight: 1.5,
+                          fontSize: "0.92rem",
                         }}
                       >
                         {item.subtitle}
@@ -1118,7 +1123,7 @@ export default function HomePage() {
                       <div
                         style={{
                           color: "rgba(249, 242, 230, 0.68)",
-                          fontSize: "0.9rem",
+                          fontSize: "0.84rem",
                         }}
                       >
                         {item.meta}
@@ -1133,16 +1138,16 @@ export default function HomePage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "minmax(0, 1.15fr) minmax(320px, 0.85fr)",
-                gap: "18px",
+                gap: "14px",
                 alignItems: "start",
               }}
             >
               <article
                 style={{
                   ...paperCardStyle,
-                  padding: "22px",
+                  padding: "18px",
                   display: "grid",
-                  gap: "18px",
+                  gap: "14px",
                   background:
                     "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,241,229,0.96))",
                 }}
@@ -1152,9 +1157,9 @@ export default function HomePage() {
                     style={{
                       color: "var(--accent-strong)",
                       fontWeight: 800,
-                      fontSize: "0.75rem",
+                      fontSize: "0.7rem",
                       textTransform: "uppercase",
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.07em",
                     }}
                   >
                     Bu Ay Karlılık Özeti
@@ -1163,14 +1168,14 @@ export default function HomePage() {
                     style={{
                       ...serifTitleStyle,
                       margin: 0,
-                      fontSize: "2.15rem",
-                      lineHeight: 0.96,
+                      fontSize: "1.7rem",
+                      lineHeight: 1,
                       fontWeight: 700,
                     }}
                   >
                     Gelir, maliyet ve kâr aynı masada okunuyor.
                   </h2>
-                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.6, fontSize: "0.92rem" }}>
                     {dashboard.finance.selected_month
                       ? `${dashboard.finance.selected_month} dönemi için restoran faturası, personel maliyeti ve yan gelir toplamını tek yerde topluyoruz.`
                       : "Rapor verisi geldikçe aylık kârlılık sinyallerini burada birlikte okuyacağız."}
