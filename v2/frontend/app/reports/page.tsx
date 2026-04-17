@@ -180,19 +180,19 @@ function metricCard(label: string, value: string, note: string) {
     <article
       key={label}
       style={{
-        padding: "20px",
-        borderRadius: "22px",
+        padding: "14px 14px 12px",
+        borderRadius: "18px",
         border: "1px solid var(--line)",
         background: "var(--surface-strong)",
-        boxShadow: "0 18px 42px rgba(20, 39, 67, 0.06)",
+        boxShadow: "0 12px 28px rgba(20, 39, 67, 0.05)",
       }}
     >
       <div
         style={{
           color: "var(--muted)",
-          fontSize: "0.78rem",
+          fontSize: "0.66rem",
           textTransform: "uppercase",
-          letterSpacing: "0.06em",
+          letterSpacing: "0.05em",
           fontWeight: 800,
         }}
       >
@@ -200,8 +200,8 @@ function metricCard(label: string, value: string, note: string) {
       </div>
       <div
         style={{
-          marginTop: "12px",
-          fontSize: "1.9rem",
+          marginTop: "6px",
+          fontSize: "1.38rem",
           fontWeight: 900,
           letterSpacing: "-0.05em",
         }}
@@ -210,9 +210,10 @@ function metricCard(label: string, value: string, note: string) {
       </div>
       <div
         style={{
-          marginTop: "8px",
+          marginTop: "6px",
           color: "var(--muted)",
-          fontSize: "0.92rem",
+          fontSize: "0.82rem",
+          lineHeight: 1.45,
         }}
       >
         {note}
@@ -260,22 +261,22 @@ function narrativeCard({
   return (
     <article
       style={{
-        padding: "18px 18px 16px",
-        borderRadius: "22px",
+        padding: "14px 14px 12px",
+        borderRadius: "18px",
         background: palette.background,
         border: palette.border,
         boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
         display: "grid",
-        gap: "10px",
+        gap: "8px",
       }}
     >
       <div
         style={{
           color: palette.eyebrow,
-          fontSize: "0.74rem",
+          fontSize: "0.66rem",
           fontWeight: 800,
           textTransform: "uppercase",
-          letterSpacing: "0.08em",
+          letterSpacing: "0.06em",
         }}
       >
         {eyebrow}
@@ -284,7 +285,7 @@ function narrativeCard({
         style={{
           ...serifStyle,
           color: palette.title,
-          fontSize: "1.5rem",
+          fontSize: "1.16rem",
           lineHeight: 0.98,
           fontWeight: 700,
         }}
@@ -294,8 +295,8 @@ function narrativeCard({
       <div
         style={{
           color: palette.body,
-          fontSize: "0.93rem",
-          lineHeight: 1.65,
+          fontSize: "0.84rem",
+          lineHeight: 1.5,
         }}
       >
         {body}
@@ -358,16 +359,16 @@ function ScrollCard({
   return (
     <section
       style={{
-        borderRadius: "24px",
+        borderRadius: "18px",
         border: "1px solid var(--line)",
         background: "var(--surface-strong)",
         overflow: "hidden",
-        boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+        boxShadow: "0 12px 28px rgba(20, 39, 67, 0.05)",
       }}
     >
       <div
         style={{
-          padding: "18px 20px",
+          padding: "14px 16px",
           borderBottom: "1px solid var(--line)",
           display: "flex",
           alignItems: "flex-start",
@@ -377,14 +378,14 @@ function ScrollCard({
         }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{title}</h2>
-          <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>{subtitle}</p>
+          <h2 style={{ margin: 0, fontSize: "0.98rem" }}>{title}</h2>
+          <p style={{ margin: "4px 0 0", color: "var(--muted)", lineHeight: 1.5, fontSize: "0.82rem" }}>{subtitle}</p>
         </div>
         {actions}
       </div>
       <div
         style={{
-          maxHeight: "520px",
+          maxHeight: "460px",
           overflow: "auto",
         }}
       >
@@ -732,33 +733,33 @@ export default function ReportsPage() {
       <section
         style={{
           display: "grid",
-          gap: "18px",
+          gap: "14px",
         }}
       >
         <div
           style={{
-            padding: "28px",
-            borderRadius: "30px",
+            padding: "18px",
+            borderRadius: "22px",
             background:
               "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,242,233,0.96))",
             border: "1px solid var(--line)",
-            boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
+            boxShadow: "0 16px 34px rgba(22, 42, 74, 0.06)",
             display: "grid",
-            gap: "18px",
+            gap: "12px",
           }}
         >
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.9fr)",
-              gap: "18px",
+              gridTemplateColumns: "minmax(0, 1.25fr) minmax(260px, 0.9fr)",
+              gap: "12px",
               alignItems: "stretch",
             }}
           >
             <div
               style={{
                 display: "grid",
-                gap: "16px",
+                gap: "12px",
                 alignContent: "start",
               }}
             >
@@ -766,11 +767,11 @@ export default function ReportsPage() {
                 style={{
                   display: "inline-flex",
                   width: "fit-content",
-                  padding: "7px 12px",
+                  padding: "6px 10px",
                   borderRadius: "999px",
                   background: "var(--accent-soft)",
                   color: "var(--accent)",
-                  fontSize: "0.78rem",
+                  fontSize: "0.68rem",
                   fontWeight: 800,
                   letterSpacing: "0.04em",
                   textTransform: "uppercase",
@@ -778,25 +779,25 @@ export default function ReportsPage() {
               >
                 Kârlılık ve Rapor
               </div>
-              <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
+              <div style={{ display: "grid", gap: "8px", maxWidth: "62ch" }}>
                 <h1
                   style={{
                     ...serifStyle,
                     margin: 0,
-                    fontSize: "clamp(2.2rem, 4vw, 3.7rem)",
-                    lineHeight: 0.96,
+                    fontSize: "clamp(1.8rem, 3vw, 2.7rem)",
+                    lineHeight: 0.94,
                     fontWeight: 700,
                   }}
                 >
-                  Aylık resmi yalnızca okumuyor, artık yönlendiriyoruz.
+                  Aylık resmi daha sade okuyoruz.
                 </h1>
                 <p
                   style={{
                     margin: 0,
-                    maxWidth: "72ch",
+                    maxWidth: "60ch",
                     color: "var(--muted)",
-                    fontSize: "1.02rem",
-                    lineHeight: 1.78,
+                    fontSize: "0.86rem",
+                    lineHeight: 1.55,
                   }}
                 >
                   Fatura, maliyet, marj ve model dağılımlarını aynı editoryal yüzeyde
@@ -808,17 +809,17 @@ export default function ReportsPage() {
                 style={{
                   display: "flex",
                   flexWrap: "wrap",
-                  gap: "10px",
+                  gap: "8px",
                 }}
               >
                 <span
                   style={{
                     display: "inline-flex",
-                    padding: "7px 12px",
+                    padding: "6px 10px",
                     borderRadius: "999px",
                     background: "rgba(15,95,215,0.08)",
                     color: "#0f5fd7",
-                    fontSize: "0.82rem",
+                    fontSize: "0.72rem",
                     fontWeight: 800,
                   }}
                 >
@@ -827,11 +828,11 @@ export default function ReportsPage() {
                 <span
                   style={{
                     display: "inline-flex",
-                    padding: "7px 12px",
+                    padding: "6px 10px",
                     borderRadius: "999px",
                     background: "rgba(185,116,41,0.1)",
                     color: "var(--accent-strong)",
-                    fontSize: "0.82rem",
+                    fontSize: "0.72rem",
                     fontWeight: 800,
                   }}
                 >
@@ -843,18 +844,18 @@ export default function ReportsPage() {
             <div
               style={{
                 display: "grid",
-                gap: "12px",
+                gap: "10px",
               }}
             >
               <article
                 style={{
-                  padding: "18px 18px 16px",
-                  borderRadius: "24px",
+                  padding: "14px 14px 12px",
+                  borderRadius: "18px",
                   background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
                   color: "#fff7ea",
                   boxShadow: "var(--shadow-deep)",
                   display: "grid",
-                  gap: "14px",
+                  gap: "10px",
                 }}
               >
                 <div
@@ -870,10 +871,10 @@ export default function ReportsPage() {
                     <div
                       style={{
                         color: "rgba(255,247,234,0.62)",
-                        fontSize: "0.74rem",
+                        fontSize: "0.66rem",
                         fontWeight: 800,
                         textTransform: "uppercase",
-                        letterSpacing: "0.08em",
+                        letterSpacing: "0.06em",
                       }}
                     >
                       Rapor Dönemi
@@ -881,7 +882,7 @@ export default function ReportsPage() {
                     <div
                       style={{
                         ...serifStyle,
-                        fontSize: "1.8rem",
+                        fontSize: "1.4rem",
                         lineHeight: 0.96,
                         fontWeight: 700,
                       }}
@@ -892,11 +893,11 @@ export default function ReportsPage() {
                   <div
                     style={{
                       display: "inline-flex",
-                      padding: "7px 10px",
+                      padding: "6px 9px",
                       borderRadius: "999px",
                       background: "rgba(255,255,255,0.08)",
                       color: "rgba(255,247,234,0.82)",
-                      fontSize: "0.8rem",
+                      fontSize: "0.72rem",
                       fontWeight: 800,
                     }}
                   >
@@ -909,8 +910,8 @@ export default function ReportsPage() {
                   onChange={(event) => setSelectedMonth(event.target.value)}
                   disabled={dashboardLoading || !dashboard?.month_options?.length}
                   style={{
-                    padding: "14px 16px",
-                    borderRadius: "16px",
+                    padding: "12px 14px",
+                    borderRadius: "14px",
                     border: "1px solid rgba(255,255,255,0.1)",
                     background: "rgba(255,255,255,0.06)",
                     color: "#fff7ea",
@@ -927,50 +928,50 @@ export default function ReportsPage() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                    gap: "10px",
+                    gap: "8px",
                   }}
                 >
                   <div
                     style={{
-                      padding: "12px 12px 10px",
-                      borderRadius: "16px",
+                      padding: "10px 10px 9px",
+                      borderRadius: "14px",
                       background: "rgba(255,255,255,0.06)",
                     }}
                   >
                     <div
                       style={{
                         color: "rgba(255,247,234,0.64)",
-                        fontSize: "0.72rem",
+                        fontSize: "0.64rem",
                         fontWeight: 800,
                         textTransform: "uppercase",
-                        letterSpacing: "0.08em",
+                        letterSpacing: "0.06em",
                       }}
                     >
                       Toplam Fatura
                     </div>
-                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                    <div style={{ marginTop: "6px", fontSize: "0.96rem", fontWeight: 900 }}>
                       {formatMoney(dashboard?.summary?.total_revenue ?? 0)}
                     </div>
                   </div>
                   <div
                     style={{
-                      padding: "12px 12px 10px",
-                      borderRadius: "16px",
+                      padding: "10px 10px 9px",
+                      borderRadius: "14px",
                       background: "rgba(185,116,41,0.14)",
                     }}
                   >
                     <div
                       style={{
                         color: "rgba(255,247,234,0.64)",
-                        fontSize: "0.72rem",
+                        fontSize: "0.64rem",
                         fontWeight: 800,
                         textTransform: "uppercase",
-                        letterSpacing: "0.08em",
+                        letterSpacing: "0.06em",
                       }}
                     >
                       Brüt Fark
                     </div>
-                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                    <div style={{ marginTop: "6px", fontSize: "0.96rem", fontWeight: 900 }}>
                       {formatMoney(dashboard?.summary?.gross_profit ?? 0)}
                     </div>
                   </div>
@@ -979,21 +980,21 @@ export default function ReportsPage() {
 
               <article
                 style={{
-                  padding: "16px 18px",
-                  borderRadius: "22px",
+                  padding: "14px 14px 12px",
+                  borderRadius: "18px",
                   border: "1px solid var(--line)",
                   background: "rgba(255,255,255,0.78)",
                   display: "grid",
-                  gap: "8px",
+                  gap: "6px",
                 }}
               >
                 <div
                   style={{
                     color: "var(--muted)",
-                    fontSize: "0.74rem",
+                    fontSize: "0.66rem",
                     fontWeight: 800,
                     textTransform: "uppercase",
-                    letterSpacing: "0.08em",
+                    letterSpacing: "0.06em",
                   }}
                 >
                   Okuma Notu
@@ -1001,8 +1002,8 @@ export default function ReportsPage() {
                 <div
                   style={{
                     color: "var(--text)",
-                    fontSize: "0.95rem",
-                    lineHeight: 1.7,
+                    fontSize: "0.84rem",
+                    lineHeight: 1.5,
                   }}
                 >
                   Bu yüzeyde önce fark ve marja, sonra model dağılımı ile en yüksek
@@ -1014,12 +1015,12 @@ export default function ReportsPage() {
 
           <section
             style={{
-              borderRadius: "24px",
+              borderRadius: "18px",
               border: "1px solid var(--line)",
               background: "rgba(255,255,255,0.78)",
-              padding: "18px 20px",
+              padding: "14px 16px",
               display: "grid",
-              gap: "14px",
+              gap: "10px",
             }}
           >
             <div
@@ -1035,15 +1036,15 @@ export default function ReportsPage() {
                 <div
                   style={{
                     color: "var(--muted)",
-                    fontSize: "0.74rem",
+                    fontSize: "0.66rem",
                     fontWeight: 800,
                     textTransform: "uppercase",
-                    letterSpacing: "0.08em",
+                    letterSpacing: "0.06em",
                   }}
                 >
                   Dışa Aktarım
                 </div>
-                <div style={{ fontSize: "1rem", fontWeight: 800 }}>
+                <div style={{ fontSize: "0.9rem", fontWeight: 800 }}>
                   Filtrelenmiş rapor tablolarını tek tıkla dışa aktar.
                 </div>
               </div>
@@ -1059,8 +1060,8 @@ export default function ReportsPage() {
                   onClick={downloadInvoiceCsv}
                   disabled={!filteredInvoiceEntries.length}
                   style={{
-                    padding: "12px 16px",
-                    borderRadius: "14px",
+                    padding: "10px 12px",
+                    borderRadius: "12px",
                     border: "1px solid rgba(15,95,215,0.15)",
                     background: "rgba(15,95,215,0.08)",
                     color: "#0f5fd7",
@@ -1076,8 +1077,8 @@ export default function ReportsPage() {
                   onClick={downloadCostCsv}
                   disabled={!filteredCostEntries.length}
                   style={{
-                    padding: "12px 16px",
-                    borderRadius: "14px",
+                    padding: "10px 12px",
+                    borderRadius: "12px",
                     border: "1px solid rgba(185,116,41,0.18)",
                     background: "rgba(185,116,41,0.1)",
                     color: "var(--accent-strong)",
@@ -1093,8 +1094,8 @@ export default function ReportsPage() {
                   onClick={downloadProfitCsv}
                   disabled={!filteredProfitEntries.length}
                   style={{
-                    padding: "12px 16px",
-                    borderRadius: "14px",
+                    padding: "10px 12px",
+                    borderRadius: "12px",
                     border: "1px solid rgba(34,102,60,0.18)",
                     background: "rgba(34,102,60,0.1)",
                     color: "#22663c",
@@ -1152,7 +1153,7 @@ export default function ReportsPage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "14px",
+                gap: "10px",
               }}
             >
               {summaryCards}
@@ -1162,7 +1163,7 @@ export default function ReportsPage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "14px",
+                gap: "10px",
               }}
             >
               {signalCards}
@@ -1171,10 +1172,10 @@ export default function ReportsPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                gap: "14px",
-              }}
-            >
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "10px",
+            }}
+          >
               {decisionDeck.map((item) => (
                 <div key={`${item.eyebrow}-${item.title}`}>
                   {narrativeCard(item)}
@@ -1185,10 +1186,10 @@ export default function ReportsPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "14px",
-              }}
-            >
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "10px",
+            }}
+          >
               {extendedSignalCards}
             </div>
 
@@ -1196,28 +1197,28 @@ export default function ReportsPage() {
               <section
                 style={{
                   padding: "18px 20px",
-                  borderRadius: "22px",
+                  borderRadius: "18px",
                   border: "1px solid rgba(185,116,41,0.22)",
                   background: "rgba(255,248,236,0.92)",
                   display: "grid",
-                  gap: "8px",
+                  gap: "6px",
                 }}
               >
                 <div
                   style={{
                     color: "var(--accent-strong)",
-                    fontSize: "0.78rem",
+                    fontSize: "0.66rem",
                     fontWeight: 800,
-                    letterSpacing: "0.08em",
+                    letterSpacing: "0.06em",
                     textTransform: "uppercase",
                   }}
                 >
                   Kısmi Kapsama Uyarısı
                 </div>
-                <div style={{ fontSize: "1.02rem", fontWeight: 800 }}>
+                <div style={{ fontSize: "0.92rem", fontWeight: 800 }}>
                   {formatNumber(coverageGap)} şube operasyonel görünüyor ama bu ayın rapor tablosuna henüz düşmemiş.
                 </div>
-                <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
                   Puantaj, fatura ya da şube hareketi aynı dönemde eksik kalmış olabilir. Önce restoran fatura listesiyle
                   personel-şube dağılımını birlikte kontrol etmek en sağlıklı okuma olur.
                 </div>
@@ -1227,8 +1228,8 @@ export default function ReportsPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-                gap: "18px",
+                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                gap: "12px",
               }}
             >
               <ScrollCard
@@ -1241,8 +1242,8 @@ export default function ReportsPage() {
                     placeholder="Şube veya model ara"
                     style={{
                       minWidth: "220px",
-                      padding: "12px 14px",
-                      borderRadius: "14px",
+                      padding: "10px 12px",
+                      borderRadius: "12px",
                       border: "1px solid var(--line)",
                       background: "rgba(255,255,255,0.96)",
                       color: "var(--text)",

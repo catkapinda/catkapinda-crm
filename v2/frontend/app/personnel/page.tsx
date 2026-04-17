@@ -45,7 +45,7 @@ const serifTitleStyle = {
 } as const;
 
 const paperCardStyle = {
-  borderRadius: "28px",
+  borderRadius: "22px",
   border: "1px solid var(--line)",
   background: "var(--surface-raised)",
   boxShadow: "var(--shadow-soft)",
@@ -57,7 +57,7 @@ function metricCard(label: string, value: string, note: string) {
       key={label}
       style={{
         ...paperCardStyle,
-        padding: "18px 18px 16px",
+        padding: "14px 14px 12px",
         background:
           "linear-gradient(180deg, rgba(255,253,247,0.98), rgba(246,239,228,0.96))",
       }}
@@ -65,9 +65,9 @@ function metricCard(label: string, value: string, note: string) {
       <div
         style={{
           color: "var(--muted)",
-          fontSize: "0.74rem",
+          fontSize: "0.66rem",
           textTransform: "uppercase",
-          letterSpacing: "0.08em",
+          letterSpacing: "0.06em",
           fontWeight: 800,
         }}
       >
@@ -76,8 +76,8 @@ function metricCard(label: string, value: string, note: string) {
       <div
         style={{
           ...serifTitleStyle,
-          marginTop: "10px",
-          fontSize: "2rem",
+          marginTop: "6px",
+          fontSize: "1.5rem",
           lineHeight: 0.95,
           fontWeight: 700,
         }}
@@ -86,10 +86,10 @@ function metricCard(label: string, value: string, note: string) {
       </div>
       <div
         style={{
-          marginTop: "8px",
+          marginTop: "6px",
           color: "var(--muted)",
-          lineHeight: 1.6,
-          fontSize: "0.92rem",
+          lineHeight: 1.45,
+          fontSize: "0.82rem",
         }}
       >
         {note}
@@ -146,21 +146,21 @@ function narrativeCard({
     <article
       style={{
         ...paperCardStyle,
-        padding: "18px 18px 16px",
+        padding: "14px 14px 12px",
         background: palette.background,
         border: palette.border,
         boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
         display: "grid",
-        gap: "10px",
+        gap: "8px",
       }}
     >
       <div
         style={{
           color: palette.eyebrow,
-          fontSize: "0.74rem",
+          fontSize: "0.66rem",
           fontWeight: 800,
           textTransform: "uppercase",
-          letterSpacing: "0.08em",
+          letterSpacing: "0.06em",
         }}
       >
         {eyebrow}
@@ -169,7 +169,7 @@ function narrativeCard({
         style={{
           ...serifTitleStyle,
           color: palette.title,
-          fontSize: "1.45rem",
+          fontSize: "1.16rem",
           lineHeight: 0.98,
           fontWeight: 700,
         }}
@@ -179,8 +179,8 @@ function narrativeCard({
       <div
         style={{
           color: palette.body,
-          fontSize: "0.93rem",
-          lineHeight: 1.65,
+          fontSize: "0.84rem",
+          lineHeight: 1.5,
         }}
       >
         {body}
@@ -199,9 +199,9 @@ function workspaceFrame(
     <section
       style={{
         ...paperCardStyle,
-        padding: "20px",
+        padding: "16px",
         display: "grid",
-        gap: "18px",
+        gap: "12px",
         background:
           "linear-gradient(180deg, rgba(255,253,247,0.98), rgba(249,244,235,0.95))",
       }}
@@ -211,8 +211,8 @@ function workspaceFrame(
           style={{
             color: "var(--accent-strong)",
             fontWeight: 800,
-            fontSize: "0.74rem",
-            letterSpacing: "0.08em",
+            fontSize: "0.66rem",
+            letterSpacing: "0.06em",
             textTransform: "uppercase",
           }}
         >
@@ -222,7 +222,7 @@ function workspaceFrame(
           style={{
             ...serifTitleStyle,
             margin: 0,
-            fontSize: "2rem",
+            fontSize: "1.45rem",
             lineHeight: 0.98,
             fontWeight: 700,
           }}
@@ -233,7 +233,8 @@ function workspaceFrame(
           style={{
             margin: 0,
             color: "var(--muted)",
-            lineHeight: 1.7,
+            lineHeight: 1.55,
+            fontSize: "0.84rem",
           }}
         >
           {description}
@@ -368,20 +369,20 @@ export default function PersonnelPage() {
       <section
         style={{
           display: "grid",
-          gap: "24px",
+          gap: "16px",
         }}
       >
         <section
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: "18px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "12px",
           }}
         >
           <article
             style={{
-              padding: "30px",
-              borderRadius: "34px",
+              padding: "18px",
+              borderRadius: "24px",
               background:
                 "linear-gradient(145deg, rgba(22, 38, 58, 0.98), rgba(37, 56, 79, 0.96))",
               color: "#fff7ea",
@@ -403,14 +404,14 @@ export default function PersonnelPage() {
             <div
               style={{
                 display: "inline-flex",
-                padding: "7px 12px",
+                padding: "6px 10px",
                 borderRadius: "999px",
                 background: "rgba(255,255,255,0.1)",
                 border: "1px solid rgba(255,255,255,0.12)",
                 color: "#f5d7b1",
-                fontSize: "0.74rem",
+                fontSize: "0.66rem",
                 fontWeight: 800,
-                letterSpacing: "0.08em",
+                letterSpacing: "0.06em",
                 textTransform: "uppercase",
               }}
             >
@@ -419,11 +420,11 @@ export default function PersonnelPage() {
             <h1
               style={{
                 ...serifTitleStyle,
-                margin: "18px 0 12px",
-                fontSize: "clamp(2.5rem, 5vw, 4.4rem)",
-                lineHeight: 0.9,
+                margin: "12px 0 8px",
+                fontSize: "clamp(1.8rem, 3.2vw, 2.8rem)",
+                lineHeight: 0.92,
                 fontWeight: 700,
-                maxWidth: "9ch",
+                maxWidth: "10ch",
               }}
             >
               Personel akışını merkezden yönet.
@@ -431,42 +432,42 @@ export default function PersonnelPage() {
             <p
               style={{
                 margin: 0,
-                maxWidth: "58ch",
+                maxWidth: "54ch",
                 color: "rgba(255,247,234,0.76)",
-                lineHeight: 1.8,
-                fontSize: "1rem",
+                lineHeight: 1.55,
+                fontSize: "0.86rem",
               }}
             >
               Kart oluşturma, aktif-pasif takibi, şube atamaları ve son hareketler tek editoryal
-              yüzeyde toplanıyor. Hedefimiz bu ekranı ofisin gerçek çalışma masası gibi hissettirmek.
+              yüzeyde toplanıyor. Bu alanı gerçek bir çalışma masası gibi daha sakin ve daha net kuruyoruz.
             </p>
 
             <div
               style={{
-                marginTop: "24px",
+                marginTop: "14px",
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: "14px",
+                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                gap: "8px",
               }}
             >
               {[
-                ["Kayıt", "Yeni personel kartı, sahadan kopmadan hızlı oluşsun."],
-                ["Takip", "Durum, şube ve araç sinyalleri tek yerde toplansın."],
-                ["Denge", "Operasyon eksiği veya yığılma daha ilk bakışta görünsün."],
+                ["Kayıt", "Yeni kart hızlı açılsın."],
+                ["Takip", "Durum ve şube sinyali net görünsün."],
+                ["Denge", "Eksik veya yığılma erkenden fark edilsin."],
               ].map(([title, text]) => (
                 <article
                   key={title}
                   style={{
-                    padding: "18px 16px",
-                    borderRadius: "22px",
+                    padding: "12px 12px 10px",
+                    borderRadius: "16px",
                     background: "rgba(255,255,255,0.07)",
                     border: "1px solid rgba(255,255,255,0.09)",
                     display: "grid",
-                    gap: "8px",
+                    gap: "6px",
                   }}
                 >
-                  <div style={{ color: "#fff4e5", fontWeight: 800 }}>{title}</div>
-                  <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.65, fontSize: "0.92rem" }}>
+                  <div style={{ color: "#fff4e5", fontWeight: 800, fontSize: "0.84rem" }}>{title}</div>
+                  <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.45, fontSize: "0.8rem" }}>
                     {text}
                   </div>
                 </article>
@@ -474,23 +475,23 @@ export default function PersonnelPage() {
             </div>
           </article>
 
-          <div style={{ display: "grid", gap: "18px" }}>
+          <div style={{ display: "grid", gap: "12px" }}>
             <article
               style={{
                 ...paperCardStyle,
-                padding: "22px",
+                padding: "16px",
                 background:
                   "linear-gradient(180deg, rgba(255,253,247,0.98), rgba(247,241,230,0.96))",
                 display: "grid",
-                gap: "10px",
+                gap: "8px",
               }}
             >
               <div
                 style={{
                   color: "var(--accent-strong)",
-                  fontSize: "0.74rem",
+                  fontSize: "0.66rem",
                   textTransform: "uppercase",
-                  letterSpacing: "0.08em",
+                  letterSpacing: "0.06em",
                   fontWeight: 800,
                 }}
               >
@@ -499,14 +500,14 @@ export default function PersonnelPage() {
               <div
                 style={{
                   ...serifTitleStyle,
-                  fontSize: "2.3rem",
+                  fontSize: "1.7rem",
                   lineHeight: 0.92,
                   fontWeight: 700,
                 }}
               >
                 {dashboard?.summary.total_personnel ?? "-"}
               </div>
-              <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+              <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.84rem" }}>
                 {dashboard
                   ? `${dashboard.summary.active_personnel} aktif, ${dashboard.summary.passive_personnel} pasif kart aynı yüzeyde izleniyor.`
                   : "Toplam kart havuzu. Bu yüzey aktiflik, atama ve son hareketleri aynı ritimde okumaya odaklı."}
@@ -516,11 +517,11 @@ export default function PersonnelPage() {
             <article
               style={{
                 ...paperCardStyle,
-                padding: "22px",
+                padding: "16px",
                 background:
                   "linear-gradient(145deg, rgba(245,238,226,0.95), rgba(255,250,242,0.98))",
                 display: "grid",
-                gap: "12px",
+                gap: "10px",
               }}
             >
               <div
@@ -535,9 +536,9 @@ export default function PersonnelPage() {
                   style={{
                     color: "var(--accent-strong)",
                     fontWeight: 800,
-                    fontSize: "0.74rem",
+                    fontSize: "0.66rem",
                     textTransform: "uppercase",
-                    letterSpacing: "0.08em",
+                    letterSpacing: "0.06em",
                   }}
                 >
                   Şube Kapsamı
@@ -562,7 +563,7 @@ export default function PersonnelPage() {
                   }}
                 />
               </div>
-              <div style={{ color: "var(--muted)", lineHeight: 1.65, fontSize: "0.92rem" }}>
+              <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.84rem" }}>
                 Atanmış şube sayısının toplam personele oranını hızlı sinyal olarak veriyoruz.
               </div>
             </article>
@@ -570,26 +571,26 @@ export default function PersonnelPage() {
             <article
               style={{
                 ...paperCardStyle,
-                padding: "22px",
+                padding: "16px",
                 background:
                   "linear-gradient(145deg, rgba(255,253,247,0.98), rgba(248,244,236,0.95))",
                 display: "grid",
-                gap: "12px",
+                gap: "10px",
               }}
             >
               <div
                 style={{
                   color: "var(--accent-strong)",
-                  fontSize: "0.74rem",
+                  fontSize: "0.66rem",
                   textTransform: "uppercase",
-                  letterSpacing: "0.08em",
+                  letterSpacing: "0.06em",
                   fontWeight: 800,
                 }}
               >
                 Son Rollerde Dağılım
               </div>
               {roleBreakdown.length ? (
-                <div style={{ display: "grid", gap: "10px" }}>
+                <div style={{ display: "grid", gap: "8px" }}>
                   {roleBreakdown.map(([role, count]) => (
                     <div
                       key={role}
@@ -597,7 +598,7 @@ export default function PersonnelPage() {
                         display: "flex",
                         justifyContent: "space-between",
                         gap: "12px",
-                        paddingBottom: "10px",
+                        paddingBottom: "8px",
                         borderBottom: "1px solid rgba(62,81,107,0.1)",
                       }}
                     >
@@ -607,7 +608,7 @@ export default function PersonnelPage() {
                   ))}
                 </div>
               ) : (
-                <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.84rem" }}>
                   Dashboard verisi geldikçe son rol yoğunluğu burada görünecek.
                 </div>
               )}
@@ -620,6 +621,7 @@ export default function PersonnelPage() {
             style={{
               ...paperCardStyle,
               padding: "20px 22px",
+              fontSize: "0.88rem",
               background: "rgba(185, 116, 41, 0.08)",
               color: "var(--muted)",
             }}
@@ -635,6 +637,7 @@ export default function PersonnelPage() {
               background: "rgba(255,255,255,0.68)",
               color: "var(--muted)",
               lineHeight: 1.75,
+              fontSize: "0.88rem",
             }}
           >
             Personel servisine şu anda erişilemiyor. Pilot arka uç ayağa kalktığında bu ekran
@@ -646,7 +649,7 @@ export default function PersonnelPage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "14px",
+                gap: "10px",
               }}
             >
               {metricCard("Toplam Personel", String(dashboard.summary.total_personnel), "Kayıt havuzundaki tüm kartlar")}
@@ -659,7 +662,7 @@ export default function PersonnelPage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                gap: "14px",
+                gap: "10px",
               }}
             >
               {decisionDeck.map((item) => (
@@ -721,7 +724,7 @@ export default function PersonnelPage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "minmax(0, 1.25fr) minmax(280px, 0.75fr)",
-                gap: "18px",
+                gap: "12px",
               }}
             >
               <article
@@ -735,6 +738,7 @@ export default function PersonnelPage() {
                 <div
                   style={{
                     padding: "20px 22px",
+                    paddingBottom: "16px",
                     borderBottom: "1px solid rgba(62,81,107,0.1)",
                     display: "grid",
                     gap: "6px",
@@ -744,9 +748,9 @@ export default function PersonnelPage() {
                     style={{
                       color: "var(--accent-strong)",
                       fontWeight: 800,
-                      fontSize: "0.74rem",
+                      fontSize: "0.66rem",
                       textTransform: "uppercase",
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.06em",
                     }}
                   >
                     Son Kayitlar
@@ -755,14 +759,14 @@ export default function PersonnelPage() {
                     style={{
                       ...serifTitleStyle,
                       margin: 0,
-                      fontSize: "2rem",
+                      fontSize: "1.45rem",
                       lineHeight: 0.98,
                       fontWeight: 700,
                     }}
                   >
                     Son personel hareketleri
                   </h2>
-                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
                     Son açılan ve güncellenen kartları operasyon gözüyle hızlı sekilde tarayabilirsin.
                   </p>
                 </div>
@@ -793,9 +797,9 @@ export default function PersonnelPage() {
                             key={header}
                             style={{
                               padding: "14px 16px",
-                              fontSize: "0.78rem",
+                              fontSize: "0.7rem",
                               textTransform: "uppercase",
-                              letterSpacing: "0.08em",
+                              letterSpacing: "0.06em",
                               color: "var(--muted)",
                               fontWeight: 800,
                             }}
@@ -847,24 +851,24 @@ export default function PersonnelPage() {
                 </div>
               </article>
 
-              <div style={{ display: "grid", gap: "18px" }}>
+              <div style={{ display: "grid", gap: "12px" }}>
                 <article
                   style={{
                     ...paperCardStyle,
-                    padding: "22px",
+                    padding: "16px",
                     background:
                       "linear-gradient(145deg, rgba(255,253,247,0.98), rgba(249,244,235,0.95))",
                     display: "grid",
-                    gap: "12px",
+                    gap: "10px",
                   }}
                 >
                   <div
                     style={{
                       color: "var(--accent-strong)",
                       fontWeight: 800,
-                      fontSize: "0.74rem",
+                      fontSize: "0.66rem",
                       textTransform: "uppercase",
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.06em",
                     }}
                   >
                     Operasyon Notu
@@ -872,14 +876,14 @@ export default function PersonnelPage() {
                   <div
                     style={{
                       ...serifTitleStyle,
-                      fontSize: "1.8rem",
+                      fontSize: "1.3rem",
                       lineHeight: 0.98,
                       fontWeight: 700,
                     }}
                   >
                     Aktif ve pasif dengeyi ekrandan oku.
                   </div>
-                  <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                  <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
                     Buradaki hedef sadece veri görmek değil; sahadaki kadro bosluklarini, atama
                     yoğunluğunu ve kart kalitesini daha hızlı okumak.
                   </div>
@@ -888,21 +892,21 @@ export default function PersonnelPage() {
                 <article
                   style={{
                     ...paperCardStyle,
-                    padding: "22px",
+                    padding: "16px",
                     background:
                       "linear-gradient(145deg, rgba(27,43,63,0.98), rgba(43,62,85,0.95))",
                     color: "#fff7ea",
                     display: "grid",
-                    gap: "12px",
+                    gap: "10px",
                   }}
                 >
                   <div
                     style={{
                       color: "#f2cf9e",
                       fontWeight: 800,
-                      fontSize: "0.74rem",
+                      fontSize: "0.66rem",
                       textTransform: "uppercase",
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.06em",
                     }}
                   >
                     Yorum
@@ -910,14 +914,14 @@ export default function PersonnelPage() {
                   <div
                     style={{
                       ...serifTitleStyle,
-                      fontSize: "1.75rem",
+                      fontSize: "1.28rem",
                       lineHeight: 0.96,
                       fontWeight: 700,
                     }}
                   >
                     Kadro paneli artık yalnızca form değil, karar yüzeyi.
                   </div>
-                  <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.75 }}>
+                  <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.55, fontSize: "0.84rem" }}>
                     Bu dilin amaci formlari daha guzel gostermekten ote, ofisin günlük insan ve saha
                     planlama ritmini ekranda daha net hissettirmek.
                   </div>
@@ -933,6 +937,6 @@ export default function PersonnelPage() {
 
 const tableCellStyle = {
   padding: "14px 16px",
-  fontSize: "0.95rem",
+  fontSize: "0.84rem",
   color: "var(--text)",
 } as const;
