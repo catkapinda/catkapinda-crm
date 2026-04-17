@@ -403,6 +403,8 @@ export function EquipmentManagementWorkspace() {
     () => boxEntries.find((entry) => entry.id === selectedBoxId) ?? null,
     [boxEntries, selectedBoxId],
   );
+  const hasSelectedIssue = Boolean(selectedIssue);
+  const hasSelectedBox = Boolean(selectedBox);
 
   async function handleIssueSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -643,7 +645,9 @@ export function EquipmentManagementWorkspace() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(320px, 1.05fr) minmax(320px, 0.95fr)",
+            gridTemplateColumns: hasSelectedIssue
+              ? "minmax(320px, 1.05fr) minmax(320px, 0.95fr)"
+              : "minmax(0, 1fr)",
             gap: "16px",
             alignItems: "start",
           }}
@@ -1035,12 +1039,25 @@ export function EquipmentManagementWorkspace() {
                     </button>
                   );
                 })}
+                {!issueEntries.length ? (
+                  <div
+                    style={{
+                      padding: "18px",
+                      borderRadius: "18px",
+                      border: "1px dashed rgba(15, 95, 215, 0.22)",
+                      color: "var(--muted)",
+                      background: "rgba(255, 255, 255, 0.76)",
+                    }}
+                  >
+                    Bu filtreyle eşleşen zimmet kaydı bulunamadı.
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
 
-          <form onSubmit={handleIssueSubmit} style={{ display: "grid", gap: "14px" }}>
-            {selectedIssue ? (
+          {selectedIssue ? (
+            <form onSubmit={handleIssueSubmit} style={{ display: "grid", gap: "14px" }}>
               <div
                 style={{
                   display: "grid",
@@ -1284,20 +1301,8 @@ export function EquipmentManagementWorkspace() {
                   </button>
                 </div>
               </div>
-            ) : (
-              <div
-                style={{
-                  padding: "24px",
-                  borderRadius: "20px",
-                  border: "1px dashed rgba(15, 95, 215, 0.22)",
-                  color: "var(--muted)",
-                  background: "rgba(255, 255, 255, 0.76)",
-                }}
-              >
-                Düzenlemek için sol taraftan bir zimmet kaydı seç.
-              </div>
-            )}
-          </form>
+            </form>
+          ) : null}
         </div>
       </section>
 
@@ -1321,7 +1326,9 @@ export function EquipmentManagementWorkspace() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(320px, 1.05fr) minmax(320px, 0.95fr)",
+            gridTemplateColumns: hasSelectedBox
+              ? "minmax(320px, 1.05fr) minmax(320px, 0.95fr)"
+              : "minmax(0, 1fr)",
             gap: "16px",
             alignItems: "start",
           }}
@@ -1454,12 +1461,25 @@ export function EquipmentManagementWorkspace() {
                     </button>
                   );
                 })}
+                {!boxEntries.length ? (
+                  <div
+                    style={{
+                      padding: "18px",
+                      borderRadius: "18px",
+                      border: "1px dashed rgba(15, 95, 215, 0.22)",
+                      color: "var(--muted)",
+                      background: "rgba(255, 255, 255, 0.76)",
+                    }}
+                  >
+                    Bu filtreyle eşleşen box geri alım kaydı bulunamadı.
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
 
-          <form onSubmit={handleBoxSubmit} style={{ display: "grid", gap: "14px" }}>
-            {selectedBox ? (
+          {selectedBox ? (
+            <form onSubmit={handleBoxSubmit} style={{ display: "grid", gap: "14px" }}>
               <div
                 style={{
                   display: "grid",
@@ -1616,20 +1636,8 @@ export function EquipmentManagementWorkspace() {
                   </button>
                 </div>
               </div>
-            ) : (
-              <div
-                style={{
-                  padding: "24px",
-                  borderRadius: "20px",
-                  border: "1px dashed rgba(15, 95, 215, 0.22)",
-                  color: "var(--muted)",
-                  background: "rgba(255, 255, 255, 0.76)",
-                }}
-              >
-                Düzenlemek için sol taraftan bir box geri alım kaydı seç.
-              </div>
-            )}
-          </form>
+            </form>
+          ) : null}
         </div>
       </section>
     </div>
