@@ -97,6 +97,16 @@ python3 v2/scripts/pilot_deploy_guard.py \
   --json
 ```
 
+Tek ekranda go-live karari:
+
+```bash
+python3 v2/scripts/go_live_decision_report.py \
+  --base-url https://<pilot-frontend-domain> \
+  --api-url https://<pilot-api-domain> \
+  --database-url 'postgresql://<...>?sslmode=require' \
+  --default-auth-password '<GucluSifre!2026>'
+```
+
 Smoke:
 
 ```bash
