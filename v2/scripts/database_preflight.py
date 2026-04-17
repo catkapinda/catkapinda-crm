@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime
 import json
 import os
 from urllib.parse import urlparse
@@ -14,6 +15,7 @@ from render_env_bundle import validate_database_url
 
 APPLICATION_NAME = "catkapinda-crm-v2-db-preflight"
 CONNECT_TIMEOUT = 5
+CUTOVER_ATTENDANCE_STALENESS_DAYS = 45
 
 REQUIRED_TABLES: tuple[tuple[str, str], ...] = (
     ("restaurants", "Restoran kartlari"),
@@ -326,6 +328,116 @@ def _table_columns(conn: psycopg.Connection, table_name: str) -> set[str]:
     return columns
 
 
+def _scalar_value(conn: psycopg.Connection, query: str, params: tuple[object, ...] = ()) -> object:
+    cursor = conn.execute(query, params)
+    row = _row_to_mapping(cursor.fetchone())
+    if not row:
+        return None
+    return next(iter(row.values()))
+
+
+def _normalize_date_value(raw_value: object) -> date | None:
+    if raw_value is None:
+        return None
+    if isinstance(raw_value, datetime):
+        return raw_value.date()
+    if isinstance(raw_value, date):
+        return raw_value
+    normalized = str(raw_value).strip()
+    if not normalized:
+        return None
+    if " " in normalized:
+        normalized = normalized.split(" ", 1)[0]
+    if "T" in normalized:
+        normalized = normalized.split("T", 1)[0]
+    try:
+        return date.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+
+def _build_data_health(conn: psycopg.Connection, *, reference_date: date) -> tuple[dict[str, object], list[str]]:
+    active_restaurants = int(
+        _scalar_value(
+            conn,
+            "SELECT COUNT(*) AS count FROM restaurants WHERE COALESCE(active, TRUE) = TRUE",
+        )
+        or 0
+    )
+    active_personnel = int(
+        _scalar_value(
+            conn,
+            "SELECT COUNT(*) AS count FROM personnel WHERE COALESCE(status, '') = 'Aktif'",
+        )
+        or 0
+    )
+    assigned_personnel = int(
+        _scalar_value(
+            conn,
+            """
+            SELECT COUNT(*) AS count
+            FROM personnel
+            WHERE COALESCE(status, '') = 'Aktif'
+              AND assigned_restaurant_id IS NOT NULL
+            """,
+        )
+        or 0
+    )
+    latest_attendance_date = _normalize_date_value(
+        _scalar_value(conn, "SELECT MAX(entry_date) AS latest_value FROM daily_entries")
+    )
+    latest_deduction_date = _normalize_date_value(
+        _scalar_value(conn, "SELECT MAX(deduction_date) AS latest_value FROM deductions")
+    )
+    latest_purchase_date = _normalize_date_value(
+        _scalar_value(conn, "SELECT MAX(purchase_date) AS latest_value FROM inventory_purchases")
+    )
+    latest_sales_date = _normalize_date_value(
+        _scalar_value(conn, "SELECT MAX(updated_at) AS latest_value FROM sales_leads")
+    )
+    latest_equipment_issue_date = _normalize_date_value(
+        _scalar_value(conn, "SELECT MAX(issue_date) AS latest_value FROM courier_equipment_issues")
+    )
+
+    attendance_age_days = (
+        (reference_date - latest_attendance_date).days
+        if latest_attendance_date is not None
+        else None
+    )
+
+    cutover_blocking_items: list[str] = []
+    if active_restaurants <= 0:
+        cutover_blocking_items.append("Aktif restoran sayisi 0; canli veri baglantisi dogrulanmali.")
+    if active_personnel <= 0:
+        cutover_blocking_items.append("Aktif personel sayisi 0; canli veri baglantisi dogrulanmali.")
+    if assigned_personnel <= 0:
+        cutover_blocking_items.append("Subeye atanmis aktif personel gorunmuyor; veri kapsami yetersiz.")
+    if latest_attendance_date is None:
+        cutover_blocking_items.append("Gunluk puantaj gecmisi bulunamadi; cutover oncesi veri tazeligi dogrulanmali.")
+    elif attendance_age_days is not None and attendance_age_days > CUTOVER_ATTENDANCE_STALENESS_DAYS:
+        cutover_blocking_items.append(
+            "Gunluk puantaj verisi eski gorunuyor; son kayit "
+            f"{latest_attendance_date.isoformat()} ({attendance_age_days} gun once)."
+        )
+
+    return (
+        {
+            "active_restaurants": active_restaurants,
+            "active_personnel": active_personnel,
+            "assigned_personnel": assigned_personnel,
+            "latest_attendance_date": latest_attendance_date.isoformat() if latest_attendance_date else None,
+            "attendance_age_days": attendance_age_days,
+            "latest_deduction_date": latest_deduction_date.isoformat() if latest_deduction_date else None,
+            "latest_purchase_date": latest_purchase_date.isoformat() if latest_purchase_date else None,
+            "latest_sales_date": latest_sales_date.isoformat() if latest_sales_date else None,
+            "latest_equipment_issue_date": (
+                latest_equipment_issue_date.isoformat() if latest_equipment_issue_date else None
+            ),
+        },
+        cutover_blocking_items,
+    )
+
+
 def _inspect_group(
     conn: psycopg.Connection,
     table_specs: tuple[tuple[str, str], ...],
@@ -388,6 +500,7 @@ def build_database_preflight_report(
     *,
     database_url: str,
     connect_fn=psycopg.connect,
+    reference_date: date | None = None,
 ) -> dict[str, object]:
     normalized_database_url = str(database_url or "").strip()
     if not normalized_database_url:
@@ -396,6 +509,7 @@ def build_database_preflight_report(
         raise ValueError("Veritabani URL'i icin gercek bir deger girilmeli.")
 
     validated_database_url = validate_database_url(normalized_database_url)
+    effective_reference_date = reference_date or date.today()
 
     with connect_fn(
         validated_database_url,
@@ -412,6 +526,10 @@ def build_database_preflight_report(
             conn,
             BOOTSTRAP_TABLES,
             critical_columns_map=BOOTSTRAP_CRITICAL_COLUMNS,
+        )
+        data_health, cutover_blocking_items = _build_data_health(
+            conn,
+            reference_date=effective_reference_date,
         )
 
     warnings: list[str] = []
@@ -440,6 +558,7 @@ def build_database_preflight_report(
         ]
     )
     passed = not blocking_items
+    cutover_ready = passed and not cutover_blocking_items
     summary = (
         "Veritabani omurgasi v2 pilotu icin hazir."
         if passed
@@ -450,17 +569,26 @@ def build_database_preflight_report(
         if passed
         else "Eksik tablo/kolonlari tamamla veya dogru canli PostgreSQL baglantisini gir."
     )
+    cutover_recommended_next_step = (
+        "Canli domaine gecis icin veri kapsami da yeterli gorunuyor."
+        if cutover_ready
+        else "Canli domaine gecmeden once aktif restoran/personel ve guncel puantaj kapsamini dogrula."
+    )
 
     return {
         "passed": passed,
+        "cutover_ready": cutover_ready,
         "summary": summary,
         "recommended_next_step": recommended_next_step,
+        "cutover_recommended_next_step": cutover_recommended_next_step,
         "database_url_masked": mask_database_url(validated_database_url),
         "required_tables": required_entries,
         "bootstrap_tables": bootstrap_entries,
         "required_missing_columns": required_missing_columns,
         "bootstrap_missing_columns": bootstrap_missing_columns,
+        "data_health": data_health,
         "blocking_items": blocking_items,
+        "cutover_blocking_items": cutover_blocking_items,
         "warnings": warnings,
     }
 
@@ -498,7 +626,31 @@ def render_report_text(report: dict[str, object]) -> str:
     lines.extend([f"- {item}" for item in report.get("blocking_items") or []] or ["- Yok"])
     lines.extend(["", "Warnings:"])
     lines.extend([f"- {item}" for item in report.get("warnings") or []] or ["- Yok"])
+    data_health = report.get("data_health") if isinstance(report.get("data_health"), dict) else {}
+    lines.extend(
+        [
+            "",
+            "Data Health:",
+            f"- Active Restaurants: {data_health.get('active_restaurants', '-')}",
+            f"- Active Personnel: {data_health.get('active_personnel', '-')}",
+            f"- Assigned Personnel: {data_health.get('assigned_personnel', '-')}",
+            f"- Latest Attendance Date: {data_health.get('latest_attendance_date') or '-'}",
+            f"- Attendance Age Days: {data_health.get('attendance_age_days') if data_health.get('attendance_age_days') is not None else '-'}",
+            f"- Latest Deduction Date: {data_health.get('latest_deduction_date') or '-'}",
+            f"- Latest Purchase Date: {data_health.get('latest_purchase_date') or '-'}",
+            f"- Latest Sales Date: {data_health.get('latest_sales_date') or '-'}",
+            f"- Latest Equipment Issue Date: {data_health.get('latest_equipment_issue_date') or '-'}",
+            "",
+            "Cutover Readiness:",
+            f"- Ready: {report.get('cutover_ready')}",
+        ]
+    )
+    lines.extend(
+        [f"- {item}" for item in report.get("cutover_blocking_items") or []]
+        or ["- Cutover blokaji yok"]
+    )
     lines.extend(["", f"Recommended Next Step: {report['recommended_next_step']}"])
+    lines.append(f"Cutover Next Step: {report.get('cutover_recommended_next_step') or '-'}")
     return "\n".join(lines) + "\n"
 
 

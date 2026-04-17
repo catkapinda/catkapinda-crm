@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import date
 import sys
 
 import pytest
@@ -33,10 +34,14 @@ class FakeConnection:
         present_tables: set[str],
         row_counts: dict[str, int],
         table_columns: dict[str, list[str]],
+        data_health_counts: dict[str, int],
+        latest_dates: dict[str, str | None],
     ):
         self.present_tables = present_tables
         self.row_counts = row_counts
         self.table_columns = table_columns
+        self.data_health_counts = data_health_counts
+        self.latest_dates = latest_dates
 
     def __enter__(self):
         return self
@@ -51,10 +56,6 @@ class FakeConnection:
             table_name = params[0]
             return FakeCursor({"table_name": table_name if table_name in self.present_tables else None})
 
-        if normalized.startswith("SELECT COUNT(*) AS count FROM "):
-            table_name = normalized.removeprefix("SELECT COUNT(*) AS count FROM ").strip()
-            return FakeCursor({"count": self.row_counts.get(table_name, 0)})
-
         if normalized == (
             "SELECT column_name FROM information_schema.columns "
             "WHERE table_name = %s AND table_schema = ANY(current_schemas(false)) "
@@ -65,6 +66,37 @@ class FakeConnection:
             return FakeRowsCursor(
                 [{"column_name": column_name} for column_name in self.table_columns.get(table_name, [])]
             )
+
+        if normalized == "SELECT COUNT(*) AS count FROM restaurants WHERE COALESCE(active, TRUE) = TRUE":
+            return FakeCursor({"count": self.data_health_counts.get("active_restaurants", 0)})
+
+        if normalized == "SELECT COUNT(*) AS count FROM personnel WHERE COALESCE(status, '') = 'Aktif'":
+            return FakeCursor({"count": self.data_health_counts.get("active_personnel", 0)})
+
+        if normalized == (
+            "SELECT COUNT(*) AS count FROM personnel "
+            "WHERE COALESCE(status, '') = 'Aktif' AND assigned_restaurant_id IS NOT NULL"
+        ):
+            return FakeCursor({"count": self.data_health_counts.get("assigned_personnel", 0)})
+
+        if normalized == "SELECT MAX(entry_date) AS latest_value FROM daily_entries":
+            return FakeCursor({"latest_value": self.latest_dates.get("daily_entries")})
+
+        if normalized == "SELECT MAX(deduction_date) AS latest_value FROM deductions":
+            return FakeCursor({"latest_value": self.latest_dates.get("deductions")})
+
+        if normalized == "SELECT MAX(purchase_date) AS latest_value FROM inventory_purchases":
+            return FakeCursor({"latest_value": self.latest_dates.get("inventory_purchases")})
+
+        if normalized == "SELECT MAX(updated_at) AS latest_value FROM sales_leads":
+            return FakeCursor({"latest_value": self.latest_dates.get("sales_leads")})
+
+        if normalized == "SELECT MAX(issue_date) AS latest_value FROM courier_equipment_issues":
+            return FakeCursor({"latest_value": self.latest_dates.get("courier_equipment_issues")})
+
+        if normalized.startswith("SELECT COUNT(*) AS count FROM "):
+            table_name = normalized.removeprefix("SELECT COUNT(*) AS count FROM ").strip()
+            return FakeCursor({"count": self.row_counts.get(table_name, 0)})
 
         raise AssertionError(f"Beklenmeyen sorgu: {query}")
 
@@ -84,14 +116,30 @@ def connect_factory(
     present_tables: set[str],
     row_counts: dict[str, int],
     table_columns: dict[str, list[str]] | None = None,
+    data_health_counts: dict[str, int] | None = None,
+    latest_dates: dict[str, str | None] | None = None,
 ):
     resolved_columns = table_columns or _default_columns_for_tables(present_tables)
+    resolved_health_counts = data_health_counts or {
+        "active_restaurants": row_counts.get("restaurants", 0),
+        "active_personnel": row_counts.get("personnel", 0),
+        "assigned_personnel": row_counts.get("personnel", 0),
+    }
+    resolved_latest_dates = latest_dates or {
+        "daily_entries": "2026-04-17" if row_counts.get("daily_entries", 0) else None,
+        "deductions": "2026-04-17" if row_counts.get("deductions", 0) else None,
+        "inventory_purchases": "2026-04-17" if row_counts.get("inventory_purchases", 0) else None,
+        "sales_leads": "2026-04-17" if row_counts.get("sales_leads", 0) else None,
+        "courier_equipment_issues": "2026-04-17" if row_counts.get("courier_equipment_issues", 0) else None,
+    }
 
     def _connect(*args, **kwargs):
         return FakeConnection(
             present_tables=present_tables,
             row_counts=row_counts,
             table_columns=resolved_columns,
+            data_health_counts=resolved_health_counts,
+            latest_dates=resolved_latest_dates,
         )
 
     return _connect
@@ -118,12 +166,15 @@ def test_build_database_preflight_report_passes_when_required_tables_exist():
                 "box_returns": 2,
             },
         ),
+        reference_date=date(2026, 4, 17),
     )
 
     assert report["passed"] is True
+    assert report["cutover_ready"] is True
     assert report["blocking_items"] == []
     assert report["database_url_masked"] == "postgresql://user:***@db.example.com:5432/postgres?sslmode=require"
     assert all(not entry["missing_columns"] for entry in report["required_tables"])
+    assert report["data_health"]["latest_attendance_date"] == "2026-04-17"
     assert any("bootstrap" in item.lower() for item in report["warnings"])
 
 
@@ -132,6 +183,7 @@ def test_build_database_preflight_report_blocks_when_required_table_is_missing()
     report = database_preflight.build_database_preflight_report(
         database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
         connect_fn=connect_factory(present_tables, {"restaurants": 10, "personnel": 22}),
+        reference_date=date(2026, 4, 17),
     )
 
     assert report["passed"] is False
@@ -163,6 +215,7 @@ def test_build_database_preflight_report_blocks_when_required_table_has_missing_
             },
             table_columns=table_columns,
         ),
+        reference_date=date(2026, 4, 17),
     )
 
     assert report["passed"] is False
@@ -191,10 +244,44 @@ def test_build_database_preflight_report_warns_when_core_tables_are_empty():
                 "box_returns": 1,
             },
         ),
+        reference_date=date(2026, 4, 17),
     )
 
     assert report["passed"] is True
     assert any("canli PostgreSQL" in item for item in report["warnings"])
+
+
+def test_build_database_preflight_report_marks_cutover_unready_when_attendance_is_stale():
+    present_tables = {name for name, _ in database_preflight.REQUIRED_TABLES}
+    report = database_preflight.build_database_preflight_report(
+        database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
+        connect_fn=connect_factory(
+            present_tables,
+            {
+                "restaurants": 12,
+                "personnel": 54,
+                "daily_entries": 3200,
+                "deductions": 88,
+                "inventory_purchases": 14,
+                "sales_leads": 7,
+                "courier_equipment_issues": 9,
+                "box_returns": 2,
+            },
+            latest_dates={
+                "daily_entries": "2026-01-15",
+                "deductions": "2026-04-16",
+                "inventory_purchases": "2026-04-14",
+                "sales_leads": "2026-04-12",
+                "courier_equipment_issues": "2026-04-11",
+            },
+        ),
+        reference_date=date(2026, 4, 17),
+    )
+
+    assert report["passed"] is True
+    assert report["cutover_ready"] is False
+    assert any("Gunluk puantaj verisi eski gorunuyor" in item for item in report["cutover_blocking_items"])
+    assert report["cutover_recommended_next_step"].startswith("Canli domaine gecmeden once")
 
 
 def test_build_database_preflight_report_rejects_placeholder_database_url():

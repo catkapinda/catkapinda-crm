@@ -114,6 +114,11 @@ python3 v2/scripts/database_preflight.py \
   --json
 ```
 
+Not:
+
+- `database_preflight.py` artik sadece tablo ve kolonlari degil, `cutover` icin aktif restoran, aktif personel, subeye atanmis personel ve guncel puantaj tazeligini de kontrol eder.
+- `pilot` acilisi ile `crmcatkapinda.com` cutover ayni esik degildir; `cutover` daha siki kalir.
+
 ## 7. Guvenli Pilot Sirasi
 
 1. Render backend env'lerini gir.

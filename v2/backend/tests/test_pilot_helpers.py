@@ -1081,9 +1081,12 @@ def test_pilot_deploy_guard_passes_when_gate_and_env_are_ready():
         default_auth_password="GucluPilotSifre!2026",
         database_preflight_builder=lambda database_url: {
             "passed": True,
+            "cutover_ready": True,
             "summary": "Veritabani omurgasi v2 pilotu icin hazir.",
             "blocking_items": [],
+            "cutover_blocking_items": [],
             "recommended_next_step": "Yedek al.",
+            "cutover_recommended_next_step": "Canli domaine gecis icin veri kapsami da yeterli gorunuyor.",
         },
     )
 
@@ -1105,9 +1108,12 @@ def test_pilot_deploy_guard_blocks_when_database_preflight_fails():
         default_auth_password="GucluPilotSifre!2026",
         database_preflight_builder=lambda database_url: {
             "passed": False,
+            "cutover_ready": False,
             "summary": "Veritabani omurgasinda pilotu durduran eksikler var.",
             "blocking_items": ["`daily_entries` tablosu eksik."],
+            "cutover_blocking_items": ["`daily_entries` tablosu eksik."],
             "recommended_next_step": "Dogru PostgreSQL baglantisini gir.",
+            "cutover_recommended_next_step": "Canli domaine gecmeden once veri kapsamini dogrula.",
         },
     )
 
@@ -1117,6 +1123,33 @@ def test_pilot_deploy_guard_blocks_when_database_preflight_fails():
     assert result["database_preflight_passed"] is False
     assert "`daily_entries` tablosu eksik." in result["blocking_items"]
     assert "Dogru PostgreSQL baglantisini gir." in result["recommended_next_step"]
+
+
+def test_cutover_deploy_guard_requires_database_cutover_readiness():
+    result = pilot_deploy_guard.build_guard_result(
+        base_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        mode="cutover",
+        payload=sample_payload(phase="ready_for_cutover", ready=True),
+        database_url="postgresql://pilot:secret@db.example.com/catkapinda?sslmode=require",
+        default_auth_password="GucluPilotSifre!2026",
+        database_preflight_builder=lambda database_url: {
+            "passed": True,
+            "cutover_ready": False,
+            "summary": "Veritabani omurgasi v2 pilotu icin hazir.",
+            "blocking_items": [],
+            "cutover_blocking_items": ["Gunluk puantaj gecmisi bulunamadi; cutover oncesi veri tazeligi dogrulanmali."],
+            "recommended_next_step": "Yedek al.",
+            "cutover_recommended_next_step": "Canli domaine gecmeden once aktif restoran/personel ve guncel puantaj kapsamini dogrula.",
+        },
+    )
+
+    assert result["passed"] is False
+    assert result["gate_passed"] is True
+    assert result["env_passed"] is True
+    assert result["database_preflight_passed"] is False
+    assert any("Gunluk puantaj gecmisi bulunamadi" in item for item in result["blocking_items"])
+    assert "guncel puantaj kapsamini" in result["recommended_next_step"]
 
 
 def test_pilot_status_report_markdown_includes_key_sections():

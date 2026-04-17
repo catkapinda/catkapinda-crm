@@ -44,23 +44,53 @@ def build_guard_result(
     )
     database_preflight_result: dict[str, object] | None = None
     database_preflight_passed = False
+    database_preflight_mode_summary = "Atlandi"
     if bool(env_validation.get("passed")):
         try:
             database_preflight_result = database_preflight_builder(database_url=database_url)
         except Exception as exc:
             database_preflight_result = {
                 "passed": False,
+                "cutover_ready": False,
                 "summary": "Veritabani preflight basarisiz.",
                 "blocking_items": [str(exc)],
+                "cutover_blocking_items": [str(exc)],
                 "recommended_next_step": "Veritabani baglantisini ve tablo omurgasini yeniden kontrol et.",
+                "cutover_recommended_next_step": "Canli domaine gecmeden once veritabani baglantisini ve veri kapsamini yeniden kontrol et.",
             }
-        database_preflight_passed = bool(database_preflight_result.get("passed"))
+        database_preflight_passed = bool(
+            database_preflight_result.get("cutover_ready")
+            if mode == "cutover"
+            else database_preflight_result.get("passed")
+        )
+        database_preflight_mode_summary = str(
+            database_preflight_result.get("summary")
+            if mode == "pilot"
+            else database_preflight_result.get("cutover_recommended_next_step")
+            or database_preflight_result.get("summary")
+            or "Veritabani preflight sonucu okunamadi."
+        )
+
+    database_preflight_blocking_items = (
+        _dedupe_strings(
+            [
+                *[str(item) for item in (database_preflight_result or {}).get("blocking_items") or []],
+                *(
+                    [str(item) for item in (database_preflight_result or {}).get("cutover_blocking_items") or []]
+                    if mode == "cutover"
+                    else []
+                ),
+            ]
+        )
+        if database_preflight_result is not None
+        else []
+    )
 
     blocking_items = _dedupe_strings(
         [
             *[str(item) for item in gate_result.get("blocking_items") or []],
             *[str(item) for item in env_validation.get("blocking_items") or []],
-            *[str(item) for item in (database_preflight_result or {}).get("blocking_items") or []],
+            *database_preflight_blocking_items,
         ]
     )
     recommended_steps = _dedupe_strings(
@@ -68,7 +98,14 @@ def build_guard_result(
             str(gate_result.get("recommended_next_step") or "").strip(),
             "Render env validation blokajlarini kapat." if not bool(env_validation.get("passed")) else "",
             (
-                str((database_preflight_result or {}).get("recommended_next_step") or "").strip()
+                str(
+                    (
+                        (database_preflight_result or {}).get("cutover_recommended_next_step")
+                        if mode == "cutover"
+                        else (database_preflight_result or {}).get("recommended_next_step")
+                    )
+                    or ""
+                ).strip()
                 if database_preflight_result and not database_preflight_passed
                 else ""
             ),
@@ -92,6 +129,7 @@ def build_guard_result(
         "gate_passed": bool(gate_result.get("passed")),
         "env_passed": bool(env_validation.get("passed")),
         "database_preflight_passed": database_preflight_passed,
+        "database_preflight_mode_summary": database_preflight_mode_summary,
         "gate_result": gate_result,
         "env_validation": env_validation,
         "database_preflight": database_preflight_result,
@@ -115,11 +153,7 @@ def render_text(result: dict) -> str:
         f"Env Passed: {result['env_passed']}",
         f"Env Summary: {env_validation['summary']}",
         f"Database Preflight Passed: {result['database_preflight_passed']}",
-        (
-            f"Database Preflight Summary: {result['database_preflight']['summary']}"
-            if result.get("database_preflight")
-            else "Database Preflight Summary: Atlandi"
-        ),
+        f"Database Preflight Summary: {result['database_preflight_mode_summary']}",
         f"Recommended Next Step: {result['recommended_next_step']}",
     ]
     if result["blocking_items"]:
