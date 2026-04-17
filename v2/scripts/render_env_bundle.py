@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from urllib.parse import parse_qs, urlparse
 
 
 def normalize_url(raw: str) -> str:
@@ -12,6 +13,66 @@ def normalize_url(raw: str) -> str:
     if not value.startswith(("http://", "https://")):
         value = f"https://{value}"
     return value.rstrip("/")
+
+
+def _is_placeholder(value: str) -> bool:
+    return value.startswith("<") and value.endswith(">")
+
+
+def _is_local_hostname(hostname: str) -> bool:
+    normalized = str(hostname or "").strip().lower()
+    return normalized in {"127.0.0.1", "localhost"}
+
+
+def _is_strong_password(value: str) -> bool:
+    if len(value) < 12:
+        return False
+    has_upper = any(ch.isupper() for ch in value)
+    has_lower = any(ch.islower() for ch in value)
+    has_digit = any(ch.isdigit() for ch in value)
+    has_symbol = any(not ch.isalnum() for ch in value)
+    return has_upper and has_lower and has_digit and has_symbol
+
+
+def validate_public_url(url: str, *, label: str) -> str:
+    value = normalize_url(url)
+    parsed = urlparse(value)
+    if not parsed.hostname:
+        raise ValueError(f"{label} gecerli bir host icermeli.")
+    if parsed.scheme != "https" and not _is_local_hostname(parsed.hostname):
+        raise ValueError(f"{label} canli kullanim icin https olmali.")
+    return value
+
+
+def validate_database_url(database_url: str) -> str:
+    value = database_url.strip()
+    if not value:
+        raise ValueError("Veritabani URL'i bos olamaz.")
+    if _is_placeholder(value):
+        return value
+    parsed = urlparse(value)
+    if parsed.scheme not in {"postgresql", "postgres"}:
+        raise ValueError("Veritabani URL'i PostgreSQL baglantisi olmali.")
+    if not parsed.hostname:
+        raise ValueError("Veritabani URL'i host icermeli.")
+    if _is_local_hostname(parsed.hostname):
+        return value
+    query = parse_qs(parsed.query)
+    sslmode = (query.get("sslmode") or [""])[0].strip().lower()
+    if sslmode != "require":
+        raise ValueError("Canli PostgreSQL baglantisi icin sslmode=require kullanilmali.")
+    return value
+
+
+def validate_default_auth_password(default_auth_password: str) -> str:
+    value = default_auth_password.strip()
+    if not value:
+        raise ValueError("Varsayilan giris sifresi bos olamaz.")
+    if _is_placeholder(value):
+        return value
+    if not _is_strong_password(value):
+        raise ValueError("Varsayilan giris sifresi en az 12 karakterli, buyuk-kucuk harf, rakam ve sembol icermeli.")
+    return value
 
 
 def build_bundle(
@@ -143,13 +204,15 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    frontend_url = normalize_url(args.frontend_url)
-    api_url = normalize_url(args.api_url)
+    frontend_url = validate_public_url(args.frontend_url, label="Frontend URL")
+    api_url = validate_public_url(args.api_url, label="API URL")
+    database_url = validate_database_url(args.database_url.strip())
+    default_auth_password = validate_default_auth_password(args.default_auth_password.strip())
     bundle = build_bundle(
         frontend_url=frontend_url,
         api_url=api_url,
-        database_url=args.database_url.strip(),
-        default_auth_password=args.default_auth_password.strip(),
+        database_url=database_url,
+        default_auth_password=default_auth_password,
         api_service_name=args.api_service_name.strip(),
         frontend_service_name=args.frontend_service_name.strip(),
         streamlit_service_name=args.streamlit_service_name.strip(),
