@@ -99,6 +99,20 @@ def test_overview_dashboard_route_smoke(monkeypatch):
                         "status": "Sağlam",
                     }
                 ],
+                "daily_trend": [
+                    {
+                        "entry_date": "2026-04-10",
+                        "total_packages": 120.0,
+                        "total_hours": 42.0,
+                    }
+                ],
+                "top_restaurants": [
+                    {
+                        "restaurant": "Burger@ - Kavacık",
+                        "total_packages": 320.0,
+                        "total_hours": 84.0,
+                    }
+                ],
             },
             "modules": [
                 {
@@ -135,6 +149,7 @@ def test_overview_dashboard_route_smoke(monkeypatch):
     assert payload["finance"]["gross_profit"] == 87000.0
     assert payload["hygiene"]["missing_personnel_cards"] == 2
     assert payload["operations"]["under_target_count"] == 2
+    assert payload["operations"]["top_restaurants"][0]["restaurant"] == "Burger@ - Kavacık"
     assert payload["modules"][0]["href"] == "/attendance"
 
 

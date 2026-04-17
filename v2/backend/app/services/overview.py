@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import psycopg
 
@@ -9,6 +9,7 @@ from app.schemas.overview import (
     OverviewActionAlert,
     OverviewBrandSummaryEntry,
     OverviewDashboardResponse,
+    OverviewDailyTrendPoint,
     OverviewFinanceHighlight,
     OverviewFinanceSummary,
     OverviewHeroSummary,
@@ -16,6 +17,7 @@ from app.schemas.overview import (
     OverviewHygieneSummary,
     OverviewModuleCard,
     OverviewOperationsSummary,
+    OverviewRestaurantLoadEntry,
 )
 from app.services.attendance import build_attendance_dashboard
 from app.services.deductions import build_deductions_dashboard
@@ -234,6 +236,35 @@ def _build_operations_summary(
         """,
         (reference_date,),
     ).fetchall()
+    trend_start = reference_date - timedelta(days=13)
+    daily_trend_rows = conn.execute(
+        """
+        SELECT
+            entry_date,
+            COALESCE(SUM(package_count), 0) AS total_packages,
+            COALESCE(SUM(worked_hours), 0) AS total_hours
+        FROM daily_entries
+        WHERE entry_date BETWEEN %s AND %s
+        GROUP BY entry_date
+        ORDER BY entry_date
+        """,
+        (trend_start, reference_date),
+    ).fetchall()
+    top_restaurant_rows = conn.execute(
+        """
+        SELECT
+            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant,
+            COALESCE(SUM(d.package_count), 0) AS total_packages,
+            COALESCE(SUM(d.worked_hours), 0) AS total_hours
+        FROM daily_entries d
+        JOIN restaurants r ON r.id = d.restaurant_id
+        WHERE substr(COALESCE(d.entry_date, ''), 1, 7) = %s
+        GROUP BY restaurant
+        ORDER BY total_packages DESC, total_hours DESC, restaurant
+        LIMIT 6
+        """,
+        (month_key,),
+    ).fetchall()
     brand_rows = conn.execute(
         """
         WITH invoice AS (
@@ -329,6 +360,23 @@ def _build_operations_summary(
         joker_usage_count=len(joker_usage_rows),
         action_alerts=action_alerts[:8],
         brand_summary=brand_summary,
+        daily_trend=[
+            OverviewDailyTrendPoint(
+                entry_date=row["entry_date"],
+                total_packages=float(row["total_packages"] or 0),
+                total_hours=float(row["total_hours"] or 0),
+            )
+            for row in daily_trend_rows
+            if row["entry_date"]
+        ],
+        top_restaurants=[
+            OverviewRestaurantLoadEntry(
+                restaurant=str(row["restaurant"] or "-"),
+                total_packages=float(row["total_packages"] or 0),
+                total_hours=float(row["total_hours"] or 0),
+            )
+            for row in top_restaurant_rows
+        ],
     )
 
 

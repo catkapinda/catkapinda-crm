@@ -54,12 +54,26 @@ class OverviewBrandSummaryEntry(BaseModel):
     status: str
 
 
+class OverviewDailyTrendPoint(BaseModel):
+    entry_date: date
+    total_packages: float
+    total_hours: float
+
+
+class OverviewRestaurantLoadEntry(BaseModel):
+    restaurant: str
+    total_packages: float
+    total_hours: float
+
+
 class OverviewOperationsSummary(BaseModel):
     missing_attendance_count: int
     under_target_count: int
     joker_usage_count: int
     action_alerts: list[OverviewActionAlert]
     brand_summary: list[OverviewBrandSummaryEntry]
+    daily_trend: list[OverviewDailyTrendPoint]
+    top_restaurants: list[OverviewRestaurantLoadEntry]
 
 
 class OverviewModuleCard(BaseModel):

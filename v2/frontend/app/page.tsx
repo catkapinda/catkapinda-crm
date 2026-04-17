@@ -62,6 +62,16 @@ type OverviewDashboard = {
       operation_gap: number;
       status: string;
     }>;
+    daily_trend: Array<{
+      entry_date: string;
+      total_packages: number;
+      total_hours: number;
+    }>;
+    top_restaurants: Array<{
+      restaurant: string;
+      total_packages: number;
+      total_hours: number;
+    }>;
   };
   modules: Array<{
     key: string;
@@ -449,6 +459,17 @@ function toneSurface(tone: string) {
     badgeBackground: "rgba(18, 82, 52, 0.12)",
     badgeColor: "#18563b",
   };
+}
+
+function formatShortDate(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    month: "short",
+  }).format(parsed);
 }
 
 export default function HomePage() {
@@ -1381,6 +1402,214 @@ export default function HomePage() {
                   ) : (
                     <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
                       Marka bazlı özet için bu ay puantaj verisi henüz oluşmadı.
+                    </div>
+                  )}
+                </div>
+              </article>
+            </section>
+
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.05fr) minmax(320px, 0.95fr)",
+                gap: "18px",
+                alignItems: "start",
+              }}
+            >
+              <article
+                style={{
+                  ...paperCardStyle,
+                  padding: "22px",
+                  display: "grid",
+                  gap: "18px",
+                  background: "rgba(255,255,255,0.94)",
+                }}
+              >
+                <header style={{ display: "grid", gap: "8px" }}>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontWeight: 800,
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Son 14 Gün Paket Akışı
+                  </div>
+                  <h2
+                    style={{
+                      ...serifTitleStyle,
+                      margin: 0,
+                      fontSize: "1.95rem",
+                      lineHeight: 0.98,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Ritimdeki yükseliş ve düşüşü gün gün okuyoruz.
+                  </h2>
+                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                    Günlük paket hareketi ile saat yükünü birlikte okuyup operasyon temposunu daha erken hissediyoruz.
+                  </p>
+                </header>
+
+                {dashboard.operations.daily_trend.length ? (
+                  <div style={{ display: "grid", gap: "10px" }}>
+                    {(() => {
+                      const maxPackages = Math.max(
+                        ...dashboard.operations.daily_trend.map((item) => item.total_packages || 0),
+                        1,
+                      );
+                      return dashboard.operations.daily_trend.map((item) => (
+                        <div
+                          key={item.entry_date}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "82px minmax(0, 1fr) 120px",
+                            gap: "12px",
+                            alignItems: "center",
+                          }}
+                        >
+                          <div
+                            style={{
+                              color: "var(--muted)",
+                              fontSize: "0.9rem",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {formatShortDate(item.entry_date)}
+                          </div>
+                          <div
+                            style={{
+                              height: "14px",
+                              borderRadius: "999px",
+                              background: "rgba(24,40,59,0.08)",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${Math.max((item.total_packages / maxPackages) * 100, item.total_packages > 0 ? 6 : 0)}%`,
+                                height: "100%",
+                                borderRadius: "999px",
+                                background:
+                                  "linear-gradient(90deg, rgba(185,116,41,0.88), rgba(222,165,92,0.92))",
+                              }}
+                            />
+                          </div>
+                          <div
+                            style={{
+                              textAlign: "right",
+                              color: "var(--muted)",
+                              fontSize: "0.9rem",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {`${item.total_packages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} paket`}
+                            <br />
+                            {`${item.total_hours.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} saat`}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                ) : (
+                  <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                    Grafik için son 14 günde puantaj verisi oluşmadı.
+                  </div>
+                )}
+              </article>
+
+              <article
+                style={{
+                  ...paperCardStyle,
+                  padding: "22px",
+                  display: "grid",
+                  gap: "18px",
+                  background:
+                    "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,241,229,0.96))",
+                }}
+              >
+                <header style={{ display: "grid", gap: "8px" }}>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontWeight: 800,
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Bu Ay En Yoğun Şubeler
+                  </div>
+                  <h2
+                    style={{
+                      ...serifTitleStyle,
+                      margin: 0,
+                      fontSize: "1.95rem",
+                      lineHeight: 0.98,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Paket ve saat yükü önde gelen şubeleri gösteriyor.
+                  </h2>
+                  <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
+                    Ay içindeki yoğunluğu erken okuyup destek ve kadro kararlarını daha sakin veriyoruz.
+                  </p>
+                </header>
+
+                <div style={{ display: "grid", gap: "12px" }}>
+                  {dashboard.operations.top_restaurants.length ? (
+                    dashboard.operations.top_restaurants.map((item, index) => (
+                      <article
+                        key={`${item.restaurant}-${index}`}
+                        style={{
+                          padding: "16px",
+                          borderRadius: "22px",
+                          background: "rgba(255,255,255,0.78)",
+                          border: "1px solid rgba(24,40,59,0.08)",
+                          display: "grid",
+                          gap: "8px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "12px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              ...serifTitleStyle,
+                              fontSize: "1.32rem",
+                              lineHeight: 1,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {item.restaurant}
+                          </div>
+                          <span
+                            style={{
+                              color: "var(--accent-strong)",
+                              fontSize: "0.75rem",
+                              fontWeight: 800,
+                              letterSpacing: "0.06em",
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            #{index + 1}
+                          </span>
+                        </div>
+                        <div style={{ color: "var(--muted)", lineHeight: 1.65 }}>
+                          {`${item.total_packages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} paket | ${item.total_hours.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} saat`}
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <div style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+                      Bu ay öne çıkan şube yükü henüz görünmüyor.
                     </div>
                   )}
                 </div>
