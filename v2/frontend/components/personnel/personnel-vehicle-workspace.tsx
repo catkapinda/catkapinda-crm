@@ -91,6 +91,43 @@ function formatCurrency(value: number) {
   }).format(value || 0);
 }
 
+function calculateProratedAmount(monthlyAmount: number, startDate: string) {
+  const parsedDate = new Date(startDate);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return 0;
+  }
+  const month = parsedDate.getMonth();
+  const year = parsedDate.getFullYear();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const remainingDays = Math.max(daysInMonth - parsedDate.getDate() + 1, 0);
+  if (!daysInMonth || remainingDays <= 0) {
+    return 0;
+  }
+  return Math.round((Math.max(monthlyAmount, 0) * remainingDays) / daysInMonth);
+}
+
+function renderInfoCard(title: string, body: string, tone: "soft" | "accent" = "soft") {
+  return (
+    <article
+      style={{
+        padding: "14px 16px",
+        borderRadius: "18px",
+        border:
+          tone === "accent"
+            ? "1px solid rgba(15, 95, 215, 0.14)"
+            : "1px solid rgba(95, 118, 152, 0.12)",
+        background:
+          tone === "accent" ? "rgba(15, 95, 215, 0.06)" : "rgba(244,247,252,0.9)",
+        display: "grid",
+        gap: "8px",
+      }}
+    >
+      <div style={{ fontWeight: 800 }}>{title}</div>
+      <div style={{ color: "var(--muted)", lineHeight: 1.7, fontSize: "0.94rem" }}>{body}</div>
+    </article>
+  );
+}
+
 function pill(label: string, tone: "accent" | "soft" | "ink") {
   const palette =
     tone === "accent"
@@ -278,6 +315,15 @@ export function PersonnelVehicleWorkspace() {
 
   const isRental = vehicleMode === "Çat Kapında Motor Kirası";
   const isSale = vehicleMode === "Çat Kapında Motor Satışı";
+  const parsedRentalAmount = Number(rentalAmount || 0);
+  const parsedMonthlyDeduction = Number(purchaseMonthlyDeduction || 0);
+  const parsedCommitmentMonths = Number(purchaseCommitmentMonths || 0);
+  const parsedSalePrice = Number(purchaseSalePrice || 0);
+  const hasReferenceCharge =
+    (isRental && parsedRentalAmount > 0) ||
+    (isSale && (parsedMonthlyDeduction > 0 || parsedSalePrice > 0 || parsedCommitmentMonths > 0));
+  const firstMonthProration =
+    isSale && purchaseStartDate ? calculateProratedAmount(parsedMonthlyDeduction, purchaseStartDate) : 0;
 
   return (
     <section
@@ -464,6 +510,11 @@ export function PersonnelVehicleWorkspace() {
                   </div>
                 </div>
 
+                {renderInfoCard(
+                  "Geçiş tarihi notu",
+                  "Motor düzeni değiştiyse bu tarih, yeni kullanım modelinin geçerli olduğu ilk günü temsil eder. Kesintiler bu bilgiye göre manuel takip edilir.",
+                )}
+
                 <div
                   style={{
                     display: "grid",
@@ -488,37 +539,109 @@ export function PersonnelVehicleWorkspace() {
                 </div>
 
                 {isRental ? (
-                  <label style={{ display: "grid", gap: "8px" }}>
-                    <span>Aylık motor kira tutarı</span>
-                    <input type="number" min="0" step="100" value={rentalAmount} onChange={(event) => setRentalAmount(event.target.value)} style={fieldStyle} />
-                  </label>
+                  <>
+                    <label style={{ display: "grid", gap: "8px" }}>
+                      <span>Aylık motor kira tutarı</span>
+                      <input type="number" min="0" step="100" value={rentalAmount} onChange={(event) => setRentalAmount(event.target.value)} style={fieldStyle} />
+                    </label>
+                    {renderInfoCard(
+                      "Kira referansı",
+                      `Bu seçimde ay sonu bordro etkisi referans olarak ${formatCurrency(parsedRentalAmount)} kira görünür. Kesintiyi istersen ayrıca kesinti ekranından işleyebilirsin.`,
+                      "accent",
+                    )}
+                  </>
                 ) : null}
 
                 {isSale ? (
-                  <div
+                  <>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                        gap: "12px",
+                      }}
+                    >
+                      <label style={{ display: "grid", gap: "8px" }}>
+                        <span>Satış başlangıç tarihi</span>
+                        <input type="date" value={purchaseStartDate} onChange={(event) => setPurchaseStartDate(event.target.value)} style={fieldStyle} />
+                      </label>
+                      <label style={{ display: "grid", gap: "8px" }}>
+                        <span>Taahhüt ayı</span>
+                        <input type="number" min="0" step="1" value={purchaseCommitmentMonths} onChange={(event) => setPurchaseCommitmentMonths(event.target.value)} style={fieldStyle} />
+                      </label>
+                      <label style={{ display: "grid", gap: "8px" }}>
+                        <span>Motor satış bedeli</span>
+                        <input type="number" min="0" step="100" value={purchaseSalePrice} onChange={(event) => setPurchaseSalePrice(event.target.value)} style={fieldStyle} />
+                      </label>
+                      <label style={{ display: "grid", gap: "8px" }}>
+                        <span>Aylık satış kesintisi</span>
+                        <input type="number" min="0" step="100" value={purchaseMonthlyDeduction} onChange={(event) => setPurchaseMonthlyDeduction(event.target.value)} style={fieldStyle} />
+                      </label>
+                    </div>
+                    {renderInfoCard(
+                      "Satış modeli notu",
+                      "Motor satış modeli seçildiğinde aynı personelde ayrıca motor kirası uygulanmaz.",
+                      "accent",
+                    )}
+                    {renderInfoCard(
+                      "İlk ay kesinti notu",
+                      purchaseStartDate
+                        ? `Bu tarih satış taksidinin başladığı ilk gündür. Ayın 1'i değilse ilk ay kesintisi ay sonuna kadar orantılanır. Şu anki referans ilk ay tutarı ${formatCurrency(firstMonthProration)} görünüyor.`
+                        : "Bu tarih aylık motor satış taksidinin başladığı ilk gündür. Ayın 1'i değilse ilk ay kesintisi ay sonuna kadar orantılanır.",
+                    )}
+                  </>
+                ) : null}
+
+                {hasReferenceCharge ? (
+                  <section
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                       gap: "12px",
+                      padding: "14px 16px",
+                      borderRadius: "18px",
+                      border: "1px solid rgba(95, 118, 152, 0.12)",
+                      background: "rgba(244,247,252,0.9)",
                     }}
                   >
-                    <label style={{ display: "grid", gap: "8px" }}>
-                      <span>Satış başlangıç tarihi</span>
-                      <input type="date" value={purchaseStartDate} onChange={(event) => setPurchaseStartDate(event.target.value)} style={fieldStyle} />
-                    </label>
-                    <label style={{ display: "grid", gap: "8px" }}>
-                      <span>Taahhüt ayı</span>
-                      <input type="number" min="0" step="1" value={purchaseCommitmentMonths} onChange={(event) => setPurchaseCommitmentMonths(event.target.value)} style={fieldStyle} />
-                    </label>
-                    <label style={{ display: "grid", gap: "8px" }}>
-                      <span>Motor satış bedeli</span>
-                      <input type="number" min="0" step="100" value={purchaseSalePrice} onChange={(event) => setPurchaseSalePrice(event.target.value)} style={fieldStyle} />
-                    </label>
-                    <label style={{ display: "grid", gap: "8px" }}>
-                      <span>Aylık satış kesintisi</span>
-                      <input type="number" min="0" step="100" value={purchaseMonthlyDeduction} onChange={(event) => setPurchaseMonthlyDeduction(event.target.value)} style={fieldStyle} />
-                    </label>
-                  </div>
+                    <div style={{ fontWeight: 800 }}>Motor kesinti referansı</div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                        gap: "10px",
+                      }}
+                    >
+                      {isRental ? (
+                        <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+                          <strong style={{ color: "var(--text)" }}>Motor Kirası</strong>
+                          <br />
+                          {formatCurrency(parsedRentalAmount)} / ay
+                        </div>
+                      ) : null}
+                      {isSale ? (
+                        <>
+                          <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+                            <strong style={{ color: "var(--text)" }}>Aylık Motor Satış Taksiti</strong>
+                            <br />
+                            {formatCurrency(parsedMonthlyDeduction || parsedSalePrice)}
+                          </div>
+                          <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+                            <strong style={{ color: "var(--text)" }}>Taahhüt</strong>
+                            <br />
+                            {parsedCommitmentMonths || 0} ay
+                          </div>
+                          <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+                            <strong style={{ color: "var(--text)" }}>Motor Kirası</strong>
+                            <br />
+                            Uygulanmaz
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                    <div style={{ color: "var(--muted)", lineHeight: 1.7, fontSize: "0.92rem" }}>
+                      Bu özet yalnızca referans amaçlıdır. Motor kira ve motor satış kesintilerini bu kurala göre manuel girebilirsin.
+                    </div>
+                  </section>
                 ) : null}
 
                 <label style={{ display: "grid", gap: "8px" }}>
