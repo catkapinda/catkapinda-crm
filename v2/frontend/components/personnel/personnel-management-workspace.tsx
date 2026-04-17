@@ -503,14 +503,14 @@ export function PersonnelManagementWorkspace() {
           <div
             style={{
               display: "grid",
-              gap: "10px",
+              gap: "8px",
             }}
           >
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "minmax(0, 1.6fr) minmax(260px, 320px)",
-                gap: "12px",
+                gap: "10px",
                 alignItems: "start",
               }}
             >
@@ -616,7 +616,7 @@ export function PersonnelManagementWorkspace() {
                     value={editNotes}
                     onChange={(event) => setEditNotes(event.target.value)}
                     rows={2}
-                    style={{ ...fieldStyle, resize: "vertical", minHeight: "72px" }}
+                    style={{ ...fieldStyle, resize: "vertical", minHeight: "60px" }}
                   />
                 </label>
 
@@ -624,7 +624,7 @@ export function PersonnelManagementWorkspace() {
                   type="submit"
                   disabled={isPending || detailLoading}
                   style={{
-                    padding: "10px 14px",
+                    padding: "10px 12px",
                     borderRadius: "12px",
                     border: "none",
                     background: "var(--accent)",
@@ -644,7 +644,7 @@ export function PersonnelManagementWorkspace() {
                         canToggleStatus && canDeletePersonnel
                           ? "repeat(2, minmax(0, 1fr))"
                           : "minmax(0, 1fr)",
-                      gap: "10px",
+                      gap: "8px",
                     }}
                   >
                     {canToggleStatus ? (
@@ -666,8 +666,8 @@ export function PersonnelManagementWorkspace() {
               <aside
                 style={{
                   display: "grid",
-                  gap: "10px",
-                  padding: "14px",
+                  gap: "8px",
+                  padding: "12px",
                   borderRadius: "18px",
                   border: "1px solid var(--line)",
                   background: "rgba(244, 248, 255, 0.9)",

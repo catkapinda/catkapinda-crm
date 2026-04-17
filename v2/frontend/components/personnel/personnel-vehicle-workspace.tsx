@@ -596,8 +596,8 @@ export function PersonnelVehicleWorkspace() {
                   <section
                     style={{
                       display: "grid",
-                      gap: "12px",
-                      padding: "14px 16px",
+                      gap: "10px",
+                      padding: "12px 14px",
                       borderRadius: "18px",
                       border: "1px solid rgba(95, 118, 152, 0.12)",
                       background: "rgba(244,247,252,0.9)",
@@ -608,7 +608,7 @@ export function PersonnelVehicleWorkspace() {
                       style={{
                         display: "grid",
                         gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                        gap: "10px",
+                        gap: "8px",
                       }}
                     >
                       {isRental ? (
@@ -649,8 +649,8 @@ export function PersonnelVehicleWorkspace() {
                   <textarea
                     value={notes}
                     onChange={(event) => setNotes(event.target.value)}
-                    rows={3}
-                    style={{ ...fieldStyle, resize: "vertical" }}
+                    rows={2}
+                    style={{ ...fieldStyle, resize: "vertical", minHeight: "60px" }}
                     placeholder="Örn. yeni kira planı, motor satış geçişi, geçici iade"
                   />
                 </label>
@@ -697,22 +697,22 @@ export function PersonnelVehicleWorkspace() {
                     style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                      gap: "12px",
+                      gap: "8px",
                     }}
                   >
-                    <div style={{ padding: "12px 14px", borderRadius: "16px", background: "rgba(244,247,252,0.9)" }}>
+                    <div style={{ padding: "10px 12px", borderRadius: "16px", background: "rgba(244,247,252,0.9)" }}>
                       <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>Güncel plaka</div>
                       <div style={{ marginTop: "6px", fontWeight: 800 }}>{selectedPerson.current_plate || "-"}</div>
                     </div>
-                    <div style={{ padding: "12px 14px", borderRadius: "16px", background: "rgba(244,247,252,0.9)" }}>
+                    <div style={{ padding: "10px 12px", borderRadius: "16px", background: "rgba(244,247,252,0.9)" }}>
                       <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>Aylık kira</div>
                       <div style={{ marginTop: "6px", fontWeight: 800 }}>{formatCurrency(selectedPerson.motor_rental_monthly_amount)}</div>
                     </div>
-                    <div style={{ padding: "12px 14px", borderRadius: "16px", background: "rgba(244,247,252,0.9)" }}>
+                    <div style={{ padding: "10px 12px", borderRadius: "16px", background: "rgba(244,247,252,0.9)" }}>
                       <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>Satış kesintisi</div>
                       <div style={{ marginTop: "6px", fontWeight: 800 }}>{formatCurrency(selectedPerson.motor_purchase_monthly_deduction)}</div>
                     </div>
-                    <div style={{ padding: "12px 14px", borderRadius: "16px", background: "rgba(244,247,252,0.9)" }}>
+                    <div style={{ padding: "10px 12px", borderRadius: "16px", background: "rgba(244,247,252,0.9)" }}>
                       <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>Taahhüt ayı</div>
                       <div style={{ marginTop: "6px", fontWeight: 800 }}>{selectedPerson.motor_purchase_commitment_months || 0}</div>
                     </div>
@@ -725,12 +725,12 @@ export function PersonnelVehicleWorkspace() {
                       <article
                         key={entry.id}
                         style={{
-                          padding: "14px 16px",
+                          padding: "12px 14px",
                           borderRadius: "18px",
                           border: "1px solid var(--line)",
                           background: "rgba(250,248,243,0.92)",
                           display: "grid",
-                          gap: "8px",
+                          gap: "6px",
                         }}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
@@ -749,7 +749,7 @@ export function PersonnelVehicleWorkspace() {
                   ) : (
                     <div
                       style={{
-                        padding: "14px 16px",
+                        padding: "12px 14px",
                         borderRadius: "18px",
                         border: "1px dashed var(--line)",
                         color: "var(--muted)",

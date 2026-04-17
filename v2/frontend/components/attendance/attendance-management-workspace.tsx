@@ -1132,6 +1132,7 @@ export function AttendanceManagementWorkspace() {
                     style={{
                       ...fieldStyle,
                       resize: "vertical",
+                      minHeight: "60px",
                     }}
                   />
                 </label>
@@ -1141,10 +1142,9 @@ export function AttendanceManagementWorkspace() {
 
                 <div
                   style={{
-                    display: "flex",
-                    gap: "10px",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: "8px",
                   }}
                 >
                   <button
