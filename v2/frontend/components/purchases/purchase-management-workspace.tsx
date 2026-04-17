@@ -434,8 +434,8 @@ export function PurchaseManagementWorkspace() {
             onSubmit={handleSubmit}
             style={{
               display: "grid",
-              gap: "10px",
-              padding: "14px",
+              gap: "8px",
+              padding: "12px",
               borderRadius: "18px",
               border: "1px solid var(--line)",
               background: "rgba(255, 255, 255, 0.86)",
@@ -451,12 +451,12 @@ export function PurchaseManagementWorkspace() {
           {selectedEntry && !detailLoading ? (
             <div
               style={{
-                padding: "12px 14px",
+                padding: "10px 12px",
                 borderRadius: "14px",
                 border: "1px solid var(--line)",
                 background: "rgba(15, 95, 215, 0.04)",
                 display: "grid",
-                gap: "8px",
+                gap: "6px",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
@@ -466,8 +466,8 @@ export function PurchaseManagementWorkspace() {
               <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                    gap: "8px",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                    gap: "6px",
                   }}
                 >
                 <div>
@@ -577,7 +577,7 @@ export function PurchaseManagementWorkspace() {
                   value={editNotes}
                   onChange={(event) => setEditNotes(event.target.value)}
                   rows={2}
-                  style={{ ...fieldStyle, resize: "vertical", minHeight: "72px" }}
+                  style={{ ...fieldStyle, resize: "vertical", minHeight: "60px" }}
                 />
               </label>
             </>
@@ -615,8 +615,8 @@ export function PurchaseManagementWorkspace() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "10px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: "8px",
             }}
           >
             <button
@@ -625,7 +625,7 @@ export function PurchaseManagementWorkspace() {
               style={{
                 border: "none",
                 borderRadius: "12px",
-                padding: "10px 14px",
+                padding: "10px 12px",
                 background: "linear-gradient(135deg, #0f5fd7, #1a73e8)",
                 color: "white",
                 fontWeight: 800,
@@ -643,7 +643,7 @@ export function PurchaseManagementWorkspace() {
               style={{
                 border: "1px solid rgba(205, 70, 66, 0.18)",
                 borderRadius: "12px",
-                padding: "10px 14px",
+                padding: "10px 12px",
                 background: "rgba(205, 70, 66, 0.08)",
                 color: "#b53632",
                 fontWeight: 800,

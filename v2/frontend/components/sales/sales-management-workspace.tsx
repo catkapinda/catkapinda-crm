@@ -532,12 +532,12 @@ export function SalesManagementWorkspace() {
           <form onSubmit={handleSubmit} style={{ display: "grid", gap: "10px" }}>
           <div
             style={{
-              padding: "14px",
+              padding: "12px",
               borderRadius: "16px",
               border: "1px solid var(--line)",
               background: "rgba(255, 255, 255, 0.82)",
               display: "grid",
-              gap: "8px",
+              gap: "6px",
             }}
           >
             <div style={{ fontSize: "0.82rem", letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--accent)", fontWeight: 800 }}>
@@ -556,8 +556,8 @@ export function SalesManagementWorkspace() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                    gap: "8px",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                    gap: "6px",
                   }}
                 >
                   <div>
@@ -631,6 +631,7 @@ export function SalesManagementWorkspace() {
           </div>
 
           <textarea value={editAddress} onChange={(event) => setEditAddress(event.target.value)} rows={2} placeholder="Adres" style={{ ...fieldStyle, resize: "vertical" }} />
+          
 
           <div
             style={{
@@ -691,7 +692,13 @@ export function SalesManagementWorkspace() {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: "8px",
+            }}
+          >
             <button
               type="submit"
               disabled={isPending || detailLoading}
@@ -699,7 +706,7 @@ export function SalesManagementWorkspace() {
                 appearance: "none",
                 border: "none",
                 borderRadius: "12px",
-                padding: "10px 14px",
+                padding: "10px 12px",
                 background: "linear-gradient(135deg, #0f5fd7, #2563eb)",
                 color: "white",
                 fontWeight: 800,
@@ -718,7 +725,7 @@ export function SalesManagementWorkspace() {
                 appearance: "none",
                 border: "1px solid rgba(205, 70, 66, 0.2)",
                 borderRadius: "12px",
-                padding: "10px 14px",
+                padding: "10px 12px",
                 background: "rgba(205, 70, 66, 0.08)",
                 color: "#b53632",
                 fontWeight: 800,
