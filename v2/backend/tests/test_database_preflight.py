@@ -39,6 +39,7 @@ class FakeConnection:
         sequence_privileges: dict[str, dict[str, bool]],
         data_health_counts: dict[str, int],
         latest_dates: dict[str, str | None],
+        relation_health_counts: dict[str, int],
     ):
         self.present_tables = present_tables
         self.row_counts = row_counts
@@ -48,6 +49,7 @@ class FakeConnection:
         self.sequence_privileges = sequence_privileges
         self.data_health_counts = data_health_counts
         self.latest_dates = latest_dates
+        self.relation_health_counts = relation_health_counts
 
     def __enter__(self):
         return self
@@ -117,6 +119,39 @@ class FakeConnection:
         if normalized == "SELECT MAX(issue_date) AS latest_value FROM courier_equipment_issues":
             return FakeCursor({"latest_value": self.latest_dates.get("courier_equipment_issues")})
 
+        relation_query_map = {
+            (
+                "SELECT COUNT(*) AS count FROM personnel p LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id "
+                "WHERE p.assigned_restaurant_id IS NOT NULL AND r.id IS NULL"
+            ): "personnel_restaurant_orphans",
+            (
+                "SELECT COUNT(*) AS count FROM daily_entries d LEFT JOIN restaurants r ON r.id = d.restaurant_id "
+                "WHERE d.restaurant_id IS NOT NULL AND r.id IS NULL"
+            ): "attendance_restaurant_orphans",
+            (
+                "SELECT COUNT(*) AS count FROM daily_entries d LEFT JOIN personnel p ON p.id = d.planned_personnel_id "
+                "WHERE d.planned_personnel_id IS NOT NULL AND p.id IS NULL"
+            ): "attendance_planned_personnel_orphans",
+            (
+                "SELECT COUNT(*) AS count FROM daily_entries d LEFT JOIN personnel p ON p.id = d.actual_personnel_id "
+                "WHERE d.actual_personnel_id IS NOT NULL AND p.id IS NULL"
+            ): "attendance_actual_personnel_orphans",
+            (
+                "SELECT COUNT(*) AS count FROM deductions d LEFT JOIN personnel p ON p.id = d.personnel_id "
+                "WHERE d.personnel_id IS NOT NULL AND p.id IS NULL"
+            ): "deduction_personnel_orphans",
+            (
+                "SELECT COUNT(*) AS count FROM courier_equipment_issues i LEFT JOIN personnel p ON p.id = i.personnel_id "
+                "WHERE i.personnel_id IS NOT NULL AND p.id IS NULL"
+            ): "equipment_personnel_orphans",
+            (
+                "SELECT COUNT(*) AS count FROM box_returns b LEFT JOIN personnel p ON p.id = b.personnel_id "
+                "WHERE b.personnel_id IS NOT NULL AND p.id IS NULL"
+            ): "box_return_personnel_orphans",
+        }
+        if normalized in relation_query_map:
+            return FakeCursor({"count": self.relation_health_counts.get(relation_query_map[normalized], 0)})
+
         if normalized.startswith("SELECT COUNT(*) AS count FROM "):
             table_name = normalized.removeprefix("SELECT COUNT(*) AS count FROM ").strip()
             return FakeCursor({"count": self.row_counts.get(table_name, 0)})
@@ -144,6 +179,7 @@ def connect_factory(
     sequence_privileges: dict[str, dict[str, bool]] | None = None,
     data_health_counts: dict[str, int] | None = None,
     latest_dates: dict[str, str | None] | None = None,
+    relation_health_counts: dict[str, int] | None = None,
 ):
     resolved_columns = table_columns or _default_columns_for_tables(present_tables)
     resolved_privileges = table_privileges or {
@@ -178,6 +214,15 @@ def connect_factory(
         "sales_leads": "2026-04-17" if row_counts.get("sales_leads", 0) else None,
         "courier_equipment_issues": "2026-04-17" if row_counts.get("courier_equipment_issues", 0) else None,
     }
+    resolved_relation_health = relation_health_counts or {
+        "personnel_restaurant_orphans": 0,
+        "attendance_restaurant_orphans": 0,
+        "attendance_planned_personnel_orphans": 0,
+        "attendance_actual_personnel_orphans": 0,
+        "deduction_personnel_orphans": 0,
+        "equipment_personnel_orphans": 0,
+        "box_return_personnel_orphans": 0,
+    }
 
     def _connect(*args, **kwargs):
         return FakeConnection(
@@ -189,6 +234,7 @@ def connect_factory(
             sequence_privileges=resolved_sequence_privileges,
             data_health_counts=resolved_health_counts,
             latest_dates=resolved_latest_dates,
+            relation_health_counts=resolved_relation_health,
         )
 
     return _connect
@@ -224,6 +270,7 @@ def test_build_database_preflight_report_passes_when_required_tables_exist():
     assert report["database_url_masked"] == "postgresql://user:***@db.example.com:5432/postgres?sslmode=require"
     assert all(not entry["missing_columns"] for entry in report["required_tables"])
     assert report["data_health"]["latest_attendance_date"] == "2026-04-17"
+    assert report["relation_health"]["personnel_restaurant_orphans"] == 0
     assert any("bootstrap" in item.lower() for item in report["warnings"])
 
 
@@ -453,6 +500,41 @@ def test_build_database_preflight_report_marks_cutover_unready_when_attendance_i
     assert report["cutover_ready"] is False
     assert any("Gunluk puantaj verisi eski gorunuyor" in item for item in report["cutover_blocking_items"])
     assert report["cutover_recommended_next_step"].startswith("Canli domaine gecmeden once")
+
+
+def test_build_database_preflight_report_marks_cutover_unready_when_relation_health_is_broken():
+    present_tables = {name for name, _ in database_preflight.REQUIRED_TABLES}
+    report = database_preflight.build_database_preflight_report(
+        database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
+        connect_fn=connect_factory(
+            present_tables,
+            {
+                "restaurants": 12,
+                "personnel": 54,
+                "daily_entries": 3200,
+                "deductions": 88,
+                "inventory_purchases": 14,
+                "sales_leads": 7,
+                "courier_equipment_issues": 9,
+                "box_returns": 2,
+            },
+            relation_health_counts={
+                "personnel_restaurant_orphans": 2,
+                "attendance_restaurant_orphans": 0,
+                "attendance_planned_personnel_orphans": 1,
+                "attendance_actual_personnel_orphans": 0,
+                "deduction_personnel_orphans": 0,
+                "equipment_personnel_orphans": 0,
+                "box_return_personnel_orphans": 0,
+            },
+        ),
+        reference_date=date(2026, 4, 17),
+    )
+
+    assert report["passed"] is True
+    assert report["cutover_ready"] is False
+    assert "Personel -> restoran iliskisinde 2 kopuk kayit var." in report["cutover_blocking_items"]
+    assert "Puantaj -> planli personel iliskisinde 1 kopuk kayit var." in report["cutover_blocking_items"]
 
 
 def test_build_database_preflight_report_rejects_placeholder_database_url():

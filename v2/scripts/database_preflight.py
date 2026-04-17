@@ -494,6 +494,120 @@ def _build_data_health(conn: psycopg.Connection, *, reference_date: date) -> tup
     )
 
 
+def _build_relation_health(conn: psycopg.Connection) -> tuple[dict[str, int], list[str]]:
+    relation_counts = {
+        "personnel_restaurant_orphans": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM personnel p
+                LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+                WHERE p.assigned_restaurant_id IS NOT NULL
+                  AND r.id IS NULL
+                """,
+            )
+            or 0
+        ),
+        "attendance_restaurant_orphans": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM daily_entries d
+                LEFT JOIN restaurants r ON r.id = d.restaurant_id
+                WHERE d.restaurant_id IS NOT NULL
+                  AND r.id IS NULL
+                """,
+            )
+            or 0
+        ),
+        "attendance_planned_personnel_orphans": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM daily_entries d
+                LEFT JOIN personnel p ON p.id = d.planned_personnel_id
+                WHERE d.planned_personnel_id IS NOT NULL
+                  AND p.id IS NULL
+                """,
+            )
+            or 0
+        ),
+        "attendance_actual_personnel_orphans": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM daily_entries d
+                LEFT JOIN personnel p ON p.id = d.actual_personnel_id
+                WHERE d.actual_personnel_id IS NOT NULL
+                  AND p.id IS NULL
+                """,
+            )
+            or 0
+        ),
+        "deduction_personnel_orphans": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM deductions d
+                LEFT JOIN personnel p ON p.id = d.personnel_id
+                WHERE d.personnel_id IS NOT NULL
+                  AND p.id IS NULL
+                """,
+            )
+            or 0
+        ),
+        "equipment_personnel_orphans": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM courier_equipment_issues i
+                LEFT JOIN personnel p ON p.id = i.personnel_id
+                WHERE i.personnel_id IS NOT NULL
+                  AND p.id IS NULL
+                """,
+            )
+            or 0
+        ),
+        "box_return_personnel_orphans": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM box_returns b
+                LEFT JOIN personnel p ON p.id = b.personnel_id
+                WHERE b.personnel_id IS NOT NULL
+                  AND p.id IS NULL
+                """,
+            )
+            or 0
+        ),
+    }
+
+    cutover_blocking_items: list[str] = []
+    relation_labels = {
+        "personnel_restaurant_orphans": "Personel -> restoran",
+        "attendance_restaurant_orphans": "Puantaj -> restoran",
+        "attendance_planned_personnel_orphans": "Puantaj -> planli personel",
+        "attendance_actual_personnel_orphans": "Puantaj -> fiili personel",
+        "deduction_personnel_orphans": "Kesinti -> personel",
+        "equipment_personnel_orphans": "Ekipman -> personel",
+        "box_return_personnel_orphans": "Box iade -> personel",
+    }
+    for key, count in relation_counts.items():
+        if count > 0:
+            cutover_blocking_items.append(
+                f"{relation_labels[key]} iliskisinde {count} kopuk kayit var."
+            )
+
+    return relation_counts, cutover_blocking_items
+
+
 def _inspect_group(
     conn: psycopg.Connection,
     table_specs: tuple[tuple[str, str], ...],
@@ -649,6 +763,7 @@ def build_database_preflight_report(
             conn,
             reference_date=effective_reference_date,
         )
+        relation_health, relation_blocking_items = _build_relation_health(conn)
 
     warnings: list[str] = []
     row_count_map = {entry["table"]: entry["row_count"] for entry in required_entries if entry["present"]}
@@ -690,6 +805,8 @@ def build_database_preflight_report(
             cutover_blocking_items.append(message)
         else:
             warnings.append(message)
+
+    cutover_blocking_items.extend(relation_blocking_items)
 
     blocking_items = [f"`{table_name}` tablosu eksik." for table_name in required_missing]
     blocking_items.extend(
@@ -766,6 +883,7 @@ def build_database_preflight_report(
         "required_missing_sequence_privileges": required_missing_sequence_privileges,
         "bootstrap_missing_sequence_privileges": bootstrap_missing_sequence_privileges,
         "data_health": data_health,
+        "relation_health": relation_health,
         "blocking_items": blocking_items,
         "cutover_blocking_items": cutover_blocking_items,
         "warnings": warnings,
@@ -845,6 +963,20 @@ def render_report_text(report: dict[str, object]) -> str:
     lines.extend(
         [f"- {item}" for item in report.get("cutover_blocking_items") or []]
         or ["- Cutover blokaji yok"]
+    )
+    relation_health = report.get("relation_health") if isinstance(report.get("relation_health"), dict) else {}
+    lines.extend(
+        [
+            "",
+            "Relation Health:",
+            f"- Personnel -> Restaurant Orphans: {relation_health.get('personnel_restaurant_orphans', '-')}",
+            f"- Attendance -> Restaurant Orphans: {relation_health.get('attendance_restaurant_orphans', '-')}",
+            f"- Attendance -> Planned Personnel Orphans: {relation_health.get('attendance_planned_personnel_orphans', '-')}",
+            f"- Attendance -> Actual Personnel Orphans: {relation_health.get('attendance_actual_personnel_orphans', '-')}",
+            f"- Deduction -> Personnel Orphans: {relation_health.get('deduction_personnel_orphans', '-')}",
+            f"- Equipment -> Personnel Orphans: {relation_health.get('equipment_personnel_orphans', '-')}",
+            f"- Box Return -> Personnel Orphans: {relation_health.get('box_return_personnel_orphans', '-')}",
+        ]
     )
     lines.extend(["", f"Recommended Next Step: {report['recommended_next_step']}"])
     lines.append(f"Cutover Next Step: {report.get('cutover_recommended_next_step') or '-'}")
