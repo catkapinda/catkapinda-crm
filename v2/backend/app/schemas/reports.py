@@ -63,6 +63,20 @@ class ReportTopCourierEntry(BaseModel):
     cost_model: str
 
 
+class ReportProfitEntry(BaseModel):
+    restaurant: str
+    pricing_model: str
+    total_hours: float
+    total_packages: float
+    net_invoice: float
+    gross_invoice: float
+    direct_personnel_cost: float
+    shared_overhead_cost: float
+    total_personnel_cost: float
+    gross_profit: float
+    profit_margin_percent: float
+
+
 class ReportsCoverageSummary(BaseModel):
     covered_restaurant_count: int
     operational_restaurant_count: int
@@ -110,6 +124,7 @@ class ReportsDashboardResponse(BaseModel):
     summary: ReportsSummary | None
     invoice_entries: list[ReportInvoiceEntry]
     cost_entries: list[ReportCostEntry]
+    profit_entries: list[ReportProfitEntry]
     model_breakdown: list[ReportModelBreakdownEntry]
     top_restaurants: list[ReportTopRestaurantEntry]
     top_couriers: list[ReportTopCourierEntry]

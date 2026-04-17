@@ -39,6 +39,19 @@ type ReportsDashboard = {
     net_cost: number;
     cost_model: string;
   }>;
+  profit_entries: Array<{
+    restaurant: string;
+    pricing_model: string;
+    total_hours: number;
+    total_packages: number;
+    net_invoice: number;
+    gross_invoice: number;
+    direct_personnel_cost: number;
+    shared_overhead_cost: number;
+    total_personnel_cost: number;
+    gross_profit: number;
+    profit_margin_percent: number;
+  }>;
   model_breakdown: Array<{
     pricing_model: string;
     restaurant_count: number;
@@ -354,6 +367,7 @@ export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [invoiceQuery, setInvoiceQuery] = useState("");
   const [costQuery, setCostQuery] = useState("");
+  const [profitQuery, setProfitQuery] = useState("");
   const [exportMessage, setExportMessage] = useState("");
   const [exportError, setExportError] = useState("");
 
@@ -567,6 +581,17 @@ export default function ReportsPage() {
     );
   }, [dashboard?.cost_entries, costQuery]);
 
+  const filteredProfitEntries = useMemo(() => {
+    const rows = dashboard?.profit_entries ?? [];
+    const query = profitQuery.trim().toLocaleLowerCase("tr-TR");
+    if (!query) {
+      return rows;
+    }
+    return rows.filter((row) =>
+      `${row.restaurant} ${row.pricing_model}`.toLocaleLowerCase("tr-TR").includes(query),
+    );
+  }, [dashboard?.profit_entries, profitQuery]);
+
   function downloadInvoiceCsv() {
     if (!filteredInvoiceEntries.length) {
       setExportError("Dışa aktarmak için önce görünür fatura kaydı oluşmalı.");
@@ -620,6 +645,50 @@ export default function ReportsPage() {
     );
     setExportError("");
     setExportMessage("Kurye maliyeti tablosu indirildi.");
+  }
+
+  function downloadProfitCsv() {
+    if (!filteredProfitEntries.length) {
+      setExportError("Dışa aktarmak için önce görünür kârlılık satırı oluşmalı.");
+      setExportMessage("");
+      return;
+    }
+    const headers = [
+      "Şube",
+      "Model",
+      "Toplam Saat",
+      "Toplam Paket",
+      "KDV Hariç",
+      "KDV Dahil",
+      "Doğrudan Personel Maliyeti",
+      "Ortak Operasyon Payı",
+      "Toplam Personel Maliyeti",
+      "Brüt Fark",
+      "Kâr Marjı",
+    ];
+    const rows = filteredProfitEntries.map((entry) => [
+      entry.restaurant,
+      entry.pricing_model,
+      String(entry.total_hours),
+      String(entry.total_packages),
+      String(entry.net_invoice),
+      String(entry.gross_invoice),
+      String(entry.direct_personnel_cost),
+      String(entry.shared_overhead_cost),
+      String(entry.total_personnel_cost),
+      String(entry.gross_profit),
+      String(entry.profit_margin_percent),
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const month = dashboard?.selected_month || selectedMonth || "rapor";
+    triggerBrowserDownload(
+      new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" }),
+      `catkapinda_restoran_karliligi_${month}.csv`,
+    );
+    setExportError("");
+    setExportMessage("Restoran kârlılığı tablosu indirildi.");
   }
 
   return (
@@ -983,6 +1052,23 @@ export default function ReportsPage() {
                 >
                   Kurye maliyetini indir
                 </button>
+                <button
+                  type="button"
+                  onClick={downloadProfitCsv}
+                  disabled={!filteredProfitEntries.length}
+                  style={{
+                    padding: "12px 16px",
+                    borderRadius: "14px",
+                    border: "1px solid rgba(34,102,60,0.18)",
+                    background: "rgba(34,102,60,0.1)",
+                    color: "#22663c",
+                    fontWeight: 800,
+                    cursor: filteredProfitEntries.length ? "pointer" : "not-allowed",
+                    opacity: filteredProfitEntries.length ? 1 : 0.6,
+                  }}
+                >
+                  Restoran kârlılığını indir
+                </button>
               </div>
             </div>
             {exportError ? (
@@ -1199,6 +1285,58 @@ export default function ReportsPage() {
                 </table>
               </ScrollCard>
             </div>
+
+            <ScrollCard
+              title="Restoran Kârlılığı"
+              subtitle="Fatura ile doğrudan personel ve ortak operasyon yükünü aynı satırda okuyup gerçek şube farkını gör."
+              actions={
+                <input
+                  value={profitQuery}
+                  onChange={(event) => setProfitQuery(event.target.value)}
+                  placeholder="Şube veya model ara"
+                  style={{
+                    minWidth: "220px",
+                    padding: "12px 14px",
+                    borderRadius: "14px",
+                    border: "1px solid var(--line)",
+                    background: "rgba(255,255,255,0.96)",
+                    color: "var(--text)",
+                  }}
+                />
+              }
+            >
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                }}
+              >
+                <thead>
+                  <tr>
+                    {[
+                      "Şube",
+                      "KDV Dahil",
+                      "Doğrudan Maliyet",
+                      "Ortak Operasyon",
+                      "Brüt Fark",
+                      "Kâr Marjı",
+                    ].map(tableHeaderCell)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProfitEntries.map((row) => (
+                    <tr key={`${row.restaurant}-${row.pricing_model}`}>
+                      {tableCell(row.restaurant)}
+                      {tableCell(formatMoney(row.gross_invoice), "right")}
+                      {tableCell(formatMoney(row.direct_personnel_cost), "right")}
+                      {tableCell(formatMoney(row.shared_overhead_cost), "right")}
+                      {tableCell(formatMoney(row.gross_profit), "right")}
+                      {tableCell(`%${formatNumber(row.profit_margin_percent, 1)}`, "right")}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollCard>
 
             <div
               style={{

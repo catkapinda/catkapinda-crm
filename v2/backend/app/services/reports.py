@@ -12,6 +12,7 @@ from app.schemas.reports import (
     ReportDistributionEntry,
     ReportInvoiceEntry,
     ReportModelBreakdownEntry,
+    ReportProfitEntry,
     ReportSharedOverheadEntry,
     ReportSideIncomeEntry,
     ReportSideIncomeSnapshot,
@@ -126,6 +127,7 @@ def build_reports_dashboard(
             summary=None,
             invoice_entries=[],
             cost_entries=[],
+            profit_entries=[],
             model_breakdown=[],
             top_restaurants=[],
             top_couriers=[],
@@ -163,6 +165,23 @@ def build_reports_dashboard(
         )
         for _, row in payload.cost_df.head(limit).iterrows()
     ] if not payload.cost_df.empty else []
+
+    profit_entries = [
+        ReportProfitEntry(
+            restaurant=str(row.get("restoran") or "-"),
+            pricing_model=str(row.get("model") or "-"),
+            total_hours=_safe_float(row.get("saat")),
+            total_packages=_safe_float(row.get("paket")),
+            net_invoice=_safe_float(row.get("kdv_haric")),
+            gross_invoice=_safe_float(row.get("kdv_dahil")),
+            direct_personnel_cost=_safe_float(row.get("dogrudan_personel_maliyeti")),
+            shared_overhead_cost=_safe_float(row.get("paylasilan_yonetim_maliyeti")),
+            total_personnel_cost=_safe_float(row.get("toplam_personel_maliyeti")),
+            gross_profit=_safe_float(row.get("brut_fark")),
+            profit_margin_percent=_safe_float(row.get("kar_marji_%")),
+        )
+        for _, row in payload.profit_df.sort_values("brut_fark", ascending=False).head(limit).iterrows()
+    ] if not payload.profit_df.empty else []
 
     model_breakdown = []
     if not payload.invoice_df.empty:
@@ -266,6 +285,7 @@ def build_reports_dashboard(
         summary=summary,
         invoice_entries=invoice_entries,
         cost_entries=cost_entries,
+        profit_entries=profit_entries,
         model_breakdown=model_breakdown,
         top_restaurants=top_restaurants,
         top_couriers=top_couriers,
@@ -309,6 +329,7 @@ def _build_local_reports_dashboard(
             summary=None,
             invoice_entries=[],
             cost_entries=[],
+            profit_entries=[],
             model_breakdown=[],
             top_restaurants=[],
             top_couriers=[],
@@ -612,6 +633,39 @@ def _build_local_reports_dashboard(
     side_income_net = sum(row.net_profit for row in side_income_entries)
     total_revenue = sum(row.gross_invoice for row in all_invoice_entries)
     total_personnel_cost = sum(row.net_cost for row in all_cost_entries)
+    shared_overhead_per_restaurant = sum(entry.share_per_restaurant for entry in shared_overhead_entries)
+    profit_entries: list[ReportProfitEntry] = []
+    for row in all_invoice_entries:
+        direct_personnel_cost = sum(
+            entry.allocated_cost
+            for entry in distribution_entries
+            if entry.restaurant == row.restaurant
+        )
+        shared_overhead_cost = shared_overhead_per_restaurant if operational_restaurant_count > 0 else 0.0
+        total_personnel_cost_for_restaurant = direct_personnel_cost + shared_overhead_cost
+        gross_profit_for_restaurant = row.gross_invoice - total_personnel_cost_for_restaurant
+        profit_margin_percent = (
+            (gross_profit_for_restaurant / row.gross_invoice) * 100
+            if row.gross_invoice > 0
+            else 0.0
+        )
+        profit_entries.append(
+            ReportProfitEntry(
+                restaurant=row.restaurant,
+                pricing_model=row.pricing_model,
+                total_hours=row.total_hours,
+                total_packages=row.total_packages,
+                net_invoice=row.net_invoice,
+                gross_invoice=row.gross_invoice,
+                direct_personnel_cost=direct_personnel_cost,
+                shared_overhead_cost=shared_overhead_cost,
+                total_personnel_cost=total_personnel_cost_for_restaurant,
+                gross_profit=gross_profit_for_restaurant,
+                profit_margin_percent=profit_margin_percent,
+            )
+        )
+    profit_entries.sort(key=lambda item: item.gross_profit, reverse=True)
+
     summary = ReportsSummary(
         selected_month=resolved_month,
         restaurant_count=len(all_invoice_entries),
@@ -632,6 +686,7 @@ def _build_local_reports_dashboard(
         summary=summary,
         invoice_entries=invoice_entries,
         cost_entries=cost_entries,
+        profit_entries=profit_entries[:limit],
         model_breakdown=model_breakdown,
         top_restaurants=[
             ReportTopRestaurantEntry(

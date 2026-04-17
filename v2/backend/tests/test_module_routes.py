@@ -1080,6 +1080,21 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
                     "cost_model": "Saatlik + Paket",
                 }
             ],
+            "profit_entries": [
+                {
+                    "restaurant": "Burger@ - Kavacik",
+                    "pricing_model": "Hacimsiz Primli",
+                    "total_hours": 410.0,
+                    "total_packages": 1330.0,
+                    "net_invoice": 210000.0,
+                    "gross_invoice": 252000.0,
+                    "direct_personnel_cost": 148000.0,
+                    "shared_overhead_cost": 18000.0,
+                    "total_personnel_cost": 166000.0,
+                    "gross_profit": 86000.0,
+                    "profit_margin_percent": 34.1,
+                }
+            ],
             "model_breakdown": [
                 {
                     "pricing_model": "Hacimsiz Primli",
@@ -1174,6 +1189,7 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
     assert box_returns.json()["entries"][0]["condition_status"] == "Saglam"
     assert reports_dashboard.status_code == 200
     assert reports_dashboard.json()["summary"]["gross_profit"] == 530000.0
+    assert reports_dashboard.json()["profit_entries"][0]["gross_profit"] == 86000.0
     assert reports_dashboard.json()["coverage"]["operational_restaurant_count"] == 21
     assert reports_dashboard.json()["shared_overhead_entries"][0]["role"] == "Joker"
     assert reports_dashboard.json()["side_income_snapshot"]["utts_fuel_discount_amount"] == 18000.0

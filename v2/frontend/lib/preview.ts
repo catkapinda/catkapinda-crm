@@ -2247,6 +2247,31 @@ function buildReportsDashboard(month: string | null) {
       net_profit: partnerCardDiscountAmount,
     },
   ];
+  const sharedOverheadPerRestaurant = sharedOverheadEntries.reduce(
+    (total, entry) => total + entry.share_per_restaurant,
+    0,
+  );
+  const profitEntries = invoiceEntries.map((entry) => {
+    const directPersonnelCost = distributionEntries
+      .filter((item) => item?.restaurant === entry.restaurant)
+      .reduce((total, item) => total + (item?.allocated_cost ?? 0), 0);
+    const totalPersonnelCostForRestaurant = directPersonnelCost + sharedOverheadPerRestaurant;
+    const grossProfitForRestaurant = entry.gross_invoice - totalPersonnelCostForRestaurant;
+    return {
+      restaurant: entry.restaurant,
+      pricing_model: entry.pricing_model,
+      total_hours: entry.total_hours,
+      total_packages: entry.total_packages,
+      net_invoice: entry.net_invoice,
+      gross_invoice: entry.gross_invoice,
+      direct_personnel_cost: directPersonnelCost,
+      shared_overhead_cost: sharedOverheadPerRestaurant,
+      total_personnel_cost: totalPersonnelCostForRestaurant,
+      gross_profit: grossProfitForRestaurant,
+      profit_margin_percent:
+        entry.gross_invoice > 0 ? (grossProfitForRestaurant / entry.gross_invoice) * 100 : 0,
+    };
+  });
 
   return {
     module: "reports",
@@ -2266,6 +2291,7 @@ function buildReportsDashboard(month: string | null) {
     },
     invoice_entries: invoiceEntries,
     cost_entries: costEntries,
+    profit_entries: profitEntries,
     model_breakdown: modelBreakdown,
     top_restaurants: [...invoiceEntries].slice(0, 5)
       .map((entry) => ({
