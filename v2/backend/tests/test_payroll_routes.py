@@ -53,6 +53,15 @@ def test_payroll_dashboard_route_returns_breakdown_fields(monkeypatch):
                     "net_payment": 73000.0,
                 }
             ],
+            "role_breakdown": [
+                {
+                    "role": "Kurye",
+                    "personnel_count": 2,
+                    "total_hours": 300.0,
+                    "total_packages": 420.0,
+                    "net_payment": 73000.0,
+                }
+            ],
             "top_personnel": [
                 {
                     "personnel_id": 11,
@@ -80,4 +89,5 @@ def test_payroll_dashboard_route_returns_breakdown_fields(monkeypatch):
     payload = response.json()
     assert payload["status"] == "active"
     assert payload["cost_model_breakdown"][0]["cost_model"] == "Saatlik + Paket"
+    assert payload["role_breakdown"][0]["role"] == "Kurye"
     assert payload["top_personnel"][0]["personnel"] == "Beytullah Belen"

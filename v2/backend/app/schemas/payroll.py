@@ -39,6 +39,14 @@ class PayrollCostModelBreakdownEntry(BaseModel):
     net_payment: float
 
 
+class PayrollRoleBreakdownEntry(BaseModel):
+    role: str
+    personnel_count: int
+    total_hours: float
+    total_packages: float
+    net_payment: float
+
+
 class PayrollTopPersonnelEntry(BaseModel):
     personnel_id: int
     personnel: str
@@ -63,4 +71,5 @@ class PayrollDashboardResponse(BaseModel):
     summary: PayrollSummary | None
     entries: list[PayrollEntry]
     cost_model_breakdown: list[PayrollCostModelBreakdownEntry]
+    role_breakdown: list[PayrollRoleBreakdownEntry]
     top_personnel: list[PayrollTopPersonnelEntry]

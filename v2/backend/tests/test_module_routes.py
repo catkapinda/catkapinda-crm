@@ -227,6 +227,15 @@ def test_payroll_routes_smoke(monkeypatch):
                     "net_payment": 30500.0,
                 }
             ],
+            "role_breakdown": [
+                {
+                    "role": "Kurye",
+                    "personnel_count": 1,
+                    "total_hours": 9.0,
+                    "total_packages": 24.0,
+                    "net_payment": 30500.0,
+                }
+            ],
             "top_personnel": [
                 {
                     "personnel_id": 1,
@@ -256,6 +265,7 @@ def test_payroll_routes_smoke(monkeypatch):
     dashboard_payload = dashboard_response.json()
     assert dashboard_payload["summary"]["net_payment"] == 30500.0
     assert dashboard_payload["entries"][0]["personnel"] == "Mert Kurtuluş"
+    assert dashboard_payload["role_breakdown"][0]["role"] == "Kurye"
 
     assert document_response.status_code == 200
     assert document_response.headers["content-type"] == "application/pdf"

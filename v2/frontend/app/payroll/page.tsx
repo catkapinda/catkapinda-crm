@@ -44,6 +44,13 @@ type PayrollDashboard = {
     total_packages: number;
     net_payment: number;
   }>;
+  role_breakdown: Array<{
+    role: string;
+    personnel_count: number;
+    total_hours: number;
+    total_packages: number;
+    net_payment: number;
+  }>;
   top_personnel: Array<{
     personnel_id: number;
     personnel: string;
@@ -61,6 +68,93 @@ const serifStyle = {
   fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
   letterSpacing: "-0.04em",
 } as const;
+
+function toSafeNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function toSafeString(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+
+function normalizePayrollDashboard(payload: Partial<PayrollDashboard>): PayrollDashboard {
+  const summary =
+    payload.summary && typeof payload.summary === "object"
+      ? {
+          selected_month: toSafeString(payload.summary.selected_month),
+          personnel_count: toSafeNumber(payload.summary.personnel_count),
+          total_hours: toSafeNumber(payload.summary.total_hours),
+          total_packages: toSafeNumber(payload.summary.total_packages),
+          gross_payroll: toSafeNumber(payload.summary.gross_payroll),
+          total_deductions: toSafeNumber(payload.summary.total_deductions),
+          net_payment: toSafeNumber(payload.summary.net_payment),
+        }
+      : null;
+
+  return {
+    module: toSafeString(payload.module, "payroll"),
+    status: toSafeString(payload.status, "active"),
+    month_options: Array.isArray(payload.month_options)
+      ? payload.month_options.map((item) => toSafeString(item)).filter(Boolean)
+      : [],
+    selected_month: typeof payload.selected_month === "string" ? payload.selected_month : null,
+    role_options: Array.isArray(payload.role_options)
+      ? payload.role_options.map((item) => toSafeString(item)).filter(Boolean)
+      : [],
+    restaurant_options: Array.isArray(payload.restaurant_options)
+      ? payload.restaurant_options.map((item) => toSafeString(item)).filter(Boolean)
+      : [],
+    selected_role: toSafeString(payload.selected_role, "Tümü"),
+    selected_restaurant: toSafeString(payload.selected_restaurant, "Tümü"),
+    summary,
+    entries: Array.isArray(payload.entries)
+      ? payload.entries.map((entry) => ({
+          personnel_id: toSafeNumber(entry.personnel_id),
+          personnel: toSafeString(entry.personnel, "-"),
+          role: toSafeString(entry.role, "-"),
+          status: toSafeString(entry.status, "-"),
+          total_hours: toSafeNumber(entry.total_hours),
+          total_packages: toSafeNumber(entry.total_packages),
+          gross_pay: toSafeNumber(entry.gross_pay),
+          total_deductions: toSafeNumber(entry.total_deductions),
+          net_payment: toSafeNumber(entry.net_payment),
+          restaurant_count: toSafeNumber(entry.restaurant_count),
+          cost_model: toSafeString(entry.cost_model, "-"),
+        }))
+      : [],
+    cost_model_breakdown: Array.isArray(payload.cost_model_breakdown)
+      ? payload.cost_model_breakdown.map((row) => ({
+          cost_model: toSafeString(row.cost_model, "-"),
+          personnel_count: toSafeNumber(row.personnel_count),
+          total_hours: toSafeNumber(row.total_hours),
+          total_packages: toSafeNumber(row.total_packages),
+          net_payment: toSafeNumber(row.net_payment),
+        }))
+      : [],
+    role_breakdown: Array.isArray(payload.role_breakdown)
+      ? payload.role_breakdown.map((row) => ({
+          role: toSafeString(row.role, "-"),
+          personnel_count: toSafeNumber(row.personnel_count),
+          total_hours: toSafeNumber(row.total_hours),
+          total_packages: toSafeNumber(row.total_packages),
+          net_payment: toSafeNumber(row.net_payment),
+        }))
+      : [],
+    top_personnel: Array.isArray(payload.top_personnel)
+      ? payload.top_personnel.map((row) => ({
+          personnel_id: toSafeNumber(row.personnel_id),
+          personnel: toSafeString(row.personnel, "-"),
+          role: toSafeString(row.role, "-"),
+          total_hours: toSafeNumber(row.total_hours),
+          total_packages: toSafeNumber(row.total_packages),
+          total_deductions: toSafeNumber(row.total_deductions),
+          net_payment: toSafeNumber(row.net_payment),
+          restaurant_count: toSafeNumber(row.restaurant_count),
+          cost_model: toSafeString(row.cost_model, "-"),
+        }))
+      : [],
+  };
+}
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -355,7 +449,9 @@ export default function PayrollPage() {
           }
           return;
         }
-        const payload = (await response.json()) as PayrollDashboard;
+        const payload = normalizePayrollDashboard(
+          (await response.json()) as Partial<PayrollDashboard>,
+        );
         if (active) {
           setDashboard(payload);
           if (!selectedMonth && payload.selected_month) {
@@ -384,7 +480,7 @@ export default function PayrollPage() {
       return [];
     }
     return [
-      metricCard("Brut Hakediş", formatMoney(dashboard.summary.gross_payroll), `${dashboard.summary.selected_month} toplamı`),
+      metricCard("Brüt Hakediş", formatMoney(dashboard.summary.gross_payroll), `${dashboard.summary.selected_month} toplamı`),
       metricCard("Toplam Kesinti", formatMoney(dashboard.summary.total_deductions), "Ay sonu kesinti toplamı"),
       metricCard("Net Ödeme", formatMoney(dashboard.summary.net_payment), "Hakediş kapanış özeti"),
       metricCard("Personel", formatNumber(dashboard.summary.personnel_count), "Hakediş havuzundaki çalışan"),
@@ -411,9 +507,9 @@ export default function PayrollPage() {
         : 0;
 
     return [
-      metricCard("Saat Basina Net", formatMoney(netPerHour), "Net ödeme / toplam saat"),
-      metricCard("Kurye Basina Net", formatMoney(netPerCourier), "Net ödeme / personel"),
-      metricCard("Kesinti Orani", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / brüt hakediş"),
+      metricCard("Saat Başına Net", formatMoney(netPerHour), "Net ödeme / toplam saat"),
+      metricCard("Kurye Başına Net", formatMoney(netPerCourier), "Net ödeme / personel"),
+      metricCard("Kesinti Oranı", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / brüt hakediş"),
     ];
   }, [dashboard]);
 
@@ -449,16 +545,16 @@ export default function PayrollPage() {
         eyebrow: "En Yüksek Net Ödeme",
         title: topPersonnel ? topPersonnel.personnel : "Ödeme lideri sinyali henüz yok.",
         body: topPersonnel
-          ? `${topPersonnel.role} rolünde ${formatMoney(topPersonnel.net_payment)} net ödeme taşıyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmali.`
+          ? `${topPersonnel.role} rolünde ${formatMoney(topPersonnel.net_payment)} net ödeme taşıyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmalı.`
           : "Personel dağılımı geldikçe bu kart aylık ödeme ağırlığını önde gösterecek.",
         tone: "paper",
       },
       {
-        eyebrow: "Model Yuku",
+        eyebrow: "Model Yükü",
         title: topCostModel ? topCostModel.cost_model : "Model dağılımı sinyali henüz yok.",
         body: topCostModel
-          ? `${formatNumber(topCostModel.personnel_count)} personel ile ${formatMoney(topCostModel.net_payment)} net ödeme yükünü taşıyor. Kurye basina ortalama net ödeme ${formatMoney(netPerCourier)} seviyesinde.`
-          : "Hangi maliyet modelinin yuk tasidigini bu alan hızlı gösterecek.",
+          ? `${formatNumber(topCostModel.personnel_count)} personel ile ${formatMoney(topCostModel.net_payment)} net ödeme yükünü taşıyor. Kurye başına ortalama net ödeme ${formatMoney(netPerCourier)} seviyesinde.`
+          : "Hangi maliyet modelinin yük taşıdığını bu alan hızlı gösterecek.",
         tone: "paper",
       },
     ] as const;
@@ -658,7 +754,7 @@ export default function PayrollPage() {
                   }}
                 >
                   Net ödeme, kesinti, saat ve paket dağılımlarını daha ciddi bir karar
-                  odasina çekiyoruz. Hedefimiz, kapanış öncesi riskleri ve ödeme ağırlığını
+                  odasına çekiyoruz. Hedefimiz, kapanış öncesi riskleri ve ödeme ağırlığını
                   bir bakışta daha doğru hissettirmek.
                 </p>
               </div>
@@ -758,7 +854,7 @@ export default function PayrollPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Payroll Room
+                    Hakediş Masası
                   </div>
                 </div>
                 <select
@@ -864,7 +960,7 @@ export default function PayrollPage() {
                   }}
                 >
                   Bu ekranda önce kesinti baskısını, sonra model yükünü ve en yüksek net
-                  ödeme çıkan isimleri okumak kapanış kararini daha netlestirir.
+                  ödeme çıkan isimleri okumak kapanış kararını daha netleştirir.
                 </div>
               </article>
             </div>
@@ -1068,7 +1164,7 @@ export default function PayrollPage() {
               lineHeight: 1.7,
             }}
           >
-            Hakediş servisine su anda erisilemiyor. Backend hazır oldugunda burada
+            Hakediş servisine şu anda erişilemiyor. Backend hazır olduğunda burada
             aylık ödeme özeti ve bordro dağılımları görünecek.
           </div>
         ) : (
@@ -1113,8 +1209,8 @@ export default function PayrollPage() {
               }}
             >
               <ScrollCard
-                title="Hakediş Ozeti"
-                subtitle="Personel bazli çalışma, kesinti ve net ödeme görünümü. Liste kendi içinde kaydırılabilir."
+                title="Hakediş Özeti"
+                subtitle="Personel bazlı çalışma, kesinti ve net ödeme görünümü. Liste kendi içinde kaydırılabilir."
                 actions={
                   <input
                     value={entryQuery}
@@ -1145,7 +1241,7 @@ export default function PayrollPage() {
                         "Durum",
                         "Saat",
                         "Paket",
-                        "Brut",
+                        "Brüt",
                         "Kesinti",
                         "Net",
                         "Restoran",
@@ -1174,31 +1270,72 @@ export default function PayrollPage() {
 
               <div style={{ display: "grid", gap: "18px" }}>
                 <ScrollCard
-                  title="Maliyet Modeli Dagilimi"
-                  subtitle="Hangi hakediş modelinin ne kadar yuk tasidigini tek bakışta izle."
+                  title="Maliyet Modeli Dağılımı"
+                  subtitle="Hangi hakediş modelinin ne kadar yük taşıdığını tek bakışta izle."
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
-                    {dashboard.cost_model_breakdown.map((row) => (
-                      <article
-                        key={row.cost_model}
-                        style={{
-                          display: "grid",
-                          gap: "8px",
-                          padding: "14px",
-                          borderRadius: "18px",
-                          border: "1px solid rgba(219, 228, 243, 0.8)",
-                          background: "rgba(248, 250, 255, 0.9)",
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                          <strong>{row.cost_model}</strong>
-                          <span style={{ color: "var(--muted)" }}>{formatMoney(row.net_payment)}</span>
-                        </div>
-                        <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
-                          {formatNumber(row.personnel_count)} personel • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
-                        </div>
-                      </article>
-                    ))}
+                    {dashboard.cost_model_breakdown.length ? (
+                      dashboard.cost_model_breakdown.map((row) => (
+                        <article
+                          key={row.cost_model}
+                          style={{
+                            display: "grid",
+                            gap: "8px",
+                            padding: "14px",
+                            borderRadius: "18px",
+                            border: "1px solid rgba(219, 228, 243, 0.8)",
+                            background: "rgba(248, 250, 255, 0.9)",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                            <strong>{row.cost_model}</strong>
+                            <span style={{ color: "var(--muted)" }}>{formatMoney(row.net_payment)}</span>
+                          </div>
+                          <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                            {formatNumber(row.personnel_count)} personel • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                        Seçili filtrede maliyet modeli dağılımı henüz oluşmadı.
+                      </div>
+                    )}
+                  </div>
+                </ScrollCard>
+
+                <ScrollCard
+                  title="Rol Dağılımı"
+                  subtitle="Hangi rolün net ödeme, saat ve paket yükünü taşıdığını birlikte gör."
+                >
+                  <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
+                    {dashboard.role_breakdown.length ? (
+                      dashboard.role_breakdown.map((row) => (
+                        <article
+                          key={row.role}
+                          style={{
+                            display: "grid",
+                            gap: "8px",
+                            padding: "14px",
+                            borderRadius: "18px",
+                            border: "1px solid rgba(219, 228, 243, 0.8)",
+                            background: "rgba(248, 250, 255, 0.9)",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                            <strong>{row.role}</strong>
+                            <span style={{ color: "var(--muted)" }}>{formatMoney(row.net_payment)}</span>
+                          </div>
+                          <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                            {formatNumber(row.personnel_count)} personel • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                        Seçili filtrede rol dağılımı henüz oluşmadı.
+                      </div>
+                    )}
                   </div>
                 </ScrollCard>
 
@@ -1207,30 +1344,36 @@ export default function PayrollPage() {
                   subtitle="Ay içinde en yüksek net ödeme çıkan çalışanları hızlıca gör."
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
-                    {dashboard.top_personnel.map((row) => (
-                      <article
-                        key={`top-${row.personnel_id}`}
-                        style={{
-                          display: "grid",
-                          gap: "8px",
-                          padding: "14px",
-                          borderRadius: "18px",
-                          border: "1px solid rgba(219, 228, 243, 0.8)",
-                          background: "rgba(248, 250, 255, 0.9)",
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                          <strong>{row.personnel}</strong>
-                          <span>{formatMoney(row.net_payment)}</span>
-                        </div>
-                        <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
-                          {row.role} • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
-                        </div>
-                        <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                          {formatNumber(row.restaurant_count, 0)} restoran • {row.cost_model}
-                        </div>
-                      </article>
-                    ))}
+                    {dashboard.top_personnel.length ? (
+                      dashboard.top_personnel.map((row) => (
+                        <article
+                          key={`top-${row.personnel_id}`}
+                          style={{
+                            display: "grid",
+                            gap: "8px",
+                            padding: "14px",
+                            borderRadius: "18px",
+                            border: "1px solid rgba(219, 228, 243, 0.8)",
+                            background: "rgba(248, 250, 255, 0.9)",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                            <strong>{row.personnel}</strong>
+                            <span>{formatMoney(row.net_payment)}</span>
+                          </div>
+                          <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                            {row.role} • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
+                          </div>
+                          <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                            {formatNumber(row.restaurant_count, 0)} restoran • {row.cost_model}
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+                        Seçili filtrede öne çıkan net ödeme kaydı henüz oluşmadı.
+                      </div>
+                    )}
                   </div>
                 </ScrollCard>
               </div>

@@ -15,6 +15,7 @@ from app.schemas.payroll import (
     PayrollDashboardResponse,
     PayrollEntry,
     PayrollModuleStatus,
+    PayrollRoleBreakdownEntry,
     PayrollSummary,
     PayrollTopPersonnelEntry,
 )
@@ -321,6 +322,7 @@ def build_payroll_dashboard(
             summary=None,
             entries=[],
             cost_model_breakdown=[],
+            role_breakdown=[],
             top_personnel=[],
         )
 
@@ -338,6 +340,7 @@ def build_payroll_dashboard(
             summary=None,
             entries=[],
             cost_model_breakdown=[],
+            role_breakdown=[],
             top_personnel=[],
         )
 
@@ -464,6 +467,29 @@ def build_payroll_dashboard(
             for _, row in model_df.iterrows()
         ]
 
+    role_breakdown = []
+    if not cost_df.empty:
+        role_df = (
+            cost_df.groupby("rol", dropna=False, as_index=False)
+            .agg(
+                personnel_count=("personnel_id", "nunique"),
+                calisma_saati=("calisma_saati", "sum"),
+                paket=("paket", "sum"),
+                net_maliyet=("net_maliyet", "sum"),
+            )
+            .sort_values("net_maliyet", ascending=False)
+        )
+        role_breakdown = [
+            PayrollRoleBreakdownEntry(
+                role=str(row.get("rol") or "-"),
+                personnel_count=int(row.get("personnel_count") or 0),
+                total_hours=_safe_float(row.get("calisma_saati")),
+                total_packages=_safe_float(row.get("paket")),
+                net_payment=_safe_float(row.get("net_maliyet")),
+            )
+            for _, row in role_df.iterrows()
+        ]
+
     top_personnel = [
         PayrollTopPersonnelEntry(
             personnel_id=int(row.get("personnel_id") or 0),
@@ -503,6 +529,7 @@ def build_payroll_dashboard(
         summary=summary,
         entries=entries_payload,
         cost_model_breakdown=cost_model_breakdown,
+        role_breakdown=role_breakdown,
         top_personnel=top_personnel,
     )
 
@@ -764,6 +791,7 @@ def _build_local_payroll_dashboard(
             summary=None,
             entries=[],
             cost_model_breakdown=[],
+            role_breakdown=[],
             top_personnel=[],
         )
 
@@ -935,6 +963,39 @@ def _build_local_payroll_dashboard(
             )
         ]
 
+    role_breakdown: list[PayrollRoleBreakdownEntry] = []
+    if entries_payload:
+        grouped_roles: dict[str, dict[str, float | int]] = {}
+        for entry in entries_payload:
+            bucket = grouped_roles.setdefault(
+                entry.role,
+                {
+                    "personnel_count": 0,
+                    "total_hours": 0.0,
+                    "total_packages": 0.0,
+                    "net_payment": 0.0,
+                },
+            )
+            bucket["personnel_count"] = int(bucket["personnel_count"]) + 1
+            bucket["total_hours"] = float(bucket["total_hours"]) + entry.total_hours
+            bucket["total_packages"] = float(bucket["total_packages"]) + entry.total_packages
+            bucket["net_payment"] = float(bucket["net_payment"]) + entry.net_payment
+
+        role_breakdown = [
+            PayrollRoleBreakdownEntry(
+                role=role,
+                personnel_count=int(values["personnel_count"]),
+                total_hours=float(values["total_hours"]),
+                total_packages=float(values["total_packages"]),
+                net_payment=float(values["net_payment"]),
+            )
+            for role, values in sorted(
+                grouped_roles.items(),
+                key=lambda item: float(item[1]["net_payment"]),
+                reverse=True,
+            )
+        ]
+
     top_personnel = [
         PayrollTopPersonnelEntry(
             personnel_id=entry.personnel_id,
@@ -974,5 +1035,6 @@ def _build_local_payroll_dashboard(
         summary=summary,
         entries=entries_payload,
         cost_model_breakdown=cost_model_breakdown,
+        role_breakdown=role_breakdown,
         top_personnel=top_personnel,
     )

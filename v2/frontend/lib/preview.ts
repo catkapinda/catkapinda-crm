@@ -1953,7 +1953,7 @@ function buildPayrollDashboard(
       const restaurantCount = new Set(
         attendanceRows.map((row) => restaurantLabel(row.restaurant_id)).filter(Boolean),
       ).size;
-      const costModel = entry.monthly_fixed_cost > 0 ? "Sabit + Saat" : "Saat Bazli";
+      const costModel = entry.monthly_fixed_cost > 0 ? "Sabit + Saat" : "Saat Bazlı";
       return {
         personnel_id: entry.id,
         personnel: entry.full_name,
@@ -2009,6 +2009,33 @@ function buildPayrollDashboard(
     return accumulator;
   }, []);
 
+  const roleBreakdown = entries.reduce<
+    Array<{
+      role: string;
+      personnel_count: number;
+      total_hours: number;
+      total_packages: number;
+      net_payment: number;
+    }>
+  >((accumulator, entry) => {
+    const existing = accumulator.find((item) => item.role === entry.role);
+    if (existing) {
+      existing.personnel_count += 1;
+      existing.total_hours += entry.total_hours;
+      existing.total_packages += entry.total_packages;
+      existing.net_payment += entry.net_payment;
+    } else {
+      accumulator.push({
+        role: entry.role,
+        personnel_count: 1,
+        total_hours: entry.total_hours,
+        total_packages: entry.total_packages,
+        net_payment: entry.net_payment,
+      });
+    }
+    return accumulator;
+  }, []);
+
   return {
     module: "payroll",
     status: "preview",
@@ -2021,6 +2048,7 @@ function buildPayrollDashboard(
     summary,
     entries,
     cost_model_breakdown: costModelBreakdown,
+    role_breakdown: roleBreakdown,
     top_personnel: entries.slice(0, 5),
   };
 }
