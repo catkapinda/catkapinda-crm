@@ -11,6 +11,8 @@ import urllib.parse
 import zipfile
 
 from database_preflight import build_database_preflight_report, render_report_text as render_database_preflight_text
+from go_live_decision_report import build_report as build_go_live_decision_report, render_markdown as render_go_live_decision_markdown
+from pilot_deploy_guard import build_guard_result as build_pilot_deploy_guard_result
 from pilot_cutover_guard import build_guard_result, render_env_text as render_guard_env_text
 from pilot_launch_packet import build_packet
 from pilot_preflight import build_preflight_bundle
@@ -79,6 +81,9 @@ def _build_start_here_markdown(
     verify_next_step: str | None = None,
     smoke_overall_ok: bool | None = None,
     smoke_next_step: str | None = None,
+    go_live_phase: str | None = None,
+    go_live_summary: str | None = None,
+    go_live_next_step: str | None = None,
     future_cutover_blocking_items: list[str] | None = None,
     cutover_next_step: str | None = None,
 ) -> str:
@@ -123,6 +128,7 @@ def _build_start_here_markdown(
             if smoke_overall_ok is not None
             else "- Smoke: `ATLANDI`"
         ),
+        f"- Go-Live Phase: `{go_live_phase or 'BEKLENIYOR'}`",
         "",
         "## Nereden Baslayacagiz",
         "",
@@ -130,15 +136,18 @@ def _build_start_here_markdown(
         "2. `pilot-status-live.md` ile canli durumu oku.",
         "3. Render'a yapistirmak icin `render-env-bundle.env` dosyasini kullan.",
         "4. `database-preflight.json` ve `database-preflight.md` ile canli PostgreSQL omurgasini kontrol et.",
-        "5. `pilot-launch.md` icindeki `--validate-only` komutuyla deploy env degerlerini son kez dogrula.",
-        "6. Eski panelde kontrollu gecis icin `streamlit-banner-guarded.env` dosyasina bak.",
-        "7. Redirect only if `streamlit-redirect-guarded.env` bos degilse ve guard PASS ise gec.",
+        "5. `go-live-decision.md` ile pilot ve cutover kararini tek ekranda oku.",
+        "6. `pilot-launch.md` icindeki `--validate-only` komutuyla deploy env degerlerini son kez dogrula.",
+        "7. Eski panelde kontrollu gecis icin `streamlit-banner-guarded.env` dosyasina bak.",
+        "8. Redirect only if `streamlit-redirect-guarded.env` bos degilse ve guard PASS ise gec.",
         "",
         "## Onemli Dosyalar",
         "",
         "- `render-env-bundle.env`: tum servisler icin temel env plani",
         "- `database-preflight.json`: canli PostgreSQL tablo omurgasi ozeti",
         "- `database-preflight.md`: veritabani preflight okunabilir raporu",
+        "- `go-live-decision.json`: pilot ve cutover karar ozeti",
+        "- `go-live-decision.md`: tek ekranda go-live karari",
         "- `pilot-launch.md`: pilot acilis paketi",
         "- `pilot-cutover.md`: redirect provasi paketi",
         "- `pilot-status-live.md`: canli /api/pilot-status ozeti",
@@ -174,6 +183,16 @@ def _build_start_here_markdown(
                 "## Smoke Sonrasi Sonraki Adim",
                 "",
                 smoke_next_step,
+                "",
+            ]
+        )
+    if go_live_summary or go_live_next_step:
+        lines.extend(
+            [
+                "## Go-Live Karari",
+                "",
+                f"- Ozet: {go_live_summary or '-'}",
+                f"- Sonraki Adim: {go_live_next_step or '-'}",
                 "",
             ]
         )
@@ -340,6 +359,25 @@ def build_day_zero_bundle(
         render_database_preflight_text(database_preflight),
         encoding="utf-8",
     )
+    go_live_decision = build_go_live_decision_report(
+        base_url=frontend_url,
+        api_url=api_url,
+        payload=status_payload,
+        database_url=database_url,
+        default_auth_password=default_auth_password,
+        guard_builder=lambda **kwargs: build_pilot_deploy_guard_result(
+            **kwargs,
+            database_preflight_builder=lambda database_url: database_preflight,
+        ),
+    )
+    (output_dir / "go-live-decision.json").write_text(
+        json.dumps(go_live_decision, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "go-live-decision.md").write_text(
+        render_go_live_decision_markdown(go_live_decision),
+        encoding="utf-8",
+    )
 
     streamlit_banner = filter_bundle(
         env_bundle,
@@ -467,6 +505,11 @@ def build_day_zero_bundle(
         "database_preflight_recommended_next_step": database_preflight["recommended_next_step"],
         "database_preflight_cutover_ready": database_preflight.get("cutover_ready"),
         "database_preflight_cutover_recommended_next_step": cutover_next_step,
+        "go_live_phase": go_live_decision.get("phase"),
+        "go_live_summary": go_live_decision.get("summary"),
+        "go_live_recommended_next_step": go_live_decision.get("recommended_next_step"),
+        "go_live_pilot_passed": go_live_decision.get("pilot_passed"),
+        "go_live_cutover_passed": go_live_decision.get("cutover_passed"),
         "future_cutover_blocking_items": future_cutover_blocking_items,
         "smoke_included": include_smoke,
         "files": {
@@ -476,6 +519,8 @@ def build_day_zero_bundle(
             "render_env_validation_markdown": str(output_dir / "render-env-validation.md"),
             "database_preflight_json": str(output_dir / "database-preflight.json"),
             "database_preflight_markdown": str(output_dir / "database-preflight.md"),
+            "go_live_decision_json": str(output_dir / "go-live-decision.json"),
+            "go_live_decision_markdown": str(output_dir / "go-live-decision.md"),
             "streamlit_banner_env": str(output_dir / "streamlit-banner.env"),
             "streamlit_redirect_env": str(output_dir / "streamlit-redirect.env"),
             "streamlit_banner_guard_json": str(output_dir / "streamlit-banner-guard.json"),
@@ -504,6 +549,9 @@ def build_day_zero_bundle(
             release_snapshot=manifest["release_snapshot"],
             database_preflight_passed=database_preflight["passed"],
             database_preflight_next_step=database_preflight["recommended_next_step"],
+            go_live_phase=str(go_live_decision.get("phase") or ""),
+            go_live_summary=str(go_live_decision.get("summary") or ""),
+            go_live_next_step=str(go_live_decision.get("recommended_next_step") or ""),
             future_cutover_blocking_items=future_cutover_blocking_items,
             cutover_next_step=cutover_next_step,
         ),
@@ -547,6 +595,9 @@ def build_day_zero_bundle(
             verify_next_step=initial_verify_result["recommended_next_step"],
             smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,
             smoke_next_step=smoke_report["decision"]["recommended_next_step"] if smoke_report else None,
+            go_live_phase=str(go_live_decision.get("phase") or ""),
+            go_live_summary=str(go_live_decision.get("summary") or ""),
+            go_live_next_step=str(go_live_decision.get("recommended_next_step") or ""),
             future_cutover_blocking_items=future_cutover_blocking_items,
             cutover_next_step=cutover_next_step,
         ),
@@ -594,6 +645,9 @@ def build_day_zero_bundle(
             verify_next_step=final_verify_result["recommended_next_step"],
             smoke_overall_ok=smoke_report["overall_ok"] if smoke_report else None,
             smoke_next_step=smoke_report["decision"]["recommended_next_step"] if smoke_report else None,
+            go_live_phase=str(go_live_decision.get("phase") or ""),
+            go_live_summary=str(go_live_decision.get("summary") or ""),
+            go_live_next_step=str(go_live_decision.get("recommended_next_step") or ""),
             future_cutover_blocking_items=future_cutover_blocking_items,
             cutover_next_step=cutover_next_step,
         ),
@@ -620,6 +674,8 @@ def render_console_summary(manifest: dict) -> str:
         f"Banner Guard: {'PASS' if manifest['banner_guard_allowed'] else 'BLOCK'}",
         f"Redirect Guard: {'PASS' if manifest['redirect_guard_allowed'] else 'BLOCK'}",
         f"Database Preflight: {'PASS' if manifest.get('database_preflight_passed') else 'FAIL'}",
+        f"Go-Live Phase: {manifest.get('go_live_phase', 'bekleniyor')}",
+        f"Go-Live Summary: {manifest.get('go_live_summary', 'Yok')}",
         f"Verify: {'PASS' if manifest.get('verify_passed') else 'FAIL'}",
         f"Verify Next Step: {manifest.get('verify_recommended_next_step', 'Yok')}",
         *(

@@ -882,6 +882,16 @@ def _build_helper_commands() -> list[PilotHelperCommand]:
             ),
         ),
         PilotHelperCommand(
+            label="Go-Live Decision Report",
+            category="quick-check",
+            command=(
+                "python v2/scripts/go_live_decision_report.py "
+                f"--base-url {frontend_url} --api-url {backend_url} "
+                "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+                "--default-auth-password '<guclu-varsayilan-sifre>'"
+            ),
+        ),
+        PilotHelperCommand(
             label="Cutover Deploy Guard",
             category="quick-check",
             command=(
@@ -1065,7 +1075,17 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="7. Gercek login smoke'u kos",
+            title="7. Tek ekranda go-live kararini al",
+            detail="Pilot acilabilir mi, cutover icin ne kaldi tek raporda gor.",
+            command=(
+                "python v2/scripts/go_live_decision_report.py "
+                f"--base-url {frontend_url} --api-url {backend_url} "
+                "--database-url '<mevcut-postgresql-url-sslmode-require>' "
+                "--default-auth-password '<guclu-varsayilan-sifre>'"
+            ),
+        ),
+        PilotCommandPackEntry(
+            title="8. Gercek login smoke'u kos",
             detail="Yonetici hesapla gercek oturum acilisini dogrula.",
             command=(
                 f"python v2/scripts/pilot_smoke.py --base-url {frontend_url} "
@@ -1073,7 +1093,7 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="8. Day-zero kitini taze ve strict uret",
+            title="9. Day-zero kitini taze ve strict uret",
             detail="Tum acilis artefaktlarini sifirdan olustur ve final verify snapshot'ini bundle'a gom.",
             command=(
                 "python v2/scripts/pilot_day_zero.py "
@@ -1082,7 +1102,7 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="9. Guarded Streamlit banner env'ini uret",
+            title="10. Guarded Streamlit banner env'ini uret",
             detail="Canli pilot gate'e gore eski panelde kontrollu gecis kartini guvenli sekilde hazirla.",
             command=(
                 "python v2/scripts/pilot_cutover_guard.py "
@@ -1090,7 +1110,7 @@ def _build_command_pack() -> list[PilotCommandPackEntry]:
             ),
         ),
         PilotCommandPackEntry(
-            title="10. Day-zero kitini dogrula",
+            title="11. Day-zero kitini dogrula",
             detail="Uretilen klasorde eksik dosya, zip ve guard tutarliligi var mi tek komutta kontrol et.",
             command="python v2/scripts/pilot_day_zero_verify.py --output-dir pilot-day-zero",
         ),

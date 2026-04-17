@@ -11,6 +11,7 @@ import zipfile
 from copy import deepcopy
 
 from database_preflight import render_report_text as render_database_preflight_text
+from go_live_decision_report import render_markdown as render_go_live_decision_markdown
 from pilot_smoke import build_decision_summary as build_smoke_decision_summary
 from pilot_smoke import build_markdown_report as build_smoke_markdown_report
 from render_env_bundle import build_validation_report, render_validation_text
@@ -26,6 +27,8 @@ REQUIRED_FILES = (
     "render-env-validation.md",
     "database-preflight.json",
     "database-preflight.md",
+    "go-live-decision.json",
+    "go-live-decision.md",
     "streamlit-banner.env",
     "streamlit-redirect.env",
     "streamlit-banner-guard.json",
@@ -1024,6 +1027,35 @@ def _check_database_preflight_payload(*, output_dir: Path, manifest: dict) -> tu
     return (True, issues)
 
 
+def _check_go_live_decision_payload(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+    go_live_json_path = output_dir / "go-live-decision.json"
+    go_live_markdown_path = output_dir / "go-live-decision.md"
+
+    if not (go_live_json_path.exists() and go_live_markdown_path.exists()):
+        return (False, ["Go-live decision dosyalari eksik oldugu icin kontrol yapilamadi"])
+
+    go_live_json = _read_json(go_live_json_path)
+    go_live_markdown = go_live_markdown_path.read_text(encoding="utf-8").strip()
+    expected_markdown = render_go_live_decision_markdown(go_live_json).strip()
+
+    if go_live_markdown != expected_markdown:
+        issues.append("go-live-decision.md icindeki rapor go-live-decision.json ile uyusmuyor")
+
+    if "go_live_phase" in manifest and manifest.get("go_live_phase") != go_live_json.get("phase"):
+        issues.append("Manifest go_live_phase degeri go-live-decision.json ile uyusmuyor")
+    if "go_live_summary" in manifest and manifest.get("go_live_summary") != go_live_json.get("summary"):
+        issues.append("Manifest go_live_summary degeri go-live-decision.json ile uyusmuyor")
+    if "go_live_recommended_next_step" in manifest and manifest.get("go_live_recommended_next_step") != go_live_json.get("recommended_next_step"):
+        issues.append("Manifest go_live_recommended_next_step degeri go-live-decision.json ile uyusmuyor")
+    if "go_live_pilot_passed" in manifest and manifest.get("go_live_pilot_passed") != go_live_json.get("pilot_passed"):
+        issues.append("Manifest go_live_pilot_passed degeri go-live-decision.json ile uyusmuyor")
+    if "go_live_cutover_passed" in manifest and manifest.get("go_live_cutover_passed") != go_live_json.get("cutover_passed"):
+        issues.append("Manifest go_live_cutover_passed degeri go-live-decision.json ile uyusmuyor")
+
+    return (True, issues)
+
+
 def _check_launch_packets(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
     issues: list[str] = []
     frontend_url = manifest.get("frontend_url")
@@ -1306,8 +1338,18 @@ def _check_manifest_summary(*, output_dir: Path, manifest: dict) -> tuple[bool, 
         database_preflight_payload = _read_json(database_preflight_json_path)
         if "database_preflight_passed" in manifest and manifest.get("database_preflight_passed") != database_preflight_payload.get("passed"):
             issues.append("Manifest database_preflight_passed degeri database-preflight.json ile uyusmuyor")
-        if "database_preflight_recommended_next_step" in manifest and manifest.get("database_preflight_recommended_next_step") != database_preflight_payload.get("recommended_next_step"):
-            issues.append("Manifest database_preflight_recommended_next_step degeri database-preflight.json ile uyusmuyor")
+    if "database_preflight_recommended_next_step" in manifest and manifest.get("database_preflight_recommended_next_step") != database_preflight_payload.get("recommended_next_step"):
+        issues.append("Manifest database_preflight_recommended_next_step degeri database-preflight.json ile uyusmuyor")
+
+    go_live_decision_json_path = output_dir / "go-live-decision.json"
+    if go_live_decision_json_path.exists():
+        go_live_payload = _read_json(go_live_decision_json_path)
+        if "go_live_phase" in manifest and manifest.get("go_live_phase") != go_live_payload.get("phase"):
+            issues.append("Manifest go_live_phase degeri go-live-decision.json ile uyusmuyor")
+        if "go_live_summary" in manifest and manifest.get("go_live_summary") != go_live_payload.get("summary"):
+            issues.append("Manifest go_live_summary degeri go-live-decision.json ile uyusmuyor")
+        if "go_live_recommended_next_step" in manifest and manifest.get("go_live_recommended_next_step") != go_live_payload.get("recommended_next_step"):
+            issues.append("Manifest go_live_recommended_next_step degeri go-live-decision.json ile uyusmuyor")
 
     if verify_json_path.exists():
         verify_payload = _read_json(verify_json_path)
@@ -1333,6 +1375,8 @@ def _check_manifest_file_map(*, output_dir: Path, manifest: dict) -> tuple[bool,
         "render_env_validation_markdown": "render-env-validation.md",
         "database_preflight_json": "database-preflight.json",
         "database_preflight_markdown": "database-preflight.md",
+        "go_live_decision_json": "go-live-decision.json",
+        "go_live_decision_markdown": "go-live-decision.md",
         "streamlit_banner_env": "streamlit-banner.env",
         "streamlit_redirect_env": "streamlit-redirect.env",
         "streamlit_banner_guard_json": "streamlit-banner-guard.json",
@@ -1577,6 +1621,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(database_preflight_issues)
 
+    go_live_decision_checked, go_live_decision_issues = _check_go_live_decision_payload(
+        output_dir=output_dir,
+        manifest=manifest,
+    )
+    consistency_issues.extend(go_live_decision_issues)
+
     packet_checked, packet_issues = _check_launch_packets(
         output_dir=output_dir,
         manifest=manifest,
@@ -1661,6 +1711,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
             if database_preflight_checked and not database_preflight_issues
             else (False if database_preflight_checked else None)
         ),
+        "go_live_decision_checked": go_live_decision_checked,
+        "go_live_decision_ok": (
+            True
+            if go_live_decision_checked and not go_live_decision_issues
+            else (False if go_live_decision_checked else None)
+        ),
         "packet_checked": packet_checked,
         "packet_ok": True if packet_checked and not packet_issues else (False if packet_checked else None),
         "reports_checked": reports_checked,
@@ -1690,6 +1746,8 @@ def render_console_summary(result: dict) -> str:
     start_here_ok = result.get("start_here_ok")
     env_checked = bool(result.get("env_checked"))
     env_ok = result.get("env_ok")
+    go_live_decision_checked = bool(result.get("go_live_decision_checked"))
+    go_live_decision_ok = result.get("go_live_decision_ok")
     packet_checked = bool(result.get("packet_checked"))
     packet_ok = result.get("packet_ok")
     reports_checked = bool(result.get("reports_checked"))
@@ -1732,6 +1790,11 @@ def render_console_summary(result: dict) -> str:
             f"Env Payloads: {'PASS' if env_ok else 'FAIL'}"
             if env_checked
             else "Env Payloads: SKIPPED"
+        ),
+        (
+            f"Go-Live Decision: {'PASS' if go_live_decision_ok else 'FAIL'}"
+            if go_live_decision_checked
+            else "Go-Live Decision: SKIPPED"
         ),
         (
             f"Launch Packets: {'PASS' if packet_ok else 'FAIL'}"
@@ -1790,6 +1853,8 @@ def render_markdown_report(result: dict) -> str:
     start_here_ok = result.get("start_here_ok")
     env_checked = bool(result.get("env_checked"))
     env_ok = result.get("env_ok")
+    go_live_decision_checked = bool(result.get("go_live_decision_checked"))
+    go_live_decision_ok = result.get("go_live_decision_ok")
     packet_checked = bool(result.get("packet_checked"))
     packet_ok = result.get("packet_ok")
     reports_checked = bool(result.get("reports_checked"))
@@ -1833,6 +1898,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Env Payloads: `{'PASS' if env_ok else 'FAIL'}`"
             if env_checked
             else "- Env Payloads: `SKIPPED`"
+        ),
+        (
+            f"- Go-Live Decision: `{'PASS' if go_live_decision_ok else 'FAIL'}`"
+            if go_live_decision_checked
+            else "- Go-Live Decision: `SKIPPED`"
         ),
         (
             f"- Launch Packets: `{'PASS' if packet_ok else 'FAIL'}`"
