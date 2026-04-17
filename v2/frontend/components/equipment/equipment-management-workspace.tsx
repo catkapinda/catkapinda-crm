@@ -977,8 +977,8 @@ export function EquipmentManagementWorkspace() {
                       style={{
                         textAlign: "left",
                         display: "grid",
-                        gap: "8px",
-                        padding: "16px",
+                        gap: "6px",
+                        padding: "12px",
                         borderRadius: "18px",
                         border: selected
                           ? "1px solid rgba(15, 95, 215, 0.35)"
@@ -1061,8 +1061,8 @@ export function EquipmentManagementWorkspace() {
               <div
                 style={{
                   display: "grid",
-                  gap: "10px",
-                  padding: "14px",
+                  gap: "8px",
+                  padding: "12px",
                   borderRadius: "20px",
                   border: "1px solid var(--line)",
                   background: "rgba(255, 255, 255, 0.9)",
@@ -1099,7 +1099,7 @@ export function EquipmentManagementWorkspace() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                    gap: "10px",
+                    gap: "8px",
                   }}
                 >
                   <label style={{ display: "grid", gap: "8px" }}>
@@ -1216,7 +1216,7 @@ export function EquipmentManagementWorkspace() {
                     value={editIssueNotes}
                     onChange={(event) => setEditIssueNotes(event.target.value)}
                     rows={2}
-                    style={{ ...fieldStyle, resize: "vertical" }}
+                    style={{ ...fieldStyle, resize: "vertical", minHeight: "60px" }}
                     disabled={editIssueIsAuto}
                   />
                 </label>
@@ -1225,7 +1225,7 @@ export function EquipmentManagementWorkspace() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-                    gap: "10px",
+                    gap: "8px",
                     color: "var(--muted)",
                     fontSize: "0.92rem",
                   }}
@@ -1251,7 +1251,7 @@ export function EquipmentManagementWorkspace() {
                 {(issueSaveError || issueSaveSuccess) && (
                   <div
                     style={{
-                      padding: "14px 16px",
+                      padding: "10px 12px",
                       borderRadius: "16px",
                       border: issueSaveError
                         ? "1px solid rgba(205, 70, 66, 0.18)"
@@ -1267,14 +1267,20 @@ export function EquipmentManagementWorkspace() {
                   </div>
                 )}
 
-                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: "8px",
+                  }}
+                >
                   <button
                     type="submit"
                     disabled={isPending || editIssueIsAuto || issueDetailLoading}
                     style={{
                       border: "none",
                       borderRadius: "16px",
-                      padding: "14px 16px",
+                      padding: "10px 12px",
                       background: "linear-gradient(135deg, #0f5fd7, #1a73e8)",
                       color: "white",
                       fontWeight: 800,
@@ -1289,7 +1295,7 @@ export function EquipmentManagementWorkspace() {
                     disabled={isPending || editIssueIsAuto}
                     style={{
                       borderRadius: "16px",
-                      padding: "14px 16px",
+                      padding: "10px 12px",
                       border: "1px solid rgba(205, 70, 66, 0.18)",
                       background: "rgba(205, 70, 66, 0.08)",
                       color: "#b53632",
@@ -1420,8 +1426,8 @@ export function EquipmentManagementWorkspace() {
                       style={{
                         textAlign: "left",
                         display: "grid",
-                        gap: "8px",
-                        padding: "16px",
+                        gap: "6px",
+                        padding: "12px",
                         borderRadius: "18px",
                         border: selected
                           ? "1px solid rgba(15, 95, 215, 0.35)"
@@ -1483,8 +1489,8 @@ export function EquipmentManagementWorkspace() {
               <div
                 style={{
                   display: "grid",
-                  gap: "14px",
-                  padding: "18px",
+                  gap: "8px",
+                  padding: "12px",
                   borderRadius: "20px",
                   border: "1px solid var(--line)",
                   background: "rgba(255, 255, 255, 0.9)",
@@ -1509,7 +1515,7 @@ export function EquipmentManagementWorkspace() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                    gap: "12px",
+                    gap: "8px",
                   }}
                 >
                   <label style={{ display: "grid", gap: "8px" }}>
@@ -1578,15 +1584,15 @@ export function EquipmentManagementWorkspace() {
                   <textarea
                     value={editBoxNotes}
                     onChange={(event) => setEditBoxNotes(event.target.value)}
-                    rows={3}
-                    style={{ ...fieldStyle, resize: "vertical" }}
+                    rows={2}
+                    style={{ ...fieldStyle, resize: "vertical", minHeight: "60px" }}
                   />
                 </label>
 
                 {(boxSaveError || boxSaveSuccess) && (
                   <div
                     style={{
-                      padding: "14px 16px",
+                      padding: "10px 12px",
                       borderRadius: "16px",
                       border: boxSaveError
                         ? "1px solid rgba(205, 70, 66, 0.18)"
@@ -1602,14 +1608,20 @@ export function EquipmentManagementWorkspace() {
                   </div>
                 )}
 
-                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: "8px",
+                  }}
+                >
                   <button
                     type="submit"
                     disabled={isPending || boxDetailLoading}
                     style={{
                       border: "none",
                       borderRadius: "16px",
-                      padding: "14px 16px",
+                      padding: "10px 12px",
                       background: "linear-gradient(135deg, #10203c, #1d315b)",
                       color: "white",
                       fontWeight: 800,
@@ -1624,7 +1636,7 @@ export function EquipmentManagementWorkspace() {
                     disabled={isPending}
                     style={{
                       borderRadius: "16px",
-                      padding: "14px 16px",
+                      padding: "10px 12px",
                       border: "1px solid rgba(205, 70, 66, 0.18)",
                       background: "rgba(205, 70, 66, 0.08)",
                       color: "#b53632",
