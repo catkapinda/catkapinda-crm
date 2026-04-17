@@ -244,6 +244,7 @@ export function SalesManagementWorkspace() {
     () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
     [entries, selectedEntryId],
   );
+  const hasSelectedEntry = Boolean(selectedEntry);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -343,7 +344,9 @@ export function SalesManagementWorkspace() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(320px, 1.05fr) minmax(320px, 0.95fr)",
+          gridTemplateColumns: hasSelectedEntry
+            ? "minmax(320px, 1.05fr) minmax(320px, 0.95fr)"
+            : "minmax(0, 1fr)",
           gap: "12px",
           alignItems: "start",
         }}
@@ -525,7 +528,8 @@ export function SalesManagementWorkspace() {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "10px" }}>
+        {selectedEntry ? (
+          <form onSubmit={handleSubmit} style={{ display: "grid", gap: "10px" }}>
           <div
             style={{
               padding: "14px",
@@ -725,7 +729,8 @@ export function SalesManagementWorkspace() {
               Sil
             </button>
           </div>
-        </form>
+          </form>
+        ) : null}
       </div>
     </section>
   );

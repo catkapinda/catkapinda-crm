@@ -244,6 +244,7 @@ export function RestaurantManagementWorkspace() {
     () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
     [entries, selectedEntryId],
   );
+  const hasSelectedEntry = Boolean(selectedEntry);
 
   const selectedPricingLabel = useMemo(
     () => options?.pricing_models.find((item) => item.value === editPricingModel)?.label ?? editPricingModel,
@@ -383,7 +384,9 @@ export function RestaurantManagementWorkspace() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(320px, 1.05fr) minmax(280px, 0.95fr)",
+          gridTemplateColumns: hasSelectedEntry
+            ? "minmax(320px, 1.05fr) minmax(280px, 0.95fr)"
+            : "minmax(0, 1fr)",
           gap: "12px",
           alignItems: "start",
         }}
@@ -545,17 +548,18 @@ export function RestaurantManagementWorkspace() {
           </div>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            display: "grid",
-            gap: "10px",
-            padding: "14px",
-            borderRadius: "18px",
-            border: "1px solid var(--line)",
-            background: "rgba(255, 255, 255, 0.86)",
-          }}
-        >
+        {selectedEntry ? (
+          <form
+            onSubmit={handleSubmit}
+            style={{
+              display: "grid",
+              gap: "10px",
+              padding: "14px",
+              borderRadius: "18px",
+              border: "1px solid var(--line)",
+              background: "rgba(255, 255, 255, 0.86)",
+            }}
+          >
           <div
             style={{
               display: "flex",
@@ -660,7 +664,7 @@ export function RestaurantManagementWorkspace() {
 
           {detailLoading ? (
             <div style={{ color: "var(--muted)" }}>Detay yükleniyor...</div>
-          ) : selectedEntry ? (
+          ) : (
             <>
               <div
                 style={{
@@ -805,10 +809,9 @@ export function RestaurantManagementWorkspace() {
                 </button>
               </div>
             </>
-          ) : (
-            <div style={{ color: "var(--muted)" }}>Detay formu için soldan restoran seç.</div>
           )}
-        </form>
+          </form>
+        ) : null}
       </div>
     </section>
   );

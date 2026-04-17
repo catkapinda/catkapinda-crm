@@ -259,6 +259,7 @@ export function DeductionManagementWorkspace() {
     () => selectableEntries.filter((entry) => selectedEntryIdSet.has(entry.id)).length,
     [selectableEntries, selectedEntryIdSet],
   );
+  const hasSelectedEntry = Boolean(selectedEntry);
 
   const selectedCaption = useMemo(() => {
     if (!options || !editDeductionType) {
@@ -408,7 +409,9 @@ export function DeductionManagementWorkspace() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(320px, 1.1fr) minmax(280px, 0.9fr)",
+          gridTemplateColumns: hasSelectedEntry
+            ? "minmax(320px, 1.1fr) minmax(280px, 0.9fr)"
+            : "minmax(0, 1fr)",
           gap: "16px",
           alignItems: "start",
         }}
@@ -624,45 +627,40 @@ export function DeductionManagementWorkspace() {
           )}
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gap: "14px",
-          }}
-        >
+        {selectedEntry ? (
           <div
             style={{
-              padding: "16px",
-              borderRadius: "20px",
-              border: "1px solid var(--line)",
-              background: "rgba(255, 255, 255, 0.86)",
               display: "grid",
-              gap: "10px",
+              gap: "14px",
             }}
           >
-            <div style={{ fontWeight: 900 }}>Seçili Kayıt</div>
-            {selectedEntry ? (
-              <>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                  <span style={{ color: "var(--muted)" }}>Personel</span>
-                  <strong>{selectedEntry.personnel_label}</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                  <span style={{ color: "var(--muted)" }}>Tip</span>
-                  <strong>{selectedEntry.deduction_type}</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                  <span style={{ color: "var(--muted)" }}>Tutar</span>
-                  <strong>{formatCurrency(selectedEntry.amount)}</strong>
-                </div>
-                <div>{selectedEntry.type_caption}</div>
-              </>
-            ) : (
-              <div style={{ color: "var(--muted)" }}>Düzenlemek için soldan bir kayıt seç.</div>
-            )}
-          </div>
+            <div
+              style={{
+                padding: "16px",
+                borderRadius: "20px",
+                border: "1px solid var(--line)",
+                background: "rgba(255, 255, 255, 0.86)",
+                display: "grid",
+                gap: "10px",
+              }}
+            >
+              <div style={{ fontWeight: 900 }}>Seçili Kayıt</div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                <span style={{ color: "var(--muted)" }}>Personel</span>
+                <strong>{selectedEntry.personnel_label}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                <span style={{ color: "var(--muted)" }}>Tip</span>
+                <strong>{selectedEntry.deduction_type}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                <span style={{ color: "var(--muted)" }}>Tutar</span>
+                <strong>{formatCurrency(selectedEntry.amount)}</strong>
+              </div>
+              <div>{selectedEntry.type_caption}</div>
+            </div>
 
-          <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
+            <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
             <label style={{ display: "grid", gap: "8px" }}>
               <span style={{ fontWeight: 700 }}>Personel</span>
               <select
@@ -823,8 +821,9 @@ export function DeductionManagementWorkspace() {
                 Kaydı Sil
               </button>
             </div>
-          </form>
-        </div>
+            </form>
+          </div>
+        ) : null}
       </div>
     </section>
   );

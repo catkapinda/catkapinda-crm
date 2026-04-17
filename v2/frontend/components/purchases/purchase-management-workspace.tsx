@@ -169,6 +169,7 @@ export function PurchaseManagementWorkspace() {
     () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
     [entries, selectedEntryId],
   );
+  const hasSelectedEntry = Boolean(selectedEntry);
 
   const unitCostPreview = useMemo(() => {
     const qty = Number(editQuantity || 0);
@@ -267,7 +268,9 @@ export function PurchaseManagementWorkspace() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(320px, 1.05fr) minmax(320px, 0.95fr)",
+          gridTemplateColumns: hasSelectedEntry
+            ? "minmax(320px, 1.05fr) minmax(320px, 0.95fr)"
+            : "minmax(0, 1fr)",
           gap: "12px",
           alignItems: "start",
         }}
@@ -426,17 +429,18 @@ export function PurchaseManagementWorkspace() {
           )}
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            display: "grid",
-            gap: "10px",
-            padding: "14px",
-            borderRadius: "18px",
-            border: "1px solid var(--line)",
-            background: "rgba(255, 255, 255, 0.86)",
-          }}
-        >
+        {selectedEntry ? (
+          <form
+            onSubmit={handleSubmit}
+            style={{
+              display: "grid",
+              gap: "10px",
+              padding: "14px",
+              borderRadius: "18px",
+              border: "1px solid var(--line)",
+              background: "rgba(255, 255, 255, 0.86)",
+            }}
+          >
           <div>
             <h3 style={{ margin: 0, fontSize: "1.05rem" }}>Seçili Kayıt</h3>
             <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>
@@ -650,7 +654,8 @@ export function PurchaseManagementWorkspace() {
               Kaydı Sil
             </button>
           </div>
-        </form>
+          </form>
+        ) : null}
       </div>
     </section>
   );
