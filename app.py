@@ -352,11 +352,10 @@ def resolve_v2_cutover_url() -> str:
 
 
 def resolve_v2_cutover_mode() -> str:
-    raw_mode = (
-        str(os.getenv("CK_V2_CUTOVER_MODE", "") or "").strip().lower()
-        or _read_optional_secret_value("v2", "cutover_mode").lower()
-    )
-    return raw_mode if raw_mode in V2_CUTOVER_MODE_OPTIONS else "banner"
+    # Legacy surface is now a permanent bridge into the v2 application.
+    # We keep the explicit redirect mode so the old domain can hand off
+    # immediately even when legacy runtime state is stale.
+    return "redirect"
 
 
 def resolve_v2_status_url(url: str) -> str:
