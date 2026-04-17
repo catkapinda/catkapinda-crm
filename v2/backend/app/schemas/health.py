@@ -75,6 +75,18 @@ class PilotDecisionSummary(BaseModel):
     primary_href: str
 
 
+class PilotGoLiveSummary(BaseModel):
+    phase: str
+    phase_label: str
+    tone: str
+    summary: str
+    recommended_next_step: str
+    pilot_ready: bool
+    cutover_ready: bool
+    blocking_items: list[str]
+    future_cutover_blocking_items: list[str]
+
+
 class PilotAccountEntry(BaseModel):
     email: str
     full_name: str
@@ -226,6 +238,7 @@ class PilotReadinessResponse(BaseModel):
     modules: list[PilotModuleEntry]
     cutover: PilotCutoverSummary
     decision: PilotDecisionSummary
+    go_live: PilotGoLiveSummary
     pilot_accounts: list[PilotAccountEntry]
     pilot_flow: list[PilotFlowStep]
     pilot_scenarios: list[PilotScenarioStep]

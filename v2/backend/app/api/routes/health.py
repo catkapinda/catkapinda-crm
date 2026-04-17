@@ -22,6 +22,7 @@ from app.schemas.health import (
     PilotConfigEntry,
     PilotCutoverSummary,
     PilotDecisionSummary,
+    PilotGoLiveSummary,
     PilotDeployStep,
     PilotCommandPackEntry,
     PilotEnvSnippetEntry,
@@ -237,6 +238,11 @@ def pilot_readiness(
         default_password_configured=settings.default_auth_password != "123456",
     )
     decision = _build_pilot_decision(cutover=cutover)
+    go_live = _build_go_live_summary(
+        cutover=cutover,
+        decision=decision,
+        next_actions=next_actions,
+    )
     pilot_accounts = _build_pilot_accounts(conn)
     pilot_flow = _build_pilot_flow()
     pilot_scenarios = _build_pilot_scenarios()
@@ -279,6 +285,7 @@ def pilot_readiness(
         modules=modules,
         cutover=cutover,
         decision=decision,
+        go_live=go_live,
         pilot_accounts=pilot_accounts,
         pilot_flow=pilot_flow,
         pilot_scenarios=pilot_scenarios,
@@ -1454,4 +1461,57 @@ def _build_pilot_decision(*, cutover: PilotCutoverSummary) -> PilotDecisionSumma
         tone="warning",
         primary_label="Deploy hazirligini incele",
         primary_href="#deploy-readiness",
+    )
+
+
+def _build_go_live_summary(
+    *,
+    cutover: PilotCutoverSummary,
+    decision: PilotDecisionSummary,
+    next_actions: list[str],
+) -> PilotGoLiveSummary:
+    phase = (
+        "ready_for_cutover"
+        if cutover.phase == "ready_for_cutover"
+        else "ready_for_pilot"
+        if cutover.phase == "ready_for_pilot"
+        else "blocked"
+    )
+    if phase == "ready_for_cutover":
+        phase_label = "Cutover Hazir"
+        tone = "success"
+        blocking_items: list[str] = []
+        future_cutover_blocking_items: list[str] = []
+        summary = "Pilot ve kontrollu domain gecisi icin ana esikler yesil gorunuyor."
+    elif phase == "ready_for_pilot":
+        phase_label = "Pilot Acilabilir"
+        tone = "info"
+        blocking_items = []
+        future_cutover_blocking_items = list(cutover.remaining_items)
+        summary = "Pilot acilabilir, ama ana domaine gecmeden once kapanmasi gereken maddeler duruyor."
+    else:
+        phase_label = "Blokaj Var"
+        tone = "warning"
+        blocking_items = list(cutover.blocking_items)
+        future_cutover_blocking_items = [*cutover.blocking_items, *cutover.remaining_items]
+        summary = "Pilot acilisindan once zorunlu halkalari kapatmamiz gerekiyor."
+
+    recommended_next_step = (
+        next_actions[0]
+        if next_actions
+        else future_cutover_blocking_items[0]
+        if future_cutover_blocking_items
+        else decision.detail or cutover.summary
+    )
+
+    return PilotGoLiveSummary(
+        phase=phase,
+        phase_label=phase_label,
+        tone=tone,
+        summary=summary,
+        recommended_next_step=recommended_next_step,
+        pilot_ready=phase != "blocked",
+        cutover_ready=phase == "ready_for_cutover",
+        blocking_items=blocking_items,
+        future_cutover_blocking_items=future_cutover_blocking_items,
     )

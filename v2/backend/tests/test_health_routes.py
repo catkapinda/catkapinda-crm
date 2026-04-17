@@ -226,6 +226,13 @@ def test_pilot_readiness_route_returns_module_and_auth_summary(monkeypatch):
     assert payload["auth"]["default_password_configured"] is False
     assert payload["cutover"]["phase"] == "not_ready"
     assert payload["cutover"]["ready"] is False
+    assert payload["go_live"]["phase"] == "blocked"
+    assert payload["go_live"]["phase_label"] == "Blokaj Var"
+    assert payload["go_live"]["pilot_ready"] is False
+    assert payload["go_live"]["cutover_ready"] is False
+    assert any("Varsayilan v2 sifresi" in item for item in payload["go_live"]["blocking_items"])
+    assert any("Varsayilan v2 sifresi" in item for item in payload["go_live"]["future_cutover_blocking_items"])
+    assert payload["go_live"]["recommended_next_step"] == payload["next_actions"][0]
     assert payload["decision"]["tone"] == "warning"
     assert payload["decision"]["primary_href"] == "#deploy-readiness"
     assert payload["cutover"]["modules_ready_count"] == len(payload["modules"])
@@ -549,6 +556,13 @@ def test_pilot_readiness_treats_sms_as_optional_when_core_envs_exist(monkeypatch
     assert payload["auth"]["default_password_configured"] is True
     assert payload["cutover"]["phase"] == "ready_for_pilot"
     assert payload["cutover"]["ready"] is True
+    assert payload["go_live"]["phase"] == "ready_for_pilot"
+    assert payload["go_live"]["phase_label"] == "Pilot Acilabilir"
+    assert payload["go_live"]["pilot_ready"] is True
+    assert payload["go_live"]["cutover_ready"] is False
+    assert payload["go_live"]["blocking_items"] == []
+    assert payload["go_live"]["future_cutover_blocking_items"] == payload["cutover"]["remaining_items"]
+    assert payload["go_live"]["recommended_next_step"] == payload["next_actions"][0]
     assert payload["decision"]["tone"] == "info"
     assert payload["decision"]["primary_href"] == "/login"
     assert any("production modu" in item.lower() for item in payload["cutover"]["remaining_items"])
@@ -587,6 +601,13 @@ def test_pilot_readiness_reports_ready_for_cutover_when_security_and_envs_are_co
     assert payload["optional_missing_env_vars"] == []
     assert payload["cutover"]["phase"] == "ready_for_cutover"
     assert payload["cutover"]["ready"] is True
+    assert payload["go_live"]["phase"] == "ready_for_cutover"
+    assert payload["go_live"]["phase_label"] == "Cutover Hazir"
+    assert payload["go_live"]["pilot_ready"] is True
+    assert payload["go_live"]["cutover_ready"] is True
+    assert payload["go_live"]["blocking_items"] == []
+    assert payload["go_live"]["future_cutover_blocking_items"] == []
+    assert payload["go_live"]["recommended_next_step"] == payload["next_actions"][0]
     assert payload["decision"]["tone"] == "success"
     assert any(entry["name"] == "app_env" and entry["ok"] is True for entry in payload["config"])
     assert any(entry["name"] == "api_public_https" and entry["ok"] is True for entry in payload["config"])

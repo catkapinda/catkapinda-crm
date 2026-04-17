@@ -80,6 +80,17 @@ type BackendReadiness = {
     primary_label: string;
     primary_href: string;
   };
+  go_live: {
+    phase: string;
+    phase_label: string;
+    tone: string;
+    summary: string;
+    recommended_next_step: string;
+    pilot_ready: boolean;
+    cutover_ready: boolean;
+    blocking_items: string[];
+    future_cutover_blocking_items: string[];
+  };
   pilot_accounts: Array<{
     email: string;
     full_name: string;
@@ -570,51 +581,7 @@ export default function StatusPage() {
     () => helperCommands.find((command) => command.label === "Go-Live Decision Report")?.command ?? null,
     [helperCommands],
   );
-  const goLiveSummary = useMemo(() => {
-    if (!backend?.cutover) {
-      return null;
-    }
-
-    const phase =
-      backend.cutover.phase === "ready_for_cutover"
-        ? "ready_for_cutover"
-        : backend.cutover.phase === "ready_for_pilot"
-          ? "ready_for_pilot"
-          : "blocked";
-    const phaseLabel =
-      phase === "ready_for_cutover"
-        ? "Cutover Hazır"
-        : phase === "ready_for_pilot"
-          ? "Pilot Açılabilir"
-          : "Blokaj Var";
-    const tone = phase === "blocked" ? "warning" : phase === "ready_for_cutover" ? "success" : "info";
-    const futureCutoverItems =
-      phase === "ready_for_cutover"
-        ? []
-        : phase === "ready_for_pilot"
-          ? backend.cutover.remaining_items
-          : [...backend.cutover.blocking_items, ...backend.cutover.remaining_items];
-    const summary =
-      phase === "ready_for_cutover"
-        ? "Pilot ve kontrollü domain geçişi için ana eşikler yeşil görünüyor."
-        : phase === "ready_for_pilot"
-          ? "Pilot açılabilir, ama ana domaine geçmeden önce kapanması gereken maddeler duruyor."
-          : "Pilot açılışından önce zorunlu halkaları kapatmamız gerekiyor.";
-    const nextStep =
-      backend.next_actions[0] ||
-      futureCutoverItems[0] ||
-      backend.decision?.detail ||
-      backend.cutover.summary;
-
-    return {
-      phase,
-      phaseLabel,
-      tone,
-      summary,
-      nextStep,
-      futureCutoverItems,
-    };
-  }, [backend]);
+  const goLiveSummary = backend?.go_live ?? null;
   const localBackendEnvRestartNeeded =
     !!localSetup &&
     (localSetup.backend_restart_required ||
@@ -954,7 +921,7 @@ export default function StatusPage() {
               }}
             >
               <div style={{ display: "grid", gap: "12px" }}>
-                <div style={tonePill(goLiveSummary.tone)}>{goLiveSummary.phaseLabel}</div>
+                <div style={tonePill(goLiveSummary.tone)}>{goLiveSummary.phase_label}</div>
                 <div>
                   <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Go-live kararı</h2>
                   <p style={{ margin: "8px 0 0", color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
@@ -972,9 +939,9 @@ export default function StatusPage() {
                   }}
                 >
                   <strong>Sonraki adım</strong>
-                  <div style={{ color: "#5f7294", lineHeight: 1.7 }}>{goLiveSummary.nextStep}</div>
+                  <div style={{ color: "#5f7294", lineHeight: 1.7 }}>{goLiveSummary.recommended_next_step}</div>
                 </article>
-                {goLiveSummary.futureCutoverItems.length ? (
+                {goLiveSummary.future_cutover_blocking_items.length ? (
                   <article
                     style={{
                       padding: "14px 16px",
@@ -989,7 +956,7 @@ export default function StatusPage() {
                     <strong>
                       {goLiveSummary.phase === "blocked" ? "Açılış blokajları" : "Cutover için kalanlar"}
                     </strong>
-                    {goLiveSummary.futureCutoverItems.slice(0, 4).map((item) => (
+                    {goLiveSummary.future_cutover_blocking_items.slice(0, 4).map((item) => (
                       <div key={item} style={{ lineHeight: 1.6 }}>
                         • {item}
                       </div>
