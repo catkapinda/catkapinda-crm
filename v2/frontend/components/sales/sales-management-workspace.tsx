@@ -53,12 +53,13 @@ type SalesFormOptions = {
 
 const fieldStyle: CSSProperties = {
   width: "100%",
-  padding: "13px 14px",
-  borderRadius: "16px",
+  padding: "10px 12px",
+  borderRadius: "12px",
   border: "1px solid var(--line)",
   background: "rgba(255, 255, 255, 0.9)",
   color: "var(--text)",
   font: "inherit",
+  fontSize: "0.92rem",
 };
 
 function formatCurrency(value: number) {
@@ -325,9 +326,9 @@ export function SalesManagementWorkspace() {
     <section
       style={{
         display: "grid",
-        gap: "16px",
-        padding: "22px",
-        borderRadius: "24px",
+        gap: "12px",
+        padding: "18px",
+        borderRadius: "22px",
         border: "1px solid var(--line)",
         background: "var(--surface-strong)",
       }}
@@ -343,11 +344,11 @@ export function SalesManagementWorkspace() {
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(320px, 1.05fr) minmax(320px, 0.95fr)",
-          gap: "16px",
+          gap: "12px",
           alignItems: "start",
         }}
       >
-        <div style={{ display: "grid", gap: "14px" }}>
+        <div style={{ display: "grid", gap: "10px" }}>
           <div
             style={{
               display: "grid",
@@ -377,12 +378,13 @@ export function SalesManagementWorkspace() {
 
           <div
             style={{
-              padding: "14px 16px",
-              borderRadius: "18px",
+              padding: "10px 12px",
+              borderRadius: "14px",
               border: "1px solid var(--line)",
               background: "rgba(255, 255, 255, 0.86)",
               color: "var(--muted)",
               fontWeight: 700,
+              fontSize: "0.9rem",
             }}
           >
             Toplam eşleşen fırsat: {totalEntries}
@@ -391,12 +393,13 @@ export function SalesManagementWorkspace() {
           {listError ? (
             <div
               style={{
-                padding: "14px 16px",
-                borderRadius: "16px",
+                padding: "10px 12px",
+                borderRadius: "12px",
                 border: "1px solid rgba(205, 70, 66, 0.18)",
                 background: "rgba(205, 70, 66, 0.08)",
                 color: "#b53632",
                 fontWeight: 700,
+                fontSize: "0.9rem",
               }}
             >
               {listError}
@@ -414,11 +417,12 @@ export function SalesManagementWorkspace() {
               {listLoading ? (
                 <div
                   style={{
-                    padding: "18px",
-                    borderRadius: "18px",
+                    padding: "12px 14px",
+                    borderRadius: "14px",
                     border: "1px solid var(--line)",
                     background: "rgba(255, 255, 255, 0.72)",
                     color: "var(--muted)",
+                    fontSize: "0.9rem",
                   }}
                 >
                   Satış kayıtları yükleniyor...
@@ -426,11 +430,12 @@ export function SalesManagementWorkspace() {
               ) : entries.length === 0 ? (
                 <div
                   style={{
-                    padding: "18px",
-                    borderRadius: "18px",
+                    padding: "12px 14px",
+                    borderRadius: "14px",
                     border: "1px dashed rgba(15, 95, 215, 0.25)",
                     background: "rgba(255, 255, 255, 0.72)",
                     color: "var(--muted)",
+                    fontSize: "0.9rem",
                   }}
                 >
                   Bu filtrelerle eşleşen satış kaydı bulunamadı.
@@ -520,15 +525,15 @@ export function SalesManagementWorkspace() {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "10px" }}>
           <div
             style={{
-              padding: "18px",
-              borderRadius: "20px",
+              padding: "14px",
+              borderRadius: "16px",
               border: "1px solid var(--line)",
               background: "rgba(255, 255, 255, 0.82)",
               display: "grid",
-              gap: "10px",
+              gap: "8px",
             }}
           >
             <div style={{ fontSize: "0.82rem", letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--accent)", fontWeight: 800 }}>
@@ -536,8 +541,8 @@ export function SalesManagementWorkspace() {
             </div>
             {selectedEntry ? (
               <>
-                <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>{selectedEntry.restaurant_name}</div>
-                <div style={{ color: "var(--muted)" }}>
+                <div style={{ fontWeight: 800, fontSize: "0.98rem", lineHeight: 1.3 }}>{selectedEntry.restaurant_name}</div>
+                <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
                   {selectedEntry.city} / {selectedEntry.district} • {selectedEntry.contact_name}
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -548,7 +553,7 @@ export function SalesManagementWorkspace() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                    gap: "10px",
+                    gap: "8px",
                   }}
                 >
                   <div>
@@ -584,7 +589,7 @@ export function SalesManagementWorkspace() {
                 </div>
               </>
             ) : (
-              <div style={{ color: "var(--muted)" }}>Düzenlemek için soldan bir kayıt seç.</div>
+              <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>Düzenlemek için soldan bir kayıt seç.</div>
             )}
           </div>
 
@@ -649,16 +654,17 @@ export function SalesManagementWorkspace() {
             <input value={editProposedQuote} onChange={(event) => setEditProposedQuote(event.target.value)} placeholder="Önerilen Teklif" style={fieldStyle} />
           </div>
 
-          <textarea value={editNotes} onChange={(event) => setEditNotes(event.target.value)} rows={3} placeholder="Notlar" style={{ ...fieldStyle, resize: "vertical" }} />
+          <textarea value={editNotes} onChange={(event) => setEditNotes(event.target.value)} rows={2} placeholder="Notlar" style={{ ...fieldStyle, resize: "vertical", minHeight: "72px" }} />
 
           <div
             style={{
-              padding: "14px 16px",
-              borderRadius: "18px",
+              padding: "10px 12px",
+              borderRadius: "14px",
               border: "1px solid var(--line)",
               background: "rgba(255, 255, 255, 0.82)",
               color: "var(--muted)",
-              lineHeight: 1.7,
+              lineHeight: 1.55,
+              fontSize: "0.9rem",
             }}
           >
             <div style={{ fontWeight: 800, color: "var(--text)", marginBottom: "4px" }}>Teklif Özet Notu</div>
@@ -668,32 +674,34 @@ export function SalesManagementWorkspace() {
           {(saveError || saveSuccess) && (
             <div
               style={{
-                padding: "14px 16px",
-                borderRadius: "16px",
+                padding: "10px 12px",
+                borderRadius: "12px",
                 border: saveError ? "1px solid rgba(205, 70, 66, 0.18)" : "1px solid rgba(35, 148, 94, 0.18)",
                 background: saveError ? "rgba(205, 70, 66, 0.08)" : "rgba(35, 148, 94, 0.08)",
                 color: saveError ? "#b53632" : "#1d7b4d",
                 fontWeight: 700,
+                fontSize: "0.9rem",
               }}
             >
               {saveError || saveSuccess}
             </div>
           )}
 
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <button
               type="submit"
               disabled={isPending || detailLoading}
               style={{
                 appearance: "none",
                 border: "none",
-                borderRadius: "18px",
-                padding: "14px 18px",
+                borderRadius: "12px",
+                padding: "10px 14px",
                 background: "linear-gradient(135deg, #0f5fd7, #2563eb)",
                 color: "white",
                 fontWeight: 800,
+                fontSize: "0.9rem",
                 cursor: isPending ? "wait" : "pointer",
-                boxShadow: "0 18px 40px rgba(15, 95, 215, 0.22)",
+                boxShadow: "0 12px 24px rgba(15, 95, 215, 0.18)",
               }}
             >
               {isPending ? "Kaydediliyor..." : "Güncelle"}
@@ -705,11 +713,12 @@ export function SalesManagementWorkspace() {
               style={{
                 appearance: "none",
                 border: "1px solid rgba(205, 70, 66, 0.2)",
-                borderRadius: "18px",
-                padding: "14px 18px",
+                borderRadius: "12px",
+                padding: "10px 14px",
                 background: "rgba(205, 70, 66, 0.08)",
                 color: "#b53632",
                 fontWeight: 800,
+                fontSize: "0.9rem",
                 cursor: isPending ? "wait" : "pointer",
               }}
             >

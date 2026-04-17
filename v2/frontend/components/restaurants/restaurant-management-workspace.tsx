@@ -54,12 +54,13 @@ type RestaurantsFormOptions = {
 
 const fieldStyle: CSSProperties = {
   width: "100%",
-  padding: "13px 14px",
-  borderRadius: "16px",
+  padding: "10px 12px",
+  borderRadius: "12px",
   border: "1px solid var(--line)",
   background: "rgba(255, 255, 255, 0.9)",
   color: "var(--text)",
   font: "inherit",
+  fontSize: "0.92rem",
 };
 
 function formatCurrency(value: number) {
@@ -365,9 +366,9 @@ export function RestaurantManagementWorkspace() {
     <section
       style={{
         display: "grid",
-        gap: "16px",
-        padding: "22px",
-        borderRadius: "24px",
+        gap: "12px",
+        padding: "18px",
+        borderRadius: "22px",
         border: "1px solid var(--line)",
         background: "var(--surface-strong)",
       }}
@@ -383,16 +384,16 @@ export function RestaurantManagementWorkspace() {
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(320px, 1.05fr) minmax(280px, 0.95fr)",
-          gap: "16px",
+          gap: "12px",
           alignItems: "start",
         }}
       >
         <div
           style={{
             display: "grid",
-            gap: "14px",
-            padding: "18px",
-            borderRadius: "20px",
+            gap: "10px",
+            padding: "14px",
+            borderRadius: "18px",
             border: "1px solid var(--line)",
             background: "rgba(255, 255, 255, 0.76)",
           }}
@@ -548,9 +549,9 @@ export function RestaurantManagementWorkspace() {
           onSubmit={handleSubmit}
           style={{
             display: "grid",
-            gap: "14px",
-            padding: "18px",
-            borderRadius: "20px",
+            gap: "10px",
+            padding: "14px",
+            borderRadius: "18px",
             border: "1px solid var(--line)",
             background: "rgba(255, 255, 255, 0.86)",
           }}
@@ -565,16 +566,16 @@ export function RestaurantManagementWorkspace() {
           >
             <div>
               <div style={{ fontSize: "1rem", fontWeight: 900 }}>Seçili Kart</div>
-              <div style={{ color: "var(--muted)", marginTop: "4px" }}>
+              <div style={{ color: "var(--muted)", marginTop: "4px", fontSize: "0.9rem" }}>
                 {selectedEntry ? `${selectedEntry.brand} - ${selectedEntry.branch}` : "Restoran seç"}
               </div>
             </div>
             <span
               style={{
                 display: "inline-flex",
-                padding: "6px 10px",
+                padding: "5px 9px",
                 borderRadius: "999px",
-                fontSize: "0.76rem",
+                fontSize: "0.72rem",
                 fontWeight: 800,
                 color: "var(--accent)",
                 background: "rgba(15, 95, 215, 0.1)",
@@ -588,19 +589,19 @@ export function RestaurantManagementWorkspace() {
           {selectedEntry && !detailLoading ? (
             <div
               style={{
-                padding: "16px",
-                borderRadius: "18px",
+                padding: "12px 14px",
+                borderRadius: "14px",
                 border: "1px solid var(--line)",
                 background: "rgba(15, 95, 215, 0.04)",
                 display: "grid",
-                gap: "10px",
+                gap: "8px",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-                <strong style={{ fontSize: "1rem" }}>
+                <strong style={{ fontSize: "0.95rem", lineHeight: 1.3 }}>
                   {selectedEntry.brand} - {selectedEntry.branch}
                 </strong>
-                <span style={{ color: "var(--muted)", fontWeight: 700 }}>
+                <span style={{ color: "var(--muted)", fontWeight: 700, fontSize: "0.88rem" }}>
                   {selectedEntry.active ? "Aktif kart" : "Pasif kart"}
                 </span>
               </div>
@@ -608,7 +609,7 @@ export function RestaurantManagementWorkspace() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: "10px",
+                  gap: "8px",
                 }}
               >
                 <div>
@@ -665,7 +666,7 @@ export function RestaurantManagementWorkspace() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: "12px",
+                  gap: "10px",
                 }}
               >
                 <input value={editBrand} onChange={(event) => setEditBrand(event.target.value)} placeholder="Marka" style={fieldStyle} />
@@ -694,7 +695,7 @@ export function RestaurantManagementWorkspace() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                  gap: "12px",
+                  gap: "10px",
                 }}
               >
                 {editPricingModel === "hourly_plus_package" && (
@@ -726,7 +727,7 @@ export function RestaurantManagementWorkspace() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: "12px",
+                  gap: "10px",
                 }}
               >
                 <input value={editContactName} onChange={(event) => setEditContactName(event.target.value)} placeholder="Yetkili Ad Soyad" style={fieldStyle} />
@@ -749,7 +750,7 @@ export function RestaurantManagementWorkspace() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: "12px",
+                  gap: "10px",
                 }}
               >
                 <input value={editExtraHeadcountRequest} onChange={(event) => setEditExtraHeadcountRequest(event.target.value)} placeholder="Ek Kurye Talebi" style={fieldStyle} />
@@ -762,19 +763,20 @@ export function RestaurantManagementWorkspace() {
                 value={editNotes}
                 onChange={(event) => setEditNotes(event.target.value)}
                 placeholder="Not"
-                rows={3}
-                style={{ ...fieldStyle, resize: "vertical" }}
+                rows={2}
+                style={{ ...fieldStyle, resize: "vertical", minHeight: "72px" }}
               />
 
               {(saveError || saveSuccess) && (
                 <div
                   style={{
-                    padding: "14px 16px",
-                    borderRadius: "16px",
+                    padding: "10px 12px",
+                    borderRadius: "12px",
                     border: saveError ? "1px solid rgba(205, 70, 66, 0.18)" : "1px solid rgba(35, 148, 94, 0.18)",
                     background: saveError ? "rgba(205, 70, 66, 0.08)" : "rgba(35, 148, 94, 0.08)",
                     color: saveError ? "#b53632" : "#1d7b4d",
                     fontWeight: 700,
+                    fontSize: "0.9rem",
                   }}
                 >
                   {saveError || saveSuccess}
@@ -785,7 +787,7 @@ export function RestaurantManagementWorkspace() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                  gap: "10px",
+                  gap: "8px",
                 }}
               >
                 <button
@@ -831,9 +833,10 @@ function actionButton(kind: "primary" | "soft" | "danger"): CSSProperties {
     },
   }[kind];
   return {
-    padding: "14px 16px",
-    borderRadius: "16px",
+    padding: "10px 12px",
+    borderRadius: "12px",
     fontWeight: 800,
+    fontSize: "0.9rem",
     cursor: "pointer",
     ...styles,
   };

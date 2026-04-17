@@ -67,12 +67,13 @@ function pill(kind: "accent" | "soft"): CSSProperties {
 
 const fieldStyle: CSSProperties = {
   width: "100%",
-  padding: "13px 14px",
-  borderRadius: "16px",
+  padding: "10px 12px",
+  borderRadius: "12px",
   border: "1px solid var(--line)",
   background: "rgba(255, 255, 255, 0.9)",
   color: "var(--text)",
   font: "inherit",
+  fontSize: "0.92rem",
 };
 
 export function PersonnelManagementWorkspace() {
@@ -323,9 +324,9 @@ export function PersonnelManagementWorkspace() {
     <section
       style={{
         display: "grid",
-        gap: "16px",
-        padding: "22px",
-        borderRadius: "24px",
+        gap: "12px",
+        padding: "18px",
+        borderRadius: "22px",
         border: "1px solid var(--line)",
         background: "var(--surface-strong)",
       }}
@@ -342,16 +343,16 @@ export function PersonnelManagementWorkspace() {
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(320px, 1fr) minmax(0, 1.4fr)",
-          gap: "16px",
+          gap: "12px",
           alignItems: "start",
         }}
       >
         <aside
           style={{
             display: "grid",
-            gap: "14px",
-            padding: "16px",
-            borderRadius: "20px",
+            gap: "12px",
+            padding: "14px",
+            borderRadius: "18px",
             border: "1px solid var(--line)",
             background: "rgba(244, 248, 255, 0.85)",
           }}
@@ -393,7 +394,7 @@ export function PersonnelManagementWorkspace() {
                 }
                 style={fieldStyle}
               >
-                <option value="">Tüm Subeler</option>
+                <option value="">Tüm Şubeler</option>
                 {options?.restaurants.map((restaurant) => (
                   <option key={restaurant.id} value={restaurant.id}>
                     {restaurant.label}
@@ -498,7 +499,7 @@ export function PersonnelManagementWorkspace() {
         <div
           style={{
             display: "grid",
-            gap: "14px",
+            gap: "10px",
           }}
         >
           {selectedEntry ? (
@@ -506,7 +507,7 @@ export function PersonnelManagementWorkspace() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "minmax(0, 1.6fr) minmax(260px, 320px)",
-                gap: "16px",
+                gap: "12px",
                 alignItems: "start",
               }}
             >
@@ -514,21 +515,21 @@ export function PersonnelManagementWorkspace() {
                 onSubmit={handleSubmit}
                 style={{
                   display: "grid",
-                  gap: "14px",
+                  gap: "10px",
                 }}
               >
                 <div
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    gap: "14px",
+                    gap: "10px",
                   }}
                 >
-                  <label style={{ display: "grid", gap: "8px" }}>
+                  <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>Ad Soyad</span>
                     <input value={editFullName} onChange={(event) => setEditFullName(event.target.value)} style={fieldStyle} />
                   </label>
-                  <label style={{ display: "grid", gap: "8px" }}>
+                  <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>Rol</span>
                     <select value={editRole} onChange={(event) => setEditRole(event.target.value)} style={fieldStyle}>
                       {options?.role_options.map((item) => (
@@ -538,11 +539,11 @@ export function PersonnelManagementWorkspace() {
                       ))}
                     </select>
                   </label>
-                  <label style={{ display: "grid", gap: "8px" }}>
+                  <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>Telefon</span>
                     <input value={editPhone} onChange={(event) => setEditPhone(event.target.value)} style={fieldStyle} />
                   </label>
-                  <label style={{ display: "grid", gap: "8px" }}>
+                  <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>Durum</span>
                     <select value={editStatus} onChange={(event) => setEditStatus(event.target.value)} style={fieldStyle}>
                       {options?.status_options.map((item) => (
@@ -552,7 +553,7 @@ export function PersonnelManagementWorkspace() {
                       ))}
                     </select>
                   </label>
-                  <label style={{ display: "grid", gap: "8px" }}>
+                  <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>Restoran / Şube</span>
                     <select
                       value={editRestaurantId}
@@ -561,7 +562,7 @@ export function PersonnelManagementWorkspace() {
                       }
                       style={fieldStyle}
                     >
-                      <option value="">Atanmadi</option>
+                      <option value="">Atanmadı</option>
                       {options?.restaurants.map((restaurant) => (
                         <option key={restaurant.id} value={restaurant.id}>
                           {restaurant.label}
@@ -570,8 +571,8 @@ export function PersonnelManagementWorkspace() {
                     </select>
                   </label>
                   {canViewPlateArea ? (
-                    <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Arac Modu</span>
+                    <label style={{ display: "grid", gap: "6px" }}>
+                      <span style={{ fontWeight: 700 }}>Araç Modu</span>
                       <select
                         value={editVehicleMode}
                         onChange={(event) => setEditVehicleMode(event.target.value)}
@@ -586,16 +587,16 @@ export function PersonnelManagementWorkspace() {
                     </label>
                   ) : null}
                   {canViewPlateArea ? (
-                    <label style={{ display: "grid", gap: "8px" }}>
+                    <label style={{ display: "grid", gap: "6px" }}>
                       <span style={{ fontWeight: 700 }}>Plaka</span>
                       <input value={editCurrentPlate} onChange={(event) => setEditCurrentPlate(event.target.value)} style={fieldStyle} />
                     </label>
                   ) : null}
-                  <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Ise Giriş</span>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>İşe Giriş</span>
                     <input type="date" value={editStartDate} onChange={(event) => setEditStartDate(event.target.value)} style={fieldStyle} />
                   </label>
-                  <label style={{ display: "grid", gap: "8px" }}>
+                  <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>Aylık Sabit Tutar</span>
                     <input
                       inputMode="decimal"
@@ -606,13 +607,13 @@ export function PersonnelManagementWorkspace() {
                   </label>
                 </div>
 
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "6px" }}>
                   <span style={{ fontWeight: 700 }}>Not</span>
                   <textarea
                     value={editNotes}
                     onChange={(event) => setEditNotes(event.target.value)}
-                    rows={3}
-                    style={{ ...fieldStyle, resize: "vertical", minHeight: "96px" }}
+                    rows={2}
+                    style={{ ...fieldStyle, resize: "vertical", minHeight: "72px" }}
                   />
                 </label>
 
@@ -620,17 +621,17 @@ export function PersonnelManagementWorkspace() {
                   type="submit"
                   disabled={isPending || detailLoading}
                   style={{
-                    padding: "14px 18px",
-                    borderRadius: "16px",
+                    padding: "10px 14px",
+                    borderRadius: "12px",
                     border: "none",
                     background: "var(--accent)",
                     color: "#fff",
                     fontWeight: 800,
-                    fontSize: "0.96rem",
+                    fontSize: "0.9rem",
                     cursor: "pointer",
                   }}
                 >
-                  {isPending ? "Guncelleniyor..." : "Personel Kaydini Güncelle"}
+                  {isPending ? "Güncelleniyor..." : "Personel Kaydını Güncelle"}
                 </button>
                 {(canToggleStatus || canDeletePersonnel) && (
                   <div
@@ -662,18 +663,18 @@ export function PersonnelManagementWorkspace() {
               <aside
                 style={{
                   display: "grid",
-                  gap: "12px",
-                  padding: "16px",
-                  borderRadius: "20px",
+                  gap: "10px",
+                  padding: "14px",
+                  borderRadius: "18px",
                   border: "1px solid var(--line)",
                   background: "rgba(244, 248, 255, 0.9)",
                 }}
               >
-                <h3 style={{ margin: 0, fontSize: "1rem" }}>Mevcut Kart</h3>
+                <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Mevcut Kart</h3>
                 <SummaryItem label="Kod" value={editPersonCode} />
                 <SummaryItem label="Rol" value={editRole} />
                 <SummaryItem label="Şube" value={selectedEntry.restaurant_label} />
-                {canViewPlateArea ? <SummaryItem label="Arac" value={editVehicleMode} /> : null}
+                {canViewPlateArea ? <SummaryItem label="Araç" value={editVehicleMode} /> : null}
                 <SummaryItem label="Durum" value={editStatus} />
               </aside>
             </div>
@@ -700,9 +701,10 @@ function actionButton(kind: "soft" | "danger"): CSSProperties {
           border: "1px solid rgba(205, 70, 66, 0.16)",
         };
   return {
-    padding: "14px 16px",
-    borderRadius: "16px",
+    padding: "10px 12px",
+    borderRadius: "12px",
     fontWeight: 800,
+    fontSize: "0.88rem",
     cursor: "pointer",
     ...palette,
   };
@@ -712,12 +714,12 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div
       style={{
-        padding: "12px 14px",
-        borderRadius: "16px",
+        padding: "10px 12px",
+        borderRadius: "12px",
         border: "1px solid rgba(193, 209, 232, 0.9)",
         background: "#fff",
         display: "grid",
-        gap: "4px",
+        gap: "3px",
       }}
     >
       <span
@@ -731,7 +733,7 @@ function Metric({ label, value }: { label: string; value: string }) {
       >
         {label}
       </span>
-      <span style={{ fontWeight: 900, fontSize: "1.15rem" }}>{value}</span>
+      <span style={{ fontWeight: 900, fontSize: "1.02rem" }}>{value}</span>
     </div>
   );
 }
@@ -741,9 +743,9 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
     <div
       style={{
         display: "grid",
-        gap: "4px",
-        padding: "12px 14px",
-        borderRadius: "16px",
+        gap: "3px",
+        padding: "10px 12px",
+        borderRadius: "12px",
         border: "1px solid rgba(193, 209, 232, 0.9)",
         background: "#fff",
       }}
@@ -786,8 +788,9 @@ function InlineMessage({ tone, message }: { tone: "error" | "success" | "soft"; 
   return (
     <div
       style={{
-        padding: "14px 16px",
-        borderRadius: "16px",
+        padding: "10px 12px",
+        borderRadius: "12px",
+        fontSize: "0.9rem",
         ...palette,
       }}
     >

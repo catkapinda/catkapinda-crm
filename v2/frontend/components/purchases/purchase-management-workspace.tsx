@@ -34,12 +34,13 @@ type PurchasesFormOptions = {
 
 const fieldStyle: CSSProperties = {
   width: "100%",
-  padding: "13px 14px",
-  borderRadius: "16px",
+  padding: "10px 12px",
+  borderRadius: "12px",
   border: "1px solid var(--line)",
   background: "rgba(255, 255, 255, 0.9)",
   color: "var(--text)",
   font: "inherit",
+  fontSize: "0.92rem",
 };
 
 function formatCurrency(value: number) {
@@ -249,9 +250,9 @@ export function PurchaseManagementWorkspace() {
     <section
       style={{
         display: "grid",
-        gap: "16px",
-        padding: "22px",
-        borderRadius: "24px",
+        gap: "12px",
+        padding: "18px",
+        borderRadius: "22px",
         border: "1px solid var(--line)",
         background: "var(--surface-strong)",
       }}
@@ -267,11 +268,11 @@ export function PurchaseManagementWorkspace() {
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(320px, 1.05fr) minmax(320px, 0.95fr)",
-          gap: "16px",
+          gap: "12px",
           alignItems: "start",
         }}
       >
-        <div style={{ display: "grid", gap: "14px" }}>
+        <div style={{ display: "grid", gap: "10px" }}>
           <div
             style={{
               display: "grid",
@@ -297,12 +298,13 @@ export function PurchaseManagementWorkspace() {
 
           <div
             style={{
-              padding: "14px 16px",
-              borderRadius: "18px",
+              padding: "10px 12px",
+              borderRadius: "14px",
               border: "1px solid var(--line)",
               background: "rgba(255, 255, 255, 0.86)",
               color: "var(--muted)",
               fontWeight: 700,
+              fontSize: "0.9rem",
             }}
           >
             Toplam eşleşen fatura: {totalEntries}
@@ -311,10 +313,11 @@ export function PurchaseManagementWorkspace() {
           {listLoading ? (
             <div
               style={{
-                padding: "18px",
-                borderRadius: "18px",
+                padding: "12px 14px",
+                borderRadius: "14px",
                 background: "rgba(15, 95, 215, 0.06)",
                 color: "var(--muted)",
+                fontSize: "0.9rem",
               }}
             >
               Satın alma listesi yükleniyor...
@@ -322,12 +325,13 @@ export function PurchaseManagementWorkspace() {
           ) : listError ? (
             <div
               style={{
-                padding: "18px",
-                borderRadius: "18px",
+                padding: "12px 14px",
+                borderRadius: "14px",
                 border: "1px solid rgba(205, 70, 66, 0.14)",
                 background: "rgba(205, 70, 66, 0.08)",
                 color: "#b53632",
                 fontWeight: 700,
+                fontSize: "0.9rem",
               }}
             >
               {listError}
@@ -407,11 +411,12 @@ export function PurchaseManagementWorkspace() {
               {!entries.length && (
                 <div
                   style={{
-                    padding: "18px",
-                    borderRadius: "18px",
+                    padding: "12px 14px",
+                    borderRadius: "14px",
                     border: "1px dashed rgba(15, 95, 215, 0.25)",
                     background: "rgba(255, 255, 255, 0.7)",
                     color: "var(--muted)",
+                    fontSize: "0.9rem",
                   }}
                 >
                   Bu filtrede satın alma kaydı yok.
@@ -425,9 +430,9 @@ export function PurchaseManagementWorkspace() {
           onSubmit={handleSubmit}
           style={{
             display: "grid",
-            gap: "14px",
-            padding: "18px",
-            borderRadius: "22px",
+            gap: "10px",
+            padding: "14px",
+            borderRadius: "18px",
             border: "1px solid var(--line)",
             background: "rgba(255, 255, 255, 0.86)",
           }}
@@ -442,25 +447,25 @@ export function PurchaseManagementWorkspace() {
           {selectedEntry && !detailLoading ? (
             <div
               style={{
-                padding: "16px",
-                borderRadius: "18px",
+                padding: "12px 14px",
+                borderRadius: "14px",
                 border: "1px solid var(--line)",
                 background: "rgba(15, 95, 215, 0.04)",
                 display: "grid",
-                gap: "10px",
+                gap: "8px",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-                <strong style={{ fontSize: "1rem" }}>{selectedEntry.item_name}</strong>
-                <span style={{ color: "var(--muted)", fontWeight: 700 }}>{selectedEntry.purchase_date}</span>
+                <strong style={{ fontSize: "0.95rem", lineHeight: 1.3 }}>{selectedEntry.item_name}</strong>
+                <span style={{ color: "var(--muted)", fontWeight: 700, fontSize: "0.88rem" }}>{selectedEntry.purchase_date}</span>
               </div>
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: "10px",
-                }}
-              >
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "8px",
+                  }}
+                >
                 <div>
                   <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Adet</div>
                   <div style={{ marginTop: "4px", fontWeight: 700 }}>{selectedEntry.quantity} adet</div>
@@ -490,10 +495,11 @@ export function PurchaseManagementWorkspace() {
           {detailLoading ? (
             <div
               style={{
-                padding: "16px",
-                borderRadius: "16px",
+                padding: "10px 12px",
+                borderRadius: "12px",
                 background: "rgba(15, 95, 215, 0.06)",
                 color: "var(--muted)",
+                fontSize: "0.9rem",
               }}
             >
               Satın alma detayı yükleniyor...
@@ -507,11 +513,11 @@ export function PurchaseManagementWorkspace() {
                   gap: "12px",
                 }}
               >
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "6px" }}>
                   <span style={{ fontWeight: 700 }}>Fatura Tarihi</span>
                   <input type="date" value={editPurchaseDate} onChange={(event) => setEditPurchaseDate(event.target.value)} style={fieldStyle} />
                 </label>
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "6px" }}>
                   <span style={{ fontWeight: 700 }}>Ürün</span>
                   <select value={editItemName} onChange={(event) => setEditItemName(event.target.value)} style={fieldStyle}>
                     {options?.item_options.map((item) => (
@@ -521,11 +527,11 @@ export function PurchaseManagementWorkspace() {
                     ))}
                   </select>
                 </label>
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "6px" }}>
                   <span style={{ fontWeight: 700 }}>Adet</span>
                   <input type="number" min="1" step="1" value={editQuantity} onChange={(event) => setEditQuantity(event.target.value)} style={fieldStyle} />
                 </label>
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "6px" }}>
                   <span style={{ fontWeight: 700 }}>Toplam Fatura</span>
                   <input
                     type="number"
@@ -537,11 +543,11 @@ export function PurchaseManagementWorkspace() {
                     style={fieldStyle}
                   />
                 </label>
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "6px" }}>
                   <span style={{ fontWeight: 700 }}>Tedarikçi</span>
                   <input value={editSupplier} onChange={(event) => setEditSupplier(event.target.value)} style={fieldStyle} />
                 </label>
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "6px" }}>
                   <span style={{ fontWeight: 700 }}>Fatura No</span>
                   <input value={editInvoiceNo} onChange={(event) => setEditInvoiceNo(event.target.value)} style={fieldStyle} />
                 </label>
@@ -549,35 +555,37 @@ export function PurchaseManagementWorkspace() {
 
               <div
                 style={{
-                  padding: "14px 16px",
-                  borderRadius: "18px",
+                  padding: "10px 12px",
+                  borderRadius: "14px",
                   border: "1px solid var(--line)",
                   background: "rgba(15, 95, 215, 0.05)",
                   color: "var(--muted)",
+                  fontSize: "0.9rem",
                 }}
               >
                 <div style={{ fontWeight: 800, color: "var(--text)", marginBottom: "4px" }}>Birim Maliyet</div>
                 {unitCostPreview}
               </div>
 
-              <label style={{ display: "grid", gap: "8px" }}>
+              <label style={{ display: "grid", gap: "6px" }}>
                 <span style={{ fontWeight: 700 }}>Not</span>
                 <textarea
                   value={editNotes}
                   onChange={(event) => setEditNotes(event.target.value)}
-                  rows={4}
-                  style={{ ...fieldStyle, resize: "vertical" }}
+                  rows={2}
+                  style={{ ...fieldStyle, resize: "vertical", minHeight: "72px" }}
                 />
               </label>
             </>
           ) : (
             <div
               style={{
-                padding: "16px",
-                borderRadius: "16px",
+                padding: "10px 12px",
+                borderRadius: "12px",
                 border: "1px dashed rgba(15, 95, 215, 0.25)",
                 background: "rgba(255, 255, 255, 0.7)",
                 color: "var(--muted)",
+                fontSize: "0.9rem",
               }}
             >
               Düzenleme için soldan bir satın alma kaydı seç.
@@ -587,12 +595,13 @@ export function PurchaseManagementWorkspace() {
           {(saveError || saveSuccess) && (
             <div
               style={{
-                padding: "14px 16px",
-                borderRadius: "16px",
+                padding: "10px 12px",
+                borderRadius: "12px",
                 border: saveError ? "1px solid rgba(205, 70, 66, 0.18)" : "1px solid rgba(35, 148, 94, 0.18)",
                 background: saveError ? "rgba(205, 70, 66, 0.08)" : "rgba(35, 148, 94, 0.08)",
                 color: saveError ? "#b53632" : "#1d7b4d",
                 fontWeight: 700,
+                fontSize: "0.9rem",
               }}
             >
               {saveError || saveSuccess}
@@ -603,7 +612,7 @@ export function PurchaseManagementWorkspace() {
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
-              gap: "12px",
+              gap: "10px",
             }}
           >
             <button
@@ -611,13 +620,14 @@ export function PurchaseManagementWorkspace() {
               disabled={isPending || !selectedEntry}
               style={{
                 border: "none",
-                borderRadius: "18px",
-                padding: "14px 18px",
+                borderRadius: "12px",
+                padding: "10px 14px",
                 background: "linear-gradient(135deg, #0f5fd7, #1a73e8)",
                 color: "white",
                 fontWeight: 800,
+                fontSize: "0.9rem",
                 cursor: "pointer",
-                boxShadow: "0 16px 28px rgba(15, 95, 215, 0.2)",
+                boxShadow: "0 12px 22px rgba(15, 95, 215, 0.18)",
               }}
             >
               {isPending ? "Kaydediliyor..." : "Kaydı Güncelle"}
@@ -628,11 +638,12 @@ export function PurchaseManagementWorkspace() {
               disabled={isPending || !selectedEntry}
               style={{
                 border: "1px solid rgba(205, 70, 66, 0.18)",
-                borderRadius: "18px",
-                padding: "14px 18px",
+                borderRadius: "12px",
+                padding: "10px 14px",
                 background: "rgba(205, 70, 66, 0.08)",
                 color: "#b53632",
                 fontWeight: 800,
+                fontSize: "0.9rem",
                 cursor: "pointer",
               }}
             >
