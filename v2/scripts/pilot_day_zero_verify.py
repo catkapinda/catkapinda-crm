@@ -1056,6 +1056,64 @@ def _check_go_live_decision_payload(*, output_dir: Path, manifest: dict) -> tupl
     return (True, issues)
 
 
+def _phase_rank(phase: str | None) -> int:
+    normalized = str(phase or "").strip()
+    return {
+        "blocked": 0,
+        "not_ready": 0,
+        "ready_for_pilot": 1,
+        "ready_for_cutover": 2,
+    }.get(normalized, -1)
+
+
+def _check_go_live_status_alignment(*, output_dir: Path) -> tuple[bool, list[str]]:
+    issues: list[str] = []
+    status_json_path = output_dir / "pilot-status-live.json"
+    go_live_json_path = output_dir / "go-live-decision.json"
+
+    if not (status_json_path.exists() and go_live_json_path.exists()):
+        return (False, ["Go-live hizalama kontrolu icin pilot-status-live.json veya go-live-decision.json eksik"])
+
+    status_payload = _read_json(status_json_path)
+    status_backend = status_payload.get("backend") or {}
+    status_go_live = status_backend.get("go_live") or {}
+    report_go_live = _read_json(go_live_json_path)
+
+    if not isinstance(status_go_live, dict) or not status_go_live:
+        return (True, ["pilot-status-live.json icinde backend.go_live alani bulunamadi"])
+
+    status_phase = str(status_go_live.get("phase") or "").strip()
+    report_phase = str(report_go_live.get("phase") or "").strip()
+    status_rank = _phase_rank(status_phase)
+    report_rank = _phase_rank(report_phase)
+
+    if status_rank < 0:
+        issues.append("pilot-status-live.json icinde backend.go_live.phase gecersiz")
+    if report_rank < 0:
+        issues.append("go-live-decision.json icinde phase gecersiz")
+
+    if status_rank >= 0 and report_rank >= 0 and report_rank > status_rank:
+        issues.append(
+            "go-live-decision.json, pilot-status-live.json backend.go_live fazindan daha ileri bir hazirlik seviyesi bildiriyor"
+        )
+
+    status_pilot_ready = bool(status_go_live.get("pilot_ready"))
+    status_cutover_ready = bool(status_go_live.get("cutover_ready"))
+    report_pilot_passed = bool(report_go_live.get("pilot_passed"))
+    report_cutover_passed = bool(report_go_live.get("cutover_passed"))
+
+    if report_pilot_passed and not status_pilot_ready:
+        issues.append(
+            "go-live-decision.json pilot gecisini onayliyor ama pilot-status-live.json backend.go_live pilot_ready=false diyor"
+        )
+    if report_cutover_passed and not status_cutover_ready:
+        issues.append(
+            "go-live-decision.json cutover gecisini onayliyor ama pilot-status-live.json backend.go_live cutover_ready=false diyor"
+        )
+
+    return (True, issues)
+
+
 def _check_launch_packets(*, output_dir: Path, manifest: dict) -> tuple[bool, list[str]]:
     issues: list[str] = []
     frontend_url = manifest.get("frontend_url")
@@ -1160,6 +1218,7 @@ def _check_status_documents(*, output_dir: Path, manifest: dict) -> tuple[bool, 
     backend = status_payload.get("backend") or {}
     frontend = status_payload.get("frontend") or {}
     cutover = backend.get("cutover") or {}
+    go_live = backend.get("go_live") or {}
     decision = backend.get("decision") or {}
 
     expected_status_snippets = [
@@ -1171,6 +1230,9 @@ def _check_status_documents(*, output_dir: Path, manifest: dict) -> tuple[bool, 
         f"- Title: {decision.get('title') or '-'}",
         "## Cutover Ozet",
         f"- Phase: `{cutover.get('phase') or '-'}`",
+        "## Go-Live Karari",
+        f"- Phase: `{go_live.get('phase') or '-'}`",
+        f"- Recommended Next Step: {go_live.get('recommended_next_step') or '-'}",
     ]
     for snippet in expected_status_snippets:
         if snippet not in status_markdown:
@@ -1628,6 +1690,11 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
     )
     consistency_issues.extend(go_live_decision_issues)
 
+    go_live_alignment_checked, go_live_alignment_issues = _check_go_live_status_alignment(
+        output_dir=output_dir,
+    )
+    consistency_issues.extend(go_live_alignment_issues)
+
     packet_checked, packet_issues = _check_launch_packets(
         output_dir=output_dir,
         manifest=manifest,
@@ -1718,6 +1785,12 @@ def verify_day_zero_bundle(output_dir: Path) -> dict:
             if go_live_decision_checked and not go_live_decision_issues
             else (False if go_live_decision_checked else None)
         ),
+        "go_live_alignment_checked": go_live_alignment_checked,
+        "go_live_alignment_ok": (
+            True
+            if go_live_alignment_checked and not go_live_alignment_issues
+            else (False if go_live_alignment_checked else None)
+        ),
         "packet_checked": packet_checked,
         "packet_ok": True if packet_checked and not packet_issues else (False if packet_checked else None),
         "reports_checked": reports_checked,
@@ -1749,6 +1822,8 @@ def render_console_summary(result: dict) -> str:
     env_ok = result.get("env_ok")
     go_live_decision_checked = bool(result.get("go_live_decision_checked"))
     go_live_decision_ok = result.get("go_live_decision_ok")
+    go_live_alignment_checked = bool(result.get("go_live_alignment_checked"))
+    go_live_alignment_ok = result.get("go_live_alignment_ok")
     packet_checked = bool(result.get("packet_checked"))
     packet_ok = result.get("packet_ok")
     reports_checked = bool(result.get("reports_checked"))
@@ -1796,6 +1871,11 @@ def render_console_summary(result: dict) -> str:
             f"Go-Live Decision: {'PASS' if go_live_decision_ok else 'FAIL'}"
             if go_live_decision_checked
             else "Go-Live Decision: SKIPPED"
+        ),
+        (
+            f"Go-Live Alignment: {'PASS' if go_live_alignment_ok else 'FAIL'}"
+            if go_live_alignment_checked
+            else "Go-Live Alignment: SKIPPED"
         ),
         (
             f"Launch Packets: {'PASS' if packet_ok else 'FAIL'}"
@@ -1856,6 +1936,8 @@ def render_markdown_report(result: dict) -> str:
     env_ok = result.get("env_ok")
     go_live_decision_checked = bool(result.get("go_live_decision_checked"))
     go_live_decision_ok = result.get("go_live_decision_ok")
+    go_live_alignment_checked = bool(result.get("go_live_alignment_checked"))
+    go_live_alignment_ok = result.get("go_live_alignment_ok")
     packet_checked = bool(result.get("packet_checked"))
     packet_ok = result.get("packet_ok")
     reports_checked = bool(result.get("reports_checked"))
@@ -1904,6 +1986,11 @@ def render_markdown_report(result: dict) -> str:
             f"- Go-Live Decision: `{'PASS' if go_live_decision_ok else 'FAIL'}`"
             if go_live_decision_checked
             else "- Go-Live Decision: `SKIPPED`"
+        ),
+        (
+            f"- Go-Live Alignment: `{'PASS' if go_live_alignment_ok else 'FAIL'}`"
+            if go_live_alignment_checked
+            else "- Go-Live Alignment: `SKIPPED`"
         ),
         (
             f"- Launch Packets: `{'PASS' if packet_ok else 'FAIL'}`"

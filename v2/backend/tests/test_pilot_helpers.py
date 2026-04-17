@@ -1467,6 +1467,8 @@ def test_day_zero_bundle_writes_manifest_and_env_files(monkeypatch, tmp_path: Pa
     embedded_verify = json.loads((tmp_path / "pilot-day-zero-verify.json").read_text(encoding="utf-8"))
     assert embedded_verify["verify_reports_checked"] is True
     assert embedded_verify["verify_reports_ok"] is True
+    assert embedded_verify["go_live_alignment_checked"] is True
+    assert embedded_verify["go_live_alignment_ok"] is True
     env_validation = json.loads((tmp_path / "render-env-validation.json").read_text(encoding="utf-8"))
     assert env_validation["passed"] is False
     start_here = (tmp_path / "00-START-HERE.md").read_text(encoding="utf-8")
@@ -4604,6 +4606,55 @@ def test_day_zero_verify_fails_when_go_live_decision_json_is_wrong(monkeypatch, 
     assert result["go_live_decision_checked"] is True
     assert result["go_live_decision_ok"] is False
     assert any("go-live-decision.json" in item for item in result["consistency_issues"])
+
+
+def test_day_zero_verify_fails_when_go_live_decision_overstates_status_payload(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(pilot_day_zero, "fetch_pilot_status", lambda base_url, timeout: sample_payload())
+    monkeypatch.setattr(pilot_day_zero, "build_preflight_bundle", make_fake_preflight_bundle())
+
+    pilot_day_zero.build_day_zero_bundle(
+        frontend_url="https://pilot.example.com",
+        api_url="https://pilot-api.example.com",
+        streamlit_url="https://crmcatkapinda.com",
+        output_dir=tmp_path,
+        timeout=5,
+        database_url="postgresql://pilot",
+        default_auth_password="secret",
+        identity="ebru@catkapinda.com",
+        password_placeholder="<sifre>",
+        api_service_name="crmcatkapinda-v2-api",
+        frontend_service_name="crmcatkapinda-v2",
+        streamlit_service_name="crmcatkapinda",
+    )
+
+    go_live_json_path = tmp_path / "go-live-decision.json"
+    go_live_payload = json.loads(go_live_json_path.read_text(encoding="utf-8"))
+    go_live_payload["phase"] = "ready_for_cutover"
+    go_live_payload["pilot_passed"] = True
+    go_live_payload["cutover_passed"] = True
+    go_live_payload["summary"] = "Pilot ve cutover acilisa hazir."
+    go_live_payload["recommended_next_step"] = "Canli domaine gecis planini uygula."
+    go_live_json_path.write_text(json.dumps(go_live_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (tmp_path / "go-live-decision.md").write_text(
+        go_live_decision_report.render_markdown(go_live_payload),
+        encoding="utf-8",
+    )
+
+    manifest_path = tmp_path / "pilot-day-zero-manifest.json"
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_payload["go_live_phase"] = "ready_for_cutover"
+    manifest_payload["go_live_summary"] = "Pilot ve cutover acilisa hazir."
+    manifest_payload["go_live_recommended_next_step"] = "Canli domaine gecis planini uygula."
+    manifest_payload["go_live_pilot_passed"] = True
+    manifest_payload["go_live_cutover_passed"] = True
+    manifest_path.write_text(json.dumps(manifest_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    result = pilot_day_zero_verify.verify_day_zero_bundle(tmp_path)
+
+    assert result["passed"] is False
+    assert result["go_live_alignment_checked"] is True
+    assert result["go_live_alignment_ok"] is False
+    assert any("daha ileri bir hazirlik seviyesi" in item for item in result["consistency_issues"])
 
 
 def test_day_zero_verify_fails_when_banner_guard_json_is_wrong(monkeypatch, tmp_path: Path):
