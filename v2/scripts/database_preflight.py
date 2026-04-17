@@ -535,6 +535,120 @@ def _build_data_health(conn: psycopg.Connection, *, reference_date: date) -> tup
     )
 
 
+def _build_data_quality(
+    conn: psycopg.Connection,
+    *,
+    has_auth_users: bool,
+) -> tuple[dict[str, int], list[str]]:
+    quality_counts = {
+        "active_restaurants_missing_identity": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM restaurants
+                WHERE COALESCE(active, TRUE) = TRUE
+                  AND (
+                    NULLIF(BTRIM(COALESCE(brand, '')), '') IS NULL
+                    OR NULLIF(BTRIM(COALESCE(branch, '')), '') IS NULL
+                  )
+                """,
+            )
+            or 0
+        ),
+        "active_personnel_missing_identity": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM personnel
+                WHERE COALESCE(status, '') = 'Aktif'
+                  AND (
+                    NULLIF(BTRIM(COALESCE(person_code, '')), '') IS NULL
+                    OR NULLIF(BTRIM(COALESCE(full_name, '')), '') IS NULL
+                  )
+                """,
+            )
+            or 0
+        ),
+        "duplicate_restaurant_keys": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM (
+                    SELECT LOWER(BTRIM(COALESCE(brand, ''))) AS brand_key,
+                           LOWER(BTRIM(COALESCE(branch, ''))) AS branch_key
+                    FROM restaurants
+                    WHERE COALESCE(active, TRUE) = TRUE
+                      AND NULLIF(BTRIM(COALESCE(brand, '')), '') IS NOT NULL
+                      AND NULLIF(BTRIM(COALESCE(branch, '')), '') IS NOT NULL
+                    GROUP BY 1, 2
+                    HAVING COUNT(*) > 1
+                ) duplicates
+                """,
+            )
+            or 0
+        ),
+        "duplicate_person_codes": int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM (
+                    SELECT LOWER(BTRIM(COALESCE(person_code, ''))) AS person_code_key
+                    FROM personnel
+                    WHERE NULLIF(BTRIM(COALESCE(person_code, '')), '') IS NOT NULL
+                    GROUP BY 1
+                    HAVING COUNT(*) > 1
+                ) duplicates
+                """,
+            )
+            or 0
+        ),
+        "duplicate_auth_emails": 0,
+    }
+    if has_auth_users:
+        quality_counts["duplicate_auth_emails"] = int(
+            _scalar_value(
+                conn,
+                """
+                SELECT COUNT(*) AS count
+                FROM (
+                    SELECT LOWER(BTRIM(COALESCE(email, ''))) AS email_key
+                    FROM auth_users
+                    WHERE NULLIF(BTRIM(COALESCE(email, '')), '') IS NOT NULL
+                    GROUP BY 1
+                    HAVING COUNT(*) > 1
+                ) duplicates
+                """,
+            )
+            or 0
+        )
+
+    cutover_blocking_items: list[str] = []
+    if quality_counts["active_restaurants_missing_identity"] > 0:
+        cutover_blocking_items.append("Aktif restoran kartlarinda bos marka/sube alanlari var.")
+    if quality_counts["active_personnel_missing_identity"] > 0:
+        cutover_blocking_items.append(
+            "Aktif personel kartlarinda bos personel kodu veya ad soyad alanlari var."
+        )
+    if quality_counts["duplicate_restaurant_keys"] > 0:
+        cutover_blocking_items.append(
+            f"Ayni marka/sube kombinasyonunda {quality_counts['duplicate_restaurant_keys']} cakisan restoran kaydi var."
+        )
+    if quality_counts["duplicate_person_codes"] > 0:
+        cutover_blocking_items.append(
+            f"{quality_counts['duplicate_person_codes']} personel kodu birden fazla kartta tekrar ediyor."
+        )
+    if quality_counts["duplicate_auth_emails"] > 0:
+        cutover_blocking_items.append(
+            f"{quality_counts['duplicate_auth_emails']} auth e-posta degeri birden fazla kullanicida tekrar ediyor."
+        )
+
+    return quality_counts, cutover_blocking_items
+
+
 def _build_relation_health(conn: psycopg.Connection) -> tuple[dict[str, int], list[str]]:
     relation_counts = {
         "personnel_restaurant_orphans": int(
@@ -836,6 +950,10 @@ def build_database_preflight_report(
             conn,
             reference_date=effective_reference_date,
         )
+        data_quality, data_quality_blocking_items = _build_data_quality(
+            conn,
+            has_auth_users=_table_exists(conn, "auth_users"),
+        )
         relation_health, relation_blocking_items = _build_relation_health(conn)
 
     warnings: list[str] = []
@@ -889,6 +1007,7 @@ def build_database_preflight_report(
         else:
             warnings.append(message)
 
+    cutover_blocking_items.extend(data_quality_blocking_items)
     cutover_blocking_items.extend(relation_blocking_items)
 
     blocking_items = [f"`{table_name}` tablosu eksik." for table_name in required_missing]
@@ -995,6 +1114,7 @@ def build_database_preflight_report(
         "required_sequence_alignment_issues": required_sequence_alignment_issues,
         "bootstrap_sequence_alignment_issues": bootstrap_sequence_alignment_issues,
         "data_health": data_health,
+        "data_quality": data_quality,
         "relation_health": relation_health,
         "blocking_items": blocking_items,
         "cutover_blocking_items": cutover_blocking_items,
@@ -1086,6 +1206,18 @@ def render_report_text(report: dict[str, object]) -> str:
     lines.extend(
         [f"- {item}" for item in report.get("cutover_blocking_items") or []]
         or ["- Cutover blokaji yok"]
+    )
+    data_quality = report.get("data_quality") if isinstance(report.get("data_quality"), dict) else {}
+    lines.extend(
+        [
+            "",
+            "Data Quality:",
+            f"- Active Restaurants Missing Identity: {data_quality.get('active_restaurants_missing_identity', '-')}",
+            f"- Active Personnel Missing Identity: {data_quality.get('active_personnel_missing_identity', '-')}",
+            f"- Duplicate Restaurant Keys: {data_quality.get('duplicate_restaurant_keys', '-')}",
+            f"- Duplicate Person Codes: {data_quality.get('duplicate_person_codes', '-')}",
+            f"- Duplicate Auth Emails: {data_quality.get('duplicate_auth_emails', '-')}",
+        ]
     )
     relation_health = report.get("relation_health") if isinstance(report.get("relation_health"), dict) else {}
     lines.extend(

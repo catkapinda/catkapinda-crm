@@ -38,6 +38,7 @@ class FakeConnection:
         table_sequences: dict[str, str | None],
         sequence_privileges: dict[str, dict[str, bool]],
         data_health_counts: dict[str, int],
+        data_quality_counts: dict[str, int],
         latest_dates: dict[str, str | None],
         relation_health_counts: dict[str, int],
         schema_create_allowed: bool,
@@ -49,6 +50,7 @@ class FakeConnection:
         self.table_sequences = table_sequences
         self.sequence_privileges = sequence_privileges
         self.data_health_counts = data_health_counts
+        self.data_quality_counts = data_quality_counts
         self.latest_dates = latest_dates
         self.relation_health_counts = relation_health_counts
         self.schema_create_allowed = schema_create_allowed
@@ -141,6 +143,50 @@ class FakeConnection:
         if normalized == "SELECT MAX(issue_date) AS latest_value FROM courier_equipment_issues":
             return FakeCursor({"latest_value": self.latest_dates.get("courier_equipment_issues")})
 
+        quality_query_map = {
+            (
+                "SELECT COUNT(*) AS count FROM restaurants "
+                "WHERE COALESCE(active, TRUE) = TRUE "
+                "AND ( NULLIF(BTRIM(COALESCE(brand, '')), '') IS NULL "
+                "OR NULLIF(BTRIM(COALESCE(branch, '')), '') IS NULL )"
+            ): "active_restaurants_missing_identity",
+            (
+                "SELECT COUNT(*) AS count FROM personnel "
+                "WHERE COALESCE(status, '') = 'Aktif' "
+                "AND ( NULLIF(BTRIM(COALESCE(person_code, '')), '') IS NULL "
+                "OR NULLIF(BTRIM(COALESCE(full_name, '')), '') IS NULL )"
+            ): "active_personnel_missing_identity",
+            (
+                "SELECT COUNT(*) AS count FROM ( "
+                "SELECT LOWER(BTRIM(COALESCE(brand, ''))) AS brand_key, "
+                "LOWER(BTRIM(COALESCE(branch, ''))) AS branch_key "
+                "FROM restaurants "
+                "WHERE COALESCE(active, TRUE) = TRUE "
+                "AND NULLIF(BTRIM(COALESCE(brand, '')), '') IS NOT NULL "
+                "AND NULLIF(BTRIM(COALESCE(branch, '')), '') IS NOT NULL "
+                "GROUP BY 1, 2 HAVING COUNT(*) > 1 "
+                ") duplicates"
+            ): "duplicate_restaurant_keys",
+            (
+                "SELECT COUNT(*) AS count FROM ( "
+                "SELECT LOWER(BTRIM(COALESCE(person_code, ''))) AS person_code_key "
+                "FROM personnel "
+                "WHERE NULLIF(BTRIM(COALESCE(person_code, '')), '') IS NOT NULL "
+                "GROUP BY 1 HAVING COUNT(*) > 1 "
+                ") duplicates"
+            ): "duplicate_person_codes",
+            (
+                "SELECT COUNT(*) AS count FROM ( "
+                "SELECT LOWER(BTRIM(COALESCE(email, ''))) AS email_key "
+                "FROM auth_users "
+                "WHERE NULLIF(BTRIM(COALESCE(email, '')), '') IS NOT NULL "
+                "GROUP BY 1 HAVING COUNT(*) > 1 "
+                ") duplicates"
+            ): "duplicate_auth_emails",
+        }
+        if normalized in quality_query_map:
+            return FakeCursor({"count": self.data_quality_counts.get(quality_query_map[normalized], 0)})
+
         relation_query_map = {
             (
                 "SELECT COUNT(*) AS count FROM personnel p LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id "
@@ -204,6 +250,7 @@ def connect_factory(
     table_sequences: dict[str, str | None] | None = None,
     sequence_privileges: dict[str, dict[str, bool]] | None = None,
     data_health_counts: dict[str, int] | None = None,
+    data_quality_counts: dict[str, int] | None = None,
     latest_dates: dict[str, str | None] | None = None,
     relation_health_counts: dict[str, int] | None = None,
     schema_create_allowed: bool = True,
@@ -238,6 +285,13 @@ def connect_factory(
         "active_personnel": row_counts.get("personnel", 0),
         "assigned_personnel": row_counts.get("personnel", 0),
     }
+    resolved_quality_counts = data_quality_counts or {
+        "active_restaurants_missing_identity": 0,
+        "active_personnel_missing_identity": 0,
+        "duplicate_restaurant_keys": 0,
+        "duplicate_person_codes": 0,
+        "duplicate_auth_emails": 0,
+    }
     resolved_latest_dates = latest_dates or {
         "daily_entries": "2026-04-17" if row_counts.get("daily_entries", 0) else None,
         "deductions": "2026-04-17" if row_counts.get("deductions", 0) else None,
@@ -264,6 +318,7 @@ def connect_factory(
             table_sequences=resolved_sequences,
             sequence_privileges=resolved_sequence_privileges,
             data_health_counts=resolved_health_counts,
+            data_quality_counts=resolved_quality_counts,
             latest_dates=resolved_latest_dates,
             relation_health_counts=resolved_relation_health,
             schema_create_allowed=schema_create_allowed,
@@ -606,6 +661,50 @@ def test_build_database_preflight_report_marks_cutover_unready_when_attendance_i
     assert report["cutover_ready"] is False
     assert any("Gunluk puantaj verisi eski gorunuyor" in item for item in report["cutover_blocking_items"])
     assert report["cutover_recommended_next_step"].startswith("Canli domaine gecmeden once")
+
+
+def test_build_database_preflight_report_marks_cutover_unready_when_data_quality_is_broken():
+    present_tables = {name for name, _ in database_preflight.REQUIRED_TABLES} | {"auth_users"}
+    report = database_preflight.build_database_preflight_report(
+        database_url="postgresql://user:pass@db.example.com:5432/postgres?sslmode=require",
+        connect_fn=connect_factory(
+            present_tables,
+            {
+                "restaurants": 12,
+                "personnel": 54,
+                "daily_entries": 3200,
+                "deductions": 88,
+                "inventory_purchases": 14,
+                "sales_leads": 7,
+                "courier_equipment_issues": 9,
+                "box_returns": 2,
+                "auth_users": 6,
+            },
+            data_quality_counts={
+                "active_restaurants_missing_identity": 1,
+                "active_personnel_missing_identity": 2,
+                "duplicate_restaurant_keys": 1,
+                "duplicate_person_codes": 2,
+                "duplicate_auth_emails": 1,
+            },
+        ),
+        reference_date=date(2026, 4, 17),
+    )
+
+    assert report["passed"] is True
+    assert report["cutover_ready"] is False
+    assert report["data_quality"]["duplicate_person_codes"] == 2
+    assert "Aktif restoran kartlarinda bos marka/sube alanlari var." in report["cutover_blocking_items"]
+    assert (
+        "Aktif personel kartlarinda bos personel kodu veya ad soyad alanlari var."
+        in report["cutover_blocking_items"]
+    )
+    assert (
+        "Ayni marka/sube kombinasyonunda 1 cakisan restoran kaydi var."
+        in report["cutover_blocking_items"]
+    )
+    assert "2 personel kodu birden fazla kartta tekrar ediyor." in report["cutover_blocking_items"]
+    assert "1 auth e-posta degeri birden fazla kullanicida tekrar ediyor." in report["cutover_blocking_items"]
 
 
 def test_build_database_preflight_report_marks_cutover_unready_when_relation_health_is_broken():

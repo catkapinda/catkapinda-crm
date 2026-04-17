@@ -117,6 +117,7 @@ python3 v2/scripts/database_preflight.py \
 Not:
 
 - `database_preflight.py` artik sadece tablo ve kolonlari degil, `cutover` icin aktif restoran, aktif personel, subeye atanmis personel ve guncel puantaj tazeligini de kontrol eder.
+- Ayni script aktif kayitlarda bos kimlik alanlarini ve cakisan is anahtarlarini da tarar; bos marka/sube, bos personel kodu/ad soyad, tekrar eden marka-sube ve personel kodu gibi veri kalite sorunlari varsa `cutover` bloklanir.
 - Ayni script artik PostgreSQL kullanicisinin tablo ve sequence yetkilerini de kontrol eder; `restaurants`, `personnel`, `daily_entries`, `deductions`, `inventory_purchases`, `sales_leads`, `courier_equipment_issues`, `box_returns` ile auth/session/audit tarafinda en az `SELECT`, `INSERT`, `UPDATE`, `DELETE` tablo yetkileri ve `id` sequence'lerinde `USAGE` yetkisi olmali.
 - Auth/audit/history tablolarinin bir kismi eksikse ayni kullanicinin aktif schema uzerinde `CREATE` yetkisi de olmali; yoksa bootstrap ilk acilista tablo olusturamaz.
 - Ayni script import/yedek sonrasi sequence geride kalma riskini de kontrol eder; `MAX(id)` tablodan ilerideyse `cutover` bloklanir ve sequence hizasi duzeltilmeden canliya cikilmaz.
