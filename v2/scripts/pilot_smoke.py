@@ -5,6 +5,7 @@ import argparse
 from datetime import datetime, UTC
 import json
 import os
+import ssl
 import sys
 import urllib.error
 import urllib.parse
@@ -14,6 +15,18 @@ from dataclasses import dataclass
 
 DEFAULT_TIMEOUT = 12
 DEFAULT_LEGACY_URL = "https://crmcatkapinda.com"
+
+
+def build_ssl_context() -> ssl.SSLContext:
+    try:
+        import certifi  # type: ignore
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
+
+SSL_CONTEXT = build_ssl_context()
 PROTECTED_PAGES = [
     ("/announcements", "protected_announcements_page"),
     ("/attendance", "protected_attendance_page"),
@@ -665,7 +678,7 @@ def resolve_preset(
 def fetch_json(base_url: str, path: str, timeout: int) -> tuple[int, dict]:
     url = urllib.parse.urljoin(f"{base_url}/", path.lstrip("/"))
     request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with urllib.request.urlopen(request, timeout=timeout, context=SSL_CONTEXT) as response:
         status = response.getcode()
         payload = json.loads(response.read().decode("utf-8"))
         return status, payload
@@ -678,7 +691,7 @@ def post_json(base_url: str, path: str, payload: dict, timeout: int, headers: di
     if headers:
         request_headers.update(headers)
     request = urllib.request.Request(url, data=body, headers=request_headers, method="POST")
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with urllib.request.urlopen(request, timeout=timeout, context=SSL_CONTEXT) as response:
         status = response.getcode()
         response_payload = json.loads(response.read().decode("utf-8"))
         return status, response_payload
@@ -687,7 +700,7 @@ def post_json(base_url: str, path: str, payload: dict, timeout: int, headers: di
 def fetch_text(base_url: str, path: str, timeout: int) -> tuple[int, str, str]:
     url = urllib.parse.urljoin(f"{base_url}/", path.lstrip("/"))
     request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with urllib.request.urlopen(request, timeout=timeout, context=SSL_CONTEXT) as response:
         status = response.getcode()
         content_type = response.headers.get("Content-Type", "")
         payload = response.read().decode("utf-8", errors="replace")
@@ -697,7 +710,7 @@ def fetch_text(base_url: str, path: str, timeout: int) -> tuple[int, str, str]:
 def fetch_text_with_headers(base_url: str, path: str, timeout: int, headers: dict[str, str]) -> tuple[int, str, str]:
     url = urllib.parse.urljoin(f"{base_url}/", path.lstrip("/"))
     request = urllib.request.Request(url, headers={"Cache-Control": "no-cache", **headers})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with urllib.request.urlopen(request, timeout=timeout, context=SSL_CONTEXT) as response:
         status = response.getcode()
         content_type = response.headers.get("Content-Type", "")
         payload = response.read().decode("utf-8", errors="replace")
@@ -999,7 +1012,7 @@ def run_smoke_checks(
 def fetch_json_with_headers(base_url: str, path: str, timeout: int, headers: dict[str, str]) -> tuple[int, dict]:
     url = urllib.parse.urljoin(f"{base_url}/", path.lstrip("/"))
     request = urllib.request.Request(url, headers={"Cache-Control": "no-cache", **headers})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with urllib.request.urlopen(request, timeout=timeout, context=SSL_CONTEXT) as response:
         status = response.getcode()
         payload = json.loads(response.read().decode("utf-8"))
         return status, payload
