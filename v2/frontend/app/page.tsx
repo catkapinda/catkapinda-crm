@@ -607,7 +607,7 @@ export default function HomePage() {
             setDashboardError(
               response.status === 401
                 ? "Genel bakış verisi için oturum doğrulaması tamamlanamadı. Lütfen bir kez çıkış yapıp yeniden giriş yap."
-                : "Genel bakış verisi şu anda alınamadı. Bağlantı geri geldiğinde ekran otomatik olarak gerçek operasyon nabzını gösterecek.",
+                : "Genel bakış verisi alınamadı. Lütfen sayfayı yenileyip tekrar dene.",
             );
           }
           return;
@@ -621,7 +621,7 @@ export default function HomePage() {
         if (active) {
           setDashboard(null);
           setDashboardError(
-            "Genel bakış verisine şu anda ulaşılamıyor. Ağ bağlantısı geri geldiğinde ekran otomatik güncellenecek.",
+            "Genel bakış verisine ulaşılamıyor. Lütfen bağlantıyı kontrol edip tekrar dene.",
           );
         }
       } finally {
@@ -676,7 +676,7 @@ export default function HomePage() {
                 background: "radial-gradient(circle, rgba(185,116,41,0.3), transparent 70%)",
               }}
             />
-            <div style={kickerStyle}>Operasyon Masası</div>
+            <div style={kickerStyle}>Genel Bakış</div>
             <div
               style={{
                 marginTop: "14px",
@@ -707,7 +707,7 @@ export default function HomePage() {
               >
                 {dashboard?.operations.critical_signal_count ?? 0}
               </span>
-              <span>Bugünün kritik sinyalleri bu masada toplanıyor.</span>
+              <span>Bugünün kritik sinyalleri burada listelenir.</span>
             </div>
             <h1
               style={{
@@ -719,7 +719,7 @@ export default function HomePage() {
                 fontWeight: 700,
               }}
             >
-              Günün ritmi tek bakışta okunuyor.
+              Operasyon özeti
             </h1>
             <p
               style={{
@@ -730,8 +730,7 @@ export default function HomePage() {
                 fontSize: "0.86rem",
               }}
             >
-              Şube, personel, puantaj ve kesinti akışını tek yerde okuyup doğru modüle hızlıca
-              geçmek için daha sade bir komuta yüzeyi kurduk.
+              Şube, personel, puantaj ve kesinti durumunu tek ekrandan izle, ilgili modüle geç.
             </p>
 
             <div
@@ -743,9 +742,9 @@ export default function HomePage() {
               }}
             >
               {[
-                ["Yoğun Alan", "Puantaj ve personel senkronu önde."],
-                ["Çalışma Tarzı", "Daha az kart, daha net aksiyon."],
-                ["Kullanım Notu", "Kararı burada al, işlemi modülde bitir."],
+                ["Öncelik", "Puantaj ve personel hareketleri öne çıkar."],
+                ["Kullanım", "Durumu burada gör, işlemi ilgili modülde tamamla."],
+                ["Akış", "Temel göstergeler tek ekranda toplanır."],
               ].map(([label, text]) => (
                 <div
                   key={label}
@@ -814,7 +813,7 @@ export default function HomePage() {
                 ))
               ) : (
                 <div style={{ color: "rgba(255, 247, 234, 0.72)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                  Hızlı geçiş önerileri veri geldikçe burada görünecek.
+                  Hızlı geçiş bağlantıları burada görünecek.
                 </div>
               )}
             </div>
@@ -840,10 +839,10 @@ export default function HomePage() {
                     letterSpacing: "0.06em",
                   }}
                 >
-                  Yönetim Kartları
+                  Temel Göstergeler
                 </div>
                 <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                  Hızlı karar için temel operasyon ve finans sinyallerini sıkı bir özet halinde topluyoruz.
+                  Temel operasyon ve finans göstergeleri burada özetlenir.
                 </p>
               </header>
 
@@ -911,7 +910,7 @@ export default function HomePage() {
             }}
           >
             {dashboardError ||
-              "Genel bakış servisi şu anda cevap vermiyor. Veri geri geldiğinde bu yeni yüzey gerçek operasyon nabzını ve son hareketleri daha güçlü bir dille gösterecek."}
+              "Genel bakış verisi alınamadı. Lütfen sayfayı yenileyip tekrar dene."}
           </div>
         ) : (
           <>

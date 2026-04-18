@@ -7,6 +7,14 @@ import psycopg
 from app.core.database import is_sqlite_backend
 
 
+def _purchase_date_sql(column: str = "purchase_date") -> str:
+    return f"SUBSTR(COALESCE(CAST({column} AS TEXT), ''), 1, 10)"
+
+
+def _purchase_text_sql(column: str) -> str:
+    return f"COALESCE(CAST({column} AS TEXT), '')"
+
+
 def fetch_purchase_summary(
     conn: psycopg.Connection,
     *,
@@ -26,17 +34,18 @@ def fetch_purchase_summary(
             (month_key, month_key),
         ).fetchone()
     else:
+        purchase_date_sql = _purchase_date_sql("purchase_date")
         row = conn.execute(
-            """
+            f"""
             SELECT
                 COUNT(*) AS total_entries,
                 COUNT(*) FILTER (
-                    WHERE DATE_TRUNC('month', purchase_date) = DATE_TRUNC('month', %s::date)
+                    WHERE SUBSTR({purchase_date_sql}, 1, 7) = SUBSTR(CAST(%s::date AS TEXT), 1, 7)
                 ) AS this_month_entries,
                 COALESCE(SUM(total_invoice_amount) FILTER (
-                    WHERE DATE_TRUNC('month', purchase_date) = DATE_TRUNC('month', %s::date)
+                    WHERE SUBSTR({purchase_date_sql}, 1, 7) = SUBSTR(CAST(%s::date AS TEXT), 1, 7)
                 ), 0) AS this_month_total_invoice,
-                COUNT(DISTINCT NULLIF(TRIM(COALESCE(supplier, '')), '')) AS distinct_suppliers
+                COUNT(DISTINCT NULLIF(TRIM({_purchase_text_sql('supplier')}), '')) AS distinct_suppliers
             FROM inventory_purchases
             """,
             (reference_date, reference_date),
@@ -61,20 +70,21 @@ def fetch_recent_purchase_records(
     *,
     limit: int,
 ) -> list[dict]:
+    resolved_purchase_date_sql = _purchase_date_sql("purchase_date")
     rows = conn.execute(
-        """
+        f"""
         SELECT
             id,
-            purchase_date,
-            COALESCE(item_name, '') AS item_name,
+            {resolved_purchase_date_sql} AS purchase_date,
+            {_purchase_text_sql('item_name')} AS item_name,
             COALESCE(quantity, 0) AS quantity,
             COALESCE(total_invoice_amount, 0) AS total_invoice_amount,
             COALESCE(unit_cost, 0) AS unit_cost,
-            COALESCE(supplier, '') AS supplier,
-            COALESCE(invoice_no, '') AS invoice_no,
-            COALESCE(notes, '') AS notes
+            {_purchase_text_sql('supplier')} AS supplier,
+            {_purchase_text_sql('invoice_no')} AS invoice_no,
+            {_purchase_text_sql('notes')} AS notes
         FROM inventory_purchases
-        ORDER BY purchase_date DESC, id DESC
+        ORDER BY {resolved_purchase_date_sql} DESC, id DESC
         LIMIT %s
         """,
         (limit,),
@@ -90,28 +100,29 @@ def fetch_purchase_management_records(
     search: str | None = None,
 ) -> list[dict]:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
+    resolved_purchase_date_sql = _purchase_date_sql("purchase_date")
     rows = conn.execute(
-        """
+        f"""
         SELECT
             id,
-            purchase_date,
-            COALESCE(item_name, '') AS item_name,
+            {resolved_purchase_date_sql} AS purchase_date,
+            {_purchase_text_sql('item_name')} AS item_name,
             COALESCE(quantity, 0) AS quantity,
             COALESCE(total_invoice_amount, 0) AS total_invoice_amount,
             COALESCE(unit_cost, 0) AS unit_cost,
-            COALESCE(supplier, '') AS supplier,
-            COALESCE(invoice_no, '') AS invoice_no,
-            COALESCE(notes, '') AS notes
+            {_purchase_text_sql('supplier')} AS supplier,
+            {_purchase_text_sql('invoice_no')} AS invoice_no,
+            {_purchase_text_sql('notes')} AS notes
         FROM inventory_purchases
         WHERE (%s IS NULL OR item_name = %s)
           AND (
             %s IS NULL
-            OR COALESCE(item_name, '') ILIKE %s
-            OR COALESCE(supplier, '') ILIKE %s
-            OR COALESCE(invoice_no, '') ILIKE %s
-            OR COALESCE(notes, '') ILIKE %s
+            OR {_purchase_text_sql('item_name')} ILIKE %s
+            OR {_purchase_text_sql('supplier')} ILIKE %s
+            OR {_purchase_text_sql('invoice_no')} ILIKE %s
+            OR {_purchase_text_sql('notes')} ILIKE %s
           )
-        ORDER BY purchase_date DESC, id DESC
+        ORDER BY {resolved_purchase_date_sql} DESC, id DESC
         LIMIT %s
         """,
         (
@@ -136,16 +147,16 @@ def count_purchase_management_records(
 ) -> int:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM inventory_purchases
         WHERE (%s IS NULL OR item_name = %s)
           AND (
             %s IS NULL
-            OR COALESCE(item_name, '') ILIKE %s
-            OR COALESCE(supplier, '') ILIKE %s
-            OR COALESCE(invoice_no, '') ILIKE %s
-            OR COALESCE(notes, '') ILIKE %s
+            OR {_purchase_text_sql('item_name')} ILIKE %s
+            OR {_purchase_text_sql('supplier')} ILIKE %s
+            OR {_purchase_text_sql('invoice_no')} ILIKE %s
+            OR {_purchase_text_sql('notes')} ILIKE %s
           )
         """,
         (
@@ -165,18 +176,19 @@ def fetch_purchase_record_by_id(
     conn: psycopg.Connection,
     purchase_id: int,
 ) -> dict | None:
+    resolved_purchase_date_sql = _purchase_date_sql("purchase_date")
     row = conn.execute(
-        """
+        f"""
         SELECT
             id,
-            purchase_date,
-            COALESCE(item_name, '') AS item_name,
+            {resolved_purchase_date_sql} AS purchase_date,
+            {_purchase_text_sql('item_name')} AS item_name,
             COALESCE(quantity, 0) AS quantity,
             COALESCE(total_invoice_amount, 0) AS total_invoice_amount,
             COALESCE(unit_cost, 0) AS unit_cost,
-            COALESCE(supplier, '') AS supplier,
-            COALESCE(invoice_no, '') AS invoice_no,
-            COALESCE(notes, '') AS notes
+            {_purchase_text_sql('supplier')} AS supplier,
+            {_purchase_text_sql('invoice_no')} AS invoice_no,
+            {_purchase_text_sql('notes')} AS notes
         FROM inventory_purchases
         WHERE id = %s
         """,

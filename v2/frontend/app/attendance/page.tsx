@@ -274,7 +274,7 @@ export default function AttendancePage() {
             setDashboardError(
               response.status === 401
                 ? "Puantaj verisi için oturum doğrulaması tamamlanamadı. Lütfen bir kez çıkış yapıp yeniden giriş yap."
-                : "Puantaj verisi şu anda alınamadı. Bağlantı geri geldiğinde bu yüzey ritmi ve son hareketleri gerçek veriden gösterecek.",
+                : "Puantaj verisi alınamadı. Lütfen sayfayı yenileyip tekrar dene.",
             );
           }
           return;
@@ -288,7 +288,7 @@ export default function AttendancePage() {
         if (active) {
           setDashboard(null);
           setDashboardError(
-            "Puantaj verisine şu anda ulaşılamıyor. Ağ bağlantısı geri geldiğinde ekran otomatik güncellenecek.",
+            "Puantaj verisine ulaşılamıyor. Lütfen bağlantıyı kontrol edip tekrar dene.",
           );
         }
       } finally {
@@ -332,24 +332,24 @@ export default function AttendancePage() {
     return [
       {
         eyebrow: "Günlük Nabız",
-        title: todayPressure ? "Bugün giriş yoğunluğu yüksek." : "Bugün akış kontrollü görünüyor.",
-        body: `${dashboard.summary.today_entries} kayıt bugün açıldı. Bu, aylık toplam hacmin %${todayRatio.toFixed(1)} kadarına denk geliyor ve saha ritmini hızlı okumayı sağlıyor.`,
+        title: todayPressure ? "Bugün giriş yoğunluğu yüksek." : "Bugün giriş akışı dengeli.",
+        body: `${dashboard.summary.today_entries} kayıt bugün açıldı. Bu değer, aylık toplamın %${todayRatio.toFixed(1)} kısmını oluşturuyor.`,
         tone: todayPressure ? "accent" : "ink",
       },
       {
         eyebrow: "En Sıcak Hareket",
-        title: topEntry ? topEntry.restaurant : "Son hareket sinyali henüz yok.",
+        title: topEntry ? topEntry.restaurant : "Son kayıt bulunmuyor.",
         body: topEntry
-          ? `${topEntry.entry_mode} akışı ile ${topEntry.employee_name || "atanmamış personel"} üzerinden ${topEntry.worked_hours.toFixed(1)} saat ve ${topEntry.package_count.toFixed(0)} paket görünüyor. ${formatCurrency(topEntry.monthly_invoice_amount)} fatura etkisi taşıyor.`
-          : "Yeni puantaj hareketleri geldikçe dikkat isteyen vardiya kartı burada önde duracak.",
+          ? `${topEntry.employee_name || "Atanmamış personel"} için ${topEntry.entry_mode} kaydı var. ${topEntry.worked_hours.toFixed(1)} saat, ${topEntry.package_count.toFixed(0)} paket ve ${formatCurrency(topEntry.monthly_invoice_amount)} tutar görünüyor.`
+          : "Yeni puantaj kayıtları burada görünecek.",
         tone: "paper",
       },
       {
         eyebrow: "Akış İmzası",
-        title: dominantMode ? `${dominantMode[0]} önde gidiyor.` : "Akış imzası oluşmadı.",
+        title: dominantMode ? `${dominantMode[0]} önde gidiyor.` : "Kayıt dağılımı oluşmadı.",
         body: dominantMode
-          ? `Son hareketlerde ${dominantMode[0]} modu ${dominantMode[1]} kayıtla öne çıkıyor. Bu, bugünkü saha davranışının hangi hatta yoğunlaştığını gösteriyor.`
-          : "Son hareket dağılımı geldikçe burada ekip için daha net bir akış resmi oluşacak.",
+          ? `Son kayıtlar içinde ${dominantMode[0]} modu ${dominantMode[1]} adet ile öne çıkıyor.`
+          : "Kayıt türü dağılımı burada görünecek.",
         tone: "paper",
       },
     ] as const;
@@ -406,7 +406,7 @@ export default function AttendancePage() {
                 textTransform: "uppercase",
               }}
             >
-              Attendance Desk
+              Puantaj
             </div>
             <h1
               style={{
@@ -418,7 +418,7 @@ export default function AttendancePage() {
                 fontWeight: 700,
               }}
             >
-              Puantaj yüzeyi artık daha güçlü bir ritimde akıyor.
+              Puantaj yönetimi
             </h1>
             <p
               style={{
@@ -429,9 +429,7 @@ export default function AttendancePage() {
                 fontSize: "1rem",
               }}
             >
-              Giriş, yönetim, ay bazlı temizlik ve son hareketler artık daha sahici bir ürün
-              hissiyle aynı yüzeyde. Bu ekranın amacı sadece veri göstermek değil; ofisin işini
-              daha seri ve daha güvenli ilerletmek.
+              Günlük giriş, toplu giriş, düzeltme ve son kayıtlar aynı ekranda yönetilir.
             </p>
 
             <div
@@ -443,9 +441,9 @@ export default function AttendancePage() {
               }}
             >
               {[
-                ["Yeni hamle", "Ay filtresiyle toplu puantaj silme artık doğrudan yönetim akışında."],
-                ["Kullanım hedefi", "Gün sonu vardiya düzeltmesi ve temizlik daha az tıklamayla bitsin."],
-                ["UI yönü", "Saha operasyon hissi veren daha editorial ve daha cesur yüzey."],
+                ["Toplu işlem", "Ay filtresiyle toplu puantaj temizliği yönetim alanında."],
+                ["Gün sonu", "Vardiya düzeltmeleri tek ekranda tamamlanır."],
+                ["Odak", "Kayıt, düzeltme ve liste aynı akışta tutulur."],
               ].map(([label, text]) => (
                 <div
                   key={label}
@@ -505,7 +503,7 @@ export default function AttendancePage() {
                   textTransform: "uppercase",
                 }}
               >
-                Bugün Ne Hissediliyor
+                Günlük Durum
               </div>
               <div
                 style={{
@@ -518,9 +516,9 @@ export default function AttendancePage() {
               >
                 {dashboard
                   ? dashboard.summary.today_entries > Math.max(6, Math.ceil(dashboard.summary.active_restaurants * 1.5))
-                    ? "Bugün puantaj masasi oldukca hareketli."
-                    : "Form, liste ve son hareketler bugün dengeli akiyor."
-                  : "Form, liste ve son hareketler birbirini tamamlıyor."}
+                    ? "Bugün puantaj hareketi yüksek."
+                    : "Bugün puantaj akışı dengeli."
+                  : "Günlük puantaj akışı burada yönetilir."}
               </div>
               <p
                 style={{
@@ -532,7 +530,7 @@ export default function AttendancePage() {
               >
                 {dashboard
                   ? `Bugün ${dashboard.summary.today_entries} hareket, ${dashboard.summary.active_restaurants} aktif şube ve ${dashboard.summary.month_entries} aylık toplamla akışın hızını daha erken okuyabiliyoruz.`
-                  : "Önce giriş, sonra düzeltme, gerekirse ay bazlı temizlik. Yüzeyin mantığı artık daha net."}
+                  : "Önce kayıt oluştur, sonra düzeltme ve toplu temizlik işlemlerini tamamla."}
               </p>
             </article>
 
@@ -598,7 +596,7 @@ export default function AttendancePage() {
               background: "rgba(255, 250, 241, 0.82)",
             }}
           >
-            Puantaj newsroom paneli yükleniyor...
+            Puantaj paneli yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -612,7 +610,7 @@ export default function AttendancePage() {
             }}
           >
             {dashboardError ||
-              "Attendance backend şu anda cevap vermiyor. Veri geri geldiğinde bu yeni yüzey puantaj ritmini, son hareketleri ve aylık nabzı aynı çerçevede gösterecek."}
+              "Puantaj verisi alınamadı. Lütfen sayfayı yenileyip tekrar dene."}
           </div>
         ) : (
           <>
@@ -658,23 +656,23 @@ export default function AttendancePage() {
             </div>
 
             {workspaceFrame(
-              "Giriş Masası",
-              "Yeni kayıt alanı daha net bir sahneye çıktı.",
-              "Günlük puantaj formunu burada daha temiz bir çerçeve içinde ilerletiyoruz. Amaç veri alanını korkutmak değil, hızlandırmak.",
+              "Giriş",
+              "Yeni puantaj kaydı",
+              "Günlük puantaj kaydını bu alandan oluştur.",
               <AttendanceEntryWorkspace />,
             )}
 
             {workspaceFrame(
-              "Toplu Masa",
-              "Şube bazlı çoklu giriş aynı sahnede toplanıyor.",
-              "Toplu puantaj artık tek tek kart açmadan, aynı şubedeki birden fazla personel için saat, paket ve durum girişiyle ilerliyor. İstersen mesaj metnini yapıştırıp tabloyu da hızlandırabiliyorsun.",
+              "Toplu Giriş",
+              "Şube bazlı puantaj",
+              "Aynı şubedeki birden fazla kayıt için toplu puantaj gir.",
               <AttendanceBulkWorkspace />,
             )}
 
             {workspaceFrame(
-              "Yönetim Masası",
-              "Düzeltme, seçme ve ay bazlı temizlik aynı yüzeyde.",
-              "Kayıt listesi artık sadece tablo değil; düzeltme, seçili silme ve ay filtresiyle toplu temizlik için daha görünür bir operasyon masası.",
+              "Yönetim",
+              "Kayıt düzeltme ve temizlik",
+              "Kayıtları düzenle, seçili kayıtları sil veya ay bazlı temizlik yap.",
               <AttendanceManagementWorkspace />,
             )}
 

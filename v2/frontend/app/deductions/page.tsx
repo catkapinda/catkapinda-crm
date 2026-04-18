@@ -209,7 +209,7 @@ export default function DeductionsPage() {
             setDashboardError(
               response.status === 401
                 ? "Kesinti verisi için oturum doğrulaması tamamlanamadı. Lütfen bir kez çıkış yapıp yeniden giriş yap."
-                : "Kesinti verisi şu anda alınamadı. Bağlantı geri geldiğinde ekran özetleri ve son kayıtları gerçek veriden gösterecek.",
+                : "Kesinti verisi alınamadı. Lütfen sayfayı yenileyip tekrar dene.",
             );
           }
           return;
@@ -223,7 +223,7 @@ export default function DeductionsPage() {
         if (active) {
           setDashboard(null);
           setDashboardError(
-            "Kesinti verisine şu anda ulaşılamıyor. Ağ bağlantısı geri geldiğinde ekran otomatik güncellenecek.",
+            "Kesinti verisine ulaşılamıyor. Lütfen bağlantıyı kontrol edip tekrar dene.",
           );
         }
       } finally {
@@ -253,30 +253,30 @@ export default function DeductionsPage() {
     return [
       {
         eyebrow: "Kayıt Dengesi",
-        title: autoDominant ? "Otomatik akışı önde gidiyor." : "Manuel müdahale ağırlık kazanıyor.",
-        body: `${dashboard.summary.total_entries} kaydın %${autoRatio.toFixed(1)} otomatik, %${manualRatio.toFixed(1)} manuel. Bu oran operasyonun ne kadar otomasyonda kaldığını hızlı anlatır.`,
+        title: autoDominant ? "Otomatik kayıtlar önde." : "Manuel kayıtlar önde.",
+        body: `${dashboard.summary.total_entries} kaydın %${autoRatio.toFixed(1)} otomatik, %${manualRatio.toFixed(1)} manuel.`,
         tone: autoDominant ? "ink" : "accent",
       },
       {
         eyebrow: "En Sıcak Kesinti",
-        title: topDeduction ? topDeduction.personnel_label : "Kesinti sinyali henüz yok.",
+        title: topDeduction ? topDeduction.personnel_label : "Son kesinti bulunmuyor.",
         body: topDeduction
-          ? `${topDeduction.type_caption} türünde ${formatMoney(topDeduction.amount)} kayıt taşıyor. ${formatDate(topDeduction.deduction_date)} tarihli bu hareket, ${
-              topDeduction.is_auto_record ? "otomatik kaynaklı" : "manuel müdahale"
-            } olarak sisteme düşmüş.`
-          : "Yeni kesinti hareketleri geldikçe burada dikkat isteyen kayıt öne çıkarılacak.",
+          ? `${topDeduction.type_caption} türünde ${formatMoney(topDeduction.amount)} kayıt var. ${formatDate(topDeduction.deduction_date)} tarihli bu hareket ${
+              topDeduction.is_auto_record ? "otomatik" : "manuel"
+            } kaynaklı.`
+          : "Son kesinti hareketi burada görünecek.",
         tone: "paper",
       },
       {
         eyebrow: "Bu Ayın Baskı Noktası",
         title:
           dashboard.summary.this_month_entries >= Math.max(6, dashboard.summary.manual_entries)
-            ? "Ayın kesinti hacmi yükseliyor."
-            : "Aylık kesinti hacmi kontrollü görünüyor.",
+            ? "Bu ay kesinti hacmi yüksek."
+            : "Bu ay kesinti hacmi dengeli.",
         body:
           dashboard.summary.this_month_entries >= Math.max(6, dashboard.summary.manual_entries)
-            ? `${dashboard.summary.this_month_entries} kayıt bu ay oluşmuş durumda. Bordro kapanışı öncesi tip dağılımı ve manuel kayıtlar daha dikkatli okunmalı.`
-            : `${dashboard.summary.this_month_entries} kayıt bu ay oluşmuş durumda. Kesinti akışında şimdilik sakin ama izlenebilir bir tablo var.`,
+            ? `${dashboard.summary.this_month_entries} kayıt bu ay oluştu. Bordro kapanışı öncesi kontrol edilmesi gereken yoğunluk var.`
+            : `${dashboard.summary.this_month_entries} kayıt bu ay oluştu. Akış şu an dengeli görünüyor.`,
         tone:
           dashboard.summary.this_month_entries >= Math.max(6, dashboard.summary.manual_entries)
             ? "accent"
@@ -334,7 +334,7 @@ export default function DeductionsPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Kesinti Akisi
+                Kesintiler
               </div>
               <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
                 <h1
@@ -346,7 +346,7 @@ export default function DeductionsPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Kesintileri sadece giriş akışı değil, kapanış sinyali olarak da okuyoruz.
+                  Kesinti yönetimi
                 </h1>
                 <p
                   style={{
@@ -357,9 +357,7 @@ export default function DeductionsPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Manuel ve otomatik kesintileri daha ciddi bir operasyon katmanina
-                  çekiyoruz. Hedefimiz, bordroya gitmeden önce hangi hareketin dikkat
-                  istedigini bir bakışta daha doğru göstermek.
+                  Manuel ve otomatik kesinti kayıtlarını aynı ekrandan takip et ve düzenle.
                 </p>
               </div>
               <div
@@ -380,7 +378,7 @@ export default function DeductionsPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Manuel ve otomatik aynı hatta
+                  Manuel ve otomatik kayıtlar
                 </span>
                 <span
                   style={{
@@ -393,7 +391,7 @@ export default function DeductionsPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Bordro öncesi sinyal katmanı açık
+                  Bordro öncesi kontrol
                 </span>
               </div>
             </div>
@@ -434,7 +432,7 @@ export default function DeductionsPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Kesinti Nabzi
+                      Aylık Durum
                     </div>
                     <div
                       style={{
@@ -458,7 +456,7 @@ export default function DeductionsPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Deductions Room
+                    Kesintiler
                   </div>
                 </div>
                 <div
@@ -543,8 +541,7 @@ export default function DeductionsPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce manuel ve otomatik dengeye, sonra bu ayın hacmine ve en
-                  sıcak kesinti kartlarina bakmak kapanış öncesi daha sağlıklı okuma saglar.
+                  Bu ekranda önce manuel ve otomatik dağılıma, sonra aylık yoğunluğa bak.
                 </div>
               </article>
             </div>
@@ -561,7 +558,7 @@ export default function DeductionsPage() {
               color: "var(--muted)",
             }}
           >
-            Deductions dashboard yükleniyor...
+            Kesinti paneli yükleniyor...
           </div>
         ) : !dashboard ? (
           <div
@@ -575,7 +572,7 @@ export default function DeductionsPage() {
             }}
           >
             {dashboardError ||
-              "Deductions API su anda erisilebilir değil. Backend ayağa kalktiginda bu ekran kesinti özetini ve son kayıtları gerçek veriden gösterecek."}
+              "Kesinti verisi alınamadı. Lütfen sayfayı yenileyip tekrar dene."}
           </div>
         ) : (
           <>
@@ -627,7 +624,7 @@ export default function DeductionsPage() {
                 <div>
                   <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Son Kesinti Sinyalleri</h2>
                   <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
-                    Hangi kaydin bordro öncesi daha dikkat istedigini hızlandıran son hareketler.
+                    Son kesinti kayıtları burada listelenir.
                   </p>
                 </div>
                 <span

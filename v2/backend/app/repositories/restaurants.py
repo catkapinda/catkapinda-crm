@@ -17,9 +17,9 @@ def _restaurant_select_sql() -> str:
     return f"""
         SELECT
             r.id,
-            COALESCE(r.brand, '') AS brand,
-            COALESCE(r.branch, '') AS branch,
-            COALESCE(r.pricing_model, '') AS pricing_model,
+            COALESCE(CAST(r.brand AS TEXT), '') AS brand,
+            COALESCE(CAST(r.branch AS TEXT), '') AS branch,
+            COALESCE(CAST(r.pricing_model AS TEXT), '') AS pricing_model,
             COALESCE(r.hourly_rate, 0) AS hourly_rate,
             COALESCE(r.package_rate, 0) AS package_rate,
             COALESCE(r.package_threshold, 390) AS package_threshold,
@@ -28,21 +28,21 @@ def _restaurant_select_sql() -> str:
             COALESCE(r.fixed_monthly_fee, 0) AS fixed_monthly_fee,
             COALESCE(r.vat_rate, 20) AS vat_rate,
             COALESCE(r.target_headcount, 0) AS target_headcount,
-            r.start_date,
-            r.end_date,
+            NULLIF(CAST(r.start_date AS TEXT), '') AS start_date,
+            NULLIF(CAST(r.end_date AS TEXT), '') AS end_date,
             COALESCE(r.extra_headcount_request, 0) AS extra_headcount_request,
-            r.extra_headcount_request_date,
+            NULLIF(CAST(r.extra_headcount_request_date AS TEXT), '') AS extra_headcount_request_date,
             COALESCE(r.reduce_headcount_request, 0) AS reduce_headcount_request,
-            r.reduce_headcount_request_date,
-            COALESCE(r.contact_name, '') AS contact_name,
-            COALESCE(r.contact_phone, '') AS contact_phone,
-            COALESCE(r.contact_email, '') AS contact_email,
-            COALESCE(r.company_title, '') AS company_title,
-            COALESCE(r.address, '') AS address,
-            COALESCE(r.tax_office, '') AS tax_office,
-            COALESCE(r.tax_number, '') AS tax_number,
+            NULLIF(CAST(r.reduce_headcount_request_date AS TEXT), '') AS reduce_headcount_request_date,
+            COALESCE(CAST(r.contact_name AS TEXT), '') AS contact_name,
+            COALESCE(CAST(r.contact_phone AS TEXT), '') AS contact_phone,
+            COALESCE(CAST(r.contact_email AS TEXT), '') AS contact_email,
+            COALESCE(CAST(r.company_title AS TEXT), '') AS company_title,
+            COALESCE(CAST(r.address AS TEXT), '') AS address,
+            COALESCE(CAST(r.tax_office AS TEXT), '') AS tax_office,
+            COALESCE(CAST(r.tax_number AS TEXT), '') AS tax_number,
             {_active_is_true_sql('r.active')} AS active,
-            COALESCE(r.notes, '') AS notes
+            COALESCE(CAST(r.notes AS TEXT), '') AS notes
         FROM restaurants r
     """
 
@@ -117,12 +117,12 @@ def fetch_restaurant_management_records(
           AND (%s IS NULL OR {_active_is_true_sql('r.active')} = %s)
           AND (
             %s IS NULL
-            OR COALESCE(r.brand, '') ILIKE %s
-            OR COALESCE(r.branch, '') ILIKE %s
-            OR COALESCE(r.contact_name, '') ILIKE %s
-            OR COALESCE(r.contact_phone, '') ILIKE %s
-            OR COALESCE(r.company_title, '') ILIKE %s
-            OR COALESCE(r.address, '') ILIKE %s
+            OR COALESCE(CAST(r.brand AS TEXT), '') ILIKE %s
+            OR COALESCE(CAST(r.branch AS TEXT), '') ILIKE %s
+            OR COALESCE(CAST(r.contact_name AS TEXT), '') ILIKE %s
+            OR COALESCE(CAST(r.contact_phone AS TEXT), '') ILIKE %s
+            OR COALESCE(CAST(r.company_title AS TEXT), '') ILIKE %s
+            OR COALESCE(CAST(r.address AS TEXT), '') ILIKE %s
           )
         ORDER BY r.brand, r.branch, r.id DESC
         LIMIT %s
@@ -161,12 +161,12 @@ def count_restaurant_management_records(
           AND (%s IS NULL OR {_active_is_true_sql('r.active')} = %s)
           AND (
             %s IS NULL
-            OR COALESCE(r.brand, '') ILIKE %s
-            OR COALESCE(r.branch, '') ILIKE %s
-            OR COALESCE(r.contact_name, '') ILIKE %s
-            OR COALESCE(r.contact_phone, '') ILIKE %s
-            OR COALESCE(r.company_title, '') ILIKE %s
-            OR COALESCE(r.address, '') ILIKE %s
+            OR COALESCE(CAST(r.brand AS TEXT), '') ILIKE %s
+            OR COALESCE(CAST(r.branch AS TEXT), '') ILIKE %s
+            OR COALESCE(CAST(r.contact_name AS TEXT), '') ILIKE %s
+            OR COALESCE(CAST(r.contact_phone AS TEXT), '') ILIKE %s
+            OR COALESCE(CAST(r.company_title AS TEXT), '') ILIKE %s
+            OR COALESCE(CAST(r.address AS TEXT), '') ILIKE %s
           )
         """,
         (

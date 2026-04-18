@@ -16,6 +16,10 @@ def _coalesced_history_date_sql(date_column: str, changed_at_column: str) -> str
     )
 
 
+def _truthy_sql(column: str) -> str:
+    return f"COALESCE(LOWER(CAST({column} AS TEXT)), 'false') IN ('1', 't', 'true')"
+
+
 def fetch_personnel_summary(conn: psycopg.Connection) -> dict[str, int]:
     if is_sqlite_backend(conn):
         row = conn.execute(
@@ -462,8 +466,9 @@ def fetch_recent_plate_history_records(
     *,
     limit: int,
 ) -> list[dict]:
+    resolved_start_date_sql = "NULLIF(CAST(ph.start_date AS TEXT), '')"
     rows = conn.execute(
-        """
+        f"""
         SELECT
             ph.id,
             ph.personnel_id,
@@ -476,16 +481,16 @@ def fetch_recent_plate_history_records(
             COALESCE(p.motor_purchase, 'Hayır') AS motor_purchase,
             COALESCE(p.current_plate, '') AS current_plate,
             COALESCE(ph.plate, '') AS plate,
-            ph.start_date,
-            ph.end_date,
+            {resolved_start_date_sql} AS start_date,
+            NULLIF(CAST(ph.end_date AS TEXT), '') AS end_date,
             COALESCE(ph.reason, '') AS reason,
-            CASE WHEN ph.active THEN TRUE ELSE FALSE END AS active
+            {_truthy_sql('ph.active')} AS active
         FROM plate_history ph
         JOIN personnel p ON p.id = ph.personnel_id
         LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
         ORDER BY
-            CASE WHEN ph.active THEN 0 ELSE 1 END,
-            ph.start_date DESC,
+            CASE WHEN {_truthy_sql('ph.active')} THEN 0 ELSE 1 END,
+            {resolved_start_date_sql} DESC,
             ph.id DESC
         LIMIT %s
         """,
@@ -506,10 +511,10 @@ def count_total_plate_history_records(conn: psycopg.Connection) -> int:
 
 def count_active_plate_history_records(conn: psycopg.Connection) -> int:
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM plate_history
-        WHERE CASE WHEN active THEN 1 ELSE 0 END = 1
+        WHERE {_truthy_sql('active')}
         """
     ).fetchone()
     return int(row["total_count"] or 0) if row else 0
@@ -562,13 +567,19 @@ def fetch_active_plate_history_record(
     conn: psycopg.Connection,
     person_id: int,
 ) -> dict | None:
+    resolved_start_date_sql = "NULLIF(CAST(start_date AS TEXT), '')"
     row = conn.execute(
-        """
-        SELECT id, plate, start_date, end_date, reason
+        f"""
+        SELECT
+            id,
+            plate,
+            {resolved_start_date_sql} AS start_date,
+            NULLIF(CAST(end_date AS TEXT), '') AS end_date,
+            reason
         FROM plate_history
         WHERE personnel_id = %s
-          AND CASE WHEN active THEN 1 ELSE 0 END = 1
-        ORDER BY start_date DESC, id DESC
+          AND {_truthy_sql('active')}
+        ORDER BY {resolved_start_date_sql} DESC, id DESC
         LIMIT 1
         """,
         (person_id,),
@@ -583,11 +594,11 @@ def close_active_plate_history_records(
     end_date: str,
 ) -> None:
     conn.execute(
-        """
+        f"""
         UPDATE plate_history
         SET active = %s, end_date = %s
         WHERE personnel_id = %s
-          AND CASE WHEN active THEN 1 ELSE 0 END = 1
+          AND {_truthy_sql('active')}
         """,
         (False, end_date, person_id),
     )
