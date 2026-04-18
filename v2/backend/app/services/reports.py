@@ -37,6 +37,11 @@ _LOCAL_FUEL_DEDUCTION_TYPES = {"Yakit", "Yakıt"}
 _LOCAL_PARTNER_CARD_DEDUCTION_TYPES = {"Partner Kart Indirimi", "Partner Kart İndirimi"}
 _PACKAGE_THRESHOLD_DEFAULT = 390
 _VAT_RATE_DEFAULT = 20.0
+_COURIER_HOURLY_COST = 250.0
+_COURIER_HOURLY_COST_DOGU_OTOMOTIV = 295.0
+_COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
+_COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
+_COURIER_PACKAGE_COST_QC = 25.0
 
 
 def _empty_reports_coverage() -> ReportsCoverageSummary:
@@ -105,6 +110,68 @@ def _month_key_sql(column: str) -> str:
 
 def _active_sql(column: str = "active") -> str:
     return f"COALESCE(LOWER(CAST({column} AS TEXT)), '1') IN ('1', 'true', 't', 'yes', 'evet')"
+
+
+def _normalized_brand_key(brand: object) -> str:
+    return str(brand or "").strip().lower()
+
+
+def _is_quick_china_brand(brand: object) -> bool:
+    return _normalized_brand_key(brand) == "quick china"
+
+
+def _is_dogu_otomotiv_brand(brand: object) -> bool:
+    return _normalized_brand_key(brand) in {"doğu otomotiv", "dogu otomotiv"}
+
+
+def _calculate_standard_package_cost(total_packages: float, *, brand: object = "") -> float:
+    package_total = float(total_packages or 0)
+    if _is_dogu_otomotiv_brand(brand):
+        return 0.0
+    if _is_quick_china_brand(brand):
+        return package_total * _COURIER_PACKAGE_COST_QC
+    package_rate = (
+        _COURIER_PACKAGE_COST_DEFAULT_LOW
+        if package_total <= _PACKAGE_THRESHOLD_DEFAULT
+        else _COURIER_PACKAGE_COST_DEFAULT_HIGH
+    )
+    return package_total * package_rate
+
+
+def _calculate_standard_courier_cost(total_hours: float, total_packages: float, *, brand: object = "") -> float:
+    hourly_cost = _COURIER_HOURLY_COST_DOGU_OTOMOTIV if _is_dogu_otomotiv_brand(brand) else _COURIER_HOURLY_COST
+    return float(total_hours or 0) * hourly_cost + _calculate_standard_package_cost(total_packages, brand=brand)
+
+
+def _is_fixed_cost_model(cost_model: object) -> bool:
+    model = str(cost_model or "").strip()
+    return model == "fixed_monthly" or model.startswith("fixed_")
+
+
+def _calculate_personnel_gross_cost(
+    *,
+    cost_model: object,
+    monthly_fixed_cost: float,
+    total_hours: float,
+    total_packages: float,
+    segments: list[dict[str, object]],
+) -> float:
+    fixed_cost = _safe_float(monthly_fixed_cost)
+    has_attendance = total_hours > 0 or total_packages > 0
+    if _is_fixed_cost_model(cost_model) and fixed_cost > 0:
+        return fixed_cost
+    if not has_attendance:
+        return fixed_cost
+    return _safe_float(
+        sum(
+            _calculate_standard_courier_cost(
+                _safe_float(segment.get("total_hours")),
+                _safe_float(segment.get("total_packages")),
+                brand=segment.get("brand"),
+            )
+            for segment in segments
+        )
+    )
 
 
 def _resolve_allocation_source_label(value: object) -> str:
@@ -492,13 +559,21 @@ def _build_local_reports_dashboard(
     attendance_rows = conn.execute(
         f"""
         SELECT
-            COALESCE(actual_personnel_id, planned_personnel_id) AS personnel_id,
-            COALESCE(SUM(worked_hours), 0) AS total_hours,
-            COALESCE(SUM(package_count), 0) AS total_packages
-        FROM daily_entries
-        WHERE {_month_key_sql('entry_date')} = %s
-          AND COALESCE(actual_personnel_id, planned_personnel_id) IS NOT NULL
-        GROUP BY COALESCE(actual_personnel_id, planned_personnel_id)
+            COALESCE(d.actual_personnel_id, d.planned_personnel_id) AS personnel_id,
+            d.restaurant_id,
+            COALESCE(r.brand, '') AS brand,
+            COALESCE(r.pricing_model, '') AS pricing_model,
+            COALESCE(SUM(d.worked_hours), 0) AS total_hours,
+            COALESCE(SUM(d.package_count), 0) AS total_packages
+        FROM daily_entries d
+        LEFT JOIN restaurants r ON r.id = d.restaurant_id
+        WHERE {_month_key_sql('d.entry_date')} = %s
+          AND COALESCE(d.actual_personnel_id, d.planned_personnel_id) IS NOT NULL
+        GROUP BY
+            COALESCE(d.actual_personnel_id, d.planned_personnel_id),
+            d.restaurant_id,
+            COALESCE(r.brand, ''),
+            COALESCE(r.pricing_model, '')
         """,
         (resolved_month,),
     ).fetchall()
@@ -526,14 +601,33 @@ def _build_local_reports_dashboard(
         """
     ).fetchall()
 
-    attendance_by_person = {
-        int(row["personnel_id"]): {
-            "total_hours": _safe_float(row["total_hours"]),
-            "total_packages": _safe_float(row["total_packages"]),
-        }
-        for row in attendance_rows
-        if row["personnel_id"] is not None
-    }
+    attendance_by_person: dict[int, dict[str, object]] = {}
+    for row in attendance_rows:
+        if row["personnel_id"] is None:
+            continue
+        person_id = int(row["personnel_id"])
+        bucket = attendance_by_person.setdefault(
+            person_id,
+            {
+                "total_hours": 0.0,
+                "total_packages": 0.0,
+                "segments": [],
+            },
+        )
+        total_hours = _safe_float(row["total_hours"])
+        total_packages = _safe_float(row["total_packages"])
+        bucket["total_hours"] = _safe_float(bucket.get("total_hours")) + total_hours
+        bucket["total_packages"] = _safe_float(bucket.get("total_packages")) + total_packages
+        segments = bucket["segments"]
+        if isinstance(segments, list):
+            segments.append(
+                {
+                    "brand": str(row["brand"] or ""),
+                    "pricing_model": str(row["pricing_model"] or ""),
+                    "total_hours": total_hours,
+                    "total_packages": total_packages,
+                }
+            )
     deductions_by_person = {
         int(row["personnel_id"]): _safe_float(row["total_deductions"])
         for row in deductions_rows
@@ -549,8 +643,16 @@ def _build_local_reports_dashboard(
         total_packages = _safe_float(attendance.get("total_packages"))
         total_deductions = _safe_float(deductions_by_person.get(person_id))
         monthly_fixed_cost = _safe_float(row["monthly_fixed_cost"])
-        net_cost = max(monthly_fixed_cost - total_deductions, 0.0)
-        if total_hours <= 0 and total_packages <= 0 and monthly_fixed_cost <= 0 and total_deductions <= 0:
+        segments = attendance.get("segments")
+        gross_cost = _calculate_personnel_gross_cost(
+            cost_model=row["cost_model"],
+            monthly_fixed_cost=monthly_fixed_cost,
+            total_hours=total_hours,
+            total_packages=total_packages,
+            segments=segments if isinstance(segments, list) else [],
+        )
+        net_cost = max(gross_cost - total_deductions, 0.0)
+        if total_hours <= 0 and total_packages <= 0 and gross_cost <= 0 and total_deductions <= 0:
             continue
         entry = ReportCostEntry(
             personnel=str(row["full_name"] or "-"),

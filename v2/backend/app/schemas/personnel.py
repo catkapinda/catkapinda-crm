@@ -54,6 +54,11 @@ class PersonnelManagementEntry(BaseModel):
     restaurant_label: str
     vehicle_mode: str
     current_plate: str
+    motor_rental_monthly_amount: float
+    motor_purchase_start_date: date | None
+    motor_purchase_commitment_months: int
+    motor_purchase_sale_price: float
+    motor_purchase_monthly_deduction: float
     start_date: date | None
     monthly_fixed_cost: float
     notes: str

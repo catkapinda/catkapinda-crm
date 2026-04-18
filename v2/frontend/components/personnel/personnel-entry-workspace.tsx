@@ -52,9 +52,16 @@ export function PersonnelEntryWorkspace() {
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [vehicleMode, setVehicleMode] = useState("Kendi Motoru");
   const [currentPlate, setCurrentPlate] = useState("");
+  const [motorRentalMonthlyAmount, setMotorRentalMonthlyAmount] = useState("13000");
+  const [motorPurchaseStartDate, setMotorPurchaseStartDate] = useState("");
+  const [motorPurchaseCommitmentMonths, setMotorPurchaseCommitmentMonths] = useState("0");
+  const [motorPurchaseSalePrice, setMotorPurchaseSalePrice] = useState("0");
+  const [motorPurchaseMonthlyDeduction, setMotorPurchaseMonthlyDeduction] = useState("0");
   const [monthlyFixedCost, setMonthlyFixedCost] = useState("0");
   const [notes, setNotes] = useState("");
   const canViewPlateArea = user?.allowed_actions.includes("personnel.plate") ?? false;
+  const isRentalVehicle = vehicleMode === "Çat Kapında Motor Kirası";
+  const isSaleVehicle = vehicleMode === "Çat Kapında Motor Satışı";
 
   useEffect(() => {
     async function loadOptions() {
@@ -120,6 +127,11 @@ export function PersonnelEntryWorkspace() {
         start_date: startDate || null,
         vehicle_mode: vehicleMode,
         current_plate: currentPlate,
+        motor_rental_monthly_amount: Number(motorRentalMonthlyAmount || 0),
+        motor_purchase_start_date: motorPurchaseStartDate || null,
+        motor_purchase_commitment_months: Number(motorPurchaseCommitmentMonths || 0),
+        motor_purchase_sale_price: Number(motorPurchaseSalePrice || 0),
+        motor_purchase_monthly_deduction: Number(motorPurchaseMonthlyDeduction || 0),
         monthly_fixed_cost: Number(monthlyFixedCost || 0),
         notes,
       }),
@@ -145,6 +157,11 @@ export function PersonnelEntryWorkspace() {
     setEmergencyContactName("");
     setEmergencyContactPhone("");
     setCurrentPlate("");
+    setMotorRentalMonthlyAmount("13000");
+    setMotorPurchaseStartDate("");
+    setMotorPurchaseCommitmentMonths("0");
+    setMotorPurchaseSalePrice("0");
+    setMotorPurchaseMonthlyDeduction("0");
     setMonthlyFixedCost("0");
     setNotes("");
     startTransition(() => {
@@ -281,6 +298,57 @@ export function PersonnelEntryWorkspace() {
                     <span style={{ fontWeight: 700 }}>Plaka</span>
                     <input value={currentPlate} onChange={(event) => setCurrentPlate(event.target.value)} style={fieldStyle} />
                   </label>
+                ) : null}
+                {canViewPlateArea && isRentalVehicle ? (
+                  <label style={{ display: "grid", gap: "8px" }}>
+                    <span style={{ fontWeight: 700 }}>Aylık Motor Kirası</span>
+                    <input
+                      inputMode="decimal"
+                      value={motorRentalMonthlyAmount}
+                      onChange={(event) => setMotorRentalMonthlyAmount(event.target.value)}
+                      style={fieldStyle}
+                    />
+                  </label>
+                ) : null}
+                {canViewPlateArea && isSaleVehicle ? (
+                  <>
+                    <label style={{ display: "grid", gap: "8px" }}>
+                      <span style={{ fontWeight: 700 }}>Satış Başlangıcı</span>
+                      <input
+                        type="date"
+                        value={motorPurchaseStartDate}
+                        onChange={(event) => setMotorPurchaseStartDate(event.target.value)}
+                        style={fieldStyle}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: "8px" }}>
+                      <span style={{ fontWeight: 700 }}>Ay Taahhüdü</span>
+                      <input
+                        inputMode="numeric"
+                        value={motorPurchaseCommitmentMonths}
+                        onChange={(event) => setMotorPurchaseCommitmentMonths(event.target.value)}
+                        style={fieldStyle}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: "8px" }}>
+                      <span style={{ fontWeight: 700 }}>Motor Satış Tutarı</span>
+                      <input
+                        inputMode="decimal"
+                        value={motorPurchaseSalePrice}
+                        onChange={(event) => setMotorPurchaseSalePrice(event.target.value)}
+                        style={fieldStyle}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: "8px" }}>
+                      <span style={{ fontWeight: 700 }}>Aylık Kesinti</span>
+                      <input
+                        inputMode="decimal"
+                        value={motorPurchaseMonthlyDeduction}
+                        onChange={(event) => setMotorPurchaseMonthlyDeduction(event.target.value)}
+                        style={fieldStyle}
+                      />
+                    </label>
+                  </>
                 ) : null}
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Aylık Sabit Tutar</span>

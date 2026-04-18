@@ -241,6 +241,11 @@ def _build_management_entry(
 ) -> PersonnelManagementEntry:
     vehicle_mode = _display_vehicle_mode(_derive_vehicle_mode(row)) if include_vehicle_fields else ""
     current_plate = str(row["current_plate"] or "") if include_vehicle_fields else ""
+    motor_rental_monthly_amount = float(row.get("motor_rental_monthly_amount") or 0) if include_vehicle_fields else 0.0
+    motor_purchase_start_date = row.get("motor_purchase_start_date") if include_vehicle_fields else None
+    motor_purchase_commitment_months = int(row.get("motor_purchase_commitment_months") or 0) if include_vehicle_fields else 0
+    motor_purchase_sale_price = float(row.get("motor_purchase_sale_price") or 0) if include_vehicle_fields else 0.0
+    motor_purchase_monthly_deduction = float(row.get("motor_purchase_monthly_deduction") or 0) if include_vehicle_fields else 0.0
     return PersonnelManagementEntry(
         id=int(row["id"]),
         person_code=str(row["person_code"] or ""),
@@ -258,6 +263,11 @@ def _build_management_entry(
         restaurant_label=str(row["restaurant_label"] or "-"),
         vehicle_mode=vehicle_mode,
         current_plate=current_plate,
+        motor_rental_monthly_amount=motor_rental_monthly_amount,
+        motor_purchase_start_date=motor_purchase_start_date,
+        motor_purchase_commitment_months=motor_purchase_commitment_months,
+        motor_purchase_sale_price=motor_purchase_sale_price,
+        motor_purchase_monthly_deduction=motor_purchase_monthly_deduction,
         start_date=row["start_date"],
         monthly_fixed_cost=float(row["monthly_fixed_cost"] or 0),
         notes=str(row["notes"] or ""),

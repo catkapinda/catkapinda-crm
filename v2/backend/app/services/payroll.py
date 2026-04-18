@@ -65,9 +65,21 @@ def _month_key_sql(column: str) -> str:
 _COST_MODEL_LABELS = {
     "standard_courier": "Standart Kurye",
     "fixed_monthly": "Sabit Aylık",
+    "fixed_kurye": "Kurye Sabit",
+    "fixed_bolge_muduru": "Bölge Müdürü",
+    "fixed_saha_denetmen_sefi": "Saha Denetmen Şefi",
+    "fixed_restoran_takim_sefi": "Restoran Takım Şefi",
+    "fixed_joker": "Joker Sabit",
     "hourly_only": "Sadece Saatlik",
     "hourly_plus_package": "Saatlik + Paket",
 }
+
+_COURIER_HOURLY_COST = 250.0
+_COURIER_HOURLY_COST_DOGU_OTOMOTIV = 295.0
+_COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
+_COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
+_COURIER_PACKAGE_COST_QC = 25.0
+_PACKAGE_THRESHOLD_DEFAULT = 390
 
 
 @dataclass
@@ -85,6 +97,76 @@ class PayrollDocumentPayload:
     net_payment: float
     restaurant_names: list[str]
     deduction_items: list[tuple[str, float]]
+
+
+def _normalized_brand_key(brand: object) -> str:
+    return str(brand or "").strip().lower()
+
+
+def _is_quick_china_brand(brand: object) -> bool:
+    return _normalized_brand_key(brand) == "quick china"
+
+
+def _is_dogu_otomotiv_brand(brand: object) -> bool:
+    return _normalized_brand_key(brand) in {"doğu otomotiv", "dogu otomotiv"}
+
+
+def _calculate_standard_package_cost(total_packages: float, *, brand: object = "") -> float:
+    package_total = float(total_packages or 0)
+    if _is_dogu_otomotiv_brand(brand):
+        return 0.0
+    if _is_quick_china_brand(brand):
+        return package_total * _COURIER_PACKAGE_COST_QC
+    package_rate = (
+        _COURIER_PACKAGE_COST_DEFAULT_LOW
+        if package_total <= _PACKAGE_THRESHOLD_DEFAULT
+        else _COURIER_PACKAGE_COST_DEFAULT_HIGH
+    )
+    return package_total * package_rate
+
+
+def _calculate_standard_courier_cost(
+    total_hours: float,
+    total_packages: float,
+    *,
+    brand: object = "",
+) -> float:
+    hourly_cost = _COURIER_HOURLY_COST_DOGU_OTOMOTIV if _is_dogu_otomotiv_brand(brand) else _COURIER_HOURLY_COST
+    return float(total_hours or 0) * hourly_cost + _calculate_standard_package_cost(
+        total_packages,
+        brand=brand,
+    )
+
+
+def _is_fixed_cost_model(cost_model: object) -> bool:
+    model = str(cost_model or "").strip()
+    return model == "fixed_monthly" or model.startswith("fixed_")
+
+
+def _calculate_personnel_gross_pay(
+    *,
+    cost_model: object,
+    monthly_fixed_cost: float,
+    total_hours: float,
+    total_packages: float,
+    segments: list[dict[str, object]],
+) -> float:
+    fixed_cost = _safe_float(monthly_fixed_cost)
+    has_attendance = total_hours > 0 or total_packages > 0
+    if _is_fixed_cost_model(cost_model) and fixed_cost > 0:
+        return fixed_cost
+    if not has_attendance:
+        return fixed_cost
+    return _safe_float(
+        sum(
+            _calculate_standard_courier_cost(
+                _safe_float(segment.get("total_hours")),
+                _safe_float(segment.get("total_packages")),
+                brand=segment.get("brand"),
+            )
+            for segment in segments
+        )
+    )
 
 
 def build_payroll_status() -> PayrollModuleStatus:
@@ -451,6 +533,7 @@ def _build_local_payroll_document_payload(
             COALESCE(person_code, '') AS person_code,
             COALESCE(role, '-') AS role,
             COALESCE(status, '-') AS status,
+            COALESCE(cost_model, '-') AS cost_model,
             COALESCE(monthly_fixed_cost, 0) AS monthly_fixed_cost
         FROM personnel
         WHERE id = %s
@@ -460,17 +543,23 @@ def _build_local_payroll_document_payload(
     if person_row is None:
         raise LookupError("Belgesi oluşturulacak personel bulunamadı.")
 
-    attendance_row = conn.execute(
+    attendance_rows = conn.execute(
         f"""
         SELECT
-            COALESCE(SUM(worked_hours), 0) AS total_hours,
-            COALESCE(SUM(package_count), 0) AS total_packages
-        FROM daily_entries
-        WHERE {_month_key_sql('entry_date')} = %s
-          AND COALESCE(actual_personnel_id, planned_personnel_id) = %s
+            d.restaurant_id,
+            COALESCE(r.brand, '') AS brand,
+            COALESCE(SUM(d.worked_hours), 0) AS total_hours,
+            COALESCE(SUM(d.package_count), 0) AS total_packages
+        FROM daily_entries d
+        LEFT JOIN restaurants r ON r.id = d.restaurant_id
+        WHERE {_month_key_sql('d.entry_date')} = %s
+          AND COALESCE(d.actual_personnel_id, d.planned_personnel_id) = %s
+        GROUP BY
+            d.restaurant_id,
+            COALESCE(r.brand, '')
         """,
         (resolved_month, personnel_id),
-    ).fetchone()
+    ).fetchall()
 
     deduction_rows = conn.execute(
         f"""
@@ -498,9 +587,23 @@ def _build_local_payroll_document_payload(
         (resolved_month, personnel_id),
     ).fetchall()
 
-    total_hours = _safe_float(attendance_row["total_hours"]) if attendance_row else 0.0
-    total_packages = _safe_float(attendance_row["total_packages"]) if attendance_row else 0.0
-    gross_pay = _safe_float(person_row["monthly_fixed_cost"])
+    attendance_segments = [
+        {
+            "brand": str(row["brand"] or ""),
+            "total_hours": _safe_float(row["total_hours"]),
+            "total_packages": _safe_float(row["total_packages"]),
+        }
+        for row in attendance_rows
+    ]
+    total_hours = _safe_float(sum(_safe_float(row["total_hours"]) for row in attendance_rows))
+    total_packages = _safe_float(sum(_safe_float(row["total_packages"]) for row in attendance_rows))
+    gross_pay = _calculate_personnel_gross_pay(
+        cost_model=person_row["cost_model"],
+        monthly_fixed_cost=_safe_float(person_row["monthly_fixed_cost"]),
+        total_hours=total_hours,
+        total_packages=total_packages,
+        segments=attendance_segments,
+    )
     total_deductions = _safe_float(sum(_safe_float(row["total_amount"]) for row in deduction_rows))
     net_payment = max(gross_pay - total_deductions, 0.0)
     restaurant_names = [str(row["restaurant_label"]) for row in restaurant_rows if str(row["restaurant_label"]).strip()]
@@ -600,9 +703,10 @@ def _build_local_payroll_dashboard(
     attendance_query = """
         SELECT
             COALESCE(d.actual_personnel_id, d.planned_personnel_id) AS personnel_id,
+            d.restaurant_id,
+            COALESCE(r.brand, '') AS brand,
             COALESCE(SUM(d.worked_hours), 0) AS total_hours,
-            COALESCE(SUM(d.package_count), 0) AS total_packages,
-            COUNT(DISTINCT d.restaurant_id) AS restaurant_count
+            COALESCE(SUM(d.package_count), 0) AS total_packages
         FROM daily_entries d
         LEFT JOIN restaurants r ON r.id = d.restaurant_id
         WHERE {month_key_sql} = %s
@@ -615,7 +719,10 @@ def _build_local_payroll_dashboard(
         """
         attendance_params.append(selected_restaurant)
     attendance_query += """
-        GROUP BY COALESCE(d.actual_personnel_id, d.planned_personnel_id)
+        GROUP BY
+            COALESCE(d.actual_personnel_id, d.planned_personnel_id),
+            d.restaurant_id,
+            COALESCE(r.brand, '')
     """
     attendance_rows = conn.execute(attendance_query, tuple(attendance_params)).fetchall()
 
@@ -645,15 +752,40 @@ def _build_local_payroll_dashboard(
         """
     ).fetchall()
 
-    attendance_by_person = {
-        int(row["personnel_id"]): {
-            "total_hours": _safe_float(row["total_hours"]),
-            "total_packages": _safe_float(row["total_packages"]),
-            "restaurant_count": int(row["restaurant_count"] or 0),
-        }
-        for row in attendance_rows
-        if row["personnel_id"] is not None
-    }
+    attendance_by_person: dict[int, dict[str, object]] = {}
+    for row in attendance_rows:
+        if row["personnel_id"] is None:
+            continue
+        person_id = int(row["personnel_id"])
+        bucket = attendance_by_person.setdefault(
+            person_id,
+            {
+                "total_hours": 0.0,
+                "total_packages": 0.0,
+                "restaurant_ids": set(),
+                "segments": [],
+            },
+        )
+        total_hours = _safe_float(row["total_hours"])
+        total_packages = _safe_float(row["total_packages"])
+        bucket["total_hours"] = _safe_float(bucket.get("total_hours")) + total_hours
+        bucket["total_packages"] = _safe_float(bucket.get("total_packages")) + total_packages
+        restaurant_ids = bucket["restaurant_ids"]
+        if isinstance(restaurant_ids, set) and row["restaurant_id"] is not None:
+            restaurant_ids.add(int(row["restaurant_id"]))
+        segments = bucket["segments"]
+        if isinstance(segments, list):
+            segments.append(
+                {
+                    "brand": str(row["brand"] or ""),
+                    "total_hours": total_hours,
+                    "total_packages": total_packages,
+                }
+            )
+    for bucket in attendance_by_person.values():
+        restaurant_ids = bucket.get("restaurant_ids")
+        bucket["restaurant_count"] = len(restaurant_ids) if isinstance(restaurant_ids, set) else 0
+        bucket.pop("restaurant_ids", None)
     deductions_by_person = {
         int(row["personnel_id"]): _safe_float(row["total_deductions"])
         for row in deductions_rows
@@ -676,7 +808,14 @@ def _build_local_payroll_dashboard(
         total_hours = _safe_float(attendance.get("total_hours"))
         total_packages = _safe_float(attendance.get("total_packages"))
         restaurant_count = int(attendance.get("restaurant_count") or 0)
-        gross_pay = _safe_float(person["monthly_fixed_cost"])
+        segments = attendance.get("segments")
+        gross_pay = _calculate_personnel_gross_pay(
+            cost_model=person["cost_model"],
+            monthly_fixed_cost=_safe_float(person["monthly_fixed_cost"]),
+            total_hours=total_hours,
+            total_packages=total_packages,
+            segments=segments if isinstance(segments, list) else [],
+        )
         total_deductions = _safe_float(deductions_by_person.get(person_id))
         net_payment = max(gross_pay - total_deductions, 0.0)
         cost_model_key = str(person["cost_model"] or "-")

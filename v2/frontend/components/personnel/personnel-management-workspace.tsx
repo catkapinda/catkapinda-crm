@@ -25,6 +25,11 @@ type PersonnelEntry = {
   restaurant_label: string;
   vehicle_mode: string;
   current_plate: string;
+  motor_rental_monthly_amount: number;
+  motor_purchase_start_date: string | null;
+  motor_purchase_commitment_months: number;
+  motor_purchase_sale_price: number;
+  motor_purchase_monthly_deduction: number;
   start_date: string | null;
   monthly_fixed_cost: number;
   notes: string;
@@ -84,6 +89,11 @@ export function PersonnelManagementWorkspace() {
   const [editStatus, setEditStatus] = useState("Aktif");
   const [editVehicleMode, setEditVehicleMode] = useState("Kendi Motoru");
   const [editCurrentPlate, setEditCurrentPlate] = useState("");
+  const [editMotorRentalMonthlyAmount, setEditMotorRentalMonthlyAmount] = useState("13000");
+  const [editMotorPurchaseStartDate, setEditMotorPurchaseStartDate] = useState("");
+  const [editMotorPurchaseCommitmentMonths, setEditMotorPurchaseCommitmentMonths] = useState("0");
+  const [editMotorPurchaseSalePrice, setEditMotorPurchaseSalePrice] = useState("0");
+  const [editMotorPurchaseMonthlyDeduction, setEditMotorPurchaseMonthlyDeduction] = useState("0");
   const [editStartDate, setEditStartDate] = useState("");
   const [editMonthlyFixedCost, setEditMonthlyFixedCost] = useState("0");
   const [editNotes, setEditNotes] = useState("");
@@ -166,6 +176,11 @@ export function PersonnelManagementWorkspace() {
       setEditStatus(entry.status);
       setEditVehicleMode(entry.vehicle_mode);
       setEditCurrentPlate(entry.current_plate ?? "");
+      setEditMotorRentalMonthlyAmount(String(entry.motor_rental_monthly_amount ?? 13000));
+      setEditMotorPurchaseStartDate(entry.motor_purchase_start_date ?? "");
+      setEditMotorPurchaseCommitmentMonths(String(entry.motor_purchase_commitment_months ?? 0));
+      setEditMotorPurchaseSalePrice(String(entry.motor_purchase_sale_price ?? 0));
+      setEditMotorPurchaseMonthlyDeduction(String(entry.motor_purchase_monthly_deduction ?? 0));
       setEditStartDate(entry.start_date ?? "");
       setEditMonthlyFixedCost(String(entry.monthly_fixed_cost ?? 0));
       setEditNotes(entry.notes ?? "");
@@ -203,6 +218,8 @@ export function PersonnelManagementWorkspace() {
   const canToggleStatus = user?.allowed_actions.includes("personnel.status_change") ?? false;
   const canDeletePersonnel = user?.allowed_actions.includes("personnel.delete") ?? false;
   const canViewPlateArea = user?.allowed_actions.includes("personnel.plate") ?? false;
+  const isEditRentalVehicle = editVehicleMode === "Çat Kapında Motor Kirası";
+  const isEditSaleVehicle = editVehicleMode === "Çat Kapında Motor Satışı";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -233,6 +250,11 @@ export function PersonnelManagementWorkspace() {
         start_date: editStartDate || null,
         vehicle_mode: editVehicleMode,
         current_plate: editCurrentPlate,
+        motor_rental_monthly_amount: Number(editMotorRentalMonthlyAmount || 0),
+        motor_purchase_start_date: editMotorPurchaseStartDate || null,
+        motor_purchase_commitment_months: Number(editMotorPurchaseCommitmentMonths || 0),
+        motor_purchase_sale_price: Number(editMotorPurchaseSalePrice || 0),
+        motor_purchase_monthly_deduction: Number(editMotorPurchaseMonthlyDeduction || 0),
         monthly_fixed_cost: Number(editMonthlyFixedCost || 0),
         notes: editNotes,
       }),
@@ -593,6 +615,57 @@ export function PersonnelManagementWorkspace() {
                       <span style={{ fontWeight: 700 }}>Plaka</span>
                       <input value={editCurrentPlate} onChange={(event) => setEditCurrentPlate(event.target.value)} style={fieldStyle} />
                     </label>
+                  ) : null}
+                  {canViewPlateArea && isEditRentalVehicle ? (
+                    <label style={{ display: "grid", gap: "6px" }}>
+                      <span style={{ fontWeight: 700 }}>Aylık Motor Kirası</span>
+                      <input
+                        inputMode="decimal"
+                        value={editMotorRentalMonthlyAmount}
+                        onChange={(event) => setEditMotorRentalMonthlyAmount(event.target.value)}
+                        style={fieldStyle}
+                      />
+                    </label>
+                  ) : null}
+                  {canViewPlateArea && isEditSaleVehicle ? (
+                    <>
+                      <label style={{ display: "grid", gap: "6px" }}>
+                        <span style={{ fontWeight: 700 }}>Satış Başlangıcı</span>
+                        <input
+                          type="date"
+                          value={editMotorPurchaseStartDate}
+                          onChange={(event) => setEditMotorPurchaseStartDate(event.target.value)}
+                          style={fieldStyle}
+                        />
+                      </label>
+                      <label style={{ display: "grid", gap: "6px" }}>
+                        <span style={{ fontWeight: 700 }}>Ay Taahhüdü</span>
+                        <input
+                          inputMode="numeric"
+                          value={editMotorPurchaseCommitmentMonths}
+                          onChange={(event) => setEditMotorPurchaseCommitmentMonths(event.target.value)}
+                          style={fieldStyle}
+                        />
+                      </label>
+                      <label style={{ display: "grid", gap: "6px" }}>
+                        <span style={{ fontWeight: 700 }}>Motor Satış Tutarı</span>
+                        <input
+                          inputMode="decimal"
+                          value={editMotorPurchaseSalePrice}
+                          onChange={(event) => setEditMotorPurchaseSalePrice(event.target.value)}
+                          style={fieldStyle}
+                        />
+                      </label>
+                      <label style={{ display: "grid", gap: "6px" }}>
+                        <span style={{ fontWeight: 700 }}>Aylık Kesinti</span>
+                        <input
+                          inputMode="decimal"
+                          value={editMotorPurchaseMonthlyDeduction}
+                          onChange={(event) => setEditMotorPurchaseMonthlyDeduction(event.target.value)}
+                          style={fieldStyle}
+                        />
+                      </label>
+                    </>
                   ) : null}
                   <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>İşe Giriş</span>

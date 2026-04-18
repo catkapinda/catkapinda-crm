@@ -46,7 +46,7 @@ def test_build_payroll_dashboard_supports_local_sqlite_without_streamlit():
         INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
         VALUES
             (1, 'Mert Kurtuluş', 'CK-K01', 'Kurye', 'Aktif', 'fixed_monthly', 32000),
-            (2, 'Ebru Aslan', 'CK-O01', 'Operasyon', 'Aktif', 'standard_courier', 28000)
+            (2, 'Ebru Aslan', 'CK-K02', 'Kurye', 'Aktif', 'fixed_kurye', 0)
         """
     )
     raw_conn.execute(
@@ -85,7 +85,9 @@ def test_build_payroll_dashboard_supports_local_sqlite_without_streamlit():
     assert payload.selected_month == "2026-04"
     assert payload.summary is not None
     assert payload.summary.personnel_count == 2
+    assert payload.summary.gross_payroll == 34360.0
     assert payload.summary.total_deductions == 1500.0
+    assert next(entry.gross_pay for entry in payload.entries if entry.personnel == "Ebru Aslan") == 2360.0
     assert payload.entries[0].personnel in {"Mert Kurtuluş", "Ebru Aslan"}
     assert payload.cost_model_breakdown
     assert payload.top_personnel
