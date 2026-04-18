@@ -325,12 +325,12 @@ export default function SalesPage() {
             : proposalRatio >= 20
               ? "Teklif akışında hareket var."
               : "Teklif hacmi daha fazla itis isteyebilir.",
-        body: `${dashboard.summary.total_entries} fırsatın %${proposalRatio.toFixed(1)} kadarı teklif aşamasında. Bu oran fırsat hattının ne kadar olgunlaştığını hızlı gösteren ana sinyalimiz.`,
+        body: `${dashboard.summary.total_entries} fırsatın %${proposalRatio.toFixed(1)} kadarı teklif aşamasında. Bu oran fırsat hattının ne kadar olgunlaştığını gösterir.`,
         tone: proposalRatio >= 35 ? "ink" : "accent",
       },
       {
         eyebrow: "En Sıcak Fırsat",
-        title: topOpportunity ? topOpportunity.restaurant_name : "Sıcak fırsat sinyali henüz yok.",
+        title: topOpportunity ? topOpportunity.restaurant_name : "Fırsat kaydı henüz yok.",
         body: topOpportunity
           ? `${topOpportunity.city} / ${topOpportunity.district} hattında ${topOpportunity.pricing_model_label} modeliyle ${formatCurrency(topOpportunity.proposed_quote)} teklif seviyesinde. Sorumlu: ${topOpportunity.assigned_owner || "Atanmadı"}.`
           : "Yeni fırsat kayıtları geldikçe bu alan hangi müşterinin daha çok dikkat istediğini öne çıkaracak.",
@@ -525,7 +525,7 @@ export default function SalesPage() {
                         fontWeight: 700,
                       }}
                     >
-                      {dashboard?.summary.total_entries ?? 0} aktif sinyal
+                      {dashboard?.summary.total_entries ?? 0} aktif fırsat
                     </div>
                   </div>
                   <div

@@ -340,16 +340,16 @@ export default function AuditPage() {
 
     return [
       {
-        eyebrow: "Kayıt Nabzı",
-        title: recentPressure ? "Son 7 gün daha hızlı akıyor." : "Kayıt ritmi dengeli görünüyor.",
-        body: `${dashboard.summary.last_7_days} kayıt son 7 günde oluştu. Toplam ${dashboard.summary.total_entries} kayıt içinde bu ritim, sistemde değişimin ne kadar taze olduğunu hızla anlatır.`,
+        eyebrow: "Son Kayıtlar",
+        title: recentPressure ? "Son 7 günde hareket artmış." : "Kayıt akışı normal görünüyor.",
+        body: `${dashboard.summary.last_7_days} kayıt son 7 günde oluştu. Toplam ${dashboard.summary.total_entries} denetim kaydı var.`,
         tone: recentPressure ? "ink" : "paper",
       },
       {
         eyebrow: "En Sıcak Aksiyon",
         title: topEntry
           ? `${topEntry.action_type} · ${topEntry.entity_type}`
-          : "Aksiyon sinyali henüz yok.",
+          : "Aksiyon kaydı henüz yok.",
         body: topEntry
           ? `${formatActor(topEntry)} tarafından ${formatTimestamp(topEntry.created_at)} anında tetiklendi. ${topEntry.summary || "Bu hareket ayrıntı akışı içinde ilk okunacak olaylardan biri."}`
           : "Yeni denetim hareketleri geldikçe burada ilk dikkat isteyen aksiyon görünecek.",
@@ -361,7 +361,7 @@ export default function AuditPage() {
           ? "Kayıt izi ekibe yayılıyor."
           : dominantEntity
             ? `${dominantEntity[0]} önde gidiyor.`
-            : "Dağılım sinyali henüz yok.",
+            : "Dağılım verisi henüz yok.",
         body: actorSpreadWide
           ? `${dashboard.summary.unique_actors} farklı kullanıcı ve ${dashboard.summary.unique_entities} farklı varlık izleniyor. Bu dağılım, denetim akışının tek kişiye bağlı kalmadığını gösterir.`
           : dominantEntity
@@ -446,7 +446,7 @@ export default function AuditPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Sistem hareketini sadece kayıt olarak değil, operasyon izi olarak okuyoruz.
+                  Sistem hareketlerini takip et.
                 </h1>
                 <p
                   style={{
@@ -457,9 +457,7 @@ export default function AuditPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Kim, neyi, hangi ritimde değiştiriyor sorusunu daha okunur bir karar yüzeyine
-                  taşıyoruz. Hedefimiz, denetim hattını sadece arama masası değil; erken sinyal
-                  ve güven katmanı gibi hissettirmek.
+                  Kim, hangi kaydı ne zaman oluşturdu, güncelledi veya sildi burada görünür.
                 </p>
               </div>
               <div
@@ -493,7 +491,7 @@ export default function AuditPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Aksiyon ve varlık baskısı görünür
+                  Aksiyon ve kayıt türleri görünür
                 </span>
               </div>
             </div>
@@ -534,7 +532,7 @@ export default function AuditPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Akış Nabzı
+                      Son Hareketler
                     </div>
                     <div
                       style={{
@@ -634,7 +632,7 @@ export default function AuditPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Okuma Notu
+                  Kontrol Notu
                 </div>
                 <div
                   style={{
@@ -643,9 +641,7 @@ export default function AuditPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce son 7 gün ritmine, sonra aksiyon dağılımına ve en son tekil
-                  varlık baskısına bakmak, hangi modülde yakından izleme gerektiğini daha hızlı
-                  hissettirir.
+                  Filtreleri kullanarak kullanıcı, işlem tipi veya kayıt türüne göre denetim izlerini kontrol edebilirsin.
                 </div>
               </article>
             </div>
@@ -675,8 +671,7 @@ export default function AuditPage() {
               lineHeight: 1.7,
             }}
           >
-            Denetim servisine şu anda erişilemiyor. Arka uç hazır olduğunda bu ekran sistem
-            kayıtlarını ritim, aksiyon ve varlık sinyalleriyle birlikte gerçek veriden gösterecek.
+            Sistem kayıtları şu anda yüklenemiyor. Lütfen bağlantıyı kontrol edip tekrar deneyin.
           </div>
         ) : (
           <>
@@ -688,7 +683,7 @@ export default function AuditPage() {
               }}
             >
               {metricCard("Toplam Kayıt", String(dashboard.summary.total_entries), "Denetim omurgasındaki tüm olaylar", "accent")}
-              {metricCard("Son 7 Gün", String(dashboard.summary.last_7_days), "Yeni ritim ve taze hareketler")}
+              {metricCard("Son 7 Gün", String(dashboard.summary.last_7_days), "Son dönemde oluşan kayıtlar")}
               {metricCard("Eşsiz Kullanıcı", String(dashboard.summary.unique_actors), "Kayıt izi birden fazla elde mi")}
               {metricCard("Eşsiz Varlık", String(dashboard.summary.unique_entities), "Hangi modüller daha yoğun iz bırakıyor")}
             </div>

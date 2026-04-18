@@ -358,7 +358,7 @@ export default function EquipmentPage() {
       },
       {
         eyebrow: "En Sıcak Hareket",
-        title: topIssue ? `${topIssue.item_name} / ${topIssue.personnel_label}` : "Ekipman sinyali henüz yok.",
+        title: topIssue ? `${topIssue.item_name} / ${topIssue.personnel_label}` : "Ekipman kaydı henüz yok.",
         body: topIssue
           ? `${topIssue.issue_date} tarihli ${topIssue.quantity} adet teslim, ${formatCurrency(topIssue.total_sale)} satış etkisi taşıyor. ${topIssue.sale_type}${topIssue.is_auto_record ? " ve otomatik kaynak" : ""} görünümüyle önde duruyor.`
           : "Yeni zimmet hareketleri geldikçe burada ilk dikkat isteyen ekipman kartı görünecek.",
@@ -370,11 +370,11 @@ export default function EquipmentPage() {
           ? "Taksit satırları ağırlaşıyor."
           : topProfitItem
             ? `${topProfitItem.item_name} önde gidiyor.`
-            : "Kârlılık sinyali henüz yok.",
+            : "Kârlılık verisi henüz yok.",
         body: installmentPressure
           ? `${dashboard.summary.installment_rows} taksit satırı var. Kesinti zincirinin bordroya etkisi daha yakın takip edilmeli.`
           : topProfitItem
-            ? `${formatCurrency(topProfitItem.gross_profit)} brüt kar ile ${topProfitItem.sold_qty} adet satış taşıyor. Filo ve ekipman hattında en sağlıklı ürün sinyallerinden biri bu.`
+            ? `${formatCurrency(topProfitItem.gross_profit)} brüt kar ile ${topProfitItem.sold_qty} adet satış taşıyor.`
             : "Satış ve alım özetleri geldikçe burada en verimli ekipman kalemi öne çıkarılacak.",
         tone: installmentPressure ? "accent" : "paper",
       },
@@ -484,7 +484,7 @@ export default function EquipmentPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Kârlılık ve taksit sinyali açık
+                  Kârlılık ve taksit özeti
                 </span>
               </div>
             </div>
@@ -634,8 +634,8 @@ export default function EquipmentPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce zimmet ve iade dengesine, sonra taksit baskısına ve en
-                  son satış kârlılığı sinyaline bakmak en sağlıklı operasyon okumasını verir.
+                  Bu ekranda önce zimmet ve iade dengesini, sonra taksit yükünü ve satış
+                  kârlılığını kontrol edin.
                 </div>
               </article>
             </div>
@@ -742,7 +742,7 @@ export default function EquipmentPage() {
             >
               {listCard(
                 "Satış Karliligi",
-                "Satilan ekipmanlarda brüt kar sinyali taşıyan kalemler.",
+                "Satilan ekipmanlarda brüt kar taşıyan kalemler.",
                 dashboard.sales_profit.map((entry) => ({
                   title: entry.item_name,
                   meta: `${entry.sold_qty} adet · Maliyet ${formatCurrency(entry.total_cost)} · Satış ${formatCurrency(entry.total_sale)}`,

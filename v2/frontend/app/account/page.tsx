@@ -220,17 +220,17 @@ export default function AccountPage() {
         module: "backups",
         status: "active",
         active_backend: "sqlite",
-        active_backend_label: "Yerel ön izleme veritabanı",
+        active_backend_label: "Yerel veritabanı",
         can_download_archive: false,
         archive_download_label: "Tüm tabloları yedek olarak indir",
         suggested_archive_name: "catkapinda_tam_yedek_preview.zip",
         can_download_sqlite_file: false,
         sqlite_download_label: "SQLite veritabanı dosyasını indir",
         suggested_sqlite_name: "catkapinda_crm_preview.db",
-        sqlite_download_note: "Ön izleme modunda gerçek dosya indirme açılmıyor.",
+        sqlite_download_note: "Yerel kontrol modunda gerçek dosya indirme açılmıyor.",
         can_import_sqlite_backup: false,
         import_title: "SQLite yedeğini içe aktar",
-        import_note: "Ön izleme modunda içe aktarma kapalı tutulur.",
+        import_note: "Yerel kontrol modunda içe aktarma kapalı tutulur.",
       });
       return;
     }
@@ -392,13 +392,13 @@ export default function AccountPage() {
         eyebrow: "Güvenlik Kararı",
         title: user.must_change_password ? "Geçici şifre hâlâ aktif." : "Hesap sabit güvenlikte görünüyor.",
         body: user.must_change_password
-          ? "Bu hesap ilk kurulum şifresiyle açılmış. Kalıcı şifreye geçiş tamamlanmadan bu yüzey güvenli kabul edilmez."
+          ? "Bu hesap ilk kurulum şifresiyle açılmış. Kalıcı şifreye geçiş tamamlanmadan hesap güvenliği tamamlanmış sayılmaz."
           : "Şifre değişimi tamamlanmış durumda. Bundan sonra odak, hesabın tekil ve güncel bir erişim hattında kalması.",
         tone: user.must_change_password ? "ink" : "paper",
       },
       {
         eyebrow: "Kimlik Hattı",
-        title: hasContact ? "Hesap kimlik sinyali tamamlanıyor." : "İletişim izi zayıf görünüyor.",
+        title: hasContact ? "Hesap iletişim bilgisi kayıtlı." : "İletişim bilgisi eksik görünüyor.",
         body: hasContact
           ? `${user.email ? "E-posta" : "E-posta yok"}${user.email && user.phone ? " ve " : ""}${user.phone ? "telefon" : ""} bu hesapta görünür. Bu, pilot geçişte destek ve kurtarma adımlarını kolaylaştırır.`
           : "Bu hesapta görünen e-posta ya da telefon yok. Destek ve kimlik teyidi için iletişim izini güçlendirmek gerekir.",
@@ -408,7 +408,7 @@ export default function AccountPage() {
         eyebrow: "Oturum Nabzı",
         title: sessionReady ? "Erişim zamanı okunabiliyor." : "Oturum izi eksik görünüyor.",
         body: sessionReady
-          ? `${formatExpiry(user.expires_at)} oturum sınırı olarak görünüyor. Bu sinyal, kullanıcının aktif ve takip edilebilir bir oturumda olduğunu anlatır.`
+          ? `${formatExpiry(user.expires_at)} oturum sınırı olarak görünüyor.`
           : "Bu hesap için okunabilir bir oturum bitiş bilgisi yok. Güvenlik akışını gözden geçirmek faydalı olur.",
         tone: sessionReady ? "accent" : "paper",
       },
@@ -470,7 +470,7 @@ export default function AccountPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Hesabı sadece ayar olarak değil, güvenlik ve kimlik masası olarak ele alıyoruz.
+                  Hesap güvenliği ve kimlik bilgileri
                 </h1>
                 <p
                   style={{
@@ -481,9 +481,8 @@ export default function AccountPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Pilot kullanımda en kritik şey güçlü şifre, okunabilir oturum izi ve hesap
-                  kimliğinin temiz kalması. Bu yüzeyi sadece şifre değiştirme alanı değil; hesabın
-                  ne kadar sağlıklı olduğunu gösteren bir güvenlik katmanı gibi kurguladık.
+                  Güçlü şifre, güncel iletişim bilgisi ve okunabilir oturum kaydı hesabın güvenli
+                  kalması için birlikte takip edilir.
                 </p>
               </div>
               <div

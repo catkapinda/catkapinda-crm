@@ -351,7 +351,7 @@ export default function PersonnelPage() {
       },
       {
         eyebrow: "En Sıcak Kart",
-        title: topEntry ? topEntry.full_name : "Kadro sinyali henüz yok.",
+        title: topEntry ? topEntry.full_name : "Personel kaydı henüz yok.",
         body: topEntry
           ? canViewPlateArea && topEntry.vehicle_mode
             ? `${topEntry.role} rolünde ${topEntry.restaurant_label || "atamasız"} için öne çıkıyor. ${topEntry.vehicle_mode} ve ${topEntry.phone || "telefon yok"} bilgisi hazır.`
@@ -361,7 +361,7 @@ export default function PersonnelPage() {
       },
       {
         eyebrow: unassignedCount > 0 ? "Atama Baskısı" : "Rol Yoğunluğu",
-        title: unassignedCount > 0 ? "Atama bekleyen kartlar var." : topRole ? `${topRole[0]} önde gidiyor.` : "Rol sinyali henüz yok.",
+        title: unassignedCount > 0 ? "Atama bekleyen kartlar var." : topRole ? `${topRole[0]} önde gidiyor.` : "Rol verisi henüz yok.",
         body:
           unassignedCount > 0
             ? `Son kartlarda ${unassignedCount} kişi şube ataması olmadan görünüyor. Saha planı öncesi hızlı kontrol gerekiyor.`
@@ -424,7 +424,7 @@ export default function PersonnelPage() {
                 textTransform: "uppercase",
               }}
             >
-              kadro komuta masası
+              Personel Yönetimi
             </div>
             <h1
               style={{
@@ -436,7 +436,7 @@ export default function PersonnelPage() {
                 maxWidth: "10ch",
               }}
             >
-              Personel akışını merkezden yönet.
+              Personel kayıtlarını yönet.
             </h1>
             <p
               style={{
@@ -447,8 +447,7 @@ export default function PersonnelPage() {
                 fontSize: "0.86rem",
               }}
             >
-              Kart oluşturma, aktif-pasif takibi, şube atamaları ve son hareketler tek editoryal
-              yüzeyde toplanıyor. Bu alanı gerçek bir çalışma masası gibi daha sakin ve daha net kuruyoruz.
+              Personel kodu, rol, şube, telefon, araç ve plaka bilgilerini aynı kayıt düzeninde takip et.
             </p>
 
             <div
@@ -460,9 +459,9 @@ export default function PersonnelPage() {
               }}
             >
               {[
-                ["Kayıt", "Yeni kart hızlı açılsın."],
-                ["Takip", "Durum ve şube sinyali net görünsün."],
-                ["Denge", "Eksik veya yığılma erkenden fark edilsin."],
+                ["Kayıt", "Yeni personeli hızlı ekle."],
+                ["Takip", "Rol, şube ve durum bilgisini güncel tut."],
+                ["Geçmiş", "Rol, motor, plaka ve ekipman hareketlerini izle."],
               ].map(([title, text]) => (
                 <article
                   key={title}
@@ -504,7 +503,7 @@ export default function PersonnelPage() {
                   fontWeight: 800,
                 }}
               >
-                Kadro Nabzı
+                Toplam Personel
               </div>
               <div
                 style={{
@@ -518,8 +517,8 @@ export default function PersonnelPage() {
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.84rem" }}>
                 {dashboard
-                  ? `${dashboard.summary.active_personnel} aktif, ${dashboard.summary.passive_personnel} pasif kart aynı yüzeyde izleniyor.`
-                  : "Toplam kart havuzu. Bu yüzey aktiflik, atama ve son hareketleri aynı ritimde okumaya odaklı."}
+                  ? `${dashboard.summary.active_personnel} aktif, ${dashboard.summary.passive_personnel} pasif personel kaydı var.`
+                  : "Aktif, pasif ve atanmış personel sayıları burada görünür."}
               </div>
             </article>
 
@@ -573,7 +572,7 @@ export default function PersonnelPage() {
                 />
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.84rem" }}>
-                Atanmış şube sayısının toplam personele oranını hızlı sinyal olarak veriyoruz.
+                Aktif şube atamalarının toplam personel içindeki oranı.
               </div>
             </article>
 
@@ -618,7 +617,7 @@ export default function PersonnelPage() {
                 </div>
               ) : (
                 <div style={{ color: "var(--muted)", lineHeight: 1.6, fontSize: "0.84rem" }}>
-                  Dashboard verisi geldikçe son rol yoğunluğu burada görünecek.
+                  Rol dağılımı veri geldikçe burada görünür.
                 </div>
               )}
             </article>
@@ -649,8 +648,7 @@ export default function PersonnelPage() {
               fontSize: "0.88rem",
             }}
           >
-            Personel servisine şu anda erişilemiyor. Pilot arka uç ayağa kalktığında bu ekran
-            kadro özetini ve son hareketleri gerçek veriden besleyecek.
+            Personel verileri şu anda yüklenemiyor. Lütfen bağlantıyı kontrol edip tekrar deneyin.
           </div>
         ) : (
           <>
@@ -697,7 +695,7 @@ export default function PersonnelPage() {
               ? workspaceFrame(
                   "Plaka Hattı",
                   "Plaka ve motor geçmişini ayrı masada yönet.",
-                  "Plaka ve araç geçmişini personel düzenleme akışından ayırıp daha net tutuyoruz.",
+                  "Plaka değişimlerini tarih ve açıklama ile takip et.",
                   <PersonnelPlateWorkspace />,
                 )
               : null}
@@ -724,7 +722,7 @@ export default function PersonnelPage() {
               ? workspaceFrame(
                   "Ekipman Hattı",
                   "Zimmet ve box geri alımı personel kartından yönet.",
-                  "Zimmet, taksit ve box geri alımı aynı personel yüzeyinde topluyoruz.",
+                  "Zimmet, taksit ve box geri alım kayıtlarını bu personel üzerinden takip et.",
                   <PersonnelEquipmentWorkspace />,
                 )
               : null}

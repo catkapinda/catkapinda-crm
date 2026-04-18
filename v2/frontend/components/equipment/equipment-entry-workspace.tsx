@@ -239,7 +239,7 @@ export function EquipmentEntryWorkspace() {
         <div>
           <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Zimmet Kaydı</h2>
           <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-            Ekipman teslim, satış ve depozit kayıtlarını aynı yüzeyden oluştur.
+            Ekipman teslim, satış ve depozito kayıtlarını oluştur.
           </p>
         </div>
 

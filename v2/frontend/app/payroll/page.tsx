@@ -543,7 +543,7 @@ export default function PayrollPage() {
       },
       {
         eyebrow: "En Yüksek Net Ödeme",
-        title: topPersonnel ? topPersonnel.personnel : "Ödeme lideri sinyali henüz yok.",
+        title: topPersonnel ? topPersonnel.personnel : "Ödeme verisi henüz yok.",
         body: topPersonnel
           ? `${topPersonnel.role} rolünde ${formatMoney(topPersonnel.net_payment)} net ödeme taşıyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmalı.`
           : "Personel dağılımı geldikçe bu kart aylık ödeme ağırlığını önde gösterecek.",
@@ -551,7 +551,7 @@ export default function PayrollPage() {
       },
       {
         eyebrow: "Model Yükü",
-        title: topCostModel ? topCostModel.cost_model : "Model dağılımı sinyali henüz yok.",
+        title: topCostModel ? topCostModel.cost_model : "Model dağılımı henüz yok.",
         body: topCostModel
           ? `${formatNumber(topCostModel.personnel_count)} personel ile ${formatMoney(topCostModel.net_payment)} net ödeme yükünü taşıyor. Kurye başına ortalama net ödeme ${formatMoney(netPerCourier)} seviyesinde.`
           : "Hangi maliyet modelinin yük taşıdığını bu alan hızlı gösterecek.",
@@ -753,9 +753,8 @@ export default function PayrollPage() {
                     lineHeight: 1.76,
                   }}
                 >
-                  Net ödeme, kesinti, saat ve paket dağılımlarını daha ciddi bir karar
-                  odasına çekiyoruz. Hedefimiz, kapanış öncesi riskleri ve ödeme ağırlığını
-                  bir bakışta daha doğru hissettirmek.
+                  Net ödeme, kesinti, saat ve paket dağılımlarını ay kapanışı öncesinde
+                  birlikte kontrol edin.
                 </p>
               </div>
               <div
@@ -776,7 +775,7 @@ export default function PayrollPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Bordro sinyali açık
+                  Bordro özeti açık
                 </span>
                 <span
                   style={{
@@ -959,8 +958,8 @@ export default function PayrollPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce kesinti baskısını, sonra model yükünü ve en yüksek net
-                  ödeme çıkan isimleri okumak kapanış kararını daha netleştirir.
+                  Ay kapanışında önce kesintileri, sonra çalışma modelini ve en yüksek net ödeme
+                  çıkan personeli kontrol edin.
                 </div>
               </article>
             </div>

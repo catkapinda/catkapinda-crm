@@ -279,12 +279,11 @@ export function AuditManagementWorkspace() {
                 fontWeight: 700,
               }}
             >
-              Sistem izini sadece listelemiyor, ritmi ve baskı noktasiyla birlikte okuyoruz.
+              Sistem izini kullanıcı, modül ve aksiyon bazında takip ediyoruz.
             </h2>
             <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.75 }}>
-              Filtreleri kullanip hangi aksiyonun, hangi varlikta ve hangi oyuncu tarafında
-              ağırlık kazandigini daha hızlı yakalayin. Bu ic yüzey, audit masasini daha erken
-              karar veren bir kontrol paneline ceviriyor.
+              Filtreleri kullanarak hangi aksiyonun, hangi kayıtta ve hangi kullanıcı tarafından
+              yapıldığını hızlıca kontrol edin.
             </p>
           </div>
 
@@ -315,7 +314,7 @@ export function AuditManagementWorkspace() {
                   letterSpacing: "0.08em",
                 }}
               >
-                Audit Pulse
+                Audit Özeti
               </div>
               <div
                 style={{
@@ -335,7 +334,7 @@ export function AuditManagementWorkspace() {
                 }}
               >
                 {loading
-                  ? "Filtrelenmis audit akışından ritim sinyali hazırlanıyor."
+                  ? "Filtrelenmis audit kayıtları hazırlanıyor."
                   : `${totalEntries} toplam kayıt içinde bu görünum su anki audit penceresini temsil ediyor.`}
               </div>
             </article>

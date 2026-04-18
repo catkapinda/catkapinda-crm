@@ -418,18 +418,18 @@ export default function PurchasesPage() {
       },
       {
         eyebrow: "En Sıcak Alım",
-        title: topEntry ? `${topEntry.item_name} / ${topEntry.supplier}` : "Alım sinyali henüz yok.",
+        title: topEntry ? `${topEntry.item_name} / ${topEntry.supplier}` : "Alım kaydı henüz yok.",
         body: topEntry
-          ? `${formatDate(topEntry.purchase_date)} tarihli ${topEntry.quantity} adet alım, ${formatCurrency(topEntry.total_invoice_amount)} fatura taşıyor. Birim maliyet ${formatCurrency(topEntry.unit_cost)} ile bu kalem aynı anda stok ve maliyet sinyali veriyor.`
+          ? `${formatDate(topEntry.purchase_date)} tarihli ${topEntry.quantity} adet alım, ${formatCurrency(topEntry.total_invoice_amount)} fatura taşıyor. Birim maliyet ${formatCurrency(topEntry.unit_cost)} ile stok ve maliyet etkisi burada görünür.`
           : "Yeni satın alma hareketleri geldikçe burada ilk dikkat isteyen alım kaydı öne çıkarılacak.",
         tone: "paper",
       },
       {
         eyebrow: "Tedarikçi Baskısı",
-        title: dominantSupplier ? `${dominantSupplier[0]} önde gidiyor.` : "Tedarikçi sinyali henüz yok.",
+        title: dominantSupplier ? `${dominantSupplier[0]} önde gidiyor.` : "Tedarikçi verisi henüz yok.",
         body: dominantSupplier
           ? `${dominantSupplier[1].count} kayıt ve ${formatCurrency(dominantSupplier[1].total)} toplam fatura ile alış akışının ağırlık merkezi burada toplanıyor. Tedarik riski ve fiyat pazarlığı için yakın takip edilmeli.`
-          : "Tedarikçi dağılımı geldikçe burada hangi kanal ağırlık kazanıyor daha net görünecek.",
+          : "Tedarikçi dağılımı veri geldikçe burada görünür.",
         tone: dominantSupplier && dominantSupplier[1].count >= 2 ? "accent" : "paper",
       },
     ] as const;
@@ -560,9 +560,8 @@ export default function PurchasesPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Fatura hacmi, birim maliyet, tedarikçi yoğunluğu ve son alım hareketlerini aynı
-                  karar katmanında topluyoruz. Hedefimiz, alış tarafını sadece veri giriş yeri değil;
-                  stok ve maliyet nabzını okutan bir kontrol masası haline getirmek.
+                  Fatura hacmi, birim maliyet, tedarikçi yoğunluğu ve son alım hareketlerini tek
+                  ekranda takip edin. Alış kayıtları stok ve maliyet kontrolünü birlikte destekler.
                 </p>
               </div>
               <div
@@ -746,8 +745,8 @@ export default function PurchasesPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce aylık fatura hacmine, sonra tedarikçi yoğunluğuna ve en son
-                  birim maliyet sinyaline bakmak en sağlıklı satın alma okumasını verir.
+                  Bu ekranda önce aylık fatura hacmini, sonra tedarikçi yoğunluğunu ve birim
+                  maliyeti kontrol edin.
                 </div>
               </article>
             </div>
@@ -810,8 +809,7 @@ export default function PurchasesPage() {
               lineHeight: 1.7,
             }}
           >
-            Satın alma servisine şu anda erişilemiyor. Arka uç hazır olduğunda bu ekran faturayı,
-            tedarikçileri ve maliyet sinyallerini gerçek veriden gösterecek.
+            Satın alma verileri şu anda yüklenemiyor. Lütfen bağlantıyı kontrol edip tekrar deneyin.
           </div>
         ) : (
           <>

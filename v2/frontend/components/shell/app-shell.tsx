@@ -21,18 +21,18 @@ type PreviewMeta = {
 
 const previewMetaByLabel: Record<string, PreviewMeta> = {
   "Genel Bakış": {
-    kicker: "Ön İzleme Merkezi",
-    title: "Tüm v2 deneyimini tek merkezden oku",
+    kicker: "Operasyon Merkezi",
+    title: "Genel durumu tek merkezden takip et",
     description:
-      "Ön izleme hattının omurgası burada. Modülleri akışa göre ayırıyor, son sinyalleri topluyor ve nereden başlanacağını netleştiriyor.",
+      "Saha, finans, ekipman ve restoran özetlerini aynı ekranda toplayarak hangi modüle önce bakılması gerektiğini gösterir.",
     relatedLabels: ["Puantaj", "Satış", "Ekipman"],
     reviewPoints: [
-      "Saha, ticari ve kontrol katmanlarının aynı merkezde nasıl buluştuğuna bak.",
-      "Son hareketler akışının modüller arası hikâye kurup kurmadığını kontrol et.",
-      "Hangi modüle önce girmenin daha doğal hissettirdiğine odaklan.",
+      "Saha, ticari ve kontrol özetleri hızlı okunuyor mu bak.",
+      "Son hareketlerde işlem sahibi, modül ve tarih net görünüyor mu kontrol et.",
+      "Kullanıcı hangi modüle geçeceğini kolay anlayabiliyor mu incele.",
     ],
-    signal: "Bu yüzey artık sadece pano değil, tüm ön izleme deneyiminin ana komuta masası gibi davranıyor.",
-    flowNote: "Bu noktadan sonra saha omurgasına geçmek için önce Puantaj, finans resmi içinse Satış veya Ekipman iyi bir devam rotası.",
+    signal: "Bu ekran, günlük operasyon kontrolü için başlangıç noktası olarak çalışır.",
+    flowNote: "Saha kontrolleri için Puantaj, finans ve maliyet kontrolleri için Satış veya Ekipman modülüne geçilebilir.",
   },
   Duyurular: {
     kicker: "Yayın Panosu",
@@ -45,7 +45,7 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
       "Operasyon ekibinin burada gerçekten gündem okuyup okuyamayacağını kontrol et.",
       "Sabit panonun ürün dilinden kopmadan durup durmadığını incele.",
     ],
-    signal: "Bu yüzey, sistemin sadece işlem değil iletişim katmanını da aynı ürün kalitesiyle taşıdığını gösteriyor.",
+    signal: "Bu modül, canlı güncellemeleri ve ekip duyurularını tek yerde toplar.",
     flowNote: "Duyurular sonrası Genel Bakış veya Puantaj ekranına geçmek, okunan notların akışa nasıl yansıdığını görmek için iyi bir devam olur.",
   },
   "Puantaj": {
@@ -55,39 +55,39 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
       "Vardiya, destek geçişi ve aylık kayıt temizliği gibi operasyonun en sık dokunulan işlerini hızlı gözlemlemek için hazır.",
     relatedLabels: ["Personel", "Kesintiler", "Restoranlar"],
     reviewPoints: [
-      "Günlük giriş akışında yoğun kullanıma uygun ritim hissediliyor mu bak.",
+      "Günlük giriş akışı yoğun kullanımda hızlı tamamlanıyor mu bak.",
       "Liste, filtre ve tehlikeli aksiyonların ayırt edilebilirliğine odaklan.",
       "Saha operasyonu için hız, netlik ve kontrol dengesi kuruldu mu kontrol et.",
     ],
-    signal: "En sık kullanılan modül olduğu için tasarım dili burada ağırlık ve hız arasında dengeleniyor.",
-    flowNote: "Puantajdan sonra Personel veya Kesintiler yüzeyine geçmek, karar zincirinin tutarlılığını daha iyi gösterir.",
+    signal: "En sık kullanılan modül olduğu için hızlı kayıt ve net kontrol önceliklidir.",
+    flowNote: "Puantajdan sonra personel kartı veya kesinti kaydı kontrolü için ilgili modüle geçilebilir.",
   },
   Personel: {
     kicker: "Kadro Yönetimi",
     title: "Kadro kartları ve saha dağılımı burada toparlanıyor",
     description:
-      "Kart açma, durum değiştirme ve restoran dağılımı yeni dilde daha okunur bir yüzeye dönüşüyor.",
+      "Personel kartı açma, durum değiştirme, rol ve restoran atamalarını tek yerden yönetmek için kullanılır.",
     relatedLabels: ["Puantaj", "Kesintiler", "Ekipman"],
     reviewPoints: [
       "Kart yoğunluğu yüksek olsa bile sayfa nefes alıyor mu incele.",
       "Aktif-pasif, restoran dağılımı ve iletişim bilgileri kolay taranıyor mu bak.",
-      "Yeni tasarım yöneticiye daha güven veren bir kontrol hissi veriyor mu kontrol et.",
+      "Yönetici, kayıt durumunu ve eksik alanları hızlı anlayabiliyor mu kontrol et.",
     ],
-    signal: "Personel ekranında güçlü his, bilgi kalabalığını daha sakin ve hiyerarşik bir dilde eritmekten geliyor.",
+    signal: "Personel ekranı, kadro kaydı ve saha atamalarını güncel tutmak için ana çalışma alanıdır.",
     flowNote: "Buradan sonra Ekipman veya Kesintiler modülü, personel kartının operasyonla nasıl bağlandığını göstermek için iyi bir devam.",
   },
   Kesintiler: {
     kicker: "Bordro On Hattı",
     title: "Kesinti akışı artık daha kontrollü",
     description:
-      "Manuel ve otomatik kesintileri aynı panelde görmek, düzenlemek ve payroll etkisini hissetmek için açık.",
+      "Manuel ve otomatik kesintileri aynı panelde görmek, düzenlemek ve bordro etkisini kontrol etmek için kullanılır.",
     relatedLabels: ["Aylık Hakediş", "Personel", "Puantaj"],
     reviewPoints: [
-      "Otomatik ve manuel kayıtlar aynı yüzeyde karışmadan ayrisiyor mu bak.",
+      "Otomatik ve manuel kayıtlar listede karışmadan ayrisiyor mu bak.",
       "Miktar, neden ve personel bağlamı bir bakışta okunabiliyor mu incele.",
-      "Kesinti akışinin bordroya giden karar hissini verip vermedigine odaklan.",
+      "Kesinti kaydının bordro etkisi açık görünüyor mu kontrol et.",
     ],
-    signal: "Bu modüldeki kalite hissi, finansal hassasiyet ile operasyonel hız arasındaki denge doğru kurulduğunda güçleniyor.",
+    signal: "Bu modül, finansal hassasiyet ve operasyonel hız gerektiren kesinti kayıtlarını yönetir.",
     flowNote: "Kesintilerden sonra Aylık Hakediş ekranına geçmek, verinin sonuç katmanında nasıl yankılandığını göstermek için en net rota.",
   },
   Ekipman: {
@@ -98,10 +98,10 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     relatedLabels: ["Satın Alma", "Kesintiler", "Sistem Kayıtları"],
     reviewPoints: [
       "Zimmet ve kutu geri alım akışlarının aynı kabukta karışmadan okunup okunmadığına bak.",
-      "Maliyet, adet ve personel bağının birlikte yeterince net hissedilip hissedilmediğini incele.",
+      "Maliyet, adet ve personel bağının birlikte net görünüp görünmediğini incele.",
       "Ofis yönetimi ağırlığı olan bir modül için yeterince güçlü duruyor mu kontrol et.",
     ],
-    signal: "Bu yüzey, operasyonel ağırlığı yüksek alanlarda bile arayüzün koleksiyon sayfası gibi düz değil, niyetli bir panel gibi davranabileceğini gösteriyor.",
+    signal: "Bu modül, zimmet ve kutu iade kayıtlarını maliyet bilgisiyle birlikte takip eder.",
     flowNote: "Buradan sonra Satın Alma veya Sistem Kayıtları ekranına geçmek, ekipman hareketinin maliyet ve iz kaydı tarafını bağlar.",
   },
   "Aylık Hakediş": {
@@ -115,7 +115,7 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
       "Liste ve filtre tarafında ay bazlı okuma kolay mı incele.",
       "Kesinti ve net ödeme zinciri zihinde temiz kuruluyor mu kontrol et.",
     ],
-    signal: "Bordroya yakın ekranlarda tasarımın amacı görsel gösteri değil, karar kalitesini yükseltmektir.",
+    signal: "Bu ekran, ay kapanışında net ödeme ve kesinti kontrolü için kullanılır.",
     flowNote: "Bu duraktan sonra Raporlar modülü, rakamların daha geniş iş resmi içinde nasıl konumlandığını görmek için iyi bir devam.",
   },
   "Satın Alma": {
@@ -129,50 +129,50 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
       "Maliyet ekranının fazla muhasebesel görünmeden ciddi durup durmadığını incele.",
       "Liste ve form akışlarının aynı dilde kalıp kalmadığını kontrol et.",
     ],
-    signal: "Satın alma modülü, sakin ama güçlü bir ofis tasarım dilinin neleri iyileştirebildiğini gösteren kritik yüzeylerden biri.",
+    signal: "Satın alma modülü, tedarik ve fatura kayıtlarının maliyet takibini sağlar.",
     flowNote: "Bu ekrandan sonra Ekipman veya Raporlar rotası, satın alma verisinin nereye aktığını göstermek için iyi çalışıyor.",
   },
   "Satış": {
     kicker: "Ticari Akış",
-    title: "Fırsat hattı ve teklif hikâyesi daha ikna edici bir yüzeyde",
+    title: "Fırsat hattı ve teklif kayıtları aynı yerde",
     description:
-      "Fırsat havuzu, teklif modeli ve takip aksiyonları daha canlı bir satış yüzeyinde buluşuyor.",
+      "Fırsat havuzu, teklif modeli, takip tarihi ve sorumlu kişi bilgileri tek satış ekranında toplanır.",
     relatedLabels: ["Raporlar", "Restoranlar", "Satın Alma"],
     reviewPoints: [
-      "Fırsat hattı enerjisinin daha canlı ve güçlü hissedilip hissedilmediğine bak.",
+      "Fırsat hattında durum, teklif ve takip tarihi hızlı okunuyor mu bak.",
       "Teklif, takip tarihi ve sorumlu kişi gibi alanlar net okunuyor mu incele.",
-      "Ticari modüllerin operasyon modüllerinden farklı bir enerji taşıyıp taşımadığını kontrol et.",
+      "Satış kayıtları operasyon kayıtlarından net ayrılıyor mu kontrol et.",
     ],
-    signal: "Satış ekranında hedef, kurumsal ama heyecansız bir tablo yerine hareket hissi veren bir ticari panel kurmak.",
+    signal: "Satış ekranı, fırsat ve teklif takibini canlı kayıtlarla yönetir.",
     flowNote: "Satış sonrası en iyi bağlantılar Restoranlar ve Raporlar; biri operasyon açılışını, diğeri ticari resmi devam ettiriyor.",
   },
   Restoranlar: {
     kicker: "Şube Katmanı",
-    title: "Şube ve fiyat modeli kararları daha net okunuyor",
+    title: "Şube ve fiyat modeli kayıtları tek yerde",
     description:
-      "Restoran kartları, aktiflik ve fiyat yapıları operasyonla daha bağlı bir yüzeyde incelenebiliyor.",
+      "Restoran kartları, aktiflik durumu, adres ve fiyat modeli bilgileri operasyonla birlikte takip edilir.",
     relatedLabels: ["Puantaj", "Satış", "Personel"],
     reviewPoints: [
       "Şube kartlarının kurumsal ama sıcak bir his verip vermediğine bak.",
       "Fiyat modeli ve aktiflik bilgisinin birlikte ne kadar net okunduğunu incele.",
       "Bu ekranın saha ile ticari katman arasında bir bağ kurup kurmadığına odaklan.",
     ],
-    signal: "Restoranlar modülü, CRM tarafının yalnızca iç operasyon değil, müşteri yüzlü karar katmanı da olduğunu hissettiriyor.",
+    signal: "Restoranlar modülü, müşteri ve şube kayıtlarını operasyonla birlikte tutar.",
     flowNote: "Buradan sonra Satış veya Puantaj modülü, şube verisinin iki farklı yönde nasıl yaşadığını göstermek için iyi bir akış kurar.",
   },
   Raporlar: {
     kicker: "Karar Paneli",
     title: "Ciro, maliyet ve trend dili burada toparlanıyor",
     description:
-      "Aylık resmi daha güçlü bir rapor deneyimine çekiyor; ticari ve operasyonel etkileri tek bakışta okumayı kolaylaştırıyor.",
+      "Aylık ciro, maliyet ve operasyon etkilerini tek rapor panelinde okumayı kolaylaştırır.",
     relatedLabels: ["Aylık Hakediş", "Satış", "Satın Alma"],
     reviewPoints: [
       "Rapor özeti bir yöneticiye tek bakışta yön tayin ettiriyor mu bak.",
-      "Trend, maliyet ve ciro ritmi yeterince güçlü hissediliyor mu incele.",
-      "Bu ekranın tüm sistemin karar katmanı gibi davranıp davranmadığını kontrol et.",
+      "Trend, maliyet ve ciro dağılımı yeterince net görünüyor mu incele.",
+      "Bu ekranın aylık rapor ihtiyacını tek yerde karşılayıp karşılamadığını kontrol et.",
     ],
-    signal: "Raporlar modülü, yeni dilin en doğrudan güçlü ürün hissini üretebileceği katmanlardan biri.",
-    flowNote: "Raporlardan sonra Aylık Hakediş veya Satış ekranına dönmek, karar verisinin kaynak akışlarla uyumunu gösterir.",
+    signal: "Raporlar modülü, aylık ciro, maliyet ve trend takibini özetler.",
+    flowNote: "Raporlardan sonra Aylık Hakediş veya Satış ekranına dönerek kaynak kayıtları kontrol edilebilir.",
   },
   "Sistem Kayıtları": {
     kicker: "Admin Katmanı",
@@ -185,21 +185,21 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
       "Filtre ve liste yoğunluğuna rağmen sayfa hâlâ sakin kalabiliyor mu incele.",
       "Bu ekran yönetici güveni veriyor mu kontrol et.",
     ],
-    signal: "Bu yüzey, sistemin güven ve izlenebilirlik tarafını tasarım kalitesinden odun vermeden sunuyor.",
+    signal: "Bu modül, işlem geçmişini ve yönetici denetimini kayıt altında tutar.",
     flowNote: "Sistem Kayıtları sonrası Profil veya Genel Bakış rotası, yönetici akışlarını daha bütünlü görmek için mantıklı.",
   },
   Profil: {
     kicker: "Kimlik Katmanı",
-    title: "Profil ve şifre akışı da ön izleme deneyimine dahil",
+    title: "Profil ve şifre işlemleri burada",
     description:
-      "Sadece operasyon değil, kullanıcının uygulama ile kurduğu kişisel temas da yeni dilde görünür halde.",
+      "Kullanıcı bilgileri, oturum durumu ve şifre işlemleri bu alanda yönetilir.",
     relatedLabels: ["Genel Bakış", "Sistem Kayıtları"],
     reviewPoints: [
-      "Giriş sonrası en kişisel ekranın yeterince sakin ve güvenli hissedip hissetmediğine bak.",
+      "Giriş sonrası hesap bilgilerinin net ve güvenli göründüğünü kontrol et.",
       "Şifre değiştirme ve hesap bakımı akışlarının ürün kalitesine uyumuna odaklan.",
-      "Yardımcı ama ikincil bir ekran olmasına rağmen karakterini koruyor mu kontrol et.",
+      "Şifre değiştirme akışı kolay tamamlanıyor mu kontrol et.",
     ],
-    signal: "Profil ekranında kalite hissi, kullanıcının sistemle bire bir temas ettiği alanlarda da aynı estetik omurganın korunmasından geliyor.",
+    signal: "Profil ekranı, kullanıcının hesap güvenliği ve erişim bilgilerini güncel tutar.",
     flowNote: "Profil sonrası Genel Bakış veya Sistem Kayıtları rotası, kullanıcı ve yönetim katmanını birlikte okumak için iyi bir kapanış verir.",
   },
 };
@@ -381,7 +381,7 @@ export function AppShell({
               textTransform: "uppercase",
             }}
           >
-            {previewMode ? "v2 Ön İzleme" : "v2 Pilot"}
+            {previewMode ? "v2 Yerel Kontrol" : "v2 Pilot"}
           </div>
           <div
             style={{
@@ -405,7 +405,7 @@ export function AppShell({
               lineHeight: 1.6,
             }}
           >
-            Operasyonun günlük nabzı, karar panelleri ve saha akışı tek kabukta.
+            Günlük operasyon, raporlar ve saha akışı tek kabukta.
           </div>
         </div>
         {previewMode ? (
@@ -653,7 +653,7 @@ export function AppShell({
                       boxShadow: "var(--shadow-deep)",
                     }}
                   >
-                    <span>Ön İzleme Merkezine Dön</span>
+                    <span>Yerel Kontrol Merkezine Dön</span>
                     <span
                       style={{
                         width: "28px",
@@ -762,7 +762,7 @@ export function AppShell({
                     fontWeight: 800,
                   }}
                 >
-                  Örnek verilerle gezilebilir tanıtım
+                  Örnek verilerle gezilebilir yerel kontrol
                 </span>
                 <span
                   style={{

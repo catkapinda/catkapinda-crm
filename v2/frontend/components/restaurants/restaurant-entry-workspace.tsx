@@ -178,7 +178,7 @@ export function RestaurantEntryWorkspace() {
       <div>
         <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Restoran Kaydı</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Marka, fiyat modeli ve vergi bilgilerini aynı çalışma yüzeyinde daha hızlı kaydet.
+          Marka, fiyat modeli ve vergi bilgilerini kaydet.
         </p>
       </div>
 

@@ -531,10 +531,10 @@ export default function ReportsPage() {
       },
       {
         eyebrow: "En Güçlü Restoran",
-        title: topRestaurant ? topRestaurant.restaurant : "Restoran sinyali henüz yok.",
+        title: topRestaurant ? topRestaurant.restaurant : "Restoran verisi henüz yok.",
         body: topRestaurant
           ? `${topRestaurant.pricing_model} modeliyle ${formatMoney(topRestaurant.gross_invoice)} fatura üretiyor. ${formatNumber(topRestaurant.total_hours, 1)} saat ve ${formatNumber(topRestaurant.total_packages)} paket taşıyor.`
-          : "İlk restoran sinyali geldikçe bu kart ciro hareketini öne çıkaracak.",
+          : "Restoran verisi geldikçe bu kart ciro hareketini gösterecek.",
         tone: "paper",
       },
       {

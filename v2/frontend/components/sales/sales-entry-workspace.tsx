@@ -194,7 +194,7 @@ export function SalesEntryWorkspace() {
       <div>
         <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yeni Satış Fırsatı</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Talep kanalı, teklif modeli ve takip bilgisini aynı çalışma yüzeyinde kaydet.
+          Talep kanalı, teklif modeli ve takip bilgisini kaydet.
         </p>
       </div>
 

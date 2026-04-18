@@ -707,7 +707,7 @@ export default function HomePage() {
               >
                 {dashboard?.operations.critical_signal_count ?? 0}
               </span>
-              <span>Bugünün kritik sinyalleri burada listelenir.</span>
+              <span>Bugünün kritik kontrolleri burada listelenir.</span>
             </div>
             <h1
               style={{
@@ -971,7 +971,7 @@ export default function HomePage() {
                       letterSpacing: "0.06em",
                     }}
                   >
-                    Komuta Masası
+                    Modül Özeti
                   </div>
                   <h2
                     style={{
@@ -982,7 +982,7 @@ export default function HomePage() {
                       fontWeight: 700,
                     }}
                   >
-                    Modüller artık daha net roller oynuyor.
+                    Modüller net iş başlıklarıyla ayrılıyor.
                   </h2>
                   <p
                     style={{
@@ -1176,7 +1176,7 @@ export default function HomePage() {
                   <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.5, fontSize: "0.84rem" }}>
                     {dashboard.finance.selected_month
                       ? `${dashboard.finance.selected_month} dönemi için restoran faturası, personel maliyeti ve yan gelir toplamını tek yerde topluyoruz.`
-                      : "Rapor verisi geldikçe aylık kârlılık sinyallerini burada birlikte okuyacağız."}
+                      : "Rapor verisi geldikçe aylık kârlılık özeti burada görünür."}
                   </p>
                 </header>
 
@@ -1622,7 +1622,7 @@ export default function HomePage() {
                     Kritik Uyarılar
                   </div>
                   <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                    Günün kritik operasyon ve veri hijyeni sinyallerini tek özet satırında tutuyoruz.
+                    Günün kritik operasyon ve veri kontrollerini tek özet satırında tutuyoruz.
                   </p>
                 </header>
 
@@ -1740,7 +1740,7 @@ export default function HomePage() {
                     Ritimdeki yükseliş ve düşüşü gün gün okuyoruz.
                   </h2>
                   <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                    Günlük paket hareketi ile saat yükünü birlikte okuyup operasyon temposunu daha erken hissediyoruz.
+                    Günlük paket hareketi ile saat yükünü birlikte takip edin.
                   </p>
                 </header>
 
@@ -1846,7 +1846,7 @@ export default function HomePage() {
                     Paket ve saat yükü önde gelen şubeleri gösteriyor.
                   </h2>
                   <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                    Ay içindeki yoğunluğu erken okuyup destek ve kadro kararlarını daha sakin veriyoruz.
+                    Ay içindeki yoğunluğu erken görüp destek ve kadro planını güncel tutabilirsiniz.
                   </p>
                 </header>
 

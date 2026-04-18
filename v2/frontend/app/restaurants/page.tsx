@@ -326,7 +326,7 @@ export default function RestaurantsPage() {
       },
       {
         eyebrow: "En Sıcak Şube",
-        title: topRestaurant ? `${topRestaurant.brand} / ${topRestaurant.branch}` : "Şube sinyali henüz yok.",
+        title: topRestaurant ? `${topRestaurant.brand} / ${topRestaurant.branch}` : "Şube verisi henüz yok.",
         body: topRestaurant
           ? `${topRestaurant.pricing_model_label} modeliyle ${pricingSummary(topRestaurant)} yapısında çalışıyor. Hedef kadro ${topRestaurant.target_headcount} ve kontak ${topRestaurant.contact_name}.`
           : "Yeni restoran kayıtları geldikçe burada dikkat isteyen şube yapısını öne çıkaracağız.",
@@ -428,7 +428,7 @@ export default function RestaurantsPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Restoran portföyünü sadece listelemiyor, artık hangi şubenin ne anlattığını okuyoruz.
+                  Restoran ve şube kayıtlarını yönet.
                 </h1>
                 <p
                   style={{
@@ -439,9 +439,7 @@ export default function RestaurantsPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Marka, fiyat modeli, kadro ve kontak bilgisini daha ciddi bir şube
-                  komuta yüzeyine çekiyoruz. Hedefimiz, müşteri portföyünün hangi
-                  noktada güçlü, hangi noktada dikkat istediğini daha hızlı göstermek.
+                  Marka, şube, fiyat modeli, hedef kadro, iletişim ve vergi bilgilerini tek ekranda takip et.
                 </p>
               </div>
               <div
@@ -462,7 +460,7 @@ export default function RestaurantsPage() {
                     fontWeight: 800,
                   }}
                   >
-                  Portföy nabzı açık
+                  Aktif portföy takibi
                 </span>
                 <span
                   style={{

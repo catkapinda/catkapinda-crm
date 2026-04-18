@@ -724,7 +724,7 @@ export default function AttendancePage() {
                       lineHeight: 1.7,
                     }}
                   >
-                    Son kayıtlar artık daha sakin ama daha karakterli bir tabloda akıyor.
+                    Son puantaj kayıtları tarih, personel, şube ve durum bilgisiyle listelenir.
                   </p>
                 </div>
 

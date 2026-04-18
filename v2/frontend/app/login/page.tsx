@@ -442,7 +442,7 @@ function LoginPageContent() {
       return {
         title: "Yerel arka uç henüz ayakta değil.",
         detail:
-          "Ön yüz 127.0.0.1:8000 hedefini bulamıyor. Bu durumda giriş ve şifre kurtarma çalışmaz; tanıtım için ön izleme, gerçek deneme için arka uç gerekir.",
+          "Ön yüz 127.0.0.1:8000 hedefine ulaşamıyor. Giriş ve şifre kurtarma için yerel arka ucu başlatmak gerekir.",
         command: localSetup?.suggested_backend_start_command || "cd v2/backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
       };
     }
@@ -743,7 +743,7 @@ function LoginPageContent() {
             {[
               ["Şube Operasyonu", "Restoran durumu, aktif kadro ve günlük saha akışı tek merkezden izlenir."],
               ["Personel ve Ekipman", "Kurye, araç, zimmet ve geçmiş hareketler bağlı operasyon kaydıyla tutulur."],
-              ["Rapor ve Finans", "Hakediş, maliyet ve operasyon farkı aynı karar yüzeyinde okunur."],
+              ["Rapor ve Finans", "Hakediş, maliyet ve operasyon farkı aynı rapor düzeninde takip edilir."],
             ].map(([title, text]) => (
               <article
                 key={title}
@@ -855,19 +855,19 @@ function LoginPageContent() {
                     Durum
                   </Link>
                   <Link href="/preview" style={secondaryInfoBannerLinkStyle}>
-                    Ön İzleme
+                    Yerel Kontrol
                   </Link>
                 </div>
               </div>
             ) : authModesUnavailable ? (
               <div style={{ ...infoBannerStyle, padding: "12px 14px", fontSize: "0.9rem" }}>
                 <div style={{ display: "grid", gap: "5px" }}>
-                  <strong>Bu ekran gerçek v2 giriş yüzeyi.</strong>
-                  <span>Arka uç bağlı değilse SMS ve kurtarma akışları çalışmaz; sadece ön yüzü gezebilirsin.</span>
+                  <strong>Giriş servisine ulaşılamıyor.</strong>
+                  <span>SMS ve şifre kurtarma için backend bağlantısının açık olması gerekir.</span>
                 </div>
                 {runningOnLocalhost ? (
                   <Link href="/preview" style={infoBannerLinkStyle}>
-                    Ön İzlemeye Git
+                    Yerel Kontrole Git
                   </Link>
                 ) : null}
               </div>
@@ -1233,7 +1233,7 @@ function LoginPageContent() {
                   </div>
                   {authModesUnavailable && runningOnLocalhost ? (
                     <Link href="/preview" style={recoveryFallbackLinkStyle}>
-                      Yerel ön izlemeyi aç
+                      Yerel kontrol ekranını aç
                     </Link>
                   ) : null}
                 </div>
