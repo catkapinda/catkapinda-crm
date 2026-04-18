@@ -1349,8 +1349,8 @@ export default function ReportsPage() {
               lineHeight: 1.7,
             }}
           >
-            Rapor servisine şu anda erişilemiyor. Arka uç hazır olduğunda restoran
-            faturası ve kurye maliyeti burada gerçek veriden açılacak.
+            Rapor verileri şu an alınamadı. Bağlantı toparlandığında restoran
+            faturası ve kurye maliyeti otomatik yenilenecek.
           </div>
         ) : (
           <>

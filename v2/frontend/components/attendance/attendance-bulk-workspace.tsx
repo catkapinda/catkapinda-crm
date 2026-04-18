@@ -31,6 +31,10 @@ type BulkRow = {
   notes: string;
 };
 
+type AttendanceBulkWorkspaceProps = {
+  onDataChange?: () => void;
+};
+
 function buildRowCounter(start = 1) {
   let current = start;
   return () => {
@@ -149,7 +153,7 @@ function parseWhatsappRows(
     .filter((row): row is BulkRow => row !== null);
 }
 
-export function AttendanceBulkWorkspace() {
+export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspaceProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [options, setOptions] = useState<AttendanceFormOptions | null>(null);
@@ -281,6 +285,7 @@ export function AttendanceBulkWorkspace() {
     }
 
     setSubmitSuccess(payload?.message || "Toplu puantaj kaydı oluşturuldu.");
+    onDataChange?.();
     setRawText("");
     setRows(buildRowsFromPeople(people));
     startTransition(() => {

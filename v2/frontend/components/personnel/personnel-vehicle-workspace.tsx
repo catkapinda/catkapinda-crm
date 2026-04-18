@@ -183,7 +183,7 @@ export function PersonnelVehicleWorkspace() {
     setLoading(true);
     setError("");
     try {
-      const response = await apiFetch("/personnel/vehicle-workspace?limit=120");
+      const response = await apiFetch("/personnel/vehicle-workspace?limit=500");
       if (!response.ok) {
         throw new Error("Motor çalışma alanı yüklenemedi.");
       }

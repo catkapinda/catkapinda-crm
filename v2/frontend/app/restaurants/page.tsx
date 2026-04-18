@@ -687,8 +687,8 @@ export default function RestaurantsPage() {
               lineHeight: 1.7,
             }}
           >
-            Restoran servisine şu anda erişilemiyor. Arka uç hazır olduğunda bu ekran
-            restoran özetini ve yönetim kayıtlarını gerçek veriden gösterecek.
+            Restoran verileri şu an alınamadı. Bağlantı toparlandığında şube özeti
+            ve yönetim kayıtları otomatik yenilenecek.
           </div>
         ) : (
           <>

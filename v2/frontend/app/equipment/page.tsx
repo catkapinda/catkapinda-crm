@@ -665,8 +665,8 @@ export default function EquipmentPage() {
               lineHeight: 1.7,
             }}
           >
-            Ekipman servisine şu anda erişilemiyor. Arka uç hazır olduğunda bu ekran
-            son zimmetleri, box iadelerini ve taksit akışlarını gerçek veriden gösterecek.
+            Ekipman verileri şu an alınamadı. Bağlantı toparlandığında son zimmetler,
+            box iadeleri ve taksit akışları otomatik yenilenecek.
           </div>
         ) : (
           <>

@@ -150,7 +150,11 @@ function formatMonthLabel(monthValue: string) {
   }).format(new Date(`${windowValue.dateFrom}T12:00:00`));
 }
 
-export function AttendanceManagementWorkspace() {
+type AttendanceManagementWorkspaceProps = {
+  onDataChange?: () => void;
+};
+
+export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManagementWorkspaceProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -226,7 +230,7 @@ export function AttendanceManagementWorkspace() {
     setListError("");
     try {
       const query = new URLSearchParams();
-      query.set("limit", "160");
+      query.set("limit", "500");
       if (typeof filterRestaurantId === "number") {
         query.set("restaurant_id", String(filterRestaurantId));
       }
@@ -413,6 +417,7 @@ export function AttendanceManagementWorkspace() {
     setSaveSuccess(payload?.message || "Kayıt güncellendi.");
     await loadEntries();
     await loadEntryDetail(selectedEntryId);
+    onDataChange?.();
     startTransition(() => {
       router.refresh();
     });
@@ -450,6 +455,7 @@ export function AttendanceManagementWorkspace() {
       );
       setSaveSuccess(payload?.message || "Kayıt silindi.");
       await loadEntries();
+      onDataChange?.();
       startTransition(() => {
         router.refresh();
       });
@@ -503,6 +509,7 @@ export function AttendanceManagementWorkspace() {
       );
       setSaveSuccess(payload?.message || "Seçili puantaj kayıtları silindi.");
       await loadEntries();
+      onDataChange?.();
       startTransition(() => {
         router.refresh();
       });
@@ -569,6 +576,7 @@ export function AttendanceManagementWorkspace() {
       setSelectedEntryId(null);
       setSaveSuccess(payload?.message || "Filtredeki puantaj kayıtları silindi.");
       await loadEntries();
+      onDataChange?.();
       startTransition(() => {
         router.refresh();
       });

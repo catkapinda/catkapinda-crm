@@ -25,7 +25,11 @@ type AttendanceFormOptions = {
   selected_fixed_monthly_fee: number;
 };
 
-export function AttendanceEntryWorkspace() {
+type AttendanceEntryWorkspaceProps = {
+  onDataChange?: () => void;
+};
+
+export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorkspaceProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [options, setOptions] = useState<AttendanceFormOptions | null>(null);
@@ -140,6 +144,7 @@ export function AttendanceEntryWorkspace() {
     }
 
     setSubmitSuccess(payload?.message || "Kayıt oluşturuldu.");
+    onDataChange?.();
     setEntryMode("Restoran Kuryesi");
     setPrimaryPersonId("");
     setReplacementPersonId("");

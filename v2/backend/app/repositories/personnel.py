@@ -9,6 +9,17 @@ def _restaurant_active_sql(column: str = "active") -> str:
     return f"COALESCE(LOWER(CAST({column} AS TEXT)), 'true') IN ('1', 't', 'true')"
 
 
+def _personnel_active_sql(column: str = "status") -> str:
+    return (
+        f"COALESCE(LOWER(TRIM(CAST({column} AS TEXT))), '') "
+        "IN ('aktif', 'active', '1', 't', 'true')"
+    )
+
+
+def _personnel_passive_sql(column: str = "status") -> str:
+    return f"COALESCE(LOWER(TRIM(CAST({column} AS TEXT))), '') IN ('pasif', 'passive', '0', 'f', 'false')"
+
+
 def _coalesced_history_date_sql(date_column: str, changed_at_column: str) -> str:
     return (
         f"COALESCE(NULLIF(CAST({date_column} AS TEXT), ''), "
@@ -39,13 +50,13 @@ def _active_storage_value(value: bool) -> int:
 def fetch_personnel_summary(conn: psycopg.Connection) -> dict[str, int]:
     if is_sqlite_backend(conn):
         row = conn.execute(
-            """
+            f"""
             SELECT
                 COUNT(*) AS total_personnel,
-                SUM(CASE WHEN status = 'Aktif' THEN 1 ELSE 0 END) AS active_personnel,
-                SUM(CASE WHEN status = 'Pasif' THEN 1 ELSE 0 END) AS passive_personnel,
+                SUM(CASE WHEN {_personnel_active_sql()} THEN 1 ELSE 0 END) AS active_personnel,
+                SUM(CASE WHEN {_personnel_passive_sql()} THEN 1 ELSE 0 END) AS passive_personnel,
                 COUNT(DISTINCT CASE
-                    WHEN status = 'Aktif' AND assigned_restaurant_id IS NOT NULL THEN assigned_restaurant_id
+                    WHEN {_personnel_active_sql()} AND assigned_restaurant_id IS NOT NULL THEN assigned_restaurant_id
                     ELSE NULL
                 END) AS assigned_restaurants
             FROM personnel
@@ -53,13 +64,13 @@ def fetch_personnel_summary(conn: psycopg.Connection) -> dict[str, int]:
         ).fetchone()
     else:
         row = conn.execute(
-            """
+            f"""
             SELECT
                 COUNT(*) AS total_personnel,
-                COUNT(*) FILTER (WHERE status = 'Aktif') AS active_personnel,
-                COUNT(*) FILTER (WHERE status = 'Pasif') AS passive_personnel,
+                COUNT(*) FILTER (WHERE {_personnel_active_sql()}) AS active_personnel,
+                COUNT(*) FILTER (WHERE {_personnel_passive_sql()}) AS passive_personnel,
                 COUNT(DISTINCT assigned_restaurant_id) FILTER (
-                    WHERE status = 'Aktif' AND assigned_restaurant_id IS NOT NULL
+                    WHERE {_personnel_active_sql()} AND assigned_restaurant_id IS NOT NULL
                 ) AS assigned_restaurants
             FROM personnel
             """
@@ -600,10 +611,10 @@ def count_active_plate_history_records(conn: psycopg.Connection) -> int:
 
 def count_active_personnel_missing_plate(conn: psycopg.Connection) -> int:
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM personnel
-        WHERE COALESCE(status, '') = 'Aktif'
+        WHERE {_personnel_active_sql()}
           AND TRIM(COALESCE(current_plate, '')) = ''
         """
     ).fetchone()
@@ -612,10 +623,10 @@ def count_active_personnel_missing_plate(conn: psycopg.Connection) -> int:
 
 def count_active_catkapinda_vehicle_personnel(conn: psycopg.Connection) -> int:
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM personnel
-        WHERE COALESCE(status, '') = 'Aktif'
+        WHERE {_personnel_active_sql()}
           AND (
             COALESCE(vehicle_type, '') = 'Çat Kapında'
             OR COALESCE(motor_rental, 'Hayır') = 'Evet'
@@ -853,10 +864,10 @@ def count_total_vehicle_history_records(conn: psycopg.Connection) -> int:
 
 def count_active_motor_rental_cards(conn: psycopg.Connection) -> int:
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM personnel
-        WHERE COALESCE(status, '') = 'Aktif'
+        WHERE {_personnel_active_sql()}
           AND COALESCE(motor_rental, 'Hayır') = 'Evet'
         """
     ).fetchone()
@@ -865,10 +876,10 @@ def count_active_motor_rental_cards(conn: psycopg.Connection) -> int:
 
 def count_active_motor_sale_cards(conn: psycopg.Connection) -> int:
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM personnel
-        WHERE COALESCE(status, '') = 'Aktif'
+        WHERE {_personnel_active_sql()}
           AND COALESCE(motor_purchase, 'Hayır') = 'Evet'
         """
     ).fetchone()
@@ -1122,10 +1133,10 @@ def count_total_role_history_records(conn: psycopg.Connection) -> int:
 
 def count_active_personnel_records(conn: psycopg.Connection) -> int:
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM personnel
-        WHERE COALESCE(status, '') = 'Aktif'
+        WHERE {_personnel_active_sql()}
         """
     ).fetchone()
     return int(row["total_count"] or 0) if row else 0

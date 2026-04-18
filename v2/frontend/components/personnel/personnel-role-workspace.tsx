@@ -140,7 +140,7 @@ export function PersonnelRoleWorkspace() {
     setError("");
     try {
       const [workspaceResponse, optionsResponse] = await Promise.all([
-        apiFetch("/personnel/role-workspace?limit=120"),
+        apiFetch("/personnel/role-workspace?limit=500"),
         apiFetch("/personnel/form-options"),
       ]);
       if (!workspaceResponse.ok) {

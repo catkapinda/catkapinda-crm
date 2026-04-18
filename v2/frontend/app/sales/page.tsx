@@ -688,8 +688,8 @@ export default function SalesPage() {
               lineHeight: 1.7,
             }}
           >
-            Satış servisine şu anda erişilemiyor. Arka uç hazır olduğunda bu ekran
-            canlı fırsat özetini gösterecek.
+            Satış verileri şu an alınamadı. Bağlantı toparlandığında canlı fırsat
+            özeti otomatik yenilenecek.
           </div>
         ) : (
           <>

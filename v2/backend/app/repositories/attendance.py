@@ -9,6 +9,13 @@ def _restaurant_active_sql(column: str = "active") -> str:
     return f"COALESCE(LOWER(CAST({column} AS TEXT)), 'true') IN ('1', 't', 'true')"
 
 
+def _personnel_active_sql(column: str = "status") -> str:
+    return (
+        f"COALESCE(LOWER(TRIM(CAST({column} AS TEXT))), '') "
+        "IN ('aktif', 'active', '1', 't', 'true')"
+    )
+
+
 def _optional_bigint_filter_sql(column: str) -> str:
     return f"(%s::bigint IS NULL OR {column} = %s::bigint)"
 
@@ -117,20 +124,28 @@ def fetch_attendance_people(
     include_all_active: bool = False,
 ) -> list[dict]:
     rows = conn.execute(
-        """
+        f"""
         SELECT id, full_name, role
         FROM personnel
-        WHERE status = 'Aktif'
+        WHERE {_personnel_active_sql()}
           AND (
             %s = TRUE
             OR assigned_restaurant_id = %s
-            OR role IN ('Joker', 'Bölge Müdürü', 'Saha Denetmen Şefi', 'Restoran Takım Şefi')
+            OR role IN (
+                'Joker',
+                'Bölge Müdürü',
+                'Bolge Muduru',
+                'Saha Denetmen Şefi',
+                'Saha Denetmen Sefi',
+                'Restoran Takım Şefi',
+                'Restoran Takim Sefi'
+            )
           )
         ORDER BY
             CASE
-                WHEN role = 'Restoran Takım Şefi' THEN 1
-                WHEN role = 'Saha Denetmen Şefi' THEN 2
-                WHEN role = 'Bölge Müdürü' THEN 3
+                WHEN role IN ('Restoran Takım Şefi', 'Restoran Takim Sefi') THEN 1
+                WHEN role IN ('Saha Denetmen Şefi', 'Saha Denetmen Sefi') THEN 2
+                WHEN role IN ('Bölge Müdürü', 'Bolge Muduru') THEN 3
                 WHEN role = 'Joker' THEN 4
                 ELSE 5
             END,

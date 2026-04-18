@@ -106,9 +106,6 @@ export function PersonnelManagementWorkspace() {
     }
     const payload = (await response.json()) as PersonnelFormOptions;
     setOptions(payload);
-    if (!filterRestaurantId && payload.selected_restaurant_id) {
-      setFilterRestaurantId(payload.selected_restaurant_id);
-    }
   }
 
   async function loadEntries() {
@@ -116,7 +113,7 @@ export function PersonnelManagementWorkspace() {
     setError("");
     try {
       const query = new URLSearchParams();
-      query.set("limit", "160");
+      query.set("limit", "500");
       if (typeof filterRestaurantId === "number") {
         query.set("restaurant_id", String(filterRestaurantId));
       }

@@ -64,6 +64,19 @@ type PayrollDashboard = {
   }>;
 };
 
+type PayrollInvoiceSnapshot = {
+  selectedMonth: string | null;
+  totalRevenue: number;
+  grossProfit: number;
+  invoiceEntries: Array<{
+    restaurant: string;
+    pricingModel: string;
+    totalHours: number;
+    totalPackages: number;
+    grossInvoice: number;
+  }>;
+};
+
 const serifStyle = {
   fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
   letterSpacing: "-0.04em",
@@ -413,6 +426,7 @@ export default function PayrollPage() {
   const [documentBusy, setDocumentBusy] = useState(false);
   const [documentError, setDocumentError] = useState("");
   const [documentMessage, setDocumentMessage] = useState("");
+  const [invoiceSnapshot, setInvoiceSnapshot] = useState<PayrollInvoiceSnapshot | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -424,6 +438,7 @@ export default function PayrollPage() {
       if (!user) {
         if (active) {
           setDashboard(null);
+          setInvoiceSnapshot(null);
           setDashboardLoading(false);
         }
         return;
@@ -458,9 +473,56 @@ export default function PayrollPage() {
             setSelectedMonth(payload.selected_month);
           }
         }
+        const invoiceMonth = payload.selected_month || selectedMonth;
+        if (invoiceMonth) {
+          const invoiceParams = new URLSearchParams({
+            month: invoiceMonth,
+            limit: "12",
+          });
+          const invoiceResponse = await apiFetch(`/reports/dashboard?${invoiceParams.toString()}`);
+          if (invoiceResponse.ok) {
+            const reportPayload = (await invoiceResponse.json()) as {
+              selected_month: string | null;
+              summary: {
+                selected_month: string;
+                total_revenue: number;
+                gross_profit: number;
+              } | null;
+              invoice_entries: Array<{
+                restaurant: string;
+                pricing_model: string;
+                total_hours: number;
+                total_packages: number;
+                gross_invoice: number;
+              }>;
+            };
+            if (active) {
+              setInvoiceSnapshot({
+                selectedMonth:
+                  reportPayload.summary?.selected_month ??
+                  reportPayload.selected_month ??
+                  invoiceMonth,
+                totalRevenue: toSafeNumber(reportPayload.summary?.total_revenue),
+                grossProfit: toSafeNumber(reportPayload.summary?.gross_profit),
+                invoiceEntries: (reportPayload.invoice_entries ?? []).slice(0, 8).map((row) => ({
+                  restaurant: toSafeString(row.restaurant, "-"),
+                  pricingModel: toSafeString(row.pricing_model, "-"),
+                  totalHours: toSafeNumber(row.total_hours),
+                  totalPackages: toSafeNumber(row.total_packages),
+                  grossInvoice: toSafeNumber(row.gross_invoice),
+                })),
+              });
+            }
+          } else if (active) {
+            setInvoiceSnapshot(null);
+          }
+        } else if (active) {
+          setInvoiceSnapshot(null);
+        }
       } catch {
         if (active) {
           setDashboard(null);
+          setInvoiceSnapshot(null);
         }
       } finally {
         if (active) {
@@ -512,6 +574,15 @@ export default function PayrollPage() {
       metricCard("Kesinti Oranı", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / brüt hakediş"),
     ];
   }, [dashboard]);
+
+  const maxInvoiceAmount = useMemo(
+    () =>
+      Math.max(
+        1,
+        ...(invoiceSnapshot?.invoiceEntries.map((entry) => entry.grossInvoice) ?? [0]),
+      ),
+    [invoiceSnapshot?.invoiceEntries],
+  );
 
   const decisionDeck = useMemo(() => {
     if (!dashboard?.summary) {
@@ -937,7 +1008,7 @@ export default function PayrollPage() {
                   border: "1px solid var(--line)",
                   background: "rgba(255,255,255,0.78)",
                   display: "grid",
-                  gap: "8px",
+                  gap: "10px",
                 }}
               >
                 <div
@@ -949,18 +1020,52 @@ export default function PayrollPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Okuma Notu
+                  Restoran Faturası
                 </div>
-                <div
-                  style={{
-                    color: "var(--text)",
-                    fontSize: "0.95rem",
-                    lineHeight: 1.7,
-                  }}
-                >
-                  Ay kapanışında önce kesintileri, sonra çalışma modelini ve en yüksek net ödeme
-                  çıkan personeli kontrol edin.
+                <div style={{ fontSize: "1.15rem", fontWeight: 900 }}>
+                  {formatMoney(invoiceSnapshot?.totalRevenue ?? 0)}
                 </div>
+                <div style={{ color: "var(--muted)", fontSize: "0.88rem", lineHeight: 1.5 }}>
+                  {(invoiceSnapshot?.selectedMonth ?? dashboard?.summary?.selected_month ?? selectedMonth) || "Seçili ay"} toplam restoran faturası
+                </div>
+                {invoiceSnapshot?.invoiceEntries.length ? (
+                  <div style={{ display: "grid", gap: "8px" }}>
+                    {invoiceSnapshot.invoiceEntries.slice(0, 4).map((entry) => (
+                      <div key={`${entry.restaurant}-${entry.pricingModel}`} style={{ display: "grid", gap: "5px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "10px",
+                            fontSize: "0.84rem",
+                            fontWeight: 800,
+                          }}
+                        >
+                          <span>{entry.restaurant}</span>
+                          <span>{formatMoney(entry.grossInvoice)}</span>
+                        </div>
+                        <div
+                          style={{
+                            height: "8px",
+                            borderRadius: "999px",
+                            background: "rgba(24,40,59,0.07)",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${Math.max((entry.grossInvoice / maxInvoiceAmount) * 100, 5)}%`,
+                              height: "100%",
+                              borderRadius: "999px",
+                              background:
+                                "linear-gradient(90deg, var(--accent-strong), rgba(24,40,59,0.86))",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </article>
             </div>
           </div>
@@ -1044,14 +1149,13 @@ export default function PayrollPage() {
                   letterSpacing: "0.08em",
                 }}
               >
-                Hakediş Notu
+                Puantaj → Fatura
               </div>
               <div style={{ fontSize: "1rem", fontWeight: 800 }}>
-                Kesintiler seçilen ayın son gününe yazılır.
+                {formatMoney(invoiceSnapshot?.totalRevenue ?? 0)} restoran faturası / {formatMoney(dashboard?.summary?.gross_payroll ?? 0)} brüt hakediş.
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: "0.95rem" }}>
-                Bu ekrandaki net ödeme ay kapanışına göre hesaplanır. Ödeme akışını
-                yorumlarken ay sonu kesinti toplamını ve kapanış tarihini birlikte okumak daha doğru olur.
+                Brüt fark: {formatMoney(invoiceSnapshot?.grossProfit ?? 0)}. Bu alan puantaj girildikçe rapor faturasıyla birlikte yenilenir.
               </div>
             </article>
 
@@ -1074,16 +1178,14 @@ export default function PayrollPage() {
                   letterSpacing: "0.08em",
                 }}
               >
-                Sistem Senkronu
+                Kontrol Durumu
               </div>
               <div style={{ display: "grid", gap: "10px" }}>
                 <div style={{ color: "var(--text)", lineHeight: 1.65 }}>
-                  <strong>Kesinti Senkronu:</strong> Puantaj ekleme, güncelleme ve silmede
-                  bordro etkisi yeniden hesaplanır.
+                  <strong>Personel:</strong> {formatNumber(dashboard?.summary?.personnel_count ?? 0)} kişi hakediş havuzunda.
                 </div>
                 <div style={{ color: "var(--text)", lineHeight: 1.65 }}>
-                  <strong>Hakediş / Raporlar:</strong> Aylık hakediş ve raporlar ekranı açılırken
-                  sistem kesintileri yeniden senkronlanır.
+                  <strong>Kesinti:</strong> {formatMoney(dashboard?.summary?.total_deductions ?? 0)} toplam kesinti uygulanıyor.
                 </div>
               </div>
             </article>
@@ -1234,8 +1336,8 @@ export default function PayrollPage() {
               lineHeight: 1.7,
             }}
           >
-            Hakediş servisine şu anda erişilemiyor. Backend hazır olduğunda burada
-            aylık ödeme özeti ve bordro dağılımları görünecek.
+            Hakediş verileri şu an alınamadı. Bağlantı toparlandığında aylık ödeme
+            özeti ve bordro dağılımları otomatik yenilenecek.
           </div>
         ) : (
           <>

@@ -33,6 +33,50 @@ type AttendanceDashboard = {
   }>;
 };
 
+type ReportsDashboardSnapshot = {
+  selected_month: string | null;
+  summary: {
+    selected_month: string;
+    total_revenue: number;
+    total_personnel_cost: number;
+    gross_profit: number;
+    total_hours: number;
+    total_packages: number;
+  } | null;
+  top_restaurants: Array<{
+    restaurant: string;
+    gross_invoice: number;
+    total_hours: number;
+    total_packages: number;
+  }>;
+};
+
+type PayrollDashboardSnapshot = {
+  selected_month: string | null;
+  summary: {
+    selected_month: string;
+    gross_payroll: number;
+    total_deductions: number;
+    net_payment: number;
+  } | null;
+};
+
+type AttendanceFinanceSnapshot = {
+  selectedMonth: string | null;
+  restaurantInvoice: number;
+  courierGross: number;
+  courierNet: number;
+  grossProfit: number;
+  totalHours: number;
+  totalPackages: number;
+  topRestaurants: Array<{
+    restaurant: string;
+    grossInvoice: number;
+    totalHours: number;
+    totalPackages: number;
+  }>;
+};
+
 const serifTitleStyle = {
   fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
   letterSpacing: "-0.04em",
@@ -97,6 +141,13 @@ function formatCurrency(value: number) {
     style: "currency",
     currency: "TRY",
     maximumFractionDigits: 0,
+  }).format(value || 0);
+}
+
+function formatNumber(value: number, decimals = 0) {
+  return new Intl.NumberFormat("tr-TR", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(value || 0);
 }
 
@@ -248,6 +299,9 @@ export default function AttendancePage() {
   const [dashboard, setDashboard] = useState<AttendanceDashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState("");
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [financeSnapshot, setFinanceSnapshot] = useState<AttendanceFinanceSnapshot | null>(null);
+  const [financeLoading, setFinanceLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -302,7 +356,85 @@ export default function AttendancePage() {
     return () => {
       active = false;
     };
-  }, [loading, user]);
+  }, [loading, refreshToken, user]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadFinanceSnapshot() {
+      if (loading || !user) {
+        if (active) {
+          setFinanceSnapshot(null);
+          setFinanceLoading(false);
+        }
+        return;
+      }
+
+      setFinanceLoading(true);
+      try {
+        const [reportsResponse, payrollResponse] = await Promise.all([
+          apiFetch("/reports/dashboard?limit=8"),
+          apiFetch("/payroll/dashboard"),
+        ]);
+        const reports = reportsResponse.ok
+          ? ((await reportsResponse.json()) as ReportsDashboardSnapshot)
+          : null;
+        const payroll = payrollResponse.ok
+          ? ((await payrollResponse.json()) as PayrollDashboardSnapshot)
+          : null;
+        const selectedMonth =
+          reports?.summary?.selected_month ??
+          payroll?.summary?.selected_month ??
+          reports?.selected_month ??
+          payroll?.selected_month ??
+          null;
+        const restaurantInvoice = Number(reports?.summary?.total_revenue ?? 0);
+        const courierGross = Number(
+          payroll?.summary?.gross_payroll ?? reports?.summary?.total_personnel_cost ?? 0,
+        );
+        const courierNet = Number(
+          payroll?.summary?.net_payment ?? reports?.summary?.total_personnel_cost ?? 0,
+        );
+
+        if (active) {
+          setFinanceSnapshot({
+            selectedMonth,
+            restaurantInvoice,
+            courierGross,
+            courierNet,
+            grossProfit: Number(
+              reports?.summary?.gross_profit ?? restaurantInvoice - courierGross,
+            ),
+            totalHours: Number(reports?.summary?.total_hours ?? 0),
+            totalPackages: Number(reports?.summary?.total_packages ?? 0),
+            topRestaurants: (reports?.top_restaurants ?? []).slice(0, 5).map((row) => ({
+              restaurant: row.restaurant,
+              grossInvoice: Number(row.gross_invoice || 0),
+              totalHours: Number(row.total_hours || 0),
+              totalPackages: Number(row.total_packages || 0),
+            })),
+          });
+        }
+      } catch {
+        if (active) {
+          setFinanceSnapshot(null);
+        }
+      } finally {
+        if (active) {
+          setFinanceLoading(false);
+        }
+      }
+    }
+
+    void loadFinanceSnapshot();
+    return () => {
+      active = false;
+    };
+  }, [loading, refreshToken, user]);
+
+  function handleAttendanceDataChange() {
+    setRefreshToken((current) => current + 1);
+  }
 
   const modeBreakdown = useMemo(() => {
     const rows = dashboard?.recent_entries ?? [];
@@ -354,6 +486,15 @@ export default function AttendancePage() {
       },
     ] as const;
   }, [dashboard, modeBreakdown]);
+
+  const maxFinanceRestaurantInvoice = useMemo(
+    () =>
+      Math.max(
+        1,
+        ...(financeSnapshot?.topRestaurants.map((row) => row.grossInvoice) ?? [0]),
+      ),
+    [financeSnapshot?.topRestaurants],
+  );
 
   return (
     <AppShell activeItem="Puantaj">
@@ -643,6 +784,139 @@ export default function AttendancePage() {
               )}
             </div>
 
+            <section
+              style={{
+                ...paperCardStyle,
+                padding: "18px",
+                display: "grid",
+                gap: "16px",
+                background:
+                  "linear-gradient(180deg, rgba(255,253,247,0.98), rgba(246,239,228,0.96))",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "14px",
+                  alignItems: "baseline",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontWeight: 800,
+                      fontSize: "0.72rem",
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Puantaj Finans Etkisi
+                  </div>
+                  <h2
+                    style={{
+                      ...serifTitleStyle,
+                      margin: "8px 0 0",
+                      fontSize: "1.75rem",
+                      lineHeight: 0.98,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Restoran faturası ve kurye hakedişi aynı ayda.
+                  </h2>
+                </div>
+                <span
+                  style={{
+                    padding: "7px 11px",
+                    borderRadius: "999px",
+                    background: "rgba(24,40,59,0.07)",
+                    color: "var(--muted)",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  {financeLoading ? "Yenileniyor" : financeSnapshot?.selectedMonth ?? "Ay yok"}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                {metricCard(
+                  "Restoran Faturası",
+                  formatCurrency(financeSnapshot?.restaurantInvoice ?? 0),
+                  "Puantajdan türeyen seçili ay restoran faturası.",
+                )}
+                {metricCard(
+                  "Brüt Hakediş",
+                  formatCurrency(financeSnapshot?.courierGross ?? 0),
+                  "Kurye hakediş ekranındaki brüt toplam.",
+                )}
+                {metricCard(
+                  "Net Hakediş",
+                  formatCurrency(financeSnapshot?.courierNet ?? 0),
+                  "Kesintiler sonrası ödeme toplamı.",
+                )}
+                {metricCard(
+                  "Brüt Fark",
+                  formatCurrency(financeSnapshot?.grossProfit ?? 0),
+                  "Restoran faturası - kurye maliyeti.",
+                )}
+              </div>
+
+              {financeSnapshot?.topRestaurants.length ? (
+                <div style={{ display: "grid", gap: "10px" }}>
+                  {financeSnapshot.topRestaurants.map((row, index) => (
+                    <div key={`${row.restaurant}-${index}`} style={{ display: "grid", gap: "6px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "12px",
+                          fontSize: "0.9rem",
+                          fontWeight: 800,
+                        }}
+                      >
+                        <span>{row.restaurant}</span>
+                        <span>{formatCurrency(row.grossInvoice)}</span>
+                      </div>
+                      <div
+                        style={{
+                          height: "10px",
+                          borderRadius: "999px",
+                          background: "rgba(24,40,59,0.07)",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${Math.max((row.grossInvoice / maxFinanceRestaurantInvoice) * 100, 5)}%`,
+                            height: "100%",
+                            borderRadius: "999px",
+                            background:
+                              "linear-gradient(90deg, var(--accent-strong), rgba(24,40,59,0.86))",
+                          }}
+                        />
+                      </div>
+                      <div style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+                        {formatNumber(row.totalHours, 1)} saat • {formatNumber(row.totalPackages)} paket
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+                  Puantaj girildikçe restoran faturası ve hakediş etkisi burada otomatik yenilenir.
+                </div>
+              )}
+            </section>
+
             <div
               style={{
                 display: "grid",
@@ -659,21 +933,21 @@ export default function AttendancePage() {
               "Giriş",
               "Yeni puantaj kaydı",
               "Günlük puantaj kaydını bu alandan oluştur.",
-              <AttendanceEntryWorkspace />,
+              <AttendanceEntryWorkspace onDataChange={handleAttendanceDataChange} />,
             )}
 
             {workspaceFrame(
               "Toplu Giriş",
               "Şube bazlı puantaj",
               "Aynı şubedeki birden fazla kayıt için toplu puantaj gir.",
-              <AttendanceBulkWorkspace />,
+              <AttendanceBulkWorkspace onDataChange={handleAttendanceDataChange} />,
             )}
 
             {workspaceFrame(
               "Yönetim",
               "Kayıt düzeltme ve temizlik",
               "Kayıtları düzenle, seçili kayıtları sil veya ay bazlı temizlik yap.",
-              <AttendanceManagementWorkspace />,
+              <AttendanceManagementWorkspace onDataChange={handleAttendanceDataChange} />,
             )}
 
             <section
@@ -819,7 +1093,7 @@ export default function AttendancePage() {
                     textTransform: "uppercase",
                   }}
                 >
-                  Operasyon Notlari
+                  Aylık Finans Kontrolü
                 </div>
                 <h2
                   style={{
@@ -830,7 +1104,7 @@ export default function AttendancePage() {
                     fontWeight: 700,
                   }}
                 >
-                  Bugün dikkat edilmesi gerekenler
+                  Puantajın faturaya etkisi
                 </h2>
                 <div
                   style={{
@@ -839,10 +1113,10 @@ export default function AttendancePage() {
                   }}
                 >
                   {[
-                    `Bugün ${dashboard.summary.today_entries} kayıt açıldı.`,
-                    `Bu ay toplam ${dashboard.summary.month_entries} puantaj satırı birikti.`,
-                    "Ay bazli toplu silme yalnızca filtreli alan için görünür durumda.",
-                    "Son hareketler paneli hızlı vardiya temizliği için referans akışı sunuyor.",
+                    `Restoran faturası: ${formatCurrency(financeSnapshot?.restaurantInvoice ?? 0)}`,
+                    `Brüt hakediş: ${formatCurrency(financeSnapshot?.courierGross ?? 0)}`,
+                    `Net hakediş: ${formatCurrency(financeSnapshot?.courierNet ?? 0)}`,
+                    `Brüt fark: ${formatCurrency(financeSnapshot?.grossProfit ?? 0)}`,
                   ].map((item) => (
                     <div
                       key={item}
