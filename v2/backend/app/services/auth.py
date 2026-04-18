@@ -93,12 +93,13 @@ def authenticate_user(
 
 def _parse_attempt_timestamp(value: object) -> datetime | None:
     if isinstance(value, datetime):
-        return value
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
     raw_value = str(value or "").strip()
     if not raw_value:
         return None
     try:
-        return datetime.fromisoformat(raw_value)
+        parsed = datetime.fromisoformat(raw_value)
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
     except ValueError:
         return None
 

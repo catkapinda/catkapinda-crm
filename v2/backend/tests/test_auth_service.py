@@ -109,6 +109,44 @@ def test_authenticate_user_clears_login_attempt_after_success(monkeypatch):
     assert attempts == {}
 
 
+def test_authenticate_user_accepts_naive_login_attempt_timestamps(monkeypatch):
+    conn = FakeConnection()
+    user_row = _build_user("DogruSifre123")
+    attempts = {
+        "mert.kurtulus@catkapinda.com": {
+            "identity": "mert.kurtulus@catkapinda.com",
+            "failed_count": 1,
+            "first_failed_at": (datetime.now(UTC) - timedelta(minutes=2)).replace(tzinfo=None).isoformat(timespec="seconds"),
+            "last_failed_at": (datetime.now(UTC) - timedelta(minutes=1)).replace(tzinfo=None).isoformat(timespec="seconds"),
+            "blocked_until": None,
+        }
+    }
+
+    monkeypatch.setattr(
+        "app.services.auth.fetch_auth_user_by_identity",
+        lambda _conn, identity: user_row if identity == "mert.kurtulus@catkapinda.com" else None,
+    )
+    monkeypatch.setattr(
+        "app.services.auth.fetch_login_attempt",
+        lambda _conn, identity: attempts.get(identity),
+    )
+    monkeypatch.setattr(
+        "app.services.auth.clear_login_attempt",
+        lambda _conn, identity: attempts.pop(identity, None),
+    )
+    monkeypatch.setattr("app.services.auth.cleanup_expired_auth_sessions", lambda _conn: None)
+    monkeypatch.setattr("app.services.auth.insert_auth_session", lambda _conn, **kwargs: None)
+
+    user = authenticate_user(
+        conn,
+        identity="mert.kurtulus@catkapinda.com",
+        password="DogruSifre123",
+    )
+
+    assert user.identity == "mert.kurtulus@catkapinda.com"
+    assert attempts == {}
+
+
 def test_reset_password_with_phone_code_clears_login_attempts_for_email_and_phone(monkeypatch):
     conn = FakeConnection()
     user_row = _build_user("EskiSifre123")
