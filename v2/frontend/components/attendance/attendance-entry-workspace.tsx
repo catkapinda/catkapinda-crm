@@ -46,10 +46,12 @@ export function AttendanceEntryWorkspace() {
   async function loadOptions(nextRestaurantId?: number | "") {
     setLoadingOptions(true);
     try {
-      const query =
-        typeof nextRestaurantId === "number"
-          ? `?restaurant_id=${encodeURIComponent(String(nextRestaurantId))}`
-          : "";
+      const params = new URLSearchParams();
+      params.set("include_all_active", "true");
+      if (typeof nextRestaurantId === "number") {
+        params.set("restaurant_id", String(nextRestaurantId));
+      }
+      const query = params.size ? `?${params.toString()}` : "";
       const response = await apiFetch(`/attendance/form-options${query}`);
       if (!response.ok) {
         throw new Error("Attendance form options could not be loaded.");

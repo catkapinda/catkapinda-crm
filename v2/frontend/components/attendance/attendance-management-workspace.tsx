@@ -290,7 +290,7 @@ export function AttendanceManagementWorkspace() {
 
   async function loadPeopleOptions(restaurantId: number) {
     const response = await apiFetch(
-      `/attendance/form-options?restaurant_id=${encodeURIComponent(String(restaurantId))}`,
+      `/attendance/form-options?restaurant_id=${encodeURIComponent(String(restaurantId))}&include_all_active=true`,
     );
     if (!response.ok) {
       throw new Error("Personel secenekleri yuklenemedi.");
