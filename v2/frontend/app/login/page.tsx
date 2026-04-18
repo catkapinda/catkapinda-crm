@@ -626,46 +626,56 @@ function LoginPageContent() {
             >
               <div
                 style={{
-                  width: "56px",
-                  height: "56px",
-                  borderRadius: "18px",
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  width: "58px",
+                  height: "58px",
+                  borderRadius: "20px",
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
+                  border: "1px solid rgba(255,255,255,0.14)",
                   display: "grid",
                   placeItems: "center",
-                  boxShadow: "0 16px 32px rgba(10, 20, 35, 0.22)",
+                  boxShadow: "0 18px 34px rgba(10, 20, 35, 0.24)",
                 }}
               >
-                <img
-                  src="/catkapinda_logo.png"
-                  alt="Cat Kapinda"
-                  width={34}
-                  height={34}
-                  style={{ width: "34px", height: "34px", objectFit: "contain" }}
-                />
+                <div
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "14px",
+                    background: "linear-gradient(180deg, #f6d6a9, #c9852b)",
+                    display: "grid",
+                    placeItems: "center",
+                    color: "#1d2f4b",
+                    fontWeight: 900,
+                    fontSize: "0.98rem",
+                    letterSpacing: "0.08em",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)",
+                  }}
+                >
+                  CK
+                </div>
               </div>
               <div style={{ display: "grid", gap: "4px" }}>
                 <div
                   style={{
                     color: "#f2cf9e",
-                    fontSize: "0.68rem",
-                    letterSpacing: "0.08em",
+                    fontSize: "0.7rem",
+                    letterSpacing: "0.14em",
                     textTransform: "uppercase",
                     fontWeight: 800,
                   }}
                 >
-                  Cat Kapinda
+                  Çat Kapında
                 </div>
                 <div
                   style={{
                     ...serifTitleStyle,
-                    fontSize: "1.35rem",
+                    fontSize: "1.28rem",
                     lineHeight: 0.96,
                     fontWeight: 700,
                     color: "#fff7ea",
                   }}
                 >
-                  CRM v2
+                  CRM
                 </div>
               </div>
             </div>
@@ -673,18 +683,18 @@ function LoginPageContent() {
               style={{
                 display: "inline-flex",
                 width: "fit-content",
-                padding: "6px 10px",
+                padding: "6px 11px",
                 borderRadius: "999px",
                 background: "rgba(255,255,255,0.08)",
                 border: "1px solid rgba(255,255,255,0.12)",
                 color: "#f2cf9e",
                 fontSize: "0.66rem",
-                letterSpacing: "0.08em",
+                letterSpacing: "0.12em",
                 textTransform: "uppercase",
                 fontWeight: 800,
               }}
             >
-              şube · puantaj · rapor
+              operasyon merkezi
             </div>
             <div style={{ display: "grid", gap: "10px" }}>
               <h1
@@ -702,14 +712,15 @@ function LoginPageContent() {
               <p
                 style={{
                   margin: 0,
-                  maxWidth: "46ch",
+                  maxWidth: "48ch",
                   color: "rgba(255, 247, 234, 0.76)",
                   lineHeight: 1.68,
                   fontSize: "0.96rem",
                 }}
               >
-                Şube yönetimi, puantaj, personel, ekipman ve rapor akışlarını tek operasyon ekranında
-                toplar. Giriş sonrası sistem seni doğrudan yetkine uygun modüle taşır.
+                Çat Kapında CRM; restoran, saha ekipleri ve merkez operasyon için günlük yönetimi tek
+                ekranda toplar. Kadro, puantaj, ekipman, kesinti ve finansal görünüm aynı veri akışından
+                beslenir.
               </p>
             </div>
           </div>
@@ -723,9 +734,9 @@ function LoginPageContent() {
             }}
           >
             {[
-              ["Puantaj", "Günlük saha kayıtları ve vardiya takibi aynı akışta."],
-              ["Personel", "Kadro, araç ve kesinti geçmişi tek yerde."],
-              ["Rapor", "Kârlılık ve hakediş yüzeyleri giriş sonrası hazır."],
+              ["Şube Operasyonu", "Restoran durumu, aktif kadro ve günlük saha akışı tek merkezden izlenir."],
+              ["Personel ve Ekipman", "Kurye, araç, zimmet ve geçmiş hareketler bağlı operasyon kaydıyla tutulur."],
+              ["Rapor ve Finans", "Hakediş, maliyet ve operasyon farkı aynı karar yüzeyinde okunur."],
             ].map(([title, text]) => (
               <article
                 key={title}
@@ -755,9 +766,9 @@ function LoginPageContent() {
             }}
           >
             {[
-              "Giriş sonrası seni doğrudan yetkine uygun ilk modüle yönlendirir.",
-              "SMS giriş ve şifre kurtarma aynı sade destek kartında çalışır.",
-              "Demo dili yerine gerçek operasyon akışına odaklanan temiz bir yüzey sunar.",
+              "Şube, personel, puantaj ve rapor modülleri aynı operasyon omurgasında birlikte çalışır.",
+              "Saha hareketleri ile merkez kararları aynı CRM içinde birbirine bağlı görünür.",
+              "Yönetici ekipleri günlük operasyonu, kapasiteyi ve finansal resmi aynı yerden takip eder.",
             ].map((item) => (
               <div
                 key={item}
