@@ -27,6 +27,7 @@ def build_ssl_context() -> ssl.SSLContext:
 
 
 SSL_CONTEXT = build_ssl_context()
+REQUEST_EXCEPTIONS = (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError)
 PROTECTED_PAGES = [
     ("/announcements", "protected_announcements_page"),
     ("/attendance", "protected_attendance_page"),
@@ -738,7 +739,7 @@ def run_smoke_checks(
                 detail=f"HTTP {status} • service={payload.get('service', '-')}",
             )
         )
-    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+    except REQUEST_EXCEPTIONS as exc:
         results.append(CheckResult("frontend_health", False, str(exc)))
 
     try:
@@ -756,7 +757,7 @@ def run_smoke_checks(
                 ),
             )
         )
-    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+    except REQUEST_EXCEPTIONS as exc:
         results.append(CheckResult("frontend_ready", False, str(exc)))
 
     try:
@@ -798,7 +799,7 @@ def run_smoke_checks(
                 ),
             )
         )
-    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+    except REQUEST_EXCEPTIONS as exc:
         results.append(CheckResult("frontend_pilot_status", False, str(exc)))
         results.append(CheckResult("release_alignment", False, str(exc)))
 
@@ -812,7 +813,7 @@ def run_smoke_checks(
                 detail=f"HTTP {status} • content-type={content_type or '-'}",
             )
         )
-    except urllib.error.URLError as exc:
+    except REQUEST_EXCEPTIONS as exc:
         results.append(CheckResult("status_page", False, str(exc)))
 
     try:
@@ -825,7 +826,7 @@ def run_smoke_checks(
                 detail=f"HTTP {status} • content-type={content_type or '-'}",
             )
         )
-    except urllib.error.URLError as exc:
+    except REQUEST_EXCEPTIONS as exc:
         results.append(CheckResult("login_page", False, str(exc)))
 
     try:
@@ -838,7 +839,7 @@ def run_smoke_checks(
                 detail=f"HTTP {status} • service={payload.get('service', '-')}",
             )
         )
-    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+    except REQUEST_EXCEPTIONS as exc:
         results.append(CheckResult("backend_health", False, str(exc)))
 
     try:
@@ -852,7 +853,7 @@ def run_smoke_checks(
                 detail=f"HTTP {status} • status={payload.get('status')} • checks={check_count}",
             )
         )
-    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+    except REQUEST_EXCEPTIONS as exc:
         results.append(CheckResult("backend_ready", False, str(exc)))
 
     try:
@@ -909,7 +910,7 @@ def run_smoke_checks(
                 detail=detail,
             )
         )
-    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+    except REQUEST_EXCEPTIONS as exc:
         results.append(CheckResult("backend_pilot", False, str(exc)))
 
     if identity and password:
@@ -979,7 +980,7 @@ def run_smoke_checks(
                             detail=detail,
                         )
                     )
-        except (urllib.error.URLError, json.JSONDecodeError) as exc:
+        except REQUEST_EXCEPTIONS as exc:
             results.append(CheckResult("auth_login", False, str(exc)))
 
     if legacy_url and legacy_cutover_mode in {"banner", "redirect"}:
@@ -1003,7 +1004,7 @@ def run_smoke_checks(
                     detail=f"HTTP {status} • mode={legacy_cutover_mode} • content-type={content_type or '-'}",
                 )
             )
-        except urllib.error.URLError as exc:
+        except REQUEST_EXCEPTIONS as exc:
             results.append(CheckResult(f"legacy_{legacy_cutover_mode}_bridge", False, str(exc)))
 
     return results
