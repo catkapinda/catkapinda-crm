@@ -5,6 +5,17 @@ import psycopg
 from app.core.database import is_sqlite_backend
 
 
+def _restaurant_active_sql(column: str = "active") -> str:
+    return f"COALESCE(LOWER(CAST({column} AS TEXT)), 'true') IN ('1', 't', 'true')"
+
+
+def _coalesced_history_date_sql(date_column: str, changed_at_column: str) -> str:
+    return (
+        f"COALESCE(NULLIF(CAST({date_column} AS TEXT), ''), "
+        f"SUBSTR(CAST({changed_at_column} AS TEXT), 1, 10))"
+    )
+
+
 def fetch_personnel_summary(conn: psycopg.Connection) -> dict[str, int]:
     if is_sqlite_backend(conn):
         row = conn.execute(
@@ -88,10 +99,10 @@ def fetch_recent_personnel_records(
 
 def fetch_personnel_restaurants(conn: psycopg.Connection) -> list[dict]:
     rows = conn.execute(
-        """
+        f"""
         SELECT id, brand, branch
         FROM restaurants
-        WHERE active = TRUE
+        WHERE {_restaurant_active_sql("active")}
         ORDER BY brand, branch
         """
     ).fetchall()
@@ -703,8 +714,12 @@ def fetch_recent_vehicle_history_records(
     *,
     limit: int,
 ) -> list[dict]:
+    resolved_effective_date_sql = _coalesced_history_date_sql(
+        "pvh.effective_date",
+        "pvh.changed_at",
+    )
     rows = conn.execute(
-        """
+        f"""
         SELECT
             pvh.id,
             pvh.personnel_id,
@@ -722,13 +737,13 @@ def fetch_recent_vehicle_history_records(
             COALESCE(pvh.motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
             COALESCE(pvh.motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
             COALESCE(pvh.motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
-            pvh.effective_date,
+            {resolved_effective_date_sql} AS effective_date,
             COALESCE(pvh.notes, '') AS notes
         FROM personnel_vehicle_history pvh
         JOIN personnel p ON p.id = pvh.personnel_id
         LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
         ORDER BY
-            COALESCE(pvh.effective_date, DATE(pvh.changed_at)) DESC,
+            {resolved_effective_date_sql} DESC,
             pvh.id DESC
         LIMIT %s
         """,
@@ -790,8 +805,12 @@ def fetch_latest_vehicle_history_record(
     conn: psycopg.Connection,
     person_id: int,
 ) -> dict | None:
+    resolved_effective_date_sql = _coalesced_history_date_sql(
+        "effective_date",
+        "changed_at",
+    )
     row = conn.execute(
-        """
+        f"""
         SELECT
             id,
             vehicle_type,
@@ -806,7 +825,7 @@ def fetch_latest_vehicle_history_record(
             notes
         FROM personnel_vehicle_history
         WHERE personnel_id = %s
-        ORDER BY COALESCE(effective_date, DATE(changed_at)) DESC, id DESC
+        ORDER BY {resolved_effective_date_sql} DESC, id DESC
         LIMIT 1
         """,
         (person_id,),
@@ -971,8 +990,12 @@ def fetch_recent_role_history_records(
     *,
     limit: int,
 ) -> list[dict]:
+    resolved_effective_date_sql = _coalesced_history_date_sql(
+        "prh.effective_date",
+        "prh.changed_at",
+    )
     rows = conn.execute(
-        """
+        f"""
         SELECT
             prh.id,
             prh.personnel_id,
@@ -983,13 +1006,13 @@ def fetch_recent_role_history_records(
             COALESCE(prh.role, '') AS role,
             COALESCE(prh.cost_model, '') AS cost_model,
             COALESCE(prh.monthly_fixed_cost, 0) AS monthly_fixed_cost,
-            prh.effective_date,
+            {resolved_effective_date_sql} AS effective_date,
             COALESCE(prh.notes, '') AS notes
         FROM personnel_role_history prh
         JOIN personnel p ON p.id = prh.personnel_id
         LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
         ORDER BY
-            COALESCE(prh.effective_date, DATE(prh.changed_at)) DESC,
+            {resolved_effective_date_sql} DESC,
             prh.id DESC
         LIMIT %s
         """,
@@ -1048,12 +1071,16 @@ def fetch_latest_role_history_record(
     conn: psycopg.Connection,
     person_id: int,
 ) -> dict | None:
+    resolved_effective_date_sql = _coalesced_history_date_sql(
+        "effective_date",
+        "changed_at",
+    )
     row = conn.execute(
-        """
+        f"""
         SELECT id, role, cost_model, monthly_fixed_cost, effective_date, notes
         FROM personnel_role_history
         WHERE personnel_id = %s
-        ORDER BY COALESCE(effective_date, DATE(changed_at)) DESC, id DESC
+        ORDER BY {resolved_effective_date_sql} DESC, id DESC
         LIMIT 1
         """,
         (person_id,),

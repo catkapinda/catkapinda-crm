@@ -7,6 +7,18 @@ import psycopg
 from app.core.database import is_sqlite_backend
 
 
+def _optional_bigint_filter_sql(column: str) -> str:
+    return f"(%s::bigint IS NULL OR {column} = %s::bigint)"
+
+
+def _optional_text_equality_sql(column: str) -> str:
+    return f"(%s::text IS NULL OR {column} = %s::text)"
+
+
+def _optional_text_search_guard_sql() -> str:
+    return "%s::text IS NULL"
+
+
 def fetch_equipment_summary(
     conn: psycopg.Connection,
     *,
@@ -237,7 +249,7 @@ def fetch_equipment_issue_management_records(
 ) -> list[dict]:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     rows = conn.execute(
-        """
+        f"""
         SELECT
             i.id,
             i.personnel_id,
@@ -258,10 +270,10 @@ def fetch_equipment_issue_management_records(
               - (COALESCE(i.quantity, 0) * COALESCE(i.unit_cost, 0)) AS gross_profit
         FROM courier_equipment_issues i
         LEFT JOIN personnel p ON p.id = i.personnel_id
-        WHERE (%s IS NULL OR i.personnel_id = %s)
-          AND (%s IS NULL OR i.item_name = %s)
+        WHERE {_optional_bigint_filter_sql('i.personnel_id')}
+          AND {_optional_text_equality_sql('i.item_name')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR COALESCE(p.full_name, '') ILIKE %s
             OR COALESCE(i.item_name, '') ILIKE %s
             OR COALESCE(i.sale_type, '') ILIKE %s
@@ -295,14 +307,14 @@ def count_equipment_issue_management_records(
 ) -> int:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM courier_equipment_issues i
         LEFT JOIN personnel p ON p.id = i.personnel_id
-        WHERE (%s IS NULL OR i.personnel_id = %s)
-          AND (%s IS NULL OR i.item_name = %s)
+        WHERE {_optional_bigint_filter_sql('i.personnel_id')}
+          AND {_optional_text_equality_sql('i.item_name')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR COALESCE(p.full_name, '') ILIKE %s
             OR COALESCE(i.item_name, '') ILIKE %s
             OR COALESCE(i.sale_type, '') ILIKE %s
@@ -438,7 +450,7 @@ def fetch_box_return_management_records(
 ) -> list[dict]:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     rows = conn.execute(
-        """
+        f"""
         SELECT
             b.id,
             b.personnel_id,
@@ -451,9 +463,9 @@ def fetch_box_return_management_records(
             COALESCE(b.notes, '') AS notes
         FROM box_returns b
         LEFT JOIN personnel p ON p.id = b.personnel_id
-        WHERE (%s IS NULL OR b.personnel_id = %s)
+        WHERE {_optional_bigint_filter_sql('b.personnel_id')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR COALESCE(p.full_name, '') ILIKE %s
             OR COALESCE(b.condition_status, '') ILIKE %s
             OR COALESCE(b.notes, '') ILIKE %s
@@ -482,13 +494,13 @@ def count_box_return_management_records(
 ) -> int:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM box_returns b
         LEFT JOIN personnel p ON p.id = b.personnel_id
-        WHERE (%s IS NULL OR b.personnel_id = %s)
+        WHERE {_optional_bigint_filter_sql('b.personnel_id')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR COALESCE(p.full_name, '') ILIKE %s
             OR COALESCE(b.condition_status, '') ILIKE %s
             OR COALESCE(b.notes, '') ILIKE %s

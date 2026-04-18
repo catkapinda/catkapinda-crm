@@ -732,7 +732,6 @@ export default function PersonnelPage() {
             <section
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1.25fr) minmax(280px, 0.75fr)",
                 gap: "12px",
               }}
             >
@@ -859,81 +858,6 @@ export default function PersonnelPage() {
                   </table>
                 </div>
               </article>
-
-              <div style={{ display: "grid", gap: "12px" }}>
-                <article
-                  style={{
-                    ...paperCardStyle,
-                    padding: "16px",
-                    background:
-                      "linear-gradient(145deg, rgba(255,253,247,0.98), rgba(249,244,235,0.95))",
-                    display: "grid",
-                    gap: "10px",
-                  }}
-                >
-                  <div
-                    style={{
-                      color: "var(--accent-strong)",
-                      fontWeight: 800,
-                      fontSize: "0.66rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                    }}
-                  >
-                    Operasyon Notu
-                  </div>
-                  <div
-                    style={{
-                      ...serifTitleStyle,
-                      fontSize: "1.3rem",
-                      lineHeight: 0.98,
-                      fontWeight: 700,
-                    }}
-                  >
-                    Aktif ve pasif dengeyi ekrandan oku.
-                  </div>
-                  <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                    Kadro boşluklarını, atama yoğunluğunu ve kart kalitesini daha hızlı okumak için.
-                  </div>
-                </article>
-
-                <article
-                  style={{
-                    ...paperCardStyle,
-                    padding: "16px",
-                    background:
-                      "linear-gradient(145deg, rgba(27,43,63,0.98), rgba(43,62,85,0.95))",
-                    color: "#fff7ea",
-                    display: "grid",
-                    gap: "10px",
-                  }}
-                >
-                  <div
-                    style={{
-                      color: "#f2cf9e",
-                      fontWeight: 800,
-                      fontSize: "0.66rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                    }}
-                  >
-                    Yorum
-                  </div>
-                  <div
-                    style={{
-                      ...serifTitleStyle,
-                      fontSize: "1.28rem",
-                      lineHeight: 0.96,
-                      fontWeight: 700,
-                    }}
-                  >
-                    Kadro paneli artık yalnızca form değil, karar yüzeyi.
-                  </div>
-                  <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                    Formu değil, günlük insan ve saha planını daha hızlı hissettirmek için.
-                  </div>
-                </article>
-              </div>
             </section>
           </>
         )}
