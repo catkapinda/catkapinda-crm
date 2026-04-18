@@ -1745,63 +1745,123 @@ export default function HomePage() {
                 </header>
 
                 {dashboard.operations.daily_trend.length ? (
-                  <div style={{ display: "grid", gap: "8px" }}>
+                  <div style={{ display: "grid", gap: "12px" }}>
                     {(() => {
+                      const trend = dashboard.operations.daily_trend;
                       const maxPackages = Math.max(
-                        ...dashboard.operations.daily_trend.map((item) => item.total_packages || 0),
+                        ...trend.map((item) => item.total_packages || 0),
                         1,
                       );
-                      return dashboard.operations.daily_trend.map((item) => (
-                        <div
-                          key={item.entry_date}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "82px minmax(0, 1fr) 120px",
-                            gap: "12px",
-                            alignItems: "center",
-                          }}
-                        >
+                      const totalPackages = trend.reduce((total, item) => total + (item.total_packages || 0), 0);
+                      const totalHours = trend.reduce((total, item) => total + (item.total_hours || 0), 0);
+                      const firstTrendItem = trend[0] ?? {
+                        entry_date: "",
+                        total_packages: 0,
+                        total_hours: 0,
+                      };
+                      const peakDay = trend.reduce(
+                        (peak, item) => ((item.total_packages || 0) > (peak.total_packages || 0) ? item : peak),
+                        firstTrendItem,
+                      );
+                      return (
+                        <>
                           <div
                             style={{
-                              color: "var(--muted)",
-                              fontSize: "0.84rem",
-                              fontWeight: 700,
+                              display: "grid",
+                              gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                              gap: "8px",
                             }}
                           >
-                            {formatShortDate(item.entry_date)}
+                            {[
+                              ["Toplam Paket", totalPackages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })],
+                              ["Toplam Saat", totalHours.toLocaleString("tr-TR", { maximumFractionDigits: 1 })],
+                              ["Zirve Gün", formatShortDate(peakDay.entry_date)],
+                            ].map(([label, value]) => (
+                              <div
+                                key={label}
+                                style={{
+                                  padding: "10px 11px",
+                                  borderRadius: "14px",
+                                  background: "rgba(24,40,59,0.06)",
+                                  border: "1px solid rgba(24,40,59,0.08)",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    color: "var(--muted)",
+                                    fontSize: "0.64rem",
+                                    fontWeight: 900,
+                                    letterSpacing: "0.06em",
+                                    textTransform: "uppercase",
+                                  }}
+                                >
+                                  {label}
+                                </div>
+                                <strong style={{ display: "block", marginTop: "5px" }}>{value}</strong>
+                              </div>
+                            ))}
                           </div>
                           <div
                             style={{
-                              height: "14px",
-                              borderRadius: "999px",
-                              background: "rgba(24,40,59,0.08)",
-                              overflow: "hidden",
+                              overflowX: "auto",
+                              paddingBottom: "2px",
                             }}
                           >
                             <div
                               style={{
-                                width: `${Math.max((item.total_packages / maxPackages) * 100, item.total_packages > 0 ? 6 : 0)}%`,
-                                height: "100%",
-                                borderRadius: "999px",
+                                minWidth: `${Math.max(trend.length * 46, 360)}px`,
+                                height: "220px",
+                                padding: "16px 14px 12px",
+                                borderRadius: "20px",
                                 background:
-                                  "linear-gradient(90deg, rgba(185,116,41,0.88), rgba(222,165,92,0.92))",
+                                  "radial-gradient(circle at 16% 18%, rgba(222,165,92,0.22), transparent 30%), linear-gradient(180deg, rgba(24,40,59,0.98), rgba(35,54,78,0.96))",
+                                display: "grid",
+                                gridTemplateColumns: `repeat(${trend.length}, minmax(32px, 1fr))`,
+                                gap: "8px",
+                                alignItems: "end",
+                                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
                               }}
-                            />
+                            >
+                              {trend.map((item) => {
+                                const height = Math.max((item.total_packages / maxPackages) * 150, item.total_packages > 0 ? 12 : 4);
+                                return (
+                                  <div
+                                    key={item.entry_date}
+                                    title={`${formatShortDate(item.entry_date)}: ${item.total_packages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} paket`}
+                                    style={{
+                                      height: "100%",
+                                      display: "grid",
+                                      gridTemplateRows: "1fr auto",
+                                      gap: "8px",
+                                      alignItems: "end",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        height: `${height}px`,
+                                        borderRadius: "999px 999px 10px 10px",
+                                        background:
+                                          "linear-gradient(180deg, rgba(255,247,234,0.98), rgba(222,165,92,0.92))",
+                                        boxShadow: "0 14px 24px rgba(0,0,0,0.2)",
+                                      }}
+                                    />
+                                    <span
+                                      style={{
+                                        color: "rgba(255,247,234,0.64)",
+                                        fontSize: "0.68rem",
+                                        textAlign: "center",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {formatShortDate(item.entry_date)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                          <div
-                            style={{
-                              textAlign: "right",
-                              color: "var(--muted)",
-                              fontSize: "0.82rem",
-                              lineHeight: 1.45,
-                            }}
-                          >
-                            {`${item.total_packages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} paket`}
-                            <br />
-                            {`${item.total_hours.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} saat`}
-                          </div>
-                        </div>
-                      ));
+                        </>
+                      );
                     })()}
                   </div>
                 ) : (

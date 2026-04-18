@@ -15,6 +15,12 @@ type PersonnelEntry = {
   role: string;
   status: string;
   phone: string;
+  address: string;
+  iban: string;
+  tax_number: string;
+  tax_office: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
   restaurant_id: number | null;
   restaurant_label: string;
   vehicle_mode: string;
@@ -68,6 +74,12 @@ export function PersonnelManagementWorkspace() {
   const [editFullName, setEditFullName] = useState("");
   const [editRole, setEditRole] = useState("Kurye");
   const [editPhone, setEditPhone] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editIban, setEditIban] = useState("");
+  const [editTaxNumber, setEditTaxNumber] = useState("");
+  const [editTaxOffice, setEditTaxOffice] = useState("");
+  const [editEmergencyContactName, setEditEmergencyContactName] = useState("");
+  const [editEmergencyContactPhone, setEditEmergencyContactPhone] = useState("");
   const [editRestaurantId, setEditRestaurantId] = useState<number | "">("");
   const [editStatus, setEditStatus] = useState("Aktif");
   const [editVehicleMode, setEditVehicleMode] = useState("Kendi Motoru");
@@ -144,6 +156,12 @@ export function PersonnelManagementWorkspace() {
       setEditFullName(entry.full_name);
       setEditRole(entry.role);
       setEditPhone(entry.phone ?? "");
+      setEditAddress(entry.address ?? "");
+      setEditIban(entry.iban ?? "");
+      setEditTaxNumber(entry.tax_number ?? "");
+      setEditTaxOffice(entry.tax_office ?? "");
+      setEditEmergencyContactName(entry.emergency_contact_name ?? "");
+      setEditEmergencyContactPhone(entry.emergency_contact_phone ?? "");
       setEditRestaurantId(entry.restaurant_id ?? "");
       setEditStatus(entry.status);
       setEditVehicleMode(entry.vehicle_mode);
@@ -204,6 +222,12 @@ export function PersonnelManagementWorkspace() {
         full_name: editFullName,
         role: editRole,
         phone: editPhone,
+        address: editAddress,
+        iban: editIban,
+        tax_number: editTaxNumber,
+        tax_office: editTaxOffice,
+        emergency_contact_name: editEmergencyContactName,
+        emergency_contact_phone: editEmergencyContactPhone,
         assigned_restaurant_id: typeof editRestaurantId === "number" ? editRestaurantId : null,
         status: editStatus,
         start_date: editStartDate || null,
@@ -306,8 +330,7 @@ export function PersonnelManagementWorkspace() {
       <div>
         <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Personel Yönetimi</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Kodu, şubesi, rolü ve arac atamasıyla birlikte personel kayıtlarını puantaj v2
-          kalıbında yönet.
+          Operasyon, finans ve acil durum bilgilerini tek düzenli personel kartında yönet.
         </p>
       </div>
 
@@ -351,7 +374,7 @@ export function PersonnelManagementWorkspace() {
             <input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Ad, kod, telefon ara"
+              placeholder="Ad, kod, telefon, IBAN veya vergi ara"
               style={fieldStyle}
             />
             <div
@@ -492,6 +515,7 @@ export function PersonnelManagementWorkspace() {
                   gap: "10px",
                 }}
               >
+                <SectionHeader title="Temel Bilgiler" />
                 <div
                   style={{
                     display: "grid",
@@ -516,6 +540,10 @@ export function PersonnelManagementWorkspace() {
                   <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>Telefon</span>
                     <input value={editPhone} onChange={(event) => setEditPhone(event.target.value)} style={fieldStyle} />
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Adres</span>
+                    <input value={editAddress} onChange={(event) => setEditAddress(event.target.value)} style={fieldStyle} />
                   </label>
                   <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>Durum</span>
@@ -576,6 +604,54 @@ export function PersonnelManagementWorkspace() {
                       inputMode="decimal"
                       value={editMonthlyFixedCost}
                       onChange={(event) => setEditMonthlyFixedCost(event.target.value)}
+                      style={fieldStyle}
+                    />
+                  </label>
+                </div>
+
+                <SectionHeader title="Finans ve Resmi Bilgiler" />
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>IBAN</span>
+                    <input value={editIban} onChange={(event) => setEditIban(event.target.value)} style={fieldStyle} />
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Vergi Numarası</span>
+                    <input value={editTaxNumber} onChange={(event) => setEditTaxNumber(event.target.value)} style={fieldStyle} />
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Vergi Dairesi</span>
+                    <input value={editTaxOffice} onChange={(event) => setEditTaxOffice(event.target.value)} style={fieldStyle} />
+                  </label>
+                </div>
+
+                <SectionHeader title="Acil Durum" />
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Yakını Ad Soyad</span>
+                    <input
+                      value={editEmergencyContactName}
+                      onChange={(event) => setEditEmergencyContactName(event.target.value)}
+                      style={fieldStyle}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Yakını Telefon</span>
+                    <input
+                      value={editEmergencyContactPhone}
+                      onChange={(event) => setEditEmergencyContactPhone(event.target.value)}
                       style={fieldStyle}
                     />
                   </label>
@@ -734,6 +810,23 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
         {label}
       </span>
       <span style={{ fontWeight: 800 }}>{value || "-"}</span>
+    </div>
+  );
+}
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div
+      style={{
+        paddingTop: "2px",
+        color: "var(--accent-strong)",
+        fontSize: "0.68rem",
+        fontWeight: 900,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+      }}
+    >
+      {title}
     </div>
   );
 }

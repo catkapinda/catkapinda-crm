@@ -93,6 +93,12 @@ def fetch_recent_personnel_records(
             COALESCE(p.role, '') AS role,
             COALESCE(p.status, '') AS status,
             COALESCE(p.phone, '') AS phone,
+            COALESCE(p.address, '') AS address,
+            COALESCE(p.iban, '') AS iban,
+            COALESCE(p.tax_number, '') AS tax_number,
+            COALESCE(p.tax_office, '') AS tax_office,
+            COALESCE(p.emergency_contact_name, '') AS emergency_contact_name,
+            COALESCE(p.emergency_contact_phone, '') AS emergency_contact_phone,
             p.assigned_restaurant_id AS restaurant_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
             COALESCE(p.vehicle_type, '') AS vehicle_type,
@@ -147,6 +153,12 @@ def fetch_personnel_management_records(
             COALESCE(p.role, '') AS role,
             COALESCE(p.status, '') AS status,
             COALESCE(p.phone, '') AS phone,
+            COALESCE(p.address, '') AS address,
+            COALESCE(p.iban, '') AS iban,
+            COALESCE(p.tax_number, '') AS tax_number,
+            COALESCE(p.tax_office, '') AS tax_office,
+            COALESCE(p.emergency_contact_name, '') AS emergency_contact_name,
+            COALESCE(p.emergency_contact_phone, '') AS emergency_contact_phone,
             p.assigned_restaurant_id AS restaurant_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
             COALESCE(p.vehicle_type, '') AS vehicle_type,
@@ -170,6 +182,11 @@ def fetch_personnel_management_records(
             OR COALESCE(p.full_name, '') ILIKE %s
             OR COALESCE(p.person_code, '') ILIKE %s
             OR COALESCE(p.phone, '') ILIKE %s
+            OR COALESCE(p.iban, '') ILIKE %s
+            OR COALESCE(p.tax_number, '') ILIKE %s
+            OR COALESCE(p.tax_office, '') ILIKE %s
+            OR COALESCE(p.emergency_contact_name, '') ILIKE %s
+            OR COALESCE(p.emergency_contact_phone, '') ILIKE %s
             OR COALESCE(r.brand || ' - ' || r.branch, '') ILIKE %s
           )
         ORDER BY p.full_name, p.id DESC
@@ -180,6 +197,11 @@ def fetch_personnel_management_records(
             restaurant_id,
             role,
             role,
+            search_pattern,
+            search_pattern,
+            search_pattern,
+            search_pattern,
+            search_pattern,
             search_pattern,
             search_pattern,
             search_pattern,
@@ -211,6 +233,11 @@ def count_personnel_management_records(
             OR COALESCE(p.full_name, '') ILIKE %s
             OR COALESCE(p.person_code, '') ILIKE %s
             OR COALESCE(p.phone, '') ILIKE %s
+            OR COALESCE(p.iban, '') ILIKE %s
+            OR COALESCE(p.tax_number, '') ILIKE %s
+            OR COALESCE(p.tax_office, '') ILIKE %s
+            OR COALESCE(p.emergency_contact_name, '') ILIKE %s
+            OR COALESCE(p.emergency_contact_phone, '') ILIKE %s
             OR COALESCE(r.brand || ' - ' || r.branch, '') ILIKE %s
           )
         """,
@@ -219,6 +246,11 @@ def count_personnel_management_records(
             restaurant_id,
             role,
             role,
+            search_pattern,
+            search_pattern,
+            search_pattern,
+            search_pattern,
+            search_pattern,
             search_pattern,
             search_pattern,
             search_pattern,
@@ -242,6 +274,12 @@ def fetch_personnel_record_by_id(
             COALESCE(p.role, '') AS role,
             COALESCE(p.status, '') AS status,
             COALESCE(p.phone, '') AS phone,
+            COALESCE(p.address, '') AS address,
+            COALESCE(p.iban, '') AS iban,
+            COALESCE(p.tax_number, '') AS tax_number,
+            COALESCE(p.tax_office, '') AS tax_office,
+            COALESCE(p.emergency_contact_name, '') AS emergency_contact_name,
+            COALESCE(p.emergency_contact_phone, '') AS emergency_contact_phone,
             p.assigned_restaurant_id AS restaurant_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
             COALESCE(p.vehicle_type, '') AS vehicle_type,
@@ -292,6 +330,12 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             role,
             status,
             phone,
+            address,
+            iban,
+            tax_number,
+            tax_office,
+            emergency_contact_name,
+            emergency_contact_phone,
             accounting_type,
             new_company_setup,
             assigned_restaurant_id,
@@ -310,7 +354,7 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             monthly_fixed_cost,
             notes
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
         """,
         (
@@ -319,6 +363,12 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             values["role"],
             values["status"],
             values["phone"],
+            values["address"],
+            values["iban"],
+            values["tax_number"],
+            values["tax_office"],
+            values["emergency_contact_name"],
+            values["emergency_contact_phone"],
             values["accounting_type"],
             values["new_company_setup"],
             values["assigned_restaurant_id"],
@@ -355,6 +405,12 @@ def update_personnel_record(
             role = %s,
             status = %s,
             phone = %s,
+            address = %s,
+            iban = %s,
+            tax_number = %s,
+            tax_office = %s,
+            emergency_contact_name = %s,
+            emergency_contact_phone = %s,
             assigned_restaurant_id = %s,
             vehicle_type = %s,
             motor_rental = %s,
@@ -378,6 +434,12 @@ def update_personnel_record(
             values["role"],
             values["status"],
             values["phone"],
+            values["address"],
+            values["iban"],
+            values["tax_number"],
+            values["tax_office"],
+            values["emergency_contact_name"],
+            values["emergency_contact_phone"],
             values["assigned_restaurant_id"],
             values["vehicle_type"],
             values["motor_rental"],

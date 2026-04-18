@@ -157,6 +157,12 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS motor_purchase_commitment_months BIGINT",
     "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS motor_purchase_sale_price NUMERIC NOT NULL DEFAULT 0",
     "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS motor_purchase_monthly_deduction NUMERIC NOT NULL DEFAULT 0",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS address TEXT",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS iban TEXT",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS tax_number TEXT",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS tax_office TEXT",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT",
     """
     CREATE TABLE IF NOT EXISTS sales_leads (
         id BIGSERIAL PRIMARY KEY,
@@ -344,6 +350,9 @@ LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
     ),
     "personnel": (
         ("address", "ALTER TABLE personnel ADD COLUMN address TEXT"),
+        ("iban", "ALTER TABLE personnel ADD COLUMN iban TEXT"),
+        ("tax_number", "ALTER TABLE personnel ADD COLUMN tax_number TEXT"),
+        ("tax_office", "ALTER TABLE personnel ADD COLUMN tax_office TEXT"),
         ("emergency_contact_name", "ALTER TABLE personnel ADD COLUMN emergency_contact_name TEXT"),
         ("emergency_contact_phone", "ALTER TABLE personnel ADD COLUMN emergency_contact_phone TEXT"),
         ("motor_rental_monthly_amount", "ALTER TABLE personnel ADD COLUMN motor_rental_monthly_amount REAL DEFAULT 13000"),

@@ -44,6 +44,12 @@ class PersonnelManagementEntry(BaseModel):
     role: str
     status: str
     phone: str
+    address: str
+    iban: str
+    tax_number: str
+    tax_office: str
+    emergency_contact_name: str
+    emergency_contact_phone: str
     restaurant_id: int | None
     restaurant_label: str
     vehicle_mode: str
@@ -167,6 +173,12 @@ class PersonnelCreateRequest(BaseModel):
     full_name: str
     role: str
     phone: str = ""
+    address: str = ""
+    iban: str = ""
+    tax_number: str = ""
+    tax_office: str = ""
+    emergency_contact_name: str = ""
+    emergency_contact_phone: str = ""
     assigned_restaurant_id: int | None = None
     status: str = "Aktif"
     start_date: date | None = None
@@ -218,6 +230,12 @@ class PersonnelUpdateRequest(BaseModel):
     full_name: str
     role: str
     phone: str = ""
+    address: str = ""
+    iban: str = ""
+    tax_number: str = ""
+    tax_office: str = ""
+    emergency_contact_name: str = ""
+    emergency_contact_phone: str = ""
     assigned_restaurant_id: int | None = None
     status: str = "Aktif"
     start_date: date | None = None

@@ -41,6 +41,12 @@ export function PersonnelEntryWorkspace() {
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("Kurye");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [iban, setIban] = useState("");
+  const [taxNumber, setTaxNumber] = useState("");
+  const [taxOffice, setTaxOffice] = useState("");
+  const [emergencyContactName, setEmergencyContactName] = useState("");
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
   const [restaurantId, setRestaurantId] = useState<number | "">("");
   const [status, setStatus] = useState("Aktif");
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
@@ -103,6 +109,12 @@ export function PersonnelEntryWorkspace() {
         full_name: fullName,
         role,
         phone,
+        address,
+        iban,
+        tax_number: taxNumber,
+        tax_office: taxOffice,
+        emergency_contact_name: emergencyContactName,
+        emergency_contact_phone: emergencyContactPhone,
         assigned_restaurant_id: typeof restaurantId === "number" ? restaurantId : null,
         status,
         start_date: startDate || null,
@@ -126,6 +138,12 @@ export function PersonnelEntryWorkspace() {
     setGeneratedCode(payload?.person_code || "");
     setFullName("");
     setPhone("");
+    setAddress("");
+    setIban("");
+    setTaxNumber("");
+    setTaxOffice("");
+    setEmergencyContactName("");
+    setEmergencyContactPhone("");
     setCurrentPlate("");
     setMonthlyFixedCost("0");
     setNotes("");
@@ -148,8 +166,7 @@ export function PersonnelEntryWorkspace() {
       <div>
         <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Personel Kaydı</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Kimlik, rol ve şube atamasini puantaj v2 ile aynı hizda parcali ekran mantigina
-          taşıyan ilk personel slice.
+          Personelin operasyon, finans ve acil durum bilgilerini tek temiz kartta oluştur.
         </p>
       </div>
 
@@ -186,6 +203,7 @@ export function PersonnelEntryWorkspace() {
                 gap: "14px",
               }}
             >
+              <SectionHeader title="Temel Bilgiler" />
               <div
                 style={{
                   display: "grid",
@@ -210,6 +228,10 @@ export function PersonnelEntryWorkspace() {
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Telefon</span>
                   <input value={phone} onChange={(event) => setPhone(event.target.value)} style={fieldStyle} />
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Adres</span>
+                  <input value={address} onChange={(event) => setAddress(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Durum</span>
@@ -266,6 +288,54 @@ export function PersonnelEntryWorkspace() {
                     inputMode="decimal"
                     value={monthlyFixedCost}
                     onChange={(event) => setMonthlyFixedCost(event.target.value)}
+                    style={fieldStyle}
+                  />
+                </label>
+              </div>
+
+              <SectionHeader title="Finans ve Resmi Bilgiler" />
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "14px",
+                }}
+              >
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>IBAN</span>
+                  <input value={iban} onChange={(event) => setIban(event.target.value)} style={fieldStyle} />
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Vergi Numarası</span>
+                  <input value={taxNumber} onChange={(event) => setTaxNumber(event.target.value)} style={fieldStyle} />
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Vergi Dairesi</span>
+                  <input value={taxOffice} onChange={(event) => setTaxOffice(event.target.value)} style={fieldStyle} />
+                </label>
+              </div>
+
+              <SectionHeader title="Acil Durum" />
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "14px",
+                }}
+              >
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Yakını Ad Soyad</span>
+                  <input
+                    value={emergencyContactName}
+                    onChange={(event) => setEmergencyContactName(event.target.value)}
+                    style={fieldStyle}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Yakını Telefon</span>
+                  <input
+                    value={emergencyContactPhone}
+                    onChange={(event) => setEmergencyContactPhone(event.target.value)}
                     style={fieldStyle}
                   />
                 </label>
@@ -331,6 +401,23 @@ export function PersonnelEntryWorkspace() {
         </form>
       )}
     </section>
+  );
+}
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div
+      style={{
+        paddingTop: "4px",
+        color: "var(--accent-strong)",
+        fontSize: "0.72rem",
+        fontWeight: 900,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+      }}
+    >
+      {title}
+    </div>
   );
 }
 

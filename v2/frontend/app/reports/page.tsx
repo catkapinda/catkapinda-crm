@@ -403,6 +403,206 @@ function ScrollCard({
   );
 }
 
+function ExecutiveReportChart({ dashboard }: { dashboard: ReportsDashboard }) {
+  const summary = dashboard.summary;
+  if (!summary) {
+    return null;
+  }
+
+  const topRestaurants = dashboard.top_restaurants.slice(0, 5);
+  const maxRestaurantInvoice = Math.max(
+    ...topRestaurants.map((item) => item.gross_invoice || 0),
+    1,
+  );
+  const totals = [
+    { label: "Fatura", value: summary.total_revenue, color: "rgba(15, 95, 215, 0.92)" },
+    { label: "Kurye Maliyeti", value: summary.total_personnel_cost, color: "rgba(185, 116, 41, 0.88)" },
+    { label: "Brüt Fark", value: summary.gross_profit, color: "rgba(31, 151, 112, 0.9)" },
+  ];
+  const maxTotal = Math.max(...totals.map((item) => Math.abs(item.value || 0)), 1);
+  const marginPercent = summary.total_revenue
+    ? (summary.gross_profit / summary.total_revenue) * 100
+    : 0;
+
+  return (
+    <section
+      style={{
+        borderRadius: "24px",
+        border: "1px solid rgba(219, 228, 243, 0.86)",
+        background:
+          "radial-gradient(circle at 12% 20%, rgba(15,95,215,0.12), transparent 30%), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,244,236,0.92))",
+        boxShadow: "0 22px 58px rgba(20, 39, 67, 0.1)",
+        padding: "18px",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        gap: "18px",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ display: "grid", gap: "16px" }}>
+        <div>
+          <div
+            style={{
+              color: "var(--accent-strong)",
+              fontSize: "0.68rem",
+              fontWeight: 900,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            Finans Nabzı
+          </div>
+          <h2
+            style={{
+              ...serifStyle,
+              margin: "6px 0 0",
+              fontSize: "1.7rem",
+              lineHeight: 0.98,
+              fontWeight: 700,
+            }}
+          >
+            Restoran faturası, kurye maliyeti ve fark tek grafikte.
+          </h2>
+        </div>
+
+        <div style={{ display: "grid", gap: "11px" }}>
+          {totals.map((item) => {
+            const width = Math.max((Math.abs(item.value || 0) / maxTotal) * 100, item.value ? 8 : 0);
+            return (
+              <div key={item.label} style={{ display: "grid", gap: "6px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "0.86rem" }}>
+                  <strong>{item.label}</strong>
+                  <span style={{ color: "var(--muted)", fontWeight: 800 }}>{formatMoney(item.value)}</span>
+                </div>
+                <div
+                  style={{
+                    height: "18px",
+                    borderRadius: "999px",
+                    background: "rgba(24,40,59,0.08)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${width}%`,
+                      height: "100%",
+                      borderRadius: "999px",
+                      background: item.color,
+                      boxShadow: "0 10px 24px rgba(20,39,67,0.12)",
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+            gap: "10px",
+          }}
+        >
+          {[
+            ["Marj", `%${formatNumber(marginPercent, 1)}`],
+            ["Saat", formatNumber(summary.total_hours, 1)],
+            ["Paket", formatNumber(summary.total_packages, 0)],
+            ["Yan Gelir", formatMoney(summary.side_income_net)],
+          ].map(([label, value]) => (
+            <article
+              key={label}
+              style={{
+                padding: "11px 12px",
+                borderRadius: "16px",
+                border: "1px solid rgba(219, 228, 243, 0.82)",
+                background: "rgba(255,255,255,0.72)",
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--muted)",
+                  fontSize: "0.66rem",
+                  fontWeight: 900,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {label}
+              </div>
+              <div style={{ marginTop: "5px", fontWeight: 900, fontSize: "1rem" }}>{value}</div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gap: "12px",
+          padding: "14px",
+          borderRadius: "20px",
+          background: "rgba(24, 40, 59, 0.96)",
+          color: "#fff7ea",
+        }}
+      >
+        <div>
+          <div
+            style={{
+              color: "rgba(255,247,234,0.62)",
+              fontSize: "0.66rem",
+              fontWeight: 900,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            En Yüksek Fatura
+          </div>
+          <div style={{ marginTop: "5px", fontWeight: 900 }}>
+            {topRestaurants.length ? "İlk 5 restoran" : "Restoran faturası bekleniyor"}
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: "10px" }}>
+          {topRestaurants.map((item, index) => (
+            <div key={`${item.restaurant}-${item.pricing_model}`} style={{ display: "grid", gap: "6px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontSize: "0.84rem" }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {index + 1}. {item.restaurant}
+                </span>
+                <strong>{formatMoney(item.gross_invoice)}</strong>
+              </div>
+              <div
+                style={{
+                  height: "10px",
+                  borderRadius: "999px",
+                  background: "rgba(255,247,234,0.12)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${Math.max((item.gross_invoice / maxRestaurantInvoice) * 100, 6)}%`,
+                    height: "100%",
+                    borderRadius: "999px",
+                    background:
+                      "linear-gradient(90deg, rgba(255,247,234,0.95), rgba(222,165,92,0.94))",
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+          {!topRestaurants.length ? (
+            <div style={{ color: "rgba(255,247,234,0.66)", lineHeight: 1.55, fontSize: "0.84rem" }}>
+              Puantaj ve fiyat modeli geldiğinde restoran fatura sıralaması burada açılacak.
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function ReportsPage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<ReportsDashboard | null>(null);
@@ -1173,6 +1373,8 @@ export default function ReportsPage() {
             >
               {signalCards}
             </div>
+
+            <ExecutiveReportChart dashboard={dashboard} />
 
             <div
               style={{
