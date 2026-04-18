@@ -247,6 +247,7 @@ export default function AttendancePage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<AttendanceDashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -258,6 +259,7 @@ export default function AttendancePage() {
       if (!user) {
         if (active) {
           setDashboard(null);
+          setDashboardError("");
           setDashboardLoading(false);
         }
         return;
@@ -269,16 +271,25 @@ export default function AttendancePage() {
         if (!response.ok) {
           if (active) {
             setDashboard(null);
+            setDashboardError(
+              response.status === 401
+                ? "Puantaj verisi için oturum doğrulaması tamamlanamadı. Lütfen bir kez çıkış yapıp yeniden giriş yap."
+                : "Puantaj verisi şu anda alınamadı. Bağlantı geri geldiğinde bu yüzey ritmi ve son hareketleri gerçek veriden gösterecek.",
+            );
           }
           return;
         }
         const payload = (await response.json()) as AttendanceDashboard;
         if (active) {
           setDashboard(payload);
+          setDashboardError("");
         }
       } catch {
         if (active) {
           setDashboard(null);
+          setDashboardError(
+            "Puantaj verisine şu anda ulaşılamıyor. Ağ bağlantısı geri geldiğinde ekran otomatik güncellenecek.",
+          );
         }
       } finally {
         if (active) {
@@ -600,8 +611,8 @@ export default function AttendancePage() {
               background: "rgba(255, 250, 241, 0.82)",
             }}
           >
-            Attendance backend şu anda cevap vermiyor. Veri geri geldiğinde bu yeni yüzey puantaj
-            ritmini, son hareketleri ve aylık nabzı aynı çerçevede gösterecek.
+            {dashboardError ||
+              "Attendance backend şu anda cevap vermiyor. Veri geri geldiğinde bu yeni yüzey puantaj ritmini, son hareketleri ve aylık nabzı aynı çerçevede gösterecek."}
           </div>
         ) : (
           <>

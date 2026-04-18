@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
+const AUTH_SESSION_COOKIE_NAME = "ck_v2_auth_token";
+const AUTH_PRESENCE_COOKIE_NAME = "ck_v2_auth_present";
 
 function normalizeProxyTarget(rawTarget?: string) {
   if (!rawTarget) {
@@ -69,6 +71,49 @@ async function proxyAuthRequest(request: NextRequest, pathSegments: string[]) {
   }
 
   const responseBody = await upstreamResponse.text();
+  const targetAction = targetPath.toLowerCase();
+  const isJsonResponse = (upstreamContentType || "").toLowerCase().includes("application/json");
+
+  if (upstreamResponse.ok && isJsonResponse && (targetAction === "login" || targetAction === "verify-phone-code")) {
+    try {
+      const payload = JSON.parse(responseBody) as {
+        access_token?: string;
+        expires_at?: string;
+      };
+      const token = String(payload.access_token || "").trim();
+      const expiresAt = String(payload.expires_at || "").trim();
+      if (token) {
+        const nowMs = Date.now();
+        const expiryMs = Date.parse(expiresAt);
+        const fallbackMaxAge = 30 * 24 * 60 * 60;
+        const maxAge = Number.isFinite(expiryMs) && expiryMs > nowMs
+          ? Math.max(Math.floor((expiryMs - nowMs) / 1000), 1)
+          : fallbackMaxAge;
+        responseHeaders.append(
+          "set-cookie",
+          `${AUTH_SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`,
+        );
+        responseHeaders.append(
+          "set-cookie",
+          `${AUTH_PRESENCE_COOKIE_NAME}=1; Path=/; Secure; SameSite=Lax; Max-Age=${maxAge}`,
+        );
+      }
+    } catch {
+      // Pass through the upstream body even if cookie synthesis fails.
+    }
+  }
+
+  if (targetAction === "logout") {
+    responseHeaders.append(
+      "set-cookie",
+      `${AUTH_SESSION_COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+    );
+    responseHeaders.append(
+      "set-cookie",
+      `${AUTH_PRESENCE_COOKIE_NAME}=; Path=/; Secure; SameSite=Lax; Max-Age=0`,
+    );
+  }
+
   return new Response(responseBody, {
     status: upstreamResponse.status,
     headers: responseHeaders,

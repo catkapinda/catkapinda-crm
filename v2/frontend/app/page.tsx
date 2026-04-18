@@ -580,6 +580,7 @@ export default function HomePage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<OverviewDashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -591,6 +592,7 @@ export default function HomePage() {
       if (!user) {
         if (active) {
           setDashboard(null);
+          setDashboardError("");
           setDashboardLoading(false);
         }
         return;
@@ -602,16 +604,25 @@ export default function HomePage() {
         if (!response.ok) {
           if (active) {
             setDashboard(null);
+            setDashboardError(
+              response.status === 401
+                ? "Genel bakış verisi için oturum doğrulaması tamamlanamadı. Lütfen bir kez çıkış yapıp yeniden giriş yap."
+                : "Genel bakış verisi şu anda alınamadı. Bağlantı geri geldiğinde ekran otomatik olarak gerçek operasyon nabzını gösterecek.",
+            );
           }
           return;
         }
         const payload = (await response.json()) as OverviewDashboard;
         if (active) {
           setDashboard(payload);
+          setDashboardError("");
         }
       } catch {
         if (active) {
           setDashboard(null);
+          setDashboardError(
+            "Genel bakış verisine şu anda ulaşılamıyor. Ağ bağlantısı geri geldiğinde ekran otomatik güncellenecek.",
+          );
         }
       } finally {
         if (active) {
@@ -899,8 +910,8 @@ export default function HomePage() {
               background: "rgba(255, 250, 241, 0.82)",
             }}
           >
-            Genel bakış servisi şu anda cevap vermiyor. Veri geri geldiğinde bu yeni yüzey gerçek
-            operasyon nabzını ve son hareketleri daha güçlü bir dille gösterecek.
+            {dashboardError ||
+              "Genel bakış servisi şu anda cevap vermiyor. Veri geri geldiğinde bu yeni yüzey gerçek operasyon nabzını ve son hareketleri daha güçlü bir dille gösterecek."}
           </div>
         ) : (
           <>

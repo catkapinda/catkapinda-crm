@@ -182,6 +182,7 @@ export default function DeductionsPage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<DeductionsDashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -193,6 +194,7 @@ export default function DeductionsPage() {
       if (!user) {
         if (active) {
           setDashboard(null);
+          setDashboardError("");
           setDashboardLoading(false);
         }
         return;
@@ -204,16 +206,25 @@ export default function DeductionsPage() {
         if (!response.ok) {
           if (active) {
             setDashboard(null);
+            setDashboardError(
+              response.status === 401
+                ? "Kesinti verisi için oturum doğrulaması tamamlanamadı. Lütfen bir kez çıkış yapıp yeniden giriş yap."
+                : "Kesinti verisi şu anda alınamadı. Bağlantı geri geldiğinde ekran özetleri ve son kayıtları gerçek veriden gösterecek.",
+            );
           }
           return;
         }
         const payload = (await response.json()) as DeductionsDashboard;
         if (active) {
           setDashboard(payload);
+          setDashboardError("");
         }
       } catch {
         if (active) {
           setDashboard(null);
+          setDashboardError(
+            "Kesinti verisine şu anda ulaşılamıyor. Ağ bağlantısı geri geldiğinde ekran otomatik güncellenecek.",
+          );
         }
       } finally {
         if (active) {
@@ -563,8 +574,8 @@ export default function DeductionsPage() {
               lineHeight: 1.7,
             }}
           >
-            Deductions API su anda erisilebilir değil. Backend ayağa kalktiginda bu ekran
-            kesinti özetini ve son kayıtları gerçek veriden gösterecek.
+            {dashboardError ||
+              "Deductions API su anda erisilebilir değil. Backend ayağa kalktiginda bu ekran kesinti özetini ve son kayıtları gerçek veriden gösterecek."}
           </div>
         ) : (
           <>
