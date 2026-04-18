@@ -7,6 +7,18 @@ import psycopg
 from app.core.database import is_sqlite_backend
 
 
+def _audit_text_sql(column: str) -> str:
+    return f"COALESCE(CAST({column} AS TEXT), '')"
+
+
+def _optional_text_equality_sql(column: str) -> str:
+    return f"(%s::text IS NULL OR {_audit_text_sql(column)} = %s::text)"
+
+
+def _optional_text_search_guard_sql() -> str:
+    return "%s::text IS NULL"
+
+
 def fetch_audit_summary(conn: psycopg.Connection) -> dict[str, int]:
     last_7_days_cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat(timespec="seconds")
     if is_sqlite_backend(conn):
@@ -23,14 +35,14 @@ def fetch_audit_summary(conn: psycopg.Connection) -> dict[str, int]:
         ).fetchone()
     else:
         row = conn.execute(
-            """
+            f"""
             SELECT
                 COUNT(*) AS total_entries,
                 COUNT(*) FILTER (
                     WHERE created_at >= %s
                 ) AS last_7_days,
-                COUNT(DISTINCT COALESCE(NULLIF(actor_username, ''), actor_full_name, 'unknown')) AS unique_actors,
-                COUNT(DISTINCT COALESCE(NULLIF(entity_type, ''), 'unknown')) AS unique_entities
+                COUNT(DISTINCT COALESCE(NULLIF({_audit_text_sql('actor_username')}, ''), {_audit_text_sql('actor_full_name')}, 'unknown')) AS unique_actors,
+                COUNT(DISTINCT COALESCE(NULLIF({_audit_text_sql('entity_type')}, ''), 'unknown')) AS unique_entities
             FROM audit_logs
             """,
             (last_7_days_cutoff,),
@@ -56,18 +68,18 @@ def fetch_recent_audit_records(
     limit: int,
 ) -> list[dict]:
     rows = conn.execute(
-        """
+        f"""
         SELECT
             id,
             created_at,
-            COALESCE(actor_username, '') AS actor_username,
-            COALESCE(actor_full_name, '') AS actor_full_name,
-            COALESCE(actor_role, '') AS actor_role,
-            COALESCE(entity_type, '') AS entity_type,
-            COALESCE(entity_id, '') AS entity_id,
-            COALESCE(action_type, '') AS action_type,
-            COALESCE(summary, '') AS summary,
-            COALESCE(details_json, '') AS details_json
+            {_audit_text_sql('actor_username')} AS actor_username,
+            {_audit_text_sql('actor_full_name')} AS actor_full_name,
+            {_audit_text_sql('actor_role')} AS actor_role,
+            {_audit_text_sql('entity_type')} AS entity_type,
+            {_audit_text_sql('entity_id')} AS entity_id,
+            {_audit_text_sql('action_type')} AS action_type,
+            {_audit_text_sql('summary')} AS summary,
+            {_audit_text_sql('details_json')} AS details_json
         FROM audit_logs
         ORDER BY created_at DESC, id DESC
         LIMIT %s
@@ -88,29 +100,29 @@ def fetch_audit_management_records(
 ) -> list[dict]:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     rows = conn.execute(
-        """
+        f"""
         SELECT
             id,
             created_at,
-            COALESCE(actor_username, '') AS actor_username,
-            COALESCE(actor_full_name, '') AS actor_full_name,
-            COALESCE(actor_role, '') AS actor_role,
-            COALESCE(entity_type, '') AS entity_type,
-            COALESCE(entity_id, '') AS entity_id,
-            COALESCE(action_type, '') AS action_type,
-            COALESCE(summary, '') AS summary,
-            COALESCE(details_json, '') AS details_json
+            {_audit_text_sql('actor_username')} AS actor_username,
+            {_audit_text_sql('actor_full_name')} AS actor_full_name,
+            {_audit_text_sql('actor_role')} AS actor_role,
+            {_audit_text_sql('entity_type')} AS entity_type,
+            {_audit_text_sql('entity_id')} AS entity_id,
+            {_audit_text_sql('action_type')} AS action_type,
+            {_audit_text_sql('summary')} AS summary,
+            {_audit_text_sql('details_json')} AS details_json
         FROM audit_logs
-        WHERE (%s IS NULL OR action_type = %s)
-          AND (%s IS NULL OR entity_type = %s)
-          AND (%s IS NULL OR actor_full_name = %s)
+        WHERE {_optional_text_equality_sql('action_type')}
+          AND {_optional_text_equality_sql('entity_type')}
+          AND {_optional_text_equality_sql('actor_full_name')}
           AND (
-            %s IS NULL
-            OR COALESCE(summary, '') ILIKE %s
-            OR COALESCE(details_json, '') ILIKE %s
-            OR COALESCE(entity_id, '') ILIKE %s
-            OR COALESCE(actor_full_name, '') ILIKE %s
-            OR COALESCE(actor_username, '') ILIKE %s
+            {_optional_text_search_guard_sql()}
+            OR {_audit_text_sql('summary')} ILIKE %s
+            OR {_audit_text_sql('details_json')} ILIKE %s
+            OR {_audit_text_sql('entity_id')} ILIKE %s
+            OR {_audit_text_sql('actor_full_name')} ILIKE %s
+            OR {_audit_text_sql('actor_username')} ILIKE %s
           )
         ORDER BY created_at DESC, id DESC
         LIMIT %s
@@ -144,19 +156,19 @@ def count_audit_management_records(
 ) -> int:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM audit_logs
-        WHERE (%s IS NULL OR action_type = %s)
-          AND (%s IS NULL OR entity_type = %s)
-          AND (%s IS NULL OR actor_full_name = %s)
+        WHERE {_optional_text_equality_sql('action_type')}
+          AND {_optional_text_equality_sql('entity_type')}
+          AND {_optional_text_equality_sql('actor_full_name')}
           AND (
-            %s IS NULL
-            OR COALESCE(summary, '') ILIKE %s
-            OR COALESCE(details_json, '') ILIKE %s
-            OR COALESCE(entity_id, '') ILIKE %s
-            OR COALESCE(actor_full_name, '') ILIKE %s
-            OR COALESCE(actor_username, '') ILIKE %s
+            {_optional_text_search_guard_sql()}
+            OR {_audit_text_sql('summary')} ILIKE %s
+            OR {_audit_text_sql('details_json')} ILIKE %s
+            OR {_audit_text_sql('entity_id')} ILIKE %s
+            OR {_audit_text_sql('actor_full_name')} ILIKE %s
+            OR {_audit_text_sql('actor_username')} ILIKE %s
           )
         """,
         (
@@ -179,26 +191,26 @@ def count_audit_management_records(
 
 def fetch_audit_filter_options(conn: psycopg.Connection) -> dict[str, list[str]]:
     action_rows = conn.execute(
-        """
-        SELECT DISTINCT COALESCE(action_type, '') AS value
+        f"""
+        SELECT DISTINCT {_audit_text_sql('action_type')} AS value
         FROM audit_logs
-        WHERE COALESCE(action_type, '') <> ''
+        WHERE {_audit_text_sql('action_type')} <> ''
         ORDER BY value
         """
     ).fetchall()
     entity_rows = conn.execute(
-        """
-        SELECT DISTINCT COALESCE(entity_type, '') AS value
+        f"""
+        SELECT DISTINCT {_audit_text_sql('entity_type')} AS value
         FROM audit_logs
-        WHERE COALESCE(entity_type, '') <> ''
+        WHERE {_audit_text_sql('entity_type')} <> ''
         ORDER BY value
         """
     ).fetchall()
     actor_rows = conn.execute(
-        """
-        SELECT DISTINCT COALESCE(actor_full_name, '') AS value
+        f"""
+        SELECT DISTINCT {_audit_text_sql('actor_full_name')} AS value
         FROM audit_logs
-        WHERE COALESCE(actor_full_name, '') <> ''
+        WHERE {_audit_text_sql('actor_full_name')} <> ''
         ORDER BY value
         """
     ).fetchall()

@@ -13,6 +13,22 @@ def _active_is_false_sql(column: str = "r.active") -> str:
     return f"NOT ({_active_is_true_sql(column)})"
 
 
+def _optional_text_equality_sql(column: str) -> str:
+    return f"(%s::text IS NULL OR COALESCE(CAST({column} AS TEXT), '') = %s::text)"
+
+
+def _optional_boolean_filter_sql(column: str) -> str:
+    return f"(%s::boolean IS NULL OR {_active_is_true_sql(column)} = %s::boolean)"
+
+
+def _optional_text_search_guard_sql() -> str:
+    return "%s::text IS NULL"
+
+
+def _active_storage_value(value: bool) -> int:
+    return 1 if bool(value) else 0
+
+
 def _restaurant_select_sql() -> str:
     return f"""
         SELECT
@@ -113,10 +129,10 @@ def fetch_restaurant_management_records(
     rows = conn.execute(
         f"""
         {_restaurant_select_sql()}
-        WHERE (%s IS NULL OR r.pricing_model = %s)
-          AND (%s IS NULL OR {_active_is_true_sql('r.active')} = %s)
+        WHERE {_optional_text_equality_sql('r.pricing_model')}
+          AND {_optional_boolean_filter_sql('r.active')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR COALESCE(CAST(r.brand AS TEXT), '') ILIKE %s
             OR COALESCE(CAST(r.branch AS TEXT), '') ILIKE %s
             OR COALESCE(CAST(r.contact_name AS TEXT), '') ILIKE %s
@@ -157,10 +173,10 @@ def count_restaurant_management_records(
         f"""
         SELECT COUNT(*) AS total_count
         FROM restaurants r
-        WHERE (%s IS NULL OR r.pricing_model = %s)
-          AND (%s IS NULL OR {_active_is_true_sql('r.active')} = %s)
+        WHERE {_optional_text_equality_sql('r.pricing_model')}
+          AND {_optional_boolean_filter_sql('r.active')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR COALESCE(CAST(r.brand AS TEXT), '') ILIKE %s
             OR COALESCE(CAST(r.branch AS TEXT), '') ILIKE %s
             OR COALESCE(CAST(r.contact_name AS TEXT), '') ILIKE %s
@@ -264,7 +280,7 @@ def insert_restaurant_record(conn: psycopg.Connection, values: dict) -> int:
             values["address"],
             values["tax_office"],
             values["tax_number"],
-            values["active"],
+            _active_storage_value(bool(values["active"])),
             values["notes"],
         ),
     ).fetchone()
@@ -333,7 +349,7 @@ def update_restaurant_record(
             values["address"],
             values["tax_office"],
             values["tax_number"],
-            values["active"],
+            _active_storage_value(bool(values["active"])),
             values["notes"],
             restaurant_id,
         ),
@@ -341,7 +357,10 @@ def update_restaurant_record(
 
 
 def update_restaurant_status(conn: psycopg.Connection, restaurant_id: int, *, active: bool) -> None:
-    conn.execute("UPDATE restaurants SET active = %s WHERE id = %s", (active, restaurant_id))
+    conn.execute(
+        "UPDATE restaurants SET active = %s WHERE id = %s",
+        (_active_storage_value(active), restaurant_id),
+    )
 
 
 def delete_restaurant_record(conn: psycopg.Connection, restaurant_id: int) -> None:

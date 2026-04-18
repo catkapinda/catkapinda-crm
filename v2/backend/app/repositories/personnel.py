@@ -20,6 +20,22 @@ def _truthy_sql(column: str) -> str:
     return f"COALESCE(LOWER(CAST({column} AS TEXT)), 'false') IN ('1', 't', 'true')"
 
 
+def _optional_bigint_filter_sql(column: str) -> str:
+    return f"(%s::bigint IS NULL OR {column} = %s::bigint)"
+
+
+def _optional_text_equality_sql(column: str) -> str:
+    return f"(%s::text IS NULL OR COALESCE(CAST({column} AS TEXT), '') = %s::text)"
+
+
+def _optional_text_search_guard_sql() -> str:
+    return "%s::text IS NULL"
+
+
+def _active_storage_value(value: bool) -> int:
+    return 1 if bool(value) else 0
+
+
 def fetch_personnel_summary(conn: psycopg.Connection) -> dict[str, int]:
     if is_sqlite_backend(conn):
         row = conn.execute(
@@ -69,7 +85,7 @@ def fetch_recent_personnel_records(
     limit: int,
 ) -> list[dict]:
     rows = conn.execute(
-        """
+        f"""
         SELECT
             p.id,
             COALESCE(p.person_code, '') AS person_code,
@@ -123,7 +139,7 @@ def fetch_personnel_management_records(
 ) -> list[dict]:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     rows = conn.execute(
-        """
+        f"""
         SELECT
             p.id,
             COALESCE(p.person_code, '') AS person_code,
@@ -147,10 +163,10 @@ def fetch_personnel_management_records(
             COALESCE(p.notes, '') AS notes
         FROM personnel p
         LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
-        WHERE (%s IS NULL OR p.assigned_restaurant_id = %s)
-          AND (%s IS NULL OR p.role = %s)
+        WHERE {_optional_bigint_filter_sql('p.assigned_restaurant_id')}
+          AND {_optional_text_equality_sql('p.role')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR COALESCE(p.full_name, '') ILIKE %s
             OR COALESCE(p.person_code, '') ILIKE %s
             OR COALESCE(p.phone, '') ILIKE %s
@@ -184,14 +200,14 @@ def count_personnel_management_records(
 ) -> int:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM personnel p
         LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
-        WHERE (%s IS NULL OR p.assigned_restaurant_id = %s)
-          AND (%s IS NULL OR p.role = %s)
+        WHERE {_optional_bigint_filter_sql('p.assigned_restaurant_id')}
+          AND {_optional_text_equality_sql('p.role')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR COALESCE(p.full_name, '') ILIKE %s
             OR COALESCE(p.person_code, '') ILIKE %s
             OR COALESCE(p.phone, '') ILIKE %s
@@ -260,7 +276,7 @@ def fetch_person_code_values(
         SELECT person_code
         FROM personnel
         WHERE person_code ILIKE %s
-          AND (%s IS NULL OR id <> %s)
+          AND (%s::bigint IS NULL OR id <> %s::bigint)
         """,
         (f"CK-{prefix}%", exclude_id, exclude_id),
     ).fetchall()
@@ -600,7 +616,7 @@ def close_active_plate_history_records(
         WHERE personnel_id = %s
           AND {_truthy_sql('active')}
         """,
-        (False, end_date, person_id),
+        (_active_storage_value(False), end_date, person_id),
     )
 
 
@@ -627,7 +643,7 @@ def insert_plate_history_record(
         VALUES (%s, %s, %s, %s, %s, %s)
         RETURNING id
         """,
-        (personnel_id, plate, start_date, end_date, reason, active),
+        (personnel_id, plate, start_date, end_date, reason, _active_storage_value(active)),
     ).fetchone()
     return int(row["id"])
 

@@ -15,6 +15,14 @@ def _purchase_text_sql(column: str) -> str:
     return f"COALESCE(CAST({column} AS TEXT), '')"
 
 
+def _optional_text_equality_sql(column: str) -> str:
+    return f"(%s::text IS NULL OR {_purchase_text_sql(column)} = %s::text)"
+
+
+def _optional_text_search_guard_sql() -> str:
+    return "%s::text IS NULL"
+
+
 def fetch_purchase_summary(
     conn: psycopg.Connection,
     *,
@@ -114,9 +122,9 @@ def fetch_purchase_management_records(
             {_purchase_text_sql('invoice_no')} AS invoice_no,
             {_purchase_text_sql('notes')} AS notes
         FROM inventory_purchases
-        WHERE (%s IS NULL OR item_name = %s)
+        WHERE {_optional_text_equality_sql('item_name')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR {_purchase_text_sql('item_name')} ILIKE %s
             OR {_purchase_text_sql('supplier')} ILIKE %s
             OR {_purchase_text_sql('invoice_no')} ILIKE %s
@@ -150,9 +158,9 @@ def count_purchase_management_records(
         f"""
         SELECT COUNT(*) AS total_count
         FROM inventory_purchases
-        WHERE (%s IS NULL OR item_name = %s)
+        WHERE {_optional_text_equality_sql('item_name')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR {_purchase_text_sql('item_name')} ILIKE %s
             OR {_purchase_text_sql('supplier')} ILIKE %s
             OR {_purchase_text_sql('invoice_no')} ILIKE %s

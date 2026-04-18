@@ -7,6 +7,18 @@ import psycopg
 from app.core.database import is_sqlite_backend
 
 
+def _optional_bigint_filter_sql(column: str) -> str:
+    return f"(%s::bigint IS NULL OR {column} = %s::bigint)"
+
+
+def _optional_text_equality_sql(column: str) -> str:
+    return f"(%s::text IS NULL OR COALESCE(CAST({column} AS TEXT), '') = %s::text)"
+
+
+def _optional_text_search_guard_sql() -> str:
+    return "%s::text IS NULL"
+
+
 def fetch_deduction_summary(
     conn: psycopg.Connection,
     *,
@@ -45,7 +57,7 @@ def fetch_recent_deduction_records(
     limit: int,
 ) -> list[dict]:
     rows = conn.execute(
-        """
+        f"""
         SELECT
             d.id,
             d.personnel_id,
@@ -92,7 +104,7 @@ def fetch_deduction_management_records(
 ) -> list[dict]:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     rows = conn.execute(
-        """
+        f"""
         SELECT
             d.id,
             d.personnel_id,
@@ -104,10 +116,10 @@ def fetch_deduction_management_records(
             COALESCE(d.auto_source_key, '') AS auto_source_key
         FROM deductions d
         LEFT JOIN personnel p ON p.id = d.personnel_id
-        WHERE (%s IS NULL OR d.personnel_id = %s)
-          AND (%s IS NULL OR d.deduction_type = %s)
+        WHERE {_optional_bigint_filter_sql('d.personnel_id')}
+          AND {_optional_text_equality_sql('d.deduction_type')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR COALESCE(p.full_name, '') ILIKE %s
             OR COALESCE(d.deduction_type, '') ILIKE %s
             OR COALESCE(d.notes, '') ILIKE %s
@@ -139,14 +151,14 @@ def count_deduction_management_records(
 ) -> int:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM deductions d
         LEFT JOIN personnel p ON p.id = d.personnel_id
-        WHERE (%s IS NULL OR d.personnel_id = %s)
-          AND (%s IS NULL OR d.deduction_type = %s)
+        WHERE {_optional_bigint_filter_sql('d.personnel_id')}
+          AND {_optional_text_equality_sql('d.deduction_type')}
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR COALESCE(p.full_name, '') ILIKE %s
             OR COALESCE(d.deduction_type, '') ILIKE %s
             OR COALESCE(d.notes, '') ILIKE %s

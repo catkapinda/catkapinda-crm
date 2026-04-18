@@ -9,6 +9,18 @@ def _restaurant_active_sql(column: str = "active") -> str:
     return f"COALESCE(LOWER(CAST({column} AS TEXT)), 'true') IN ('1', 't', 'true')"
 
 
+def _optional_bigint_filter_sql(column: str) -> str:
+    return f"(%s::bigint IS NULL OR {column} = %s::bigint)"
+
+
+def _optional_date_guard_sql() -> str:
+    return "%s::text IS NULL"
+
+
+def _optional_text_search_guard_sql() -> str:
+    return "%s::text IS NULL"
+
+
 def fetch_attendance_summary(
     conn: psycopg.Connection,
     *,
@@ -47,7 +59,7 @@ def fetch_recent_attendance_entries(
     limit: int,
 ) -> list[dict]:
     rows = conn.execute(
-        """
+        f"""
         SELECT
             d.id,
             d.entry_date,
@@ -178,7 +190,7 @@ def fetch_attendance_management_entries(
     date_from_text = date_from.isoformat() if date_from else None
     date_to_text = date_to.isoformat() if date_to else None
     rows = conn.execute(
-        """
+        f"""
         SELECT
             d.id,
             d.entry_date,
@@ -212,11 +224,11 @@ def fetch_attendance_management_entries(
         JOIN restaurants r ON r.id = d.restaurant_id
         LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
         LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
-        WHERE (%s IS NULL OR d.restaurant_id = %s)
-          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) >= %s)
-          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) <= %s)
+        WHERE {_optional_bigint_filter_sql('d.restaurant_id')}
+          AND ({_optional_date_guard_sql()} OR substr(COALESCE(d.entry_date, ''), 1, 10) >= %s::text)
+          AND ({_optional_date_guard_sql()} OR substr(COALESCE(d.entry_date, ''), 1, 10) <= %s::text)
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR r.brand || ' - ' || r.branch ILIKE %s
             OR COALESCE(pp.full_name, '') ILIKE %s
             OR COALESCE(ap.full_name, '') ILIKE %s
@@ -255,17 +267,17 @@ def count_attendance_management_entries(
     date_from_text = date_from.isoformat() if date_from else None
     date_to_text = date_to.isoformat() if date_to else None
     row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM daily_entries d
         JOIN restaurants r ON r.id = d.restaurant_id
         LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
         LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
-        WHERE (%s IS NULL OR d.restaurant_id = %s)
-          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) >= %s)
-          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) <= %s)
+        WHERE {_optional_bigint_filter_sql('d.restaurant_id')}
+          AND ({_optional_date_guard_sql()} OR substr(COALESCE(d.entry_date, ''), 1, 10) >= %s::text)
+          AND ({_optional_date_guard_sql()} OR substr(COALESCE(d.entry_date, ''), 1, 10) <= %s::text)
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR r.brand || ' - ' || r.branch ILIKE %s
             OR COALESCE(pp.full_name, '') ILIKE %s
             OR COALESCE(ap.full_name, '') ILIKE %s
@@ -301,17 +313,17 @@ def fetch_attendance_management_entry_ids(
     date_from_text = date_from.isoformat() if date_from else None
     date_to_text = date_to.isoformat() if date_to else None
     rows = conn.execute(
-        """
+        f"""
         SELECT d.id
         FROM daily_entries d
         JOIN restaurants r ON r.id = d.restaurant_id
         LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
         LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
-        WHERE (%s IS NULL OR d.restaurant_id = %s)
-          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) >= %s)
-          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) <= %s)
+        WHERE {_optional_bigint_filter_sql('d.restaurant_id')}
+          AND ({_optional_date_guard_sql()} OR substr(COALESCE(d.entry_date, ''), 1, 10) >= %s::text)
+          AND ({_optional_date_guard_sql()} OR substr(COALESCE(d.entry_date, ''), 1, 10) <= %s::text)
           AND (
-            %s IS NULL
+            {_optional_text_search_guard_sql()}
             OR r.brand || ' - ' || r.branch ILIKE %s
             OR COALESCE(pp.full_name, '') ILIKE %s
             OR COALESCE(ap.full_name, '') ILIKE %s
