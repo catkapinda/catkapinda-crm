@@ -736,7 +736,7 @@ export default function PurchasesPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Okuma Notu
+                  Alış Kontrolü
                 </div>
                 <div
                   style={{
@@ -745,8 +745,8 @@ export default function PurchasesPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce aylık fatura hacmini, sonra tedarikçi yoğunluğunu ve birim
-                  maliyeti kontrol edin.
+                  {dashboard?.summary.this_month_entries ?? 0} aylık kayıt, {dashboard?.summary.distinct_suppliers ?? 0} tedarikçi,
+                  {formatCurrency(dashboard?.summary.this_month_total_invoice ?? 0)} aylık fatura.
                 </div>
               </article>
             </div>

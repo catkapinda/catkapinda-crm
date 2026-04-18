@@ -153,6 +153,125 @@ function formatCurrency(value: number) {
   }).format(value || 0);
 }
 
+function financeBalanceGraph(finance: OverviewDashboard["finance"]) {
+  const rows = [
+    {
+      label: "Restoran faturası",
+      value: finance.total_revenue,
+      color: "linear-gradient(90deg, rgba(15,95,215,0.96), rgba(74,144,226,0.84))",
+    },
+    {
+      label: "Personel maliyeti",
+      value: finance.total_personnel_cost,
+      color: "linear-gradient(90deg, rgba(185,116,41,0.95), rgba(223,169,92,0.86))",
+    },
+    {
+      label: "Brüt fark",
+      value: finance.gross_profit,
+      color: "linear-gradient(90deg, rgba(31,151,112,0.95), rgba(75,190,142,0.84))",
+    },
+    {
+      label: "Yan gelir",
+      value: finance.side_income_net,
+      color: "linear-gradient(90deg, rgba(24,40,59,0.92), rgba(80,96,120,0.78))",
+    },
+  ];
+  const maxValue = Math.max(...rows.map((row) => Math.abs(row.value || 0)), 1);
+  const margin = finance.total_revenue > 0 ? (finance.gross_profit / finance.total_revenue) * 100 : 0;
+
+  return (
+    <article
+      style={{
+        borderRadius: "20px",
+        border: "1px solid rgba(219, 228, 243, 0.9)",
+        background:
+          "radial-gradient(circle at 12% 18%, rgba(15,95,215,0.12), transparent 30%), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(249,244,235,0.94))",
+        padding: "14px",
+        display: "grid",
+        gap: "12px",
+        boxShadow: "0 16px 42px rgba(20, 39, 67, 0.08)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "12px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <div
+            style={{
+              color: "var(--accent-strong)",
+              fontSize: "0.66rem",
+              fontWeight: 900,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+            }}
+          >
+            Finans Dengesi
+          </div>
+          <div style={{ marginTop: "4px", fontWeight: 900 }}>
+            {finance.selected_month ?? "Seçili ay"}
+          </div>
+        </div>
+        <div
+          style={{
+            padding: "8px 10px",
+            borderRadius: "999px",
+            background: "rgba(31,151,112,0.1)",
+            color: "#167f51",
+            fontSize: "0.8rem",
+            fontWeight: 900,
+          }}
+        >
+          %{margin.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} marj
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: "10px" }}>
+        {rows.map((row) => {
+          const width = Math.max((Math.abs(row.value || 0) / maxValue) * 100, row.value ? 8 : 0);
+          return (
+            <div key={row.label} style={{ display: "grid", gap: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  fontSize: "0.84rem",
+                }}
+              >
+                <span style={{ color: "var(--muted)", fontWeight: 800 }}>{row.label}</span>
+                <strong>{formatCurrency(row.value)}</strong>
+              </div>
+              <div
+                style={{
+                  height: "12px",
+                  borderRadius: "999px",
+                  background: "rgba(24,40,59,0.08)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${width}%`,
+                    height: "100%",
+                    borderRadius: "999px",
+                    background: row.color,
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </article>
+  );
+}
+
 function pulseCard(label: string, value: string, note: string) {
   return (
     <article
@@ -1171,14 +1290,16 @@ export default function HomePage() {
                       fontWeight: 700,
                     }}
                   >
-                    Gelir, maliyet ve kâr aynı masada okunuyor.
+                    Gelir, maliyet ve kâr net dengede.
                   </h2>
                   <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.5, fontSize: "0.84rem" }}>
                     {dashboard.finance.selected_month
-                      ? `${dashboard.finance.selected_month} dönemi için restoran faturası, personel maliyeti ve yan gelir toplamını tek yerde topluyoruz.`
-                      : "Rapor verisi geldikçe aylık kârlılık özeti burada görünür."}
+                      ? `${dashboard.finance.selected_month} dönemi için ana finans kırılımı.`
+                      : "Aylık finans verisi burada görünür."}
                   </p>
                 </header>
+
+                {financeBalanceGraph(dashboard.finance)}
 
                 <div
                   style={{
@@ -1587,7 +1708,7 @@ export default function HomePage() {
                           </div>
                         </div>
                         <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.84rem" }}>
-                          {`${entry.total_hours.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} saatlik toplam çalışma ile bu ayki marka ritmi burada okunuyor.`}
+                          {`${entry.total_hours.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} saat · ${entry.total_packages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} paket · ${formatCurrency(entry.gross_invoice)} fatura`}
                         </div>
                       </article>
                     ))

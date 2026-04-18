@@ -532,7 +532,7 @@ export default function DeductionsPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Okuma Notu
+                  Kesinti Kontrolü
                 </div>
                 <div
                   style={{
@@ -541,7 +541,8 @@ export default function DeductionsPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce manuel ve otomatik dağılıma, sonra aylık yoğunluğa bak.
+                  {dashboard?.summary.manual_entries ?? 0} manuel kayıt, {dashboard?.summary.auto_entries ?? 0} otomatik kayıt,
+                  {dashboard?.summary.this_month_entries ?? 0} aylık kesinti.
                 </div>
               </article>
             </div>

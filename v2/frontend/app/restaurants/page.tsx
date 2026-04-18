@@ -614,7 +614,7 @@ export default function RestaurantsPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Okuma Notu
+                  Portföy Kontrolü
                 </div>
                 <div
                   style={{
@@ -623,8 +623,8 @@ export default function RestaurantsPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce aktif-pasif dengeye, sonra fiyat modeline ve son olarak
-                  dikkat isteyen şube kartlarına bakmak en sağlıklı portföy okumasını verir.
+                  {dashboard?.summary.active_restaurants ?? 0} aktif şube, {dashboard?.summary.passive_restaurants ?? 0} pasif şube,
+                  {dashboard?.summary.fixed_monthly_restaurants ?? 0} sabit aylık anlaşma.
                 </div>
               </article>
             </div>

@@ -657,7 +657,7 @@ export default function AccountPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Okuma Notu
+                  Hesap Kontrolü
                 </div>
                 <div
                   style={{
@@ -666,8 +666,8 @@ export default function AccountPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce geçici şifre durumuna, sonra hesap kimlik kanallarına ve en
-                  son oturum izine bakmak en sağlıklı profil okumasını verir.
+                  Rol: {user?.role_display || user?.role || "-"} · Oturum:
+                  {user?.expires_at ? ` ${formatExpiry(user.expires_at)}` : " izlenemiyor"}
                 </div>
               </article>
             </div>

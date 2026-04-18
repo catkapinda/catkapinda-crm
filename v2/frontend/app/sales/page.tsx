@@ -615,7 +615,7 @@ export default function SalesPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Okuma Notu
+                  Satış Kontrolü
                 </div>
                 <div
                   style={{
@@ -624,8 +624,8 @@ export default function SalesPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce teklif havuzunu, sonra açık takip baskısını ve en son
-                  sıcak müşteri kartlarını okumak en sağlıklı ticari akışı veriyor.
+                  {dashboard?.summary.open_follow_up ?? 0} açık takip, {dashboard?.summary.proposal_stage ?? 0} teklif aşaması,
+                  {dashboard?.summary.won_count ?? 0} kazanılan fırsat.
                 </div>
               </article>
             </div>

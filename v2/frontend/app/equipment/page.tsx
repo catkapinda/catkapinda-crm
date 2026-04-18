@@ -625,7 +625,7 @@ export default function EquipmentPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Okuma Notu
+                  Ekipman Kontrolü
                 </div>
                 <div
                   style={{
@@ -634,8 +634,8 @@ export default function EquipmentPage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Bu ekranda önce zimmet ve iade dengesini, sonra taksit yükünü ve satış
-                  kârlılığını kontrol edin.
+                  {dashboard?.summary.total_issues ?? 0} zimmet, {dashboard?.summary.total_box_returns ?? 0} box iadesi,
+                  {dashboard?.summary.installment_rows ?? 0} taksit satırı.
                 </div>
               </article>
             </div>

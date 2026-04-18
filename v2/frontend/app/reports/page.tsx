@@ -222,97 +222,6 @@ function metricCard(label: string, value: string, note: string) {
   );
 }
 
-function narrativeCard({
-  eyebrow,
-  title,
-  body,
-  tone = "paper",
-}: {
-  eyebrow: string;
-  title: string;
-  body: string;
-  tone?: "paper" | "ink" | "accent";
-}) {
-  const palette =
-    tone === "ink"
-      ? {
-          background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
-          border: "1px solid rgba(255,255,255,0.08)",
-          title: "#fff7ea",
-          body: "rgba(255,247,234,0.72)",
-          eyebrow: "rgba(255,247,234,0.62)",
-        }
-      : tone === "accent"
-        ? {
-            background: "linear-gradient(180deg, rgba(185,116,41,0.12), rgba(255,248,236,0.98))",
-            border: "1px solid rgba(185,116,41,0.18)",
-            title: "var(--text)",
-            body: "var(--muted)",
-            eyebrow: "var(--accent-strong)",
-          }
-        : {
-            background: "rgba(255,255,255,0.84)",
-            border: "1px solid var(--line)",
-            title: "var(--text)",
-            body: "var(--muted)",
-            eyebrow: "var(--muted)",
-          };
-
-  return (
-    <article
-      style={{
-        padding: "14px 14px 12px",
-        borderRadius: "18px",
-        background: palette.background,
-        border: palette.border,
-        boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
-        display: "grid",
-        gap: "8px",
-      }}
-    >
-      <div
-        style={{
-          color: palette.eyebrow,
-          fontSize: "0.66rem",
-          fontWeight: 800,
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-        }}
-      >
-        {eyebrow}
-      </div>
-      <div
-        style={{
-          ...serifStyle,
-          color: palette.title,
-          fontSize: "1.16rem",
-          lineHeight: 0.98,
-          fontWeight: 700,
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}
-      >
-        {title}
-      </div>
-      <div
-        style={{
-          color: palette.body,
-          fontSize: "0.84rem",
-          lineHeight: 1.5,
-          display: "-webkit-box",
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}
-      >
-        {body}
-      </div>
-    </article>
-  );
-}
-
 function tableHeaderCell(label: string) {
   return (
     <th
@@ -603,6 +512,232 @@ function ExecutiveReportChart({ dashboard }: { dashboard: ReportsDashboard }) {
   );
 }
 
+function ReportModelMatrix({
+  dashboard,
+  coverageGap,
+}: {
+  dashboard: ReportsDashboard;
+  coverageGap: number;
+}) {
+  const modelRows = dashboard.model_breakdown.slice(0, 6);
+  const courierRows = dashboard.top_couriers.slice(0, 5);
+  const maxModelInvoice = Math.max(...modelRows.map((row) => row.gross_invoice || 0), 1);
+  const maxCourierCost = Math.max(...courierRows.map((row) => row.net_cost || 0), 1);
+  const margin =
+    dashboard.summary && dashboard.summary.total_revenue > 0
+      ? (dashboard.summary.gross_profit / dashboard.summary.total_revenue) * 100
+      : 0;
+
+  return (
+    <section
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        gap: "12px",
+      }}
+    >
+      <article
+        style={{
+          borderRadius: "22px",
+          border: "1px solid rgba(219, 228, 243, 0.9)",
+          background: "rgba(255,255,255,0.9)",
+          padding: "16px",
+          display: "grid",
+          gap: "12px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "12px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                color: "var(--accent-strong)",
+                fontSize: "0.66rem",
+                fontWeight: 900,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
+              Model Haritası
+            </div>
+            <div style={{ marginTop: "5px", fontWeight: 900 }}>
+              Fiyat modeli, hacim ve fatura dağılımı
+            </div>
+          </div>
+          <span
+            style={{
+              padding: "8px 10px",
+              borderRadius: "999px",
+              background: coverageGap > 0 ? "rgba(185,116,41,0.12)" : "rgba(31,151,112,0.1)",
+              color: coverageGap > 0 ? "var(--accent-strong)" : "#167f51",
+              fontSize: "0.78rem",
+              fontWeight: 900,
+            }}
+          >
+            {coverageGap > 0 ? `${formatNumber(coverageGap)} açık şube` : "Kapsama tam"}
+          </span>
+        </div>
+
+        <div style={{ display: "grid", gap: "9px" }}>
+          {modelRows.length ? (
+            modelRows.map((row) => (
+              <div
+                key={row.pricing_model}
+                style={{
+                  display: "grid",
+                  gap: "7px",
+                  padding: "10px 0",
+                  borderBottom: "1px solid rgba(24,40,59,0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    fontSize: "0.86rem",
+                  }}
+                >
+                  <strong>{row.pricing_model}</strong>
+                  <span style={{ color: "var(--muted)", fontWeight: 800 }}>
+                    {formatMoney(row.gross_invoice)}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0, 1fr) auto auto",
+                    alignItems: "center",
+                    gap: "10px",
+                    fontSize: "0.78rem",
+                    color: "var(--muted)",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "12px",
+                      borderRadius: "999px",
+                      background: "rgba(24,40,59,0.08)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.max((row.gross_invoice / maxModelInvoice) * 100, 6)}%`,
+                        height: "100%",
+                        borderRadius: "999px",
+                        background:
+                          "linear-gradient(90deg, rgba(15,95,215,0.92), rgba(222,165,92,0.9))",
+                      }}
+                    />
+                  </div>
+                  <span>{formatNumber(row.restaurant_count)} şube</span>
+                  <span>{formatNumber(row.total_packages)} paket</span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
+              Fiyat modeli dağılımı için bu ay henüz rapor satırı yok.
+            </div>
+          )}
+        </div>
+      </article>
+
+      <article
+        style={{
+          borderRadius: "22px",
+          border: "1px solid rgba(24, 40, 59, 0.08)",
+          background:
+            "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+          color: "#fff7ea",
+          padding: "16px",
+          display: "grid",
+          gap: "12px",
+        }}
+      >
+        <div>
+          <div
+            style={{
+              color: "rgba(255,247,234,0.62)",
+              fontSize: "0.66rem",
+              fontWeight: 900,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            Maliyet Liderleri
+          </div>
+          <div style={{ marginTop: "5px", fontWeight: 900 }}>
+            %{formatNumber(margin, 1)} marj ile en yüksek net maliyetler
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: "10px" }}>
+          {courierRows.length ? (
+            courierRows.map((row) => (
+              <div key={`${row.personnel}-${row.role}`} style={{ display: "grid", gap: "6px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                    fontSize: "0.84rem",
+                  }}
+                >
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {row.personnel}
+                  </span>
+                  <strong>{formatMoney(row.net_cost)}</strong>
+                </div>
+                <div
+                  style={{
+                    height: "9px",
+                    borderRadius: "999px",
+                    background: "rgba(255,247,234,0.12)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.max((row.net_cost / maxCourierCost) * 100, 6)}%`,
+                      height: "100%",
+                      borderRadius: "999px",
+                      background:
+                        "linear-gradient(90deg, rgba(255,247,234,0.96), rgba(222,165,92,0.9))",
+                    }}
+                  />
+                </div>
+                <div style={{ color: "rgba(255,247,234,0.58)", fontSize: "0.76rem" }}>
+                  {row.role} · {formatNumber(row.total_hours, 1)} saat
+                </div>
+              </div>
+            ))
+          ) : (
+            <div style={{ color: "rgba(255,247,234,0.66)", lineHeight: 1.55, fontSize: "0.84rem" }}>
+              Kurye maliyeti için bu ay henüz rapor satırı yok.
+            </div>
+          )}
+        </div>
+      </article>
+    </section>
+  );
+}
+
 export default function ReportsPage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<ReportsDashboard | null>(null);
@@ -701,55 +836,6 @@ export default function ReportsPage() {
       metricCard("Kurye Başına Maliyet", formatMoney(averageCourierCost), "Net maliyet / kurye"),
       metricCard("Marj", `%${formatNumber(marginRatio, 1)}`, "Brüt fark / toplam fatura"),
     ];
-  }, [dashboard]);
-
-  const decisionDeck = useMemo(() => {
-    if (!dashboard?.summary) {
-      return [];
-    }
-
-    const marginRatio =
-      dashboard.summary.total_revenue > 0
-        ? (dashboard.summary.gross_profit / dashboard.summary.total_revenue) * 100
-        : 0;
-    const topRestaurant = dashboard.top_restaurants[0] ?? null;
-    const topCourier = dashboard.top_couriers[0] ?? null;
-    const topModel = dashboard.model_breakdown[0] ?? null;
-    const sideIncomePositive = dashboard.summary.side_income_net >= 0;
-
-    return [
-      {
-        eyebrow: "Ayın Odağı",
-        title:
-          marginRatio >= 18
-            ? "Marj resmi sağlam görünüyor."
-            : marginRatio >= 10
-              ? "Marj korunuyor ama dikkat istiyor."
-              : "Marj alarm seviyesine yakın.",
-        body: `${dashboard.summary.selected_month} döneminde brüt fark ${formatMoney(dashboard.summary.gross_profit)} ve marj %${formatNumber(marginRatio, 1)} seviyesinde.`,
-        tone: marginRatio >= 18 ? "ink" : "accent",
-      },
-      {
-        eyebrow: "En Güçlü Restoran",
-        title: topRestaurant ? topRestaurant.restaurant : "Restoran verisi henüz yok.",
-        body: topRestaurant
-          ? `${topRestaurant.pricing_model} modeliyle ${formatMoney(topRestaurant.gross_invoice)} fatura üretiyor. ${formatNumber(topRestaurant.total_hours, 1)} saat ve ${formatNumber(topRestaurant.total_packages)} paket taşıyor.`
-          : "Restoran verisi geldikçe bu kart ciro hareketini gösterecek.",
-        tone: "paper",
-      },
-      {
-        eyebrow: sideIncomePositive ? "Denge Katkısı" : "Risk Alanı",
-        title: topCourier ? topCourier.personnel : "Maliyet lideri henüz yok.",
-        body: topCourier
-          ? `${topCourier.role} rolünde ${formatMoney(topCourier.net_cost)} net maliyet taşıyor. ${formatMoney(topCourier.total_deductions)} kesinti etkisi görünüyor. ${
-              topModel ? `${topModel.pricing_model} modeli ayın ana hacmini sürüklüyor.` : "Model dağılımı bu maliyeti okumakta kritik."
-            }`
-          : sideIncomePositive
-            ? `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Genel resmi destekliyor.`
-            : `Yan gelir dengesi ${formatMoney(dashboard.summary.side_income_net)} seviyesinde. Bu alan daha yakından izlenmeli.`,
-        tone: sideIncomePositive ? "paper" : "accent",
-      },
-    ] as const;
   }, [dashboard]);
 
   const coverageGap = useMemo(() => {
@@ -1191,7 +1277,7 @@ export default function ReportsPage() {
                   border: "1px solid var(--line)",
                   background: "rgba(255,255,255,0.78)",
                   display: "grid",
-                  gap: "6px",
+                  gap: "10px",
                 }}
               >
                 <div
@@ -1203,16 +1289,35 @@ export default function ReportsPage() {
                     letterSpacing: "0.06em",
                   }}
                 >
-                  Okuma Notu
+                  Finans Kontrolü
                 </div>
-                <div
-                  style={{
-                    color: "var(--text)",
-                    fontSize: "0.84rem",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Önce fark ve marja, sonra model ve en yüksek maliyetli alanlara bakmak en hızlı okuma yoludur.
+                <div style={{ display: "grid", gap: "8px" }}>
+                  {[
+                    [
+                      "Marj",
+                      dashboard?.summary?.total_revenue
+                        ? `%${formatNumber(((dashboard.summary.gross_profit || 0) / dashboard.summary.total_revenue) * 100, 1)}`
+                        : "%0",
+                    ],
+                    ["Saat", formatNumber(dashboard?.summary?.total_hours ?? 0, 1)],
+                    ["Paket", formatNumber(dashboard?.summary?.total_packages ?? 0)],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        paddingBottom: "7px",
+                        borderBottom: "1px solid rgba(24,40,59,0.08)",
+                        fontSize: "0.84rem",
+                      }}
+                    >
+                      <span style={{ color: "var(--muted)", fontWeight: 800 }}>{label}</span>
+                      <strong>{value}</strong>
+                    </div>
+                  ))}
                 </div>
               </article>
             </div>
@@ -1376,27 +1481,15 @@ export default function ReportsPage() {
 
             <ExecutiveReportChart dashboard={dashboard} />
 
-            <div
-              style={{
-                display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: "10px",
-            }}
-          >
-              {decisionDeck.map((item) => (
-                <div key={`${item.eyebrow}-${item.title}`}>
-                  {narrativeCard(item)}
-                </div>
-              ))}
-            </div>
+            <ReportModelMatrix dashboard={dashboard} coverageGap={coverageGap} />
 
             <div
               style={{
                 display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "10px",
-            }}
-          >
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "10px",
+              }}
+            >
               {extendedSignalCards}
             </div>
 
@@ -1426,7 +1519,7 @@ export default function ReportsPage() {
                   {formatNumber(coverageGap)} şube operasyonel görünüyor ama bu ayın rapor tablosuna henüz düşmemiş.
                 </div>
                 <div style={{ color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                  Puantaj, fatura ya da şube hareketi eksik kalmış olabilir. Önce restoran faturası ve personel dağılımını birlikte kontrol etmek en sağlıklısı.
+                  Puantaj, fatura veya şube eşleşmesi eksik olabilir. Restoran faturası ve personel dağılımını birlikte kontrol et.
                 </div>
               </section>
             ) : null}
