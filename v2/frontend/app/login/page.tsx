@@ -341,8 +341,10 @@ function LoginPageContent() {
     setNotice("");
     try {
       if (authPanelMode === "recovery") {
-        const payload = await resetPasswordWithCode(phone, loginCode, recoveryNewPassword);
-        setIdentity((currentIdentity) => currentIdentity.trim() || phone.trim());
+        const recoveryPhone = phone.trim();
+        const nextPassword = recoveryNewPassword;
+        const payload = await resetPasswordWithCode(recoveryPhone, loginCode, nextPassword);
+        setIdentity((currentIdentity) => currentIdentity.trim() || recoveryPhone);
         setPassword("");
         setNotice(payload.message);
         setSmsMessage("");
@@ -352,6 +354,11 @@ function LoginPageContent() {
         setRecoveryConfirmPassword("");
         setPhone("");
         switchAuthPanelMode("sms");
+
+        const loggedInUser = await login(recoveryPhone, nextPassword);
+        router.replace(
+          loggedInUser.must_change_password ? "/account" : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
+        );
         return;
       }
       const loggedInUser = await verifyPhoneCode(phone, loginCode);

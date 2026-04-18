@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.core.security import hash_auth_password
-from app.services.auth import AuthRateLimitError, authenticate_user
+from app.services.auth import AuthRateLimitError, authenticate_user, reset_password_with_phone_code
 
 
 class FakeConnection:
@@ -107,3 +107,51 @@ def test_authenticate_user_clears_login_attempt_after_success(monkeypatch):
 
     assert user.identity == "mert.kurtulus@catkapinda.com"
     assert attempts == {}
+
+
+def test_reset_password_with_phone_code_clears_login_attempts_for_email_and_phone(monkeypatch):
+    conn = FakeConnection()
+    user_row = _build_user("EskiSifre123")
+    user_row["phone"] = "05551234567"
+    consumed = {}
+    updated = {}
+    cleared: list[str] = []
+
+    monkeypatch.setattr("app.services.auth.cleanup_expired_phone_codes", lambda _conn: None)
+    monkeypatch.setattr(
+        "app.services.auth.fetch_active_phone_code",
+        lambda _conn, phone, purpose, now_text: {
+            "code_row_id": 44,
+            "code_attempt_count": 0,
+            **user_row,
+            "code_hash": hash_auth_password("123456"),
+        },
+    )
+    monkeypatch.setattr(
+        "app.services.auth.consume_phone_code",
+        lambda _conn, code_row_id, attempt_count, consumed_at: consumed.update(
+            {"code_row_id": code_row_id, "attempt_count": attempt_count}
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.auth.update_auth_user_password",
+        lambda _conn, user_id, password_hash: updated.update({"user_id": user_id, "password_hash": password_hash}),
+    )
+    monkeypatch.setattr(
+        "app.services.auth.clear_login_attempt",
+        lambda _conn, identity: cleared.append(identity),
+    )
+
+    response = reset_password_with_phone_code(
+        conn,
+        phone="05551234567",
+        login_code="123456",
+        new_password="YeniSifre123!",
+    )
+
+    assert response.message == "Şifre sıfırlandı. Yeni şifrenle giriş yapabilirsin."
+    assert consumed == {"code_row_id": 44, "attempt_count": 1}
+    assert updated["user_id"] == 7
+    assert "mert.kurtulus@catkapinda.com" in cleared
+    assert "5551234567" in cleared
+    assert conn.commit_count == 1
