@@ -217,6 +217,16 @@ def resolve_session_identity(user_row: dict) -> str:
     )
 
 
+def clear_login_attempts_for_user(conn: psycopg.Connection, *, user_row: dict) -> None:
+    identities = {
+        normalize_auth_identity(str(user_row.get("email") or "")),
+        normalize_auth_identity(str(user_row.get("phone") or "")),
+    }
+    for identity in identities:
+        if identity:
+            clear_login_attempt(conn, identity=identity)
+
+
 def build_authenticated_user(
     *,
     user_row: dict,
@@ -485,6 +495,7 @@ def reset_password_with_phone_code(
         user_id=int(row.get("id") or 0),
         password_hash=hash_auth_password(normalized_new_password),
     )
+    clear_login_attempts_for_user(conn, user_row=row)
     conn.commit()
     return AuthPasswordResetResponse(message="Şifre sıfırlandı. Yeni şifrenle giriş yapabilirsin.")
 
