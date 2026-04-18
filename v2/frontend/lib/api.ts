@@ -53,6 +53,9 @@ export function writeStoredAuthNotice(message: string) {
 
 export function buildApiUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (normalizedPath === "/auth" || normalizedPath.startsWith("/auth/")) {
+    return `/api${normalizedPath}`;
+  }
   return `${resolveApiBaseUrl()}${normalizedPath}`;
 }
 
