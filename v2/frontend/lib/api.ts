@@ -6,14 +6,19 @@ export const AUTH_NOTICE_STORAGE_KEY = "ck_v2_auth_notice";
 export const AUTH_UNAUTHORIZED_EVENT = "ck-v2-auth-unauthorized";
 
 export function resolveApiBaseUrl() {
-  const configuredBaseUrl =
+  const rawConfiguredBaseUrl =
     process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
     process.env.NEXT_PUBLIC_API_BASE_URL ??
     "/v2-api";
-  if (configuredBaseUrl.startsWith("/")) {
-    return configuredBaseUrl.endsWith("/") ? configuredBaseUrl.slice(0, -1) : configuredBaseUrl;
+  const configuredBaseUrl = rawConfiguredBaseUrl.trim();
+  const effectiveBaseUrl =
+    !configuredBaseUrl || configuredBaseUrl === "/" || configuredBaseUrl === "/api"
+      ? "/v2-api"
+      : configuredBaseUrl;
+  if (effectiveBaseUrl.startsWith("/")) {
+    return effectiveBaseUrl.endsWith("/") ? effectiveBaseUrl.slice(0, -1) : effectiveBaseUrl;
   }
-  return configuredBaseUrl.endsWith("/api") ? configuredBaseUrl : `${configuredBaseUrl}/api`;
+  return effectiveBaseUrl.endsWith("/api") ? effectiveBaseUrl : `${effectiveBaseUrl}/api`;
 }
 
 export function writeAuthPresenceMarker(active: boolean) {
