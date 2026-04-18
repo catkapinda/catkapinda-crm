@@ -5,21 +5,26 @@ from datetime import date
 import psycopg
 
 
+def _restaurant_active_sql(column: str = "active") -> str:
+    return f"COALESCE(LOWER(CAST({column} AS TEXT)), 'true') IN ('1', 't', 'true')"
+
+
 def fetch_attendance_summary(
     conn: psycopg.Connection,
     *,
     reference_date: date,
 ) -> dict[str, int]:
-    month_start = reference_date.replace(day=1)
+    month_start_text = reference_date.replace(day=1).isoformat()
+    reference_date_text = reference_date.isoformat()
     row = conn.execute(
-        """
+        f"""
         SELECT
-            (SELECT COUNT(*) FROM daily_entries WHERE entry_date = %s) AS today_count,
-            (SELECT COUNT(*) FROM daily_entries WHERE entry_date BETWEEN %s AND %s) AS month_count,
+            (SELECT COUNT(*) FROM daily_entries WHERE substr(COALESCE(entry_date, ''), 1, 10) = %s) AS today_count,
+            (SELECT COUNT(*) FROM daily_entries WHERE substr(COALESCE(entry_date, ''), 1, 10) BETWEEN %s AND %s) AS month_count,
             (SELECT COUNT(*) FROM daily_entries) AS total_count,
-            (SELECT COUNT(*) FROM restaurants WHERE active = TRUE) AS active_restaurants
+            (SELECT COUNT(*) FROM restaurants WHERE {_restaurant_active_sql()}) AS active_restaurants
         """,
-        (reference_date, month_start, reference_date),
+        (reference_date_text, month_start_text, reference_date_text),
     ).fetchone()
     if row is None:
         return {
@@ -78,7 +83,7 @@ def fetch_recent_attendance_entries(
 
 def fetch_attendance_restaurants(conn: psycopg.Connection) -> list[dict]:
     rows = conn.execute(
-        """
+        f"""
         SELECT
             id,
             brand,
@@ -86,7 +91,7 @@ def fetch_attendance_restaurants(conn: psycopg.Connection) -> list[dict]:
             pricing_model,
             COALESCE(fixed_monthly_fee, 0) AS fixed_monthly_fee
         FROM restaurants
-        WHERE active = TRUE
+        WHERE {_restaurant_active_sql()}
         ORDER BY brand, branch
         """
     ).fetchall()
@@ -170,6 +175,8 @@ def fetch_attendance_management_entries(
     date_to: date | None = None,
 ) -> list[dict]:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
+    date_from_text = date_from.isoformat() if date_from else None
+    date_to_text = date_to.isoformat() if date_to else None
     rows = conn.execute(
         """
         SELECT
@@ -206,8 +213,8 @@ def fetch_attendance_management_entries(
         LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
         LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
         WHERE (%s IS NULL OR d.restaurant_id = %s)
-          AND (%s IS NULL OR d.entry_date >= %s)
-          AND (%s IS NULL OR d.entry_date <= %s)
+          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) >= %s)
+          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) <= %s)
           AND (
             %s IS NULL
             OR r.brand || ' - ' || r.branch ILIKE %s
@@ -221,10 +228,10 @@ def fetch_attendance_management_entries(
         (
             restaurant_id,
             restaurant_id,
-            date_from,
-            date_from,
-            date_to,
-            date_to,
+            date_from_text,
+            date_from_text,
+            date_to_text,
+            date_to_text,
             search_pattern,
             search_pattern,
             search_pattern,
@@ -245,6 +252,8 @@ def count_attendance_management_entries(
     date_to: date | None = None,
 ) -> int:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
+    date_from_text = date_from.isoformat() if date_from else None
+    date_to_text = date_to.isoformat() if date_to else None
     row = conn.execute(
         """
         SELECT COUNT(*) AS total_count
@@ -253,8 +262,8 @@ def count_attendance_management_entries(
         LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
         LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
         WHERE (%s IS NULL OR d.restaurant_id = %s)
-          AND (%s IS NULL OR d.entry_date >= %s)
-          AND (%s IS NULL OR d.entry_date <= %s)
+          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) >= %s)
+          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) <= %s)
           AND (
             %s IS NULL
             OR r.brand || ' - ' || r.branch ILIKE %s
@@ -266,10 +275,10 @@ def count_attendance_management_entries(
         (
             restaurant_id,
             restaurant_id,
-            date_from,
-            date_from,
-            date_to,
-            date_to,
+            date_from_text,
+            date_from_text,
+            date_to_text,
+            date_to_text,
             search_pattern,
             search_pattern,
             search_pattern,
@@ -289,6 +298,8 @@ def fetch_attendance_management_entry_ids(
     date_to: date | None = None,
 ) -> list[int]:
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
+    date_from_text = date_from.isoformat() if date_from else None
+    date_to_text = date_to.isoformat() if date_to else None
     rows = conn.execute(
         """
         SELECT d.id
@@ -297,8 +308,8 @@ def fetch_attendance_management_entry_ids(
         LEFT JOIN personnel pp ON pp.id = d.planned_personnel_id
         LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
         WHERE (%s IS NULL OR d.restaurant_id = %s)
-          AND (%s IS NULL OR d.entry_date >= %s)
-          AND (%s IS NULL OR d.entry_date <= %s)
+          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) >= %s)
+          AND (%s IS NULL OR substr(COALESCE(d.entry_date, ''), 1, 10) <= %s)
           AND (
             %s IS NULL
             OR r.brand || ' - ' || r.branch ILIKE %s
@@ -311,10 +322,10 @@ def fetch_attendance_management_entry_ids(
         (
             restaurant_id,
             restaurant_id,
-            date_from,
-            date_from,
-            date_to,
-            date_to,
+            date_from_text,
+            date_from_text,
+            date_to_text,
+            date_to_text,
             search_pattern,
             search_pattern,
             search_pattern,

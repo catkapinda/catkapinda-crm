@@ -12,37 +12,18 @@ def fetch_deduction_summary(
     *,
     reference_date: date,
 ) -> dict[str, int]:
-    if is_sqlite_backend(conn):
-        month_key = reference_date.strftime("%Y-%m")
-        row = conn.execute(
-            """
-            SELECT
-                COUNT(*) AS total_entries,
-                SUM(CASE WHEN substr(COALESCE(deduction_date, ''), 1, 7) = %s THEN 1 ELSE 0 END) AS this_month_entries,
-                SUM(CASE WHEN COALESCE(auto_source_key, '') = '' THEN 1 ELSE 0 END) AS manual_entries,
-                SUM(CASE WHEN COALESCE(auto_source_key, '') <> '' THEN 1 ELSE 0 END) AS auto_entries
-            FROM deductions
-            """,
-            (month_key,),
-        ).fetchone()
-    else:
-        row = conn.execute(
-            """
-            SELECT
-                COUNT(*) AS total_entries,
-                COUNT(*) FILTER (
-                    WHERE DATE_TRUNC('month', deduction_date) = DATE_TRUNC('month', %s::date)
-                ) AS this_month_entries,
-                COUNT(*) FILTER (
-                    WHERE COALESCE(auto_source_key, '') = ''
-                ) AS manual_entries,
-                COUNT(*) FILTER (
-                    WHERE COALESCE(auto_source_key, '') <> ''
-                ) AS auto_entries
-            FROM deductions
-            """,
-            (reference_date,),
-        ).fetchone()
+    month_key = reference_date.strftime("%Y-%m")
+    row = conn.execute(
+        """
+        SELECT
+            COUNT(*) AS total_entries,
+            SUM(CASE WHEN substr(COALESCE(deduction_date, ''), 1, 7) = %s THEN 1 ELSE 0 END) AS this_month_entries,
+            SUM(CASE WHEN COALESCE(auto_source_key, '') = '' THEN 1 ELSE 0 END) AS manual_entries,
+            SUM(CASE WHEN COALESCE(auto_source_key, '') <> '' THEN 1 ELSE 0 END) AS auto_entries
+        FROM deductions
+        """,
+        (month_key,),
+    ).fetchone()
     if row is None:
         return {
             "total_entries": 0,

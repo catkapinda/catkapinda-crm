@@ -187,6 +187,8 @@ def _build_operations_summary(
     selected_month: str | None,
 ) -> OverviewOperationsSummary:
     month_key = selected_month or reference_date.strftime("%Y-%m")
+    reference_date_text = reference_date.isoformat()
+    trend_start_text = (reference_date - timedelta(days=13)).isoformat()
     missing_attendance_rows = conn.execute(
         f"""
         SELECT
@@ -198,12 +200,12 @@ def _build_operations_summary(
             SELECT 1
             FROM daily_entries d
             WHERE d.restaurant_id = r.id
-              AND d.entry_date = %s
+              AND substr(COALESCE(d.entry_date, ''), 1, 10) = %s
           )
         ORDER BY r.brand, r.branch
         LIMIT 5
         """,
-        (reference_date,),
+        (reference_date_text,),
     ).fetchall()
     under_target_rows = conn.execute(
         f"""
@@ -230,7 +232,7 @@ def _build_operations_summary(
         FROM daily_entries d
         JOIN restaurants r ON r.id = d.restaurant_id
         LEFT JOIN personnel ap ON ap.id = d.actual_personnel_id
-        WHERE d.entry_date = %s
+        WHERE substr(COALESCE(d.entry_date, ''), 1, 10) = %s
           AND (
             COALESCE(d.coverage_type, '') = 'Joker'
             OR COALESCE(ap.role, '') = 'Joker'
@@ -239,9 +241,8 @@ def _build_operations_summary(
         ORDER BY joker_count DESC, package_count DESC, restaurant
         LIMIT 5
         """,
-        (reference_date,),
+        (reference_date_text,),
     ).fetchall()
-    trend_start = reference_date - timedelta(days=13)
     daily_trend_rows = conn.execute(
         """
         SELECT
@@ -249,11 +250,11 @@ def _build_operations_summary(
             COALESCE(SUM(package_count), 0) AS total_packages,
             COALESCE(SUM(worked_hours), 0) AS total_hours
         FROM daily_entries
-        WHERE entry_date BETWEEN %s AND %s
+        WHERE substr(COALESCE(entry_date, ''), 1, 10) BETWEEN %s AND %s
         GROUP BY entry_date
         ORDER BY entry_date
         """,
-        (trend_start, reference_date),
+        (trend_start_text, reference_date_text),
     ).fetchall()
     top_restaurant_rows = conn.execute(
         """

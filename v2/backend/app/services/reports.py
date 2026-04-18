@@ -112,11 +112,17 @@ def build_reports_dashboard(
     if is_sqlite_backend(conn):
         return _build_local_reports_dashboard(conn, selected_month=selected_month, limit=limit)
 
-    _ensure_repo_root_on_path()
-    from services.reporting_service import build_reports_workspace_payload, load_reporting_entries_and_month_options
+    try:
+        _ensure_repo_root_on_path()
+        from services.reporting_service import build_reports_workspace_payload, load_reporting_entries_and_month_options
+    except ModuleNotFoundError:
+        return _build_local_reports_dashboard(conn, selected_month=selected_month, limit=limit)
 
     compat_conn = _build_compat_connection(conn)
-    entries_df, month_options = load_reporting_entries_and_month_options(compat_conn)
+    try:
+        entries_df, month_options = load_reporting_entries_and_month_options(compat_conn)
+    except Exception:
+        return _build_local_reports_dashboard(conn, selected_month=selected_month, limit=limit)
 
     if not month_options:
         return ReportsDashboardResponse(
