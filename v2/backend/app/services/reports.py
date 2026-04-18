@@ -35,6 +35,8 @@ _ALLOCATION_SOURCE_LABELS = {
 _SHARED_OVERHEAD_ROLES = {"Joker", "Bölge Müdürü"}
 _LOCAL_FUEL_DEDUCTION_TYPES = {"Yakit", "Yakıt"}
 _LOCAL_PARTNER_CARD_DEDUCTION_TYPES = {"Partner Kart Indirimi", "Partner Kart İndirimi"}
+_PACKAGE_THRESHOLD_DEFAULT = 390
+_VAT_RATE_DEFAULT = 20.0
 
 
 def _empty_reports_coverage() -> ReportsCoverageSummary:
@@ -90,9 +92,95 @@ def _safe_float(value: object) -> float:
         return 0.0
 
 
+def _safe_int(value: object, default: int = 0) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _month_key_sql(column: str) -> str:
+    return f"SUBSTR(CAST({column} AS TEXT), 1, 7)"
+
+
+def _active_sql(column: str = "active") -> str:
+    return f"COALESCE(LOWER(CAST({column} AS TEXT)), '1') IN ('1', 'true', 't', 'yes', 'evet')"
+
+
 def _resolve_allocation_source_label(value: object) -> str:
     raw_value = str(value or "-")
     return _ALLOCATION_SOURCE_LABELS.get(raw_value, raw_value)
+
+
+def _invoice_actor_key(row: dict[str, object]) -> str:
+    actual_personnel_id = row.get("actual_personnel_id")
+    planned_personnel_id = row.get("planned_personnel_id")
+    if actual_personnel_id is not None:
+        return f"actual:{actual_personnel_id}"
+    if planned_personnel_id is not None:
+        return f"planned:{planned_personnel_id}"
+    return f"entry:{row.get('id', '')}"
+
+
+def _fixed_monthly_fee_for_rows(rows: list[dict[str, object]], fallback_fee: float) -> float:
+    positive_amount_rows = [
+        row
+        for row in rows
+        if _safe_float(row.get("monthly_invoice_amount")) > 0
+    ]
+    if not positive_amount_rows:
+        return _safe_float(fallback_fee)
+
+    positive_amount_rows.sort(
+        key=lambda row: (
+            str(row.get("entry_date") or ""),
+            _safe_int(row.get("id")),
+        )
+    )
+    return _safe_float(positive_amount_rows[-1].get("monthly_invoice_amount"))
+
+
+def _calculate_restaurant_invoice(rows: list[dict[str, object]]) -> tuple[float, float, float, float]:
+    if not rows:
+        return 0.0, 0.0, 0.0, 0.0
+
+    first = rows[0]
+    pricing_model = str(first.get("pricing_model") or "").strip()
+    hourly_rate = _safe_float(first.get("hourly_rate"))
+    package_rate = _safe_float(first.get("package_rate"))
+    package_threshold = _safe_int(first.get("package_threshold"), _PACKAGE_THRESHOLD_DEFAULT)
+    if package_threshold <= 0:
+        package_threshold = _PACKAGE_THRESHOLD_DEFAULT
+    package_rate_low = _safe_float(first.get("package_rate_low"))
+    package_rate_high = _safe_float(first.get("package_rate_high"))
+    fixed_monthly_fee = _safe_float(first.get("fixed_monthly_fee"))
+    raw_vat_rate = first.get("vat_rate")
+    vat_rate = _VAT_RATE_DEFAULT if raw_vat_rate in {None, ""} else _safe_float(raw_vat_rate)
+    total_hours = sum(_safe_float(row.get("worked_hours")) for row in rows)
+    total_packages = sum(_safe_float(row.get("package_count")) for row in rows)
+
+    if pricing_model == "hourly_plus_package":
+        subtotal = total_hours * hourly_rate + total_packages * package_rate
+    elif pricing_model == "threshold_package":
+        actor_totals: dict[str, dict[str, float]] = {}
+        for row in rows:
+            actor_bucket = actor_totals.setdefault(_invoice_actor_key(row), {"hours": 0.0, "packages": 0.0})
+            actor_bucket["hours"] += _safe_float(row.get("worked_hours"))
+            actor_bucket["packages"] += _safe_float(row.get("package_count"))
+        subtotal = 0.0
+        for values in actor_totals.values():
+            actor_packages = values["packages"]
+            actor_package_rate = package_rate_low if actor_packages <= package_threshold else package_rate_high
+            subtotal += values["hours"] * hourly_rate + actor_packages * actor_package_rate
+    elif pricing_model == "hourly_only":
+        subtotal = total_hours * hourly_rate
+    elif pricing_model == "fixed_monthly":
+        subtotal = _fixed_monthly_fee_for_rows(rows, fixed_monthly_fee)
+    else:
+        subtotal = sum(_safe_float(row.get("monthly_invoice_amount")) for row in rows)
+
+    grand_total = subtotal * (1 + (vat_rate / 100.0))
+    return total_hours, total_packages, subtotal, grand_total
 
 
 def build_reports_status() -> ReportsModuleStatus:
@@ -318,10 +406,10 @@ def _build_local_reports_dashboard(
     limit: int,
 ) -> ReportsDashboardResponse:
     month_rows = conn.execute(
-        """
-        SELECT DISTINCT substr(COALESCE(entry_date, ''), 1, 7) AS month_key
+        f"""
+        SELECT DISTINCT {_month_key_sql('entry_date')} AS month_key
         FROM daily_entries
-        WHERE COALESCE(entry_date, '') <> ''
+        WHERE COALESCE(CAST(entry_date AS TEXT), '') <> ''
         ORDER BY month_key DESC
         """
     ).fetchall()
@@ -347,62 +435,80 @@ def _build_local_reports_dashboard(
         )
 
     resolved_month = selected_month if selected_month in month_options else month_options[0]
-    invoice_rows = conn.execute(
-        """
+    attendance_invoice_rows = conn.execute(
+        f"""
         SELECT
+            d.id,
+            d.entry_date,
+            d.actual_personnel_id,
+            d.planned_personnel_id,
+            d.restaurant_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant,
+            COALESCE(r.brand, '') AS brand,
+            COALESCE(r.branch, '') AS branch,
             COALESCE(r.pricing_model, '-') AS pricing_model,
-            COALESCE(SUM(d.worked_hours), 0) AS total_hours,
-            COALESCE(SUM(d.package_count), 0) AS total_packages,
-            COALESCE(SUM(d.monthly_invoice_amount), 0) AS gross_invoice,
-            COALESCE(SUM(
-                CASE
-                    WHEN COALESCE(r.vat_rate, 0) > 0
-                        THEN d.monthly_invoice_amount / (1 + (r.vat_rate / 100.0))
-                    ELSE d.monthly_invoice_amount
-                END
-            ), 0) AS net_invoice
+            COALESCE(r.hourly_rate, 0) AS hourly_rate,
+            COALESCE(r.package_rate, 0) AS package_rate,
+            COALESCE(r.package_threshold, 0) AS package_threshold,
+            COALESCE(r.package_rate_low, 0) AS package_rate_low,
+            COALESCE(r.package_rate_high, 0) AS package_rate_high,
+            COALESCE(r.fixed_monthly_fee, 0) AS fixed_monthly_fee,
+            COALESCE(r.vat_rate, 20) AS vat_rate,
+            COALESCE(d.worked_hours, 0) AS worked_hours,
+            COALESCE(d.package_count, 0) AS package_count,
+            COALESCE(d.monthly_invoice_amount, 0) AS monthly_invoice_amount
         FROM daily_entries d
         JOIN restaurants r ON r.id = d.restaurant_id
-        WHERE substr(COALESCE(d.entry_date, ''), 1, 7) = %s
-        GROUP BY restaurant, pricing_model
-        ORDER BY gross_invoice DESC, restaurant
+        WHERE {_month_key_sql('d.entry_date')} = %s
+        ORDER BY restaurant, d.entry_date, d.id
         """,
         (resolved_month,),
     ).fetchall()
-    all_invoice_entries = [
-        ReportInvoiceEntry(
-            restaurant=str(row["restaurant"] or "-"),
-            pricing_model=str(row["pricing_model"] or "-"),
-            total_hours=_safe_float(row["total_hours"]),
-            total_packages=_safe_float(row["total_packages"]),
-            net_invoice=_safe_float(row["net_invoice"]),
-            gross_invoice=_safe_float(row["gross_invoice"]),
+
+    invoice_groups: dict[tuple[object, str], list[dict[str, object]]] = {}
+    for raw_row in attendance_invoice_rows:
+        row = dict(raw_row)
+        restaurant_label = str(row.get("restaurant") or "-")
+        invoice_groups.setdefault((row.get("restaurant_id"), restaurant_label), []).append(row)
+
+    all_invoice_entries = []
+    for (_, restaurant_label), rows in invoice_groups.items():
+        if not rows:
+            continue
+        total_hours, total_packages, net_invoice, gross_invoice = _calculate_restaurant_invoice(rows)
+        all_invoice_entries.append(
+            ReportInvoiceEntry(
+                restaurant=restaurant_label,
+                pricing_model=str(rows[0].get("pricing_model") or "-"),
+                total_hours=total_hours,
+                total_packages=total_packages,
+                net_invoice=round(net_invoice, 2),
+                gross_invoice=round(gross_invoice, 2),
+            )
         )
-        for row in invoice_rows
-    ]
+    all_invoice_entries.sort(key=lambda row: (-row.gross_invoice, row.restaurant))
     invoice_entries = all_invoice_entries[:limit]
 
     attendance_rows = conn.execute(
-        """
+        f"""
         SELECT
             COALESCE(actual_personnel_id, planned_personnel_id) AS personnel_id,
             COALESCE(SUM(worked_hours), 0) AS total_hours,
             COALESCE(SUM(package_count), 0) AS total_packages
         FROM daily_entries
-        WHERE substr(COALESCE(entry_date, ''), 1, 7) = %s
+        WHERE {_month_key_sql('entry_date')} = %s
           AND COALESCE(actual_personnel_id, planned_personnel_id) IS NOT NULL
         GROUP BY COALESCE(actual_personnel_id, planned_personnel_id)
         """,
         (resolved_month,),
     ).fetchall()
     deductions_rows = conn.execute(
-        """
+        f"""
         SELECT
             personnel_id,
             COALESCE(SUM(amount), 0) AS total_deductions
         FROM deductions
-        WHERE substr(COALESCE(deduction_date, ''), 1, 7) = %s
+        WHERE {_month_key_sql('deduction_date')} = %s
           AND personnel_id IS NOT NULL
         GROUP BY personnel_id
         """,
@@ -493,10 +599,10 @@ def _build_local_reports_dashboard(
     ]
 
     operational_restaurant_row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS total_count
         FROM restaurants
-        WHERE COALESCE(active, 1) = 1
+        WHERE {_active_sql()}
         """
     ).fetchone()
     operational_restaurant_count = int(operational_restaurant_row["total_count"] or 0) if operational_restaurant_row else 0
@@ -528,7 +634,7 @@ def _build_local_reports_dashboard(
         )
 
     distribution_rows = conn.execute(
-        """
+        f"""
         SELECT
             COALESCE(d.actual_personnel_id, d.planned_personnel_id) AS personnel_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant,
@@ -539,7 +645,7 @@ def _build_local_reports_dashboard(
         FROM daily_entries d
         JOIN restaurants r ON r.id = d.restaurant_id
         JOIN personnel p ON p.id = COALESCE(d.actual_personnel_id, d.planned_personnel_id)
-        WHERE substr(COALESCE(d.entry_date, ''), 1, 7) = %s
+        WHERE {_month_key_sql('d.entry_date')} = %s
           AND COALESCE(d.actual_personnel_id, d.planned_personnel_id) IS NOT NULL
         GROUP BY
             COALESCE(d.actual_personnel_id, d.planned_personnel_id),
@@ -583,12 +689,12 @@ def _build_local_reports_dashboard(
         )
 
     deduction_rows = conn.execute(
-        """
+        f"""
         SELECT
             COALESCE(d.deduction_type, '') AS deduction_type,
             COALESCE(SUM(d.amount), 0) AS total_amount
         FROM deductions d
-        WHERE substr(COALESCE(d.deduction_date, ''), 1, 7) = %s
+        WHERE {_month_key_sql('d.deduction_date')} = %s
         GROUP BY COALESCE(d.deduction_type, '')
         """,
         (resolved_month,),
@@ -606,11 +712,11 @@ def _build_local_reports_dashboard(
         if deduction_type in _LOCAL_PARTNER_CARD_DEDUCTION_TYPES
     )
     company_fuel_row = conn.execute(
-        """
+        f"""
         SELECT COALESCE(SUM(d.amount), 0) AS total_amount
         FROM deductions d
         JOIN personnel p ON p.id = d.personnel_id
-        WHERE substr(COALESCE(d.deduction_date, ''), 1, 7) = %s
+        WHERE {_month_key_sql('d.deduction_date')} = %s
           AND COALESCE(d.deduction_type, '') IN ('Yakit', 'Yakıt')
           AND (
             COALESCE(p.motor_rental, 'Hayır') = 'Evet'
