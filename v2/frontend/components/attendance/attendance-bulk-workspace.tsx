@@ -156,7 +156,7 @@ export function AttendanceBulkWorkspace() {
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
   const [restaurantId, setRestaurantId] = useState<number | "">("");
-  const [includeAllActive, setIncludeAllActive] = useState(false);
+  const [includeAllActive, setIncludeAllActive] = useState(true);
   const [rows, setRows] = useState<BulkRow[]>([]);
   const [rawText, setRawText] = useState("");
   const [submitError, setSubmitError] = useState("");
@@ -173,9 +173,7 @@ export function AttendanceBulkWorkspace() {
       if (typeof resolvedRestaurantId === "number") {
         params.set("restaurant_id", String(resolvedRestaurantId));
       }
-      if (resolvedIncludeAllActive) {
-        params.set("include_all_active", "true");
-      }
+      params.set("include_all_active", resolvedIncludeAllActive ? "true" : "false");
       const query = params.size ? `?${params.toString()}` : "";
       const response = await apiFetch(`/attendance/form-options${query}`);
       if (!response.ok) {
