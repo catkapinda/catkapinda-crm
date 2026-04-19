@@ -844,7 +844,12 @@ export default function PersonnelPage() {
                     Son açılan ve güncellenen kartları operasyon gözüyle hızlı sekilde tarayabilirsin.
                   </p>
                 </div>
-                <div style={{ overflowX: "auto" }}>
+                <div
+                  style={{
+                    maxHeight: "390px",
+                    overflow: "auto",
+                  }}
+                >
                   <table
                     style={{
                       width: "100%",
@@ -856,6 +861,9 @@ export default function PersonnelPage() {
                         style={{
                           textAlign: "left",
                           background: "rgba(239,232,219,0.56)",
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 1,
                         }}
                       >
                         {[

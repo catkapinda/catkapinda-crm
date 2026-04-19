@@ -501,9 +501,9 @@ export default function StatusPage() {
   }, [backend?.release_label, frontend?.releaseLabel]);
   const pilotSummaryText = useMemo(() => {
     const lines = [
-      "Cat Kapında CRM v2 Pilot Durum Özeti",
+      "Çat Kapında CRM Canlı Kontrol Özeti",
       `Son kontrol: ${lastUpdatedAt ?? "bekleniyor"}`,
-      `Durum: ${overallOk ? "Pilot hazır" : coreReady ? "Temel olarak hazır" : "Kontrol gerekli"}`,
+      `Durum: ${overallOk ? "Canlıya hazır" : coreReady ? "Temel olarak hazır" : "Kontrol gerekli"}`,
       frontend?.releaseLabel ? `Ön yüz derlemesi: ${frontend.releaseLabel}` : null,
       backend?.release_label ? `Arka uç derlemesi: ${backend.release_label}` : null,
       backend?.decision ? `Bugünün kararı: ${backend.decision.title}` : null,
@@ -758,9 +758,9 @@ export default function StatusPage() {
             gap: "14px",
           }}
         >
-          <div style={statusPill(coreReady)}>Pilot Durumu: {overallOk ? "Hazır" : coreReady ? "Temel Olarak Hazır" : "Kontrol Gerekli"}</div>
+          <div style={statusPill(coreReady)}>Canlı Kontrol: {overallOk ? "Hazır" : coreReady ? "Temel Olarak Hazır" : "Kontrol Gerekli"}</div>
           <h1 style={{ margin: 0, fontSize: "clamp(2rem, 4vw, 3rem)", lineHeight: 1.04 }}>
-            Cat Kapında CRM v2 pilot kontrol ekranı
+            Çat Kapında CRM canlı kontrol ekranı
           </h1>
           <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
             Bu sayfa yeni sistemin gerçekten ayağa kalkıp kalkmadığını tek bakışta gösterir. Ön yüz geçiş katmanı,

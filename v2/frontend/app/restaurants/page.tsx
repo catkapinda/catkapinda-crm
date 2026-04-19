@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../components/auth/auth-provider";
 import { RestaurantEntryWorkspace } from "../../components/restaurants/restaurant-entry-workspace";
 import { RestaurantManagementWorkspace } from "../../components/restaurants/restaurant-management-workspace";
+import { RestaurantStaffRequestWorkspace } from "../../components/restaurants/restaurant-staff-request-workspace";
 import { AppShell } from "../../components/shell/app-shell";
 import { apiFetch } from "../../lib/api";
 
@@ -353,14 +354,20 @@ export default function RestaurantsPage() {
       },
       {
         eyebrow: "İkinci Adım",
+        title: "Kadro talebini işle",
+        body: "Ek kurye ve azaltma taleplerini restoran kartından ayrı talep hattında güncelle.",
+        href: "#restaurant-staff-request-workspace",
+      },
+      {
+        eyebrow: "Üçüncü Adım",
         title: "Portföy havuzunu süz",
         body: "Marka, şube ve fiyat modeli üzerinden kayıtları daralt; dikkat isteyen kartı hızlıca bul.",
         href: "#restaurant-management-workspace",
       },
       {
-        eyebrow: "Üçüncü Adım",
+        eyebrow: "Dördüncü Adım",
         title: "Seçili kartı güncelle",
-        body: "Kadro, fiyat, iletişim ve durum alanlarını aynı panelde yenile; gerekirse pasife al.",
+        body: "Fiyat, iletişim, vergi ve durum alanlarını aynı panelde yenile; gerekirse pasife al.",
         href: "#restaurant-management-workspace",
       },
     ],
@@ -889,6 +896,9 @@ export default function RestaurantsPage() {
 
             <section id="restaurant-entry-workspace" style={{ scrollMarginTop: "110px" }}>
               <RestaurantEntryWorkspace />
+            </section>
+            <section id="restaurant-staff-request-workspace" style={{ scrollMarginTop: "110px" }}>
+              <RestaurantStaffRequestWorkspace />
             </section>
             <section id="restaurant-management-workspace" style={{ scrollMarginTop: "110px" }}>
               <RestaurantManagementWorkspace />

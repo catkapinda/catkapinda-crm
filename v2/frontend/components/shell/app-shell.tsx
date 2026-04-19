@@ -19,6 +19,22 @@ type PreviewMeta = {
   flowNote: string;
 };
 
+const navAccentByLabel: Record<string, string> = {
+  "Genel Bakış": "#48c6b5",
+  Puantaj: "#f4a340",
+  Personel: "#7ab8ff",
+  Kesintiler: "#ff7d73",
+  Ekipman: "#b8d66b",
+  "Aylık Hakediş": "#f1d36f",
+  "Satın Alma": "#a78bfa",
+  Satış: "#60d394",
+  Restoranlar: "#ffb86b",
+  Raporlar: "#86a7ff",
+  Duyurular: "#f6c667",
+  "Sistem Kayıtları": "#c0c7d1",
+  Profil: "#d7c8ff",
+};
+
 const previewMetaByLabel: Record<string, PreviewMeta> = {
   "Genel Bakış": {
     kicker: "Operasyon Merkezi",
@@ -336,7 +352,7 @@ export function AppShell({
               }}
             />
           </div>
-          <h2 style={{ margin: "18px 0 10px" }}>v2 oturumu aciliyor</h2>
+          <h2 style={{ margin: "18px 0 10px" }}>Oturum hazırlanıyor</h2>
           <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
             Yetki ve oturum bilgileri kontrol ediliyor. Hazır oldugunda seni doğrudan ilgili module alacagiz.
           </p>
@@ -350,62 +366,79 @@ export function AppShell({
       <aside
         className="app-shell__sidebar"
         style={{
-          padding: "28px 24px 24px",
-          borderRight: "1px solid rgba(255, 255, 255, 0.08)",
+          padding: "24px 20px 22px",
+          borderRight: "1px solid rgba(255, 255, 255, 0.1)",
           background:
-            "linear-gradient(180deg, rgba(19, 32, 48, 0.98) 0%, rgba(24, 40, 59, 0.96) 42%, rgba(37, 55, 77, 0.96) 100%)",
-          color: "#f6efe3",
+            "radial-gradient(circle at 18% 0%, rgba(72,198,181,0.32), transparent 28%), radial-gradient(circle at 96% 18%, rgba(255,184,107,0.22), transparent 24%), linear-gradient(180deg, #061624 0%, #082538 48%, #0f2635 100%)",
+          color: "#f6fbff",
           backdropFilter: "blur(18px)",
-          boxShadow: "inset -1px 0 0 rgba(255, 255, 255, 0.06)",
+          boxShadow: "inset -1px 0 0 rgba(255, 255, 255, 0.08)",
         }}
       >
         <div
           style={{
-            padding: "18px 18px 16px",
-            borderRadius: "28px",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))",
-            border: "1px solid rgba(255,255,255,0.08)",
-            boxShadow: "0 20px 38px rgba(0, 0, 0, 0.18)",
+            padding: "16px",
+            borderRadius: "26px",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.035))",
+            border: "1px solid rgba(255,255,255,0.11)",
+            boxShadow: "0 22px 46px rgba(0, 0, 0, 0.22)",
           }}
         >
           <div
             style={{
-              display: "inline-flex",
-              padding: "6px 10px",
-              borderRadius: "999px",
-              background: "rgba(185, 116, 41, 0.18)",
-              color: "#f1c28f",
-              fontSize: "0.72rem",
-              fontWeight: 800,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
             }}
           >
-            {previewMode ? "v2 Yerel Kontrol" : "v2 Pilot"}
+            <img
+              src="/catkapinda_logo.png"
+              alt="Çat Kapında"
+              style={{
+                width: "58px",
+                height: "58px",
+                objectFit: "contain",
+                filter: "drop-shadow(0 12px 22px rgba(0,0,0,0.28))",
+              }}
+            />
+            <div style={{ display: "grid", gap: "3px" }}>
+              <div
+                style={{
+                  color: "#ffffff",
+                  fontWeight: 900,
+                  fontSize: "1.12rem",
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1,
+                }}
+              >
+                Çat Kapında
+              </div>
+              <div
+                style={{
+                  width: "fit-content",
+                  padding: "5px 9px",
+                  borderRadius: "999px",
+                  background: "rgba(72,198,181,0.16)",
+                  color: "#aef3e9",
+                  fontSize: "0.7rem",
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Operasyon CRM
+              </div>
+            </div>
           </div>
           <div
             style={{
-              marginTop: "16px",
-              color: "#fff7ed",
-              fontWeight: 900,
-              fontSize: "1.85rem",
-              letterSpacing: "-0.03em",
-              lineHeight: 0.95,
-              fontFamily:
-                '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+              marginTop: "14px",
+              color: "rgba(236, 248, 255, 0.76)",
+              fontSize: "0.9rem",
+              lineHeight: 1.55,
             }}
           >
-            Cat Kapında CRM
-          </div>
-          <div
-            style={{
-              marginTop: "10px",
-              color: "rgba(246, 239, 227, 0.72)",
-              fontSize: "0.92rem",
-              lineHeight: 1.6,
-            }}
-          >
-            Günlük operasyon, raporlar ve saha akışı tek kabukta.
+            Şube, kadro, puantaj ve finans akışını tek yönetim masasında toparla.
           </div>
         </div>
         {previewMode ? (
@@ -422,7 +455,7 @@ export function AppShell({
               gap: "10px",
             }}
           >
-            <div style={{ fontWeight: 800, color: "#fff1d8" }}>Tanıtım kipindesin.</div>
+            <div style={{ fontWeight: 800, color: "#fff1d8" }}>Tanıtım modundasın.</div>
             <div>Bu hat gerçek arka uç yerine örnek veriyle çalışır; kayıtlar kalıcı değildir.</div>
             <Link
               href="/login"
@@ -447,60 +480,62 @@ export function AppShell({
         <nav
           style={{
             display: "grid",
-            gap: "10px",
+            gap: "8px",
           }}
         >
-          {visibleItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              style={{
-                padding: "14px 16px",
-                borderRadius: "20px",
-                border:
-                  item.label === activeItem
-                    ? "1px solid rgba(241, 194, 143, 0.4)"
-                    : "1px solid rgba(255, 255, 255, 0.08)",
-                background:
-                  item.label === activeItem
-                    ? "linear-gradient(135deg, rgba(185, 116, 41, 0.24), rgba(255,255,255,0.08))"
-                    : "rgba(255, 255, 255, 0.03)",
-                color: item.label === activeItem ? "#fff4e5" : "rgba(246, 239, 227, 0.84)",
-                fontWeight: item.label === activeItem ? 800 : 700,
-                boxShadow:
-                  item.label === activeItem ? "0 18px 34px rgba(0, 0, 0, 0.16)" : "none",
-              }}
-            >
-              <div
+          {visibleItems.map((item) => {
+            const isActive = item.label === activeItem;
+            const accent = navAccentByLabel[item.label] ?? "#48c6b5";
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "12px",
+                  gap: "11px",
+                  minHeight: "44px",
+                  padding: "11px 12px",
+                  borderRadius: "16px",
+                  border: isActive ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(255,255,255,0.06)",
+                  background: isActive
+                    ? "linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.055))"
+                    : "rgba(255, 255, 255, 0.025)",
+                  color: isActive ? "#ffffff" : "rgba(236, 248, 255, 0.78)",
+                  fontWeight: isActive ? 900 : 700,
+                  boxShadow: isActive ? "0 16px 30px rgba(0, 0, 0, 0.18)" : "none",
                 }}
               >
-                <span>{item.label}</span>
                 <span
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minWidth: "30px",
-                    height: "30px",
-                    borderRadius: "12px",
-                    background:
-                      item.label === activeItem
-                        ? "rgba(255,255,255,0.14)"
-                        : "rgba(255,255,255,0.06)",
-                    fontSize: "0.76rem",
-                    fontWeight: 900,
+                    width: isActive ? "5px" : "4px",
+                    alignSelf: "stretch",
+                    minHeight: "24px",
+                    borderRadius: "999px",
+                    background: accent,
+                    boxShadow: isActive ? `0 0 22px ${accent}` : "none",
                   }}
-                >
-                  {item.label.charAt(0)}
-                </span>
-              </div>
-            </Link>
-          ))}
+                />
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {isActive ? (
+                  <span
+                    style={{
+                      padding: "4px 8px",
+                      borderRadius: "999px",
+                      background: "rgba(255,255,255,0.1)",
+                      color: "rgba(236,248,255,0.78)",
+                      fontSize: "0.68rem",
+                      fontWeight: 900,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Aktif
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
         </nav>
 
         <div

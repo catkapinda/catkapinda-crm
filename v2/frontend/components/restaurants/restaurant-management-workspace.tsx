@@ -742,19 +742,6 @@ export function RestaurantManagementWorkspace() {
                 style={{ ...fieldStyle, resize: "vertical", minHeight: "60px" }}
               />
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: "8px",
-                }}
-              >
-                <input value={editExtraHeadcountRequest} onChange={(event) => setEditExtraHeadcountRequest(event.target.value)} placeholder="Ek Kurye Talebi" style={fieldStyle} />
-                <input type="date" value={editExtraHeadcountRequestDate} onChange={(event) => setEditExtraHeadcountRequestDate(event.target.value)} style={fieldStyle} />
-                <input value={editReduceHeadcountRequest} onChange={(event) => setEditReduceHeadcountRequest(event.target.value)} placeholder="Kurye Azaltma Talebi" style={fieldStyle} />
-                <input type="date" value={editReduceHeadcountRequestDate} onChange={(event) => setEditReduceHeadcountRequestDate(event.target.value)} style={fieldStyle} />
-              </div>
-
               <textarea
                 value={editNotes}
                 onChange={(event) => setEditNotes(event.target.value)}

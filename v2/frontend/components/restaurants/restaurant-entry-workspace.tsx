@@ -57,10 +57,6 @@ export function RestaurantEntryWorkspace() {
   const [targetHeadcount, setTargetHeadcount] = useState("1");
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [endDate, setEndDate] = useState("");
-  const [extraHeadcountRequest, setExtraHeadcountRequest] = useState("0");
-  const [extraHeadcountRequestDate, setExtraHeadcountRequestDate] = useState("");
-  const [reduceHeadcountRequest, setReduceHeadcountRequest] = useState("0");
-  const [reduceHeadcountRequestDate, setReduceHeadcountRequestDate] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -123,10 +119,10 @@ export function RestaurantEntryWorkspace() {
         target_headcount: Number(targetHeadcount || 0),
         start_date: startDate || null,
         end_date: endDate || null,
-        extra_headcount_request: Number(extraHeadcountRequest || 0),
-        extra_headcount_request_date: extraHeadcountRequestDate || null,
-        reduce_headcount_request: Number(reduceHeadcountRequest || 0),
-        reduce_headcount_request_date: reduceHeadcountRequestDate || null,
+        extra_headcount_request: 0,
+        extra_headcount_request_date: null,
+        reduce_headcount_request: 0,
+        reduce_headcount_request_date: null,
         contact_name: contactName,
         contact_phone: contactPhone,
         contact_email: contactEmail,
@@ -380,49 +376,6 @@ export function RestaurantEntryWorkspace() {
                   style={{ ...fieldStyle, resize: "vertical" }}
                 />
               </label>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: "14px",
-                }}
-              >
-                <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Ek Kurye Talep Sayısı</span>
-                  <input
-                    value={extraHeadcountRequest}
-                    onChange={(event) => setExtraHeadcountRequest(event.target.value)}
-                    style={fieldStyle}
-                  />
-                </label>
-                <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Ek Kurye Talep Tarihi</span>
-                  <input
-                    type="date"
-                    value={extraHeadcountRequestDate}
-                    onChange={(event) => setExtraHeadcountRequestDate(event.target.value)}
-                    style={fieldStyle}
-                  />
-                </label>
-                <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Kurye Azaltma Sayısı</span>
-                  <input
-                    value={reduceHeadcountRequest}
-                    onChange={(event) => setReduceHeadcountRequest(event.target.value)}
-                    style={fieldStyle}
-                  />
-                </label>
-                <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Kurye Azaltma Tarihi</span>
-                  <input
-                    type="date"
-                    value={reduceHeadcountRequestDate}
-                    onChange={(event) => setReduceHeadcountRequestDate(event.target.value)}
-                    style={fieldStyle}
-                  />
-                </label>
-              </div>
 
               <label style={{ display: "grid", gap: "8px" }}>
                 <span style={{ fontWeight: 700 }}>Not</span>
