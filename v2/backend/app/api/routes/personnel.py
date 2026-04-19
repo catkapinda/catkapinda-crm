@@ -113,7 +113,7 @@ def create_personnel_record_route(
 def get_personnel_records(
     user: Annotated[AuthenticatedUser, Depends(require_action("personnel.list"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
-    limit: int = Query(default=80, ge=1, le=300),
+    limit: int = Query(default=80, ge=1, le=500),
     restaurant_id: int | None = None,
     role: str | None = None,
     search: str | None = None,
@@ -132,7 +132,7 @@ def get_personnel_records(
 def get_personnel_plate_workspace(
     _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.plate"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
-    limit: int = Query(default=80, ge=1, le=300),
+    limit: int = Query(default=80, ge=1, le=500),
 ) -> PersonnelPlateWorkspaceResponse:
     return build_personnel_plate_workspace(conn, limit=limit)
 
@@ -141,7 +141,7 @@ def get_personnel_plate_workspace(
 def get_personnel_role_workspace(
     _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.list"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
-    limit: int = Query(default=80, ge=1, le=300),
+    limit: int = Query(default=80, ge=1, le=500),
 ) -> PersonnelRoleWorkspaceResponse:
     return build_personnel_role_workspace(conn, limit=limit)
 
@@ -150,7 +150,7 @@ def get_personnel_role_workspace(
 def get_personnel_vehicle_workspace(
     _user: Annotated[AuthenticatedUser, Depends(require_action("personnel.list"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
-    limit: int = Query(default=80, ge=1, le=300),
+    limit: int = Query(default=80, ge=1, le=500),
 ) -> PersonnelVehicleWorkspaceResponse:
     return build_personnel_vehicle_workspace(conn, limit=limit)
 

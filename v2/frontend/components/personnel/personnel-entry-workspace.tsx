@@ -15,6 +15,8 @@ type PersonnelFormOptions = {
   role_options: string[];
   status_options: string[];
   vehicle_mode_options: string[];
+  accounting_type_options: string[];
+  company_setup_options: string[];
   selected_restaurant_id: number | null;
 };
 
@@ -47,6 +49,12 @@ export function PersonnelEntryWorkspace() {
   const [taxOffice, setTaxOffice] = useState("");
   const [emergencyContactName, setEmergencyContactName] = useState("");
   const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
+  const [accountingType, setAccountingType] = useState("Kendi Muhasebecisi");
+  const [newCompanySetup, setNewCompanySetup] = useState("Hayır");
+  const [accountingRevenue, setAccountingRevenue] = useState("0");
+  const [accountantCost, setAccountantCost] = useState("0");
+  const [companySetupRevenue, setCompanySetupRevenue] = useState("0");
+  const [companySetupCost, setCompanySetupCost] = useState("0");
   const [restaurantId, setRestaurantId] = useState<number | "">("");
   const [status, setStatus] = useState("Aktif");
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
@@ -77,6 +85,8 @@ export function PersonnelEntryWorkspace() {
         setRole(payload.role_options[0] ?? "Kurye");
         setStatus(payload.status_options[0] ?? "Aktif");
         setVehicleMode(payload.vehicle_mode_options[0] ?? "Kendi Motoru");
+        setAccountingType(payload.accounting_type_options?.[0] ?? "Kendi Muhasebecisi");
+        setNewCompanySetup(payload.company_setup_options?.[0] ?? "Hayır");
         setRestaurantId(payload.selected_restaurant_id ?? "");
       } catch (error) {
         setSubmitError(
@@ -123,6 +133,12 @@ export function PersonnelEntryWorkspace() {
         tax_office: taxOffice,
         emergency_contact_name: emergencyContactName,
         emergency_contact_phone: emergencyContactPhone,
+        accounting_type: accountingType,
+        new_company_setup: newCompanySetup,
+        accounting_revenue: Number(accountingRevenue || 0),
+        accountant_cost: Number(accountantCost || 0),
+        company_setup_revenue: Number(companySetupRevenue || 0),
+        company_setup_cost: Number(companySetupCost || 0),
         assigned_restaurant_id: typeof restaurantId === "number" ? restaurantId : null,
         status,
         start_date: startDate || null,
@@ -157,6 +173,12 @@ export function PersonnelEntryWorkspace() {
     setTaxOffice("");
     setEmergencyContactName("");
     setEmergencyContactPhone("");
+    setAccountingType(options?.accounting_type_options?.[0] ?? "Kendi Muhasebecisi");
+    setNewCompanySetup(options?.company_setup_options?.[0] ?? "Hayır");
+    setAccountingRevenue("0");
+    setAccountantCost("0");
+    setCompanySetupRevenue("0");
+    setCompanySetupCost("0");
     setCurrentPlate("");
     setMotorRentalMonthlyAmount("13000");
     setMotorPurchaseStartDate("");
@@ -386,6 +408,70 @@ export function PersonnelEntryWorkspace() {
                   <span style={{ fontWeight: 700 }}>Vergi Dairesi</span>
                   <input value={taxOffice} onChange={(event) => setTaxOffice(event.target.value)} style={fieldStyle} />
                 </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Muhasebe</span>
+                  <select
+                    value={accountingType}
+                    onChange={(event) => setAccountingType(event.target.value)}
+                    style={fieldStyle}
+                  >
+                    {(options?.accounting_type_options ?? [accountingType]).map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Yeni Şirket Açılışı</span>
+                  <select
+                    value={newCompanySetup}
+                    onChange={(event) => setNewCompanySetup(event.target.value)}
+                    style={fieldStyle}
+                  >
+                    {(options?.company_setup_options ?? [newCompanySetup]).map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Muhasebe Geliri</span>
+                  <input
+                    inputMode="decimal"
+                    value={accountingRevenue}
+                    onChange={(event) => setAccountingRevenue(event.target.value)}
+                    style={fieldStyle}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Muhasebeci Maliyeti</span>
+                  <input
+                    inputMode="decimal"
+                    value={accountantCost}
+                    onChange={(event) => setAccountantCost(event.target.value)}
+                    style={fieldStyle}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Şirket Açılış Geliri</span>
+                  <input
+                    inputMode="decimal"
+                    value={companySetupRevenue}
+                    onChange={(event) => setCompanySetupRevenue(event.target.value)}
+                    style={fieldStyle}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Şirket Açılış Maliyeti</span>
+                  <input
+                    inputMode="decimal"
+                    value={companySetupCost}
+                    onChange={(event) => setCompanySetupCost(event.target.value)}
+                    style={fieldStyle}
+                  />
+                </label>
               </div>
 
               <SectionHeader title="Acil Durum" />
@@ -464,6 +550,8 @@ export function PersonnelEntryWorkspace() {
                 label="Vergi"
                 value={taxNumber || taxOffice ? "Girildi" : "Eksik"}
               />
+              <SummaryItem label="Muhasebe" value={accountingType} />
+              <SummaryItem label="Şirket Açılışı" value={newCompanySetup} />
               <SummaryItem
                 label="Acil Durum"
                 value={emergencyContactName || emergencyContactPhone ? "Girildi" : "Eksik"}

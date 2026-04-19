@@ -101,6 +101,8 @@ PERSONNEL_ROLE_OPTIONS = [
     "Joker",
 ]
 PERSONNEL_STATUS_OPTIONS = ["Aktif", "Pasif"]
+ACCOUNTING_TYPE_OPTIONS = ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"]
+COMPANY_SETUP_OPTIONS = ["Hayır", "Evet"]
 VEHICLE_MODE_OPTIONS = [
     "Kendi Motoru",
     "Cat Kapinda Motor Kirasi",
@@ -151,6 +153,16 @@ def _normalize_vehicle_mode(value: str) -> str:
 
 def _display_vehicle_mode(value: str) -> str:
     return REVERSE_VEHICLE_MODE_ALIAS_MAP.get(value, value)
+
+
+def _normalize_accounting_type(value: str) -> str:
+    raw = str(value or "").strip()
+    return raw if raw in ACCOUNTING_TYPE_OPTIONS else "Kendi Muhasebecisi"
+
+
+def _normalize_company_setup(value: str) -> str:
+    raw = str(value or "").strip()
+    return raw if raw in COMPANY_SETUP_OPTIONS else "Hayır"
 
 
 def _resolve_vehicle_fields(vehicle_mode: str) -> dict[str, str]:
@@ -259,6 +271,12 @@ def _build_management_entry(
         tax_office=str(row.get("tax_office") or ""),
         emergency_contact_name=str(row.get("emergency_contact_name") or ""),
         emergency_contact_phone=str(row.get("emergency_contact_phone") or ""),
+        accounting_type=str(row.get("accounting_type") or "Kendi Muhasebecisi"),
+        new_company_setup=str(row.get("new_company_setup") or "Hayır"),
+        accounting_revenue=float(row.get("accounting_revenue") or 0),
+        accountant_cost=float(row.get("accountant_cost") or 0),
+        company_setup_revenue=float(row.get("company_setup_revenue") or 0),
+        company_setup_cost=float(row.get("company_setup_cost") or 0),
         restaurant_id=int(row["restaurant_id"]) if row["restaurant_id"] else None,
         restaurant_label=str(row["restaurant_label"] or "-"),
         vehicle_mode=vehicle_mode,
@@ -597,6 +615,8 @@ def build_personnel_form_options(
         role_options=[_display_role(role) for role in PERSONNEL_ROLE_OPTIONS],
         status_options=PERSONNEL_STATUS_OPTIONS,
         vehicle_mode_options=[_display_vehicle_mode(mode) for mode in VEHICLE_MODE_OPTIONS],
+        accounting_type_options=ACCOUNTING_TYPE_OPTIONS,
+        company_setup_options=COMPANY_SETUP_OPTIONS,
         selected_restaurant_id=default_restaurant_id,
     )
 
@@ -969,8 +989,12 @@ def create_personnel_record(
             "tax_office": str(payload.tax_office or "").strip(),
             "emergency_contact_name": str(payload.emergency_contact_name or "").strip(),
             "emergency_contact_phone": str(payload.emergency_contact_phone or "").strip(),
-            "accounting_type": "Kendi Muhasebecisi",
-            "new_company_setup": "Hayır",
+            "accounting_type": _normalize_accounting_type(payload.accounting_type),
+            "new_company_setup": _normalize_company_setup(payload.new_company_setup),
+            "accounting_revenue": float(payload.accounting_revenue or 0),
+            "accountant_cost": float(payload.accountant_cost or 0),
+            "company_setup_revenue": float(payload.company_setup_revenue or 0),
+            "company_setup_cost": float(payload.company_setup_cost or 0),
             "assigned_restaurant_id": payload.assigned_restaurant_id,
             "vehicle_type": vehicle_payload["vehicle_type"],
             "motor_rental": vehicle_payload["motor_rental"],
@@ -1093,6 +1117,12 @@ def update_personnel_record_entry(
             "tax_office": str(payload.tax_office or "").strip(),
             "emergency_contact_name": str(payload.emergency_contact_name or "").strip(),
             "emergency_contact_phone": str(payload.emergency_contact_phone or "").strip(),
+            "accounting_type": _normalize_accounting_type(payload.accounting_type),
+            "new_company_setup": _normalize_company_setup(payload.new_company_setup),
+            "accounting_revenue": float(payload.accounting_revenue or 0),
+            "accountant_cost": float(payload.accountant_cost or 0),
+            "company_setup_revenue": float(payload.company_setup_revenue or 0),
+            "company_setup_cost": float(payload.company_setup_cost or 0),
             "assigned_restaurant_id": payload.assigned_restaurant_id,
             "vehicle_type": vehicle_payload["vehicle_type"],
             "motor_rental": vehicle_payload["motor_rental"],

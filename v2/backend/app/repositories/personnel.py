@@ -110,6 +110,12 @@ def fetch_recent_personnel_records(
             COALESCE(p.tax_office, '') AS tax_office,
             COALESCE(p.emergency_contact_name, '') AS emergency_contact_name,
             COALESCE(p.emergency_contact_phone, '') AS emergency_contact_phone,
+            COALESCE(p.accounting_type, 'Kendi Muhasebecisi') AS accounting_type,
+            COALESCE(p.new_company_setup, 'Hayır') AS new_company_setup,
+            COALESCE(p.accounting_revenue, 0) AS accounting_revenue,
+            COALESCE(p.accountant_cost, 0) AS accountant_cost,
+            COALESCE(p.company_setup_revenue, 0) AS company_setup_revenue,
+            COALESCE(p.company_setup_cost, 0) AS company_setup_cost,
             p.assigned_restaurant_id AS restaurant_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
             COALESCE(p.vehicle_type, '') AS vehicle_type,
@@ -170,6 +176,12 @@ def fetch_personnel_management_records(
             COALESCE(p.tax_office, '') AS tax_office,
             COALESCE(p.emergency_contact_name, '') AS emergency_contact_name,
             COALESCE(p.emergency_contact_phone, '') AS emergency_contact_phone,
+            COALESCE(p.accounting_type, 'Kendi Muhasebecisi') AS accounting_type,
+            COALESCE(p.new_company_setup, 'Hayır') AS new_company_setup,
+            COALESCE(p.accounting_revenue, 0) AS accounting_revenue,
+            COALESCE(p.accountant_cost, 0) AS accountant_cost,
+            COALESCE(p.company_setup_revenue, 0) AS company_setup_revenue,
+            COALESCE(p.company_setup_cost, 0) AS company_setup_cost,
             p.assigned_restaurant_id AS restaurant_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
             COALESCE(p.vehicle_type, '') AS vehicle_type,
@@ -198,6 +210,8 @@ def fetch_personnel_management_records(
             OR COALESCE(p.tax_office, '') ILIKE %s
             OR COALESCE(p.emergency_contact_name, '') ILIKE %s
             OR COALESCE(p.emergency_contact_phone, '') ILIKE %s
+            OR COALESCE(p.accounting_type, '') ILIKE %s
+            OR COALESCE(p.new_company_setup, '') ILIKE %s
             OR COALESCE(r.brand || ' - ' || r.branch, '') ILIKE %s
           )
         ORDER BY p.full_name, p.id DESC
@@ -208,6 +222,8 @@ def fetch_personnel_management_records(
             restaurant_id,
             role,
             role,
+            search_pattern,
+            search_pattern,
             search_pattern,
             search_pattern,
             search_pattern,
@@ -249,6 +265,8 @@ def count_personnel_management_records(
             OR COALESCE(p.tax_office, '') ILIKE %s
             OR COALESCE(p.emergency_contact_name, '') ILIKE %s
             OR COALESCE(p.emergency_contact_phone, '') ILIKE %s
+            OR COALESCE(p.accounting_type, '') ILIKE %s
+            OR COALESCE(p.new_company_setup, '') ILIKE %s
             OR COALESCE(r.brand || ' - ' || r.branch, '') ILIKE %s
           )
         """,
@@ -257,6 +275,8 @@ def count_personnel_management_records(
             restaurant_id,
             role,
             role,
+            search_pattern,
+            search_pattern,
             search_pattern,
             search_pattern,
             search_pattern,
@@ -291,6 +311,12 @@ def fetch_personnel_record_by_id(
             COALESCE(p.tax_office, '') AS tax_office,
             COALESCE(p.emergency_contact_name, '') AS emergency_contact_name,
             COALESCE(p.emergency_contact_phone, '') AS emergency_contact_phone,
+            COALESCE(p.accounting_type, 'Kendi Muhasebecisi') AS accounting_type,
+            COALESCE(p.new_company_setup, 'Hayır') AS new_company_setup,
+            COALESCE(p.accounting_revenue, 0) AS accounting_revenue,
+            COALESCE(p.accountant_cost, 0) AS accountant_cost,
+            COALESCE(p.company_setup_revenue, 0) AS company_setup_revenue,
+            COALESCE(p.company_setup_cost, 0) AS company_setup_cost,
             p.assigned_restaurant_id AS restaurant_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
             COALESCE(p.vehicle_type, '') AS vehicle_type,
@@ -349,6 +375,10 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             emergency_contact_phone,
             accounting_type,
             new_company_setup,
+            accounting_revenue,
+            accountant_cost,
+            company_setup_revenue,
+            company_setup_cost,
             assigned_restaurant_id,
             vehicle_type,
             motor_rental,
@@ -365,7 +395,7 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             monthly_fixed_cost,
             notes
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
         """,
         (
@@ -382,6 +412,10 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             values["emergency_contact_phone"],
             values["accounting_type"],
             values["new_company_setup"],
+            values["accounting_revenue"],
+            values["accountant_cost"],
+            values["company_setup_revenue"],
+            values["company_setup_cost"],
             values["assigned_restaurant_id"],
             values["vehicle_type"],
             values["motor_rental"],
@@ -422,6 +456,12 @@ def update_personnel_record(
             tax_office = %s,
             emergency_contact_name = %s,
             emergency_contact_phone = %s,
+            accounting_type = %s,
+            new_company_setup = %s,
+            accounting_revenue = %s,
+            accountant_cost = %s,
+            company_setup_revenue = %s,
+            company_setup_cost = %s,
             assigned_restaurant_id = %s,
             vehicle_type = %s,
             motor_rental = %s,
@@ -451,6 +491,12 @@ def update_personnel_record(
             values["tax_office"],
             values["emergency_contact_name"],
             values["emergency_contact_phone"],
+            values["accounting_type"],
+            values["new_company_setup"],
+            values["accounting_revenue"],
+            values["accountant_cost"],
+            values["company_setup_revenue"],
+            values["company_setup_cost"],
             values["assigned_restaurant_id"],
             values["vehicle_type"],
             values["motor_rental"],

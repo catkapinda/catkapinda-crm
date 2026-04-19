@@ -50,6 +50,12 @@ class PersonnelManagementEntry(BaseModel):
     tax_office: str
     emergency_contact_name: str
     emergency_contact_phone: str
+    accounting_type: str
+    new_company_setup: str
+    accounting_revenue: float
+    accountant_cost: float
+    company_setup_revenue: float
+    company_setup_cost: float
     restaurant_id: int | None
     restaurant_label: str
     vehicle_mode: str
@@ -171,6 +177,8 @@ class PersonnelFormOptionsResponse(BaseModel):
     role_options: list[str]
     status_options: list[str]
     vehicle_mode_options: list[str]
+    accounting_type_options: list[str]
+    company_setup_options: list[str]
     selected_restaurant_id: int | None
 
 
@@ -184,6 +192,12 @@ class PersonnelCreateRequest(BaseModel):
     tax_office: str = ""
     emergency_contact_name: str = ""
     emergency_contact_phone: str = ""
+    accounting_type: str = "Kendi Muhasebecisi"
+    new_company_setup: str = "Hayır"
+    accounting_revenue: float = 0.0
+    accountant_cost: float = 0.0
+    company_setup_revenue: float = 0.0
+    company_setup_cost: float = 0.0
     assigned_restaurant_id: int | None = None
     status: str = "Aktif"
     start_date: date | None = None
@@ -241,6 +255,12 @@ class PersonnelUpdateRequest(BaseModel):
     tax_office: str = ""
     emergency_contact_name: str = ""
     emergency_contact_phone: str = ""
+    accounting_type: str = "Kendi Muhasebecisi"
+    new_company_setup: str = "Hayır"
+    accounting_revenue: float = 0.0
+    accountant_cost: float = 0.0
+    company_setup_revenue: float = 0.0
+    company_setup_cost: float = 0.0
     assigned_restaurant_id: int | None = None
     status: str = "Aktif"
     start_date: date | None = None

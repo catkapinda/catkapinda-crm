@@ -36,6 +36,18 @@ type PreviewPersonnelRecord = {
   role: string;
   status: string;
   phone: string;
+  address?: string;
+  iban?: string;
+  tax_number?: string;
+  tax_office?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  accounting_type?: string;
+  new_company_setup?: string;
+  accounting_revenue?: number;
+  accountant_cost?: number;
+  company_setup_revenue?: number;
+  company_setup_cost?: number;
   restaurant_id: number | null;
   vehicle_mode: string;
   current_plate: string;
@@ -1030,6 +1042,23 @@ function buildAttendanceEntry(record: PreviewAttendanceRecord) {
 function buildPersonnelEntry(record: PreviewPersonnelRecord) {
   return {
     ...record,
+    address: record.address ?? "",
+    iban: record.iban ?? "",
+    tax_number: record.tax_number ?? "",
+    tax_office: record.tax_office ?? "",
+    emergency_contact_name: record.emergency_contact_name ?? "",
+    emergency_contact_phone: record.emergency_contact_phone ?? "",
+    accounting_type: record.accounting_type ?? "Kendi Muhasebecisi",
+    new_company_setup: record.new_company_setup ?? "Hayır",
+    accounting_revenue: record.accounting_revenue ?? 0,
+    accountant_cost: record.accountant_cost ?? 0,
+    company_setup_revenue: record.company_setup_revenue ?? 0,
+    company_setup_cost: record.company_setup_cost ?? 0,
+    motor_rental_monthly_amount: 13000,
+    motor_purchase_start_date: null,
+    motor_purchase_commitment_months: 0,
+    motor_purchase_sale_price: 0,
+    motor_purchase_monthly_deduction: 0,
     restaurant_label: restaurantLabel(record.restaurant_id),
   };
 }
@@ -1079,6 +1108,8 @@ function buildPersonnelFormOptions() {
     role_options: previewRoleOptions,
     status_options: previewStatusOptions,
     vehicle_mode_options: previewVehicleModeOptions,
+    accounting_type_options: ["Çat Kapında Muhasebe", "Kendi Muhasebecisi"],
+    company_setup_options: ["Hayır", "Evet"],
     selected_restaurant_id: previewRestaurants[0]?.id ?? null,
   };
 }
@@ -1322,6 +1353,13 @@ function filterPersonnelEntries(searchParams: URLSearchParams) {
         record.person_code,
         record.full_name,
         record.phone,
+        record.iban,
+        record.tax_number,
+        record.tax_office,
+        record.emergency_contact_name,
+        record.emergency_contact_phone,
+        record.accounting_type,
+        record.new_company_setup,
         restaurantLabel(record.restaurant_id),
       ]
         .join(" ")
@@ -3293,6 +3331,18 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
       role: String(body.role || previewRoleOptions[0]),
       status: String(body.status || previewStatusOptions[0]),
       phone: String(body.phone || ""),
+      address: String(body.address || ""),
+      iban: String(body.iban || ""),
+      tax_number: String(body.tax_number || ""),
+      tax_office: String(body.tax_office || ""),
+      emergency_contact_name: String(body.emergency_contact_name || ""),
+      emergency_contact_phone: String(body.emergency_contact_phone || ""),
+      accounting_type: String(body.accounting_type || "Kendi Muhasebecisi"),
+      new_company_setup: String(body.new_company_setup || "Hayır"),
+      accounting_revenue: Number(body.accounting_revenue || 0),
+      accountant_cost: Number(body.accountant_cost || 0),
+      company_setup_revenue: Number(body.company_setup_revenue || 0),
+      company_setup_cost: Number(body.company_setup_cost || 0),
       restaurant_id: body.assigned_restaurant_id ? Number(body.assigned_restaurant_id) : null,
       vehicle_mode: String(body.vehicle_mode || previewVehicleModeOptions[0]),
       current_plate: String(body.current_plate || ""),
@@ -3341,6 +3391,22 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
         full_name: String(body.full_name || previewPersonnelRecords[index].full_name),
         role: String(body.role || previewPersonnelRecords[index].role),
         phone: String(body.phone || previewPersonnelRecords[index].phone),
+        address: String(body.address || previewPersonnelRecords[index].address || ""),
+        iban: String(body.iban || previewPersonnelRecords[index].iban || ""),
+        tax_number: String(body.tax_number || previewPersonnelRecords[index].tax_number || ""),
+        tax_office: String(body.tax_office || previewPersonnelRecords[index].tax_office || ""),
+        emergency_contact_name: String(
+          body.emergency_contact_name || previewPersonnelRecords[index].emergency_contact_name || "",
+        ),
+        emergency_contact_phone: String(
+          body.emergency_contact_phone || previewPersonnelRecords[index].emergency_contact_phone || "",
+        ),
+        accounting_type: String(body.accounting_type || previewPersonnelRecords[index].accounting_type || "Kendi Muhasebecisi"),
+        new_company_setup: String(body.new_company_setup || previewPersonnelRecords[index].new_company_setup || "Hayır"),
+        accounting_revenue: Number(body.accounting_revenue || previewPersonnelRecords[index].accounting_revenue || 0),
+        accountant_cost: Number(body.accountant_cost || previewPersonnelRecords[index].accountant_cost || 0),
+        company_setup_revenue: Number(body.company_setup_revenue || previewPersonnelRecords[index].company_setup_revenue || 0),
+        company_setup_cost: Number(body.company_setup_cost || previewPersonnelRecords[index].company_setup_cost || 0),
         restaurant_id: body.assigned_restaurant_id ? Number(body.assigned_restaurant_id) : null,
         status: String(body.status || previewPersonnelRecords[index].status),
         start_date: String(body.start_date || previewPersonnelRecords[index].start_date || ""),

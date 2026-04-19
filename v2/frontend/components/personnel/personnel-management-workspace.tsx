@@ -21,6 +21,12 @@ type PersonnelEntry = {
   tax_office: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
+  accounting_type: string;
+  new_company_setup: string;
+  accounting_revenue: number;
+  accountant_cost: number;
+  company_setup_revenue: number;
+  company_setup_cost: number;
   restaurant_id: number | null;
   restaurant_label: string;
   vehicle_mode: string;
@@ -43,6 +49,8 @@ type PersonnelFormOptions = {
   role_options: string[];
   status_options: string[];
   vehicle_mode_options: string[];
+  accounting_type_options: string[];
+  company_setup_options: string[];
   selected_restaurant_id: number | null;
 };
 
@@ -85,6 +93,12 @@ export function PersonnelManagementWorkspace() {
   const [editTaxOffice, setEditTaxOffice] = useState("");
   const [editEmergencyContactName, setEditEmergencyContactName] = useState("");
   const [editEmergencyContactPhone, setEditEmergencyContactPhone] = useState("");
+  const [editAccountingType, setEditAccountingType] = useState("Kendi Muhasebecisi");
+  const [editNewCompanySetup, setEditNewCompanySetup] = useState("Hayır");
+  const [editAccountingRevenue, setEditAccountingRevenue] = useState("0");
+  const [editAccountantCost, setEditAccountantCost] = useState("0");
+  const [editCompanySetupRevenue, setEditCompanySetupRevenue] = useState("0");
+  const [editCompanySetupCost, setEditCompanySetupCost] = useState("0");
   const [editRestaurantId, setEditRestaurantId] = useState<number | "">("");
   const [editStatus, setEditStatus] = useState("Aktif");
   const [editVehicleMode, setEditVehicleMode] = useState("Kendi Motoru");
@@ -169,6 +183,12 @@ export function PersonnelManagementWorkspace() {
       setEditTaxOffice(entry.tax_office ?? "");
       setEditEmergencyContactName(entry.emergency_contact_name ?? "");
       setEditEmergencyContactPhone(entry.emergency_contact_phone ?? "");
+      setEditAccountingType(entry.accounting_type ?? "Kendi Muhasebecisi");
+      setEditNewCompanySetup(entry.new_company_setup ?? "Hayır");
+      setEditAccountingRevenue(String(entry.accounting_revenue ?? 0));
+      setEditAccountantCost(String(entry.accountant_cost ?? 0));
+      setEditCompanySetupRevenue(String(entry.company_setup_revenue ?? 0));
+      setEditCompanySetupCost(String(entry.company_setup_cost ?? 0));
       setEditRestaurantId(entry.restaurant_id ?? "");
       setEditStatus(entry.status);
       setEditVehicleMode(entry.vehicle_mode);
@@ -243,6 +263,12 @@ export function PersonnelManagementWorkspace() {
         tax_office: editTaxOffice,
         emergency_contact_name: editEmergencyContactName,
         emergency_contact_phone: editEmergencyContactPhone,
+        accounting_type: editAccountingType,
+        new_company_setup: editNewCompanySetup,
+        accounting_revenue: Number(editAccountingRevenue || 0),
+        accountant_cost: Number(editAccountantCost || 0),
+        company_setup_revenue: Number(editCompanySetupRevenue || 0),
+        company_setup_cost: Number(editCompanySetupCost || 0),
         assigned_restaurant_id: typeof editRestaurantId === "number" ? editRestaurantId : null,
         status: editStatus,
         start_date: editStartDate || null,
@@ -394,7 +420,7 @@ export function PersonnelManagementWorkspace() {
             <input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Ad, kod, telefon, IBAN veya vergi ara"
+              placeholder="Ad, kod, telefon, IBAN, vergi veya muhasebe ara"
               style={fieldStyle}
             />
             <div
@@ -704,6 +730,70 @@ export function PersonnelManagementWorkspace() {
                     <span style={{ fontWeight: 700 }}>Vergi Dairesi</span>
                     <input value={editTaxOffice} onChange={(event) => setEditTaxOffice(event.target.value)} style={fieldStyle} />
                   </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Muhasebe</span>
+                    <select
+                      value={editAccountingType}
+                      onChange={(event) => setEditAccountingType(event.target.value)}
+                      style={fieldStyle}
+                    >
+                      {(options?.accounting_type_options ?? [editAccountingType]).map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Yeni Şirket Açılışı</span>
+                    <select
+                      value={editNewCompanySetup}
+                      onChange={(event) => setEditNewCompanySetup(event.target.value)}
+                      style={fieldStyle}
+                    >
+                      {(options?.company_setup_options ?? [editNewCompanySetup]).map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Muhasebe Geliri</span>
+                    <input
+                      inputMode="decimal"
+                      value={editAccountingRevenue}
+                      onChange={(event) => setEditAccountingRevenue(event.target.value)}
+                      style={fieldStyle}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Muhasebeci Maliyeti</span>
+                    <input
+                      inputMode="decimal"
+                      value={editAccountantCost}
+                      onChange={(event) => setEditAccountantCost(event.target.value)}
+                      style={fieldStyle}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Şirket Açılış Geliri</span>
+                    <input
+                      inputMode="decimal"
+                      value={editCompanySetupRevenue}
+                      onChange={(event) => setEditCompanySetupRevenue(event.target.value)}
+                      style={fieldStyle}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Şirket Açılış Maliyeti</span>
+                    <input
+                      inputMode="decimal"
+                      value={editCompanySetupCost}
+                      onChange={(event) => setEditCompanySetupCost(event.target.value)}
+                      style={fieldStyle}
+                    />
+                  </label>
                 </div>
 
                 <SectionHeader title="Acil Durum" />
@@ -801,6 +891,8 @@ export function PersonnelManagementWorkspace() {
                 <SummaryItem label="Şube" value={selectedEntry.restaurant_label} />
                 {canViewPlateArea ? <SummaryItem label="Araç" value={editVehicleMode} /> : null}
                 <SummaryItem label="Durum" value={editStatus} />
+                <SummaryItem label="Muhasebe" value={editAccountingType} />
+                <SummaryItem label="Şirket Açılışı" value={editNewCompanySetup} />
               </aside>
             </div>
           </div>
