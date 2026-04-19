@@ -391,13 +391,18 @@ export function AppShell({
               gap: "12px",
             }}
           >
-            <img
-              src="/catkapinda_logo.png"
-              alt="Çat Kapında"
+            <div
+              aria-label="Çat Kapında"
+              role="img"
               style={{
-                width: "58px",
-                height: "58px",
-                objectFit: "contain",
+                width: "76px",
+                height: "76px",
+                flex: "0 0 auto",
+                borderRadius: "24px",
+                backgroundImage: "url('/catkapinda_logo.png')",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+                backgroundSize: "118%",
                 filter: "drop-shadow(0 12px 22px rgba(0,0,0,0.28))",
               }}
             />
