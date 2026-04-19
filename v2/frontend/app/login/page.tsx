@@ -709,14 +709,15 @@ function LoginPageContent() {
             style={{
               position: "relative",
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
               gap: "12px",
             }}
           >
             {[
-              ["Şube", "Aktif kadro ve günlük saha akışı."],
-              ["Puantaj", "Vardiya, paket ve saat takibi."],
-              ["Finans", "Hakediş, maliyet ve fatura farkı."],
+              ["Şube", "Aktif kadro, hedef ve günlük durum."],
+              ["Puantaj", "Saat, paket, joker ve eksik kayıt."],
+              ["Hakediş", "Kurye ödemesi ve kesinti etkisi."],
+              ["Fatura", "Restoran faturası ve brüt fark."],
             ].map(([title, text]) => (
               <article
                 key={title}
@@ -752,9 +753,9 @@ function LoginPageContent() {
             }}
           >
             {[
-              ["Tek Veri", "Saha ve merkez kayıtları aynı yerde."],
-              ["Net Akış", "Günlük operasyon, rapor ve ödeme birbirine bağlı."],
-              ["Güvenli Giriş", "Şifre, SMS ve kurtarma akışları tek kapıda."],
+              ["Kadro Planı", "Eksik personel, açık rol ve şube ihtiyacı aynı yerden takip edilir."],
+              ["Saha Envanteri", "Motor, plaka, zimmet ve ekipman hareketleri personele bağlı tutulur."],
+              ["Finans Kontrolü", "Puantajdan çıkan hakediş ve restoran faturası birlikte okunur."],
             ].map(([title, text]) => (
               <div
                 key={title}
