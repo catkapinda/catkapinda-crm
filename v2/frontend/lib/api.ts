@@ -5,6 +5,8 @@ export const AUTH_PRESENCE_COOKIE_NAME = "ck_v2_auth_present";
 export const AUTH_NOTICE_STORAGE_KEY = "ck_v2_auth_notice";
 export const AUTH_UNAUTHORIZED_EVENT = "ck-v2-auth-unauthorized";
 
+let unauthorizedSessionCheck: Promise<boolean> | null = null;
+
 export function resolveApiBaseUrl() {
   const rawConfiguredBaseUrl =
     process.env.NEXT_PUBLIC_V2_API_BASE_URL ??
@@ -68,6 +70,27 @@ function emitUnauthorizedEvent() {
   window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
 }
 
+async function shouldEmitUnauthorized(path: string) {
+  if (path.startsWith("/auth/login") || path.startsWith("/auth/verify-phone-code")) {
+    return false;
+  }
+  if (path.startsWith("/auth/me")) {
+    return true;
+  }
+  if (!unauthorizedSessionCheck) {
+    unauthorizedSessionCheck = fetch(buildApiUrl("/auth/me"), {
+      credentials: "same-origin",
+      cache: "no-store",
+    })
+      .then((response) => !response.ok)
+      .catch(() => false)
+      .finally(() => {
+        unauthorizedSessionCheck = null;
+      });
+  }
+  return unauthorizedSessionCheck;
+}
+
 export async function apiFetch(path: string, init: RequestInit = {}) {
   if (isPreviewModeBrowser()) {
     const previewResponse = buildPreviewResponse(path, init);
@@ -82,7 +105,7 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
     credentials: init.credentials ?? "same-origin",
     cache: init.cache ?? "no-store",
   });
-  if (response.status === 401 && !path.startsWith("/auth/login") && !path.startsWith("/auth/verify-phone-code")) {
+  if (response.status === 401 && (await shouldEmitUnauthorized(path))) {
     emitUnauthorizedEvent();
   }
   return response;
