@@ -336,7 +336,7 @@ function ExecutiveReportChart({ dashboard }: { dashboard: ReportsDashboard }) {
   const totals = [
     { label: "Fatura", value: summary.total_revenue, color: "rgba(15, 95, 215, 0.92)" },
     { label: "Kurye Maliyeti", value: summary.total_personnel_cost, color: "rgba(185, 116, 41, 0.88)" },
-    { label: "Brüt Fark", value: summary.gross_profit, color: "rgba(31, 151, 112, 0.9)" },
+    { label: "Fatura-Hakediş Farkı", value: summary.gross_profit, color: "rgba(31, 151, 112, 0.9)" },
   ];
   const maxTotal = Math.max(...totals.map((item) => Math.abs(item.value || 0)), 1);
   const marginPercent = summary.total_revenue
@@ -817,7 +817,7 @@ export default function ReportsPage() {
     return [
       metricCard("Toplam Fatura", formatMoney(dashboard.summary.total_revenue), `${dashboard.summary.selected_month} toplam restoran faturası`),
       metricCard("Kurye Maliyeti", formatMoney(dashboard.summary.total_personnel_cost), "Net kurye maliyeti"),
-      metricCard("Brüt Fark", formatMoney(dashboard.summary.gross_profit), "Fatura - kurye maliyeti"),
+      metricCard("Fatura-Hakediş Farkı", formatMoney(dashboard.summary.gross_profit), "Restoran faturası - kurye hakedişi"),
       metricCard("Yan Gelir", formatMoney(dashboard.summary.side_income_net), "İndirim ve yan gelir toplamı"),
       metricCard("Şube", formatNumber(dashboard.summary.restaurant_count), "Faturalanan restoran sayısı"),
       metricCard("Kurye", formatNumber(dashboard.summary.courier_count), "Maliyet havuzundaki çalışan sayısı"),
@@ -844,7 +844,7 @@ export default function ReportsPage() {
     return [
       metricCard("Saat Başına Fatura", formatMoney(revenuePerHour), "Toplam fatura / toplam saat"),
       metricCard("Kurye Başına Maliyet", formatMoney(averageCourierCost), "Net maliyet / kurye"),
-      metricCard("Marj", `%${formatNumber(marginRatio, 1)}`, "Brüt fark / toplam fatura"),
+      metricCard("Marj", `%${formatNumber(marginRatio, 1)}`, "Fark / toplam fatura"),
     ];
   }, [dashboard]);
 
@@ -1004,7 +1004,7 @@ export default function ReportsPage() {
       "Doğrudan Personel Maliyeti",
       "Ortak Operasyon Payı",
       "Toplam Personel Maliyeti",
-      "Brüt Fark",
+      "Fatura-Hakediş Farkı",
       "Kâr Marjı",
     ];
     const rows = filteredProfitEntries.map((entry) => [
@@ -1271,7 +1271,7 @@ export default function ReportsPage() {
                         letterSpacing: "0.06em",
                       }}
                     >
-                      Brüt Fark
+                      Fatura-Hakediş Farkı
                     </div>
                     <div style={{ marginTop: "6px", fontSize: "0.96rem", fontWeight: 900 }}>
                       {formatMoney(dashboard?.summary?.gross_profit ?? 0)}
@@ -1667,7 +1667,7 @@ export default function ReportsPage() {
                       "KDV Dahil",
                       "Doğrudan Maliyet",
                       "Ortak Operasyon",
-                      "Brüt Fark",
+                      "Fatura-Hakediş Farkı",
                       "Kâr Marjı",
                     ].map(tableHeaderCell)}
                   </tr>

@@ -68,89 +68,220 @@ function buildEmptyRow(): BulkRow {
   };
 }
 
-function normalizeBulkStatus(value: string) {
-  const normalized = String(value || "").trim().toLocaleLowerCase("tr-TR");
-  const mapping: Record<string, string> = {
-    normal: "Normal",
-    joker: "Joker",
-    izin: "İzin",
-    raporlu: "Raporlu",
-    "ihbarsız çıkış": "İhbarsız Çıkış",
-    "ihbarsiz cikis": "İhbarsız Çıkış",
-    gelmedi: "Gelmedi",
-    "çıkış": "Çıkış yaptı",
-    cikis: "Çıkış yaptı",
-    "çıkış yaptı": "Çıkış yaptı",
-    sef: "Şef",
-    şef: "Şef",
+function normalizeLookupText(value: string) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replaceAll("ı", "i")
+    .replaceAll("İ", "I")
+    .toLocaleLowerCase("tr-TR")
+    .replaceAll("ı", "i")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function collapseRepeatedLetters(value: string) {
+  return value.replace(/([a-z])\1+/g, "$1");
+}
+
+function parseWhatsappDate(line: string) {
+  const matches = Array.from(line.matchAll(/\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b/g));
+  if (!matches.length) {
+    return null;
+  }
+  const match = matches[matches.length - 1];
+  const [, day, month, year] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function parseDecimalToken(value: string | undefined) {
+  if (!value) {
+    return 0;
+  }
+  return Number(value.replace(",", "."));
+}
+
+function inferStatusFromLine(
+  line: string,
+  person: AttendanceFormOptions["people"][number] | undefined,
+) {
+  const normalized = normalizeLookupText(line);
+  if (normalized.includes("bolge muduru")) {
+    return "Bölge Müdürü";
+  }
+  if (normalized.includes("joker")) {
+    return "Joker";
+  }
+  if (normalized.includes("sef")) {
+    return "Şef";
+  }
+  if (normalized.includes("ihbarsiz cikis")) {
+    return "İhbarsız Çıkış";
+  }
+  if (normalized.includes("cikis")) {
+    return "Çıkış yaptı";
+  }
+  if (normalized.includes("raporlu")) {
+    return "Raporlu";
+  }
+  if (normalized.includes("gelmedi")) {
+    return "Gelmedi";
+  }
+  if (normalized.includes("izin")) {
+    return "İzin";
+  }
+
+  const role = normalizeLookupText(person?.role ?? "");
+  if (role.includes("bolge muduru")) {
+    return "Bölge Müdürü";
+  }
+  if (role.includes("joker")) {
+    return "Joker";
+  }
+  if (role.includes("sef")) {
+    return "Şef";
+  }
+  return "Normal";
+}
+
+function parseWorkValues(line: string) {
+  const normalizedLine = line.replaceAll("—", "-").replaceAll("–", "-");
+  const hourMatch = normalizedLine.match(/(\d+[.,]?\d*)\s*(?:saat|sa)\b/i);
+  const packageMatch = normalizedLine.match(/(\d+[.,]?\d*)\s*(?:paket|pkg)\b/i);
+  const workedHours = parseDecimalToken(hourMatch?.[1]);
+
+  if (packageMatch?.[1]) {
+    return {
+      workedHours,
+      packageCount: parseDecimalToken(packageMatch[1]),
+    };
+  }
+
+  const scrubbed = normalizedLine
+    .replace(/\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b/g, " ")
+    .replace(/(\d+[.,]?\d*)\s*(?:saat|sa)\b/gi, " ")
+    .replace(/\([^)]*(?:saat|sa)[^)]*\)/gi, " ");
+  const numbers = scrubbed.match(/\d+[.,]?\d*/g) ?? [];
+
+  return {
+    workedHours,
+    packageCount: parseDecimalToken(numbers[0]),
   };
-  return mapping[normalized] ?? "Normal";
+}
+
+function restaurantHeadingMatches(lineKey: string, selectedRestaurantKey: string) {
+  if (!lineKey || !selectedRestaurantKey) {
+    return false;
+  }
+  const lineTokens = new Set(lineKey.split(" ").filter(Boolean));
+  const selectedTokens = selectedRestaurantKey.split(" ").filter(Boolean);
+  const selectedTokenSet = new Set(selectedTokens);
+  const overlapCount = Array.from(lineTokens).filter((token) => selectedTokenSet.has(token)).length;
+  return (
+    selectedTokens.length > 0 &&
+    (selectedTokens.every((token) => lineTokens.has(token)) ||
+      Array.from(lineTokens).every((token) => selectedTokenSet.has(token)) ||
+      overlapCount >= Math.min(2, selectedTokens.length))
+  );
+}
+
+function looksLikeRestaurantHeading(lineKey: string) {
+  const tokens = lineKey.split(" ").filter(Boolean);
+  return tokens.length >= 2;
 }
 
 function parseWhatsappRows(
   rawText: string,
   people: AttendanceFormOptions["people"],
-): BulkRow[] {
-  const personByFullName = new Map<string, AttendanceFormOptions["people"][number]>();
-  const personByLabel = new Map<string, AttendanceFormOptions["people"][number]>();
+  selectedRestaurantLabel?: string,
+): { entryDate: string | null; rows: BulkRow[]; unmatchedCount: number; skippedByBranch: number } {
+  const personCandidates = people
+    .map((person) => {
+      const label = person.label.trim();
+      const fullName = label.split(" (")[0]?.trim() ?? label;
+      const lookupKey = normalizeLookupText(fullName);
+      return {
+        person,
+        lookupKey,
+        collapsedLookupKey: collapseRepeatedLetters(lookupKey),
+      };
+    })
+    .filter((item) => item.lookupKey)
+    .sort((left, right) => right.lookupKey.length - left.lookupKey.length);
 
-  people.forEach((person) => {
-    const label = person.label.trim();
-    const fullName = label.split(" (")[0]?.trim() ?? label;
-    personByLabel.set(label.toLocaleLowerCase("tr-TR"), person);
-    personByFullName.set(fullName.toLocaleLowerCase("tr-TR"), person);
-  });
-
-  return rawText
+  let detectedDate: string | null = null;
+  let unmatchedCount = 0;
+  let skippedByBranch = 0;
+  let sawRestaurantHeading = false;
+  let insideSelectedRestaurant = true;
+  const selectedRestaurantKey = normalizeLookupText(selectedRestaurantLabel ?? "");
+  const rows = rawText
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const normalized = line.replaceAll("—", "-").replaceAll("–", "-");
-      const parts = normalized
-        .split(/\s*\|\s*|\s*;\s*|\s+-\s+/)
-        .map((part) => part.trim())
-        .filter(Boolean);
-      if (!parts.length) {
+      const lineDate = parseWhatsappDate(line);
+      if (lineDate) {
+        detectedDate = detectedDate ?? lineDate;
+      }
+
+      const normalizedLine = normalizeLookupText(line);
+      if (
+        normalizedLine.includes("toplam paket") ||
+        normalizedLine.includes("devamini okuyun") ||
+        /^\[?\d{1,2}[./-]\d{1,2}[./-]\d{4}/.test(line) ||
+        normalizedLine.endsWith("cumartesi") ||
+        normalizedLine.endsWith("pazar")
+      ) {
         return null;
       }
 
-      const nameToken = parts[0].toLocaleLowerCase("tr-TR");
-      const matchedPerson = personByFullName.get(nameToken) ?? personByLabel.get(nameToken);
-      let workedHours = 0;
-      let packageCount = 0;
-      let entryStatus = "Normal";
-      let notes = "";
+      const collapsedLine = collapseRepeatedLetters(normalizedLine);
+      const matchedPerson = personCandidates.find(
+        (candidate) =>
+          normalizedLine === candidate.lookupKey ||
+          normalizedLine.startsWith(`${candidate.lookupKey} `) ||
+          collapsedLine === candidate.collapsedLookupKey ||
+          collapsedLine.startsWith(`${candidate.collapsedLookupKey} `),
+      )?.person;
+      const { workedHours, packageCount } = parseWorkValues(line);
+      const entryStatus = inferStatusFromLine(line, matchedPerson);
 
-      parts.slice(1).forEach((part) => {
-        const lower = part.toLocaleLowerCase("tr-TR");
-        const numbers = lower.match(/\d+[.,]?\d*/g) ?? [];
-        if (lower.includes("saat") && numbers[0]) {
-          workedHours = Number(numbers[0].replace(",", "."));
-          return;
+      if (!matchedPerson && !workedHours && !packageCount && entryStatus === "Normal") {
+        if (selectedRestaurantKey && looksLikeRestaurantHeading(normalizedLine)) {
+          sawRestaurantHeading = true;
+          insideSelectedRestaurant = restaurantHeadingMatches(
+            normalizedLine,
+            selectedRestaurantKey,
+          );
         }
-        if (lower.includes("paket") && numbers[0]) {
-          packageCount = Number(numbers[0].replace(",", "."));
-          return;
+        return null;
+      }
+
+      if (sawRestaurantHeading && !insideSelectedRestaurant) {
+        skippedByBranch += 1;
+        return null;
+      }
+
+      if (!matchedPerson) {
+        if (!workedHours && !packageCount && entryStatus === "Normal") {
+          return null;
         }
-        const normalizedStatus = normalizeBulkStatus(part);
-        if (normalizedStatus !== "Normal" || lower === "normal") {
-          entryStatus = normalizedStatus;
-          return;
-        }
-        notes = notes ? `${notes} | ${part}` : part;
-      });
+        unmatchedCount += 1;
+      }
 
       return {
         rowId: nextRowId(),
         personId: matchedPerson?.id ?? "",
-        workedHours: String(workedHours),
-        packageCount: String(packageCount),
+        workedHours: String(workedHours || 0),
+        packageCount: String(packageCount || 0),
         entryStatus,
-        notes,
+        notes: matchedPerson ? "" : `Eşleşmeyen WhatsApp satırı: ${line}`,
       } satisfies BulkRow;
     })
     .filter((row): row is BulkRow => row !== null);
+
+  return { entryDate: detectedDate, rows, unmatchedCount, skippedByBranch };
 }
 
 export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspaceProps) {
@@ -238,13 +369,31 @@ export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspac
   function handleParseText() {
     setSubmitError("");
     setSubmitSuccess("");
-    const parsedRows = parseWhatsappRows(rawText, people);
+    const selectedRestaurantLabel =
+      options?.restaurants.find((restaurant) => restaurant.id === restaurantId)?.label ?? "";
+    const parsedResult = parseWhatsappRows(rawText, people, selectedRestaurantLabel);
+    const parsedRows = parsedResult.rows;
     if (!parsedRows.length) {
       setSubmitError("Metinden tabloya aktarılacak okunabilir bir satır bulunamadı.");
       return;
     }
+    if (parsedResult.entryDate) {
+      setEntryDate(parsedResult.entryDate);
+    }
     setRows(parsedRows);
-    setSubmitSuccess(`${parsedRows.length} satır tabloya aktarıldı.`);
+    setSubmitSuccess(
+      `${parsedRows.length} satır tabloya aktarıldı.${
+        parsedResult.entryDate ? ` Tarih ${parsedResult.entryDate} olarak alındı.` : ""
+      }${
+        parsedResult.unmatchedCount
+          ? ` ${parsedResult.unmatchedCount} satırda personel eşleşmedi; kaydetmeden önce seç.`
+          : ""
+      }${
+        parsedResult.skippedByBranch
+          ? ` ${parsedResult.skippedByBranch} satır farklı şube başlığı altında olduğu için alınmadı.`
+          : ""
+      }`,
+    );
   }
 
   async function handleSubmit() {
@@ -391,7 +540,12 @@ export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspac
               value={rawText}
               onChange={(event) => setRawText(event.target.value)}
               rows={4}
-              placeholder="Örnek: Ali Yılmaz - 10 saat - 38 paket - Normal"
+              placeholder={`Örnek:
+18.04.2026
+BURGER@ KAVACIK
+Fatih Aslan (İzin)
+Ali Yılmaz 18 paket 9 saat
+Musa Çoban: 26 - 10 saat`}
               style={{ ...fieldStyle, resize: "vertical", minHeight: "110px" }}
             />
             <div
@@ -425,6 +579,9 @@ export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspac
             style={{
               display: "grid",
               gap: "10px",
+              maxHeight: "520px",
+              overflow: "auto",
+              paddingRight: "2px",
             }}
           >
             <div
@@ -432,12 +589,17 @@ export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspac
                 display: "grid",
                 gridTemplateColumns: "minmax(220px, 2fr) repeat(3, minmax(110px, 0.8fr)) minmax(220px, 1.6fr) 72px",
                 gap: "10px",
-                padding: "0 8px",
+                padding: "8px",
                 color: "var(--muted)",
                 fontSize: "0.75rem",
                 fontWeight: 800,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                borderRadius: "14px",
+                background: "var(--surface-strong)",
               }}
             >
               <span>Personel</span>

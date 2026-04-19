@@ -248,7 +248,7 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
 
     write_line("Hakediş Özeti", 40, y, 12)
     y -= 18
-    write_line(f"Brüt Hakediş: {_format_currency_pdf(payload.gross_pay)}", 40, y)
+    write_line(f"Kesinti Öncesi Hakediş: {_format_currency_pdf(payload.gross_pay)}", 40, y)
     y -= 16
     write_line(f"Toplam Kesinti: {_format_currency_pdf(payload.total_deductions)}", 40, y)
     y -= 16

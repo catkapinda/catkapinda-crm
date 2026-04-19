@@ -202,9 +202,11 @@ function workspaceFrame(
   title: string,
   description: string,
   child: ReactNode,
+  anchorId?: string,
 ) {
   return (
     <section
+      id={anchorId}
       style={{
         ...paperCardStyle,
         padding: "16px",
@@ -251,6 +253,38 @@ function workspaceFrame(
       </div>
       {child}
     </section>
+  );
+}
+
+function quickActionLink(title: string, text: string, href: string) {
+  return (
+    <a
+      href={href}
+      style={{
+        ...paperCardStyle,
+        padding: "14px",
+        display: "grid",
+        gap: "8px",
+        background: "rgba(255,255,255,0.92)",
+        color: "var(--text)",
+        textDecoration: "none",
+      }}
+    >
+      <span
+        style={{
+          color: "var(--accent-strong)",
+          fontSize: "0.68rem",
+          fontWeight: 900,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+        }}
+      >
+        {title}
+      </span>
+      <span style={{ color: "var(--muted)", fontSize: "0.86rem", lineHeight: 1.45 }}>
+        {text}
+      </span>
+    </a>
   );
 }
 
@@ -677,53 +711,87 @@ export default function PersonnelPage() {
               ))}
             </div>
 
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "10px",
+              }}
+            >
+              {quickActionLink(
+                "Personel Kartı",
+                "Kimlik, muhasebe, acil durum, şube ve motor bilgisi.",
+                "#personnel-entry",
+              )}
+              {canViewPersonnelEquipment
+                ? quickActionLink(
+                    "Zimmet Kaydı",
+                    "Ekipman teslimi, taksit ve box geri alım.",
+                    "#personnel-equipment",
+                  )
+                : null}
+              {canViewPlateArea
+                ? quickActionLink(
+                    "Motor ve Plaka",
+                    "Araç modu, plaka geçmişi ve taahhüt bilgisi.",
+                    "#personnel-vehicle",
+                  )
+                : null}
+            </section>
+
             {workspaceFrame(
-              "Kayıt Hattı",
-              "Yeni personel kartını hızlı aç.",
-              "Yeni kurye ya da saha personeli ekleme akışını kısa ve net tutuyoruz.",
+              "Personel",
+              "Personel kartı oluştur",
+              "Temel bilgiler, muhasebe, acil durum, şube ve motor bilgisi aynı formda.",
               <PersonnelEntryWorkspace />,
+              "personnel-entry",
             )}
 
             {workspaceFrame(
-              "Yönetim Hattı",
-              "Kartları düzenle, durumları dengele.",
-              "Rol, şube, araç modu ve aktiflik değişimlerini tek yerde toparlıyoruz.",
+              "Kart Yönetimi",
+              "Personel kartlarını düzenle",
+              "Rol, şube, iletişim, muhasebe ve araç bilgilerini güncelle.",
               <PersonnelManagementWorkspace />,
+              "personnel-management",
             )}
 
             {canViewPlateArea
               ? workspaceFrame(
-                  "Plaka Hattı",
-                  "Plaka ve motor geçmişini ayrı masada yönet.",
-                  "Plaka değişimlerini tarih ve açıklama ile takip et.",
+                  "Plaka",
+                  "Plaka hareketi oluştur",
+                  "Personel bazlı plaka değişimlerini tarih ve açıklama ile takip et.",
                   <PersonnelPlateWorkspace />,
+                  "personnel-plate",
                 )
               : null}
 
             {canManageRoles
               ? workspaceFrame(
-                  "Rol Hattı",
-                  "Rol geçişlerini ve maliyet çizgisini ayrı izle.",
-                  "Rol değişimini ve sabit maliyet etkisini ayrı geçmişte izliyoruz.",
+                  "Rol",
+                  "Rol değişimi oluştur",
+                  "Rol geçişini ve sabit maliyet etkisini personel geçmişine işle.",
                   <PersonnelRoleWorkspace />,
+                  "personnel-role",
                 )
               : null}
 
             {canManageVehicleHistory
               ? workspaceFrame(
-                  "Motor Hattı",
-                  "Motor kirası ve satış geçişlerini ayrı izle.",
-                  "Motor kirası, satış ve kendi motoru geçişlerini ayrı geçmişte topluyoruz.",
+                  "Motor",
+                  "Motor kaydı oluştur",
+                  "Kira, satış, kendi motoru ve taahhüt bilgisini personel kartına bağla.",
                   <PersonnelVehicleWorkspace />,
+                  "personnel-vehicle",
                 )
               : null}
 
             {canViewPersonnelEquipment
               ? workspaceFrame(
-                  "Ekipman Hattı",
-                  "Zimmet ve box geri alımı personel kartından yönet.",
-                  "Zimmet, taksit ve box geri alım kayıtlarını bu personel üzerinden takip et.",
+                  "Zimmet",
+                  "Zimmet kaydı oluştur",
+                  "Ekipman teslimi, taksit planı ve box geri alımını seçili personele bağla.",
                   <PersonnelEquipmentWorkspace />,
+                  "personnel-equipment",
                 )
               : null}
 

@@ -217,6 +217,7 @@ export function PersonnelManagementWorkspace() {
   const canViewPlateArea = user?.allowed_actions.includes("personnel.plate") ?? false;
   const isEditRentalVehicle = editVehicleMode === "Çat Kapında Motor Kirası";
   const isEditSaleVehicle = editVehicleMode === "Çat Kapında Motor Satışı";
+  const isEditCatKapindaVehicle = isEditRentalVehicle || isEditSaleVehicle;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -624,10 +625,10 @@ export function PersonnelManagementWorkspace() {
                       />
                     </label>
                   ) : null}
-                  {canViewPlateArea && isEditSaleVehicle ? (
+                  {canViewPlateArea && isEditCatKapindaVehicle ? (
                     <>
                       <label style={{ display: "grid", gap: "6px" }}>
-                        <span style={{ fontWeight: 700 }}>Satış Başlangıcı</span>
+                        <span style={{ fontWeight: 700 }}>Motor Başlangıcı</span>
                         <input
                           type="date"
                           value={editMotorPurchaseStartDate}
@@ -644,6 +645,10 @@ export function PersonnelManagementWorkspace() {
                           style={fieldStyle}
                         />
                       </label>
+                    </>
+                  ) : null}
+                  {canViewPlateArea && isEditSaleVehicle ? (
+                    <>
                       <label style={{ display: "grid", gap: "6px" }}>
                         <span style={{ fontWeight: 700 }}>Motor Satış Tutarı</span>
                         <input
@@ -679,7 +684,7 @@ export function PersonnelManagementWorkspace() {
                   </label>
                 </div>
 
-                <SectionHeader title="Finans ve Resmi Bilgiler" />
+                <SectionHeader title="Muhasebe Bilgileri" />
                 <div
                   style={{
                     display: "grid",

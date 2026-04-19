@@ -59,6 +59,7 @@ ATTENDANCE_BULK_STATUS_OPTIONS = [
     "Gelmedi",
     "Çıkış yaptı",
     "Şef",
+    "Bölge Müdürü",
 ]
 ENTRY_MODE_ALIASES = {
     "Haftalik Buyume": "Haftalik Izin",
@@ -80,8 +81,12 @@ ENTRY_STATUS_ALIASES = {
     "çıkış yaptı": "Çıkış yaptı",
     "sef": "Şef",
     "şef": "Şef",
+    "bolge muduru": "Bölge Müdürü",
+    "bölge müdürü": "Bölge Müdürü",
+    "bolge müdürü": "Bölge Müdürü",
+    "bölge muduru": "Bölge Müdürü",
 }
-NON_WORKING_STATUSES = {"İzin", "Gelmedi", "Raporlu", "İhbarsız Çıkış"}
+NON_WORKING_STATUSES = {"İzin", "Gelmedi", "Raporlu", "İhbarsız Çıkış", "Çıkış yaptı"}
 
 
 def _normalize_entry_mode(value: str) -> str:
@@ -372,6 +377,7 @@ def create_attendance_entries_bulk(
         if worked_hours == 0 and package_count == 0 and entry_status == "Normal":
             continue
 
+        is_non_working_status = entry_status in NON_WORKING_STATUSES
         note_parts = [part for part in [notes, "Kaynak: Toplu Puantaj"] if part]
         entry_id = insert_attendance_entry(
             conn,
@@ -379,12 +385,12 @@ def create_attendance_entries_bulk(
                 "entry_date": payload.entry_date,
                 "restaurant_id": payload.restaurant_id,
                 "planned_personnel_id": person_id,
-                "actual_personnel_id": person_id,
+                "actual_personnel_id": None if is_non_working_status else person_id,
                 "status": entry_status,
-                "worked_hours": worked_hours,
-                "package_count": package_count,
+                "worked_hours": 0.0 if is_non_working_status else worked_hours,
+                "package_count": 0.0 if is_non_working_status else package_count,
                 "monthly_invoice_amount": 0.0,
-                "absence_reason": "",
+                "absence_reason": entry_status if is_non_working_status else "",
                 "coverage_type": "",
                 "notes": " | ".join(note_parts),
             },

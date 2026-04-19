@@ -282,12 +282,13 @@ export function PersonnelVehicleWorkspace() {
 
   const isRental = vehicleMode === "Çat Kapında Motor Kirası";
   const isSale = vehicleMode === "Çat Kapında Motor Satışı";
+  const isCatKapinda = isRental || isSale;
   const parsedRentalAmount = Number(rentalAmount || 0);
   const parsedMonthlyDeduction = Number(purchaseMonthlyDeduction || 0);
   const parsedCommitmentMonths = Number(purchaseCommitmentMonths || 0);
   const parsedSalePrice = Number(purchaseSalePrice || 0);
   const hasReferenceCharge =
-    (isRental && parsedRentalAmount > 0) ||
+    (isRental && (parsedRentalAmount > 0 || parsedCommitmentMonths > 0)) ||
     (isSale && (parsedMonthlyDeduction > 0 || parsedSalePrice > 0 || parsedCommitmentMonths > 0));
   const firstMonthProration =
     isSale && purchaseStartDate ? calculateProratedAmount(parsedMonthlyDeduction, purchaseStartDate) : 0;
@@ -519,6 +520,25 @@ export function PersonnelVehicleWorkspace() {
                   </>
                 ) : null}
 
+                {isCatKapinda ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                      gap: "12px",
+                    }}
+                  >
+                    <label style={{ display: "grid", gap: "8px" }}>
+                      <span>Motor başlangıç tarihi</span>
+                      <input type="date" value={purchaseStartDate} onChange={(event) => setPurchaseStartDate(event.target.value)} style={fieldStyle} />
+                    </label>
+                    <label style={{ display: "grid", gap: "8px" }}>
+                      <span>Taahhüt ayı</span>
+                      <input type="number" min="0" step="1" value={purchaseCommitmentMonths} onChange={(event) => setPurchaseCommitmentMonths(event.target.value)} style={fieldStyle} />
+                    </label>
+                  </div>
+                ) : null}
+
                 {isSale ? (
                   <>
                     <div
@@ -528,14 +548,6 @@ export function PersonnelVehicleWorkspace() {
                         gap: "12px",
                       }}
                     >
-                      <label style={{ display: "grid", gap: "8px" }}>
-                        <span>Satış başlangıç tarihi</span>
-                        <input type="date" value={purchaseStartDate} onChange={(event) => setPurchaseStartDate(event.target.value)} style={fieldStyle} />
-                      </label>
-                      <label style={{ display: "grid", gap: "8px" }}>
-                        <span>Taahhüt ayı</span>
-                        <input type="number" min="0" step="1" value={purchaseCommitmentMonths} onChange={(event) => setPurchaseCommitmentMonths(event.target.value)} style={fieldStyle} />
-                      </label>
                       <label style={{ display: "grid", gap: "8px" }}>
                         <span>Motor satış bedeli</span>
                         <input type="number" min="0" step="100" value={purchaseSalePrice} onChange={(event) => setPurchaseSalePrice(event.target.value)} style={fieldStyle} />
@@ -579,11 +591,18 @@ export function PersonnelVehicleWorkspace() {
                       }}
                     >
                       {isRental ? (
-                        <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-                          <strong style={{ color: "var(--text)" }}>Motor Kirası</strong>
-                          <br />
-                          {formatCurrency(parsedRentalAmount)} / ay
-                        </div>
+                        <>
+                          <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+                            <strong style={{ color: "var(--text)" }}>Motor Kirası</strong>
+                            <br />
+                            {formatCurrency(parsedRentalAmount)} / ay
+                          </div>
+                          <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+                            <strong style={{ color: "var(--text)" }}>Taahhüt</strong>
+                            <br />
+                            {parsedCommitmentMonths || 0} ay
+                          </div>
+                        </>
                       ) : null}
                       {isSale ? (
                         <>

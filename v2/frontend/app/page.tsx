@@ -166,7 +166,7 @@ function financeBalanceGraph(finance: OverviewDashboard["finance"]) {
       color: "linear-gradient(90deg, rgba(185,116,41,0.95), rgba(223,169,92,0.86))",
     },
     {
-      label: "Brüt fark",
+      label: "Fatura-hakediş farkı",
       value: finance.gross_profit,
       color: "linear-gradient(90deg, rgba(31,151,112,0.95), rgba(75,190,142,0.84))",
     },
@@ -809,7 +809,7 @@ export default function HomePage() {
                 border: "1px solid rgba(255,255,255,0.12)",
                 color: "#fff4e3",
                 fontWeight: 800,
-                fontSize: "0.82rem",
+              fontSize: "0.82rem",
               }}
             >
               <span
@@ -826,7 +826,7 @@ export default function HomePage() {
               >
                 {dashboard?.operations.critical_signal_count ?? 0}
               </span>
-              <span>Bugünün kritik kontrolleri burada listelenir.</span>
+              <span>Kritik kontrol</span>
             </div>
             <h1
               style={{
@@ -838,7 +838,7 @@ export default function HomePage() {
                 fontWeight: 700,
               }}
             >
-              Operasyon özeti
+              Operasyon paneli
             </h1>
             <p
               style={{
@@ -849,7 +849,7 @@ export default function HomePage() {
                 fontSize: "0.86rem",
               }}
             >
-              Şube, personel, puantaj ve kesinti durumunu tek ekrandan izle, ilgili modüle geç.
+              Puantaj, kadro, zimmet ve finans sinyallerini tek ekrandan izle.
             </p>
 
             <div
@@ -861,9 +861,10 @@ export default function HomePage() {
               }}
             >
               {[
-                ["Öncelik", "Puantaj ve personel hareketleri öne çıkar."],
-                ["Kullanım", "Durumu burada gör, işlemi ilgili modülde tamamla."],
-                ["Akış", "Temel göstergeler tek ekranda toplanır."],
+                ["Puantaj", "Eksik gün ve son kayıt"],
+                ["Kadro", "Aktif ekip ve açık ihtiyaç"],
+                ["Finans", "Fatura ve hakediş farkı"],
+                ["Zimmet", "Motor, plaka ve ekipman"],
               ].map(([label, text]) => (
                 <div
                   key={label}
@@ -995,7 +996,7 @@ export default function HomePage() {
                 {executiveMetricCard(
                   "Operasyon Farkı",
                   formatCurrency(dashboard?.finance.gross_profit ?? 0),
-                  "Ay içi brüt operasyon farkı.",
+                  "Ay içi fatura ve hakediş farkı.",
                 )}
                 {executiveMetricCard(
                   "Riskli Şube",
@@ -1319,7 +1320,7 @@ export default function HomePage() {
                     "Net maliyet tarafında okunan toplam kadro yükü.",
                   )}
                   {pulseCard(
-                    "Brüt Kâr",
+                    "Fatura-Hakediş Farkı",
                     formatCurrency(dashboard.finance.gross_profit),
                     "Gelir ve personel maliyeti arasındaki ana fark.",
                   )}

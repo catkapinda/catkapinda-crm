@@ -62,6 +62,7 @@ export function PersonnelEntryWorkspace() {
   const canViewPlateArea = user?.allowed_actions.includes("personnel.plate") ?? false;
   const isRentalVehicle = vehicleMode === "Çat Kapında Motor Kirası";
   const isSaleVehicle = vehicleMode === "Çat Kapında Motor Satışı";
+  const isCatKapindaVehicle = isRentalVehicle || isSaleVehicle;
 
   useEffect(() => {
     async function loadOptions() {
@@ -310,10 +311,10 @@ export function PersonnelEntryWorkspace() {
                     />
                   </label>
                 ) : null}
-                {canViewPlateArea && isSaleVehicle ? (
+                {canViewPlateArea && isCatKapindaVehicle ? (
                   <>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span style={{ fontWeight: 700 }}>Satış Başlangıcı</span>
+                      <span style={{ fontWeight: 700 }}>Motor Başlangıcı</span>
                       <input
                         type="date"
                         value={motorPurchaseStartDate}
@@ -330,6 +331,10 @@ export function PersonnelEntryWorkspace() {
                         style={fieldStyle}
                       />
                     </label>
+                  </>
+                ) : null}
+                {canViewPlateArea && isSaleVehicle ? (
+                  <>
                     <label style={{ display: "grid", gap: "8px" }}>
                       <span style={{ fontWeight: 700 }}>Motor Satış Tutarı</span>
                       <input
@@ -361,7 +366,7 @@ export function PersonnelEntryWorkspace() {
                 </label>
               </div>
 
-              <SectionHeader title="Finans ve Resmi Bilgiler" />
+              <SectionHeader title="Muhasebe Bilgileri" />
               <div
                 style={{
                   display: "grid",
@@ -445,6 +450,8 @@ export function PersonnelEntryWorkspace() {
                 borderRadius: "20px",
                 border: "1px solid var(--line)",
                 background: "rgba(244, 248, 255, 0.9)",
+                position: "sticky",
+                top: "18px",
               }}
             >
               <h3 style={{ margin: 0, fontSize: "1rem" }}>Kayıt Ozeti</h3>
@@ -452,6 +459,15 @@ export function PersonnelEntryWorkspace() {
               <SummaryItem label="Şube" value={selectedRestaurantLabel} />
               {canViewPlateArea ? <SummaryItem label="Arac" value={vehicleMode} /> : null}
               <SummaryItem label="Durum" value={status} />
+              <SummaryItem label="IBAN" value={iban ? "Girildi" : "Eksik"} />
+              <SummaryItem
+                label="Vergi"
+                value={taxNumber || taxOffice ? "Girildi" : "Eksik"}
+              />
+              <SummaryItem
+                label="Acil Durum"
+                value={emergencyContactName || emergencyContactPhone ? "Girildi" : "Eksik"}
+              />
               <SummaryItem
                 label="Sabit Tutar"
                 value={Number(monthlyFixedCost || 0).toLocaleString("tr-TR", {

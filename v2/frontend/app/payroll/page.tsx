@@ -552,7 +552,7 @@ export default function PayrollPage() {
       return [];
     }
     return [
-      metricCard("Brüt Hakediş", formatMoney(dashboard.summary.gross_payroll), `${dashboard.summary.selected_month} toplamı`),
+      metricCard("Kesinti Öncesi Hakediş", formatMoney(dashboard.summary.gross_payroll), `${dashboard.summary.selected_month} toplamı`),
       metricCard("Toplam Kesinti", formatMoney(dashboard.summary.total_deductions), "Ay sonu kesinti toplamı"),
       metricCard("Net Ödeme", formatMoney(dashboard.summary.net_payment), "Hakediş kapanış özeti"),
       metricCard("Personel", formatNumber(dashboard.summary.personnel_count), "Hakediş havuzundaki çalışan"),
@@ -581,7 +581,7 @@ export default function PayrollPage() {
     return [
       metricCard("Saat Başına Net", formatMoney(netPerHour), "Net ödeme / toplam saat"),
       metricCard("Kurye Başına Net", formatMoney(netPerCourier), "Net ödeme / personel"),
-      metricCard("Kesinti Oranı", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / brüt hakediş"),
+      metricCard("Kesinti Oranı", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / kesinti öncesi hakediş"),
     ];
   }, [dashboard]);
 
@@ -734,7 +734,7 @@ export default function PayrollPage() {
       "Durum",
       "Toplam Saat",
       "Toplam Paket",
-      "Brüt Hakediş",
+      "Kesinti Öncesi Hakediş",
       "Toplam Kesinti",
       "Net Ödeme",
       "Restoran Sayısı",
@@ -1162,10 +1162,10 @@ export default function PayrollPage() {
                 Puantaj → Fatura
               </div>
               <div style={{ fontSize: "1rem", fontWeight: 800 }}>
-                {formatMoney(invoiceSnapshot?.totalRevenue ?? 0)} restoran faturası / {formatMoney(dashboard?.summary?.gross_payroll ?? 0)} brüt hakediş.
+                {formatMoney(invoiceSnapshot?.totalRevenue ?? 0)} restoran faturası / {formatMoney(dashboard?.summary?.gross_payroll ?? 0)} kesinti öncesi hakediş.
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: "0.95rem" }}>
-                Brüt fark: {formatMoney(invoiceSnapshot?.grossProfit ?? 0)}. Bu alan puantaj girildikçe rapor faturasıyla birlikte yenilenir.
+                Fatura-hakediş farkı: {formatMoney(invoiceSnapshot?.grossProfit ?? 0)}. Bu alan puantaj girildikçe rapor faturasıyla birlikte yenilenir.
               </div>
             </article>
 
@@ -1423,7 +1423,7 @@ export default function PayrollPage() {
                         "Durum",
                         "Saat",
                         "Paket",
-                        "Brüt",
+                        "Kesinti Öncesi",
                         "Kesinti",
                         "Net",
                         "Restoran",

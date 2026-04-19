@@ -552,10 +552,10 @@ export default function AttendancePage() {
             <h1
               style={{
                 ...serifTitleStyle,
-                margin: "20px 0 14px",
-                fontSize: "clamp(2.6rem, 5vw, 4.3rem)",
-                lineHeight: 0.92,
-                maxWidth: "11ch",
+                margin: "16px 0 10px",
+                fontSize: "clamp(2rem, 4vw, 3.1rem)",
+                lineHeight: 0.96,
+                maxWidth: "13ch",
                 fontWeight: 700,
               }}
             >
@@ -566,31 +566,32 @@ export default function AttendancePage() {
                 margin: 0,
                 maxWidth: "68ch",
                 color: "rgba(255, 247, 234, 0.78)",
-                lineHeight: 1.75,
-                fontSize: "1rem",
+                lineHeight: 1.6,
+                fontSize: "0.94rem",
               }}
             >
-              Günlük giriş, toplu giriş, düzeltme ve son kayıtlar aynı ekranda yönetilir.
+              Günlük kayıt, toplu giriş, düzeltme ve finans etkisi tek akışta.
             </p>
 
             <div
               style={{
-                marginTop: "24px",
+                marginTop: "16px",
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: "12px",
+                gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+                gap: "8px",
               }}
             >
               {[
-                ["Toplu işlem", "Ay filtresiyle toplu puantaj temizliği yönetim alanında."],
-                ["Gün sonu", "Vardiya düzeltmeleri tek ekranda tamamlanır."],
-                ["Odak", "Kayıt, düzeltme ve liste aynı akışta tutulur."],
+                ["Günlük", "Tek kayıt"],
+                ["Toplu", "WhatsApp formatı"],
+                ["Düzeltme", "Ay ve şube filtresi"],
+                ["Finans", "Fatura ve hakediş"],
               ].map(([label, text]) => (
                 <div
                   key={label}
                   style={{
-                    padding: "14px 14px 12px",
-                    borderRadius: "20px",
+                    padding: "11px 10px",
+                    borderRadius: "16px",
                     background: "rgba(255,255,255,0.08)",
                     border: "1px solid rgba(255,255,255,0.1)",
                   }}
@@ -598,10 +599,10 @@ export default function AttendancePage() {
                   <div
                     style={{
                       color: "#f1c28f",
-                      fontSize: "0.72rem",
+                      fontSize: "0.66rem",
                       fontWeight: 800,
                       textTransform: "uppercase",
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.06em",
                     }}
                   >
                     {label}
@@ -610,8 +611,8 @@ export default function AttendancePage() {
                     style={{
                       marginTop: "8px",
                       color: "rgba(255, 247, 234, 0.84)",
-                      lineHeight: 1.6,
-                      fontSize: "0.93rem",
+                      lineHeight: 1.35,
+                      fontSize: "0.78rem",
                     }}
                   >
                     {text}
@@ -854,19 +855,19 @@ export default function AttendancePage() {
                   "Puantajdan türeyen seçili ay restoran faturası.",
                 )}
                 {metricCard(
-                  "Brüt Hakediş",
+                  "Kesinti Öncesi Hakediş",
                   formatCurrency(financeSnapshot?.courierGross ?? 0),
-                  "Kurye hakediş ekranındaki brüt toplam.",
+                  "Ekipman ve kesinti düşmeden önceki kurye toplamı.",
                 )}
                 {metricCard(
-                  "Net Hakediş",
+                  "Ödenecek Hakediş",
                   formatCurrency(financeSnapshot?.courierNet ?? 0),
                   "Kesintiler sonrası ödeme toplamı.",
                 )}
                 {metricCard(
-                  "Brüt Fark",
+                  "Fatura-Hakediş Farkı",
                   formatCurrency(financeSnapshot?.grossProfit ?? 0),
-                  "Restoran faturası - kurye maliyeti.",
+                  "Restoran faturası - kesinti öncesi hakediş.",
                 )}
               </div>
 
@@ -1002,7 +1003,7 @@ export default function AttendancePage() {
                   </p>
                 </div>
 
-                <div style={{ overflowX: "auto" }}>
+                <div style={{ maxHeight: "430px", overflow: "auto" }}>
                   <table
                     style={{
                       width: "100%",
@@ -1014,6 +1015,9 @@ export default function AttendancePage() {
                         style={{
                           textAlign: "left",
                           background: "rgba(24, 40, 59, 0.05)",
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 1,
                         }}
                       >
                         {["Tarih", "Şube", "Çalışan", "Akis", "Saat", "Paket"].map((header) => (
@@ -1114,9 +1118,9 @@ export default function AttendancePage() {
                 >
                   {[
                     `Restoran faturası: ${formatCurrency(financeSnapshot?.restaurantInvoice ?? 0)}`,
-                    `Brüt hakediş: ${formatCurrency(financeSnapshot?.courierGross ?? 0)}`,
-                    `Net hakediş: ${formatCurrency(financeSnapshot?.courierNet ?? 0)}`,
-                    `Brüt fark: ${formatCurrency(financeSnapshot?.grossProfit ?? 0)}`,
+                    `Kesinti öncesi hakediş: ${formatCurrency(financeSnapshot?.courierGross ?? 0)}`,
+                    `Ödenecek hakediş: ${formatCurrency(financeSnapshot?.courierNet ?? 0)}`,
+                    `Fatura-hakediş farkı: ${formatCurrency(financeSnapshot?.grossProfit ?? 0)}`,
                   ].map((item) => (
                     <div
                       key={item}
