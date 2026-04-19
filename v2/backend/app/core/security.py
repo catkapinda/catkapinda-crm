@@ -84,6 +84,7 @@ ROLE_ACTIONS = {
         "attendance.view",
         "attendance.create",
         "attendance.update",
+        "attendance.delete",
         "personnel.view",
         "personnel.create",
     },
