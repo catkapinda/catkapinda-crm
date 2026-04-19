@@ -849,7 +849,7 @@ export default function HomePage() {
                 fontSize: "0.86rem",
               }}
             >
-              Puantaj, kadro, zimmet ve finans sinyallerini tek ekrandan izle.
+              Bugünkü puantaj, kadro, zimmet ve finans özetlerini buradan takip et.
             </p>
 
             <div
@@ -932,9 +932,28 @@ export default function HomePage() {
                   </Link>
                 ))
               ) : (
-                <div style={{ color: "rgba(255, 247, 234, 0.72)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                  Hızlı geçiş bağlantıları burada görünecek.
-                </div>
+                quickActions.slice(0, 3).map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "10px",
+                      padding: "10px 12px",
+                      borderRadius: "14px",
+                      background: "rgba(255,255,255,0.08)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#fff7ea",
+                      fontWeight: 800,
+                      fontSize: "0.82rem",
+                    }}
+                  >
+                    <span>{item.badge}</span>
+                    <span style={{ color: "#f1c28f" }}>Aç</span>
+                  </Link>
+                ))
               )}
             </div>
           </article>
@@ -1091,7 +1110,7 @@ export default function HomePage() {
                       letterSpacing: "0.06em",
                     }}
                   >
-                    Modül Özeti
+                    Modüller
                   </div>
                   <h2
                     style={{
@@ -1102,7 +1121,7 @@ export default function HomePage() {
                       fontWeight: 700,
                     }}
                   >
-                    Modüller net iş başlıklarıyla ayrılıyor.
+                    İşlem alanları
                   </h2>
                   <p
                     style={{
@@ -1112,8 +1131,7 @@ export default function HomePage() {
                       fontSize: "0.84rem",
                     }}
                   >
-                    Her modül artık hem sayı anlatıyor hem de kullanıcıyı doğrudan doğru aksiyona
-                    götürüyor.
+                    Her kart sayı, durum ve ilgili işlem bağlantısını birlikte gösterir.
                   </p>
                 </header>
 
@@ -1155,7 +1173,7 @@ export default function HomePage() {
                       fontWeight: 700,
                     }}
                   >
-                    Son hareketler artık daha okunur.
+                    Son hareketler
                   </h2>
                   <p
                     style={{
@@ -1165,7 +1183,7 @@ export default function HomePage() {
                       fontSize: "0.84rem",
                     }}
                   >
-                    Akışta ne değiştiğini modül atlamadan tek panelde okuyabiliyorsun.
+                    Puantaj, kesinti, personel ve zimmet hareketlerini tek listeden kontrol et.
                   </p>
                 </div>
                 <div
