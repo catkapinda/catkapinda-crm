@@ -726,7 +726,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                     disabled={isAnyMutationPending}
                     style={tertiaryButtonStyle}
                   >
-                    Secimi Temizle
+                    Seçimi Temizle
                   </button>
                 ) : null}
                 <button
@@ -747,7 +747,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                     ? "Filtredeki Ay Siliniyor..."
                     : activeMonthLabel
                       ? `${activeMonthLabel} Kayıtlarını Sil`
-                      : "Ayi Toplu Sil"}
+                      : "Ayı Toplu Sil"}
                 </button>
                 <button
                   type="button"
@@ -755,7 +755,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                   disabled={!selectedEntryIds.length || isAnyMutationPending}
                   style={dangerButtonStyle}
                 >
-                  {bulkDeletePending ? "Secilenler Siliniyor..." : "Secilenleri Sil"}
+                  {bulkDeletePending ? "Seçilenler Siliniyor..." : "Seçilenleri Sil"}
                 </button>
               </div>
             </div>
@@ -764,7 +764,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
               <div style={feedbackBox("info")}>
                 {activeMonthLabel} için toplam {totalEntries} kayıt bulundu.
                 {totalEntries > entries.length
-                  ? ` Listede ilk ${entries.length} kayıt gosteriliyor; ay silme islemi tüm ${totalEntries} kaydı kapsar.`
+                  ? ` Listede ilk ${entries.length} kayıt gösteriliyor; ay silme işlemi tüm ${totalEntries} kaydı kapsar.`
                   : ""}
               </div>
             ) : null}

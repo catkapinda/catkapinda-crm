@@ -511,7 +511,7 @@ export function DeductionManagementWorkspace() {
               }}
             >
               <strong>{totalEntries} kayıt</strong>
-              <span style={pill("muted")}>{entries.length} gosteriliyor</span>
+              <span style={pill("muted")}>{entries.length} gösteriliyor</span>
             </div>
 
             <div
