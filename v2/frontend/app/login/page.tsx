@@ -622,29 +622,29 @@ function LoginPageContent() {
             }}
           />
 
-          <div style={{ position: "relative", display: "grid", gap: "18px" }}>
+          <div style={{ position: "relative", display: "grid", gap: "22px" }}>
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                gap: "14px",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: "18px",
                 flexWrap: "wrap",
               }}
             >
               <div
                 style={{
-                  width: "64px",
-                  height: "64px",
-                  borderRadius: "22px",
-                  background: "rgba(255,255,255,0.94)",
-                  border: "1px solid rgba(255,255,255,0.28)",
+                  width: "124px",
+                  height: "124px",
+                  borderRadius: "28px",
+                  background: "transparent",
                   display: "grid",
                   placeItems: "center",
-                  boxShadow: "0 18px 34px rgba(10, 20, 35, 0.24)",
+                  filter: "drop-shadow(0 18px 28px rgba(4, 12, 24, 0.28))",
                 }}
               >
                 <img
-                  src="/catkapinda_logo.png?v=login-logo-20260419"
+                  src="/catkapinda_logo.png?v=login-redesign-20260419"
                   alt=""
                   aria-hidden="true"
                   draggable={false}
@@ -653,79 +653,54 @@ function LoginPageContent() {
                   }}
                   style={{
                     display: "block",
-                    width: "50px",
-                    height: "50px",
+                    width: "118px",
+                    height: "118px",
                     objectFit: "contain",
                   }}
                 />
               </div>
-              <div style={{ display: "grid", gap: "4px" }}>
-                <div
-                  style={{
-                    color: "#f2cf9e",
-                    fontSize: "0.7rem",
-                    letterSpacing: "0.14em",
-                    textTransform: "uppercase",
-                    fontWeight: 800,
-                  }}
-                >
-                  Çat Kapında
-                </div>
-                <div
-                  style={{
-                    ...serifTitleStyle,
-                    fontSize: "1.28rem",
-                    lineHeight: 0.96,
-                    fontWeight: 700,
-                    color: "#fff7ea",
-                  }}
-                >
-                  CRM
-                </div>
+              <div
+                style={{
+                  display: "inline-flex",
+                  width: "fit-content",
+                  padding: "7px 12px",
+                  borderRadius: "999px",
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "#f2cf9e",
+                  fontSize: "0.66rem",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  fontWeight: 800,
+                }}
+              >
+                Operasyon Paneli
               </div>
             </div>
-            <div
-              style={{
-                display: "inline-flex",
-                width: "fit-content",
-                padding: "6px 11px",
-                borderRadius: "999px",
-                background: "rgba(255,255,255,0.08)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                color: "#f2cf9e",
-                fontSize: "0.66rem",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                fontWeight: 800,
-              }}
-            >
-              operasyon merkezi
-            </div>
-            <div style={{ display: "grid", gap: "10px" }}>
+
+            <div style={{ display: "grid", gap: "12px" }}>
               <h1
                 style={{
                   ...serifTitleStyle,
                   margin: 0,
-                  fontSize: "clamp(2.5rem, 5vw, 3.7rem)",
+                  fontSize: "clamp(2.55rem, 5vw, 3.75rem)",
                   lineHeight: 0.94,
                   fontWeight: 700,
                   maxWidth: "11ch",
                 }}
               >
-                Çat Kapında CRM
+                Operasyonu tek ekranda yönetin.
               </h1>
               <p
                 style={{
                   margin: 0,
-                  maxWidth: "48ch",
+                  maxWidth: "46ch",
                   color: "rgba(255, 247, 234, 0.76)",
-                  lineHeight: 1.68,
+                  lineHeight: 1.64,
                   fontSize: "0.96rem",
                 }}
               >
-                Çat Kapında CRM; restoran, saha ekipleri ve merkez operasyon için günlük yönetimi tek
-                ekranda toplar. Kadro, puantaj, ekipman, kesinti ve finansal görünüm aynı veri akışından
-                beslenir.
+                Şube, personel, puantaj, ekipman ve finans akışları aynı veri omurgasında birleşir.
               </p>
             </div>
           </div>
@@ -734,14 +709,14 @@ function LoginPageContent() {
             style={{
               position: "relative",
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
               gap: "12px",
             }}
           >
             {[
-              ["Şube Operasyonu", "Restoran durumu, aktif kadro ve günlük saha akışı tek merkezden izlenir."],
-              ["Personel ve Ekipman", "Kurye, araç, zimmet ve geçmiş hareketler bağlı operasyon kaydıyla tutulur."],
-              ["Rapor ve Finans", "Hakediş, maliyet ve operasyon farkı aynı rapor düzeninde takip edilir."],
+              ["Şube", "Aktif kadro ve günlük saha akışı."],
+              ["Puantaj", "Vardiya, paket ve saat takibi."],
+              ["Finans", "Hakediş, maliyet ve fatura farkı."],
             ].map(([title, text]) => (
               <article
                 key={title}
@@ -755,7 +730,13 @@ function LoginPageContent() {
                 }}
               >
                 <div style={{ color: "#fff4e5", fontWeight: 800, fontSize: "0.9rem" }}>{title}</div>
-                <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.55, fontSize: "0.86rem" }}>
+                <div
+                  style={{
+                    color: "rgba(255,247,234,0.72)",
+                    lineHeight: 1.5,
+                    fontSize: "0.86rem",
+                  }}
+                >
                   {text}
                 </div>
               </article>
@@ -771,12 +752,12 @@ function LoginPageContent() {
             }}
           >
             {[
-              "Şube, personel, puantaj ve rapor modülleri aynı operasyon omurgasında birlikte çalışır.",
-              "Saha hareketleri ile merkez kararları aynı CRM içinde birbirine bağlı görünür.",
-              "Yönetici ekipleri günlük operasyonu, kapasiteyi ve finansal resmi aynı yerden takip eder.",
-            ].map((item) => (
+              ["Tek Veri", "Saha ve merkez kayıtları aynı yerde."],
+              ["Net Akış", "Günlük operasyon, rapor ve ödeme birbirine bağlı."],
+              ["Güvenli Giriş", "Şifre, SMS ve kurtarma akışları tek kapıda."],
+            ].map(([title, text]) => (
               <div
-                key={item}
+                key={title}
                 style={{
                   display: "flex",
                   gap: "10px",
@@ -797,7 +778,10 @@ function LoginPageContent() {
                     flexShrink: 0,
                   }}
                 />
-                <div style={{ color: "rgba(255,247,234,0.78)", lineHeight: 1.58, fontSize: "0.9rem" }}>{item}</div>
+                <div style={{ display: "grid", gap: "2px" }}>
+                  <div style={{ color: "#fff4e5", fontSize: "0.86rem", fontWeight: 800 }}>{title}</div>
+                  <div style={{ color: "rgba(255,247,234,0.72)", lineHeight: 1.45, fontSize: "0.86rem" }}>{text}</div>
+                </div>
               </div>
             ))}
           </div>
