@@ -54,6 +54,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
   const [entryMode, setEntryMode] = useState("Restoran Kuryesi");
   const [primaryPersonId, setPrimaryPersonId] = useState<number | "">("");
   const [replacementPersonId, setReplacementPersonId] = useState<number | "">("");
+  const [personSearch, setPersonSearch] = useState("");
   const [absenceReason, setAbsenceReason] = useState("");
   const [workedHours, setWorkedHours] = useState("10");
   const [packageCount, setPackageCount] = useState("0");
@@ -107,6 +108,24 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
   const isFixedMonthly = selectedRestaurant?.pricing_model === "fixed_monthly";
   const needsReplacement = entryMode === "Joker" || entryMode === "Destek";
   const needsAbsenceReason = entryMode !== "Restoran Kuryesi";
+  const people = options?.people ?? [];
+  const filteredPeople = useMemo(() => {
+    const normalizedSearch = personSearch.trim().toLocaleLowerCase("tr-TR");
+    const matches = normalizedSearch
+      ? people.filter((person) =>
+          `${person.label} ${person.role}`.toLocaleLowerCase("tr-TR").includes(normalizedSearch),
+        )
+      : people;
+    const selectedIds = new Set(
+      [primaryPersonId, replacementPersonId].filter(
+        (personId): personId is number => typeof personId === "number",
+      ),
+    );
+    const pinnedPeople = people.filter(
+      (person) => selectedIds.has(person.id) && !matches.some((match) => match.id === person.id),
+    );
+    return [...pinnedPeople, ...matches];
+  }, [people, personSearch, primaryPersonId, replacementPersonId]);
 
   async function handleRestaurantChange(nextValue: string) {
     const nextRestaurantId = Number(nextValue);
@@ -286,6 +305,43 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
             }}
           >
             <label style={{ display: "grid", gap: "8px" }}>
+              <span style={{ fontWeight: 700 }}>Personel Ara</span>
+              <input
+                type="search"
+                value={personSearch}
+                onChange={(event) => setPersonSearch(event.target.value)}
+                placeholder="Ad, soyad veya rol ara"
+                style={fieldStyle}
+              />
+            </label>
+            <div
+              style={{
+                display: "grid",
+                alignContent: "center",
+                gap: "4px",
+                padding: "12px 14px",
+                borderRadius: "16px",
+                border: "1px solid rgba(17, 125, 87, 0.16)",
+                background: "rgba(17, 125, 87, 0.08)",
+              }}
+            >
+              <span style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 800 }}>
+                Aktif Personel
+              </span>
+              <strong style={{ fontSize: "1.05rem" }}>
+                {filteredPeople.length}/{people.length} kişi
+              </strong>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "14px",
+            }}
+          >
+            <label style={{ display: "grid", gap: "8px" }}>
               <span style={{ fontWeight: 700 }}>
                 {needsReplacement ? "Normalde Girecek Personel" : "Çalışan Personel"}
               </span>
@@ -295,7 +351,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
                 style={fieldStyle}
               >
                 <option value="">Seç</option>
-                {options?.people.map((person) => (
+                {filteredPeople.map((person) => (
                   <option key={person.id} value={person.id}>
                     {person.label}
                   </option>
@@ -312,7 +368,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
                   style={fieldStyle}
                 >
                   <option value="">Seç</option>
-                  {options?.people.map((person) => (
+                  {filteredPeople.map((person) => (
                     <option key={person.id} value={person.id}>
                       {person.label}
                     </option>
