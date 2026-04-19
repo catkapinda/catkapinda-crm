@@ -786,7 +786,7 @@ export function AppShell({
                     fontWeight: 800,
                   }}
                 >
-                  Kayitlar kalıcı değil
+                  Kayıtlar kalıcı değil
                 </span>
               </div>
 
@@ -968,7 +968,7 @@ export function AppShell({
                         textTransform: "uppercase",
                       }}
                     >
-                      Akis Haritasi
+                      Akış Haritası
                     </div>
                     <span
                       style={{

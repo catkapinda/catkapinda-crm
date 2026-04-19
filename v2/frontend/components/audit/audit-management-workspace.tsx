@@ -268,7 +268,7 @@ export function AuditManagementWorkspace() {
                 textTransform: "uppercase",
               }}
             >
-              Kayıt Akisi
+              Kayıt Akışı
             </div>
             <h2
               style={{

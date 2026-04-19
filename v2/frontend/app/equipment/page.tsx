@@ -723,7 +723,7 @@ export default function EquipmentPage() {
                 })),
               )}
               {listCard(
-                "Taksit Akisi",
+                "Taksit Akışı",
                 "Zimmetten otomatik oluşan deduction satırları.",
                 dashboard.installment_entries.map((entry) => ({
                   title: entry.personnel_label,

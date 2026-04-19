@@ -534,7 +534,14 @@ export function PersonnelPlateWorkspace() {
                       </div>
                     </div>
                     {selectedHistory.length ? (
-                      <div style={{ overflowX: "auto" }}>
+                      <div
+                        style={{
+                          maxHeight: "260px",
+                          overflow: "auto",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(219, 228, 243, 0.72)",
+                        }}
+                      >
                         <table style={{ width: "100%", borderCollapse: "collapse" }}>
                           <thead>
                             <tr style={{ textAlign: "left", background: "rgba(239,232,219,0.56)" }}>
@@ -547,6 +554,10 @@ export function PersonnelPlateWorkspace() {
                                     textTransform: "uppercase",
                                     letterSpacing: "0.08em",
                                     color: "var(--muted)",
+                                    position: "sticky",
+                                    top: 0,
+                                    zIndex: 1,
+                                    background: "rgba(246, 240, 229, 0.98)",
                                   }}
                                 >
                                   {header}

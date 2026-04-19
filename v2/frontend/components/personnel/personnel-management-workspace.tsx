@@ -116,7 +116,7 @@ export function PersonnelManagementWorkspace() {
   async function loadOptions() {
     const response = await apiFetch("/personnel/form-options");
     if (!response.ok) {
-      throw new Error("Personel referans verileri yuklenemedi.");
+      throw new Error("Personel referans verileri yüklenemedi.");
     }
     const payload = (await response.json()) as PersonnelFormOptions;
     setOptions(payload);
@@ -139,7 +139,7 @@ export function PersonnelManagementWorkspace() {
       }
       const response = await apiFetch(`/personnel/records?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Personel listesi yuklenemedi.");
+        throw new Error("Personel listesi yüklenemedi.");
       }
       const payload = (await response.json()) as PersonnelManagementResponse;
       setEntries(payload.entries);
@@ -154,7 +154,7 @@ export function PersonnelManagementWorkspace() {
         return payload.entries[0].id;
       });
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Personel listesi yuklenemedi.");
+      setError(nextError instanceof Error ? nextError.message : "Personel listesi yüklenemedi.");
       setEntries([]);
       setTotalEntries(0);
       setSelectedEntryId(null);
@@ -170,7 +170,7 @@ export function PersonnelManagementWorkspace() {
     try {
       const response = await apiFetch(`/personnel/records/${entryId}`);
       if (!response.ok) {
-        throw new Error("Personel detayi yuklenemedi.");
+        throw new Error("Personel detayı yüklenemedi.");
       }
       const payload = (await response.json()) as PersonnelDetailResponse;
       const entry = payload.entry;
@@ -203,7 +203,7 @@ export function PersonnelManagementWorkspace() {
       setEditNotes(entry.notes ?? "");
       setEditPersonCode(entry.person_code);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Personel detayi yuklenemedi.");
+      setError(nextError instanceof Error ? nextError.message : "Personel detayı yüklenemedi.");
     } finally {
       setDetailLoading(false);
     }

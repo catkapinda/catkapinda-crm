@@ -1067,7 +1067,7 @@ function LoginPageContent() {
                 <>
                   <form onSubmit={handleSendCode} style={{ display: "grid", gap: "12px" }}>
                     <label style={labelStyle}>
-                      <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Kayitli Telefon</span>
+                      <span style={{ ...labelTitleStyle, color: "#fff4e5" }}>Kayıtlı Telefon</span>
                       <input
                         ref={recoveryPhoneInputRef}
                         value={phone}

@@ -94,7 +94,7 @@ export function DeductionManagementWorkspace() {
   async function loadOptions() {
     const response = await apiFetch("/deductions/form-options");
     if (!response.ok) {
-      throw new Error("Kesinti referans verileri yuklenemedi.");
+      throw new Error("Kesinti referans verileri yüklenemedi.");
     }
     const payload = (await response.json()) as DeductionsFormOptions;
     setOptions(payload);
@@ -120,7 +120,7 @@ export function DeductionManagementWorkspace() {
       }
       const response = await apiFetch(`/deductions/records?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Kesinti listesi yuklenemedi.");
+        throw new Error("Kesinti listesi yüklenemedi.");
       }
       const payload = (await response.json()) as DeductionsManagementResponse;
       const visibleManualIdSet = new Set(
@@ -141,7 +141,7 @@ export function DeductionManagementWorkspace() {
         return payload.entries[0].id;
       });
     } catch (error) {
-      setListError(error instanceof Error ? error.message : "Kesinti listesi yuklenemedi.");
+      setListError(error instanceof Error ? error.message : "Kesinti listesi yüklenemedi.");
       setEntries([]);
       setTotalEntries(0);
       setSelectedEntryId(null);
@@ -157,7 +157,7 @@ export function DeductionManagementWorkspace() {
     try {
       const response = await apiFetch(`/deductions/records/${entryId}`);
       if (!response.ok) {
-        throw new Error("Kesinti detayi yuklenemedi.");
+        throw new Error("Kesinti detayı yüklenemedi.");
       }
       const payload = (await response.json()) as DeductionDetailResponse;
       const entry = payload.entry;
@@ -168,7 +168,7 @@ export function DeductionManagementWorkspace() {
       setEditNotes(entry.notes ?? "");
       setEditIsAuto(entry.is_auto_record);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Kesinti detayi yuklenemedi.");
+      setSaveError(error instanceof Error ? error.message : "Kesinti detayı yüklenemedi.");
     } finally {
       setDetailLoading(false);
     }
@@ -521,7 +521,7 @@ export function DeductionManagementWorkspace() {
               }}
             >
               {listLoading ? (
-                <div style={{ padding: "18px 16px", color: "var(--muted)" }}>Kayitlar yükleniyor...</div>
+                <div style={{ padding: "18px 16px", color: "var(--muted)" }}>Kayıtlar yükleniyor...</div>
               ) : entries.length === 0 ? (
                 <div style={{ padding: "18px 16px", color: "var(--muted)" }}>Eslesen kesinti kaydı yok.</div>
               ) : (

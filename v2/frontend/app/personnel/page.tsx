@@ -827,7 +827,7 @@ export default function PersonnelPage() {
                       letterSpacing: "0.06em",
                     }}
                   >
-                    Son Kayitlar
+                    Son Kayıtlar
                   </div>
                   <h2
                     style={{
@@ -841,7 +841,7 @@ export default function PersonnelPage() {
                     Son personel hareketleri
                   </h2>
                   <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.55, fontSize: "0.84rem" }}>
-                    Son açılan ve güncellenen kartları operasyon gözüyle hızlı sekilde tarayabilirsin.
+                    Son açılan ve güncellenen kartları operasyon gözüyle hızlı şekilde tarayabilirsin.
                   </p>
                 </div>
                 <div

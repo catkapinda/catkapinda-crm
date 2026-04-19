@@ -746,7 +746,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                   {filteredDeletePending
                     ? "Filtredeki Ay Siliniyor..."
                     : activeMonthLabel
-                      ? `${activeMonthLabel} Kayitlarini Sil`
+                      ? `${activeMonthLabel} Kayıtlarını Sil`
                       : "Ayi Toplu Sil"}
                 </button>
                 <button
@@ -812,7 +812,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                         onChange={(event) => toggleVisibleEntries(event.target.checked)}
                       />
                     </th>
-                    {["Tarih", "Şube", "Akis", "Çalışan", "Mesai", "Paket"].map((header) => (
+                    {["Tarih", "Şube", "Akış", "Çalışan", "Mesai", "Paket"].map((header) => (
                       <th key={header} style={tableHeaderCellStyle}>
                         {header}
                       </th>
@@ -1012,7 +1012,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                     </select>
                   </label>
                   <label style={{ display: "grid", gap: "7px" }}>
-                    <span style={labelStyle}>Vardiya Akisi</span>
+                    <span style={labelStyle}>Vardiya Akışı</span>
                     <select
                       value={editEntryMode}
                       onChange={(event) => setEditEntryMode(event.target.value)}

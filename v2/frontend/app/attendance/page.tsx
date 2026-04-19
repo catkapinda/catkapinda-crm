@@ -691,7 +691,7 @@ export default function AttendancePage() {
                   textTransform: "uppercase",
                 }}
               >
-                Son Akis Tipleri
+                Son Akış Tipleri
               </div>
               <div
                 style={{
@@ -1020,7 +1020,7 @@ export default function AttendancePage() {
                           zIndex: 1,
                         }}
                       >
-                        {["Tarih", "Şube", "Çalışan", "Akis", "Saat", "Paket"].map((header) => (
+                        {["Tarih", "Şube", "Çalışan", "Akış", "Saat", "Paket"].map((header) => (
                           <th
                             key={header}
                             style={{

@@ -126,7 +126,7 @@ export function DeductionEntryWorkspace() {
       <div>
         <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Kesinti Girisi</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Manuel kesinti kayıtlarını v2 ekraninda hızlı sekilde oluştur.
+          Manuel kesinti kayıtlarını hızlı şekilde oluştur.
         </p>
       </div>
 
