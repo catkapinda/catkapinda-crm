@@ -391,21 +391,51 @@ export function AppShell({
               gap: "12px",
             }}
           >
-            <div
-              aria-label="Çat Kapında"
+            <svg
+              aria-label="Çat Kapında logo"
               role="img"
+              viewBox="0 0 96 96"
               style={{
                 width: "76px",
                 height: "76px",
                 flex: "0 0 auto",
-                borderRadius: "24px",
-                backgroundImage: "url('/catkapinda_logo.png')",
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "center",
-                backgroundSize: "118%",
-                filter: "drop-shadow(0 12px 22px rgba(0,0,0,0.28))",
+                overflow: "visible",
+                filter: "drop-shadow(0 14px 24px rgba(0,0,0,0.3))",
               }}
-            />
+            >
+              <defs>
+                <linearGradient id="sidebar-logo-blue" x1="16" x2="78" y1="14" y2="82">
+                  <stop offset="0%" stopColor="#55d6ff" />
+                  <stop offset="52%" stopColor="#0f63ff" />
+                  <stop offset="100%" stopColor="#48c6b5" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M68 22 A34 34 0 1 0 68 74"
+                fill="none"
+                stroke="url(#sidebar-logo-blue)"
+                strokeLinecap="round"
+                strokeWidth="18"
+              />
+              <path
+                d="M47 65 L47 84"
+                fill="none"
+                stroke="url(#sidebar-logo-blue)"
+                strokeLinecap="round"
+                strokeWidth="10"
+              />
+              <circle cx="39" cy="77" r="4" fill="#aef3e9" />
+              <text
+                x="38"
+                y="54"
+                fill="#eafcff"
+                fontSize="13"
+                fontWeight="900"
+                letterSpacing="-0.04em"
+              >
+                çat
+              </text>
+            </svg>
             <div style={{ display: "grid", gap: "3px" }}>
               <div
                 style={{
