@@ -552,9 +552,9 @@ export default function PayrollPage() {
       return [];
     }
     return [
-      metricCard("Kesinti Öncesi Hakediş", formatMoney(dashboard.summary.gross_payroll), `${dashboard.summary.selected_month} toplamı`),
+      metricCard("Kesinti Öncesi Kurye Hakedişi", formatMoney(dashboard.summary.gross_payroll), "Ekipman ve manuel kesintiler düşmeden önce"),
       metricCard("Toplam Kesinti", formatMoney(dashboard.summary.total_deductions), "Ay sonu kesinti toplamı"),
-      metricCard("Net Ödeme", formatMoney(dashboard.summary.net_payment), "Hakediş kapanış özeti"),
+      metricCard("Net Kurye Ödemesi", formatMoney(dashboard.summary.net_payment), "Kesintiler düştükten sonra ödenecek toplam"),
       metricCard("Personel", formatNumber(dashboard.summary.personnel_count), "Hakediş havuzundaki çalışan"),
       metricCard("Toplam Saat", formatNumber(dashboard.summary.total_hours, 1), "Seçili filtre çalışma saati"),
       metricCard("Toplam Paket", formatNumber(dashboard.summary.total_packages, 0), "Seçili filtre paket toplamı"),
@@ -581,7 +581,7 @@ export default function PayrollPage() {
     return [
       metricCard("Saat Başına Net", formatMoney(netPerHour), "Net ödeme / toplam saat"),
       metricCard("Kurye Başına Net", formatMoney(netPerCourier), "Net ödeme / personel"),
-      metricCard("Kesinti Oranı", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / kesinti öncesi hakediş"),
+      metricCard("Kesinti Oranı", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / kesinti öncesi kurye hakedişi"),
     ];
   }, [dashboard]);
 
@@ -619,14 +619,14 @@ export default function PayrollPage() {
             : deductionRatio <= 14
               ? "Kesinti baskısı izlenmeli."
               : "Kesinti baskısı yükseliyor.",
-        body: `${dashboard.summary.selected_month} döneminde ${formatMoney(dashboard.summary.net_payment)} net ödeme çıkıyor. Kesinti oranı %${formatNumber(deductionRatio, 1)} seviyesinde.`,
+        body: `${dashboard.summary.selected_month} döneminde ${formatMoney(dashboard.summary.net_payment)} net kurye ödemesi çıkıyor. Kesinti oranı %${formatNumber(deductionRatio, 1)} seviyesinde.`,
         tone: deductionRatio <= 8 ? "ink" : "accent",
       },
       {
-        eyebrow: "En Yüksek Net Ödeme",
+        eyebrow: "En Yüksek Net Kurye Ödemesi",
         title: topPersonnel ? topPersonnel.personnel : "Ödeme verisi henüz yok.",
         body: topPersonnel
-          ? `${topPersonnel.role} rolünde ${formatMoney(topPersonnel.net_payment)} net ödeme taşıyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmalı.`
+          ? `${topPersonnel.role} rolünde ${formatMoney(topPersonnel.net_payment)} net kurye ödemesi taşıyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmalı.`
           : "Personel dağılımı geldikçe bu kart aylık ödeme ağırlığını önde gösterecek.",
         tone: "paper",
       },
@@ -734,9 +734,9 @@ export default function PayrollPage() {
       "Durum",
       "Toplam Saat",
       "Toplam Paket",
-      "Kesinti Öncesi Hakediş",
+      "Kesinti Öncesi Kurye Hakedişi",
       "Toplam Kesinti",
-      "Net Ödeme",
+      "Net Kurye Ödemesi",
       "Restoran Sayısı",
       "Maliyet Modeli",
     ];
@@ -980,7 +980,7 @@ export default function PayrollPage() {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      Net Ödeme
+                      Net Kurye Ödemesi
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
                       {formatMoney(dashboard?.summary?.net_payment ?? 0)}
@@ -1162,7 +1162,7 @@ export default function PayrollPage() {
                 Puantaj → Fatura
               </div>
               <div style={{ fontSize: "1rem", fontWeight: 800 }}>
-                {formatMoney(invoiceSnapshot?.totalRevenue ?? 0)} restoran faturası / {formatMoney(dashboard?.summary?.gross_payroll ?? 0)} kesinti öncesi hakediş.
+                {formatMoney(invoiceSnapshot?.totalRevenue ?? 0)} restoran faturası / {formatMoney(dashboard?.summary?.gross_payroll ?? 0)} kesinti öncesi kurye hakedişi.
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: "0.95rem" }}>
                 Fatura-hakediş farkı: {formatMoney(invoiceSnapshot?.grossProfit ?? 0)}. Bu alan puantaj girildikçe rapor faturasıyla birlikte yenilenir.
@@ -1522,7 +1522,7 @@ export default function PayrollPage() {
                 </ScrollCard>
 
                 <ScrollCard
-                  title="En Yüksek Net Ödeme"
+                  title="En Yüksek Net Kurye Ödemesi"
                   subtitle="Ay içinde en yüksek net ödeme çıkan çalışanları hızlıca gör."
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>

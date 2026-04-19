@@ -855,19 +855,19 @@ export default function AttendancePage() {
                   "Puantajdan türeyen seçili ay restoran faturası.",
                 )}
                 {metricCard(
-                  "Kesinti Öncesi Hakediş",
+                  "Kesinti Öncesi Kurye Hakedişi",
                   formatCurrency(financeSnapshot?.courierGross ?? 0),
-                  "Ekipman ve kesinti düşmeden önceki kurye toplamı.",
+                  "Ekipman ve manuel kesintiler düşmeden önceki kurye toplamı.",
                 )}
                 {metricCard(
-                  "Ödenecek Hakediş",
+                  "Net Kurye Ödemesi",
                   formatCurrency(financeSnapshot?.courierNet ?? 0),
-                  "Kesintiler sonrası ödeme toplamı.",
+                  "Ekipman ve kesintiler düştükten sonra ödenecek toplam.",
                 )}
                 {metricCard(
                   "Fatura-Hakediş Farkı",
                   formatCurrency(financeSnapshot?.grossProfit ?? 0),
-                  "Restoran faturası - kesinti öncesi hakediş.",
+                  "Restoran faturası - kesinti öncesi kurye hakedişi.",
                 )}
               </div>
 
@@ -1118,8 +1118,8 @@ export default function AttendancePage() {
                 >
                   {[
                     `Restoran faturası: ${formatCurrency(financeSnapshot?.restaurantInvoice ?? 0)}`,
-                    `Kesinti öncesi hakediş: ${formatCurrency(financeSnapshot?.courierGross ?? 0)}`,
-                    `Ödenecek hakediş: ${formatCurrency(financeSnapshot?.courierNet ?? 0)}`,
+                    `Kesinti öncesi kurye hakedişi: ${formatCurrency(financeSnapshot?.courierGross ?? 0)}`,
+                    `Net kurye ödemesi: ${formatCurrency(financeSnapshot?.courierNet ?? 0)}`,
                     `Fatura-hakediş farkı: ${formatCurrency(financeSnapshot?.grossProfit ?? 0)}`,
                   ].map((item) => (
                     <div
