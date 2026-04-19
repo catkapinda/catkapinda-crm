@@ -384,90 +384,31 @@ export function AppShell({
             boxShadow: "0 22px 46px rgba(0, 0, 0, 0.22)",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-            }}
-          >
-            <svg
-              aria-label="Çat Kapında logo"
-              role="img"
-              viewBox="0 0 96 96"
+          <div style={{ display: "grid", gap: "8px" }}>
+            <div
               style={{
-                width: "76px",
-                height: "76px",
-                flex: "0 0 auto",
-                overflow: "visible",
-                filter: "drop-shadow(0 14px 24px rgba(0,0,0,0.3))",
+                color: "#ffffff",
+                fontWeight: 950,
+                fontSize: "1.34rem",
+                letterSpacing: "-0.04em",
+                lineHeight: 1.05,
               }}
             >
-              <defs>
-                <linearGradient id="sidebar-logo-blue" x1="16" x2="78" y1="14" y2="82">
-                  <stop offset="0%" stopColor="#55d6ff" />
-                  <stop offset="52%" stopColor="#0f63ff" />
-                  <stop offset="100%" stopColor="#48c6b5" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M68 22 A34 34 0 1 0 68 74"
-                fill="none"
-                stroke="url(#sidebar-logo-blue)"
-                strokeLinecap="round"
-                strokeWidth="18"
-              />
-              <path
-                d="M47 65 L47 84"
-                fill="none"
-                stroke="url(#sidebar-logo-blue)"
-                strokeLinecap="round"
-                strokeWidth="10"
-              />
-              <circle cx="39" cy="77" r="4" fill="#aef3e9" />
-              <text
-                x="38"
-                y="54"
-                fill="#eafcff"
-                fontSize="13"
-                fontWeight="900"
-                letterSpacing="-0.04em"
-              >
-                çat
-              </text>
-            </svg>
-            <div style={{ display: "grid", gap: "3px" }}>
-              <div
-                style={{
-                  color: "#ffffff",
-                  fontWeight: 900,
-                  fontSize: "1.12rem",
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1,
-                }}
-              >
-                Çat Kapında
-              </div>
-              <div
-                style={{
-                  width: "fit-content",
-                  padding: "5px 9px",
-                  borderRadius: "999px",
-                  background: "rgba(72,198,181,0.16)",
-                  color: "#aef3e9",
-                  fontSize: "0.7rem",
-                  fontWeight: 900,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Operasyon CRM
-              </div>
+              Çat Kapında CRM
             </div>
+            <div
+              aria-hidden="true"
+              style={{
+                width: "58px",
+                height: "3px",
+                borderRadius: "999px",
+                background: "linear-gradient(90deg, #48c6b5, #ffb86b)",
+              }}
+            />
           </div>
           <div
             style={{
-              marginTop: "14px",
+              marginTop: "12px",
               color: "rgba(236, 248, 255, 0.76)",
               fontSize: "0.9rem",
               lineHeight: 1.55,
