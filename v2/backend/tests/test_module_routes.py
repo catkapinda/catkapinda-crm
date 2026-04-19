@@ -686,7 +686,7 @@ def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
                     "brand": "Burger@",
                     "branch": "Kavacik",
                     "pricing_model": "hourly_plus_package",
-                    "pricing_model_label": "Hacimsiz Primli",
+                    "pricing_model_label": "Saat + Paket",
                     "hourly_rate": 279.0,
                     "package_rate": 32.0,
                     "package_threshold": 390,
@@ -717,7 +717,7 @@ def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.restaurants.build_restaurants_form_options",
         lambda pricing_model=None: {
-            "pricing_models": [{"value": "hourly_plus_package", "label": "Hacimsiz Primli"}],
+            "pricing_models": [{"value": "hourly_plus_package", "label": "Saat + Paket"}],
             "status_options": ["Aktif", "Pasif"],
             "selected_pricing_model": pricing_model or "hourly_plus_package",
         },
@@ -732,7 +732,7 @@ def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
                     "brand": "Burger@",
                     "branch": "Kavacik",
                     "pricing_model": "hourly_plus_package",
-                    "pricing_model_label": "Hacimsiz Primli",
+                    "pricing_model_label": "Saat + Paket",
                     "hourly_rate": 279.0,
                     "package_rate": 32.0,
                     "package_threshold": 390,
@@ -785,7 +785,7 @@ def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
                     "lead_source": "Referans",
                     "proposed_quote": 273.0,
                     "pricing_model": "threshold_package",
-                    "pricing_model_label": "Hacimli Primli",
+                    "pricing_model_label": "Eşikli Paket",
                     "pricing_model_hint": "",
                     "hourly_rate": 273.0,
                     "package_rate": 0.0,
@@ -806,7 +806,7 @@ def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.sales.build_sales_form_options",
         lambda pricing_model=None: {
-            "pricing_models": [{"value": "threshold_package", "label": "Hacimli Primli"}],
+            "pricing_models": [{"value": "threshold_package", "label": "Eşikli Paket"}],
             "source_options": ["Telefon", "Referans"],
             "status_options": ["Teklif Iletildi", "Olumsuz"],
             "selected_pricing_model": pricing_model or "threshold_package",
@@ -838,7 +838,7 @@ def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
                     "lead_source": "Referans",
                     "proposed_quote": 273.0,
                     "pricing_model": "threshold_package",
-                    "pricing_model_label": "Hacimli Primli",
+                    "pricing_model_label": "Eşikli Paket",
                     "pricing_model_hint": "",
                     "hourly_rate": 273.0,
                     "package_rate": 0.0,
@@ -923,7 +923,7 @@ def test_restaurants_sales_and_purchases_routes_smoke(monkeypatch):
     assert restaurants_dashboard.status_code == 200
     assert restaurants_dashboard.json()["summary"]["active_restaurants"] == 21
     assert restaurants_options.status_code == 200
-    assert restaurants_options.json()["pricing_models"][0]["label"] == "Hacimsiz Primli"
+    assert restaurants_options.json()["pricing_models"][0]["label"] == "Saat + Paket"
     assert restaurants_records.status_code == 200
     assert restaurants_records.json()["entries"][0]["branch"] == "Kavacik"
     assert sales_dashboard.status_code == 200
@@ -1105,7 +1105,7 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
             "invoice_entries": [
                 {
                     "restaurant": "Burger@ - Kavacik",
-                    "pricing_model": "Hacimsiz Primli",
+                    "pricing_model": "Saat + Paket",
                     "total_hours": 410.0,
                     "total_packages": 1330.0,
                     "net_invoice": 210000.0,
@@ -1120,13 +1120,13 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
                     "total_packages": 263.0,
                     "total_deductions": 0.0,
                     "net_cost": 59760.0,
-                    "cost_model": "Saatlik + Paket",
+                    "cost_model": "Saat + Paket",
                 }
             ],
             "profit_entries": [
                 {
                     "restaurant": "Burger@ - Kavacik",
-                    "pricing_model": "Hacimsiz Primli",
+                    "pricing_model": "Saat + Paket",
                     "total_hours": 410.0,
                     "total_packages": 1330.0,
                     "net_invoice": 210000.0,
@@ -1140,7 +1140,7 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
             ],
             "model_breakdown": [
                 {
-                    "pricing_model": "Hacimsiz Primli",
+                    "pricing_model": "Saat + Paket",
                     "restaurant_count": 8,
                     "total_hours": 1400.0,
                     "total_packages": 5000.0,
@@ -1150,7 +1150,7 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
             "top_restaurants": [
                 {
                     "restaurant": "Burger@ - Kavacik",
-                    "pricing_model": "Hacimsiz Primli",
+                    "pricing_model": "Saat + Paket",
                     "total_hours": 410.0,
                     "total_packages": 1330.0,
                     "gross_invoice": 252000.0,
@@ -1163,7 +1163,7 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
                     "total_hours": 218.0,
                     "total_deductions": 0.0,
                     "net_cost": 59760.0,
-                    "cost_model": "Saatlik + Paket",
+                    "cost_model": "Saat + Paket",
                 }
             ],
             "coverage": {

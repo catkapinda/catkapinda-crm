@@ -30,6 +30,33 @@ const fieldStyle: CSSProperties = {
   font: "inherit",
 };
 
+function normalizeLookupText(value: string) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[ıİ]/g, "i")
+    .toLowerCase();
+}
+
+function vehicleModeKind(value: string) {
+  const normalized = normalizeLookupText(value);
+  if (normalized.includes("cat kapinda") && normalized.includes("kirasi")) {
+    return "rental";
+  }
+  if (normalized.includes("cat kapinda") && normalized.includes("satisi")) {
+    return "sale";
+  }
+  return "own";
+}
+
+function formatCurrency(value: string | number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
 export function PersonnelEntryWorkspace() {
   const router = useRouter();
   const { user } = useAuth();
@@ -68,9 +95,10 @@ export function PersonnelEntryWorkspace() {
   const [monthlyFixedCost, setMonthlyFixedCost] = useState("0");
   const [notes, setNotes] = useState("");
   const canViewPlateArea = user?.allowed_actions.includes("personnel.plate") ?? false;
-  const isRentalVehicle = vehicleMode === "Çat Kapında Motor Kirası";
-  const isSaleVehicle = vehicleMode === "Çat Kapında Motor Satışı";
-  const isCatKapindaVehicle = isRentalVehicle || isSaleVehicle;
+  const currentVehicleModeKind = vehicleModeKind(vehicleMode);
+  const isRentalVehicle = currentVehicleModeKind === "rental";
+  const isSaleVehicle = currentVehicleModeKind === "sale";
+  const isCatKapindaVehicle = currentVehicleModeKind !== "own";
 
   useEffect(() => {
     async function loadOptions() {
@@ -78,7 +106,7 @@ export function PersonnelEntryWorkspace() {
       try {
         const response = await apiFetch("/personnel/form-options");
         if (!response.ok) {
-          throw new Error("Personel form secenekleri yuklenemedi.");
+          throw new Error("Personel form seçenekleri alınamadı.");
         }
         const payload = (await response.json()) as PersonnelFormOptions;
         setOptions(payload);
@@ -90,7 +118,7 @@ export function PersonnelEntryWorkspace() {
         setRestaurantId(payload.selected_restaurant_id ?? "");
       } catch (error) {
         setSubmitError(
-          error instanceof Error ? error.message : "Personel form secenekleri yuklenemedi.",
+          error instanceof Error ? error.message : "Personel form seçenekleri alınamadı.",
         );
       } finally {
         setLoadingOptions(false);
@@ -102,10 +130,27 @@ export function PersonnelEntryWorkspace() {
 
   const selectedRestaurantLabel = useMemo(() => {
     if (!options || typeof restaurantId !== "number") {
-      return "Atanmadi";
+      return "Atanmadı";
     }
-    return options.restaurants.find((restaurant) => restaurant.id === restaurantId)?.label ?? "Atanmadi";
+    return options.restaurants.find((restaurant) => restaurant.id === restaurantId)?.label ?? "Atanmadı";
   }, [options, restaurantId]);
+
+  function handleVehicleModeChange(nextVehicleMode: string) {
+    setVehicleMode(nextVehicleMode);
+    const nextKind = vehicleModeKind(nextVehicleMode);
+    if (nextKind !== "own") {
+      setMotorPurchaseStartDate((current) => current || startDate);
+      setMotorPurchaseCommitmentMonths((current) => (Number(current || 0) > 0 ? current : "12"));
+    }
+    if (nextKind === "rental") {
+      setMotorRentalMonthlyAmount((current) => (Number(current || 0) > 0 ? current : "13000"));
+      setMotorPurchaseSalePrice("0");
+      setMotorPurchaseMonthlyDeduction("0");
+    }
+    if (nextKind === "sale") {
+      setMotorRentalMonthlyAmount("0");
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -219,7 +264,7 @@ export function PersonnelEntryWorkspace() {
             color: "var(--muted)",
           }}
         >
-          Personel form secenekleri yükleniyor...
+          Personel form seçenekleri yükleniyor...
         </div>
       ) : (
         <form
@@ -253,7 +298,12 @@ export function PersonnelEntryWorkspace() {
               >
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Ad Soyad</span>
-                  <input value={fullName} onChange={(event) => setFullName(event.target.value)} style={fieldStyle} />
+                  <input
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    placeholder="Örn. Ali Yılmaz"
+                    style={fieldStyle}
+                  />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Rol</span>
@@ -267,7 +317,12 @@ export function PersonnelEntryWorkspace() {
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Telefon</span>
-                  <input value={phone} onChange={(event) => setPhone(event.target.value)} style={fieldStyle} />
+                  <input
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="05xxxxxxxxx"
+                    style={fieldStyle}
+                  />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Adres</span>
@@ -292,7 +347,7 @@ export function PersonnelEntryWorkspace() {
                     }
                     style={fieldStyle}
                   >
-                    <option value="">Atanmadi</option>
+                    <option value="">Atanmadı</option>
                     {options?.restaurants.map((restaurant) => (
                       <option key={restaurant.id} value={restaurant.id}>
                         {restaurant.label}
@@ -301,13 +356,13 @@ export function PersonnelEntryWorkspace() {
                   </select>
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Ise Giriş</span>
+                  <span style={{ fontWeight: 700 }}>İşe Giriş</span>
                   <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} style={fieldStyle} />
                 </label>
                 {canViewPlateArea ? (
                   <label style={{ display: "grid", gap: "8px" }}>
-                    <span style={{ fontWeight: 700 }}>Arac Modu</span>
-                    <select value={vehicleMode} onChange={(event) => setVehicleMode(event.target.value)} style={fieldStyle}>
+                    <span style={{ fontWeight: 700 }}>Araç Modu</span>
+                    <select value={vehicleMode} onChange={(event) => handleVehicleModeChange(event.target.value)} style={fieldStyle}>
                       {options?.vehicle_mode_options.map((item) => (
                         <option key={item} value={item}>
                           {item}
@@ -398,11 +453,21 @@ export function PersonnelEntryWorkspace() {
               >
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>IBAN</span>
-                  <input value={iban} onChange={(event) => setIban(event.target.value)} style={fieldStyle} />
+                  <input
+                    value={iban}
+                    onChange={(event) => setIban(event.target.value)}
+                    placeholder="TR..."
+                    style={fieldStyle}
+                  />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Vergi Numarası</span>
-                  <input value={taxNumber} onChange={(event) => setTaxNumber(event.target.value)} style={fieldStyle} />
+                  <input
+                    value={taxNumber}
+                    onChange={(event) => setTaxNumber(event.target.value)}
+                    placeholder="TCKN / VKN"
+                    style={fieldStyle}
+                  />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Vergi Dairesi</span>
@@ -487,6 +552,7 @@ export function PersonnelEntryWorkspace() {
                   <input
                     value={emergencyContactName}
                     onChange={(event) => setEmergencyContactName(event.target.value)}
+                    placeholder="Yakının adı soyadı"
                     style={fieldStyle}
                   />
                 </label>
@@ -495,6 +561,7 @@ export function PersonnelEntryWorkspace() {
                   <input
                     value={emergencyContactPhone}
                     onChange={(event) => setEmergencyContactPhone(event.target.value)}
+                    placeholder="05xxxxxxxxx"
                     style={fieldStyle}
                   />
                 </label>
@@ -524,7 +591,7 @@ export function PersonnelEntryWorkspace() {
                   cursor: "pointer",
                 }}
               >
-                {isPending ? "Kaydediliyor..." : "Personel Kaydini Oluştur"}
+                {isPending ? "Kaydediliyor..." : "Personel Kaydını Oluştur"}
               </button>
             </div>
 
@@ -540,10 +607,19 @@ export function PersonnelEntryWorkspace() {
                 top: "18px",
               }}
             >
-              <h3 style={{ margin: 0, fontSize: "1rem" }}>Kayıt Ozeti</h3>
+              <h3 style={{ margin: 0, fontSize: "1rem" }}>Kayıt Özeti</h3>
               <SummaryItem label="Rol" value={role} />
               <SummaryItem label="Şube" value={selectedRestaurantLabel} />
-              {canViewPlateArea ? <SummaryItem label="Arac" value={vehicleMode} /> : null}
+              {canViewPlateArea ? <SummaryItem label="Araç" value={vehicleMode} /> : null}
+              {canViewPlateArea && isCatKapindaVehicle ? (
+                <SummaryItem label="Ay Taahhüdü" value={`${Number(motorPurchaseCommitmentMonths || 0)} ay`} />
+              ) : null}
+              {canViewPlateArea && isRentalVehicle ? (
+                <SummaryItem label="Motor Kirası" value={formatCurrency(motorRentalMonthlyAmount)} />
+              ) : null}
+              {canViewPlateArea && isSaleVehicle ? (
+                <SummaryItem label="Aylık Kesinti" value={formatCurrency(motorPurchaseMonthlyDeduction)} />
+              ) : null}
               <SummaryItem label="Durum" value={status} />
               <SummaryItem label="IBAN" value={iban ? "Girildi" : "Eksik"} />
               <SummaryItem
@@ -558,13 +634,9 @@ export function PersonnelEntryWorkspace() {
               />
               <SummaryItem
                 label="Sabit Tutar"
-                value={Number(monthlyFixedCost || 0).toLocaleString("tr-TR", {
-                  style: "currency",
-                  currency: "TRY",
-                  maximumFractionDigits: 0,
-                })}
+                value={formatCurrency(monthlyFixedCost)}
               />
-              {generatedCode ? <SummaryItem label="Olusan Kod" value={generatedCode} /> : null}
+              {generatedCode ? <SummaryItem label="Oluşan Kod" value={generatedCode} /> : null}
             </aside>
           </div>
 

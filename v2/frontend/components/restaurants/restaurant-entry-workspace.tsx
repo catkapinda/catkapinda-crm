@@ -257,7 +257,7 @@ export function RestaurantEntryWorkspace() {
                   <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} style={fieldStyle} />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>Bitis Tarihi</span>
+                  <span style={{ fontWeight: 700 }}>Bitiş Tarihi</span>
                   <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} style={fieldStyle} />
                 </label>
               </div>

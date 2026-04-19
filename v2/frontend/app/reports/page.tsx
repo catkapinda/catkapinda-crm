@@ -166,8 +166,8 @@ function formatNumber(value: number, decimals = 0) {
 
 function displayPricingModel(value: string) {
   const labels: Record<string, string> = {
-    hourly_plus_package: "Hacimsiz Primli",
-    threshold_package: "Hacimli Primli",
+    hourly_plus_package: "Saat + Paket",
+    threshold_package: "Eşikli Paket",
     hourly_only: "Sadece Saatlik",
     fixed_monthly: "Sabit Aylık Ücret",
   };

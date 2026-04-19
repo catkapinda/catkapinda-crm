@@ -71,7 +71,8 @@ _COST_MODEL_LABELS = {
     "fixed_restoran_takim_sefi": "Restoran Takım Şefi",
     "fixed_joker": "Joker Sabit",
     "hourly_only": "Sadece Saatlik",
-    "hourly_plus_package": "Saatlik + Paket",
+    "hourly_plus_package": "Saat + Paket",
+    "threshold_package": "Eşikli Paket",
 }
 
 _COURIER_HOURLY_COST = 250.0
@@ -304,10 +305,10 @@ def _render_basic_payroll_pdf(payload: PayrollDocumentPayload) -> bytes:
         ("10", f"Ay: {payload.selected_month}"),
         ("10", f"Durum: {payload.status or '-'}"),
         ("10", "Restoranlar: " + (", ".join(payload.restaurant_names) if payload.restaurant_names else "-")),
-        ("12", "Calisma Ozeti"),
+        ("12", "Çalışma Özeti"),
         ("10", f"Toplam Saat: {int(_safe_float(payload.total_hours))}"),
         ("10", f"Toplam Paket: {int(_safe_float(payload.total_packages))}"),
-        ("12", "Hakedis Ozeti"),
+        ("12", "Hakediş Özeti"),
         ("10", f"Brut Hakedis: {_format_currency_pdf(payload.gross_pay)}"),
         ("10", f"Toplam Kesinti: {_format_currency_pdf(payload.total_deductions)}"),
         ("11", f"Net Odeme: {_format_currency_pdf(payload.net_payment)}"),

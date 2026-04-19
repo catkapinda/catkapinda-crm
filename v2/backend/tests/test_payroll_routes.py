@@ -46,7 +46,7 @@ def test_payroll_dashboard_route_returns_breakdown_fields(monkeypatch):
             "entries": [],
             "cost_model_breakdown": [
                 {
-                    "cost_model": "Saatlik + Paket",
+                    "cost_model": "Saat + Paket",
                     "personnel_count": 2,
                     "total_hours": 300.0,
                     "total_packages": 420.0,
@@ -72,7 +72,7 @@ def test_payroll_dashboard_route_returns_breakdown_fields(monkeypatch):
                     "total_deductions": 0.0,
                     "net_payment": 59760.0,
                     "restaurant_count": 1,
-                    "cost_model": "Saatlik + Paket",
+                    "cost_model": "Saat + Paket",
                 }
             ],
         },
@@ -88,6 +88,6 @@ def test_payroll_dashboard_route_returns_breakdown_fields(monkeypatch):
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "active"
-    assert payload["cost_model_breakdown"][0]["cost_model"] == "Saatlik + Paket"
+    assert payload["cost_model_breakdown"][0]["cost_model"] == "Saat + Paket"
     assert payload["role_breakdown"][0]["role"] == "Kurye"
     assert payload["top_personnel"][0]["personnel"] == "Beytullah Belen"

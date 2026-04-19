@@ -80,7 +80,7 @@ export function EquipmentEntryWorkspace() {
     try {
       const response = await apiFetch("/equipment/form-options");
       if (!response.ok) {
-        throw new Error("Ekipman secenekleri yuklenemedi.");
+        throw new Error("Ekipman seçenekleri yüklenemedi.");
       }
       const payload = (await response.json()) as EquipmentFormOptions;
       setOptions(payload);
@@ -97,7 +97,7 @@ export function EquipmentEntryWorkspace() {
       }
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Ekipman secenekleri yuklenemedi.";
+        error instanceof Error ? error.message : "Ekipman seçenekleri yüklenemedi.";
       setIssueError(message);
       setBoxError(message);
     } finally {
@@ -252,7 +252,7 @@ export function EquipmentEntryWorkspace() {
               color: "var(--muted)",
             }}
           >
-            Ekipman secenekleri yükleniyor...
+            Ekipman seçenekleri yükleniyor...
           </div>
         ) : (
           <form onSubmit={handleIssueSubmit} style={{ display: "grid", gap: "16px" }}>
@@ -396,7 +396,7 @@ export function EquipmentEntryWorkspace() {
                     fontWeight: 800,
                   }}
                 >
-                  Zimmet Ozeti
+                  Zimmet Özeti
                 </div>
                 <div>
                   <div style={{ color: "var(--muted)", fontSize: "0.82rem" }}>Toplam Maliyet</div>
@@ -451,7 +451,7 @@ export function EquipmentEntryWorkspace() {
                 boxShadow: "0 16px 28px rgba(15, 95, 215, 0.2)",
               }}
             >
-              {isPending ? "Kaydediliyor..." : "Zimmet Kaydini Oluştur"}
+              {isPending ? "Kaydediliyor..." : "Zimmet Kaydını Oluştur"}
             </button>
           </form>
         )}
@@ -483,7 +483,7 @@ export function EquipmentEntryWorkspace() {
               color: "var(--muted)",
             }}
           >
-            Box geri alım secenekleri yükleniyor...
+            Box geri alım seçenekleri yükleniyor...
           </div>
         ) : (
           <form onSubmit={handleBoxSubmit} style={{ display: "grid", gap: "16px" }}>
@@ -601,7 +601,7 @@ export function EquipmentEntryWorkspace() {
                 boxShadow: "0 16px 28px rgba(16, 32, 60, 0.2)",
               }}
             >
-              {isPending ? "Kaydediliyor..." : "Box Geri Alım Kaydini Oluştur"}
+              {isPending ? "Kaydediliyor..." : "Box Geri Alım Kaydını Oluştur"}
             </button>
           </form>
         )}

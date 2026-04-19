@@ -750,7 +750,7 @@ export default function EquipmentPage() {
                 })),
               )}
               {listCard(
-                "Alım Ozeti",
+                "Alım Özeti",
                 "Satinalma tarafında hangi kalemin ne maliyetle beslendigini oku.",
                 dashboard.purchase_summary.map((entry) => ({
                   title: entry.item_name,

@@ -34,8 +34,8 @@ from app.schemas.restaurants import (
 )
 
 PRICING_MODEL_LABELS = {
-    "hourly_plus_package": "Hacimsiz Primli",
-    "threshold_package": "Hacimli Primli",
+    "hourly_plus_package": "Saat + Paket",
+    "threshold_package": "Eşikli Paket",
     "hourly_only": "Sadece Saatlik",
     "fixed_monthly": "Sabit Aylık Ücret",
 }
@@ -122,16 +122,16 @@ def _validate_restaurant_payload(payload: RestaurantCreateRequest | RestaurantUp
     pricing_model = _normalize_pricing_model(payload.pricing_model)
     if pricing_model == "hourly_plus_package":
         if float(payload.hourly_rate or 0) <= 0:
-            errors.append("Hacimsiz Primli modelde saatlik ücret zorunlu.")
+            errors.append("Saat + Paket modelinde saatlik ücret zorunlu.")
         if float(payload.package_rate or 0) <= 0:
-            errors.append("Hacimsiz Primli modelde paket primi zorunlu.")
+            errors.append("Saat + Paket modelinde paket primi zorunlu.")
     elif pricing_model == "threshold_package":
         if float(payload.hourly_rate or 0) <= 0:
-            errors.append("Hacimli Primli modelde saatlik ücret zorunlu.")
+            errors.append("Eşikli Paket modelinde saatlik ücret zorunlu.")
         if int(payload.package_threshold or 0) <= 0:
-            errors.append("Hacimli Primli modelde paket eşiği zorunlu.")
+            errors.append("Eşikli Paket modelinde paket eşiği zorunlu.")
         if float(payload.package_rate_low or 0) <= 0 or float(payload.package_rate_high or 0) <= 0:
-            errors.append("Hacimli Primli modelde eşik altı ve üstü primler zorunlu.")
+            errors.append("Eşikli Paket modelinde eşik altı ve üstü primler zorunlu.")
     elif pricing_model == "hourly_only":
         if float(payload.hourly_rate or 0) <= 0:
             errors.append("Sadece Saatlik modelde saatlik ücret zorunlu.")

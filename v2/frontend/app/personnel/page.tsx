@@ -872,7 +872,7 @@ export default function PersonnelPage() {
                           "Rol",
                           "Durum",
                           "Şube",
-                          ...(canViewPlateArea ? ["Arac"] : []),
+                          ...(canViewPlateArea ? ["Araç"] : []),
                           "Telefon",
                         ].map((header) => (
                           <th

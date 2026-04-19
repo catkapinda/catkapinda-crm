@@ -84,6 +84,25 @@ function formatCurrency(value: number) {
   }).format(value || 0);
 }
 
+function normalizeLookupText(value: string) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[ıİ]/g, "i")
+    .toLowerCase();
+}
+
+function vehicleModeKind(value: string) {
+  const normalized = normalizeLookupText(value);
+  if (normalized.includes("cat kapinda") && normalized.includes("kirasi")) {
+    return "rental";
+  }
+  if (normalized.includes("cat kapinda") && normalized.includes("satisi")) {
+    return "sale";
+  }
+  return "own";
+}
+
 function calculateProratedAmount(monthlyAmount: number, startDate: string) {
   const parsedDate = new Date(startDate);
   if (Number.isNaN(parsedDate.getTime())) {
@@ -280,9 +299,10 @@ export function PersonnelVehicleWorkspace() {
     return null;
   }
 
-  const isRental = vehicleMode === "Çat Kapında Motor Kirası";
-  const isSale = vehicleMode === "Çat Kapında Motor Satışı";
-  const isCatKapinda = isRental || isSale;
+  const currentVehicleKind = vehicleModeKind(vehicleMode);
+  const isRental = currentVehicleKind === "rental";
+  const isSale = currentVehicleKind === "sale";
+  const isCatKapinda = currentVehicleKind !== "own";
   const parsedRentalAmount = Number(rentalAmount || 0);
   const parsedMonthlyDeduction = Number(purchaseMonthlyDeduction || 0);
   const parsedCommitmentMonths = Number(purchaseCommitmentMonths || 0);
@@ -492,7 +512,27 @@ export function PersonnelVehicleWorkspace() {
                 >
                   <label style={{ display: "grid", gap: "8px" }}>
                     <span>Motor düzeni</span>
-                    <select value={vehicleMode} onChange={(event) => setVehicleMode(event.target.value)} style={fieldStyle}>
+                    <select
+                      value={vehicleMode}
+                      onChange={(event) => {
+                        const nextVehicleMode = event.target.value;
+                        const nextKind = vehicleModeKind(nextVehicleMode);
+                        setVehicleMode(nextVehicleMode);
+                        if (nextKind !== "own") {
+                          setPurchaseStartDate((current) => current || effectiveDate);
+                          setPurchaseCommitmentMonths((current) => (Number(current || 0) > 0 ? current : "12"));
+                        }
+                        if (nextKind === "rental") {
+                          setRentalAmount((current) => (Number(current || 0) > 0 ? current : "13000"));
+                          setPurchaseSalePrice("0");
+                          setPurchaseMonthlyDeduction("0");
+                        }
+                        if (nextKind === "sale") {
+                          setRentalAmount("0");
+                        }
+                      }}
+                      style={fieldStyle}
+                    >
                       {vehicleModeOptions.map((option) => (
                         <option key={option} value={option}>
                           {option}
@@ -533,7 +573,7 @@ export function PersonnelVehicleWorkspace() {
                       <input type="date" value={purchaseStartDate} onChange={(event) => setPurchaseStartDate(event.target.value)} style={fieldStyle} />
                     </label>
                     <label style={{ display: "grid", gap: "8px" }}>
-                      <span>Taahhüt ayı</span>
+                      <span>Ay Taahhüdü</span>
                       <input type="number" min="0" step="1" value={purchaseCommitmentMonths} onChange={(event) => setPurchaseCommitmentMonths(event.target.value)} style={fieldStyle} />
                     </label>
                   </div>
@@ -699,7 +739,7 @@ export function PersonnelVehicleWorkspace() {
                       <div style={{ marginTop: "6px", fontWeight: 800 }}>{formatCurrency(selectedPerson.motor_purchase_monthly_deduction)}</div>
                     </div>
                     <div style={{ padding: "10px 12px", borderRadius: "16px", background: "rgba(244,247,252,0.9)" }}>
-                      <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>Taahhüt ayı</div>
+                      <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>Ay Taahhüdü</div>
                       <div style={{ marginTop: "6px", fontWeight: 800 }}>{selectedPerson.motor_purchase_commitment_months || 0}</div>
                     </div>
                   </div>

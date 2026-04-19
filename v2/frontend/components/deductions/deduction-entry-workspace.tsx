@@ -44,14 +44,14 @@ export function DeductionEntryWorkspace() {
     try {
       const response = await apiFetch("/deductions/form-options");
       if (!response.ok) {
-        throw new Error("Kesinti secenekleri yuklenemedi.");
+        throw new Error("Kesinti seçenekleri yüklenemedi.");
       }
       const payload = (await response.json()) as DeductionsFormOptions;
       setOptions(payload);
       setPersonnelId(payload.selected_personnel_id ?? "");
       setDeductionType(payload.deduction_types[0] ?? "");
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Kesinti secenekleri yuklenemedi.");
+      setSubmitError(error instanceof Error ? error.message : "Kesinti seçenekleri yüklenemedi.");
     } finally {
       setLoadingOptions(false);
     }
@@ -139,7 +139,7 @@ export function DeductionEntryWorkspace() {
             color: "var(--muted)",
           }}
         >
-          Kesinti secenekleri yükleniyor...
+          Kesinti seçenekleri yükleniyor...
         </div>
       ) : (
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: "16px" }}>
@@ -270,7 +270,7 @@ export function DeductionEntryWorkspace() {
               boxShadow: "0 16px 28px rgba(15, 95, 215, 0.2)",
             }}
           >
-            {isPending ? "Kaydediliyor..." : "Kesinti Kaydini Oluştur"}
+            {isPending ? "Kaydediliyor..." : "Kesinti Kaydını Oluştur"}
           </button>
         </form>
       )}

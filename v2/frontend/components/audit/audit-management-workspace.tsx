@@ -630,7 +630,7 @@ export function AuditManagementWorkspace() {
                 letterSpacing: "0.08em",
               }}
             >
-              Son Kayıt Ozeti
+              Son Kayıt Özeti
             </div>
             <h3
               style={{

@@ -44,8 +44,8 @@ _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
 
 _PRICING_MODEL_LABELS = {
-    "hourly_plus_package": "Hacimsiz Primli",
-    "threshold_package": "Hacimli Primli",
+    "hourly_plus_package": "Saat + Paket",
+    "threshold_package": "Eşikli Paket",
     "hourly_only": "Sadece Saatlik",
     "fixed_monthly": "Sabit Aylık Ücret",
 }

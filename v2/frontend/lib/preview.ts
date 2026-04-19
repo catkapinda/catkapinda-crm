@@ -704,7 +704,7 @@ let previewEquipmentIssueRecords: PreviewEquipmentIssueRecord[] = [
     vat_rate: 20,
     installment_count: 1,
     sale_type: "Zimmet",
-    notes: "Arac degisikligi sonrası sabitleme aparati verildi.",
+    notes: "Araç değişikliği sonrası sabitleme aparatı verildi.",
     auto_source_key: "",
     is_auto_record: false,
   },
@@ -850,8 +850,8 @@ const previewDeductionTypeCaptions: Record<string, string> = {
 };
 const previewDeductionTypes = Object.keys(previewDeductionTypeCaptions);
 const previewRestaurantPricingModels = [
-  { value: "hourly_plus_package", label: "Hacimsiz Primli" },
-  { value: "threshold_package", label: "Hacimli Primli" },
+  { value: "hourly_plus_package", label: "Saat + Paket" },
+  { value: "threshold_package", label: "Eşikli Paket" },
   { value: "hourly_only", label: "Sadece Saatlik" },
   { value: "fixed_monthly", label: "Sabit Aylık Ücret" },
 ];
@@ -1145,7 +1145,7 @@ function buildDeductionFormOptions() {
       .filter((entry) => entry.status === "Aktif")
       .map((entry) => ({
         id: entry.id,
-        label: `${entry.full_name} · ${restaurantLabel(entry.restaurant_id) || "Atanmadi"}`,
+        label: `${entry.full_name} · ${restaurantLabel(entry.restaurant_id) || "Atanmadı"}`,
       })),
     deduction_types: previewDeductionTypes,
     type_captions: previewDeductionTypeCaptions,
@@ -1293,7 +1293,7 @@ function buildEquipmentFormOptions() {
       .filter((entry) => entry.status === "Aktif" || entry.status === "Pasif")
       .map((entry) => ({
         id: entry.id,
-        label: `${entry.full_name} · ${restaurantLabel(entry.restaurant_id) || "Atanmadi"}`,
+        label: `${entry.full_name} · ${restaurantLabel(entry.restaurant_id) || "Atanmadı"}`,
       })),
     issue_items: previewEquipmentIssueItems,
     sale_type_options: previewEquipmentSaleTypeOptions,
@@ -1598,7 +1598,7 @@ function buildOverviewDashboard() {
       module_key: "personnel",
       module_label: "Personel",
       title: `${entry.full_name} kartı hazır`,
-      subtitle: `${entry.role} · ${restaurantLabel(entry.restaurant_id) || "Atanmadi"}`,
+      subtitle: `${entry.role} · ${restaurantLabel(entry.restaurant_id) || "Atanmadı"}`,
       meta: entry.status,
       entry_date: entry.start_date,
       href: "/preview/personnel",
