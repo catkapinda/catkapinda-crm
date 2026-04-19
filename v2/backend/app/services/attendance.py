@@ -49,6 +49,12 @@ ATTENDANCE_ENTRY_MODE_OPTIONS = [
     "Destek",
     "Haftalık İzin",
 ]
+PRICING_MODEL_LABELS = {
+    "hourly_plus_package": "Saat + Paket",
+    "threshold_package": "Eşikli Paket",
+    "hourly_only": "Sadece Saat",
+    "fixed_monthly": "Sabit Aylık",
+}
 ABSENCE_REASON_OPTIONS = ["İzin", "Raporlu", "İhbarsız Çıkış", "Gelmedi", "Diğer"]
 ATTENDANCE_BULK_STATUS_OPTIONS = [
     "Normal",
@@ -89,6 +95,20 @@ ENTRY_STATUS_ALIASES = {
 NON_WORKING_STATUSES = {"İzin", "Gelmedi", "Raporlu", "İhbarsız Çıkış", "Çıkış yaptı"}
 
 
+def _safe_float(value: object) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _safe_int(value: object, default: int = 0) -> int:
+    try:
+        return int(value or default)
+    except (TypeError, ValueError):
+        return default
+
+
 def _normalize_entry_mode(value: str) -> str:
     normalized = str(value or "").strip()
     return ENTRY_MODE_ALIASES.get(normalized, normalized or "Restoran Kuryesi")
@@ -97,6 +117,50 @@ def _normalize_entry_mode(value: str) -> str:
 def _normalize_entry_status(value: str) -> str:
     normalized = str(value or "").strip()
     return ENTRY_STATUS_ALIASES.get(normalized.lower(), normalized or "Normal")
+
+
+def _display_pricing_model(value: object) -> str:
+    raw_value = str(value or "").strip()
+    return PRICING_MODEL_LABELS.get(raw_value, raw_value or "-")
+
+
+def _calculate_attendance_invoice_amount(
+    *,
+    restaurant: dict[str, object] | None,
+    worked_hours: float,
+    package_count: float,
+    explicit_amount: float = 0.0,
+) -> float:
+    explicit_invoice = _safe_float(explicit_amount)
+    if explicit_invoice > 0:
+        return round(explicit_invoice, 2)
+
+    if restaurant is None:
+        return 0.0
+
+    hours = _safe_float(worked_hours)
+    packages = _safe_float(package_count)
+    if hours <= 0 and packages <= 0:
+        return 0.0
+
+    pricing_model = str(restaurant.get("pricing_model") or "").strip()
+    hourly_rate = _safe_float(restaurant.get("hourly_rate"))
+    package_rate = _safe_float(restaurant.get("package_rate"))
+    package_threshold = _safe_int(restaurant.get("package_threshold"), 390)
+    package_rate_low = _safe_float(restaurant.get("package_rate_low"))
+    package_rate_high = _safe_float(restaurant.get("package_rate_high"))
+
+    if pricing_model == "hourly_plus_package":
+        return round((hours * hourly_rate) + (packages * package_rate), 2)
+    if pricing_model == "threshold_package":
+        resolved_package_rate = package_rate_low if packages <= package_threshold else package_rate_high
+        return round((hours * hourly_rate) + (packages * resolved_package_rate), 2)
+    if pricing_model == "hourly_only":
+        return round(hours * hourly_rate, 2)
+    if pricing_model == "fixed_monthly":
+        return round(_safe_float(restaurant.get("fixed_monthly_fee")), 2)
+
+    return 0.0
 
 
 def _normalize_bulk_entry_ids(entry_ids: list[int]) -> list[int]:
@@ -297,7 +361,14 @@ def build_attendance_form_options(
                 id=int(row["id"]),
                 label=f"{str(row['brand']).strip()} - {str(row['branch']).strip()}",
                 pricing_model=str(row["pricing_model"] or ""),
+                pricing_model_label=_display_pricing_model(row["pricing_model"]),
+                hourly_rate=float(row["hourly_rate"] or 0),
+                package_rate=float(row["package_rate"] or 0),
+                package_threshold=int(row["package_threshold"] or 390),
+                package_rate_low=float(row["package_rate_low"] or 0),
+                package_rate_high=float(row["package_rate_high"] or 0),
                 fixed_monthly_fee=float(row["fixed_monthly_fee"] or 0),
+                vat_rate=float(row["vat_rate"] or 20),
             )
             for row in restaurants
         ],
@@ -323,6 +394,11 @@ def create_attendance_entry(
     *,
     payload: AttendanceCreateRequest,
 ) -> AttendanceCreateResponse:
+    restaurants = fetch_attendance_restaurants(conn)
+    selected_restaurant = next(
+        (row for row in restaurants if int(row["id"]) == payload.restaurant_id),
+        None,
+    )
     values = _resolve_attendance_values(
         entry_mode=payload.entry_mode,
         primary_person_id=payload.primary_person_id,
@@ -335,12 +411,18 @@ def create_attendance_entry(
     )
     values["entry_date"] = payload.entry_date
     values["restaurant_id"] = payload.restaurant_id
+    values["monthly_invoice_amount"] = _calculate_attendance_invoice_amount(
+        restaurant=selected_restaurant,
+        worked_hours=float(values["worked_hours"] or 0),
+        package_count=float(values["package_count"] or 0),
+        explicit_amount=float(values["monthly_invoice_amount"] or 0),
+    )
 
     entry_id = insert_attendance_entry(conn, values)
     conn.commit()
     return AttendanceCreateResponse(
         entry_id=entry_id,
-        message="Günlük puantaj kaydı oluşturuldu.",
+        message="Günlük puantaj kaydedildi. Hakediş ve restoran faturası aynı ayda güncellendi.",
     )
 
 
@@ -349,6 +431,11 @@ def create_attendance_entries_bulk(
     *,
     payload: AttendanceBulkCreateRequest,
 ) -> AttendanceBulkCreateResponse:
+    restaurants = fetch_attendance_restaurants(conn)
+    selected_restaurant = next(
+        (row for row in restaurants if int(row["id"]) == payload.restaurant_id),
+        None,
+    )
     people_rows = fetch_attendance_people(
         conn,
         restaurant_id=payload.restaurant_id,
@@ -389,7 +476,13 @@ def create_attendance_entries_bulk(
                 "status": entry_status,
                 "worked_hours": 0.0 if is_non_working_status else worked_hours,
                 "package_count": 0.0 if is_non_working_status else package_count,
-                "monthly_invoice_amount": 0.0,
+                "monthly_invoice_amount": 0.0
+                if is_non_working_status
+                else _calculate_attendance_invoice_amount(
+                    restaurant=selected_restaurant,
+                    worked_hours=worked_hours,
+                    package_count=package_count,
+                ),
                 "absence_reason": entry_status if is_non_working_status else "",
                 "coverage_type": "",
                 "notes": " | ".join(note_parts),
@@ -405,7 +498,7 @@ def create_attendance_entries_bulk(
     return AttendanceBulkCreateResponse(
         entry_ids=created_ids,
         created_count=created_count,
-        message=f"{created_count} toplu puantaj kaydı oluşturuldu.",
+        message=f"{created_count} toplu puantaj kaydı oluşturuldu. Hakediş ve restoran faturası güncellendi.",
     )
 
 

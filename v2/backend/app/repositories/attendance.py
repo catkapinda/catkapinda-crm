@@ -108,7 +108,13 @@ def fetch_attendance_restaurants(conn: psycopg.Connection) -> list[dict]:
             brand,
             branch,
             pricing_model,
-            COALESCE(fixed_monthly_fee, 0) AS fixed_monthly_fee
+            COALESCE(hourly_rate, 0) AS hourly_rate,
+            COALESCE(package_rate, 0) AS package_rate,
+            COALESCE(package_threshold, 390) AS package_threshold,
+            COALESCE(package_rate_low, 0) AS package_rate_low,
+            COALESCE(package_rate_high, 0) AS package_rate_high,
+            COALESCE(fixed_monthly_fee, 0) AS fixed_monthly_fee,
+            COALESCE(vat_rate, 20) AS vat_rate
         FROM restaurants
         WHERE {_restaurant_active_sql()}
         ORDER BY brand, branch

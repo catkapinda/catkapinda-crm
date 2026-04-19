@@ -217,7 +217,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
   async function loadReferenceOptions() {
     const response = await apiFetch("/attendance/form-options");
     if (!response.ok) {
-      throw new Error("Puantaj referans verileri yuklenemedi.");
+      throw new Error("Puantaj seçenekleri alınamadı. Lütfen tekrar dene.");
     }
     const payload = (await response.json()) as AttendanceFormOptions;
     setRestaurants(payload.restaurants);
@@ -243,7 +243,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
       }
       const response = await apiFetch(`/attendance/entries?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Puantaj kayıtları yuklenemedi.");
+        throw new Error("Puantaj kayıtları alınamadı. Lütfen tekrar dene.");
       }
       const payload = (await response.json()) as AttendanceManagementResponse;
       const visibleEntryIdSet = new Set(payload.entries.map((entry) => entry.id));
@@ -260,7 +260,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
         return payload.entries[0].id;
       });
     } catch (error) {
-      setListError(error instanceof Error ? error.message : "Puantaj kayıtları yuklenemedi.");
+      setListError(error instanceof Error ? error.message : "Puantaj kayıtları alınamadı. Lütfen tekrar dene.");
       setEntries([]);
       setTotalEntries(0);
       setSelectedEntryId(null);
@@ -297,7 +297,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
       `/attendance/form-options?restaurant_id=${encodeURIComponent(String(restaurantId))}&include_all_active=true`,
     );
     if (!response.ok) {
-      throw new Error("Personel secenekleri yuklenemedi.");
+      throw new Error("Personel seçenekleri alınamadı. Lütfen tekrar dene.");
     }
     const payload = (await response.json()) as AttendanceFormOptions;
     setEditorPeople(payload.people);
@@ -311,7 +311,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
     try {
       const response = await apiFetch(`/attendance/entries/${entryId}`);
       if (!response.ok) {
-        throw new Error("Kayıt detayi yuklenemedi.");
+        throw new Error("Kayıt detayı alınamadı. Lütfen tekrar dene.");
       }
       const payload = (await response.json()) as AttendanceEntryDetailResponse;
       const entry = payload.entry;
@@ -329,7 +329,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
       setEditNotes(entry.notes ?? "");
       await loadPeopleOptions(entry.restaurant_id);
     } catch (error) {
-      setDetailError(error instanceof Error ? error.message : "Kayıt detayi yuklenemedi.");
+      setDetailError(error instanceof Error ? error.message : "Kayıt detayı alınamadı. Lütfen tekrar dene.");
       setEditorPeople([]);
     } finally {
       setDetailLoading(false);
@@ -339,7 +339,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
   useEffect(() => {
     void loadReferenceOptions().catch((error) => {
       setListError(
-        error instanceof Error ? error.message : "Puantaj referans verileri yuklenemedi.",
+        error instanceof Error ? error.message : "Puantaj seçenekleri alınamadı. Lütfen tekrar dene.",
       );
     });
   }, []);
@@ -378,7 +378,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
       return;
     }
     if (typeof editRestaurantId !== "number") {
-      setSaveError("Lutfen bir şube seç.");
+      setSaveError("Lütfen bir şube seç.");
       return;
     }
 
@@ -1043,7 +1043,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                       onChange={(event) => setEditPrimaryPersonId(Number(event.target.value) || "")}
                       style={fieldStyle}
                     >
-                      <option value="">Sec</option>
+                      <option value="">Seç</option>
                       {editorPeople.map((person) => (
                         <option key={person.id} value={person.id}>
                           {person.label}
@@ -1062,7 +1062,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                         }
                         style={fieldStyle}
                       >
-                        <option value="">Sec</option>
+                        <option value="">Seç</option>
                         {editorPeople.map((person) => (
                           <option key={person.id} value={person.id}>
                             {person.label}
@@ -1080,7 +1080,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                         onChange={(event) => setEditAbsenceReason(event.target.value)}
                         style={fieldStyle}
                       >
-                        <option value="">Sec</option>
+                        <option value="">Seç</option>
                         {absenceReasons.map((reason) => (
                           <option key={reason} value={reason}>
                             {reason}
@@ -1101,7 +1101,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                   }}
                 >
                   <label style={{ display: "grid", gap: "7px" }}>
-                    <span style={labelStyle}>Calisilan Saat</span>
+                    <span style={labelStyle}>Çalışılan Saat</span>
                     <input
                       type="number"
                       step="0.5"
@@ -1124,7 +1124,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                   </label>
                   {isFixedMonthly ? (
                     <label style={{ display: "grid", gap: "7px" }}>
-                      <span style={labelStyle}>Aylık Fatura Tutari</span>
+                      <span style={labelStyle}>Aylık Fatura Tutarı</span>
                       <input
                         type="number"
                         step="0.01"

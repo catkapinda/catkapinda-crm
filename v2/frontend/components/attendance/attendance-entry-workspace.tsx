@@ -11,7 +11,14 @@ type AttendanceFormOptions = {
     id: number;
     label: string;
     pricing_model: string;
+    pricing_model_label: string;
+    hourly_rate: number;
+    package_rate: number;
+    package_threshold: number;
+    package_rate_low: number;
+    package_rate_high: number;
     fixed_monthly_fee: number;
+    vat_rate: number;
   }>;
   people: Array<{
     id: number;
@@ -28,6 +35,12 @@ type AttendanceFormOptions = {
 type AttendanceEntryWorkspaceProps = {
   onDataChange?: () => void;
 };
+
+function formatCurrency(value: number) {
+  return `${Number(value || 0).toLocaleString("tr-TR", {
+    maximumFractionDigits: 0,
+  })} TL`;
+}
 
 export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorkspaceProps) {
   const router = useRouter();
@@ -58,7 +71,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
       const query = params.size ? `?${params.toString()}` : "";
       const response = await apiFetch(`/attendance/form-options${query}`);
       if (!response.ok) {
-        throw new Error("Attendance form options could not be loaded.");
+        throw new Error("Puantaj seçenekleri alınamadı. Lütfen tekrar dene.");
       }
       const payload = (await response.json()) as AttendanceFormOptions;
       setOptions(payload);
@@ -73,7 +86,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
       setSubmitError(
         error instanceof Error
           ? error.message
-          : "Attendance form options could not be loaded.",
+          : "Puantaj seçenekleri alınamadı. Lütfen tekrar dene.",
       );
     } finally {
       setLoadingOptions(false);
@@ -110,7 +123,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
     setSubmitSuccess("");
 
     if (typeof restaurantId !== "number") {
-      setSubmitError("Lutfen bir şube seç.");
+      setSubmitError("Lütfen bir şube seç.");
       return;
     }
 
@@ -143,7 +156,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
       return;
     }
 
-    setSubmitSuccess(payload?.message || "Kayıt oluşturuldu.");
+    setSubmitSuccess(payload?.message || "Puantaj kaydedildi.");
     onDataChange?.();
     setEntryMode("Restoran Kuryesi");
     setPrimaryPersonId("");
@@ -182,7 +195,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
             fontSize: "1.2rem",
           }}
         >
-          Günlük Puantaj Girisi
+          Günlük Puantaj Girişi
         </h2>
         <p
           style={{
@@ -191,8 +204,8 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
             lineHeight: 1.7,
           }}
         >
-          Bu ilk yazilabilir v2 formu, şube ve personel secimini gerçek attendance API ile
-          baglar.
+          Şubeyi ve çalışanı seç; saat, paket ve durum kaydı aynı anda hakediş ve restoran
+          faturası hesaplarına yansır.
         </p>
       </div>
 
@@ -205,7 +218,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
             color: "var(--muted)",
           }}
         >
-          Attendance form secenekleri yükleniyor...
+          Puantaj seçenekleri yükleniyor...
         </div>
       ) : (
         <form
@@ -250,7 +263,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
             </label>
 
             <label style={{ display: "grid", gap: "8px" }}>
-              <span style={{ fontWeight: 700 }}>Vardiya Akisi</span>
+              <span style={{ fontWeight: 700 }}>Vardiya Akışı</span>
               <select
                 value={entryMode}
                 onChange={(event) => setEntryMode(event.target.value)}
@@ -281,7 +294,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
                 onChange={(event) => setPrimaryPersonId(Number(event.target.value) || "")}
                 style={fieldStyle}
               >
-                <option value="">Sec</option>
+                <option value="">Seç</option>
                 {options?.people.map((person) => (
                   <option key={person.id} value={person.id}>
                     {person.label}
@@ -298,7 +311,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
                   onChange={(event) => setReplacementPersonId(Number(event.target.value) || "")}
                   style={fieldStyle}
                 >
-                  <option value="">Sec</option>
+                  <option value="">Seç</option>
                   {options?.people.map((person) => (
                     <option key={person.id} value={person.id}>
                       {person.label}
@@ -316,7 +329,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
                   onChange={(event) => setAbsenceReason(event.target.value)}
                   style={fieldStyle}
                 >
-                  <option value="">Sec</option>
+                  <option value="">Seç</option>
                   {options?.absence_reasons.map((reason) => (
                     <option key={reason} value={reason}>
                       {reason}
@@ -335,7 +348,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
             }}
           >
             <label style={{ display: "grid", gap: "8px" }}>
-              <span style={{ fontWeight: 700 }}>Calisilan Saat</span>
+              <span style={{ fontWeight: 700 }}>Çalışılan Saat</span>
               <input
                 type="number"
                 step="0.5"
@@ -360,7 +373,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
 
             {isFixedMonthly ? (
               <label style={{ display: "grid", gap: "8px" }}>
-                <span style={{ fontWeight: 700 }}>Aylık Fatura Tutari</span>
+                <span style={{ fontWeight: 700 }}>Aylık Fatura Tutarı</span>
                 <input
                   type="number"
                   step="0.01"
@@ -399,18 +412,24 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
             >
               <strong style={{ color: "var(--text)" }}>{selectedRestaurant.label}</strong>
               {" "}
-              seçili.
+              seçili. Fiyat modeli:{" "}
+              <strong style={{ color: "var(--text)" }}>{selectedRestaurant.pricing_model_label}</strong>.
               {isFixedMonthly ? (
                 <>
                   {" "}
-                  Bu şube sabit aylık ucret modeliyle çalışıyor. Kayıt için varsayılan sabit
+                  Bu şube sabit aylık ücret modeliyle çalışıyor. Kayıt için varsayılan sabit
                   rakam:{" "}
                   <strong style={{ color: "var(--text)" }}>
-                    {selectedRestaurant.fixed_monthly_fee.toLocaleString("tr-TR")} TL
+                    {formatCurrency(selectedRestaurant.fixed_monthly_fee)}
                   </strong>
                   .
                 </>
-              ) : null}
+              ) : (
+                <>
+                  {" "}
+                  Fatura etkisi saat ve paket bilgisine göre otomatik hesaplanır.
+                </>
+              )}
             </div>
           ) : null}
 

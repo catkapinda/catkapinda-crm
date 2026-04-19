@@ -41,7 +41,14 @@ class AttendanceRestaurantOption(BaseModel):
     id: int
     label: str
     pricing_model: str
+    pricing_model_label: str
+    hourly_rate: float
+    package_rate: float
+    package_threshold: int
+    package_rate_low: float
+    package_rate_high: float
     fixed_monthly_fee: float
+    vat_rate: float
 
 
 class AttendancePersonOption(BaseModel):

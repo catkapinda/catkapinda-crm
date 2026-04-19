@@ -11,7 +11,14 @@ type AttendanceFormOptions = {
     id: number;
     label: string;
     pricing_model: string;
+    pricing_model_label: string;
+    hourly_rate: number;
+    package_rate: number;
+    package_threshold: number;
+    package_rate_low: number;
+    package_rate_high: number;
     fixed_monthly_fee: number;
+    vat_rate: number;
   }>;
   people: Array<{
     id: number;
@@ -99,6 +106,45 @@ function parseDecimalToken(value: string | undefined) {
     return 0;
   }
   return Number(value.replace(",", "."));
+}
+
+function toNumber(value: string | number) {
+  const parsed = Number(String(value || "0").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatCurrency(value: number) {
+  return `${Number(value || 0).toLocaleString("tr-TR", {
+    maximumFractionDigits: 0,
+  })} TL`;
+}
+
+function calculateRowInvoice(
+  restaurant: AttendanceFormOptions["restaurants"][number] | null,
+  row: BulkRow,
+) {
+  if (!restaurant || row.entryStatus !== "Normal") {
+    return 0;
+  }
+  const workedHours = toNumber(row.workedHours);
+  const packageCount = toNumber(row.packageCount);
+  if (restaurant.pricing_model === "hourly_plus_package") {
+    return workedHours * restaurant.hourly_rate + packageCount * restaurant.package_rate;
+  }
+  if (restaurant.pricing_model === "threshold_package") {
+    const packageRate =
+      packageCount <= restaurant.package_threshold
+        ? restaurant.package_rate_low
+        : restaurant.package_rate_high;
+    return workedHours * restaurant.hourly_rate + packageCount * packageRate;
+  }
+  if (restaurant.pricing_model === "hourly_only") {
+    return workedHours * restaurant.hourly_rate;
+  }
+  if (restaurant.pricing_model === "fixed_monthly") {
+    return workedHours > 0 || packageCount > 0 ? restaurant.fixed_monthly_fee : 0;
+  }
+  return 0;
 }
 
 function inferStatusFromLine(
@@ -312,7 +358,7 @@ export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspac
       const query = params.size ? `?${params.toString()}` : "";
       const response = await apiFetch(`/attendance/form-options${query}`);
       if (!response.ok) {
-        throw new Error("Toplu puantaj seçenekleri yüklenemedi.");
+        throw new Error("Toplu puantaj seçenekleri alınamadı. Lütfen tekrar dene.");
       }
       const payload = (await response.json()) as AttendanceFormOptions;
       setOptions(payload);
@@ -320,7 +366,7 @@ export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspac
       setRows(buildRowsFromPeople(payload.people));
     } catch (error) {
       setSubmitError(
-        error instanceof Error ? error.message : "Toplu puantaj seçenekleri yüklenemedi.",
+        error instanceof Error ? error.message : "Toplu puantaj seçenekleri alınamadı. Lütfen tekrar dene.",
       );
     } finally {
       setLoadingOptions(false);
@@ -341,6 +387,31 @@ export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspac
     () => new Map(people.map((person) => [person.id, person.label])),
     [people],
   );
+  const selectedRestaurant = useMemo(() => {
+    if (!options || typeof restaurantId !== "number") {
+      return null;
+    }
+    return options.restaurants.find((restaurant) => restaurant.id === restaurantId) ?? null;
+  }, [options, restaurantId]);
+  const financePreview = useMemo(() => {
+    const activeRows = rows.filter((row) => typeof row.personId === "number");
+    const totalHours = activeRows.reduce((sum, row) => sum + toNumber(row.workedHours), 0);
+    const totalPackages = activeRows.reduce((sum, row) => sum + toNumber(row.packageCount), 0);
+    const netInvoice =
+      selectedRestaurant?.pricing_model === "fixed_monthly"
+        ? activeRows.some((row) => row.entryStatus === "Normal" && (toNumber(row.workedHours) > 0 || toNumber(row.packageCount) > 0))
+          ? selectedRestaurant.fixed_monthly_fee
+          : 0
+        : activeRows.reduce((sum, row) => sum + calculateRowInvoice(selectedRestaurant, row), 0);
+    const vatRate = selectedRestaurant?.vat_rate ?? 20;
+    return {
+      activeCount: activeRows.length,
+      totalHours,
+      totalPackages,
+      netInvoice,
+      grossInvoice: netInvoice * (1 + vatRate / 100),
+    };
+  }, [rows, selectedRestaurant]);
 
   function updateRow(rowId: number, patch: Partial<BulkRow>) {
     setRows((currentRows) =>
@@ -524,6 +595,44 @@ export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspac
               Tüm aktif personeli göster
             </label>
           </div>
+
+          {selectedRestaurant ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                gap: "10px",
+                padding: "14px",
+                borderRadius: "18px",
+                background: "rgba(17, 125, 87, 0.08)",
+                border: "1px solid rgba(17, 125, 87, 0.12)",
+              }}
+            >
+              {[
+                ["Şube", selectedRestaurant.label],
+                ["Model", selectedRestaurant.pricing_model_label],
+                ["Personel", String(financePreview.activeCount)],
+                ["Saat", financePreview.totalHours.toLocaleString("tr-TR", { maximumFractionDigits: 1 })],
+                ["Paket", financePreview.totalPackages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })],
+                ["Tahmini Fatura", formatCurrency(financePreview.grossInvoice)],
+              ].map(([label, value]) => (
+                <div key={label} style={{ display: "grid", gap: "3px" }}>
+                  <span
+                    style={{
+                      color: "var(--muted)",
+                      fontSize: "0.72rem",
+                      fontWeight: 900,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <strong style={{ color: "var(--text)", fontSize: "0.95rem" }}>{value}</strong>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           <div
             style={{
