@@ -723,6 +723,11 @@ export default function PersonnelPage() {
                 "Kimlik, muhasebe, acil durum, şube ve motor bilgisi.",
                 "#personnel-entry",
               )}
+              {quickActionLink(
+                "Kart Yönetimi",
+                "Kayıt düzeltme, durum ve şube güncelleme.",
+                "#personnel-management",
+              )}
               {canViewPersonnelEquipment
                 ? quickActionLink(
                     "Zimmet Kaydı",
@@ -730,11 +735,25 @@ export default function PersonnelPage() {
                     "#personnel-equipment",
                   )
                 : null}
+              {canManageVehicleHistory
+                ? quickActionLink(
+                    "Motor Kaydı",
+                    "Kira, satış ve taahhüt hareketlerini yönet.",
+                    "#personnel-vehicle",
+                  )
+                : null}
               {canViewPlateArea
                 ? quickActionLink(
-                    "Motor ve Plaka",
-                    "Araç modu, plaka geçmişi ve taahhüt bilgisi.",
-                    "#personnel-vehicle",
+                    "Plaka Hareketi",
+                    "Plaka değişimini tarih ve açıklamayla işle.",
+                    "#personnel-plate",
+                  )
+                : null}
+              {canManageRoles
+                ? quickActionLink(
+                    "Rol Geçişi",
+                    "Rol ve sabit maliyet geçmişini güncelle.",
+                    "#personnel-role",
                   )
                 : null}
             </section>
