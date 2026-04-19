@@ -633,33 +633,26 @@ function LoginPageContent() {
             >
               <div
                 style={{
-                  width: "58px",
-                  height: "58px",
-                  borderRadius: "20px",
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
-                  border: "1px solid rgba(255,255,255,0.14)",
+                  width: "64px",
+                  height: "64px",
+                  borderRadius: "22px",
+                  background: "rgba(255,255,255,0.94)",
+                  border: "1px solid rgba(255,255,255,0.28)",
                   display: "grid",
                   placeItems: "center",
                   boxShadow: "0 18px 34px rgba(10, 20, 35, 0.24)",
                 }}
               >
-                <div
+                <img
+                  src="/catkapinda_logo.png"
+                  alt="Çat Kapında"
                   style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "14px",
-                    background: "linear-gradient(180deg, #f6d6a9, #c9852b)",
-                    display: "grid",
-                    placeItems: "center",
-                    color: "#1d2f4b",
-                    fontWeight: 900,
-                    fontSize: "0.98rem",
-                    letterSpacing: "0.08em",
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)",
+                    display: "block",
+                    width: "50px",
+                    height: "50px",
+                    objectFit: "contain",
                   }}
-                >
-                  CK
-                </div>
+                />
               </div>
               <div style={{ display: "grid", gap: "4px" }}>
                 <div
