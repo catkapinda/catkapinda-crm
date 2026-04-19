@@ -644,8 +644,13 @@ function LoginPageContent() {
                 }}
               >
                 <img
-                  src="/catkapinda_logo.png"
-                  alt="Çat Kapında"
+                  src="/catkapinda_logo.png?v=login-logo-20260419"
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                  onError={(event) => {
+                    event.currentTarget.style.visibility = "hidden";
+                  }}
                   style={{
                     display: "block",
                     width: "50px",
