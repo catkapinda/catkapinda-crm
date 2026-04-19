@@ -1165,7 +1165,7 @@ export default function PayrollPage() {
                 {formatMoney(invoiceSnapshot?.totalRevenue ?? 0)} restoran faturası / {formatMoney(dashboard?.summary?.gross_payroll ?? 0)} kesinti öncesi kurye hakedişi.
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: "0.95rem" }}>
-                Fatura-hakediş farkı: {formatMoney(invoiceSnapshot?.grossProfit ?? 0)}. Bu alan puantaj girildikçe rapor faturasıyla birlikte yenilenir.
+                Fatura-kurye farkı: {formatMoney(invoiceSnapshot?.grossProfit ?? 0)}. Bu alan puantaj girildikçe rapor faturasıyla birlikte yenilenir.
               </div>
             </article>
 

@@ -161,12 +161,12 @@ function financeBalanceGraph(finance: OverviewDashboard["finance"]) {
       color: "linear-gradient(90deg, rgba(15,95,215,0.96), rgba(74,144,226,0.84))",
     },
     {
-      label: "Personel maliyeti",
+      label: "Kurye maliyeti",
       value: finance.total_personnel_cost,
       color: "linear-gradient(90deg, rgba(185,116,41,0.95), rgba(223,169,92,0.86))",
     },
     {
-      label: "Fatura-hakediş farkı",
+      label: "Fatura-kurye farkı",
       value: finance.gross_profit,
       color: "linear-gradient(90deg, rgba(31,151,112,0.95), rgba(75,190,142,0.84))",
     },
@@ -863,7 +863,7 @@ export default function HomePage() {
               {[
                 ["Puantaj", "Eksik gün ve son kayıt"],
                 ["Kadro", "Aktif ekip ve açık ihtiyaç"],
-                ["Finans", "Fatura ve hakediş farkı"],
+                ["Finans", "Fatura ve kurye farkı"],
                 ["Zimmet", "Motor, plaka ve ekipman"],
               ].map(([label, text]) => (
                 <div
@@ -996,7 +996,7 @@ export default function HomePage() {
                 {executiveMetricCard(
                   "Operasyon Farkı",
                   formatCurrency(dashboard?.finance.gross_profit ?? 0),
-                  "Ay içi fatura ve hakediş farkı.",
+                  "Ay içi fatura ve kurye maliyeti farkı.",
                 )}
                 {executiveMetricCard(
                   "Riskli Şube",
@@ -1315,14 +1315,14 @@ export default function HomePage() {
                     "Bu ay oluşan toplam restoran faturası.",
                   )}
                   {pulseCard(
-                    "Personel Maliyeti",
+                    "Kurye Maliyeti",
                     formatCurrency(dashboard.finance.total_personnel_cost),
-                    "Net maliyet tarafında okunan toplam kadro yükü.",
+                    "Hakediş ve ödeme tarafında okunan toplam kurye yükü.",
                   )}
                   {pulseCard(
-                    "Fatura-Hakediş Farkı",
+                    "Fatura-Kurye Farkı",
                     formatCurrency(dashboard.finance.gross_profit),
-                    "Gelir ve personel maliyeti arasındaki ana fark.",
+                    "Restoran faturası ile kurye maliyeti arasındaki ana fark.",
                   )}
                   {pulseCard(
                     "Yan Gelir",
