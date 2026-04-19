@@ -90,6 +90,16 @@ function toSafeString(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
 }
 
+function displayPricingModel(value: string) {
+  const labels: Record<string, string> = {
+    hourly_plus_package: "Hacimsiz Primli",
+    threshold_package: "Hacimli Primli",
+    hourly_only: "Sadece Saatlik",
+    fixed_monthly: "Sabit Aylık Ücret",
+  };
+  return labels[value] ?? value;
+}
+
 function normalizePayrollDashboard(payload: Partial<PayrollDashboard>): PayrollDashboard {
   const summary =
     payload.summary && typeof payload.summary === "object"
@@ -506,7 +516,7 @@ export default function PayrollPage() {
                 grossProfit: toSafeNumber(reportPayload.summary?.gross_profit),
                 invoiceEntries: (reportPayload.invoice_entries ?? []).slice(0, 8).map((row) => ({
                   restaurant: toSafeString(row.restaurant, "-"),
-                  pricingModel: toSafeString(row.pricing_model, "-"),
+                  pricingModel: displayPricingModel(toSafeString(row.pricing_model, "-")),
                   totalHours: toSafeNumber(row.total_hours),
                   totalPackages: toSafeNumber(row.total_packages),
                   grossInvoice: toSafeNumber(row.gross_invoice),

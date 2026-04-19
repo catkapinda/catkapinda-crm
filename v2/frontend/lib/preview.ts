@@ -838,10 +838,10 @@ const previewDeductionTypeCaptions: Record<string, string> = {
 };
 const previewDeductionTypes = Object.keys(previewDeductionTypeCaptions);
 const previewRestaurantPricingModels = [
-  { value: "hourly_plus_package", label: "Saatlik + Paket" },
-  { value: "threshold_package", label: "Esikli Paket" },
-  { value: "hourly_only", label: "Saatlik" },
-  { value: "fixed_monthly", label: "Sabit Aylık" },
+  { value: "hourly_plus_package", label: "Hacimsiz Primli" },
+  { value: "threshold_package", label: "Hacimli Primli" },
+  { value: "hourly_only", label: "Sadece Saatlik" },
+  { value: "fixed_monthly", label: "Sabit Aylık Ücret" },
 ];
 const previewSalesSourceOptions = ["Mail", "Referans", "Saha", "Partner", "Telefon"];
 const previewSalesStatusOptions = [

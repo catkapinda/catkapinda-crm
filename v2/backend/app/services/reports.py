@@ -43,6 +43,13 @@ _COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
 _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
 
+_PRICING_MODEL_LABELS = {
+    "hourly_plus_package": "Hacimsiz Primli",
+    "threshold_package": "Hacimli Primli",
+    "hourly_only": "Sadece Saatlik",
+    "fixed_monthly": "Sabit Aylık Ücret",
+}
+
 
 def _empty_reports_coverage() -> ReportsCoverageSummary:
     return ReportsCoverageSummary(
@@ -102,6 +109,11 @@ def _safe_int(value: object, default: int = 0) -> int:
         return int(float(value))
     except (TypeError, ValueError):
         return default
+
+
+def _display_pricing_model(value: object) -> str:
+    model = str(value or "").strip()
+    return _PRICING_MODEL_LABELS.get(model, model or "-")
 
 
 def _month_key_sql(column: str) -> str:
@@ -305,7 +317,7 @@ def build_reports_dashboard(
     invoice_entries = [
         ReportInvoiceEntry(
             restaurant=str(row.get("restoran") or "-"),
-            pricing_model=str(row.get("model") or "-"),
+            pricing_model=_display_pricing_model(row.get("model")),
             total_hours=_safe_float(row.get("saat")),
             total_packages=_safe_float(row.get("paket")),
             net_invoice=_safe_float(row.get("kdv_haric")),
@@ -330,7 +342,7 @@ def build_reports_dashboard(
     profit_entries = [
         ReportProfitEntry(
             restaurant=str(row.get("restoran") or "-"),
-            pricing_model=str(row.get("model") or "-"),
+            pricing_model=_display_pricing_model(row.get("model")),
             total_hours=_safe_float(row.get("saat")),
             total_packages=_safe_float(row.get("paket")),
             net_invoice=_safe_float(row.get("kdv_haric")),
@@ -358,7 +370,7 @@ def build_reports_dashboard(
         )
         model_breakdown = [
             ReportModelBreakdownEntry(
-                pricing_model=str(row.get("model") or "-"),
+                pricing_model=_display_pricing_model(row.get("model")),
                 restaurant_count=int(row.get("restoran") or 0),
                 total_hours=_safe_float(row.get("saat")),
                 total_packages=_safe_float(row.get("paket")),
@@ -370,7 +382,7 @@ def build_reports_dashboard(
     top_restaurants = [
         ReportTopRestaurantEntry(
             restaurant=str(row.get("restoran") or "-"),
-            pricing_model=str(row.get("model") or "-"),
+            pricing_model=_display_pricing_model(row.get("model")),
             total_hours=_safe_float(row.get("saat")),
             total_packages=_safe_float(row.get("paket")),
             gross_invoice=_safe_float(row.get("kdv_dahil")),
@@ -546,7 +558,7 @@ def _build_local_reports_dashboard(
         all_invoice_entries.append(
             ReportInvoiceEntry(
                 restaurant=restaurant_label,
-                pricing_model=str(rows[0].get("pricing_model") or "-"),
+                pricing_model=_display_pricing_model(rows[0].get("pricing_model")),
                 total_hours=total_hours,
                 total_packages=total_packages,
                 net_invoice=round(net_invoice, 2),

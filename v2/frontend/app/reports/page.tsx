@@ -164,6 +164,16 @@ function formatNumber(value: number, decimals = 0) {
   }).format(value || 0);
 }
 
+function displayPricingModel(value: string) {
+  const labels: Record<string, string> = {
+    hourly_plus_package: "Hacimsiz Primli",
+    threshold_package: "Hacimli Primli",
+    hourly_only: "Sadece Saatlik",
+    fixed_monthly: "Sabit Aylık Ücret",
+  };
+  return labels[value] ?? value;
+}
+
 function triggerBrowserDownload(blob: Blob, fileName: string) {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -606,7 +616,7 @@ function ReportModelMatrix({
                     fontSize: "0.86rem",
                   }}
                 >
-                  <strong>{row.pricing_model}</strong>
+                  <strong>{displayPricingModel(row.pricing_model)}</strong>
                   <span style={{ color: "var(--muted)", fontWeight: 800 }}>
                     {formatMoney(row.gross_invoice)}
                   </span>
@@ -897,7 +907,7 @@ export default function ReportsPage() {
       return rows;
     }
     return rows.filter((row) =>
-      `${row.restaurant} ${row.pricing_model}`.toLocaleLowerCase("tr-TR").includes(query),
+      `${row.restaurant} ${displayPricingModel(row.pricing_model)}`.toLocaleLowerCase("tr-TR").includes(query),
     );
   }, [dashboard?.invoice_entries, invoiceQuery]);
 
@@ -919,7 +929,7 @@ export default function ReportsPage() {
       return rows;
     }
     return rows.filter((row) =>
-      `${row.restaurant} ${row.pricing_model}`.toLocaleLowerCase("tr-TR").includes(query),
+      `${row.restaurant} ${displayPricingModel(row.pricing_model)}`.toLocaleLowerCase("tr-TR").includes(query),
     );
   }, [dashboard?.profit_entries, profitQuery]);
 
@@ -932,7 +942,7 @@ export default function ReportsPage() {
     const headers = ["Şube", "Model", "Toplam Saat", "Toplam Paket", "KDV Hariç", "KDV Dahil"];
     const rows = filteredInvoiceEntries.map((entry) => [
       entry.restaurant,
-      entry.pricing_model,
+      displayPricingModel(entry.pricing_model),
       String(entry.total_hours),
       String(entry.total_packages),
       String(entry.net_invoice),
@@ -999,7 +1009,7 @@ export default function ReportsPage() {
     ];
     const rows = filteredProfitEntries.map((entry) => [
       entry.restaurant,
-      entry.pricing_model,
+      displayPricingModel(entry.pricing_model),
       String(entry.total_hours),
       String(entry.total_packages),
       String(entry.net_invoice),
@@ -1566,7 +1576,7 @@ export default function ReportsPage() {
                     {filteredInvoiceEntries.map((row) => (
                       <tr key={`${row.restaurant}-${row.pricing_model}`}>
                         {tableCell(row.restaurant)}
-                        {tableCell(row.pricing_model, "left", true)}
+                        {tableCell(displayPricingModel(row.pricing_model), "left", true)}
                         {tableCell(formatNumber(row.total_hours, 1), "right")}
                         {tableCell(formatNumber(row.total_packages, 0), "right")}
                         {tableCell(formatMoney(row.net_invoice), "right")}
@@ -1806,7 +1816,7 @@ export default function ReportsPage() {
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                        <strong>{row.pricing_model}</strong>
+                        <strong>{displayPricingModel(row.pricing_model)}</strong>
                         <span style={{ color: "var(--muted)" }}>{formatMoney(row.gross_invoice)}</span>
                       </div>
                       <div style={{ color: "var(--muted)", fontSize: "0.84rem" }}>
@@ -1835,7 +1845,7 @@ export default function ReportsPage() {
                       }}
                     >
                       <strong>{row.restaurant}</strong>
-                      <div style={{ color: "var(--muted)", fontSize: "0.84rem" }}>{row.pricing_model}</div>
+                      <div style={{ color: "var(--muted)", fontSize: "0.84rem" }}>{displayPricingModel(row.pricing_model)}</div>
                       <div
                         style={{
                           display: "flex",
