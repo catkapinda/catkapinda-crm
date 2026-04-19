@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { AUTH_PRESENCE_COOKIE_NAME } from "./lib/api";
 
 const PUBLIC_PATHS = new Set(["/login", "/status"]);
+const PUBLIC_ASSET_PATTERN = /\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|css|js|map|woff|woff2)$/i;
 
 function applySecurityHeaders(response: NextResponse, request: NextRequest) {
   response.headers.set("X-Content-Type-Options", "nosniff");
@@ -24,6 +25,7 @@ export function middleware(request: NextRequest) {
 
   if (
     PUBLIC_PATHS.has(pathname) ||
+    PUBLIC_ASSET_PATTERN.test(pathname) ||
     pathname === "/preview" ||
     pathname.startsWith("/preview/") ||
     pathname.startsWith("/v2-api/")
