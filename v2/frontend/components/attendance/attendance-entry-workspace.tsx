@@ -42,6 +42,45 @@ function formatCurrency(value: number) {
   })} TL`;
 }
 
+function calculateDraftInvoice(
+  restaurant: AttendanceFormOptions["restaurants"][number] | null,
+  workedHours: string,
+  packageCount: string,
+  explicitMonthlyAmount: string,
+) {
+  const explicitAmount = Number(explicitMonthlyAmount || 0);
+  if (explicitAmount > 0) {
+    return explicitAmount;
+  }
+  if (!restaurant) {
+    return 0;
+  }
+
+  const hours = Number(workedHours || 0);
+  const packages = Number(packageCount || 0);
+  if (hours <= 0 && packages <= 0) {
+    return 0;
+  }
+
+  if (restaurant.pricing_model === "hourly_plus_package") {
+    return hours * restaurant.hourly_rate + packages * restaurant.package_rate;
+  }
+  if (restaurant.pricing_model === "threshold_package") {
+    const packageRate =
+      packages <= restaurant.package_threshold
+        ? restaurant.package_rate_low
+        : restaurant.package_rate_high;
+    return hours * restaurant.hourly_rate + packages * packageRate;
+  }
+  if (restaurant.pricing_model === "hourly_only") {
+    return hours * restaurant.hourly_rate;
+  }
+  if (restaurant.pricing_model === "fixed_monthly") {
+    return restaurant.fixed_monthly_fee;
+  }
+  return 0;
+}
+
 export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorkspaceProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -108,6 +147,10 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
   const isFixedMonthly = selectedRestaurant?.pricing_model === "fixed_monthly";
   const needsReplacement = entryMode === "Joker" || entryMode === "Destek";
   const needsAbsenceReason = entryMode !== "Restoran Kuryesi";
+  const draftInvoiceAmount = useMemo(
+    () => calculateDraftInvoice(selectedRestaurant, workedHours, packageCount, monthlyInvoiceAmount),
+    [selectedRestaurant, workedHours, packageCount, monthlyInvoiceAmount],
+  );
   const people = options?.people ?? [];
   const filteredPeople = useMemo(() => {
     const normalizedSearch = personSearch.trim().toLocaleLowerCase("tr-TR");
@@ -459,6 +502,8 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
           {selectedRestaurant ? (
             <div
               style={{
+                display: "grid",
+                gap: "12px",
                 padding: "14px 16px",
                 borderRadius: "18px",
                 background: "rgba(15, 95, 215, 0.06)",
@@ -466,26 +511,43 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
                 lineHeight: 1.7,
               }}
             >
-              <strong style={{ color: "var(--text)" }}>{selectedRestaurant.label}</strong>
-              {" "}
-              seçili. Fiyat modeli:{" "}
-              <strong style={{ color: "var(--text)" }}>{selectedRestaurant.pricing_model_label}</strong>.
-              {isFixedMonthly ? (
-                <>
-                  {" "}
-                  Bu şube sabit aylık ücret modeliyle çalışıyor. Kayıt için varsayılan sabit
-                  rakam:{" "}
-                  <strong style={{ color: "var(--text)" }}>
-                    {formatCurrency(selectedRestaurant.fixed_monthly_fee)}
-                  </strong>
-                  .
-                </>
-              ) : (
-                <>
-                  {" "}
-                  Fatura etkisi saat ve paket bilgisine göre otomatik hesaplanır.
-                </>
-              )}
+              <div>
+                <strong style={{ color: "var(--text)" }}>{selectedRestaurant.label}</strong>
+                {" "}
+                seçili. Fiyat modeli:{" "}
+                <strong style={{ color: "var(--text)" }}>
+                  {selectedRestaurant.pricing_model_label}
+                </strong>
+                .
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                {[
+                  ["Saat", Number(workedHours || 0).toLocaleString("tr-TR")],
+                  ["Paket", Number(packageCount || 0).toLocaleString("tr-TR")],
+                  ["Tahmini Restoran Faturası", formatCurrency(draftInvoiceAmount)],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    style={{
+                      display: "grid",
+                      gap: "4px",
+                      padding: "12px",
+                      borderRadius: "14px",
+                      background: "rgba(255, 255, 255, 0.72)",
+                      border: "1px solid rgba(15, 95, 215, 0.10)",
+                    }}
+                  >
+                    <span style={{ fontSize: "0.76rem", fontWeight: 800 }}>{label}</span>
+                    <strong style={{ color: "var(--text)" }}>{value}</strong>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
 

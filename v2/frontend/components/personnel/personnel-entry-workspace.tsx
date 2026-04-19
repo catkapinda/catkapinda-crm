@@ -4,7 +4,7 @@ import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { apiFetch } from "../../lib/api";
+import { apiErrorMessage, apiFetch } from "../../lib/api";
 import { useAuth } from "../../components/auth/auth-provider";
 
 type PersonnelFormOptions = {
@@ -106,7 +106,7 @@ export function PersonnelEntryWorkspace() {
       try {
         const response = await apiFetch("/personnel/form-options");
         if (!response.ok) {
-          throw new Error("Personel form seçenekleri alınamadı.");
+          throw new Error(await apiErrorMessage(response, "Personel form seçenekleri alınamadı."));
         }
         const payload = (await response.json()) as PersonnelFormOptions;
         setOptions(payload);
