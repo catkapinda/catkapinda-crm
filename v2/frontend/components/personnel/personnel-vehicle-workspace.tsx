@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
-import { apiFetch } from "../../lib/api";
+import { apiErrorMessage, apiFetch } from "../../lib/api";
 import { managementFieldStyle, managementPillStyle } from "../shared/compact-ui";
 
 type PersonnelVehicleSummary = {
@@ -204,7 +204,7 @@ export function PersonnelVehicleWorkspace() {
     try {
       const response = await apiFetch("/personnel/vehicle-workspace?limit=500");
       if (!response.ok) {
-        throw new Error("Motor çalışma alanı yüklenemedi.");
+        throw new Error(await apiErrorMessage(response, "Motor çalışma alanı yüklenemedi."));
       }
       const payload = (await response.json()) as PersonnelVehicleWorkspaceResponse;
       setWorkspace(payload);

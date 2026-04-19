@@ -4,7 +4,7 @@ import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../auth/auth-provider";
-import { apiFetch } from "../../lib/api";
+import { apiErrorMessage, apiFetch } from "../../lib/api";
 
 type EquipmentIssueEntry = {
   id: number;
@@ -193,7 +193,7 @@ export function PersonnelEquipmentWorkspace() {
       try {
         const response = await apiFetch("/equipment/form-options");
         if (!response.ok) {
-          throw new Error("Personel ekipman referansları yüklenemedi.");
+          throw new Error(await apiErrorMessage(response, "Personel ekipman referansları yüklenemedi."));
         }
         const payload = (await response.json()) as EquipmentFormOptions;
         if (!active) {
@@ -266,10 +266,10 @@ export function PersonnelEquipmentWorkspace() {
           apiFetch(`/equipment/box-returns?personnel_id=${selectedPersonnelId}&limit=80`),
         ]);
         if (!issueResponse.ok) {
-          throw new Error("Seçili personelin ekipman kayıtları yüklenemedi.");
+          throw new Error(await apiErrorMessage(issueResponse, "Seçili personelin ekipman kayıtları yüklenemedi."));
         }
         if (!boxResponse.ok) {
-          throw new Error("Seçili personelin box geri alım kayıtları yüklenemedi.");
+          throw new Error(await apiErrorMessage(boxResponse, "Seçili personelin box geri alım kayıtları yüklenemedi."));
         }
         const issuePayload = (await issueResponse.json()) as EquipmentIssuesManagementResponse;
         const boxPayload = (await boxResponse.json()) as BoxReturnsManagementResponse;

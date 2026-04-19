@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
-import { apiFetch } from "../../lib/api";
+import { apiErrorMessage, apiFetch } from "../../lib/api";
 import { managementFieldStyle, managementPillStyle } from "../shared/compact-ui";
 
 type PersonnelRoleSummary = {
@@ -144,7 +144,7 @@ export function PersonnelRoleWorkspace() {
         apiFetch("/personnel/form-options"),
       ]);
       if (!workspaceResponse.ok) {
-        throw new Error("Rol çalışma alanı yüklenemedi.");
+        throw new Error(await apiErrorMessage(workspaceResponse, "Rol çalışma alanı yüklenemedi."));
       }
       const workspacePayload = (await workspaceResponse.json()) as PersonnelRoleWorkspaceResponse;
       setWorkspace(workspacePayload);

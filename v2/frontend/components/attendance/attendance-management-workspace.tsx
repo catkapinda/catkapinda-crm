@@ -4,7 +4,7 @@ import type { CSSProperties, FormEvent } from "react";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { apiFetch } from "../../lib/api";
+import { apiErrorMessage, apiFetch } from "../../lib/api";
 import {
   dangerGradientButtonStyle as dangerButtonStyle,
   feedbackBoxStyle as feedbackBox,
@@ -217,7 +217,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
   async function loadReferenceOptions() {
     const response = await apiFetch("/attendance/form-options");
     if (!response.ok) {
-      throw new Error("Puantaj seçenekleri alınamadı. Lütfen tekrar dene.");
+      throw new Error(await apiErrorMessage(response, "Puantaj seçenekleri alınamadı. Lütfen tekrar dene."));
     }
     const payload = (await response.json()) as AttendanceFormOptions;
     setRestaurants(payload.restaurants);
@@ -243,7 +243,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
       }
       const response = await apiFetch(`/attendance/entries?${query.toString()}`);
       if (!response.ok) {
-        throw new Error("Puantaj kayıtları alınamadı. Lütfen tekrar dene.");
+        throw new Error(await apiErrorMessage(response, "Puantaj kayıtları alınamadı. Lütfen tekrar dene."));
       }
       const payload = (await response.json()) as AttendanceManagementResponse;
       const visibleEntryIdSet = new Set(payload.entries.map((entry) => entry.id));
@@ -297,7 +297,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
       `/attendance/form-options?restaurant_id=${encodeURIComponent(String(restaurantId))}&include_all_active=true`,
     );
     if (!response.ok) {
-      throw new Error("Personel seçenekleri alınamadı. Lütfen tekrar dene.");
+      throw new Error(await apiErrorMessage(response, "Personel seçenekleri alınamadı. Lütfen tekrar dene."));
     }
     const payload = (await response.json()) as AttendanceFormOptions;
     setEditorPeople(payload.people);
@@ -311,7 +311,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
     try {
       const response = await apiFetch(`/attendance/entries/${entryId}`);
       if (!response.ok) {
-        throw new Error("Kayıt detayı alınamadı. Lütfen tekrar dene.");
+        throw new Error(await apiErrorMessage(response, "Kayıt detayı alınamadı. Lütfen tekrar dene."));
       }
       const payload = (await response.json()) as AttendanceEntryDetailResponse;
       const entry = payload.entry;

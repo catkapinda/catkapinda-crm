@@ -87,3 +87,43 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   }
   return response;
 }
+
+export async function apiErrorMessage(response: Response, fallback: string) {
+  try {
+    const payload = (await response.clone().json()) as {
+      detail?: unknown;
+      message?: unknown;
+    } | null;
+    const detail = payload?.detail;
+    if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+    if (Array.isArray(detail) && detail.length) {
+      return detail
+        .map((item) => {
+          if (typeof item === "string") {
+            return item;
+          }
+          if (item && typeof item === "object" && "msg" in item) {
+            return String(item.msg || "");
+          }
+          return "";
+        })
+        .filter(Boolean)
+        .join(" ");
+    }
+    if (typeof payload?.message === "string" && payload.message.trim()) {
+      return payload.message;
+    }
+  } catch {
+    try {
+      const text = await response.clone().text();
+      if (text.trim()) {
+        return text.trim().slice(0, 220);
+      }
+    } catch {
+      // Keep the user-facing fallback below.
+    }
+  }
+  return fallback;
+}
