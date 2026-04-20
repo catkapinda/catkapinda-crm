@@ -129,6 +129,7 @@ function LoginPageContent() {
   const [maskedPhone, setMaskedPhone] = useState("");
   const [localPilotStatus, setLocalPilotStatus] = useState<LoginPilotStatusPayload | null>(null);
   const [copiedLocalHintCommand, setCopiedLocalHintCommand] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const recoveryPanelRef = useRef<HTMLDivElement | null>(null);
   const recoveryPhoneInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -263,6 +264,7 @@ function LoginPageContent() {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "same-origin",
       body: JSON.stringify({ phone: phoneValue }),
     });
     const payload = (await response.json().catch(() => null)) as
@@ -292,6 +294,7 @@ function LoginPageContent() {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "same-origin",
       body: JSON.stringify({
         phone: phoneValue,
         code: codeValue,
@@ -344,9 +347,10 @@ function LoginPageContent() {
         const recoveryPhone = phone.trim();
         const nextPassword = recoveryNewPassword;
         const payload = await resetPasswordWithCode(recoveryPhone, loginCode, nextPassword);
-        setIdentity((currentIdentity) => currentIdentity.trim() || recoveryPhone);
+        setIdentity(recoveryPhone);
         setPassword("");
-        setNotice(payload.message);
+        setError("");
+        setNotice(`${payload.message} Yeni şifrenle üstte giriş yap.`);
         setSmsMessage("");
         setMaskedPhone("");
         setLoginCode("");
@@ -354,11 +358,9 @@ function LoginPageContent() {
         setRecoveryConfirmPassword("");
         setPhone("");
         switchAuthPanelMode("sms");
-
-        const loggedInUser = await login(recoveryPhone, nextPassword);
-        router.replace(
-          loggedInUser.must_change_password ? "/account" : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
-        );
+        window.requestAnimationFrame(() => {
+          passwordInputRef.current?.focus();
+        });
         return;
       }
       const loggedInUser = await verifyPhoneCode(phone, loginCode);
@@ -933,6 +935,8 @@ function LoginPageContent() {
                   value={identity}
                   onChange={(event) => setIdentity(event.target.value)}
                   placeholder="ornek@catkapinda.com veya 05xxxxxxxxx"
+                  autoComplete="username"
+                  required
                   style={fieldStyle}
                 />
               </label>
@@ -941,9 +945,12 @@ function LoginPageContent() {
                 <span style={labelTitleStyle}>Şifre</span>
                 <input
                   type="password"
+                  ref={passwordInputRef}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Şifreni gir"
+                  autoComplete="current-password"
+                  required
                   style={fieldStyle}
                 />
               </label>

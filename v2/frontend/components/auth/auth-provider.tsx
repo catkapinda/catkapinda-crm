@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 
 import {
   AUTH_UNAUTHORIZED_EVENT,
+  apiErrorMessage,
   apiFetch,
   buildApiUrl,
   writeAuthPresenceMarker,
@@ -44,6 +45,23 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+async function confirmAuthenticatedSession(fallbackUser: AuthUser) {
+  const response = await fetch(buildApiUrl("/auth/me"), {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const fallbackMessage =
+      "Giriş tamamlandı ama oturum tarayıcıda doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene.";
+    const detail = await apiErrorMessage(response, fallbackMessage);
+    throw new Error(
+      detail === "Giris gerekli." || detail === "Oturum suresi dolmus veya gecersiz." ? fallbackMessage : detail,
+    );
+  }
+  const payload = (await response.json().catch(() => null)) as AuthUser | null;
+  return payload?.id ? payload : fallbackUser;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -112,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "same-origin",
       body: JSON.stringify({ identity, password }),
     });
     const payload = (await response.json().catch(() => null)) as
@@ -122,9 +141,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(payload?.detail || "Giriş yapilamadi.");
     }
 
-    writeAuthPresenceMarker(true);
-    setUser(payload.user);
-    return payload.user;
+    try {
+      const confirmedUser = await confirmAuthenticatedSession(payload.user);
+      writeAuthPresenceMarker(true);
+      setUser(confirmedUser);
+      return confirmedUser;
+    } catch (confirmationError) {
+      writeAuthPresenceMarker(false);
+      setUser(null);
+      throw confirmationError;
+    }
   }, []);
 
   const requestPhoneCode = useCallback(async (phone: string) => {
@@ -139,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "same-origin",
       body: JSON.stringify({ phone }),
     });
     const payload = (await response.json().catch(() => null)) as
@@ -165,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "same-origin",
       body: JSON.stringify({ phone, code }),
     });
     const payload = (await response.json().catch(() => null)) as
@@ -175,9 +203,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(payload?.detail || "SMS kodu doğrulanamadı.");
     }
 
-    writeAuthPresenceMarker(true);
-    setUser(payload.user);
-    return payload.user;
+    try {
+      const confirmedUser = await confirmAuthenticatedSession(payload.user);
+      writeAuthPresenceMarker(true);
+      setUser(confirmedUser);
+      return confirmedUser;
+    } catch (confirmationError) {
+      writeAuthPresenceMarker(false);
+      setUser(null);
+      throw confirmationError;
+    }
   }, []);
 
   const logout = useCallback(async () => {
