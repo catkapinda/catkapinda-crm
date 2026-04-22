@@ -105,6 +105,27 @@ class ReportingRulesTests(unittest.TestCase):
 
         self.assertAlmostEqual(cost, 26000.0)
 
+    def test_dogu_otomotiv_uses_295_hourly_and_no_package_cost(self):
+        cost = reporting_rules.calculate_standard_courier_cost(
+            total_hours=218.0,
+            total_packages=263.0,
+            brand="Doğu Otomotiv",
+            pricing_model="hourly_only",
+        )
+
+        self.assertAlmostEqual(cost, 64310.0)
+
+    def test_segment_cost_uses_monthly_threshold_for_standard_package_bonus(self):
+        cost = reporting_rules.calculate_standard_courier_cost_from_segments(
+            [
+                {"brand": "Burger@", "total_hours": 100.0, "total_packages": 385.0},
+                {"brand": "SushiCo", "total_hours": 10.0, "total_packages": 40.0},
+                {"brand": "Quick China", "total_hours": 5.0, "total_packages": 4.0},
+            ]
+        )
+
+        self.assertAlmostEqual(cost, 39475.0)
+
     def test_threshold_package_uses_per_courier_threshold_in_invoice_summary(self):
         month_df = pd.DataFrame(
             [

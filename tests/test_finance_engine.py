@@ -119,7 +119,7 @@ class FinanceEngineTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 59760.0)
 
-    def test_personnel_cost_keeps_package_threshold_per_restaurant_not_month_total(self):
+    def test_personnel_cost_uses_monthly_package_threshold_across_standard_restaurants(self):
         month_df = pd.DataFrame(
             [
                 {
@@ -159,9 +159,42 @@ class FinanceEngineTests(unittest.TestCase):
 
         result = finance_engine.calculate_personnel_cost(month_df, personnel_df, pd.DataFrame())
 
-        # 110 saat * 250 + (385 + 40) paket * 20
+        # 110 saat * 250 + (385 + 40) paket * 25 because the courier passes 390 monthly packages.
         self.assertEqual(len(result), 1)
-        self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 36000.0)
+        self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 38125.0)
+
+    def test_personnel_cost_uses_dogu_otomotiv_hourly_only_exception(self):
+        month_df = pd.DataFrame(
+            [
+                {
+                    "actual_personnel_id": 1,
+                    "restaurant_id": 12,
+                    "brand": "Doğu Otomotiv",
+                    "branch": "Merkez",
+                    "pricing_model": "hourly_only",
+                    "worked_hours": 218.0,
+                    "package_count": 263.0,
+                    "entry_date": "2026-01-21",
+                }
+            ]
+        )
+        personnel_df = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "full_name": "Dogu Kurye",
+                    "role": "Kurye",
+                    "status": "Aktif",
+                    "cost_model": "standard_courier",
+                    "monthly_fixed_cost": 0.0,
+                }
+            ]
+        )
+
+        result = finance_engine.calculate_personnel_cost(month_df, personnel_df, pd.DataFrame())
+
+        self.assertEqual(len(result), 1)
+        self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 64310.0)
 
 
 if __name__ == "__main__":

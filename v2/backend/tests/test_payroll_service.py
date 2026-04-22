@@ -180,3 +180,81 @@ def test_build_payroll_document_file_supports_local_sqlite():
 
     assert file_name == "hakedis_Mert_Kurtulu_2026-04.pdf"
     assert file_bytes.startswith(b"%PDF")
+
+
+def test_payroll_dashboard_uses_monthly_threshold_for_courier_package_bonus():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
+        VALUES (1, 'Destek Kurye', 'CK-K03', 'Kurye', 'Aktif', 'standard_courier', 0)
+        """
+    )
+    raw_conn.executemany(
+        "INSERT INTO restaurants (id, brand, branch) VALUES (?, ?, ?)",
+        [
+            (10, "Burger@", "Kavacık"),
+            (11, "SushiCo", "Beyoğlu"),
+            (12, "Quick China", "Ataşehir"),
+        ],
+    )
+    raw_conn.executemany(
+        """
+        INSERT INTO daily_entries (
+            entry_date,
+            restaurant_id,
+            planned_personnel_id,
+            actual_personnel_id,
+            worked_hours,
+            package_count
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        [
+            ("2026-04-10", 10, 1, 1, 100, 385),
+            ("2026-04-11", 11, 1, 1, 10, 40),
+            ("2026-04-12", 12, 1, 1, 5, 4),
+        ],
+    )
+    raw_conn.commit()
+
+    payload = build_payroll_dashboard(CompatConnection(raw_conn, "sqlite"), selected_month="2026-04")
+
+    assert payload.summary is not None
+    assert payload.summary.gross_payroll == 39475.0
+    assert payload.entries[0].gross_pay == 39475.0

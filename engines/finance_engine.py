@@ -7,8 +7,7 @@ import pandas as pd
 
 from rules.reporting_rules import (
     build_person_role_segments,
-    calculate_standard_courier_cost,
-    calculate_standard_package_cost,
+    calculate_standard_courier_cost_from_segments,
     describe_cost_model_segments,
     describe_role_segments,
     get_operational_restaurant_names_for_period,
@@ -124,20 +123,22 @@ def calculate_personnel_cost(
                 )
                 continue
 
-            segment_hours = float(segment_entries["worked_hours"].sum()) if not segment_entries.empty else 0.0
-            gross_cost += segment_hours * _COURIER_HOURLY_COST
             if not segment_entries.empty:
-                package_groups = (
-                    segment_entries.groupby(["restaurant_id", "brand", "branch", "pricing_model"], dropna=False)["package_count"]
-                    .sum()
+                grouped_segment_entries = (
+                    segment_entries.groupby(["restaurant_id", "brand", "branch", "pricing_model"], dropna=False)
+                    .agg(saat=("worked_hours", "sum"), paket=("package_count", "sum"))
                     .reset_index()
                 )
-                for _, package_row in package_groups.iterrows():
-                    gross_cost += calculate_standard_package_cost(
-                        package_row["package_count"],
-                        brand=package_row.get("brand", ""),
-                        pricing_model=package_row.get("pricing_model", ""),
-                    )
+                gross_cost += calculate_standard_courier_cost_from_segments(
+                    [
+                        {
+                            "brand": row.get("brand", ""),
+                            "total_hours": float(row.get("saat") or 0.0),
+                            "total_packages": float(row.get("paket") or 0.0),
+                        }
+                        for _, row in grouped_segment_entries.iterrows()
+                    ]
+                )
 
         net_cost = gross_cost - deductions
         role_label = describe_role_segments(role_segments, str(person["role"] or "Kurye"))
@@ -228,7 +229,23 @@ def build_branch_profitability(
                     .agg(saat=("worked_hours", "sum"), paket=("package_count", "sum"))
                     .reset_index()
                 )
+                segment_total_standard_packages = float(
+                    grouped_segment_entries[
+                        ~grouped_segment_entries["brand"].fillna("").astype(str).str.strip().str.lower().isin(
+                            {"quick china", "doğu otomotiv", "dogu otomotiv", "sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
+                        )
+                    ]["paket"].fillna(0).sum()
+                )
+                segment_standard_rate = 25.0 if segment_total_standard_packages > 390 else 20.0
                 for _, row in grouped_segment_entries.iterrows():
+                    brand_key = str(row["brand"] or "").strip().lower()
+                    if brand_key in {"doğu otomotiv", "dogu otomotiv"}:
+                        allocation_cost = float(row["saat"] or 0) * 295.0
+                    elif brand_key in {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}:
+                        allocation_cost = float(row["saat"] or 0) * _COURIER_HOURLY_COST
+                    else:
+                        package_rate = 25.0 if brand_key == "quick china" else segment_standard_rate
+                        allocation_cost = float(row["saat"] or 0) * _COURIER_HOURLY_COST + float(row["paket"] or 0) * package_rate
                     allocation_rows.append(
                         {
                             "restoran": f"{row['brand']} - {row['branch']}",
@@ -236,12 +253,7 @@ def build_branch_profitability(
                             "rol": segment["role"],
                             "saat": float(row["saat"] or 0),
                             "paket": float(row["paket"] or 0),
-                            "maliyet": calculate_standard_courier_cost(
-                                float(row["saat"] or 0),
-                                total_packages=float(row["paket"] or 0),
-                                brand=row["brand"],
-                                pricing_model=row.get("pricing_model", ""),
-                            ),
+                            "maliyet": allocation_cost,
                             "kaynak": "Degisken maliyet",
                         }
                     )

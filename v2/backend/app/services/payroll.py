@@ -82,6 +82,7 @@ _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
 _PACKAGE_THRESHOLD_DEFAULT = 390
 _PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
+_FIXED_MONTHLY_BRAND_KEYS = {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
 
 
 @dataclass
@@ -113,15 +114,21 @@ def _is_dogu_otomotiv_brand(brand: object) -> bool:
     return _normalized_brand_key(brand) in {"doğu otomotiv", "dogu otomotiv"}
 
 
+def _is_fixed_monthly_brand(brand: object) -> bool:
+    return _normalized_brand_key(brand) in _FIXED_MONTHLY_BRAND_KEYS
+
+
 def _calculate_standard_package_cost(total_packages: float, *, brand: object = "") -> float:
-    package_total = float(total_packages or 0)
+    package_total = _safe_float(total_packages)
     if _is_dogu_otomotiv_brand(brand):
+        return 0.0
+    if _is_fixed_monthly_brand(brand):
         return 0.0
     if _is_quick_china_brand(brand):
         return package_total * _COURIER_PACKAGE_COST_QC
     package_rate = (
         _COURIER_PACKAGE_COST_DEFAULT_LOW
-        if package_total <= _PACKAGE_THRESHOLD_DEFAULT
+        if package_total <= float(_PACKAGE_THRESHOLD_DEFAULT)
         else _COURIER_PACKAGE_COST_DEFAULT_HIGH
     )
     return package_total * package_rate
@@ -134,10 +141,42 @@ def _calculate_standard_courier_cost(
     brand: object = "",
 ) -> float:
     hourly_cost = _COURIER_HOURLY_COST_DOGU_OTOMOTIV if _is_dogu_otomotiv_brand(brand) else _COURIER_HOURLY_COST
-    return float(total_hours or 0) * hourly_cost + _calculate_standard_package_cost(
+    return _safe_float(total_hours) * hourly_cost + _calculate_standard_package_cost(
         total_packages,
         brand=brand,
     )
+
+
+def _calculate_variable_courier_gross_cost(segments: list[dict[str, object]]) -> float:
+    standard_threshold_packages = 0.0
+    gross_cost = 0.0
+
+    for segment in segments:
+        brand = segment.get("brand")
+        total_hours = _safe_float(segment.get("total_hours"))
+        total_packages = _safe_float(segment.get("total_packages"))
+
+        if _is_dogu_otomotiv_brand(brand):
+            gross_cost += total_hours * _COURIER_HOURLY_COST_DOGU_OTOMOTIV
+            continue
+
+        gross_cost += total_hours * _COURIER_HOURLY_COST
+        if _is_fixed_monthly_brand(brand):
+            continue
+        if _is_quick_china_brand(brand):
+            gross_cost += total_packages * _COURIER_PACKAGE_COST_QC
+        else:
+            standard_threshold_packages += total_packages
+
+    if standard_threshold_packages > 0:
+        package_rate = (
+            _COURIER_PACKAGE_COST_DEFAULT_HIGH
+            if standard_threshold_packages > float(_PACKAGE_THRESHOLD_DEFAULT)
+            else _COURIER_PACKAGE_COST_DEFAULT_LOW
+        )
+        gross_cost += standard_threshold_packages * package_rate
+
+    return _safe_float(gross_cost)
 
 
 def _is_fixed_cost_model(cost_model: object) -> bool:
@@ -159,16 +198,7 @@ def _calculate_personnel_gross_pay(
         return fixed_cost
     if not has_attendance:
         return fixed_cost
-    return _safe_float(
-        sum(
-            _calculate_standard_courier_cost(
-                _safe_float(segment.get("total_hours")),
-                _safe_float(segment.get("total_packages")),
-                brand=segment.get("brand"),
-            )
-            for segment in segments
-        )
-    )
+    return _calculate_variable_courier_gross_cost(segments)
 
 
 def build_payroll_status() -> PayrollModuleStatus:

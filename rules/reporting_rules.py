@@ -20,7 +20,9 @@ _COURIER_HOURLY_COST = 250.0
 _COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
 _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
+_COURIER_HOURLY_COST_DOGU_OTOMOTIV = 295.0
 _PACKAGE_THRESHOLD_DEFAULT = 390
+_FIXED_MONTHLY_BRAND_KEYS = {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
 
 
 def _format_compact_number(value: Any) -> str:
@@ -33,6 +35,22 @@ def _format_compact_number(value: Any) -> str:
     elif text.endswith("0"):
         text = text[:-1]
     return text
+
+
+def _normalized_brand_key(brand: str = "") -> str:
+    return str(brand or "").strip().lower()
+
+
+def _is_quick_china_brand(brand: str = "") -> bool:
+    return _normalized_brand_key(brand) == "quick china"
+
+
+def _is_dogu_otomotiv_brand(brand: str = "") -> bool:
+    return _normalized_brand_key(brand) in {"doğu otomotiv", "dogu otomotiv"}
+
+
+def _is_fixed_monthly_brand(brand: str = "") -> bool:
+    return _normalized_brand_key(brand) in _FIXED_MONTHLY_BRAND_KEYS
 
 
 def configure_reporting_rules(
@@ -331,7 +349,11 @@ def calculate_customer_invoice(group: pd.DataFrame, rule: Any) -> tuple[float, f
 
 def calculate_standard_package_cost(total_packages: float, brand: str = "", pricing_model: str = "") -> float:
     package_total = float(total_packages or 0)
-    if (brand or "").strip() == "Quick China":
+    if _is_dogu_otomotiv_brand(brand):
+        return 0.0
+    if _is_fixed_monthly_brand(brand):
+        return 0.0
+    if _is_quick_china_brand(brand):
         return package_total * _COURIER_PACKAGE_COST_QC
     package_rate = _COURIER_PACKAGE_COST_DEFAULT_LOW if package_total <= _PACKAGE_THRESHOLD_DEFAULT else _COURIER_PACKAGE_COST_DEFAULT_HIGH
     return package_total * package_rate
@@ -343,9 +365,42 @@ def calculate_standard_courier_cost(
     brand: str = "",
     pricing_model: str = "",
 ) -> float:
-    cost = float(total_hours or 0) * _COURIER_HOURLY_COST
+    hourly_cost = _COURIER_HOURLY_COST_DOGU_OTOMOTIV if _is_dogu_otomotiv_brand(brand) else _COURIER_HOURLY_COST
+    cost = float(total_hours or 0) * hourly_cost
     cost += calculate_standard_package_cost(total_packages, brand=brand, pricing_model=pricing_model)
     return cost
+
+
+def calculate_standard_courier_cost_from_segments(segments: list[dict[str, Any]]) -> float:
+    standard_threshold_packages = 0.0
+    gross_cost = 0.0
+
+    for segment in segments:
+        brand = segment.get("brand", "")
+        total_hours = _SAFE_FLOAT(segment.get("total_hours", segment.get("saat", 0.0)), 0.0)
+        total_packages = _SAFE_FLOAT(segment.get("total_packages", segment.get("paket", 0.0)), 0.0)
+
+        if _is_dogu_otomotiv_brand(brand):
+            gross_cost += total_hours * _COURIER_HOURLY_COST_DOGU_OTOMOTIV
+            continue
+
+        gross_cost += total_hours * _COURIER_HOURLY_COST
+        if _is_fixed_monthly_brand(brand):
+            continue
+        if _is_quick_china_brand(brand):
+            gross_cost += total_packages * _COURIER_PACKAGE_COST_QC
+        else:
+            standard_threshold_packages += total_packages
+
+    if standard_threshold_packages > 0:
+        package_rate = (
+            _COURIER_PACKAGE_COST_DEFAULT_HIGH
+            if standard_threshold_packages > float(_PACKAGE_THRESHOLD_DEFAULT)
+            else _COURIER_PACKAGE_COST_DEFAULT_LOW
+        )
+        gross_cost += standard_threshold_packages * package_rate
+
+    return _SAFE_FLOAT(gross_cost, 0.0)
 
 
 def month_bounds(selected_month: str) -> tuple[str, str]:
