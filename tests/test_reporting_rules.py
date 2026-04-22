@@ -126,6 +126,16 @@ class ReportingRulesTests(unittest.TestCase):
 
         self.assertAlmostEqual(cost, 39475.0)
 
+    def test_fixed_monthly_brand_courier_gets_fixed_pay_without_package_bonus(self):
+        cost = reporting_rules.calculate_standard_courier_cost_from_segments(
+            [
+                {"brand": "Sushi Inn", "total_hours": 210.0, "total_packages": 500.0},
+                {"brand": "SC Petshop", "total_hours": 5.0, "total_packages": 20.0},
+            ]
+        )
+
+        self.assertAlmostEqual(cost, 73600.0)
+
     def test_threshold_package_uses_per_courier_threshold_in_invoice_summary(self):
         month_df = pd.DataFrame(
             [

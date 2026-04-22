@@ -43,6 +43,7 @@ _COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
 _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
 _FIXED_MONTHLY_BRAND_KEYS = {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
+_FIXED_MONTHLY_BRAND_COURIER_PAY = 73600.0
 
 _PRICING_MODEL_LABELS = {
     "hourly_plus_package": "Saat + Paket",
@@ -165,6 +166,7 @@ def _calculate_standard_courier_cost(total_hours: float, total_packages: float, 
 def _calculate_variable_courier_gross_cost(segments: list[dict[str, object]]) -> float:
     standard_threshold_packages = 0.0
     gross_cost = 0.0
+    has_fixed_monthly_brand_attendance = False
 
     for segment in segments:
         brand = segment.get("brand")
@@ -175,13 +177,19 @@ def _calculate_variable_courier_gross_cost(segments: list[dict[str, object]]) ->
             gross_cost += total_hours * _COURIER_HOURLY_COST_DOGU_OTOMOTIV
             continue
 
-        gross_cost += total_hours * _COURIER_HOURLY_COST
         if _is_fixed_monthly_brand(brand):
+            if total_hours > 0 or total_packages > 0:
+                has_fixed_monthly_brand_attendance = True
             continue
+
+        gross_cost += total_hours * _COURIER_HOURLY_COST
         if _is_quick_china_brand(brand):
             gross_cost += total_packages * _COURIER_PACKAGE_COST_QC
         else:
             standard_threshold_packages += total_packages
+
+    if has_fixed_monthly_brand_attendance:
+        gross_cost += _FIXED_MONTHLY_BRAND_COURIER_PAY
 
     if standard_threshold_packages > 0:
         package_rate = (

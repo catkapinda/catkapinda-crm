@@ -21,6 +21,8 @@ _IS_FIXED_COST_MODEL: Callable[[str], bool] | None = None
 _CALCULATE_PRORATED_MONTHLY_COST: Callable[[float, date, date], float] | None = None
 _SHARED_OVERHEAD_ROLES: set[str] = set()
 _COURIER_HOURLY_COST = 250.0
+_FIXED_MONTHLY_BRAND_COURIER_PAY = 73600.0
+_FIXED_MONTHLY_BRAND_KEYS = {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
 
 
 def configure_finance_engine(
@@ -232,17 +234,26 @@ def build_branch_profitability(
                 segment_total_standard_packages = float(
                     grouped_segment_entries[
                         ~grouped_segment_entries["brand"].fillna("").astype(str).str.strip().str.lower().isin(
-                            {"quick china", "doğu otomotiv", "dogu otomotiv", "sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
+                            {"quick china", "doğu otomotiv", "dogu otomotiv", *_FIXED_MONTHLY_BRAND_KEYS}
                         )
                     ]["paket"].fillna(0).sum()
                 )
                 segment_standard_rate = 25.0 if segment_total_standard_packages > 390 else 20.0
+                fixed_brand_mask = grouped_segment_entries["brand"].fillna("").astype(str).str.strip().str.lower().isin(_FIXED_MONTHLY_BRAND_KEYS)
+                fixed_brand_measure_total = float(
+                    (
+                        grouped_segment_entries.loc[fixed_brand_mask, "saat"].fillna(0)
+                        + grouped_segment_entries.loc[fixed_brand_mask, "paket"].fillna(0)
+                    ).sum()
+                )
                 for _, row in grouped_segment_entries.iterrows():
                     brand_key = str(row["brand"] or "").strip().lower()
                     if brand_key in {"doğu otomotiv", "dogu otomotiv"}:
                         allocation_cost = float(row["saat"] or 0) * 295.0
-                    elif brand_key in {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}:
-                        allocation_cost = float(row["saat"] or 0) * _COURIER_HOURLY_COST
+                    elif brand_key in _FIXED_MONTHLY_BRAND_KEYS:
+                        fixed_measure = float(row["saat"] or 0) + float(row["paket"] or 0)
+                        fixed_share = fixed_measure / fixed_brand_measure_total if fixed_brand_measure_total > 0 else 1.0
+                        allocation_cost = _FIXED_MONTHLY_BRAND_COURIER_PAY * fixed_share
                     else:
                         package_rate = 25.0 if brand_key == "quick china" else segment_standard_rate
                         allocation_cost = float(row["saat"] or 0) * _COURIER_HOURLY_COST + float(row["paket"] or 0) * package_rate

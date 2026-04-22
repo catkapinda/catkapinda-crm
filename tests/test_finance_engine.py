@@ -196,6 +196,49 @@ class FinanceEngineTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 64310.0)
 
+    def test_personnel_cost_uses_fixed_pay_for_sushi_inn_and_sc_petshop(self):
+        month_df = pd.DataFrame(
+            [
+                {
+                    "actual_personnel_id": 1,
+                    "restaurant_id": 12,
+                    "brand": "Sushi Inn",
+                    "branch": "Merkez",
+                    "pricing_model": "fixed_monthly",
+                    "worked_hours": 200.0,
+                    "package_count": 500.0,
+                    "entry_date": "2026-01-21",
+                },
+                {
+                    "actual_personnel_id": 1,
+                    "restaurant_id": 13,
+                    "brand": "SC Petshop",
+                    "branch": "Merkez",
+                    "pricing_model": "fixed_monthly",
+                    "worked_hours": 10.0,
+                    "package_count": 25.0,
+                    "entry_date": "2026-01-22",
+                },
+            ]
+        )
+        personnel_df = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "full_name": "Sabit Kurye",
+                    "role": "Kurye",
+                    "status": "Aktif",
+                    "cost_model": "standard_courier",
+                    "monthly_fixed_cost": 0.0,
+                }
+            ]
+        )
+
+        result = finance_engine.calculate_personnel_cost(month_df, personnel_df, pd.DataFrame())
+
+        self.assertEqual(len(result), 1)
+        self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 73600.0)
+
 
 if __name__ == "__main__":
     unittest.main()
