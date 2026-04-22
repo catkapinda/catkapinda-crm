@@ -128,7 +128,7 @@ def create_attendance_entries_bulk_route(
 def get_attendance_entries(
     _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
-    limit: int = Query(default=60, ge=1, le=500),
+    limit: int = Query(default=60, ge=1, le=5000),
     restaurant_id: int | None = None,
     search: str | None = None,
     date_from: date | None = None,

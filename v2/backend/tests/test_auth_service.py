@@ -3,7 +3,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.core.security import hash_auth_password
-from app.services.auth import AuthRateLimitError, authenticate_user, reset_password_with_phone_code
+from app.services.auth import (
+    AuthRateLimitError,
+    authenticate_user,
+    reset_password_with_phone_code,
+    verify_phone_login_code_and_login,
+)
 
 
 class FakeConnection:
@@ -193,3 +198,53 @@ def test_reset_password_with_phone_code_clears_login_attempts_for_email_and_phon
     assert "mert.kurtulus@catkapinda.com" in cleared
     assert "5551234567" in cleared
     assert conn.commit_count == 1
+
+
+def test_sms_login_clears_mobile_ops_temporary_password_flag(monkeypatch):
+    conn = FakeConnection()
+    user_row = _build_user("GeciciSifre123")
+    user_row.update(
+        {
+            "email": "mobile.personnel.97@auth.catkapinda.local",
+            "phone": "5435553235",
+            "full_name": "Yaşar Tunç Beratoğlu",
+            "role": "mobile_ops",
+            "role_display": "Mobil Operasyon",
+            "must_change_password": 1,
+        }
+    )
+    consumed = {}
+    cleared: list[int] = []
+
+    monkeypatch.setattr("app.services.auth.cleanup_expired_phone_codes", lambda _conn: None)
+    monkeypatch.setattr(
+        "app.services.auth.fetch_active_phone_code",
+        lambda _conn, phone, purpose, now_text: {
+            "code_row_id": 54,
+            "code_attempt_count": 0,
+            **user_row,
+            "code_hash": hash_auth_password("654321"),
+        },
+    )
+    monkeypatch.setattr(
+        "app.services.auth.consume_phone_code",
+        lambda _conn, code_row_id, attempt_count, consumed_at: consumed.update(
+            {"code_row_id": code_row_id, "attempt_count": attempt_count}
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.auth.clear_auth_user_must_change_password",
+        lambda _conn, user_id: cleared.append(user_id),
+    )
+    monkeypatch.setattr("app.services.auth.create_auth_session", lambda _conn, username: "token-654")
+
+    user = verify_phone_login_code_and_login(
+        conn,
+        phone="0543 555 32 35",
+        login_code="654321",
+    )
+
+    assert consumed == {"code_row_id": 54, "attempt_count": 1}
+    assert cleared == [7]
+    assert user.role == "mobile_ops"
+    assert user.must_change_password is False

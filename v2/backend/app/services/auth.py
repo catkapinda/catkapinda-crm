@@ -23,6 +23,7 @@ from app.core.sms import send_phone_login_code_sms, sms_delivery_enabled
 from app.repositories.auth import (
     cleanup_expired_auth_sessions,
     cleanup_expired_phone_codes,
+    clear_auth_user_must_change_password,
     clear_login_attempt,
     consume_phone_code,
     delete_auth_session,
@@ -435,6 +436,9 @@ def verify_phone_login_code_and_login(
         attempt_count=attempt_count + 1,
         consumed_at=now_text,
     )
+    if str(row.get("role") or "") == "mobile_ops" and int(row.get("must_change_password") or 0) == 1:
+        clear_auth_user_must_change_password(conn, user_id=int(row.get("id") or 0))
+        row["must_change_password"] = 0
     token = create_auth_session(conn, username=resolve_session_identity(row))
     return build_authenticated_user(user_row=row, token=token)
 

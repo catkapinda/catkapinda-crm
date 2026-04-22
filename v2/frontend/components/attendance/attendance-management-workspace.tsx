@@ -230,7 +230,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
     setListError("");
     try {
       const query = new URLSearchParams();
-      query.set("limit", "500");
+      query.set("limit", activeMonthWindow ? "5000" : "500");
       if (typeof filterRestaurantId === "number") {
         query.set("restaurant_id", String(filterRestaurantId));
       }

@@ -306,7 +306,7 @@ export function AppShell({
       router.replace(`/login${nextValue}`);
       return;
     }
-    if (user.must_change_password && pathname !== "/account") {
+    if (user.must_change_password && user.role !== "mobile_ops" && pathname !== "/account") {
       router.replace("/account");
       return;
     }

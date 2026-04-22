@@ -288,6 +288,7 @@ def test_payroll_routes_smoke(monkeypatch):
 
 
 def test_attendance_routes_smoke(monkeypatch):
+    seen_management_args = {}
     monkeypatch.setattr(
         "app.api.routes.attendance.build_attendance_dashboard",
         lambda conn, reference_date, limit: {
@@ -324,7 +325,14 @@ def test_attendance_routes_smoke(monkeypatch):
                     "id": 10,
                     "label": "Burger@ - Kavacik",
                     "pricing_model": "hourly_plus_package",
+                    "pricing_model_label": "Saat + Paket",
+                    "hourly_rate": 120.0,
+                    "package_rate": 20.0,
+                    "package_threshold": 390,
+                    "package_rate_low": 10.0,
+                    "package_rate_high": 15.0,
                     "fixed_monthly_fee": 0.0,
+                    "vat_rate": 20.0,
                 }
             ],
             "people": [
@@ -344,7 +352,13 @@ def test_attendance_routes_smoke(monkeypatch):
     )
     monkeypatch.setattr(
         "app.api.routes.attendance.build_attendance_management",
-        lambda conn, limit, restaurant_id=None, search=None, date_from=None, date_to=None: {
+        lambda conn, limit, restaurant_id=None, search=None, date_from=None, date_to=None: seen_management_args.update(
+            {
+                "limit": limit,
+                "date_from": date_from,
+                "date_to": date_to,
+            }
+        ) or {
             "total_entries": 1,
             "entries": [
                 {
@@ -372,6 +386,7 @@ def test_attendance_routes_smoke(monkeypatch):
     dashboard = client.get("/api/attendance/dashboard")
     form_options = client.get("/api/attendance/form-options")
     entries = client.get("/api/attendance/entries")
+    month_entries = client.get("/api/attendance/entries?limit=5000&date_from=2026-03-01&date_to=2026-03-31")
 
     assert dashboard.status_code == 200
     assert dashboard.json()["summary"]["total_entries"] == 441
@@ -379,6 +394,8 @@ def test_attendance_routes_smoke(monkeypatch):
     assert form_options.json()["restaurants"][0]["label"] == "Burger@ - Kavacik"
     assert entries.status_code == 200
     assert entries.json()["entries"][0]["primary_person_label"] == "Beytullah Belen (Kurye)"
+    assert month_entries.status_code == 200
+    assert seen_management_args["limit"] == 5000
 
 
 def test_announcements_routes_smoke(monkeypatch):

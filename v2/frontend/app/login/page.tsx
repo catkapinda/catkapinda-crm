@@ -105,6 +105,10 @@ function extractInlineCommand(value: string | undefined): string | null {
   return match?.[1] ?? null;
 }
 
+function shouldForcePasswordChange(user: { must_change_password: boolean; role?: string }) {
+  return user.must_change_password && user.role !== "mobile_ops";
+}
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -143,7 +147,7 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace(user.must_change_password ? "/account" : nextPath || resolveDefaultPath(user.allowed_actions));
+      router.replace(shouldForcePasswordChange(user) ? "/account" : nextPath || resolveDefaultPath(user.allowed_actions));
     }
   }, [loading, user, router, nextPath]);
 
@@ -243,7 +247,9 @@ function LoginPageContent() {
     try {
       const loggedInUser = await login(identity, password);
       router.replace(
-        loggedInUser.must_change_password ? "/account" : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
+        shouldForcePasswordChange(loggedInUser)
+          ? "/account"
+          : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
       );
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : "Giriş yapilamadi.");
@@ -365,7 +371,9 @@ function LoginPageContent() {
       }
       const loggedInUser = await verifyPhoneCode(phone, loginCode);
       router.replace(
-        loggedInUser.must_change_password ? "/account" : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
+        shouldForcePasswordChange(loggedInUser)
+          ? "/account"
+          : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
       );
     } catch (verifyError) {
       setSmsError(verifyError instanceof Error ? verifyError.message : "SMS kodu doğrulanamadı.");

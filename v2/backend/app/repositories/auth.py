@@ -104,6 +104,23 @@ def update_auth_user_password(
     )
 
 
+def clear_auth_user_must_change_password(
+    conn: psycopg.Connection,
+    *,
+    user_id: int,
+) -> None:
+    updated_at = build_current_timestamp()
+    conn.execute(
+        """
+        UPDATE auth_users
+        SET must_change_password = 0,
+            updated_at = %s
+        WHERE id = %s
+        """,
+        (updated_at, user_id),
+    )
+
+
 def build_current_timestamp() -> str:
     return datetime.utcnow().isoformat(timespec="seconds")
 
