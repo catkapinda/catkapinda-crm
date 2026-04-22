@@ -76,7 +76,7 @@ class ReportingServiceTests(unittest.TestCase):
     @patch("services.reporting_service.fetch_reporting_role_history")
     @patch("services.reporting_service.fetch_reporting_personnel")
     @patch("services.reporting_service.fetch_reporting_restaurants")
-    def test_build_reports_workspace_payload_adds_fuel_and_partner_discount_income_and_filters_payroll_deductions(
+    def test_build_reports_workspace_payload_does_not_add_utts_or_partner_discount_income(
         self,
         restaurants_mock,
         personnel_mock,
@@ -132,14 +132,14 @@ class ReportingServiceTests(unittest.TestCase):
         self.assertEqual(branch_profit_deductions["deduction_type"].tolist(), ["Yakıt", "Yakıt"])
 
         side_income_kwargs = side_income_mock.call_args.kwargs
-        self.assertEqual(side_income_kwargs["utts_fuel_discount_amount"], 84.0)
-        self.assertEqual(side_income_kwargs["partner_card_discount_amount"], 55.0)
+        self.assertEqual(side_income_kwargs["utts_fuel_discount_amount"], 0.0)
+        self.assertEqual(side_income_kwargs["partner_card_discount_amount"], 0.0)
 
         self.assertEqual(payload.fuel_reflection_amount, 2000.0)
         self.assertEqual(payload.company_fuel_reflection_amount, 1200.0)
-        self.assertEqual(payload.utts_fuel_discount_amount, 84.0)
-        self.assertEqual(payload.partner_card_discount_amount, 55.0)
-        self.assertEqual(payload.side_income_net, 139.0)
+        self.assertEqual(payload.utts_fuel_discount_amount, 0.0)
+        self.assertEqual(payload.partner_card_discount_amount, 0.0)
+        self.assertEqual(payload.side_income_net, 0.0)
 
 
 if __name__ == "__main__":

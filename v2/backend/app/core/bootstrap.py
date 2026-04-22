@@ -383,7 +383,7 @@ LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
         ("auto_source_key", "ALTER TABLE deductions ADD COLUMN auto_source_key TEXT"),
     ),
     "courier_equipment_issues": (
-        ("vat_rate", "ALTER TABLE courier_equipment_issues ADD COLUMN vat_rate REAL DEFAULT 20"),
+        ("vat_rate", "ALTER TABLE courier_equipment_issues ADD COLUMN vat_rate REAL DEFAULT 0"),
         ("auto_source_key", "ALTER TABLE courier_equipment_issues ADD COLUMN auto_source_key TEXT"),
     ),
     "personnel_role_history": (

@@ -112,13 +112,7 @@ def get_default_equipment_unit_cost(conn, item_name: str) -> float:
 
 
 def get_equipment_vat_rate(item_name: str, issue_date: date | str | None = None) -> float:
-    normalized_item_name = str(item_name or "").strip()
-    if normalized_item_name in _EQUIPMENT_ALWAYS_STANDARD_VAT_ITEMS:
-        return _EQUIPMENT_VAT_RATE_BEFORE_REDUCTION
-    effective_date = _PARSE_DATE_VALUE(issue_date) or date.today()
-    if effective_date >= _EQUIPMENT_REDUCED_VAT_START_DATE:
-        return _EQUIPMENT_VAT_RATE_AFTER_REDUCTION
-    return _EQUIPMENT_VAT_RATE_BEFORE_REDUCTION
+    return 0.0
 
 
 def get_default_equipment_sale_price(item_name: str) -> float:

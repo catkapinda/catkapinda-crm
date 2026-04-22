@@ -76,6 +76,12 @@ def test_build_payroll_dashboard_supports_local_sqlite_without_streamlit():
         VALUES (1, '2026-04-15', 'Avans', 1500)
         """
     )
+    raw_conn.execute(
+        """
+        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount)
+        VALUES (2, '2026-05-15', 'Zimmet Taksiti', 3200)
+        """
+    )
     raw_conn.commit()
 
     conn = CompatConnection(raw_conn, "sqlite")
@@ -83,6 +89,7 @@ def test_build_payroll_dashboard_supports_local_sqlite_without_streamlit():
     payload = build_payroll_dashboard(conn)
 
     assert payload.selected_month == "2026-04"
+    assert payload.month_options == ["2026-05", "2026-04"]
     assert payload.summary is not None
     assert payload.summary.personnel_count == 2
     assert payload.summary.gross_payroll == 34360.0

@@ -95,12 +95,9 @@ class EquipmentRulesTests(unittest.TestCase):
         self.assertFalse(equipment_rules.equipment_issue_generates_installments("Depozit / Teslim", 500.0, 2))
         self.assertFalse(equipment_rules.equipment_issue_generates_installments("Satış", 0.0, 2))
 
-    def test_reduced_vat_applies_after_reduction_date(self):
-        self.assertEqual(equipment_rules.get_equipment_vat_rate("Box", "2026-03-15"), 10.0)
-        self.assertEqual(equipment_rules.get_equipment_vat_rate("Box", "2026-02-15"), 20.0)
-
-    def test_standard_vat_items_keep_standard_rate(self):
-        self.assertEqual(equipment_rules.get_equipment_vat_rate("Kask", "2026-03-15"), 20.0)
+    def test_equipment_vat_rate_is_zero_for_all_items(self):
+        self.assertEqual(equipment_rules.get_equipment_vat_rate("Box", "2026-03-15"), 0.0)
+        self.assertEqual(equipment_rules.get_equipment_vat_rate("Kask", "2026-02-15"), 0.0)
 
 
 if __name__ == "__main__":

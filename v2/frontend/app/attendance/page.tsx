@@ -860,7 +860,7 @@ export default function AttendancePage() {
                   "Ekipman ve manuel kesintiler düşmeden önceki kurye toplamı.",
                 )}
                 {metricCard(
-                  "Net Kurye Ödemesi",
+                  "Kurye Fatura Tutarı",
                   formatCurrency(financeSnapshot?.courierNet ?? 0),
                   "Ekipman ve kesintiler düştükten sonra ödenecek toplam.",
                 )}
@@ -1119,7 +1119,7 @@ export default function AttendancePage() {
                   {[
                     `Restoran faturası: ${formatCurrency(financeSnapshot?.restaurantInvoice ?? 0)}`,
                     `Kesinti öncesi kurye hakedişi: ${formatCurrency(financeSnapshot?.courierGross ?? 0)}`,
-                    `Net kurye ödemesi: ${formatCurrency(financeSnapshot?.courierNet ?? 0)}`,
+                    `Kurye fatura tutarı: ${formatCurrency(financeSnapshot?.courierNet ?? 0)}`,
                     `Fatura-kurye farkı: ${formatCurrency(financeSnapshot?.grossProfit ?? 0)}`,
                   ].map((item) => (
                     <div

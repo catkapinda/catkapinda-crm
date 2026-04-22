@@ -887,16 +887,6 @@ export default function ReportsPage() {
         formatMoney(sharedOverheadTotal),
         "Joker ve yönetim desteğinin toplam net yükü",
       ),
-      metricCard(
-        "UTTS İndirimi",
-        formatMoney(dashboard.side_income_snapshot.utts_fuel_discount_amount),
-        "Şirket motorundan gelen yakıt avantajı",
-      ),
-      metricCard(
-        "Partner Kartı",
-        formatMoney(dashboard.side_income_snapshot.partner_card_discount_amount),
-        "Kart indiriminin yan gelire katkısı",
-      ),
     ];
   }, [coverageGap, dashboard]);
 
@@ -1731,8 +1721,8 @@ export default function ReportsPage() {
               </ScrollCard>
 
               <ScrollCard
-                title="Yan Gelir Analizi"
-                subtitle="Yakıt ve kart indirimi başta olmak üzere yan gelir katkısını aynı blokta gör."
+                title="Ek Gelir Analizi"
+                subtitle="Muhasebe, şirket açılışı ve ekipman satışlarından gelen ek gelir kalemlerini izle."
               >
                 <div style={{ padding: "12px 14px", display: "grid", gap: "10px" }}>
                   <div
@@ -1743,10 +1733,9 @@ export default function ReportsPage() {
                     }}
                   >
                     {[
-                      ["Yakıt Tahsilatı", dashboard.side_income_snapshot.fuel_reflection_amount],
+                      ["Ek Gelir Toplamı", dashboard.summary.side_income_net],
+                      ["Yakıt Kesintisi", dashboard.side_income_snapshot.fuel_reflection_amount],
                       ["Şirket Motoru Yakıtı", dashboard.side_income_snapshot.company_fuel_reflection_amount],
-                      ["UTTS İndirimi", dashboard.side_income_snapshot.utts_fuel_discount_amount],
-                      ["Partner Kartı", dashboard.side_income_snapshot.partner_card_discount_amount],
                     ].map(([label, value]) => (
                       <article
                         key={label}
@@ -1785,14 +1774,23 @@ export default function ReportsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {dashboard.side_income_entries.map((row) => (
-                        <tr key={row.item}>
-                          {tableCell(row.item)}
-                          {tableCell(formatMoney(row.revenue), "right")}
-                          {tableCell(formatMoney(row.cost), "right")}
-                          {tableCell(formatMoney(row.net_profit), "right")}
+                      {dashboard.side_income_entries.length ? (
+                        dashboard.side_income_entries.map((row) => (
+                          <tr key={row.item}>
+                            {tableCell(row.item)}
+                            {tableCell(formatMoney(row.revenue), "right")}
+                            {tableCell(formatMoney(row.cost), "right")}
+                            {tableCell(formatMoney(row.net_profit), "right")}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          {tableCell("Bu ay ek gelir kaydı yok.")}
+                          {tableCell("-", "right")}
+                          {tableCell("-", "right")}
+                          {tableCell("-", "right")}
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>

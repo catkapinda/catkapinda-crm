@@ -34,8 +34,8 @@ _ALLOCATION_SOURCE_LABELS = {
 
 _SHARED_OVERHEAD_ROLES = {"Joker", "Bölge Müdürü"}
 _LOCAL_FUEL_DEDUCTION_TYPES = {"Yakit", "Yakıt"}
-_LOCAL_PARTNER_CARD_DEDUCTION_TYPES = {"Partner Kart Indirimi", "Partner Kart İndirimi"}
 _PACKAGE_THRESHOLD_DEFAULT = 390
+_REPORT_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
 _VAT_RATE_DEFAULT = 20.0
 _COURIER_HOURLY_COST = 250.0
 _COURIER_HOURLY_COST_DOGU_OTOMOTIV = 295.0
@@ -233,8 +233,7 @@ def _calculate_restaurant_invoice(rows: list[dict[str, object]]) -> tuple[float,
     package_rate_low = _safe_float(first.get("package_rate_low"))
     package_rate_high = _safe_float(first.get("package_rate_high"))
     fixed_monthly_fee = _safe_float(first.get("fixed_monthly_fee"))
-    raw_vat_rate = first.get("vat_rate")
-    vat_rate = _VAT_RATE_DEFAULT if raw_vat_rate in {None, ""} else _safe_float(raw_vat_rate)
+    vat_rate = _VAT_RATE_DEFAULT
     total_hours = sum(_safe_float(row.get("worked_hours")) for row in rows)
     total_packages = sum(_safe_float(row.get("package_count")) for row in rows)
 
@@ -597,6 +596,7 @@ def _build_local_reports_dashboard(
         FROM deductions
         WHERE {_month_key_sql('deduction_date')} = %s
           AND personnel_id IS NOT NULL
+          AND COALESCE(deduction_type, '') NOT IN {_REPORT_IGNORED_DEDUCTION_SQL}
         GROUP BY personnel_id
         """,
         (resolved_month,),
@@ -809,6 +809,7 @@ def _build_local_reports_dashboard(
             COALESCE(SUM(d.amount), 0) AS total_amount
         FROM deductions d
         WHERE {_month_key_sql('d.deduction_date')} = %s
+          AND COALESCE(d.deduction_type, '') NOT IN {_REPORT_IGNORED_DEDUCTION_SQL}
         GROUP BY COALESCE(d.deduction_type, '')
         """,
         (resolved_month,),
@@ -820,11 +821,7 @@ def _build_local_reports_dashboard(
     fuel_reflection_amount = sum(
         amount for deduction_type, amount in deduction_totals.items() if deduction_type in _LOCAL_FUEL_DEDUCTION_TYPES
     )
-    partner_card_discount_amount = sum(
-        amount
-        for deduction_type, amount in deduction_totals.items()
-        if deduction_type in _LOCAL_PARTNER_CARD_DEDUCTION_TYPES
-    )
+    partner_card_discount_amount = 0.0
     company_fuel_row = conn.execute(
         f"""
         SELECT COALESCE(SUM(d.amount), 0) AS total_amount
@@ -840,22 +837,9 @@ def _build_local_reports_dashboard(
         (resolved_month,),
     ).fetchone()
     company_fuel_reflection_amount = _safe_float(company_fuel_row["total_amount"]) if company_fuel_row else 0.0
-    utts_fuel_discount_amount = round(company_fuel_reflection_amount * 0.07, 2)
+    utts_fuel_discount_amount = 0.0
 
-    side_income_entries: list[ReportSideIncomeEntry] = [
-        ReportSideIncomeEntry(
-            item="UTTS Yakıt İndirimi",
-            revenue=utts_fuel_discount_amount,
-            cost=0.0,
-            net_profit=utts_fuel_discount_amount,
-        ),
-        ReportSideIncomeEntry(
-            item="Partner Kart İndirimi",
-            revenue=partner_card_discount_amount,
-            cost=0.0,
-            net_profit=partner_card_discount_amount,
-        ),
-    ]
+    side_income_entries: list[ReportSideIncomeEntry] = []
     side_income_net = sum(row.net_profit for row in side_income_entries)
     total_revenue = sum(row.gross_invoice for row in all_invoice_entries)
     total_personnel_cost = sum(row.net_cost for row in all_cost_entries)

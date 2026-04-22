@@ -216,7 +216,7 @@ _SQLITE_SCHEMA = """
         quantity INTEGER NOT NULL DEFAULT 1,
         unit_cost REAL NOT NULL DEFAULT 0,
         unit_sale_price REAL NOT NULL DEFAULT 0,
-        vat_rate REAL NOT NULL DEFAULT 20,
+        vat_rate REAL NOT NULL DEFAULT 0,
         installment_count INTEGER NOT NULL DEFAULT 2,
         sale_type TEXT NOT NULL DEFAULT 'Satış',
         auto_source_key TEXT,
@@ -468,7 +468,7 @@ _POSTGRES_SCHEMA = """
         quantity BIGINT NOT NULL DEFAULT 1,
         unit_cost DOUBLE PRECISION NOT NULL DEFAULT 0,
         unit_sale_price DOUBLE PRECISION NOT NULL DEFAULT 0,
-        vat_rate DOUBLE PRECISION NOT NULL DEFAULT 20,
+        vat_rate DOUBLE PRECISION NOT NULL DEFAULT 0,
         installment_count BIGINT NOT NULL DEFAULT 2,
         sale_type TEXT NOT NULL DEFAULT 'Satış',
         auto_source_key TEXT,
@@ -1041,7 +1041,7 @@ def migrate_data(conn: Any) -> None:
     equipment_issue_cols = get_table_columns(conn, "courier_equipment_issues")
     if "vat_rate" not in equipment_issue_cols:
         vat_type = "DOUBLE PRECISION" if conn.backend == "postgres" else "REAL"
-        conn.execute(f"ALTER TABLE courier_equipment_issues ADD COLUMN vat_rate {vat_type} DEFAULT 20")
+        conn.execute(f"ALTER TABLE courier_equipment_issues ADD COLUMN vat_rate {vat_type} DEFAULT 0")
     if "auto_source_key" not in equipment_issue_cols:
         conn.execute("ALTER TABLE courier_equipment_issues ADD COLUMN auto_source_key TEXT")
     auth_user_cols = get_table_columns(conn, "auth_users")

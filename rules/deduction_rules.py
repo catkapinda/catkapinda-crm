@@ -49,11 +49,10 @@ DEDUCTION_TYPE_OPTIONS = [
     ADMINISTRATIVE_FINE_DEDUCTION_TYPE,
     NON_INVOICED_AMOUNT_DEDUCTION_TYPE,
     ADVANCE_DEDUCTION_TYPE,
-    PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE,
 ]
 
 HGS_VAT_RATE = 0.20
-COMPANY_FUEL_DISCOUNT_RATE = 0.07
+COMPANY_FUEL_DISCOUNT_RATE = 0.0
 COMPANY_VEHICLE_TYPE = "Çat Kapında"
 TWENTY_PERCENT_VAT_INCLUDED_DEDUCTION_TYPES = {
     MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
@@ -77,8 +76,8 @@ NON_INVOICED_DEDUCTION_TYPES = {
     ADMINISTRATIVE_FINE_DEDUCTION_TYPE,
     ADVANCE_DEDUCTION_TYPE,
 }
-SIDE_INCOME_ONLY_DEDUCTION_TYPES = {PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE}
-PAYROLL_EXCLUDED_DEDUCTION_TYPES = SIDE_INCOME_ONLY_DEDUCTION_TYPES | NON_INVOICED_DEDUCTION_TYPES
+SIDE_INCOME_ONLY_DEDUCTION_TYPES: set[str] = set()
+PAYROLL_EXCLUDED_DEDUCTION_TYPES = {PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE} | NON_INVOICED_DEDUCTION_TYPES
 
 
 def normalize_deduction_type(value: Any) -> str:
@@ -117,14 +116,6 @@ def _parse_deduction_date(value: Any) -> date | None:
 
 
 def get_deduction_vat_rate(deduction_type: Any, deduction_date: Any = None) -> float:
-    normalized_type = normalize_deduction_type(deduction_type)
-    if normalized_type in TWENTY_PERCENT_VAT_INCLUDED_DEDUCTION_TYPES:
-        return 0.20
-    if normalized_type in TEN_PERCENT_VAT_INCLUDED_DEDUCTION_TYPES:
-        resolved_date = _parse_deduction_date(deduction_date)
-        if resolved_date is not None and resolved_date >= REDUCED_DEDUCTION_VAT_START_DATE:
-            return 0.10
-        return 0.20
     return 0.0
 
 
@@ -133,19 +124,19 @@ def get_deduction_type_caption(deduction_type: Any) -> str:
     if normalized_type == MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE:
         return "Motor servis bakımında Çat Kapında kiralık motorları şirket öder. Çat Kapında satılık motor ve kendi motorunda bakım kuryeden kesilir."
     if normalized_type == MOTOR_DAMAGE_DEDUCTION_TYPE:
-        return "Motor hasar bedeli tüm motor tiplerinde kuryeye yansıtılır ve %20 KDV dahil fatura tutarı olarak girilir."
+        return "Motor hasar bedeli tüm motor tiplerinde kuryeye yansıtılır. Girdiğin tutar aynen kesinti olur."
     if normalized_type == HGS_DEDUCTION_TYPE:
-        return "HGS tutarını zaten KDV dahil ödediğin toplam olarak gir. Sistem hakedişe aynı tutarı yazar, ekstra KDV eklemez."
+        return "HGS tutarını ödediğin toplam olarak gir. Sistem hakedişe aynı tutarı yazar, ekstra KDV eklemez."
     if normalized_type == FUEL_DEDUCTION_TYPE:
-        return "Yakıt tutarını kuryeye yansıtılacak %20 KDV dahil fatura toplamı olarak gir. Çat Kapında motorlarında %7 UTTS indirimi yan gelire otomatik eklenir."
+        return "Yakıt tutarını kuryeye yansıtılacak toplam olarak gir. Sistem tutarı aynen kesinti yazar; UTTS indirimi hesaplamaz."
     if normalized_type == HELMET_DEDUCTION_TYPE:
-        return "Kask bedelini kuryeye yansıtılacak %20 KDV dahil toplam olarak gir."
+        return "Kask bedelini kuryeye yansıtılacak toplam olarak gir. Tutar aynen kesilir."
     if normalized_type == PHONE_MOUNT_DEDUCTION_TYPE:
-        return "Telefon tutacağı bedelini kuryeye yansıtılacak %20 KDV dahil toplam olarak gir."
+        return "Telefon tutacağı bedelini kuryeye yansıtılacak toplam olarak gir. Tutar aynen kesilir."
     if normalized_type in TEN_PERCENT_VAT_INCLUDED_DEDUCTION_TYPES:
-        return "Bu kalem Mart 2026'dan itibaren %10 KDV dahil fatura toplamı olarak girilir. Ocak-Şubat 2026 kayıtlarında %20 mantığı korunur."
+        return "Bu kalemde girdiğin tutar aynen kesinti olur; ayrıca KDV oranı uygulanmaz."
     if normalized_type == PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE:
-        return "Kendi motoruyla çalışan kuryelerin ay sonu kart indirim gelirini manuel gir. Bu kalem hakedişten düşülmez, sadece yan gelirde görünür."
+        return "Partner kart indirimi artık finansal hesaba katılmaz."
     if normalized_type == ADVANCE_DEDUCTION_TYPE:
         return "Personele verilen avansı tahsilat takibi için kaydet. Ödeme düşer ama kurye fatura matrahı bu kalemden etkilenmez."
     if normalized_type == ADMINISTRATIVE_FINE_DEDUCTION_TYPE:
@@ -218,10 +209,9 @@ def calculate_fuel_discount_summary(
     deductions_work = deductions_df.copy()
     deductions_work["deduction_type"] = deductions_work["deduction_type"].fillna("").astype(str)
     fuel_deductions_df = deductions_work[deductions_work["deduction_type"] == "Yakıt"].copy()
-    partner_discount_df = deductions_work[deductions_work["deduction_type"] == "Partner Kart İndirimi"].copy()
 
     fuel_reflection_amount = float(fuel_deductions_df["amount"].fillna(0).sum()) if not fuel_deductions_df.empty else 0.0
-    partner_card_discount_amount = float(partner_discount_df["amount"].fillna(0).sum()) if not partner_discount_df.empty else 0.0
+    partner_card_discount_amount = 0.0
 
     company_fuel_reflection_amount = 0.0
     if (

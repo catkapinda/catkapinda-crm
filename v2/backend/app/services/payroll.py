@@ -81,6 +81,7 @@ _COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
 _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
 _PACKAGE_THRESHOLD_DEFAULT = 390
+_PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
 
 
 @dataclass
@@ -370,6 +371,41 @@ def _resolve_month_key(month_options: list[str], selected_month: str | None) -> 
     return selected_month if selected_month in month_options else month_options[0]
 
 
+def _fetch_payroll_month_options(conn: psycopg.Connection) -> tuple[list[str], list[str]]:
+    attendance_rows = conn.execute(
+        f"""
+        SELECT DISTINCT {_month_key_sql('entry_date')} AS month_key
+        FROM daily_entries
+        WHERE COALESCE(CAST(entry_date AS TEXT), '') <> ''
+        ORDER BY month_key DESC
+        """
+    ).fetchall()
+    deduction_rows = conn.execute(
+        f"""
+        SELECT DISTINCT {_month_key_sql('deduction_date')} AS month_key
+        FROM deductions
+        WHERE COALESCE(CAST(deduction_date AS TEXT), '') <> ''
+        ORDER BY month_key DESC
+        """
+    ).fetchall()
+    attendance_month_options = [str(row["month_key"]) for row in attendance_rows if row["month_key"]]
+    deduction_month_options = [str(row["month_key"]) for row in deduction_rows if row["month_key"]]
+    month_options = sorted(set(attendance_month_options) | set(deduction_month_options), reverse=True)
+    return month_options, attendance_month_options
+
+
+def _resolve_payroll_dashboard_month(
+    month_options: list[str],
+    attendance_month_options: list[str],
+    selected_month: str | None,
+) -> str:
+    if selected_month in month_options:
+        return str(selected_month)
+    if attendance_month_options:
+        return attendance_month_options[0]
+    return _resolve_month_key(month_options, selected_month)
+
+
 def build_payroll_dashboard(
     conn: psycopg.Connection,
     *,
@@ -507,24 +543,8 @@ def _build_local_payroll_document_payload(
     selected_month: str | None,
     personnel_id: int,
 ) -> PayrollDocumentPayload:
-    month_rows = conn.execute(
-        f"""
-        SELECT month_key
-        FROM (
-            SELECT DISTINCT {_month_key_sql('entry_date')} AS month_key
-            FROM daily_entries
-            WHERE COALESCE(CAST(entry_date AS TEXT), '') <> ''
-            UNION
-            SELECT DISTINCT {_month_key_sql('deduction_date')} AS month_key
-            FROM deductions
-            WHERE COALESCE(CAST(deduction_date AS TEXT), '') <> ''
-        )
-        WHERE month_key <> ''
-        ORDER BY month_key DESC
-        """
-    ).fetchall()
-    month_options = [str(row["month_key"]) for row in month_rows if row["month_key"]]
-    resolved_month = _resolve_month_key(month_options, selected_month)
+    month_options, attendance_month_options = _fetch_payroll_month_options(conn)
+    resolved_month = _resolve_payroll_dashboard_month(month_options, attendance_month_options, selected_month)
 
     person_row = conn.execute(
         """
@@ -570,6 +590,7 @@ def _build_local_payroll_document_payload(
         FROM deductions
         WHERE {_month_key_sql('deduction_date')} = %s
           AND personnel_id = %s
+          AND COALESCE(deduction_type, '') NOT IN {_PAYROLL_IGNORED_DEDUCTION_SQL}
         GROUP BY COALESCE(deduction_type, 'Kesinti')
         ORDER BY deduction_type
         """,
@@ -635,23 +656,7 @@ def _build_local_payroll_dashboard(
     restaurant_filter: str | None,
     limit: int,
 ) -> PayrollDashboardResponse:
-    month_rows = conn.execute(
-        f"""
-        SELECT month_key
-        FROM (
-            SELECT DISTINCT {_month_key_sql('entry_date')} AS month_key
-            FROM daily_entries
-            WHERE COALESCE(CAST(entry_date AS TEXT), '') <> ''
-            UNION
-            SELECT DISTINCT {_month_key_sql('deduction_date')} AS month_key
-            FROM deductions
-            WHERE COALESCE(CAST(deduction_date AS TEXT), '') <> ''
-        )
-        WHERE month_key <> ''
-        ORDER BY month_key DESC
-        """
-    ).fetchall()
-    month_options = [str(row["month_key"]) for row in month_rows if row["month_key"]]
+    month_options, attendance_month_options = _fetch_payroll_month_options(conn)
     if not month_options:
         return PayrollDashboardResponse(
             module="payroll",
@@ -669,7 +674,7 @@ def _build_local_payroll_dashboard(
             top_personnel=[],
         )
 
-    resolved_month = selected_month if selected_month in month_options else month_options[0]
+    resolved_month = _resolve_payroll_dashboard_month(month_options, attendance_month_options, selected_month)
     selected_role = role_filter or "Tümü"
     selected_restaurant = restaurant_filter or "Tümü"
 
@@ -735,6 +740,7 @@ def _build_local_payroll_dashboard(
         FROM deductions
         WHERE {_month_key_sql('deduction_date')} = %s
           AND personnel_id IS NOT NULL
+          AND COALESCE(deduction_type, '') NOT IN {_PAYROLL_IGNORED_DEDUCTION_SQL}
         GROUP BY personnel_id
         """,
         (resolved_month,),

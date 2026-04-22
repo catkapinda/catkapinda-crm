@@ -188,7 +188,7 @@ export function AttendanceBulkWorkspace({ onDataChange }: AttendanceBulkWorkspac
           ? selectedRestaurant.fixed_monthly_fee
           : 0
         : activeRows.reduce((sum, row) => sum + calculateRowInvoice(selectedRestaurant, row), 0);
-    const vatRate = selectedRestaurant?.vat_rate ?? 20;
+    const vatRate = 20;
     return {
       activeCount: activeRows.length,
       totalHours,

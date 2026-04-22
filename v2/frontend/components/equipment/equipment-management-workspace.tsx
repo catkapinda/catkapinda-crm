@@ -126,13 +126,11 @@ export function EquipmentManagementWorkspace() {
   const [bulkUpdateDateEnabled, setBulkUpdateDateEnabled] = useState(false);
   const [bulkUpdateCostEnabled, setBulkUpdateCostEnabled] = useState(false);
   const [bulkUpdateSaleEnabled, setBulkUpdateSaleEnabled] = useState(false);
-  const [bulkUpdateVatEnabled, setBulkUpdateVatEnabled] = useState(false);
   const [bulkUpdateInstallmentEnabled, setBulkUpdateInstallmentEnabled] = useState(false);
   const [bulkUpdateSaleTypeEnabled, setBulkUpdateSaleTypeEnabled] = useState(false);
   const [bulkIssueDate, setBulkIssueDate] = useState("");
   const [bulkUnitCost, setBulkUnitCost] = useState("0");
   const [bulkUnitSalePrice, setBulkUnitSalePrice] = useState("0");
-  const [bulkVatRate, setBulkVatRate] = useState("20");
   const [bulkInstallmentCount, setBulkInstallmentCount] = useState("1");
   const [bulkSaleType, setBulkSaleType] = useState("Satış");
   const [bulkNoteText, setBulkNoteText] = useState("");
@@ -462,7 +460,6 @@ export function EquipmentManagementWorkspace() {
           issue_date: bulkUpdateDateEnabled ? bulkIssueDate : null,
           unit_cost: bulkUpdateCostEnabled ? Number(bulkUnitCost || 0) : null,
           unit_sale_price: bulkUpdateSaleEnabled ? Number(bulkUnitSalePrice || 0) : null,
-          vat_rate: bulkUpdateVatEnabled ? Number(bulkVatRate || 0) : null,
           installment_count: bulkUpdateInstallmentEnabled ? Number(bulkInstallmentCount || 1) : null,
           sale_type: bulkUpdateSaleTypeEnabled ? bulkSaleType : null,
           note_append_text: bulkNoteText,
@@ -756,27 +753,6 @@ export function EquipmentManagementWorkspace() {
                       onChange={(event) => setBulkUpdateSaleEnabled(event.target.checked)}
                     />
                     Satışı güncelle
-                  </label>
-                </label>
-
-                <label style={{ display: "grid", gap: "8px" }}>
-                  <span style={{ fontWeight: 700 }}>KDV</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={bulkVatRate}
-                    onChange={(event) => setBulkVatRate(event.target.value)}
-                    style={fieldStyle}
-                    disabled={!bulkUpdateVatEnabled}
-                  />
-                  <label style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.88rem" }}>
-                    <input
-                      type="checkbox"
-                      checked={bulkUpdateVatEnabled}
-                      onChange={(event) => setBulkUpdateVatEnabled(event.target.checked)}
-                    />
-                    KDV güncelle
                   </label>
                 </label>
 
@@ -1207,10 +1183,6 @@ export function EquipmentManagementWorkspace() {
                   <div>
                     <div>Brüt Kâr</div>
                     <strong style={{ color: "var(--text)" }}>{formatCurrency(selectedIssue.gross_profit)}</strong>
-                  </div>
-                  <div>
-                    <div>KDV</div>
-                    <strong style={{ color: "var(--text)" }}>%{selectedIssue.vat_rate}</strong>
                   </div>
                 </div>
 

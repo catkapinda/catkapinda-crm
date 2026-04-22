@@ -324,7 +324,7 @@ def calculate_customer_invoice(group: pd.DataFrame, rule: Any) -> tuple[float, f
     else:
         subtotal = 0.0
 
-    vat = subtotal * (rule.vat_rate / 100.0)
+    vat = subtotal * (_VAT_RATE_DEFAULT / 100.0)
     grand_total = subtotal + vat
     return total_hours, total_packages, subtotal, grand_total
 
@@ -371,7 +371,7 @@ def build_invoice_summary_df(month_df: pd.DataFrame) -> pd.DataFrame:
             package_rate_low=_SAFE_FLOAT(first.get("package_rate_low"), 0.0),
             package_rate_high=_SAFE_FLOAT(first.get("package_rate_high"), 0.0),
             fixed_monthly_fee=_SAFE_FLOAT(first.get("fixed_monthly_fee"), 0.0),
-            vat_rate=_SAFE_FLOAT(first.get("vat_rate"), _VAT_RATE_DEFAULT),
+            vat_rate=_VAT_RATE_DEFAULT,
         )
         hours, packages, subtotal, grand_total = calculate_customer_invoice(group, rule)
         invoicing_rows.append(
@@ -464,7 +464,7 @@ def build_restaurant_invoice_drilldown_map(
             package_rate_low=_SAFE_FLOAT(first.get("package_rate_low"), 0.0),
             package_rate_high=_SAFE_FLOAT(first.get("package_rate_high"), 0.0),
             fixed_monthly_fee=_SAFE_FLOAT(first.get("fixed_monthly_fee"), 0.0),
-            vat_rate=_SAFE_FLOAT(first.get("vat_rate"), _VAT_RATE_DEFAULT),
+            vat_rate=_VAT_RATE_DEFAULT,
         )
         resolved_fixed_monthly_fee = _resolve_fixed_monthly_fee_from_group(restaurant_entries, rule.fixed_monthly_fee)
         restaurant_total_hours, restaurant_total_packages, _, _ = calculate_customer_invoice(restaurant_entries, rule)
@@ -501,7 +501,7 @@ def build_restaurant_invoice_drilldown_map(
             subtotal_values.append(courier_subtotal)
 
         grouped["kdv_haric"] = subtotal_values
-        grouped["kdv_dahil"] = grouped["kdv_haric"].apply(lambda value: float(value) * (1 + (rule.vat_rate / 100.0)))
+        grouped["kdv_dahil"] = grouped["kdv_haric"].apply(lambda value: float(value) * (1 + (_VAT_RATE_DEFAULT / 100.0)))
         restoran_name = f"{brand} - {branch}"
         detail_df = grouped[["personel", "rol", "calisma_saati", "paket", "kdv_haric", "kdv_dahil"]].copy()
         detail_df = detail_df.sort_values(["paket", "calisma_saati", "personel"], ascending=[False, False, True]).reset_index(drop=True)

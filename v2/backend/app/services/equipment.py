@@ -60,9 +60,9 @@ from app.schemas.equipment import (
     EquipmentSummary,
 )
 
-VAT_RATE_DEFAULT = 20.0
+VAT_RATE_DEFAULT = 0.0
 EQUIPMENT_REDUCED_VAT_START_DATE = date(2026, 3, 1)
-EQUIPMENT_VAT_RATE_AFTER_REDUCTION = 10.0
+EQUIPMENT_VAT_RATE_AFTER_REDUCTION = 0.0
 EQUIPMENT_ALWAYS_STANDARD_VAT_ITEMS = {"Kask", "Telefon Tutacağı", "Motor Kirası", "Motor Satın Alım"}
 AUTO_MOTOR_RENTAL_DEDUCTION = 13000.0
 AUTO_MOTOR_PURCHASE_TOTAL_PRICE = 135000.0
@@ -111,10 +111,6 @@ def _normalize_return_condition(value: str) -> str:
 
 
 def _get_equipment_vat_rate(item_name: str, issue_date: date) -> float:
-    if item_name in EQUIPMENT_ALWAYS_STANDARD_VAT_ITEMS:
-        return VAT_RATE_DEFAULT
-    if issue_date >= EQUIPMENT_REDUCED_VAT_START_DATE:
-        return EQUIPMENT_VAT_RATE_AFTER_REDUCTION
     return VAT_RATE_DEFAULT
 
 
@@ -206,7 +202,7 @@ def _build_issue_entry(row: dict[str, object]) -> EquipmentIssueManagementEntry:
         quantity=int(row.get("quantity") or 0),
         unit_cost=float(row.get("unit_cost") or 0),
         unit_sale_price=float(row.get("unit_sale_price") or 0),
-        vat_rate=float(row.get("vat_rate") or VAT_RATE_DEFAULT),
+        vat_rate=VAT_RATE_DEFAULT,
         total_cost=float(row.get("total_cost") or 0),
         total_sale=float(row.get("total_sale") or 0),
         gross_profit=float(row.get("gross_profit") or 0),
@@ -504,7 +500,6 @@ def bulk_update_equipment_issue_entries(
         payload.issue_date is None
         and payload.unit_cost is None
         and payload.unit_sale_price is None
-        and payload.vat_rate is None
         and payload.installment_count is None
         and payload.sale_type is None
         and not str(payload.note_append_text or "").strip()
@@ -514,8 +509,6 @@ def bulk_update_equipment_issue_entries(
         raise ValueError("Maliyet tutarı negatif olamaz.")
     if payload.unit_sale_price is not None and payload.unit_sale_price < 0:
         raise ValueError("Satış tutarı negatif olamaz.")
-    if payload.vat_rate is not None and payload.vat_rate < 0:
-        raise ValueError("KDV oranı negatif olamaz.")
     if payload.installment_count is not None and payload.installment_count <= 0:
         raise ValueError("Taksit sayısı en az 1 olmalı.")
 
@@ -555,7 +548,7 @@ def bulk_update_equipment_issue_entries(
         notes = str(row.get("notes") or "").strip()
         if note_append_text:
             notes = f"{notes}\n{note_append_text}".strip() if notes else note_append_text
-        vat_rate = float(payload.vat_rate if payload.vat_rate is not None else row.get("vat_rate") or VAT_RATE_DEFAULT)
+        vat_rate = VAT_RATE_DEFAULT
 
         update_equipment_issue_record(
             conn,

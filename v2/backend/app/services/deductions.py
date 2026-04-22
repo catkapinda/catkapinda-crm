@@ -85,8 +85,8 @@ DEDUCTION_TYPE_OPTIONS = [
     ADMINISTRATIVE_FINE_DEDUCTION_TYPE,
     NON_INVOICED_AMOUNT_DEDUCTION_TYPE,
     ADVANCE_DEDUCTION_TYPE,
-    PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE,
 ]
+KNOWN_DEDUCTION_TYPES = [*DEDUCTION_TYPE_OPTIONS, PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE]
 
 
 def _normalize_bulk_deduction_ids(values: list[int]) -> list[int]:
@@ -109,7 +109,7 @@ def _normalize_bulk_deduction_ids(values: list[int]) -> list[int]:
 def _normalize_deduction_type(value: str) -> str:
     raw = str(value or "").strip()
     normalized = LEGACY_DEDUCTION_TYPE_MAP.get(raw, raw)
-    return normalized if normalized in DEDUCTION_TYPE_OPTIONS else MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE
+    return normalized if normalized in KNOWN_DEDUCTION_TYPES else MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE
 
 
 def _get_deduction_type_caption(deduction_type: str) -> str:
@@ -119,13 +119,13 @@ def _get_deduction_type_caption(deduction_type: str) -> str:
     if normalized_type == MOTOR_DAMAGE_DEDUCTION_TYPE:
         return "Motor hasar bedeli tum motor tiplerinde kuryeye yansitilir."
     if normalized_type == HGS_DEDUCTION_TYPE:
-        return "HGS tutarini KDV dahil toplam olarak gir. Sistem ekstra KDV eklemez."
+        return "HGS tutarini toplam olarak gir. Sistem ekstra KDV eklemez."
     if normalized_type == FUEL_DEDUCTION_TYPE:
-        return "Yakit tutari KDV dahil toplam olarak girilir. Sirket motorlarinda UTTS indirimi yan gelire ayrilir."
+        return "Yakit tutari aynen kesinti olur; UTTS indirimi hesaplanmaz."
     if normalized_type == ADVANCE_DEDUCTION_TYPE:
         return "Avans, tahsilat takibi icin dusulur ama kurye fatura matrahini azaltmaz."
     if normalized_type == PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE:
-        return "Partner kart indirimi bordro kesintisi değil, yan gelir kaydıdır."
+        return "Partner kart indirimi artik finansal hesaba katilmaz."
     return ""
 
 

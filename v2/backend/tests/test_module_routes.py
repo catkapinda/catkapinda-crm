@@ -1048,7 +1048,7 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
                     "default_unit_cost": 700.0,
                     "default_sale_price": 900.0,
                     "default_installment_count": 3,
-                    "default_vat_rate": 20.0,
+                    "default_vat_rate": 0.0,
                 }
             },
             "selected_personnel_id": None,
@@ -1069,7 +1069,7 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
                     "quantity": 1,
                     "unit_cost": 700.0,
                     "unit_sale_price": 900.0,
-                    "vat_rate": 20.0,
+                    "vat_rate": 0.0,
                     "total_cost": 700.0,
                     "total_sale": 900.0,
                     "gross_profit": 200.0,
@@ -1209,25 +1209,12 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
                     "allocation_source": "Değişken maliyet",
                 }
             ],
-            "side_income_entries": [
-                {
-                    "item": "UTTS Yakıt İndirimi",
-                    "revenue": 18000.0,
-                    "cost": 0.0,
-                    "net_profit": 18000.0,
-                },
-                {
-                    "item": "Partner Kart İndirimi",
-                    "revenue": 24000.0,
-                    "cost": 0.0,
-                    "net_profit": 24000.0,
-                },
-            ],
+            "side_income_entries": [],
             "side_income_snapshot": {
                 "fuel_reflection_amount": 125000.0,
                 "company_fuel_reflection_amount": 84000.0,
-                "utts_fuel_discount_amount": 18000.0,
-                "partner_card_discount_amount": 24000.0,
+                "utts_fuel_discount_amount": 0.0,
+                "partner_card_discount_amount": 0.0,
             },
         },
     )
@@ -1252,4 +1239,4 @@ def test_equipment_and_reports_routes_smoke(monkeypatch):
     assert reports_dashboard.json()["profit_entries"][0]["gross_profit"] == 86000.0
     assert reports_dashboard.json()["coverage"]["operational_restaurant_count"] == 21
     assert reports_dashboard.json()["shared_overhead_entries"][0]["role"] == "Joker"
-    assert reports_dashboard.json()["side_income_snapshot"]["utts_fuel_discount_amount"] == 18000.0
+    assert reports_dashboard.json()["side_income_snapshot"]["utts_fuel_discount_amount"] == 0.0
