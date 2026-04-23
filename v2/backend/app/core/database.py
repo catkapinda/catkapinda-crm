@@ -93,6 +93,8 @@ def _normalize_sqlite_query(query: str) -> str:
     sql = re.sub(r"\s+NULLS\s+LAST", "", sql, flags=re.IGNORECASE)
     sql = re.sub(r"::date\b", "", sql, flags=re.IGNORECASE)
     sql = re.sub(r"::timestamp\b", "", sql, flags=re.IGNORECASE)
+    sql = re.sub(r"::bigint\b", "", sql, flags=re.IGNORECASE)
+    sql = re.sub(r"::text\b", "", sql, flags=re.IGNORECASE)
     return sql
 
 

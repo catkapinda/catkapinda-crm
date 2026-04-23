@@ -22,7 +22,11 @@ def test_overview_brand_summary_uses_monthly_invoice_once_for_fixed_model():
             vehicle_type TEXT,
             motor_rental TEXT,
             motor_purchase TEXT,
-            motor_rental_monthly_amount REAL
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
         );
         CREATE TABLE restaurants (
             id INTEGER PRIMARY KEY,

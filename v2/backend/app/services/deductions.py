@@ -17,6 +17,14 @@ from app.repositories.deductions import (
     insert_deduction_record,
     update_deduction_record,
 )
+from app.services.motor_rental import (
+    MOTOR_PURCHASE_DEDUCTION_TYPE,
+    MOTOR_RENTAL_DEDUCTION_TYPE,
+    build_company_motor_purchase_plan,
+    build_company_motor_rental_plan,
+    is_motor_purchase_deduction_type,
+    is_motor_rental_deduction_type,
+)
 from app.schemas.deductions import (
     DeductionBulkDeleteRequest,
     DeductionBulkDeleteResponse,
@@ -53,6 +61,12 @@ NON_INVOICED_AMOUNT_DEDUCTION_TYPE = "Fatura Edilmeyen Tutar"
 FUEL_DEDUCTION_TYPE = "Yakit"
 HGS_DEDUCTION_TYPE = "HGS"
 PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE = "Partner Kart Indirimi"
+MOTOR_PAYMENT_DEDUCTION_TYPES_SQL = (
+    "('Motor Kirası', 'Motor Kirasi', 'Motor Satış Taksiti', 'Motor Satis Taksiti', "
+    "'Motor Satın Alım', 'Motor Satin Alim')"
+)
+VIRTUAL_MOTOR_RENTAL_ID_OFFSET = 100_000_000
+VIRTUAL_MOTOR_PURCHASE_ID_OFFSET = 200_000_000
 
 LEGACY_DEDUCTION_TYPE_MAP = {
     "Bakim": MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
@@ -65,9 +79,16 @@ LEGACY_DEDUCTION_TYPE_MAP = {
     "Göğüs Çantası": CHEST_BAG_DEDUCTION_TYPE,
     "Yakıt": FUEL_DEDUCTION_TYPE,
     "İdari ceza": ADMINISTRATIVE_FINE_DEDUCTION_TYPE,
+    "Motor Kirasi": MOTOR_RENTAL_DEDUCTION_TYPE,
+    "Motor Satış Taksiti": MOTOR_PURCHASE_DEDUCTION_TYPE,
+    "Motor Satis Taksiti": MOTOR_PURCHASE_DEDUCTION_TYPE,
+    "Motor Satın Alım": MOTOR_PURCHASE_DEDUCTION_TYPE,
+    "Motor Satin Alim": MOTOR_PURCHASE_DEDUCTION_TYPE,
 }
 
 DEDUCTION_TYPE_OPTIONS = [
+    MOTOR_RENTAL_DEDUCTION_TYPE,
+    MOTOR_PURCHASE_DEDUCTION_TYPE,
     MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
     FUEL_DEDUCTION_TYPE,
     HGS_DEDUCTION_TYPE,
@@ -119,6 +140,10 @@ def _normalize_known_deduction_type(value: str) -> str:
 
 def _get_deduction_type_caption(deduction_type: str) -> str:
     normalized_type = _normalize_deduction_type(deduction_type)
+    if normalized_type == MOTOR_RENTAL_DEDUCTION_TYPE:
+        return "Çat Kapında kiralık motor için aylık kira kesintisi. İlk ay işe giriş gününe göre prorata hesaplanır."
+    if normalized_type == MOTOR_PURCHASE_DEDUCTION_TYPE:
+        return "Satılık motorun satış bedeli taahhüt ayına bölünerek aylık kesinti olarak izlenir."
     if normalized_type == MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE:
         return "Motor servis bakımında Çat Kapında kiralık motoru şirket öder. Satılık ve kendi motorunda bakım kuryeye yansır."
     if normalized_type == MOTOR_DAMAGE_DEDUCTION_TYPE:
@@ -151,6 +176,148 @@ def _build_management_entry(row: dict[str, object]) -> DeductionManagementEntry:
     )
 
 
+def _month_key(value: date) -> str:
+    return value.strftime("%Y-%m")
+
+
+def _month_key_sql(column: str) -> str:
+    return f"substr(COALESCE(CAST({column} AS TEXT), ''), 1, 7)"
+
+
+def _fetch_motor_payment_personnel_rows(conn: psycopg.Connection) -> list[dict[str, object]]:
+    rows = conn.execute(
+        """
+        SELECT
+            id,
+            COALESCE(full_name, '-') AS personnel_label,
+            COALESCE(status, '') AS status,
+            start_date,
+            COALESCE(vehicle_type, '') AS vehicle_type,
+            COALESCE(motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            motor_purchase_start_date,
+            COALESCE(motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction
+        FROM personnel
+        WHERE COALESCE(status, '') = 'Aktif'
+        """
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def _fetch_existing_motor_payment_amounts(conn: psycopg.Connection, month: str) -> dict[int, dict[str, float]]:
+    rows = conn.execute(
+        f"""
+        SELECT
+            personnel_id,
+            COALESCE(deduction_type, '') AS deduction_type,
+            COALESCE(SUM(amount), 0) AS total_amount
+        FROM deductions
+        WHERE {_month_key_sql('deduction_date')} = %s
+          AND personnel_id IS NOT NULL
+          AND COALESCE(deduction_type, '') IN {MOTOR_PAYMENT_DEDUCTION_TYPES_SQL}
+        GROUP BY personnel_id, COALESCE(deduction_type, '')
+        """,
+        (month,),
+    ).fetchall()
+    existing: dict[int, dict[str, float]] = {}
+    for row in rows:
+        person_id = int(row["personnel_id"])
+        bucket = existing.setdefault(person_id, {"rental": 0.0, "purchase": 0.0})
+        deduction_type = str(row["deduction_type"] or "")
+        amount = float(row["total_amount"] or 0)
+        if is_motor_rental_deduction_type(deduction_type):
+            bucket["rental"] += amount
+        elif is_motor_purchase_deduction_type(deduction_type):
+            bucket["purchase"] += amount
+    return existing
+
+
+def _build_virtual_motor_payment_entries(
+    conn: psycopg.Connection,
+    *,
+    reference_date: date,
+) -> list[DeductionManagementEntry]:
+    month = _month_key(reference_date)
+    existing_amounts = _fetch_existing_motor_payment_amounts(conn, month)
+    entries: list[DeductionManagementEntry] = []
+    for row in _fetch_motor_payment_personnel_rows(conn):
+        person_id = int(row["id"])
+        personnel_label = str(row.get("personnel_label") or "-")
+        existing = existing_amounts.get(person_id, {})
+        rental_plan = build_company_motor_rental_plan(
+            row,
+            month,
+            existing_amount=existing.get("rental", 0.0),
+        )
+        if rental_plan is not None:
+            entries.append(
+                _build_management_entry(
+                    {
+                        "id": -(VIRTUAL_MOTOR_RENTAL_ID_OFFSET + person_id),
+                        "personnel_id": person_id,
+                        "personnel_label": personnel_label,
+                        "deduction_date": rental_plan.deduction_date,
+                        "deduction_type": rental_plan.deduction_type,
+                        "amount": rental_plan.amount,
+                        "notes": rental_plan.notes,
+                        "auto_source_key": rental_plan.auto_source_key,
+                    }
+                )
+            )
+
+        purchase_plan = build_company_motor_purchase_plan(
+            row,
+            month,
+            existing_amount=existing.get("purchase", 0.0),
+        )
+        if purchase_plan is not None:
+            entries.append(
+                _build_management_entry(
+                    {
+                        "id": -(VIRTUAL_MOTOR_PURCHASE_ID_OFFSET + person_id),
+                        "personnel_id": person_id,
+                        "personnel_label": personnel_label,
+                        "deduction_date": purchase_plan.deduction_date,
+                        "deduction_type": purchase_plan.deduction_type,
+                        "amount": purchase_plan.amount,
+                        "notes": purchase_plan.notes,
+                        "auto_source_key": purchase_plan.auto_source_key,
+                    }
+                )
+            )
+    return entries
+
+
+def _entry_matches_filters(
+    entry: DeductionManagementEntry,
+    *,
+    personnel_id: int | None,
+    deduction_type: str | None,
+    search: str | None,
+) -> bool:
+    if personnel_id is not None and entry.personnel_id != personnel_id:
+        return False
+    if deduction_type is not None and entry.deduction_type != deduction_type:
+        return False
+    search_text = str(search or "").strip().lower()
+    if search_text and search_text not in " ".join(
+        [
+            entry.personnel_label.lower(),
+            entry.deduction_type.lower(),
+            entry.notes.lower(),
+        ]
+    ):
+        return False
+    return True
+
+
+def _sort_deduction_entries(entries: list[DeductionManagementEntry]) -> list[DeductionManagementEntry]:
+    return sorted(entries, key=lambda entry: (entry.deduction_date, entry.id), reverse=True)
+
+
 def build_deductions_status() -> DeductionsModuleStatus:
     return DeductionsModuleStatus(
         module="deductions",
@@ -166,12 +333,19 @@ def build_deductions_dashboard(
     limit: int,
 ) -> DeductionsDashboardResponse:
     summary_values = fetch_deduction_summary(conn, reference_date=reference_date)
+    virtual_entries = _build_virtual_motor_payment_entries(conn, reference_date=reference_date)
+    summary_values["total_entries"] += len(virtual_entries)
+    summary_values["this_month_entries"] += len(virtual_entries)
+    summary_values["auto_entries"] += len(virtual_entries)
     recent_rows = fetch_recent_deduction_records(conn, limit=limit)
+    recent_entries = _sort_deduction_entries(
+        [_build_management_entry(row) for row in recent_rows] + virtual_entries
+    )[:limit]
     return DeductionsDashboardResponse(
         module="deductions",
         status="active",
         summary=DeductionSummary(**summary_values),
-        recent_entries=[_build_management_entry(row) for row in recent_rows],
+        recent_entries=recent_entries,
     )
 
 
@@ -207,6 +381,16 @@ def build_deductions_management(
     search: str | None = None,
 ) -> DeductionsManagementResponse:
     normalized_type = _normalize_known_deduction_type(deduction_type) if deduction_type else None
+    virtual_entries = [
+        entry
+        for entry in _build_virtual_motor_payment_entries(conn, reference_date=date.today())
+        if _entry_matches_filters(
+            entry,
+            personnel_id=personnel_id,
+            deduction_type=normalized_type,
+            search=search,
+        )
+    ]
     rows = fetch_deduction_management_records(
         conn,
         limit=limit,
@@ -214,14 +398,16 @@ def build_deductions_management(
         deduction_type=normalized_type,
         search=search,
     )
+    entries = _sort_deduction_entries([_build_management_entry(row) for row in rows] + virtual_entries)[:limit]
     return DeductionsManagementResponse(
         total_entries=count_deduction_management_records(
             conn,
             personnel_id=personnel_id,
             deduction_type=normalized_type,
             search=search,
-        ),
-        entries=[_build_management_entry(row) for row in rows],
+        )
+        + len(virtual_entries),
+        entries=entries,
     )
 
 
@@ -230,6 +416,18 @@ def build_deduction_detail(
     *,
     deduction_id: int,
 ) -> DeductionDetailResponse:
+    if deduction_id < 0:
+        virtual_entry = next(
+            (
+                entry
+                for entry in _build_virtual_motor_payment_entries(conn, reference_date=date.today())
+                if entry.id == deduction_id
+            ),
+            None,
+        )
+        if virtual_entry is None:
+            raise LookupError("Kesinti kaydı bulunamadı.")
+        return DeductionDetailResponse(entry=virtual_entry)
     row = fetch_deduction_record_by_id(conn, deduction_id)
     if row is None:
         raise LookupError("Kesinti kaydı bulunamadı.")

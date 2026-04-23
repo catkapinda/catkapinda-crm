@@ -723,8 +723,8 @@ export default function EquipmentPage() {
                 })),
               )}
               {listCard(
-                "Taksit Akışı",
-                "Zimmetten otomatik oluşan deduction satırları.",
+                "Kesinti / Taksit Akışı",
+                "Motor kirası, motor satış taksiti ve zimmetten oluşan aylık ödeme satırları.",
                 dashboard.installment_entries.map((entry) => ({
                   title: entry.personnel_label,
                   meta: `${entry.deduction_date} · ${entry.notes || entry.deduction_type}`,

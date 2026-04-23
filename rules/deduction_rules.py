@@ -24,14 +24,22 @@ NON_INVOICED_AMOUNT_DEDUCTION_TYPE = "Fatura Edilmeyen Tutar"
 FUEL_DEDUCTION_TYPE = "Yakıt"
 HGS_DEDUCTION_TYPE = "HGS"
 PARTNER_CARD_DISCOUNT_DEDUCTION_TYPE = "Partner Kart İndirimi"
+MOTOR_RENTAL_DEDUCTION_TYPE = "Motor Kirası"
+MOTOR_PURCHASE_DEDUCTION_TYPE = "Motor Satış Taksiti"
 REDUCED_DEDUCTION_VAT_START_DATE = date(2026, 3, 1)
 
 LEGACY_DEDUCTION_TYPE_MAP = {
     "Bakım": MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
     "Hasar": MOTOR_DAMAGE_DEDUCTION_TYPE,
+    "Motor Kirasi": MOTOR_RENTAL_DEDUCTION_TYPE,
+    "Motor Satis Taksiti": MOTOR_PURCHASE_DEDUCTION_TYPE,
+    "Motor Satın Alım": MOTOR_PURCHASE_DEDUCTION_TYPE,
+    "Motor Satin Alim": MOTOR_PURCHASE_DEDUCTION_TYPE,
 }
 
 DEDUCTION_TYPE_OPTIONS = [
+    MOTOR_RENTAL_DEDUCTION_TYPE,
+    MOTOR_PURCHASE_DEDUCTION_TYPE,
     MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE,
     FUEL_DEDUCTION_TYPE,
     HGS_DEDUCTION_TYPE,
@@ -123,6 +131,10 @@ def get_deduction_type_caption(deduction_type: Any) -> str:
     normalized_type = normalize_deduction_type(deduction_type)
     if normalized_type == MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE:
         return "Motor servis bakımında Çat Kapında kiralık motoru şirket öder. Satılık ve kendi motorunda bakım kuryeye yansır."
+    if normalized_type == MOTOR_RENTAL_DEDUCTION_TYPE:
+        return "Çat Kapında kiralık motor için aylık kira kesintisi. İlk ay işe giriş gününe göre prorata hesaplanır."
+    if normalized_type == MOTOR_PURCHASE_DEDUCTION_TYPE:
+        return "Satılık motorun satış bedeli taahhüt ayına bölünerek aylık kesinti olarak izlenir."
     if normalized_type == MOTOR_DAMAGE_DEDUCTION_TYPE:
         return "Motor hasar bedeli tüm motor tiplerinde kuryeye yansıtılır. Girdiğin tutar aynen kesinti olur."
     if normalized_type == HGS_DEDUCTION_TYPE:

@@ -7,7 +7,10 @@ import pandas as pd
 import psycopg
 
 from app.core.database import is_sqlite_backend
-from app.services.motor_rental import calculate_company_motor_rental_deduction
+from app.services.motor_rental import (
+    calculate_company_motor_purchase_deduction,
+    calculate_company_motor_rental_deduction,
+)
 from app.schemas.reports import (
     ReportCostEntry,
     ReportDistributionEntry,
@@ -38,6 +41,7 @@ _LOCAL_FUEL_DEDUCTION_TYPES = {"Yakit", "Yakıt"}
 _PACKAGE_THRESHOLD_DEFAULT = 390
 _REPORT_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
 _MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
+_MOTOR_PURCHASE_DEDUCTION_SQL = "('Motor Satış Taksiti', 'Motor Satis Taksiti', 'Motor Satın Alım', 'Motor Satin Alim')"
 _VAT_RATE_DEFAULT = 20.0
 _COURIER_HOURLY_COST = 250.0
 _COURIER_HOURLY_COST_DOGU_OTOMOTIV = 295.0
@@ -667,7 +671,11 @@ def _build_local_reports_dashboard(
             COALESCE(vehicle_type, '') AS vehicle_type,
             COALESCE(motor_rental, 'Hayır') AS motor_rental,
             COALESCE(motor_purchase, 'Hayır') AS motor_purchase,
-            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount
+            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            motor_purchase_start_date,
+            COALESCE(motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction
         FROM personnel
         """
     ).fetchall()
@@ -709,6 +717,24 @@ def _build_local_reports_dashboard(
         for row in existing_motor_rental_rows
         if row["personnel_id"] is not None
     }
+    existing_motor_purchase_rows = conn.execute(
+        f"""
+        SELECT
+            personnel_id,
+            COALESCE(SUM(amount), 0) AS total_motor_purchase
+        FROM deductions
+        WHERE {_month_key_sql('deduction_date')} = %s
+          AND personnel_id IS NOT NULL
+          AND COALESCE(deduction_type, '') IN {_MOTOR_PURCHASE_DEDUCTION_SQL}
+        GROUP BY personnel_id
+        """,
+        (resolved_month,),
+    ).fetchall()
+    existing_motor_purchase_by_person = {
+        int(row["personnel_id"]): _safe_float(row["total_motor_purchase"])
+        for row in existing_motor_purchase_rows
+        if row["personnel_id"] is not None
+    }
     for row in personnel_rows:
         person_id = int(row["id"])
         auto_motor_rental = calculate_company_motor_rental_deduction(
@@ -718,6 +744,13 @@ def _build_local_reports_dashboard(
         )
         if auto_motor_rental > 0:
             deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_rental
+        auto_motor_purchase = calculate_company_motor_purchase_deduction(
+            dict(row),
+            resolved_month,
+            existing_amount=existing_motor_purchase_by_person.get(person_id, 0.0),
+        )
+        if auto_motor_purchase > 0:
+            deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_purchase
 
     all_cost_entries: list[ReportCostEntry] = []
     person_cost_lookup: dict[int, ReportCostEntry] = {}

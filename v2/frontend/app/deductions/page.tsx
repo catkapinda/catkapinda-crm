@@ -334,7 +334,7 @@ export default function DeductionsPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Kesintiler
+                Kesinti ve Zimmet
               </div>
               <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
                 <h1
@@ -346,7 +346,7 @@ export default function DeductionsPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Kesinti yönetimi
+                  Kesinti ve zimmet ödemeleri
                 </h1>
                 <p
                   style={{
@@ -357,7 +357,7 @@ export default function DeductionsPage() {
                     fontSize: "1.02rem",
                   }}
                 >
-                  Manuel ve otomatik kesinti kayıtlarını aynı ekrandan takip et ve düzenle.
+                  Motor kirası, motor satış taksiti, ekipman taksitleri ve manuel kesintileri aynı ödeme hattında takip et.
                 </p>
               </div>
               <div
@@ -456,7 +456,7 @@ export default function DeductionsPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Kesintiler
+                  Ödeme hattı
                   </div>
                 </div>
                 <div
@@ -532,7 +532,7 @@ export default function DeductionsPage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  Kesinti Kontrolü
+                  Kesinti ve Zimmet Kontrolü
                 </div>
                 <div
                   style={{
@@ -623,9 +623,9 @@ export default function DeductionsPage() {
                 }}
               >
                 <div>
-                  <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Son Kesinti Sinyalleri</h2>
+                  <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Son Kesinti ve Zimmet Akışı</h2>
                   <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
-                    Son kesinti kayıtları burada listelenir.
+                    Motor kirası, satış taksiti, zimmet ve manuel kesinti satırları burada listelenir.
                   </p>
                 </div>
                 <span

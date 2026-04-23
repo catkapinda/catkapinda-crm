@@ -347,9 +347,9 @@ export function DeductionManagementWorkspace() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Kesinti Kayıt Yönetimi</h2>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Kesinti ve Zimmet Kayıtları</h2>
         <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.7 }}>
-          Kayıtları filtrele, seç, güncelle ve sil. Otomatik oluşan satırlar salt okunur tutulur.
+          Manuel kesinti, motor kira/satış taksiti ve zimmet satırlarını aynı listede takip et.
         </p>
       </div>
 

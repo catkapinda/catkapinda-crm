@@ -11,8 +11,11 @@ import psycopg
 
 from app.core.database import is_sqlite_backend
 from app.services.motor_rental import (
+    MOTOR_PURCHASE_DEDUCTION_TYPE,
     MOTOR_RENTAL_DEDUCTION_TYPE,
+    calculate_company_motor_purchase_deduction,
     calculate_company_motor_rental_deduction,
+    is_motor_purchase_deduction_type,
     is_motor_rental_deduction_type,
 )
 from app.schemas.payroll import (
@@ -88,6 +91,7 @@ _COURIER_PACKAGE_COST_QC = 25.0
 _PACKAGE_THRESHOLD_DEFAULT = 390
 _PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
 _MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
+_MOTOR_PURCHASE_DEDUCTION_SQL = "('Motor Satış Taksiti', 'Motor Satis Taksiti', 'Motor Satın Alım', 'Motor Satin Alim')"
 _FIXED_MONTHLY_BRAND_KEYS = {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
 _FIXED_MONTHLY_BRAND_COURIER_PAY = 73600.0
 
@@ -604,7 +608,11 @@ def _build_local_payroll_document_payload(
             COALESCE(vehicle_type, '') AS vehicle_type,
             COALESCE(motor_rental, 'Hayır') AS motor_rental,
             COALESCE(motor_purchase, 'Hayır') AS motor_purchase,
-            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount
+            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            motor_purchase_start_date,
+            COALESCE(motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction
         FROM personnel
         WHERE id = %s
         """,
@@ -682,17 +690,30 @@ def _build_local_payroll_document_payload(
         for row in deduction_rows
         if is_motor_rental_deduction_type(row["deduction_type"])
     )
+    existing_motor_purchase = sum(
+        _safe_float(row["total_amount"])
+        for row in deduction_rows
+        if is_motor_purchase_deduction_type(row["deduction_type"])
+    )
     auto_motor_rental = calculate_company_motor_rental_deduction(
         person_data,
         resolved_month,
         existing_amount=existing_motor_rental,
     )
+    auto_motor_purchase = calculate_company_motor_purchase_deduction(
+        person_data,
+        resolved_month,
+        existing_amount=existing_motor_purchase,
+    )
     total_deductions += auto_motor_rental
+    total_deductions += auto_motor_purchase
     net_payment = max(gross_pay - total_deductions, 0.0)
     restaurant_names = [str(row["restaurant_label"]) for row in restaurant_rows if str(row["restaurant_label"]).strip()]
     deduction_items = [(str(row["deduction_type"]), _safe_float(row["total_amount"])) for row in deduction_rows]
     if auto_motor_rental > 0:
         deduction_items.append((MOTOR_RENTAL_DEDUCTION_TYPE, auto_motor_rental))
+    if auto_motor_purchase > 0:
+        deduction_items.append((MOTOR_PURCHASE_DEDUCTION_TYPE, auto_motor_purchase))
 
     return PayrollDocumentPayload(
         selected_month=resolved_month,
@@ -835,7 +856,11 @@ def _build_local_payroll_dashboard(
             COALESCE(vehicle_type, '') AS vehicle_type,
             COALESCE(motor_rental, 'Hayır') AS motor_rental,
             COALESCE(motor_purchase, 'Hayır') AS motor_purchase,
-            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount
+            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            motor_purchase_start_date,
+            COALESCE(motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction
         FROM personnel
         """
     ).fetchall()
@@ -884,9 +909,28 @@ def _build_local_payroll_dashboard(
         for row in existing_motor_rental_rows
         if row["personnel_id"] is not None
     }
+    existing_motor_purchase_rows = conn.execute(
+        f"""
+        SELECT
+            personnel_id,
+            COALESCE(SUM(amount), 0) AS total_motor_purchase
+        FROM deductions
+        WHERE {_month_key_sql('deduction_date')} = %s
+          AND personnel_id IS NOT NULL
+          AND COALESCE(deduction_type, '') IN {_MOTOR_PURCHASE_DEDUCTION_SQL}
+        GROUP BY personnel_id
+        """,
+        (resolved_month,),
+    ).fetchall()
+    existing_motor_purchase_by_person = {
+        int(row["personnel_id"]): _safe_float(row["total_motor_purchase"])
+        for row in existing_motor_purchase_rows
+        if row["personnel_id"] is not None
+    }
 
     personnel_index = {int(row["id"]): row for row in personnel_rows if row["id"] is not None}
     auto_motor_rental_by_person: dict[int, float] = {}
+    auto_motor_purchase_by_person: dict[int, float] = {}
     for person_id, person in personnel_index.items():
         auto_motor_rental = calculate_company_motor_rental_deduction(
             dict(person),
@@ -896,9 +940,20 @@ def _build_local_payroll_dashboard(
         if auto_motor_rental > 0:
             auto_motor_rental_by_person[person_id] = auto_motor_rental
             deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_rental
+        auto_motor_purchase = calculate_company_motor_purchase_deduction(
+            dict(person),
+            resolved_month,
+            existing_amount=existing_motor_purchase_by_person.get(person_id, 0.0),
+        )
+        if auto_motor_purchase > 0:
+            auto_motor_purchase_by_person[person_id] = auto_motor_purchase
+            deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_purchase
 
     relevant_personnel_ids = sorted(
-        set(attendance_by_person) | set(deductions_by_person) | set(auto_motor_rental_by_person)
+        set(attendance_by_person)
+        | set(deductions_by_person)
+        | set(auto_motor_rental_by_person)
+        | set(auto_motor_purchase_by_person)
     )
 
     entries_payload: list[PayrollEntry] = []

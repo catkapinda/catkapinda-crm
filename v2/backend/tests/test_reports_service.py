@@ -20,7 +20,11 @@ def _build_reports_conn() -> CompatConnection:
             motor_rental TEXT,
             motor_purchase TEXT,
             vehicle_type TEXT,
-            motor_rental_monthly_amount REAL
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
         );
         CREATE TABLE restaurants (
             id INTEGER PRIMARY KEY,

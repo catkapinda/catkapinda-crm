@@ -28,6 +28,14 @@ from app.repositories.equipment import (
     update_box_return_record,
     update_equipment_issue_record,
 )
+from app.services.motor_rental import (
+    MOTOR_PURCHASE_DEDUCTION_TYPE,
+    MOTOR_RENTAL_DEDUCTION_TYPE,
+    build_company_motor_purchase_plan,
+    build_company_motor_rental_plan,
+    is_motor_purchase_deduction_type,
+    is_motor_rental_deduction_type,
+)
 from app.schemas.equipment import (
     BoxReturnCreateRequest,
     BoxReturnCreateResponse,
@@ -68,6 +76,10 @@ AUTO_MOTOR_RENTAL_DEDUCTION = 13000.0
 AUTO_MOTOR_PURCHASE_TOTAL_PRICE = 135000.0
 AUTO_MOTOR_PURCHASE_INSTALLMENT_COUNT = 12
 AUTO_EQUIPMENT_INSTALLMENT_COUNT = 2
+MOTOR_PAYMENT_DEDUCTION_TYPES_SQL = (
+    "('Motor Kirası', 'Motor Kirasi', 'Motor Satış Taksiti', 'Motor Satis Taksiti', "
+    "'Motor Satın Alım', 'Motor Satin Alim')"
+)
 ISSUE_ITEMS = [
     "Box",
     "Punch",
@@ -148,6 +160,116 @@ def _coerce_date(value: object) -> date:
     if isinstance(value, date):
         return value
     return date.fromisoformat(str(value or date.today().isoformat()))
+
+
+def _month_key(value: date) -> str:
+    return value.strftime("%Y-%m")
+
+
+def _month_key_sql(column: str) -> str:
+    return f"substr(COALESCE(CAST({column} AS TEXT), ''), 1, 7)"
+
+
+def _fetch_motor_payment_personnel_rows(conn: psycopg.Connection) -> list[dict[str, object]]:
+    rows = conn.execute(
+        """
+        SELECT
+            id,
+            COALESCE(full_name, '-') AS personnel_label,
+            COALESCE(status, '') AS status,
+            start_date,
+            COALESCE(vehicle_type, '') AS vehicle_type,
+            COALESCE(motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            motor_purchase_start_date,
+            COALESCE(motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
+            COALESCE(motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
+            COALESCE(motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction
+        FROM personnel
+        WHERE COALESCE(status, '') = 'Aktif'
+        """
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def _fetch_existing_motor_payment_amounts(conn: psycopg.Connection, month: str) -> dict[int, dict[str, float]]:
+    rows = conn.execute(
+        f"""
+        SELECT
+            personnel_id,
+            COALESCE(deduction_type, '') AS deduction_type,
+            COALESCE(SUM(amount), 0) AS total_amount
+        FROM deductions
+        WHERE {_month_key_sql('deduction_date')} = %s
+          AND personnel_id IS NOT NULL
+          AND COALESCE(deduction_type, '') IN {MOTOR_PAYMENT_DEDUCTION_TYPES_SQL}
+        GROUP BY personnel_id, COALESCE(deduction_type, '')
+        """,
+        (month,),
+    ).fetchall()
+    existing: dict[int, dict[str, float]] = {}
+    for row in rows:
+        person_id = int(row["personnel_id"])
+        bucket = existing.setdefault(person_id, {"rental": 0.0, "purchase": 0.0})
+        deduction_type = str(row["deduction_type"] or "")
+        amount = float(row["total_amount"] or 0)
+        if is_motor_rental_deduction_type(deduction_type):
+            bucket["rental"] += amount
+        elif is_motor_purchase_deduction_type(deduction_type):
+            bucket["purchase"] += amount
+    return existing
+
+
+def _build_virtual_motor_payment_installments(
+    conn: psycopg.Connection,
+    *,
+    reference_date: date,
+) -> list[EquipmentInstallmentEntry]:
+    month = _month_key(reference_date)
+    existing_amounts = _fetch_existing_motor_payment_amounts(conn, month)
+    entries: list[EquipmentInstallmentEntry] = []
+    for row in _fetch_motor_payment_personnel_rows(conn):
+        person_id = int(row["id"])
+        personnel_label = str(row.get("personnel_label") or "-")
+        existing = existing_amounts.get(person_id, {})
+        rental_plan = build_company_motor_rental_plan(
+            row,
+            month,
+            existing_amount=existing.get("rental", 0.0),
+        )
+        if rental_plan is not None:
+            entries.append(
+                EquipmentInstallmentEntry(
+                    deduction_date=rental_plan.deduction_date,
+                    personnel_label=personnel_label,
+                    deduction_type=MOTOR_RENTAL_DEDUCTION_TYPE,
+                    amount=rental_plan.amount,
+                    notes=rental_plan.notes,
+                    auto_source_key=rental_plan.auto_source_key,
+                )
+            )
+        purchase_plan = build_company_motor_purchase_plan(
+            row,
+            month,
+            existing_amount=existing.get("purchase", 0.0),
+        )
+        if purchase_plan is not None:
+            entries.append(
+                EquipmentInstallmentEntry(
+                    deduction_date=purchase_plan.deduction_date,
+                    personnel_label=personnel_label,
+                    deduction_type=MOTOR_PURCHASE_DEDUCTION_TYPE,
+                    amount=purchase_plan.amount,
+                    notes=purchase_plan.notes,
+                    auto_source_key=purchase_plan.auto_source_key,
+                )
+            )
+    return entries
+
+
+def _sort_installment_entries(entries: list[EquipmentInstallmentEntry]) -> list[EquipmentInstallmentEntry]:
+    return sorted(entries, key=lambda entry: (entry.deduction_date, entry.personnel_label), reverse=True)
 
 
 def _rebuild_issue_installments(
@@ -263,23 +385,26 @@ def build_equipment_dashboard(
     limit: int,
 ) -> EquipmentDashboardResponse:
     summary_values = fetch_equipment_summary(conn, reference_date=reference_date)
+    real_installments = [
+        EquipmentInstallmentEntry(
+            deduction_date=row["deduction_date"],
+            personnel_label=str(row.get("personnel_label") or "-"),
+            deduction_type=str(row.get("deduction_type") or ""),
+            amount=float(row.get("amount") or 0),
+            notes=str(row.get("notes") or ""),
+            auto_source_key=str(row.get("auto_source_key") or ""),
+        )
+        for row in fetch_equipment_installments(conn, limit=limit)
+    ]
+    virtual_installments = _build_virtual_motor_payment_installments(conn, reference_date=reference_date)
+    summary_values["installment_rows"] += len(virtual_installments)
     return EquipmentDashboardResponse(
         module="equipment",
         status="active",
         summary=EquipmentSummary(**summary_values),
         recent_issues=[_build_issue_entry(row) for row in fetch_recent_equipment_issues(conn, limit=limit)],
         recent_box_returns=[_build_box_return_entry(row) for row in fetch_recent_box_returns(conn, limit=limit)],
-        installment_entries=[
-            EquipmentInstallmentEntry(
-                deduction_date=row["deduction_date"],
-                personnel_label=str(row.get("personnel_label") or "-"),
-                deduction_type=str(row.get("deduction_type") or ""),
-                amount=float(row.get("amount") or 0),
-                notes=str(row.get("notes") or ""),
-                auto_source_key=str(row.get("auto_source_key") or ""),
-            )
-            for row in fetch_equipment_installments(conn, limit=limit)
-        ],
+        installment_entries=_sort_installment_entries(real_installments + virtual_installments)[:limit],
         sales_profit=[
             EquipmentSalesProfitEntry(
                 item_name=str(row.get("item_name") or ""),
