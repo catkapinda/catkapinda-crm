@@ -7,6 +7,7 @@ import pandas as pd
 import psycopg
 
 from app.core.database import is_sqlite_backend
+from app.services.motor_rental import calculate_company_motor_rental_deduction
 from app.schemas.reports import (
     ReportCostEntry,
     ReportDistributionEntry,
@@ -36,6 +37,7 @@ _SHARED_OVERHEAD_ROLES = {"Joker", "Bölge Müdürü"}
 _LOCAL_FUEL_DEDUCTION_TYPES = {"Yakit", "Yakıt"}
 _PACKAGE_THRESHOLD_DEFAULT = 390
 _REPORT_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
+_MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
 _VAT_RATE_DEFAULT = 20.0
 _COURIER_HOURLY_COST = 250.0
 _COURIER_HOURLY_COST_DOGU_OTOMOTIV = 295.0
@@ -639,14 +641,33 @@ def _build_local_reports_dashboard(
         """,
         (resolved_month,),
     ).fetchall()
+    existing_motor_rental_rows = conn.execute(
+        f"""
+        SELECT
+            personnel_id,
+            COALESCE(SUM(amount), 0) AS total_motor_rental
+        FROM deductions
+        WHERE {_month_key_sql('deduction_date')} = %s
+          AND personnel_id IS NOT NULL
+          AND COALESCE(deduction_type, '') IN {_MOTOR_RENTAL_DEDUCTION_SQL}
+        GROUP BY personnel_id
+        """,
+        (resolved_month,),
+    ).fetchall()
     personnel_rows = conn.execute(
         """
         SELECT
             id,
             COALESCE(full_name, '-') AS full_name,
             COALESCE(role, '-') AS role,
+            COALESCE(status, '-') AS status,
             COALESCE(monthly_fixed_cost, 0) AS monthly_fixed_cost,
-            COALESCE(cost_model, '-') AS cost_model
+            COALESCE(cost_model, '-') AS cost_model,
+            start_date,
+            COALESCE(vehicle_type, '') AS vehicle_type,
+            COALESCE(motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount
         FROM personnel
         """
     ).fetchall()
@@ -683,6 +704,20 @@ def _build_local_reports_dashboard(
         for row in deductions_rows
         if row["personnel_id"] is not None
     }
+    existing_motor_rental_by_person = {
+        int(row["personnel_id"]): _safe_float(row["total_motor_rental"])
+        for row in existing_motor_rental_rows
+        if row["personnel_id"] is not None
+    }
+    for row in personnel_rows:
+        person_id = int(row["id"])
+        auto_motor_rental = calculate_company_motor_rental_deduction(
+            dict(row),
+            resolved_month,
+            existing_amount=existing_motor_rental_by_person.get(person_id, 0.0),
+        )
+        if auto_motor_rental > 0:
+            deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_rental
 
     all_cost_entries: list[ReportCostEntry] = []
     person_cost_lookup: dict[int, ReportCostEntry] = {}

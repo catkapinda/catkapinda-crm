@@ -23,7 +23,7 @@ from app.schemas.overview import (
 from app.services.attendance import build_attendance_dashboard
 from app.services.deductions import build_deductions_dashboard
 from app.services.personnel import build_personnel_dashboard
-from app.services.reports import build_reports_dashboard
+from app.services.reports import _build_local_reports_dashboard, build_reports_dashboard
 from app.services.restaurants import build_restaurants_dashboard
 
 
@@ -271,66 +271,7 @@ def _build_operations_summary(
         """,
         (month_key,),
     ).fetchall()
-    restaurant_profit_rows = conn.execute(
-        f"""
-        SELECT
-            r.id,
-            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant,
-            COALESCE((
-                SELECT SUM(d.monthly_invoice_amount)
-                FROM daily_entries d
-                WHERE d.restaurant_id = r.id
-                  AND substr(COALESCE(d.entry_date, ''), 1, 7) = %s
-            ), 0) AS gross_invoice,
-            COALESCE((
-                SELECT SUM(COALESCE(p.monthly_fixed_cost, 0))
-                FROM personnel p
-                WHERE p.assigned_restaurant_id = r.id
-                  AND COALESCE(p.status, '') = 'Aktif'
-            ), 0) AS personnel_cost
-        FROM restaurants r
-        WHERE {_restaurant_active_sql('r.active')}
-        ORDER BY restaurant
-        """,
-        (month_key,),
-    ).fetchall()
-    brand_rows = conn.execute(
-        f"""
-        WITH invoice AS (
-            SELECT
-                COALESCE(r.brand, '-') AS brand,
-                COUNT(DISTINCT d.restaurant_id) AS restaurant_count,
-                COALESCE(SUM(d.package_count), 0) AS total_packages,
-                COALESCE(SUM(d.worked_hours), 0) AS total_hours,
-                COALESCE(SUM(d.monthly_invoice_amount), 0) AS gross_invoice
-            FROM daily_entries d
-            JOIN restaurants r ON r.id = d.restaurant_id
-            WHERE substr(COALESCE(d.entry_date, ''), 1, 7) = %s
-            GROUP BY COALESCE(r.brand, '-')
-        ),
-        personnel_cost AS (
-            SELECT
-                COALESCE(r.brand, '-') AS brand,
-                COALESCE(SUM(CASE WHEN p.status = 'Aktif' THEN COALESCE(p.monthly_fixed_cost, 0) ELSE 0 END), 0) AS personnel_cost
-            FROM restaurants r
-            LEFT JOIN personnel p ON p.assigned_restaurant_id = r.id
-            WHERE {_restaurant_active_sql('r.active')}
-            GROUP BY COALESCE(r.brand, '-')
-        )
-        SELECT
-            invoice.brand,
-            invoice.restaurant_count,
-            invoice.total_packages,
-            invoice.total_hours,
-            invoice.gross_invoice,
-            COALESCE(personnel_cost.personnel_cost, 0) AS personnel_cost
-        FROM invoice
-        LEFT JOIN personnel_cost ON personnel_cost.brand = invoice.brand
-        ORDER BY invoice.gross_invoice DESC, invoice.brand
-        LIMIT 8
-        """,
-        (month_key,),
-    ).fetchall()
+    reports_dashboard = _build_local_reports_dashboard(conn, selected_month=month_key, limit=500)
     shared_operation_row = conn.execute(
         """
         SELECT
@@ -371,35 +312,59 @@ def _build_operations_summary(
             )
         )
 
+    brand_buckets: dict[str, dict[str, object]] = {}
+    for entry in reports_dashboard.profit_entries:
+        brand = str(entry.restaurant or "-").split(" - ", 1)[0].strip() or "-"
+        bucket = brand_buckets.setdefault(
+            brand,
+            {
+                "restaurants": set(),
+                "total_packages": 0.0,
+                "total_hours": 0.0,
+                "gross_invoice": 0.0,
+                "operation_gap": 0.0,
+            },
+        )
+        restaurants = bucket["restaurants"]
+        if isinstance(restaurants, set):
+            restaurants.add(str(entry.restaurant or "-"))
+        bucket["total_packages"] = float(bucket["total_packages"]) + float(entry.total_packages or 0)
+        bucket["total_hours"] = float(bucket["total_hours"]) + float(entry.total_hours or 0)
+        bucket["gross_invoice"] = float(bucket["gross_invoice"]) + float(entry.gross_invoice or 0)
+        bucket["operation_gap"] = float(bucket["operation_gap"]) + float(entry.gross_profit or 0)
+
     brand_summary: list[OverviewBrandSummaryEntry] = []
-    for row in brand_rows:
-        operation_gap = float(row["gross_invoice"] or 0) - float(row["personnel_cost"] or 0)
+    for brand, values in sorted(
+        brand_buckets.items(),
+        key=lambda item: float(item[1]["gross_invoice"]),
+        reverse=True,
+    )[:8]:
+        operation_gap = float(values["operation_gap"])
         if operation_gap < 0:
             status = "Riskte"
         elif operation_gap < 25000:
             status = "Dengede"
         else:
             status = "Sağlam"
+        restaurants = values["restaurants"]
         brand_summary.append(
             OverviewBrandSummaryEntry(
-                brand=str(row["brand"] or "-"),
-                restaurant_count=int(row["restaurant_count"] or 0),
-                total_packages=float(row["total_packages"] or 0),
-                total_hours=float(row["total_hours"] or 0),
-                gross_invoice=float(row["gross_invoice"] or 0),
+                brand=brand,
+                restaurant_count=len(restaurants) if isinstance(restaurants, set) else 0,
+                total_packages=float(values["total_packages"]),
+                total_hours=float(values["total_hours"]),
+                gross_invoice=float(values["gross_invoice"]),
                 operation_gap=operation_gap,
                 status=status,
             )
         )
 
-    profitable_restaurant_count = 0
-    risky_restaurant_count = 0
-    for row in restaurant_profit_rows:
-        operation_gap = float(row["gross_invoice"] or 0) - float(row["personnel_cost"] or 0)
-        if operation_gap >= 0:
-            profitable_restaurant_count += 1
-        else:
-            risky_restaurant_count += 1
+    profitable_restaurant_count = sum(
+        1 for entry in reports_dashboard.profit_entries if float(entry.gross_profit or 0) >= 0
+    )
+    risky_restaurant_count = sum(
+        1 for entry in reports_dashboard.profit_entries if float(entry.gross_profit or 0) < 0
+    )
 
     critical_signal_count = (
         len(missing_attendance_rows)

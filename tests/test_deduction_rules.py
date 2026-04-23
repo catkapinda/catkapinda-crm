@@ -109,8 +109,8 @@ class DeductionRulesTests(unittest.TestCase):
     def test_get_deduction_type_caption_explains_maintenance_rule(self) -> None:
         caption = get_deduction_type_caption(MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE)
 
-        self.assertIn("Çat Kapında kiralık motorları şirket öder", caption)
-        self.assertIn("satılık motor ve kendi motorunda bakım kuryeden kesilir", caption)
+        self.assertIn("Çat Kapında kiralık motoru şirket öder", caption)
+        self.assertIn("Satılık ve kendi motorunda bakım kuryeye yansır", caption)
 
     def test_get_deduction_type_caption_explains_damage_rule(self) -> None:
         caption = get_deduction_type_caption(MOTOR_DAMAGE_DEDUCTION_TYPE)

@@ -1695,39 +1695,41 @@ export default function HomePage() {
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                            gap: "8px",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))",
+                            gap: "10px",
                           }}
                         >
-                          <div>
+                          <div style={{ minWidth: 0 }}>
                             <div style={{ color: "var(--muted)", fontSize: "0.66rem", fontWeight: 800, textTransform: "uppercase" }}>
                               Şube
                             </div>
                             <div style={{ fontWeight: 800 }}>{entry.restaurant_count}</div>
                           </div>
-                          <div>
+                          <div style={{ minWidth: 0 }}>
                             <div style={{ color: "var(--muted)", fontSize: "0.66rem", fontWeight: 800, textTransform: "uppercase" }}>
                               Hacim
                             </div>
-                            <div style={{ fontWeight: 800 }}>
-                              {`${entry.total_packages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} paket`}
+                            <div style={{ fontWeight: 800, lineHeight: 1.25 }}>
+                              {entry.total_hours.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} saat
+                              <br />
+                              {entry.total_packages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} paket
                             </div>
                           </div>
-                          <div>
+                          <div style={{ minWidth: 0 }}>
                             <div style={{ color: "var(--muted)", fontSize: "0.66rem", fontWeight: 800, textTransform: "uppercase" }}>
-                              Fatura
+                              KDV Dahil
                             </div>
-                            <div style={{ fontWeight: 800 }}>{formatCurrency(entry.gross_invoice)}</div>
+                            <div style={{ fontWeight: 800, overflowWrap: "anywhere" }}>{formatCurrency(entry.gross_invoice)}</div>
                           </div>
-                          <div>
+                          <div style={{ minWidth: 0 }}>
                             <div style={{ color: "var(--muted)", fontSize: "0.66rem", fontWeight: 800, textTransform: "uppercase" }}>
-                              Operasyon Farkı
+                              Net Fark
                             </div>
-                            <div style={{ fontWeight: 800 }}>{formatCurrency(entry.operation_gap)}</div>
+                            <div style={{ fontWeight: 800, overflowWrap: "anywhere" }}>{formatCurrency(entry.operation_gap)}</div>
                           </div>
                         </div>
-                        <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.84rem" }}>
-                          {`${entry.total_hours.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} saat · ${entry.total_packages.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} paket · ${formatCurrency(entry.gross_invoice)} fatura`}
+                        <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.8rem" }}>
+                          Fatura ile doğrudan saha maliyeti arasındaki aylık fark.
                         </div>
                       </article>
                     ))

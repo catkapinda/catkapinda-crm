@@ -122,7 +122,7 @@ def get_deduction_vat_rate(deduction_type: Any, deduction_date: Any = None) -> f
 def get_deduction_type_caption(deduction_type: Any) -> str:
     normalized_type = normalize_deduction_type(deduction_type)
     if normalized_type == MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE:
-        return "Motor servis bakımında Çat Kapında kiralık motorları şirket öder. Çat Kapında satılık motor ve kendi motorunda bakım kuryeden kesilir."
+        return "Motor servis bakımında Çat Kapında kiralık motoru şirket öder. Satılık ve kendi motorunda bakım kuryeye yansır."
     if normalized_type == MOTOR_DAMAGE_DEDUCTION_TYPE:
         return "Motor hasar bedeli tüm motor tiplerinde kuryeye yansıtılır. Girdiğin tutar aynen kesinti olur."
     if normalized_type == HGS_DEDUCTION_TYPE:

@@ -109,13 +109,18 @@ def _normalize_bulk_deduction_ids(values: list[int]) -> list[int]:
 def _normalize_deduction_type(value: str) -> str:
     raw = str(value or "").strip()
     normalized = LEGACY_DEDUCTION_TYPE_MAP.get(raw, raw)
+    return normalized
+
+
+def _normalize_known_deduction_type(value: str) -> str:
+    normalized = _normalize_deduction_type(value)
     return normalized if normalized in KNOWN_DEDUCTION_TYPES else MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE
 
 
 def _get_deduction_type_caption(deduction_type: str) -> str:
     normalized_type = _normalize_deduction_type(deduction_type)
     if normalized_type == MOTOR_SERVICE_MAINTENANCE_DEDUCTION_TYPE:
-        return "Cat Kapinda kiralik motorda sirket oder. Satilik ve kendi motorda kurye odemesi olarak kaydedilir."
+        return "Motor servis bakımında Çat Kapında kiralık motoru şirket öder. Satılık ve kendi motorunda bakım kuryeye yansır."
     if normalized_type == MOTOR_DAMAGE_DEDUCTION_TYPE:
         return "Motor hasar bedeli tum motor tiplerinde kuryeye yansitilir."
     if normalized_type == HGS_DEDUCTION_TYPE:
@@ -201,7 +206,7 @@ def build_deductions_management(
     deduction_type: str | None = None,
     search: str | None = None,
 ) -> DeductionsManagementResponse:
-    normalized_type = _normalize_deduction_type(deduction_type) if deduction_type else None
+    normalized_type = _normalize_known_deduction_type(deduction_type) if deduction_type else None
     rows = fetch_deduction_management_records(
         conn,
         limit=limit,
@@ -236,7 +241,7 @@ def create_deduction_entry(
     *,
     payload: DeductionCreateRequest,
 ) -> DeductionCreateResponse:
-    normalized_type = _normalize_deduction_type(payload.deduction_type)
+    normalized_type = _normalize_known_deduction_type(payload.deduction_type)
     if payload.amount <= 0:
         raise ValueError("Tutar sıfırdan büyük olmalı.")
 
@@ -269,7 +274,7 @@ def update_deduction_entry(
     if str(existing.get("auto_source_key") or "").strip():
         raise ValueError("Otomatik oluşan kesinti kayıtları v2 ekranından düzenlenemez.")
 
-    normalized_type = _normalize_deduction_type(payload.deduction_type)
+    normalized_type = _normalize_known_deduction_type(payload.deduction_type)
     if payload.amount <= 0:
         raise ValueError("Tutar sıfırdan büyük olmalı.")
 

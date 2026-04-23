@@ -15,8 +15,12 @@ def _build_reports_conn() -> CompatConnection:
             role TEXT,
             monthly_fixed_cost REAL,
             cost_model TEXT,
+            status TEXT,
+            start_date TEXT,
             motor_rental TEXT,
-            motor_purchase TEXT
+            motor_purchase TEXT,
+            vehicle_type TEXT,
+            motor_rental_monthly_amount REAL
         );
         CREATE TABLE restaurants (
             id INTEGER PRIMARY KEY,
@@ -54,13 +58,13 @@ def _build_reports_conn() -> CompatConnection:
     raw_conn.executemany(
         """
         INSERT INTO personnel (
-            id, full_name, role, monthly_fixed_cost, cost_model, motor_rental, motor_purchase
+            id, full_name, role, monthly_fixed_cost, cost_model, status, start_date, motor_rental, motor_purchase, vehicle_type, motor_rental_monthly_amount
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
-            (1, "Ali Kurye", "Kurye", 30000, "standard_courier", "Hayır", "Hayır"),
-            (2, "Ayşe Kurye", "Kurye", 32000, "standard_courier", "Hayır", "Hayır"),
+            (1, "Ali Kurye", "Kurye", 30000, "standard_courier", "Aktif", "2026-01-01", "Hayır", "Hayır", "Kendi Motoru", 13000),
+            (2, "Ayşe Kurye", "Kurye", 32000, "standard_courier", "Aktif", "2026-01-01", "Hayır", "Hayır", "Kendi Motoru", 13000),
         ],
     )
     raw_conn.executemany(

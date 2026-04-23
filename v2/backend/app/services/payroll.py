@@ -10,6 +10,11 @@ import pandas as pd
 import psycopg
 
 from app.core.database import is_sqlite_backend
+from app.services.motor_rental import (
+    MOTOR_RENTAL_DEDUCTION_TYPE,
+    calculate_company_motor_rental_deduction,
+    is_motor_rental_deduction_type,
+)
 from app.schemas.payroll import (
     PayrollCostModelBreakdownEntry,
     PayrollDashboardResponse,
@@ -82,6 +87,7 @@ _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
 _PACKAGE_THRESHOLD_DEFAULT = 390
 _PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
+_MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
 _FIXED_MONTHLY_BRAND_KEYS = {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
 _FIXED_MONTHLY_BRAND_COURIER_PAY = 73600.0
 
@@ -593,7 +599,12 @@ def _build_local_payroll_document_payload(
             COALESCE(role, '-') AS role,
             COALESCE(status, '-') AS status,
             COALESCE(cost_model, '-') AS cost_model,
-            COALESCE(monthly_fixed_cost, 0) AS monthly_fixed_cost
+            COALESCE(monthly_fixed_cost, 0) AS monthly_fixed_cost,
+            start_date,
+            COALESCE(vehicle_type, '') AS vehicle_type,
+            COALESCE(motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount
         FROM personnel
         WHERE id = %s
         """,
@@ -601,6 +612,7 @@ def _build_local_payroll_document_payload(
     ).fetchone()
     if person_row is None:
         raise LookupError("Belgesi oluşturulacak personel bulunamadı.")
+    person_data = dict(person_row)
 
     attendance_rows = conn.execute(
         f"""
@@ -658,24 +670,37 @@ def _build_local_payroll_document_payload(
     total_hours = _safe_float(sum(_safe_float(row["total_hours"]) for row in attendance_rows))
     total_packages = _safe_float(sum(_safe_float(row["total_packages"]) for row in attendance_rows))
     gross_pay = _calculate_personnel_gross_pay(
-        cost_model=person_row["cost_model"],
-        monthly_fixed_cost=_safe_float(person_row["monthly_fixed_cost"]),
+        cost_model=person_data["cost_model"],
+        monthly_fixed_cost=_safe_float(person_data["monthly_fixed_cost"]),
         total_hours=total_hours,
         total_packages=total_packages,
         segments=attendance_segments,
     )
     total_deductions = _safe_float(sum(_safe_float(row["total_amount"]) for row in deduction_rows))
+    existing_motor_rental = sum(
+        _safe_float(row["total_amount"])
+        for row in deduction_rows
+        if is_motor_rental_deduction_type(row["deduction_type"])
+    )
+    auto_motor_rental = calculate_company_motor_rental_deduction(
+        person_data,
+        resolved_month,
+        existing_amount=existing_motor_rental,
+    )
+    total_deductions += auto_motor_rental
     net_payment = max(gross_pay - total_deductions, 0.0)
     restaurant_names = [str(row["restaurant_label"]) for row in restaurant_rows if str(row["restaurant_label"]).strip()]
     deduction_items = [(str(row["deduction_type"]), _safe_float(row["total_amount"])) for row in deduction_rows]
+    if auto_motor_rental > 0:
+        deduction_items.append((MOTOR_RENTAL_DEDUCTION_TYPE, auto_motor_rental))
 
     return PayrollDocumentPayload(
         selected_month=resolved_month,
         personnel_id=personnel_id,
-        personnel=str(person_row["full_name"] or "-"),
-        person_code=str(person_row["person_code"] or ""),
-        role=str(person_row["role"] or "-"),
-        status=str(person_row["status"] or "-"),
+        personnel=str(person_data["full_name"] or "-"),
+        person_code=str(person_data["person_code"] or ""),
+        role=str(person_data["role"] or "-"),
+        status=str(person_data["status"] or "-"),
         total_hours=total_hours,
         total_packages=total_packages,
         gross_pay=gross_pay,
@@ -783,6 +808,19 @@ def _build_local_payroll_dashboard(
         """,
         (resolved_month,),
     ).fetchall()
+    existing_motor_rental_rows = conn.execute(
+        f"""
+        SELECT
+            personnel_id,
+            COALESCE(SUM(amount), 0) AS total_motor_rental
+        FROM deductions
+        WHERE {_month_key_sql('deduction_date')} = %s
+          AND personnel_id IS NOT NULL
+          AND COALESCE(deduction_type, '') IN {_MOTOR_RENTAL_DEDUCTION_SQL}
+        GROUP BY personnel_id
+        """,
+        (resolved_month,),
+    ).fetchall()
 
     personnel_rows = conn.execute(
         """
@@ -792,7 +830,12 @@ def _build_local_payroll_dashboard(
             COALESCE(role, '-') AS role,
             COALESCE(status, '-') AS status,
             COALESCE(cost_model, '-') AS cost_model,
-            COALESCE(monthly_fixed_cost, 0) AS monthly_fixed_cost
+            COALESCE(monthly_fixed_cost, 0) AS monthly_fixed_cost,
+            start_date,
+            COALESCE(vehicle_type, '') AS vehicle_type,
+            COALESCE(motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount
         FROM personnel
         """
     ).fetchall()
@@ -836,9 +879,27 @@ def _build_local_payroll_dashboard(
         for row in deductions_rows
         if row["personnel_id"] is not None
     }
+    existing_motor_rental_by_person = {
+        int(row["personnel_id"]): _safe_float(row["total_motor_rental"])
+        for row in existing_motor_rental_rows
+        if row["personnel_id"] is not None
+    }
 
     personnel_index = {int(row["id"]): row for row in personnel_rows if row["id"] is not None}
-    relevant_personnel_ids = sorted(set(attendance_by_person) | set(deductions_by_person))
+    auto_motor_rental_by_person: dict[int, float] = {}
+    for person_id, person in personnel_index.items():
+        auto_motor_rental = calculate_company_motor_rental_deduction(
+            dict(person),
+            resolved_month,
+            existing_amount=existing_motor_rental_by_person.get(person_id, 0.0),
+        )
+        if auto_motor_rental > 0:
+            auto_motor_rental_by_person[person_id] = auto_motor_rental
+            deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_rental
+
+    relevant_personnel_ids = sorted(
+        set(attendance_by_person) | set(deductions_by_person) | set(auto_motor_rental_by_person)
+    )
 
     entries_payload: list[PayrollEntry] = []
     for person_id in relevant_personnel_ids:
