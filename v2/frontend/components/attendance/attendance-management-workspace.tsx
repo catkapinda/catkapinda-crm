@@ -12,6 +12,8 @@ import {
   softDangerButtonStyle as secondaryButtonStyle,
 } from "../shared/compact-ui";
 
+const ATTENDANCE_PAGE_SIZE = 500;
+
 type AttendanceEntry = {
   id: number;
   entry_date: string;
@@ -169,6 +171,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
   const [filterMonth, setFilterMonth] = useState("");
 
   const [listLoading, setListLoading] = useState(true);
+  const [listLoadingMore, setListLoadingMore] = useState(false);
   const [listError, setListError] = useState("");
   const [entries, setEntries] = useState<AttendanceEntry[]>([]);
   const [totalEntries, setTotalEntries] = useState(0);
@@ -212,7 +215,8 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
   const selectedVisibleCount = entries.filter((entry) => selectedEntryIdSet.has(entry.id)).length;
   const hasSelectedEntry = Boolean(selectedEntryId);
   const isAnyMutationPending =
-    isPending || deletePending || bulkDeletePending || filteredDeletePending;
+    isPending || deletePending || bulkDeletePending || filteredDeletePending || listLoadingMore;
+  const hasMoreEntries = totalEntries > entries.length;
 
   async function loadReferenceOptions() {
     const response = await apiFetch("/attendance/form-options");
@@ -225,12 +229,17 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
     setAbsenceReasons(payload.absence_reasons);
   }
 
-  async function loadEntries() {
-    setListLoading(true);
-    setListError("");
+  async function loadEntries({ append = false }: { append?: boolean } = {}) {
+    if (append) {
+      setListLoadingMore(true);
+    } else {
+      setListLoading(true);
+      setListError("");
+    }
     try {
       const query = new URLSearchParams();
-      query.set("limit", activeMonthWindow ? "5000" : "500");
+      query.set("limit", activeMonthWindow ? "5000" : String(ATTENDANCE_PAGE_SIZE));
+      query.set("offset", append ? String(entries.length) : "0");
       if (typeof filterRestaurantId === "number") {
         query.set("restaurant_id", String(filterRestaurantId));
       }
@@ -246,26 +255,42 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
         throw new Error(await apiErrorMessage(response, "Puantaj kayıtları alınamadı. Lütfen tekrar dene."));
       }
       const payload = (await response.json()) as AttendanceManagementResponse;
-      const visibleEntryIdSet = new Set(payload.entries.map((entry) => entry.id));
-      setEntries(payload.entries);
+      const nextEntries = append
+        ? [
+            ...entries,
+            ...payload.entries.filter((entry) => !entries.some((current) => current.id === entry.id)),
+          ]
+        : payload.entries;
+      const visibleEntryIdSet = new Set(nextEntries.map((entry) => entry.id));
+      setEntries(nextEntries);
       setTotalEntries(payload.total_entries);
-      setSelectedEntryIds((current) => current.filter((entryId) => visibleEntryIdSet.has(entryId)));
+      if (!append) {
+        setSelectedEntryIds((current) => current.filter((entryId) => visibleEntryIdSet.has(entryId)));
+      }
       setSelectedEntryId((current) => {
-        if (!payload.entries.length) {
+        if (!nextEntries.length) {
           return null;
         }
-        if (current && payload.entries.some((entry) => entry.id === current)) {
+        if (current && nextEntries.some((entry) => entry.id === current)) {
           return current;
         }
-        return payload.entries[0].id;
+        return nextEntries[0].id;
       });
     } catch (error) {
-      setListError(error instanceof Error ? error.message : "Puantaj kayıtları alınamadı. Lütfen tekrar dene.");
-      setEntries([]);
-      setTotalEntries(0);
-      setSelectedEntryId(null);
+      if (append) {
+        setListError(error instanceof Error ? error.message : "Ek kayıtlar alınamadı. Lütfen tekrar dene.");
+      } else {
+        setListError(error instanceof Error ? error.message : "Puantaj kayıtları alınamadı. Lütfen tekrar dene.");
+        setEntries([]);
+        setTotalEntries(0);
+        setSelectedEntryId(null);
+      }
     } finally {
-      setListLoading(false);
+      if (append) {
+        setListLoadingMore(false);
+      } else {
+        setListLoading(false);
+      }
     }
   }
 
@@ -700,9 +725,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                 flexWrap: "wrap",
               }}
             >
-              <span
-                style={badgeStyle(selectedEntryIds.length ? "accent" : "muted")}
-              >
+              <span style={badgeStyle(selectedEntryIds.length ? "accent" : "muted")}>
                 {selectedEntryIds.length
                   ? `${selectedEntryIds.length} kayıt seçili${
                       selectedVisibleCount ? ` • ${selectedVisibleCount} görünüyor` : ""
@@ -729,6 +752,14 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                     Seçimi Temizle
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={() => void loadEntries({ append: true })}
+                  disabled={!hasMoreEntries || listLoading || isAnyMutationPending}
+                  style={tertiaryButtonStyle}
+                >
+                  {listLoadingMore ? "Daha Fazla Yükleniyor..." : "Daha Fazla Yükle"}
+                </button>
                 <button
                   type="button"
                   onClick={() => setFilterMonth("")}
@@ -760,11 +791,13 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
               </div>
             </div>
 
-            {activeMonthLabel ? (
+            {activeMonthLabel || hasMoreEntries ? (
               <div style={feedbackBox("info")}>
-                {activeMonthLabel} için toplam {totalEntries} kayıt bulundu.
-                {totalEntries > entries.length
-                  ? ` Listede ilk ${entries.length} kayıt gösteriliyor; ay silme işlemi tüm ${totalEntries} kaydı kapsar.`
+                {activeMonthLabel
+                  ? `${activeMonthLabel} için toplam ${totalEntries} kayıt bulundu.`
+                  : `Filtrelerde toplam ${totalEntries} kayıt bulundu.`}
+                {hasMoreEntries
+                  ? ` Listede şu an ${entries.length} kayıt açık; daha eski puantajlar için "Daha Fazla Yükle" kullanabilirsin.`
                   : ""}
               </div>
             ) : null}

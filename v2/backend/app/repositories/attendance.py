@@ -202,6 +202,7 @@ def fetch_attendance_management_entries(
     conn: psycopg.Connection,
     *,
     limit: int,
+    offset: int = 0,
     restaurant_id: int | None = None,
     search: str | None = None,
     date_from: date | None = None,
@@ -257,6 +258,7 @@ def fetch_attendance_management_entries(
           )
         ORDER BY d.entry_date DESC, restaurant, d.id DESC
         LIMIT %s
+        OFFSET %s
         """,
         (
             restaurant_id,
@@ -271,6 +273,7 @@ def fetch_attendance_management_entries(
             search_pattern,
             search_pattern,
             limit,
+            offset,
         ),
     ).fetchall()
     return [dict(row) for row in rows]

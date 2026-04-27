@@ -506,6 +506,7 @@ def build_attendance_management(
     conn: psycopg.Connection,
     *,
     limit: int,
+    offset: int = 0,
     restaurant_id: int | None = None,
     search: str | None = None,
     date_from: date | None = None,
@@ -514,6 +515,7 @@ def build_attendance_management(
     rows = fetch_attendance_management_entries(
         conn,
         limit=limit,
+        offset=offset,
         restaurant_id=restaurant_id,
         search=search,
         date_from=date_from,

@@ -7,7 +7,11 @@ from app.schemas.attendance import (
     AttendanceBulkCreateRowRequest,
     AttendanceCreateRequest,
 )
-from app.services.attendance import create_attendance_entries_bulk, create_attendance_entry
+from app.services.attendance import (
+    build_attendance_management,
+    create_attendance_entries_bulk,
+    create_attendance_entry,
+)
 
 
 def _build_attendance_conn() -> CompatConnection:
@@ -141,3 +145,27 @@ def test_bulk_attendance_entries_calculate_invoice_and_keep_absence_zero():
     assert rows[1]["actual_personnel_id"] is None
     assert rows[1]["status"] == "İzin"
     assert rows[1]["monthly_invoice_amount"] == 0
+
+
+def test_attendance_management_supports_offset_pagination():
+    conn = _build_attendance_conn()
+
+    for day in (19, 18, 17):
+        create_attendance_entry(
+            conn,
+            payload=AttendanceCreateRequest(
+                entry_date=date(2026, 4, day),
+                restaurant_id=10,
+                entry_mode="Restoran Kuryesi",
+                primary_person_id=1,
+                worked_hours=8,
+                package_count=10,
+            ),
+        )
+
+    first_page = build_attendance_management(conn, limit=2, offset=0)
+    second_page = build_attendance_management(conn, limit=2, offset=2)
+
+    assert first_page.total_entries == 3
+    assert [entry.entry_date.isoformat() for entry in first_page.entries] == ["2026-04-19", "2026-04-18"]
+    assert [entry.entry_date.isoformat() for entry in second_page.entries] == ["2026-04-17"]

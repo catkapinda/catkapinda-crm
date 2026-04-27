@@ -129,6 +129,7 @@ def get_attendance_entries(
     _user: Annotated[AuthenticatedUser, Depends(require_action("attendance.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
     limit: int = Query(default=60, ge=1, le=5000),
+    offset: int = Query(default=0, ge=0),
     restaurant_id: int | None = None,
     search: str | None = None,
     date_from: date | None = None,
@@ -137,6 +138,7 @@ def get_attendance_entries(
     return build_attendance_management(
         conn,
         limit=limit,
+        offset=offset,
         restaurant_id=restaurant_id,
         search=search,
         date_from=date_from,
