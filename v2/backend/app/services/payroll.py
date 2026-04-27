@@ -472,10 +472,47 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         )
 
         deductions_top = left_panel_bottom - 16
-        deductions_header_height = 22
-        row_height = 22
-        deduction_count = max(len(payload.deduction_items), 1)
-        deductions_height = 44 + deductions_header_height + (deduction_count * row_height)
+        deductions_header_height = 24
+        table_x = margin_x + 12
+        table_width = page_width - 24
+        amount_column_width = 136
+        label_column_gap = 16
+        amount_right_x = table_x + table_width - 12
+        amount_left_x = amount_right_x - amount_column_width
+        label_column_width = amount_left_x - (table_x + 10) - label_column_gap
+
+        deduction_render_rows: list[tuple[list[str], str, float]] = []
+        if payload.deduction_items:
+            for deduction_type, amount in payload.deduction_items:
+                label_lines = simpleSplit(
+                    str(deduction_type or "Kesinti"),
+                    font_name,
+                    10,
+                    label_column_width,
+                )
+                row_height = max(24.0, len(label_lines) * 13.0 + 8.0)
+                deduction_render_rows.append(
+                    (
+                        label_lines,
+                        f"-{_format_currency_pdf(amount)}",
+                        row_height,
+                    )
+                )
+        else:
+            deduction_render_rows.append(
+                (
+                    ["Bu ay için kesinti kaydı bulunamadı."],
+                    "-",
+                    26.0,
+                )
+            )
+
+        deductions_height = (
+            44
+            + deductions_header_height
+            + sum(row_height for _, _, row_height in deduction_render_rows)
+            + 8
+        )
         current_top = ensure_space(deductions_top, deductions_height + 10)
         deductions_top = current_top
         deductions_bottom = deductions_top - deductions_height
@@ -491,24 +528,30 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
 
         table_top = deductions_top - 56
         set_fill("navy_soft")
-        pdf.roundRect(margin_x + 12, table_top - deductions_header_height, page_width - 24, deductions_header_height, 10, stroke=0, fill=1)
-        write_line("Kalem", margin_x + 22, table_top - 15, 9, color_key="paper")
-        write_line("Tutar", margin_x + page_width - 86, table_top - 15, 9, color_key="paper")
+        pdf.roundRect(table_x, table_top - deductions_header_height, table_width, deductions_header_height, 10, stroke=0, fill=1)
+        write_line("Kalem", table_x + 10, table_top - 16, 9, color_key="paper")
+        set_fill("paper")
+        pdf.setFont(font_name, 9)
+        pdf.drawRightString(amount_right_x, table_top - 16, "Tutar")
+        set_stroke("line")
+        pdf.setLineWidth(1)
+        pdf.line(amount_left_x - 8, table_top - deductions_header_height + 4, amount_left_x - 8, table_top - 4)
 
         content_y = table_top - deductions_header_height - 8
-        if payload.deduction_items:
-            for index, (deduction_type, amount) in enumerate(payload.deduction_items):
-                row_bottom = content_y - row_height + 4
-                if index % 2 == 0:
-                    set_fill("blue_soft")
-                    pdf.roundRect(margin_x + 12, row_bottom, page_width - 24, row_height - 2, 8, stroke=0, fill=1)
-                write_line(str(deduction_type or "Kesinti"), margin_x + 22, content_y - 10, 10, color_key="text")
-                set_fill("red")
-                pdf.setFont(font_name, 10)
-                pdf.drawRightString(margin_x + page_width - 24, content_y - 10, f"-{_format_currency_pdf(amount)}")
-                content_y -= row_height
-        else:
-            write_line("Bu ay için kesinti kaydı bulunamadı.", margin_x + 22, content_y - 10, 10, color_key="muted")
+        for index, (label_lines, amount_text, row_height) in enumerate(deduction_render_rows):
+            row_bottom = content_y - row_height + 4
+            if index % 2 == 0:
+                set_fill("blue_soft")
+                pdf.roundRect(table_x, row_bottom, table_width, row_height - 2, 8, stroke=0, fill=1)
+
+            line_y = content_y - 10
+            for label_line in label_lines:
+                write_line(label_line, table_x + 10, line_y, 10, color_key="text")
+                line_y -= 13
+
+            set_fill("red" if amount_text != "-" else "muted")
+            pdf.setFont(font_name, 10)
+            pdf.drawRightString(amount_right_x, content_y - 10, amount_text)
             content_y -= row_height
 
         footer_y = max(deductions_bottom - 22, 24)
