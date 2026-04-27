@@ -67,7 +67,8 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat("tr-TR", {
     style: "currency",
     currency: "TRY",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value || 0);
 }
 
@@ -97,6 +98,16 @@ function triggerBrowserDownload(blob: Blob, fileName: string) {
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
+}
+
+function escapeDelimitedCell(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+function buildDelimitedText(rows: string[][], delimiter = ";") {
+  return rows
+    .map((row) => row.map((cell) => escapeDelimitedCell(cell)).join(delimiter))
+    .join("\n");
 }
 
 export default function InvoicesPage() {
@@ -282,6 +293,9 @@ export default function InvoicesPage() {
     ...selectedCouriers.map((row) => row.allocated_cost || 0),
     1,
   );
+  const pendingCollectionAmount = totalGrossInvoice;
+  const plannedCollectionCount = filteredInvoiceEntries.length;
+  const collectionFocusEntries = filteredInvoiceEntries.slice(0, 6);
 
   function downloadInvoiceCsv() {
     if (!filteredInvoiceEntries.length) {
@@ -289,25 +303,30 @@ export default function InvoicesPage() {
       setExportMessage("");
       return;
     }
-    const headers = ["Şube", "Model", "Toplam Saat", "Toplam Paket", "KDV Hariç", "KDV Dahil"];
+    const headers = [
+      "Şube",
+      "Model",
+      "Toplam Saat",
+      "Toplam Paket",
+      "KDV Hariç",
+      "KDV Dahil",
+    ];
     const rows = filteredInvoiceEntries.map((entry) => [
       entry.restaurant,
       displayPricingModel(entry.pricing_model),
-      String(entry.total_hours),
-      String(entry.total_packages),
-      String(entry.net_invoice),
-      String(entry.gross_invoice),
+      formatNumber(entry.total_hours, 1),
+      formatNumber(entry.total_packages, 0),
+      formatMoney(entry.net_invoice),
+      formatMoney(entry.gross_invoice),
     ]);
-    const csv = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
-      .join("\n");
+    const csv = buildDelimitedText([headers, ...rows], ";");
     const month = dashboard?.selected_month || selectedMonth || "faturalar";
     triggerBrowserDownload(
       new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" }),
       `catkapinda_faturalar_${month}.csv`,
     );
     setExportError("");
-    setExportMessage("Fatura tablosu indirildi.");
+    setExportMessage("Fatura tablosu Türkçe finans formatıyla indirildi.");
   }
 
   return (
@@ -1168,6 +1187,311 @@ export default function InvoicesPage() {
                 )}
               </section>
             </div>
+
+            <section
+              style={{
+                borderRadius: "22px",
+                border: "1px solid rgba(219, 228, 243, 0.88)",
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,247,255,0.92))",
+                boxShadow: "0 16px 34px rgba(22, 42, 74, 0.05)",
+                padding: "18px",
+                display: "grid",
+                gap: "14px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "16px",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ display: "grid", gap: "6px", maxWidth: "68ch" }}>
+                  <div
+                    style={{
+                      color: "#0f5fd7",
+                      fontSize: "0.68rem",
+                      fontWeight: 900,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Tahsilat Tasarımı
+                  </div>
+                  <h2
+                    style={{
+                      ...serifStyle,
+                      margin: 0,
+                      fontSize: "clamp(1.45rem, 2vw, 2.05rem)",
+                      lineHeight: 0.96,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Faturadan sonra takip edeceğimiz tahsilat hattı hazır.
+                  </h2>
+                  <p
+                    style={{
+                      margin: 0,
+                      color: "var(--muted)",
+                      fontSize: "0.88rem",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Burayı ödeme takibi için kurguladım. Şimdilik tasarım ve çalışma mantığı hazır;
+                    vade, tahsilat tarihi, ödeme notu ve cari durum verisi bağlandığında aynı alan
+                    canlı tahsilat masasına dönecek.
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {["Tahsil edildi", "Bekliyor", "Vade", "Not"].map((item) => (
+                    <span
+                      key={item}
+                      style={{
+                        display: "inline-flex",
+                        padding: "7px 10px",
+                        borderRadius: "999px",
+                        background: "rgba(15,95,215,0.08)",
+                        color: "#0f5fd7",
+                        fontSize: "0.76rem",
+                        fontWeight: 800,
+                      }}
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                {[
+                  ["Tahsil Edildi", formatMoney(0), "Canlı ödeme akışı bağlandığında dolacak"],
+                  [
+                    "Bekleyen Tahsilat",
+                    formatMoney(pendingCollectionAmount),
+                    "Şu an fatura toplamı kadar açık tahsilat kabul ediyoruz",
+                  ],
+                  [
+                    "Takipteki Şube",
+                    formatNumber(plannedCollectionCount),
+                    "Tahsilat planına girecek restoran satırı",
+                  ],
+                  ["Ortalama Vade", "Tanımsız", "Vade tarihi alanı sonraki adımda bağlanacak"],
+                ].map(([label, value, note]) => (
+                  <article
+                    key={label}
+                    style={{
+                      padding: "14px",
+                      borderRadius: "18px",
+                      border: "1px solid rgba(219, 228, 243, 0.84)",
+                      background: "rgba(255,255,255,0.88)",
+                      display: "grid",
+                      gap: "5px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "var(--muted)",
+                        fontSize: "0.66rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        fontWeight: 900,
+                      }}
+                    >
+                      {label}
+                    </div>
+                    <div style={{ fontSize: "1.08rem", fontWeight: 900, letterSpacing: "-0.03em" }}>
+                      {value}
+                    </div>
+                    <div style={{ color: "var(--muted)", fontSize: "0.8rem", lineHeight: 1.45 }}>
+                      {note}
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1.2fr) minmax(280px, 0.8fr)",
+                  gap: "14px",
+                  alignItems: "start",
+                }}
+              >
+                <section
+                  style={{
+                    borderRadius: "20px",
+                    border: "1px solid rgba(219, 228, 243, 0.84)",
+                    background: "rgba(255,255,255,0.9)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "14px 16px",
+                      borderBottom: "1px solid rgba(219, 228, 243, 0.82)",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: "4px" }}>
+                      <strong>Tahsilat Hattı</strong>
+                      <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+                        İlk etapta hangi şubelerin ödeme planına alınacağını bu listede tutacağız.
+                      </span>
+                    </div>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        padding: "7px 10px",
+                        borderRadius: "999px",
+                        background: "rgba(24,40,59,0.06)",
+                        color: "var(--text)",
+                        fontSize: "0.78rem",
+                        fontWeight: 800,
+                      }}
+                    >
+                      MVP tasarım
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gap: "0" }}>
+                    {collectionFocusEntries.length ? (
+                      collectionFocusEntries.map((entry, index) => (
+                        <article
+                          key={`${entry.restaurant}-${entry.pricing_model}-collection`}
+                          style={{
+                            padding: "14px 16px",
+                            borderTop: index === 0 ? "none" : "1px solid rgba(219, 228, 243, 0.58)",
+                            display: "grid",
+                            gap: "8px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: "12px",
+                              alignItems: "start",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <div style={{ display: "grid", gap: "4px" }}>
+                              <strong>{entry.restaurant}</strong>
+                              <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+                                {displayPricingModel(entry.pricing_model)} •{" "}
+                                {formatNumber(entry.total_hours, 1)} saat •{" "}
+                                {formatNumber(entry.total_packages, 0)} paket
+                              </span>
+                            </div>
+                            <strong style={{ fontSize: "0.96rem" }}>
+                              {formatMoney(entry.gross_invoice)}
+                            </strong>
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "8px",
+                            }}
+                          >
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                padding: "6px 9px",
+                                borderRadius: "999px",
+                                background: "rgba(185,116,41,0.12)",
+                                color: "var(--accent-strong)",
+                                fontSize: "0.74rem",
+                                fontWeight: 800,
+                              }}
+                            >
+                              Tahsilat planlanacak
+                            </span>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                padding: "6px 9px",
+                                borderRadius: "999px",
+                                background: "rgba(24,40,59,0.06)",
+                                color: "var(--muted)",
+                                fontSize: "0.74rem",
+                                fontWeight: 800,
+                              }}
+                            >
+                              Vade bekleniyor
+                            </span>
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <div
+                        style={{
+                          padding: "16px",
+                          color: "var(--muted)",
+                          lineHeight: 1.6,
+                          fontSize: "0.84rem",
+                        }}
+                      >
+                        Tahsilat hattına düşecek fatura satırı görünmüyor.
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section
+                  style={{
+                    borderRadius: "20px",
+                    border: "1px solid rgba(219, 228, 243, 0.84)",
+                    background: "rgba(255,255,255,0.9)",
+                    padding: "16px",
+                    display: "grid",
+                    gap: "10px",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "4px" }}>
+                    <strong>Tahsilat Kartında Olacak Alanlar</strong>
+                    <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+                      Backend bağlanınca bu alanları gerçek veriye çevireceğiz.
+                    </span>
+                  </div>
+
+                  {[
+                    "Tahsilat durumu: Tahsil edildi / Bekliyor / Gecikti",
+                    "Vade tarihi ve planlanan ödeme günü",
+                    "Tahsil edilen tutar ve kalan bakiye",
+                    "Restoran notu ve muhasebe açıklaması",
+                    "Sorumlu kişi ve son takip zamanı",
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: "14px",
+                        background: "rgba(24,40,59,0.05)",
+                        color: "var(--text)",
+                        fontSize: "0.84rem",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {item}
+                    </div>
+                  ))}
+                </section>
+              </div>
+            </section>
           </>
         )}
       </section>
