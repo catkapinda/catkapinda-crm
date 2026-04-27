@@ -109,6 +109,34 @@ function shouldForcePasswordChange(user: { must_change_password: boolean; role?:
   return user.must_change_password && user.role !== "mobile_ops";
 }
 
+function resolvePostLoginPath(
+  user: { must_change_password: boolean; role?: string; allowed_actions: string[] },
+  nextPath: string,
+) {
+  const trimmedNextPath = nextPath.trim();
+  const safeNextPath =
+    trimmedNextPath &&
+    trimmedNextPath.startsWith("/") &&
+    !trimmedNextPath.startsWith("//") &&
+    !trimmedNextPath.startsWith("/login")
+      ? trimmedNextPath
+      : "";
+  return shouldForcePasswordChange(user) ? "/account" : safeNextPath || resolveDefaultPath(user.allowed_actions);
+}
+
+function replaceAfterAuth(targetPath: string, router: ReturnType<typeof useRouter>) {
+  if (typeof window === "undefined") {
+    router.replace(targetPath);
+    return;
+  }
+
+  const currentPath = `${window.location.pathname}${window.location.search}`;
+  if (currentPath === targetPath) {
+    return;
+  }
+  window.location.replace(targetPath);
+}
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -147,7 +175,7 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace(shouldForcePasswordChange(user) ? "/account" : nextPath || resolveDefaultPath(user.allowed_actions));
+      replaceAfterAuth(resolvePostLoginPath(user, nextPath), router);
     }
   }, [loading, user, router, nextPath]);
 
@@ -246,11 +274,7 @@ function LoginPageContent() {
     setNotice("");
     try {
       const loggedInUser = await login(identity, password);
-      router.replace(
-        shouldForcePasswordChange(loggedInUser)
-          ? "/account"
-          : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
-      );
+      replaceAfterAuth(resolvePostLoginPath(loggedInUser, nextPath), router);
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : "Giriş yapilamadi.");
     } finally {
@@ -370,11 +394,7 @@ function LoginPageContent() {
         return;
       }
       const loggedInUser = await verifyPhoneCode(phone, loginCode);
-      router.replace(
-        shouldForcePasswordChange(loggedInUser)
-          ? "/account"
-          : nextPath || resolveDefaultPath(loggedInUser.allowed_actions),
-      );
+      replaceAfterAuth(resolvePostLoginPath(loggedInUser, nextPath), router);
     } catch (verifyError) {
       setSmsError(verifyError instanceof Error ? verifyError.message : "SMS kodu doğrulanamadı.");
     } finally {
