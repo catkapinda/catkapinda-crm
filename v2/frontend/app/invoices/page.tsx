@@ -418,21 +418,6 @@ export default function InvoicesPage() {
     1,
   );
   const directCost = selectedProfit?.direct_personnel_cost ?? 0;
-  const selectedHourlyInvoice =
-    selectedInvoice && selectedInvoice.total_hours > 0
-      ? selectedInvoice.gross_invoice / selectedInvoice.total_hours
-      : 0;
-  const selectedPackageInvoice =
-    selectedInvoice && selectedInvoice.total_packages > 0
-      ? selectedInvoice.gross_invoice / selectedInvoice.total_packages
-      : 0;
-  const selectedCourierAverage =
-    selectedCouriers.length > 0 ? directCost / selectedCouriers.length : 0;
-  const selectedMarginPercent =
-    selectedProfit?.profit_margin_percent ??
-    (selectedInvoice && selectedInvoice.gross_invoice > 0 && selectedProfit
-      ? (selectedProfit.gross_profit / selectedInvoice.gross_invoice) * 100
-      : 0);
   const maxCourierCost = Math.max(
     ...selectedCouriers.map((row) => row.allocated_cost || 0),
     1,
@@ -454,6 +439,12 @@ export default function InvoicesPage() {
       row.status !== "Tahsil Edildi",
   );
   const dueDefinedCollectionCount = filteredCollectionEntries.filter((row) => row.due_date).length;
+  const topCollectionSummaryItems: Array<[string, string, string]> = [
+    ["Açık Tahsilat", formatMoney(totalOpenCollectionAmount), "Kapanmamış bakiye"],
+    ["Tahsil Edildi", formatMoney(totalCollectedAmount), "Alınan ödeme"],
+    ["Geciken Şube", formatNumber(overdueCollectionEntries.length), "Vadesi geçmiş"],
+    ["Vadesi Tanımlı", formatNumber(dueDefinedCollectionCount), "Ödeme günü belli"],
+  ];
 
   async function saveCollectionCard() {
     const restaurantId = selectedCollection?.restaurant_id ?? selectedInvoice?.restaurant_id ?? 0;
@@ -548,25 +539,25 @@ export default function InvoicesPage() {
       <section style={{ display: "grid", gap: "14px" }}>
         <div
           style={{
-            padding: "18px",
+            padding: "16px",
             borderRadius: "22px",
             background:
               "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,242,233,0.96))",
             border: "1px solid var(--line)",
             boxShadow: "0 16px 34px rgba(22, 42, 74, 0.06)",
             display: "grid",
-            gap: "12px",
+            gap: "10px",
           }}
         >
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "minmax(0, 1.25fr) minmax(260px, 0.9fr)",
-              gap: "12px",
-              alignItems: "stretch",
+              gap: "10px",
+              alignItems: "start",
             }}
           >
-            <div style={{ display: "grid", gap: "12px", alignContent: "start" }}>
+            <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
               <div
                 style={{
                   display: "inline-flex",
@@ -581,53 +572,68 @@ export default function InvoicesPage() {
                   textTransform: "uppercase",
                 }}
               >
-                Fatura Masası
+                Fatura Kontrol
               </div>
-              <div style={{ display: "grid", gap: "8px", maxWidth: "64ch" }}>
+              <div style={{ display: "grid", gap: "6px", maxWidth: "58ch" }}>
                 <h1
                   style={{
                     ...serifStyle,
                     margin: 0,
-                    fontSize: "clamp(1.8rem, 3vw, 2.8rem)",
+                    fontSize: "clamp(1.75rem, 2.7vw, 2.55rem)",
                     lineHeight: 0.94,
                     fontWeight: 700,
                   }}
                 >
-                  Restoran faturası ve kurye dağılımı tek sekmede.
+                  Fatura, kurye maliyeti ve tahsilat aynı yüzeyde okunuyor.
                 </h1>
                 <p
                   style={{
                     margin: 0,
-                    maxWidth: "62ch",
+                    maxWidth: "56ch",
                     color: "var(--muted)",
-                    fontSize: "0.9rem",
-                    lineHeight: 1.6,
+                    fontSize: "0.88rem",
+                    lineHeight: 1.55,
                   }}
                 >
-                  Bu yüzey restoran faturası okumak için kuruldu. Bir sonraki adımda tahsilat,
-                  vade, ödeme durumu ve not takibini de aynı sekmeye ekleyebiliriz.
+                  Restoran faturası, dağılan kurye payı ve ödeme takibi burada birlikte akıyor.
+                  Alanı açıklama ile değil, doğrudan karar verdiren özetlerle kullanıyoruz.
                 </p>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {[
-                  "Fatura ve dağılım aynı yerde",
-                  "Tahsilat alanı hazır",
-                  "Şube bazlı karar yüzeyi",
-                ].map((item) => (
-                  <span
-                    key={item}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                  gap: "8px",
+                }}
+              >
+                {topCollectionSummaryItems.map(([label, value, note]) => (
+                  <article
+                    key={label}
                     style={{
-                      display: "inline-flex",
-                      padding: "6px 10px",
-                      borderRadius: "999px",
-                      background: "rgba(15,95,215,0.08)",
-                      color: "#0f5fd7",
-                      fontSize: "0.74rem",
-                      fontWeight: 800,
+                      padding: "12px",
+                      borderRadius: "16px",
+                      background: "rgba(255,255,255,0.7)",
+                      border: "1px solid rgba(219,228,243,0.78)",
+                      display: "grid",
+                      gap: "4px",
                     }}
                   >
-                    {item}
-                  </span>
+                    <div
+                      style={{
+                        color: "var(--muted)",
+                        fontSize: "0.66rem",
+                        fontWeight: 900,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      {label}
+                    </div>
+                    <strong style={{ fontSize: "1rem", letterSpacing: "-0.03em" }}>{value}</strong>
+                    <span style={{ color: "var(--muted)", fontSize: "0.76rem", lineHeight: 1.35 }}>
+                      {note}
+                    </span>
+                  </article>
                 ))}
               </div>
             </div>
@@ -669,7 +675,7 @@ export default function InvoicesPage() {
                     <div
                       style={{
                         ...serifStyle,
-                        fontSize: "1.5rem",
+                        fontSize: "1.45rem",
                         lineHeight: 0.96,
                         fontWeight: 700,
                       }}
@@ -762,101 +768,50 @@ export default function InvoicesPage() {
                     </div>
                   </div>
                 </div>
-              </article>
-
-              <article
-                style={{
-                  padding: "14px 14px 12px",
-                  borderRadius: "18px",
-                  border: "1px solid var(--line)",
-                  background: "rgba(255,255,255,0.78)",
-                  display: "grid",
-                  gap: "8px",
-                }}
-              >
                 <div
                   style={{
-                    color: "var(--muted)",
-                    fontSize: "0.66rem",
-                    fontWeight: 800,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                    marginTop: "2px",
                   }}
                 >
-                  Yaklaşan Katmanlar
-                </div>
-                {[
-                  "Tahsilat durumu",
-                  "Vade tarihi",
-                  "Ödendi / bekliyor durumu",
-                ].map((item) => (
-                  <div
-                    key={item}
+                  <span style={{ color: "rgba(255,247,234,0.72)", fontSize: "0.8rem" }}>
+                    Filtrelenmiş tabloyu ekip paylaşımı için indir.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={downloadInvoiceCsv}
+                    disabled={!filteredInvoiceEntries.length}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: "12px",
-                      paddingBottom: "7px",
-                      borderBottom: "1px solid rgba(24,40,59,0.08)",
-                      fontSize: "0.84rem",
+                      padding: "10px 12px",
+                      borderRadius: "12px",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      background: "rgba(255,255,255,0.1)",
+                      color: "#fff7ea",
+                      fontWeight: 800,
+                      cursor: filteredInvoiceEntries.length ? "pointer" : "not-allowed",
+                      opacity: filteredInvoiceEntries.length ? 1 : 0.6,
                     }}
                   >
-                    <span style={{ color: "var(--muted)", fontWeight: 800 }}>{item}</span>
-                    <strong>Hazır alan</strong>
+                    Fatura tablosunu indir
+                  </button>
+                </div>
+                {exportError ? (
+                  <div style={{ color: "#ffd2d7", fontSize: "0.82rem", fontWeight: 700 }}>
+                    {exportError}
                   </div>
-                ))}
+                ) : null}
+                {exportMessage ? (
+                  <div style={{ color: "#d8ffe3", fontSize: "0.82rem", fontWeight: 700 }}>
+                    {exportMessage}
+                  </div>
+                ) : null}
               </article>
             </div>
           </div>
-
-          <section
-            style={{
-              borderRadius: "18px",
-              border: "1px solid var(--line)",
-              background: "rgba(255,255,255,0.78)",
-              padding: "14px 16px",
-              display: "flex",
-              justifyContent: "space-between",
-              gap: "16px",
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <div style={{ display: "grid", gap: "4px" }}>
-              <strong>Excel ve ekip paylaşımı için hazır</strong>
-              <span style={{ color: "var(--muted)", fontSize: "0.84rem" }}>
-                Filtrelenmiş şube faturasını tek tıkla dışa aktar.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={downloadInvoiceCsv}
-              disabled={!filteredInvoiceEntries.length}
-              style={{
-                padding: "10px 12px",
-                borderRadius: "12px",
-                border: "1px solid rgba(15,95,215,0.15)",
-                background: "rgba(15,95,215,0.08)",
-                color: "#0f5fd7",
-                fontWeight: 800,
-                cursor: filteredInvoiceEntries.length ? "pointer" : "not-allowed",
-                opacity: filteredInvoiceEntries.length ? 1 : 0.6,
-              }}
-            >
-              Fatura tablosunu indir
-            </button>
-            {exportError ? (
-              <div style={{ color: "#9e2430", fontSize: "0.84rem", fontWeight: 700 }}>
-                {exportError}
-              </div>
-            ) : null}
-            {exportMessage ? (
-              <div style={{ color: "#22663c", fontSize: "0.84rem", fontWeight: 700 }}>
-                {exportMessage}
-              </div>
-            ) : null}
-          </section>
         </div>
 
         {dashboardLoading ? (
@@ -1241,46 +1196,6 @@ export default function InvoicesPage() {
                       </div>
                     </article>
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                        gap: "10px",
-                      }}
-                    >
-                      {[
-                        ["Saat Başına Fatura", formatMoney(selectedHourlyInvoice)],
-                        ["Paket Başına Fatura", formatMoney(selectedPackageInvoice)],
-                        ["Kurye Başına Ortalama", formatMoney(selectedCourierAverage)],
-                        ["Doğrudan Marj", `%${formatNumber(selectedMarginPercent, 1)}`],
-                      ].map(([label, value]) => (
-                        <article
-                          key={label}
-                          style={{
-                            padding: "14px",
-                            borderRadius: "18px",
-                            border: "1px solid rgba(219, 228, 243, 0.84)",
-                            background: "rgba(255,255,255,0.88)",
-                            display: "grid",
-                            gap: "5px",
-                          }}
-                        >
-                          <div
-                            style={{
-                              color: "var(--muted)",
-                              fontSize: "0.66rem",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.05em",
-                              fontWeight: 900,
-                            }}
-                          >
-                            {label}
-                          </div>
-                          <div style={{ fontSize: "1rem", fontWeight: 900 }}>{value}</div>
-                        </article>
-                      ))}
-                    </div>
-
                     <section
                       style={{
                         borderRadius: "20px",
@@ -1321,7 +1236,7 @@ export default function InvoicesPage() {
                       </div>
 
                       {selectedCouriers.length ? (
-                        <div style={{ maxHeight: "470px", overflow: "auto", display: "grid", gap: "0" }}>
+                        <div style={{ maxHeight: "360px", overflow: "auto", display: "grid", gap: "0" }}>
                           {selectedCouriers.map((row) => (
                             <article
                               key={`${selectedInvoice.restaurant}-${row.personnel}-${row.role}`}
@@ -1412,72 +1327,52 @@ export default function InvoicesPage() {
                 padding: "18px",
                 display: "grid",
                 gap: "14px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "16px",
-                  alignItems: "flex-start",
-                  flexWrap: "wrap",
                 }}
               >
-                <div style={{ display: "grid", gap: "6px", maxWidth: "68ch" }}>
-                  <div
-                    style={{
-                      color: "#0f5fd7",
-                      fontSize: "0.68rem",
-                      fontWeight: 900,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Tahsilat Masası
-                  </div>
-                  <h2
-                    style={{
-                      ...serifStyle,
-                      margin: 0,
-                      fontSize: "clamp(1.45rem, 2vw, 2.05rem)",
-                      lineHeight: 0.96,
-                      fontWeight: 700,
-                    }}
-                  >
-                    Faturadan sonra tahsilat, vade ve takip notu aynı akışta ilerliyor.
-                  </h2>
-                  <p
-                    style={{
-                      margin: 0,
-                      color: "var(--muted)",
-                      fontSize: "0.88rem",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    Şube bazlı açık bakiye, vade ve son temas notunu burada tutuyoruz. Soldan
-                    restoran seçildiğinde sağ taraftaki tahsilat kartı doğrudan o şube için açılır.
-                  </p>
-                </div>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                  {["Tahsil edildi", "Bekliyor", "Vade", "Son temas"].map((item) => (
-                    <span
-                      key={item}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    alignItems: "flex-start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "5px", maxWidth: "58ch" }}>
+                    <div
                       style={{
-                        display: "inline-flex",
-                        padding: "7px 10px",
-                        borderRadius: "999px",
-                        background: "rgba(15,95,215,0.08)",
                         color: "#0f5fd7",
-                        fontSize: "0.76rem",
-                        fontWeight: 800,
+                        fontSize: "0.68rem",
+                        fontWeight: 900,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
                       }}
                     >
-                      {item}
-                    </span>
-                  ))}
+                      Tahsilat Masası
+                    </div>
+                    <h2
+                      style={{
+                        ...serifStyle,
+                        margin: 0,
+                        fontSize: "clamp(1.3rem, 1.8vw, 1.8rem)",
+                        lineHeight: 0.98,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Açık bakiye, vade ve son temas aynı akışta.
+                    </h2>
+                    <p
+                      style={{
+                        margin: 0,
+                        color: "var(--muted)",
+                        fontSize: "0.84rem",
+                        lineHeight: 1.55,
+                      }}
+                    >
+                      Seçili restoranın ödeme durumu burada kaydedilir; takip notu, vade ve alınan ödeme tek kartta tutulur.
+                    </p>
+                  </div>
                 </div>
-              </div>
 
               <div
                 style={{
