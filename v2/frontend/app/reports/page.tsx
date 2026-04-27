@@ -748,6 +748,722 @@ function ReportModelMatrix({
   );
 }
 
+function InvoiceWorkspace({
+  monthLabel,
+  rows,
+  query,
+  onQueryChange,
+  selectedInvoice,
+  selectedProfit,
+  selectedCouriers,
+  onSelectRestaurant,
+}: {
+  monthLabel: string;
+  rows: ReportsDashboard["invoice_entries"];
+  query: string;
+  onQueryChange: (value: string) => void;
+  selectedInvoice: ReportsDashboard["invoice_entries"][number] | null;
+  selectedProfit: ReportsDashboard["profit_entries"][number] | null;
+  selectedCouriers: Array<{
+    personnel: string;
+    role: string;
+    total_hours: number;
+    total_packages: number;
+    allocated_cost: number;
+    allocation_source: string;
+  }>;
+  onSelectRestaurant: (restaurant: string) => void;
+}) {
+  const totalGrossInvoice = rows.reduce((total, row) => total + row.gross_invoice, 0);
+  const totalHours = rows.reduce((total, row) => total + row.total_hours, 0);
+  const totalPackages = rows.reduce((total, row) => total + row.total_packages, 0);
+  const maxGrossInvoice = Math.max(...rows.map((row) => row.gross_invoice || 0), 1);
+  const directCost = selectedProfit?.direct_personnel_cost ?? 0;
+  const selectedMarginPercent =
+    selectedInvoice && selectedInvoice.gross_invoice > 0 && selectedProfit
+      ? (selectedProfit.gross_profit / selectedInvoice.gross_invoice) * 100
+      : 0;
+  const selectedHourlyInvoice =
+    selectedInvoice && selectedInvoice.total_hours > 0
+      ? selectedInvoice.gross_invoice / selectedInvoice.total_hours
+      : 0;
+  const selectedPackageInvoice =
+    selectedInvoice && selectedInvoice.total_packages > 0
+      ? selectedInvoice.gross_invoice / selectedInvoice.total_packages
+      : 0;
+  const selectedCourierAverage =
+    selectedCouriers.length > 0 ? directCost / selectedCouriers.length : 0;
+  const maxCourierCost = Math.max(
+    ...selectedCouriers.map((row) => row.allocated_cost || 0),
+    1,
+  );
+
+  return (
+    <section
+      id="invoice-workspace"
+      style={{
+        scrollMarginTop: "110px",
+        borderRadius: "24px",
+        border: "1px solid var(--line)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,242,234,0.95))",
+        boxShadow: "0 18px 44px rgba(20, 39, 67, 0.06)",
+        padding: "18px",
+        display: "grid",
+        gap: "14px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: "16px",
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "grid", gap: "6px", maxWidth: "68ch" }}>
+          <div
+            style={{
+              color: "var(--accent-strong)",
+              fontSize: "0.68rem",
+              fontWeight: 900,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            Fatura Çalışma Alanı
+          </div>
+          <h2
+            style={{
+              ...serifStyle,
+              margin: 0,
+              fontSize: "clamp(1.55rem, 2vw, 2.2rem)",
+              lineHeight: 0.96,
+              fontWeight: 700,
+            }}
+          >
+            Şube faturasını ve alt kurye dağılımını aynı yüzeyde oku.
+          </h2>
+          <p
+            style={{
+              margin: 0,
+              color: "var(--muted)",
+              fontSize: "0.9rem",
+              lineHeight: 1.6,
+            }}
+          >
+            Sol tarafta şubeyi seç, sağ tarafta KDV hariç ve dahil tutarı, şubeye dağılan kurye
+            maliyeti ve alt ekip kırılımını birlikte gör.
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gap: "8px", minWidth: "280px" }}>
+          <input
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Şube veya model ara"
+            style={{
+              width: "100%",
+              padding: "11px 13px",
+              borderRadius: "14px",
+              border: "1px solid var(--line)",
+              background: "rgba(255,255,255,0.96)",
+              color: "var(--text)",
+              fontSize: "0.84rem",
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "8px",
+            }}
+          >
+            {[
+              `${monthLabel || "Ay seç"} dönemi`,
+              `${formatNumber(rows.length)} şube`,
+              `${formatMoney(totalGrossInvoice)} toplam`,
+            ].map((item) => (
+              <span
+                key={item}
+                style={{
+                  display: "inline-flex",
+                  padding: "7px 10px",
+                  borderRadius: "999px",
+                  background: "rgba(24,40,59,0.06)",
+                  color: "var(--text)",
+                  fontSize: "0.76rem",
+                  fontWeight: 800,
+                }}
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: "10px",
+        }}
+      >
+        {[
+          ["Şube", formatNumber(rows.length), "Filtreye düşen fatura satırı"],
+          ["Toplam Fatura", formatMoney(totalGrossInvoice), "KDV dahil restoran faturası"],
+          ["Toplam Saat", formatNumber(totalHours, 1), "Şube bazlı toplam çalışma"],
+          ["Toplam Paket", formatNumber(totalPackages, 0), "Filtreye göre toplam hacim"],
+        ].map(([label, value, note]) => (
+          <article
+            key={label}
+            style={{
+              padding: "14px",
+              borderRadius: "18px",
+              border: "1px solid rgba(219, 228, 243, 0.85)",
+              background: "rgba(255,255,255,0.86)",
+              display: "grid",
+              gap: "5px",
+            }}
+          >
+            <div
+              style={{
+                color: "var(--muted)",
+                fontSize: "0.66rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                fontWeight: 900,
+              }}
+            >
+              {label}
+            </div>
+            <div style={{ fontSize: "1.18rem", fontWeight: 900, letterSpacing: "-0.04em" }}>
+              {value}
+            </div>
+            <div style={{ color: "var(--muted)", fontSize: "0.8rem", lineHeight: 1.45 }}>
+              {note}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gap: "14px",
+          alignItems: "start",
+        }}
+      >
+        <section
+          style={{
+            borderRadius: "20px",
+            border: "1px solid rgba(219, 228, 243, 0.84)",
+            background: "rgba(255,255,255,0.82)",
+            overflow: "hidden",
+            minHeight: "100%",
+          }}
+        >
+          <div
+            style={{
+              padding: "14px 16px",
+              borderBottom: "1px solid rgba(219, 228, 243, 0.82)",
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "grid", gap: "4px" }}>
+              <strong>Şube Listesi</strong>
+              <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+                En yüksek faturadan aşağı doğru sıralanır.
+              </span>
+            </div>
+            <span
+              style={{
+                display: "inline-flex",
+                padding: "7px 10px",
+                borderRadius: "999px",
+                background: "rgba(15,95,215,0.08)",
+                color: "#0f5fd7",
+                fontSize: "0.78rem",
+                fontWeight: 800,
+              }}
+            >
+              Tıklayıp detay aç
+            </span>
+          </div>
+
+          <div
+            style={{
+              maxHeight: "640px",
+              overflow: "auto",
+              display: "grid",
+              gap: "10px",
+              padding: "12px",
+            }}
+          >
+            {rows.map((row) => {
+              const selected = selectedInvoice?.restaurant === row.restaurant;
+              const invoiceWidth = Math.max((row.gross_invoice / maxGrossInvoice) * 100, 6);
+              return (
+                <button
+                  key={`${row.restaurant}-${row.pricing_model}`}
+                  type="button"
+                  onClick={() => onSelectRestaurant(row.restaurant)}
+                  style={{
+                    textAlign: "left",
+                    padding: "14px",
+                    borderRadius: "18px",
+                    border: selected
+                      ? "1px solid rgba(15,95,215,0.28)"
+                      : "1px solid rgba(219, 228, 243, 0.84)",
+                    background: selected
+                      ? "linear-gradient(180deg, rgba(15,95,215,0.08), rgba(255,255,255,0.96))"
+                      : "rgba(255,255,255,0.88)",
+                    boxShadow: selected ? "0 16px 28px rgba(15,95,215,0.12)" : "none",
+                    display: "grid",
+                    gap: "10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      alignItems: "start",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: "6px" }}>
+                      <strong style={{ fontSize: "0.98rem" }}>{row.restaurant}</strong>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          width: "fit-content",
+                          padding: "6px 9px",
+                          borderRadius: "999px",
+                          background: "rgba(24,40,59,0.07)",
+                          color: "var(--muted)",
+                          fontSize: "0.74rem",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {displayPricingModel(row.pricing_model)}
+                      </span>
+                    </div>
+                    <div style={{ textAlign: "right", display: "grid", gap: "3px" }}>
+                      <strong style={{ fontSize: "1rem" }}>{formatMoney(row.gross_invoice)}</strong>
+                      <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>KDV dahil</span>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                      gap: "8px",
+                    }}
+                  >
+                    {[
+                      ["Saat", formatNumber(row.total_hours, 1)],
+                      ["Paket", formatNumber(row.total_packages, 0)],
+                      ["KDV Hariç", formatMoney(row.net_invoice)],
+                    ].map(([label, value]) => (
+                      <div
+                        key={label}
+                        style={{
+                          padding: "9px 10px",
+                          borderRadius: "14px",
+                          background: "rgba(24,40,59,0.05)",
+                          display: "grid",
+                          gap: "3px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: "0.68rem",
+                            fontWeight: 900,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                          }}
+                        >
+                          {label}
+                        </span>
+                        <strong style={{ fontSize: "0.88rem" }}>{value}</strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <div
+                      style={{
+                        height: "10px",
+                        borderRadius: "999px",
+                        background: "rgba(24,40,59,0.08)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${invoiceWidth}%`,
+                          height: "100%",
+                          borderRadius: "999px",
+                          background: selected
+                            ? "linear-gradient(90deg, rgba(15,95,215,0.98), rgba(80,150,255,0.92))"
+                            : "linear-gradient(90deg, rgba(185,116,41,0.92), rgba(233,184,120,0.88))",
+                        }}
+                      />
+                    </div>
+                    <span style={{ color: "var(--muted)", fontSize: "0.76rem" }}>
+                      Fatura gücü bu listenin en yüksek satırına göre gösterilir.
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+
+            {!rows.length ? (
+              <div
+                style={{
+                  padding: "16px",
+                  borderRadius: "16px",
+                  border: "1px dashed rgba(15,95,215,0.24)",
+                  color: "var(--muted)",
+                  lineHeight: 1.6,
+                  fontSize: "0.84rem",
+                }}
+              >
+                Aramana uygun restoran faturası bulunamadı.
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        <section
+          style={{
+            display: "grid",
+            gap: "12px",
+          }}
+        >
+          {selectedInvoice ? (
+            <>
+              <article
+                style={{
+                  padding: "18px",
+                  borderRadius: "22px",
+                  background:
+                    "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
+                  color: "#fff7ea",
+                  display: "grid",
+                  gap: "14px",
+                  boxShadow: "var(--shadow-deep)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    alignItems: "start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <div
+                      style={{
+                        color: "rgba(255,247,234,0.62)",
+                        fontSize: "0.68rem",
+                        fontWeight: 900,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Seçili Şube
+                    </div>
+                    <h3
+                      style={{
+                        ...serifStyle,
+                        margin: 0,
+                        fontSize: "clamp(1.7rem, 2vw, 2.35rem)",
+                        lineHeight: 0.94,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {selectedInvoice.restaurant}
+                    </h3>
+                    <p
+                      style={{
+                        margin: 0,
+                        color: "rgba(255,247,234,0.72)",
+                        fontSize: "0.9rem",
+                        lineHeight: 1.6,
+                        maxWidth: "64ch",
+                      }}
+                    >
+                      Restoran faturası, şubeye dağılan kurye maliyeti ve alt ekip payı tek panelde
+                      birlikte okunur.
+                    </p>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                    }}
+                  >
+                    {[
+                      displayPricingModel(selectedInvoice.pricing_model),
+                      `${formatNumber(selectedInvoice.total_hours, 1)} saat`,
+                      `${formatNumber(selectedInvoice.total_packages, 0)} paket`,
+                      `${formatNumber(selectedCouriers.length)} kişi`,
+                    ].map((item) => (
+                      <span
+                        key={item}
+                        style={{
+                          display: "inline-flex",
+                          padding: "7px 10px",
+                          borderRadius: "999px",
+                          background: "rgba(255,255,255,0.08)",
+                          color: "#fff7ea",
+                          fontSize: "0.76rem",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  {[
+                    ["KDV Hariç", formatMoney(selectedInvoice.net_invoice), "Net restoran faturası"],
+                    ["KDV Dahil", formatMoney(selectedInvoice.gross_invoice), "Kesilen toplam fatura"],
+                    [
+                      "Şube Kurye Payı",
+                      formatMoney(directCost),
+                      "Bu şubeye dağılan doğrudan kurye maliyeti",
+                    ],
+                    [
+                      "Fatura-Kurye Farkı",
+                      formatMoney(selectedProfit?.gross_profit ?? 0),
+                      "Yalnızca doğrudan maliyet farkı",
+                    ],
+                  ].map(([label, value, note]) => (
+                    <article
+                      key={label}
+                      style={{
+                        padding: "12px 13px",
+                        borderRadius: "16px",
+                        background: "rgba(255,255,255,0.08)",
+                        display: "grid",
+                        gap: "4px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: "rgba(255,247,234,0.62)",
+                          fontSize: "0.64rem",
+                          fontWeight: 900,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {label}
+                      </div>
+                      <div style={{ fontSize: "1.06rem", fontWeight: 900 }}>{value}</div>
+                      <div style={{ color: "rgba(255,247,234,0.68)", fontSize: "0.78rem", lineHeight: 1.45 }}>
+                        {note}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </article>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                {[
+                  ["Saat Başına Fatura", formatMoney(selectedHourlyInvoice)],
+                  ["Paket Başına Fatura", formatMoney(selectedPackageInvoice)],
+                  ["Kurye Başına Ortalama", formatMoney(selectedCourierAverage)],
+                  ["Doğrudan Marj", `%${formatNumber(selectedMarginPercent, 1)}`],
+                ].map(([label, value]) => (
+                  <article
+                    key={label}
+                    style={{
+                      padding: "14px",
+                      borderRadius: "18px",
+                      border: "1px solid rgba(219, 228, 243, 0.84)",
+                      background: "rgba(255,255,255,0.88)",
+                      display: "grid",
+                      gap: "5px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "var(--muted)",
+                        fontSize: "0.66rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        fontWeight: 900,
+                      }}
+                    >
+                      {label}
+                    </div>
+                    <div style={{ fontSize: "1rem", fontWeight: 900 }}>{value}</div>
+                  </article>
+                ))}
+              </div>
+
+              <section
+                style={{
+                  borderRadius: "20px",
+                  border: "1px solid rgba(219, 228, 243, 0.84)",
+                  background: "rgba(255,255,255,0.9)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    borderBottom: "1px solid rgba(219, 228, 243, 0.82)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "4px" }}>
+                    <strong>Kurye Dağılımı</strong>
+                    <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+                      Bu tabloda görülen tutar, seçilen şubeye dağılan paydır; kurye toplam ay hakedişi değildir.
+                    </span>
+                  </div>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      padding: "7px 10px",
+                      borderRadius: "999px",
+                      background: "rgba(24,40,59,0.06)",
+                      color: "var(--text)",
+                      fontSize: "0.78rem",
+                      fontWeight: 800,
+                    }}
+                  >
+                    {selectedCouriers.length} kişi
+                  </span>
+                </div>
+
+                {selectedCouriers.length ? (
+                  <div
+                    style={{
+                      maxHeight: "470px",
+                      overflow: "auto",
+                      display: "grid",
+                      gap: "0",
+                    }}
+                  >
+                    {selectedCouriers.map((row) => (
+                      <article
+                        key={`${selectedInvoice.restaurant}-${row.personnel}-${row.role}`}
+                        style={{
+                          padding: "14px 16px",
+                          borderTop: "1px solid rgba(219, 228, 243, 0.58)",
+                          display: "grid",
+                          gap: "8px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "12px",
+                            alignItems: "start",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <div style={{ display: "grid", gap: "4px" }}>
+                            <strong>{row.personnel}</strong>
+                            <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+                              {row.role} · {formatNumber(row.total_hours, 1)} saat ·{" "}
+                              {formatNumber(row.total_packages, 0)} paket
+                            </span>
+                          </div>
+                          <strong style={{ fontSize: "0.98rem" }}>{formatMoney(row.allocated_cost)}</strong>
+                        </div>
+
+                        <div
+                          style={{
+                            height: "10px",
+                            borderRadius: "999px",
+                            background: "rgba(24,40,59,0.08)",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${Math.max((row.allocated_cost / maxCourierCost) * 100, 6)}%`,
+                              height: "100%",
+                              borderRadius: "999px",
+                              background:
+                                "linear-gradient(90deg, rgba(15,95,215,0.92), rgba(80,150,255,0.88))",
+                            }}
+                          />
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      padding: "16px",
+                      color: "var(--muted)",
+                      lineHeight: 1.6,
+                      fontSize: "0.84rem",
+                    }}
+                  >
+                    Bu şube için seçili ayda dağılım satırı henüz oluşmadı.
+                  </div>
+                )}
+              </section>
+            </>
+          ) : (
+            <div
+              style={{
+                padding: "24px",
+                borderRadius: "20px",
+                border: "1px dashed rgba(15,95,215,0.3)",
+                background: "rgba(255,255,255,0.84)",
+                color: "var(--muted)",
+                lineHeight: 1.7,
+              }}
+            >
+              Sol taraftan bir şube seçtiğinde restoran faturası ve kurye dağılımı burada açılacak.
+            </div>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
 export default function ReportsPage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<ReportsDashboard | null>(null);
@@ -1564,6 +2280,54 @@ export default function ReportsPage() {
 
             <ReportModelMatrix dashboard={dashboard} coverageGap={coverageGap} />
 
+            <section
+              style={{
+                padding: "14px 16px",
+                borderRadius: "18px",
+                border: "1px solid var(--line)",
+                background: "rgba(255,255,255,0.8)",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "10px",
+              }}
+            >
+              {[
+                ["Fatura Masası", "#invoice-workspace"],
+                ["Kurye Maliyeti", "#cost-workspace"],
+                ["Kârlılık", "#profit-workspace"],
+                ["Ortak Operasyon", "#overhead-workspace"],
+              ].map(([label, href]) => (
+                <a
+                  key={label}
+                  href={href}
+                  style={{
+                    display: "inline-flex",
+                    padding: "8px 12px",
+                    borderRadius: "999px",
+                    border: "1px solid rgba(24,40,59,0.08)",
+                    background: "rgba(24,40,59,0.05)",
+                    color: "var(--text)",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                    textDecoration: "none",
+                  }}
+                >
+                  {label}
+                </a>
+              ))}
+            </section>
+
+            <InvoiceWorkspace
+              monthLabel={dashboard.summary.selected_month}
+              rows={filteredInvoiceEntries}
+              query={invoiceQuery}
+              onQueryChange={setInvoiceQuery}
+              selectedInvoice={selectedRestaurantInvoice}
+              selectedProfit={selectedRestaurantProfit}
+              selectedCouriers={selectedRestaurantCouriers}
+              onSelectRestaurant={setSelectedRestaurant}
+            />
+
             <div
               style={{
                 display: "grid",
@@ -1608,17 +2372,66 @@ export default function ReportsPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
                 gap: "12px",
               }}
             >
+              <section id="cost-workspace" style={{ scrollMarginTop: "110px" }}>
+                <ScrollCard
+                  title="Kurye Maliyeti"
+                  subtitle="Personel bazlı saat, paket, kesinti ve net maliyet görünümü. Liste kendi içinde kaydırılabilir."
+                  actions={
+                    <input
+                      value={costQuery}
+                      onChange={(event) => setCostQuery(event.target.value)}
+                      placeholder="Personel veya rol ara"
+                      style={{
+                        minWidth: "220px",
+                        padding: "10px 12px",
+                        borderRadius: "12px",
+                        border: "1px solid var(--line)",
+                        background: "rgba(255,255,255,0.96)",
+                        color: "var(--text)",
+                        fontSize: "0.84rem",
+                      }}
+                    />
+                  }
+                >
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                    }}
+                  >
+                    <thead>
+                      <tr>
+                        {["Personel", "Rol", "Saat", "Paket", "Kesinti", "Net Maliyet"].map(tableHeaderCell)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredCostEntries.map((row) => (
+                        <tr key={`${row.personnel}-${row.role}`}>
+                          {tableCell(row.personnel)}
+                          {tableCell(row.role, "left", true)}
+                          {tableCell(formatNumber(row.total_hours, 1), "right")}
+                          {tableCell(formatNumber(row.total_packages, 0), "right")}
+                          {tableCell(formatMoney(row.total_deductions), "right")}
+                          {tableCell(formatMoney(row.net_cost), "right")}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </ScrollCard>
+              </section>
+            </div>
+
+            <section id="profit-workspace" style={{ scrollMarginTop: "110px" }}>
               <ScrollCard
-                title="Restoran Faturası"
-                subtitle="Şube bazlı toplam saat, paket ve restoran faturası. Satıra tıklayarak alt detayda kurye dağılımını açabilirsin."
+                title="Restoran Kârlılığı"
+                subtitle="Fatura ile doğrudan personel ve ortak operasyon yükünü aynı satırda okuyup gerçek şube farkını gör."
                 actions={
                   <input
-                    value={invoiceQuery}
-                    onChange={(event) => setInvoiceQuery(event.target.value)}
+                    value={profitQuery}
+                    onChange={(event) => setProfitQuery(event.target.value)}
                     placeholder="Şube veya model ara"
                     style={{
                       minWidth: "220px",
@@ -1640,257 +2453,36 @@ export default function ReportsPage() {
                 >
                   <thead>
                     <tr>
-                      {["Şube", "Model", "Saat", "Paket", "KDV Hariç", "KDV Dahil"].map(tableHeaderCell)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredInvoiceEntries.map((row) => (
-                      <tr
-                        key={`${row.restaurant}-${row.pricing_model}`}
-                        onClick={() => setSelectedRestaurant(row.restaurant)}
-                        style={{
-                          cursor: "pointer",
-                          background:
-                            selectedRestaurantInvoice?.restaurant === row.restaurant
-                              ? "rgba(15, 95, 215, 0.07)"
-                              : "transparent",
-                        }}
-                      >
-                        {tableCell(row.restaurant)}
-                        {tableCell(displayPricingModel(row.pricing_model), "left", true)}
-                        {tableCell(formatNumber(row.total_hours, 1), "right")}
-                        {tableCell(formatNumber(row.total_packages, 0), "right")}
-                        {tableCell(formatMoney(row.net_invoice), "right")}
-                        {tableCell(formatMoney(row.gross_invoice), "right")}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </ScrollCard>
-
-              <section
-                style={{
-                  borderRadius: "18px",
-                  border: "1px solid var(--line)",
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,242,234,0.95))",
-                  boxShadow: "0 12px 28px rgba(20, 39, 67, 0.05)",
-                  padding: "16px",
-                  display: "grid",
-                  gap: "14px",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
-                  <div>
-                    <div
-                      style={{
-                        color: "var(--accent-strong)",
-                        fontSize: "0.72rem",
-                        fontWeight: 900,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Seçili Şube Detayı
-                    </div>
-                    <h3 style={{ margin: "6px 0 0", fontSize: "1.05rem" }}>
-                      {selectedRestaurantInvoice?.restaurant ?? "Şube seç"}
-                    </h3>
-                    <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "0.84rem", lineHeight: 1.55 }}>
-                      {selectedRestaurantInvoice
-                        ? "Bu şubede çalışan kuryelerin şube bazlı hakediş payını ve restoran faturasını birlikte gör."
-                        : "Restoran faturası tablosundan bir şube seçtiğinde kurye kırılımı burada açılacak."}
-                    </p>
-                  </div>
-                  {selectedRestaurantInvoice ? (
-                    <div style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
-                      {displayPricingModel(selectedRestaurantInvoice.pricing_model)} •{" "}
-                      {formatNumber(selectedRestaurantInvoice.total_hours, 1)} saat •{" "}
-                      {formatNumber(selectedRestaurantInvoice.total_packages, 0)} paket
-                    </div>
-                  ) : null}
-                </div>
-
-                {selectedRestaurantInvoice ? (
-                  <>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                        gap: "10px",
-                      }}
-                    >
-                      {metricCard("KDV Hariç", formatMoney(selectedRestaurantInvoice.net_invoice), "Restoranın net fatura tutarı")}
-                      {metricCard("KDV Dahil", formatMoney(selectedRestaurantInvoice.gross_invoice), "Restorana kesilen toplam fatura")}
-                      {metricCard(
-                        "Kurye Hakedişi",
-                        formatMoney(selectedRestaurantProfit?.direct_personnel_cost ?? 0),
-                        "Bu şubeye dağılan net kurye maliyeti",
-                      )}
-                      {metricCard(
+                      {[
+                        "Şube",
+                        "KDV Dahil",
+                        "Doğrudan Maliyet",
+                        "Ortak Operasyon",
                         "Fatura-Kurye Farkı",
-                        formatMoney(selectedRestaurantProfit?.gross_profit ?? 0),
-                        "Yalnızca bu şubenin doğrudan farkı",
-                      )}
-                    </div>
-
-                    <div
-                      style={{
-                        borderRadius: "16px",
-                        border: "1px solid rgba(219, 228, 243, 0.8)",
-                        background: "rgba(255,255,255,0.9)",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          padding: "12px 14px",
-                          borderBottom: "1px solid rgba(219, 228, 243, 0.8)",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: "12px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <strong>Çalışan Kuryeler</strong>
-                        <span style={{ color: "var(--muted)", fontSize: "0.84rem" }}>
-                          {selectedRestaurantCouriers.length} kişi
-                        </span>
-                      </div>
-
-                      {selectedRestaurantCouriers.length ? (
-                        <div style={{ display: "grid", gap: "0" }}>
-                          {selectedRestaurantCouriers.map((row) => (
-                            <article
-                              key={`${selectedRestaurantInvoice.restaurant}-${row.personnel}-${row.role}`}
-                              style={{
-                                padding: "12px 14px",
-                                borderTop: "1px solid rgba(219, 228, 243, 0.55)",
-                                display: "grid",
-                                gap: "6px",
-                              }}
-                            >
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-                                <strong>{row.personnel}</strong>
-                                <strong>{formatMoney(row.allocated_cost)}</strong>
-                              </div>
-                              <div style={{ color: "var(--muted)", fontSize: "0.84rem", lineHeight: 1.5 }}>
-                                {row.role} • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
-                              </div>
-                            </article>
-                          ))}
-                        </div>
-                      ) : (
-                        <div style={{ padding: "14px", color: "var(--muted)", lineHeight: 1.6, fontSize: "0.84rem" }}>
-                          Bu şube için seçili ayda kurye dağılımı henüz oluşmadı.
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : null}
-              </section>
-
-              <ScrollCard
-                title="Kurye Maliyeti"
-                subtitle="Personel bazlı saat, paket, kesinti ve net maliyet görünümü. Liste kendi içinde kaydırılabilir."
-                actions={
-                  <input
-                    value={costQuery}
-                    onChange={(event) => setCostQuery(event.target.value)}
-                    placeholder="Personel veya rol ara"
-                    style={{
-                      minWidth: "220px",
-                      padding: "10px 12px",
-                      borderRadius: "12px",
-                      border: "1px solid var(--line)",
-                      background: "rgba(255,255,255,0.96)",
-                      color: "var(--text)",
-                      fontSize: "0.84rem",
-                    }}
-                  />
-                }
-              >
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      {["Personel", "Rol", "Saat", "Paket", "Kesinti", "Net Maliyet"].map(tableHeaderCell)}
+                        "Kâr Marjı",
+                      ].map(tableHeaderCell)}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredCostEntries.map((row) => (
-                      <tr key={`${row.personnel}-${row.role}`}>
-                        {tableCell(row.personnel)}
-                        {tableCell(row.role, "left", true)}
-                        {tableCell(formatNumber(row.total_hours, 1), "right")}
-                        {tableCell(formatNumber(row.total_packages, 0), "right")}
-                        {tableCell(formatMoney(row.total_deductions), "right")}
-                        {tableCell(formatMoney(row.net_cost), "right")}
+                    {filteredProfitEntries.map((row) => (
+                      <tr key={`${row.restaurant}-${row.pricing_model}`}>
+                        {tableCell(row.restaurant)}
+                        {tableCell(formatMoney(row.gross_invoice), "right")}
+                        {tableCell(formatMoney(row.direct_personnel_cost), "right")}
+                        {tableCell(formatMoney(row.shared_overhead_cost), "right")}
+                        {tableCell(formatMoney(row.gross_profit), "right")}
+                        {tableCell(`%${formatNumber(row.profit_margin_percent, 1)}`, "right")}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </ScrollCard>
-            </div>
-
-            <ScrollCard
-              title="Restoran Kârlılığı"
-              subtitle="Fatura ile doğrudan personel ve ortak operasyon yükünü aynı satırda okuyup gerçek şube farkını gör."
-              actions={
-                <input
-                  value={profitQuery}
-                  onChange={(event) => setProfitQuery(event.target.value)}
-                  placeholder="Şube veya model ara"
-                  style={{
-                    minWidth: "220px",
-                    padding: "10px 12px",
-                    borderRadius: "12px",
-                    border: "1px solid var(--line)",
-                    background: "rgba(255,255,255,0.96)",
-                    color: "var(--text)",
-                    fontSize: "0.84rem",
-                  }}
-                />
-              }
-            >
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                }}
-              >
-                <thead>
-                  <tr>
-                    {[
-                      "Şube",
-                      "KDV Dahil",
-                      "Doğrudan Maliyet",
-                      "Ortak Operasyon",
-                      "Fatura-Kurye Farkı",
-                      "Kâr Marjı",
-                    ].map(tableHeaderCell)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredProfitEntries.map((row) => (
-                    <tr key={`${row.restaurant}-${row.pricing_model}`}>
-                      {tableCell(row.restaurant)}
-                      {tableCell(formatMoney(row.gross_invoice), "right")}
-                      {tableCell(formatMoney(row.direct_personnel_cost), "right")}
-                      {tableCell(formatMoney(row.shared_overhead_cost), "right")}
-                      {tableCell(formatMoney(row.gross_profit), "right")}
-                      {tableCell(`%${formatNumber(row.profit_margin_percent, 1)}`, "right")}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </ScrollCard>
+            </section>
 
             <div
+              id="overhead-workspace"
               style={{
+                scrollMarginTop: "110px",
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
                 gap: "18px",

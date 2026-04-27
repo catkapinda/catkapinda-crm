@@ -360,12 +360,18 @@ export default function RestaurantsPage() {
       },
       {
         eyebrow: "Üçüncü Adım",
+        title: "Fatura masasını aç",
+        body: "Şube bazlı fatura, kurye maliyeti ve dağılımı tek karar yüzeyinde oku.",
+        href: "/reports#invoice-workspace",
+      },
+      {
+        eyebrow: "Dördüncü Adım",
         title: "Portföy havuzunu süz",
         body: "Marka, şube ve fiyat modeli üzerinden kayıtları daralt; dikkat isteyen kartı hızlıca bul.",
         href: "#restaurant-management-workspace",
       },
       {
-        eyebrow: "Dördüncü Adım",
+        eyebrow: "Beşinci Adım",
         title: "Seçili kartı güncelle",
         body: "Fiyat, iletişim, vergi ve durum alanlarını aynı panelde yenile; gerekirse pasife al.",
         href: "#restaurant-management-workspace",
@@ -652,8 +658,8 @@ export default function RestaurantsPage() {
           <div>
             <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Çalışma Sırası</h2>
             <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.65 }}>
-              Eski restoran akışındaki yeni kart, portföy havuzu ve kart güncelleme düzenini aynı
-              sayfada görünür kılıyoruz.
+              Şube kaydı, talep hattı, fatura okuması ve portföy güncellemesini birbirine bağlı tek
+              akışta görünür kılıyoruz.
             </p>
           </div>
           <div
