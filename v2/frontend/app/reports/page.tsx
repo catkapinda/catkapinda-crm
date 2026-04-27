@@ -2292,7 +2292,7 @@ export default function ReportsPage() {
               }}
             >
               {[
-                ["Fatura Masası", "#invoice-workspace"],
+                ["Faturalar", "/invoices"],
                 ["Kurye Maliyeti", "#cost-workspace"],
                 ["Kârlılık", "#profit-workspace"],
                 ["Ortak Operasyon", "#overhead-workspace"],
@@ -2317,16 +2317,118 @@ export default function ReportsPage() {
               ))}
             </section>
 
-            <InvoiceWorkspace
-              monthLabel={dashboard.summary.selected_month}
-              rows={filteredInvoiceEntries}
-              query={invoiceQuery}
-              onQueryChange={setInvoiceQuery}
-              selectedInvoice={selectedRestaurantInvoice}
-              selectedProfit={selectedRestaurantProfit}
-              selectedCouriers={selectedRestaurantCouriers}
-              onSelectRestaurant={setSelectedRestaurant}
-            />
+            <section
+              style={{
+                padding: "18px",
+                borderRadius: "22px",
+                border: "1px solid rgba(219, 228, 243, 0.88)",
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,242,234,0.94))",
+                boxShadow: "0 16px 34px rgba(22, 42, 74, 0.05)",
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "16px",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ display: "grid", gap: "6px", maxWidth: "66ch" }}>
+                  <div
+                    style={{
+                      color: "var(--accent-strong)",
+                      fontSize: "0.68rem",
+                      fontWeight: 900,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Yeni Konum
+                  </div>
+                  <h2
+                    style={{
+                      ...serifStyle,
+                      margin: 0,
+                      fontSize: "clamp(1.45rem, 2vw, 2rem)",
+                      lineHeight: 0.96,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Restoran faturası artık ayrı bir sekmede büyüyor.
+                  </h2>
+                  <p
+                    style={{
+                      margin: 0,
+                      color: "var(--muted)",
+                      fontSize: "0.88rem",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Fatura, KDV, kurye dağılımı ve ileride eklenecek tahsilat akışını tek yüzeyde
+                    toplamak için bunu `Faturalar` sekmesine taşıdık. Raporlar ekranı artık daha
+                    çok özet ve karar katmanı olarak kalıyor.
+                  </p>
+                </div>
+                <a
+                  href="/invoices"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "11px 14px",
+                    borderRadius: "14px",
+                    background: "rgba(15,95,215,0.1)",
+                    border: "1px solid rgba(15,95,215,0.16)",
+                    color: "#0f5fd7",
+                    fontWeight: 900,
+                    textDecoration: "none",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Faturalar sekmesini aç
+                </a>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                {[
+                  [
+                    "Şube Faturası",
+                    formatNumber(filteredInvoiceEntries.length),
+                    "Şube bazlı fatura satırları yeni sekmede okunur.",
+                  ],
+                  [
+                    "Toplam Fatura",
+                    formatMoney(
+                      filteredInvoiceEntries.reduce(
+                        (total, row) => total + row.gross_invoice,
+                        0,
+                      ),
+                    ),
+                    "KDV dahil toplam restoran faturası.",
+                  ],
+                  [
+                    "Kurye Dağılımı",
+                    formatNumber(
+                      selectedRestaurantCouriers.length,
+                    ),
+                    "Seçili şube kırılımı artık Faturalar yüzeyinde açılır.",
+                  ],
+                ].map(([label, value, note]) =>
+                  metricCard(label, value, note),
+                )}
+              </div>
+            </section>
 
             <div
               style={{

@@ -29,6 +29,7 @@ const navAccentByLabel: Record<string, string> = {
   "Satın Alma": "#a78bfa",
   Satış: "#60d394",
   Restoranlar: "#ffb86b",
+  Faturalar: "#65b7ff",
   Raporlar: "#86a7ff",
   Duyurular: "#f6c667",
   "Sistem Kayıtları": "#c0c7d1",
@@ -176,6 +177,20 @@ const previewMetaByLabel: Record<string, PreviewMeta> = {
     signal: "Restoranlar modülü, müşteri ve şube kayıtlarını operasyonla birlikte tutar.",
     flowNote: "Buradan sonra Satış veya Puantaj modülü, şube verisinin iki farklı yönde nasıl yaşadığını göstermek için iyi bir akış kurar.",
   },
+  Faturalar: {
+    kicker: "Fatura Masası",
+    title: "Restoran faturası ve tahsilat hattı burada büyüyecek",
+    description:
+      "Şube bazlı fatura, KDV, kurye dağılımı ve daha sonra eklenecek tahsilat katmanını tek bir finans yüzeyinde toplar.",
+    relatedLabels: ["Restoranlar", "Raporlar", "Aylık Hakediş"],
+    reviewPoints: [
+      "Şube seçimi ve detay okuma tek bakışta anlaşılır mı bak.",
+      "Fatura, kurye dağılımı ve fark alanları birbirine karışmadan okunuyor mu incele.",
+      "Tahsilat ve vade gibi sonraki finans katmanları için yeterince temiz bir omurga sunuyor mu kontrol et.",
+    ],
+    signal: "Faturalar modülü, restoran faturası ve alt maliyet dağılımını bağımsız bir çalışma alanında okutur.",
+    flowNote: "Buradan sonra Raporlar veya Aylık Hakediş modülüne geçmek, fatura verisinin sonuç katmanlarını birlikte okumak için iyi bir devam olur.",
+  },
   Raporlar: {
     kicker: "Karar Paneli",
     title: "Ciro, maliyet ve trend dili burada toparlanıyor",
@@ -245,6 +260,7 @@ export function AppShell({
         "/purchases": "/preview/purchases",
         "/sales": "/preview/sales",
         "/restaurants": "/preview/restaurants",
+        "/invoices": "/preview/reports",
         "/reports": "/preview/reports",
         "/audit": "/preview/audit",
         "/account": "/preview/account",
@@ -262,6 +278,7 @@ export function AppShell({
             item.label === "Satın Alma" ||
             item.label === "Satış" ||
             item.label === "Restoranlar" ||
+            item.label === "Faturalar" ||
             item.label === "Raporlar" ||
             item.label === "Profil",
         )

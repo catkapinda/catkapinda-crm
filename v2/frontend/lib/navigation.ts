@@ -18,6 +18,7 @@ const allSidebarItems: SidebarItem[] = [
   { label: "Satın Alma", href: "/purchases", action: "purchase.view" },
   { label: "Satış", href: "/sales", action: "sales.view" },
   { label: "Restoranlar", href: "/restaurants", action: "restaurant.view" },
+  { label: "Faturalar", href: "/invoices", action: "reporting.view" },
   { label: "Raporlar", href: "/reports", action: "reporting.view" },
   { label: "Profil", href: "/account" },
 ];
