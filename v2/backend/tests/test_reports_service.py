@@ -150,3 +150,122 @@ def test_reports_dashboard_calculates_restaurant_invoices_from_attendance_rates(
     assert payload.summary is not None
     assert payload.summary.restaurant_count == 3
     assert payload.summary.total_revenue == 62402.4
+
+
+def test_reports_dashboard_keeps_standard_courier_formula_on_fixed_monthly_restaurants():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            role TEXT,
+            monthly_fixed_cost REAL,
+            cost_model TEXT,
+            status TEXT,
+            start_date TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            vehicle_type TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT,
+            active INTEGER,
+            pricing_model TEXT,
+            hourly_rate REAL,
+            package_rate REAL,
+            package_threshold INTEGER,
+            package_rate_low REAL,
+            package_rate_high REAL,
+            fixed_monthly_fee REAL,
+            vat_rate REAL
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL,
+            monthly_invoice_amount REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (
+            id, full_name, role, monthly_fixed_cost, cost_model, status, start_date, motor_rental, motor_purchase, vehicle_type, motor_rental_monthly_amount
+        )
+        VALUES (1, 'Standart Kurye', 'Kurye', 0, 'standard_courier', 'Aktif', '2026-01-01', 'Hayır', 'Hayır', 'Kendi Motoru', 13000)
+        """
+    )
+    raw_conn.executemany(
+        """
+        INSERT INTO restaurants (
+            id,
+            brand,
+            branch,
+            active,
+            pricing_model,
+            hourly_rate,
+            package_rate,
+            package_threshold,
+            package_rate_low,
+            package_rate_high,
+            fixed_monthly_fee,
+            vat_rate
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (10, "Sushi Inn", "Merkez", 1, "fixed_monthly", 0, 0, 390, 0, 0, 50000, 20),
+            (11, "Burger@", "Kavacık", 1, "hourly_plus_package", 279, 32, 390, 0, 0, 0, 20),
+        ],
+    )
+    raw_conn.executemany(
+        """
+        INSERT INTO daily_entries (
+            id,
+            entry_date,
+            restaurant_id,
+            planned_personnel_id,
+            actual_personnel_id,
+            worked_hours,
+            package_count,
+            monthly_invoice_amount
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (1, "2026-04-10", 10, 1, 1, 20, 40, 0),
+            (2, "2026-04-11", 11, 1, 1, 10, 20, 0),
+        ],
+    )
+    raw_conn.commit()
+
+    payload = build_reports_dashboard(
+        CompatConnection(raw_conn, "sqlite"),
+        selected_month="2026-04",
+        limit=10,
+    )
+
+    assert payload.cost_entries
+    assert payload.cost_entries[0].net_cost == 8700.0
+    assert payload.top_couriers
+    assert payload.top_couriers[0].net_cost == 8700.0

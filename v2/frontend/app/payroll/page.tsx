@@ -554,7 +554,7 @@ export default function PayrollPage() {
     return [
       metricCard("Kesinti Öncesi Kurye Hakedişi", formatMoney(dashboard.summary.gross_payroll), "Ekipman ve manuel kesintiler düşmeden önce"),
       metricCard("Toplam Kesinti", formatMoney(dashboard.summary.total_deductions), "Ay sonu kesinti toplamı"),
-      metricCard("Kurye Fatura Tutarı", formatMoney(dashboard.summary.net_payment), "Kesintiler sonrası, kuryenin KDV dahil keseceği fatura"),
+      metricCard("Kurye Fatura Tutarı", formatMoney(dashboard.summary.net_payment), "Kesintiler sonrası oluşan nihai kurye tutarı"),
       metricCard("Personel", formatNumber(dashboard.summary.personnel_count), "Hakediş havuzundaki çalışan"),
       metricCard("Toplam Saat", formatNumber(dashboard.summary.total_hours, 1), "Seçili filtre çalışma saati"),
       metricCard("Toplam Paket", formatNumber(dashboard.summary.total_packages, 0), "Seçili filtre paket toplamı"),
@@ -619,14 +619,14 @@ export default function PayrollPage() {
             : deductionRatio <= 14
               ? "Kesinti baskısı izlenmeli."
               : "Kesinti baskısı yükseliyor.",
-        body: `${dashboard.summary.selected_month} döneminde ${formatMoney(dashboard.summary.net_payment)} KDV dahil kurye fatura tutarı çıkıyor. Kesinti oranı %${formatNumber(deductionRatio, 1)} seviyesinde.`,
+        body: `${dashboard.summary.selected_month} döneminde ${formatMoney(dashboard.summary.net_payment)} nihai kurye tutarı çıkıyor. Kesinti oranı %${formatNumber(deductionRatio, 1)} seviyesinde.`,
         tone: deductionRatio <= 8 ? "ink" : "accent",
       },
       {
-        eyebrow: "En Yüksek Kurye Faturası",
+        eyebrow: "En Yüksek Kurye Tutarı",
         title: topPersonnel ? topPersonnel.personnel : "Ödeme verisi henüz yok.",
         body: topPersonnel
-          ? `${topPersonnel.role} rolünde ${formatMoney(topPersonnel.net_payment)} KDV dahil kurye faturası taşıyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmalı.`
+          ? `${topPersonnel.role} rolünde ${formatMoney(topPersonnel.net_payment)} nihai kurye tutarı taşıyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmalı.`
           : "Personel dağılımı geldikçe bu kart aylık ödeme ağırlığını önde gösterecek.",
         tone: "paper",
       },
@@ -1522,8 +1522,8 @@ export default function PayrollPage() {
                 </ScrollCard>
 
                 <ScrollCard
-                  title="En Yüksek Kurye Faturası"
-                  subtitle="Ay içinde en yüksek KDV dahil fatura çıkan çalışanları hızlıca gör."
+                  title="En Yüksek Kurye Tutarı"
+                  subtitle="Ay içinde en yüksek kesinti sonrası kurye tutarını hızlıca gör."
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
                     {dashboard.top_personnel.length ? (

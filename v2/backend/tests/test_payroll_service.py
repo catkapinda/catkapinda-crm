@@ -287,7 +287,7 @@ def test_payroll_dashboard_uses_monthly_threshold_for_courier_package_bonus():
     assert payload.entries[0].gross_pay == 39475.0
 
 
-def test_payroll_dashboard_uses_fixed_pay_for_sushi_inn_and_sc_petshop():
+def test_payroll_dashboard_uses_fixed_pay_for_fixed_monthly_courier():
     raw_conn = sqlite3.connect(":memory:")
     raw_conn.row_factory = sqlite3.Row
     raw_conn.executescript(
@@ -336,7 +336,7 @@ def test_payroll_dashboard_uses_fixed_pay_for_sushi_inn_and_sc_petshop():
     raw_conn.execute(
         """
         INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
-        VALUES (1, 'Sabit Kurye', 'CK-K04', 'Kurye', 'Aktif', 'standard_courier', 0)
+        VALUES (1, 'Sabit Kurye', 'CK-K04', 'Kurye', 'Aktif', 'fixed_monthly', 73600)
         """
     )
     raw_conn.executemany(
@@ -370,6 +370,91 @@ def test_payroll_dashboard_uses_fixed_pay_for_sushi_inn_and_sc_petshop():
     assert payload.summary is not None
     assert payload.summary.gross_payroll == 73600.0
     assert payload.entries[0].gross_pay == 73600.0
+
+
+def test_payroll_dashboard_keeps_standard_courier_formula_on_fixed_monthly_restaurants():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
+        VALUES (1, 'Standart Kurye', 'CK-K05', 'Kurye', 'Aktif', 'standard_courier', 0)
+        """
+    )
+    raw_conn.executemany(
+        "INSERT INTO restaurants (id, brand, branch) VALUES (?, ?, ?)",
+        [
+            (10, "Sushi Inn", "Merkez"),
+            (11, "Burger@", "Kavacık"),
+        ],
+    )
+    raw_conn.executemany(
+        """
+        INSERT INTO daily_entries (
+            entry_date,
+            restaurant_id,
+            planned_personnel_id,
+            actual_personnel_id,
+            worked_hours,
+            package_count
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        [
+            ("2026-04-10", 10, 1, 1, 20, 40),
+            ("2026-04-11", 11, 1, 1, 10, 20),
+        ],
+    )
+    raw_conn.commit()
+
+    payload = build_payroll_dashboard(CompatConnection(raw_conn, "sqlite"), selected_month="2026-04")
+
+    assert payload.summary is not None
+    assert payload.summary.gross_payroll == 8700.0
+    assert payload.entries[0].gross_pay == 8700.0
 
 
 def test_payroll_dashboard_prorates_company_motor_rental_deduction():
