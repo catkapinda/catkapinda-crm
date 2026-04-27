@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../components/auth/auth-provider";
 import { AppShell } from "../../components/shell/app-shell";
-import { apiFetch } from "../../lib/api";
+import { apiErrorMessage, apiFetch } from "../../lib/api";
 
 type InvoicesDashboard = {
   month_options: string[];
@@ -17,8 +17,10 @@ type InvoicesDashboard = {
     total_revenue: number;
     total_personnel_cost: number;
     gross_profit: number;
+    side_income_net: number;
   } | null;
   invoice_entries: Array<{
+    restaurant_id: number | null;
     restaurant: string;
     pricing_model: string;
     total_hours: number;
@@ -43,6 +45,35 @@ type InvoicesDashboard = {
     allocated_cost: number;
     allocation_source: string;
   }>;
+  collection_entries: Array<{
+    restaurant_id: number;
+    restaurant: string;
+    pricing_model: string;
+    total_hours: number;
+    total_packages: number;
+    net_invoice: number;
+    gross_invoice: number;
+    direct_personnel_cost: number;
+    gross_profit: number;
+    status: string;
+    due_date: string | null;
+    collected_amount: number;
+    remaining_amount: number;
+    payment_date: string | null;
+    last_contact_date: string | null;
+    responsible_name: string;
+    note: string;
+  }>;
+  collection_summary: {
+    total_collected_amount: number;
+    total_open_amount: number;
+    overdue_amount: number;
+    tracked_restaurant_count: number;
+    collected_restaurant_count: number;
+    overdue_restaurant_count: number;
+    due_defined_restaurant_count: number;
+  };
+  collection_status_options: string[];
 };
 
 function normalizeInvoicesDashboard(
@@ -55,6 +86,23 @@ function normalizeInvoicesDashboard(
     invoice_entries: payload.invoice_entries ?? [],
     profit_entries: payload.profit_entries ?? [],
     distribution_entries: payload.distribution_entries ?? [],
+    collection_entries: payload.collection_entries ?? [],
+    collection_summary: payload.collection_summary ?? {
+      total_collected_amount: 0,
+      total_open_amount: 0,
+      overdue_amount: 0,
+      tracked_restaurant_count: 0,
+      collected_restaurant_count: 0,
+      overdue_restaurant_count: 0,
+      due_defined_restaurant_count: 0,
+    },
+    collection_status_options: payload.collection_status_options ?? [
+      "Bekliyor",
+      "Planlandı",
+      "Kısmi Tahsilat",
+      "Tahsil Edildi",
+      "Gecikti",
+    ],
   };
 }
 
@@ -110,15 +158,79 @@ function buildDelimitedText(rows: string[][], delimiter = ";") {
     .join("\n");
 }
 
+function normalizeMoneyInput(value: string) {
+  const normalized = value.trim().replace(/\s+/g, "").replace(/\./g, "").replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function collectionStatusPalette(status: string) {
+  switch (status) {
+    case "Tahsil Edildi":
+      return {
+        background: "rgba(34,102,60,0.12)",
+        color: "#22663c",
+      };
+    case "Kısmi Tahsilat":
+      return {
+        background: "rgba(185,116,41,0.14)",
+        color: "var(--accent-strong)",
+      };
+    case "Gecikti":
+      return {
+        background: "rgba(158,36,48,0.12)",
+        color: "#9e2430",
+      };
+    default:
+      return {
+        background: "rgba(24,40,59,0.07)",
+        color: "var(--muted)",
+      };
+  }
+}
+
+type CollectionFormState = {
+  status: string;
+  due_date: string;
+  collected_amount: string;
+  payment_date: string;
+  last_contact_date: string;
+  responsible_name: string;
+  note: string;
+};
+
+function buildCollectionFormState(
+  statusOptions: string[],
+  entry?: InvoicesDashboard["collection_entries"][number] | null,
+): CollectionFormState {
+  return {
+    status: entry?.status ?? statusOptions[0] ?? "Bekliyor",
+    due_date: entry?.due_date ?? "",
+    collected_amount:
+      entry && entry.collected_amount > 0 ? String(Number(entry.collected_amount.toFixed(2))) : "",
+    payment_date: entry?.payment_date ?? "",
+    last_contact_date: entry?.last_contact_date ?? "",
+    responsible_name: entry?.responsible_name ?? "",
+    note: entry?.note ?? "",
+  };
+}
+
 export default function InvoicesPage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<InvoicesDashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState("");
   const [invoiceQuery, setInvoiceQuery] = useState("");
   const [selectedRestaurant, setSelectedRestaurant] = useState("");
   const [exportMessage, setExportMessage] = useState("");
   const [exportError, setExportError] = useState("");
+  const [collectionForm, setCollectionForm] = useState<CollectionFormState>(
+    buildCollectionFormState([]),
+  );
+  const [collectionSaving, setCollectionSaving] = useState(false);
+  const [collectionMessage, setCollectionMessage] = useState("");
+  const [collectionError, setCollectionError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -138,7 +250,7 @@ export default function InvoicesPage() {
       setDashboardLoading(true);
       try {
         const query = selectedMonth ? `?month=${encodeURIComponent(selectedMonth)}` : "";
-        const response = await apiFetch(`/reports/dashboard${query}`);
+        const response = await apiFetch(`/invoices/dashboard${query}`);
         if (!response.ok) {
           if (active) {
             setDashboard(null);
@@ -169,7 +281,7 @@ export default function InvoicesPage() {
     return () => {
       active = false;
     };
-  }, [loading, selectedMonth, user]);
+  }, [dashboardRefreshKey, loading, selectedMonth, user]);
 
   const filteredInvoiceEntries = useMemo(() => {
     const rows = dashboard?.invoice_entries ?? [];
@@ -218,6 +330,30 @@ export default function InvoicesPage() {
     );
   }, [dashboard?.profit_entries, selectedInvoice]);
 
+  const filteredCollectionEntries = useMemo(() => {
+    const rows = dashboard?.collection_entries ?? [];
+    const query = invoiceQuery.trim().toLocaleLowerCase("tr-TR");
+    if (!query) {
+      return rows;
+    }
+    return rows.filter((row) =>
+      `${row.restaurant} ${displayPricingModel(row.pricing_model)} ${row.status}`
+        .toLocaleLowerCase("tr-TR")
+        .includes(query),
+    );
+  }, [dashboard?.collection_entries, invoiceQuery]);
+
+  const selectedCollection = useMemo(() => {
+    if (!selectedRestaurant) {
+      return null;
+    }
+    return (
+      filteredCollectionEntries.find((row) => row.restaurant === selectedRestaurant) ??
+      dashboard?.collection_entries.find((row) => row.restaurant === selectedRestaurant) ??
+      null
+    );
+  }, [dashboard?.collection_entries, filteredCollectionEntries, selectedRestaurant]);
+
   const selectedCouriers = useMemo(() => {
     if (!selectedInvoice) {
       return [] as Array<{
@@ -259,6 +395,14 @@ export default function InvoicesPage() {
     );
   }, [dashboard?.distribution_entries, selectedInvoice]);
 
+  useEffect(() => {
+    setCollectionForm(
+      buildCollectionFormState(dashboard?.collection_status_options ?? [], selectedCollection),
+    );
+    setCollectionError("");
+    setCollectionMessage("");
+  }, [dashboard?.collection_status_options, selectedCollection]);
+
   const summary = dashboard?.summary;
   const totalGrossInvoice = filteredInvoiceEntries.reduce(
     (total, row) => total + row.gross_invoice,
@@ -293,9 +437,68 @@ export default function InvoicesPage() {
     ...selectedCouriers.map((row) => row.allocated_cost || 0),
     1,
   );
-  const pendingCollectionAmount = totalGrossInvoice;
-  const plannedCollectionCount = filteredInvoiceEntries.length;
-  const collectionFocusEntries = filteredInvoiceEntries.slice(0, 6);
+  const todayKey = new Date().toLocaleDateString("sv-SE");
+  const totalCollectedAmount = filteredCollectionEntries.reduce(
+    (total, row) => total + row.collected_amount,
+    0,
+  );
+  const totalOpenCollectionAmount = filteredCollectionEntries.reduce(
+    (total, row) => total + row.remaining_amount,
+    0,
+  );
+  const overdueCollectionEntries = filteredCollectionEntries.filter(
+    (row) =>
+      row.remaining_amount > 0 &&
+      Boolean(row.due_date) &&
+      String(row.due_date) < todayKey &&
+      row.status !== "Tahsil Edildi",
+  );
+  const dueDefinedCollectionCount = filteredCollectionEntries.filter((row) => row.due_date).length;
+
+  async function saveCollectionCard() {
+    const restaurantId = selectedCollection?.restaurant_id ?? selectedInvoice?.restaurant_id ?? 0;
+    const collectionMonth = dashboard?.selected_month ?? selectedMonth;
+    if (!restaurantId || !collectionMonth) {
+      setCollectionError("Tahsilat kartını kaydetmek için geçerli şube ve ay seçili olmalı.");
+      setCollectionMessage("");
+      return;
+    }
+
+    setCollectionSaving(true);
+    setCollectionError("");
+    setCollectionMessage("");
+    try {
+      const response = await apiFetch("/invoices/collections", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          restaurant_id: restaurantId,
+          collection_month: collectionMonth,
+          status: collectionForm.status,
+          due_date: collectionForm.due_date || null,
+          collected_amount: normalizeMoneyInput(collectionForm.collected_amount),
+          payment_date: collectionForm.payment_date || null,
+          last_contact_date: collectionForm.last_contact_date || null,
+          responsible_name: collectionForm.responsible_name.trim(),
+          note: collectionForm.note.trim(),
+        }),
+      });
+      if (!response.ok) {
+        setCollectionError(
+          await apiErrorMessage(response, "Tahsilat kartı kaydedilemedi."),
+        );
+        return;
+      }
+      setCollectionMessage("Tahsilat kartı kaydedildi.");
+      setDashboardRefreshKey((current) => current + 1);
+    } catch {
+      setCollectionError("Tahsilat kartı kaydedilirken bağlantı kesildi.");
+    } finally {
+      setCollectionSaving(false);
+    }
+  }
 
   function downloadInvoiceCsv() {
     if (!filteredInvoiceEntries.length) {
@@ -310,7 +513,14 @@ export default function InvoicesPage() {
       "Toplam Paket",
       "KDV Hariç",
       "KDV Dahil",
+      "Tahsilat Durumu",
+      "Tahsil Edilen",
+      "Kalan Bakiye",
+      "Vade Tarihi",
     ];
+    const collectionByRestaurant = new Map(
+      filteredCollectionEntries.map((entry) => [entry.restaurant, entry]),
+    );
     const rows = filteredInvoiceEntries.map((entry) => [
       entry.restaurant,
       displayPricingModel(entry.pricing_model),
@@ -318,6 +528,10 @@ export default function InvoicesPage() {
       formatNumber(entry.total_packages, 0),
       formatMoney(entry.net_invoice),
       formatMoney(entry.gross_invoice),
+      collectionByRestaurant.get(entry.restaurant)?.status ?? "Bekliyor",
+      formatMoney(collectionByRestaurant.get(entry.restaurant)?.collected_amount ?? 0),
+      formatMoney(collectionByRestaurant.get(entry.restaurant)?.remaining_amount ?? entry.gross_invoice),
+      collectionByRestaurant.get(entry.restaurant)?.due_date ?? "",
     ]);
     const csv = buildDelimitedText([headers, ...rows], ";");
     const month = dashboard?.selected_month || selectedMonth || "faturalar";
@@ -326,7 +540,7 @@ export default function InvoicesPage() {
       `catkapinda_faturalar_${month}.csv`,
     );
     setExportError("");
-    setExportMessage("Fatura tablosu Türkçe finans formatıyla indirildi.");
+    setExportMessage("Fatura ve tahsilat tablosu Türkçe finans formatıyla indirildi.");
   }
 
   return (
@@ -1219,7 +1433,7 @@ export default function InvoicesPage() {
                       textTransform: "uppercase",
                     }}
                   >
-                    Tahsilat Tasarımı
+                    Tahsilat Masası
                   </div>
                   <h2
                     style={{
@@ -1230,7 +1444,7 @@ export default function InvoicesPage() {
                       fontWeight: 700,
                     }}
                   >
-                    Faturadan sonra takip edeceğimiz tahsilat hattı hazır.
+                    Faturadan sonra tahsilat, vade ve takip notu aynı akışta ilerliyor.
                   </h2>
                   <p
                     style={{
@@ -1240,14 +1454,13 @@ export default function InvoicesPage() {
                       lineHeight: 1.6,
                     }}
                   >
-                    Burayı ödeme takibi için kurguladım. Şimdilik tasarım ve çalışma mantığı hazır;
-                    vade, tahsilat tarihi, ödeme notu ve cari durum verisi bağlandığında aynı alan
-                    canlı tahsilat masasına dönecek.
+                    Şube bazlı açık bakiye, vade ve son temas notunu burada tutuyoruz. Soldan
+                    restoran seçildiğinde sağ taraftaki tahsilat kartı doğrudan o şube için açılır.
                   </p>
                 </div>
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                  {["Tahsil edildi", "Bekliyor", "Vade", "Not"].map((item) => (
+                  {["Tahsil edildi", "Bekliyor", "Vade", "Son temas"].map((item) => (
                     <span
                       key={item}
                       style={{
@@ -1274,18 +1487,26 @@ export default function InvoicesPage() {
                 }}
               >
                 {[
-                  ["Tahsil Edildi", formatMoney(0), "Canlı ödeme akışı bağlandığında dolacak"],
+                  [
+                    "Tahsil Edildi",
+                    formatMoney(totalCollectedAmount),
+                    "Filtrede görünen şubelerden kapanan ya da kısmi kapanan tahsilat toplamı",
+                  ],
                   [
                     "Bekleyen Tahsilat",
-                    formatMoney(pendingCollectionAmount),
-                    "Şu an fatura toplamı kadar açık tahsilat kabul ediyoruz",
+                    formatMoney(totalOpenCollectionAmount),
+                    "Görünür şubelerde henüz kapanmamış restoran bakiyesi",
                   ],
                   [
-                    "Takipteki Şube",
-                    formatNumber(plannedCollectionCount),
-                    "Tahsilat planına girecek restoran satırı",
+                    "Geciken Şube",
+                    formatNumber(overdueCollectionEntries.length),
+                    "Vadesi geçmiş ve halen açık bakiyesi olan restoran sayısı",
                   ],
-                  ["Ortalama Vade", "Tanımsız", "Vade tarihi alanı sonraki adımda bağlanacak"],
+                  [
+                    "Vadesi Tanımlı",
+                    formatNumber(dueDefinedCollectionCount),
+                    "Ödeme günü belirlenmiş restoran satırları",
+                  ],
                 ].map(([label, value, note]) => (
                   <article
                     key={label}
@@ -1348,7 +1569,7 @@ export default function InvoicesPage() {
                     <div style={{ display: "grid", gap: "4px" }}>
                       <strong>Tahsilat Hattı</strong>
                       <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
-                        İlk etapta hangi şubelerin ödeme planına alınacağını bu listede tutacağız.
+                        Tahsilat durumu ve açık bakiyesiyle hızlı takip listesi.
                       </span>
                     </div>
                     <span
@@ -1362,20 +1583,33 @@ export default function InvoicesPage() {
                         fontWeight: 800,
                       }}
                     >
-                      MVP tasarım
+                      {filteredCollectionEntries.length} şube
                     </span>
                   </div>
 
-                  <div style={{ display: "grid", gap: "0" }}>
-                    {collectionFocusEntries.length ? (
-                      collectionFocusEntries.map((entry, index) => (
-                        <article
+                  <div style={{ display: "grid", gap: "0", maxHeight: "560px", overflow: "auto" }}>
+                    {filteredCollectionEntries.length ? (
+                      filteredCollectionEntries.map((entry, index) => {
+                        const palette = collectionStatusPalette(entry.status);
+                        const selected = selectedCollection?.restaurant === entry.restaurant;
+                        return (
+                          <button
+                          type="button"
+                          onClick={() => setSelectedRestaurant(entry.restaurant)}
                           key={`${entry.restaurant}-${entry.pricing_model}-collection`}
                           style={{
+                            textAlign: "left",
                             padding: "14px 16px",
                             borderTop: index === 0 ? "none" : "1px solid rgba(219, 228, 243, 0.58)",
+                            borderLeft: selected
+                              ? "3px solid rgba(15,95,215,0.78)"
+                              : "3px solid transparent",
+                            background: selected
+                              ? "linear-gradient(180deg, rgba(15,95,215,0.06), rgba(255,255,255,0.96))"
+                              : "rgba(255,255,255,0.92)",
                             display: "grid",
                             gap: "8px",
+                            cursor: "pointer",
                           }}
                         >
                           <div
@@ -1395,9 +1629,14 @@ export default function InvoicesPage() {
                                 {formatNumber(entry.total_packages, 0)} paket
                               </span>
                             </div>
-                            <strong style={{ fontSize: "0.96rem" }}>
-                              {formatMoney(entry.gross_invoice)}
-                            </strong>
+                            <div style={{ textAlign: "right", display: "grid", gap: "4px" }}>
+                              <strong style={{ fontSize: "0.96rem" }}>
+                                {formatMoney(entry.remaining_amount)}
+                              </strong>
+                              <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
+                                Açık bakiye
+                              </span>
+                            </div>
                           </div>
 
                           <div
@@ -1412,13 +1651,13 @@ export default function InvoicesPage() {
                                 display: "inline-flex",
                                 padding: "6px 9px",
                                 borderRadius: "999px",
-                                background: "rgba(185,116,41,0.12)",
-                                color: "var(--accent-strong)",
+                                background: palette.background,
+                                color: palette.color,
                                 fontSize: "0.74rem",
                                 fontWeight: 800,
                               }}
                             >
-                              Tahsilat planlanacak
+                              {entry.status}
                             </span>
                             <span
                               style={{
@@ -1431,11 +1670,27 @@ export default function InvoicesPage() {
                                 fontWeight: 800,
                               }}
                             >
-                              Vade bekleniyor
+                              Tahsil edilen {formatMoney(entry.collected_amount)}
                             </span>
+                            {entry.due_date ? (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  padding: "6px 9px",
+                                  borderRadius: "999px",
+                                  background: "rgba(24,40,59,0.06)",
+                                  color: "var(--muted)",
+                                  fontSize: "0.74rem",
+                                  fontWeight: 800,
+                                }}
+                              >
+                                Vade {entry.due_date}
+                              </span>
+                            ) : null}
                           </div>
-                        </article>
-                      ))
+                        </button>
+                      );
+                      })
                     ) : (
                       <div
                         style={{
@@ -1445,7 +1700,7 @@ export default function InvoicesPage() {
                           fontSize: "0.84rem",
                         }}
                       >
-                        Tahsilat hattına düşecek fatura satırı görünmüyor.
+                        Filtreye uyan tahsilat satırı görünmüyor.
                       </div>
                     )}
                   </div>
@@ -1462,33 +1717,282 @@ export default function InvoicesPage() {
                   }}
                 >
                   <div style={{ display: "grid", gap: "4px" }}>
-                    <strong>Tahsilat Kartında Olacak Alanlar</strong>
+                    <strong>Tahsilat Kartı</strong>
                     <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
-                      Backend bağlanınca bu alanları gerçek veriye çevireceğiz.
+                      Seçili restoranın ödeme takibini doğrudan bu karttan güncelle.
                     </span>
                   </div>
 
-                  {[
-                    "Tahsilat durumu: Tahsil edildi / Bekliyor / Gecikti",
-                    "Vade tarihi ve planlanan ödeme günü",
-                    "Tahsil edilen tutar ve kalan bakiye",
-                    "Restoran notu ve muhasebe açıklaması",
-                    "Sorumlu kişi ve son takip zamanı",
-                  ].map((item) => (
+                  {selectedCollection ? (
+                    <>
+                      <div
+                        style={{
+                          padding: "12px 13px",
+                          borderRadius: "16px",
+                          background: "rgba(24,40,59,0.05)",
+                          display: "grid",
+                          gap: "5px",
+                        }}
+                      >
+                        <strong>{selectedCollection.restaurant}</strong>
+                        <span style={{ color: "var(--muted)", fontSize: "0.82rem", lineHeight: 1.5 }}>
+                          {displayPricingModel(selectedCollection.pricing_model)} •{" "}
+                          {formatMoney(selectedCollection.gross_invoice)} fatura •{" "}
+                          {formatMoney(selectedCollection.remaining_amount)} açık bakiye
+                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                          gap: "10px",
+                        }}
+                      >
+                        <label style={{ display: "grid", gap: "6px" }}>
+                          <span style={{ fontSize: "0.8rem", fontWeight: 800 }}>Tahsilat durumu</span>
+                          <select
+                            value={collectionForm.status}
+                            onChange={(event) =>
+                              setCollectionForm((current) => ({
+                                ...current,
+                                status: event.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "11px 12px",
+                              borderRadius: "12px",
+                              border: "1px solid var(--line)",
+                              background: "rgba(255,255,255,0.96)",
+                              color: "var(--text)",
+                            }}
+                          >
+                            {(dashboard?.collection_status_options ?? []).map((item) => (
+                              <option key={item} value={item}>
+                                {item}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label style={{ display: "grid", gap: "6px" }}>
+                          <span style={{ fontSize: "0.8rem", fontWeight: 800 }}>Vade tarihi</span>
+                          <input
+                            type="date"
+                            value={collectionForm.due_date}
+                            onChange={(event) =>
+                              setCollectionForm((current) => ({
+                                ...current,
+                                due_date: event.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "11px 12px",
+                              borderRadius: "12px",
+                              border: "1px solid var(--line)",
+                              background: "rgba(255,255,255,0.96)",
+                              color: "var(--text)",
+                            }}
+                          />
+                        </label>
+
+                        <label style={{ display: "grid", gap: "6px" }}>
+                          <span style={{ fontSize: "0.8rem", fontWeight: 800 }}>Tahsil edilen tutar</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={collectionForm.collected_amount}
+                            onChange={(event) =>
+                              setCollectionForm((current) => ({
+                                ...current,
+                                collected_amount: event.target.value,
+                              }))
+                            }
+                            placeholder="0"
+                            style={{
+                              padding: "11px 12px",
+                              borderRadius: "12px",
+                              border: "1px solid var(--line)",
+                              background: "rgba(255,255,255,0.96)",
+                              color: "var(--text)",
+                            }}
+                          />
+                        </label>
+
+                        <label style={{ display: "grid", gap: "6px" }}>
+                          <span style={{ fontSize: "0.8rem", fontWeight: 800 }}>Ödeme tarihi</span>
+                          <input
+                            type="date"
+                            value={collectionForm.payment_date}
+                            onChange={(event) =>
+                              setCollectionForm((current) => ({
+                                ...current,
+                                payment_date: event.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "11px 12px",
+                              borderRadius: "12px",
+                              border: "1px solid var(--line)",
+                              background: "rgba(255,255,255,0.96)",
+                              color: "var(--text)",
+                            }}
+                          />
+                        </label>
+
+                        <label style={{ display: "grid", gap: "6px" }}>
+                          <span style={{ fontSize: "0.8rem", fontWeight: 800 }}>Son temas</span>
+                          <input
+                            type="date"
+                            value={collectionForm.last_contact_date}
+                            onChange={(event) =>
+                              setCollectionForm((current) => ({
+                                ...current,
+                                last_contact_date: event.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "11px 12px",
+                              borderRadius: "12px",
+                              border: "1px solid var(--line)",
+                              background: "rgba(255,255,255,0.96)",
+                              color: "var(--text)",
+                            }}
+                          />
+                        </label>
+
+                        <label style={{ display: "grid", gap: "6px" }}>
+                          <span style={{ fontSize: "0.8rem", fontWeight: 800 }}>Sorumlu kişi</span>
+                          <input
+                            value={collectionForm.responsible_name}
+                            onChange={(event) =>
+                              setCollectionForm((current) => ({
+                                ...current,
+                                responsible_name: event.target.value,
+                              }))
+                            }
+                            placeholder="Tahsilatı takip eden kişi"
+                            style={{
+                              padding: "11px 12px",
+                              borderRadius: "12px",
+                              border: "1px solid var(--line)",
+                              background: "rgba(255,255,255,0.96)",
+                              color: "var(--text)",
+                            }}
+                          />
+                        </label>
+                      </div>
+
+                      <label style={{ display: "grid", gap: "6px" }}>
+                        <span style={{ fontSize: "0.8rem", fontWeight: 800 }}>Not</span>
+                        <textarea
+                          value={collectionForm.note}
+                          onChange={(event) =>
+                            setCollectionForm((current) => ({
+                              ...current,
+                              note: event.target.value,
+                            }))
+                          }
+                          placeholder="Ödeme sözü, muhasebe notu veya takip özeti"
+                          rows={4}
+                          style={{
+                            padding: "11px 12px",
+                            borderRadius: "12px",
+                            border: "1px solid var(--line)",
+                            background: "rgba(255,255,255,0.96)",
+                            color: "var(--text)",
+                            resize: "vertical",
+                            fontFamily: "inherit",
+                          }}
+                        />
+                      </label>
+
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                          gap: "10px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            padding: "11px 12px",
+                            borderRadius: "14px",
+                            background: "rgba(24,40,59,0.05)",
+                            display: "grid",
+                            gap: "3px",
+                          }}
+                        >
+                          <span style={{ color: "var(--muted)", fontSize: "0.72rem", fontWeight: 800 }}>
+                            Kalan bakiye
+                          </span>
+                          <strong>{formatMoney(selectedCollection.remaining_amount)}</strong>
+                        </div>
+                        <div
+                          style={{
+                            padding: "11px 12px",
+                            borderRadius: "14px",
+                            background: "rgba(24,40,59,0.05)",
+                            display: "grid",
+                            gap: "3px",
+                          }}
+                        >
+                          <span style={{ color: "var(--muted)", fontSize: "0.72rem", fontWeight: 800 }}>
+                            Şube kurye payı
+                          </span>
+                          <strong>{formatMoney(selectedCollection.direct_personnel_cost)}</strong>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={saveCollectionCard}
+                        disabled={collectionSaving || selectedCollection.restaurant_id <= 0}
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: "12px",
+                          border: "1px solid rgba(15,95,215,0.15)",
+                          background: collectionSaving
+                            ? "rgba(15,95,215,0.12)"
+                            : "linear-gradient(135deg, rgba(15,95,215,0.98), rgba(47,126,255,0.92))",
+                          color: collectionSaving ? "#0f5fd7" : "#ffffff",
+                          fontWeight: 900,
+                          cursor:
+                            collectionSaving || selectedCollection.restaurant_id <= 0
+                              ? "not-allowed"
+                              : "pointer",
+                          opacity: collectionSaving || selectedCollection.restaurant_id <= 0 ? 0.7 : 1,
+                        }}
+                      >
+                        {collectionSaving ? "Kaydediliyor..." : "Tahsilat Kartını Kaydet"}
+                      </button>
+
+                      {collectionError ? (
+                        <div style={{ color: "#9e2430", fontSize: "0.84rem", fontWeight: 700 }}>
+                          {collectionError}
+                        </div>
+                      ) : null}
+                      {collectionMessage ? (
+                        <div style={{ color: "#22663c", fontSize: "0.84rem", fontWeight: 700 }}>
+                          {collectionMessage}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
                     <div
-                      key={item}
                       style={{
-                        padding: "10px 12px",
-                        borderRadius: "14px",
+                        padding: "12px 13px",
+                        borderRadius: "16px",
                         background: "rgba(24,40,59,0.05)",
-                        color: "var(--text)",
+                        color: "var(--muted)",
                         fontSize: "0.84rem",
-                        lineHeight: 1.5,
+                        lineHeight: 1.6,
                       }}
                     >
-                      {item}
+                      Soldaki listeden bir restoran seçildiğinde tahsilat kartı burada açılacak.
                     </div>
-                  ))}
+                  )}
                 </section>
               </div>
             </section>

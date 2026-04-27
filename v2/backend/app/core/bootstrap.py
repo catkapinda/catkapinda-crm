@@ -199,6 +199,27 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_sales_leads_updated_at ON sales_leads (updated_at)",
+    """
+    CREATE TABLE IF NOT EXISTS restaurant_collections (
+        id BIGSERIAL PRIMARY KEY,
+        restaurant_id BIGINT NOT NULL,
+        collection_month TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Bekliyor',
+        due_date DATE NULL,
+        collected_amount NUMERIC NOT NULL DEFAULT 0,
+        payment_date DATE NULL,
+        last_contact_date DATE NULL,
+        responsible_name TEXT NOT NULL DEFAULT '',
+        note TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurant_collections_unique_month
+    ON restaurant_collections (restaurant_id, collection_month)
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_restaurant_collections_month ON restaurant_collections (collection_month)",
 )
 
 AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
@@ -346,6 +367,24 @@ AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_sales_leads_updated_at ON sales_leads (updated_at)",
+    """
+    CREATE TABLE IF NOT EXISTS restaurant_collections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        restaurant_id INTEGER NOT NULL,
+        collection_month TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Bekliyor',
+        due_date TEXT NULL,
+        collected_amount REAL NOT NULL DEFAULT 0,
+        payment_date TEXT NULL,
+        last_contact_date TEXT NULL,
+        responsible_name TEXT NOT NULL DEFAULT '',
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (restaurant_id, collection_month)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_restaurant_collections_month ON restaurant_collections (collection_month)",
 )
 
 LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {

@@ -181,6 +181,9 @@ def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
         sales_table = raw_conn.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sales_leads'"
         ).fetchone()
+        collection_table = raw_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'restaurant_collections'"
+        ).fetchone()
         daily_entry_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(daily_entries)").fetchall()}
         personnel_cols = {row[1] for row in raw_conn.execute("PRAGMA table_info(personnel)").fetchall()}
         vehicle_history_cols = {
@@ -198,6 +201,7 @@ def test_runtime_bootstrap_can_use_local_sqlite_fallback(monkeypatch, tmp_path):
     assert vehicle_history_table is not None
     assert plate_history_table is not None
     assert sales_table is not None
+    assert collection_table is not None
     assert {"monthly_invoice_amount", "absence_reason", "coverage_type"} <= daily_entry_cols
     assert {"motor_purchase", "motor_purchase_sale_price", "address"} <= personnel_cols
     assert {
