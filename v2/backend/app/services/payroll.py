@@ -508,10 +508,10 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
             )
 
         deductions_height = (
-            44
+            48
             + deductions_header_height
             + sum(row_height for _, _, row_height in deduction_render_rows)
-            + 8
+            + 12
         )
         current_top = ensure_space(deductions_top, deductions_height + 10)
         deductions_top = current_top
@@ -535,24 +535,33 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         pdf.drawRightString(amount_right_x, table_top - 16, "Tutar")
         set_stroke("line")
         pdf.setLineWidth(1)
-        pdf.line(amount_left_x - 8, table_top - deductions_header_height + 4, amount_left_x - 8, table_top - 4)
+        table_body_top = table_top - deductions_header_height
+        table_body_bottom = table_body_top - sum(row_height for _, _, row_height in deduction_render_rows)
+        pdf.roundRect(table_x, table_body_bottom, table_width, table_body_top - table_body_bottom, 10, stroke=1, fill=0)
+        pdf.line(amount_left_x - 8, table_body_bottom, amount_left_x - 8, table_top)
 
-        content_y = table_top - deductions_header_height - 8
+        content_y = table_body_top
         for index, (label_lines, amount_text, row_height) in enumerate(deduction_render_rows):
-            row_bottom = content_y - row_height + 4
+            row_top = content_y
+            row_bottom = row_top - row_height
             if index % 2 == 0:
                 set_fill("blue_soft")
-                pdf.roundRect(table_x, row_bottom, table_width, row_height - 2, 8, stroke=0, fill=1)
+                pdf.rect(table_x + 1, row_bottom, table_width - 2, row_height, stroke=0, fill=1)
 
-            line_y = content_y - 10
+            line_y = row_top - 13
             for label_line in label_lines:
                 write_line(label_line, table_x + 10, line_y, 10, color_key="text")
                 line_y -= 13
 
             set_fill("red" if amount_text != "-" else "muted")
             pdf.setFont(font_name, 10)
-            pdf.drawRightString(amount_right_x, content_y - 10, amount_text)
-            content_y -= row_height
+            amount_y = row_bottom + (row_height / 2) - 4
+            pdf.drawRightString(amount_right_x, amount_y, amount_text)
+
+            set_stroke("line")
+            pdf.setLineWidth(1)
+            pdf.line(table_x, row_bottom, table_x + table_width, row_bottom)
+            content_y = row_bottom
 
         footer_y = max(deductions_bottom - 22, 24)
         set_stroke("line")

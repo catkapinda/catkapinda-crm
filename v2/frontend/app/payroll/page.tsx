@@ -210,17 +210,19 @@ function metricCard(label: string, value: string, note: string) {
     <article
       key={label}
       style={{
-        padding: "20px",
-        borderRadius: "22px",
+        padding: "16px 18px",
+        borderRadius: "18px",
         border: "1px solid var(--line)",
         background: "var(--surface-strong)",
-        boxShadow: "0 18px 42px rgba(20, 39, 67, 0.06)",
+        boxShadow: "0 12px 30px rgba(20, 39, 67, 0.05)",
+        display: "grid",
+        gap: "8px",
       }}
     >
       <div
         style={{
           color: "var(--muted)",
-          fontSize: "0.78rem",
+          fontSize: "0.72rem",
           textTransform: "uppercase",
           letterSpacing: "0.06em",
           fontWeight: 800,
@@ -230,105 +232,22 @@ function metricCard(label: string, value: string, note: string) {
       </div>
       <div
         style={{
-          marginTop: "12px",
-          fontSize: "1.9rem",
+          fontSize: "1.55rem",
           fontWeight: 900,
           letterSpacing: "-0.05em",
+          lineHeight: 1,
         }}
       >
         {value}
       </div>
       <div
         style={{
-          marginTop: "8px",
           color: "var(--muted)",
-          fontSize: "0.92rem",
+          fontSize: "0.85rem",
+          lineHeight: 1.45,
         }}
       >
         {note}
-      </div>
-    </article>
-  );
-}
-
-function narrativeCard({
-  eyebrow,
-  title,
-  body,
-  tone = "paper",
-}: {
-  eyebrow: string;
-  title: string;
-  body: string;
-  tone?: "paper" | "ink" | "accent";
-}) {
-  const palette =
-    tone === "ink"
-      ? {
-          background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
-          border: "1px solid rgba(255,255,255,0.08)",
-          title: "#fff7ea",
-          body: "rgba(255,247,234,0.72)",
-          eyebrow: "rgba(255,247,234,0.62)",
-        }
-      : tone === "accent"
-        ? {
-            background: "linear-gradient(180deg, rgba(185,116,41,0.12), rgba(255,248,236,0.98))",
-            border: "1px solid rgba(185,116,41,0.18)",
-            title: "var(--text)",
-            body: "var(--muted)",
-            eyebrow: "var(--accent-strong)",
-          }
-        : {
-            background: "rgba(255,255,255,0.84)",
-            border: "1px solid var(--line)",
-            title: "var(--text)",
-            body: "var(--muted)",
-            eyebrow: "var(--muted)",
-          };
-
-  return (
-    <article
-      style={{
-        padding: "18px 18px 16px",
-        borderRadius: "22px",
-        background: palette.background,
-        border: palette.border,
-        boxShadow: tone === "ink" ? "var(--shadow-deep)" : "var(--shadow-soft)",
-        display: "grid",
-        gap: "10px",
-      }}
-    >
-      <div
-        style={{
-          color: palette.eyebrow,
-          fontSize: "0.74rem",
-          fontWeight: 800,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}
-      >
-        {eyebrow}
-      </div>
-      <div
-        style={{
-          ...serifStyle,
-          color: palette.title,
-          fontSize: "1.45rem",
-          lineHeight: 0.98,
-          fontWeight: 700,
-        }}
-      >
-        {title}
-      </div>
-      <div
-        style={{
-          color: palette.body,
-          fontSize: "0.93rem",
-          lineHeight: 1.65,
-        }}
-      >
-        {body}
       </div>
     </article>
   );
@@ -379,20 +298,23 @@ function ScrollCard({
   subtitle,
   actions,
   children,
+  maxHeight = 420,
 }: {
   title: string;
   subtitle: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
+  maxHeight?: number;
 }) {
   return (
     <section
       style={{
-        borderRadius: "24px",
+        borderRadius: "22px",
         border: "1px solid var(--line)",
         background: "var(--surface-strong)",
         overflow: "hidden",
         boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
+        alignSelf: "start",
       }}
     >
       <div
@@ -414,7 +336,7 @@ function ScrollCard({
       </div>
       <div
         style={{
-          maxHeight: "520px",
+          maxHeight,
           overflow: "auto",
         }}
       >
@@ -585,61 +507,28 @@ export default function PayrollPage() {
     ];
   }, [dashboard]);
 
-  const maxInvoiceAmount = useMemo(
-    () =>
-      Math.max(
-        1,
-        ...(invoiceSnapshot?.invoiceEntries.map((entry) => entry.grossInvoice) ?? [0]),
-      ),
-    [invoiceSnapshot?.invoiceEntries],
-  );
-
-  const decisionDeck = useMemo(() => {
-    if (!dashboard?.summary) {
-      return [];
-    }
-
+  const payrollOverview = useMemo(() => {
+    const summary = dashboard?.summary;
+    const totalRevenue = invoiceSnapshot?.totalRevenue ?? 0;
+    const grossProfit = invoiceSnapshot?.grossProfit ?? 0;
     const deductionRatio =
-      dashboard.summary.gross_payroll > 0
-        ? (dashboard.summary.total_deductions / dashboard.summary.gross_payroll) * 100
-        : 0;
-    const topPersonnel = dashboard.top_personnel[0] ?? null;
-    const topCostModel = dashboard.cost_model_breakdown[0] ?? null;
-    const netPerCourier =
-      dashboard.summary.personnel_count > 0
-        ? dashboard.summary.net_payment / dashboard.summary.personnel_count
+      summary && summary.gross_payroll > 0
+        ? (summary.total_deductions / summary.gross_payroll) * 100
         : 0;
 
-    return [
-      {
-        eyebrow: "Ödeme Nabzı",
-        title:
-          deductionRatio <= 8
-            ? "Kesinti baskısı kontrollü görünüyor."
-            : deductionRatio <= 14
-              ? "Kesinti baskısı izlenmeli."
-              : "Kesinti baskısı yükseliyor.",
-        body: `${dashboard.summary.selected_month} döneminde ${formatMoney(dashboard.summary.net_payment)} nihai kurye tutarı çıkıyor. Kesinti oranı %${formatNumber(deductionRatio, 1)} seviyesinde.`,
-        tone: deductionRatio <= 8 ? "ink" : "accent",
-      },
-      {
-        eyebrow: "En Yüksek Kurye Tutarı",
-        title: topPersonnel ? topPersonnel.personnel : "Ödeme verisi henüz yok.",
-        body: topPersonnel
-          ? `${topPersonnel.role} rolünde ${formatMoney(topPersonnel.net_payment)} nihai kurye tutarı taşıyor. ${formatNumber(topPersonnel.total_hours, 1)} saat ve ${formatMoney(topPersonnel.total_deductions)} kesinti etkisi birlikte okunmalı.`
-          : "Personel dağılımı geldikçe bu kart aylık ödeme ağırlığını önde gösterecek.",
-        tone: "paper",
-      },
-      {
-        eyebrow: "Model Yükü",
-        title: topCostModel ? topCostModel.cost_model : "Model dağılımı henüz yok.",
-        body: topCostModel
-          ? `${formatNumber(topCostModel.personnel_count)} personel ile ${formatMoney(topCostModel.net_payment)} kurye fatura yükünü taşıyor. Kurye başına ortalama fatura ${formatMoney(netPerCourier)} seviyesinde.`
-          : "Hangi maliyet modelinin yük taşıdığını bu alan hızlı gösterecek.",
-        tone: "paper",
-      },
-    ] as const;
-  }, [dashboard]);
+    return {
+      selectedMonth: summary?.selected_month ?? selectedMonth,
+      personnelCount: summary?.personnel_count ?? 0,
+      totalHours: summary?.total_hours ?? 0,
+      totalPackages: summary?.total_packages ?? 0,
+      grossPayroll: summary?.gross_payroll ?? 0,
+      totalDeductions: summary?.total_deductions ?? 0,
+      netPayment: summary?.net_payment ?? 0,
+      totalRevenue,
+      grossProfit,
+      deductionRatio,
+    };
+  }, [dashboard, invoiceSnapshot, selectedMonth]);
 
   const filteredEntries = useMemo(() => {
     const rows = dashboard?.entries ?? [];
@@ -772,28 +661,28 @@ export default function PayrollPage() {
       >
         <div
           style={{
-            padding: "28px",
-            borderRadius: "30px",
+            padding: "22px",
+            borderRadius: "28px",
             background:
               "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,242,233,0.96))",
             border: "1px solid var(--line)",
             boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
             display: "grid",
-            gap: "18px",
+            gap: "16px",
           }}
         >
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.9fr)",
-              gap: "18px",
-              alignItems: "stretch",
+              gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)",
+              gap: "16px",
+              alignItems: "start",
             }}
           >
             <div
               style={{
                 display: "grid",
-                gap: "16px",
+                gap: "12px",
                 alignContent: "start",
               }}
             >
@@ -813,29 +702,28 @@ export default function PayrollPage() {
               >
                 Hakediş ve Bordro
               </div>
-              <div style={{ display: "grid", gap: "10px", maxWidth: "72ch" }}>
+              <div style={{ display: "grid", gap: "8px", maxWidth: "60ch" }}>
                 <h1
                   style={{
                     ...serifStyle,
                     margin: 0,
-                    fontSize: "clamp(2.2rem, 4vw, 3.6rem)",
-                    lineHeight: 0.96,
+                    fontSize: "clamp(1.9rem, 3.4vw, 3rem)",
+                    lineHeight: 0.94,
                     fontWeight: 700,
                   }}
                 >
-                  Bordroyu sadece toplamla değil, gerilim noktalarını da okuyarak yönetiyoruz.
+                  Aylık hakedişi tek bakışta kontrol et, dışa aktar ve belgeye çevir.
                 </h1>
                 <p
                   style={{
                     margin: 0,
-                    maxWidth: "76ch",
                     color: "var(--muted)",
-                    fontSize: "1.02rem",
-                    lineHeight: 1.76,
+                    fontSize: "0.98rem",
+                    lineHeight: 1.65,
                   }}
                 >
-                  Kurye fatura tutarı, kesinti, saat ve paket dağılımlarını ay kapanışı öncesinde
-                  birlikte kontrol edin.
+                  Ay filtresi, rol, restoran, kesinti ve kurye ödeme toplamını aynı çalışma
+                  yüzeyinde sıkı biçimde yönetin.
                 </p>
               </div>
               <div
@@ -856,7 +744,20 @@ export default function PayrollPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Bordro özeti açık
+                  {payrollOverview.selectedMonth || "Ay seç"} dönemi
+                </span>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "7px 12px",
+                    borderRadius: "999px",
+                    background: "rgba(34,102,60,0.1)",
+                    color: "#22663c",
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  {formatNumber(payrollOverview.personnelCount, 0)} personel
                 </span>
                 <span
                   style={{
@@ -869,7 +770,7 @@ export default function PayrollPage() {
                     fontWeight: 800,
                   }}
                 >
-                  Risk ve ödeme aynı katmanda
+                  {formatNumber(payrollOverview.totalHours, 1)} saat
                 </span>
               </div>
             </div>
@@ -882,13 +783,13 @@ export default function PayrollPage() {
             >
               <article
                 style={{
-                  padding: "18px 18px 16px",
-                  borderRadius: "24px",
+                  padding: "18px",
+                  borderRadius: "22px",
                   background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
                   color: "#fff7ea",
                   boxShadow: "var(--shadow-deep)",
                   display: "grid",
-                  gap: "14px",
+                  gap: "12px",
                 }}
               >
                 <div
@@ -904,23 +805,23 @@ export default function PayrollPage() {
                     <div
                       style={{
                         color: "rgba(255,247,234,0.62)",
-                        fontSize: "0.74rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                      }}
-                    >
+                      fontSize: "0.74rem",
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
                       Hakediş Dönemi
                     </div>
                     <div
                       style={{
                         ...serifStyle,
-                        fontSize: "1.8rem",
+                        fontSize: "1.55rem",
                         lineHeight: 0.96,
                         fontWeight: 700,
                       }}
                     >
-                      {(dashboard?.summary?.selected_month ?? selectedMonth) || "Ay seç"}
+                      {payrollOverview.selectedMonth || "Ay seç"}
                     </div>
                   </div>
                   <div
@@ -934,7 +835,7 @@ export default function PayrollPage() {
                       fontWeight: 800,
                     }}
                   >
-                    Hakediş Masası
+                    Bordro Özeti
                   </div>
                 </div>
                 <select
@@ -960,7 +861,7 @@ export default function PayrollPage() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                     gap: "10px",
                   }}
                 >
@@ -970,233 +871,162 @@ export default function PayrollPage() {
                       borderRadius: "16px",
                       background: "rgba(255,255,255,0.06)",
                     }}
-                  >
-                    <div
-                      style={{
-                        color: "rgba(255,247,234,0.64)",
-                        fontSize: "0.72rem",
+                    >
+                      <div
+                        style={{
+                          color: "rgba(255,247,234,0.64)",
+                          fontSize: "0.72rem",
                         fontWeight: 800,
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
                       }}
-                    >
-                      Kurye Fatura Tutarı
+                      >
+                      Net Kurye Tutarı
+                      </div>
+                      <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                        {formatMoney(payrollOverview.netPayment)}
+                      </div>
                     </div>
-                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
-                      {formatMoney(dashboard?.summary?.net_payment ?? 0)}
-                    </div>
-                  </div>
                   <div
                     style={{
                       padding: "12px 12px 10px",
                       borderRadius: "16px",
                       background: "rgba(185,116,41,0.14)",
                     }}
-                  >
-                    <div
-                      style={{
-                        color: "rgba(255,247,234,0.64)",
-                        fontSize: "0.72rem",
+                    >
+                      <div
+                        style={{
+                          color: "rgba(255,247,234,0.64)",
+                          fontSize: "0.72rem",
                         fontWeight: 800,
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
                       }}
-                    >
-                      Toplam Kesinti
-                    </div>
-                    <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
-                      {formatMoney(dashboard?.summary?.total_deductions ?? 0)}
-                    </div>
-                  </div>
-                </div>
-              </article>
-
-              <article
-                style={{
-                  padding: "16px 18px",
-                  borderRadius: "22px",
-                  border: "1px solid var(--line)",
-                  background: "rgba(255,255,255,0.78)",
-                  display: "grid",
-                  gap: "10px",
-                }}
-              >
-                <div
-                  style={{
-                    color: "var(--muted)",
-                    fontSize: "0.74rem",
-                    fontWeight: 800,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  Restoran Faturası
-                </div>
-                <div style={{ fontSize: "1.15rem", fontWeight: 900 }}>
-                  {formatMoney(invoiceSnapshot?.totalRevenue ?? 0)}
-                </div>
-                <div style={{ color: "var(--muted)", fontSize: "0.88rem", lineHeight: 1.5 }}>
-                  {(invoiceSnapshot?.selectedMonth ?? dashboard?.summary?.selected_month ?? selectedMonth) || "Seçili ay"} toplam restoran faturası
-                </div>
-                {invoiceSnapshot?.invoiceEntries.length ? (
-                  <div style={{ display: "grid", gap: "8px" }}>
-                    {invoiceSnapshot.invoiceEntries.slice(0, 4).map((entry) => (
-                      <div key={`${entry.restaurant}-${entry.pricingModel}`} style={{ display: "grid", gap: "5px" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            gap: "10px",
-                            fontSize: "0.84rem",
-                            fontWeight: 800,
-                          }}
-                        >
-                          <span>{entry.restaurant}</span>
-                          <span>{formatMoney(entry.grossInvoice)}</span>
-                        </div>
-                        <div
-                          style={{
-                            height: "8px",
-                            borderRadius: "999px",
-                            background: "rgba(24,40,59,0.07)",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: `${Math.max((entry.grossInvoice / maxInvoiceAmount) * 100, 5)}%`,
-                              height: "100%",
-                              borderRadius: "999px",
-                              background:
-                                "linear-gradient(90deg, var(--accent-strong), rgba(24,40,59,0.86))",
-                            }}
-                          />
-                        </div>
+                      >
+                        Toplam Kesinti
                       </div>
-                    ))}
-                  </div>
-                ) : null}
+                      <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                        {formatMoney(payrollOverview.totalDeductions)}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        padding: "12px 12px 10px",
+                        borderRadius: "16px",
+                        background: "rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: "rgba(255,247,234,0.64)",
+                          fontSize: "0.72rem",
+                          fontWeight: 800,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                        }}
+                      >
+                        Kesinti Oranı
+                      </div>
+                      <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
+                        %{formatNumber(payrollOverview.deductionRatio, 1)}
+                      </div>
+                    </div>
+                </div>
               </article>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "12px",
-            }}
-          >
-            <div style={{ display: "grid", gap: "8px" }}>
-              <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Rol</label>
-              <select
-                value={selectedRole}
-                onChange={(event) => setSelectedRole(event.target.value)}
-                disabled={dashboardLoading}
-                style={{
-                  padding: "14px 16px",
-                  borderRadius: "16px",
-                  border: "1px solid var(--line)",
-                  background: "rgba(255,255,255,0.96)",
-                  color: "var(--text)",
-                  fontWeight: 700,
-                }}
-              >
-                {(dashboard?.role_options ?? ["Tümü"]).map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={{ display: "grid", gap: "8px" }}>
-              <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Restoran</label>
-              <select
-                value={selectedRestaurant}
-                onChange={(event) => setSelectedRestaurant(event.target.value)}
-                disabled={dashboardLoading}
-                style={{
-                  padding: "14px 16px",
-                  borderRadius: "16px",
-                  border: "1px solid var(--line)",
-                  background: "rgba(255,255,255,0.96)",
-                  color: "var(--text)",
-                  fontWeight: 700,
-                }}
-              >
-                {(dashboard?.restaurant_options ?? ["Tümü"]).map((restaurant) => (
-                  <option key={restaurant} value={restaurant}>
-                    {restaurant}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
 
           <section
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 0.85fr)",
-              gap: "14px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "12px",
             }}
           >
             <article
               style={{
-                padding: "18px 20px",
-                borderRadius: "22px",
-                border: "1px solid rgba(15, 95, 215, 0.14)",
-                background: "rgba(15, 95, 215, 0.06)",
-                display: "grid",
-                gap: "8px",
-              }}
-            >
-              <div
-                style={{
-                  color: "#0f5fd7",
-                  fontSize: "0.76rem",
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                Puantaj → Fatura
-              </div>
-              <div style={{ fontSize: "1rem", fontWeight: 800 }}>
-                {formatMoney(invoiceSnapshot?.totalRevenue ?? 0)} restoran faturası / {formatMoney(dashboard?.summary?.gross_payroll ?? 0)} kesinti öncesi kurye hakedişi.
-              </div>
-              <div style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: "0.95rem" }}>
-                Fatura-kurye farkı: {formatMoney(invoiceSnapshot?.grossProfit ?? 0)}. Bu alan puantaj girildikçe rapor faturasıyla birlikte yenilenir.
-              </div>
-            </article>
-
-            <article
-              style={{
-                padding: "18px 20px",
-                borderRadius: "22px",
+                padding: "16px 18px",
+                borderRadius: "18px",
                 border: "1px solid var(--line)",
                 background: "rgba(255,255,255,0.82)",
                 display: "grid",
-                gap: "12px",
+                gap: "6px",
               }}
             >
               <div
                 style={{
                   color: "var(--muted)",
-                  fontSize: "0.76rem",
+                  fontSize: "0.72rem",
                   fontWeight: 800,
                   textTransform: "uppercase",
-                  letterSpacing: "0.08em",
+                  letterSpacing: "0.06em",
                 }}
               >
-                Kontrol Durumu
+                Restoran Faturası
               </div>
-              <div style={{ display: "grid", gap: "10px" }}>
-                <div style={{ color: "var(--text)", lineHeight: 1.65 }}>
-                  <strong>Personel:</strong> {formatNumber(dashboard?.summary?.personnel_count ?? 0)} kişi hakediş havuzunda.
-                </div>
-                <div style={{ color: "var(--text)", lineHeight: 1.65 }}>
-                  <strong>Kesinti:</strong> {formatMoney(dashboard?.summary?.total_deductions ?? 0)} toplam kesinti uygulanıyor.
-                </div>
+              <div style={{ fontSize: "1.25rem", fontWeight: 900 }}>
+                {formatMoney(payrollOverview.totalRevenue)}
+              </div>
+              <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.88rem" }}>
+                Seçili ay restoran toplamı
+              </div>
+            </article>
+
+            <article
+              style={{
+                padding: "16px 18px",
+                borderRadius: "18px",
+                border: "1px solid var(--line)",
+                background: "rgba(255,255,255,0.82)",
+                display: "grid",
+                gap: "6px",
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--muted)",
+                  fontSize: "0.72rem",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Kesinti Öncesi
+              </div>
+              <div style={{ fontSize: "1.25rem", fontWeight: 900 }}>
+                {formatMoney(payrollOverview.grossPayroll)}
+              </div>
+              <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.88rem" }}>
+                Kurye hakedişi toplamı
+              </div>
+            </article>
+
+            <article
+              style={{
+                padding: "16px 18px",
+                borderRadius: "18px",
+                border: "1px solid var(--line)",
+                background: "rgba(255,255,255,0.82)",
+                display: "grid",
+                gap: "6px",
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--muted)",
+                  fontSize: "0.72rem",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Fatura-Kurye Farkı
+              </div>
+              <div style={{ fontSize: "1.25rem", fontWeight: 900 }}>
+                {formatMoney(payrollOverview.grossProfit)}
+              </div>
+              <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.88rem" }}>
+                Seçili ay doğrudan fark
               </div>
             </article>
           </section>
@@ -1220,7 +1050,7 @@ export default function PayrollPage() {
                 flexWrap: "wrap",
               }}
             >
-              <div style={{ display: "grid", gap: "6px" }}>
+              <div style={{ display: "grid", gap: "6px", flex: "1 1 320px" }}>
                 <div
                   style={{
                     color: "var(--muted)",
@@ -1233,7 +1063,7 @@ export default function PayrollPage() {
                   Belge ve Dışa Aktarım
                 </div>
                 <div style={{ fontSize: "1rem", fontWeight: 800 }}>
-                  Aylık tabloyu dışa aktar, seçili personel için hakediş belgesini indir.
+                  Filtreyi daralt, listeyi indir ve seçili personel için tek tıkla PDF üret.
                 </div>
               </div>
               <button
@@ -1257,11 +1087,72 @@ export default function PayrollPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(220px, 1fr) auto",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                 gap: "12px",
                 alignItems: "end",
               }}
             >
+              <div style={{ display: "grid", gap: "8px" }}>
+                <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Rol</label>
+                <select
+                  value={selectedRole}
+                  onChange={(event) => setSelectedRole(event.target.value)}
+                  disabled={dashboardLoading}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "16px",
+                    border: "1px solid var(--line)",
+                    background: "rgba(255,255,255,0.96)",
+                    color: "var(--text)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {(dashboard?.role_options ?? ["Tümü"]).map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "grid", gap: "8px" }}>
+                <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Restoran</label>
+                <select
+                  value={selectedRestaurant}
+                  onChange={(event) => setSelectedRestaurant(event.target.value)}
+                  disabled={dashboardLoading}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "16px",
+                    border: "1px solid var(--line)",
+                    background: "rgba(255,255,255,0.96)",
+                    color: "var(--text)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {(dashboard?.restaurant_options ?? ["Tümü"]).map((restaurant) => (
+                    <option key={restaurant} value={restaurant}>
+                      {restaurant}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "grid", gap: "8px" }}>
+                <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>
+                  Personel ara
+                </label>
+                <input
+                  value={entryQuery}
+                  onChange={(event) => setEntryQuery(event.target.value)}
+                  placeholder="Ad, rol veya model ara"
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "16px",
+                    border: "1px solid var(--line)",
+                    background: "rgba(255,255,255,0.96)",
+                    color: "var(--text)",
+                  }}
+                />
+              </div>
               <div style={{ display: "grid", gap: "8px" }}>
                 <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>
                   Belgesi oluşturulacak personel
@@ -1374,40 +1265,15 @@ export default function PayrollPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                gap: "14px",
-              }}
-            >
-              {decisionDeck.map((item) => (
-                <div key={`${item.eyebrow}-${item.title}`}>{narrativeCard(item)}</div>
-              ))}
-            </div>
-
-            <div
-              style={{
-                display: "grid",
                 gridTemplateColumns: "minmax(0, 1.8fr) minmax(320px, 1fr)",
                 gap: "18px",
+                alignItems: "start",
               }}
             >
               <ScrollCard
                 title="Hakediş Özeti"
-                subtitle="Personel bazlı çalışma, kesinti ve net ödeme görünümü. Liste kendi içinde kaydırılabilir."
-                actions={
-                  <input
-                    value={entryQuery}
-                    onChange={(event) => setEntryQuery(event.target.value)}
-                    placeholder="Personel, rol veya model ara"
-                    style={{
-                      minWidth: "220px",
-                      padding: "12px 14px",
-                      borderRadius: "14px",
-                      border: "1px solid var(--line)",
-                      background: "rgba(255,255,255,0.96)",
-                      color: "var(--text)",
-                    }}
-                  />
-                }
+                subtitle={`Personel bazlı çalışma, kesinti ve net ödeme görünümü. ${formatNumber(filteredEntries.length, 0)} kayıt listeleniyor.`}
+                maxHeight={420}
               >
                 <table
                   style={{
@@ -1443,7 +1309,7 @@ export default function PayrollPage() {
                         {tableCell(formatMoney(row.total_deductions), "right")}
                         {tableCell(formatMoney(row.net_payment), "right")}
                         {tableCell(formatNumber(row.restaurant_count, 0), "right", true)}
-                        {tableCell(row.cost_model, "left", true)}
+                        {tableCell(displayPricingModel(row.cost_model), "left", true)}
                       </tr>
                     ))}
                   </tbody>
@@ -1454,6 +1320,7 @@ export default function PayrollPage() {
                 <ScrollCard
                   title="Maliyet Modeli Dağılımı"
                   subtitle="Hangi hakediş modelinin ne kadar yük taşıdığını tek bakışta izle."
+                  maxHeight={250}
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
                     {dashboard.cost_model_breakdown.length ? (
@@ -1470,7 +1337,7 @@ export default function PayrollPage() {
                           }}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                            <strong>{row.cost_model}</strong>
+                            <strong>{displayPricingModel(row.cost_model)}</strong>
                             <span style={{ color: "var(--muted)" }}>{formatMoney(row.net_payment)}</span>
                           </div>
                           <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
@@ -1489,6 +1356,7 @@ export default function PayrollPage() {
                 <ScrollCard
                   title="Rol Dağılımı"
                   subtitle="Hangi rolün net ödeme, saat ve paket yükünü taşıdığını birlikte gör."
+                  maxHeight={320}
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
                     {dashboard.role_breakdown.length ? (
@@ -1524,6 +1392,7 @@ export default function PayrollPage() {
                 <ScrollCard
                   title="En Yüksek Kurye Tutarı"
                   subtitle="Ay içinde en yüksek kesinti sonrası kurye tutarını hızlıca gör."
+                  maxHeight={340}
                 >
                   <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
                     {dashboard.top_personnel.length ? (
