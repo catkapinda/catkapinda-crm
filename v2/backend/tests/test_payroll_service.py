@@ -1,7 +1,12 @@
 import sqlite3
 
 from app.core.database import CompatConnection
-from app.services.payroll import build_payroll_dashboard, build_payroll_document_file
+from app.services.payroll import _format_number_pdf, build_payroll_dashboard, build_payroll_document_file
+
+
+def test_format_number_pdf_supports_zero_decimals():
+    assert _format_number_pdf(366, 0) == "366"
+    assert _format_number_pdf(1128.5, 1) == "1.128,5"
 
 
 def test_build_payroll_dashboard_supports_local_sqlite_without_streamlit():

@@ -223,9 +223,9 @@ def _format_currency_pdf(value: float) -> str:
 def _format_number_pdf(value: float, decimals: int = 0) -> str:
     normalized = _safe_float(value)
     formatted = f"{normalized:,.{decimals}f}"
-    whole, decimal = formatted.split(".")
     if decimals <= 0:
-        return whole.replace(",", ".")
+        return formatted.replace(",", ".")
+    whole, decimal = formatted.split(".")
     return f"{whole.replace(',', '.')},{decimal}"
 
 
