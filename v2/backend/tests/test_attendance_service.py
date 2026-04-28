@@ -1,16 +1,20 @@
 from datetime import date
 import sqlite3
 
+import pytest
+
 from app.core.database import CompatConnection
 from app.schemas.attendance import (
     AttendanceBulkCreateRequest,
     AttendanceBulkCreateRowRequest,
     AttendanceCreateRequest,
+    AttendanceUpdateRequest,
 )
 from app.services.attendance import (
     build_attendance_management,
     create_attendance_entries_bulk,
     create_attendance_entry,
+    update_attendance_entry_record,
 )
 
 
@@ -169,3 +173,53 @@ def test_attendance_management_supports_offset_pagination():
     assert first_page.total_entries == 3
     assert [entry.entry_date.isoformat() for entry in first_page.entries] == ["2026-04-19", "2026-04-18"]
     assert [entry.entry_date.isoformat() for entry in second_page.entries] == ["2026-04-17"]
+
+
+@pytest.mark.parametrize("entry_mode", ["Joker", "Destek"])
+def test_update_attendance_entry_recalculates_invoice_for_covering_leave(entry_mode: str):
+    conn = _build_attendance_conn()
+
+    create_response = create_attendance_entry(
+        conn,
+        payload=AttendanceCreateRequest(
+            entry_date=date(2026, 4, 19),
+            restaurant_id=10,
+            entry_mode="Haftalık İzin",
+            primary_person_id=1,
+            absence_reason="İzin",
+            worked_hours=0,
+            package_count=0,
+        ),
+    )
+
+    update_response = update_attendance_entry_record(
+        conn,
+        entry_id=create_response.entry_id,
+        payload=AttendanceUpdateRequest(
+            entry_date=date(2026, 4, 19),
+            restaurant_id=10,
+            entry_mode=entry_mode,
+            primary_person_id=1,
+            replacement_person_id=2,
+            absence_reason="İzin",
+            worked_hours=9,
+            package_count=18,
+            monthly_invoice_amount=0,
+            notes="",
+        ),
+    )
+
+    assert update_response.entry_id == create_response.entry_id
+    row = conn.execute(
+        """
+        SELECT actual_personnel_id, worked_hours, package_count, monthly_invoice_amount, coverage_type
+        FROM daily_entries
+        WHERE id = %s
+        """,
+        (create_response.entry_id,),
+    ).fetchone()
+    assert row["actual_personnel_id"] == 2
+    assert row["worked_hours"] == 9
+    assert row["package_count"] == 18
+    assert row["coverage_type"] == entry_mode
+    assert row["monthly_invoice_amount"] == 1080

@@ -567,6 +567,17 @@ def update_attendance_entry_record(
     )
     values["entry_date"] = payload.entry_date
     values["restaurant_id"] = payload.restaurant_id
+    restaurants = fetch_attendance_restaurants(conn)
+    selected_restaurant = next(
+        (row for row in restaurants if int(row["id"]) == payload.restaurant_id),
+        None,
+    )
+    values["monthly_invoice_amount"] = _calculate_attendance_invoice_amount(
+        restaurant=selected_restaurant,
+        worked_hours=float(values["worked_hours"] or 0),
+        package_count=float(values["package_count"] or 0),
+        explicit_amount=float(values["monthly_invoice_amount"] or 0),
+    )
 
     update_attendance_entry(conn, entry_id, values)
     conn.commit()
