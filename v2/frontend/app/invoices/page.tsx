@@ -45,6 +45,15 @@ type InvoicesDashboard = {
     allocated_cost: number;
     allocation_source: string;
   }>;
+  invoice_drilldown_entries: Array<{
+    restaurant: string;
+    personnel: string;
+    role: string;
+    total_hours: number;
+    total_packages: number;
+    net_invoice_amount: number;
+    gross_invoice_amount: number;
+  }>;
   collection_entries: Array<{
     restaurant_id: number;
     restaurant: string;
@@ -86,6 +95,7 @@ function normalizeInvoicesDashboard(
     invoice_entries: payload.invoice_entries ?? [],
     profit_entries: payload.profit_entries ?? [],
     distribution_entries: payload.distribution_entries ?? [],
+    invoice_drilldown_entries: payload.invoice_drilldown_entries ?? [],
     collection_entries: payload.collection_entries ?? [],
     collection_summary: payload.collection_summary ?? {
       total_collected_amount: 0,
@@ -110,6 +120,8 @@ const serifStyle = {
   fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
   letterSpacing: "-0.04em",
 } as const;
+
+const SHARED_SUPPORT_ROLES = new Set(["Joker", "Bölge Müdürü", "Bolge Muduru"]);
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -361,8 +373,10 @@ export default function InvoicesPage() {
         role: string;
         total_hours: number;
         total_packages: number;
+        net_invoice_amount: number;
+        gross_invoice_amount: number;
         allocated_cost: number;
-        allocation_source: string;
+        has_shared_support_cost: boolean;
       }>;
     }
     const grouped = new Map<
@@ -372,11 +386,13 @@ export default function InvoicesPage() {
         role: string;
         total_hours: number;
         total_packages: number;
+        net_invoice_amount: number;
+        gross_invoice_amount: number;
         allocated_cost: number;
-        allocation_source: string;
+        has_shared_support_cost: boolean;
       }
     >();
-    for (const row of dashboard?.distribution_entries ?? []) {
+    for (const row of dashboard?.invoice_drilldown_entries ?? []) {
       if (row.restaurant !== selectedInvoice.restaurant) {
         continue;
       }
@@ -385,15 +401,34 @@ export default function InvoicesPage() {
       if (existing) {
         existing.total_hours += row.total_hours;
         existing.total_packages += row.total_packages;
-        existing.allocated_cost += row.allocated_cost;
+        existing.net_invoice_amount += row.net_invoice_amount;
+        existing.gross_invoice_amount += row.gross_invoice_amount;
         continue;
       }
-      grouped.set(key, { ...row });
+      grouped.set(key, {
+        ...row,
+        allocated_cost: 0,
+        has_shared_support_cost: SHARED_SUPPORT_ROLES.has(row.role),
+      });
+    }
+    for (const row of dashboard?.distribution_entries ?? []) {
+      if (row.restaurant !== selectedInvoice.restaurant) {
+        continue;
+      }
+      if (!SHARED_SUPPORT_ROLES.has(row.role)) {
+        continue;
+      }
+      const key = `${row.personnel}::${row.role}`;
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.allocated_cost += row.allocated_cost;
+        existing.has_shared_support_cost = true;
+      }
     }
     return Array.from(grouped.values()).sort(
-      (left, right) => right.allocated_cost - left.allocated_cost,
+      (left, right) => right.net_invoice_amount - left.net_invoice_amount,
     );
-  }, [dashboard?.distribution_entries, selectedInvoice]);
+  }, [dashboard?.distribution_entries, dashboard?.invoice_drilldown_entries, selectedInvoice]);
 
   useEffect(() => {
     setCollectionForm(
@@ -419,7 +454,7 @@ export default function InvoicesPage() {
   );
   const directCost = selectedProfit?.direct_personnel_cost ?? 0;
   const maxCourierCost = Math.max(
-    ...selectedCouriers.map((row) => row.allocated_cost || 0),
+    ...selectedCouriers.map((row) => row.net_invoice_amount || 0),
     1,
   );
   const todayKey = new Date().toLocaleDateString("sv-SE");
@@ -1215,9 +1250,10 @@ export default function InvoicesPage() {
                         }}
                       >
                         <div style={{ display: "grid", gap: "4px" }}>
-                          <strong>Kurye Dağılımı</strong>
+                          <strong>Kurye Bazlı Fatura Katkısı</strong>
                           <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
-                            Buradaki tutar, kuryenin toplam ay hakedişi değil; seçilen şubeye düşen payıdır.
+                            Ana tutar, seçilen şubede bu kişinin oluşturduğu KDV hariç fatura katkısıdır.
+                            Maliyet payı yalnızca Joker ve Bölge Müdürü desteğinde görünür.
                           </span>
                         </div>
                         <span
@@ -1263,7 +1299,15 @@ export default function InvoicesPage() {
                                     {formatNumber(row.total_packages, 0)} paket
                                   </span>
                                 </div>
-                                <strong style={{ fontSize: "0.98rem" }}>{formatMoney(row.allocated_cost)}</strong>
+                                <div style={{ display: "grid", gap: "4px", textAlign: "right" }}>
+                                  <strong style={{ fontSize: "0.98rem" }}>{formatMoney(row.net_invoice_amount)}</strong>
+                                  <span style={{ color: "var(--muted)", fontSize: "0.76rem" }}>
+                                    KDV dahil {formatMoney(row.gross_invoice_amount)}
+                                    {row.has_shared_support_cost && row.allocated_cost > 0
+                                      ? ` · Maliyet payı ${formatMoney(row.allocated_cost)}`
+                                      : ""}
+                                  </span>
+                                </div>
                               </div>
                               <div
                                 style={{
@@ -1275,7 +1319,7 @@ export default function InvoicesPage() {
                               >
                                 <div
                                   style={{
-                                    width: `${Math.max((row.allocated_cost / maxCourierCost) * 100, 6)}%`,
+                                    width: `${Math.max((row.net_invoice_amount / maxCourierCost) * 100, 6)}%`,
                                     height: "100%",
                                     borderRadius: "999px",
                                     background:

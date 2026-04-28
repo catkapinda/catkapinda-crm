@@ -122,6 +122,8 @@ const EMPTY_REPORTS_SIDE_INCOME_SNAPSHOT = {
   partner_card_discount_amount: 0,
 } as const;
 
+const SHARED_SUPPORT_ROLES = new Set(["Joker", "Bölge Müdürü", "Bolge Muduru"]);
+
 function normalizeReportsDashboard(payload: Partial<ReportsDashboard>): ReportsDashboard {
   return {
     module: payload.module ?? "reports",
@@ -1351,9 +1353,9 @@ function InvoiceWorkspace({
                   }}
                 >
                   <div style={{ display: "grid", gap: "4px" }}>
-                    <strong>Kurye Dağılımı</strong>
+                    <strong>Joker / Bölge Müdürü Maliyet Payı</strong>
                     <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
-                      Bu tabloda görülen tutar, seçilen şubeye dağılan paydır; kurye toplam ay hakedişi değildir.
+                      Buradaki tutar, sabit maaşlı joker ve bölge müdürü desteğinin seçilen şubeye dağılan payıdır.
                     </span>
                   </div>
                   <span
@@ -1439,7 +1441,7 @@ function InvoiceWorkspace({
                       fontSize: "0.84rem",
                     }}
                   >
-                    Bu şube için seçili ayda dağılım satırı henüz oluşmadı.
+                    Bu şube için seçili ayda joker veya bölge müdürü maliyet payı oluşmadı.
                   </div>
                 )}
               </section>
@@ -1676,6 +1678,9 @@ export default function ReportsPage() {
     >();
     for (const row of dashboard?.distribution_entries ?? []) {
       if (row.restaurant !== selectedRestaurantInvoice.restaurant) {
+        continue;
+      }
+      if (!SHARED_SUPPORT_ROLES.has(row.role)) {
         continue;
       }
       const key = `${row.personnel}::${row.role}`;
