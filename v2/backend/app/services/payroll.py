@@ -526,7 +526,7 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         flow_height = 68
         detail_height = 136
         deductions_header_height = 24
-        deductions_intro_height = 40
+        deductions_intro_height = 48
         table_x = margin_x + card_padding
         table_width = page_width - (card_padding * 2)
         amount_column_width = 146
@@ -652,18 +652,38 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         deductions_bottom = deductions_top - deductions_height
         draw_shadow_card(margin_x, deductions_bottom, page_width, deductions_height, fill_key="paper", radius=16)
         write_line("Kesinti Kalemleri", margin_x + 16, deductions_top - 20, 11, color_key="text", font_override=font_bold)
+        deduction_summary_label = "Toplam Kesinti"
+        deduction_summary_value = _format_currency_pdf(payload.total_deductions)
+        deduction_summary_width = max(
+            132,
+            text_width(deduction_summary_label, 8, font_override=font_bold),
+            text_width(deduction_summary_value, 12, font_override=font_bold),
+        ) + 20
+        deduction_summary_height = 28
+        deduction_summary_x = margin_x + page_width - deduction_summary_width - 16
+        deduction_summary_y = deductions_top - 34
+        set_fill("red_soft")
+        pdf.roundRect(
+            deduction_summary_x,
+            deduction_summary_y,
+            deduction_summary_width,
+            deduction_summary_height,
+            10,
+            stroke=0,
+            fill=1,
+        )
         write_right(
-            "Toplam Kesinti",
-            margin_x + page_width - 16,
-            deductions_top - 16,
+            deduction_summary_label,
+            deduction_summary_x + deduction_summary_width - 10,
+            deduction_summary_y + 18,
             8,
             color_key="muted",
             font_override=font_bold,
         )
         write_right(
-            _format_currency_pdf(payload.total_deductions),
-            margin_x + page_width - 16,
-            deductions_top - 31,
+            deduction_summary_value,
+            deduction_summary_x + deduction_summary_width - 10,
+            deduction_summary_y + 6,
             12,
             color_key="red",
             font_override=font_bold,
