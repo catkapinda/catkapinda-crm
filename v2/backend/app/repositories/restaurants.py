@@ -117,6 +117,58 @@ def fetch_recent_restaurant_records(
     return [dict(row) for row in rows]
 
 
+def fetch_restaurant_active_personnel_map(
+    conn: psycopg.Connection,
+    *,
+    restaurant_ids: list[int],
+) -> dict[int, list[dict]]:
+    normalized_ids = sorted({int(value) for value in restaurant_ids if int(value) > 0})
+    if not normalized_ids:
+        return {}
+
+    if is_sqlite_backend(conn):
+        placeholders = ",".join("?" for _ in normalized_ids)
+        rows = conn.execute(
+            f"""
+            SELECT
+                assigned_restaurant_id AS restaurant_id,
+                id,
+                COALESCE(full_name, '') AS full_name,
+                COALESCE(role, '') AS role,
+                COALESCE(status, '') AS status
+            FROM personnel
+            WHERE assigned_restaurant_id IN ({placeholders})
+              AND {_personnel_active_sql('status')}
+            ORDER BY assigned_restaurant_id, full_name, id
+            """,
+            tuple(normalized_ids),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            f"""
+            SELECT
+                assigned_restaurant_id AS restaurant_id,
+                id,
+                COALESCE(full_name, '') AS full_name,
+                COALESCE(role, '') AS role,
+                COALESCE(status, '') AS status
+            FROM personnel
+            WHERE assigned_restaurant_id = ANY(%s::bigint[])
+              AND {_personnel_active_sql('status')}
+            ORDER BY assigned_restaurant_id, full_name, id
+            """,
+            (normalized_ids,),
+        ).fetchall()
+
+    personnel_map: dict[int, list[dict]] = {}
+    for row in rows:
+        restaurant_id = int(row["restaurant_id"] or 0)
+        if restaurant_id <= 0:
+            continue
+        personnel_map.setdefault(restaurant_id, []).append(dict(row))
+    return personnel_map
+
+
 def fetch_restaurant_management_records(
     conn: psycopg.Connection,
     *,

@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RestaurantsModuleStatus(BaseModel):
@@ -14,6 +14,13 @@ class RestaurantSummary(BaseModel):
     active_restaurants: int
     passive_restaurants: int
     fixed_monthly_restaurants: int
+
+
+class RestaurantActivePersonnelEntry(BaseModel):
+    id: int
+    full_name: str
+    role: str
+    status: str
 
 
 class RestaurantManagementEntry(BaseModel):
@@ -45,6 +52,8 @@ class RestaurantManagementEntry(BaseModel):
     tax_number: str
     active: bool
     notes: str
+    active_personnel_count: int = 0
+    active_personnel: list[RestaurantActivePersonnelEntry] = Field(default_factory=list)
 
 
 class RestaurantsDashboardResponse(BaseModel):

@@ -8,6 +8,7 @@ from app.repositories.restaurants import (
     count_restaurant_linked_personnel,
     count_restaurant_management_records,
     delete_restaurant_record,
+    fetch_restaurant_active_personnel_map,
     fetch_recent_restaurant_records,
     fetch_restaurant_management_records,
     fetch_restaurant_record_by_id,
@@ -59,7 +60,12 @@ def _active_to_status(active: bool) -> str:
     return "Aktif" if bool(active) else "Pasif"
 
 
-def _build_management_entry(row: dict[str, object]) -> RestaurantManagementEntry:
+def _build_management_entry(
+    row: dict[str, object],
+    *,
+    active_personnel_rows: list[dict[str, object]] | None = None,
+) -> RestaurantManagementEntry:
+    active_personnel_rows = active_personnel_rows or []
     return RestaurantManagementEntry(
         id=int(row["id"]),
         brand=str(row["brand"] or ""),
@@ -89,6 +95,16 @@ def _build_management_entry(row: dict[str, object]) -> RestaurantManagementEntry
         tax_number=str(row["tax_number"] or ""),
         active=bool(row["active"]),
         notes=str(row["notes"] or ""),
+        active_personnel_count=len(active_personnel_rows),
+        active_personnel=[
+            {
+                "id": int(person_row["id"]),
+                "full_name": str(person_row.get("full_name") or ""),
+                "role": str(person_row.get("role") or ""),
+                "status": str(person_row.get("status") or ""),
+            }
+            for person_row in active_personnel_rows
+        ],
     )
 
 
@@ -189,11 +205,21 @@ def build_restaurants_dashboard(
 ) -> RestaurantsDashboardResponse:
     summary_values = fetch_restaurant_summary(conn)
     recent_rows = fetch_recent_restaurant_records(conn, limit=limit)
+    active_personnel_map = fetch_restaurant_active_personnel_map(
+        conn,
+        restaurant_ids=[int(row["id"]) for row in recent_rows if row.get("id") is not None],
+    )
     return RestaurantsDashboardResponse(
         module="restaurants",
         status="active",
         summary=RestaurantSummary(**summary_values),
-        recent_entries=[_build_management_entry(row) for row in recent_rows],
+        recent_entries=[
+            _build_management_entry(
+                row,
+                active_personnel_rows=active_personnel_map.get(int(row["id"]), []),
+            )
+            for row in recent_rows
+        ],
     )
 
 
