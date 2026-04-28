@@ -450,7 +450,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
               <span style={{ fontWeight: 700 }}>Çalışılan Saat</span>
               <input
                 type="number"
-                step="0.5"
+                step="0.01"
                 min="0"
                 value={workedHours}
                 onChange={(event) => setWorkedHours(event.target.value)}
@@ -462,7 +462,7 @@ export function AttendanceEntryWorkspace({ onDataChange }: AttendanceEntryWorksp
               <span style={{ fontWeight: 700 }}>Paket</span>
               <input
                 type="number"
-                step="1"
+                step="0.01"
                 min="0"
                 value={packageCount}
                 onChange={(event) => setPackageCount(event.target.value)}

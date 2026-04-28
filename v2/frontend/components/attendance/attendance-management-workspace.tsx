@@ -111,11 +111,29 @@ function badgeStyle(kind: "accent" | "soft" | "warn" | "muted"): CSSProperties {
 }
 
 function formatHours(value: number) {
-  return `${value.toFixed(1)} sa`;
+  return `${formatQuantity(value)} sa`;
 }
 
 function formatPackages(value: number) {
-  return `${value.toFixed(0)} pkg`;
+  return `${formatQuantity(value)} pkg`;
+}
+
+function formatQuantity(value: number) {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+  const normalized = Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+  const [wholePart, fractionPart = ""] = normalized.split(".");
+  const wholeNumber = Number(wholePart || 0);
+  const formattedWhole = new Intl.NumberFormat("tr-TR", {
+    maximumFractionDigits: 0,
+  }).format(wholeNumber);
+  if (!fractionPart) {
+    return formattedWhole;
+  }
+  return `${formattedWhole},${fractionPart}`;
 }
 
 function formatCurrency(value: number) {
@@ -1137,7 +1155,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                     <span style={labelStyle}>Çalışılan Saat</span>
                     <input
                       type="number"
-                      step="0.5"
+                      step="0.01"
                       min="0"
                       value={editWorkedHours}
                       onChange={(event) => setEditWorkedHours(event.target.value)}
@@ -1148,7 +1166,7 @@ export function AttendanceManagementWorkspace({ onDataChange }: AttendanceManage
                     <span style={labelStyle}>Paket</span>
                     <input
                       type="number"
-                      step="1"
+                      step="0.01"
                       min="0"
                       value={editPackageCount}
                       onChange={(event) => setEditPackageCount(event.target.value)}

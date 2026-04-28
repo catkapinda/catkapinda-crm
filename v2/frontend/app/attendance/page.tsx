@@ -144,6 +144,24 @@ function formatCurrency(value: number) {
   }).format(value || 0);
 }
 
+function formatQuantity(value: number) {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+  const normalized = Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+  const [wholePart, fractionPart = ""] = normalized.split(".");
+  const wholeNumber = Number(wholePart || 0);
+  const formattedWhole = new Intl.NumberFormat("tr-TR", {
+    maximumFractionDigits: 0,
+  }).format(wholeNumber);
+  if (!fractionPart) {
+    return formattedWhole;
+  }
+  return `${formattedWhole},${fractionPart}`;
+}
+
 function formatNumber(value: number, decimals = 0) {
   return new Intl.NumberFormat("tr-TR", {
     minimumFractionDigits: decimals,
@@ -472,7 +490,7 @@ export default function AttendancePage() {
         eyebrow: "En Sıcak Hareket",
         title: topEntry ? topEntry.restaurant : "Son kayıt bulunmuyor.",
         body: topEntry
-          ? `${topEntry.employee_name || "Atanmamış personel"} için ${topEntry.entry_mode} kaydı var. ${topEntry.worked_hours.toFixed(1)} saat, ${topEntry.package_count.toFixed(0)} paket ve ${formatCurrency(topEntry.monthly_invoice_amount)} tutar görünüyor.`
+          ? `${topEntry.employee_name || "Atanmamış personel"} için ${topEntry.entry_mode} kaydı var. ${formatQuantity(topEntry.worked_hours)} saat, ${formatQuantity(topEntry.package_count)} paket ve ${formatCurrency(topEntry.monthly_invoice_amount)} tutar görünüyor.`
           : "Yeni puantaj kayıtları burada görünecek.",
         tone: "paper",
       },
@@ -1068,8 +1086,8 @@ export default function AttendancePage() {
                               {entry.entry_mode}
                             </span>
                           </td>
-                          <td style={tableCellStyle}>{entry.worked_hours.toFixed(1)}</td>
-                          <td style={tableCellStyle}>{entry.package_count.toFixed(0)}</td>
+                          <td style={tableCellStyle}>{formatQuantity(entry.worked_hours)}</td>
+                          <td style={tableCellStyle}>{formatQuantity(entry.package_count)}</td>
                         </tr>
                       ))}
                     </tbody>

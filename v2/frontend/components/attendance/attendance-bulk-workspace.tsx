@@ -536,7 +536,7 @@ Musa Çoban: 26 - 10 saat`}
                 <input
                   type="number"
                   min="0"
-                  step="0.5"
+                  step="0.01"
                   value={row.workedHours}
                   onChange={(event) => updateRow(row.rowId, { workedHours: event.target.value })}
                   style={fieldStyle}
@@ -545,7 +545,7 @@ Musa Çoban: 26 - 10 saat`}
                 <input
                   type="number"
                   min="0"
-                  step="1"
+                  step="0.01"
                   value={row.packageCount}
                   onChange={(event) => updateRow(row.rowId, { packageCount: event.target.value })}
                   style={fieldStyle}
