@@ -372,6 +372,30 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
             except Exception:
                 return False
 
+        def draw_amount_pill(
+            text: str,
+            x: float,
+            y: float,
+            pill_width: float,
+            pill_height: float,
+            *,
+            fill_key: str,
+            text_color_key: str,
+        ) -> None:
+            draw_rounded_card(
+                x,
+                y,
+                pill_width,
+                pill_height,
+                fill_key=fill_key,
+                stroke_key=fill_key,
+                radius=pill_height / 2,
+                stroke_width=0,
+            )
+            set_fill(text_color_key)
+            pdf.setFont(font_name, 8)
+            pdf.drawCentredString(x + (pill_width / 2), y + (pill_height / 2) - 3, text)
+
         def draw_rounded_card(
             x: float,
             y: float,
@@ -419,7 +443,7 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         top_y = height - 28
         page_width = width - (margin_x * 2)
         section_gap = 10
-        header_height = 82
+        header_height = 84
         info_height = 68
         summary_card_height = 60
         detail_panel_height = 68
@@ -457,12 +481,10 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
 
         header_bottom = top_y - header_height
         draw_rounded_card(margin_x, header_bottom, page_width, header_height, fill_key="paper", stroke_key="line", radius=20)
-        set_fill("accent_soft")
-        pdf.roundRect(margin_x, top_y - 4, page_width * 0.28, 4, 4, stroke=0, fill=1)
 
-        has_logo = draw_logo(margin_x + 14, top_y - 56, 36, 36)
-        text_x = margin_x + (62 if has_logo else 16)
-        write_line("Kurye Hakediş Belgesi", text_x, top_y - 24, 20, color_key="text")
+        has_logo = draw_logo(margin_x + 14, top_y - 62, 46, 46)
+        text_x = margin_x + (74 if has_logo else 16)
+        write_line("Kurye Hakediş Belgesi", text_x, top_y - 24, 21, color_key="text")
         write_line(
             f"{month_label} ayı ödeme özeti • Oluşturma {date.today().strftime('%d.%m.%Y')}",
             text_x,
@@ -554,14 +576,23 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         deductions_bottom = deductions_top - deductions_height
         draw_rounded_card(margin_x, deductions_bottom, page_width, deductions_height, fill_key="paper", stroke_key="line", radius=18)
         write_line("Kesinti Kalemleri", margin_x + 14, deductions_top - 16, 10, color_key="text")
-        write_line(_format_currency_pdf(payload.total_deductions), margin_x + page_width - 118, deductions_top - 16, 9, color_key="red")
+        write_line("Toplam Kesinti", margin_x + page_width - 136, deductions_top - 16, 7, color_key="muted")
+        draw_amount_pill(
+            _format_currency_pdf(payload.total_deductions),
+            margin_x + page_width - 122,
+            deductions_top - 28,
+            108,
+            18,
+            fill_key="red_soft",
+            text_color_key="red",
+        )
 
-        table_top = deductions_top - 30
+        table_top = deductions_top - 34
         set_fill("surface")
         pdf.roundRect(table_x, table_top - deductions_header_height, table_width, deductions_header_height, 8, stroke=0, fill=1)
         write_line("Kalem", table_x + 10, table_top - 15, 8, color_key="text")
         pdf.setFont(font_name, 8)
-        pdf.drawRightString(amount_right_x, table_top - 15, "Tutar")
+        pdf.drawRightString(amount_right_x, table_top - 15, "Kesinti Tutarı")
 
         table_body_top = table_top - deductions_header_height
         table_body_bottom = table_body_top - sum(row_height for _, _, row_height in deduction_rows)
@@ -583,9 +614,20 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
                 write_line(label_line, table_x + 10, line_y, 8, color_key="text")
                 line_y -= 9
 
-            set_fill("red" if amount_text != "-" else "muted")
-            pdf.setFont(font_name, 9)
-            pdf.drawRightString(amount_right_x, row_bottom + (row_height / 2) - 3, amount_text)
+            if amount_text != "-":
+                draw_amount_pill(
+                    amount_text,
+                    amount_right_x - 84,
+                    row_bottom + (row_height / 2) - 8,
+                    84,
+                    16,
+                    fill_key="red_soft",
+                    text_color_key="red",
+                )
+            else:
+                set_fill("muted")
+                pdf.setFont(font_name, 8)
+                pdf.drawRightString(amount_right_x, row_bottom + (row_height / 2) - 3, amount_text)
 
             set_stroke("line")
             pdf.setLineWidth(1)
