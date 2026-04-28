@@ -271,10 +271,14 @@ def _register_pdf_font() -> str:
     return "Helvetica"
 
 
+def _payroll_logo_path() -> Path:
+    return _repo_root() / "v2/frontend/public/catkapinda_logo.png"
+
+
 def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
     try:
         from reportlab.lib.pagesizes import A4
-        from reportlab.lib.utils import simpleSplit
+        from reportlab.lib.utils import ImageReader, simpleSplit
         from reportlab.pdfgen import canvas
     except ModuleNotFoundError:
         return _render_basic_payroll_pdf(payload)
@@ -343,6 +347,30 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
                 current_y -= step
             return current_y
 
+        def draw_logo(
+            x: float,
+            y: float,
+            logo_width: float,
+            logo_height: float,
+        ) -> bool:
+            logo_path = _payroll_logo_path()
+            if not logo_path.exists():
+                return False
+            try:
+                pdf.drawImage(
+                    ImageReader(str(logo_path)),
+                    x,
+                    y,
+                    width=logo_width,
+                    height=logo_height,
+                    mask="auto",
+                    preserveAspectRatio=True,
+                    anchor="c",
+                )
+                return True
+            except Exception:
+                return False
+
         def draw_rounded_card(
             x: float,
             y: float,
@@ -379,13 +407,43 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         restaurant_text = ", ".join(payload.restaurant_names) if payload.restaurant_names else "Bu ay restoran kaydı bulunamadı."
         restaurant_count = len(payload.restaurant_names)
 
-        header_height = 112
+        header_height = 118
         header_bottom = top_y - header_height
         draw_rounded_card(margin_x, header_bottom, page_width, header_height, fill_key="navy", stroke_key="navy")
+        set_fill("paper")
+        pdf.setFillAlpha(0.1)
+        pdf.circle(margin_x + 82, top_y - 42, 42, stroke=0, fill=1)
+        pdf.circle(margin_x + page_width - 124, top_y - 76, 28, stroke=0, fill=1)
+        pdf.setFillAlpha(1)
 
-        write_line("Çat Kapında", margin_x + 20, top_y - 26, 12, color_key="paper")
-        write_line("Kurye Hakediş Belgesi", margin_x + 20, top_y - 56, 24, color_key="paper")
-        write_line("Aylık ödeme özeti ve kesinti dökümü", margin_x + 20, top_y - 76, 10, color_key="paper")
+        logo_plate_x = margin_x + 18
+        logo_plate_y = top_y - 86
+        logo_plate_size = 56
+        draw_rounded_card(
+            logo_plate_x,
+            logo_plate_y,
+            logo_plate_size,
+            logo_plate_size,
+            fill_key="paper",
+            stroke_key="paper",
+            radius=18,
+            stroke_width=0,
+        )
+        has_logo = draw_logo(logo_plate_x + 7, logo_plate_y + 7, 42, 42)
+
+        header_text_x = margin_x + 86
+        write_line(
+            "Çat Kapında CRM" if has_logo else "Çat Kapında",
+            header_text_x,
+            top_y - 28,
+            11,
+            color_key="paper",
+        )
+        write_line("Kurye Hakediş Belgesi", header_text_x, top_y - 56, 23, color_key="paper")
+        write_line("Aylık ödeme özeti ve kesinti dökümü", header_text_x, top_y - 78, 10, color_key="paper")
+        pdf.setStrokeColorRGB(*palette["accent"])
+        pdf.setLineWidth(2.6)
+        pdf.line(header_text_x, top_y - 90, header_text_x + 78, top_y - 90)
 
         chip_width = 132
         chip_height = 34
