@@ -205,54 +205,6 @@ function triggerBrowserDownload(blob: Blob, fileName: string) {
   window.URL.revokeObjectURL(url);
 }
 
-function metricCard(label: string, value: string, note: string) {
-  return (
-    <article
-      key={label}
-      style={{
-        padding: "16px 18px",
-        borderRadius: "18px",
-        border: "1px solid var(--line)",
-        background: "var(--surface-strong)",
-        boxShadow: "0 12px 30px rgba(20, 39, 67, 0.05)",
-        display: "grid",
-        gap: "8px",
-      }}
-    >
-      <div
-        style={{
-          color: "var(--muted)",
-          fontSize: "0.72rem",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          fontWeight: 800,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: "1.55rem",
-          fontWeight: 900,
-          letterSpacing: "-0.05em",
-          lineHeight: 1,
-        }}
-      >
-        {value}
-      </div>
-      <div
-        style={{
-          color: "var(--muted)",
-          fontSize: "0.85rem",
-          lineHeight: 1.45,
-        }}
-      >
-        {note}
-      </div>
-    </article>
-  );
-}
-
 function tableHeaderCell(label: string) {
   return (
     <th
@@ -468,44 +420,6 @@ export default function PayrollPage() {
       active = false;
     };
   }, [loading, selectedMonth, selectedRestaurant, selectedRole, user]);
-
-  const summaryCards = useMemo(() => {
-    if (!dashboard?.summary) {
-      return [];
-    }
-    return [
-      metricCard("Kesinti Öncesi Kurye Hakedişi", formatMoney(dashboard.summary.gross_payroll), "Ekipman ve manuel kesintiler düşmeden önce"),
-      metricCard("Toplam Kesinti", formatMoney(dashboard.summary.total_deductions), "Ay sonu kesinti toplamı"),
-      metricCard("Kurye Fatura Tutarı", formatMoney(dashboard.summary.net_payment), "Kesintiler sonrası oluşan nihai kurye tutarı"),
-      metricCard("Personel", formatNumber(dashboard.summary.personnel_count), "Hakediş havuzundaki çalışan"),
-      metricCard("Toplam Saat", formatNumber(dashboard.summary.total_hours, 1), "Seçili filtre çalışma saati"),
-      metricCard("Toplam Paket", formatNumber(dashboard.summary.total_packages, 0), "Seçili filtre paket toplamı"),
-    ];
-  }, [dashboard]);
-
-  const signalCards = useMemo(() => {
-    if (!dashboard?.summary) {
-      return [];
-    }
-    const netPerHour =
-      dashboard.summary.total_hours > 0
-        ? dashboard.summary.net_payment / dashboard.summary.total_hours
-        : 0;
-    const netPerCourier =
-      dashboard.summary.personnel_count > 0
-        ? dashboard.summary.net_payment / dashboard.summary.personnel_count
-        : 0;
-    const deductionRatio =
-      dashboard.summary.gross_payroll > 0
-        ? (dashboard.summary.total_deductions / dashboard.summary.gross_payroll) * 100
-        : 0;
-
-    return [
-      metricCard("Saat Başına Fatura", formatMoney(netPerHour), "Kurye fatura tutarı / toplam saat"),
-      metricCard("Kurye Başına Fatura", formatMoney(netPerCourier), "Kurye fatura tutarı / personel"),
-      metricCard("Kesinti Oranı", `%${formatNumber(deductionRatio, 1)}`, "Kesinti / kesinti öncesi kurye hakedişi"),
-    ];
-  }, [dashboard]);
 
   const payrollOverview = useMemo(() => {
     const summary = dashboard?.summary;
@@ -1087,119 +1001,137 @@ export default function PayrollPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gridTemplateColumns: "minmax(0, 1fr)",
                 gap: "12px",
-                alignItems: "end",
+                alignItems: "start",
               }}
             >
-              <div style={{ display: "grid", gap: "8px" }}>
-                <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Rol</label>
-                <select
-                  value={selectedRole}
-                  onChange={(event) => setSelectedRole(event.target.value)}
-                  disabled={dashboardLoading}
-                  style={{
-                    padding: "14px 16px",
-                    borderRadius: "16px",
-                    border: "1px solid var(--line)",
-                    background: "rgba(255,255,255,0.96)",
-                    color: "var(--text)",
-                    fontWeight: 700,
-                  }}
-                >
-                  {(dashboard?.role_options ?? ["Tümü"]).map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: "grid", gap: "8px" }}>
-                <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Restoran</label>
-                <select
-                  value={selectedRestaurant}
-                  onChange={(event) => setSelectedRestaurant(event.target.value)}
-                  disabled={dashboardLoading}
-                  style={{
-                    padding: "14px 16px",
-                    borderRadius: "16px",
-                    border: "1px solid var(--line)",
-                    background: "rgba(255,255,255,0.96)",
-                    color: "var(--text)",
-                    fontWeight: 700,
-                  }}
-                >
-                  {(dashboard?.restaurant_options ?? ["Tümü"]).map((restaurant) => (
-                    <option key={restaurant} value={restaurant}>
-                      {restaurant}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: "grid", gap: "8px" }}>
-                <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>
-                  Personel ara
-                </label>
-                <input
-                  value={entryQuery}
-                  onChange={(event) => setEntryQuery(event.target.value)}
-                  placeholder="Ad, rol veya model ara"
-                  style={{
-                    padding: "14px 16px",
-                    borderRadius: "16px",
-                    border: "1px solid var(--line)",
-                    background: "rgba(255,255,255,0.96)",
-                    color: "var(--text)",
-                  }}
-                />
-              </div>
-              <div style={{ display: "grid", gap: "8px" }}>
-                <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>
-                  Belgesi oluşturulacak personel
-                </label>
-                <select
-                  value={documentPersonId}
-                  onChange={(event) =>
-                    setDocumentPersonId(event.target.value ? Number(event.target.value) : "")
-                  }
-                  disabled={documentBusy || !documentOptions.length}
-                  style={{
-                    padding: "14px 16px",
-                    borderRadius: "16px",
-                    border: "1px solid var(--line)",
-                    background: "rgba(255,255,255,0.96)",
-                    color: "var(--text)",
-                    fontWeight: 700,
-                  }}
-                >
-                  {documentOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                type="button"
-                onClick={handleDocumentDownload}
-                disabled={documentBusy || typeof documentPersonId !== "number"}
+              <div
                 style={{
-                  padding: "14px 18px",
-                  borderRadius: "16px",
-                  border: "none",
-                  background:
-                    "linear-gradient(135deg, rgba(185,116,41,1), rgba(212,144,61,0.96))",
-                  color: "#fff7ea",
-                  fontWeight: 900,
-                  cursor:
-                    documentBusy || typeof documentPersonId !== "number"
-                      ? "not-allowed"
-                      : "pointer",
-                  opacity: documentBusy || typeof documentPersonId !== "number" ? 0.6 : 1,
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "12px",
                 }}
               >
-                {documentBusy ? "Belge hazırlanıyor..." : "Hakediş belgesini indir"}
-              </button>
+                <div style={{ display: "grid", gap: "8px" }}>
+                  <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Rol</label>
+                  <select
+                    value={selectedRole}
+                    onChange={(event) => setSelectedRole(event.target.value)}
+                    disabled={dashboardLoading}
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: "16px",
+                      border: "1px solid var(--line)",
+                      background: "rgba(255,255,255,0.96)",
+                      color: "var(--text)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {(dashboard?.role_options ?? ["Tümü"]).map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: "grid", gap: "8px" }}>
+                  <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Restoran</label>
+                  <select
+                    value={selectedRestaurant}
+                    onChange={(event) => setSelectedRestaurant(event.target.value)}
+                    disabled={dashboardLoading}
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: "16px",
+                      border: "1px solid var(--line)",
+                      background: "rgba(255,255,255,0.96)",
+                      color: "var(--text)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {(dashboard?.restaurant_options ?? ["Tümü"]).map((restaurant) => (
+                      <option key={restaurant} value={restaurant}>
+                        {restaurant}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: "grid", gap: "8px" }}>
+                  <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>
+                    Personel ara
+                  </label>
+                  <input
+                    value={entryQuery}
+                    onChange={(event) => setEntryQuery(event.target.value)}
+                    placeholder="Ad, rol veya model ara"
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: "16px",
+                      border: "1px solid var(--line)",
+                      background: "rgba(255,255,255,0.96)",
+                      color: "var(--text)",
+                    }}
+                  />
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1fr) auto",
+                  gap: "12px",
+                  alignItems: "end",
+                }}
+              >
+                <div style={{ display: "grid", gap: "8px" }}>
+                  <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>
+                    Belgesi oluşturulacak personel
+                  </label>
+                  <select
+                    value={documentPersonId}
+                    onChange={(event) =>
+                      setDocumentPersonId(event.target.value ? Number(event.target.value) : "")
+                    }
+                    disabled={documentBusy || !documentOptions.length}
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: "16px",
+                      border: "1px solid var(--line)",
+                      background: "rgba(255,255,255,0.96)",
+                      color: "var(--text)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {documentOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDocumentDownload}
+                  disabled={documentBusy || typeof documentPersonId !== "number"}
+                  style={{
+                    minWidth: "230px",
+                    padding: "14px 18px",
+                    borderRadius: "16px",
+                    border: "none",
+                    background:
+                      "linear-gradient(135deg, rgba(185,116,41,1), rgba(212,144,61,0.96))",
+                    color: "#fff7ea",
+                    fontWeight: 900,
+                    cursor:
+                      documentBusy || typeof documentPersonId !== "number"
+                        ? "not-allowed"
+                        : "pointer",
+                    opacity: documentBusy || typeof documentPersonId !== "number" ? 0.6 : 1,
+                  }}
+                >
+                  {documentBusy ? "Belge hazırlanıyor..." : "Hakediş belgesini indir"}
+                </button>
+              </div>
             </div>
             {documentError ? (
               <div style={{ color: "#9e2430", fontSize: "0.92rem", fontWeight: 700 }}>
@@ -1242,26 +1174,6 @@ export default function PayrollPage() {
           </div>
         ) : (
           <>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "14px",
-              }}
-            >
-              {summaryCards}
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "14px",
-              }}
-            >
-              {signalCards}
-            </div>
-
             <div
               style={{
                 display: "grid",
