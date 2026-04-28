@@ -33,6 +33,7 @@ class ReportCostEntry(BaseModel):
     role: str
     total_hours: float
     total_packages: float
+    gross_cost: float
     total_deductions: float
     net_cost: float
     cost_model: str

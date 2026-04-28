@@ -760,6 +760,7 @@ def _build_local_reports_dashboard(
             role=str(row["role"] or "-"),
             total_hours=total_hours,
             total_packages=total_packages,
+            gross_cost=gross_cost,
             total_deductions=total_deductions,
             net_cost=net_cost,
             cost_model=str(row["cost_model"] or "-"),
@@ -886,7 +887,7 @@ def _build_local_reports_dashboard(
                 role=str(row["role"] or "-"),
                 total_hours=total_hours,
                 total_packages=total_packages,
-                allocated_cost=metrics.net_cost * share_ratio,
+                allocated_cost=metrics.gross_cost * share_ratio,
                 allocation_source=allocation_source,
             )
         )
