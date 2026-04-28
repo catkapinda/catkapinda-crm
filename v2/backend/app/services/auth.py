@@ -27,6 +27,8 @@ from app.repositories.auth import (
     clear_login_attempt,
     consume_phone_code,
     delete_auth_session,
+    delete_auth_sessions_for_username,
+    delete_other_auth_sessions_for_username,
     delete_pending_phone_codes,
     fetch_login_attempt,
     fetch_active_phone_code,
@@ -500,6 +502,10 @@ def reset_password_with_phone_code(
         user_id=int(row.get("id") or 0),
         password_hash=hash_auth_password(normalized_new_password),
     )
+    delete_auth_sessions_for_username(
+        conn,
+        username=resolve_session_identity(row),
+    )
     clear_login_attempts_for_user(conn, user_row=row)
     conn.commit()
     return AuthPasswordResetResponse(message="Şifre sıfırlandı. Yeni şifrenle giriş yapabilirsin.")
@@ -554,6 +560,11 @@ def change_authenticated_user_password(
         conn,
         user_id=int(user_row.get("id") or 0),
         password_hash=hash_auth_password(normalized_new),
+    )
+    delete_other_auth_sessions_for_username(
+        conn,
+        username=resolve_session_identity(user_row),
+        keep_token=user.token,
     )
     conn.commit()
 

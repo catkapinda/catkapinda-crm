@@ -85,6 +85,22 @@ def delete_auth_session(conn: psycopg.Connection, *, token: str) -> None:
     conn.execute("DELETE FROM auth_sessions WHERE token = %s", (token,))
 
 
+def delete_auth_sessions_for_username(conn: psycopg.Connection, *, username: str) -> None:
+    conn.execute("DELETE FROM auth_sessions WHERE username = %s", (username,))
+
+
+def delete_other_auth_sessions_for_username(
+    conn: psycopg.Connection,
+    *,
+    username: str,
+    keep_token: str,
+) -> None:
+    conn.execute(
+        "DELETE FROM auth_sessions WHERE username = %s AND token <> %s",
+        (username, keep_token),
+    )
+
+
 def update_auth_user_password(
     conn: psycopg.Connection,
     *,

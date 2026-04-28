@@ -2,10 +2,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from app.core.security import AuthenticatedUser
 from app.core.security import hash_auth_password
 from app.services.auth import (
     AuthRateLimitError,
     authenticate_user,
+    change_authenticated_user_password,
     reset_password_with_phone_code,
     verify_phone_login_code_and_login,
 )
@@ -159,6 +161,7 @@ def test_reset_password_with_phone_code_clears_login_attempts_for_email_and_phon
     consumed = {}
     updated = {}
     cleared: list[str] = []
+    revoked_sessions: list[str] = []
 
     monkeypatch.setattr("app.services.auth.cleanup_expired_phone_codes", lambda _conn: None)
     monkeypatch.setattr(
@@ -181,6 +184,10 @@ def test_reset_password_with_phone_code_clears_login_attempts_for_email_and_phon
         lambda _conn, user_id, password_hash: updated.update({"user_id": user_id, "password_hash": password_hash}),
     )
     monkeypatch.setattr(
+        "app.services.auth.delete_auth_sessions_for_username",
+        lambda _conn, username: revoked_sessions.append(username),
+    )
+    monkeypatch.setattr(
         "app.services.auth.clear_login_attempt",
         lambda _conn, identity: cleared.append(identity),
     )
@@ -195,8 +202,53 @@ def test_reset_password_with_phone_code_clears_login_attempts_for_email_and_phon
     assert response.message == "Şifre sıfırlandı. Yeni şifrenle giriş yapabilirsin."
     assert consumed == {"code_row_id": 44, "attempt_count": 1}
     assert updated["user_id"] == 7
+    assert revoked_sessions == ["mert.kurtulus@catkapinda.com"]
     assert "mert.kurtulus@catkapinda.com" in cleared
     assert "5551234567" in cleared
+    assert conn.commit_count == 1
+
+
+def test_change_authenticated_user_password_revokes_other_sessions(monkeypatch):
+    conn = FakeConnection()
+    user_row = _build_user("EskiSifre123")
+    updated = {}
+    revoked = {}
+
+    monkeypatch.setattr(
+        "app.services.auth.fetch_auth_user_by_identity",
+        lambda _conn, identity: user_row,
+    )
+    monkeypatch.setattr(
+        "app.services.auth.update_auth_user_password",
+        lambda _conn, user_id, password_hash: updated.update({"user_id": user_id, "password_hash": password_hash}),
+    )
+    monkeypatch.setattr(
+        "app.services.auth.delete_other_auth_sessions_for_username",
+        lambda _conn, username, keep_token: revoked.update({"username": username, "keep_token": keep_token}),
+    )
+
+    user = change_authenticated_user_password(
+        conn,
+        user=AuthenticatedUser(
+            id=7,
+            identity="mert.kurtulus@catkapinda.com",
+            email="mert.kurtulus@catkapinda.com",
+            phone="",
+            full_name="Mert Kurtuluş",
+            role="admin",
+            role_display="Yönetim Kurulu / Yönetici",
+            must_change_password=False,
+            allowed_actions=[],
+            expires_at="2099-01-01T00:00:00",
+            token="token-abc",
+        ),
+        current_password="EskiSifre123",
+        new_password="YeniSifre123!",
+    )
+
+    assert updated["user_id"] == 7
+    assert revoked == {"username": "mert.kurtulus@catkapinda.com", "keep_token": "token-abc"}
+    assert user.token == "token-abc"
     assert conn.commit_count == 1
 
 
