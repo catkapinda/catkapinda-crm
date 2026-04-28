@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-import { AUTH_PRESENCE_COOKIE_NAME } from "./lib/api";
+import { AUTH_PRESENCE_COOKIE_NAME, AUTH_TOKEN_COOKIE_NAME } from "./lib/api";
 
 const PUBLIC_PATHS = new Set(["/login", "/status"]);
 const PUBLIC_ASSET_PATTERN = /\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|css|js|map|woff|woff2)$/i;
@@ -33,8 +33,9 @@ export function middleware(request: NextRequest) {
     return applySecurityHeaders(NextResponse.next(), request);
   }
 
-  const authToken = request.cookies.get(AUTH_PRESENCE_COOKIE_NAME)?.value ?? "";
-  if (authToken) {
+  const authPresenceMarker = request.cookies.get(AUTH_PRESENCE_COOKIE_NAME)?.value ?? "";
+  const authSessionToken = request.cookies.get(AUTH_TOKEN_COOKIE_NAME)?.value ?? "";
+  if (authPresenceMarker || authSessionToken) {
     return applySecurityHeaders(NextResponse.next(), request);
   }
 
