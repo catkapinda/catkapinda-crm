@@ -526,7 +526,7 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         flow_height = 68
         detail_height = 136
         deductions_header_height = 24
-        deductions_intro_height = 28
+        deductions_intro_height = 40
         table_x = margin_x + card_padding
         table_width = page_width - (card_padding * 2)
         amount_column_width = 146
@@ -650,11 +650,18 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         deductions_bottom = deductions_top - deductions_height
         draw_shadow_card(margin_x, deductions_bottom, page_width, deductions_height, fill_key="paper", radius=16)
         write_line("Kesinti Kalemleri", margin_x + 16, deductions_top - 20, 10, color_key="text", font_override=font_bold)
-        write_line("Toplam Kesinti", margin_x + page_width - 132, deductions_top - 20, 8, color_key="muted")
+        write_right(
+            "Toplam Kesinti",
+            margin_x + page_width - 16,
+            deductions_top - 16,
+            8,
+            color_key="muted",
+            font_override=font_bold,
+        )
         write_right(
             _format_currency_pdf(payload.total_deductions),
             margin_x + page_width - 16,
-            deductions_top - 20,
+            deductions_top - 31,
             12,
             color_key="red",
             font_override=font_bold,
