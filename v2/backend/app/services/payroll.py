@@ -381,6 +381,7 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
             *,
             fill_key: str,
             text_color_key: str,
+            font_size: int = 8,
         ) -> None:
             draw_rounded_card(
                 x,
@@ -393,8 +394,8 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
                 stroke_width=0,
             )
             set_fill(text_color_key)
-            pdf.setFont(font_name, 8)
-            pdf.drawCentredString(x + (pill_width / 2), y + (pill_height / 2) - 3, text)
+            pdf.setFont(font_name, font_size)
+            pdf.drawCentredString(x + (pill_width / 2), y + (pill_height / 2) - (font_size / 2) + 1, text)
 
         def draw_rounded_card(
             x: float,
@@ -448,6 +449,7 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         summary_card_height = 60
         detail_panel_height = 68
         deductions_header_height = 22
+        deductions_intro_height = 44
         summary_card_width = (page_width - (section_gap * 2)) / 3
         left_panel_width = page_width * 0.39
         right_panel_width = page_width - left_panel_width - section_gap
@@ -464,7 +466,7 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
             row_height = max(18.0, len(wrapped) * 9.0 + 6.0)
             deduction_rows[index] = (wrapped, amount_text, row_height)
 
-        deductions_height = 36 + deductions_header_height + sum(row_height for _, _, row_height in deduction_rows) + 8
+        deductions_height = deductions_intro_height + deductions_header_height + sum(row_height for _, _, row_height in deduction_rows) + 8
         total_required_height = (
             header_height
             + section_gap
@@ -576,18 +578,24 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         deductions_bottom = deductions_top - deductions_height
         draw_rounded_card(margin_x, deductions_bottom, page_width, deductions_height, fill_key="paper", stroke_key="line", radius=18)
         write_line("Kesinti Kalemleri", margin_x + 14, deductions_top - 16, 10, color_key="text")
-        write_line("Toplam Kesinti", margin_x + page_width - 136, deductions_top - 16, 7, color_key="muted")
-        draw_amount_pill(
-            _format_currency_pdf(payload.total_deductions),
-            margin_x + page_width - 122,
-            deductions_top - 28,
-            108,
-            18,
+        write_line("Bordroya yansıyan düşümler", margin_x + 14, deductions_top - 30, 7, color_key="muted")
+        total_card_width = 128
+        total_card_height = 28
+        total_card_x = margin_x + page_width - total_card_width - 14
+        total_card_y = deductions_top - 32
+        draw_rounded_card(
+            total_card_x,
+            total_card_y,
+            total_card_width,
+            total_card_height,
             fill_key="red_soft",
-            text_color_key="red",
+            stroke_key="line",
+            radius=14,
         )
+        write_line("Toplam Düşüm", total_card_x + 10, total_card_y + 18, 7, color_key="muted")
+        write_line(_format_currency_pdf(payload.total_deductions), total_card_x + 10, total_card_y + 7, 10, color_key="red")
 
-        table_top = deductions_top - 34
+        table_top = deductions_top - deductions_intro_height
         set_fill("surface")
         pdf.roundRect(table_x, table_top - deductions_header_height, table_width, deductions_header_height, 8, stroke=0, fill=1)
         write_line("Kalem", table_x + 10, table_top - 15, 8, color_key="text")
@@ -615,14 +623,16 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
                 line_y -= 9
 
             if amount_text != "-":
+                amount_pill_width = min(max(74.0, pdf.stringWidth(amount_text, font_name, 8) + 20.0), amount_column_width - 16.0)
                 draw_amount_pill(
                     amount_text,
-                    amount_right_x - 84,
+                    amount_right_x - amount_pill_width,
                     row_bottom + (row_height / 2) - 8,
-                    84,
+                    amount_pill_width,
                     16,
                     fill_key="red_soft",
                     text_color_key="red",
+                    font_size=8,
                 )
             else:
                 set_fill("muted")
