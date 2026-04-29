@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kurye Hakediş Belgesi Prototype</title>
+    <style>
+      :root {
+        --page: #f6f8fb;
+        --surface: #ffffff;
+        --surface-soft: #f8fafc;
+        --line: #e7ecf3;
+        --divider: #eef2f7;
+        --text: #0f172a;
+        --muted: #667085;
+        --brand: #1d4ed8;
+        --green: #16a34a;
+        --green-soft: #ecfdf3;
+        --red: #dc2626;
+        --red-soft: #fef2f2;
+        --shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+        --radius: 16px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 32px;
+        background: radial-gradient(circle at top left, rgba(29, 78, 216, 0.04), transparent 24%),
+          radial-gradient(circle at top right, rgba(22, 163, 74, 0.04), transparent 26%), var(--page);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .page {
+        width: 794px;
+        min-height: 1123px;
+        margin: 0 auto;
+        display: grid;
+        gap: 24px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .header {
+        display: grid;
+        grid-template-columns: 88px 1fr;
+        align-items: center;
+        gap: 20px;
+        padding: 24px;
+      }
+
+      .logo {
+        width: 88px;
+        height: 88px;
+        object-fit: contain;
+      }
+
+      .header-copy {
+        display: grid;
+        gap: 8px;
+      }
+
+      .title {
+        font-size: 28px;
+        line-height: 1.04;
+        font-weight: 650;
+        letter-spacing: -0.04em;
+      }
+
+      .meta {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .flow {
+        padding: 24px 28px 20px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .flow-labels,
+      .flow-values {
+        display: grid;
+        grid-template-columns: 1fr 40px 1fr 40px 1fr;
+        align-items: end;
+      }
+
+      .flow-label {
+        text-align: center;
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .flow-value {
+        text-align: center;
+        font-size: 18px;
+        line-height: 1;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        white-space: nowrap;
+      }
+
+      .flow-op {
+        text-align: center;
+        font-size: 20px;
+        color: #64748b;
+        font-weight: 600;
+      }
+
+      .flow-value.red {
+        color: var(--red);
+      }
+
+      .flow-value.green {
+        color: var(--green);
+        font-size: 24px;
+        font-weight: 800;
+      }
+
+      .support-line {
+        padding-top: 4px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.58fr 1.12fr;
+        gap: 24px;
+      }
+
+      .summary-card {
+        padding: 24px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .person-name {
+        font-size: 22px;
+        line-height: 1.04;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .meta-grid,
+      .work-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .item {
+        display: grid;
+        gap: 6px;
+      }
+
+      .item.work {
+        text-align: center;
+      }
+
+      .label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+
+      .value {
+        font-size: 14px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .work-value {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+
+      .divider {
+        height: 1px;
+        background: var(--divider);
+      }
+
+      .restaurant-card {
+        padding: 24px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .restaurant-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .section-title {
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .badge {
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--surface-soft);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .restaurant-copy {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .restaurant-value {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .table-card {
+        padding: 24px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .table-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .table-total {
+        display: grid;
+        gap: 4px;
+        justify-items: end;
+      }
+
+      .table-total .label {
+        font-size: 11px;
+      }
+
+      .table-total .value {
+        color: var(--red);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 12px 0;
+        font-size: 13px;
+      }
+
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        text-align: left;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      td {
+        border-bottom: 1px solid var(--divider);
+      }
+
+      th:last-child,
+      td:last-child {
+        text-align: right;
+      }
+
+      .negative {
+        color: var(--red);
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .footer-note {
+        color: var(--muted);
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="card header">
+        <img class="logo" src="../frontend/public/catkapinda_logo.png" alt="Çat Kapında logo" />
+        <div class="header-copy">
+          <div class="title">Kurye Hakediş Belgesi</div>
+          <div class="meta">Mart 2026 • Oluşturma: 29.04.2026</div>
+        </div>
+      </section>
+
+      <section class="card flow">
+        <div class="flow-labels">
+          <div class="flow-label">Brüt Kazanç</div>
+          <div></div>
+          <div class="flow-label">Toplam Kesinti</div>
+          <div></div>
+          <div class="flow-label">Net Ödeme</div>
+        </div>
+        <div class="flow-values">
+          <div class="flow-value">72.440,00 ₺</div>
+          <div class="flow-op">–</div>
+          <div class="flow-value red">13.000,00 ₺</div>
+          <div class="flow-op">=</div>
+          <div class="flow-value green">59.440,00 ₺</div>
+        </div>
+        <div class="support-line">Fatura Matrahı 60.366,67 ₺ • KDV 12.073,33 ₺ • Tevkifat 2.414,67 ₺</div>
+      </section>
+
+      <section class="grid">
+        <article class="card summary-card">
+          <div class="person-name">Murat Tırın</div>
+          <div class="meta-grid">
+            <div class="item">
+              <div class="label">Kod</div>
+              <div class="value">CK-K47</div>
+            </div>
+            <div class="item">
+              <div class="label">Rol</div>
+              <div class="value">Kurye</div>
+            </div>
+            <div class="item">
+              <div class="label">Durum</div>
+              <div class="value">Aktif</div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="work-grid">
+            <div class="item work">
+              <div class="label">Saat</div>
+              <div class="work-value">270,0</div>
+            </div>
+            <div class="item work">
+              <div class="label">Paket</div>
+              <div class="work-value">247</div>
+            </div>
+            <div class="item work">
+              <div class="label">Şube</div>
+              <div class="work-value">1</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card restaurant-card">
+          <div class="restaurant-head">
+            <div class="section-title">Çalışılan Restoranlar</div>
+            <div class="badge">1 şube</div>
+          </div>
+          <div class="restaurant-copy">Ay içinde puantaj görülen operasyon noktası</div>
+          <div class="restaurant-value">SushiCo - Beyoğlu</div>
+        </article>
+      </section>
+
+      <section class="card table-card">
+        <div class="table-head">
+          <div class="section-title">Kesinti Kalemleri</div>
+          <div class="table-total">
+            <div class="label">Toplam Kesinti</div>
+            <div class="value">13.000,00 ₺</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Kalem</th>
+              <th>Tutar</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Motor Kirası</td>
+              <td class="negative">-13.000,00 ₺</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <div class="footer-note">Bu prototype, premium PDF dilini Figma ve render tasarımı için referans almak amacıyla hazırlanmıştır.</div>
+    </main>
+  </body>
+</html>
