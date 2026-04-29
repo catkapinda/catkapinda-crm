@@ -97,6 +97,7 @@ _SUPPORT_HOLIDAY_DAY_DIVISOR = 30.0
 _PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
 _MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
 _MOTOR_PURCHASE_DEDUCTION_SQL = "('Motor Satış Taksiti', 'Motor Satis Taksiti', 'Motor Satın Alım', 'Motor Satin Alim')"
+_INVOICE_BASE_REDUCING_DEDUCTION_TYPES = {"Fatura Edilmeyen Tutar"}
 _SUPPORT_HOLIDAY_DOUBLE_COST_MODELS = {"fixed_joker", "fixed_bolge_muduru"}
 _SUPPORT_HOLIDAY_DOUBLE_ROLES = {"Joker", "Bölge Müdürü", "Bolge Muduru"}
 _RELIGIOUS_HOLIDAY_DOUBLE_DATES = {
@@ -347,15 +348,28 @@ def _calculate_payroll_tevkifat_breakdown(invoice_total: float) -> PayrollTevkif
     )
 
 
+def _deduction_reduces_invoice_base(deduction_type: object) -> bool:
+    normalized_type = str(deduction_type or "").strip()
+    if not normalized_type:
+        return False
+    return (
+        normalized_type in _INVOICE_BASE_REDUCING_DEDUCTION_TYPES
+        or is_motor_rental_deduction_type(normalized_type)
+        or is_motor_purchase_deduction_type(normalized_type)
+    )
+
+
 def _apply_payroll_tevkifat_as_deduction(
     *,
     gross_pay: float,
     base_deductions: float,
+    invoice_base_reducing_deductions: float,
 ) -> tuple[float, PayrollTevkifatBreakdown, float]:
     normalized_gross = max(_safe_float(gross_pay), 0.0)
     normalized_base_deductions = max(_safe_float(base_deductions), 0.0)
-    pre_tevkifat_net = max(normalized_gross - normalized_base_deductions, 0.0)
-    tevkifat = _calculate_payroll_tevkifat_breakdown(pre_tevkifat_net)
+    normalized_invoice_base_reducing_deductions = max(_safe_float(invoice_base_reducing_deductions), 0.0)
+    invoice_total = max(normalized_gross - normalized_invoice_base_reducing_deductions, 0.0)
+    tevkifat = _calculate_payroll_tevkifat_breakdown(invoice_total)
     total_deductions = normalized_base_deductions + tevkifat.tevkifat_amount
     net_payment = max(normalized_gross - total_deductions, 0.0)
     return total_deductions, tevkifat, net_payment
@@ -1161,9 +1175,17 @@ def _build_remote_payroll_document_payload(
         attendance_dates=attendance_dates,
     )
     base_deductions = _safe_float(payroll_row.get("kesinti"))
+    invoice_base_reducing_deductions = _safe_float(
+        sum(
+            amount
+            for deduction_type, amount in deduction_items
+            if _deduction_reduces_invoice_base(deduction_type)
+        )
+    )
     total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
         gross_pay=gross_pay,
         base_deductions=base_deductions,
+        invoice_base_reducing_deductions=invoice_base_reducing_deductions,
     )
     if tevkifat.tevkifat_amount > 0:
         deduction_items.append(("Tevkifat", tevkifat.tevkifat_amount))
@@ -1305,6 +1327,13 @@ def _build_local_payroll_document_payload(
         },
     )
     base_deductions = _safe_float(sum(_safe_float(row["total_amount"]) for row in deduction_rows))
+    invoice_base_reducing_deductions = _safe_float(
+        sum(
+            _safe_float(row["total_amount"])
+            for row in deduction_rows
+            if _deduction_reduces_invoice_base(row["deduction_type"])
+        )
+    )
     existing_motor_rental = sum(
         _safe_float(row["total_amount"])
         for row in deduction_rows
@@ -1327,9 +1356,12 @@ def _build_local_payroll_document_payload(
     )
     base_deductions += auto_motor_rental
     base_deductions += auto_motor_purchase
+    invoice_base_reducing_deductions += auto_motor_rental
+    invoice_base_reducing_deductions += auto_motor_purchase
     total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
         gross_pay=gross_pay,
         base_deductions=base_deductions,
+        invoice_base_reducing_deductions=invoice_base_reducing_deductions,
     )
     restaurant_names = [str(row["restaurant_label"]) for row in restaurant_rows if str(row["restaurant_label"]).strip()]
     deduction_items = [(str(row["deduction_type"]), _safe_float(row["total_amount"])) for row in deduction_rows]
@@ -1463,16 +1495,17 @@ def _build_local_payroll_dashboard(
         tuple(attendance_params),
     ).fetchall()
 
-    deductions_rows = conn.execute(
+    deduction_rows = conn.execute(
         f"""
         SELECT
             personnel_id,
-            COALESCE(SUM(amount), 0) AS total_deductions
+            COALESCE(deduction_type, 'Kesinti') AS deduction_type,
+            COALESCE(SUM(amount), 0) AS total_amount
         FROM deductions
         WHERE {_month_key_sql('deduction_date')} = %s
           AND personnel_id IS NOT NULL
           AND COALESCE(deduction_type, '') NOT IN {_PAYROLL_IGNORED_DEDUCTION_SQL}
-        GROUP BY personnel_id
+        GROUP BY personnel_id, COALESCE(deduction_type, 'Kesinti')
         """,
         (resolved_month,),
     ).fetchall()
@@ -1554,11 +1587,18 @@ def _build_local_payroll_dashboard(
         if parsed_date is None:
             continue
         attendance_dates_by_person.setdefault(int(row["personnel_id"]), set()).add(parsed_date)
-    deductions_by_person = {
-        int(row["personnel_id"]): _safe_float(row["total_deductions"])
-        for row in deductions_rows
-        if row["personnel_id"] is not None
-    }
+    deductions_by_person: dict[int, float] = {}
+    invoice_base_reducing_deductions_by_person: dict[int, float] = {}
+    for row in deduction_rows:
+        if row["personnel_id"] is None:
+            continue
+        person_id = int(row["personnel_id"])
+        amount = _safe_float(row["total_amount"])
+        deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + amount
+        if _deduction_reduces_invoice_base(row["deduction_type"]):
+            invoice_base_reducing_deductions_by_person[person_id] = (
+                _safe_float(invoice_base_reducing_deductions_by_person.get(person_id)) + amount
+            )
     existing_motor_rental_by_person = {
         int(row["personnel_id"]): _safe_float(row["total_motor_rental"])
         for row in existing_motor_rental_rows
@@ -1595,6 +1635,9 @@ def _build_local_payroll_dashboard(
         if auto_motor_rental > 0:
             auto_motor_rental_by_person[person_id] = auto_motor_rental
             deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_rental
+            invoice_base_reducing_deductions_by_person[person_id] = (
+                _safe_float(invoice_base_reducing_deductions_by_person.get(person_id)) + auto_motor_rental
+            )
         auto_motor_purchase = calculate_company_motor_purchase_deduction(
             dict(person),
             resolved_month,
@@ -1603,6 +1646,9 @@ def _build_local_payroll_dashboard(
         if auto_motor_purchase > 0:
             auto_motor_purchase_by_person[person_id] = auto_motor_purchase
             deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_purchase
+            invoice_base_reducing_deductions_by_person[person_id] = (
+                _safe_float(invoice_base_reducing_deductions_by_person.get(person_id)) + auto_motor_purchase
+            )
 
     relevant_personnel_ids = sorted(
         set(attendance_by_person)
@@ -1637,9 +1683,11 @@ def _build_local_payroll_dashboard(
             attendance_dates=attendance_dates_by_person.get(person_id, set()),
         )
         base_deductions = _safe_float(deductions_by_person.get(person_id))
+        invoice_base_reducing_deductions = _safe_float(invoice_base_reducing_deductions_by_person.get(person_id))
         total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
             gross_pay=gross_pay,
             base_deductions=base_deductions,
+            invoice_base_reducing_deductions=invoice_base_reducing_deductions,
         )
         cost_model_key = str(person["cost_model"] or "-")
 
