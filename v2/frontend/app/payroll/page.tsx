@@ -854,7 +854,7 @@ export default function PayrollPage() {
                     </div>
                 </div>
                 <div style={{ color: "rgba(255,247,234,0.72)", fontSize: "0.82rem", lineHeight: 1.5 }}>
-                  Tevkifat, 12.000 ₺ ve üzeri kurye fatura tutarında KDV&apos;nin 1/5&apos;i olarak bilgi amaçlı izlenir.
+                  Tevkifat, 12.000 ₺ ve üzeri kurye fatura tutarında KDV&apos;nin 1/5&apos;i olarak gider kalemine eklenir ve net ödemeden düşülür.
                 </div>
               </article>
             </div>
@@ -950,7 +950,7 @@ export default function PayrollPage() {
                 {formatMoney(payrollOverview.totalTevkifat)}
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.88rem" }}>
-                Devlete ödenecek KDV tevkifat toplamı
+                Hakedişten düşülen toplam tevkifat
               </div>
             </article>
 

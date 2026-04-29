@@ -325,6 +325,20 @@ def _calculate_payroll_tevkifat_breakdown(invoice_total: float) -> PayrollTevkif
     )
 
 
+def _apply_payroll_tevkifat_as_deduction(
+    *,
+    gross_pay: float,
+    base_deductions: float,
+) -> tuple[float, PayrollTevkifatBreakdown, float]:
+    normalized_gross = max(_safe_float(gross_pay), 0.0)
+    normalized_base_deductions = max(_safe_float(base_deductions), 0.0)
+    pre_tevkifat_net = max(normalized_gross - normalized_base_deductions, 0.0)
+    tevkifat = _calculate_payroll_tevkifat_breakdown(pre_tevkifat_net)
+    total_deductions = normalized_base_deductions + tevkifat.tevkifat_amount
+    net_payment = max(normalized_gross - total_deductions, 0.0)
+    return total_deductions, tevkifat, net_payment
+
+
 def _format_month_label(value: str) -> str:
     month_map = {
         "01": "Ocak",
@@ -1083,17 +1097,20 @@ def _build_remote_payroll_document_payload(
 
     restaurant_names: list[str] = []
     if not month_entries.empty:
+        personnel_match_mask = (
+            month_entries["actual_personnel_id"].fillna(month_entries["planned_personnel_id"]) == personnel_id
+        )
         rest_series = (
-            month_entries.loc[month_entries["actual_personnel_id"] == personnel_id, "brand"].fillna("").astype(str)
+            month_entries.loc[personnel_match_mask, "brand"].fillna("").astype(str)
             + " - "
-            + month_entries.loc[month_entries["actual_personnel_id"] == personnel_id, "branch"].fillna("").astype(str)
+            + month_entries.loc[personnel_match_mask, "branch"].fillna("").astype(str)
         )
         restaurant_names = [value.strip(" -") for value in sorted(rest_series.unique().tolist()) if value.strip(" -")]
 
     attendance_dates = {
         parsed_date
         for entry_value in month_entries.loc[
-            month_entries["actual_personnel_id"] == personnel_id, "entry_date"
+            month_entries["actual_personnel_id"].fillna(month_entries["planned_personnel_id"]) == personnel_id, "entry_date"
         ].tolist()
         if (parsed_date := _parse_attendance_date(entry_value)) is not None
     }
@@ -1113,9 +1130,13 @@ def _build_remote_payroll_document_payload(
         monthly_fixed_cost=person_fixed_cost,
         attendance_dates=attendance_dates,
     )
-    total_deductions = _safe_float(payroll_row.get("kesinti"))
-    net_payment = _safe_float(payroll_row.get("net_maliyet"))
-    tevkifat = _calculate_payroll_tevkifat_breakdown(net_payment)
+    base_deductions = _safe_float(payroll_row.get("kesinti"))
+    total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
+        gross_pay=gross_pay,
+        base_deductions=base_deductions,
+    )
+    if tevkifat.tevkifat_amount > 0:
+        deduction_items.append(("Tevkifat", tevkifat.tevkifat_amount))
 
     return PayrollDocumentPayload(
         selected_month=resolved_month,
@@ -1251,7 +1272,7 @@ def _build_local_payroll_document_payload(
             if (parsed_date := _parse_attendance_date(row["entry_date"])) is not None
         },
     )
-    total_deductions = _safe_float(sum(_safe_float(row["total_amount"]) for row in deduction_rows))
+    base_deductions = _safe_float(sum(_safe_float(row["total_amount"]) for row in deduction_rows))
     existing_motor_rental = sum(
         _safe_float(row["total_amount"])
         for row in deduction_rows
@@ -1272,16 +1293,20 @@ def _build_local_payroll_document_payload(
         resolved_month,
         existing_amount=existing_motor_purchase,
     )
-    total_deductions += auto_motor_rental
-    total_deductions += auto_motor_purchase
-    net_payment = max(gross_pay - total_deductions, 0.0)
-    tevkifat = _calculate_payroll_tevkifat_breakdown(net_payment)
+    base_deductions += auto_motor_rental
+    base_deductions += auto_motor_purchase
+    total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
+        gross_pay=gross_pay,
+        base_deductions=base_deductions,
+    )
     restaurant_names = [str(row["restaurant_label"]) for row in restaurant_rows if str(row["restaurant_label"]).strip()]
     deduction_items = [(str(row["deduction_type"]), _safe_float(row["total_amount"])) for row in deduction_rows]
     if auto_motor_rental > 0:
         deduction_items.append((MOTOR_RENTAL_DEDUCTION_TYPE, auto_motor_rental))
     if auto_motor_purchase > 0:
         deduction_items.append((MOTOR_PURCHASE_DEDUCTION_TYPE, auto_motor_purchase))
+    if tevkifat.tevkifat_amount > 0:
+        deduction_items.append(("Tevkifat", tevkifat.tevkifat_amount))
 
     return PayrollDocumentPayload(
         selected_month=resolved_month,
@@ -1577,9 +1602,11 @@ def _build_local_payroll_dashboard(
             segments=segments if isinstance(segments, list) else [],
             attendance_dates=attendance_dates_by_person.get(person_id, set()),
         )
-        total_deductions = _safe_float(deductions_by_person.get(person_id))
-        net_payment = max(gross_pay - total_deductions, 0.0)
-        tevkifat = _calculate_payroll_tevkifat_breakdown(net_payment)
+        base_deductions = _safe_float(deductions_by_person.get(person_id))
+        total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
+            gross_pay=gross_pay,
+            base_deductions=base_deductions,
+        )
         cost_model_key = str(person["cost_model"] or "-")
 
         entries_payload.append(

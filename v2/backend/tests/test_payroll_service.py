@@ -2,6 +2,7 @@ import sqlite3
 
 from app.core.database import CompatConnection
 from app.services.payroll import (
+    _build_local_payroll_document_payload,
     _calculate_payroll_tevkifat_breakdown,
     _format_number_pdf,
     build_payroll_dashboard,
@@ -124,7 +125,9 @@ def test_build_payroll_dashboard_supports_local_sqlite_without_streamlit():
     assert payload.summary is not None
     assert payload.summary.personnel_count == 2
     assert payload.summary.gross_payroll == 34360.0
-    assert payload.summary.total_deductions == 1500.0
+    assert round(payload.summary.total_deductions, 2) == 2516.67
+    assert round(payload.summary.total_tevkifat, 2) == 1016.67
+    assert round(payload.summary.net_payment, 2) == 31843.33
     assert next(entry.gross_pay for entry in payload.entries if entry.personnel == "Ebru Aslan") == 2360.0
     assert payload.entries[0].personnel in {"Mert Kurtuluş", "Ebru Aslan"}
     assert payload.cost_model_breakdown
@@ -738,7 +741,8 @@ def test_payroll_dashboard_exposes_tevkifat_for_invoice_totals_over_threshold():
     payload = build_payroll_dashboard(CompatConnection(raw_conn, "sqlite"), selected_month="2026-04")
 
     assert payload.summary is not None
-    assert payload.entries[0].net_payment == 12000.0
+    assert payload.entries[0].total_deductions == 400.0
+    assert payload.entries[0].net_payment == 11600.0
     assert round(payload.entries[0].tevkifat_amount, 2) == 400.0
     assert round(payload.summary.total_tevkifat, 2) == 400.0
 
@@ -820,4 +824,17 @@ def test_payroll_dashboard_adds_religious_holiday_bonus_for_fixed_support_roles(
     assert payload.summary is not None
     assert round(payload.entries[0].gross_pay, 2) == 125306.67
     assert round(payload.summary.gross_payroll, 2) == 125306.67
-    assert payload.entries[0].net_payment == payload.entries[0].gross_pay
+    assert round(payload.entries[0].tevkifat_amount, 2) == 4176.89
+    assert round(payload.entries[0].total_deductions, 2) == 4176.89
+    assert round(payload.entries[0].net_payment, 2) == 121129.78
+
+    document_payload = _build_local_payroll_document_payload(
+        CompatConnection(raw_conn, "sqlite"),
+        selected_month="2026-03",
+        personnel_id=1,
+    )
+    assert round(document_payload.gross_pay, 2) == 125306.67
+    assert round(document_payload.total_deductions, 2) == 4176.89
+    assert round(document_payload.net_payment, 2) == 121129.78
+    assert ("Tevkifat", round(document_payload.tevkifat_amount, 2)) == ("Tevkifat", 4176.89)
+    assert any(item[0] == "Tevkifat" for item in document_payload.deduction_items)
