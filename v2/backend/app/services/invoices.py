@@ -23,8 +23,8 @@ from app.schemas.invoices import (
     InvoiceDashboardEntry,
     InvoicesDashboardResponse,
 )
-from app.schemas.reports import ReportsSummary
-from app.services.reports import build_reports_dashboard
+from app.schemas.reports import ReportInvoiceDrilldownEntry, ReportsSummary
+from app.services.reports import _build_local_invoice_drilldown_entries, _month_key_sql, build_reports_dashboard
 
 _DEFAULT_COLLECTION_STATUS = "Bekliyor"
 _COLLECTION_STATUS_OPTIONS = (
@@ -100,6 +100,88 @@ def _build_collection_summary(entries: list[InvoiceCollectionEntry]) -> InvoiceC
     )
 
 
+def _build_invoice_drilldown_fallback(
+    conn: Any,
+    *,
+    selected_month: str | None,
+) -> list[ReportInvoiceDrilldownEntry]:
+    if not selected_month:
+        return []
+
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT
+                d.id,
+                d.entry_date,
+                d.restaurant_id,
+                COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant,
+                COALESCE(r.pricing_model, '-') AS pricing_model,
+                COALESCE(r.hourly_rate, 0) AS hourly_rate,
+                COALESCE(r.package_rate, 0) AS package_rate,
+                COALESCE(r.package_threshold, 0) AS package_threshold,
+                COALESCE(r.package_rate_low, 0) AS package_rate_low,
+                COALESCE(r.package_rate_high, 0) AS package_rate_high,
+                COALESCE(r.fixed_monthly_fee, 0) AS fixed_monthly_fee,
+                COALESCE(r.vat_rate, 20) AS vat_rate,
+                COALESCE(d.worked_hours, 0) AS worked_hours,
+                COALESCE(d.package_count, 0) AS package_count,
+                COALESCE(d.monthly_invoice_amount, 0) AS monthly_invoice_amount,
+                COALESCE(p.full_name, '-') AS personnel,
+                COALESCE(p.role, '-') AS role
+            FROM daily_entries d
+            JOIN restaurants r ON r.id = d.restaurant_id
+            LEFT JOIN personnel p ON p.id = COALESCE(d.actual_personnel_id, d.planned_personnel_id)
+            WHERE {_month_key_sql('d.entry_date')} = %s
+            ORDER BY restaurant, personnel, d.entry_date, d.id
+            """,
+            (selected_month,),
+        ).fetchall()
+    except Exception:
+        return []
+
+    return _build_local_invoice_drilldown_entries([dict(row) for row in rows])
+
+
+def _merge_invoice_drilldown_entries(
+    primary_entries: list[ReportInvoiceDrilldownEntry],
+    fallback_entries: list[ReportInvoiceDrilldownEntry],
+) -> list[ReportInvoiceDrilldownEntry]:
+    merged = list(primary_entries)
+    seen_keys = {
+        (
+            entry.restaurant,
+            entry.personnel,
+            entry.role,
+            round(entry.total_hours, 2),
+            round(entry.total_packages, 2),
+        )
+        for entry in merged
+    }
+    for entry in fallback_entries:
+        key = (
+            entry.restaurant,
+            entry.personnel,
+            entry.role,
+            round(entry.total_hours, 2),
+            round(entry.total_packages, 2),
+        )
+        if key in seen_keys:
+            continue
+        merged.append(entry)
+        seen_keys.add(key)
+
+    merged.sort(
+        key=lambda entry: (
+            entry.restaurant,
+            -entry.total_packages,
+            -entry.total_hours,
+            entry.personnel,
+        )
+    )
+    return merged
+
+
 def build_invoices_dashboard(
     conn: Any,
     *,
@@ -117,6 +199,7 @@ def build_invoices_dashboard(
             invoice_entries=[],
             profit_entries=[],
             distribution_entries=[],
+            invoice_drilldown_entries=[],
             collection_entries=[],
             collection_summary=_build_collection_summary([]),
             collection_status_options=list(_COLLECTION_STATUS_OPTIONS),
@@ -182,6 +265,11 @@ def build_invoices_dashboard(
             )
         )
 
+    invoice_drilldown_entries = _merge_invoice_drilldown_entries(
+        reports_payload.invoice_drilldown_entries,
+        _build_invoice_drilldown_fallback(conn, selected_month=reports_payload.selected_month),
+    )
+
     return InvoicesDashboardResponse(
         module="invoices",
         status="active",
@@ -191,6 +279,7 @@ def build_invoices_dashboard(
         invoice_entries=invoice_entries,
         profit_entries=reports_payload.profit_entries,
         distribution_entries=reports_payload.distribution_entries,
+        invoice_drilldown_entries=invoice_drilldown_entries,
         collection_entries=collection_entries,
         collection_summary=_build_collection_summary(collection_entries),
         collection_status_options=list(_COLLECTION_STATUS_OPTIONS),

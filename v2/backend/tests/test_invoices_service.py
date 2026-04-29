@@ -1,7 +1,17 @@
 import sqlite3
 
+import pytest
+
 from app.core.database import CompatConnection
 from app.schemas.invoices import InvoiceCollectionUpsertRequest
+from app.schemas.reports import (
+    ReportInvoiceEntry,
+    ReportSideIncomeSnapshot,
+    ReportsCoverageSummary,
+    ReportsDashboardResponse,
+    ReportsSummary,
+)
+from app.services import invoices as invoices_service
 from app.services.invoices import build_invoices_dashboard, upsert_invoice_collection
 
 
@@ -158,6 +168,13 @@ def test_invoices_dashboard_merges_collections_with_invoice_rows():
     assert qc_entry.collected_amount == 1000
     assert qc_entry.remaining_amount == qc_entry.gross_invoice - 1000
     assert qc_entry.responsible_name == "Ebru"
+    qc_drilldown = next(
+        entry
+        for entry in payload.invoice_drilldown_entries
+        if entry.restaurant == "Quick China - Ataşehir" and entry.personnel == "Ali Kurye"
+    )
+    assert qc_drilldown.net_invoice_amount == 3174
+    assert qc_drilldown.gross_invoice_amount == pytest.approx(3808.8)
 
     burger_entry = collection_by_restaurant["Burger@ - Kavacık"]
     assert burger_entry.status == "Bekliyor"
@@ -205,3 +222,80 @@ def test_upsert_invoice_collection_creates_and_updates_same_month_record():
     assert updated.record.collected_amount == 1750
     assert updated.record.payment_date == "2026-04-29"
     assert updated.record.responsible_name == "Tunç"
+
+
+def test_invoices_dashboard_backfills_courier_drilldown_from_attendance_when_reports_payload_is_empty(monkeypatch):
+    conn = _build_invoices_conn()
+
+    def _fake_reports_dashboard(_conn, *, selected_month=None, limit=200):
+        return ReportsDashboardResponse(
+            module="reports",
+            status="active",
+            month_options=["2026-04"],
+            selected_month="2026-04",
+            summary=ReportsSummary(
+                selected_month="2026-04",
+                restaurant_count=2,
+                courier_count=2,
+                total_hours=24,
+                total_packages=30,
+                total_revenue=7305.6,
+                total_personnel_cost=0,
+                gross_profit=7305.6,
+                side_income_net=0,
+            ),
+            invoice_entries=[
+                ReportInvoiceEntry(
+                    restaurant="Quick China - Ataşehir",
+                    pricing_model="Saat + Paket",
+                    total_hours=18,
+                    total_packages=22,
+                    net_invoice=6088,
+                    gross_invoice=7305.6,
+                ),
+                ReportInvoiceEntry(
+                    restaurant="Burger@ - Kavacık",
+                    pricing_model="Saat + Paket",
+                    total_hours=6,
+                    total_packages=8,
+                    net_invoice=1930,
+                    gross_invoice=2316,
+                ),
+            ],
+            cost_entries=[],
+            profit_entries=[],
+            model_breakdown=[],
+            top_restaurants=[],
+            top_couriers=[],
+            coverage=ReportsCoverageSummary(
+                covered_restaurant_count=2,
+                operational_restaurant_count=2,
+            ),
+            shared_overhead_entries=[],
+            distribution_entries=[],
+            invoice_drilldown_entries=[],
+            side_income_entries=[],
+            side_income_snapshot=ReportSideIncomeSnapshot(
+                fuel_reflection_amount=0,
+                company_fuel_reflection_amount=0,
+                utts_fuel_discount_amount=0,
+                partner_card_discount_amount=0,
+            ),
+        )
+
+    monkeypatch.setattr(invoices_service, "build_reports_dashboard", _fake_reports_dashboard)
+
+    payload = invoices_service.build_invoices_dashboard(
+        conn,
+        selected_month="2026-04",
+        limit=20,
+    )
+
+    quick_china_entries = [
+        entry
+        for entry in payload.invoice_drilldown_entries
+        if entry.restaurant == "Quick China - Ataşehir"
+    ]
+
+    assert len(quick_china_entries) == 2
+    assert {entry.personnel for entry in quick_china_entries} == {"Ali Kurye", "Ayşe Kurye"}
