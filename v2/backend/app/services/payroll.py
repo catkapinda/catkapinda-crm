@@ -229,9 +229,11 @@ def _count_support_holiday_bonus_days(attendance_dates: set[date]) -> int:
 
 def _calculate_support_holiday_bonus(
     *,
+    selected_month: str,
     cost_model: object,
     role: object,
     monthly_fixed_cost: float,
+    start_date: object = None,
     attendance_dates: set[date],
 ) -> float:
     fixed_cost = _safe_float(monthly_fixed_cost)
@@ -244,7 +246,23 @@ def _calculate_support_holiday_bonus(
         and normalized_role not in _SUPPORT_HOLIDAY_DOUBLE_ROLES
     ):
         return 0.0
-    bonus_days = _count_support_holiday_bonus_days(attendance_dates)
+    start_month_prefix = str(selected_month or "").strip()
+    eligible_holiday_dates = [
+        holiday_date for holiday_date in _RELIGIOUS_HOLIDAY_DOUBLE_DATES if holiday_date.isoformat().startswith(start_month_prefix)
+    ]
+    if not eligible_holiday_dates:
+        return 0.0
+    parsed_start_date = _parse_attendance_date(start_date)
+    active_holiday_dates = [
+        holiday_date
+        for holiday_date in eligible_holiday_dates
+        if parsed_start_date is None or parsed_start_date <= holiday_date
+    ]
+    if not active_holiday_dates:
+        return 0.0
+    bonus_days = len(active_holiday_dates)
+    if attendance_dates:
+        bonus_days = max(bonus_days, _count_support_holiday_bonus_days(attendance_dates))
     if bonus_days <= 0:
         return 0.0
     return _safe_float((fixed_cost / _SUPPORT_HOLIDAY_DAY_DIVISOR) * bonus_days)
@@ -257,9 +275,11 @@ def _is_fixed_cost_model(cost_model: object) -> bool:
 
 def _calculate_personnel_gross_pay(
     *,
+    selected_month: str,
     cost_model: object,
     role: object,
     monthly_fixed_cost: float,
+    start_date: object = None,
     total_hours: float,
     total_packages: float,
     segments: list[dict[str, object]],
@@ -268,9 +288,11 @@ def _calculate_personnel_gross_pay(
     fixed_cost = _safe_float(monthly_fixed_cost)
     has_attendance = total_hours > 0 or total_packages > 0
     holiday_bonus = _calculate_support_holiday_bonus(
+        selected_month=selected_month,
         cost_model=cost_model,
         role=role,
         monthly_fixed_cost=fixed_cost,
+        start_date=start_date,
         attendance_dates=attendance_dates or set(),
     )
     if _is_fixed_cost_model(cost_model) and fixed_cost > 0:
@@ -1131,9 +1153,11 @@ def _build_remote_payroll_document_payload(
         else 0.0
     )
     gross_pay = _safe_float(payroll_row.get("brut_maliyet")) + _calculate_support_holiday_bonus(
+        selected_month=resolved_month,
         cost_model=person_cost_model,
         role=payroll_row.get("rol"),
         monthly_fixed_cost=person_fixed_cost,
+        start_date=person_match.iloc[0]["start_date"] if not person_match.empty and "start_date" in person_match.columns else None,
         attendance_dates=attendance_dates,
     )
     base_deductions = _safe_float(payroll_row.get("kesinti"))
@@ -1266,9 +1290,11 @@ def _build_local_payroll_document_payload(
     total_hours = _safe_float(sum(_safe_float(row["total_hours"]) for row in attendance_rows))
     total_packages = _safe_float(sum(_safe_float(row["total_packages"]) for row in attendance_rows))
     gross_pay = _calculate_personnel_gross_pay(
+        selected_month=resolved_month,
         cost_model=person_data["cost_model"],
         role=person_data["role"],
         monthly_fixed_cost=_safe_float(person_data["monthly_fixed_cost"]),
+        start_date=person_data.get("start_date"),
         total_hours=total_hours,
         total_packages=total_packages,
         segments=attendance_segments,
@@ -1600,9 +1626,11 @@ def _build_local_payroll_dashboard(
         restaurant_count = int(attendance.get("restaurant_count") or 0)
         segments = attendance.get("segments")
         gross_pay = _calculate_personnel_gross_pay(
+            selected_month=resolved_month,
             cost_model=person["cost_model"],
             role=person["role"],
             monthly_fixed_cost=_safe_float(person["monthly_fixed_cost"]),
+            start_date=person["start_date"],
             total_hours=total_hours,
             total_packages=total_packages,
             segments=segments if isinstance(segments, list) else [],
