@@ -1238,27 +1238,28 @@ export default function InvoicesPage() {
                         background: "rgba(255,255,255,0.9)",
                         overflow: "hidden",
                       }}
-                    >
-                      <div
-                        style={{
-                          padding: "14px 16px",
+                      >
+                        <div
+                          style={{
+                            padding: "14px 16px",
                           borderBottom: "1px solid rgba(219, 228, 243, 0.82)",
                           display: "flex",
                           justifyContent: "space-between",
                           gap: "12px",
                           flexWrap: "wrap",
-                        }}
-                      >
-                        <div style={{ display: "grid", gap: "4px" }}>
-                          <strong>Kurye Bazlı Fatura Katkısı</strong>
-                          <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
-                            Ana tutar, seçilen şubede bu kişinin oluşturduğu KDV hariç fatura katkısıdır.
-                            Maliyet payı yalnızca Joker ve Bölge Müdürü desteğinde görünür.
-                          </span>
-                        </div>
-                        <span
-                          style={{
-                            display: "inline-flex",
+                          }}
+                        >
+                          <div style={{ display: "grid", gap: "4px" }}>
+                            <strong>Bu Şubede Çalışan Kuryeler</strong>
+                            <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+                              Restorana tıkladığında seçili ayda burada puantajı görülen çalışanları
+                              açıyoruz. Ana tutar, kişinin bu şubeye bıraktığı KDV hariç fatura katkısıdır.
+                              Maliyet payı yalnızca Joker ve Bölge Müdürü desteğinde görünür.
+                            </span>
+                          </div>
+                          <span
+                            style={{
+                              display: "inline-flex",
                             padding: "7px 10px",
                             borderRadius: "999px",
                             background: "rgba(24,40,59,0.06)",
@@ -1266,10 +1267,10 @@ export default function InvoicesPage() {
                             fontSize: "0.78rem",
                             fontWeight: 800,
                           }}
-                        >
-                          {selectedCouriers.length} kişi
-                        </span>
-                      </div>
+                            >
+                              {selectedCouriers.length} kişi
+                            </span>
+                          </div>
 
                       {selectedCouriers.length ? (
                         <div style={{ maxHeight: "360px", overflow: "auto", display: "grid", gap: "0" }}>

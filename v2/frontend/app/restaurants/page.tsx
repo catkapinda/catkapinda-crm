@@ -262,7 +262,6 @@ export default function RestaurantsPage() {
   const { user, loading } = useAuth();
   const [dashboard, setDashboard] = useState<RestaurantsDashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -308,18 +307,6 @@ export default function RestaurantsPage() {
       active = false;
     };
   }, [loading, user]);
-
-  useEffect(() => {
-    if (!dashboard?.recent_entries?.length) {
-      setSelectedRestaurantId(null);
-      return;
-    }
-    setSelectedRestaurantId((current) =>
-      dashboard.recent_entries.some((entry) => entry.id === current)
-        ? current
-        : dashboard.recent_entries[0].id,
-    );
-  }, [dashboard]);
 
   const decisionDeck = useMemo(() => {
     if (!dashboard) {
@@ -382,7 +369,7 @@ export default function RestaurantsPage() {
         eyebrow: "Üçüncü Adım",
         title: "Fatura masasını aç",
         body: "Şube bazlı fatura, kurye maliyeti ve dağılımı tek karar yüzeyinde oku.",
-        href: "/reports#invoice-workspace",
+        href: "/invoices",
       },
       {
         eyebrow: "Dördüncü Adım",
@@ -399,16 +386,6 @@ export default function RestaurantsPage() {
     ],
     [],
   );
-
-  const selectedRestaurant = useMemo(() => {
-    if (!dashboard?.recent_entries?.length) {
-      return null;
-    }
-    return (
-      dashboard.recent_entries.find((entry) => entry.id === selectedRestaurantId) ??
-      dashboard.recent_entries[0]
-    );
-  }, [dashboard, selectedRestaurantId]);
 
   return (
     <AppShell activeItem="Restoranlar">
@@ -809,31 +786,20 @@ export default function RestaurantsPage() {
                 }}
               >
                 {dashboard.recent_entries.map((entry) => {
-                  const isSelected = entry.id === selectedRestaurant?.id;
                   return (
-                  <button
+                  <article
                     key={entry.id}
-                    type="button"
-                    onClick={() => setSelectedRestaurantId(entry.id)}
                     style={{
-                      appearance: "none",
                       textAlign: "left",
                       width: "100%",
                       display: "grid",
                       gap: "10px",
                       padding: "16px 16px 14px",
                       borderRadius: "20px",
-                      border: isSelected
-                        ? "1px solid rgba(15,95,215,0.34)"
-                        : "1px solid rgba(24,40,59,0.08)",
+                      border: "1px solid rgba(24,40,59,0.08)",
                       background:
-                        isSelected
-                          ? "linear-gradient(180deg, rgba(239,246,255,0.98), rgba(247,250,255,0.96))"
-                          : "linear-gradient(180deg, rgba(255,253,248,0.98), rgba(247,241,231,0.96))",
-                      boxShadow: isSelected
-                        ? "0 18px 38px rgba(15,95,215,0.10)"
-                        : "0 10px 24px rgba(20,39,67,0.04)",
-                      cursor: "pointer",
+                        "linear-gradient(180deg, rgba(255,253,248,0.98), rgba(247,241,231,0.96))",
+                      boxShadow: "0 10px 24px rgba(20,39,67,0.04)",
                     }}
                   >
                     <div
@@ -962,116 +928,10 @@ export default function RestaurantsPage() {
                       <div>{pricingSummary(entry)}</div>
                       <div>{entry.contact_name} • KDV %{entry.vat_rate}</div>
                     </div>
-                  </button>
+                  </article>
                 )})}
               </div>
             </section>
-
-            {selectedRestaurant ? (
-              <section
-                style={{
-                  padding: "20px",
-                  borderRadius: "24px",
-                  border: "1px solid var(--line)",
-                  background: "var(--surface-strong)",
-                  boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
-                  display: "grid",
-                  gap: "14px",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "16px",
-                    alignItems: "flex-start",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div style={{ display: "grid", gap: "6px" }}>
-                    <h2 style={{ margin: 0, fontSize: "1.1rem" }}>
-                      {selectedRestaurant.brand} / {selectedRestaurant.branch}
-                    </h2>
-                    <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.65 }}>
-                      Bu şubeye bağlı aktif çalışanları burada görüyoruz. Kart değiştirerek diğer restoranların
-                      kurye hattına da hızlıca bakabilirsin.
-                    </p>
-                  </div>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      padding: "7px 10px",
-                      borderRadius: "999px",
-                      background: "rgba(15,95,215,0.08)",
-                      color: "#0f5fd7",
-                      fontSize: "0.8rem",
-                      fontWeight: 800,
-                    }}
-                  >
-                    {selectedRestaurant.active_personnel_count} aktif çalışan
-                  </span>
-                </div>
-
-                {selectedRestaurant.active_personnel.length ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                      gap: "12px",
-                    }}
-                  >
-                    {selectedRestaurant.active_personnel.map((person) => (
-                      <article
-                        key={`${selectedRestaurant.id}-${person.id}`}
-                        style={{
-                          padding: "14px 16px",
-                          borderRadius: "18px",
-                          border: "1px solid rgba(24,40,59,0.08)",
-                          background: "rgba(255,255,255,0.88)",
-                          display: "grid",
-                          gap: "8px",
-                        }}
-                      >
-                        <div style={{ display: "grid", gap: "4px" }}>
-                          <strong>{person.full_name}</strong>
-                          <span style={{ color: "var(--muted)", fontSize: "0.84rem" }}>
-                            {person.role || "Çalışan"}
-                          </span>
-                        </div>
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            width: "fit-content",
-                            padding: "6px 10px",
-                            borderRadius: "999px",
-                            background: "rgba(34,197,94,0.10)",
-                            color: "#15803d",
-                            fontSize: "0.76rem",
-                            fontWeight: 800,
-                          }}
-                        >
-                          {person.status || "Aktif"}
-                        </span>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      padding: "16px",
-                      borderRadius: "18px",
-                      background: "rgba(255,255,255,0.78)",
-                      border: "1px dashed rgba(15,95,215,0.24)",
-                      color: "var(--muted)",
-                      lineHeight: 1.65,
-                    }}
-                  >
-                    Bu şubeye bağlı aktif çalışan görünmüyor. Kadro yeni taşındıysa ya da atama eksikse personel kartından
-                    restoran bağlantısını kontrol edelim.
-                  </div>
-                )}
-              </section>
-            ) : null}
 
             <section id="restaurant-entry-workspace" style={{ scrollMarginTop: "110px" }}>
               <RestaurantEntryWorkspace />
