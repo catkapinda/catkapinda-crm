@@ -30,6 +30,11 @@ def _active_storage_value(value: bool) -> int:
     return 1 if bool(value) else 0
 
 
+def _restaurant_primary_personnel_sql(column: str = "role") -> str:
+    normalized = f"TRIM(LOWER(COALESCE(CAST({column} AS TEXT), '')))"
+    return f"{normalized} NOT IN ('joker', 'bölge müdürü', 'bolge muduru', 'destek', 'destek kurye')"
+
+
 def _restaurant_select_sql() -> str:
     return f"""
         SELECT
@@ -140,6 +145,7 @@ def fetch_restaurant_active_personnel_map(
             FROM personnel
             WHERE assigned_restaurant_id IN ({placeholders})
               AND {_personnel_active_sql('status')}
+              AND {_restaurant_primary_personnel_sql('role')}
             ORDER BY assigned_restaurant_id, full_name, id
             """,
             tuple(normalized_ids),
@@ -156,6 +162,7 @@ def fetch_restaurant_active_personnel_map(
             FROM personnel
             WHERE assigned_restaurant_id = ANY(%s::bigint[])
               AND {_personnel_active_sql('status')}
+              AND {_restaurant_primary_personnel_sql('role')}
             ORDER BY assigned_restaurant_id, full_name, id
             """,
             (normalized_ids,),
