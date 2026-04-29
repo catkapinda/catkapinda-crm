@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from io import BytesIO
 import re
 import sys
@@ -93,9 +93,22 @@ _PACKAGE_THRESHOLD_DEFAULT = 390
 _PAYROLL_VAT_RATE = 0.20
 _PAYROLL_TEVKIFAT_RATE = 0.20
 _PAYROLL_TEVKIFAT_THRESHOLD = 12000.0
+_SUPPORT_HOLIDAY_DAY_DIVISOR = 30.0
 _PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
 _MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
 _MOTOR_PURCHASE_DEDUCTION_SQL = "('Motor Satış Taksiti', 'Motor Satis Taksiti', 'Motor Satın Alım', 'Motor Satin Alim')"
+_SUPPORT_HOLIDAY_DOUBLE_COST_MODELS = {"fixed_joker", "fixed_bolge_muduru"}
+_SUPPORT_HOLIDAY_DOUBLE_ROLES = {"Joker", "Bölge Müdürü", "Bolge Muduru"}
+_RELIGIOUS_HOLIDAY_DOUBLE_DATES = {
+    date(2025, 3, 30),
+    date(2025, 3, 31),
+    date(2025, 6, 6),
+    date(2025, 6, 7),
+    date(2026, 3, 20),
+    date(2026, 3, 21),
+    date(2026, 5, 28),
+    date(2026, 5, 29),
+}
 
 
 @dataclass(frozen=True)
@@ -194,6 +207,49 @@ def _calculate_variable_courier_gross_cost(segments: list[dict[str, object]]) ->
     return _safe_float(gross_cost)
 
 
+def _parse_attendance_date(value: object) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+
+def _count_support_holiday_bonus_days(attendance_dates: set[date]) -> int:
+    return sum(1 for entry_date in attendance_dates if entry_date in _RELIGIOUS_HOLIDAY_DOUBLE_DATES)
+
+
+def _calculate_support_holiday_bonus(
+    *,
+    cost_model: object,
+    role: object,
+    monthly_fixed_cost: float,
+    attendance_dates: set[date],
+) -> float:
+    fixed_cost = _safe_float(monthly_fixed_cost)
+    if fixed_cost <= 0:
+        return 0.0
+    normalized_cost_model = str(cost_model or "").strip()
+    normalized_role = str(role or "").strip()
+    if (
+        normalized_cost_model not in _SUPPORT_HOLIDAY_DOUBLE_COST_MODELS
+        and normalized_role not in _SUPPORT_HOLIDAY_DOUBLE_ROLES
+    ):
+        return 0.0
+    bonus_days = _count_support_holiday_bonus_days(attendance_dates)
+    if bonus_days <= 0:
+        return 0.0
+    return _safe_float((fixed_cost / _SUPPORT_HOLIDAY_DAY_DIVISOR) * bonus_days)
+
+
 def _is_fixed_cost_model(cost_model: object) -> bool:
     model = str(cost_model or "").strip()
     return model == "fixed_monthly" or model.startswith("fixed_")
@@ -202,17 +258,25 @@ def _is_fixed_cost_model(cost_model: object) -> bool:
 def _calculate_personnel_gross_pay(
     *,
     cost_model: object,
+    role: object,
     monthly_fixed_cost: float,
     total_hours: float,
     total_packages: float,
     segments: list[dict[str, object]],
+    attendance_dates: set[date] | None = None,
 ) -> float:
     fixed_cost = _safe_float(monthly_fixed_cost)
     has_attendance = total_hours > 0 or total_packages > 0
+    holiday_bonus = _calculate_support_holiday_bonus(
+        cost_model=cost_model,
+        role=role,
+        monthly_fixed_cost=fixed_cost,
+        attendance_dates=attendance_dates or set(),
+    )
     if _is_fixed_cost_model(cost_model) and fixed_cost > 0:
-        return fixed_cost
+        return fixed_cost + holiday_bonus
     if not has_attendance:
-        return fixed_cost
+        return fixed_cost + holiday_bonus
     return _calculate_variable_courier_gross_cost(segments)
 
 
@@ -1026,7 +1090,29 @@ def _build_remote_payroll_document_payload(
         )
         restaurant_names = [value.strip(" -") for value in sorted(rest_series.unique().tolist()) if value.strip(" -")]
 
-    gross_pay = _safe_float(payroll_row.get("brut_maliyet"))
+    attendance_dates = {
+        parsed_date
+        for entry_value in month_entries.loc[
+            month_entries["actual_personnel_id"] == personnel_id, "entry_date"
+        ].tolist()
+        if (parsed_date := _parse_attendance_date(entry_value)) is not None
+    }
+    person_cost_model = (
+        str(person_match.iloc[0]["cost_model"] or "")
+        if not person_match.empty and "cost_model" in person_match.columns
+        else ""
+    )
+    person_fixed_cost = (
+        _safe_float(person_match.iloc[0]["monthly_fixed_cost"])
+        if not person_match.empty and "monthly_fixed_cost" in person_match.columns
+        else 0.0
+    )
+    gross_pay = _safe_float(payroll_row.get("brut_maliyet")) + _calculate_support_holiday_bonus(
+        cost_model=person_cost_model,
+        role=payroll_row.get("rol"),
+        monthly_fixed_cost=person_fixed_cost,
+        attendance_dates=attendance_dates,
+    )
     total_deductions = _safe_float(payroll_row.get("kesinti"))
     net_payment = _safe_float(payroll_row.get("net_maliyet"))
     tevkifat = _calculate_payroll_tevkifat_breakdown(net_payment)
@@ -1132,6 +1218,15 @@ def _build_local_payroll_document_payload(
         """,
         (resolved_month, personnel_id),
     ).fetchall()
+    attendance_date_rows = conn.execute(
+        f"""
+        SELECT DISTINCT substr(COALESCE(d.entry_date, ''), 1, 10) AS entry_date
+        FROM daily_entries d
+        WHERE {_month_key_sql('d.entry_date')} = %s
+          AND COALESCE(d.actual_personnel_id, d.planned_personnel_id) = %s
+        """,
+        (resolved_month, personnel_id),
+    ).fetchall()
 
     attendance_segments = [
         {
@@ -1145,10 +1240,16 @@ def _build_local_payroll_document_payload(
     total_packages = _safe_float(sum(_safe_float(row["total_packages"]) for row in attendance_rows))
     gross_pay = _calculate_personnel_gross_pay(
         cost_model=person_data["cost_model"],
+        role=person_data["role"],
         monthly_fixed_cost=_safe_float(person_data["monthly_fixed_cost"]),
         total_hours=total_hours,
         total_packages=total_packages,
         segments=attendance_segments,
+        attendance_dates={
+            parsed_date
+            for row in attendance_date_rows
+            if (parsed_date := _parse_attendance_date(row["entry_date"])) is not None
+        },
     )
     total_deductions = _safe_float(sum(_safe_float(row["total_amount"]) for row in deduction_rows))
     existing_motor_rental = sum(
@@ -1285,6 +1386,25 @@ def _build_local_payroll_dashboard(
             COALESCE(r.brand, '')
     """
     attendance_rows = conn.execute(attendance_query, tuple(attendance_params)).fetchall()
+    attendance_date_rows = conn.execute(
+        """
+        SELECT
+            COALESCE(d.actual_personnel_id, d.planned_personnel_id) AS personnel_id,
+            substr(COALESCE(d.entry_date, ''), 1, 10) AS entry_date
+        FROM daily_entries d
+        LEFT JOIN restaurants r ON r.id = d.restaurant_id
+        WHERE {month_key_sql} = %s
+          AND COALESCE(d.actual_personnel_id, d.planned_personnel_id) IS NOT NULL
+        {restaurant_filter_clause}
+        GROUP BY
+            COALESCE(d.actual_personnel_id, d.planned_personnel_id),
+            substr(COALESCE(d.entry_date, ''), 1, 10)
+        """.format(
+            month_key_sql=_month_key_sql("d.entry_date"),
+            restaurant_filter_clause="" if selected_restaurant == "Tümü" else "AND COALESCE(r.brand || ' - ' || r.branch, '-') = %s",
+        ),
+        tuple(attendance_params),
+    ).fetchall()
 
     deductions_rows = conn.execute(
         f"""
@@ -1369,6 +1489,14 @@ def _build_local_payroll_dashboard(
         restaurant_ids = bucket.get("restaurant_ids")
         bucket["restaurant_count"] = len(restaurant_ids) if isinstance(restaurant_ids, set) else 0
         bucket.pop("restaurant_ids", None)
+    attendance_dates_by_person: dict[int, set[date]] = {}
+    for row in attendance_date_rows:
+        if row["personnel_id"] is None:
+            continue
+        parsed_date = _parse_attendance_date(row["entry_date"])
+        if parsed_date is None:
+            continue
+        attendance_dates_by_person.setdefault(int(row["personnel_id"]), set()).add(parsed_date)
     deductions_by_person = {
         int(row["personnel_id"]): _safe_float(row["total_deductions"])
         for row in deductions_rows
@@ -1442,10 +1570,12 @@ def _build_local_payroll_dashboard(
         segments = attendance.get("segments")
         gross_pay = _calculate_personnel_gross_pay(
             cost_model=person["cost_model"],
+            role=person["role"],
             monthly_fixed_cost=_safe_float(person["monthly_fixed_cost"]),
             total_hours=total_hours,
             total_packages=total_packages,
             segments=segments if isinstance(segments, list) else [],
+            attendance_dates=attendance_dates_by_person.get(person_id, set()),
         )
         total_deductions = _safe_float(deductions_by_person.get(person_id))
         net_payment = max(gross_pay - total_deductions, 0.0)
