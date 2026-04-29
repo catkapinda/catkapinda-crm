@@ -14,6 +14,7 @@ from app.services.motor_rental import (
 from app.schemas.reports import (
     ReportCostEntry,
     ReportDistributionEntry,
+    ReportInvoiceDrilldownEntry,
     ReportInvoiceEntry,
     ReportModelBreakdownEntry,
     ReportProfitEntry,
@@ -288,6 +289,90 @@ def _calculate_restaurant_invoice(rows: list[dict[str, object]]) -> tuple[float,
     return total_hours, total_packages, subtotal, grand_total
 
 
+def _build_local_invoice_drilldown_entries(rows: list[dict[str, object]]) -> list[ReportInvoiceDrilldownEntry]:
+    if not rows:
+        return []
+
+    restaurant_groups: dict[tuple[object, str], list[dict[str, object]]] = {}
+    for row in rows:
+        restaurant_label = str(row.get("restaurant") or "-")
+        restaurant_groups.setdefault((row.get("restaurant_id"), restaurant_label), []).append(dict(row))
+
+    drilldown_entries: list[ReportInvoiceDrilldownEntry] = []
+    for (_, restaurant_label), restaurant_rows in restaurant_groups.items():
+        if not restaurant_rows:
+            continue
+        first = restaurant_rows[0]
+        pricing_model = str(first.get("pricing_model") or "").strip()
+        hourly_rate = _safe_float(first.get("hourly_rate"))
+        package_rate = _safe_float(first.get("package_rate"))
+        package_threshold = _safe_int(first.get("package_threshold"), _PACKAGE_THRESHOLD_DEFAULT)
+        if package_threshold <= 0:
+            package_threshold = _PACKAGE_THRESHOLD_DEFAULT
+        package_rate_low = _safe_float(first.get("package_rate_low"))
+        package_rate_high = _safe_float(first.get("package_rate_high"))
+        fixed_monthly_fee = _safe_float(first.get("fixed_monthly_fee"))
+        vat_rate = _safe_float(first.get("vat_rate")) or _VAT_RATE_DEFAULT
+
+        person_groups: dict[tuple[str, str], list[dict[str, object]]] = {}
+        for restaurant_row in restaurant_rows:
+            personnel_label = str(restaurant_row.get("personnel") or "-")
+            role_label = str(restaurant_row.get("role") or "-")
+            person_groups.setdefault((personnel_label, role_label), []).append(restaurant_row)
+
+        courier_count = len(person_groups)
+        restaurant_total_hours = sum(_safe_float(row.get("worked_hours")) for row in restaurant_rows)
+        restaurant_total_packages = sum(_safe_float(row.get("package_count")) for row in restaurant_rows)
+        resolved_fixed_monthly_fee = _fixed_monthly_fee_for_rows(restaurant_rows, fixed_monthly_fee)
+
+        for (personnel_label, role_label), person_rows in sorted(person_groups.items()):
+            total_hours = sum(_safe_float(row.get("worked_hours")) for row in person_rows)
+            total_packages = sum(_safe_float(row.get("package_count")) for row in person_rows)
+            if total_hours <= 0 and total_packages <= 0:
+                continue
+
+            if pricing_model == "hourly_plus_package":
+                net_invoice_amount = total_hours * hourly_rate + total_packages * package_rate
+            elif pricing_model == "threshold_package":
+                package_rate_for_person = (
+                    package_rate_low if total_packages <= package_threshold else package_rate_high
+                )
+                net_invoice_amount = total_hours * hourly_rate + total_packages * package_rate_for_person
+            elif pricing_model == "hourly_only":
+                net_invoice_amount = total_hours * hourly_rate
+            elif pricing_model == "fixed_monthly":
+                if restaurant_total_hours > 0:
+                    net_invoice_amount = resolved_fixed_monthly_fee * (total_hours / restaurant_total_hours)
+                elif restaurant_total_packages > 0:
+                    net_invoice_amount = resolved_fixed_monthly_fee * (total_packages / restaurant_total_packages)
+                else:
+                    net_invoice_amount = resolved_fixed_monthly_fee / max(courier_count, 1)
+            else:
+                net_invoice_amount = 0.0
+
+            drilldown_entries.append(
+                ReportInvoiceDrilldownEntry(
+                    restaurant=restaurant_label,
+                    personnel=personnel_label,
+                    role=role_label,
+                    total_hours=total_hours,
+                    total_packages=total_packages,
+                    net_invoice_amount=net_invoice_amount,
+                    gross_invoice_amount=net_invoice_amount * (1 + (vat_rate / 100.0)),
+                )
+            )
+
+    drilldown_entries.sort(
+        key=lambda entry: (
+            entry.restaurant,
+            -entry.total_packages,
+            -entry.total_hours,
+            entry.personnel,
+        )
+    )
+    return drilldown_entries
+
+
 def build_reports_status() -> ReportsModuleStatus:
     return ReportsModuleStatus(
         module="reports",
@@ -333,6 +418,7 @@ def build_reports_dashboard(
             coverage=_empty_reports_coverage(),
             shared_overhead_entries=[],
             distribution_entries=[],
+            invoice_drilldown_entries=[],
             side_income_entries=[],
             side_income_snapshot=_empty_side_income_snapshot(),
         )
@@ -358,6 +444,7 @@ def build_reports_dashboard(
             role=str(row.get("rol") or "-"),
             total_hours=_safe_float(row.get("calisma_saati")),
             total_packages=_safe_float(row.get("paket")),
+            gross_cost=_safe_float(row.get("brut_maliyet")),
             total_deductions=_safe_float(row.get("kesinti")),
             net_cost=_safe_float(row.get("net_maliyet")),
             cost_model=str(row.get("maliyet_modeli") or "-"),
@@ -454,6 +541,23 @@ def build_reports_dashboard(
         for _, row in payload.person_distribution_df.head(limit * 3).iterrows()
     ] if not payload.person_distribution_df.empty else []
 
+    invoice_drilldown_entries = []
+    for restaurant_name, detail_df in (payload.invoice_drilldown_map or {}).items():
+        if detail_df is None or detail_df.empty:
+            continue
+        for _, row in detail_df.iterrows():
+            invoice_drilldown_entries.append(
+                ReportInvoiceDrilldownEntry(
+                    restaurant=str(restaurant_name or "-"),
+                    personnel=str(row.get("personel") or "-"),
+                    role=str(row.get("rol") or "-"),
+                    total_hours=_safe_float(row.get("calisma_saati")),
+                    total_packages=_safe_float(row.get("paket")),
+                    net_invoice_amount=_safe_float(row.get("kdv_haric")),
+                    gross_invoice_amount=_safe_float(row.get("kdv_dahil")),
+                )
+            )
+
     side_income_entries = [
         ReportSideIncomeEntry(
             item=str(row.get("kalem") or "-"),
@@ -494,6 +598,7 @@ def build_reports_dashboard(
         ),
         shared_overhead_entries=shared_overhead_entries,
         distribution_entries=distribution_entries,
+        invoice_drilldown_entries=invoice_drilldown_entries,
         side_income_entries=side_income_entries,
         side_income_snapshot=ReportSideIncomeSnapshot(
             fuel_reflection_amount=_safe_float(payload.fuel_reflection_amount),
@@ -535,6 +640,7 @@ def _build_local_reports_dashboard(
             coverage=_empty_reports_coverage(),
             shared_overhead_entries=[],
             distribution_entries=[],
+            invoice_drilldown_entries=[],
             side_income_entries=[],
             side_income_snapshot=_empty_side_income_snapshot(),
         )
@@ -548,6 +654,8 @@ def _build_local_reports_dashboard(
             d.actual_personnel_id,
             d.planned_personnel_id,
             d.restaurant_id,
+            COALESCE(p.full_name, '-') AS personnel,
+            COALESCE(p.role, '-') AS role,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant,
             COALESCE(r.brand, '') AS brand,
             COALESCE(r.branch, '') AS branch,
@@ -564,6 +672,7 @@ def _build_local_reports_dashboard(
             COALESCE(d.monthly_invoice_amount, 0) AS monthly_invoice_amount
         FROM daily_entries d
         JOIN restaurants r ON r.id = d.restaurant_id
+        LEFT JOIN personnel p ON p.id = COALESCE(d.actual_personnel_id, d.planned_personnel_id)
         WHERE {_month_key_sql('d.entry_date')} = %s
         ORDER BY restaurant, d.entry_date, d.id
         """,
@@ -861,6 +970,9 @@ def _build_local_reports_dashboard(
         (resolved_month,),
     ).fetchall()
     distribution_entries: list[ReportDistributionEntry] = []
+    invoice_drilldown_entries = _build_local_invoice_drilldown_entries(
+        [dict(row) for row in attendance_invoice_rows]
+    )
     for row in distribution_rows[: limit * 3]:
         personnel_id = int(row["personnel_id"] or 0)
         metrics = person_cost_lookup.get(personnel_id)
@@ -1015,6 +1127,7 @@ def _build_local_reports_dashboard(
         ),
         shared_overhead_entries=shared_overhead_entries,
         distribution_entries=distribution_entries,
+        invoice_drilldown_entries=invoice_drilldown_entries,
         side_income_entries=side_income_entries,
         side_income_snapshot=ReportSideIncomeSnapshot(
             fuel_reflection_amount=fuel_reflection_amount,

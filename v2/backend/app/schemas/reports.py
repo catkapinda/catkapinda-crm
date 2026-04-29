@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ReportsModuleStatus(BaseModel):
@@ -103,6 +103,16 @@ class ReportDistributionEntry(BaseModel):
     allocation_source: str
 
 
+class ReportInvoiceDrilldownEntry(BaseModel):
+    restaurant: str
+    personnel: str
+    role: str
+    total_hours: float
+    total_packages: float
+    net_invoice_amount: float
+    gross_invoice_amount: float
+
+
 class ReportSideIncomeEntry(BaseModel):
     item: str
     revenue: float
@@ -132,5 +142,6 @@ class ReportsDashboardResponse(BaseModel):
     coverage: ReportsCoverageSummary
     shared_overhead_entries: list[ReportSharedOverheadEntry]
     distribution_entries: list[ReportDistributionEntry]
+    invoice_drilldown_entries: list[ReportInvoiceDrilldownEntry] = Field(default_factory=list)
     side_income_entries: list[ReportSideIncomeEntry]
     side_income_snapshot: ReportSideIncomeSnapshot

@@ -1,6 +1,11 @@
 from pydantic import BaseModel
 
-from app.schemas.reports import ReportDistributionEntry, ReportProfitEntry, ReportsSummary
+from app.schemas.reports import (
+    ReportDistributionEntry,
+    ReportInvoiceDrilldownEntry,
+    ReportProfitEntry,
+    ReportsSummary,
+)
 
 
 class InvoiceDashboardEntry(BaseModel):
@@ -52,6 +57,7 @@ class InvoicesDashboardResponse(BaseModel):
     invoice_entries: list[InvoiceDashboardEntry]
     profit_entries: list[ReportProfitEntry]
     distribution_entries: list[ReportDistributionEntry]
+    invoice_drilldown_entries: list[ReportInvoiceDrilldownEntry]
     collection_entries: list[InvoiceCollectionEntry]
     collection_summary: InvoiceCollectionSummary
     collection_status_options: list[str]
