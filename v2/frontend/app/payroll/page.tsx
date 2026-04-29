@@ -22,6 +22,7 @@ type PayrollDashboard = {
     total_packages: number;
     gross_payroll: number;
     total_deductions: number;
+    total_tevkifat: number;
     net_payment: number;
   } | null;
   entries: Array<{
@@ -33,6 +34,7 @@ type PayrollDashboard = {
     total_packages: number;
     gross_pay: number;
     total_deductions: number;
+    tevkifat_amount: number;
     net_payment: number;
     restaurant_count: number;
     cost_model: string;
@@ -110,6 +112,7 @@ function normalizePayrollDashboard(payload: Partial<PayrollDashboard>): PayrollD
           total_packages: toSafeNumber(payload.summary.total_packages),
           gross_payroll: toSafeNumber(payload.summary.gross_payroll),
           total_deductions: toSafeNumber(payload.summary.total_deductions),
+          total_tevkifat: toSafeNumber(payload.summary.total_tevkifat),
           net_payment: toSafeNumber(payload.summary.net_payment),
         }
       : null;
@@ -140,6 +143,7 @@ function normalizePayrollDashboard(payload: Partial<PayrollDashboard>): PayrollD
           total_packages: toSafeNumber(entry.total_packages),
           gross_pay: toSafeNumber(entry.gross_pay),
           total_deductions: toSafeNumber(entry.total_deductions),
+          tevkifat_amount: toSafeNumber(entry.tevkifat_amount),
           net_payment: toSafeNumber(entry.net_payment),
           restaurant_count: toSafeNumber(entry.restaurant_count),
           cost_model: toSafeString(entry.cost_model, "-"),
@@ -437,6 +441,7 @@ export default function PayrollPage() {
       totalPackages: summary?.total_packages ?? 0,
       grossPayroll: summary?.gross_payroll ?? 0,
       totalDeductions: summary?.total_deductions ?? 0,
+      totalTevkifat: summary?.total_tevkifat ?? 0,
       netPayment: summary?.net_payment ?? 0,
       totalRevenue,
       grossProfit,
@@ -540,6 +545,7 @@ export default function PayrollPage() {
       "Kesinti Öncesi Kurye Hakedişi",
       "Toplam Kesinti",
       "Kurye Fatura Tutarı (KDV Dahil)",
+      "Tevkifat",
       "Restoran Sayısı",
       "Maliyet Modeli",
     ];
@@ -552,6 +558,7 @@ export default function PayrollPage() {
       String(entry.gross_pay),
       String(entry.total_deductions),
       String(entry.net_payment),
+      String(entry.tevkifat_amount),
       String(entry.restaurant_count),
       entry.cost_model,
     ]);
@@ -839,12 +846,15 @@ export default function PayrollPage() {
                           letterSpacing: "0.08em",
                         }}
                       >
-                        Kesinti Oranı
+                        Toplam Tevkifat
                       </div>
                       <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
-                        %{formatNumber(payrollOverview.deductionRatio, 1)}
+                        {formatMoney(payrollOverview.totalTevkifat)}
                       </div>
                     </div>
+                </div>
+                <div style={{ color: "rgba(255,247,234,0.72)", fontSize: "0.82rem", lineHeight: 1.5 }}>
+                  Tevkifat, 12.000 ₺ ve üzeri kurye fatura tutarında KDV&apos;nin 1/5&apos;i olarak bilgi amaçlı izlenir.
                 </div>
               </article>
             </div>
@@ -912,6 +922,35 @@ export default function PayrollPage() {
               </div>
               <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.88rem" }}>
                 Kurye hakedişi toplamı
+              </div>
+            </article>
+
+            <article
+              style={{
+                padding: "16px 18px",
+                borderRadius: "18px",
+                border: "1px solid var(--line)",
+                background: "rgba(255,255,255,0.82)",
+                display: "grid",
+                gap: "6px",
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--muted)",
+                  fontSize: "0.72rem",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Toplam Tevkifat
+              </div>
+              <div style={{ fontSize: "1.25rem", fontWeight: 900 }}>
+                {formatMoney(payrollOverview.totalTevkifat)}
+              </div>
+              <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.88rem" }}>
+                Devlete ödenecek KDV tevkifat toplamı
               </div>
             </article>
 
@@ -1204,6 +1243,7 @@ export default function PayrollPage() {
                         "Kesinti Öncesi",
                         "Kesinti",
                         "Fatura",
+                        "Tevkifat",
                         "Restoran",
                         "Model",
                       ].map(tableHeaderCell)}
@@ -1220,6 +1260,7 @@ export default function PayrollPage() {
                         {tableCell(formatMoney(row.gross_pay), "right")}
                         {tableCell(formatMoney(row.total_deductions), "right")}
                         {tableCell(formatMoney(row.net_payment), "right")}
+                        {tableCell(formatMoney(row.tevkifat_amount), "right")}
                         {tableCell(formatNumber(row.restaurant_count, 0), "right", true)}
                         {tableCell(displayPricingModel(row.cost_model), "left", true)}
                       </tr>

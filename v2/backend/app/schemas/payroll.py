@@ -14,6 +14,7 @@ class PayrollSummary(BaseModel):
     total_packages: float
     gross_payroll: float
     total_deductions: float
+    total_tevkifat: float
     net_payment: float
 
 
@@ -26,6 +27,7 @@ class PayrollEntry(BaseModel):
     total_packages: float
     gross_pay: float
     total_deductions: float
+    tevkifat_amount: float
     net_payment: float
     restaurant_count: int
     cost_model: str

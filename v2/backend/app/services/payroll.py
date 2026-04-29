@@ -90,9 +90,19 @@ _COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
 _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
 _PACKAGE_THRESHOLD_DEFAULT = 390
+_PAYROLL_VAT_RATE = 0.20
+_PAYROLL_TEVKIFAT_RATE = 0.20
+_PAYROLL_TEVKIFAT_THRESHOLD = 12000.0
 _PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
 _MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
 _MOTOR_PURCHASE_DEDUCTION_SQL = "('Motor Satış Taksiti', 'Motor Satis Taksiti', 'Motor Satın Alım', 'Motor Satin Alim')"
+
+
+@dataclass(frozen=True)
+class PayrollTevkifatBreakdown:
+    invoice_base_amount: float
+    vat_amount: float
+    tevkifat_amount: float
 
 
 @dataclass
@@ -108,6 +118,9 @@ class PayrollDocumentPayload:
     gross_pay: float
     total_deductions: float
     net_payment: float
+    invoice_base_amount: float
+    invoice_vat_amount: float
+    tevkifat_amount: float
     restaurant_names: list[str]
     deduction_items: list[tuple[str, float]]
 
@@ -227,6 +240,25 @@ def _format_number_pdf(value: float, decimals: int = 0) -> str:
         return formatted.replace(",", ".")
     whole, decimal = formatted.split(".")
     return f"{whole.replace(',', '.')},{decimal}"
+
+
+def _calculate_payroll_tevkifat_breakdown(invoice_total: float) -> PayrollTevkifatBreakdown:
+    normalized_total = max(_safe_float(invoice_total), 0.0)
+    if normalized_total <= 0:
+        return PayrollTevkifatBreakdown(0.0, 0.0, 0.0)
+
+    invoice_base_amount = normalized_total / (1 + _PAYROLL_VAT_RATE)
+    vat_amount = normalized_total - invoice_base_amount
+    tevkifat_amount = (
+        vat_amount * _PAYROLL_TEVKIFAT_RATE
+        if normalized_total >= _PAYROLL_TEVKIFAT_THRESHOLD
+        else 0.0
+    )
+    return PayrollTevkifatBreakdown(
+        invoice_base_amount=_safe_float(invoice_base_amount),
+        vat_amount=_safe_float(vat_amount),
+        tevkifat_amount=_safe_float(tevkifat_amount),
+    )
 
 
 def _format_month_label(value: str) -> str:
@@ -523,7 +555,7 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         inner_gap = 8
         card_padding = 16
         header_height = 86
-        flow_height = 68
+        flow_height = 84
         detail_height = 136
         deductions_header_height = 24
         deductions_intro_height = 48
@@ -591,6 +623,19 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
             write_center(value, segment_center, value_y, value_size, color_key=value_color, font_override=font_bold)
         write_center("–", flow_inner_x + segment_width + (symbol_gap / 2), value_y + 1, 16, color_key="muted", font_override=font_bold)
         write_center("=", flow_inner_x + (segment_width * 2) + symbol_gap + (symbol_gap / 2), value_y + 1, 16, color_key="muted", font_override=font_bold)
+        tevkifat_line = (
+            f"Fatura Matrahı {_format_currency_pdf(payload.invoice_base_amount)} • "
+            f"KDV {_format_currency_pdf(payload.invoice_vat_amount)} • "
+            f"Tevkifat {_format_currency_pdf(payload.tevkifat_amount)}"
+        )
+        tevkifat_line_size = fit_text_size(tevkifat_line, flow_usable_width - 8, 8, 6)
+        write_center(
+            tevkifat_line,
+            margin_x + (page_width / 2),
+            flow_bottom + 14,
+            tevkifat_line_size,
+            color_key="muted",
+        )
 
         details_top = flow_bottom - section_gap
         details_bottom = details_top - detail_height
@@ -766,6 +811,9 @@ def _render_basic_payroll_pdf(payload: PayrollDocumentPayload) -> bytes:
         ("10", f"Brut Hakedis: {_format_currency_pdf(payload.gross_pay)}"),
         ("10", f"Toplam Kesinti: {_format_currency_pdf(payload.total_deductions)}"),
         ("11", f"Net Odeme: {_format_currency_pdf(payload.net_payment)}"),
+        ("10", f"Fatura Matrahi: {_format_currency_pdf(payload.invoice_base_amount)}"),
+        ("10", f"KDV: {_format_currency_pdf(payload.invoice_vat_amount)}"),
+        ("10", f"Tevkifat: {_format_currency_pdf(payload.tevkifat_amount)}"),
         ("12", "Kesinti Detayi"),
     ]
     if payload.deduction_items:
@@ -972,6 +1020,8 @@ def _build_remote_payroll_document_payload(
 
     gross_pay = _safe_float(payroll_row.get("brut_maliyet"))
     total_deductions = _safe_float(payroll_row.get("kesinti"))
+    net_payment = _safe_float(payroll_row.get("net_maliyet"))
+    tevkifat = _calculate_payroll_tevkifat_breakdown(net_payment)
 
     return PayrollDocumentPayload(
         selected_month=resolved_month,
@@ -984,7 +1034,10 @@ def _build_remote_payroll_document_payload(
         total_packages=_safe_float(payroll_row.get("paket")),
         gross_pay=gross_pay,
         total_deductions=total_deductions,
-        net_payment=_safe_float(payroll_row.get("net_maliyet")),
+        net_payment=net_payment,
+        invoice_base_amount=tevkifat.invoice_base_amount,
+        invoice_vat_amount=tevkifat.vat_amount,
+        tevkifat_amount=tevkifat.tevkifat_amount,
         restaurant_names=restaurant_names,
         deduction_items=deduction_items,
     )
@@ -1113,6 +1166,7 @@ def _build_local_payroll_document_payload(
     total_deductions += auto_motor_rental
     total_deductions += auto_motor_purchase
     net_payment = max(gross_pay - total_deductions, 0.0)
+    tevkifat = _calculate_payroll_tevkifat_breakdown(net_payment)
     restaurant_names = [str(row["restaurant_label"]) for row in restaurant_rows if str(row["restaurant_label"]).strip()]
     deduction_items = [(str(row["deduction_type"]), _safe_float(row["total_amount"])) for row in deduction_rows]
     if auto_motor_rental > 0:
@@ -1132,6 +1186,9 @@ def _build_local_payroll_document_payload(
         gross_pay=gross_pay,
         total_deductions=total_deductions,
         net_payment=net_payment,
+        invoice_base_amount=tevkifat.invoice_base_amount,
+        invoice_vat_amount=tevkifat.vat_amount,
+        tevkifat_amount=tevkifat.tevkifat_amount,
         restaurant_names=restaurant_names,
         deduction_items=deduction_items,
     )
@@ -1384,6 +1441,7 @@ def _build_local_payroll_dashboard(
         )
         total_deductions = _safe_float(deductions_by_person.get(person_id))
         net_payment = max(gross_pay - total_deductions, 0.0)
+        tevkifat = _calculate_payroll_tevkifat_breakdown(net_payment)
         cost_model_key = str(person["cost_model"] or "-")
 
         entries_payload.append(
@@ -1396,6 +1454,7 @@ def _build_local_payroll_dashboard(
                 total_packages=total_packages,
                 gross_pay=gross_pay,
                 total_deductions=total_deductions,
+                tevkifat_amount=tevkifat.tevkifat_amount,
                 net_payment=net_payment,
                 restaurant_count=restaurant_count,
                 cost_model=_COST_MODEL_LABELS.get(cost_model_key, cost_model_key),
@@ -1495,6 +1554,7 @@ def _build_local_payroll_dashboard(
             total_packages=_safe_float(sum(entry.total_packages for entry in entries_payload)),
             gross_payroll=_safe_float(sum(entry.gross_pay for entry in entries_payload)),
             total_deductions=_safe_float(sum(entry.total_deductions for entry in entries_payload)),
+            total_tevkifat=_safe_float(sum(entry.tevkifat_amount for entry in entries_payload)),
             net_payment=_safe_float(sum(entry.net_payment for entry in entries_payload)),
         )
 

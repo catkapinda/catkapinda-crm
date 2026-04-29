@@ -1,12 +1,29 @@
 import sqlite3
 
 from app.core.database import CompatConnection
-from app.services.payroll import _format_number_pdf, build_payroll_dashboard, build_payroll_document_file
+from app.services.payroll import (
+    _calculate_payroll_tevkifat_breakdown,
+    _format_number_pdf,
+    build_payroll_dashboard,
+    build_payroll_document_file,
+)
 
 
 def test_format_number_pdf_supports_zero_decimals():
     assert _format_number_pdf(366, 0) == "366"
     assert _format_number_pdf(1128.5, 1) == "1.128,5"
+
+
+def test_calculate_payroll_tevkifat_breakdown_uses_invoice_total_threshold():
+    above_threshold = _calculate_payroll_tevkifat_breakdown(12000)
+    assert round(above_threshold.invoice_base_amount, 2) == 10000.0
+    assert round(above_threshold.vat_amount, 2) == 2000.0
+    assert round(above_threshold.tevkifat_amount, 2) == 400.0
+
+    below_threshold = _calculate_payroll_tevkifat_breakdown(11999)
+    assert round(below_threshold.invoice_base_amount, 2) == 9999.17
+    assert round(below_threshold.vat_amount, 2) == 1999.83
+    assert below_threshold.tevkifat_amount == 0.0
 
 
 def test_build_payroll_dashboard_supports_local_sqlite_without_streamlit():
@@ -648,3 +665,79 @@ def test_payroll_dashboard_adds_company_motor_purchase_installment():
     assert payload.entries[0].gross_pay == 10000.0
     assert payload.entries[0].total_deductions == 7000.0
     assert payload.entries[0].net_payment == 3000.0
+
+
+def test_payroll_dashboard_exposes_tevkifat_for_invoice_totals_over_threshold():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
+        VALUES (1, 'Tevkifat Kurye', 'CK-T01', 'Kurye', 'Aktif', 'fixed_monthly', 12000)
+        """
+    )
+    raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'SushiCo', 'İdealistpark')")
+    raw_conn.execute(
+        """
+        INSERT INTO daily_entries (
+            entry_date,
+            restaurant_id,
+            planned_personnel_id,
+            actual_personnel_id,
+            worked_hours,
+            package_count
+        )
+        VALUES ('2026-04-12', 10, 1, 1, 10, 10)
+        """
+    )
+    raw_conn.commit()
+
+    payload = build_payroll_dashboard(CompatConnection(raw_conn, "sqlite"), selected_month="2026-04")
+
+    assert payload.summary is not None
+    assert payload.entries[0].net_payment == 12000.0
+    assert round(payload.entries[0].tevkifat_amount, 2) == 400.0
+    assert round(payload.summary.total_tevkifat, 2) == 400.0
