@@ -537,7 +537,12 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         inner_width = page_width - (sheet_padding * 2)
         left_col_width = (inner_width - 24) * 0.56
         right_col_width = inner_width - left_col_width - 24
-        restaurant_lines = simpleSplit(restaurant_text, font_bold, 12, right_col_width - 32)[:5]
+        restaurant_font_size = 12
+        restaurant_lines = simpleSplit(restaurant_text, font_bold, restaurant_font_size, right_col_width - 32)
+        while len(restaurant_lines) > 5 and restaurant_font_size > 9:
+            restaurant_font_size -= 1
+            restaurant_lines = simpleSplit(restaurant_text, font_bold, restaurant_font_size, right_col_width - 32)
+        restaurant_lines = restaurant_lines[:5]
 
         table_x = margin_x + sheet_padding + 12
         table_width = inner_width - 24
@@ -678,7 +683,7 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         meta_y = info_top - 74
         for index, (label, value) in enumerate(meta_items):
             meta_x = left_x + index * meta_cell_width
-            value_size = fit_text_size(str(value), meta_cell_width - 10, 12, 8, font_override=font_bold)
+            value_size = fit_text_size(str(value), meta_cell_width - 12, 11, 7, font_override=font_bold)
             write_line(label, meta_x, meta_y, 9, color_key="muted")
             write_line(str(value), meta_x, meta_y - 16, value_size, color_key="text", font_override=font_bold)
 
@@ -705,9 +710,10 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
             write_center(label, center_x, metric_panel_y + 36, 8, color_key="muted")
             write_center(value, center_x, metric_panel_y + 14, 15, color_key="text", font_override=font_bold)
 
-        write_line("Çalışılan Restoranlar", right_x, info_top - 34, 12, color_key="text", font_override=font_bold)
         badge_text = f"{restaurant_count} şube"
         badge_width = max(48, text_width(badge_text, 8, font_override=font_bold) + 16)
+        restaurant_title_size = fit_text_size("Çalışılan Restoranlar", right_col_width - badge_width - 42, 12, 9, font_override=font_bold)
+        write_line("Çalışılan Restoranlar", right_x, info_top - 34, restaurant_title_size, color_key="text", font_override=font_bold)
         set_fill("paper")
         pdf.roundRect(content_left + inner_width - badge_width - 18, info_top - 42, badge_width, 20, 10, stroke=0, fill=1)
         write_center(
@@ -721,8 +727,8 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         write_line("Ay içinde puantaj görülen operasyon noktası", right_x, info_top - 66, 9, color_key="muted")
         line_y = info_top - 106
         for restaurant_line in restaurant_lines:
-            write_line(restaurant_line, right_x, line_y, 12, color_key="text", font_override=font_bold)
-            line_y -= 16
+            write_line(restaurant_line, right_x, line_y, restaurant_font_size, color_key="text", font_override=font_bold)
+            line_y -= restaurant_font_size + 4
 
         deductions_top = info_bottom - section_gap
         deductions_bottom = deductions_top - deductions_height
