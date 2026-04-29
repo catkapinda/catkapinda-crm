@@ -802,8 +802,14 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
             color_key="muted",
             font_override=font_bold,
         )
-        write_line("Ay içinde puantaj görülen operasyon noktası", right_x, info_top - 66, 9, color_key="muted")
-        line_y = info_top - 106
+        restaurant_subtitle = "Ay içinde puantaj görülen operasyon noktası"
+        subtitle_size = fit_text_size(restaurant_subtitle, right_col_width - 36, 9, 7)
+        subtitle_lines = simpleSplit(restaurant_subtitle, font_name, subtitle_size, right_col_width - 36)[:2]
+        subtitle_y = info_top - 66
+        for subtitle_line in subtitle_lines:
+            write_line(subtitle_line, right_x, subtitle_y, subtitle_size, color_key="muted")
+            subtitle_y -= subtitle_size + 3
+        line_y = subtitle_y - 18
         for restaurant_line in restaurant_lines:
             write_line(restaurant_line, right_x, line_y, restaurant_font_size, color_key="text", font_override=font_bold)
             line_y -= restaurant_font_size + 4
