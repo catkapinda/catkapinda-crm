@@ -3,6 +3,7 @@ from __future__ import annotations
 import psycopg
 
 from app.core.database import is_sqlite_backend
+from app.repositories.personnel import _personnel_active_sql
 
 
 def _active_is_true_sql(column: str = "r.active") -> str:
