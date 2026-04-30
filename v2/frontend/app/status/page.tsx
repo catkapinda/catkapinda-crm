@@ -1188,19 +1188,31 @@ export default function StatusPage() {
           style={{
             ...cardStyle(),
             display: "grid",
-            gap: "12px",
+            gap: "16px",
+            padding: "20px 22px",
           }}
         >
-          <div>
-            <h2 style={{ margin: 0, fontSize: "1.15rem" }}>Hızlı Geçişler</h2>
-            <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-              Pilot açılışında en çok bakacağımız bölümlere buradan doğrudan atlayabiliriz.
-            </p>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: "16px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "grid", gap: "6px" }}>
+              <h2 style={{ margin: 0, fontSize: "1.1rem", color: "#142743" }}>Hızlı Geçişler</h2>
+              <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.6 }}>
+                Pilot günü en çok kullanacağımız ekranlara buradan tek dokunuşla atlayabiliriz.
+              </p>
+            </div>
+            <div style={statusPill(true)}>4 kritik geçiş hazır</div>
           </div>
           <div
             style={{
               display: "flex",
-              gap: "10px",
+              gap: "12px",
               flexWrap: "wrap",
             }}
           >
@@ -1228,8 +1240,9 @@ export default function StatusPage() {
                 style={{
                   ...cardStyle(),
                   display: "grid",
-                  gap: "10px",
-                  background: "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(255,255,255,0.98))",
+                  gap: "12px",
+                  border: "1px solid rgba(245, 158, 11, 0.18)",
+                  background: "rgba(255, 251, 235, 0.98)",
                 }}
               >
                 <div style={statusPill(Boolean(frontend))}>
@@ -1383,37 +1396,114 @@ export default function StatusPage() {
                 style={{
                   ...cardStyle(),
                   display: "grid",
-                  gap: "14px",
-                  background:
+                  gap: "18px",
+                  border:
                     backend.cutover.phase === "ready_for_cutover"
-                      ? "linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(255,255,255,0.98))"
+                      ? "1px solid rgba(16, 185, 129, 0.18)"
                       : backend.cutover.phase === "ready_for_pilot"
-                        ? "linear-gradient(135deg, rgba(15, 95, 215, 0.06), rgba(255,255,255,0.98))"
-                        : "linear-gradient(135deg, rgba(239, 68, 68, 0.06), rgba(255,255,255,0.98))",
+                        ? "1px solid rgba(15, 95, 215, 0.14)"
+                        : "1px solid rgba(239, 68, 68, 0.18)",
+                  background: "rgba(255,255,255,0.98)",
                 }}
               >
-                <div style={statusPill(cutoverTone)}>
-                  {backend.cutover.phase === "ready_for_cutover"
-                    ? "Cutover Hazır"
-                    : backend.cutover.phase === "ready_for_pilot"
-                    ? "Pilot Açılabilir"
-                      : "Önce Blokajlar Kapanmalı"}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "8px" }}>
+                    <div style={statusPill(cutoverTone)}>
+                      {backend.cutover.phase === "ready_for_cutover"
+                        ? "Cutover Hazır"
+                        : backend.cutover.phase === "ready_for_pilot"
+                          ? "Pilot Açılabilir"
+                          : "Önce Blokajlar Kapanmalı"}
+                    </div>
+                    <div style={{ display: "grid", gap: "6px" }}>
+                      <h2 style={{ margin: 0, fontSize: "1.35rem", color: "#142743" }}>Canlı Durum Özeti</h2>
+                      <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "64ch" }}>
+                        {backend.cutover.summary}
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, minmax(120px, 1fr))",
+                      gap: "10px",
+                      minWidth: "min(100%, 420px)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: "14px 16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 251, 255, 0.84)",
+                        display: "grid",
+                        gap: "4px",
+                      }}
+                    >
+                      <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#6b7280", letterSpacing: "0.03em" }}>
+                        TEMEL KONTROLLER
+                      </span>
+                      <strong style={{ color: backend.cutover.core_checks_ready ? "#0f9f6e" : "#b42318" }}>
+                        {backend.cutover.core_checks_ready ? "Hazır" : "Eksik"}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        padding: "14px 16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 251, 255, 0.84)",
+                        display: "grid",
+                        gap: "4px",
+                      }}
+                    >
+                      <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#6b7280", letterSpacing: "0.03em" }}>
+                        KİMLİK DOĞRULAMA
+                      </span>
+                      <strong style={{ color: backend.cutover.auth_ready ? "#0f9f6e" : "#b42318" }}>
+                        {backend.cutover.auth_ready ? "Hazır" : "Eksik"}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        padding: "14px 16px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                        background: "rgba(248, 251, 255, 0.84)",
+                        display: "grid",
+                        gap: "4px",
+                      }}
+                    >
+                      <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#6b7280", letterSpacing: "0.03em" }}>
+                        MODÜL DURUMU
+                      </span>
+                      <strong style={{ color: "#142743" }}>
+                        {backend.cutover.modules_ready_count}/{backend.cutover.modules_total_count}
+                      </strong>
+                    </div>
+                  </div>
                 </div>
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "minmax(0, 1.2fr) minmax(280px, 0.8fr)",
+                    gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 320px)",
                     gap: "18px",
                   }}
                 >
                   <div style={{ display: "grid", gap: "10px" }}>
-                    <h2 style={{ margin: 0, fontSize: "1.5rem" }}>Streamlit'ten çıkış özeti</h2>
-                    <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>{backend.cutover.summary}</p>
                     {backend.cutover.blocking_items.length ? (
                       <div
                         style={{
                           padding: "14px 16px",
-                          borderRadius: "16px",
+                          borderRadius: "18px",
                           border: "1px solid rgba(239, 68, 68, 0.18)",
                           background: "rgba(239, 68, 68, 0.06)",
                           color: "#b42318",
@@ -1433,7 +1523,7 @@ export default function StatusPage() {
                       <div
                         style={{
                           padding: "14px 16px",
-                          borderRadius: "16px",
+                          borderRadius: "18px",
                           border: "1px solid rgba(245, 158, 11, 0.18)",
                           background: "rgba(245, 158, 11, 0.08)",
                           color: "#9a6700",
@@ -1457,11 +1547,6 @@ export default function StatusPage() {
                       alignContent: "start",
                     }}
                   >
-                    <div style={statusPill(backend.cutover.core_checks_ready)}>Temel Kontroller Hazır</div>
-                    <div style={statusPill(backend.cutover.auth_ready)}>Kimlik Doğrulama Hazır</div>
-                    <div style={statusPill(backend.cutover.modules_ready_count === backend.cutover.modules_total_count)}>
-                      Modül {backend.cutover.modules_ready_count}/{backend.cutover.modules_total_count}
-                    </div>
                     <Link href="/login" style={actionButtonStyle("primary")}>
                       Giriş Ekranını Aç
                     </Link>
@@ -1478,24 +1563,37 @@ export default function StatusPage() {
                 style={{
                   ...cardStyle(),
                   display: "grid",
-                  gap: "12px",
-                  background:
+                  gap: "14px",
+                  border:
                     backend.decision.tone === "success"
-                      ? "linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(255,255,255,0.98))"
+                      ? "1px solid rgba(16, 185, 129, 0.18)"
                       : backend.decision.tone === "info"
-                        ? "linear-gradient(135deg, rgba(15, 95, 215, 0.06), rgba(255,255,255,0.98))"
-                        : "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(255,255,255,0.98))",
+                        ? "1px solid rgba(15, 95, 215, 0.14)"
+                        : "1px solid rgba(245, 158, 11, 0.18)",
+                  background: "rgba(255,255,255,0.98)",
                 }}
               >
-                <div style={tonePill(backend.decision.tone)}>Bugünün Kararı</div>
-                <h2 style={{ margin: 0, fontSize: "1.45rem" }}>{backend.decision.title}</h2>
-                <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "74ch" }}>
-                  {backend.decision.detail}
-                </p>
-                <div>
-                  <Link href={backend.decision.primary_href} style={actionButtonStyle("primary")}>
-                    {backend.decision.primary_label}
-                  </Link>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    alignItems: "flex-start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "8px" }}>
+                    <div style={tonePill(backend.decision.tone)}>Bugünün Kararı</div>
+                    <h2 style={{ margin: 0, fontSize: "1.3rem", color: "#142743" }}>{backend.decision.title}</h2>
+                    <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
+                      {backend.decision.detail}
+                    </p>
+                  </div>
+                  <div>
+                    <Link href={backend.decision.primary_href} style={actionButtonStyle("primary")}>
+                      {backend.decision.primary_label}
+                    </Link>
+                  </div>
                 </div>
               </section>
             ) : null}
@@ -1505,29 +1603,41 @@ export default function StatusPage() {
                 style={{
                   ...cardStyle(),
                   display: "grid",
-                  gap: "12px",
-                  background: "linear-gradient(135deg, rgba(15, 95, 215, 0.05), rgba(255,255,255,0.98))",
+                  gap: "14px",
+                  border: "1px solid rgba(15, 95, 215, 0.14)",
+                  background: "rgba(255,255,255,0.98)",
                 }}
               >
-                <div style={statusPill(true)}>{overallOk ? "Pilot Kullanıma Hazır" : "Temel Yüzey Hazır"}</div>
-                <h2 style={{ margin: 0, fontSize: "1.45rem" }}>
-                  {overallOk ? "Yeni sisteme kontrollü geçiş başlayabilir." : "Pilot çekirdek olarak hazır, son ayarlar tamamlanabilir."}
-                </h2>
-                <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
-                  {overallOk
-                    ? "Ön yüz, arka uç ve temel kimlik doğrulama kontrolleri şu anda olumlu görünüyor. Ofis ekibi önce giriş ekranından girip puantaj, personel ve kesinti akışlarını yeni sistemde test etmeye başlayabilir."
-                    : "Ön yüz ve arka uç çekirdek olarak ayakta. SMS gibi isteğe bağlı ayarlar tamamlandıkça pilot tam hazır seviyesine çıkacak."}
-                </p>
-                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                  <Link href="/login" style={actionButtonStyle("primary")}>
-                    Giriş Ekranını Aç
-                  </Link>
-                  <Link href="/attendance" style={actionButtonStyle()}>
-                    Puantaja Git
-                  </Link>
-                  <Link href="/personnel" style={actionButtonStyle()}>
-                    Personel'e Git
-                  </Link>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0, 1fr) auto",
+                    gap: "16px",
+                    alignItems: "start",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "8px" }}>
+                    <div style={statusPill(true)}>{overallOk ? "Pilot Kullanıma Hazır" : "Temel Yüzey Hazır"}</div>
+                    <h2 style={{ margin: 0, fontSize: "1.25rem", color: "#142743" }}>
+                      {overallOk ? "Yeni sisteme kontrollü geçiş başlayabilir." : "Pilot çekirdek olarak hazır, son ayarlar tamamlanabilir."}
+                    </h2>
+                    <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "72ch" }}>
+                      {overallOk
+                        ? "Ön yüz, arka uç ve temel kimlik doğrulama kontrolleri olumlu görünüyor. Ekip login, puantaj, personel ve kesinti akışlarını yeni sistemde test etmeye başlayabilir."
+                        : "Ön yüz ve arka uç çekirdek olarak ayakta. SMS gibi isteğe bağlı ayarlar tamamlandıkça pilot tam hazır seviyesine çıkacak."}
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <Link href="/login" style={actionButtonStyle("primary")}>
+                      Giriş Ekranını Aç
+                    </Link>
+                    <Link href="/attendance" style={actionButtonStyle()}>
+                      Puantaja Git
+                    </Link>
+                    <Link href="/personnel" style={actionButtonStyle()}>
+                      Personel'e Git
+                    </Link>
+                  </div>
                 </div>
               </section>
             ) : null}
