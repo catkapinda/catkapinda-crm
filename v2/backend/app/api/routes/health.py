@@ -98,6 +98,7 @@ def _is_strong_password(value: str | None) -> bool:
 
 @router.get("/health", response_model=HealthResponse)
 def healthcheck() -> HealthResponse:
+    # Release alignment is tracked from this payload by the frontend status page.
     return HealthResponse(
         status="ok",
         service="crmcatkapinda-v2-api",

@@ -320,6 +320,7 @@ export default function StatusPage() {
   const [loadNote, setLoadNote] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  // Keep the status screen moving with the backend release train.
   useEffect(() => {
     let active = true;
 
