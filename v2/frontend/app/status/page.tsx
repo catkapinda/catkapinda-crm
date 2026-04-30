@@ -1299,7 +1299,7 @@ export default function StatusPage() {
               </div>
               <p style={{ margin: 0, color: releaseAlignment.mismatch ? "#b42318" : "#5f7294", lineHeight: 1.7 }}>
                 {releaseAlignment.mismatch
-                  ? "Ön yüz ve arka uç farklı dağıtım sürümlerinde görünüyor. Pilotta ilerlemeden önce iki servisin de aynı kayıtta olduğunu doğrulayalım."
+                  ? "Ön yüz ve arka uç şu an farklı deploy kayıtlarında görünüyor. Frontend yeni sürüme çıktığında bu uyarı otomatik kapanacak."
                   : releaseAlignment.bothPresent
                     ? "İki servis aynı sürüm etiketini gösteriyor; bu, pilot açılışında doğru derleme ile ilerlediğimizi anlamayı kolaylaştırır."
                     : "Sürüm etiketi ortam değişkenlerinden henüz gelmiyor olabilir. Pilotta Render kayıt bilgisi gelince bu alan otomatik dolacak."}
