@@ -639,116 +639,97 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         set_fill("page")
         pdf.rect(0, 0, width, height, stroke=0, fill=1)
 
-        section_gap = 22
-        sheet_padding = 30
-        header_height = 64
-        summary_height = 88
-        info_panel_height = 188
-        deductions_header_height = 28
-        deductions_table_header_height = 22
-        footer_height = 16
+        panel_gap = 18
+        content_left = margin_x + 12
+        content_right = width - margin_x - 12
+        content_width = content_right - content_left
+        left_col_width = (content_width - panel_gap) * 0.58
+        right_col_width = content_width - left_col_width - panel_gap
 
-        inner_width = page_width - (sheet_padding * 2)
-        left_col_width = (inner_width - 24) * 0.56
-        right_col_width = inner_width - left_col_width - 24
-        restaurant_font_size = 12
-        restaurant_lines = simpleSplit(restaurant_text, font_bold, restaurant_font_size, right_col_width - 32)
-        while len(restaurant_lines) > 5 and restaurant_font_size > 9:
+        restaurant_font_size = 13
+        restaurant_lines = simpleSplit(restaurant_text, font_bold, restaurant_font_size, right_col_width - 28)
+        while len(restaurant_lines) > 4 and restaurant_font_size > 10:
             restaurant_font_size -= 1
-            restaurant_lines = simpleSplit(restaurant_text, font_bold, restaurant_font_size, right_col_width - 32)
-        restaurant_lines = restaurant_lines[:5]
+            restaurant_lines = simpleSplit(restaurant_text, font_bold, restaurant_font_size, right_col_width - 28)
+        restaurant_lines = restaurant_lines[:4]
 
-        table_x = margin_x + sheet_padding + 12
-        table_width = inner_width - 24
-        amount_column_width = 148
+        table_x = content_left + 14
+        table_width = content_width - 28
+        amount_column_width = 162
         amount_right_x = table_x + table_width
-        label_column_width = table_width - amount_column_width - 12
-
+        label_column_width = table_width - amount_column_width - 14
         for index, (label_lines, amount_text, _) in enumerate(deduction_rows):
             wrapped = simpleSplit(label_lines[0], font_name, 10, label_column_width)
-            row_height = max(22.0, len(wrapped) * 12.0 + 8.0)
+            row_height = max(24.0, len(wrapped) * 12.0 + 10.0)
             deduction_rows[index] = (wrapped, amount_text, row_height)
 
-        deductions_height = deductions_header_height + deductions_table_header_height + sum(row_height for _, _, row_height in deduction_rows) + 20
-        sheet_height = (
-            sheet_padding
-            + header_height
-            + section_gap
-            + summary_height
-            + section_gap
-            + info_panel_height
-            + section_gap
-            + deductions_height
-            + footer_height
-            + sheet_padding
-        )
-        top_y = ensure_space(top_y, sheet_height)
+        header_height = 64
+        summary_height = 106
+        info_height = 172
+        deductions_height = 72 + sum(row_height for _, _, row_height in deduction_rows)
+        required_height = header_height + panel_gap + summary_height + panel_gap + info_height + panel_gap + deductions_height + 46
+        top_y = ensure_space(top_y, required_height)
 
-        sheet_top = top_y
-        sheet_bottom = sheet_top - sheet_height
-        draw_shadow_card(margin_x, sheet_bottom, page_width, sheet_height, fill_key="paper", radius=26)
-
-        content_left = margin_x + sheet_padding
-        content_right = margin_x + page_width - sheet_padding
-
-        accent_y = sheet_top - 18
+        title_y = top_y - 10
         set_stroke("brand")
-        pdf.setLineWidth(1.4)
-        pdf.line(content_left, accent_y, content_left + 68, accent_y)
+        pdf.setLineWidth(2)
+        pdf.line(content_left, title_y - 18, content_left + 52, title_y - 18)
         set_stroke("divider")
         pdf.setLineWidth(0.8)
-        pdf.line(content_left + 84, accent_y, content_right, accent_y)
+        pdf.line(content_left + 70, title_y - 18, content_right, title_y - 18)
 
-        header_top = sheet_top - 24
-        has_logo = draw_logo(content_left, header_top - 48, 48, 48)
-        text_x = content_left + (60 if has_logo else 0)
+        has_logo = draw_logo(content_left, title_y - 56, 44, 44)
+        title_x = content_left + (56 if has_logo else 0)
         write_line(
             "Kurye Hakediş Belgesi",
-            text_x,
-            header_top - 20,
-            fit_text_size("Kurye Hakediş Belgesi", inner_width - 80, 22, 18, font_override=font_bold),
+            title_x,
+            title_y - 28,
+            fit_text_size("Kurye Hakediş Belgesi", content_width - 70, 24, 19, font_override=font_bold),
             color_key="text",
             font_override=font_bold,
         )
         write_line(
             f"{month_label} • Oluşturma: {date.today().strftime('%d.%m.%Y')}",
-            text_x,
-            header_top - 40,
+            title_x,
+            title_y - 48,
             10,
             color_key="muted",
         )
 
-        summary_top = sheet_top - sheet_padding - header_height - section_gap
+        summary_top = title_y - 78
         summary_bottom = summary_top - summary_height
-        draw_rounded_card(
+        draw_shadow_card(
             content_left,
             summary_bottom,
-            inner_width,
+            content_width,
             summary_height,
-            fill_key="surface",
-            stroke_key="divider",
-            radius=18,
-            stroke_width=0.8,
+            fill_key="paper",
+            radius=20,
         )
 
-        block_top = summary_top - 20
-        flow_width = inner_width - 40
-        block_width = (flow_width - 48) / 3
-        start_x = content_left + 20
-        labels = [
-            ("Brüt Kazanç", _format_currency_pdf(payload.gross_pay), "text", 20),
-            ("Toplam Kesinti", _format_currency_pdf(payload.total_deductions), "red", 20),
-            ("Net Ödeme", _format_currency_pdf(payload.net_payment), "green", 24),
+        value_band_y = summary_top - 44
+        separator_one_x = content_left + (content_width / 3)
+        separator_two_x = content_left + ((content_width / 3) * 2)
+        set_stroke("divider")
+        pdf.setLineWidth(0.8)
+        pdf.line(separator_one_x, summary_bottom + 20, separator_one_x, summary_top - 20)
+        pdf.line(separator_two_x, summary_bottom + 20, separator_two_x, summary_top - 20)
+
+        flow_blocks = [
+            ("Brüt Kazanç", _format_currency_pdf(payload.gross_pay), "text", 16),
+            ("Toplam Kesinti", _format_currency_pdf(payload.total_deductions), "red", 16),
+            ("Net Ödeme", _format_currency_pdf(payload.net_payment), "green", 20),
         ]
-        for index, (label, value, color_key, preferred_size) in enumerate(labels):
-            block_x = start_x + index * (block_width + 24)
-            label_center = block_x + (block_width / 2)
-            write_center(label, label_center, block_top - 6, 8, color_key="muted", font_override=font_bold)
-            value_size = fit_text_size(value, block_width - 4, preferred_size, 14, font_override=font_bold)
-            write_center(value, label_center, block_top - 34, value_size, color_key=color_key, font_override=font_bold)
-            if index < 2:
-                op_center = block_x + block_width + 12
-                write_center("–" if index == 0 else "=", op_center, block_top - 31, 18, color_key="muted", font_override=font_bold)
+        for index, (label, value, color_key, preferred_size) in enumerate(flow_blocks):
+            block_center = content_left + ((content_width / 3) * index) + (content_width / 6)
+            write_center(label, block_center, summary_top - 24, 8, color_key="muted", font_override=font_bold)
+            value_size = fit_text_size(value, (content_width / 3) - 28, preferred_size, 13, font_override=font_bold)
+            write_center(value, block_center, value_band_y, value_size, color_key=color_key, font_override=font_bold)
+
+        flow_mid_y = value_band_y - 2
+        write_center("–", separator_one_x, flow_mid_y, 17, color_key="muted", font_override=font_bold)
+        write_center("=", separator_two_x, flow_mid_y, 17, color_key="muted", font_override=font_bold)
+
         tevkifat_line = (
             f"Fatura Matrahı {_format_currency_pdf(payload.invoice_base_amount)} • "
             f"KDV {_format_currency_pdf(payload.invoice_vat_amount)} • "
@@ -756,142 +737,133 @@ def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
         )
         write_center(
             tevkifat_line,
-            content_left + (inner_width / 2),
-            summary_bottom + 14,
-            fit_text_size(tevkifat_line, inner_width - 20, 9, 7),
+            content_left + (content_width / 2),
+            summary_bottom + 18,
+            fit_text_size(tevkifat_line, content_width - 28, 9, 7),
             color_key="muted",
         )
 
-        info_top = summary_bottom - section_gap
-        info_bottom = info_top - info_panel_height
+        info_top = summary_bottom - panel_gap
+        info_bottom = info_top - info_height
+        left_panel_x = content_left
+        right_panel_x = content_left + left_col_width + panel_gap
 
-        draw_rounded_card(
-            content_left,
-            info_bottom,
-            left_col_width,
-            info_panel_height,
-            fill_key="surface",
-            stroke_key="divider",
-            radius=18,
-            stroke_width=0.8,
-        )
-        draw_rounded_card(
-            content_left + left_col_width + 24,
-            info_bottom,
-            right_col_width,
-            info_panel_height,
-            fill_key="surface",
-            stroke_key="divider",
-            radius=18,
-            stroke_width=0.8,
-        )
+        draw_shadow_card(left_panel_x, info_bottom, left_col_width, info_height, fill_key="paper", radius=18)
+        draw_shadow_card(right_panel_x, info_bottom, right_col_width, info_height, fill_key="paper", radius=18)
 
-        left_x = content_left + 18
-        right_x = content_left + left_col_width + 24 + 18
-        meta_width = left_col_width - 36
-        person_name_size = fit_text_size(payload.personnel, meta_width, 22, 15, font_override=font_bold)
-        write_line(payload.personnel, left_x, info_top - 34, person_name_size, color_key="text", font_override=font_bold)
+        left_padding = 16
+        left_inner_x = left_panel_x + left_padding
+        left_inner_width = left_col_width - (left_padding * 2)
+        person_name_size = fit_text_size(payload.personnel, left_inner_width, 22, 15, font_override=font_bold)
+        write_line(payload.personnel, left_inner_x, info_top - 30, person_name_size, color_key="text", font_override=font_bold)
 
         meta_items = [("Kod", payload.person_code or "-"), ("Rol", payload.role or "-"), ("Durum", payload.status or "-")]
-        meta_cell_width = meta_width / 3
-        meta_y = info_top - 74
+        meta_y = info_top - 70
+        meta_cell_width = left_inner_width / 3
         for index, (label, value) in enumerate(meta_items):
-            meta_x = left_x + index * meta_cell_width
-            value_size = fit_text_size(str(value), meta_cell_width - 12, 11, 7, font_override=font_bold)
-            write_line(label, meta_x, meta_y, 9, color_key="muted")
-            write_line(str(value), meta_x, meta_y - 16, value_size, color_key="text", font_override=font_bold)
+            meta_x = left_inner_x + index * meta_cell_width
+            value_size = fit_text_size(str(value), meta_cell_width - 10, 11, 8, font_override=font_bold)
+            write_line(label, meta_x, meta_y, 8, color_key="muted")
+            write_line(str(value), meta_x, meta_y - 15, value_size, color_key="text", font_override=font_bold)
 
-        metric_panel_y = info_bottom + 20
-        metric_panel_h = 54
-        draw_rounded_card(
-            left_x,
-            metric_panel_y,
-            meta_width,
-            metric_panel_h,
-            fill_key="paper",
-            stroke_key="line",
-            radius=14,
-            stroke_width=0.8,
-        )
+        set_stroke("divider")
+        pdf.setLineWidth(0.8)
+        pdf.line(left_inner_x, info_top - 98, left_inner_x + left_inner_width, info_top - 98)
+
         metrics = [
             ("Saat", _format_number_pdf(payload.total_hours, 1)),
             ("Paket", _format_number_pdf(payload.total_packages, 0)),
             ("Şube", str(restaurant_count)),
         ]
-        metric_cell_width = meta_width / 3
+        metrics_y = info_top - 122
+        metric_cell_width = left_inner_width / 3
         for index, (label, value) in enumerate(metrics):
-            center_x = left_x + (metric_cell_width / 2) + index * metric_cell_width
-            write_center(label, center_x, metric_panel_y + 36, 8, color_key="muted")
-            write_center(value, center_x, metric_panel_y + 14, 15, color_key="text", font_override=font_bold)
+            center_x = left_inner_x + (metric_cell_width / 2) + index * metric_cell_width
+            write_center(label, center_x, metrics_y, 8, color_key="muted")
+            write_center(value, center_x, metrics_y - 22, 17, color_key="text", font_override=font_bold)
 
+        right_padding = 16
+        right_inner_x = right_panel_x + right_padding
+        right_inner_width = right_col_width - (right_padding * 2)
         badge_text = f"{restaurant_count} şube"
-        badge_width = max(48, text_width(badge_text, 8, font_override=font_bold) + 16)
-        restaurant_title_size = fit_text_size("Çalışılan Restoranlar", right_col_width - badge_width - 42, 12, 9, font_override=font_bold)
-        write_line("Çalışılan Restoranlar", right_x, info_top - 34, restaurant_title_size, color_key="text", font_override=font_bold)
-        set_fill("paper")
-        pdf.roundRect(content_left + inner_width - badge_width - 18, info_top - 42, badge_width, 20, 10, stroke=0, fill=1)
+        badge_width = max(54, text_width(badge_text, 8, font_override=font_bold) + 18)
+        title_max_width = max(80, right_inner_width - badge_width - 14)
+        restaurant_title_size = fit_text_size("Çalışılan Restoranlar", title_max_width, 12, 9, font_override=font_bold)
+        write_line("Çalışılan Restoranlar", right_inner_x, info_top - 30, restaurant_title_size, color_key="text", font_override=font_bold)
+        draw_rounded_card(
+            right_panel_x + right_col_width - badge_width - 16,
+            info_top - 38,
+            badge_width,
+            18,
+            fill_key="surface",
+            stroke_key="divider",
+            radius=9,
+            stroke_width=0.6,
+        )
         write_center(
             badge_text,
-            content_left + inner_width - badge_width - 18 + (badge_width / 2),
-            info_top - 35,
+            right_panel_x + right_col_width - badge_width - 16 + (badge_width / 2),
+            info_top - 31.5,
             8,
             color_key="muted",
             font_override=font_bold,
         )
-        restaurant_subtitle = "Ay içinde puantaj görülen operasyon noktası"
-        subtitle_size = fit_text_size(restaurant_subtitle, right_col_width - 36, 9, 7)
-        subtitle_lines = simpleSplit(restaurant_subtitle, font_name, subtitle_size, right_col_width - 36)[:2]
-        subtitle_y = info_top - 66
-        for subtitle_line in subtitle_lines:
-            write_line(subtitle_line, right_x, subtitle_y, subtitle_size, color_key="muted")
-            subtitle_y -= subtitle_size + 3
-        line_y = subtitle_y - 18
-        for restaurant_line in restaurant_lines:
-            write_line(restaurant_line, right_x, line_y, restaurant_font_size, color_key="text", font_override=font_bold)
-            line_y -= restaurant_font_size + 4
 
-        deductions_top = info_bottom - section_gap
+        subtitle_text = "Ay içinde puantaj görülen operasyon noktası"
+        subtitle_size = fit_text_size(subtitle_text, right_inner_width, 9, 7)
+        subtitle_lines = simpleSplit(subtitle_text, font_name, subtitle_size, right_inner_width)[:2]
+        subtitle_y = info_top - 60
+        for subtitle_line in subtitle_lines:
+            write_line(subtitle_line, right_inner_x, subtitle_y, subtitle_size, color_key="muted")
+            subtitle_y -= subtitle_size + 3
+
+        restaurant_y = subtitle_y - 14
+        for restaurant_line in restaurant_lines:
+            write_line(restaurant_line, right_inner_x, restaurant_y, restaurant_font_size, color_key="text", font_override=font_bold)
+            restaurant_y -= restaurant_font_size + 4
+
+        deductions_top = info_bottom - panel_gap
         deductions_bottom = deductions_top - deductions_height
+        draw_shadow_card(content_left, deductions_bottom, content_width, deductions_height, fill_key="paper", radius=18)
+
+        write_line("Kesinti Kalemleri", content_left + 16, deductions_top - 22, 13, color_key="text", font_override=font_bold)
+        write_right("Toplam Kesinti", content_right - 16, deductions_top - 16, 8, color_key="muted", font_override=font_bold)
+        write_right(_format_currency_pdf(payload.total_deductions), content_right - 16, deductions_top - 32, 15, color_key="red", font_override=font_bold)
+
+        header_row_top = deductions_top - 52
         draw_rounded_card(
-            content_left,
-            deductions_bottom,
-            inner_width,
-            deductions_height,
+            table_x - 6,
+            header_row_top - 18,
+            table_width + 12,
+            24,
             fill_key="surface",
             stroke_key="divider",
-            radius=18,
-            stroke_width=0.8,
+            radius=10,
+            stroke_width=0.6,
         )
-        write_line("Kesinti Kalemleri", content_left + 18, deductions_top - 22, 13, color_key="text", font_override=font_bold)
-        total_value = _format_currency_pdf(payload.total_deductions)
-        write_right(total_value, content_left + inner_width - 18, deductions_top - 22, 14, color_key="red", font_override=font_bold)
-        write_right("Toplam Kesinti", content_left + inner_width - 18 - text_width(total_value, 14, font_override=font_bold) - 12, deductions_top - 22, 10, color_key="muted", font_override=font_bold)
+        write_line("Kalem", table_x, header_row_top - 10, 8, color_key="muted", font_override=font_bold)
+        write_right("Tutar", amount_right_x, header_row_top - 10, 8, color_key="muted", font_override=font_bold)
 
-        table_header_y = deductions_top - 50
-        write_line("Kalem", table_x, table_header_y, 8, color_key="muted", font_override=font_bold)
-        write_right("Tutar", amount_right_x, table_header_y, 8, color_key="muted", font_override=font_bold)
-        set_stroke("divider")
-        pdf.setLineWidth(0.8)
-        pdf.line(table_x, table_header_y - 8, table_x + table_width, table_header_y - 8)
-        row_cursor = table_header_y - 8
+        row_cursor = header_row_top - 26
         for label_lines, amount_text, row_height in deduction_rows:
-            row_top = row_cursor
-            label_y = row_top - 14
+            label_y = row_cursor - 10
             for label_line in label_lines:
                 write_line(label_line, table_x, label_y, 10, color_key="text")
                 label_y -= 12
             write_right(
                 amount_text,
                 amount_right_x,
-                row_top - 14,
+                row_cursor - 10,
                 10,
                 color_key="red" if amount_text != "-" else "muted",
                 font_override=font_bold if amount_text != "-" else None,
             )
+            set_stroke("divider")
+            pdf.setLineWidth(0.8)
+            pdf.line(table_x, row_cursor - row_height + 4, table_x + table_width, row_cursor - row_height + 4)
             row_cursor -= row_height
-            pdf.line(table_x, row_cursor, table_x + table_width, row_cursor)
 
-        footer_y = sheet_bottom + 16
+        footer_y = deductions_bottom - 16
         write_line("Bu belge aylık kurye ödeme özetini gösterir.", content_left, footer_y, 7, color_key="muted")
 
         pdf.save()
