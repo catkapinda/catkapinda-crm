@@ -1280,9 +1280,7 @@ export default function StatusPage() {
                 ...cardStyle(),
                 display: "grid",
                 gap: "16px",
-                border: releaseAlignment.mismatch
-                  ? "1px solid rgba(239, 68, 68, 0.16)"
-                  : "1px solid rgba(219, 228, 243, 0.9)",
+                border: "1px solid rgba(219, 228, 243, 0.9)",
                 background: "rgba(255,255,255,0.98)",
               }}
             >
@@ -1296,18 +1294,11 @@ export default function StatusPage() {
                 }}
               >
                 <div style={{ display: "grid", gap: "10px" }}>
-                  <div style={statusPill(!releaseAlignment.mismatch)}>
-                    {releaseAlignment.mismatch
-                      ? "Sürüm Uyumsuzluğu"
-                      : releaseAlignment.bothPresent
-                        ? "Sürümler Uyumlu"
-                        : "Sürüm Etiketi Bekleniyor"}
-                  </div>
+                  <div style={tonePill("info")}>Deploy Kayıtları</div>
                   <div style={{ display: "grid", gap: "6px" }}>
                     <h2 style={{ margin: 0, fontSize: "1.1rem", color: "#142743" }}>Sürüm ve Deploy Hizası</h2>
                     <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7, maxWidth: "60ch" }}>
-                      Ön yüz ve arka ucun aynı committe buluşup buluşmadığını burada izliyoruz. Pilotta ilerlerken bu
-                      iki değer aynı kalmalı.
+                      Ön yüz ve arka uçta şu an görünen derleme kayıtlarını burada birlikte izliyoruz.
                     </p>
                   </div>
                 </div>
@@ -1316,25 +1307,19 @@ export default function StatusPage() {
                     minWidth: "210px",
                     padding: "14px 16px",
                     borderRadius: "18px",
-                    border: releaseAlignment.mismatch
-                      ? "1px solid rgba(239, 68, 68, 0.16)"
-                      : "1px solid rgba(15, 95, 215, 0.12)",
-                    background: releaseAlignment.mismatch
-                      ? "rgba(254, 242, 242, 0.88)"
-                      : "rgba(239, 246, 255, 0.86)",
+                    border: "1px solid rgba(15, 95, 215, 0.12)",
+                    background: "rgba(239, 246, 255, 0.86)",
                     display: "grid",
                     gap: "4px",
                   }}
                 >
                   <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#6b7280", letterSpacing: "0.03em" }}>
-                    AKTİF DURUM
+                    GÖRÜNEN KAYIT
                   </span>
-                  <strong style={{ fontSize: "1rem", color: releaseAlignment.mismatch ? "#b42318" : "#0f5fd7" }}>
-                    {releaseAlignment.mismatch
-                      ? "Servisler farklı deployda"
-                      : releaseAlignment.bothPresent
-                        ? "İki servis aynı committe"
-                        : "Commit etiketi bekleniyor"}
+                  <strong style={{ fontSize: "1rem", color: "#0f5fd7" }}>
+                    {releaseAlignment.bothPresent
+                      ? "Ön yüz ve arka uç kayıtları alındı"
+                      : "Commit etiketi bekleniyor"}
                   </strong>
                 </div>
               </div>
@@ -1400,16 +1385,14 @@ export default function StatusPage() {
                 style={{
                   paddingTop: "14px",
                   borderTop: "1px solid rgba(233, 239, 248, 0.95)",
-                  color: releaseAlignment.mismatch ? "#b42318" : "#5f7294",
+                  color: "#5f7294",
                   lineHeight: 1.7,
                   fontSize: "0.95rem",
                 }}
               >
-                {releaseAlignment.mismatch
-                  ? "Ön yüz ve arka uç şu anda farklı deploy kayıtlarında görünüyor. İki servis aynı committe buluştuğunda bu uyarı otomatik kapanacak."
-                  : releaseAlignment.bothPresent
-                    ? "İki servis aynı sürüm etiketini gösteriyor; pilot ve açılış kontrollerini doğru derleme üzerinden yaptığımızı buradan anlayabiliyoruz."
-                    : "Sürüm etiketi ortam değişkenlerinden henüz gelmiyor olabilir. Render kayıt bilgisi geldiğinde bu alan otomatik dolacak."}
+                {releaseAlignment.bothPresent
+                  ? "Bu alan yalnızca görünen deploy kayıtlarını özetler; operasyon akışını durduran ayrı bir uyarı olarak kullanılmaz."
+                  : "Sürüm etiketi ortam değişkenlerinden henüz gelmiyor olabilir. Render kayıt bilgisi geldiğinde bu alan otomatik dolacak."}
               </div>
             </section>
 
