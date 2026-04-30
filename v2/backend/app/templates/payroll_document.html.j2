@@ -6,177 +6,197 @@
   </head>
   <body>
     <main class="page">
-      <header class="doc-header">
-        <div class="brand-block">
-          {% if logo_uri %}
-          <img class="brand-logo" src="{{ logo_uri }}" alt="Çat Kapında" />
-          {% endif %}
-          <div class="brand-copy">
-            <div class="brand-label">ÇAT KAPINDA</div>
-            <h1>Kurye Hakediş Belgesi</h1>
+      <div class="page-inner">
+        <header class="header">
+          <div class="header-left">
+            <div class="brand-line">
+              {% if logo_uri %}
+              <img class="brand-logo" src="{{ logo_uri }}" alt="Çat Kapında" />
+              {% endif %}
+              <div class="brand-name">ÇAT KAPINDA</div>
+            </div>
+            <h1 class="document-title">Kurye Hakediş Belgesi</h1>
+            <p class="document-note">Bu belge aylık kurye ödeme özetini gösterir.</p>
           </div>
-        </div>
-        <div class="header-meta">
-          <div class="period">{{ period }}</div>
-          <div class="created-at">Oluşturma: {{ created_at }}</div>
-        </div>
-      </header>
+          <div class="header-right">
+            <div class="header-period">{{ period }}</div>
+            <div class="header-created">Oluşturma: {{ created_at }}</div>
+          </div>
+        </header>
 
-      <p class="header-note">Bu belge aylık kurye ödeme özetini gösterir.</p>
-
-      <section class="top-grid">
-        <article class="hero-card card">
-          <div class="hero-shell">
-            <div class="hero-label">Net Ödeme</div>
-            <div class="hero-amount">{{ net_payment }}</div>
-            <div class="hero-divider"></div>
-            <div class="hero-stats">
-              <div class="hero-stat">
-                <span class="hero-stat-label">Brüt Kazanç</span>
-                <strong class="hero-stat-value">{{ gross_earning }}</strong>
+        <section class="row">
+          <div class="col hero-col">
+            <article class="card hero-card">
+              <div class="hero-label">Net Ödeme</div>
+              <div class="hero-amount">{{ net_payment }}</div>
+              <div class="hero-divider"></div>
+              <div class="hero-stats">
+                <div class="hero-stat">
+                  <div class="hero-stat-label">Brüt Kazanç</div>
+                  <div class="hero-stat-value">{{ gross_earning }}</div>
+                </div>
+                <div class="hero-stat">
+                  <div class="hero-stat-label">Toplam Kesinti</div>
+                  <div class="hero-stat-value negative">{{ total_deduction }}</div>
+                </div>
+                <div class="hero-stat">
+                  <div class="hero-stat-label">Ödeme Durumu</div>
+                  <div class="hero-stat-value positive">Ödeme Hazır</div>
+                </div>
               </div>
-              <div class="hero-stat">
-                <span class="hero-stat-label">Toplam Kesinti</span>
-                <strong class="hero-stat-value danger">{{ total_deduction }}</strong>
+            </article>
+          </div>
+
+          <div class="col side-col">
+            <article class="card person-card">
+              <div class="person-head">
+                <div class="person-avatar">{{ courier_initials }}</div>
+                <div class="person-title-wrap">
+                  <div class="person-name">{{ courier_name }}</div>
+                  <div class="person-role">{{ courier_role }}</div>
+                </div>
               </div>
-              <div class="hero-stat">
-                <span class="hero-stat-label">Ödeme Durumu</span>
-                <strong class="hero-stat-value success">Ödeme Hazır</strong>
+
+              <table class="meta-table">
+                <tr>
+                  <td class="meta-label">Kod</td>
+                  <td class="meta-value">{{ courier_code }}</td>
+                </tr>
+                <tr>
+                  <td class="meta-label">Rol</td>
+                  <td class="meta-value">{{ courier_role }}</td>
+                </tr>
+                <tr>
+                  <td class="meta-label">Durum</td>
+                  <td class="meta-value"><span class="status-badge">{{ courier_status }}</span></td>
+                </tr>
+                <tr>
+                  <td class="meta-label">Saat</td>
+                  <td class="meta-value number">{{ total_hours }}</td>
+                </tr>
+                <tr>
+                  <td class="meta-label">Paket</td>
+                  <td class="meta-value number">{{ total_packages }}</td>
+                </tr>
+                <tr>
+                  <td class="meta-label">Şube</td>
+                  <td class="meta-value number">{{ total_branches }}</td>
+                </tr>
+              </table>
+            </article>
+          </div>
+        </section>
+
+        <section class="row">
+          <div class="col half-col left-gap">
+            <article class="card detail-card">
+              <div class="card-head">
+                <div class="card-title">Kesinti Kalemleri</div>
+                <div class="card-side">
+                  <div class="card-side-label">Toplam Kesinti</div>
+                  <div class="card-side-value negative">{{ total_deduction }}</div>
+                </div>
               </div>
-            </div>
-          </div>
-        </article>
 
-        <article class="person-card card">
-          <div class="person-top">
-            <div class="avatar">
-              <span>{{ courier_initials }}</span>
-            </div>
-            <div class="person-head">
-              <h2>{{ courier_name }}</h2>
-              <p>{{ courier_role }}</p>
-            </div>
-          </div>
+              <table class="detail-table">
+                <thead>
+                  <tr>
+                    <th>Kalem</th>
+                    <th>Tutar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if deduction_rows %}
+                  {% for item in deduction_rows %}
+                  <tr>
+                    <td>{{ item.label }}</td>
+                    <td class="negative number">{{ item.amount }}</td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td>—</td>
+                    <td class="number">—</td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
 
-          <div class="person-grid">
-            <div class="person-row">
-              <span class="label">Kod</span>
-              <span class="value">{{ courier_code }}</span>
-            </div>
-            <div class="person-row">
-              <span class="label">Rol</span>
-              <span class="value">{{ courier_role }}</span>
-            </div>
-            <div class="person-row">
-              <span class="label">Durum</span>
-              <span class="status-badge">{{ courier_status }}</span>
-            </div>
-            <div class="person-row">
-              <span class="label">Saat</span>
-              <span class="value">{{ total_hours }}</span>
-            </div>
-            <div class="person-row">
-              <span class="label">Paket</span>
-              <span class="value">{{ total_packages }}</span>
-            </div>
-            <div class="person-row">
-              <span class="label">Şube</span>
-              <span class="value">{{ total_branches }}</span>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section class="middle-grid">
-        <article class="card detail-card">
-          <div class="section-head">
-            <h3>Kesinti Kalemleri</h3>
-            <div class="summary-compact">
-              <span>Toplam Kesinti</span>
-              <strong class="danger">{{ total_deduction }}</strong>
-            </div>
+              <div class="summary-strip">
+                <span>Toplam Kesinti</span>
+                <strong class="negative number">{{ total_deduction }}</strong>
+              </div>
+            </article>
           </div>
 
-          <table class="detail-table">
-            <thead>
-              <tr>
-                <th>Kalem</th>
-                <th>Tutar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in deduction_rows %}
-              <tr>
-                <td>{{ item.label }}</td>
-                <td class="danger">{{ item.amount }}</td>
-              </tr>
+          <div class="col half-col">
+            <article class="card detail-card">
+              <div class="card-head single">
+                <div class="card-title">Fatura Detayları</div>
+              </div>
+
+              <table class="invoice-table">
+                <tr>
+                  <td>Fatura Matrahı</td>
+                  <td class="number">{{ invoice_base }}</td>
+                </tr>
+                <tr>
+                  <td>KDV (%20)</td>
+                  <td class="number">{{ invoice_vat }}</td>
+                </tr>
+                <tr>
+                  <td>Tevkifat</td>
+                  <td class="number">{{ tevkifat }}</td>
+                </tr>
+              </table>
+
+              <div class="invoice-total-box">
+                <div class="invoice-total-label">Fatura Toplamı</div>
+                <div class="invoice-total-value number">{{ invoice_total }}</div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="card operations-card">
+          <div class="operations-head">Çalışılan Restoran / Operasyon Noktası</div>
+          <div class="operations-note">Ay içinde puantaj görülen operasyon noktası</div>
+
+          <div class="operations-row">
+            <div class="operations-left">
+              {% if restaurants %}
+              {% for restaurant in restaurants %}
+              <div class="restaurant-line">{{ restaurant }}</div>
               {% endfor %}
-            </tbody>
-          </table>
-
-          <div class="summary-bar">
-            <span>Toplam Kesinti</span>
-            <strong class="danger">{{ total_deduction }}</strong>
-          </div>
-        </article>
-
-        <article class="card detail-card">
-          <div class="section-head plain">
-            <h3>Fatura Detayları</h3>
-          </div>
-
-          <div class="invoice-list">
-            <div class="invoice-row">
-              <span>Fatura Matrahı</span>
-              <strong>{{ invoice_base }}</strong>
+              {% else %}
+              <div class="restaurant-line">—</div>
+              {% endif %}
             </div>
-            <div class="invoice-row">
-              <span>KDV (%20)</span>
-              <strong>{{ invoice_vat }}</strong>
-            </div>
-            <div class="invoice-row">
-              <span>Tevkifat</span>
-              <strong>{{ tevkifat }}</strong>
+            <div class="operations-right">
+              <table class="kpi-table">
+                <tr>
+                  <td>
+                    <div class="kpi-label">Toplam Saat</div>
+                    <div class="kpi-value number">{{ total_hours }}</div>
+                  </td>
+                  <td>
+                    <div class="kpi-label">Toplam Paket</div>
+                    <div class="kpi-value number">{{ total_packages }}</div>
+                  </td>
+                  <td>
+                    <div class="kpi-label">Toplam Şube</div>
+                    <div class="kpi-value number">{{ total_branches }}</div>
+                  </td>
+                </tr>
+              </table>
             </div>
           </div>
+        </section>
 
-          <div class="invoice-total">
-            <span>Fatura Toplamı</span>
-            <strong>{{ invoice_total }}</strong>
-          </div>
-        </article>
-      </section>
-
-      <section class="card operations-card">
-        <div class="operations-copy">
-          <h3>Çalışılan Restoran / Operasyon Noktası</h3>
-          <div class="restaurant-list">
-            {% for restaurant in restaurants %}
-            <div class="restaurant-line">{{ restaurant }}</div>
-            {% endfor %}
-          </div>
-        </div>
-
-        <div class="operations-kpis">
-          <div class="op-kpi">
-            <span class="label">Toplam Saat</span>
-            <strong>{{ total_hours }}</strong>
-          </div>
-          <div class="op-kpi">
-            <span class="label">Toplam Paket</span>
-            <strong>{{ total_packages }}</strong>
-          </div>
-          <div class="op-kpi">
-            <span class="label">Toplam Şube</span>
-            <strong>{{ total_branches }}</strong>
-          </div>
-        </div>
-      </section>
-
-      <footer class="card footer-card">
-        <div class="footer-icon"></div>
-        <p>Bu belge, kurye hak edişlerine ilişkin bilgilendirme amacıyla hazırlanmıştır.</p>
-      </footer>
+        <footer class="card footer-card">
+          <div class="footer-copy">Bu belge, kurye hak edişlerine ilişkin bilgilendirme amacıyla hazırlanmıştır.</div>
+        </footer>
+      </div>
     </main>
   </body>
 </html>
