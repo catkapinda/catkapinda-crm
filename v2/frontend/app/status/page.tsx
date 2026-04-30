@@ -258,6 +258,27 @@ function actionButtonStyle(tone: "primary" | "ghost" = "ghost") {
   } as const;
 }
 
+function compactPanelStyle() {
+  return {
+    padding: "16px 18px",
+    borderRadius: "20px",
+    border: "1px solid rgba(219, 228, 243, 0.9)",
+    background: "rgba(248, 251, 255, 0.88)",
+    display: "grid",
+    gap: "12px",
+  } as const;
+}
+
+function compactCodeStyle() {
+  return {
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    fontSize: "0.84rem",
+    lineHeight: 1.65,
+    color: "#25406b",
+  } as const;
+}
+
 function tonePill(tone: string) {
   if (tone === "success") {
     return statusPill(true);
@@ -1642,55 +1663,44 @@ export default function StatusPage() {
               </section>
             ) : null}
 
-            {pilotLinks.length ? (
+            {pilotLinks.length || commandPack.length || smokeCommands.length || helperCommands.length || deploySteps.length || pilotServices.length || envSnippets.length ? (
               <section
                 style={{
                   ...cardStyle(),
                   display: "grid",
-                  gap: "16px",
+                  gap: "18px",
                 }}
               >
-                <div style={{ display: "grid", gap: "6px" }}>
-                  <div style={statusPill(Boolean(frontend?.backendReachable))}>Pilot Bağlantıları</div>
-                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Yayın sonrası bakacağın yerler</h2>
-                  <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
-                    Pilot açıldığında ekip bu linklerden ilerleyebilir. Aynı kartta smoke komutları da hazır.
-                  </p>
-                </div>
-
                 <div
                   style={{
                     display: "flex",
-                    gap: "12px",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: "16px",
                     flexWrap: "wrap",
                   }}
                 >
-                  {pilotLinks.map((link) => (
-                    <div
-                      key={link.href}
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <a href={link.href} style={actionButtonStyle(link.label === "Pilot Login" ? "primary" : "ghost")}>
-                        {link.label}
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => void copyText(`pilot-link-${link.label}`, link.href)}
-                        style={{
-                          ...actionButtonStyle(),
-                          cursor: "pointer",
-                          padding: "10px 12px",
-                        }}
-                      >
-                        {copiedKey === `pilot-link-${link.label}` ? "Kopyalandı" : "Bağlantıyı Kopyala"}
-                      </button>
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <div style={statusPill(Boolean(frontend?.backendReachable))}>Operasyon Rehberi</div>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot günü elimizin altındaki çekirdek araçlar</h2>
+                    <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.6, maxWidth: "72ch" }}>
+                      Link, komut, Render adımı ve env bloklarını tek yerde topladık. Alt alta aynı dilde giden uzun dökümler yerine
+                      burada ihtiyaç anında açacağımız daha sıkı bir rehber var.
+                    </p>
+                  </div>
+                  {pilotLinks.length ? (
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      {pilotLinks.map((link) => (
+                        <a
+                          key={link.href}
+                          href={link.href}
+                          style={actionButtonStyle(link.label === "Pilot Login" ? "primary" : "ghost")}
+                        >
+                          {link.label}
+                        </a>
+                      ))}
                     </div>
-                  ))}
+                  ) : null}
                 </div>
 
                 <div
@@ -1700,37 +1710,22 @@ export default function StatusPage() {
                     gap: "14px",
                   }}
                 >
-                  {commandPack.length ? (
-                    <div
-                      style={{
-                        gridColumn: "1 / -1",
-                        display: "grid",
-                        gap: "14px",
-                      }}
-                    >
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: "1rem" }}>Açılış Komut Paketi</h3>
-                        <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                          Pilot günü hangi komutu hangi sırayla çalıştıracağımızı tek blokta görüyoruz.
-                        </p>
-                      </div>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                          gap: "14px",
-                        }}
-                      >
+                  {commandPack.length || smokeCommands.length ? (
+                    <details open style={compactPanelStyle()}>
+                      <summary style={{ cursor: "pointer", fontWeight: 800, color: "#142743" }}>
+                        Açılış Komutları ve Smoke Kontrolleri
+                      </summary>
+                      <div style={{ display: "grid", gap: "12px", marginTop: "8px" }}>
                         {commandPack.map((entry) => (
-                          <div
+                          <article
                             key={entry.title}
                             style={{
-                              padding: "16px",
-                              borderRadius: "18px",
+                              padding: "14px",
+                              borderRadius: "16px",
                               border: "1px solid rgba(219, 228, 243, 0.9)",
-                              background: "rgba(248, 251, 255, 0.92)",
+                              background: "rgba(255,255,255,0.92)",
                               display: "grid",
-                              gap: "10px",
+                              gap: "8px",
                             }}
                           >
                             <div
@@ -1746,395 +1741,25 @@ export default function StatusPage() {
                               <button
                                 type="button"
                                 onClick={() => void copyText(`command-pack-${entry.title}`, entry.command)}
-                                style={{
-                                  ...actionButtonStyle(),
-                                  cursor: "pointer",
-                                  padding: "10px 12px",
-                                }}
+                                style={{ ...actionButtonStyle(), cursor: "pointer", padding: "10px 12px" }}
                               >
-                                {copiedKey === `command-pack-${entry.title}` ? "Kopyalandı" : "Komutu Kopyala"}
+                                {copiedKey === `command-pack-${entry.title}` ? "Kopyalandı" : "Kopyala"}
                               </button>
                             </div>
-                            <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{entry.detail}</div>
-                            <code
-                              style={{
-                                whiteSpace: "pre-wrap",
-                                wordBreak: "break-word",
-                                fontSize: "0.88rem",
-                                lineHeight: 1.7,
-                                color: "#25406b",
-                              }}
-                            >
-                              {entry.command}
-                            </code>
-                          </div>
+                            <div style={{ color: "#5f7294", lineHeight: 1.55 }}>{entry.detail}</div>
+                            <code style={compactCodeStyle()}>{entry.command}</code>
+                          </article>
                         ))}
-                      </div>
-                    </div>
-                  ) : null}
-                  {smokeCommands.map((command) => (
-                    <div
-                      key={command.label}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "18px",
-                        border: "1px solid rgba(219, 228, 243, 0.9)",
-                        background: "rgba(248, 251, 255, 0.92)",
-                        display: "grid",
-                        gap: "10px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "10px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <strong>{command.label}</strong>
-                        <button
-                          type="button"
-                          onClick={() => void copyText(`smoke-${command.label}`, command.command)}
-                          style={{
-                            ...actionButtonStyle(),
-                            cursor: "pointer",
-                            padding: "10px 12px",
-                          }}
-                        >
-                          {copiedKey === `smoke-${command.label}` ? "Kopyalandı" : "Komutu Kopyala"}
-                        </button>
-                      </div>
-                      <code
-                        style={{
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                          fontSize: "0.88rem",
-                          lineHeight: 1.7,
-                          color: "#25406b",
-                        }}
-                      >
-                        {command.command}
-                      </code>
-                    </div>
-                  ))}
-                </div>
-
-                {helperCommands.length ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gap: "14px",
-                    }}
-                  >
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: "1rem" }}>Ortam Yardımcı Komutları</h3>
-                      <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                        Render env bloklarini tek komutta üretmek için bu yardımcıları kullanabiliriz.
-                      </p>
-                    </div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                        gap: "14px",
-                      }}
-                    >
-                      {envHelperCommands.map((command) => (
-                        <div
-                          key={command.label}
-                          style={{
-                            padding: "16px",
-                            borderRadius: "18px",
-                            border: "1px solid rgba(219, 228, 243, 0.9)",
-                            background: "rgba(248, 251, 255, 0.92)",
-                            display: "grid",
-                            gap: "10px",
-                          }}
-                        >
-                          <div
+                        {smokeCommands.map((command) => (
+                          <article
+                            key={command.label}
                             style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: "10px",
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            <strong>{command.label}</strong>
-                            <button
-                              type="button"
-                              onClick={() => void copyText(`helper-${command.label}`, command.command)}
-                              style={{
-                                ...actionButtonStyle(),
-                                cursor: "pointer",
-                                padding: "10px 12px",
-                              }}
-                            >
-                              {copiedKey === `helper-${command.label}` ? "Kopyalandı" : "Komutu Kopyala"}
-                            </button>
-                          </div>
-                          <code
-                            style={{
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-word",
-                              fontSize: "0.88rem",
-                              lineHeight: 1.7,
-                              color: "#25406b",
-                            }}
-                          >
-                            {command.command}
-                          </code>
-                        </div>
-                      ))}
-                    </div>
-                    {packetHelperCommands.length ? (
-                      <div style={{ display: "grid", gap: "14px" }}>
-                        <div>
-                          <h3 style={{ margin: 0, fontSize: "1rem" }}>Açılış Paketi Komutları</h3>
-                          <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                            Ekip için paylaşılabilir markdown açılış paketi üretmek istediğimizde bu komutları kullanabiliriz.
-                          </p>
-                        </div>
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                            gap: "14px",
-                          }}
-                        >
-                          {packetHelperCommands.map((command) => (
-                            <div
-                              key={command.label}
-                              style={{
-                                padding: "16px",
-                                borderRadius: "18px",
-                                border: "1px solid rgba(219, 228, 243, 0.9)",
-                                background: "rgba(248, 251, 255, 0.92)",
-                                display: "grid",
-                                gap: "10px",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  gap: "10px",
-                                  flexWrap: "wrap",
-                                }}
-                              >
-                                <strong>{command.label}</strong>
-                                <button
-                                  type="button"
-                                  onClick={() => void copyText(`helper-${command.label}`, command.command)}
-                                  style={{
-                                    ...actionButtonStyle(),
-                                    cursor: "pointer",
-                                    padding: "10px 12px",
-                                  }}
-                                >
-                                  {copiedKey === `helper-${command.label}` ? "Kopyalandı" : "Komutu Kopyala"}
-                                </button>
-                              </div>
-                              <code
-                                style={{
-                                  whiteSpace: "pre-wrap",
-                                  wordBreak: "break-word",
-                                  fontSize: "0.88rem",
-                                  lineHeight: 1.7,
-                                  color: "#25406b",
-                                }}
-                              >
-                                {command.command}
-                              </code>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                    {quickCheckCommands.length ? (
-                      <div style={{ display: "grid", gap: "14px" }}>
-                        <div>
-                          <h3 style={{ margin: 0, fontSize: "1rem" }}>Hızlı Kontrol Komutları</h3>
-                          <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                            Full smoke koşturmadan önce servislerin temel sağlık yanıtlarını hızlıca doğrulamak için kullanabiliriz.
-                          </p>
-                        </div>
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                            gap: "14px",
-                          }}
-                        >
-                          {quickCheckCommands.map((command) => (
-                            <div
-                              key={command.label}
-                              style={{
-                                padding: "16px",
-                                borderRadius: "18px",
-                                border: "1px solid rgba(219, 228, 243, 0.9)",
-                                background: "rgba(248, 251, 255, 0.92)",
-                                display: "grid",
-                                gap: "10px",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  gap: "10px",
-                                  flexWrap: "wrap",
-                                }}
-                              >
-                                <strong>{command.label}</strong>
-                                <button
-                                  type="button"
-                                  onClick={() => void copyText(`helper-${command.label}`, command.command)}
-                                  style={{
-                                    ...actionButtonStyle(),
-                                    cursor: "pointer",
-                                    padding: "10px 12px",
-                                  }}
-                                >
-                                  {copiedKey === `helper-${command.label}` ? "Kopyalandı" : "Komutu Kopyala"}
-                                </button>
-                              </div>
-                              <code
-                                style={{
-                                  whiteSpace: "pre-wrap",
-                                  wordBreak: "break-word",
-                                  fontSize: "0.88rem",
-                                  lineHeight: 1.7,
-                                  color: "#25406b",
-                                }}
-                              >
-                                {command.command}
-                              </code>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
-
-            {deploySteps.length ? (
-              <section
-                style={{
-                  ...cardStyle(),
-                  display: "grid",
-                  gap: "16px",
-                }}
-              >
-                <div style={{ display: "grid", gap: "6px" }}>
-                  <div style={statusPill(true)}>Render Açılış Adımları</div>
-                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Pilotu açarken izleyeceğimiz sıra</h2>
-                  <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
-                    Bu bölüm doğrudan Render tarafındaki manuel kurulumu adım adım özetler. Zamanı geldiğinde tek referans ekranımız burası olacak.
-                  </p>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                    gap: "14px",
-                  }}
-                >
-                  {deploySteps.map((step) => (
-                    <article
-                      key={step.title}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "18px",
-                        border: "1px solid rgba(219, 228, 243, 0.9)",
-                        background: "rgba(248, 251, 255, 0.92)",
-                        display: "grid",
-                        gap: "10px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "10px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <strong>{step.title}</strong>
-                        {step.service_name ? <div style={statusPill(true)}>{step.service_name}</div> : null}
-                      </div>
-                      <div style={{ color: "#5f7294", lineHeight: 1.7 }}>{step.detail}</div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {pilotServices.length ? (
-              <section
-                id="render-services"
-                style={{
-                  ...cardStyle(),
-                  display: "grid",
-                  gap: "16px",
-                }}
-              >
-                <div style={{ display: "grid", gap: "6px" }}>
-                  <div style={statusPill(true)}>Render Servisleri</div>
-                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Pilotta açacağımız servisler</h2>
-                  <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
-                    Render üzerinde göreceğin servis adları ve açık sağlık adresleri burada tek yerde duruyor.
-                  </p>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                    gap: "14px",
-                  }}
-                >
-                  {pilotServices.map((service) => (
-                    <div
-                      key={service.name}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "18px",
-                        border: "1px solid rgba(219, 228, 243, 0.9)",
-                        background: "rgba(248, 251, 255, 0.92)",
-                        display: "grid",
-                        gap: "10px",
-                      }}
-                    >
-                      <div style={statusPill(service.service_type === "frontend")}>
-                        {service.service_type === "frontend" ? "Ön Yüz Servisi" : "Arka Uç Servisi"}
-                      </div>
-                      <strong style={{ fontSize: "1rem" }}>{service.name}</strong>
-                      <div style={{ color: "#5f7294", fontSize: "0.92rem", lineHeight: 1.7 }}>
-                        Açık Adres: {service.public_url}
-                      </div>
-                      <div style={{ color: "#5f7294", fontSize: "0.92rem", lineHeight: 1.7 }}>
-                        Sağlık Adresi: {service.health_path}
-                      </div>
-                      <div style={{ display: "grid", gap: "8px" }}>
-                        {service.env_vars.map((entry) => (
-                          <div
-                            key={`${service.name}-${entry.key}`}
-                            style={{
-                              display: "grid",
-                              gap: "4px",
-                              padding: "10px 12px",
-                              borderRadius: "14px",
+                              padding: "14px",
+                              borderRadius: "16px",
                               border: "1px solid rgba(219, 228, 243, 0.9)",
                               background: "rgba(255,255,255,0.92)",
+                              display: "grid",
+                              gap: "8px",
                             }}
                           >
                             <div
@@ -2146,93 +1771,220 @@ export default function StatusPage() {
                                 flexWrap: "wrap",
                               }}
                             >
-                              <strong style={{ fontSize: "0.92rem" }}>{entry.key}</strong>
-                              <div style={statusPill(entry.configured || !entry.required)}>
-                                {entry.configured ? "Hazır" : entry.required ? "Zorunlu" : "Opsiyonel"}
-                              </div>
+                              <strong>{command.label}</strong>
+                              <button
+                                type="button"
+                                onClick={() => void copyText(`smoke-${command.label}`, command.command)}
+                                style={{ ...actionButtonStyle(), cursor: "pointer", padding: "10px 12px" }}
+                              >
+                                {copiedKey === `smoke-${command.label}` ? "Kopyalandı" : "Kopyala"}
+                              </button>
                             </div>
-                            {entry.detail ? (
-                              <div style={{ color: "#5f7294", fontSize: "0.86rem", lineHeight: 1.5 }}>{entry.detail}</div>
-                            ) : null}
-                          </div>
+                            <code style={compactCodeStyle()}>{command.command}</code>
+                          </article>
                         ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
+                    </details>
+                  ) : null}
 
-            {envSnippets.length ? (
-              <section
-                style={{
-                  ...cardStyle(),
-                  display: "grid",
-                  gap: "16px",
-                }}
-              >
-                <div style={{ display: "grid", gap: "6px" }}>
-                  <div style={statusPill(true)}>Kopyala Yapıştır Ortam Planı</div>
-                  <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Render'a girilecek örnek env blokları</h2>
-                  <p style={{ margin: 0, color: "#5f7294", lineHeight: 1.7 }}>
-                    Pilotu açarken servis bazlı ortam değişkenlerini buradan referans alabilirsin. V2 servisleri yanında eski Streamlit servisine geçiş bandı veya yönlendirme vermek için gereken ortam bloğu da burada. Gizli alanları kendi gerçek değerlerinle doldurman yeterli.
-                  </p>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                    gap: "14px",
-                  }}
-                >
-                  {envSnippets.map((snippet) => (
-                    <article
-                      key={snippet.service_name}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "18px",
-                        border: "1px solid rgba(219, 228, 243, 0.9)",
-                        background: "rgba(248, 251, 255, 0.92)",
-                        display: "grid",
-                        gap: "10px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "10px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <strong>{snippet.title}</strong>
-                        <button
-                          type="button"
-                          onClick={() => void copyText(`env-${snippet.service_name}`, snippet.body)}
-                          style={{
-                            ...actionButtonStyle(),
-                            cursor: "pointer",
-                            padding: "10px 12px",
-                          }}
-                        >
-                          {copiedKey === `env-${snippet.service_name}` ? "Kopyalandı" : "Ortam Bloğunu Kopyala"}
-                        </button>
+                  {helperCommands.length ? (
+                    <details style={compactPanelStyle()}>
+                      <summary style={{ cursor: "pointer", fontWeight: 800, color: "#142743" }}>
+                        Yardımcı Komutlar ve Paket Üretimi
+                      </summary>
+                      <div style={{ display: "grid", gap: "12px", marginTop: "8px" }}>
+                        {[
+                          { title: "Env Yardımcıları", commands: envHelperCommands },
+                          { title: "Açılış Paketi", commands: packetHelperCommands },
+                          { title: "Hızlı Kontroller", commands: quickCheckCommands },
+                        ].map(({ title, commands }) =>
+                          commands.length ? (
+                            <div key={title} style={{ display: "grid", gap: "8px" }}>
+                              <strong style={{ fontSize: "0.92rem", color: "#35507d" }}>{title}</strong>
+                              {commands.map((command) => (
+                                <article
+                                  key={command.label}
+                                  style={{
+                                    padding: "14px",
+                                    borderRadius: "16px",
+                                    border: "1px solid rgba(219, 228, 243, 0.9)",
+                                    background: "rgba(255,255,255,0.92)",
+                                    display: "grid",
+                                    gap: "8px",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                      gap: "10px",
+                                      flexWrap: "wrap",
+                                    }}
+                                  >
+                                    <strong>{command.label}</strong>
+                                    <button
+                                      type="button"
+                                      onClick={() => void copyText(`helper-${command.label}`, command.command)}
+                                      style={{ ...actionButtonStyle(), cursor: "pointer", padding: "10px 12px" }}
+                                    >
+                                      {copiedKey === `helper-${command.label}` ? "Kopyalandı" : "Kopyala"}
+                                    </button>
+                                  </div>
+                                  <code style={compactCodeStyle()}>{command.command}</code>
+                                </article>
+                              ))}
+                            </div>
+                          ) : null,
+                        )}
                       </div>
-                      <code
-                        style={{
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                          fontSize: "0.88rem",
-                          lineHeight: 1.7,
-                          color: "#25406b",
-                        }}
-                      >
-                        {snippet.body}
-                      </code>
-                    </article>
-                  ))}
+                    </details>
+                  ) : null}
+
+                  {deploySteps.length ? (
+                    <details style={compactPanelStyle()}>
+                      <summary style={{ cursor: "pointer", fontWeight: 800, color: "#142743" }}>
+                        Render Açılış Sırası
+                      </summary>
+                      <div style={{ display: "grid", gap: "10px", marginTop: "8px" }}>
+                        {deploySteps.map((step, index) => (
+                          <article
+                            key={step.title}
+                            style={{
+                              padding: "14px",
+                              borderRadius: "16px",
+                              border: "1px solid rgba(219, 228, 243, 0.9)",
+                              background: "rgba(255,255,255,0.92)",
+                              display: "grid",
+                              gap: "6px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "10px",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <strong>
+                                {index + 1}. {step.title}
+                              </strong>
+                              {step.service_name ? <div style={statusPill(true)}>{step.service_name}</div> : null}
+                            </div>
+                            <div style={{ color: "#5f7294", lineHeight: 1.55 }}>{step.detail}</div>
+                          </article>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
+
+                  {pilotServices.length || envSnippets.length ? (
+                    <details style={compactPanelStyle()}>
+                      <summary style={{ cursor: "pointer", fontWeight: 800, color: "#142743" }}>
+                        Servisler ve Ortam Blokları
+                      </summary>
+                      <div style={{ display: "grid", gap: "12px", marginTop: "8px" }}>
+                        {pilotServices.length ? (
+                          <div style={{ display: "grid", gap: "10px" }}>
+                            {pilotServices.map((service) => (
+                              <article
+                                key={service.name}
+                                style={{
+                                  padding: "14px",
+                                  borderRadius: "16px",
+                                  border: "1px solid rgba(219, 228, 243, 0.9)",
+                                  background: "rgba(255,255,255,0.92)",
+                                  display: "grid",
+                                  gap: "8px",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: "10px",
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <strong>{service.name}</strong>
+                                  <div style={statusPill(service.service_type === "frontend")}>
+                                    {service.service_type === "frontend" ? "Ön yüz" : "Arka uç"}
+                                  </div>
+                                </div>
+                                <div style={{ color: "#5f7294", fontSize: "0.9rem", lineHeight: 1.55 }}>
+                                  {service.public_url}
+                                </div>
+                                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                                  {service.env_vars.map((entry) => (
+                                    <div
+                                      key={`${service.name}-${entry.key}`}
+                                      style={{
+                                        padding: "8px 10px",
+                                        borderRadius: "999px",
+                                        border: "1px solid rgba(219, 228, 243, 0.9)",
+                                        background: "rgba(248, 251, 255, 0.92)",
+                                        color: "#35507d",
+                                        fontSize: "0.82rem",
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      {entry.key} · {entry.configured ? "Hazır" : entry.required ? "Zorunlu" : "Opsiyonel"}
+                                    </div>
+                                  ))}
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        ) : null}
+                        {envSnippets.length ? (
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                              gap: "10px",
+                            }}
+                          >
+                            {envSnippets.map((snippet) => (
+                              <article
+                                key={snippet.service_name}
+                                style={{
+                                  padding: "14px",
+                                  borderRadius: "16px",
+                                  border: "1px solid rgba(219, 228, 243, 0.9)",
+                                  background: "rgba(255,255,255,0.92)",
+                                  display: "grid",
+                                  gap: "8px",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: "10px",
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <strong>{snippet.title}</strong>
+                                  <button
+                                    type="button"
+                                    onClick={() => void copyText(`env-${snippet.service_name}`, snippet.body)}
+                                    style={{ ...actionButtonStyle(), cursor: "pointer", padding: "10px 12px" }}
+                                  >
+                                    {copiedKey === `env-${snippet.service_name}` ? "Kopyalandı" : "Env Kopyala"}
+                                  </button>
+                                </div>
+                                <code style={compactCodeStyle()}>{snippet.body}</code>
+                              </article>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    </details>
+                  ) : null}
                 </div>
               </section>
             ) : null}
@@ -2377,389 +2129,158 @@ export default function StatusPage() {
               </div>
             </section>
 
-            <section style={cardStyle()}>
+            <section
+              style={{
+                ...cardStyle(),
+                display: "grid",
+                gap: "18px",
+              }}
+            >
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: "18px",
+                  gap: "16px",
                   flexWrap: "wrap",
                 }}
               >
                 <div>
-                  <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Modülleri</h2>
+                  <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Çalışma Seti</h2>
                   <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                    Pilot açıldığında ekip doğrudan bu modülleri test edecek. Hazır modüller yeni sistemden açılabilir.
+                    Modüller, ilk test rotası ve giriş hesapları aynı bakışta dursun diye bu alanı tek çalışma setinde topladık.
                   </p>
                 </div>
                 <div style={statusPill(backendModules.every((entry) => entry.status === "active") && backendModules.length > 0)}>
                   {backendModules.filter((entry) => entry.status === "active").length}/{backendModules.length || 0} modül hazır
                 </div>
               </div>
+
               <div
                 style={{
-                  marginTop: "18px",
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: "12px",
+                  gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)",
+                  gap: "16px",
                 }}
               >
-                {backendModules.map((module) => (
-                  <article
-                    key={module.module}
-                    style={{
-                      padding: "16px",
-                      borderRadius: "18px",
-                      border: "1px solid rgba(219, 228, 243, 0.9)",
-                      background: "rgba(248, 250, 255, 0.86)",
-                      display: "grid",
-                      gap: "10px",
-                    }}
-                  >
+                <div style={{ display: "grid", gap: "12px" }}>
+                  <div style={compactPanelStyle()}>
+                    <strong style={{ color: "#142743" }}>Pilot Modülleri</strong>
                     <div
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
                         gap: "10px",
                       }}
                     >
-                      <strong>{module.label}</strong>
-                      <div style={statusPill(module.status === "active")}>
-                        {module.status === "active" ? "Hazır" : module.status}
-                      </div>
+                      {backendModules.map((module) => (
+                        <article
+                          key={module.module}
+                          style={{
+                            padding: "14px",
+                            borderRadius: "16px",
+                            border: "1px solid rgba(219, 228, 243, 0.9)",
+                            background: "rgba(255,255,255,0.92)",
+                            display: "grid",
+                            gap: "8px",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                            <strong>{module.label}</strong>
+                            <div style={statusPill(module.status === "active")}>
+                              {module.status === "active" ? "Hazır" : module.status}
+                            </div>
+                          </div>
+                          <div style={{ color: "#5f7294", fontSize: "0.9rem", lineHeight: 1.5 }}>{module.next_slice}</div>
+                          {module.missing_tables.length ? (
+                            <div style={{ color: "#c24141", fontSize: "0.86rem", lineHeight: 1.45 }}>
+                              Eksik: {module.missing_tables.join(", ")}
+                            </div>
+                          ) : null}
+                          <Link href={module.href} style={actionButtonStyle()}>
+                            Modülü Aç
+                          </Link>
+                        </article>
+                      ))}
                     </div>
-                    <div style={{ color: "#5f7294", fontSize: "0.92rem" }}>{module.next_slice}</div>
-                    {module.detail ? (
-                      <div style={{ color: "#5f7294", fontSize: "0.9rem", lineHeight: 1.5 }}>{module.detail}</div>
-                    ) : null}
-                    {module.missing_tables.length ? (
-                      <div style={{ color: "#c24141", fontSize: "0.88rem", lineHeight: 1.5 }}>
-                        Eksik tablolar: {module.missing_tables.join(", ")}
-                      </div>
-                    ) : null}
-                    <Link
-                      href={module.href}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "10px 12px",
-                        borderRadius: "14px",
-                        border: "1px solid rgba(15, 95, 215, 0.18)",
-                        background: "rgba(15, 95, 215, 0.06)",
-                        color: "#0f5fd7",
-                        fontWeight: 800,
-                        textDecoration: "none",
-                      }}
-                    >
-                      Modülü Aç
-                    </Link>
-                  </article>
-                ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gap: "12px" }}>
+                  <div style={compactPanelStyle()}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+                      <strong style={{ color: "#142743" }}>İlk Pilot Test Akışı</strong>
+                      <div style={statusPill(pilotFlow.length > 0)}>{pilotFlow.length} adım</div>
+                    </div>
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      {pilotFlow.map((step) => (
+                        <article
+                          key={step.title}
+                          style={{
+                            padding: "14px",
+                            borderRadius: "16px",
+                            border: "1px solid rgba(219, 228, 243, 0.9)",
+                            background: "rgba(255,255,255,0.92)",
+                            display: "grid",
+                            gap: "8px",
+                          }}
+                        >
+                          <strong>{step.title}</strong>
+                          <div style={{ color: "#5f7294", lineHeight: 1.55 }}>{step.detail}</div>
+                          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            <Link href={step.href} style={actionButtonStyle()}>
+                              Aç
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => void copyText(`pilot-flow-${step.title}`, `${step.title}\n${step.detail}\n${step.href}`)}
+                              style={{ ...actionButtonStyle(), cursor: "pointer", padding: "10px 12px" }}
+                            >
+                              {copiedKey === `pilot-flow-${step.title}` ? "Kopyalandı" : "Kopyala"}
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={compactPanelStyle()}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+                      <strong style={{ color: "#142743" }}>Pilot Giriş Hesapları</strong>
+                      <div style={statusPill(pilotAccounts.length > 0)}>{pilotAccounts.length} hesap</div>
+                    </div>
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      {pilotAccounts.map((account) => (
+                        <article
+                          key={account.email}
+                          style={{
+                            padding: "14px",
+                            borderRadius: "16px",
+                            border: "1px solid rgba(219, 228, 243, 0.9)",
+                            background: "rgba(255,255,255,0.92)",
+                            display: "grid",
+                            gap: "6px",
+                          }}
+                        >
+                          <strong>{account.full_name}</strong>
+                          <div style={{ color: "#35507d", lineHeight: 1.45 }}>{account.email}</div>
+                          <div style={{ color: "#5f7294", lineHeight: 1.45 }}>{account.role}</div>
+                          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            <div style={statusPill(true)}>E-posta</div>
+                            <div style={statusPill(account.has_phone)}>Telefon {account.has_phone ? "hazır" : "eksik"}</div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
-            <section
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)",
-                gap: "18px",
-              }}
-            >
-              <article style={cardStyle()}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "16px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div>
-                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>İlk Pilot Test Akışı</h2>
-                    <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                      Ofisin yeni sisteme ilk girişte izleyeceği önerilen kısa rota.
-                    </p>
-                  </div>
-                  <div style={statusPill(pilotFlow.length > 0)}>{pilotFlow.length} adım</div>
-                </div>
-              <div style={{ marginTop: "18px", display: "grid", gap: "12px" }}>
-                {pilotFlow.map((step) => (
-                  <article
-                    key={step.title}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "18px",
-                        border: "1px solid rgba(219, 228, 243, 0.9)",
-                        background: "rgba(248, 250, 255, 0.86)",
-                        display: "grid",
-                        gap: "8px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "10px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <strong>{step.title}</strong>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => void copyText(`pilot-flow-${step.title}`, `${step.title}\n${step.detail}\n${step.href}`)}
-                            style={{
-                              ...actionButtonStyle(),
-                              cursor: "pointer",
-                              padding: "10px 12px",
-                            }}
-                          >
-                            {copiedKey === `pilot-flow-${step.title}` ? "Kopyalandı" : "Adımı Kopyala"}
-                          </button>
-                        </div>
-                      </div>
-                      <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{step.detail}</div>
-                      <div>
-                        <Link href={step.href} style={actionButtonStyle()}>
-                          Adımı Aç
-                        </Link>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </article>
-
-              <article style={cardStyle()}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "16px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div>
-                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Giriş Hesapları</h2>
-                    <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                      İlk denemede kullanılabilecek yönetici hesaplar ve telefon giriş durumu.
-                    </p>
-                  </div>
-                  <div style={statusPill(pilotAccounts.length > 0)}>{pilotAccounts.length} hesap</div>
-                </div>
-                <div style={{ marginTop: "18px", display: "grid", gap: "12px" }}>
-                  {pilotAccounts.map((account) => (
-                    <article
-                      key={account.email}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "18px",
-                        border: "1px solid rgba(219, 228, 243, 0.9)",
-                        background: "rgba(248, 250, 255, 0.86)",
-                        display: "grid",
-                        gap: "8px",
-                      }}
-                    >
-                      <strong>{account.full_name}</strong>
-                      <div style={{ color: "#35507d", lineHeight: 1.5 }}>{account.email}</div>
-                      <div style={{ color: "#5f7294", lineHeight: 1.5 }}>{account.role}</div>
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                        <div style={statusPill(true)}>E-posta giriş</div>
-                        <div style={statusPill(account.has_phone)}>Telefon {account.has_phone ? "hazır" : "eksik"}</div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </article>
-            </section>
-
-            {pilotScenarios.length ? (
-              <section id="pilot-scenarios" style={cardStyle()}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "16px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div>
-                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Test Senaryoları</h2>
-                    <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                      Pilotu açtığımız ilk gün ekip bunları sırasıyla denerse yeni sistemin ana operasyon akışları hızlı şekilde doğrulanır.
-                    </p>
-                  </div>
-                  <div style={statusPill(pilotScenarios.length > 0)}>{pilotScenarios.length} senaryo</div>
-                </div>
-                <div
-                  style={{
-                    marginTop: "18px",
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                    gap: "12px",
-                  }}
-                >
-                  {pilotScenarios.map((scenario) => (
-                    <article
-                      key={scenario.title}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "18px",
-                        border: "1px solid rgba(219, 228, 243, 0.9)",
-                        background: "rgba(248, 250, 255, 0.86)",
-                        display: "grid",
-                        gap: "10px",
-                      }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "10px",
-                          flexWrap: "wrap",
-                          }}
-                        >
-                          <strong>{scenario.title}</strong>
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "8px",
-                              alignItems: "center",
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            <div style={statusPill(true)}>{scenario.module}</div>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void copyText(
-                                  `pilot-scenario-${scenario.title}`,
-                                  `${scenario.title}\n${scenario.module}\n${scenario.detail}\nBaşarı işareti: ${scenario.success_hint}\n${scenario.href}`,
-                                )
-                              }
-                              style={{
-                                ...actionButtonStyle(),
-                                cursor: "pointer",
-                                padding: "10px 12px",
-                              }}
-                            >
-                              {copiedKey === `pilot-scenario-${scenario.title}` ? "Kopyalandı" : "Senaryoyu Kopyala"}
-                            </button>
-                          </div>
-                        </div>
-                      <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{scenario.detail}</div>
-                      <div
-                        style={{
-                          padding: "12px 14px",
-                          borderRadius: "16px",
-                          border: "1px solid rgba(15, 95, 215, 0.12)",
-                          background: "rgba(15, 95, 215, 0.05)",
-                          color: "#35507d",
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        Basari isareti: {scenario.success_hint}
-                      </div>
-                      <div>
-                        <Link href={scenario.href} style={actionButtonStyle()}>
-                          Senaryoyu Ac
-                        </Link>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {rolloutSteps.length ? (
-              <section id="rollout-steps" style={cardStyle()}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "16px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div>
-                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Pilot Açılış Sırası</h2>
-                    <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                      Render tarafında adım adım hangi sırayla ilerleyeceğimizi burada net olarak görebilirsin.
-                    </p>
-                  </div>
-                  <div style={statusPill(rolloutSteps.every((step) => step.status !== "blocked"))}>{rolloutSteps.length} adım</div>
-                </div>
-                <div style={{ marginTop: "18px", display: "grid", gap: "12px" }}>
-                  {rolloutSteps.map((step) => (
-                    <article
-                      key={step.title}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "18px",
-                        border: "1px solid rgba(219, 228, 243, 0.9)",
-                        background: "rgba(248, 250, 255, 0.86)",
-                        display: "grid",
-                        gap: "8px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "12px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <strong>{step.title}</strong>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <div style={statusPill(step.status === "ready")}>
-                            {step.status === "ready" ? "Hazır" : step.status === "blocked" ? "Bloklu" : "Sırada"}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ color: "#5f7294", lineHeight: 1.6 }}>{step.detail}</div>
-                      {step.service_name ? (
-                        <div style={{ color: "#35507d", fontSize: "0.92rem", lineHeight: 1.5 }}>
-                          Servis: {step.service_name}
-                        </div>
-                      ) : null}
-                      {step.env_keys.length ? (
-                        <div style={{ color: "#5f7294", fontSize: "0.9rem", lineHeight: 1.5 }}>
-                          Env: {step.env_keys.join(", ")}
-                        </div>
-                      ) : null}
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            <section style={cardStyle()}>
-              <div
+            {pilotScenarios.length || rolloutSteps.length || backendConfigEntries.length || frontendConfigEntries.length ? (
+              <section
                 style={{
+                  ...cardStyle(),
                   display: "grid",
                   gap: "18px",
                 }}
@@ -2769,35 +2290,33 @@ export default function StatusPage() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    gap: "18px",
+                    gap: "16px",
                     flexWrap: "wrap",
                   }}
                 >
                   <div>
-                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Yayın Hazırlığı</h2>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Açılış Kontrolü</h2>
                     <p style={{ margin: "6px 0 0", color: "#5f7294", lineHeight: 1.6 }}>
-                      Pilotu açmadan önce hangi ortam değerlerinin eksik olduğunu ve sıradaki adımları burada gör.
+                      Senaryolar, rollout akışı ve yayın ortamı aynı panelde. Pilot günü hangi alanın aksiyon istediğini tek yerden okuyabiliriz.
                     </p>
                   </div>
                   <div style={statusPill((backend?.required_missing_env_vars?.length ?? 0) === 0)}>
-                    {(backend?.required_missing_env_vars?.length ?? 0) === 0
-                      ? "Zorunlu Ortam Tamam"
-                      : `${backend?.required_missing_env_vars?.length ?? 0} zorunlu eksik`}
+                    {(backend?.required_missing_env_vars?.length ?? 0) === 0 ? "Zorunlu Ortam Tamam" : "Ortam Kontrolü Gerekli"}
                   </div>
                 </div>
 
                 {(backend?.optional_missing_env_vars?.length ?? 0) > 0 ? (
                   <div
                     style={{
-                      padding: "14px 16px",
+                      padding: "12px 14px",
                       borderRadius: "16px",
                       border: "1px solid rgba(245, 158, 11, 0.18)",
                       background: "rgba(245, 158, 11, 0.08)",
                       color: "#9a6700",
-                      lineHeight: 1.6,
+                      lineHeight: 1.55,
                     }}
                   >
-                    Opsiyonel eksikler: {backend?.optional_missing_env_vars.join(", ")}. Bunlar pilotu durdurmaz, sadece SMS gibi ek akışlar için gerekir.
+                    Opsiyonel eksikler: {backend?.optional_missing_env_vars.join(", ")}. Bunlar pilotu durdurmaz; sadece ek akışlar için gerekir.
                   </div>
                 ) : null}
 
@@ -2805,185 +2324,224 @@ export default function StatusPage() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                    gap: "16px",
+                    gap: "14px",
                   }}
                 >
-                  <article
-                    style={{
-                      padding: "18px",
-                      borderRadius: "20px",
-                      border: "1px solid rgba(219, 228, 243, 0.9)",
-                      background: "rgba(248, 250, 255, 0.86)",
-                      display: "grid",
-                      gap: "12px",
-                      alignContent: "start",
-                    }}
-                  >
-                    <div style={{ display: "grid", gap: "6px" }}>
-                      <strong style={{ fontSize: "1rem" }}>Render API Servisi</strong>
-                      <div style={{ color: "#5f7294", lineHeight: 1.5 }}>
-                        Arka uç servisine girilecek ortam değişkenleri. Zorunlu eksikler burada görünür.
+                  {pilotScenarios.length ? (
+                    <div style={compactPanelStyle()}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+                        <strong style={{ color: "#142743" }}>Pilot Senaryoları</strong>
+                        <div style={statusPill(true)}>{pilotScenarios.length} senaryo</div>
+                      </div>
+                      <div style={{ display: "grid", gap: "10px" }}>
+                        {pilotScenarios.map((scenario) => (
+                          <article
+                            key={scenario.title}
+                            style={{
+                              padding: "14px",
+                              borderRadius: "16px",
+                              border: "1px solid rgba(219, 228, 243, 0.9)",
+                              background: "rgba(255,255,255,0.92)",
+                              display: "grid",
+                              gap: "8px",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+                              <strong>{scenario.title}</strong>
+                              <div style={statusPill(true)}>{scenario.module}</div>
+                            </div>
+                            <div style={{ color: "#5f7294", lineHeight: 1.55 }}>{scenario.detail}</div>
+                            <div style={{ color: "#35507d", fontSize: "0.88rem", lineHeight: 1.45 }}>
+                              Başarı işareti: {scenario.success_hint}
+                            </div>
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                              <Link href={scenario.href} style={actionButtonStyle()}>
+                                Aç
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void copyText(
+                                    `pilot-scenario-${scenario.title}`,
+                                    `${scenario.title}\n${scenario.module}\n${scenario.detail}\nBaşarı işareti: ${scenario.success_hint}\n${scenario.href}`,
+                                  )
+                                }
+                                style={{ ...actionButtonStyle(), cursor: "pointer", padding: "10px 12px" }}
+                              >
+                                {copiedKey === `pilot-scenario-${scenario.title}` ? "Kopyalandı" : "Kopyala"}
+                              </button>
+                            </div>
+                          </article>
+                        ))}
                       </div>
                     </div>
-                    <div style={{ display: "grid", gap: "10px" }}>
-                      {backendConfigEntries.map((entry) => (
-                        <article
-                          key={entry.name}
-                          style={{
-                            padding: "14px",
-                            borderRadius: "16px",
-                            border: "1px solid rgba(219, 228, 243, 0.9)",
-                            background: "rgba(255,255,255,0.92)",
-                            display: "grid",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
+                  ) : null}
+
+                  {rolloutSteps.length ? (
+                    <div style={compactPanelStyle()}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+                        <strong style={{ color: "#142743" }}>Pilot Açılış Sırası</strong>
+                        <div style={statusPill(rolloutSteps.every((step) => step.status !== "blocked"))}>{rolloutSteps.length} adım</div>
+                      </div>
+                      <div style={{ display: "grid", gap: "10px" }}>
+                        {rolloutSteps.map((step, index) => (
+                          <article
+                            key={step.title}
                             style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: "10px",
+                              padding: "14px",
+                              borderRadius: "16px",
+                              border: "1px solid rgba(219, 228, 243, 0.9)",
+                              background: "rgba(255,255,255,0.92)",
+                              display: "grid",
+                              gap: "6px",
                             }}
                           >
-                            <strong style={{ textTransform: "capitalize" }}>{entry.name.replaceAll("_", " ")}</strong>
-                            <div style={statusPill(entry.ok)}>
-                              {entry.ok ? "Hazır" : entry.required ? "Zorunlu Eksik" : "İsteğe Bağlı Eksik"}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+                              <strong>
+                                {index + 1}. {step.title}
+                              </strong>
+                              <div style={statusPill(step.status === "ready")}>
+                                {step.status === "ready" ? "Hazır" : step.status === "blocked" ? "Bloklu" : "Sırada"}
+                              </div>
                             </div>
-                          </div>
-                          <div style={{ color: "#5f7294", lineHeight: 1.5 }}>{entry.detail ?? "-"}</div>
-                          {entry.missing_envs.length ? (
-                            <div
-                              style={{
-                                color: entry.required ? "#c24141" : "#9a6700",
-                                fontSize: "0.9rem",
-                                lineHeight: 1.5,
-                              }}
-                            >
-                              Eksik: {entry.missing_envs.join(", ")}
-                            </div>
-                          ) : null}
-                        </article>
-                      ))}
-                    </div>
-                  </article>
-
-                  <article
-                    style={{
-                      padding: "18px",
-                      borderRadius: "20px",
-                      border: "1px solid rgba(219, 228, 243, 0.9)",
-                      background: "rgba(248, 250, 255, 0.86)",
-                      display: "grid",
-                      gap: "12px",
-                      alignContent: "start",
-                    }}
-                  >
-                    <div style={{ display: "grid", gap: "6px" }}>
-                      <strong style={{ fontSize: "1rem" }}>Render Ön Yüz Servisi</strong>
-                      <div style={{ color: "#5f7294", lineHeight: 1.5 }}>
-                        Ön yüz servisi Render pilotunda planla gelen ayarlarla ayağa kalkar. Yerel denemede ise aynı geçiş rotası korunur ama hedef ortam anahtarı değişir; aşağıdaki bloklar bunu netleştirir.
+                            <div style={{ color: "#5f7294", lineHeight: 1.55 }}>{step.detail}</div>
+                            {step.service_name ? <div style={{ color: "#35507d", fontSize: "0.88rem" }}>Servis: {step.service_name}</div> : null}
+                            {step.env_keys.length ? (
+                              <div style={{ color: "#5f7294", fontSize: "0.88rem", lineHeight: 1.45 }}>Env: {step.env_keys.join(", ")}</div>
+                            ) : null}
+                          </article>
+                        ))}
                       </div>
                     </div>
-                    <div style={{ display: "grid", gap: "10px" }}>
-                      {frontendConfigEntries.map((entry) => (
-                        <article
-                          key={entry.name}
-                          style={{
-                            padding: "14px",
-                            borderRadius: "16px",
-                            border: "1px solid rgba(219, 228, 243, 0.9)",
-                            background: "rgba(255,255,255,0.92)",
-                            display: "grid",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: "10px",
-                            }}
-                          >
-                            <strong>{entry.name}</strong>
-                            <div style={statusPill(entry.ok)}>
-                              {entry.ok ? "Blueprint ile Hazır" : entry.required ? "Zorunlu Eksik" : "İsteğe Bağlı Eksik"}
-                            </div>
-                          </div>
-                          <div style={{ color: "#5f7294", lineHeight: 1.5 }}>{entry.detail}</div>
-                        </article>
-                      ))}
-                    </div>
-                    <div
-                      style={{
-                        marginTop: "4px",
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                        gap: "10px",
-                      }}
-                    >
-                      {frontendEnvModes.map((mode) => (
-                        <article
-                          key={mode.title}
-                          style={{
-                            padding: "14px",
-                            borderRadius: "16px",
-                            border: "1px solid rgba(219, 228, 243, 0.9)",
-                            background: "rgba(255,255,255,0.92)",
-                            display: "grid",
-                            gap: "8px",
-                          }}
-                        >
-                          <strong>{mode.title}</strong>
-                          <code
-                            style={{
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-word",
-                              fontSize: "0.88rem",
-                              lineHeight: 1.7,
-                              color: "#25406b",
-                            }}
-                          >
-                            {mode.body}
-                          </code>
-                        </article>
-                      ))}
-                    </div>
-                  </article>
-                </div>
+                  ) : null}
 
-                <div
-                  style={{
-                    padding: "18px",
-                    borderRadius: "18px",
-                    border: "1px solid rgba(219, 228, 243, 0.9)",
-                    background: "rgba(248, 250, 255, 0.86)",
-                    display: "grid",
-                    gap: "10px",
-                  }}
-                >
-                  <strong>Sıradaki Adımlar</strong>
-                  <div style={{ display: "grid", gap: "8px" }}>
-                    {(backend?.next_actions ?? []).map((step) => (
-                      <div
-                        key={step}
+                  <div style={compactPanelStyle()}>
+                    <strong style={{ color: "#142743" }}>Yayın Hazırlığı</strong>
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      <article
                         style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: "10px",
-                          color: "#35507d",
-                          lineHeight: 1.6,
+                          padding: "14px",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(219, 228, 243, 0.9)",
+                          background: "rgba(255,255,255,0.92)",
+                          display: "grid",
+                          gap: "8px",
                         }}
                       >
-                        <span style={{ color: "#0f5fd7", fontWeight: 900 }}>•</span>
-                        <span>{step}</span>
-                      </div>
-                    ))}
+                        <strong>Render API Servisi</strong>
+                        {backendConfigEntries.map((entry) => (
+                          <div
+                            key={entry.name}
+                            style={{
+                              display: "grid",
+                              gap: "4px",
+                              paddingTop: "8px",
+                              borderTop: "1px solid rgba(219, 228, 243, 0.7)",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+                              <strong style={{ textTransform: "capitalize", fontSize: "0.92rem" }}>{entry.name.replaceAll("_", " ")}</strong>
+                              <div style={statusPill(entry.ok)}>
+                                {entry.ok ? "Hazır" : entry.required ? "Zorunlu Eksik" : "İsteğe Bağlı Eksik"}
+                              </div>
+                            </div>
+                            <div style={{ color: "#5f7294", fontSize: "0.88rem", lineHeight: 1.45 }}>{entry.detail ?? "-"}</div>
+                            {entry.missing_envs.length ? (
+                              <div style={{ color: entry.required ? "#c24141" : "#9a6700", fontSize: "0.86rem", lineHeight: 1.4 }}>
+                                Eksik: {entry.missing_envs.join(", ")}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </article>
+
+                      <article
+                        style={{
+                          padding: "14px",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(219, 228, 243, 0.9)",
+                          background: "rgba(255,255,255,0.92)",
+                          display: "grid",
+                          gap: "8px",
+                        }}
+                      >
+                        <strong>Render Ön Yüz Servisi</strong>
+                        {frontendConfigEntries.map((entry) => (
+                          <div
+                            key={entry.name}
+                            style={{
+                              display: "grid",
+                              gap: "4px",
+                              paddingTop: "8px",
+                              borderTop: "1px solid rgba(219, 228, 243, 0.7)",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+                              <strong style={{ fontSize: "0.92rem" }}>{entry.name}</strong>
+                              <div style={statusPill(entry.ok)}>
+                                {entry.ok ? "Hazır" : entry.required ? "Zorunlu Eksik" : "İsteğe Bağlı Eksik"}
+                              </div>
+                            </div>
+                            <div style={{ color: "#5f7294", fontSize: "0.88rem", lineHeight: 1.45 }}>{entry.detail}</div>
+                          </div>
+                        ))}
+                        {frontendEnvModes.map((mode) => (
+                          <div
+                            key={mode.title}
+                            style={{
+                              display: "grid",
+                              gap: "8px",
+                              paddingTop: "8px",
+                              borderTop: "1px solid rgba(219, 228, 243, 0.7)",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+                              <strong>{mode.title}</strong>
+                              <button
+                                type="button"
+                                onClick={() => void copyText(`frontend-env-${mode.service_name}`, mode.body)}
+                                style={{ ...actionButtonStyle(), cursor: "pointer", padding: "10px 12px" }}
+                              >
+                                {copiedKey === `frontend-env-${mode.service_name}` ? "Kopyalandı" : "Env Kopyala"}
+                              </button>
+                            </div>
+                            <code style={compactCodeStyle()}>{mode.body}</code>
+                          </div>
+                        ))}
+                      </article>
+
+                      <article
+                        style={{
+                          padding: "14px",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(219, 228, 243, 0.9)",
+                          background: "rgba(255,255,255,0.92)",
+                          display: "grid",
+                          gap: "8px",
+                        }}
+                      >
+                        <strong>Sıradaki Adımlar</strong>
+                        {(backend?.next_actions ?? []).map((step) => (
+                          <div
+                            key={step}
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: "10px",
+                              color: "#35507d",
+                              lineHeight: 1.55,
+                            }}
+                          >
+                            <span style={{ color: "#0f5fd7", fontWeight: 900 }}>•</span>
+                            <span>{step}</span>
+                          </div>
+                        ))}
+                      </article>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            ) : null}
 
             <section style={cardStyle()}>
               <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Hazırlık Kontrolleri</h2>
