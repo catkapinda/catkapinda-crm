@@ -365,6 +365,7 @@ def _apply_payroll_tevkifat_as_deduction(
     base_deductions: float,
     invoice_base_reducing_deductions: float,
 ) -> tuple[float, PayrollTevkifatBreakdown, float]:
+    # Payroll net payment is computed after withholding is added as a real deduction line.
     normalized_gross = max(_safe_float(gross_pay), 0.0)
     normalized_base_deductions = max(_safe_float(base_deductions), 0.0)
     normalized_invoice_base_reducing_deductions = max(_safe_float(invoice_base_reducing_deductions), 0.0)
