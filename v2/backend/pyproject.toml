@@ -5,11 +5,13 @@ description = "FastAPI backend for Cat Kapinda CRM v2"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.116.0,<1.0.0",
+    "jinja2>=3.1.0,<4.0.0",
     "pandas>=2.3.0,<3.0.0",
     "psycopg[binary]>=3.2.0,<4.0.0",
     "uvicorn[standard]>=0.35.0,<1.0.0",
     "pydantic-settings>=2.11.0,<3.0.0",
     "reportlab>=4.2.0,<5.0.0",
+    "weasyprint>=65.1,<66.0",
 ]
 
 [project.optional-dependencies]
@@ -21,3 +23,6 @@ dev = [
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+app = ["templates/*.j2", "templates/*.css"]

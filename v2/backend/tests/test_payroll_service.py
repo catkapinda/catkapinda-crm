@@ -2,6 +2,7 @@ import sqlite3
 
 from app.core.database import CompatConnection
 from app.services.payroll import (
+    _build_payroll_document_html,
     _build_local_payroll_document_payload,
     _calculate_payroll_tevkifat_breakdown,
     _format_number_pdf,
@@ -223,6 +224,99 @@ def test_build_payroll_document_file_supports_local_sqlite():
 
     assert file_name == "hakedis_Mert_Kurtulu_2026-04.pdf"
     assert file_bytes.startswith(b"%PDF")
+
+
+def test_build_payroll_document_html_renders_template_sections():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
+        VALUES (1, 'Neçirvan Bulgan', 'CK-K10', 'Kurye', 'Aktif', 'fixed_monthly', 32000)
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO restaurants (id, brand, branch)
+        VALUES (10, 'Quick China', 'Ataşehir')
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO daily_entries (
+            entry_date,
+            restaurant_id,
+            planned_personnel_id,
+            actual_personnel_id,
+            worked_hours,
+            package_count
+        )
+        VALUES ('2026-03-10', 10, 1, 1, 9, 24)
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount)
+        VALUES (1, '2026-03-15', 'Avans', 1500)
+        """
+    )
+    raw_conn.commit()
+
+    payload = _build_local_payroll_document_payload(
+        CompatConnection(raw_conn, "sqlite"),
+        selected_month="2026-03",
+        personnel_id=1,
+    )
+    html = _build_payroll_document_html(payload)
+
+    assert "Kurye Hakediş Belgesi" in html
+    assert "Kesinti Kalemleri" in html
+    assert "Fatura Toplamı" in html
+    assert "Neçirvan Bulgan" in html
+    assert "Quick China - Ataşehir" in html
 
 
 def test_payroll_dashboard_uses_monthly_threshold_for_courier_package_bonus():

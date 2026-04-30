@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Kurye Hakediş Belgesi</title>
+  </head>
+  <body>
+    <main class="page">
+      <header class="doc-header">
+        <div class="brand-block">
+          {% if logo_uri %}
+          <img class="brand-logo" src="{{ logo_uri }}" alt="Çat Kapında" />
+          {% endif %}
+          <div class="brand-copy">
+            <div class="brand-label">ÇAT KAPINDA</div>
+            <h1>Kurye Hakediş Belgesi</h1>
+          </div>
+        </div>
+        <div class="header-meta">
+          <div class="period">{{ period }}</div>
+          <div class="created-at">Oluşturma: {{ created_at }}</div>
+        </div>
+      </header>
+
+      <p class="header-note">Bu belge aylık kurye ödeme özetini gösterir.</p>
+
+      <section class="top-grid">
+        <article class="hero-card card">
+          <div class="hero-shell">
+            <div class="hero-label">Net Ödeme</div>
+            <div class="hero-amount">{{ net_payment }}</div>
+            <div class="hero-divider"></div>
+            <div class="hero-stats">
+              <div class="hero-stat">
+                <span class="hero-stat-label">Brüt Kazanç</span>
+                <strong class="hero-stat-value">{{ gross_earning }}</strong>
+              </div>
+              <div class="hero-stat">
+                <span class="hero-stat-label">Toplam Kesinti</span>
+                <strong class="hero-stat-value danger">{{ total_deduction }}</strong>
+              </div>
+              <div class="hero-stat">
+                <span class="hero-stat-label">Ödeme Durumu</span>
+                <strong class="hero-stat-value success">Ödeme Hazır</strong>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="person-card card">
+          <div class="person-top">
+            <div class="avatar">
+              <span>{{ courier_initials }}</span>
+            </div>
+            <div class="person-head">
+              <h2>{{ courier_name }}</h2>
+              <p>{{ courier_role }}</p>
+            </div>
+          </div>
+
+          <div class="person-grid">
+            <div class="person-row">
+              <span class="label">Kod</span>
+              <span class="value">{{ courier_code }}</span>
+            </div>
+            <div class="person-row">
+              <span class="label">Rol</span>
+              <span class="value">{{ courier_role }}</span>
+            </div>
+            <div class="person-row">
+              <span class="label">Durum</span>
+              <span class="status-badge">{{ courier_status }}</span>
+            </div>
+            <div class="person-row">
+              <span class="label">Saat</span>
+              <span class="value">{{ total_hours }}</span>
+            </div>
+            <div class="person-row">
+              <span class="label">Paket</span>
+              <span class="value">{{ total_packages }}</span>
+            </div>
+            <div class="person-row">
+              <span class="label">Şube</span>
+              <span class="value">{{ total_branches }}</span>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="middle-grid">
+        <article class="card detail-card">
+          <div class="section-head">
+            <h3>Kesinti Kalemleri</h3>
+            <div class="summary-compact">
+              <span>Toplam Kesinti</span>
+              <strong class="danger">{{ total_deduction }}</strong>
+            </div>
+          </div>
+
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Kalem</th>
+                <th>Tutar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in deduction_rows %}
+              <tr>
+                <td>{{ item.label }}</td>
+                <td class="danger">{{ item.amount }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <div class="summary-bar">
+            <span>Toplam Kesinti</span>
+            <strong class="danger">{{ total_deduction }}</strong>
+          </div>
+        </article>
+
+        <article class="card detail-card">
+          <div class="section-head plain">
+            <h3>Fatura Detayları</h3>
+          </div>
+
+          <div class="invoice-list">
+            <div class="invoice-row">
+              <span>Fatura Matrahı</span>
+              <strong>{{ invoice_base }}</strong>
+            </div>
+            <div class="invoice-row">
+              <span>KDV (%20)</span>
+              <strong>{{ invoice_vat }}</strong>
+            </div>
+            <div class="invoice-row">
+              <span>Tevkifat</span>
+              <strong>{{ tevkifat }}</strong>
+            </div>
+          </div>
+
+          <div class="invoice-total">
+            <span>Fatura Toplamı</span>
+            <strong>{{ invoice_total }}</strong>
+          </div>
+        </article>
+      </section>
+
+      <section class="card operations-card">
+        <div class="operations-copy">
+          <h3>Çalışılan Restoran / Operasyon Noktası</h3>
+          <div class="restaurant-list">
+            {% for restaurant in restaurants %}
+            <div class="restaurant-line">{{ restaurant }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="operations-kpis">
+          <div class="op-kpi">
+            <span class="label">Toplam Saat</span>
+            <strong>{{ total_hours }}</strong>
+          </div>
+          <div class="op-kpi">
+            <span class="label">Toplam Paket</span>
+            <strong>{{ total_packages }}</strong>
+          </div>
+          <div class="op-kpi">
+            <span class="label">Toplam Şube</span>
+            <strong>{{ total_branches }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <footer class="card footer-card">
+        <div class="footer-icon"></div>
+        <p>Bu belge, kurye hak edişlerine ilişkin bilgilendirme amacıyla hazırlanmıştır.</p>
+      </footer>
+    </main>
+  </body>
+</html>
