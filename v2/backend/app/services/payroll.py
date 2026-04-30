@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from io import BytesIO
 import re
 import sys
 from pathlib import Path
@@ -398,73 +397,6 @@ def _format_month_label(value: str) -> str:
     return f"{month_map.get(month, month)} {year}"
 
 
-def _register_pdf_font() -> tuple[str, str]:
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-
-    candidates = [
-        (
-            "/Library/Fonts/Inter-Regular.ttf",
-            "/Library/Fonts/Inter-SemiBold.ttf",
-        ),
-        (
-            "/Library/Fonts/Inter.ttf",
-            "/Library/Fonts/Inter Bold.ttf",
-        ),
-        (
-            "/System/Library/Fonts/SFNS.ttf",
-            "/System/Library/Fonts/SFNS.ttf",
-        ),
-        (
-            "/System/Library/Fonts/SFCompact.ttf",
-            "/System/Library/Fonts/SFCompact.ttf",
-        ),
-        (
-            "/System/Library/Fonts/Geneva.ttf",
-            "/System/Library/Fonts/Geneva.ttf",
-        ),
-        (
-            "/System/Library/Fonts/Supplemental/Arial.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        ),
-        (
-            "/System/Library/Fonts/Supplemental/Verdana.ttf",
-            "/System/Library/Fonts/Supplemental/Verdana Bold.ttf",
-        ),
-        (
-            "/System/Library/Fonts/Supplemental/Tahoma.ttf",
-            "/System/Library/Fonts/Supplemental/Tahoma Bold.ttf",
-        ),
-        (
-            "/Library/Fonts/Arial Unicode.ttf",
-            "/Library/Fonts/Arial Unicode.ttf",
-        ),
-        (
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        ),
-        (
-            "/usr/local/share/fonts/DejaVuSans.ttf",
-            "/usr/local/share/fonts/DejaVuSans-Bold.ttf",
-        ),
-    ]
-    for regular_path, bold_path in candidates:
-        regular = Path(regular_path)
-        bold = Path(bold_path)
-        if not regular.exists():
-            continue
-        try:
-            pdfmetrics.registerFont(TTFont("CRMFont", str(regular)))
-            if bold.exists():
-                pdfmetrics.registerFont(TTFont("CRMFontBold", str(bold)))
-            else:
-                pdfmetrics.registerFont(TTFont("CRMFontBold", str(regular)))
-            return "CRMFont", "CRMFontBold"
-        except Exception:
-            continue
-    return "Helvetica", "Helvetica-Bold"
-
-
 def _payroll_logo_path() -> Path:
     return _repo_root() / "v2/frontend/public/catkapinda_logo.png"
 
@@ -549,113 +481,38 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
     )
 
 
+def _build_payroll_document_full_html(payload: PayrollDocumentPayload) -> str:
+    html_output = _build_payroll_document_html(payload)
+    css_output = _read_payroll_template_file("payroll_document.css")
+    return html_output.replace("</head>", f"<style>{css_output}</style></head>", 1)
+
+
 def _render_payroll_document_pdf(payload: PayrollDocumentPayload) -> bytes:
     try:
-        from weasyprint import CSS, HTML
-    except Exception:
-        return _render_basic_payroll_pdf(payload)
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        raise RuntimeError("Playwright PDF motoru kullanılamadı.") from exc
+
+    html_output = _build_payroll_document_full_html(payload)
 
     try:
-        html_output = _build_payroll_document_html(payload)
-        css_output = _read_payroll_template_file("payroll_document.css")
-        return HTML(string=html_output, base_url=str(_repo_root())).write_pdf(
-            stylesheets=[CSS(string=css_output, base_url=str(_repo_root()))]
-        )
-    except Exception:
-        return _render_basic_payroll_pdf(payload)
-
-
-def _render_basic_payroll_pdf(payload: PayrollDocumentPayload) -> bytes:
-    transliteration = str.maketrans(
-        {
-            "Ç": "C",
-            "ç": "c",
-            "Ğ": "G",
-            "ğ": "g",
-            "İ": "I",
-            "ı": "i",
-            "Ö": "O",
-            "ö": "o",
-            "Ş": "S",
-            "ş": "s",
-            "Ü": "U",
-            "ü": "u",
-        }
-    )
-
-    def escape_pdf_text(value: str) -> str:
-        normalized = str(value).translate(transliteration)
-        return normalized.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-
-    lines = [
-        ("16", "Cat Kapinda"),
-        ("14", "Kurye Hakedis Raporu"),
-        ("10", f"Personel: {payload.personnel}"),
-        ("10", f"Kod: {payload.person_code or '-'}"),
-        ("10", f"Rol: {payload.role or '-'}"),
-        ("10", f"Ay: {payload.selected_month}"),
-        ("10", f"Durum: {payload.status or '-'}"),
-        ("10", "Restoranlar: " + (", ".join(payload.restaurant_names) if payload.restaurant_names else "-")),
-        ("12", "Çalışma Özeti"),
-        ("10", f"Toplam Saat: {int(_safe_float(payload.total_hours))}"),
-        ("10", f"Toplam Paket: {int(_safe_float(payload.total_packages))}"),
-        ("12", "Hakediş Özeti"),
-        ("10", f"Brut Hakedis: {_format_currency_pdf(payload.gross_pay)}"),
-        ("10", f"Toplam Kesinti: {_format_currency_pdf(payload.total_deductions)}"),
-        ("11", f"Net Odeme: {_format_currency_pdf(payload.net_payment)}"),
-        ("10", f"Fatura Matrahi: {_format_currency_pdf(payload.invoice_base_amount)}"),
-        ("10", f"KDV: {_format_currency_pdf(payload.invoice_vat_amount)}"),
-        ("10", f"Tevkifat: {_format_currency_pdf(payload.tevkifat_amount)}"),
-        ("12", "Kesinti Detayi"),
-    ]
-    if payload.deduction_items:
-        lines.extend(
-            [("10", f"{deduction_type}: -{_format_currency_pdf(amount)}") for deduction_type, amount in payload.deduction_items]
-        )
-    else:
-        lines.append(("10", "Bu ay icin kesinti kaydi bulunamadi."))
-
-    content_lines = ["BT"]
-    y_position = 800
-    for index, (font_size, text) in enumerate(lines):
-        if index == 0:
-            content_lines.append(f"/F1 {font_size} Tf")
-            content_lines.append(f"40 {y_position} Td")
-        else:
-            step = 22 if index == 1 else 16
-            y_position -= step
-            content_lines.append(f"1 0 0 1 40 {y_position} Tm")
-            content_lines.append(f"/F1 {font_size} Tf")
-        content_lines.append(f"({escape_pdf_text(text)}) Tj")
-    content_lines.append("ET")
-    stream = "\n".join(content_lines) + "\n"
-    stream_bytes = stream.encode("latin-1", errors="replace")
-
-    objects = [
-        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n",
-        f"4 0 obj\n<< /Length {len(stream_bytes)} >>\nstream\n".encode("latin-1") + stream_bytes + b"endstream\nendobj\n",
-        b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
-    ]
-
-    pdf = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
-    offsets = [0]
-    for obj in objects:
-        offsets.append(len(pdf))
-        pdf.extend(obj)
-
-    xref_start = len(pdf)
-    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode("latin-1"))
-    pdf.extend(b"0000000000 65535 f \n")
-    for offset in offsets[1:]:
-        pdf.extend(f"{offset:010d} 00000 n \n".encode("latin-1"))
-    pdf.extend(
-        (
-            f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_start}\n%%EOF"
-        ).encode("latin-1")
-    )
-    return bytes(pdf)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page(
+                viewport={"width": 1240, "height": 1754},
+                device_scale_factor=1,
+            )
+            page.set_content(html_output, wait_until="load")
+            page.emulate_media(media="print")
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+            )
+            browser.close()
+            return pdf_bytes
+    except Exception as exc:
+        raise RuntimeError("Hakediş PDF'i Playwright ile oluşturulamadı.") from exc
 
 
 def _resolve_month_key(month_options: list[str], selected_month: str | None) -> str:

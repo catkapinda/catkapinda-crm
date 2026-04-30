@@ -3,13 +3,15 @@ services:
     name: crmcatkapinda-v2-api
     runtime: python
     rootDir: v2/backend
-    buildCommand: pip install --upgrade pip && pip install .
+    buildCommand: pip install --upgrade pip && pip install . && PLAYWRIGHT_BROWSERS_PATH=0 python -m playwright install chromium
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.9
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "0"
       - key: CK_V2_APP_ENV
         value: production
       - key: CK_V2_RENDER_SERVICE_NAME

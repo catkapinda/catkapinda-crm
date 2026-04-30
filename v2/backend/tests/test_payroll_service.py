@@ -135,7 +135,7 @@ def test_build_payroll_dashboard_supports_local_sqlite_without_streamlit():
     assert payload.top_personnel
 
 
-def test_build_payroll_document_file_supports_local_sqlite():
+def test_build_payroll_document_file_supports_local_sqlite(monkeypatch):
     raw_conn = sqlite3.connect(":memory:")
     raw_conn.row_factory = sqlite3.Row
     raw_conn.executescript(
@@ -215,6 +215,11 @@ def test_build_payroll_document_file_supports_local_sqlite():
     raw_conn.commit()
 
     conn = CompatConnection(raw_conn, "sqlite")
+
+    monkeypatch.setattr(
+        "app.services.payroll._render_payroll_document_pdf",
+        lambda payload: b"%PDF-mock",
+    )
 
     file_name, file_bytes = build_payroll_document_file(
         conn,
