@@ -108,6 +108,7 @@ const COST_MODEL_LABELS: Record<string, string> = {
 };
 
 const DONUT_COLORS = ["#2563EB", "#5B8CFF", "#8EB5FF", "#D7E5FF"];
+const EFFICIENCY_PACKAGE_MODELS = new Set(["hourly_plus_package", "threshold_package"]);
 
 function IconGlyph({
   name,
@@ -318,7 +319,7 @@ function displayCostModel(value: string) {
 function buildDelta(current: number, previous: number, positiveIsGood: boolean): DeltaView {
   if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0) {
     return {
-      label: "Kıyas verisi yok",
+      label: "",
       tone: "neutral",
     };
   }
@@ -380,6 +381,10 @@ function StatusBadge({ value }: { value: string }) {
 }
 
 function DeltaBadge({ delta }: { delta: DeltaView }) {
+  if (!delta.label) {
+    return null;
+  }
+
   return (
     <span
       className={`${styles.payintDeltaBadge} ${
@@ -603,6 +608,10 @@ function LeaderboardCard({
       </div>
     </section>
   );
+}
+
+function hasValidPackageData(entry: PayrollEntryView) {
+  return entry.total_packages > 0 || EFFICIENCY_PACKAGE_MODELS.has(entry.cost_model);
 }
 
 export default function PayrollPage() {
@@ -869,36 +878,79 @@ export default function PayrollPage() {
     [costModelItems],
   );
 
-  const productivitySeries = useMemo(() => {
+  const efficiencyEntries = useMemo(
+    () => filteredEntries.filter((entry) => hasValidPackageData(entry)),
+    [filteredEntries],
+  );
+
+  const efficiencySummary = useMemo(() => {
+    const totalPackages = efficiencyEntries.reduce((sum, entry) => sum + entry.total_packages, 0);
+    const totalHours = efficiencyEntries.reduce((sum, entry) => sum + entry.total_hours, 0);
+    const hasData = efficiencyEntries.length > 0 && totalHours > 0;
+
     return {
-      packagesPerHour: monthlySeries.map((item) => {
-        const hours = item.summary?.total_hours ?? 0;
-        const packages = item.summary?.total_packages ?? 0;
-        return hours > 0 ? packages / hours : 0;
-      }),
-      totalPackages: monthlySeries.map((item) => item.summary?.total_packages ?? 0),
-      totalHours: monthlySeries.map((item) => item.summary?.total_hours ?? 0),
+      hasData,
+      totalPackages,
+      totalHours,
+      packagesPerHour: hasData ? totalPackages / totalHours : 0,
     };
-  }, [monthlySeries]);
+  }, [efficiencyEntries]);
 
-  const currentPackagesPerHour =
-    payrollOverview.totalHours > 0 ? payrollOverview.totalPackages / payrollOverview.totalHours : 0;
+  const efficiencyMonthlySeries = useMemo(
+    () =>
+      monthlySeries.map((item) => {
+        const validEntries = item.entries.filter((entry) => hasValidPackageData(entry));
+        const totalPackages = validEntries.reduce((sum, entry) => sum + entry.total_packages, 0);
+        const totalHours = validEntries.reduce((sum, entry) => sum + entry.total_hours, 0);
+        const hasData = validEntries.length > 0 && totalHours > 0;
 
-  const previousPackagesPerHour =
-    (previousSeries?.summary?.total_hours ?? 0) > 0
-      ? (previousSeries?.summary?.total_packages ?? 0) /
-        (previousSeries?.summary?.total_hours ?? 1)
-      : 0;
+        return {
+          month: item.month,
+          label: item.label,
+          hasData,
+          totalPackages,
+          totalHours,
+          packagesPerHour: hasData ? totalPackages / totalHours : 0,
+        };
+      }),
+    [monthlySeries],
+  );
 
-  const packagesPerHourDelta = buildDelta(currentPackagesPerHour, previousPackagesPerHour, true);
+  const productivitySeries = useMemo(
+    () => ({
+      packagesPerHour: efficiencyMonthlySeries
+        .filter((item) => item.hasData)
+        .map((item) => item.packagesPerHour),
+      totalPackages: efficiencyMonthlySeries.filter((item) => item.hasData).map((item) => item.totalPackages),
+      totalHours: efficiencyMonthlySeries.filter((item) => item.hasData).map((item) => item.totalHours),
+    }),
+    [efficiencyMonthlySeries],
+  );
+
+  const previousEfficiencySeries = useMemo(() => {
+    if (!payrollOverview.selectedMonth) {
+      return null;
+    }
+    const index = efficiencyMonthlySeries.findIndex((item) => item.month === payrollOverview.selectedMonth);
+    if (index <= 0) {
+      return null;
+    }
+    return efficiencyMonthlySeries[index - 1];
+  }, [efficiencyMonthlySeries, payrollOverview.selectedMonth]);
+
+  const packagesPerHourDelta = buildDelta(
+    efficiencySummary.packagesPerHour,
+    previousEfficiencySeries?.packagesPerHour ?? 0,
+    true,
+  );
   const totalPackagesDelta = buildDelta(
-    payrollOverview.totalPackages,
-    previousSeries?.summary?.total_packages ?? 0,
+    efficiencySummary.totalPackages,
+    previousEfficiencySeries?.totalPackages ?? 0,
     true,
   );
   const totalHoursDelta = buildDelta(
-    payrollOverview.totalHours,
-    previousSeries?.summary?.total_hours ?? 0,
+    efficiencySummary.totalHours,
+    previousEfficiencySeries?.totalHours ?? 0,
     true,
   );
 
@@ -1443,45 +1495,58 @@ export default function PayrollPage() {
               <article className={styles.payintMiniMetricCard}>
                 <div className={styles.payintMiniMetricHead}>
                   <span>Ortalama Paket / Saat</span>
-                  {packagesPerHourDelta.label !== "Kıyas verisi yok" ? (
-                    <DeltaBadge delta={packagesPerHourDelta} />
-                  ) : null}
+                  {efficiencySummary.hasData ? <DeltaBadge delta={packagesPerHourDelta} /> : null}
                 </div>
-                <strong>{formatNumber(currentPackagesPerHour, 1)}</strong>
-                <Sparkline
-                  values={productivitySeries.packagesPerHour}
-                  strokeClassName={styles.payintSparkBlue}
-                />
+                <strong>
+                  {efficiencySummary.hasData ? formatNumber(efficiencySummary.packagesPerHour, 1) : "—"}
+                </strong>
+                {efficiencySummary.hasData ? (
+                  <Sparkline
+                    values={productivitySeries.packagesPerHour}
+                    strokeClassName={styles.payintSparkBlue}
+                  />
+                ) : (
+                  <small className={styles.payintMiniMetricNote}>Yeterli veri yok</small>
+                )}
               </article>
 
               <article className={styles.payintMiniMetricCard}>
                 <div className={styles.payintMiniMetricHead}>
                   <span>Toplam Paket</span>
-                  {totalPackagesDelta.label !== "Kıyas verisi yok" ? (
-                    <DeltaBadge delta={totalPackagesDelta} />
-                  ) : null}
+                  {efficiencySummary.hasData ? <DeltaBadge delta={totalPackagesDelta} /> : null}
                 </div>
-                <strong>{formatNumber(payrollOverview.totalPackages, 0)}</strong>
-                <Sparkline
-                  values={productivitySeries.totalPackages}
-                  strokeClassName={styles.payintSparkGreen}
-                />
+                <strong>{efficiencySummary.hasData ? formatNumber(efficiencySummary.totalPackages, 0) : "—"}</strong>
+                {efficiencySummary.hasData ? (
+                  <Sparkline
+                    values={productivitySeries.totalPackages}
+                    strokeClassName={styles.payintSparkGreen}
+                  />
+                ) : (
+                  <small className={styles.payintMiniMetricNote}>Yeterli veri yok</small>
+                )}
               </article>
 
               <article className={styles.payintMiniMetricCard}>
                 <div className={styles.payintMiniMetricHead}>
                   <span>Toplam Saat</span>
-                  {totalHoursDelta.label !== "Kıyas verisi yok" ? (
-                    <DeltaBadge delta={totalHoursDelta} />
-                  ) : null}
+                  {efficiencySummary.hasData ? <DeltaBadge delta={totalHoursDelta} /> : null}
                 </div>
-                <strong>{formatNumber(payrollOverview.totalHours, 1)}</strong>
-                <Sparkline
-                  values={productivitySeries.totalHours}
-                  strokeClassName={styles.payintSparkBlue}
-                />
+                <strong>{efficiencySummary.hasData ? formatNumber(efficiencySummary.totalHours, 1) : "—"}</strong>
+                {efficiencySummary.hasData ? (
+                  <Sparkline
+                    values={productivitySeries.totalHours}
+                    strokeClassName={styles.payintSparkBlue}
+                  />
+                ) : (
+                  <small className={styles.payintMiniMetricNote}>Yeterli veri yok</small>
+                )}
               </article>
             </div>
+            {efficiencySummary.hasData ? (
+              <p className={styles.payintEfficiencyNote}>
+                Sadece paket verisi olan kuryeler üzerinden hesaplandı
+              </p>
+            ) : null}
           </section>
 
           <section className={styles.payintLeaderboardSection}>

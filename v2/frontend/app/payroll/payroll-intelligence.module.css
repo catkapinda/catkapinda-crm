@@ -673,6 +673,19 @@
   white-space: nowrap;
 }
 
+.payintMiniMetricNote {
+  margin-top: auto;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.payintEfficiencyNote {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
 .payintSparkline {
   width: 100%;
   height: 40px;
