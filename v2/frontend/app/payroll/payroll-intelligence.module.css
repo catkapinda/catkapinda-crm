@@ -221,10 +221,19 @@
   color: #64748b;
 }
 
-.payintOverviewGrid,
+.payintOverviewLayout,
 .payintListViewGrid {
   width: 100%;
   min-width: 0;
+}
+
+.payintOverviewLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.payintListViewGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 24px;
@@ -1266,15 +1275,14 @@
 }
 
 @media (min-width: 1600px) {
-  .payintOverviewGrid,
-  .payintListViewGrid {
-    grid-template-columns: minmax(0, 1fr) 380px;
-  }
-
   .payintSideColumn,
   .payintDetailPanel {
     width: 380px;
     max-width: 380px;
+  }
+
+  .payintListViewGrid {
+    grid-template-columns: minmax(0, 1fr) 380px;
   }
 }
 
@@ -1292,7 +1300,6 @@
     grid-template-columns: 1fr;
   }
 
-  .payintOverviewGrid,
   .payintListViewGrid {
     grid-template-columns: 1fr;
   }

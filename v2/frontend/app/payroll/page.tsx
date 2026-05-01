@@ -1363,7 +1363,7 @@ export default function PayrollPage() {
         ))}
       </section>
 
-      <section className={styles.payintOverviewGrid}>
+      <section className={styles.payintOverviewLayout}>
         <div className={styles.payintMainColumn}>
           <section className={styles.payintAnalyticsGrid}>
             <article className={`${styles.payintCard} ${styles.payintTrendCard}`}>
@@ -1500,8 +1500,6 @@ export default function PayrollPage() {
             </div>
           </section>
         </div>
-
-        <aside className={styles.payintSideColumn}>{detailPanel}</aside>
       </section>
     </>
   );
