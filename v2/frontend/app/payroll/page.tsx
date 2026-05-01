@@ -5,6 +5,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../components/auth/auth-provider";
 import { AppShell } from "../../components/shell/app-shell";
 import { apiFetch } from "../../lib/api";
+import styles from "./payroll-intelligence.module.css";
 
 type PayrollDashboard = {
   module: string;
@@ -46,24 +47,6 @@ type PayrollDashboard = {
     total_packages: number;
     net_payment: number;
   }>;
-  role_breakdown: Array<{
-    role: string;
-    personnel_count: number;
-    total_hours: number;
-    total_packages: number;
-    net_payment: number;
-  }>;
-  top_personnel: Array<{
-    personnel_id: number;
-    personnel: string;
-    role: string;
-    total_hours: number;
-    total_packages: number;
-    total_deductions: number;
-    net_payment: number;
-    restaurant_count: number;
-    cost_model: string;
-  }>;
 };
 
 type DeductionRecord = {
@@ -84,11 +67,8 @@ type DeductionsManagementResponse = {
 
 type PayrollDeltaTone = "positive" | "negative" | "neutral";
 type PayrollTab = "finance" | "operations" | "trend" | "pdf";
-type DeductionListItem = {
-  key: number | string;
-  label: string;
-  amount: number;
-};
+
+type PayrollEntryView = PayrollDashboard["entries"][number];
 
 type MonthlySeriesItem = {
   month: string;
@@ -97,13 +77,25 @@ type MonthlySeriesItem = {
   entries: PayrollDashboard["entries"];
 };
 
-const CHART_COLORS = ["#1d4ed8", "#3b82f6", "#60a5fa", "#93c5fd"];
+type DeductionListItem = {
+  key: number | string;
+  label: string;
+  amount: number;
+};
+
+type DeltaView = {
+  label: string;
+  tone: PayrollDeltaTone;
+};
+
 const COST_MODEL_LABELS: Record<string, string> = {
   hourly_plus_package: "Saatlik",
   threshold_package: "Paket Başı",
   hourly_only: "Günlük",
   fixed_monthly: "Diğer",
 };
+
+const DONUT_COLORS = ["#2563EB", "#5B8CFF", "#8EB5FF", "#D7E5FF"];
 
 function toSafeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -169,28 +161,6 @@ function normalizePayrollDashboard(payload: Partial<PayrollDashboard>): PayrollD
           net_payment: toSafeNumber(row.net_payment),
         }))
       : [],
-    role_breakdown: Array.isArray(payload.role_breakdown)
-      ? payload.role_breakdown.map((row) => ({
-          role: toSafeString(row.role, "-"),
-          personnel_count: toSafeNumber(row.personnel_count),
-          total_hours: toSafeNumber(row.total_hours),
-          total_packages: toSafeNumber(row.total_packages),
-          net_payment: toSafeNumber(row.net_payment),
-        }))
-      : [],
-    top_personnel: Array.isArray(payload.top_personnel)
-      ? payload.top_personnel.map((row) => ({
-          personnel_id: toSafeNumber(row.personnel_id),
-          personnel: toSafeString(row.personnel, "-"),
-          role: toSafeString(row.role, "-"),
-          total_hours: toSafeNumber(row.total_hours),
-          total_packages: toSafeNumber(row.total_packages),
-          total_deductions: toSafeNumber(row.total_deductions),
-          net_payment: toSafeNumber(row.net_payment),
-          restaurant_count: toSafeNumber(row.restaurant_count),
-          cost_model: toSafeString(row.cost_model, "-"),
-        }))
-      : [],
   };
 }
 
@@ -228,15 +198,6 @@ function monthToLabel(month: string) {
     .replace(".", "");
 }
 
-function getInitials(value: string) {
-  return value
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toLocaleUpperCase("tr-TR") ?? "")
-    .join("");
-}
-
 function triggerBrowserDownload(blob: Blob, fileName: string) {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -248,23 +209,32 @@ function triggerBrowserDownload(blob: Blob, fileName: string) {
   window.URL.revokeObjectURL(url);
 }
 
-function buildDelta(
-  current: number,
-  previous: number,
-  positiveIsGood = true,
-): { label: string; tone: PayrollDeltaTone } {
+function getInitials(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toLocaleUpperCase("tr-TR") ?? "")
+    .join("");
+}
+
+function displayCostModel(value: string) {
+  return COST_MODEL_LABELS[value] ?? value;
+}
+
+function buildDelta(current: number, previous: number, positiveIsGood: boolean): DeltaView {
   if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0) {
     return {
-      label: "İlk kıyas",
-      tone: "neutral" as PayrollDeltaTone,
+      label: "Kıyas verisi yok",
+      tone: "neutral",
     };
   }
 
   const ratio = ((current - previous) / previous) * 100;
-  if (Math.abs(ratio) < 0.05) {
+  if (Math.abs(ratio) < 0.1) {
     return {
       label: "Değişim sınırlı",
-      tone: "neutral" as PayrollDeltaTone,
+      tone: "neutral",
     };
   }
 
@@ -275,7 +245,7 @@ function buildDelta(
   };
 }
 
-function buildLinePath(values: number[], width: number, height: number, padding = 18) {
+function buildLinePath(values: number[], width: number, height: number, padding = 20) {
   if (!values.length) {
     return { path: "", points: [] as Array<{ x: number; y: number; value: number }> };
   }
@@ -293,15 +263,10 @@ function buildLinePath(values: number[], width: number, height: number, padding 
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
     .join(" ");
-  return { path, points };
+  return { path, points, min, max };
 }
 
-function buildAreaPath(
-  points: Array<{ x: number; y: number }>,
-  width: number,
-  height: number,
-  padding = 18,
-) {
+function buildAreaPath(points: Array<{ x: number; y: number }>, height: number, padding = 20) {
   if (!points.length) {
     return "";
   }
@@ -311,48 +276,99 @@ function buildAreaPath(
     .join(" ")} L ${points[points.length - 1].x.toFixed(2)} ${bottom.toFixed(2)} L ${points[0].x.toFixed(2)} ${bottom.toFixed(2)} Z`;
 }
 
-function TrendChart({
-  items,
+function StatusBadge({ value }: { value: string }) {
+  const normalized = value.toLocaleLowerCase("tr-TR");
+  const tone = normalized.includes("aktif")
+    ? styles.payintStatusActive
+    : normalized.includes("pasif")
+      ? styles.payintStatusMuted
+      : styles.payintStatusInfo;
+  return <span className={`${styles.payintStatusBadge} ${tone}`}>{value || "—"}</span>;
+}
+
+function DeltaBadge({ delta }: { delta: DeltaView }) {
+  return (
+    <span
+      className={`${styles.payintDeltaBadge} ${
+        delta.tone === "positive"
+          ? styles.payintDeltaPositive
+          : delta.tone === "negative"
+            ? styles.payintDeltaNegative
+            : styles.payintDeltaNeutral
+      }`}
+    >
+      {delta.label}
+    </span>
+  );
+}
+
+function KpiCard({
+  title,
+  value,
+  delta,
+  tone,
 }: {
-  items: Array<{ label: string; value: number }>;
+  title: string;
+  value: string;
+  delta: DeltaView;
+  tone: "blue" | "green" | "orange" | "violet";
 }) {
+  return (
+    <article className={styles.payintKpiCard}>
+      <div className={styles.payintKpiHeader}>
+        <span className={`${styles.payintKpiDot} ${styles[`payintKpiDot${tone}`]}`} />
+        <span className={styles.payintKpiLabel}>{title}</span>
+      </div>
+      <div className={styles.payintKpiValue}>{value}</div>
+      <DeltaBadge delta={delta} />
+    </article>
+  );
+}
+
+function TrendChart({ items }: { items: Array<{ label: string; value: number }> }) {
   const width = 760;
-  const height = 280;
-  const values = items.map((item) => item.value);
-  const { path, points } = buildLinePath(values, width, height, 28);
-  const areaPath = buildAreaPath(points, width, height, 28);
-  const maxValue = Math.max(...values, 0);
-  const minValue = Math.min(...values, 0);
-  const ticks = Array.from({ length: 4 }, (_, index) => minValue + ((maxValue - minValue || 1) / 3) * index).reverse();
+  const height = 260;
+  const { path, points, min, max } = buildLinePath(
+    items.length ? items.map((item) => item.value) : [0],
+    width,
+    height,
+    26,
+  );
+  const safeMin = min ?? 0;
+  const safeMax = max ?? safeMin;
+  const areaPath = buildAreaPath(points, height, 26);
+  const ticks = Array.from({ length: 4 }, (_, index) =>
+    safeMin + (((safeMax - safeMin) || 1) / 3) * index,
+  ).reverse();
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="trend-chart" role="img" aria-label="Hakediş trendi">
+    <svg viewBox={`0 0 ${width} ${height}`} className={styles.payintTrendChart} role="img" aria-label="Hakediş trendi">
       <defs>
-        <linearGradient id="payrollTrendFill" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="rgba(37, 99, 235, 0.24)" />
+        <linearGradient id="payintTrendFill" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="rgba(37, 99, 235, 0.18)" />
           <stop offset="100%" stopColor="rgba(37, 99, 235, 0)" />
         </linearGradient>
       </defs>
       {ticks.map((tick, index) => {
-        const y = 28 + ((height - 56) / 3) * index;
+        const y = 26 + ((height - 52) / 3) * index;
         return (
           <g key={`tick-${tick}-${index}`}>
-            <line x1="28" x2={width - 28} y1={y} y2={y} stroke="rgba(148, 163, 184, 0.18)" strokeDasharray="4 6" />
-            <text x="0" y={y + 4} className="trend-axis">
+            <line x1="26" x2={width - 26} y1={y} y2={y} className={styles.payintTrendGridLine} />
+            <text x="0" y={y + 4} className={styles.payintTrendAxisLabel}>
               {formatMoney(tick)}
             </text>
           </g>
         );
       })}
-      {areaPath ? <path d={areaPath} fill="url(#payrollTrendFill)" /> : null}
-      {path ? <path d={path} fill="none" stroke="#1d4ed8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /> : null}
+      {areaPath ? <path d={areaPath} fill="url(#payintTrendFill)" /> : null}
+      {path ? <path d={path} className={styles.payintTrendLine} /> : null}
       {points.map((point, index) => (
-        <g key={`${items[index]?.label ?? index}`}>
-          <circle cx={point.x} cy={point.y} r="5.5" fill="#ffffff" stroke="#1d4ed8" strokeWidth="3" />
-          <text x={point.x} y={point.y - 16} textAnchor="middle" className="trend-point-label">
+        <g key={`point-${items[index]?.label ?? index}`}>
+          <circle cx={point.x} cy={point.y} r="4.5" className={styles.payintTrendPoint} />
+          <text x={point.x} y={point.y - 14} textAnchor="middle" className={styles.payintTrendValue}>
             {formatMoney(point.value)}
           </text>
-          <text x={point.x} y={height - 6} textAnchor="middle" className="trend-axis bottom">
+          <text x={point.x} y={height - 4} textAnchor="middle" className={styles.payintTrendMonth}>
             {items[index]?.label ?? ""}
           </text>
         </g>
@@ -363,19 +379,17 @@ function TrendChart({
 
 function Sparkline({
   values,
-  tone = "blue",
+  strokeClassName,
 }: {
   values: number[];
-  tone?: "blue" | "green" | "red";
+  strokeClassName: string;
 }) {
-  const width = 160;
-  const height = 52;
-  const { path } = buildLinePath(values.length ? values : [0], width, height, 8);
-  const stroke =
-    tone === "green" ? "#16a34a" : tone === "red" ? "#dc2626" : "#2563eb";
+  const width = 120;
+  const height = 40;
+  const { path } = buildLinePath(values.length ? values : [0], width, height, 6);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="sparkline" role="img" aria-hidden="true">
-      <path d={path} fill="none" stroke={stroke} strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox={`0 0 ${width} ${height}`} className={styles.payintSparkline} role="img" aria-hidden="true">
+      <path d={path} className={strokeClassName} />
     </svg>
   );
 }
@@ -384,17 +398,25 @@ function DonutChart({
   items,
   total,
 }: {
-  items: Array<{ label: string; value: number; color: string }>;
+  items: Array<{ label: string; value: number; color: string; percentage: number }>;
   total: number;
 }) {
   const radius = 54;
   const strokeWidth = 16;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
+
   return (
-    <div className="donut-shell">
-      <svg viewBox="0 0 160 160" className="donut-chart" role="img" aria-label="Maliyet modeli dağılımı">
-        <circle cx="80" cy="80" r={radius} fill="none" stroke="rgba(148, 163, 184, 0.16)" strokeWidth={strokeWidth} />
+    <div className={styles.payintDonutShell}>
+      <svg viewBox="0 0 160 160" className={styles.payintDonutChart} role="img" aria-label="Maliyet modeli dağılımı">
+        <circle
+          cx="80"
+          cy="80"
+          r={radius}
+          fill="none"
+          stroke="rgba(148, 163, 184, 0.18)"
+          strokeWidth={strokeWidth}
+        />
         {items.map((item) => {
           const ratio = total > 0 ? item.value / total : 0;
           const dash = circumference * ratio;
@@ -418,7 +440,7 @@ function DonutChart({
           );
         })}
       </svg>
-      <div className="donut-total">
+      <div className={styles.payintDonutTotal}>
         <strong>{formatMoney(total)}</strong>
         <span>Toplam hakediş</span>
       </div>
@@ -426,28 +448,12 @@ function DonutChart({
   );
 }
 
-function DeltaPill({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: PayrollDeltaTone;
-}) {
-  return <span className={`delta-pill delta-pill--${tone}`}>{label}</span>;
-}
-
-function StatusBadge({ value }: { value: string }) {
-  const normalized = value.toLocaleLowerCase("tr-TR");
-  const tone = normalized.includes("aktif") ? "active" : normalized.includes("pasif") ? "muted" : "neutral";
-  return <span className={`status-badge status-badge--${tone}`}>{value || "—"}</span>;
-}
-
-function RankingCard({
+function LeaderboardCard({
   title,
   items,
-  formatter,
+  valueFormatter,
   onSelect,
-  selectedId,
+  selectedPersonnelId,
 }: {
   title: string;
   items: Array<{
@@ -457,62 +463,46 @@ function RankingCard({
     value: number;
     subValue?: string;
   }>;
-  formatter: (value: number) => string;
+  valueFormatter: (value: number) => string;
   onSelect: (id: number) => void;
-  selectedId: number | null;
+  selectedPersonnelId: number | null;
 }) {
   return (
-    <section className="surface-card rankings-card">
-      <div className="section-head compact">
-        <div>
-          <h3>{title}</h3>
-        </div>
+    <section className={styles.payintLeaderboardCard}>
+      <div className={styles.payintSectionHeaderCompact}>
+        <h3>{title}</h3>
+        <a href="#payint-personnel-list" className={styles.payintTextLink}>
+          Tümünü Gör
+        </a>
       </div>
-      <div className="ranking-list">
+      <div className={styles.payintLeaderboardList}>
         {items.length ? (
           items.map((item, index) => (
             <button
               key={`${title}-${item.id}`}
               type="button"
+              className={`${styles.payintLeaderboardItem} ${
+                selectedPersonnelId === item.id ? styles.payintLeaderboardItemSelected : ""
+              }`}
               onClick={() => onSelect(item.id)}
-              className={`ranking-item ${selectedId === item.id ? "is-selected" : ""}`}
             >
-              <span className="ranking-index">{index + 1}</span>
-              <span className="ranking-copy">
+              <span className={styles.payintLeaderboardRank}>{index + 1}</span>
+              <span className={styles.payintLeaderboardAvatar}>{getInitials(item.name)}</span>
+              <span className={styles.payintLeaderboardCopy}>
                 <strong>{item.name}</strong>
-                <small>{item.role}{item.subValue ? ` • ${item.subValue}` : ""}</small>
+                <small>
+                  {item.role}
+                  {item.subValue ? ` • ${item.subValue}` : ""}
+                </small>
               </span>
-              <span className="ranking-value">{formatter(item.value)}</span>
+              <span className={styles.payintLeaderboardValue}>{valueFormatter(item.value)}</span>
             </button>
           ))
         ) : (
-          <div className="empty-state compact">Seçili filtrede sıralama oluşmadı.</div>
+          <div className={styles.payintEmptyCompact}>Seçili filtrede sıralama oluşmadı.</div>
         )}
       </div>
     </section>
-  );
-}
-
-function PayrollKpiCard({
-  title,
-  value,
-  delta,
-  badge,
-  tone = "blue",
-}: {
-  title: string;
-  value: string;
-  delta: { label: string; tone: PayrollDeltaTone };
-  badge: string;
-  tone?: "blue" | "green" | "orange" | "violet";
-}) {
-  return (
-    <article className={`surface-card kpi-card tone-${tone}`}>
-      <div className="kpi-badge">{badge}</div>
-      <div className="kpi-title">{title}</div>
-      <div className="kpi-value">{value}</div>
-      <DeltaPill label={delta.label} tone={delta.tone} />
-    </article>
   );
 }
 
@@ -523,7 +513,7 @@ export default function PayrollPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedRole, setSelectedRole] = useState("Tümü");
   const [selectedRestaurant, setSelectedRestaurant] = useState("Tümü");
-  const [entryQuery, setEntryQuery] = useState("");
+  const [personnelQuery, setPersonnelQuery] = useState("");
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<PayrollTab>("finance");
   const [documentBusy, setDocumentBusy] = useState(false);
@@ -532,7 +522,7 @@ export default function PayrollPage() {
   const [monthlySeries, setMonthlySeries] = useState<MonthlySeriesItem[]>([]);
   const [deductionEntries, setDeductionEntries] = useState<DeductionRecord[]>([]);
   const [deductionLoading, setDeductionLoading] = useState(false);
-  const deferredEntryQuery = useDeferredValue(entryQuery);
+  const deferredPersonnelQuery = useDeferredValue(personnelQuery);
 
   useEffect(() => {
     let active = true;
@@ -562,14 +552,15 @@ export default function PayrollPage() {
           params.set("restaurant", selectedRestaurant);
         }
         params.set("limit", "500");
-        const query = params.toString() ? `?${params.toString()}` : "";
-        const response = await apiFetch(`/payroll/dashboard${query}`);
+
+        const response = await apiFetch(`/payroll/dashboard?${params.toString()}`);
         if (!response.ok) {
           if (active) {
             setDashboard(null);
           }
           return;
         }
+
         const payload = normalizePayrollDashboard((await response.json()) as Partial<PayrollDashboard>);
         if (!selectedMonth && payload.selected_month) {
           setSelectedMonth(payload.selected_month);
@@ -599,15 +590,15 @@ export default function PayrollPage() {
       return [];
     }
     const targetMonth = dashboard.selected_month || selectedMonth || dashboard.month_options[0];
-    const monthIndex = dashboard.month_options.indexOf(targetMonth);
-    const startIndex = monthIndex === -1 ? 0 : monthIndex;
+    const index = dashboard.month_options.indexOf(targetMonth);
+    const startIndex = index === -1 ? 0 : index;
     return dashboard.month_options.slice(startIndex, startIndex + 6).reverse();
   }, [dashboard?.month_options, dashboard?.selected_month, selectedMonth]);
 
   useEffect(() => {
     let active = true;
 
-    async function loadSeries() {
+    async function loadMonthlySeries() {
       if (!user || !monthWindow.length) {
         if (active) {
           setMonthlySeries([]);
@@ -650,7 +641,7 @@ export default function PayrollPage() {
       }
     }
 
-    void loadSeries();
+    void loadMonthlySeries();
     return () => {
       active = false;
     };
@@ -658,29 +649,207 @@ export default function PayrollPage() {
 
   const filteredEntries = useMemo(() => {
     const rows = dashboard?.entries ?? [];
-    const query = deferredEntryQuery.trim().toLocaleLowerCase("tr-TR");
+    const query = deferredPersonnelQuery.trim().toLocaleLowerCase("tr-TR");
     if (!query) {
       return rows;
     }
     return rows.filter((row) =>
       `${row.personnel} ${row.role} ${row.cost_model}`.toLocaleLowerCase("tr-TR").includes(query),
     );
-  }, [dashboard?.entries, deferredEntryQuery]);
+  }, [dashboard?.entries, deferredPersonnelQuery]);
 
   useEffect(() => {
     if (!filteredEntries.length) {
       setSelectedPersonnelId(null);
       return;
     }
+
     if (!selectedPersonnelId || !filteredEntries.some((entry) => entry.personnel_id === selectedPersonnelId)) {
       setSelectedPersonnelId(filteredEntries[0].personnel_id);
     }
   }, [filteredEntries, selectedPersonnelId]);
 
+  const payrollOverview = useMemo(() => {
+    const summary = dashboard?.summary;
+    return {
+      selectedMonth: summary?.selected_month ?? selectedMonth,
+      personnelCount: summary?.personnel_count ?? 0,
+      totalHours: summary?.total_hours ?? 0,
+      totalPackages: summary?.total_packages ?? 0,
+      grossPayroll: summary?.gross_payroll ?? 0,
+      totalDeductions: summary?.total_deductions ?? 0,
+      totalTevkifat: summary?.total_tevkifat ?? 0,
+      netPayment: summary?.net_payment ?? 0,
+    };
+  }, [dashboard?.summary, selectedMonth]);
+
+  const previousSeries = useMemo(() => {
+    if (!payrollOverview.selectedMonth) {
+      return null;
+    }
+    const index = monthlySeries.findIndex((item) => item.month === payrollOverview.selectedMonth);
+    if (index <= 0) {
+      return null;
+    }
+    return monthlySeries[index - 1];
+  }, [monthlySeries, payrollOverview.selectedMonth]);
+
+  const trendSeries = useMemo(
+    () =>
+      monthlySeries.map((item) => ({
+        label: item.label,
+        value: item.summary?.gross_payroll ?? 0,
+      })),
+    [monthlySeries],
+  );
+
+  const trendInsight = useMemo(() => {
+    if (trendSeries.length < 2) {
+      return "Kıyas verisi geldikçe trend içgörüsü burada görünecek.";
+    }
+    const first = trendSeries[0]?.value ?? 0;
+    const last = trendSeries[trendSeries.length - 1]?.value ?? 0;
+    if (first <= 0) {
+      return "Önceki dönem baz verisi oluşmadı.";
+    }
+    const ratio = ((last - first) / first) * 100;
+    return `Son ${trendSeries.length} ayda hakediş tutarı ${formatNumber(
+      Math.abs(ratio),
+      1,
+    )}% ${ratio >= 0 ? "artış" : "daralma"} gösterdi.`;
+  }, [trendSeries]);
+
+  const costModelItems = useMemo(() => {
+    const totals = new Map<string, number>();
+    filteredEntries.forEach((entry) => {
+      totals.set(entry.cost_model, (totals.get(entry.cost_model) ?? 0) + entry.gross_pay);
+    });
+    const total = Array.from(totals.values()).reduce((sum, value) => sum + value, 0);
+    return Array.from(totals.entries())
+      .map(([costModel, value], index) => ({
+        label: displayCostModel(costModel),
+        value,
+        color: DONUT_COLORS[index % DONUT_COLORS.length],
+        percentage: total > 0 ? (value / total) * 100 : 0,
+      }))
+      .sort((left, right) => right.value - left.value);
+  }, [filteredEntries]);
+
+  const dominantCostModelInsight = useMemo(() => {
+    const top = costModelItems[0];
+    if (!top) {
+      return "Model dağılımı oluştuğunda baskın hakediş yapısı burada okunacak.";
+    }
+    return `Hakedişin ${formatNumber(top.percentage, 0)}%'si ${top.label.toLocaleLowerCase(
+      "tr-TR",
+    )} modelden geliyor.`;
+  }, [costModelItems]);
+
+  const totalGrossByModel = useMemo(
+    () => costModelItems.reduce((sum, item) => sum + item.value, 0),
+    [costModelItems],
+  );
+
+  const productivitySeries = useMemo(() => {
+    return {
+      packagesPerHour: monthlySeries.map((item) => {
+        const hours = item.summary?.total_hours ?? 0;
+        const packages = item.summary?.total_packages ?? 0;
+        return hours > 0 ? packages / hours : 0;
+      }),
+      totalPackages: monthlySeries.map((item) => item.summary?.total_packages ?? 0),
+      totalHours: monthlySeries.map((item) => item.summary?.total_hours ?? 0),
+    };
+  }, [monthlySeries]);
+
+  const currentPackagesPerHour =
+    payrollOverview.totalHours > 0 ? payrollOverview.totalPackages / payrollOverview.totalHours : 0;
+
+  const previousPackagesPerHour =
+    (previousSeries?.summary?.total_hours ?? 0) > 0
+      ? (previousSeries?.summary?.total_packages ?? 0) /
+        (previousSeries?.summary?.total_hours ?? 1)
+      : 0;
+
   const selectedPersonnel = useMemo(
     () => filteredEntries.find((entry) => entry.personnel_id === selectedPersonnelId) ?? null,
     [filteredEntries, selectedPersonnelId],
   );
+
+  const highestNetPayment = useMemo(
+    () =>
+      [...filteredEntries]
+        .sort((left, right) => right.net_payment - left.net_payment)
+        .slice(0, 5)
+        .map((entry) => ({
+          id: entry.personnel_id,
+          name: entry.personnel,
+          role: entry.role,
+          value: entry.net_payment,
+        })),
+    [filteredEntries],
+  );
+
+  const highestDeduction = useMemo(
+    () =>
+      [...filteredEntries]
+        .sort((left, right) => right.total_deductions - left.total_deductions)
+        .slice(0, 5)
+        .map((entry) => ({
+          id: entry.personnel_id,
+          name: entry.personnel,
+          role: entry.role,
+          value: entry.total_deductions,
+        })),
+    [filteredEntries],
+  );
+
+  const mostEfficient = useMemo(
+    () =>
+      [...filteredEntries]
+        .filter((entry) => entry.total_hours > 0)
+        .sort(
+          (left, right) =>
+            right.total_packages / right.total_hours - left.total_packages / left.total_hours,
+        )
+        .slice(0, 5)
+        .map((entry) => ({
+          id: entry.personnel_id,
+          name: entry.personnel,
+          role: entry.role,
+          value: entry.total_packages / entry.total_hours,
+        })),
+    [filteredEntries],
+  );
+
+  const personTrendSeries = useMemo(() => {
+    if (!selectedPersonnelId) {
+      return [];
+    }
+    return monthlySeries.map((item) => {
+      const personEntry = item.entries.find((entry) => entry.personnel_id === selectedPersonnelId);
+      return {
+        label: item.label,
+        value: personEntry?.net_payment ?? 0,
+      };
+    });
+  }, [monthlySeries, selectedPersonnelId]);
+
+  const personTrendInsight = useMemo(() => {
+    if (personTrendSeries.length < 2) {
+      return "Seçili personelin aylık trendi oluştukça burada içgörü görünecek.";
+    }
+    const first = personTrendSeries[0]?.value ?? 0;
+    const last = personTrendSeries[personTrendSeries.length - 1]?.value ?? 0;
+    if (first <= 0) {
+      return "Bu kişi için önceki dönem kıyası oluşmadı.";
+    }
+    const ratio = ((last - first) / first) * 100;
+    return `Seçili personelin net ödemesi ${personTrendSeries.length} aylık hatta ${formatNumber(
+      Math.abs(ratio),
+      1,
+    )}% ${ratio >= 0 ? "artış" : "gerileme"} gösteriyor.`;
+  }, [personTrendSeries]);
 
   useEffect(() => {
     let active = true;
@@ -732,208 +901,33 @@ export default function PayrollPage() {
     };
   }, [dashboard?.selected_month, selectedMonth, selectedPersonnel, user]);
 
-  const payrollOverview = useMemo(() => {
-    const summary = dashboard?.summary;
-    return {
-      selectedMonth: summary?.selected_month ?? selectedMonth ?? dashboard?.selected_month ?? "",
-      personnelCount: summary?.personnel_count ?? 0,
-      totalHours: summary?.total_hours ?? 0,
-      totalPackages: summary?.total_packages ?? 0,
-      grossPayroll: summary?.gross_payroll ?? 0,
-      totalDeductions: summary?.total_deductions ?? 0,
-      totalTevkifat: summary?.total_tevkifat ?? 0,
-      netPayment: summary?.net_payment ?? 0,
-    };
-  }, [dashboard?.selected_month, dashboard?.summary, selectedMonth]);
-
-  const currentSeries = useMemo(
-    () => monthlySeries.find((item) => item.month === payrollOverview.selectedMonth) ?? null,
-    [monthlySeries, payrollOverview.selectedMonth],
-  );
-
-  const previousSeries = useMemo(() => {
-    if (!payrollOverview.selectedMonth) {
-      return null;
-    }
-    const index = monthlySeries.findIndex((item) => item.month === payrollOverview.selectedMonth);
-    if (index <= 0) {
-      return null;
-    }
-    return monthlySeries[index - 1];
-  }, [monthlySeries, payrollOverview.selectedMonth]);
-
-  const trendSeries = useMemo(
-    () =>
-      monthlySeries.map((item) => ({
-        label: item.label,
-        value: item.summary?.gross_payroll ?? 0,
-      })),
-    [monthlySeries],
-  );
-
-  const growthInsight = useMemo(() => {
-    if (trendSeries.length < 2) {
-      return "Hakediş trendi yeni veri geldikçe burada okunacak.";
-    }
-    const first = trendSeries[0]?.value ?? 0;
-    const last = trendSeries[trendSeries.length - 1]?.value ?? 0;
-    if (first <= 0) {
-      return "Seçili dönem aralığında önceki kıyas için yeterli baz oluşmadı.";
-    }
-    const ratio = ((last - first) / first) * 100;
-    return `Son ${trendSeries.length} ayda hakediş tutarı ${formatNumber(Math.abs(ratio), 1)}% ${ratio >= 0 ? "artış" : "daralma"} gösterdi.`;
-  }, [trendSeries]);
-
-  const costModelItems = useMemo(() => {
-    const items = (dashboard?.cost_model_breakdown ?? []).map((row, index) => ({
-      label: COST_MODEL_LABELS[row.cost_model] ?? displayCostModel(row.cost_model),
-      value: row.net_payment,
-      color: CHART_COLORS[index % CHART_COLORS.length],
-      percentage:
-        payrollOverview.netPayment > 0 ? (row.net_payment / payrollOverview.netPayment) * 100 : 0,
-    }));
-    return items.sort((left, right) => right.value - left.value);
-  }, [dashboard?.cost_model_breakdown, payrollOverview.netPayment]);
-
-  const dominantCostModel = useMemo(() => {
-    const top = costModelItems[0];
-    if (!top) {
-      return "Model dağılımı oluştuğunda baskın hakediş yapısı burada okunacak.";
-    }
-    return `Hakedişin ${formatNumber(top.percentage, 0)}%'i ${top.label.toLocaleLowerCase("tr-TR")} modelinden geliyor.`;
-  }, [costModelItems]);
-
-  const productivitySeries = useMemo(() => {
-    const averageValues = monthlySeries.map((item) => {
-      const hours = item.summary?.total_hours ?? 0;
-      const packages = item.summary?.total_packages ?? 0;
-      return hours > 0 ? packages / hours : 0;
-    });
-    return {
-      packagesPerHour: averageValues,
-      packages: monthlySeries.map((item) => item.summary?.total_packages ?? 0),
-      hours: monthlySeries.map((item) => item.summary?.total_hours ?? 0),
-    };
-  }, [monthlySeries]);
-
-  const currentPackagesPerHour =
-    payrollOverview.totalHours > 0 ? payrollOverview.totalPackages / payrollOverview.totalHours : 0;
-
-  const previousPackagesPerHour =
-    (previousSeries?.summary?.total_hours ?? 0) > 0
-      ? (previousSeries?.summary?.total_packages ?? 0) / (previousSeries?.summary?.total_hours ?? 1)
-      : 0;
-
-  const highestNetPayment = useMemo(
-    () =>
-      [...filteredEntries]
-        .sort((left, right) => right.net_payment - left.net_payment)
-        .slice(0, 5)
-        .map((entry) => ({
-          id: entry.personnel_id,
-          name: entry.personnel,
-          role: entry.role,
-          value: entry.net_payment,
-        })),
-    [filteredEntries],
-  );
-
-  const highestDeduction = useMemo(
-    () =>
-      [...filteredEntries]
-        .sort((left, right) => right.total_deductions - left.total_deductions)
-        .slice(0, 5)
-        .map((entry) => ({
-          id: entry.personnel_id,
-          name: entry.personnel,
-          role: entry.role,
-          value: entry.total_deductions,
-        })),
-    [filteredEntries],
-  );
-
-  const mostEfficient = useMemo(
-    () =>
-      [...filteredEntries]
-        .filter((entry) => entry.total_hours > 0)
-        .sort(
-          (left, right) =>
-            right.total_packages / right.total_hours - left.total_packages / left.total_hours,
-        )
-        .slice(0, 5)
-        .map((entry) => ({
-          id: entry.personnel_id,
-          name: entry.personnel,
-          role: entry.role,
-          value: entry.total_packages / entry.total_hours,
-          subValue: `${formatNumber(entry.total_packages, 0)} paket`,
-        })),
-    [filteredEntries],
-  );
-
-  const personTrendSeries = useMemo(() => {
-    if (!selectedPersonnelId) {
-      return [];
-    }
-    return monthlySeries.map((item) => {
-      const personEntry = item.entries.find((entry) => entry.personnel_id === selectedPersonnelId);
-      return {
-        label: item.label,
-        value: personEntry?.net_payment ?? 0,
-      };
-    });
-  }, [monthlySeries, selectedPersonnelId]);
-
-  const personTrendInsight = useMemo(() => {
-    if (personTrendSeries.length < 2) {
-      return "Seçili personelin trendi yeni aylar geldikçe burada görünecek.";
-    }
-    const first = personTrendSeries[0]?.value ?? 0;
-    const last = personTrendSeries[personTrendSeries.length - 1]?.value ?? 0;
-    if (first <= 0) {
-      return "Bu kişi için geçmiş ay karşılaştırması oluşmadı.";
-    }
-    const ratio = ((last - first) / first) * 100;
-    return `Seçili personelin net ödemesi ${personTrendSeries.length} aylık hatta ${formatNumber(
-      Math.abs(ratio),
-      1,
-    )}% ${ratio >= 0 ? "yukarı" : "aşağı"} yönde ilerliyor.`;
-  }, [personTrendSeries]);
-
   const selectedPersonDeductions = useMemo(() => {
     if (!selectedPersonnel) {
       return [] as DeductionListItem[];
     }
-    const normalizedRows: DeductionListItem[] = deductionEntries.map((entry) => ({
+
+    const rows: DeductionListItem[] = deductionEntries.map((entry) => ({
       key: entry.id,
       label: entry.type_caption || entry.deduction_type || "Kesinti",
       amount: entry.amount,
     }));
-    const tevkifatExists = normalizedRows.some((row) =>
+    const hasTevkifat = rows.some((row) =>
       row.label.toLocaleLowerCase("tr-TR").includes("tevkifat"),
     );
-    const rows = [...normalizedRows];
-    if (!tevkifatExists && selectedPersonnel.tevkifat_amount > 0) {
+    if (!hasTevkifat && selectedPersonnel.tevkifat_amount > 0) {
       rows.push({
         key: "tevkifat",
         label: "Tevkifat",
         amount: selectedPersonnel.tevkifat_amount,
       });
     }
-    const listedTotal = rows.reduce((total, row) => total + row.amount, 0);
-    const residual = Math.max(selectedPersonnel.total_deductions - listedTotal, 0);
+    const knownTotal = rows.reduce((sum, row) => sum + row.amount, 0);
+    const residual = Math.max(selectedPersonnel.total_deductions - knownTotal, 0);
     if (residual > 0.01) {
       rows.push({
         key: "other",
         label: "Diğer Kesintiler",
         amount: residual,
-      });
-    }
-    if (!rows.length && selectedPersonnel.total_deductions > 0) {
-      rows.push({
-        key: "summary",
-        label: "Toplam Kesinti",
-        amount: selectedPersonnel.total_deductions,
       });
     }
     return rows;
@@ -945,6 +939,7 @@ export default function PayrollPage() {
       setDocumentMessage("");
       return;
     }
+
     const month = dashboard?.selected_month || selectedMonth;
     if (!month) {
       setDocumentError("PDF indirmek için önce dönem seçmelisin.");
@@ -990,7 +985,7 @@ export default function PayrollPage() {
 
   function handleCsvDownload() {
     if (!filteredEntries.length) {
-      setDocumentError("Excel indirmek için önce görünür kayıt oluşmalı.");
+      setDocumentError("Excel indirmek için görünür kayıt oluşmalı.");
       setDocumentMessage("");
       return;
     }
@@ -998,27 +993,21 @@ export default function PayrollPage() {
       "Personel",
       "Rol",
       "Durum",
-      "Toplam Saat",
-      "Toplam Paket",
+      "Net Ödeme",
       "Hakediş Tutarı",
       "Toplam Kesinti",
       "Toplam Tevkifat",
-      "Net Ödenecek Tutar",
-      "Şube Sayısı",
-      "Maliyet Modeli",
+      "Model",
     ];
     const rows = filteredEntries.map((entry) => [
       entry.personnel,
       entry.role,
       entry.status,
-      String(entry.total_hours),
-      String(entry.total_packages),
+      String(entry.net_payment),
       String(entry.gross_pay),
       String(entry.total_deductions),
       String(entry.tevkifat_amount),
-      String(entry.net_payment),
-      String(entry.restaurant_count),
-      entry.cost_model,
+      displayCostModel(entry.cost_model),
     ]);
     const csv = [headers, ...rows]
       .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
@@ -1027,16 +1016,10 @@ export default function PayrollPage() {
     const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" });
     triggerBrowserDownload(blob, `catkapinda_aylik_hakedis_${month}.csv`);
     setDocumentError("");
-    setDocumentMessage("Aylık hakediş tablosu indirildi.");
+    setDocumentMessage("Excel indirildi.");
   }
 
-  const kpis: Array<{
-    title: string;
-    value: string;
-    delta: { label: string; tone: PayrollDeltaTone };
-    badge: string;
-    tone: "blue" | "green" | "orange" | "violet";
-  }> = [
+  const kpis = [
     {
       title: "Net Ödenecek Tutar",
       value: formatMoney(payrollOverview.netPayment),
@@ -1045,7 +1028,6 @@ export default function PayrollPage() {
         previousSeries?.summary?.net_payment ?? 0,
         true,
       ),
-      badge: "N",
       tone: "blue" as const,
     },
     {
@@ -1056,7 +1038,6 @@ export default function PayrollPage() {
         previousSeries?.summary?.gross_payroll ?? 0,
         true,
       ),
-      badge: "H",
       tone: "green" as const,
     },
     {
@@ -1067,7 +1048,6 @@ export default function PayrollPage() {
         previousSeries?.summary?.total_deductions ?? 0,
         false,
       ),
-      badge: "K",
       tone: "orange" as const,
     },
     {
@@ -1078,21 +1058,20 @@ export default function PayrollPage() {
         previousSeries?.summary?.total_tevkifat ?? 0,
         false,
       ),
-      badge: "T",
       tone: "violet" as const,
     },
   ];
 
   return (
     <AppShell activeItem="Aylık Hakediş">
-      <section className="payroll-page">
-        <header className="page-header">
-          <div className="page-copy">
+      <div className={styles.payintPage}>
+        <header className={styles.payintHeader}>
+          <div className={styles.payintHeaderCopy}>
             <h1>Aylık Hakediş</h1>
             <p>Kurye ödemelerini, kesintileri ve performansı tek ekranda yönetin.</p>
           </div>
-          <div className="page-actions">
-            <label className="field compact">
+          <div className={styles.payintHeaderActions}>
+            <label className={styles.payintField}>
               <span>Dönem</span>
               <select
                 value={selectedMonth}
@@ -1106,289 +1085,288 @@ export default function PayrollPage() {
                 ))}
               </select>
             </label>
-            <button type="button" className="ghost-button" onClick={handleCsvDownload}>
+            <button type="button" className={styles.payintGhostButton} onClick={handleCsvDownload}>
               Excel İndir
             </button>
           </div>
         </header>
 
         {dashboardLoading ? (
-          <section className="surface-card loading-card">
-            Hakediş verileri yükleniyor...
-          </section>
+          <section className={styles.payintLoadingCard}>Hakediş verileri yükleniyor...</section>
         ) : !dashboard || !dashboard.summary ? (
-          <section className="surface-card empty-state">
-            Hakediş verileri şu an alınamadı. Bağlantı toparlandığında aylık ödeme özeti ve
-            performans panelleri otomatik yenilenecek.
+          <section className={styles.payintLoadingCard}>
+            Hakediş verileri şu an alınamadı. Bağlantı toparlandığında panel otomatik yenilenecek.
           </section>
         ) : (
-          <>
-            <section className="kpi-grid">
-              {kpis.map((item) => (
-                <PayrollKpiCard
-                  key={item.title}
-                  title={item.title}
-                  value={item.value}
-                  delta={item.delta}
-                  badge={item.badge}
-                  tone={item.tone}
-                />
-              ))}
-            </section>
-
-            <section className="surface-card filters-card">
-              <div className="section-head compact">
-                <div>
-                  <h3>Filtre ve seçimler</h3>
-                  <p>Hakediş görünümünü role, restorana ve personele göre daralt.</p>
-                </div>
-              </div>
-              <div className="filters-grid">
-                <label className="field">
-                  <span>Rol</span>
-                  <select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)}>
-                    {(dashboard.role_options ?? ["Tümü"]).map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Restoran</span>
-                  <select
-                    value={selectedRestaurant}
-                    onChange={(event) => setSelectedRestaurant(event.target.value)}
-                  >
-                    {(dashboard.restaurant_options ?? ["Tümü"]).map((restaurant) => (
-                      <option key={restaurant} value={restaurant}>
-                        {restaurant}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field field-search">
-                  <span>Personel ara</span>
-                  <input
-                    value={entryQuery}
-                    onChange={(event) => setEntryQuery(event.target.value)}
-                    placeholder="Ad, rol veya model ara"
+          <div className={styles.payintPageContent}>
+            <div className={styles.payintMainColumn}>
+              <section className={styles.payintKpiStrip}>
+                {kpis.map((kpi) => (
+                  <KpiCard
+                    key={kpi.title}
+                    title={kpi.title}
+                    value={kpi.value}
+                    delta={kpi.delta}
+                    tone={kpi.tone}
                   />
-                </label>
-              </div>
-            </section>
+                ))}
+              </section>
 
-            <div className="workspace-grid">
-              <div className="workspace-main">
-                <div className="analytics-hero-grid">
-                  <section className="surface-card trend-card">
-                    <div className="section-head">
-                      <div>
-                        <h3>Hakediş Trendi</h3>
-                        <p>Son 6 ayda toplam hakediş akışını ve ivmesini tek grafikte izle.</p>
-                      </div>
+              <section className={styles.payintAnalyticsGrid}>
+                <article className={styles.payintCard}>
+                  <div className={styles.payintSectionHeader}>
+                    <div>
+                      <h3>Hakediş Trendi</h3>
+                      <p>Son 6 ayda toplam hakediş akışı.</p>
                     </div>
-                    <TrendChart items={trendSeries.length ? trendSeries : [{ label: "—", value: 0 }]} />
-                    <div className="insight-banner">{growthInsight}</div>
-                  </section>
+                  </div>
+                  <TrendChart items={trendSeries.length ? trendSeries : [{ label: "—", value: 0 }]} />
+                  <div className={styles.payintInsightCard}>{trendInsight}</div>
+                </article>
 
-                  <section className="surface-card donut-card">
-                    <div className="section-head">
-                      <div>
-                        <h3>Maliyet Modeli Dağılımı</h3>
-                        <p>Hakedişin hangi modelden geldiğini ve toplam yükü hızlıca gör.</p>
-                      </div>
+                <article className={styles.payintCard}>
+                  <div className={styles.payintSectionHeader}>
+                    <div>
+                      <h3>Maliyet Modeli Dağılımı</h3>
+                      <p>Model bazlı hakediş payını hızlıca gör.</p>
                     </div>
-                    <div className="donut-layout">
-                      <DonutChart items={costModelItems} total={payrollOverview.grossPayroll} />
-                      <div className="donut-meta">
-                        {costModelItems.length ? (
-                          costModelItems.map((item) => (
-                            <div key={item.label} className="legend-row">
-                              <span className="legend-dot" style={{ background: item.color }} />
-                              <span className="legend-label">{item.label}</span>
-                              <strong>{formatMoney(item.value)}</strong>
-                              <small>%{formatNumber(item.percentage, 0)}</small>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="empty-state compact">Dağılım verisi oluşmadı.</div>
+                  </div>
+                  <div className={styles.payintDonutRow}>
+                    <DonutChart items={costModelItems} total={totalGrossByModel} />
+                    <div className={styles.payintLegendList}>
+                      {costModelItems.length ? (
+                        costModelItems.map((item) => (
+                          <div key={item.label} className={styles.payintLegendItem}>
+                            <span
+                              className={styles.payintLegendDot}
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span className={styles.payintLegendLabel}>{item.label}</span>
+                            <strong>{formatMoney(item.value)}</strong>
+                            <small>%{formatNumber(item.percentage, 0)}</small>
+                          </div>
+                        ))
+                      ) : (
+                        <div className={styles.payintEmptyCompact}>Dağılım verisi yok.</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`${styles.payintInsightCard} ${styles.payintInsightSuccess}`}>
+                    {dominantCostModelInsight}
+                  </div>
+                </article>
+              </section>
+
+              <section className={styles.payintEfficiencySection}>
+                <div className={styles.payintSectionHeader}>
+                  <div>
+                    <h3>Verimlilik Özeti</h3>
+                    <p>Hız ve hacim tarafında operasyon ritmini aynı alanda okuyun.</p>
+                  </div>
+                </div>
+                <div className={styles.payintEfficiencyGrid}>
+                  <article className={styles.payintMiniMetricCard}>
+                    <div className={styles.payintMiniMetricHead}>
+                      <span>Ortalama Paket / Saat</span>
+                      <DeltaBadge
+                        delta={buildDelta(currentPackagesPerHour, previousPackagesPerHour, true)}
+                      />
+                    </div>
+                    <strong>{formatNumber(currentPackagesPerHour, 1)}</strong>
+                    <Sparkline
+                      values={productivitySeries.packagesPerHour}
+                      strokeClassName={styles.payintSparkBlue}
+                    />
+                  </article>
+
+                  <article className={styles.payintMiniMetricCard}>
+                    <div className={styles.payintMiniMetricHead}>
+                      <span>Toplam Paket</span>
+                      <DeltaBadge
+                        delta={buildDelta(
+                          payrollOverview.totalPackages,
+                          previousSeries?.summary?.total_packages ?? 0,
+                          true,
                         )}
-                      </div>
+                      />
                     </div>
-                    <div className="insight-banner success">{dominantCostModel}</div>
-                  </section>
+                    <strong>{formatNumber(payrollOverview.totalPackages, 0)}</strong>
+                    <Sparkline
+                      values={productivitySeries.totalPackages}
+                      strokeClassName={styles.payintSparkGreen}
+                    />
+                  </article>
+
+                  <article className={styles.payintMiniMetricCard}>
+                    <div className={styles.payintMiniMetricHead}>
+                      <span>Toplam Saat</span>
+                      <DeltaBadge
+                        delta={buildDelta(
+                          payrollOverview.totalHours,
+                          previousSeries?.summary?.total_hours ?? 0,
+                          true,
+                        )}
+                      />
+                    </div>
+                    <strong>{formatNumber(payrollOverview.totalHours, 1)}</strong>
+                    <Sparkline
+                      values={productivitySeries.totalHours}
+                      strokeClassName={styles.payintSparkBlue}
+                    />
+                  </article>
+                </div>
+              </section>
+
+              <section className={styles.payintLeaderboardGrid}>
+                <LeaderboardCard
+                  title="En Yüksek Net Ödeme"
+                  items={highestNetPayment}
+                  valueFormatter={formatMoney}
+                  onSelect={setSelectedPersonnelId}
+                  selectedPersonnelId={selectedPersonnelId}
+                />
+                <LeaderboardCard
+                  title="En Yüksek Kesinti Tutarı"
+                  items={highestDeduction}
+                  valueFormatter={formatMoney}
+                  onSelect={setSelectedPersonnelId}
+                  selectedPersonnelId={selectedPersonnelId}
+                />
+                <LeaderboardCard
+                  title="En Verimli Kuryeler"
+                  items={mostEfficient}
+                  valueFormatter={(value) => formatNumber(value, 1)}
+                  onSelect={setSelectedPersonnelId}
+                  selectedPersonnelId={selectedPersonnelId}
+                />
+              </section>
+
+              <section id="payint-personnel-list" className={styles.payintCard}>
+                <div className={styles.payintSectionHeader}>
+                  <div>
+                    <h3>Hakediş Listesi</h3>
+                    <p>Personeli seçip detay panelini sağ tarafta açın.</p>
+                  </div>
+                  <div className={styles.payintHeaderMeta}>
+                    <label className={`${styles.payintField} ${styles.payintSearchField}`}>
+                      <span>Personel ara</span>
+                      <input
+                        value={personnelQuery}
+                        onChange={(event) => setPersonnelQuery(event.target.value)}
+                        placeholder="Ad, rol veya model ara"
+                      />
+                    </label>
+                  </div>
                 </div>
 
-                <section className="analytics-row">
-                  <div className="section-head inline">
-                    <div>
-                      <h3>Verimlilik Özeti</h3>
-                      <p>Operasyon yükünü hız ve hacim açısından aynı seviyede okuyun.</p>
-                    </div>
+                <div className={styles.payintTableDesktop}>
+                  <div className={styles.payintTableHeader}>
+                    <span>Personel</span>
+                    <span>Rol</span>
+                    <span>Durum</span>
+                    <span>Net Ödeme</span>
+                    <span>Hakediş</span>
+                    <span>Kesinti</span>
+                    <span>Tevkifat</span>
+                    <span>Model</span>
                   </div>
-                  <div className="efficiency-grid">
-                    <article className="surface-card mini-metric-card">
-                      <div className="mini-metric-head">
-                        <span>Ortalama Paket / Saat</span>
-                        <DeltaPill
-                          label={buildDelta(currentPackagesPerHour, previousPackagesPerHour, true).label}
-                          tone={buildDelta(currentPackagesPerHour, previousPackagesPerHour, true).tone}
-                        />
-                      </div>
-                      <strong>{formatNumber(currentPackagesPerHour, 1)}</strong>
-                      <Sparkline values={productivitySeries.packagesPerHour} tone="blue" />
-                    </article>
-                    <article className="surface-card mini-metric-card">
-                      <div className="mini-metric-head">
-                        <span>Toplam Paket</span>
-                        <DeltaPill
-                          label={buildDelta(
-                            payrollOverview.totalPackages,
-                            previousSeries?.summary?.total_packages ?? 0,
-                            true,
-                          ).label}
-                          tone={buildDelta(
-                            payrollOverview.totalPackages,
-                            previousSeries?.summary?.total_packages ?? 0,
-                            true,
-                          ).tone}
-                        />
-                      </div>
-                      <strong>{formatNumber(payrollOverview.totalPackages, 0)}</strong>
-                      <Sparkline values={productivitySeries.packages} tone="green" />
-                    </article>
-                    <article className="surface-card mini-metric-card">
-                      <div className="mini-metric-head">
-                        <span>Toplam Saat</span>
-                        <DeltaPill
-                          label={buildDelta(
-                            payrollOverview.totalHours,
-                            previousSeries?.summary?.total_hours ?? 0,
-                            true,
-                          ).label}
-                          tone={buildDelta(
-                            payrollOverview.totalHours,
-                            previousSeries?.summary?.total_hours ?? 0,
-                            true,
-                          ).tone}
-                        />
-                      </div>
-                      <strong>{formatNumber(payrollOverview.totalHours, 1)}</strong>
-                      <Sparkline values={productivitySeries.hours} tone="blue" />
-                    </article>
-                  </div>
-                </section>
+                  {filteredEntries.map((entry) => (
+                    <button
+                      key={entry.personnel_id}
+                      type="button"
+                      className={`${styles.payintTableRow} ${
+                        selectedPersonnelId === entry.personnel_id ? styles.payintTableRowSelected : ""
+                      }`}
+                      onClick={() => setSelectedPersonnelId(entry.personnel_id)}
+                    >
+                      <span className={styles.payintPersonCell}>
+                        <strong>{entry.personnel}</strong>
+                      </span>
+                      <span>{entry.role}</span>
+                      <span>
+                        <StatusBadge value={entry.status} />
+                      </span>
+                      <span className={styles.payintNumericCell}>{formatMoney(entry.net_payment)}</span>
+                      <span className={styles.payintNumericCell}>{formatMoney(entry.gross_pay)}</span>
+                      <span className={`${styles.payintNumericCell} ${styles.payintNegativeText}`}>
+                        {formatMoney(entry.total_deductions)}
+                      </span>
+                      <span className={styles.payintNumericCell}>
+                        {formatMoney(entry.tevkifat_amount)}
+                      </span>
+                      <span className={styles.payintModelCell}>{displayCostModel(entry.cost_model)}</span>
+                    </button>
+                  ))}
+                </div>
 
-                <section className="ranking-grid">
-                  <RankingCard
-                    title="En Yüksek Net Ödeme"
-                    items={highestNetPayment}
-                    formatter={formatMoney}
-                    onSelect={setSelectedPersonnelId}
-                    selectedId={selectedPersonnelId}
-                  />
-                  <RankingCard
-                    title="En Yüksek Kesinti Tutarı"
-                    items={highestDeduction}
-                    formatter={formatMoney}
-                    onSelect={setSelectedPersonnelId}
-                    selectedId={selectedPersonnelId}
-                  />
-                  <RankingCard
-                    title="En Verimli Kuryeler"
-                    items={mostEfficient}
-                    formatter={(value) => formatNumber(value, 1)}
-                    onSelect={setSelectedPersonnelId}
-                    selectedId={selectedPersonnelId}
-                  />
-                </section>
-
-                <section className="surface-card roster-card">
-                  <div className="section-head">
-                    <div>
-                      <h3>Hakediş Listesi</h3>
-                      <p>Seçili dönemdeki personel özetlerinden kişiyi seçip sağ panelde detay aç.</p>
-                    </div>
-                    <div className="section-meta">
-                      {formatNumber(filteredEntries.length, 0)} kişi
-                    </div>
-                  </div>
-
-                  <div className="roster-table desktop-only">
-                    <div className="roster-row roster-head">
-                      <span>Personel</span>
-                      <span>Rol</span>
-                      <span>Net Ödeme</span>
-                      <span>Kesinti</span>
-                      <span>Tevkifat</span>
-                      <span>Model</span>
-                    </div>
-                    {filteredEntries.map((entry) => (
-                      <button
-                        key={entry.personnel_id}
-                        type="button"
-                        className={`roster-row ${selectedPersonnelId === entry.personnel_id ? "is-selected" : ""}`}
-                        onClick={() => setSelectedPersonnelId(entry.personnel_id)}
-                      >
-                        <span>
+                <div className={styles.payintTableMobile}>
+                  {filteredEntries.map((entry) => (
+                    <button
+                      key={`mobile-${entry.personnel_id}`}
+                      type="button"
+                      className={`${styles.payintPersonCard} ${
+                        selectedPersonnelId === entry.personnel_id ? styles.payintPersonCardSelected : ""
+                      }`}
+                      onClick={() => setSelectedPersonnelId(entry.personnel_id)}
+                    >
+                      <div className={styles.payintPersonCardHead}>
+                        <div className={styles.payintPersonCardCopy}>
                           <strong>{entry.personnel}</strong>
-                          <small>{entry.status}</small>
-                        </span>
-                        <span>{entry.role}</span>
-                        <span>{formatMoney(entry.net_payment)}</span>
-                        <span className="negative">{formatMoney(entry.total_deductions)}</span>
-                        <span>{formatMoney(entry.tevkifat_amount)}</span>
-                        <span>{displayCostModel(entry.cost_model)}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="roster-cards mobile-only">
-                    {filteredEntries.map((entry) => (
-                      <button
-                        key={`mobile-${entry.personnel_id}`}
-                        type="button"
-                        className={`roster-mobile-card ${selectedPersonnelId === entry.personnel_id ? "is-selected" : ""}`}
-                        onClick={() => setSelectedPersonnelId(entry.personnel_id)}
-                      >
-                        <div className="roster-mobile-head">
-                          <strong>{entry.personnel}</strong>
-                          <StatusBadge value={entry.status} />
-                        </div>
-                        <div className="roster-mobile-meta">
                           <span>{entry.role}</span>
-                          <span>{displayCostModel(entry.cost_model)}</span>
                         </div>
-                        <div className="roster-mobile-values">
-                          <div>
-                            <small>Net Ödeme</small>
-                            <strong>{formatMoney(entry.net_payment)}</strong>
-                          </div>
-                          <div>
-                            <small>Kesinti</small>
-                            <strong className="negative">{formatMoney(entry.total_deductions)}</strong>
-                          </div>
+                        <StatusBadge value={entry.status} />
+                      </div>
+                      <div className={styles.payintPersonCardGrid}>
+                        <div>
+                          <small>Net Ödeme</small>
+                          <strong>{formatMoney(entry.net_payment)}</strong>
                         </div>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              </div>
+                        <div>
+                          <small>Hakediş</small>
+                          <strong>{formatMoney(entry.gross_pay)}</strong>
+                        </div>
+                        <div>
+                          <small>Kesinti</small>
+                          <strong className={styles.payintNegativeText}>
+                            {formatMoney(entry.total_deductions)}
+                          </strong>
+                        </div>
+                        <div>
+                          <small>Tevkifat</small>
+                          <strong>{formatMoney(entry.tevkifat_amount)}</strong>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
 
-              <aside className="detail-panel surface-card">
+            <aside className={styles.payintSideColumn}>
+              <section className={styles.payintDetailPanel}>
                 {selectedPersonnel ? (
                   <>
-                    <div className="detail-head">
-                      <div className="detail-avatar">{getInitials(selectedPersonnel.personnel)}</div>
-                      <div className="detail-copy">
-                        <h3>{selectedPersonnel.personnel}</h3>
-                        <p>{selectedPersonnel.role}</p>
+                    <div className={styles.payintDetailHeader}>
+                      <div className={styles.payintDetailProfile}>
+                        <div className={styles.payintDetailAvatar}>
+                          {getInitials(selectedPersonnel.personnel)}
+                        </div>
+                        <div className={styles.payintDetailCopy}>
+                          <h3>{selectedPersonnel.personnel}</h3>
+                          <p>{selectedPersonnel.role}</p>
+                        </div>
                       </div>
-                      <StatusBadge value={selectedPersonnel.status} />
+                      <div className={styles.payintDetailStatusRow}>
+                        <StatusBadge value={selectedPersonnel.status} />
+                        <button type="button" className={styles.payintKebabButton} aria-label="Detay menüsü">
+                          <span />
+                          <span />
+                          <span />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="detail-tabs" role="tablist" aria-label="Personel detay sekmeleri">
+                    <div className={styles.payintTabStrip} role="tablist" aria-label="Personel detay sekmeleri">
                       {[
                         { id: "finance", label: "Finans Özeti" },
                         { id: "operations", label: "Operasyon Özeti" },
@@ -1398,7 +1376,9 @@ export default function PayrollPage() {
                         <button
                           key={tab.id}
                           type="button"
-                          className={`detail-tab ${activeTab === tab.id ? "is-active" : ""}`}
+                          className={`${styles.payintTabButton} ${
+                            activeTab === tab.id ? styles.payintTabButtonActive : ""
+                          }`}
                           onClick={() => setActiveTab(tab.id as PayrollTab)}
                         >
                           {tab.label}
@@ -1407,43 +1387,48 @@ export default function PayrollPage() {
                     </div>
 
                     {activeTab === "finance" ? (
-                      <div className="detail-tab-panel">
-                        <div className="detail-metrics-grid">
-                          <article className="detail-metric">
+                      <div className={styles.payintDetailBody}>
+                        <div className={styles.payintDetailMetricGrid}>
+                          <article className={styles.payintDetailMetricCard}>
                             <span>Net Ödeme</span>
                             <strong>{formatMoney(selectedPersonnel.net_payment)}</strong>
                           </article>
-                          <article className="detail-metric">
+                          <article className={styles.payintDetailMetricCard}>
                             <span>Hakediş Tutarı</span>
                             <strong>{formatMoney(selectedPersonnel.gross_pay)}</strong>
                           </article>
-                          <article className="detail-metric">
+                          <article className={styles.payintDetailMetricCard}>
                             <span>Toplam Kesinti</span>
                             <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
                           </article>
-                          <article className="detail-metric">
+                          <article className={styles.payintDetailMetricCard}>
                             <span>Toplam Tevkifat</span>
                             <strong>{formatMoney(selectedPersonnel.tevkifat_amount)}</strong>
                           </article>
                         </div>
-                        <div className="detail-list-card">
-                          <div className="detail-list-head">
+
+                        <div className={styles.payintDetailListCard}>
+                          <div className={styles.payintDetailListHead}>
                             <h4>Kesinti Kalemleri</h4>
-                            {deductionLoading ? <span>Yükleniyor...</span> : null}
+                            {deductionLoading ? <span>Yükleniyor…</span> : null}
                           </div>
-                          <div className="deduction-list">
+                          <div className={styles.payintDetailListRows}>
                             {selectedPersonDeductions.length ? (
                               selectedPersonDeductions.map((row) => (
-                                <div className="deduction-row" key={String(row.key)}>
+                                <div key={String(row.key)} className={styles.payintDetailListRow}>
                                   <span>{row.label}</span>
-                                  <strong className="negative">{formatMoney(row.amount)}</strong>
+                                  <strong className={styles.payintNegativeText}>
+                                    {formatMoney(row.amount)}
+                                  </strong>
                                 </div>
                               ))
                             ) : (
-                              <div className="empty-state compact">Bu kişi için seçili ayda kesinti oluşmadı.</div>
+                              <div className={styles.payintEmptyCompact}>
+                                Bu kişi için seçili ayda kesinti oluşmadı.
+                              </div>
                             )}
                           </div>
-                          <div className="deduction-total-row">
+                          <div className={styles.payintDetailListTotal}>
                             <span>Toplam Kesinti</span>
                             <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
                           </div>
@@ -1452,21 +1437,21 @@ export default function PayrollPage() {
                     ) : null}
 
                     {activeTab === "operations" ? (
-                      <div className="detail-tab-panel">
-                        <div className="detail-metrics-grid">
-                          <article className="detail-metric">
+                      <div className={styles.payintDetailBody}>
+                        <div className={styles.payintDetailMetricGrid}>
+                          <article className={styles.payintDetailMetricCard}>
                             <span>Toplam Saat</span>
                             <strong>{formatNumber(selectedPersonnel.total_hours, 1)}</strong>
                           </article>
-                          <article className="detail-metric">
+                          <article className={styles.payintDetailMetricCard}>
                             <span>Toplam Paket</span>
                             <strong>{formatNumber(selectedPersonnel.total_packages, 0)}</strong>
                           </article>
-                          <article className="detail-metric">
+                          <article className={styles.payintDetailMetricCard}>
                             <span>Toplam Şube</span>
                             <strong>{formatNumber(selectedPersonnel.restaurant_count, 0)}</strong>
                           </article>
-                          <article className="detail-metric">
+                          <article className={styles.payintDetailMetricCard}>
                             <span>Paket / Saat</span>
                             <strong>
                               {selectedPersonnel.total_hours > 0
@@ -1478,1089 +1463,53 @@ export default function PayrollPage() {
                             </strong>
                           </article>
                         </div>
-                        <div className="detail-copy-block">
-                          <span>Maliyet modeli</span>
-                          <strong>{displayCostModel(selectedPersonnel.cost_model)}</strong>
-                          <p>
-                            Operasyon ritmi bu ay {formatNumber(selectedPersonnel.restaurant_count, 0)} şube
-                            ve {formatNumber(selectedPersonnel.total_packages, 0)} paket üzerinden okunuyor.
-                          </p>
-                        </div>
                       </div>
                     ) : null}
 
                     {activeTab === "trend" ? (
-                      <div className="detail-tab-panel">
-                        <div className="detail-trend-card">
-                          <TrendChart items={personTrendSeries.length ? personTrendSeries : [{ label: "—", value: 0 }]} />
+                      <div className={styles.payintDetailBody}>
+                        <div className={styles.payintDetailTrendCard}>
+                          <TrendChart
+                            items={personTrendSeries.length ? personTrendSeries : [{ label: "—", value: 0 }]}
+                          />
                         </div>
-                        <div className="insight-banner">{personTrendInsight}</div>
+                        <div className={styles.payintInsightCard}>{personTrendInsight}</div>
                       </div>
                     ) : null}
 
                     {activeTab === "pdf" ? (
-                      <div className="detail-tab-panel">
-                        <div className="detail-copy-block">
-                          <span>PDF</span>
-                          <strong>Hakediş PDF’i İndir</strong>
-                          <p>Seçili personelin aylık kurye hakediş belgesini tek tıkla dışa aktar.</p>
-                        </div>
+                      <div className={styles.payintDetailBody}>
                         <button
                           type="button"
-                          className="primary-button full-width"
+                          className={styles.payintPrimaryButton}
                           onClick={handleDocumentDownload}
                           disabled={documentBusy}
                         >
                           {documentBusy ? "PDF hazırlanıyor..." : "Hakediş PDF’i İndir"}
                         </button>
-                        {documentError ? <div className="form-feedback error">{documentError}</div> : null}
+                        {documentError ? (
+                          <div className={`${styles.payintFeedback} ${styles.payintFeedbackError}`}>
+                            {documentError}
+                          </div>
+                        ) : null}
                         {documentMessage ? (
-                          <div className="form-feedback success">{documentMessage}</div>
+                          <div className={`${styles.payintFeedback} ${styles.payintFeedbackSuccess}`}>
+                            {documentMessage}
+                          </div>
                         ) : null}
                       </div>
                     ) : null}
                   </>
                 ) : (
-                  <div className="empty-state">
-                    Sağ detay panelini doldurmak için listeden bir personel seçin.
+                  <div className={styles.payintEmptyPanel}>
+                    Sağ paneli doldurmak için listeden bir personel seçin.
                   </div>
                 )}
-              </aside>
-            </div>
-          </>
+              </section>
+            </aside>
+          </div>
         )}
-      </section>
-
-      <style jsx>{`
-        .payroll-page {
-          display: grid;
-          gap: 20px;
-        }
-
-        .page-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 20px;
-          flex-wrap: wrap;
-        }
-
-        .page-copy {
-          display: grid;
-          gap: 6px;
-        }
-
-        .page-copy h1 {
-          margin: 0;
-          font-size: clamp(1.9rem, 2.6vw, 2.6rem);
-          line-height: 1;
-          font-weight: 800;
-          color: #0f1e36;
-          letter-spacing: -0.04em;
-        }
-
-        .page-copy p {
-          margin: 0;
-          color: #64748b;
-          font-size: 1rem;
-          line-height: 1.6;
-        }
-
-        .page-actions {
-          display: flex;
-          align-items: end;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .field {
-          display: grid;
-          gap: 8px;
-          min-width: 0;
-        }
-
-        .field.compact {
-          min-width: 190px;
-        }
-
-        .field span {
-          color: #64748b;
-          font-size: 0.8rem;
-          font-weight: 700;
-        }
-
-        .field select,
-        .field input {
-          width: 100%;
-          min-height: 48px;
-          padding: 0 14px;
-          border-radius: 16px;
-          border: 1px solid #e6ecf4;
-          background: rgba(255, 255, 255, 0.92);
-          color: #0f172a;
-          font-size: 0.95rem;
-          font-weight: 600;
-          box-sizing: border-box;
-          outline: none;
-        }
-
-        .field input::placeholder {
-          color: #94a3b8;
-        }
-
-        .surface-card {
-          background: #ffffff;
-          border: 1px solid #e5e7eb;
-          border-radius: 20px;
-          box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
-          box-sizing: border-box;
-        }
-
-        .loading-card,
-        .empty-state {
-          padding: 22px 24px;
-          color: #64748b;
-          line-height: 1.7;
-        }
-
-        .empty-state.compact {
-          padding: 0;
-          font-size: 0.92rem;
-        }
-
-        .kpi-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 18px;
-        }
-
-        .kpi-card {
-          padding: 22px;
-          display: grid;
-          gap: 10px;
-          min-height: 154px;
-        }
-
-        .kpi-badge {
-          width: 44px;
-          height: 44px;
-          border-radius: 16px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.95rem;
-          font-weight: 800;
-        }
-
-        .tone-blue .kpi-badge {
-          background: rgba(59, 130, 246, 0.12);
-          color: #2563eb;
-        }
-
-        .tone-green .kpi-badge {
-          background: rgba(34, 197, 94, 0.12);
-          color: #16a34a;
-        }
-
-        .tone-orange .kpi-badge {
-          background: rgba(249, 115, 22, 0.12);
-          color: #ea580c;
-        }
-
-        .tone-violet .kpi-badge {
-          background: rgba(139, 92, 246, 0.12);
-          color: #7c3aed;
-        }
-
-        .kpi-title {
-          font-size: 0.82rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: #64748b;
-          font-weight: 800;
-        }
-
-        .kpi-value {
-          font-size: clamp(1.4rem, 1.6vw, 2rem);
-          font-weight: 800;
-          letter-spacing: -0.04em;
-          color: #0f172a;
-          white-space: nowrap;
-        }
-
-        .delta-pill {
-          display: inline-flex;
-          align-items: center;
-          width: fit-content;
-          padding: 7px 10px;
-          border-radius: 999px;
-          font-size: 0.78rem;
-          font-weight: 700;
-        }
-
-        .delta-pill--positive {
-          background: rgba(34, 197, 94, 0.12);
-          color: #15803d;
-        }
-
-        .delta-pill--negative {
-          background: rgba(239, 68, 68, 0.12);
-          color: #b91c1c;
-        }
-
-        .delta-pill--neutral {
-          background: rgba(148, 163, 184, 0.12);
-          color: #475569;
-        }
-
-        .filters-card {
-          padding: 22px;
-          display: grid;
-          gap: 18px;
-        }
-
-        .section-head {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .section-head.compact {
-          margin-bottom: 0;
-        }
-
-        .section-head.inline {
-          margin-bottom: 14px;
-        }
-
-        .section-head h3 {
-          margin: 0;
-          color: #0f1e36;
-          font-size: 1.02rem;
-          line-height: 1.2;
-          font-weight: 800;
-          letter-spacing: -0.02em;
-        }
-
-        .section-head p {
-          margin: 6px 0 0;
-          color: #64748b;
-          font-size: 0.92rem;
-          line-height: 1.65;
-        }
-
-        .section-meta {
-          display: inline-flex;
-          align-items: center;
-          padding: 8px 12px;
-          border-radius: 999px;
-          background: rgba(37, 99, 235, 0.08);
-          color: #2563eb;
-          font-size: 0.8rem;
-          font-weight: 800;
-        }
-
-        .filters-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 16px;
-        }
-
-        .field-search {
-          grid-column: span 1;
-        }
-
-        .workspace-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.8fr) minmax(320px, 420px);
-          gap: 20px;
-          align-items: start;
-        }
-
-        .workspace-main {
-          display: grid;
-          gap: 20px;
-          min-width: 0;
-        }
-
-        .analytics-hero-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);
-          gap: 18px;
-          align-items: stretch;
-        }
-
-        .trend-card,
-        .donut-card,
-        .roster-card,
-        .rankings-card {
-          padding: 22px;
-          display: grid;
-          gap: 18px;
-        }
-
-        .trend-chart {
-          width: 100%;
-          height: auto;
-          overflow: visible;
-        }
-
-        .trend-axis {
-          fill: #94a3b8;
-          font-size: 11px;
-          font-weight: 600;
-        }
-
-        .trend-axis.bottom {
-          font-size: 11px;
-          fill: #64748b;
-        }
-
-        .trend-point-label {
-          fill: #0f172a;
-          font-size: 11px;
-          font-weight: 700;
-        }
-
-        .insight-banner {
-          padding: 12px 14px;
-          border-radius: 14px;
-          background: rgba(37, 99, 235, 0.08);
-          color: #1d4ed8;
-          font-size: 0.9rem;
-          line-height: 1.6;
-          font-weight: 600;
-        }
-
-        .insight-banner.success {
-          background: rgba(34, 197, 94, 0.1);
-          color: #15803d;
-        }
-
-        .donut-layout {
-          display: grid;
-          grid-template-columns: 220px minmax(0, 1fr);
-          gap: 18px;
-          align-items: center;
-        }
-
-        .donut-shell {
-          position: relative;
-          width: 188px;
-          height: 188px;
-          margin: 0 auto;
-        }
-
-        .donut-chart {
-          width: 100%;
-          height: 100%;
-        }
-
-        .donut-total {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-direction: column;
-          gap: 6px;
-          text-align: center;
-        }
-
-        .donut-total strong {
-          color: #0f172a;
-          font-size: 1.3rem;
-          font-weight: 800;
-          letter-spacing: -0.04em;
-        }
-
-        .donut-total span {
-          color: #64748b;
-          font-size: 0.84rem;
-          font-weight: 600;
-        }
-
-        .donut-meta {
-          display: grid;
-          gap: 10px;
-        }
-
-        .legend-row {
-          display: grid;
-          grid-template-columns: auto minmax(0, 1fr) auto auto;
-          align-items: center;
-          gap: 10px;
-          color: #0f172a;
-        }
-
-        .legend-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 999px;
-        }
-
-        .legend-label {
-          font-size: 0.92rem;
-          font-weight: 600;
-        }
-
-        .legend-row strong {
-          font-size: 0.92rem;
-          font-weight: 800;
-          white-space: nowrap;
-        }
-
-        .legend-row small {
-          color: #64748b;
-          font-size: 0.86rem;
-          font-weight: 700;
-          white-space: nowrap;
-        }
-
-        .analytics-row {
-          display: grid;
-          gap: 14px;
-        }
-
-        .efficiency-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 18px;
-        }
-
-        .mini-metric-card {
-          padding: 18px;
-          display: grid;
-          gap: 14px;
-        }
-
-        .mini-metric-head {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          align-items: start;
-          flex-wrap: wrap;
-        }
-
-        .mini-metric-head span {
-          color: #64748b;
-          font-size: 0.78rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          font-weight: 800;
-        }
-
-        .mini-metric-card strong {
-          color: #0f172a;
-          font-size: 1.7rem;
-          font-weight: 800;
-          letter-spacing: -0.04em;
-        }
-
-        .sparkline {
-          width: 100%;
-          height: 52px;
-        }
-
-        .ranking-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 18px;
-        }
-
-        .ranking-list {
-          display: grid;
-          gap: 10px;
-        }
-
-        .ranking-item {
-          width: 100%;
-          display: grid;
-          grid-template-columns: 36px minmax(0, 1fr) auto;
-          align-items: center;
-          gap: 12px;
-          padding: 12px;
-          border-radius: 16px;
-          border: 1px solid rgba(229, 231, 235, 0.9);
-          background: rgba(248, 250, 252, 0.72);
-          text-align: left;
-          cursor: pointer;
-          transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
-        }
-
-        .ranking-item:hover,
-        .ranking-item.is-selected {
-          border-color: rgba(37, 99, 235, 0.26);
-          background: rgba(239, 246, 255, 0.82);
-          transform: translateY(-1px);
-        }
-
-        .ranking-index {
-          width: 36px;
-          height: 36px;
-          border-radius: 14px;
-          background: rgba(37, 99, 235, 0.08);
-          color: #1d4ed8;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.9rem;
-          font-weight: 800;
-        }
-
-        .ranking-copy {
-          display: grid;
-          gap: 4px;
-          min-width: 0;
-        }
-
-        .ranking-copy strong {
-          color: #0f172a;
-          font-size: 0.95rem;
-          font-weight: 800;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .ranking-copy small {
-          color: #64748b;
-          font-size: 0.84rem;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .ranking-value {
-          color: #0f172a;
-          font-size: 0.95rem;
-          font-weight: 800;
-          white-space: nowrap;
-        }
-
-        .roster-table {
-          display: grid;
-          border-top: 1px solid #edf2f8;
-        }
-
-        .roster-row {
-          width: 100%;
-          display: grid;
-          grid-template-columns: minmax(0, 1.4fr) minmax(120px, 0.8fr) repeat(3, minmax(110px, 0.8fr)) minmax(130px, 0.9fr);
-          align-items: center;
-          gap: 12px;
-          padding: 14px 0;
-          border-bottom: 1px solid #edf2f8;
-          background: transparent;
-          border-left: 0;
-          border-right: 0;
-          border-top: 0;
-          text-align: left;
-          cursor: pointer;
-        }
-
-        .roster-head {
-          color: #64748b;
-          font-size: 0.78rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          font-weight: 800;
-          cursor: default;
-        }
-
-        .roster-row:not(.roster-head):hover,
-        .roster-row.is-selected {
-          background: rgba(248, 250, 252, 0.86);
-        }
-
-        .roster-row span {
-          display: grid;
-          gap: 3px;
-          min-width: 0;
-          color: #0f172a;
-          font-size: 0.92rem;
-          font-weight: 600;
-        }
-
-        .roster-row span strong {
-          font-size: 0.96rem;
-          font-weight: 800;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .roster-row span small {
-          color: #94a3b8;
-          font-size: 0.78rem;
-          font-weight: 700;
-        }
-
-        .negative {
-          color: #dc2626 !important;
-        }
-
-        .detail-panel {
-          position: sticky;
-          top: 24px;
-          padding: 22px;
-          display: grid;
-          gap: 18px;
-        }
-
-        .detail-head {
-          display: grid;
-          grid-template-columns: auto minmax(0, 1fr) auto;
-          align-items: center;
-          gap: 14px;
-        }
-
-        .detail-avatar {
-          width: 56px;
-          height: 56px;
-          border-radius: 20px;
-          background: linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(22, 163, 74, 0.12));
-          color: #1d4ed8;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1rem;
-          font-weight: 800;
-        }
-
-        .detail-copy {
-          display: grid;
-          gap: 4px;
-          min-width: 0;
-        }
-
-        .detail-copy h3 {
-          margin: 0;
-          color: #0f172a;
-          font-size: 1.24rem;
-          font-weight: 800;
-          letter-spacing: -0.03em;
-        }
-
-        .detail-copy p {
-          margin: 0;
-          color: #64748b;
-          font-size: 0.92rem;
-          line-height: 1.5;
-        }
-
-        .status-badge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 34px;
-          padding: 0 12px;
-          border-radius: 999px;
-          font-size: 0.84rem;
-          font-weight: 800;
-          white-space: nowrap;
-        }
-
-        .status-badge--active {
-          background: rgba(34, 197, 94, 0.12);
-          color: #15803d;
-        }
-
-        .status-badge--muted {
-          background: rgba(148, 163, 184, 0.12);
-          color: #475569;
-        }
-
-        .status-badge--neutral {
-          background: rgba(59, 130, 246, 0.08);
-          color: #1d4ed8;
-        }
-
-        .detail-tabs {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          overflow-x: auto;
-          padding-bottom: 4px;
-        }
-
-        .detail-tab {
-          min-height: 40px;
-          padding: 0 14px;
-          border-radius: 999px;
-          border: 1px solid #e8eef6;
-          background: rgba(248, 250, 252, 0.9);
-          color: #64748b;
-          font-size: 0.85rem;
-          font-weight: 800;
-          white-space: nowrap;
-          cursor: pointer;
-          transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
-        }
-
-        .detail-tab.is-active {
-          background: rgba(37, 99, 235, 0.1);
-          border-color: rgba(37, 99, 235, 0.18);
-          color: #1d4ed8;
-        }
-
-        .detail-tab-panel {
-          display: grid;
-          gap: 16px;
-        }
-
-        .detail-metrics-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
-        }
-
-        .detail-metric {
-          padding: 14px;
-          border-radius: 16px;
-          background: rgba(248, 250, 252, 0.82);
-          border: 1px solid #edf2f8;
-          display: grid;
-          gap: 8px;
-        }
-
-        .detail-metric span {
-          color: #64748b;
-          font-size: 0.76rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          font-weight: 800;
-        }
-
-        .detail-metric strong {
-          color: #0f172a;
-          font-size: 1.18rem;
-          font-weight: 800;
-          letter-spacing: -0.04em;
-          white-space: nowrap;
-        }
-
-        .detail-list-card {
-          padding: 16px;
-          border-radius: 18px;
-          background: rgba(248, 250, 252, 0.78);
-          border: 1px solid #edf2f8;
-          display: grid;
-          gap: 14px;
-        }
-
-        .detail-list-head {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .detail-list-head h4 {
-          margin: 0;
-          color: #0f1e36;
-          font-size: 0.96rem;
-          font-weight: 800;
-        }
-
-        .detail-list-head span {
-          color: #94a3b8;
-          font-size: 0.82rem;
-          font-weight: 700;
-        }
-
-        .deduction-list {
-          display: grid;
-          gap: 10px;
-        }
-
-        .deduction-row,
-        .deduction-total-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 12px;
-          padding: 10px 0;
-          border-bottom: 1px solid #edf2f8;
-        }
-
-        .deduction-total-row {
-          border-bottom: none;
-          padding-bottom: 0;
-        }
-
-        .deduction-row span,
-        .deduction-total-row span {
-          color: #475569;
-          font-size: 0.92rem;
-        }
-
-        .deduction-row strong,
-        .deduction-total-row strong {
-          color: #0f172a;
-          font-size: 0.96rem;
-          font-weight: 800;
-          white-space: nowrap;
-        }
-
-        .detail-copy-block {
-          padding: 16px;
-          border-radius: 18px;
-          background: rgba(248, 250, 252, 0.78);
-          border: 1px solid #edf2f8;
-          display: grid;
-          gap: 8px;
-        }
-
-        .detail-copy-block span {
-          color: #64748b;
-          font-size: 0.78rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          font-weight: 800;
-        }
-
-        .detail-copy-block strong {
-          color: #0f172a;
-          font-size: 1.02rem;
-          font-weight: 800;
-        }
-
-        .detail-copy-block p {
-          margin: 0;
-          color: #64748b;
-          font-size: 0.9rem;
-          line-height: 1.65;
-        }
-
-        .detail-trend-card {
-          padding: 8px 0 0;
-        }
-
-        .primary-button,
-        .ghost-button {
-          min-height: 48px;
-          padding: 0 18px;
-          border-radius: 16px;
-          font-size: 0.95rem;
-          font-weight: 800;
-          cursor: pointer;
-          transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
-        }
-
-        .primary-button {
-          border: none;
-          background: linear-gradient(135deg, #0f5fd7, #1d4ed8);
-          color: #ffffff;
-          box-shadow: 0 18px 34px rgba(29, 78, 216, 0.18);
-        }
-
-        .primary-button:hover,
-        .ghost-button:hover {
-          transform: translateY(-1px);
-        }
-
-        .primary-button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        .ghost-button {
-          border: 1px solid rgba(37, 99, 235, 0.14);
-          background: rgba(255, 255, 255, 0.92);
-          color: #0f1e36;
-        }
-
-        .full-width {
-          width: 100%;
-        }
-
-        .form-feedback {
-          padding: 12px 14px;
-          border-radius: 14px;
-          font-size: 0.9rem;
-          font-weight: 700;
-        }
-
-        .form-feedback.error {
-          background: rgba(239, 68, 68, 0.1);
-          color: #b91c1c;
-        }
-
-        .form-feedback.success {
-          background: rgba(34, 197, 94, 0.1);
-          color: #15803d;
-        }
-
-        .desktop-only {
-          display: grid;
-        }
-
-        .mobile-only {
-          display: none;
-        }
-
-        @media (max-width: 1280px) {
-          .kpi-grid,
-          .ranking-grid,
-          .efficiency-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
-
-          .analytics-hero-grid {
-            grid-template-columns: minmax(0, 1fr);
-          }
-
-          .workspace-grid {
-            grid-template-columns: minmax(0, 1fr);
-          }
-
-          .detail-panel {
-            position: static;
-          }
-        }
-
-        @media (max-width: 1024px) {
-          .filters-grid,
-          .donut-layout,
-          .detail-metrics-grid,
-          .efficiency-grid,
-          .ranking-grid {
-            grid-template-columns: minmax(0, 1fr);
-          }
-
-          .donut-shell {
-            width: 168px;
-            height: 168px;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .payroll-page {
-            gap: 16px;
-          }
-
-          .page-header {
-            gap: 14px;
-          }
-
-          .page-actions {
-            width: 100%;
-            display: grid;
-            grid-template-columns: minmax(0, 1fr);
-          }
-
-          .field.compact,
-          .ghost-button,
-          .primary-button {
-            width: 100%;
-          }
-
-          .kpi-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .kpi-card {
-            min-height: 0;
-          }
-
-          .filters-card,
-          .trend-card,
-          .donut-card,
-          .roster-card,
-          .rankings-card,
-          .detail-panel {
-            padding: 18px;
-          }
-
-          .page-copy h1 {
-            font-size: 1.8rem;
-          }
-
-          .detail-head {
-            grid-template-columns: auto 1fr;
-          }
-
-          .detail-head .status-badge {
-            grid-column: 1 / -1;
-            justify-self: start;
-          }
-
-          .roster-table.desktop-only {
-            display: none;
-          }
-
-          .mobile-only {
-            display: grid;
-            gap: 12px;
-          }
-
-          .roster-mobile-card {
-            width: 100%;
-            padding: 14px;
-            border-radius: 18px;
-            border: 1px solid #e8eef6;
-            background: rgba(248, 250, 252, 0.82);
-            display: grid;
-            gap: 10px;
-            text-align: left;
-            cursor: pointer;
-          }
-
-          .roster-mobile-card.is-selected {
-            border-color: rgba(37, 99, 235, 0.24);
-            background: rgba(239, 246, 255, 0.86);
-          }
-
-          .roster-mobile-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-          }
-
-          .roster-mobile-head strong {
-            color: #0f172a;
-            font-size: 0.98rem;
-            font-weight: 800;
-          }
-
-          .roster-mobile-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            color: #64748b;
-            font-size: 0.84rem;
-            font-weight: 700;
-          }
-
-          .roster-mobile-values {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-          }
-
-          .roster-mobile-values small {
-            color: #64748b;
-            font-size: 0.78rem;
-          }
-
-          .roster-mobile-values strong {
-            display: block;
-            margin-top: 4px;
-            color: #0f172a;
-            font-size: 0.98rem;
-            font-weight: 800;
-          }
-        }
-      `}</style>
+      </div>
     </AppShell>
   );
-}
-
-function displayCostModel(value: string) {
-  return COST_MODEL_LABELS[value] ?? value;
 }
