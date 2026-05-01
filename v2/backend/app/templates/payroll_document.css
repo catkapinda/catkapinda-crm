@@ -425,6 +425,10 @@ body {
   padding: 4mm 4.5mm;
   border-radius: 16px;
   background: #f8fafc;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6mm;
 }
 
 .invoice-total-label {
@@ -433,7 +437,8 @@ body {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--navy);
-  margin-bottom: 2mm;
+  margin-bottom: 0;
+  flex: 0 1 auto;
 }
 
 .invoice-total-value {
@@ -442,6 +447,7 @@ body {
   font-weight: 700;
   color: var(--navy);
   text-align: right;
+  flex: 0 0 auto;
 }
 
 .operations-card {
