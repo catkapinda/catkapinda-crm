@@ -1,0 +1,489 @@
+.ck-pl-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+}
+
+.ck-pl-list-card,
+.ck-pl-detail-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+
+.ck-pl-list-card {
+  padding: 22px;
+  min-width: 0;
+}
+
+.ck-pl-list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.ck-pl-list-head h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  color: #0f172a;
+}
+
+.ck-pl-list-head p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.ck-pl-count {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ck-pl-filters {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 160px 160px;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ck-pl-search,
+.ck-pl-filters select {
+  height: 44px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.ck-pl-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+}
+
+.ck-pl-search svg {
+  color: #64748b;
+}
+
+.ck-pl-search input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  width: 100%;
+  font-size: 14px;
+}
+
+.ck-pl-filters select {
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.ck-pl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 640px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ck-pl-row {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 92px 132px 24px;
+  gap: 12px;
+  align-items: center;
+  min-height: 66px;
+  padding: 0 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.ck-pl-row:hover {
+  background: #f8fafc;
+  border-color: #e5e7eb;
+}
+
+.is-selected {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.ck-pl-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: #0f2a4a;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.large {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  font-size: 16px;
+}
+
+.ck-pl-person {
+  min-width: 0;
+}
+
+.ck-pl-person strong {
+  display: block;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck-pl-person span {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck-pl-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.is-active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ck-pl-money-block {
+  text-align: right;
+  min-width: 0;
+}
+
+.ck-pl-money-block small {
+  display: block;
+  color: #94a3b8;
+  font-size: 11px;
+  margin-bottom: 3px;
+}
+
+.ck-pl-money-block strong {
+  display: block;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-pl-chevron {
+  color: #94a3b8;
+}
+
+.ck-pl-detail-card {
+  position: sticky;
+  top: 24px;
+  padding: 20px;
+  width: 100%;
+  max-width: 380px;
+  min-height: 420px;
+  box-sizing: border-box;
+}
+
+.ck-pl-empty {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 24px;
+}
+
+.ck-pl-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  background: #eff6ff;
+  color: #2563eb;
+  margin-bottom: 16px;
+}
+
+.ck-pl-empty h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.ck-pl-empty p {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.ck-pl-detail-top {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 36px;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ck-pl-detail-title {
+  min-width: 0;
+}
+
+.ck-pl-detail-title h3 {
+  margin: 0;
+  font-size: 17px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck-pl-detail-title p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.ck-pl-clear {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.ck-pl-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 18px 0;
+  padding: 4px;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.ck-pl-tabs button {
+  border: 0;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ck-pl-tabs button.is-active {
+  background: #ffffff;
+  color: #0f2a4a;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
+.ck-pl-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.ck-pl-metric {
+  padding: 13px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  min-width: 0;
+}
+
+.ck-pl-metric-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #2563eb;
+  background: #eff6ff;
+  margin-bottom: 8px;
+}
+
+.ck-pl-metric span {
+  display: block;
+  color: #64748b;
+  font-size: 11.5px;
+  margin-bottom: 4px;
+}
+
+.ck-pl-metric strong {
+  display: block;
+  color: #0f172a;
+  font-size: 17px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-pl-section {
+  margin-top: 4px;
+}
+
+.ck-pl-section-title h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.ck-pl-deductions {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ck-pl-deduction-row,
+.ck-pl-deduction-total {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ck-pl-deduction-row span {
+  color: #64748b;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck-pl-deduction-row strong {
+  color: #dc2626;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ck-pl-deduction-total {
+  border-bottom: 0;
+  background: #f8fafc;
+}
+
+.ck-pl-deduction-total span,
+.ck-pl-deduction-total strong {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.ck-pl-muted {
+  margin: 0;
+  padding: 14px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.ck-pl-primary-btn {
+  width: 100%;
+  height: 48px;
+  margin-top: 18px;
+  border: 0;
+  border-radius: 16px;
+  background: #0f2a4a;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.ck-pl-primary-btn:hover {
+  background: #061b33;
+}
+
+@media (max-width: 1180px) {
+  .ck-pl-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .ck-pl-detail-card {
+    position: static;
+    max-width: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .ck-pl-list-card,
+  .ck-pl-detail-card {
+    border-radius: 18px;
+  }
+
+  .ck-pl-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .ck-pl-row {
+    grid-template-columns: 40px minmax(0, 1fr) 24px;
+    min-height: 72px;
+  }
+
+  .ck-pl-status,
+  .ck-pl-money-block {
+    display: none;
+  }
+
+  .ck-pl-metrics {
+    grid-template-columns: 1fr;
+  }
+}

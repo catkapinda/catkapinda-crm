@@ -2,6 +2,7 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
+import PayrollPersonnelWorkbench from "../../components/payroll/PayrollPersonnelWorkbench";
 import { useAuth } from "../../components/auth/auth-provider";
 import { AppShell } from "../../components/shell/app-shell";
 import { apiFetch } from "../../lib/api";
@@ -622,14 +623,8 @@ export default function PayrollPage() {
   const [selectedRole, setSelectedRole] = useState("Tümü");
   const [selectedRestaurant, setSelectedRestaurant] = useState("Tümü");
   const [personnelQuery, setPersonnelQuery] = useState("");
-  const [sortMode, setSortMode] = useState("net-desc");
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<number | null>(null);
-  const [documentBusy, setDocumentBusy] = useState(false);
-  const [documentError, setDocumentError] = useState("");
-  const [documentMessage, setDocumentMessage] = useState("");
   const [monthlySeries, setMonthlySeries] = useState<MonthlySeriesItem[]>([]);
-  const [deductionEntries, setDeductionEntries] = useState<DeductionRecord[]>([]);
-  const [deductionLoading, setDeductionLoading] = useState(false);
   const deferredPersonnelQuery = useDeferredValue(personnelQuery);
 
   useEffect(() => {
@@ -765,23 +760,6 @@ export default function PayrollPage() {
       `${row.personnel} ${row.role} ${row.cost_model}`.toLocaleLowerCase("tr-TR").includes(query),
     );
   }, [dashboard?.entries, deferredPersonnelQuery]);
-
-  const listEntries = useMemo(() => {
-    const rows = [...filteredEntries];
-    switch (sortMode) {
-      case "name-asc":
-        return rows.sort((left, right) => left.personnel.localeCompare(right.personnel, "tr"));
-      case "gross-desc":
-        return rows.sort((left, right) => right.gross_pay - left.gross_pay);
-      case "deduction-desc":
-        return rows.sort((left, right) => right.total_deductions - left.total_deductions);
-      case "tevkifat-desc":
-        return rows.sort((left, right) => right.tevkifat_amount - left.tevkifat_amount);
-      case "net-desc":
-      default:
-        return rows.sort((left, right) => right.net_payment - left.net_payment);
-    }
-  }, [filteredEntries, sortMode]);
 
   useEffect(() => {
     if (!filteredEntries.length) {
@@ -951,11 +929,6 @@ export default function PayrollPage() {
     true,
   );
 
-  const selectedPersonnel = useMemo(
-    () => filteredEntries.find((entry) => entry.personnel_id === selectedPersonnelId) ?? null,
-    [filteredEntries, selectedPersonnelId],
-  );
-
   const highestNetPayment = useMemo(
     () =>
       [...filteredEntries]
@@ -1002,142 +975,39 @@ export default function PayrollPage() {
     [filteredEntries],
   );
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadDeductions() {
-      if (!user || !selectedPersonnel) {
-        if (active) {
-          setDeductionEntries([]);
-          setDeductionLoading(false);
-        }
-        return;
-      }
-
-      setDeductionLoading(true);
-      try {
-        const params = new URLSearchParams({
-          personnel_id: String(selectedPersonnel.personnel_id),
-          limit: "60",
-        });
-        const response = await apiFetch(`/deductions/records?${params.toString()}`);
-        if (!response.ok) {
-          if (active) {
-            setDeductionEntries([]);
-          }
-          return;
-        }
-        const payload = (await response.json()) as DeductionsManagementResponse;
-        const monthPrefix = (dashboard?.selected_month || selectedMonth || "").trim();
-        const rows = (payload.entries ?? []).filter((entry) =>
-          monthPrefix ? String(entry.deduction_date).startsWith(monthPrefix) : true,
-        );
-        if (active) {
-          setDeductionEntries(rows);
-        }
-      } catch {
-        if (active) {
-          setDeductionEntries([]);
-        }
-      } finally {
-        if (active) {
-          setDeductionLoading(false);
-        }
-      }
-    }
-
-    void loadDeductions();
-    return () => {
-      active = false;
-    };
-  }, [dashboard?.selected_month, selectedMonth, selectedPersonnel, user]);
-
-  const selectedPersonDeductions = useMemo(() => {
-    if (!selectedPersonnel) {
-      return [] as DeductionListItem[];
-    }
-
-    const rows: DeductionListItem[] = deductionEntries.map((entry) => ({
-      key: entry.id,
-      label: entry.type_caption || entry.deduction_type || "Kesinti",
-      amount: entry.amount,
-    }));
-    const hasTevkifat = rows.some((row) =>
-      row.label.toLocaleLowerCase("tr-TR").includes("tevkifat"),
-    );
-    if (!hasTevkifat && selectedPersonnel.tevkifat_amount > 0) {
-      rows.push({
-        key: "tevkifat",
-        label: "Tevkifat",
-        amount: selectedPersonnel.tevkifat_amount,
-      });
-    }
-    const knownTotal = rows.reduce((sum, row) => sum + row.amount, 0);
-    const residual = Math.max(selectedPersonnel.total_deductions - knownTotal, 0);
-    if (residual > 0.01) {
-      rows.push({
-        key: "other",
-        label: "Diğer Kesintiler",
-        amount: residual,
-      });
-    }
-    return rows;
-  }, [deductionEntries, selectedPersonnel]);
-
-  async function handleDocumentDownload() {
-    if (!selectedPersonnel) {
-      setDocumentError("PDF indirmek için önce personel seçmelisin.");
-      setDocumentMessage("");
-      return;
-    }
-
+  async function handleDownloadPayrollPdf(person?: {
+    id?: number | null;
+    name?: string | null;
+  }) {
+    const personnelId = person?.id;
     const month = dashboard?.selected_month || selectedMonth;
-    if (!month) {
-      setDocumentError("PDF indirmek için önce dönem seçmelisin.");
-      setDocumentMessage("");
+    if (!personnelId || !month) {
       return;
     }
 
-    setDocumentBusy(true);
-    setDocumentError("");
-    setDocumentMessage("");
     try {
       const params = new URLSearchParams({
-        personnel_id: String(selectedPersonnel.personnel_id),
+        personnel_id: String(personnelId),
         month,
       });
       const response = await apiFetch(`/payroll/document?${params.toString()}`);
       if (!response.ok) {
-        let detail = "Hakediş PDF'i indirilemedi.";
-        try {
-          const payload = (await response.json()) as { detail?: string };
-          if (payload?.detail) {
-            detail = payload.detail;
-          }
-        } catch {}
-        throw new Error(detail);
+        throw new Error("Hakediş PDF'i indirilemedi.");
       }
       const disposition = response.headers.get("Content-Disposition") || "";
       const fileNameMatch = disposition.match(/filename=\"?([^"]+)\"?/i);
       const fileName =
         fileNameMatch?.[1] ||
-        `hakedis_${selectedPersonnel.personnel_id}_${month}.pdf`;
+        `hakedis_${personnelId}_${month}.pdf`;
       const blob = await response.blob();
       triggerBrowserDownload(blob, fileName);
-      setDocumentMessage("Hakediş PDF'i indirildi.");
-    } catch (nextError) {
-      setDocumentError(
-        nextError instanceof Error ? nextError.message : "Hakediş PDF'i indirilemedi.",
-      );
-    } finally {
-      setDocumentBusy(false);
+    } catch (error) {
+      console.error("Hakediş PDF'i indirilemedi", error);
     }
   }
 
   function handleCsvDownload() {
     if (!filteredEntries.length) {
-      setDocumentError("Excel indirmek için görünür kayıt oluşmalı.");
-      setDocumentMessage("");
       return;
     }
     const headers = [
@@ -1166,8 +1036,6 @@ export default function PayrollPage() {
     const month = dashboard?.selected_month || selectedMonth || "hakedis";
     const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" });
     triggerBrowserDownload(blob, `catkapinda_aylik_hakedis_${month}.csv`);
-    setDocumentError("");
-    setDocumentMessage("Excel indirildi.");
   }
 
   const kpis = [
@@ -1217,96 +1085,32 @@ export default function PayrollPage() {
     },
   ];
 
-  const openPersonnelDetail = (personnelId: number) => {
-    setSelectedPersonnelId((current) => (current === personnelId ? null : personnelId));
-  };
+  const mappedPayrollPeople = useMemo(
+    () =>
+      filteredEntries.map((entry) => {
+        const residualDeduction = Math.max(entry.total_deductions - entry.tevkifat_amount, 0);
+        const deductions = [] as Array<{ label: string; amount: number }>;
+        if (residualDeduction > 0.01) {
+          deductions.push({ label: "Diğer Kesintiler", amount: residualDeduction });
+        }
+        if (entry.tevkifat_amount > 0.01) {
+          deductions.push({ label: "Tevkifat", amount: entry.tevkifat_amount });
+        }
 
-  const renderInlineDetailCard = () => (
-    <section className={styles.payintInlineDetailCard}>
-      {selectedPersonnel ? (
-        <>
-          <div className={styles.payintInlineDetailHeader}>
-            <div className={styles.payintDetailProfile}>
-              <div className={styles.payintDetailAvatar}>{getInitials(selectedPersonnel.personnel)}</div>
-              <div className={styles.payintDetailCopy}>
-                <h3>{selectedPersonnel.personnel}</h3>
-                <p>
-                  {selectedPersonnel.role}
-                  {selectedPersonnel.status ? ` • ${selectedPersonnel.status}` : ""}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              className={styles.payintInlineDetailClose}
-              onClick={() => setSelectedPersonnelId(null)}
-            >
-              Detayı kapat
-            </button>
-          </div>
-          <div className={styles.payintDetailBody}>
-            <div className={styles.payintInlineMetricGrid}>
-              <article className={styles.payintInlineMetricCard}>
-                <span>Net Ödeme</span>
-                <strong>{formatMoney(selectedPersonnel.net_payment)}</strong>
-              </article>
-              <article className={styles.payintInlineMetricCard}>
-                <span>Hakediş</span>
-                <strong>{formatMoney(selectedPersonnel.gross_pay)}</strong>
-              </article>
-              <article className={styles.payintInlineMetricCard}>
-                <span>Kesinti</span>
-                <strong className={styles.payintNegativeText}>{formatMoney(selectedPersonnel.total_deductions)}</strong>
-              </article>
-              <article className={styles.payintInlineMetricCard}>
-                <span>Tevkifat</span>
-                <strong>{formatMoney(selectedPersonnel.tevkifat_amount)}</strong>
-              </article>
-            </div>
-
-            <div className={styles.payintDetailListCard}>
-              <div className={styles.payintDetailListHead}>
-                <h4>Kesinti Kalemleri</h4>
-                {deductionLoading ? <span>Yükleniyor…</span> : null}
-              </div>
-              <div className={styles.payintDetailListRows}>
-                {selectedPersonDeductions.length ? (
-                  selectedPersonDeductions.map((row) => (
-                    <div key={String(row.key)} className={styles.payintDetailListRow}>
-                      <span title={row.label}>{row.label}</span>
-                      <strong className={styles.payintNegativeText}>{formatMoney(row.amount)}</strong>
-                    </div>
-                  ))
-                ) : (
-                  <div className={styles.payintEmptyCompact}>Bu kişi için seçili ayda kesinti oluşmadı.</div>
-                )}
-              </div>
-              <div className={styles.payintDetailListTotal}>
-                <span>Toplam Kesinti</span>
-                <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className={styles.payintPrimaryButton}
-              onClick={handleDocumentDownload}
-              disabled={documentBusy}
-            >
-              {documentBusy ? "PDF hazırlanıyor..." : "Hakediş PDF’i İndir"}
-            </button>
-            {documentError ? (
-              <div className={`${styles.payintFeedback} ${styles.payintFeedbackError}`}>{documentError}</div>
-            ) : null}
-            {documentMessage ? (
-              <div className={`${styles.payintFeedback} ${styles.payintFeedbackSuccess}`}>{documentMessage}</div>
-            ) : null}
-          </div>
-        </>
-      ) : (
-        <div className={styles.payintEmptyPanel}>Detayları görmek için listeden bir personel seçin.</div>
-      )}
-    </section>
+        return {
+          id: entry.personnel_id,
+          name: entry.personnel || "—",
+          role: entry.role || "—",
+          status: entry.status || "—",
+          netPayment: Number.isFinite(entry.net_payment) ? entry.net_payment : null,
+          earning: Number.isFinite(entry.gross_pay) ? entry.gross_pay : null,
+          deduction: Number.isFinite(entry.total_deductions) ? entry.total_deductions : null,
+          withholding: Number.isFinite(entry.tevkifat_amount) ? entry.tevkifat_amount : null,
+          model: displayCostModel(entry.cost_model),
+          deductions,
+        };
+      }),
+    [filteredEntries],
   );
 
   const overviewView = (
@@ -1479,173 +1283,10 @@ export default function PayrollPage() {
   );
 
   const listView = (
-    <section className={styles.payintListViewGrid}>
-      <div className={styles.payintMainColumn}>
-        <section className={`${styles.payintCard} ${styles.payintListCard}`}>
-          <div className={styles.payintSectionHeader}>
-            <div>
-              <h3>Personel Listesi</h3>
-              <p>Seçili dönemde hakediş havuzuna giren personeli filtreleyip detay panelini açın.</p>
-            </div>
-            <div className={styles.payintListMeta}>
-              <span className={styles.payintCountBadge}>{formatNumber(listEntries.length, 0)} kişi</span>
-            </div>
-          </div>
-
-          <div className={styles.payintListToolbar}>
-            <label className={styles.payintField}>
-              <span>Rol</span>
-              <select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)}>
-                <option value="Tümü">Tümü</option>
-                {(dashboard?.role_options ?? []).map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className={styles.payintField}>
-              <span>Restoran / Şube</span>
-              <select
-                value={selectedRestaurant}
-                onChange={(event) => setSelectedRestaurant(event.target.value)}
-              >
-                <option value="Tümü">Tümü</option>
-                {(dashboard?.restaurant_options ?? []).map((restaurant) => (
-                  <option key={restaurant} value={restaurant}>
-                    {restaurant}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className={styles.payintField}>
-              <span>Sırala</span>
-              <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
-                <option value="net-desc">Net Ödeme</option>
-                <option value="gross-desc">Hakediş Tutarı</option>
-                <option value="deduction-desc">Kesinti</option>
-                <option value="tevkifat-desc">Tevkifat</option>
-                <option value="name-asc">Ada Göre</option>
-              </select>
-            </label>
-
-            <label className={`${styles.payintField} ${styles.payintSearchField}`}>
-              <span>Personel ara</span>
-              <input
-                value={personnelQuery}
-                onChange={(event) => setPersonnelQuery(event.target.value)}
-                placeholder="Ad, rol veya model ara"
-              />
-            </label>
-          </div>
-
-          <div className={styles.payintListBody}>
-            <div className={styles.payintTableScroll}>
-              <div className={styles.payintTableDesktop}>
-                <div className={styles.payintTableHeader}>
-                  <span>Personel</span>
-                  <span>Rol</span>
-                  <span>Durum</span>
-                  <span>Net Ödeme</span>
-                  <span>Hakediş</span>
-                  <span>Kesinti</span>
-                  <span>Tevkifat</span>
-                  <span>Model</span>
-                  <span>Aksiyon</span>
-                </div>
-                {listEntries.map((entry) => (
-                  <div key={entry.personnel_id} className={styles.payintTableEntry}>
-                    <button
-                      type="button"
-                      className={`${styles.payintTableRow} ${
-                        selectedPersonnelId === entry.personnel_id ? styles.payintTableRowSelected : ""
-                      }`}
-                      onClick={() => openPersonnelDetail(entry.personnel_id)}
-                    >
-                      <span className={styles.payintPersonCell}>
-                        <strong>{entry.personnel}</strong>
-                      </span>
-                      <span>{entry.role}</span>
-                      <span>
-                        <StatusBadge value={entry.status} />
-                      </span>
-                      <span className={`${styles.payintNumericCell} ${styles.payintMoneyCell}`}>
-                        {formatMoney(entry.net_payment)}
-                      </span>
-                      <span className={`${styles.payintNumericCell} ${styles.payintMoneyCell}`}>
-                        {formatMoney(entry.gross_pay)}
-                      </span>
-                      <span className={`${styles.payintNumericCell} ${styles.payintMoneyCell} ${styles.payintNegativeText}`}>
-                        {formatMoney(entry.total_deductions)}
-                      </span>
-                      <span className={`${styles.payintNumericCell} ${styles.payintMoneyCell}`}>
-                        {formatMoney(entry.tevkifat_amount)}
-                      </span>
-                      <span className={styles.payintModelCell}>{displayCostModel(entry.cost_model)}</span>
-                      <span className={styles.payintActionCell}>
-                        <span className={styles.payintActionPill}>
-                          {selectedPersonnelId === entry.personnel_id ? "Kapat" : "Detay"}
-                        </span>
-                      </span>
-                    </button>
-                    {selectedPersonnelId === entry.personnel_id ? (
-                      <div className={styles.payintInlineDetailRow}>{renderInlineDetailCard()}</div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className={styles.payintTableMobile}>
-              {listEntries.map((entry) => (
-                <div key={`mobile-${entry.personnel_id}`} className={styles.payintMobileEntry}>
-                  <button
-                    type="button"
-                    className={`${styles.payintPersonCard} ${
-                      selectedPersonnelId === entry.personnel_id ? styles.payintPersonCardSelected : ""
-                    }`}
-                    onClick={() => openPersonnelDetail(entry.personnel_id)}
-                  >
-                    <div className={styles.payintPersonCardHead}>
-                      <div className={styles.payintPersonCardCopy}>
-                        <strong>{entry.personnel}</strong>
-                        <span>{entry.role}</span>
-                      </div>
-                      <StatusBadge value={entry.status} />
-                    </div>
-                    <div className={styles.payintPersonCardGrid}>
-                      <div>
-                        <small>Net Ödeme</small>
-                        <strong>{formatMoney(entry.net_payment)}</strong>
-                      </div>
-                      <div>
-                        <small>Hakediş</small>
-                        <strong>{formatMoney(entry.gross_pay)}</strong>
-                      </div>
-                      <div>
-                        <small>Kesinti</small>
-                        <strong className={styles.payintNegativeText}>
-                          {formatMoney(entry.total_deductions)}
-                        </strong>
-                      </div>
-                      <div>
-                        <small>Tevkifat</small>
-                        <strong>{formatMoney(entry.tevkifat_amount)}</strong>
-                      </div>
-                    </div>
-                  </button>
-                  {selectedPersonnelId === entry.personnel_id ? (
-                    <div className={styles.payintMobileInlineDetail}>{renderInlineDetailCard()}</div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      </div>
-    </section>
+    <PayrollPersonnelWorkbench
+      people={mappedPayrollPeople}
+      onDownloadPdf={handleDownloadPayrollPdf}
+    />
   );
 
   return (
