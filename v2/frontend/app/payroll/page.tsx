@@ -66,7 +66,6 @@ type DeductionsManagementResponse = {
 };
 
 type PayrollDeltaTone = "positive" | "negative" | "neutral";
-type PayrollTab = "finance" | "operations" | "trend" | "pdf";
 type PayrollViewMode = "overview" | "list";
 
 type PayrollEntryView = PayrollDashboard["entries"][number];
@@ -625,8 +624,6 @@ export default function PayrollPage() {
   const [personnelQuery, setPersonnelQuery] = useState("");
   const [sortMode, setSortMode] = useState("net-desc");
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<PayrollTab>("finance");
-  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [documentBusy, setDocumentBusy] = useState(false);
   const [documentError, setDocumentError] = useState("");
   const [documentMessage, setDocumentMessage] = useState("");
@@ -959,18 +956,6 @@ export default function PayrollPage() {
     [filteredEntries, selectedPersonnelId],
   );
 
-  useEffect(() => {
-    if (viewMode !== "list") {
-      setDetailDrawerOpen(false);
-    }
-  }, [viewMode]);
-
-  useEffect(() => {
-    if (!selectedPersonnel) {
-      setDetailDrawerOpen(false);
-    }
-  }, [selectedPersonnel]);
-
   const highestNetPayment = useMemo(
     () =>
       [...filteredEntries]
@@ -1261,160 +1246,94 @@ export default function PayrollPage() {
     },
   ];
 
-  const detailTabs = [
-    { id: "finance", label: "Finans Özeti" },
-    { id: "operations", label: "Operasyon Özeti" },
-    { id: "trend", label: "Trend" },
-    { id: "pdf", label: "PDF" },
-  ] satisfies Array<{ id: PayrollTab; label: string }>;
-
   const openPersonnelDetail = (personnelId: number) => {
-    setSelectedPersonnelId(personnelId);
-    setActiveTab("finance");
-    setDetailDrawerOpen(true);
+    setSelectedPersonnelId((current) => (current === personnelId ? null : personnelId));
   };
 
-  const renderDetailPanel = (extraClassName?: string) => (
-    <section className={`${styles.payintDetailPanel} ${extraClassName ?? ""}`.trim()}>
+  const renderInlineDetailCard = () => (
+    <section className={styles.payintInlineDetailCard}>
       {selectedPersonnel ? (
         <>
-          <div className={styles.payintDetailHeader}>
+          <div className={styles.payintInlineDetailHeader}>
             <div className={styles.payintDetailProfile}>
               <div className={styles.payintDetailAvatar}>{getInitials(selectedPersonnel.personnel)}</div>
               <div className={styles.payintDetailCopy}>
                 <h3>{selectedPersonnel.personnel}</h3>
-                <p>{selectedPersonnel.role}</p>
+                <p>
+                  {selectedPersonnel.role}
+                  {selectedPersonnel.status ? ` • ${selectedPersonnel.status}` : ""}
+                </p>
               </div>
             </div>
-            <div className={styles.payintDetailStatusRow}>
-              <StatusBadge value={selectedPersonnel.status} />
-              <button type="button" className={styles.payintKebabButton} aria-label="Detay menüsü">
-                <span />
-                <span />
-                <span />
-              </button>
-            </div>
+            <button
+              type="button"
+              className={styles.payintInlineDetailClose}
+              onClick={() => setSelectedPersonnelId(null)}
+            >
+              Detayı kapat
+            </button>
           </div>
-          <div className={styles.payintTabStrip} role="tablist" aria-label="Personel detay sekmeleri">
-            {detailTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={`${styles.payintTabButton} ${
-                  activeTab === tab.id ? styles.payintTabButtonActive : ""
-                }`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className={styles.payintDetailBody}>
+            <div className={styles.payintInlineMetricGrid}>
+              <article className={styles.payintInlineMetricCard}>
+                <span>Net Ödeme</span>
+                <strong>{formatMoney(selectedPersonnel.net_payment)}</strong>
+              </article>
+              <article className={styles.payintInlineMetricCard}>
+                <span>Hakediş</span>
+                <strong>{formatMoney(selectedPersonnel.gross_pay)}</strong>
+              </article>
+              <article className={styles.payintInlineMetricCard}>
+                <span>Kesinti</span>
+                <strong className={styles.payintNegativeText}>{formatMoney(selectedPersonnel.total_deductions)}</strong>
+              </article>
+              <article className={styles.payintInlineMetricCard}>
+                <span>Tevkifat</span>
+                <strong>{formatMoney(selectedPersonnel.tevkifat_amount)}</strong>
+              </article>
+            </div>
+
+            <div className={styles.payintDetailListCard}>
+              <div className={styles.payintDetailListHead}>
+                <h4>Kesinti Kalemleri</h4>
+                {deductionLoading ? <span>Yükleniyor…</span> : null}
+              </div>
+              <div className={styles.payintDetailListRows}>
+                {selectedPersonDeductions.length ? (
+                  selectedPersonDeductions.map((row) => (
+                    <div key={String(row.key)} className={styles.payintDetailListRow}>
+                      <span title={row.label}>{row.label}</span>
+                      <strong className={styles.payintNegativeText}>{formatMoney(row.amount)}</strong>
+                    </div>
+                  ))
+                ) : (
+                  <div className={styles.payintEmptyCompact}>Bu kişi için seçili ayda kesinti oluşmadı.</div>
+                )}
+              </div>
+              <div className={styles.payintDetailListTotal}>
+                <span>Toplam Kesinti</span>
+                <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={styles.payintPrimaryButton}
+              onClick={handleDocumentDownload}
+              disabled={documentBusy}
+            >
+              {documentBusy ? "PDF hazırlanıyor..." : "Hakediş PDF’i İndir"}
+            </button>
+            {documentError ? (
+              <div className={`${styles.payintFeedback} ${styles.payintFeedbackError}`}>{documentError}</div>
+            ) : null}
+            {documentMessage ? (
+              <div className={`${styles.payintFeedback} ${styles.payintFeedbackSuccess}`}>{documentMessage}</div>
+            ) : null}
           </div>
-
-          {activeTab === "finance" ? (
-            <div className={styles.payintDetailBody}>
-              <div className={styles.payintDetailMetricGrid}>
-                <article className={styles.payintDetailMetricCard}>
-                  <span>Net Ödeme</span>
-                  <strong>{formatMoney(selectedPersonnel.net_payment)}</strong>
-                </article>
-                <article className={styles.payintDetailMetricCard}>
-                  <span>Hakediş Tutarı</span>
-                  <strong>{formatMoney(selectedPersonnel.gross_pay)}</strong>
-                </article>
-                <article className={styles.payintDetailMetricCard}>
-                  <span>Toplam Kesinti</span>
-                  <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
-                </article>
-                <article className={styles.payintDetailMetricCard}>
-                  <span>Toplam Tevkifat</span>
-                  <strong>{formatMoney(selectedPersonnel.tevkifat_amount)}</strong>
-                </article>
-              </div>
-
-              <div className={styles.payintDetailListCard}>
-                <div className={styles.payintDetailListHead}>
-                  <h4>Kesinti Kalemleri</h4>
-                  {deductionLoading ? <span>Yükleniyor…</span> : null}
-                </div>
-                <div className={styles.payintDetailListRows}>
-                  {selectedPersonDeductions.length ? (
-                    selectedPersonDeductions.map((row) => (
-                      <div key={String(row.key)} className={styles.payintDetailListRow}>
-                        <span>{row.label}</span>
-                        <strong className={styles.payintNegativeText}>{formatMoney(row.amount)}</strong>
-                      </div>
-                    ))
-                  ) : (
-                    <div className={styles.payintEmptyCompact}>Bu kişi için seçili ayda kesinti oluşmadı.</div>
-                  )}
-                </div>
-                <div className={styles.payintDetailListTotal}>
-                  <span>Toplam Kesinti</span>
-                  <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {activeTab === "operations" ? (
-            <div className={styles.payintDetailBody}>
-              <div className={styles.payintDetailMetricGrid}>
-                <article className={styles.payintDetailMetricCard}>
-                  <span>Toplam Saat</span>
-                  <strong>{formatNumber(selectedPersonnel.total_hours, 1)}</strong>
-                </article>
-                <article className={styles.payintDetailMetricCard}>
-                  <span>Toplam Paket</span>
-                  <strong>{formatNumber(selectedPersonnel.total_packages, 0)}</strong>
-                </article>
-                <article className={styles.payintDetailMetricCard}>
-                  <span>Toplam Şube</span>
-                  <strong>{formatNumber(selectedPersonnel.restaurant_count, 0)}</strong>
-                </article>
-                <article className={styles.payintDetailMetricCard}>
-                  <span>Paket / Saat</span>
-                  <strong>
-                    {selectedPersonnel.total_hours > 0
-                      ? formatNumber(selectedPersonnel.total_packages / selectedPersonnel.total_hours, 1)
-                      : "0,0"}
-                  </strong>
-                </article>
-              </div>
-            </div>
-          ) : null}
-
-          {activeTab === "trend" ? (
-            <div className={styles.payintDetailBody}>
-              <div className={styles.payintDetailTrendCard}>
-                <TrendChart
-                  items={personTrendSeries.length ? personTrendSeries : [{ label: "—", value: 0 }]}
-                />
-              </div>
-              <div className={styles.payintInsightCard}>{personTrendInsight}</div>
-            </div>
-          ) : null}
-
-          {activeTab === "pdf" ? (
-            <div className={styles.payintDetailBody}>
-              <button
-                type="button"
-                className={styles.payintPrimaryButton}
-                onClick={handleDocumentDownload}
-                disabled={documentBusy}
-              >
-                {documentBusy ? "PDF hazırlanıyor..." : "Hakediş PDF’i İndir"}
-              </button>
-              {documentError ? (
-                <div className={`${styles.payintFeedback} ${styles.payintFeedbackError}`}>{documentError}</div>
-              ) : null}
-              {documentMessage ? (
-                <div className={`${styles.payintFeedback} ${styles.payintFeedbackSuccess}`}>{documentMessage}</div>
-              ) : null}
-            </div>
-          ) : null}
         </>
       ) : (
-        <div className={styles.payintEmptyPanel}>Sağ paneli doldurmak için listeden bir personel seçin.</div>
+        <div className={styles.payintEmptyPanel}>Detayları görmek için listeden bir personel seçin.</div>
       )}
     </section>
   );
@@ -1652,88 +1571,104 @@ export default function PayrollPage() {
           </div>
 
           <div className={styles.payintListBody}>
-            <div className={styles.payintTableDesktop}>
-              <div className={styles.payintTableHeader}>
-                <span>Personel</span>
-                <span>Rol</span>
-                <span>Durum</span>
-                <span>Net Ödeme</span>
-                <span>Hakediş</span>
-                <span>Kesinti</span>
-                <span>Tevkifat</span>
-                <span>Model</span>
-                <span>Aksiyon</span>
+            <div className={styles.payintTableScroll}>
+              <div className={styles.payintTableDesktop}>
+                <div className={styles.payintTableHeader}>
+                  <span>Personel</span>
+                  <span>Rol</span>
+                  <span>Durum</span>
+                  <span>Net Ödeme</span>
+                  <span>Hakediş</span>
+                  <span>Kesinti</span>
+                  <span>Tevkifat</span>
+                  <span>Model</span>
+                  <span>Aksiyon</span>
+                </div>
+                {listEntries.map((entry) => (
+                  <div key={entry.personnel_id} className={styles.payintTableEntry}>
+                    <button
+                      type="button"
+                      className={`${styles.payintTableRow} ${
+                        selectedPersonnelId === entry.personnel_id ? styles.payintTableRowSelected : ""
+                      }`}
+                      onClick={() => openPersonnelDetail(entry.personnel_id)}
+                    >
+                      <span className={styles.payintPersonCell}>
+                        <strong>{entry.personnel}</strong>
+                      </span>
+                      <span>{entry.role}</span>
+                      <span>
+                        <StatusBadge value={entry.status} />
+                      </span>
+                      <span className={`${styles.payintNumericCell} ${styles.payintMoneyCell}`}>
+                        {formatMoney(entry.net_payment)}
+                      </span>
+                      <span className={`${styles.payintNumericCell} ${styles.payintMoneyCell}`}>
+                        {formatMoney(entry.gross_pay)}
+                      </span>
+                      <span className={`${styles.payintNumericCell} ${styles.payintMoneyCell} ${styles.payintNegativeText}`}>
+                        {formatMoney(entry.total_deductions)}
+                      </span>
+                      <span className={`${styles.payintNumericCell} ${styles.payintMoneyCell}`}>
+                        {formatMoney(entry.tevkifat_amount)}
+                      </span>
+                      <span className={styles.payintModelCell}>{displayCostModel(entry.cost_model)}</span>
+                      <span className={styles.payintActionCell}>
+                        <span className={styles.payintActionPill}>
+                          {selectedPersonnelId === entry.personnel_id ? "Kapat" : "Detay"}
+                        </span>
+                      </span>
+                    </button>
+                    {selectedPersonnelId === entry.personnel_id ? (
+                      <div className={styles.payintInlineDetailRow}>{renderInlineDetailCard()}</div>
+                    ) : null}
+                  </div>
+                ))}
               </div>
-              {listEntries.map((entry) => (
-                <button
-                  key={entry.personnel_id}
-                  type="button"
-                  className={`${styles.payintTableRow} ${
-                    selectedPersonnelId === entry.personnel_id ? styles.payintTableRowSelected : ""
-                  }`}
-                  onClick={() => openPersonnelDetail(entry.personnel_id)}
-                >
-                  <span className={styles.payintPersonCell}>
-                    <strong>{entry.personnel}</strong>
-                  </span>
-                  <span>{entry.role}</span>
-                  <span>
-                    <StatusBadge value={entry.status} />
-                  </span>
-                  <span className={styles.payintNumericCell}>{formatMoney(entry.net_payment)}</span>
-                  <span className={styles.payintNumericCell}>{formatMoney(entry.gross_pay)}</span>
-                  <span className={`${styles.payintNumericCell} ${styles.payintNegativeText}`}>
-                    {formatMoney(entry.total_deductions)}
-                  </span>
-                  <span className={styles.payintNumericCell}>
-                    {formatMoney(entry.tevkifat_amount)}
-                  </span>
-                  <span className={styles.payintModelCell}>{displayCostModel(entry.cost_model)}</span>
-                  <span className={styles.payintActionCell}>
-                    <span className={styles.payintActionPill}>Detay</span>
-                  </span>
-                </button>
-              ))}
             </div>
 
             <div className={styles.payintTableMobile}>
               {listEntries.map((entry) => (
-                <button
-                  key={`mobile-${entry.personnel_id}`}
-                  type="button"
-                  className={`${styles.payintPersonCard} ${
-                    selectedPersonnelId === entry.personnel_id ? styles.payintPersonCardSelected : ""
-                  }`}
-                  onClick={() => openPersonnelDetail(entry.personnel_id)}
-                >
-                  <div className={styles.payintPersonCardHead}>
-                    <div className={styles.payintPersonCardCopy}>
-                      <strong>{entry.personnel}</strong>
-                      <span>{entry.role}</span>
+                <div key={`mobile-${entry.personnel_id}`} className={styles.payintMobileEntry}>
+                  <button
+                    type="button"
+                    className={`${styles.payintPersonCard} ${
+                      selectedPersonnelId === entry.personnel_id ? styles.payintPersonCardSelected : ""
+                    }`}
+                    onClick={() => openPersonnelDetail(entry.personnel_id)}
+                  >
+                    <div className={styles.payintPersonCardHead}>
+                      <div className={styles.payintPersonCardCopy}>
+                        <strong>{entry.personnel}</strong>
+                        <span>{entry.role}</span>
+                      </div>
+                      <StatusBadge value={entry.status} />
                     </div>
-                    <StatusBadge value={entry.status} />
-                  </div>
-                  <div className={styles.payintPersonCardGrid}>
-                    <div>
-                      <small>Net Ödeme</small>
-                      <strong>{formatMoney(entry.net_payment)}</strong>
+                    <div className={styles.payintPersonCardGrid}>
+                      <div>
+                        <small>Net Ödeme</small>
+                        <strong>{formatMoney(entry.net_payment)}</strong>
+                      </div>
+                      <div>
+                        <small>Hakediş</small>
+                        <strong>{formatMoney(entry.gross_pay)}</strong>
+                      </div>
+                      <div>
+                        <small>Kesinti</small>
+                        <strong className={styles.payintNegativeText}>
+                          {formatMoney(entry.total_deductions)}
+                        </strong>
+                      </div>
+                      <div>
+                        <small>Tevkifat</small>
+                        <strong>{formatMoney(entry.tevkifat_amount)}</strong>
+                      </div>
                     </div>
-                    <div>
-                      <small>Hakediş</small>
-                      <strong>{formatMoney(entry.gross_pay)}</strong>
-                    </div>
-                    <div>
-                      <small>Kesinti</small>
-                      <strong className={styles.payintNegativeText}>
-                        {formatMoney(entry.total_deductions)}
-                      </strong>
-                    </div>
-                    <div>
-                      <small>Tevkifat</small>
-                      <strong>{formatMoney(entry.tevkifat_amount)}</strong>
-                    </div>
-                  </div>
-                </button>
+                  </button>
+                  {selectedPersonnelId === entry.personnel_id ? (
+                    <div className={styles.payintMobileInlineDetail}>{renderInlineDetailCard()}</div>
+                  ) : null}
+                </div>
               ))}
             </div>
           </div>
@@ -1807,33 +1742,6 @@ export default function PayrollPage() {
             viewMode === "overview" ? overviewView : listView
           )}
 
-          {viewMode === "list" && detailDrawerOpen && selectedPersonnel ? (
-            <>
-              <button
-                type="button"
-                className={styles.payintDrawerOverlay}
-                aria-label="Detay panelini kapat"
-                onClick={() => setDetailDrawerOpen(false)}
-              />
-              <aside className={styles.payintDetailDrawer} aria-label="Personel detay paneli">
-                <div className={styles.payintDrawerTopbar}>
-                  <div>
-                    <strong>Personel Detayı</strong>
-                    <span>{selectedPersonnel.personnel}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className={styles.payintDrawerClose}
-                    onClick={() => setDetailDrawerOpen(false)}
-                    aria-label="Detay panelini kapat"
-                  >
-                    ×
-                  </button>
-                </div>
-                {renderDetailPanel(styles.payintDetailPanelDrawer)}
-              </aside>
-            </>
-          ) : null}
         </div>
       </div>
     </AppShell>

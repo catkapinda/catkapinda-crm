@@ -810,41 +810,35 @@
 
 .payintTableDesktop {
   display: block;
+  min-width: 1184px;
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid #ecf0f4;
   background: #fbfcfd;
 }
 
-.payintTableHeader,
-.payintTableRow {
-  display: grid;
-  grid-template-columns:
-    minmax(200px, 1.9fr)
-    minmax(120px, 1.1fr)
-    minmax(110px, 1fr)
-    minmax(130px, 1.1fr)
-    minmax(130px, 1.1fr)
-    minmax(130px, 1.1fr)
-    minmax(130px, 1.1fr)
-    minmax(130px, 1fr);
-  gap: 16px;
-  align-items: center;
-  padding: 0 18px;
+.payintTableScroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .payintTableHeader,
 .payintTableRow {
+  display: grid;
   grid-template-columns:
-    minmax(200px, 2fr)
-    minmax(120px, 1.05fr)
-    minmax(110px, 1fr)
-    minmax(130px, 1.1fr)
-    minmax(130px, 1.1fr)
-    minmax(130px, 1.1fr)
-    minmax(130px, 1.1fr)
-    minmax(130px, 1fr)
-    88px;
+    minmax(220px, 1.7fr)
+    minmax(120px, 0.8fr)
+    90px
+    minmax(110px, 0.8fr)
+    minmax(110px, 0.8fr)
+    minmax(110px, 0.8fr)
+    minmax(110px, 0.8fr)
+    minmax(130px, 0.9fr)
+    64px;
+  gap: 14px;
+  align-items: center;
+  padding: 0 18px;
 }
 
 .payintTableHeader {
@@ -859,7 +853,7 @@
 }
 
 .payintTableRow {
-  min-height: 64px;
+  min-height: 60px;
   border: 0;
   width: 100%;
   background: #ffffff;
@@ -867,13 +861,18 @@
   text-align: left;
 }
 
-.payintTableRow + .payintTableRow {
+.payintTableEntry + .payintTableEntry .payintTableRow {
   border-top: 1px solid #edf1f5;
 }
 
 .payintTableRowSelected {
   background: rgba(37, 99, 235, 0.07);
   box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.payintTableEntry,
+.payintMobileEntry {
+  display: block;
 }
 
 .payintTableHeader span,
@@ -903,9 +902,16 @@
   color: #0f2a4a;
 }
 
+.payintMoneyCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .payintModelCell {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   color: #475569;
 }
 
@@ -1209,7 +1215,7 @@
 
 .payintListBody {
   max-height: 520px;
-  overflow-y: auto;
+  overflow: auto;
   padding-right: 4px;
 }
 
@@ -1295,6 +1301,75 @@
   font-weight: 700;
 }
 
+.payintInlineDetailRow,
+.payintMobileInlineDetail {
+  padding: 14px 18px 18px;
+  background: #ffffff;
+}
+
+.payintInlineDetailCard {
+  width: 100%;
+  max-width: 720px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 18px;
+}
+
+.payintInlineDetailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.payintInlineDetailClose {
+  min-height: 38px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 0 14px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.payintInlineMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.payintInlineMetricCard {
+  padding: 12px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  display: grid;
+  gap: 8px;
+}
+
+.payintInlineMetricCard span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.payintInlineMetricCard strong {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 760;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
 .payintEmptyPanel,
 .payintEmptyCompact {
   border-radius: 16px;
@@ -1329,78 +1404,6 @@
   color: #166534;
 }
 
-.payintDrawerOverlay {
-  position: fixed;
-  inset: 0;
-  border: 0;
-  background: rgba(15, 23, 42, 0.24);
-  z-index: 70;
-}
-
-.payintDetailDrawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 420px;
-  max-width: 90vw;
-  height: 100vh;
-  background: #ffffff;
-  z-index: 80;
-  box-shadow: -24px 0 60px rgba(15, 23, 42, 0.16);
-  overflow-y: auto;
-  padding: 24px 22px 28px;
-  display: grid;
-  align-content: start;
-  gap: 20px;
-}
-
-.payintDrawerTopbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.payintDrawerTopbar strong {
-  display: block;
-  font-size: 18px;
-  line-height: 1.2;
-  font-weight: 760;
-  color: #0f2a4a;
-}
-
-.payintDrawerTopbar span {
-  display: block;
-  margin-top: 4px;
-  font-size: 13px;
-  color: #64748b;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.payintDrawerClose {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  color: #64748b;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  line-height: 1;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-@media (min-width: 1600px) {
-  .payintDetailDrawer {
-    width: 440px;
-  }
-}
-
 @media (max-width: 1180px) {
   .payintPage {
     padding: 0;
@@ -1421,6 +1424,10 @@
 
   .payintMainColumn {
     order: 1;
+  }
+
+  .payintInlineMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1469,7 +1476,7 @@
 
   .payintEfficiencyGrid,
   .payintLeaderboardGrid,
-  .payintDetailMetricGrid {
+  .payintInlineMetricGrid {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -1501,7 +1508,7 @@
   .payintKpiStrip,
   .payintEfficiencyGrid,
   .payintLeaderboardGrid,
-  .payintDetailMetricGrid,
+  .payintInlineMetricGrid,
   .payintPersonCardGrid {
     grid-template-columns: 1fr;
   }
@@ -1521,18 +1528,12 @@
 
   .payintKpiValue,
   .payintMiniMetricCard strong,
-  .payintDetailMetricCard strong {
+  .payintInlineMetricCard strong {
     white-space: normal;
   }
 
   .payintGhostButton,
   .payintPrimaryButton {
     width: 100%;
-  }
-
-  .payintDetailDrawer {
-    width: 100vw;
-    max-width: 100vw;
-    padding: 20px 18px 24px;
   }
 }
