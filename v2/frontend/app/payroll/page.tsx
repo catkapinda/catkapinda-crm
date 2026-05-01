@@ -789,8 +789,8 @@ export default function PayrollPage() {
       return;
     }
 
-    if (!selectedPersonnelId || !filteredEntries.some((entry) => entry.personnel_id === selectedPersonnelId)) {
-      setSelectedPersonnelId(filteredEntries[0].personnel_id);
+    if (selectedPersonnelId && !filteredEntries.some((entry) => entry.personnel_id === selectedPersonnelId)) {
+      setSelectedPersonnelId(null);
     }
   }, [filteredEntries, selectedPersonnelId]);
 
@@ -1001,35 +1001,6 @@ export default function PayrollPage() {
         })),
     [filteredEntries],
   );
-
-  const personTrendSeries = useMemo(() => {
-    if (!selectedPersonnelId) {
-      return [];
-    }
-    return monthlySeries.map((item) => {
-      const personEntry = item.entries.find((entry) => entry.personnel_id === selectedPersonnelId);
-      return {
-        label: item.label,
-        value: personEntry?.net_payment ?? 0,
-      };
-    });
-  }, [monthlySeries, selectedPersonnelId]);
-
-  const personTrendInsight = useMemo(() => {
-    if (personTrendSeries.length < 2) {
-      return "Seçili personelin aylık trendi oluştukça burada içgörü görünecek.";
-    }
-    const first = personTrendSeries[0]?.value ?? 0;
-    const last = personTrendSeries[personTrendSeries.length - 1]?.value ?? 0;
-    if (first <= 0) {
-      return "Bu kişi için önceki dönem kıyası oluşmadı.";
-    }
-    const ratio = ((last - first) / first) * 100;
-    return `Seçili personelin net ödemesi ${personTrendSeries.length} aylık hatta ${formatNumber(
-      Math.abs(ratio),
-      1,
-    )}% ${ratio >= 0 ? "artış" : "gerileme"} gösteriyor.`;
-  }, [personTrendSeries]);
 
   useEffect(() => {
     let active = true;
