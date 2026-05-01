@@ -1,0 +1,484 @@
+.shell {
+  --sidebar-width: 256px;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  min-height: 100vh;
+  background: #f8f7f4;
+}
+
+.sidebar {
+  min-height: 100vh;
+  padding: 24px 16px 20px;
+  background: linear-gradient(180deg, #061b33 0%, #0b2742 100%);
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sidebarTop,
+.sidebarBottom {
+  display: grid;
+  gap: 16px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brandMark {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  display: grid;
+  place-items: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.brandCubeOuter,
+.brandCubeInner {
+  position: absolute;
+  inset: 9px;
+  border-radius: 9px;
+  border: 2px solid #ffffff;
+  transform: rotate(45deg);
+}
+
+.brandCubeInner {
+  inset: 15px;
+  border-color: #2563eb;
+}
+
+.brandCopy {
+  display: grid;
+  gap: 2px;
+}
+
+.brandCopy strong {
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.brandCopy span {
+  font-size: 13px;
+  line-height: 1;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.searchShell {
+  min-height: 40px;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  border-radius: 12px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.searchIconWrap {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.searchIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.searchPlaceholder {
+  flex: 1;
+  font-size: 14px;
+}
+
+.searchShortcut {
+  min-width: 34px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.sidebarGroups {
+  display: grid;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.navGroup {
+  display: grid;
+  gap: 10px;
+}
+
+.navGroupLabel {
+  padding: 0 12px;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.navList {
+  display: grid;
+  gap: 6px;
+}
+
+.navItem {
+  min-height: 46px;
+  border-radius: 12px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #cbd5e1;
+  position: relative;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.navItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.navItemActive {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.24), rgba(37, 99, 235, 0.1));
+  color: #ffffff;
+}
+
+.navItemAccent {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.navItemActive .navItemAccent {
+  background: #2563eb;
+}
+
+.navItemIconBadge {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  flex-shrink: 0;
+}
+
+.navItemIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.navItemLabel {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.navItemDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #60a5fa;
+  box-shadow: 0 0 12px rgba(96, 165, 250, 0.45);
+  flex-shrink: 0;
+}
+
+.userCard {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #ffffff;
+  text-align: left;
+}
+
+.userAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.userCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.userCopy strong {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userCopy span {
+  font-size: 12px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userChevron {
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.logoutButton {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.logoutButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.logoutIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.main {
+  min-width: 0;
+  width: 100%;
+  overflow-x: hidden;
+  background: #f8f7f4;
+  padding: 24px;
+}
+
+.mobileBar {
+  display: none;
+}
+
+.previewBanner {
+  margin: 0 auto 24px;
+  width: min(1480px, 100%);
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.previewBadge {
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.previewBanner p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.previewLink {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: #061b33;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.drawerLayer {
+  display: none;
+}
+
+@media (max-width: 1279px) {
+  .shell {
+    grid-template-columns: 232px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    padding-inline: 14px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .main {
+    padding: 20px;
+  }
+
+  .mobileBar {
+    width: min(1480px, 100%);
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mobileMenuButton {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #0f2a4a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+    cursor: pointer;
+  }
+
+  .mobileMenuIcon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mobileBarCopy {
+    display: grid;
+    gap: 2px;
+  }
+
+  .mobileBarCopy strong {
+    font-size: 15px;
+    color: #0f172a;
+  }
+
+  .mobileBarCopy span {
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  .drawerLayer {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.42);
+    display: block;
+    z-index: 60;
+  }
+
+  .drawer {
+    width: min(280px, 100%);
+    min-height: 100vh;
+    background: linear-gradient(180deg, #061b33 0%, #0b2742 100%);
+    padding: 18px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .drawerHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .drawerClose {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .drawerCloseIcon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .main {
+    padding: 16px;
+  }
+
+  .previewBanner {
+    align-items: flex-start;
+  }
+
+  .previewLink {
+    width: 100%;
+    justify-content: center;
+  }
+}

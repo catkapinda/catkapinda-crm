@@ -71,6 +71,39 @@
   flex-shrink: 0;
 }
 
+.payintViewSwitch {
+  width: fit-content;
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 24px;
+  padding: 6px;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.payintViewButton {
+  min-height: 44px;
+  min-width: 160px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.payintViewButtonActive {
+  background: #0f2a4a;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 42, 74, 0.18);
+}
+
 .payintField {
   display: grid;
   gap: 8px;
@@ -187,7 +220,8 @@
   color: #64748b;
 }
 
-.payintPageContent {
+.payintOverviewGrid,
+.payintListViewGrid {
   width: 100%;
   min-width: 0;
   display: grid;
@@ -372,6 +406,17 @@
   font-size: 18px;
 }
 
+.payintTextLinkButton {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 0;
+}
+
 .payintTextLink {
   color: #2563eb;
   text-decoration: none;
@@ -550,6 +595,11 @@
 }
 
 .payintEfficiencySection {
+  display: grid;
+  gap: 18px;
+}
+
+.payintLeaderboardSection {
   display: grid;
   gap: 18px;
 }
@@ -1045,8 +1095,39 @@
 
 .payintListCard {
   width: 100%;
-  margin: 24px 0 0;
+  margin: 0;
   max-height: 620px;
+}
+
+.payintListViewCard {
+  display: grid;
+  gap: 20px;
+}
+
+.payintListMeta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.payintCountBadge {
+  min-height: 32px;
+  border-radius: 999px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.payintListToolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .payintListBody {
@@ -1166,7 +1247,8 @@
 }
 
 @media (max-width: 1380px) {
-  .payintPageContent {
+  .payintOverviewGrid,
+  .payintListViewGrid {
     grid-template-columns: minmax(0, 1fr) 380px;
   }
 
@@ -1186,7 +1268,8 @@
     grid-template-columns: 1fr;
   }
 
-  .payintPageContent {
+  .payintOverviewGrid,
+  .payintListViewGrid {
     grid-template-columns: 1fr;
   }
 
@@ -1234,9 +1317,21 @@
     align-items: stretch;
   }
 
+  .payintViewSwitch {
+    width: 100%;
+  }
+
+  .payintViewButton {
+    min-width: 0;
+  }
+
   .payintField,
   .payintSearchField {
     min-width: 0;
+  }
+
+  .payintListToolbar {
+    grid-template-columns: 1fr 1fr;
   }
 
   .payintEfficiencyGrid,
@@ -1269,12 +1364,17 @@
     padding: 20px;
   }
 
+  .payintListToolbar,
   .payintKpiStrip,
   .payintEfficiencyGrid,
   .payintLeaderboardGrid,
   .payintDetailMetricGrid,
   .payintPersonCardGrid {
     grid-template-columns: 1fr;
+  }
+
+  .payintListMeta {
+    justify-content: flex-start;
   }
 
   .payintCard,
