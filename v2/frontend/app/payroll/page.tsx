@@ -1107,6 +1107,10 @@ export default function PayrollPage() {
           deduction: Number.isFinite(entry.total_deductions) ? entry.total_deductions : null,
           withholding: Number.isFinite(entry.tevkifat_amount) ? entry.tevkifat_amount : null,
           model: displayCostModel(entry.cost_model),
+          totalHours: Number.isFinite(entry.total_hours) ? entry.total_hours : null,
+          totalPackages: Number.isFinite(entry.total_packages) ? entry.total_packages : null,
+          operationsLabel:
+            entry.restaurant_count > 0 ? `${formatNumber(entry.restaurant_count, 0)} şube` : "—",
           deductions,
         };
       }),

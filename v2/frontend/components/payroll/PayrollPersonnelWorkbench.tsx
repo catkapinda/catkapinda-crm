@@ -31,6 +31,9 @@ type PayrollWorkbenchPerson = {
   withholding: number | null;
   model: string;
   deductions?: DeductionItem[];
+  totalHours?: number | null;
+  totalPackages?: number | null;
+  operationsLabel?: string | null;
 };
 
 type PayrollPersonnelWorkbenchProps = {
@@ -61,6 +64,7 @@ export default function PayrollPersonnelWorkbench({
   onDownloadPdf,
 }: PayrollPersonnelWorkbenchProps) {
   const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState("finance");
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("all");
   const [sort, setSort] = useState("net_desc");
@@ -95,6 +99,16 @@ export default function PayrollPersonnelWorkbench({
     if (!selectedPersonId) return null;
     return people.find((p) => p.id === selectedPersonId) || null;
   }, [people, selectedPersonId]);
+
+  const formatMetricValue = (value: number | null | undefined, digits = 1) => {
+    if (value === null || value === undefined) {
+      return "—";
+    }
+    return new Intl.NumberFormat("tr-TR", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(value);
+  };
 
   const roles = useMemo(() => {
     return Array.from(new Set(people.map((p) => p.role).filter(Boolean)));
@@ -217,69 +231,130 @@ export default function PayrollPersonnelWorkbench({
             </span>
 
             <div className={styles["ck-pl-tabs"]}>
-              <button className={styles["is-active"]} type="button">
+              <button
+                className={activeTab === "finance" ? styles["is-active"] : ""}
+                onClick={() => setActiveTab("finance")}
+                type="button"
+              >
                 Finans Özeti
               </button>
-              <button type="button">Operasyon</button>
-              <button type="button">Trend</button>
-              <button type="button">PDF</button>
+              <button
+                className={activeTab === "operations" ? styles["is-active"] : ""}
+                onClick={() => setActiveTab("operations")}
+                type="button"
+              >
+                Operasyon
+              </button>
+              <button
+                className={activeTab === "trend" ? styles["is-active"] : ""}
+                onClick={() => setActiveTab("trend")}
+                type="button"
+              >
+                Trend
+              </button>
+              <button
+                className={activeTab === "pdf" ? styles["is-active"] : ""}
+                onClick={() => setActiveTab("pdf")}
+                type="button"
+              >
+                PDF
+              </button>
             </div>
 
-            <div className={styles["ck-pl-metrics"]}>
-              <Metric
-                icon={<Wallet size={18} />}
-                label="Net Ödeme"
-                value={formatMoney(selectedPerson.netPayment)}
-              />
-              <Metric
-                icon={<FileText size={18} />}
-                label="Hakediş"
-                value={formatMoney(selectedPerson.earning)}
-              />
-              <Metric
-                icon={<CircleMinus size={18} />}
-                label="Kesinti"
-                value={formatMoney(selectedPerson.deduction)}
-              />
-              <Metric
-                icon={<ShieldCheck size={18} />}
-                label="Tevkifat"
-                value={formatMoney(selectedPerson.withholding)}
-              />
-            </div>
-
-            <div className={styles["ck-pl-section"]}>
-              <div className={styles["ck-pl-section-title"]}>
-                <h4>Kesinti Kalemleri</h4>
-              </div>
-
-              <div className={styles["ck-pl-deductions"]}>
-                {(selectedPerson.deductions || []).length ? (
-                  selectedPerson.deductions?.map((item, index) => (
-                    <div className={styles["ck-pl-deduction-row"]} key={index}>
-                      <span title={item.label}>{item.label}</span>
-                      <strong>{formatMoney(item.amount)}</strong>
-                    </div>
-                  ))
-                ) : (
-                  <p className={styles["ck-pl-muted"]}>Kesinti kaydı bulunamadı.</p>
-                )}
-
-                <div className={styles["ck-pl-deduction-total"]}>
-                  <span>Toplam Kesinti</span>
-                  <strong>{formatMoney(selectedPerson.deduction)}</strong>
+            {activeTab === "finance" ? (
+              <>
+                <div className={styles["ck-pl-metrics"]}>
+                  <Metric
+                    icon={<Wallet size={18} />}
+                    label="Net Ödeme"
+                    value={formatMoney(selectedPerson.netPayment)}
+                  />
+                  <Metric
+                    icon={<FileText size={18} />}
+                    label="Hakediş"
+                    value={formatMoney(selectedPerson.earning)}
+                  />
+                  <Metric
+                    icon={<CircleMinus size={18} />}
+                    label="Kesinti"
+                    value={formatMoney(selectedPerson.deduction)}
+                  />
+                  <Metric
+                    icon={<ShieldCheck size={18} />}
+                    label="Tevkifat"
+                    value={formatMoney(selectedPerson.withholding)}
+                  />
                 </div>
-              </div>
-            </div>
 
-            <button
-              className={styles["ck-pl-primary-btn"]}
-              onClick={() => onDownloadPdf?.(selectedPerson)}
-              type="button"
-            >
-              <Download size={18} />
-              Hakediş PDF’i İndir
-            </button>
+                <div className={styles["ck-pl-section"]}>
+                  <div className={styles["ck-pl-section-title"]}>
+                    <h4>Kesinti Kalemleri</h4>
+                  </div>
+
+                  <div className={styles["ck-pl-deductions"]}>
+                    {(selectedPerson.deductions || []).length ? (
+                      selectedPerson.deductions?.map((item, index) => (
+                        <div className={styles["ck-pl-deduction-row"]} key={index}>
+                          <span title={item.label}>{item.label}</span>
+                          <strong>{formatMoney(item.amount)}</strong>
+                        </div>
+                      ))
+                    ) : (
+                      <p className={styles["ck-pl-muted"]}>Kesinti kaydı bulunamadı.</p>
+                    )}
+
+                    <div className={styles["ck-pl-deduction-total"]}>
+                      <span>Toplam Kesinti</span>
+                      <strong>{formatMoney(selectedPerson.deduction)}</strong>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            {activeTab === "operations" ? (
+              <div className={styles["ck-pl-operations"]}>
+                <Metric
+                  icon={<Wallet size={18} />}
+                  label="Toplam Saat"
+                  value={formatMetricValue(selectedPerson.totalHours)}
+                />
+                <Metric
+                  icon={<FileText size={18} />}
+                  label="Toplam Paket"
+                  value={
+                    selectedPerson.totalPackages === null ||
+                    selectedPerson.totalPackages === undefined
+                      ? "—"
+                      : new Intl.NumberFormat("tr-TR", {
+                          maximumFractionDigits: 0,
+                        }).format(selectedPerson.totalPackages)
+                  }
+                />
+                <Metric
+                  icon={<ShieldCheck size={18} />}
+                  label="Çalışılan Şube / Restoran"
+                  value={selectedPerson.operationsLabel || "—"}
+                />
+              </div>
+            ) : null}
+
+            {activeTab === "trend" ? (
+              <div className={styles["ck-pl-section"]}>
+                <div className={styles["ck-pl-trend-empty"]}>Trend verisi henüz hazırlanmadı.</div>
+              </div>
+            ) : null}
+
+            {activeTab === "pdf" ? (
+              <button
+                className={styles["ck-pl-primary-btn"]}
+                onClick={() => onDownloadPdf?.(selectedPerson)}
+                type="button"
+              >
+                <Download size={18} />
+                Hakediş PDF’i İndir
+              </button>
+            ) : null}
           </>
         )}
       </aside>

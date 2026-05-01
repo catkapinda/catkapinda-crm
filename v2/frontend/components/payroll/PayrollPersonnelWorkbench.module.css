@@ -333,6 +333,13 @@
   margin-bottom: 18px;
 }
 
+.ck-pl-operations {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
 .ck-pl-metric {
   padding: 13px;
   border-radius: 16px;
@@ -431,6 +438,15 @@
   font-size: 13px;
 }
 
+.ck-pl-trend-empty {
+  padding: 18px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 13px;
+}
+
 .ck-pl-primary-btn {
   width: 100%;
   height: 48px;
@@ -484,6 +500,10 @@
   }
 
   .ck-pl-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .ck-pl-operations {
     grid-template-columns: 1fr;
   }
 }
