@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../components/auth/auth-provider";
 import { AppShell } from "../../components/shell/app-shell";
@@ -66,23 +66,44 @@ type PayrollDashboard = {
   }>;
 };
 
-type PayrollInvoiceSnapshot = {
-  selectedMonth: string | null;
-  totalRevenue: number;
-  grossProfit: number;
-  invoiceEntries: Array<{
-    restaurant: string;
-    pricingModel: string;
-    totalHours: number;
-    totalPackages: number;
-    grossInvoice: number;
-  }>;
+type DeductionRecord = {
+  id: number;
+  personnel_id: number;
+  personnel_label: string;
+  deduction_date: string;
+  deduction_type: string;
+  type_caption: string;
+  amount: number;
+  notes: string;
 };
 
-const serifStyle = {
-  fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
-  letterSpacing: "-0.04em",
-} as const;
+type DeductionsManagementResponse = {
+  total_entries: number;
+  entries: DeductionRecord[];
+};
+
+type PayrollDeltaTone = "positive" | "negative" | "neutral";
+type PayrollTab = "finance" | "operations" | "trend" | "pdf";
+type DeductionListItem = {
+  key: number | string;
+  label: string;
+  amount: number;
+};
+
+type MonthlySeriesItem = {
+  month: string;
+  label: string;
+  summary: NonNullable<PayrollDashboard["summary"]> | null;
+  entries: PayrollDashboard["entries"];
+};
+
+const CHART_COLORS = ["#1d4ed8", "#3b82f6", "#60a5fa", "#93c5fd"];
+const COST_MODEL_LABELS: Record<string, string> = {
+  hourly_plus_package: "Saatlik",
+  threshold_package: "Paket Başı",
+  hourly_only: "Günlük",
+  fixed_monthly: "Diğer",
+};
 
 function toSafeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -90,16 +111,6 @@ function toSafeNumber(value: unknown) {
 
 function toSafeString(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
-}
-
-function displayPricingModel(value: string) {
-  const labels: Record<string, string> = {
-    hourly_plus_package: "Saat + Paket",
-    threshold_package: "Eşikli Paket",
-    hourly_only: "Sadece Saatlik",
-    fixed_monthly: "Sabit Aylık Ücret",
-  };
-  return labels[value] ?? value;
 }
 
 function normalizePayrollDashboard(payload: Partial<PayrollDashboard>): PayrollDashboard {
@@ -188,7 +199,11 @@ function formatMoney(value: number) {
     style: "currency",
     currency: "TRY",
     maximumFractionDigits: 0,
-  }).format(value || 0);
+  })
+    .format(value || 0)
+    .replace("₺", "")
+    .trim()
+    .concat(" ₺");
 }
 
 function formatNumber(value: number, decimals = 0) {
@@ -196,6 +211,30 @@ function formatNumber(value: number, decimals = 0) {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(value || 0);
+}
+
+function monthToLabel(month: string) {
+  const [year, rawMonth] = month.split("-");
+  const parsedYear = Number(year);
+  const parsedMonth = Number(rawMonth);
+  if (!parsedYear || !parsedMonth) {
+    return month;
+  }
+  return new Intl.DateTimeFormat("tr-TR", {
+    month: "short",
+    year: "2-digit",
+  })
+    .format(new Date(Date.UTC(parsedYear, parsedMonth - 1, 1)))
+    .replace(".", "");
+}
+
+function getInitials(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toLocaleUpperCase("tr-TR") ?? "")
+    .join("");
 }
 
 function triggerBrowserDownload(blob: Blob, fileName: string) {
@@ -209,96 +248,271 @@ function triggerBrowserDownload(blob: Blob, fileName: string) {
   window.URL.revokeObjectURL(url);
 }
 
-function tableHeaderCell(label: string) {
+function buildDelta(
+  current: number,
+  previous: number,
+  positiveIsGood = true,
+): { label: string; tone: PayrollDeltaTone } {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0) {
+    return {
+      label: "İlk kıyas",
+      tone: "neutral" as PayrollDeltaTone,
+    };
+  }
+
+  const ratio = ((current - previous) / previous) * 100;
+  if (Math.abs(ratio) < 0.05) {
+    return {
+      label: "Değişim sınırlı",
+      tone: "neutral" as PayrollDeltaTone,
+    };
+  }
+
+  const improved = positiveIsGood ? ratio > 0 : ratio < 0;
+  return {
+    label: `${ratio > 0 ? "+" : ""}${formatNumber(ratio, 1)}% geçen aya göre`,
+    tone: improved ? "positive" : "negative",
+  };
+}
+
+function buildLinePath(values: number[], width: number, height: number, padding = 18) {
+  if (!values.length) {
+    return { path: "", points: [] as Array<{ x: number; y: number; value: number }> };
+  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding * 2;
+  const points = values.map((value, index) => {
+    const x =
+      padding + (values.length === 1 ? chartWidth / 2 : (chartWidth / (values.length - 1)) * index);
+    const y = padding + chartHeight - ((value - min) / range) * chartHeight;
+    return { x, y, value };
+  });
+  const path = points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(" ");
+  return { path, points };
+}
+
+function buildAreaPath(
+  points: Array<{ x: number; y: number }>,
+  width: number,
+  height: number,
+  padding = 18,
+) {
+  if (!points.length) {
+    return "";
+  }
+  const bottom = height - padding;
+  return `${points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(" ")} L ${points[points.length - 1].x.toFixed(2)} ${bottom.toFixed(2)} L ${points[0].x.toFixed(2)} ${bottom.toFixed(2)} Z`;
+}
+
+function TrendChart({
+  items,
+}: {
+  items: Array<{ label: string; value: number }>;
+}) {
+  const width = 760;
+  const height = 280;
+  const values = items.map((item) => item.value);
+  const { path, points } = buildLinePath(values, width, height, 28);
+  const areaPath = buildAreaPath(points, width, height, 28);
+  const maxValue = Math.max(...values, 0);
+  const minValue = Math.min(...values, 0);
+  const ticks = Array.from({ length: 4 }, (_, index) => minValue + ((maxValue - minValue || 1) / 3) * index).reverse();
+
   return (
-    <th
-      key={label}
-      style={{
-        textAlign: "left",
-        padding: "14px 16px",
-        fontSize: "0.82rem",
-        color: "var(--muted)",
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        fontWeight: 800,
-        borderBottom: "1px solid var(--line)",
-        background: "rgba(245, 248, 255, 0.9)",
-        position: "sticky",
-        top: 0,
-        zIndex: 1,
-      }}
-    >
-      {label}
-    </th>
+    <svg viewBox={`0 0 ${width} ${height}`} className="trend-chart" role="img" aria-label="Hakediş trendi">
+      <defs>
+        <linearGradient id="payrollTrendFill" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="rgba(37, 99, 235, 0.24)" />
+          <stop offset="100%" stopColor="rgba(37, 99, 235, 0)" />
+        </linearGradient>
+      </defs>
+      {ticks.map((tick, index) => {
+        const y = 28 + ((height - 56) / 3) * index;
+        return (
+          <g key={`tick-${tick}-${index}`}>
+            <line x1="28" x2={width - 28} y1={y} y2={y} stroke="rgba(148, 163, 184, 0.18)" strokeDasharray="4 6" />
+            <text x="0" y={y + 4} className="trend-axis">
+              {formatMoney(tick)}
+            </text>
+          </g>
+        );
+      })}
+      {areaPath ? <path d={areaPath} fill="url(#payrollTrendFill)" /> : null}
+      {path ? <path d={path} fill="none" stroke="#1d4ed8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /> : null}
+      {points.map((point, index) => (
+        <g key={`${items[index]?.label ?? index}`}>
+          <circle cx={point.x} cy={point.y} r="5.5" fill="#ffffff" stroke="#1d4ed8" strokeWidth="3" />
+          <text x={point.x} y={point.y - 16} textAnchor="middle" className="trend-point-label">
+            {formatMoney(point.value)}
+          </text>
+          <text x={point.x} y={height - 6} textAnchor="middle" className="trend-axis bottom">
+            {items[index]?.label ?? ""}
+          </text>
+        </g>
+      ))}
+    </svg>
   );
 }
 
-function tableCell(value: string, align: "left" | "right" = "left", muted = false) {
+function Sparkline({
+  values,
+  tone = "blue",
+}: {
+  values: number[];
+  tone?: "blue" | "green" | "red";
+}) {
+  const width = 160;
+  const height = 52;
+  const { path } = buildLinePath(values.length ? values : [0], width, height, 8);
+  const stroke =
+    tone === "green" ? "#16a34a" : tone === "red" ? "#dc2626" : "#2563eb";
   return (
-    <td
-      style={{
-        padding: "14px 16px",
-        borderBottom: "1px solid rgba(219, 228, 243, 0.7)",
-        color: muted ? "var(--muted)" : "var(--text)",
-        textAlign: align,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {value}
-    </td>
+    <svg viewBox={`0 0 ${width} ${height}`} className="sparkline" role="img" aria-hidden="true">
+      <path d={path} fill="none" stroke={stroke} strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
-function ScrollCard({
+function DonutChart({
+  items,
+  total,
+}: {
+  items: Array<{ label: string; value: number; color: string }>;
+  total: number;
+}) {
+  const radius = 54;
+  const strokeWidth = 16;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  return (
+    <div className="donut-shell">
+      <svg viewBox="0 0 160 160" className="donut-chart" role="img" aria-label="Maliyet modeli dağılımı">
+        <circle cx="80" cy="80" r={radius} fill="none" stroke="rgba(148, 163, 184, 0.16)" strokeWidth={strokeWidth} />
+        {items.map((item) => {
+          const ratio = total > 0 ? item.value / total : 0;
+          const dash = circumference * ratio;
+          const strokeDasharray = `${dash} ${circumference - dash}`;
+          const currentOffset = offset;
+          offset += dash;
+          return (
+            <circle
+              key={item.label}
+              cx="80"
+              cy="80"
+              r={radius}
+              fill="none"
+              stroke={item.color}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={strokeDasharray}
+              strokeDashoffset={-currentOffset}
+              transform="rotate(-90 80 80)"
+            />
+          );
+        })}
+      </svg>
+      <div className="donut-total">
+        <strong>{formatMoney(total)}</strong>
+        <span>Toplam hakediş</span>
+      </div>
+    </div>
+  );
+}
+
+function DeltaPill({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: PayrollDeltaTone;
+}) {
+  return <span className={`delta-pill delta-pill--${tone}`}>{label}</span>;
+}
+
+function StatusBadge({ value }: { value: string }) {
+  const normalized = value.toLocaleLowerCase("tr-TR");
+  const tone = normalized.includes("aktif") ? "active" : normalized.includes("pasif") ? "muted" : "neutral";
+  return <span className={`status-badge status-badge--${tone}`}>{value || "—"}</span>;
+}
+
+function RankingCard({
   title,
-  subtitle,
-  actions,
-  children,
-  maxHeight = 420,
+  items,
+  formatter,
+  onSelect,
+  selectedId,
 }: {
   title: string;
-  subtitle: string;
-  actions?: React.ReactNode;
-  children: React.ReactNode;
-  maxHeight?: number;
+  items: Array<{
+    id: number;
+    name: string;
+    role: string;
+    value: number;
+    subValue?: string;
+  }>;
+  formatter: (value: number) => string;
+  onSelect: (id: number) => void;
+  selectedId: number | null;
 }) {
   return (
-    <section
-      style={{
-        borderRadius: "22px",
-        border: "1px solid var(--line)",
-        background: "var(--surface-strong)",
-        overflow: "hidden",
-        boxShadow: "0 18px 44px rgba(20, 39, 67, 0.05)",
-        alignSelf: "start",
-      }}
-    >
-      <div
-        style={{
-          padding: "18px 20px",
-          borderBottom: "1px solid var(--line)",
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "16px",
-          flexWrap: "wrap",
-        }}
-      >
+    <section className="surface-card rankings-card">
+      <div className="section-head compact">
         <div>
-          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{title}</h2>
-          <p style={{ margin: "6px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>{subtitle}</p>
+          <h3>{title}</h3>
         </div>
-        {actions}
       </div>
-      <div
-        style={{
-          maxHeight,
-          overflow: "auto",
-        }}
-      >
-        {children}
+      <div className="ranking-list">
+        {items.length ? (
+          items.map((item, index) => (
+            <button
+              key={`${title}-${item.id}`}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              className={`ranking-item ${selectedId === item.id ? "is-selected" : ""}`}
+            >
+              <span className="ranking-index">{index + 1}</span>
+              <span className="ranking-copy">
+                <strong>{item.name}</strong>
+                <small>{item.role}{item.subValue ? ` • ${item.subValue}` : ""}</small>
+              </span>
+              <span className="ranking-value">{formatter(item.value)}</span>
+            </button>
+          ))
+        ) : (
+          <div className="empty-state compact">Seçili filtrede sıralama oluşmadı.</div>
+        )}
       </div>
     </section>
+  );
+}
+
+function PayrollKpiCard({
+  title,
+  value,
+  delta,
+  badge,
+  tone = "blue",
+}: {
+  title: string;
+  value: string;
+  delta: { label: string; tone: PayrollDeltaTone };
+  badge: string;
+  tone?: "blue" | "green" | "orange" | "violet";
+}) {
+  return (
+    <article className={`surface-card kpi-card tone-${tone}`}>
+      <div className="kpi-badge">{badge}</div>
+      <div className="kpi-title">{title}</div>
+      <div className="kpi-value">{value}</div>
+      <DeltaPill label={delta.label} tone={delta.tone} />
+    </article>
   );
 }
 
@@ -310,11 +524,15 @@ export default function PayrollPage() {
   const [selectedRole, setSelectedRole] = useState("Tümü");
   const [selectedRestaurant, setSelectedRestaurant] = useState("Tümü");
   const [entryQuery, setEntryQuery] = useState("");
-  const [documentPersonId, setDocumentPersonId] = useState<number | "">("");
+  const [selectedPersonnelId, setSelectedPersonnelId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<PayrollTab>("finance");
   const [documentBusy, setDocumentBusy] = useState(false);
   const [documentError, setDocumentError] = useState("");
   const [documentMessage, setDocumentMessage] = useState("");
-  const [invoiceSnapshot, setInvoiceSnapshot] = useState<PayrollInvoiceSnapshot | null>(null);
+  const [monthlySeries, setMonthlySeries] = useState<MonthlySeriesItem[]>([]);
+  const [deductionEntries, setDeductionEntries] = useState<DeductionRecord[]>([]);
+  const [deductionLoading, setDeductionLoading] = useState(false);
+  const deferredEntryQuery = useDeferredValue(entryQuery);
 
   useEffect(() => {
     let active = true;
@@ -326,7 +544,6 @@ export default function PayrollPage() {
       if (!user) {
         if (active) {
           setDashboard(null);
-          setInvoiceSnapshot(null);
           setDashboardLoading(false);
         }
         return;
@@ -344,6 +561,7 @@ export default function PayrollPage() {
         if (selectedRestaurant && selectedRestaurant !== "Tümü") {
           params.set("restaurant", selectedRestaurant);
         }
+        params.set("limit", "500");
         const query = params.toString() ? `?${params.toString()}` : "";
         const response = await apiFetch(`/payroll/dashboard${query}`);
         if (!response.ok) {
@@ -352,65 +570,16 @@ export default function PayrollPage() {
           }
           return;
         }
-        const payload = normalizePayrollDashboard(
-          (await response.json()) as Partial<PayrollDashboard>,
-        );
+        const payload = normalizePayrollDashboard((await response.json()) as Partial<PayrollDashboard>);
+        if (!selectedMonth && payload.selected_month) {
+          setSelectedMonth(payload.selected_month);
+        }
         if (active) {
           setDashboard(payload);
-          if (!selectedMonth && payload.selected_month) {
-            setSelectedMonth(payload.selected_month);
-          }
-        }
-        const invoiceMonth = payload.selected_month || selectedMonth;
-        if (invoiceMonth) {
-          const invoiceParams = new URLSearchParams({
-            month: invoiceMonth,
-            limit: "12",
-          });
-          const invoiceResponse = await apiFetch(`/reports/dashboard?${invoiceParams.toString()}`);
-          if (invoiceResponse.ok) {
-            const reportPayload = (await invoiceResponse.json()) as {
-              selected_month: string | null;
-              summary: {
-                selected_month: string;
-                total_revenue: number;
-                gross_profit: number;
-              } | null;
-              invoice_entries: Array<{
-                restaurant: string;
-                pricing_model: string;
-                total_hours: number;
-                total_packages: number;
-                gross_invoice: number;
-              }>;
-            };
-            if (active) {
-              setInvoiceSnapshot({
-                selectedMonth:
-                  reportPayload.summary?.selected_month ??
-                  reportPayload.selected_month ??
-                  invoiceMonth,
-                totalRevenue: toSafeNumber(reportPayload.summary?.total_revenue),
-                grossProfit: toSafeNumber(reportPayload.summary?.gross_profit),
-                invoiceEntries: (reportPayload.invoice_entries ?? []).slice(0, 8).map((row) => ({
-                  restaurant: toSafeString(row.restaurant, "-"),
-                  pricingModel: displayPricingModel(toSafeString(row.pricing_model, "-")),
-                  totalHours: toSafeNumber(row.total_hours),
-                  totalPackages: toSafeNumber(row.total_packages),
-                  grossInvoice: toSafeNumber(row.gross_invoice),
-                })),
-              });
-            }
-          } else if (active) {
-            setInvoiceSnapshot(null);
-          }
-        } else if (active) {
-          setInvoiceSnapshot(null);
         }
       } catch {
         if (active) {
           setDashboard(null);
-          setInvoiceSnapshot(null);
         }
       } finally {
         if (active) {
@@ -425,17 +594,148 @@ export default function PayrollPage() {
     };
   }, [loading, selectedMonth, selectedRestaurant, selectedRole, user]);
 
+  const monthWindow = useMemo(() => {
+    if (!dashboard?.month_options?.length) {
+      return [];
+    }
+    const targetMonth = dashboard.selected_month || selectedMonth || dashboard.month_options[0];
+    const monthIndex = dashboard.month_options.indexOf(targetMonth);
+    const startIndex = monthIndex === -1 ? 0 : monthIndex;
+    return dashboard.month_options.slice(startIndex, startIndex + 6).reverse();
+  }, [dashboard?.month_options, dashboard?.selected_month, selectedMonth]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSeries() {
+      if (!user || !monthWindow.length) {
+        if (active) {
+          setMonthlySeries([]);
+        }
+        return;
+      }
+
+      try {
+        const snapshots = await Promise.all(
+          monthWindow.map(async (month) => {
+            const params = new URLSearchParams({ month, limit: "500" });
+            if (selectedRole && selectedRole !== "Tümü") {
+              params.set("role", selectedRole);
+            }
+            if (selectedRestaurant && selectedRestaurant !== "Tümü") {
+              params.set("restaurant", selectedRestaurant);
+            }
+            const response = await apiFetch(`/payroll/dashboard?${params.toString()}`);
+            if (!response.ok) {
+              return null;
+            }
+            const payload = normalizePayrollDashboard(
+              (await response.json()) as Partial<PayrollDashboard>,
+            );
+            return {
+              month,
+              label: monthToLabel(month),
+              summary: payload.summary,
+              entries: payload.entries,
+            } satisfies MonthlySeriesItem;
+          }),
+        );
+        if (active) {
+          setMonthlySeries(snapshots.filter(Boolean) as MonthlySeriesItem[]);
+        }
+      } catch {
+        if (active) {
+          setMonthlySeries([]);
+        }
+      }
+    }
+
+    void loadSeries();
+    return () => {
+      active = false;
+    };
+  }, [monthWindow, selectedRestaurant, selectedRole, user]);
+
+  const filteredEntries = useMemo(() => {
+    const rows = dashboard?.entries ?? [];
+    const query = deferredEntryQuery.trim().toLocaleLowerCase("tr-TR");
+    if (!query) {
+      return rows;
+    }
+    return rows.filter((row) =>
+      `${row.personnel} ${row.role} ${row.cost_model}`.toLocaleLowerCase("tr-TR").includes(query),
+    );
+  }, [dashboard?.entries, deferredEntryQuery]);
+
+  useEffect(() => {
+    if (!filteredEntries.length) {
+      setSelectedPersonnelId(null);
+      return;
+    }
+    if (!selectedPersonnelId || !filteredEntries.some((entry) => entry.personnel_id === selectedPersonnelId)) {
+      setSelectedPersonnelId(filteredEntries[0].personnel_id);
+    }
+  }, [filteredEntries, selectedPersonnelId]);
+
+  const selectedPersonnel = useMemo(
+    () => filteredEntries.find((entry) => entry.personnel_id === selectedPersonnelId) ?? null,
+    [filteredEntries, selectedPersonnelId],
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDeductions() {
+      if (!user || !selectedPersonnel) {
+        if (active) {
+          setDeductionEntries([]);
+          setDeductionLoading(false);
+        }
+        return;
+      }
+
+      setDeductionLoading(true);
+      try {
+        const params = new URLSearchParams({
+          personnel_id: String(selectedPersonnel.personnel_id),
+          limit: "60",
+        });
+        const response = await apiFetch(`/deductions/records?${params.toString()}`);
+        if (!response.ok) {
+          if (active) {
+            setDeductionEntries([]);
+          }
+          return;
+        }
+        const payload = (await response.json()) as DeductionsManagementResponse;
+        const monthPrefix = (dashboard?.selected_month || selectedMonth || "").trim();
+        const rows = (payload.entries ?? []).filter((entry) =>
+          monthPrefix ? String(entry.deduction_date).startsWith(monthPrefix) : true,
+        );
+        if (active) {
+          setDeductionEntries(rows);
+        }
+      } catch {
+        if (active) {
+          setDeductionEntries([]);
+        }
+      } finally {
+        if (active) {
+          setDeductionLoading(false);
+        }
+      }
+    }
+
+    void loadDeductions();
+    return () => {
+      active = false;
+    };
+  }, [dashboard?.selected_month, selectedMonth, selectedPersonnel, user]);
+
   const payrollOverview = useMemo(() => {
     const summary = dashboard?.summary;
-    const totalRevenue = invoiceSnapshot?.totalRevenue ?? 0;
-    const grossProfit = invoiceSnapshot?.grossProfit ?? 0;
-    const deductionRatio =
-      summary && summary.gross_payroll > 0
-        ? (summary.total_deductions / summary.gross_payroll) * 100
-        : 0;
-
     return {
-      selectedMonth: summary?.selected_month ?? selectedMonth,
+      selectedMonth: summary?.selected_month ?? selectedMonth ?? dashboard?.selected_month ?? "",
       personnelCount: summary?.personnel_count ?? 0,
       totalHours: summary?.total_hours ?? 0,
       totalPackages: summary?.total_packages ?? 0,
@@ -443,54 +743,211 @@ export default function PayrollPage() {
       totalDeductions: summary?.total_deductions ?? 0,
       totalTevkifat: summary?.total_tevkifat ?? 0,
       netPayment: summary?.net_payment ?? 0,
-      totalRevenue,
-      grossProfit,
-      deductionRatio,
     };
-  }, [dashboard, invoiceSnapshot, selectedMonth]);
+  }, [dashboard?.selected_month, dashboard?.summary, selectedMonth]);
 
-  const filteredEntries = useMemo(() => {
-    const rows = dashboard?.entries ?? [];
-    const query = entryQuery.trim().toLocaleLowerCase("tr-TR");
-    if (!query) {
-      return rows;
-    }
-    return rows.filter((row) =>
-      `${row.personnel} ${row.role} ${row.cost_model}`.toLocaleLowerCase("tr-TR").includes(query),
-    );
-  }, [dashboard?.entries, entryQuery]);
-
-  const documentOptions = useMemo(
-    () =>
-      (dashboard?.entries ?? []).map((entry) => ({
-        id: entry.personnel_id,
-        label: `${entry.personnel} | ${entry.role}`,
-      })),
-    [dashboard?.entries],
+  const currentSeries = useMemo(
+    () => monthlySeries.find((item) => item.month === payrollOverview.selectedMonth) ?? null,
+    [monthlySeries, payrollOverview.selectedMonth],
   );
 
-  useEffect(() => {
-    if (!documentOptions.length) {
-      setDocumentPersonId("");
-      return;
+  const previousSeries = useMemo(() => {
+    if (!payrollOverview.selectedMonth) {
+      return null;
     }
-    if (
-      typeof documentPersonId !== "number" ||
-      !documentOptions.some((option) => option.id === documentPersonId)
-    ) {
-      setDocumentPersonId(documentOptions[0].id);
+    const index = monthlySeries.findIndex((item) => item.month === payrollOverview.selectedMonth);
+    if (index <= 0) {
+      return null;
     }
-  }, [documentOptions, documentPersonId]);
+    return monthlySeries[index - 1];
+  }, [monthlySeries, payrollOverview.selectedMonth]);
+
+  const trendSeries = useMemo(
+    () =>
+      monthlySeries.map((item) => ({
+        label: item.label,
+        value: item.summary?.gross_payroll ?? 0,
+      })),
+    [monthlySeries],
+  );
+
+  const growthInsight = useMemo(() => {
+    if (trendSeries.length < 2) {
+      return "Hakediş trendi yeni veri geldikçe burada okunacak.";
+    }
+    const first = trendSeries[0]?.value ?? 0;
+    const last = trendSeries[trendSeries.length - 1]?.value ?? 0;
+    if (first <= 0) {
+      return "Seçili dönem aralığında önceki kıyas için yeterli baz oluşmadı.";
+    }
+    const ratio = ((last - first) / first) * 100;
+    return `Son ${trendSeries.length} ayda hakediş tutarı ${formatNumber(Math.abs(ratio), 1)}% ${ratio >= 0 ? "artış" : "daralma"} gösterdi.`;
+  }, [trendSeries]);
+
+  const costModelItems = useMemo(() => {
+    const items = (dashboard?.cost_model_breakdown ?? []).map((row, index) => ({
+      label: COST_MODEL_LABELS[row.cost_model] ?? displayCostModel(row.cost_model),
+      value: row.net_payment,
+      color: CHART_COLORS[index % CHART_COLORS.length],
+      percentage:
+        payrollOverview.netPayment > 0 ? (row.net_payment / payrollOverview.netPayment) * 100 : 0,
+    }));
+    return items.sort((left, right) => right.value - left.value);
+  }, [dashboard?.cost_model_breakdown, payrollOverview.netPayment]);
+
+  const dominantCostModel = useMemo(() => {
+    const top = costModelItems[0];
+    if (!top) {
+      return "Model dağılımı oluştuğunda baskın hakediş yapısı burada okunacak.";
+    }
+    return `Hakedişin ${formatNumber(top.percentage, 0)}%'i ${top.label.toLocaleLowerCase("tr-TR")} modelinden geliyor.`;
+  }, [costModelItems]);
+
+  const productivitySeries = useMemo(() => {
+    const averageValues = monthlySeries.map((item) => {
+      const hours = item.summary?.total_hours ?? 0;
+      const packages = item.summary?.total_packages ?? 0;
+      return hours > 0 ? packages / hours : 0;
+    });
+    return {
+      packagesPerHour: averageValues,
+      packages: monthlySeries.map((item) => item.summary?.total_packages ?? 0),
+      hours: monthlySeries.map((item) => item.summary?.total_hours ?? 0),
+    };
+  }, [monthlySeries]);
+
+  const currentPackagesPerHour =
+    payrollOverview.totalHours > 0 ? payrollOverview.totalPackages / payrollOverview.totalHours : 0;
+
+  const previousPackagesPerHour =
+    (previousSeries?.summary?.total_hours ?? 0) > 0
+      ? (previousSeries?.summary?.total_packages ?? 0) / (previousSeries?.summary?.total_hours ?? 1)
+      : 0;
+
+  const highestNetPayment = useMemo(
+    () =>
+      [...filteredEntries]
+        .sort((left, right) => right.net_payment - left.net_payment)
+        .slice(0, 5)
+        .map((entry) => ({
+          id: entry.personnel_id,
+          name: entry.personnel,
+          role: entry.role,
+          value: entry.net_payment,
+        })),
+    [filteredEntries],
+  );
+
+  const highestDeduction = useMemo(
+    () =>
+      [...filteredEntries]
+        .sort((left, right) => right.total_deductions - left.total_deductions)
+        .slice(0, 5)
+        .map((entry) => ({
+          id: entry.personnel_id,
+          name: entry.personnel,
+          role: entry.role,
+          value: entry.total_deductions,
+        })),
+    [filteredEntries],
+  );
+
+  const mostEfficient = useMemo(
+    () =>
+      [...filteredEntries]
+        .filter((entry) => entry.total_hours > 0)
+        .sort(
+          (left, right) =>
+            right.total_packages / right.total_hours - left.total_packages / left.total_hours,
+        )
+        .slice(0, 5)
+        .map((entry) => ({
+          id: entry.personnel_id,
+          name: entry.personnel,
+          role: entry.role,
+          value: entry.total_packages / entry.total_hours,
+          subValue: `${formatNumber(entry.total_packages, 0)} paket`,
+        })),
+    [filteredEntries],
+  );
+
+  const personTrendSeries = useMemo(() => {
+    if (!selectedPersonnelId) {
+      return [];
+    }
+    return monthlySeries.map((item) => {
+      const personEntry = item.entries.find((entry) => entry.personnel_id === selectedPersonnelId);
+      return {
+        label: item.label,
+        value: personEntry?.net_payment ?? 0,
+      };
+    });
+  }, [monthlySeries, selectedPersonnelId]);
+
+  const personTrendInsight = useMemo(() => {
+    if (personTrendSeries.length < 2) {
+      return "Seçili personelin trendi yeni aylar geldikçe burada görünecek.";
+    }
+    const first = personTrendSeries[0]?.value ?? 0;
+    const last = personTrendSeries[personTrendSeries.length - 1]?.value ?? 0;
+    if (first <= 0) {
+      return "Bu kişi için geçmiş ay karşılaştırması oluşmadı.";
+    }
+    const ratio = ((last - first) / first) * 100;
+    return `Seçili personelin net ödemesi ${personTrendSeries.length} aylık hatta ${formatNumber(
+      Math.abs(ratio),
+      1,
+    )}% ${ratio >= 0 ? "yukarı" : "aşağı"} yönde ilerliyor.`;
+  }, [personTrendSeries]);
+
+  const selectedPersonDeductions = useMemo(() => {
+    if (!selectedPersonnel) {
+      return [] as DeductionListItem[];
+    }
+    const normalizedRows: DeductionListItem[] = deductionEntries.map((entry) => ({
+      key: entry.id,
+      label: entry.type_caption || entry.deduction_type || "Kesinti",
+      amount: entry.amount,
+    }));
+    const tevkifatExists = normalizedRows.some((row) =>
+      row.label.toLocaleLowerCase("tr-TR").includes("tevkifat"),
+    );
+    const rows = [...normalizedRows];
+    if (!tevkifatExists && selectedPersonnel.tevkifat_amount > 0) {
+      rows.push({
+        key: "tevkifat",
+        label: "Tevkifat",
+        amount: selectedPersonnel.tevkifat_amount,
+      });
+    }
+    const listedTotal = rows.reduce((total, row) => total + row.amount, 0);
+    const residual = Math.max(selectedPersonnel.total_deductions - listedTotal, 0);
+    if (residual > 0.01) {
+      rows.push({
+        key: "other",
+        label: "Diğer Kesintiler",
+        amount: residual,
+      });
+    }
+    if (!rows.length && selectedPersonnel.total_deductions > 0) {
+      rows.push({
+        key: "summary",
+        label: "Toplam Kesinti",
+        amount: selectedPersonnel.total_deductions,
+      });
+    }
+    return rows;
+  }, [deductionEntries, selectedPersonnel]);
 
   async function handleDocumentDownload() {
-    if (typeof documentPersonId !== "number") {
-      setDocumentError("Belge oluşturmak için önce personel seçmelisin.");
+    if (!selectedPersonnel) {
+      setDocumentError("PDF indirmek için önce personel seçmelisin.");
       setDocumentMessage("");
       return;
     }
     const month = dashboard?.selected_month || selectedMonth;
     if (!month) {
-      setDocumentError("Belge oluşturmak için önce ay seçmelisin.");
+      setDocumentError("PDF indirmek için önce dönem seçmelisin.");
       setDocumentMessage("");
       return;
     }
@@ -500,12 +957,12 @@ export default function PayrollPage() {
     setDocumentMessage("");
     try {
       const params = new URLSearchParams({
-        personnel_id: String(documentPersonId),
+        personnel_id: String(selectedPersonnel.personnel_id),
         month,
       });
       const response = await apiFetch(`/payroll/document?${params.toString()}`);
       if (!response.ok) {
-        let detail = "Hakediş belgesi indirilemedi.";
+        let detail = "Hakediş PDF'i indirilemedi.";
         try {
           const payload = (await response.json()) as { detail?: string };
           if (payload?.detail) {
@@ -516,13 +973,15 @@ export default function PayrollPage() {
       }
       const disposition = response.headers.get("Content-Disposition") || "";
       const fileNameMatch = disposition.match(/filename=\"?([^"]+)\"?/i);
-      const fileName = fileNameMatch?.[1] || `hakedis_${documentPersonId}_${month}.pdf`;
+      const fileName =
+        fileNameMatch?.[1] ||
+        `hakedis_${selectedPersonnel.personnel_id}_${month}.pdf`;
       const blob = await response.blob();
       triggerBrowserDownload(blob, fileName);
-      setDocumentMessage("Hakediş belgesi indirildi.");
+      setDocumentMessage("Hakediş PDF'i indirildi.");
     } catch (nextError) {
       setDocumentError(
-        nextError instanceof Error ? nextError.message : "Hakediş belgesi indirilemedi.",
+        nextError instanceof Error ? nextError.message : "Hakediş PDF'i indirilemedi.",
       );
     } finally {
       setDocumentBusy(false);
@@ -531,22 +990,21 @@ export default function PayrollPage() {
 
   function handleCsvDownload() {
     if (!filteredEntries.length) {
-      setDocumentError("Dışa aktarmak için önce görünür bordro kaydı oluşmalı.");
+      setDocumentError("Excel indirmek için önce görünür kayıt oluşmalı.");
       setDocumentMessage("");
       return;
     }
-
     const headers = [
       "Personel",
       "Rol",
       "Durum",
       "Toplam Saat",
       "Toplam Paket",
-      "Kesinti Öncesi Kurye Hakedişi",
+      "Hakediş Tutarı",
       "Toplam Kesinti",
-      "Kurye Fatura Tutarı (KDV Dahil)",
-      "Tevkifat",
-      "Restoran Sayısı",
+      "Toplam Tevkifat",
+      "Net Ödenecek Tutar",
+      "Şube Sayısı",
       "Maliyet Modeli",
     ];
     const rows = filteredEntries.map((entry) => [
@@ -557,834 +1015,1552 @@ export default function PayrollPage() {
       String(entry.total_packages),
       String(entry.gross_pay),
       String(entry.total_deductions),
-      String(entry.net_payment),
       String(entry.tevkifat_amount),
+      String(entry.net_payment),
       String(entry.restaurant_count),
       entry.cost_model,
     ]);
     const csv = [headers, ...rows]
       .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
       .join("\n");
-    const month = dashboard?.selected_month || selectedMonth || "bordro";
+    const month = dashboard?.selected_month || selectedMonth || "hakedis";
     const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" });
     triggerBrowserDownload(blob, `catkapinda_aylik_hakedis_${month}.csv`);
     setDocumentError("");
     setDocumentMessage("Aylık hakediş tablosu indirildi.");
   }
 
+  const kpis: Array<{
+    title: string;
+    value: string;
+    delta: { label: string; tone: PayrollDeltaTone };
+    badge: string;
+    tone: "blue" | "green" | "orange" | "violet";
+  }> = [
+    {
+      title: "Net Ödenecek Tutar",
+      value: formatMoney(payrollOverview.netPayment),
+      delta: buildDelta(
+        payrollOverview.netPayment,
+        previousSeries?.summary?.net_payment ?? 0,
+        true,
+      ),
+      badge: "N",
+      tone: "blue" as const,
+    },
+    {
+      title: "Hakediş Tutarı",
+      value: formatMoney(payrollOverview.grossPayroll),
+      delta: buildDelta(
+        payrollOverview.grossPayroll,
+        previousSeries?.summary?.gross_payroll ?? 0,
+        true,
+      ),
+      badge: "H",
+      tone: "green" as const,
+    },
+    {
+      title: "Toplam Kesinti",
+      value: formatMoney(payrollOverview.totalDeductions),
+      delta: buildDelta(
+        payrollOverview.totalDeductions,
+        previousSeries?.summary?.total_deductions ?? 0,
+        false,
+      ),
+      badge: "K",
+      tone: "orange" as const,
+    },
+    {
+      title: "Toplam Tevkifat",
+      value: formatMoney(payrollOverview.totalTevkifat),
+      delta: buildDelta(
+        payrollOverview.totalTevkifat,
+        previousSeries?.summary?.total_tevkifat ?? 0,
+        false,
+      ),
+      badge: "T",
+      tone: "violet" as const,
+    },
+  ];
+
   return (
     <AppShell activeItem="Aylık Hakediş">
-      <section
-        style={{
-          display: "grid",
-          gap: "18px",
-        }}
-      >
-        <div
-          style={{
-            padding: "22px",
-            borderRadius: "28px",
-            background:
-              "linear-gradient(180deg, rgba(255,252,246,0.98), rgba(248,242,233,0.96))",
-            border: "1px solid var(--line)",
-            boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
-            display: "grid",
-            gap: "16px",
-          }}
-        >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)",
-              gap: "16px",
-              alignItems: "start",
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gap: "12px",
-                alignContent: "start",
-              }}
-            >
-              <div
-                style={{
-                  display: "inline-flex",
-                  width: "fit-content",
-                  padding: "7px 12px",
-                  borderRadius: "999px",
-                  background: "var(--accent-soft)",
-                  color: "var(--accent)",
-                  fontSize: "0.78rem",
-                  fontWeight: 800,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Hakediş ve Bordro
-              </div>
-              <div style={{ display: "grid", gap: "8px", maxWidth: "60ch" }}>
-                <h1
-                  style={{
-                    ...serifStyle,
-                    margin: 0,
-                    fontSize: "clamp(1.9rem, 3.4vw, 3rem)",
-                    lineHeight: 0.94,
-                    fontWeight: 700,
-                  }}
-                >
-                  Aylık hakedişi tek bakışta kontrol et, dışa aktar ve belgeye çevir.
-                </h1>
-                <p
-                  style={{
-                    margin: 0,
-                    color: "var(--muted)",
-                    fontSize: "0.98rem",
-                    lineHeight: 1.65,
-                  }}
-                >
-                  Ay filtresi, rol, restoran, kesinti ve kurye ödeme toplamını aynı çalışma
-                  yüzeyinde sıkı biçimde yönetin.
-                </p>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "10px",
-                }}
-              >
-                <span
-                  style={{
-                    display: "inline-flex",
-                    padding: "7px 12px",
-                    borderRadius: "999px",
-                    background: "rgba(15,95,215,0.08)",
-                    color: "#0f5fd7",
-                    fontSize: "0.82rem",
-                    fontWeight: 800,
-                  }}
-                >
-                  {payrollOverview.selectedMonth || "Ay seç"} dönemi
-                </span>
-                <span
-                  style={{
-                    display: "inline-flex",
-                    padding: "7px 12px",
-                    borderRadius: "999px",
-                    background: "rgba(34,102,60,0.1)",
-                    color: "#22663c",
-                    fontSize: "0.82rem",
-                    fontWeight: 800,
-                  }}
-                >
-                  {formatNumber(payrollOverview.personnelCount, 0)} personel
-                </span>
-                <span
-                  style={{
-                    display: "inline-flex",
-                    padding: "7px 12px",
-                    borderRadius: "999px",
-                    background: "rgba(185,116,41,0.1)",
-                    color: "var(--accent-strong)",
-                    fontSize: "0.82rem",
-                    fontWeight: 800,
-                  }}
-                >
-                  {formatNumber(payrollOverview.totalHours, 1)} saat
-                </span>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gap: "12px",
-              }}
-            >
-              <article
-                style={{
-                  padding: "18px",
-                  borderRadius: "22px",
-                  background: "linear-gradient(180deg, rgba(24,40,59,0.96), rgba(35,54,78,0.94))",
-                  color: "#fff7ea",
-                  boxShadow: "var(--shadow-deep)",
-                  display: "grid",
-                  gap: "12px",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "12px",
-                    alignItems: "start",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div style={{ display: "grid", gap: "6px" }}>
-                    <div
-                      style={{
-                        color: "rgba(255,247,234,0.62)",
-                      fontSize: "0.74rem",
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                      Hakediş Dönemi
-                    </div>
-                    <div
-                      style={{
-                        ...serifStyle,
-                        fontSize: "1.55rem",
-                        lineHeight: 0.96,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {payrollOverview.selectedMonth || "Ay seç"}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      padding: "7px 10px",
-                      borderRadius: "999px",
-                      background: "rgba(255,255,255,0.08)",
-                      color: "rgba(255,247,234,0.82)",
-                      fontSize: "0.8rem",
-                      fontWeight: 800,
-                    }}
-                  >
-                    Bordro Özeti
-                  </div>
-                </div>
-                <select
-                  id="payroll-month"
-                  value={selectedMonth}
-                  onChange={(event) => setSelectedMonth(event.target.value)}
-                  disabled={dashboardLoading || !dashboard?.month_options?.length}
-                  style={{
-                    padding: "14px 16px",
-                    borderRadius: "16px",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: "rgba(255,255,255,0.06)",
-                    color: "#fff7ea",
-                    fontWeight: 700,
-                  }}
-                >
-                  {(dashboard?.month_options ?? []).map((month) => (
-                    <option key={month} value={month} style={{ color: "#16283b" }}>
-                      {month}
-                    </option>
-                  ))}
-                </select>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                    gap: "10px",
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: "12px 12px 10px",
-                      borderRadius: "16px",
-                      background: "rgba(255,255,255,0.06)",
-                    }}
-                    >
-                      <div
-                        style={{
-                          color: "rgba(255,247,234,0.64)",
-                          fontSize: "0.72rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                      }}
-                      >
-                      Net Kurye Tutarı
-                      </div>
-                      <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
-                        {formatMoney(payrollOverview.netPayment)}
-                      </div>
-                    </div>
-                  <div
-                    style={{
-                      padding: "12px 12px 10px",
-                      borderRadius: "16px",
-                      background: "rgba(185,116,41,0.14)",
-                    }}
-                    >
-                      <div
-                        style={{
-                          color: "rgba(255,247,234,0.64)",
-                          fontSize: "0.72rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                      }}
-                      >
-                        Toplam Kesinti
-                      </div>
-                      <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
-                        {formatMoney(payrollOverview.totalDeductions)}
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        padding: "12px 12px 10px",
-                        borderRadius: "16px",
-                        background: "rgba(255,255,255,0.06)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          color: "rgba(255,247,234,0.64)",
-                          fontSize: "0.72rem",
-                          fontWeight: 800,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.08em",
-                        }}
-                      >
-                        Toplam Tevkifat
-                      </div>
-                      <div style={{ marginTop: "8px", fontSize: "1.05rem", fontWeight: 900 }}>
-                        {formatMoney(payrollOverview.totalTevkifat)}
-                      </div>
-                    </div>
-                </div>
-                <div style={{ color: "rgba(255,247,234,0.72)", fontSize: "0.82rem", lineHeight: 1.5 }}>
-                  Tevkifat, 12.000 ₺ ve üzeri kurye fatura tutarında KDV&apos;nin 1/5&apos;i olarak gider kalemine eklenir ve net ödemeden düşülür.
-                </div>
-              </article>
-            </div>
+      <section className="payroll-page">
+        <header className="page-header">
+          <div className="page-copy">
+            <h1>Aylık Hakediş</h1>
+            <p>Kurye ödemelerini, kesintileri ve performansı tek ekranda yönetin.</p>
           </div>
-
-          <section
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "12px",
-            }}
-          >
-            <article
-              style={{
-                padding: "16px 18px",
-                borderRadius: "18px",
-                border: "1px solid var(--line)",
-                background: "rgba(255,255,255,0.82)",
-                display: "grid",
-                gap: "6px",
-              }}
-            >
-              <div
-                style={{
-                  color: "var(--muted)",
-                  fontSize: "0.72rem",
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
+          <div className="page-actions">
+            <label className="field compact">
+              <span>Dönem</span>
+              <select
+                value={selectedMonth}
+                onChange={(event) => setSelectedMonth(event.target.value)}
+                disabled={dashboardLoading || !dashboard?.month_options?.length}
               >
-                Restoran Faturası
-              </div>
-              <div style={{ fontSize: "1.25rem", fontWeight: 900 }}>
-                {formatMoney(payrollOverview.totalRevenue)}
-              </div>
-              <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.88rem" }}>
-                Seçili ay restoran toplamı
-              </div>
-            </article>
+                {(dashboard?.month_options ?? []).map((month) => (
+                  <option key={month} value={month}>
+                    {month}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="ghost-button" onClick={handleCsvDownload}>
+              Excel İndir
+            </button>
+          </div>
+        </header>
 
-            <article
-              style={{
-                padding: "16px 18px",
-                borderRadius: "18px",
-                border: "1px solid var(--line)",
-                background: "rgba(255,255,255,0.82)",
-                display: "grid",
-                gap: "6px",
-              }}
-            >
-              <div
-                style={{
-                  color: "var(--muted)",
-                  fontSize: "0.72rem",
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Kesinti Öncesi
-              </div>
-              <div style={{ fontSize: "1.25rem", fontWeight: 900 }}>
-                {formatMoney(payrollOverview.grossPayroll)}
-              </div>
-              <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.88rem" }}>
-                Kurye hakedişi toplamı
-              </div>
-            </article>
-
-            <article
-              style={{
-                padding: "16px 18px",
-                borderRadius: "18px",
-                border: "1px solid var(--line)",
-                background: "rgba(255,255,255,0.82)",
-                display: "grid",
-                gap: "6px",
-              }}
-            >
-              <div
-                style={{
-                  color: "var(--muted)",
-                  fontSize: "0.72rem",
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Toplam Tevkifat
-              </div>
-              <div style={{ fontSize: "1.25rem", fontWeight: 900 }}>
-                {formatMoney(payrollOverview.totalTevkifat)}
-              </div>
-              <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.88rem" }}>
-                Hakedişten düşülen toplam tevkifat
-              </div>
-            </article>
-
-            <article
-              style={{
-                padding: "16px 18px",
-                borderRadius: "18px",
-                border: "1px solid var(--line)",
-                background: "rgba(255,255,255,0.82)",
-                display: "grid",
-                gap: "6px",
-              }}
-            >
-              <div
-                style={{
-                  color: "var(--muted)",
-                  fontSize: "0.72rem",
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Fatura-Kurye Farkı
-              </div>
-              <div style={{ fontSize: "1.25rem", fontWeight: 900 }}>
-                {formatMoney(payrollOverview.grossProfit)}
-              </div>
-              <div style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: "0.88rem" }}>
-                Seçili ay doğrudan fark
-              </div>
-            </article>
+        {dashboardLoading ? (
+          <section className="surface-card loading-card">
+            Hakediş verileri yükleniyor...
           </section>
+        ) : !dashboard || !dashboard.summary ? (
+          <section className="surface-card empty-state">
+            Hakediş verileri şu an alınamadı. Bağlantı toparlandığında aylık ödeme özeti ve
+            performans panelleri otomatik yenilenecek.
+          </section>
+        ) : (
+          <>
+            <section className="kpi-grid">
+              {kpis.map((item) => (
+                <PayrollKpiCard
+                  key={item.title}
+                  title={item.title}
+                  value={item.value}
+                  delta={item.delta}
+                  badge={item.badge}
+                  tone={item.tone}
+                />
+              ))}
+            </section>
 
-          <section
-            style={{
-              borderRadius: "24px",
-              border: "1px solid var(--line)",
-              background: "rgba(255,255,255,0.78)",
-              padding: "18px 20px",
-              display: "grid",
-              gap: "14px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "16px",
-                alignItems: "start",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ display: "grid", gap: "6px", flex: "1 1 320px" }}>
-                <div
-                  style={{
-                    color: "var(--muted)",
-                    fontSize: "0.74rem",
-                    fontWeight: 800,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  Belge ve Dışa Aktarım
-                </div>
-                <div style={{ fontSize: "1rem", fontWeight: 800 }}>
-                  Filtreyi daralt, listeyi indir ve seçili personel için tek tıkla PDF üret.
+            <section className="surface-card filters-card">
+              <div className="section-head compact">
+                <div>
+                  <h3>Filtre ve seçimler</h3>
+                  <p>Hakediş görünümünü role, restorana ve personele göre daralt.</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleCsvDownload}
-                disabled={!filteredEntries.length}
-                style={{
-                  padding: "12px 16px",
-                  borderRadius: "14px",
-                  border: "1px solid rgba(15,95,215,0.15)",
-                  background: "rgba(15,95,215,0.08)",
-                  color: "#0f5fd7",
-                  fontWeight: 800,
-                  cursor: filteredEntries.length ? "pointer" : "not-allowed",
-                  opacity: filteredEntries.length ? 1 : 0.6,
-                }}
-              >
-                Aylık hakediş tablosunu indir
-              </button>
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr)",
-                gap: "12px",
-                alignItems: "start",
-              }}
-            >
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "12px",
-                }}
-              >
-                <div style={{ display: "grid", gap: "8px" }}>
-                  <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Rol</label>
-                  <select
-                    value={selectedRole}
-                    onChange={(event) => setSelectedRole(event.target.value)}
-                    disabled={dashboardLoading}
-                    style={{
-                      padding: "14px 16px",
-                      borderRadius: "16px",
-                      border: "1px solid var(--line)",
-                      background: "rgba(255,255,255,0.96)",
-                      color: "var(--text)",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {(dashboard?.role_options ?? ["Tümü"]).map((role) => (
+              <div className="filters-grid">
+                <label className="field">
+                  <span>Rol</span>
+                  <select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)}>
+                    {(dashboard.role_options ?? ["Tümü"]).map((role) => (
                       <option key={role} value={role}>
                         {role}
                       </option>
                     ))}
                   </select>
-                </div>
-                <div style={{ display: "grid", gap: "8px" }}>
-                  <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>Restoran</label>
+                </label>
+                <label className="field">
+                  <span>Restoran</span>
                   <select
                     value={selectedRestaurant}
                     onChange={(event) => setSelectedRestaurant(event.target.value)}
-                    disabled={dashboardLoading}
-                    style={{
-                      padding: "14px 16px",
-                      borderRadius: "16px",
-                      border: "1px solid var(--line)",
-                      background: "rgba(255,255,255,0.96)",
-                      color: "var(--text)",
-                      fontWeight: 700,
-                    }}
                   >
-                    {(dashboard?.restaurant_options ?? ["Tümü"]).map((restaurant) => (
+                    {(dashboard.restaurant_options ?? ["Tümü"]).map((restaurant) => (
                       <option key={restaurant} value={restaurant}>
                         {restaurant}
                       </option>
                     ))}
                   </select>
-                </div>
-                <div style={{ display: "grid", gap: "8px" }}>
-                  <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>
-                    Personel ara
-                  </label>
+                </label>
+                <label className="field field-search">
+                  <span>Personel ara</span>
                   <input
                     value={entryQuery}
                     onChange={(event) => setEntryQuery(event.target.value)}
                     placeholder="Ad, rol veya model ara"
-                    style={{
-                      padding: "14px 16px",
-                      borderRadius: "16px",
-                      border: "1px solid var(--line)",
-                      background: "rgba(255,255,255,0.96)",
-                      color: "var(--text)",
-                    }}
                   />
-                </div>
+                </label>
               </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) auto",
-                  gap: "12px",
-                  alignItems: "end",
-                }}
-              >
-                <div style={{ display: "grid", gap: "8px" }}>
-                  <label style={{ color: "var(--muted)", fontSize: "0.82rem", fontWeight: 700 }}>
-                    Belgesi oluşturulacak personel
-                  </label>
-                  <select
-                    value={documentPersonId}
-                    onChange={(event) =>
-                      setDocumentPersonId(event.target.value ? Number(event.target.value) : "")
-                    }
-                    disabled={documentBusy || !documentOptions.length}
-                    style={{
-                      padding: "14px 16px",
-                      borderRadius: "16px",
-                      border: "1px solid var(--line)",
-                      background: "rgba(255,255,255,0.96)",
-                      color: "var(--text)",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {documentOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleDocumentDownload}
-                  disabled={documentBusy || typeof documentPersonId !== "number"}
-                  style={{
-                    minWidth: "230px",
-                    padding: "14px 18px",
-                    borderRadius: "16px",
-                    border: "none",
-                    background:
-                      "linear-gradient(135deg, rgba(185,116,41,1), rgba(212,144,61,0.96))",
-                    color: "#fff7ea",
-                    fontWeight: 900,
-                    cursor:
-                      documentBusy || typeof documentPersonId !== "number"
-                        ? "not-allowed"
-                        : "pointer",
-                    opacity: documentBusy || typeof documentPersonId !== "number" ? 0.6 : 1,
-                  }}
-                >
-                  {documentBusy ? "Belge hazırlanıyor..." : "Hakediş belgesini indir"}
-                </button>
-              </div>
-            </div>
-            {documentError ? (
-              <div style={{ color: "#9e2430", fontSize: "0.92rem", fontWeight: 700 }}>
-                {documentError}
-              </div>
-            ) : null}
-            {documentMessage ? (
-              <div style={{ color: "#22663c", fontSize: "0.92rem", fontWeight: 700 }}>
-                {documentMessage}
-              </div>
-            ) : null}
-          </section>
-        </div>
+            </section>
 
-        {dashboardLoading ? (
-          <div
-            style={{
-              padding: "18px 20px",
-              borderRadius: "22px",
-              border: "1px solid rgba(15, 95, 215, 0.14)",
-              background: "rgba(15, 95, 215, 0.06)",
-              color: "var(--muted)",
-            }}
-          >
-            Hakediş verileri yükleniyor...
-          </div>
-        ) : !dashboard || !dashboard.summary ? (
-          <div
-            style={{
-              padding: "18px 20px",
-              borderRadius: "22px",
-              border: "1px dashed rgba(15, 95, 215, 0.35)",
-              background: "rgba(255, 255, 255, 0.66)",
-              color: "var(--muted)",
-              lineHeight: 1.7,
-            }}
-          >
-            Hakediş verileri şu an alınamadı. Bağlantı toparlandığında aylık ödeme
-            özeti ve bordro dağılımları otomatik yenilenecek.
-          </div>
-        ) : (
-          <>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1.8fr) minmax(320px, 1fr)",
-                gap: "18px",
-                alignItems: "start",
-              }}
-            >
-              <ScrollCard
-                title="Hakediş Özeti"
-                subtitle={`Personel bazlı çalışma, kesinti ve net ödeme görünümü. ${formatNumber(filteredEntries.length, 0)} kayıt listeleniyor.`}
-                maxHeight={420}
-              >
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                  }}
-                >
-                  <thead>
-                    <tr>
+            <div className="workspace-grid">
+              <div className="workspace-main">
+                <div className="analytics-hero-grid">
+                  <section className="surface-card trend-card">
+                    <div className="section-head">
+                      <div>
+                        <h3>Hakediş Trendi</h3>
+                        <p>Son 6 ayda toplam hakediş akışını ve ivmesini tek grafikte izle.</p>
+                      </div>
+                    </div>
+                    <TrendChart items={trendSeries.length ? trendSeries : [{ label: "—", value: 0 }]} />
+                    <div className="insight-banner">{growthInsight}</div>
+                  </section>
+
+                  <section className="surface-card donut-card">
+                    <div className="section-head">
+                      <div>
+                        <h3>Maliyet Modeli Dağılımı</h3>
+                        <p>Hakedişin hangi modelden geldiğini ve toplam yükü hızlıca gör.</p>
+                      </div>
+                    </div>
+                    <div className="donut-layout">
+                      <DonutChart items={costModelItems} total={payrollOverview.grossPayroll} />
+                      <div className="donut-meta">
+                        {costModelItems.length ? (
+                          costModelItems.map((item) => (
+                            <div key={item.label} className="legend-row">
+                              <span className="legend-dot" style={{ background: item.color }} />
+                              <span className="legend-label">{item.label}</span>
+                              <strong>{formatMoney(item.value)}</strong>
+                              <small>%{formatNumber(item.percentage, 0)}</small>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="empty-state compact">Dağılım verisi oluşmadı.</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="insight-banner success">{dominantCostModel}</div>
+                  </section>
+                </div>
+
+                <section className="analytics-row">
+                  <div className="section-head inline">
+                    <div>
+                      <h3>Verimlilik Özeti</h3>
+                      <p>Operasyon yükünü hız ve hacim açısından aynı seviyede okuyun.</p>
+                    </div>
+                  </div>
+                  <div className="efficiency-grid">
+                    <article className="surface-card mini-metric-card">
+                      <div className="mini-metric-head">
+                        <span>Ortalama Paket / Saat</span>
+                        <DeltaPill
+                          label={buildDelta(currentPackagesPerHour, previousPackagesPerHour, true).label}
+                          tone={buildDelta(currentPackagesPerHour, previousPackagesPerHour, true).tone}
+                        />
+                      </div>
+                      <strong>{formatNumber(currentPackagesPerHour, 1)}</strong>
+                      <Sparkline values={productivitySeries.packagesPerHour} tone="blue" />
+                    </article>
+                    <article className="surface-card mini-metric-card">
+                      <div className="mini-metric-head">
+                        <span>Toplam Paket</span>
+                        <DeltaPill
+                          label={buildDelta(
+                            payrollOverview.totalPackages,
+                            previousSeries?.summary?.total_packages ?? 0,
+                            true,
+                          ).label}
+                          tone={buildDelta(
+                            payrollOverview.totalPackages,
+                            previousSeries?.summary?.total_packages ?? 0,
+                            true,
+                          ).tone}
+                        />
+                      </div>
+                      <strong>{formatNumber(payrollOverview.totalPackages, 0)}</strong>
+                      <Sparkline values={productivitySeries.packages} tone="green" />
+                    </article>
+                    <article className="surface-card mini-metric-card">
+                      <div className="mini-metric-head">
+                        <span>Toplam Saat</span>
+                        <DeltaPill
+                          label={buildDelta(
+                            payrollOverview.totalHours,
+                            previousSeries?.summary?.total_hours ?? 0,
+                            true,
+                          ).label}
+                          tone={buildDelta(
+                            payrollOverview.totalHours,
+                            previousSeries?.summary?.total_hours ?? 0,
+                            true,
+                          ).tone}
+                        />
+                      </div>
+                      <strong>{formatNumber(payrollOverview.totalHours, 1)}</strong>
+                      <Sparkline values={productivitySeries.hours} tone="blue" />
+                    </article>
+                  </div>
+                </section>
+
+                <section className="ranking-grid">
+                  <RankingCard
+                    title="En Yüksek Net Ödeme"
+                    items={highestNetPayment}
+                    formatter={formatMoney}
+                    onSelect={setSelectedPersonnelId}
+                    selectedId={selectedPersonnelId}
+                  />
+                  <RankingCard
+                    title="En Yüksek Kesinti Tutarı"
+                    items={highestDeduction}
+                    formatter={formatMoney}
+                    onSelect={setSelectedPersonnelId}
+                    selectedId={selectedPersonnelId}
+                  />
+                  <RankingCard
+                    title="En Verimli Kuryeler"
+                    items={mostEfficient}
+                    formatter={(value) => formatNumber(value, 1)}
+                    onSelect={setSelectedPersonnelId}
+                    selectedId={selectedPersonnelId}
+                  />
+                </section>
+
+                <section className="surface-card roster-card">
+                  <div className="section-head">
+                    <div>
+                      <h3>Hakediş Listesi</h3>
+                      <p>Seçili dönemdeki personel özetlerinden kişiyi seçip sağ panelde detay aç.</p>
+                    </div>
+                    <div className="section-meta">
+                      {formatNumber(filteredEntries.length, 0)} kişi
+                    </div>
+                  </div>
+
+                  <div className="roster-table desktop-only">
+                    <div className="roster-row roster-head">
+                      <span>Personel</span>
+                      <span>Rol</span>
+                      <span>Net Ödeme</span>
+                      <span>Kesinti</span>
+                      <span>Tevkifat</span>
+                      <span>Model</span>
+                    </div>
+                    {filteredEntries.map((entry) => (
+                      <button
+                        key={entry.personnel_id}
+                        type="button"
+                        className={`roster-row ${selectedPersonnelId === entry.personnel_id ? "is-selected" : ""}`}
+                        onClick={() => setSelectedPersonnelId(entry.personnel_id)}
+                      >
+                        <span>
+                          <strong>{entry.personnel}</strong>
+                          <small>{entry.status}</small>
+                        </span>
+                        <span>{entry.role}</span>
+                        <span>{formatMoney(entry.net_payment)}</span>
+                        <span className="negative">{formatMoney(entry.total_deductions)}</span>
+                        <span>{formatMoney(entry.tevkifat_amount)}</span>
+                        <span>{displayCostModel(entry.cost_model)}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="roster-cards mobile-only">
+                    {filteredEntries.map((entry) => (
+                      <button
+                        key={`mobile-${entry.personnel_id}`}
+                        type="button"
+                        className={`roster-mobile-card ${selectedPersonnelId === entry.personnel_id ? "is-selected" : ""}`}
+                        onClick={() => setSelectedPersonnelId(entry.personnel_id)}
+                      >
+                        <div className="roster-mobile-head">
+                          <strong>{entry.personnel}</strong>
+                          <StatusBadge value={entry.status} />
+                        </div>
+                        <div className="roster-mobile-meta">
+                          <span>{entry.role}</span>
+                          <span>{displayCostModel(entry.cost_model)}</span>
+                        </div>
+                        <div className="roster-mobile-values">
+                          <div>
+                            <small>Net Ödeme</small>
+                            <strong>{formatMoney(entry.net_payment)}</strong>
+                          </div>
+                          <div>
+                            <small>Kesinti</small>
+                            <strong className="negative">{formatMoney(entry.total_deductions)}</strong>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              <aside className="detail-panel surface-card">
+                {selectedPersonnel ? (
+                  <>
+                    <div className="detail-head">
+                      <div className="detail-avatar">{getInitials(selectedPersonnel.personnel)}</div>
+                      <div className="detail-copy">
+                        <h3>{selectedPersonnel.personnel}</h3>
+                        <p>{selectedPersonnel.role}</p>
+                      </div>
+                      <StatusBadge value={selectedPersonnel.status} />
+                    </div>
+
+                    <div className="detail-tabs" role="tablist" aria-label="Personel detay sekmeleri">
                       {[
-                        "Personel",
-                        "Rol",
-                        "Durum",
-                        "Saat",
-                        "Paket",
-                        "Kesinti Öncesi",
-                        "Kesinti",
-                        "Fatura",
-                        "Tevkifat",
-                        "Restoran",
-                        "Model",
-                      ].map(tableHeaderCell)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEntries.map((row) => (
-                      <tr key={row.personnel_id}>
-                        {tableCell(row.personnel)}
-                        {tableCell(row.role, "left", true)}
-                        {tableCell(row.status, "left", true)}
-                        {tableCell(formatNumber(row.total_hours, 1), "right")}
-                        {tableCell(formatNumber(row.total_packages, 0), "right")}
-                        {tableCell(formatMoney(row.gross_pay), "right")}
-                        {tableCell(formatMoney(row.total_deductions), "right")}
-                        {tableCell(formatMoney(row.net_payment), "right")}
-                        {tableCell(formatMoney(row.tevkifat_amount), "right")}
-                        {tableCell(formatNumber(row.restaurant_count, 0), "right", true)}
-                        {tableCell(displayPricingModel(row.cost_model), "left", true)}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </ScrollCard>
-
-              <div style={{ display: "grid", gap: "18px" }}>
-                <ScrollCard
-                  title="Maliyet Modeli Dağılımı"
-                  subtitle="Hangi hakediş modelinin ne kadar yük taşıdığını tek bakışta izle."
-                  maxHeight={250}
-                >
-                  <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
-                    {dashboard.cost_model_breakdown.length ? (
-                      dashboard.cost_model_breakdown.map((row) => (
-                        <article
-                          key={row.cost_model}
-                          style={{
-                            display: "grid",
-                            gap: "8px",
-                            padding: "14px",
-                            borderRadius: "18px",
-                            border: "1px solid rgba(219, 228, 243, 0.8)",
-                            background: "rgba(248, 250, 255, 0.9)",
-                          }}
+                        { id: "finance", label: "Finans Özeti" },
+                        { id: "operations", label: "Operasyon Özeti" },
+                        { id: "trend", label: "Trend" },
+                        { id: "pdf", label: "PDF" },
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          className={`detail-tab ${activeTab === tab.id ? "is-active" : ""}`}
+                          onClick={() => setActiveTab(tab.id as PayrollTab)}
                         >
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                            <strong>{displayPricingModel(row.cost_model)}</strong>
-                            <span style={{ color: "var(--muted)" }}>{formatMoney(row.net_payment)}</span>
-                          </div>
-                          <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
-                            {formatNumber(row.personnel_count)} personel • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
-                          </div>
-                        </article>
-                      ))
-                    ) : (
-                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
-                        Seçili filtrede maliyet modeli dağılımı henüz oluşmadı.
-                      </div>
-                    )}
-                  </div>
-                </ScrollCard>
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
 
-                <ScrollCard
-                  title="Rol Dağılımı"
-                  subtitle="Hangi rolün net ödeme, saat ve paket yükünü taşıdığını birlikte gör."
-                  maxHeight={320}
-                >
-                  <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
-                    {dashboard.role_breakdown.length ? (
-                      dashboard.role_breakdown.map((row) => (
-                        <article
-                          key={row.role}
-                          style={{
-                            display: "grid",
-                            gap: "8px",
-                            padding: "14px",
-                            borderRadius: "18px",
-                            border: "1px solid rgba(219, 228, 243, 0.8)",
-                            background: "rgba(248, 250, 255, 0.9)",
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                            <strong>{row.role}</strong>
-                            <span style={{ color: "var(--muted)" }}>{formatMoney(row.net_payment)}</span>
+                    {activeTab === "finance" ? (
+                      <div className="detail-tab-panel">
+                        <div className="detail-metrics-grid">
+                          <article className="detail-metric">
+                            <span>Net Ödeme</span>
+                            <strong>{formatMoney(selectedPersonnel.net_payment)}</strong>
+                          </article>
+                          <article className="detail-metric">
+                            <span>Hakediş Tutarı</span>
+                            <strong>{formatMoney(selectedPersonnel.gross_pay)}</strong>
+                          </article>
+                          <article className="detail-metric">
+                            <span>Toplam Kesinti</span>
+                            <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
+                          </article>
+                          <article className="detail-metric">
+                            <span>Toplam Tevkifat</span>
+                            <strong>{formatMoney(selectedPersonnel.tevkifat_amount)}</strong>
+                          </article>
+                        </div>
+                        <div className="detail-list-card">
+                          <div className="detail-list-head">
+                            <h4>Kesinti Kalemleri</h4>
+                            {deductionLoading ? <span>Yükleniyor...</span> : null}
                           </div>
-                          <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
-                            {formatNumber(row.personnel_count)} personel • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
+                          <div className="deduction-list">
+                            {selectedPersonDeductions.length ? (
+                              selectedPersonDeductions.map((row) => (
+                                <div className="deduction-row" key={String(row.key)}>
+                                  <span>{row.label}</span>
+                                  <strong className="negative">{formatMoney(row.amount)}</strong>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="empty-state compact">Bu kişi için seçili ayda kesinti oluşmadı.</div>
+                            )}
                           </div>
-                        </article>
-                      ))
-                    ) : (
-                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
-                        Seçili filtrede rol dağılımı henüz oluşmadı.
+                          <div className="deduction-total-row">
+                            <span>Toplam Kesinti</span>
+                            <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </ScrollCard>
+                    ) : null}
 
-                <ScrollCard
-                  title="En Yüksek Kurye Tutarı"
-                  subtitle="Ay içinde en yüksek kesinti sonrası kurye tutarını hızlıca gör."
-                  maxHeight={340}
-                >
-                  <div style={{ padding: "14px 18px", display: "grid", gap: "14px" }}>
-                    {dashboard.top_personnel.length ? (
-                      dashboard.top_personnel.map((row) => (
-                        <article
-                          key={`top-${row.personnel_id}`}
-                          style={{
-                            display: "grid",
-                            gap: "8px",
-                            padding: "14px",
-                            borderRadius: "18px",
-                            border: "1px solid rgba(219, 228, 243, 0.8)",
-                            background: "rgba(248, 250, 255, 0.9)",
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                            <strong>{row.personnel}</strong>
-                            <span>{formatMoney(row.net_payment)}</span>
-                          </div>
-                          <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
-                            {row.role} • {formatNumber(row.total_hours, 1)} saat • {formatNumber(row.total_packages, 0)} paket
-                          </div>
-                          <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                            {formatNumber(row.restaurant_count, 0)} restoran • {row.cost_model}
-                          </div>
-                        </article>
-                      ))
-                    ) : (
-                      <div style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
-                        Seçili filtrede öne çıkan net ödeme kaydı henüz oluşmadı.
+                    {activeTab === "operations" ? (
+                      <div className="detail-tab-panel">
+                        <div className="detail-metrics-grid">
+                          <article className="detail-metric">
+                            <span>Toplam Saat</span>
+                            <strong>{formatNumber(selectedPersonnel.total_hours, 1)}</strong>
+                          </article>
+                          <article className="detail-metric">
+                            <span>Toplam Paket</span>
+                            <strong>{formatNumber(selectedPersonnel.total_packages, 0)}</strong>
+                          </article>
+                          <article className="detail-metric">
+                            <span>Toplam Şube</span>
+                            <strong>{formatNumber(selectedPersonnel.restaurant_count, 0)}</strong>
+                          </article>
+                          <article className="detail-metric">
+                            <span>Paket / Saat</span>
+                            <strong>
+                              {selectedPersonnel.total_hours > 0
+                                ? formatNumber(
+                                    selectedPersonnel.total_packages / selectedPersonnel.total_hours,
+                                    1,
+                                  )
+                                : "0,0"}
+                            </strong>
+                          </article>
+                        </div>
+                        <div className="detail-copy-block">
+                          <span>Maliyet modeli</span>
+                          <strong>{displayCostModel(selectedPersonnel.cost_model)}</strong>
+                          <p>
+                            Operasyon ritmi bu ay {formatNumber(selectedPersonnel.restaurant_count, 0)} şube
+                            ve {formatNumber(selectedPersonnel.total_packages, 0)} paket üzerinden okunuyor.
+                          </p>
+                        </div>
                       </div>
-                    )}
+                    ) : null}
+
+                    {activeTab === "trend" ? (
+                      <div className="detail-tab-panel">
+                        <div className="detail-trend-card">
+                          <TrendChart items={personTrendSeries.length ? personTrendSeries : [{ label: "—", value: 0 }]} />
+                        </div>
+                        <div className="insight-banner">{personTrendInsight}</div>
+                      </div>
+                    ) : null}
+
+                    {activeTab === "pdf" ? (
+                      <div className="detail-tab-panel">
+                        <div className="detail-copy-block">
+                          <span>PDF</span>
+                          <strong>Hakediş PDF’i İndir</strong>
+                          <p>Seçili personelin aylık kurye hakediş belgesini tek tıkla dışa aktar.</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="primary-button full-width"
+                          onClick={handleDocumentDownload}
+                          disabled={documentBusy}
+                        >
+                          {documentBusy ? "PDF hazırlanıyor..." : "Hakediş PDF’i İndir"}
+                        </button>
+                        {documentError ? <div className="form-feedback error">{documentError}</div> : null}
+                        {documentMessage ? (
+                          <div className="form-feedback success">{documentMessage}</div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="empty-state">
+                    Sağ detay panelini doldurmak için listeden bir personel seçin.
                   </div>
-                </ScrollCard>
-              </div>
+                )}
+              </aside>
             </div>
           </>
         )}
       </section>
+
+      <style jsx>{`
+        .payroll-page {
+          display: grid;
+          gap: 20px;
+        }
+
+        .page-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 20px;
+          flex-wrap: wrap;
+        }
+
+        .page-copy {
+          display: grid;
+          gap: 6px;
+        }
+
+        .page-copy h1 {
+          margin: 0;
+          font-size: clamp(1.9rem, 2.6vw, 2.6rem);
+          line-height: 1;
+          font-weight: 800;
+          color: #0f1e36;
+          letter-spacing: -0.04em;
+        }
+
+        .page-copy p {
+          margin: 0;
+          color: #64748b;
+          font-size: 1rem;
+          line-height: 1.6;
+        }
+
+        .page-actions {
+          display: flex;
+          align-items: end;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .field {
+          display: grid;
+          gap: 8px;
+          min-width: 0;
+        }
+
+        .field.compact {
+          min-width: 190px;
+        }
+
+        .field span {
+          color: #64748b;
+          font-size: 0.8rem;
+          font-weight: 700;
+        }
+
+        .field select,
+        .field input {
+          width: 100%;
+          min-height: 48px;
+          padding: 0 14px;
+          border-radius: 16px;
+          border: 1px solid #e6ecf4;
+          background: rgba(255, 255, 255, 0.92);
+          color: #0f172a;
+          font-size: 0.95rem;
+          font-weight: 600;
+          box-sizing: border-box;
+          outline: none;
+        }
+
+        .field input::placeholder {
+          color: #94a3b8;
+        }
+
+        .surface-card {
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 20px;
+          box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+          box-sizing: border-box;
+        }
+
+        .loading-card,
+        .empty-state {
+          padding: 22px 24px;
+          color: #64748b;
+          line-height: 1.7;
+        }
+
+        .empty-state.compact {
+          padding: 0;
+          font-size: 0.92rem;
+        }
+
+        .kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 18px;
+        }
+
+        .kpi-card {
+          padding: 22px;
+          display: grid;
+          gap: 10px;
+          min-height: 154px;
+        }
+
+        .kpi-badge {
+          width: 44px;
+          height: 44px;
+          border-radius: 16px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.95rem;
+          font-weight: 800;
+        }
+
+        .tone-blue .kpi-badge {
+          background: rgba(59, 130, 246, 0.12);
+          color: #2563eb;
+        }
+
+        .tone-green .kpi-badge {
+          background: rgba(34, 197, 94, 0.12);
+          color: #16a34a;
+        }
+
+        .tone-orange .kpi-badge {
+          background: rgba(249, 115, 22, 0.12);
+          color: #ea580c;
+        }
+
+        .tone-violet .kpi-badge {
+          background: rgba(139, 92, 246, 0.12);
+          color: #7c3aed;
+        }
+
+        .kpi-title {
+          font-size: 0.82rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #64748b;
+          font-weight: 800;
+        }
+
+        .kpi-value {
+          font-size: clamp(1.4rem, 1.6vw, 2rem);
+          font-weight: 800;
+          letter-spacing: -0.04em;
+          color: #0f172a;
+          white-space: nowrap;
+        }
+
+        .delta-pill {
+          display: inline-flex;
+          align-items: center;
+          width: fit-content;
+          padding: 7px 10px;
+          border-radius: 999px;
+          font-size: 0.78rem;
+          font-weight: 700;
+        }
+
+        .delta-pill--positive {
+          background: rgba(34, 197, 94, 0.12);
+          color: #15803d;
+        }
+
+        .delta-pill--negative {
+          background: rgba(239, 68, 68, 0.12);
+          color: #b91c1c;
+        }
+
+        .delta-pill--neutral {
+          background: rgba(148, 163, 184, 0.12);
+          color: #475569;
+        }
+
+        .filters-card {
+          padding: 22px;
+          display: grid;
+          gap: 18px;
+        }
+
+        .section-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+
+        .section-head.compact {
+          margin-bottom: 0;
+        }
+
+        .section-head.inline {
+          margin-bottom: 14px;
+        }
+
+        .section-head h3 {
+          margin: 0;
+          color: #0f1e36;
+          font-size: 1.02rem;
+          line-height: 1.2;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+
+        .section-head p {
+          margin: 6px 0 0;
+          color: #64748b;
+          font-size: 0.92rem;
+          line-height: 1.65;
+        }
+
+        .section-meta {
+          display: inline-flex;
+          align-items: center;
+          padding: 8px 12px;
+          border-radius: 999px;
+          background: rgba(37, 99, 235, 0.08);
+          color: #2563eb;
+          font-size: 0.8rem;
+          font-weight: 800;
+        }
+
+        .filters-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 16px;
+        }
+
+        .field-search {
+          grid-column: span 1;
+        }
+
+        .workspace-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.8fr) minmax(320px, 420px);
+          gap: 20px;
+          align-items: start;
+        }
+
+        .workspace-main {
+          display: grid;
+          gap: 20px;
+          min-width: 0;
+        }
+
+        .analytics-hero-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);
+          gap: 18px;
+          align-items: stretch;
+        }
+
+        .trend-card,
+        .donut-card,
+        .roster-card,
+        .rankings-card {
+          padding: 22px;
+          display: grid;
+          gap: 18px;
+        }
+
+        .trend-chart {
+          width: 100%;
+          height: auto;
+          overflow: visible;
+        }
+
+        .trend-axis {
+          fill: #94a3b8;
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        .trend-axis.bottom {
+          font-size: 11px;
+          fill: #64748b;
+        }
+
+        .trend-point-label {
+          fill: #0f172a;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .insight-banner {
+          padding: 12px 14px;
+          border-radius: 14px;
+          background: rgba(37, 99, 235, 0.08);
+          color: #1d4ed8;
+          font-size: 0.9rem;
+          line-height: 1.6;
+          font-weight: 600;
+        }
+
+        .insight-banner.success {
+          background: rgba(34, 197, 94, 0.1);
+          color: #15803d;
+        }
+
+        .donut-layout {
+          display: grid;
+          grid-template-columns: 220px minmax(0, 1fr);
+          gap: 18px;
+          align-items: center;
+        }
+
+        .donut-shell {
+          position: relative;
+          width: 188px;
+          height: 188px;
+          margin: 0 auto;
+        }
+
+        .donut-chart {
+          width: 100%;
+          height: 100%;
+        }
+
+        .donut-total {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          gap: 6px;
+          text-align: center;
+        }
+
+        .donut-total strong {
+          color: #0f172a;
+          font-size: 1.3rem;
+          font-weight: 800;
+          letter-spacing: -0.04em;
+        }
+
+        .donut-total span {
+          color: #64748b;
+          font-size: 0.84rem;
+          font-weight: 600;
+        }
+
+        .donut-meta {
+          display: grid;
+          gap: 10px;
+        }
+
+        .legend-row {
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr) auto auto;
+          align-items: center;
+          gap: 10px;
+          color: #0f172a;
+        }
+
+        .legend-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+        }
+
+        .legend-label {
+          font-size: 0.92rem;
+          font-weight: 600;
+        }
+
+        .legend-row strong {
+          font-size: 0.92rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .legend-row small {
+          color: #64748b;
+          font-size: 0.86rem;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+
+        .analytics-row {
+          display: grid;
+          gap: 14px;
+        }
+
+        .efficiency-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 18px;
+        }
+
+        .mini-metric-card {
+          padding: 18px;
+          display: grid;
+          gap: 14px;
+        }
+
+        .mini-metric-head {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: start;
+          flex-wrap: wrap;
+        }
+
+        .mini-metric-head span {
+          color: #64748b;
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 800;
+        }
+
+        .mini-metric-card strong {
+          color: #0f172a;
+          font-size: 1.7rem;
+          font-weight: 800;
+          letter-spacing: -0.04em;
+        }
+
+        .sparkline {
+          width: 100%;
+          height: 52px;
+        }
+
+        .ranking-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 18px;
+        }
+
+        .ranking-list {
+          display: grid;
+          gap: 10px;
+        }
+
+        .ranking-item {
+          width: 100%;
+          display: grid;
+          grid-template-columns: 36px minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 12px;
+          padding: 12px;
+          border-radius: 16px;
+          border: 1px solid rgba(229, 231, 235, 0.9);
+          background: rgba(248, 250, 252, 0.72);
+          text-align: left;
+          cursor: pointer;
+          transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+        }
+
+        .ranking-item:hover,
+        .ranking-item.is-selected {
+          border-color: rgba(37, 99, 235, 0.26);
+          background: rgba(239, 246, 255, 0.82);
+          transform: translateY(-1px);
+        }
+
+        .ranking-index {
+          width: 36px;
+          height: 36px;
+          border-radius: 14px;
+          background: rgba(37, 99, 235, 0.08);
+          color: #1d4ed8;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.9rem;
+          font-weight: 800;
+        }
+
+        .ranking-copy {
+          display: grid;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .ranking-copy strong {
+          color: #0f172a;
+          font-size: 0.95rem;
+          font-weight: 800;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ranking-copy small {
+          color: #64748b;
+          font-size: 0.84rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ranking-value {
+          color: #0f172a;
+          font-size: 0.95rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .roster-table {
+          display: grid;
+          border-top: 1px solid #edf2f8;
+        }
+
+        .roster-row {
+          width: 100%;
+          display: grid;
+          grid-template-columns: minmax(0, 1.4fr) minmax(120px, 0.8fr) repeat(3, minmax(110px, 0.8fr)) minmax(130px, 0.9fr);
+          align-items: center;
+          gap: 12px;
+          padding: 14px 0;
+          border-bottom: 1px solid #edf2f8;
+          background: transparent;
+          border-left: 0;
+          border-right: 0;
+          border-top: 0;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .roster-head {
+          color: #64748b;
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 800;
+          cursor: default;
+        }
+
+        .roster-row:not(.roster-head):hover,
+        .roster-row.is-selected {
+          background: rgba(248, 250, 252, 0.86);
+        }
+
+        .roster-row span {
+          display: grid;
+          gap: 3px;
+          min-width: 0;
+          color: #0f172a;
+          font-size: 0.92rem;
+          font-weight: 600;
+        }
+
+        .roster-row span strong {
+          font-size: 0.96rem;
+          font-weight: 800;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .roster-row span small {
+          color: #94a3b8;
+          font-size: 0.78rem;
+          font-weight: 700;
+        }
+
+        .negative {
+          color: #dc2626 !important;
+        }
+
+        .detail-panel {
+          position: sticky;
+          top: 24px;
+          padding: 22px;
+          display: grid;
+          gap: 18px;
+        }
+
+        .detail-head {
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .detail-avatar {
+          width: 56px;
+          height: 56px;
+          border-radius: 20px;
+          background: linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(22, 163, 74, 0.12));
+          color: #1d4ed8;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1rem;
+          font-weight: 800;
+        }
+
+        .detail-copy {
+          display: grid;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .detail-copy h3 {
+          margin: 0;
+          color: #0f172a;
+          font-size: 1.24rem;
+          font-weight: 800;
+          letter-spacing: -0.03em;
+        }
+
+        .detail-copy p {
+          margin: 0;
+          color: #64748b;
+          font-size: 0.92rem;
+          line-height: 1.5;
+        }
+
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 34px;
+          padding: 0 12px;
+          border-radius: 999px;
+          font-size: 0.84rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .status-badge--active {
+          background: rgba(34, 197, 94, 0.12);
+          color: #15803d;
+        }
+
+        .status-badge--muted {
+          background: rgba(148, 163, 184, 0.12);
+          color: #475569;
+        }
+
+        .status-badge--neutral {
+          background: rgba(59, 130, 246, 0.08);
+          color: #1d4ed8;
+        }
+
+        .detail-tabs {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 4px;
+        }
+
+        .detail-tab {
+          min-height: 40px;
+          padding: 0 14px;
+          border-radius: 999px;
+          border: 1px solid #e8eef6;
+          background: rgba(248, 250, 252, 0.9);
+          color: #64748b;
+          font-size: 0.85rem;
+          font-weight: 800;
+          white-space: nowrap;
+          cursor: pointer;
+          transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+        }
+
+        .detail-tab.is-active {
+          background: rgba(37, 99, 235, 0.1);
+          border-color: rgba(37, 99, 235, 0.18);
+          color: #1d4ed8;
+        }
+
+        .detail-tab-panel {
+          display: grid;
+          gap: 16px;
+        }
+
+        .detail-metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .detail-metric {
+          padding: 14px;
+          border-radius: 16px;
+          background: rgba(248, 250, 252, 0.82);
+          border: 1px solid #edf2f8;
+          display: grid;
+          gap: 8px;
+        }
+
+        .detail-metric span {
+          color: #64748b;
+          font-size: 0.76rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 800;
+        }
+
+        .detail-metric strong {
+          color: #0f172a;
+          font-size: 1.18rem;
+          font-weight: 800;
+          letter-spacing: -0.04em;
+          white-space: nowrap;
+        }
+
+        .detail-list-card {
+          padding: 16px;
+          border-radius: 18px;
+          background: rgba(248, 250, 252, 0.78);
+          border: 1px solid #edf2f8;
+          display: grid;
+          gap: 14px;
+        }
+
+        .detail-list-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .detail-list-head h4 {
+          margin: 0;
+          color: #0f1e36;
+          font-size: 0.96rem;
+          font-weight: 800;
+        }
+
+        .detail-list-head span {
+          color: #94a3b8;
+          font-size: 0.82rem;
+          font-weight: 700;
+        }
+
+        .deduction-list {
+          display: grid;
+          gap: 10px;
+        }
+
+        .deduction-row,
+        .deduction-total-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 0;
+          border-bottom: 1px solid #edf2f8;
+        }
+
+        .deduction-total-row {
+          border-bottom: none;
+          padding-bottom: 0;
+        }
+
+        .deduction-row span,
+        .deduction-total-row span {
+          color: #475569;
+          font-size: 0.92rem;
+        }
+
+        .deduction-row strong,
+        .deduction-total-row strong {
+          color: #0f172a;
+          font-size: 0.96rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .detail-copy-block {
+          padding: 16px;
+          border-radius: 18px;
+          background: rgba(248, 250, 252, 0.78);
+          border: 1px solid #edf2f8;
+          display: grid;
+          gap: 8px;
+        }
+
+        .detail-copy-block span {
+          color: #64748b;
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 800;
+        }
+
+        .detail-copy-block strong {
+          color: #0f172a;
+          font-size: 1.02rem;
+          font-weight: 800;
+        }
+
+        .detail-copy-block p {
+          margin: 0;
+          color: #64748b;
+          font-size: 0.9rem;
+          line-height: 1.65;
+        }
+
+        .detail-trend-card {
+          padding: 8px 0 0;
+        }
+
+        .primary-button,
+        .ghost-button {
+          min-height: 48px;
+          padding: 0 18px;
+          border-radius: 16px;
+          font-size: 0.95rem;
+          font-weight: 800;
+          cursor: pointer;
+          transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+        }
+
+        .primary-button {
+          border: none;
+          background: linear-gradient(135deg, #0f5fd7, #1d4ed8);
+          color: #ffffff;
+          box-shadow: 0 18px 34px rgba(29, 78, 216, 0.18);
+        }
+
+        .primary-button:hover,
+        .ghost-button:hover {
+          transform: translateY(-1px);
+        }
+
+        .primary-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .ghost-button {
+          border: 1px solid rgba(37, 99, 235, 0.14);
+          background: rgba(255, 255, 255, 0.92);
+          color: #0f1e36;
+        }
+
+        .full-width {
+          width: 100%;
+        }
+
+        .form-feedback {
+          padding: 12px 14px;
+          border-radius: 14px;
+          font-size: 0.9rem;
+          font-weight: 700;
+        }
+
+        .form-feedback.error {
+          background: rgba(239, 68, 68, 0.1);
+          color: #b91c1c;
+        }
+
+        .form-feedback.success {
+          background: rgba(34, 197, 94, 0.1);
+          color: #15803d;
+        }
+
+        .desktop-only {
+          display: grid;
+        }
+
+        .mobile-only {
+          display: none;
+        }
+
+        @media (max-width: 1280px) {
+          .kpi-grid,
+          .ranking-grid,
+          .efficiency-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .analytics-hero-grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+
+          .workspace-grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+
+          .detail-panel {
+            position: static;
+          }
+        }
+
+        @media (max-width: 1024px) {
+          .filters-grid,
+          .donut-layout,
+          .detail-metrics-grid,
+          .efficiency-grid,
+          .ranking-grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+
+          .donut-shell {
+            width: 168px;
+            height: 168px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .payroll-page {
+            gap: 16px;
+          }
+
+          .page-header {
+            gap: 14px;
+          }
+
+          .page-actions {
+            width: 100%;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+          }
+
+          .field.compact,
+          .ghost-button,
+          .primary-button {
+            width: 100%;
+          }
+
+          .kpi-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .kpi-card {
+            min-height: 0;
+          }
+
+          .filters-card,
+          .trend-card,
+          .donut-card,
+          .roster-card,
+          .rankings-card,
+          .detail-panel {
+            padding: 18px;
+          }
+
+          .page-copy h1 {
+            font-size: 1.8rem;
+          }
+
+          .detail-head {
+            grid-template-columns: auto 1fr;
+          }
+
+          .detail-head .status-badge {
+            grid-column: 1 / -1;
+            justify-self: start;
+          }
+
+          .roster-table.desktop-only {
+            display: none;
+          }
+
+          .mobile-only {
+            display: grid;
+            gap: 12px;
+          }
+
+          .roster-mobile-card {
+            width: 100%;
+            padding: 14px;
+            border-radius: 18px;
+            border: 1px solid #e8eef6;
+            background: rgba(248, 250, 252, 0.82);
+            display: grid;
+            gap: 10px;
+            text-align: left;
+            cursor: pointer;
+          }
+
+          .roster-mobile-card.is-selected {
+            border-color: rgba(37, 99, 235, 0.24);
+            background: rgba(239, 246, 255, 0.86);
+          }
+
+          .roster-mobile-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+          }
+
+          .roster-mobile-head strong {
+            color: #0f172a;
+            font-size: 0.98rem;
+            font-weight: 800;
+          }
+
+          .roster-mobile-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            color: #64748b;
+            font-size: 0.84rem;
+            font-weight: 700;
+          }
+
+          .roster-mobile-values {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .roster-mobile-values small {
+            color: #64748b;
+            font-size: 0.78rem;
+          }
+
+          .roster-mobile-values strong {
+            display: block;
+            margin-top: 4px;
+            color: #0f172a;
+            font-size: 0.98rem;
+            font-weight: 800;
+          }
+        }
+      `}</style>
     </AppShell>
   );
+}
+
+function displayCostModel(value: string) {
+  return COST_MODEL_LABELS[value] ?? value;
 }
