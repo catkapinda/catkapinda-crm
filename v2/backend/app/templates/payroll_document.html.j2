@@ -10,9 +10,6 @@
         <header class="header">
           <div class="header-left">
             <div class="brand-row">
-              {% if logo_uri %}
-              <img class="brand-logo" src="{{ logo_uri }}" alt="Çat Kapında" />
-              {% endif %}
               <span class="brand-name">ÇAT KAPINDA</span>
             </div>
             <h1 class="title">Kurye Hakediş Belgesi</h1>
@@ -27,10 +24,7 @@
         <section class="top-section">
           <article class="hero-card">
             <div class="hero-card-inner">
-              <div class="hero-top">
-                <span class="hero-label">Net Ödeme</span>
-                <span class="hero-info">i</span>
-              </div>
+              <div class="hero-label">Net Ödeme</div>
               <div class="hero-amount number">{{ net_payment }}</div>
               <div class="hero-divider"></div>
               <div class="hero-metrics">
@@ -43,7 +37,6 @@
                   <div class="hero-metric-value number negative">{{ total_deduction }}</div>
                 </div>
                 <div class="hero-metric">
-                  <div class="status-icon">₺</div>
                   <div class="hero-metric-label">Ödeme Durumu</div>
                   <div class="hero-metric-value positive">Ödeme Hazır</div>
                 </div>
@@ -99,7 +92,7 @@
             <div class="panel-head">
               <h2 class="panel-title">Kesinti Kalemleri</h2>
               <div class="panel-side">
-                <div class="panel-side-label">Toplam Kesinti</div>
+                <div class="panel-side-label">Toplam</div>
                 <div class="panel-side-value number negative">{{ total_deduction }}</div>
               </div>
             </div>
@@ -129,7 +122,7 @@
             </table>
 
             <div class="summary-bar">
-              <span>Toplam Kesinti</span>
+              <span>Toplam</span>
               <strong class="number negative">{{ total_deduction }}</strong>
             </div>
           </article>
@@ -169,7 +162,6 @@
 
           <div class="operations-body">
             <div class="operations-restaurant">
-              <div class="operations-icon">▦</div>
               <div class="operations-restaurant-copy">
                 {% if restaurants %}
                 {% for restaurant in restaurants %}
@@ -184,19 +176,16 @@
 
             <div class="operations-kpis">
               <div class="op-kpi">
-                <div class="op-kpi-icon green">◔</div>
                 <div class="op-kpi-label">Toplam Saat</div>
                 <div class="op-kpi-value number">{{ total_hours }}</div>
                 <div class="op-kpi-foot">saat</div>
               </div>
               <div class="op-kpi">
-                <div class="op-kpi-icon amber">◫</div>
                 <div class="op-kpi-label">Toplam Paket</div>
                 <div class="op-kpi-value number">{{ total_packages }}</div>
                 <div class="op-kpi-foot">paket</div>
               </div>
               <div class="op-kpi">
-                <div class="op-kpi-icon purple">▥</div>
                 <div class="op-kpi-label">Toplam Şube</div>
                 <div class="op-kpi-value number">{{ total_branches }}</div>
                 <div class="op-kpi-foot">şube</div>
@@ -206,7 +195,6 @@
         </section>
 
         <footer class="card footer-card">
-          <div class="footer-icon">◌</div>
           <div class="footer-copy">Bu belge, kurye hak edişlerine ilişkin bilgilendirme amacıyla hazırlanmıştır.</div>
         </footer>
       </div>
