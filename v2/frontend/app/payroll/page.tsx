@@ -889,6 +889,18 @@ export default function PayrollPage() {
         (previousSeries?.summary?.total_hours ?? 1)
       : 0;
 
+  const packagesPerHourDelta = buildDelta(currentPackagesPerHour, previousPackagesPerHour, true);
+  const totalPackagesDelta = buildDelta(
+    payrollOverview.totalPackages,
+    previousSeries?.summary?.total_packages ?? 0,
+    true,
+  );
+  const totalHoursDelta = buildDelta(
+    payrollOverview.totalHours,
+    previousSeries?.summary?.total_hours ?? 0,
+    true,
+  );
+
   const selectedPersonnel = useMemo(
     () => filteredEntries.find((entry) => entry.personnel_id === selectedPersonnelId) ?? null,
     [filteredEntries, selectedPersonnelId],
@@ -1354,7 +1366,7 @@ export default function PayrollPage() {
       <section className={styles.payintOverviewGrid}>
         <div className={styles.payintMainColumn}>
           <section className={styles.payintAnalyticsGrid}>
-            <article className={styles.payintCard}>
+            <article className={`${styles.payintCard} ${styles.payintTrendCard}`}>
               <div className={styles.payintSectionHeader}>
                 <div>
                   <h3>Hakediş Trendi</h3>
@@ -1368,7 +1380,7 @@ export default function PayrollPage() {
               <div className={styles.payintInsightCard}>{trendInsight}</div>
             </article>
 
-            <article className={styles.payintCard}>
+            <article className={`${styles.payintCard} ${styles.payintDistributionCard}`}>
               <div className={styles.payintSectionHeader}>
                 <div>
                   <h3>Maliyet Modeli Dağılımı</h3>
@@ -1412,9 +1424,9 @@ export default function PayrollPage() {
               <article className={styles.payintMiniMetricCard}>
                 <div className={styles.payintMiniMetricHead}>
                   <span>Ortalama Paket / Saat</span>
-                  <DeltaBadge
-                    delta={buildDelta(currentPackagesPerHour, previousPackagesPerHour, true)}
-                  />
+                  {packagesPerHourDelta.label !== "Kıyas verisi yok" ? (
+                    <DeltaBadge delta={packagesPerHourDelta} />
+                  ) : null}
                 </div>
                 <strong>{formatNumber(currentPackagesPerHour, 1)}</strong>
                 <Sparkline
@@ -1426,13 +1438,9 @@ export default function PayrollPage() {
               <article className={styles.payintMiniMetricCard}>
                 <div className={styles.payintMiniMetricHead}>
                   <span>Toplam Paket</span>
-                  <DeltaBadge
-                    delta={buildDelta(
-                      payrollOverview.totalPackages,
-                      previousSeries?.summary?.total_packages ?? 0,
-                      true,
-                    )}
-                  />
+                  {totalPackagesDelta.label !== "Kıyas verisi yok" ? (
+                    <DeltaBadge delta={totalPackagesDelta} />
+                  ) : null}
                 </div>
                 <strong>{formatNumber(payrollOverview.totalPackages, 0)}</strong>
                 <Sparkline
@@ -1444,13 +1452,9 @@ export default function PayrollPage() {
               <article className={styles.payintMiniMetricCard}>
                 <div className={styles.payintMiniMetricHead}>
                   <span>Toplam Saat</span>
-                  <DeltaBadge
-                    delta={buildDelta(
-                      payrollOverview.totalHours,
-                      previousSeries?.summary?.total_hours ?? 0,
-                      true,
-                    )}
-                  />
+                  {totalHoursDelta.label !== "Kıyas verisi yok" ? (
+                    <DeltaBadge delta={totalHoursDelta} />
+                  ) : null}
                 </div>
                 <strong>{formatNumber(payrollOverview.totalHours, 1)}</strong>
                 <Sparkline

@@ -336,10 +336,10 @@ export function AppShell({
     return <AuthSessionLoadingScreen />;
   }
 
-  const sidebarContent = (
-    <>
+  const renderSidebarContent = ({ includeBrand = true }: { includeBrand?: boolean } = {}) => (
+    <div className={styles.sidebarContent}>
       <div className={styles.sidebarTop}>
-        {renderBrand()}
+        {includeBrand ? renderBrand() : null}
         <button type="button" className={styles.searchShell} aria-label="Ara">
           <span className={styles.searchIconWrap}>
             <ShellIcon name="search" className={styles.searchIcon} />
@@ -349,7 +349,7 @@ export function AppShell({
         </button>
       </div>
 
-      <div className={styles.sidebarGroups}>
+      <div className={styles.sidebarNav}>
         {groupedItems.map((group) => (
           <section key={group.label} className={styles.navGroup}>
             <div className={styles.navGroupLabel}>{group.label}</div>
@@ -379,7 +379,7 @@ export function AppShell({
         ))}
       </div>
 
-      <div className={styles.sidebarBottom}>
+      <div className={styles.sidebarFooter}>
         <button type="button" className={styles.userCard}>
           <span className={styles.userAvatar}>{getInitials(user.full_name)}</span>
           <span className={styles.userCopy}>
@@ -399,12 +399,12 @@ export function AppShell({
           <span>Oturumu Kapat</span>
         </button>
       </div>
-    </>
+    </div>
   );
 
   return (
     <div className={styles.shell}>
-      <aside className={styles.sidebar}>{sidebarContent}</aside>
+      <aside className={styles.sidebar}>{renderSidebarContent()}</aside>
 
       {drawerOpen ? (
         <div className={styles.drawerLayer} role="presentation" onClick={() => setDrawerOpen(false)}>
@@ -426,7 +426,7 @@ export function AppShell({
                 <ShellIcon name="close" className={styles.drawerCloseIcon} />
               </button>
             </div>
-            {sidebarContent}
+            {renderSidebarContent({ includeBrand: false })}
           </aside>
         </div>
       ) : null}

@@ -8,19 +8,28 @@
 
 .sidebar {
   min-height: 100vh;
-  padding: 24px 16px 20px;
+  padding: 0;
   background: linear-gradient(180deg, #061b33 0%, #0b2742 100%);
   color: #e2e8f0;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  overflow: hidden;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.sidebarContent {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 .sidebarTop,
-.sidebarBottom {
-  display: grid;
+.sidebarFooter {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+}
+
+.sidebarTop {
+  padding: 24px 16px 12px;
 }
 
 .brand {
@@ -121,21 +130,46 @@
   color: #94a3b8;
 }
 
-.sidebarGroups {
-  display: grid;
-  gap: 20px;
+.sidebarNav {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+  padding: 8px 16px 12px;
+}
+
+.sidebarNav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebarNav::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.24);
+}
+
+.sidebarNav::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .navGroup {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+  margin-top: 14px;
+}
+
+.navGroup:first-child {
+  margin-top: 0;
+}
+
+.sidebarFooter {
+  margin-top: auto;
+  padding: 12px 16px 16px;
 }
 
 .navGroupLabel {
   padding: 0 12px;
-  font-size: 11px;
+  margin-bottom: 6px;
+  font-size: 10.5px;
   line-height: 1;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -144,12 +178,14 @@
 }
 
 .navList {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .navItem {
-  min-height: 46px;
+  min-height: 42px;
+  height: 42px;
   border-radius: 12px;
   padding: 0 12px;
   display: flex;
@@ -363,7 +399,15 @@
     grid-template-columns: 232px minmax(0, 1fr);
   }
 
-  .sidebar {
+  .sidebarTop {
+    padding-inline: 14px;
+  }
+
+  .sidebarNav {
+    padding-inline: 14px;
+  }
+
+  .sidebarFooter {
     padding-inline: 14px;
   }
 }
@@ -435,10 +479,11 @@
     width: min(280px, 100%);
     min-height: 100vh;
     background: linear-gradient(180deg, #061b33 0%, #0b2742 100%);
-    padding: 18px 14px;
+    padding: 18px 0 0;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 0;
+    overflow: hidden;
     border-right: 1px solid rgba(255, 255, 255, 0.06);
   }
 
@@ -447,6 +492,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    padding: 0 14px 12px;
   }
 
   .drawerClose {
