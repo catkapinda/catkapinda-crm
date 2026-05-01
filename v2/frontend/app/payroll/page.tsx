@@ -1165,46 +1165,45 @@ export default function PayrollPage() {
   return (
     <AppShell activeItem="Aylık Hakediş">
       <div className={styles.payintPage}>
-        <header className={styles.payintHeader}>
-          <div className={styles.payintHeaderCopy}>
-            <h1>Aylık Hakediş</h1>
-            <p>Kurye ödemelerini, kesintileri ve performansı tek ekranda yönetin.</p>
-          </div>
-          <div className={styles.payintHeaderActions}>
-            <label className={styles.payintField}>
-              <span>Dönem</span>
-              <div className={styles.payintFieldControl}>
-                <IconGlyph name="calendar" className={styles.payintFieldIcon} />
-                <select
-                  value={selectedMonth}
-                  onChange={(event) => setSelectedMonth(event.target.value)}
-                  disabled={dashboardLoading || !dashboard?.month_options?.length}
-                >
-                  {(dashboard?.month_options ?? []).map((month) => (
-                    <option key={month} value={month}>
-                      {month}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </label>
-            <button type="button" className={styles.payintGhostButton} onClick={handleCsvDownload}>
-              <IconGlyph name="download" className={styles.payintButtonIcon} />
-              Excel İndir
-            </button>
-          </div>
-        </header>
+        <div className={styles.payintContainer}>
+          <header className={styles.payintHeader}>
+            <div className={styles.payintHeaderCopy}>
+              <h1>Aylık Hakediş</h1>
+              <p>Kurye ödemelerini, kesintileri ve performansı tek ekranda yönetin.</p>
+            </div>
+            <div className={styles.payintHeaderActions}>
+              <label className={styles.payintField}>
+                <span>Dönem</span>
+                <div className={styles.payintFieldControl}>
+                  <IconGlyph name="calendar" className={styles.payintFieldIcon} />
+                  <select
+                    value={selectedMonth}
+                    onChange={(event) => setSelectedMonth(event.target.value)}
+                    disabled={dashboardLoading || !dashboard?.month_options?.length}
+                  >
+                    {(dashboard?.month_options ?? []).map((month) => (
+                      <option key={month} value={month}>
+                        {month}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </label>
+              <button type="button" className={styles.payintGhostButton} onClick={handleCsvDownload}>
+                <IconGlyph name="download" className={styles.payintButtonIcon} />
+                Excel İndir
+              </button>
+            </div>
+          </header>
 
-        {dashboardLoading ? (
-          <section className={styles.payintLoadingCard}>Hakediş verileri yükleniyor...</section>
-        ) : !dashboard || !dashboard.summary ? (
-          <section className={styles.payintLoadingCard}>
-            Hakediş verileri şu an alınamadı. Bağlantı toparlandığında panel otomatik yenilenecek.
-          </section>
-        ) : (
-          <>
-            <div className={styles.payintPageContent}>
-            <div className={styles.payintMainColumn}>
+          {dashboardLoading ? (
+            <section className={styles.payintLoadingCard}>Hakediş verileri yükleniyor...</section>
+          ) : !dashboard || !dashboard.summary ? (
+            <section className={styles.payintLoadingCard}>
+              Hakediş verileri şu an alınamadı. Bağlantı toparlandığında panel otomatik yenilenecek.
+            </section>
+          ) : (
+            <>
               <section className={styles.payintKpiStrip}>
                 {kpis.map((kpi) => (
                   <KpiCard
@@ -1218,409 +1217,422 @@ export default function PayrollPage() {
                 ))}
               </section>
 
-              <section className={styles.payintAnalyticsGrid}>
-                <article className={styles.payintCard}>
-                  <div className={styles.payintSectionHeader}>
-                    <div>
-                      <h3>Hakediş Trendi</h3>
-                      <p>Son 6 ayda toplam hakediş akışı.</p>
-                    </div>
-                    <button type="button" className={styles.payintCardFilter}>
-                      Toplam Hakediş
-                    </button>
-                  </div>
-                  <TrendChart items={trendSeries.length ? trendSeries : [{ label: "—", value: 0 }]} />
-                  <div className={styles.payintInsightCard}>{trendInsight}</div>
-                </article>
-
-                <article className={styles.payintCard}>
-                  <div className={styles.payintSectionHeader}>
-                    <div>
-                      <h3>Maliyet Modeli Dağılımı</h3>
-                      <p>Model bazlı hakediş payını hızlıca gör.</p>
-                    </div>
-                  </div>
-                  <div className={styles.payintDonutRow}>
-                    <DonutChart items={costModelItems} total={totalGrossByModel} />
-                    <div className={styles.payintLegendList}>
-                      {costModelItems.length ? (
-                        costModelItems.map((item) => (
-                          <div key={item.label} className={styles.payintLegendItem}>
-                            <span
-                              className={styles.payintLegendDot}
-                              style={{ backgroundColor: item.color }}
-                            />
-                            <span className={styles.payintLegendLabel}>{item.label}</span>
-                            <strong>{formatMoney(item.value)}</strong>
-                            <small>%{formatNumber(item.percentage, 0)}</small>
-                          </div>
-                        ))
-                      ) : (
-                        <div className={styles.payintEmptyCompact}>Dağılım verisi yok.</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className={`${styles.payintInsightCard} ${styles.payintInsightSuccess}`}>
-                    {dominantCostModelInsight}
-                  </div>
-                </article>
-              </section>
-
-              <section className={styles.payintEfficiencySection}>
-                <div className={styles.payintSectionHeader}>
-                  <div>
-                    <h3>Verimlilik Özeti</h3>
-                    <p>Hız ve hacim tarafında operasyon ritmini aynı alanda okuyun.</p>
-                  </div>
-                </div>
-                <div className={styles.payintEfficiencyGrid}>
-                  <article className={styles.payintMiniMetricCard}>
-                    <div className={styles.payintMiniMetricHead}>
-                      <span>Ortalama Paket / Saat</span>
-                      <DeltaBadge
-                        delta={buildDelta(currentPackagesPerHour, previousPackagesPerHour, true)}
-                      />
-                    </div>
-                    <strong>{formatNumber(currentPackagesPerHour, 1)}</strong>
-                    <Sparkline
-                      values={productivitySeries.packagesPerHour}
-                      strokeClassName={styles.payintSparkBlue}
-                    />
-                  </article>
-
-                  <article className={styles.payintMiniMetricCard}>
-                    <div className={styles.payintMiniMetricHead}>
-                      <span>Toplam Paket</span>
-                      <DeltaBadge
-                        delta={buildDelta(
-                          payrollOverview.totalPackages,
-                          previousSeries?.summary?.total_packages ?? 0,
-                          true,
-                        )}
-                      />
-                    </div>
-                    <strong>{formatNumber(payrollOverview.totalPackages, 0)}</strong>
-                    <Sparkline
-                      values={productivitySeries.totalPackages}
-                      strokeClassName={styles.payintSparkGreen}
-                    />
-                  </article>
-
-                  <article className={styles.payintMiniMetricCard}>
-                    <div className={styles.payintMiniMetricHead}>
-                      <span>Toplam Saat</span>
-                      <DeltaBadge
-                        delta={buildDelta(
-                          payrollOverview.totalHours,
-                          previousSeries?.summary?.total_hours ?? 0,
-                          true,
-                        )}
-                      />
-                    </div>
-                    <strong>{formatNumber(payrollOverview.totalHours, 1)}</strong>
-                    <Sparkline
-                      values={productivitySeries.totalHours}
-                      strokeClassName={styles.payintSparkBlue}
-                    />
-                  </article>
-                </div>
-              </section>
-
-              <section className={styles.payintLeaderboardGrid}>
-                <LeaderboardCard
-                  title="En Yüksek Net Ödeme"
-                  items={highestNetPayment}
-                  valueFormatter={formatMoney}
-                  onSelect={setSelectedPersonnelId}
-                  selectedPersonnelId={selectedPersonnelId}
-                />
-                <LeaderboardCard
-                  title="En Yüksek Kesinti Tutarı"
-                  items={highestDeduction}
-                  valueFormatter={formatMoney}
-                  onSelect={setSelectedPersonnelId}
-                  selectedPersonnelId={selectedPersonnelId}
-                />
-                <LeaderboardCard
-                  title="En Verimli Kuryeler"
-                  items={mostEfficient}
-                  valueFormatter={(value) => formatNumber(value, 1)}
-                  onSelect={setSelectedPersonnelId}
-                  selectedPersonnelId={selectedPersonnelId}
-                />
-              </section>
-            </div>
-
-            <aside className={styles.payintSideColumn}>
-              <section className={styles.payintDetailPanel}>
-                {selectedPersonnel ? (
-                  <>
-                    <div className={styles.payintDetailHeader}>
-                      <div className={styles.payintDetailProfile}>
-                        <div className={styles.payintDetailAvatar}>
-                          {getInitials(selectedPersonnel.personnel)}
+              <div className={styles.payintPageContent}>
+                <div className={styles.payintMainColumn}>
+                  <section className={styles.payintAnalyticsGrid}>
+                    <article className={styles.payintCard}>
+                      <div className={styles.payintSectionHeader}>
+                        <div>
+                          <h3>Hakediş Trendi</h3>
+                          <p>Son 6 ayda toplam hakediş akışı.</p>
                         </div>
-                        <div className={styles.payintDetailCopy}>
-                          <h3>{selectedPersonnel.personnel}</h3>
-                          <p>{selectedPersonnel.role}</p>
-                        </div>
-                      </div>
-                      <div className={styles.payintDetailStatusRow}>
-                        <StatusBadge value={selectedPersonnel.status} />
-                        <button type="button" className={styles.payintKebabButton} aria-label="Detay menüsü">
-                          <span />
-                          <span />
-                          <span />
+                        <button type="button" className={styles.payintCardFilter}>
+                          Toplam Hakediş
                         </button>
                       </div>
-                    </div>
+                      <TrendChart items={trendSeries.length ? trendSeries : [{ label: "—", value: 0 }]} />
+                      <div className={styles.payintInsightCard}>{trendInsight}</div>
+                    </article>
 
-                    <div className={styles.payintTabStrip} role="tablist" aria-label="Personel detay sekmeleri">
-                      {[
-                        { id: "finance", label: "Finans Özeti" },
-                        { id: "operations", label: "Operasyon Özeti" },
-                        { id: "trend", label: "Trend" },
-                        { id: "pdf", label: "PDF" },
-                      ].map((tab) => (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          className={`${styles.payintTabButton} ${
-                            activeTab === tab.id ? styles.payintTabButtonActive : ""
-                          }`}
-                          onClick={() => setActiveTab(tab.id as PayrollTab)}
-                        >
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {activeTab === "finance" ? (
-                      <div className={styles.payintDetailBody}>
-                        <div className={styles.payintDetailMetricGrid}>
-                          <article className={styles.payintDetailMetricCard}>
-                            <span>Net Ödeme</span>
-                            <strong>{formatMoney(selectedPersonnel.net_payment)}</strong>
-                          </article>
-                          <article className={styles.payintDetailMetricCard}>
-                            <span>Hakediş Tutarı</span>
-                            <strong>{formatMoney(selectedPersonnel.gross_pay)}</strong>
-                          </article>
-                          <article className={styles.payintDetailMetricCard}>
-                            <span>Toplam Kesinti</span>
-                            <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
-                          </article>
-                          <article className={styles.payintDetailMetricCard}>
-                            <span>Toplam Tevkifat</span>
-                            <strong>{formatMoney(selectedPersonnel.tevkifat_amount)}</strong>
-                          </article>
+                    <article className={styles.payintCard}>
+                      <div className={styles.payintSectionHeader}>
+                        <div>
+                          <h3>Maliyet Modeli Dağılımı</h3>
+                          <p>Model bazlı hakediş payını hızlıca gör.</p>
                         </div>
-
-                        <div className={styles.payintDetailListCard}>
-                          <div className={styles.payintDetailListHead}>
-                            <h4>Kesinti Kalemleri</h4>
-                            {deductionLoading ? <span>Yükleniyor…</span> : null}
-                          </div>
-                          <div className={styles.payintDetailListRows}>
-                            {selectedPersonDeductions.length ? (
-                              selectedPersonDeductions.map((row) => (
-                                <div key={String(row.key)} className={styles.payintDetailListRow}>
-                                  <span>{row.label}</span>
-                                  <strong className={styles.payintNegativeText}>
-                                    {formatMoney(row.amount)}
-                                  </strong>
-                                </div>
-                              ))
-                            ) : (
-                              <div className={styles.payintEmptyCompact}>
-                                Bu kişi için seçili ayda kesinti oluşmadı.
+                      </div>
+                      <div className={styles.payintDonutRow}>
+                        <DonutChart items={costModelItems} total={totalGrossByModel} />
+                        <div className={styles.payintLegendList}>
+                          {costModelItems.length ? (
+                            costModelItems.map((item) => (
+                              <div key={item.label} className={styles.payintLegendItem}>
+                                <span
+                                  className={styles.payintLegendDot}
+                                  style={{ backgroundColor: item.color }}
+                                />
+                                <span className={styles.payintLegendLabel}>{item.label}</span>
+                                <strong>{formatMoney(item.value)}</strong>
+                                <small>%{formatNumber(item.percentage, 0)}</small>
                               </div>
-                            )}
-                          </div>
-                          <div className={styles.payintDetailListTotal}>
-                            <span>Toplam Kesinti</span>
-                            <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
-                          </div>
+                            ))
+                          ) : (
+                            <div className={styles.payintEmptyCompact}>Dağılım verisi yok.</div>
+                          )}
                         </div>
                       </div>
-                    ) : null}
-
-                    {activeTab === "operations" ? (
-                      <div className={styles.payintDetailBody}>
-                        <div className={styles.payintDetailMetricGrid}>
-                          <article className={styles.payintDetailMetricCard}>
-                            <span>Toplam Saat</span>
-                            <strong>{formatNumber(selectedPersonnel.total_hours, 1)}</strong>
-                          </article>
-                          <article className={styles.payintDetailMetricCard}>
-                            <span>Toplam Paket</span>
-                            <strong>{formatNumber(selectedPersonnel.total_packages, 0)}</strong>
-                          </article>
-                          <article className={styles.payintDetailMetricCard}>
-                            <span>Toplam Şube</span>
-                            <strong>{formatNumber(selectedPersonnel.restaurant_count, 0)}</strong>
-                          </article>
-                          <article className={styles.payintDetailMetricCard}>
-                            <span>Paket / Saat</span>
-                            <strong>
-                              {selectedPersonnel.total_hours > 0
-                                ? formatNumber(
-                                    selectedPersonnel.total_packages / selectedPersonnel.total_hours,
-                                    1,
-                                  )
-                                : "0,0"}
-                            </strong>
-                          </article>
-                        </div>
+                      <div className={`${styles.payintInsightCard} ${styles.payintInsightSuccess}`}>
+                        {dominantCostModelInsight}
                       </div>
-                    ) : null}
+                    </article>
+                  </section>
 
-                    {activeTab === "trend" ? (
-                      <div className={styles.payintDetailBody}>
-                        <div className={styles.payintDetailTrendCard}>
-                          <TrendChart
-                            items={personTrendSeries.length ? personTrendSeries : [{ label: "—", value: 0 }]}
+                  <section className={styles.payintEfficiencySection}>
+                    <div className={styles.payintSectionHeader}>
+                      <div>
+                        <h3>Verimlilik Özeti</h3>
+                        <p>Hız ve hacim tarafında operasyon ritmini aynı alanda okuyun.</p>
+                      </div>
+                    </div>
+                    <div className={styles.payintEfficiencyGrid}>
+                      <article className={styles.payintMiniMetricCard}>
+                        <div className={styles.payintMiniMetricHead}>
+                          <span>Ortalama Paket / Saat</span>
+                          <DeltaBadge
+                            delta={buildDelta(currentPackagesPerHour, previousPackagesPerHour, true)}
                           />
                         </div>
-                        <div className={styles.payintInsightCard}>{personTrendInsight}</div>
-                      </div>
-                    ) : null}
+                        <strong>{formatNumber(currentPackagesPerHour, 1)}</strong>
+                        <Sparkline
+                          values={productivitySeries.packagesPerHour}
+                          strokeClassName={styles.payintSparkBlue}
+                        />
+                      </article>
 
-                    {activeTab === "pdf" ? (
-                      <div className={styles.payintDetailBody}>
-                        <button
-                          type="button"
-                          className={styles.payintPrimaryButton}
-                          onClick={handleDocumentDownload}
-                          disabled={documentBusy}
-                        >
-                          {documentBusy ? "PDF hazırlanıyor..." : "Hakediş PDF’i İndir"}
-                        </button>
-                        {documentError ? (
-                          <div className={`${styles.payintFeedback} ${styles.payintFeedbackError}`}>
-                            {documentError}
-                          </div>
-                        ) : null}
-                        {documentMessage ? (
-                          <div className={`${styles.payintFeedback} ${styles.payintFeedbackSuccess}`}>
-                            {documentMessage}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className={styles.payintEmptyPanel}>
-                    Sağ paneli doldurmak için listeden bir personel seçin.
-                  </div>
-                )}
-              </section>
-            </aside>
-          </div>
+                      <article className={styles.payintMiniMetricCard}>
+                        <div className={styles.payintMiniMetricHead}>
+                          <span>Toplam Paket</span>
+                          <DeltaBadge
+                            delta={buildDelta(
+                              payrollOverview.totalPackages,
+                              previousSeries?.summary?.total_packages ?? 0,
+                              true,
+                            )}
+                          />
+                        </div>
+                        <strong>{formatNumber(payrollOverview.totalPackages, 0)}</strong>
+                        <Sparkline
+                          values={productivitySeries.totalPackages}
+                          strokeClassName={styles.payintSparkGreen}
+                        />
+                      </article>
 
-            <section id="payint-personnel-list" className={`${styles.payintCard} ${styles.payintListCard}`}>
-            <div className={styles.payintSectionHeader}>
-              <div>
-                <h3>Hakediş Listesi</h3>
-                <p>Personeli seçip detay panelini sağ tarafta açın.</p>
-              </div>
-              <div className={styles.payintHeaderMeta}>
-                <label className={`${styles.payintField} ${styles.payintSearchField}`}>
-                  <span>Personel ara</span>
-                  <input
-                    value={personnelQuery}
-                    onChange={(event) => setPersonnelQuery(event.target.value)}
-                    placeholder="Ad, rol veya model ara"
-                  />
-                </label>
-              </div>
-            </div>
+                      <article className={styles.payintMiniMetricCard}>
+                        <div className={styles.payintMiniMetricHead}>
+                          <span>Toplam Saat</span>
+                          <DeltaBadge
+                            delta={buildDelta(
+                              payrollOverview.totalHours,
+                              previousSeries?.summary?.total_hours ?? 0,
+                              true,
+                            )}
+                          />
+                        </div>
+                        <strong>{formatNumber(payrollOverview.totalHours, 1)}</strong>
+                        <Sparkline
+                          values={productivitySeries.totalHours}
+                          strokeClassName={styles.payintSparkBlue}
+                        />
+                      </article>
+                    </div>
+                  </section>
 
-            <div className={styles.payintListBody}>
-              <div className={styles.payintTableDesktop}>
-                <div className={styles.payintTableHeader}>
-                  <span>Personel</span>
-                  <span>Rol</span>
-                  <span>Durum</span>
-                  <span>Net Ödeme</span>
-                  <span>Hakediş</span>
-                  <span>Kesinti</span>
-                  <span>Tevkifat</span>
-                  <span>Model</span>
+                  <section className={styles.payintLeaderboardGrid}>
+                    <LeaderboardCard
+                      title="En Yüksek Net Ödeme"
+                      items={highestNetPayment}
+                      valueFormatter={formatMoney}
+                      onSelect={setSelectedPersonnelId}
+                      selectedPersonnelId={selectedPersonnelId}
+                    />
+                    <LeaderboardCard
+                      title="En Yüksek Kesinti Tutarı"
+                      items={highestDeduction}
+                      valueFormatter={formatMoney}
+                      onSelect={setSelectedPersonnelId}
+                      selectedPersonnelId={selectedPersonnelId}
+                    />
+                    <LeaderboardCard
+                      title="En Verimli Kuryeler"
+                      items={mostEfficient}
+                      valueFormatter={(value) => formatNumber(value, 1)}
+                      onSelect={setSelectedPersonnelId}
+                      selectedPersonnelId={selectedPersonnelId}
+                    />
+                  </section>
                 </div>
-                {filteredEntries.map((entry) => (
-                  <button
-                    key={entry.personnel_id}
-                    type="button"
-                    className={`${styles.payintTableRow} ${
-                      selectedPersonnelId === entry.personnel_id ? styles.payintTableRowSelected : ""
-                    }`}
-                    onClick={() => setSelectedPersonnelId(entry.personnel_id)}
-                  >
-                    <span className={styles.payintPersonCell}>
-                      <strong>{entry.personnel}</strong>
-                    </span>
-                    <span>{entry.role}</span>
-                    <span>
-                      <StatusBadge value={entry.status} />
-                    </span>
-                    <span className={styles.payintNumericCell}>{formatMoney(entry.net_payment)}</span>
-                    <span className={styles.payintNumericCell}>{formatMoney(entry.gross_pay)}</span>
-                    <span className={`${styles.payintNumericCell} ${styles.payintNegativeText}`}>
-                      {formatMoney(entry.total_deductions)}
-                    </span>
-                    <span className={styles.payintNumericCell}>
-                      {formatMoney(entry.tevkifat_amount)}
-                    </span>
-                    <span className={styles.payintModelCell}>{displayCostModel(entry.cost_model)}</span>
-                  </button>
-                ))}
+
+                <aside className={styles.payintSideColumn}>
+                  <section className={styles.payintDetailPanel}>
+                    {selectedPersonnel ? (
+                      <>
+                        <div className={styles.payintDetailHeader}>
+                          <div className={styles.payintDetailProfile}>
+                            <div className={styles.payintDetailAvatar}>
+                              {getInitials(selectedPersonnel.personnel)}
+                            </div>
+                            <div className={styles.payintDetailCopy}>
+                              <h3>{selectedPersonnel.personnel}</h3>
+                              <p>{selectedPersonnel.role}</p>
+                            </div>
+                          </div>
+                          <div className={styles.payintDetailStatusRow}>
+                            <StatusBadge value={selectedPersonnel.status} />
+                            <button
+                              type="button"
+                              className={styles.payintKebabButton}
+                              aria-label="Detay menüsü"
+                            >
+                              <span />
+                              <span />
+                              <span />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div
+                          className={styles.payintTabStrip}
+                          role="tablist"
+                          aria-label="Personel detay sekmeleri"
+                        >
+                          {[
+                            { id: "finance", label: "Finans Özeti" },
+                            { id: "operations", label: "Operasyon Özeti" },
+                            { id: "trend", label: "Trend" },
+                            { id: "pdf", label: "PDF" },
+                          ].map((tab) => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              className={`${styles.payintTabButton} ${
+                                activeTab === tab.id ? styles.payintTabButtonActive : ""
+                              }`}
+                              onClick={() => setActiveTab(tab.id as PayrollTab)}
+                            >
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {activeTab === "finance" ? (
+                          <div className={styles.payintDetailBody}>
+                            <div className={styles.payintDetailMetricGrid}>
+                              <article className={styles.payintDetailMetricCard}>
+                                <span>Net Ödeme</span>
+                                <strong>{formatMoney(selectedPersonnel.net_payment)}</strong>
+                              </article>
+                              <article className={styles.payintDetailMetricCard}>
+                                <span>Hakediş Tutarı</span>
+                                <strong>{formatMoney(selectedPersonnel.gross_pay)}</strong>
+                              </article>
+                              <article className={styles.payintDetailMetricCard}>
+                                <span>Toplam Kesinti</span>
+                                <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
+                              </article>
+                              <article className={styles.payintDetailMetricCard}>
+                                <span>Toplam Tevkifat</span>
+                                <strong>{formatMoney(selectedPersonnel.tevkifat_amount)}</strong>
+                              </article>
+                            </div>
+
+                            <div className={styles.payintDetailListCard}>
+                              <div className={styles.payintDetailListHead}>
+                                <h4>Kesinti Kalemleri</h4>
+                                {deductionLoading ? <span>Yükleniyor…</span> : null}
+                              </div>
+                              <div className={styles.payintDetailListRows}>
+                                {selectedPersonDeductions.length ? (
+                                  selectedPersonDeductions.map((row) => (
+                                    <div key={String(row.key)} className={styles.payintDetailListRow}>
+                                      <span>{row.label}</span>
+                                      <strong className={styles.payintNegativeText}>
+                                        {formatMoney(row.amount)}
+                                      </strong>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className={styles.payintEmptyCompact}>
+                                    Bu kişi için seçili ayda kesinti oluşmadı.
+                                  </div>
+                                )}
+                              </div>
+                              <div className={styles.payintDetailListTotal}>
+                                <span>Toplam Kesinti</span>
+                                <strong>{formatMoney(selectedPersonnel.total_deductions)}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {activeTab === "operations" ? (
+                          <div className={styles.payintDetailBody}>
+                            <div className={styles.payintDetailMetricGrid}>
+                              <article className={styles.payintDetailMetricCard}>
+                                <span>Toplam Saat</span>
+                                <strong>{formatNumber(selectedPersonnel.total_hours, 1)}</strong>
+                              </article>
+                              <article className={styles.payintDetailMetricCard}>
+                                <span>Toplam Paket</span>
+                                <strong>{formatNumber(selectedPersonnel.total_packages, 0)}</strong>
+                              </article>
+                              <article className={styles.payintDetailMetricCard}>
+                                <span>Toplam Şube</span>
+                                <strong>{formatNumber(selectedPersonnel.restaurant_count, 0)}</strong>
+                              </article>
+                              <article className={styles.payintDetailMetricCard}>
+                                <span>Paket / Saat</span>
+                                <strong>
+                                  {selectedPersonnel.total_hours > 0
+                                    ? formatNumber(
+                                        selectedPersonnel.total_packages / selectedPersonnel.total_hours,
+                                        1,
+                                      )
+                                    : "0,0"}
+                                </strong>
+                              </article>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {activeTab === "trend" ? (
+                          <div className={styles.payintDetailBody}>
+                            <div className={styles.payintDetailTrendCard}>
+                              <TrendChart
+                                items={
+                                  personTrendSeries.length ? personTrendSeries : [{ label: "—", value: 0 }]
+                                }
+                              />
+                            </div>
+                            <div className={styles.payintInsightCard}>{personTrendInsight}</div>
+                          </div>
+                        ) : null}
+
+                        {activeTab === "pdf" ? (
+                          <div className={styles.payintDetailBody}>
+                            <button
+                              type="button"
+                              className={styles.payintPrimaryButton}
+                              onClick={handleDocumentDownload}
+                              disabled={documentBusy}
+                            >
+                              {documentBusy ? "PDF hazırlanıyor..." : "Hakediş PDF’i İndir"}
+                            </button>
+                            {documentError ? (
+                              <div className={`${styles.payintFeedback} ${styles.payintFeedbackError}`}>
+                                {documentError}
+                              </div>
+                            ) : null}
+                            {documentMessage ? (
+                              <div className={`${styles.payintFeedback} ${styles.payintFeedbackSuccess}`}>
+                                {documentMessage}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div className={styles.payintEmptyPanel}>
+                        Sağ paneli doldurmak için listeden bir personel seçin.
+                      </div>
+                    )}
+                  </section>
+                </aside>
               </div>
 
-              <div className={styles.payintTableMobile}>
-                {filteredEntries.map((entry) => (
-                  <button
-                    key={`mobile-${entry.personnel_id}`}
-                    type="button"
-                    className={`${styles.payintPersonCard} ${
-                      selectedPersonnelId === entry.personnel_id ? styles.payintPersonCardSelected : ""
-                    }`}
-                    onClick={() => setSelectedPersonnelId(entry.personnel_id)}
-                  >
-                    <div className={styles.payintPersonCardHead}>
-                      <div className={styles.payintPersonCardCopy}>
-                        <strong>{entry.personnel}</strong>
+              <section id="payint-personnel-list" className={`${styles.payintCard} ${styles.payintListCard}`}>
+                <div className={styles.payintSectionHeader}>
+                  <div>
+                    <h3>Hakediş Listesi</h3>
+                    <p>Personeli seçip detay panelini sağ tarafta açın.</p>
+                  </div>
+                  <div className={styles.payintHeaderMeta}>
+                    <label className={`${styles.payintField} ${styles.payintSearchField}`}>
+                      <span>Personel ara</span>
+                      <input
+                        value={personnelQuery}
+                        onChange={(event) => setPersonnelQuery(event.target.value)}
+                        placeholder="Ad, rol veya model ara"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className={styles.payintListBody}>
+                  <div className={styles.payintTableDesktop}>
+                    <div className={styles.payintTableHeader}>
+                      <span>Personel</span>
+                      <span>Rol</span>
+                      <span>Durum</span>
+                      <span>Net Ödeme</span>
+                      <span>Hakediş</span>
+                      <span>Kesinti</span>
+                      <span>Tevkifat</span>
+                      <span>Model</span>
+                    </div>
+                    {filteredEntries.map((entry) => (
+                      <button
+                        key={entry.personnel_id}
+                        type="button"
+                        className={`${styles.payintTableRow} ${
+                          selectedPersonnelId === entry.personnel_id ? styles.payintTableRowSelected : ""
+                        }`}
+                        onClick={() => setSelectedPersonnelId(entry.personnel_id)}
+                      >
+                        <span className={styles.payintPersonCell}>
+                          <strong>{entry.personnel}</strong>
+                        </span>
                         <span>{entry.role}</span>
-                      </div>
-                      <StatusBadge value={entry.status} />
-                    </div>
-                    <div className={styles.payintPersonCardGrid}>
-                      <div>
-                        <small>Net Ödeme</small>
-                        <strong>{formatMoney(entry.net_payment)}</strong>
-                      </div>
-                      <div>
-                        <small>Hakediş</small>
-                        <strong>{formatMoney(entry.gross_pay)}</strong>
-                      </div>
-                      <div>
-                        <small>Kesinti</small>
-                        <strong className={styles.payintNegativeText}>
+                        <span>
+                          <StatusBadge value={entry.status} />
+                        </span>
+                        <span className={styles.payintNumericCell}>{formatMoney(entry.net_payment)}</span>
+                        <span className={styles.payintNumericCell}>{formatMoney(entry.gross_pay)}</span>
+                        <span className={`${styles.payintNumericCell} ${styles.payintNegativeText}`}>
                           {formatMoney(entry.total_deductions)}
-                        </strong>
-                      </div>
-                      <div>
-                        <small>Tevkifat</small>
-                        <strong>{formatMoney(entry.tevkifat_amount)}</strong>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-            </section>
-          </>
-        )}
+                        </span>
+                        <span className={styles.payintNumericCell}>
+                          {formatMoney(entry.tevkifat_amount)}
+                        </span>
+                        <span className={styles.payintModelCell}>{displayCostModel(entry.cost_model)}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className={styles.payintTableMobile}>
+                    {filteredEntries.map((entry) => (
+                      <button
+                        key={`mobile-${entry.personnel_id}`}
+                        type="button"
+                        className={`${styles.payintPersonCard} ${
+                          selectedPersonnelId === entry.personnel_id ? styles.payintPersonCardSelected : ""
+                        }`}
+                        onClick={() => setSelectedPersonnelId(entry.personnel_id)}
+                      >
+                        <div className={styles.payintPersonCardHead}>
+                          <div className={styles.payintPersonCardCopy}>
+                            <strong>{entry.personnel}</strong>
+                            <span>{entry.role}</span>
+                          </div>
+                          <StatusBadge value={entry.status} />
+                        </div>
+                        <div className={styles.payintPersonCardGrid}>
+                          <div>
+                            <small>Net Ödeme</small>
+                            <strong>{formatMoney(entry.net_payment)}</strong>
+                          </div>
+                          <div>
+                            <small>Hakediş</small>
+                            <strong>{formatMoney(entry.gross_pay)}</strong>
+                          </div>
+                          <div>
+                            <small>Kesinti</small>
+                            <strong className={styles.payintNegativeText}>
+                              {formatMoney(entry.total_deductions)}
+                            </strong>
+                          </div>
+                          <div>
+                            <small>Tevkifat</small>
+                            <strong>{formatMoney(entry.tevkifat_amount)}</strong>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
+        </div>
       </div>
     </AppShell>
   );

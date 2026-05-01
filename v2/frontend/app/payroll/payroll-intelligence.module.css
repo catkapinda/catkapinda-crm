@@ -1,8 +1,18 @@
 .payintPage {
+  width: 100%;
+  min-width: 0;
   min-height: 100%;
   background: #f8f7f4;
   padding: 28px 32px 40px;
   color: #0f172a;
+  overflow-x: hidden;
+}
+
+.payintContainer {
+  width: 100%;
+  max-width: 1480px;
+  min-width: 0;
+  margin: 0 auto;
 }
 
 .payintPage *,
@@ -26,8 +36,8 @@
 }
 
 .payintHeader {
-  width: min(1480px, 100%);
-  margin: 0 auto 24px;
+  width: 100%;
+  margin: 0 0 24px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -169,8 +179,8 @@
 }
 
 .payintLoadingCard {
-  width: min(1480px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   padding: 28px;
   text-align: center;
   font-size: 15px;
@@ -178,10 +188,10 @@
 }
 
 .payintPageContent {
-  width: min(1480px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 420px);
   gap: 24px;
   align-items: start;
 }
@@ -193,21 +203,29 @@
 }
 
 .payintSideColumn {
+  width: 100%;
   min-width: 0;
+  max-width: 420px;
+  justify-self: end;
 }
 
 .payintDetailPanel {
   position: sticky;
   top: 24px;
+  width: 100%;
+  min-width: 0;
+  max-width: 420px;
   padding: 24px;
   display: grid;
   gap: 22px;
 }
 
 .payintKpiStrip {
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  gap: 16px;
+  margin: 24px 0;
 }
 
 .payintKpiCard {
@@ -315,7 +333,7 @@
 
 .payintAnalyticsGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(360px, 0.9fr);
   gap: 24px;
 }
 
@@ -443,8 +461,8 @@
 
 .payintDonutRow {
   display: grid;
-  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 18px;
   align-items: center;
 }
 
@@ -490,6 +508,7 @@
   display: grid;
   gap: 12px;
   align-content: start;
+  min-width: 0;
 }
 
 .payintLegendItem {
@@ -512,6 +531,7 @@
 .payintLegendLabel {
   font-size: 13px;
   color: #334155;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1024,8 +1044,8 @@
 }
 
 .payintListCard {
-  width: min(1480px, 100%);
-  margin: 24px auto 0;
+  width: 100%;
+  margin: 24px 0 0;
   max-height: 620px;
 }
 
@@ -1145,41 +1165,35 @@
   color: #166534;
 }
 
-@media (max-width: 1280px) {
-  .payintKpiStrip,
-  .payintLeaderboardGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 1380px) {
+  .payintPageContent {
+    grid-template-columns: minmax(0, 1fr) 380px;
   }
 
-  .payintAnalyticsGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .payintDonutRow {
-    grid-template-columns: 1fr;
+  .payintSideColumn,
+  .payintDetailPanel {
+    max-width: 380px;
   }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1180px) {
   .payintPage {
     padding: 24px 20px 36px;
+  }
+
+  .payintAnalyticsGrid,
+  .payintDonutRow {
+    grid-template-columns: 1fr;
   }
 
   .payintPageContent {
     grid-template-columns: 1fr;
   }
 
-  .payintListCard {
-    max-height: none;
-  }
-
-  .payintListBody {
-    max-height: none;
-    overflow: visible;
-  }
-
   .payintSideColumn {
     order: 2;
+    max-width: none;
+    justify-self: stretch;
   }
 
   .payintMainColumn {
@@ -1188,6 +1202,24 @@
 
   .payintDetailPanel {
     position: static;
+    max-width: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .payintListCard {
+    max-height: none;
+  }
+
+  .payintListBody {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 900px) {
+  .payintKpiStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1207,7 +1239,6 @@
     min-width: 0;
   }
 
-  .payintKpiStrip,
   .payintEfficiencyGrid,
   .payintLeaderboardGrid,
   .payintDetailMetricGrid {
@@ -1235,7 +1266,7 @@
 
 @media (max-width: 640px) {
   .payintPage {
-    padding: 20px 14px 28px;
+    padding: 20px;
   }
 
   .payintKpiStrip,
