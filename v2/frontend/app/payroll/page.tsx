@@ -617,6 +617,7 @@ export default function PayrollPage() {
   const [sortMode, setSortMode] = useState("net-desc");
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<PayrollTab>("finance");
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [documentBusy, setDocumentBusy] = useState(false);
   const [documentError, setDocumentError] = useState("");
   const [documentMessage, setDocumentMessage] = useState("");
@@ -905,6 +906,18 @@ export default function PayrollPage() {
     () => filteredEntries.find((entry) => entry.personnel_id === selectedPersonnelId) ?? null,
     [filteredEntries, selectedPersonnelId],
   );
+
+  useEffect(() => {
+    if (viewMode !== "list") {
+      setDetailDrawerOpen(false);
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (!selectedPersonnel) {
+      setDetailDrawerOpen(false);
+    }
+  }, [selectedPersonnel]);
 
   const highestNetPayment = useMemo(
     () =>
@@ -1203,8 +1216,14 @@ export default function PayrollPage() {
     { id: "pdf", label: "PDF" },
   ] satisfies Array<{ id: PayrollTab; label: string }>;
 
-  const detailPanel = (
-    <section className={styles.payintDetailPanel}>
+  const openPersonnelDetail = (personnelId: number) => {
+    setSelectedPersonnelId(personnelId);
+    setActiveTab("finance");
+    setDetailDrawerOpen(true);
+  };
+
+  const renderDetailPanel = (extraClassName?: string) => (
+    <section className={`${styles.payintDetailPanel} ${extraClassName ?? ""}`.trim()}>
       {selectedPersonnel ? (
         <>
           <div className={styles.payintDetailHeader}>
@@ -1578,6 +1597,7 @@ export default function PayrollPage() {
                 <span>Kesinti</span>
                 <span>Tevkifat</span>
                 <span>Model</span>
+                <span>Aksiyon</span>
               </div>
               {listEntries.map((entry) => (
                 <button
@@ -1586,7 +1606,7 @@ export default function PayrollPage() {
                   className={`${styles.payintTableRow} ${
                     selectedPersonnelId === entry.personnel_id ? styles.payintTableRowSelected : ""
                   }`}
-                  onClick={() => setSelectedPersonnelId(entry.personnel_id)}
+                  onClick={() => openPersonnelDetail(entry.personnel_id)}
                 >
                   <span className={styles.payintPersonCell}>
                     <strong>{entry.personnel}</strong>
@@ -1604,6 +1624,9 @@ export default function PayrollPage() {
                     {formatMoney(entry.tevkifat_amount)}
                   </span>
                   <span className={styles.payintModelCell}>{displayCostModel(entry.cost_model)}</span>
+                  <span className={styles.payintActionCell}>
+                    <span className={styles.payintActionPill}>Detay</span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -1616,7 +1639,7 @@ export default function PayrollPage() {
                   className={`${styles.payintPersonCard} ${
                     selectedPersonnelId === entry.personnel_id ? styles.payintPersonCardSelected : ""
                   }`}
-                  onClick={() => setSelectedPersonnelId(entry.personnel_id)}
+                  onClick={() => openPersonnelDetail(entry.personnel_id)}
                 >
                   <div className={styles.payintPersonCardHead}>
                     <div className={styles.payintPersonCardCopy}>
@@ -1651,8 +1674,6 @@ export default function PayrollPage() {
           </div>
         </section>
       </div>
-
-      <aside className={styles.payintSideColumn}>{detailPanel}</aside>
     </section>
   );
 
@@ -1720,6 +1741,34 @@ export default function PayrollPage() {
           ) : (
             viewMode === "overview" ? overviewView : listView
           )}
+
+          {viewMode === "list" && detailDrawerOpen && selectedPersonnel ? (
+            <>
+              <button
+                type="button"
+                className={styles.payintDrawerOverlay}
+                aria-label="Detay panelini kapat"
+                onClick={() => setDetailDrawerOpen(false)}
+              />
+              <aside className={styles.payintDetailDrawer} aria-label="Personel detay paneli">
+                <div className={styles.payintDrawerTopbar}>
+                  <div>
+                    <strong>Personel Detayı</strong>
+                    <span>{selectedPersonnel.personnel}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.payintDrawerClose}
+                    onClick={() => setDetailDrawerOpen(false)}
+                    aria-label="Detay panelini kapat"
+                  >
+                    ×
+                  </button>
+                </div>
+                {renderDetailPanel(styles.payintDetailPanelDrawer)}
+              </aside>
+            </>
+          ) : null}
         </div>
       </div>
     </AppShell>
