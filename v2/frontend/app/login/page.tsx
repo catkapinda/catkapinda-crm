@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "../../components/auth/auth-provider";
+import { AuthSessionLoadingScreen } from "../../components/auth/auth-session-loading-screen";
 import { buildApiUrl, readStoredAuthNotice, writeStoredAuthNotice } from "../../lib/api";
 import { resolveDefaultPath } from "../../lib/navigation";
 import { isPreviewModeBrowser } from "../../lib/preview";
@@ -1265,58 +1266,7 @@ function LoginPageContent() {
 }
 
 function LoginPageFallback() {
-  return (
-    <main
-      style={{
-        minHeight: "100vh",
-        padding: "24px",
-        display: "grid",
-        placeItems: "center",
-      }}
-    >
-      <section
-        style={{
-          ...paperCardStyle,
-          width: "min(460px, 100%)",
-          padding: "28px",
-          display: "grid",
-          gap: "16px",
-        }}
-      >
-        <div
-          style={{
-            height: "10px",
-            borderRadius: "999px",
-            background: "rgba(185, 116, 41, 0.12)",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              width: "42%",
-              height: "100%",
-              borderRadius: "999px",
-              background: "linear-gradient(90deg, var(--accent-strong), var(--accent))",
-            }}
-          />
-        </div>
-        <div
-          style={{
-            ...serifTitleStyle,
-            fontSize: "2rem",
-            lineHeight: 0.96,
-            fontWeight: 700,
-          }}
-        >
-          Giriş masası hazırlanıyor.
-        </div>
-        <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
-          Oturum modlari ve yönlendirme bilgileri yükleniyor. Hazır oldugunda seni doğrudan yeni
-          panele alacagiz.
-        </p>
-      </section>
-    </main>
-  );
+  return <AuthSessionLoadingScreen />;
 }
 
 export default function LoginPage() {

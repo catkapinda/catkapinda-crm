@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "../auth/auth-provider";
+import { AuthSessionLoadingScreen } from "../auth/auth-session-loading-screen";
 import type { SidebarItem } from "../../lib/navigation";
 import { filterSidebarItems, resolveDefaultPath, sidebarItems } from "../../lib/navigation";
 import { isPreviewPathname } from "../../lib/preview";
@@ -333,49 +334,7 @@ export function AppShell({
   }, [canViewActiveItem, loading, pathname, router, user]);
 
   if (loading || !user || !canViewActiveItem) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "grid",
-          placeItems: "center",
-          padding: "24px",
-        }}
-      >
-        <div
-          style={{
-            width: "min(420px, 100%)",
-            padding: "28px",
-            borderRadius: "28px",
-            background: "var(--surface-strong)",
-            border: "1px solid var(--line)",
-            boxShadow: "0 24px 60px rgba(22, 42, 74, 0.08)",
-          }}
-        >
-          <div
-            style={{
-              height: "10px",
-              borderRadius: "999px",
-              background: "rgba(15, 95, 215, 0.1)",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                width: "42%",
-                height: "100%",
-                background: "var(--accent)",
-                borderRadius: "999px",
-              }}
-            />
-          </div>
-          <h2 style={{ margin: "18px 0 10px" }}>Oturum hazırlanıyor</h2>
-          <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.7 }}>
-            Yetki ve oturum bilgileri kontrol ediliyor. Hazır oldugunda seni doğrudan ilgili module alacagiz.
-          </p>
-        </div>
-      </div>
-    );
+    return <AuthSessionLoadingScreen />;
   }
 
   return (
