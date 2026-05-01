@@ -291,15 +291,17 @@
 
 .ck-payroll-main {
   min-width: 0;
-  padding: 32px;
+  width: 100%;
   background: #f8f7f4;
   overflow-x: hidden;
 }
 
 .ck-payroll-container {
+  width: 100%;
   max-width: 1480px;
   margin: 0 auto;
-  width: 100%;
+  padding: 32px;
+  box-sizing: border-box;
 }
 
 .ck-payroll-header {
@@ -385,6 +387,7 @@
   display: grid;
   gap: 18px;
   align-content: center;
+  min-width: 0;
 }
 
 .ck-payroll-kpi-top {
@@ -474,7 +477,7 @@
 
 .ck-payroll-dashboard {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 420px);
   gap: 24px;
   align-items: start;
 }
@@ -488,6 +491,9 @@
 
 .ck-payroll-right-panel {
   min-width: 0;
+  width: 100%;
+  max-width: 420px;
+  justify-self: end;
 }
 
 .ck-payroll-panel-card {
@@ -496,11 +502,14 @@
   padding: 24px;
   display: grid;
   gap: 22px;
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
 }
 
 .ck-payroll-analytics {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(360px, 0.9fr);
   gap: 24px;
 }
 
@@ -1114,10 +1123,6 @@
     display: none;
   }
 
-  .ck-payroll-main {
-    padding: 24px;
-  }
-
   .ck-payroll-dashboard,
   .ck-payroll-analytics {
     grid-template-columns: 1fr;
@@ -1125,10 +1130,12 @@
 
   .ck-payroll-right-panel {
     order: 2;
+    max-width: none;
   }
 
   .ck-payroll-panel-card {
     position: static;
+    max-width: none;
   }
 }
 
@@ -1144,7 +1151,7 @@
 }
 
 @media (max-width: 640px) {
-  .ck-payroll-main {
+  .ck-payroll-container {
     padding: 20px;
   }
 
