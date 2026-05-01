@@ -94,6 +94,25 @@
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
 }
 
+.payintFieldControl {
+  position: relative;
+}
+
+.payintFieldControl select {
+  padding-left: 44px;
+}
+
+.payintFieldIcon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  color: #64748b;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
 .payintGhostButton,
 .payintPrimaryButton {
   min-height: 48px;
@@ -113,6 +132,7 @@
   background: #ffffff;
   color: #0f2a4a;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  gap: 10px;
 }
 
 .payintGhostButton:hover,
@@ -209,27 +229,43 @@
   gap: 12px;
 }
 
-.payintKpiDot {
-  width: 14px;
-  height: 14px;
+.payintKpiIconBadge {
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
+.payintKpiDot {
+  color: inherit;
+}
+
 .payintKpiDotblue {
-  background: #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
 }
 
 .payintKpiDotgreen {
-  background: #16a34a;
+  background: rgba(22, 163, 74, 0.12);
+  color: #16a34a;
 }
 
 .payintKpiDotorange {
-  background: #f97316;
+  background: rgba(249, 115, 22, 0.12);
+  color: #f97316;
 }
 
 .payintKpiDotviolet {
-  background: #7c3aed;
+  background: rgba(124, 58, 237, 0.12);
+  color: #7c3aed;
+}
+
+.payintKpiIcon {
+  width: 22px;
+  height: 22px;
 }
 
 .payintKpiLabel {
@@ -279,7 +315,7 @@
 
 .payintAnalyticsGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
   gap: 24px;
 }
 
@@ -324,6 +360,20 @@
   font-size: 13px;
   font-weight: 650;
   white-space: nowrap;
+}
+
+.payintCardFilter {
+  min-height: 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 0 14px;
+  color: #0f2a4a;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
 }
 
 .payintHeaderMeta {
@@ -973,6 +1023,24 @@
   white-space: nowrap;
 }
 
+.payintListCard {
+  width: min(1480px, 100%);
+  margin: 24px auto 0;
+  max-height: 620px;
+}
+
+.payintListBody {
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.payintButtonIcon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .payintDetailListCard,
 .payintDetailTrendCard {
   border: 1px solid #e9edf3;
@@ -1101,6 +1169,15 @@
     grid-template-columns: 1fr;
   }
 
+  .payintListCard {
+    max-height: none;
+  }
+
+  .payintListBody {
+    max-height: none;
+    overflow: visible;
+  }
+
   .payintSideColumn {
     order: 2;
   }
@@ -1144,6 +1221,10 @@
   .payintTableMobile {
     display: grid;
     gap: 14px;
+  }
+
+  .payintListBody {
+    padding-right: 0;
   }
 
   .payintSectionHeader,

@@ -88,6 +88,17 @@ type DeltaView = {
   tone: PayrollDeltaTone;
 };
 
+type IconName =
+  | "wallet"
+  | "receipt"
+  | "minus-circle"
+  | "shield"
+  | "calendar"
+  | "download"
+  | "trend"
+  | "pie"
+  | "activity";
+
 const COST_MODEL_LABELS: Record<string, string> = {
   hourly_plus_package: "Saatlik",
   threshold_package: "Paket Başı",
@@ -96,6 +107,87 @@ const COST_MODEL_LABELS: Record<string, string> = {
 };
 
 const DONUT_COLORS = ["#2563EB", "#5B8CFF", "#8EB5FF", "#D7E5FF"];
+
+function IconGlyph({
+  name,
+  className,
+}: {
+  name: IconName;
+  className?: string;
+}) {
+  switch (name) {
+    case "wallet":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+          <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H18a2 2 0 0 1 2 2v1.5H8.5A2.5 2.5 0 0 0 6 11v2a2.5 2.5 0 0 0 2.5 2.5H20V17a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5z" />
+          <path d="M20 8.5h-11A2.5 2.5 0 0 0 6.5 11v2A2.5 2.5 0 0 0 9 15.5h11A1.5 1.5 0 0 0 21.5 14V10A1.5 1.5 0 0 0 20 8.5Z" />
+          <circle cx="16.5" cy="12" r="1" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "receipt":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+          <path d="M6 3.5h12v17l-2.25-1.5L13.5 20l-2.25-1.5L9 20l-3-1.5z" />
+          <path d="M9 8h6" />
+          <path d="M9 12h6" />
+          <path d="M9 16h4" />
+        </svg>
+      );
+    case "minus-circle":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M8.5 12h7" />
+        </svg>
+      );
+    case "shield":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+          <path d="M12 3.5 18.5 6v5c0 4.1-2.45 7.45-6.5 9-4.05-1.55-6.5-4.9-6.5-9V6z" />
+          <path d="m9.25 12 1.75 1.75L15 9.75" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+          <rect x="4" y="5" width="16" height="15" rx="3" />
+          <path d="M8 3.5v3" />
+          <path d="M16 3.5v3" />
+          <path d="M4 9.5h16" />
+        </svg>
+      );
+    case "download":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+          <path d="M12 4.5v10" />
+          <path d="m8.5 11.5 3.5 3.5 3.5-3.5" />
+          <path d="M5 18.5h14" />
+        </svg>
+      );
+    case "trend":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+          <path d="m4.5 15.5 5-5 4 4 6-7" />
+          <path d="M15.5 7.5h4v4" />
+        </svg>
+      );
+    case "pie":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+          <path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5H12z" />
+          <path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5H12z" />
+        </svg>
+      );
+    case "activity":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+          <path d="M4 12h3l2.5-5 5 10 2.5-5H20" />
+        </svg>
+      );
+      default:
+        return null;
+  }
+}
 
 function toSafeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -307,16 +399,20 @@ function KpiCard({
   value,
   delta,
   tone,
+  icon,
 }: {
   title: string;
   value: string;
   delta: DeltaView;
   tone: "blue" | "green" | "orange" | "violet";
+  icon: IconName;
 }) {
   return (
     <article className={styles.payintKpiCard}>
       <div className={styles.payintKpiHeader}>
-        <span className={`${styles.payintKpiDot} ${styles[`payintKpiDot${tone}`]}`} />
+        <span className={`${styles.payintKpiIconBadge} ${styles[`payintKpiDot${tone}`]}`}>
+          <IconGlyph name={icon} className={styles.payintKpiIcon} />
+        </span>
         <span className={styles.payintKpiLabel}>{title}</span>
       </div>
       <div className={styles.payintKpiValue}>{value}</div>
@@ -780,7 +876,7 @@ export default function PayrollPage() {
     () =>
       [...filteredEntries]
         .sort((left, right) => right.net_payment - left.net_payment)
-        .slice(0, 5)
+        .slice(0, 3)
         .map((entry) => ({
           id: entry.personnel_id,
           name: entry.personnel,
@@ -794,7 +890,7 @@ export default function PayrollPage() {
     () =>
       [...filteredEntries]
         .sort((left, right) => right.total_deductions - left.total_deductions)
-        .slice(0, 5)
+        .slice(0, 3)
         .map((entry) => ({
           id: entry.personnel_id,
           name: entry.personnel,
@@ -812,7 +908,7 @@ export default function PayrollPage() {
           (left, right) =>
             right.total_packages / right.total_hours - left.total_packages / left.total_hours,
         )
-        .slice(0, 5)
+        .slice(0, 3)
         .map((entry) => ({
           id: entry.personnel_id,
           name: entry.personnel,
@@ -1029,6 +1125,7 @@ export default function PayrollPage() {
         true,
       ),
       tone: "blue" as const,
+      icon: "wallet" as const,
     },
     {
       title: "Hakediş Tutarı",
@@ -1039,6 +1136,7 @@ export default function PayrollPage() {
         true,
       ),
       tone: "green" as const,
+      icon: "receipt" as const,
     },
     {
       title: "Toplam Kesinti",
@@ -1049,6 +1147,7 @@ export default function PayrollPage() {
         false,
       ),
       tone: "orange" as const,
+      icon: "minus-circle" as const,
     },
     {
       title: "Toplam Tevkifat",
@@ -1059,6 +1158,7 @@ export default function PayrollPage() {
         false,
       ),
       tone: "violet" as const,
+      icon: "shield" as const,
     },
   ];
 
@@ -1073,19 +1173,23 @@ export default function PayrollPage() {
           <div className={styles.payintHeaderActions}>
             <label className={styles.payintField}>
               <span>Dönem</span>
-              <select
-                value={selectedMonth}
-                onChange={(event) => setSelectedMonth(event.target.value)}
-                disabled={dashboardLoading || !dashboard?.month_options?.length}
-              >
-                {(dashboard?.month_options ?? []).map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-              </select>
+              <div className={styles.payintFieldControl}>
+                <IconGlyph name="calendar" className={styles.payintFieldIcon} />
+                <select
+                  value={selectedMonth}
+                  onChange={(event) => setSelectedMonth(event.target.value)}
+                  disabled={dashboardLoading || !dashboard?.month_options?.length}
+                >
+                  {(dashboard?.month_options ?? []).map((month) => (
+                    <option key={month} value={month}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </label>
             <button type="button" className={styles.payintGhostButton} onClick={handleCsvDownload}>
+              <IconGlyph name="download" className={styles.payintButtonIcon} />
               Excel İndir
             </button>
           </div>
@@ -1098,7 +1202,8 @@ export default function PayrollPage() {
             Hakediş verileri şu an alınamadı. Bağlantı toparlandığında panel otomatik yenilenecek.
           </section>
         ) : (
-          <div className={styles.payintPageContent}>
+          <>
+            <div className={styles.payintPageContent}>
             <div className={styles.payintMainColumn}>
               <section className={styles.payintKpiStrip}>
                 {kpis.map((kpi) => (
@@ -1108,6 +1213,7 @@ export default function PayrollPage() {
                     value={kpi.value}
                     delta={kpi.delta}
                     tone={kpi.tone}
+                    icon={kpi.icon}
                   />
                 ))}
               </section>
@@ -1119,6 +1225,9 @@ export default function PayrollPage() {
                       <h3>Hakediş Trendi</h3>
                       <p>Son 6 ayda toplam hakediş akışı.</p>
                     </div>
+                    <button type="button" className={styles.payintCardFilter}>
+                      Toplam Hakediş
+                    </button>
                   </div>
                   <TrendChart items={trendSeries.length ? trendSeries : [{ label: "—", value: 0 }]} />
                   <div className={styles.payintInsightCard}>{trendInsight}</div>
@@ -1239,106 +1348,6 @@ export default function PayrollPage() {
                   onSelect={setSelectedPersonnelId}
                   selectedPersonnelId={selectedPersonnelId}
                 />
-              </section>
-
-              <section id="payint-personnel-list" className={styles.payintCard}>
-                <div className={styles.payintSectionHeader}>
-                  <div>
-                    <h3>Hakediş Listesi</h3>
-                    <p>Personeli seçip detay panelini sağ tarafta açın.</p>
-                  </div>
-                  <div className={styles.payintHeaderMeta}>
-                    <label className={`${styles.payintField} ${styles.payintSearchField}`}>
-                      <span>Personel ara</span>
-                      <input
-                        value={personnelQuery}
-                        onChange={(event) => setPersonnelQuery(event.target.value)}
-                        placeholder="Ad, rol veya model ara"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div className={styles.payintTableDesktop}>
-                  <div className={styles.payintTableHeader}>
-                    <span>Personel</span>
-                    <span>Rol</span>
-                    <span>Durum</span>
-                    <span>Net Ödeme</span>
-                    <span>Hakediş</span>
-                    <span>Kesinti</span>
-                    <span>Tevkifat</span>
-                    <span>Model</span>
-                  </div>
-                  {filteredEntries.map((entry) => (
-                    <button
-                      key={entry.personnel_id}
-                      type="button"
-                      className={`${styles.payintTableRow} ${
-                        selectedPersonnelId === entry.personnel_id ? styles.payintTableRowSelected : ""
-                      }`}
-                      onClick={() => setSelectedPersonnelId(entry.personnel_id)}
-                    >
-                      <span className={styles.payintPersonCell}>
-                        <strong>{entry.personnel}</strong>
-                      </span>
-                      <span>{entry.role}</span>
-                      <span>
-                        <StatusBadge value={entry.status} />
-                      </span>
-                      <span className={styles.payintNumericCell}>{formatMoney(entry.net_payment)}</span>
-                      <span className={styles.payintNumericCell}>{formatMoney(entry.gross_pay)}</span>
-                      <span className={`${styles.payintNumericCell} ${styles.payintNegativeText}`}>
-                        {formatMoney(entry.total_deductions)}
-                      </span>
-                      <span className={styles.payintNumericCell}>
-                        {formatMoney(entry.tevkifat_amount)}
-                      </span>
-                      <span className={styles.payintModelCell}>{displayCostModel(entry.cost_model)}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <div className={styles.payintTableMobile}>
-                  {filteredEntries.map((entry) => (
-                    <button
-                      key={`mobile-${entry.personnel_id}`}
-                      type="button"
-                      className={`${styles.payintPersonCard} ${
-                        selectedPersonnelId === entry.personnel_id ? styles.payintPersonCardSelected : ""
-                      }`}
-                      onClick={() => setSelectedPersonnelId(entry.personnel_id)}
-                    >
-                      <div className={styles.payintPersonCardHead}>
-                        <div className={styles.payintPersonCardCopy}>
-                          <strong>{entry.personnel}</strong>
-                          <span>{entry.role}</span>
-                        </div>
-                        <StatusBadge value={entry.status} />
-                      </div>
-                      <div className={styles.payintPersonCardGrid}>
-                        <div>
-                          <small>Net Ödeme</small>
-                          <strong>{formatMoney(entry.net_payment)}</strong>
-                        </div>
-                        <div>
-                          <small>Hakediş</small>
-                          <strong>{formatMoney(entry.gross_pay)}</strong>
-                        </div>
-                        <div>
-                          <small>Kesinti</small>
-                          <strong className={styles.payintNegativeText}>
-                            {formatMoney(entry.total_deductions)}
-                          </strong>
-                        </div>
-                        <div>
-                          <small>Tevkifat</small>
-                          <strong>{formatMoney(entry.tevkifat_amount)}</strong>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
               </section>
             </div>
 
@@ -1508,6 +1517,109 @@ export default function PayrollPage() {
               </section>
             </aside>
           </div>
+
+            <section id="payint-personnel-list" className={`${styles.payintCard} ${styles.payintListCard}`}>
+            <div className={styles.payintSectionHeader}>
+              <div>
+                <h3>Hakediş Listesi</h3>
+                <p>Personeli seçip detay panelini sağ tarafta açın.</p>
+              </div>
+              <div className={styles.payintHeaderMeta}>
+                <label className={`${styles.payintField} ${styles.payintSearchField}`}>
+                  <span>Personel ara</span>
+                  <input
+                    value={personnelQuery}
+                    onChange={(event) => setPersonnelQuery(event.target.value)}
+                    placeholder="Ad, rol veya model ara"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className={styles.payintListBody}>
+              <div className={styles.payintTableDesktop}>
+                <div className={styles.payintTableHeader}>
+                  <span>Personel</span>
+                  <span>Rol</span>
+                  <span>Durum</span>
+                  <span>Net Ödeme</span>
+                  <span>Hakediş</span>
+                  <span>Kesinti</span>
+                  <span>Tevkifat</span>
+                  <span>Model</span>
+                </div>
+                {filteredEntries.map((entry) => (
+                  <button
+                    key={entry.personnel_id}
+                    type="button"
+                    className={`${styles.payintTableRow} ${
+                      selectedPersonnelId === entry.personnel_id ? styles.payintTableRowSelected : ""
+                    }`}
+                    onClick={() => setSelectedPersonnelId(entry.personnel_id)}
+                  >
+                    <span className={styles.payintPersonCell}>
+                      <strong>{entry.personnel}</strong>
+                    </span>
+                    <span>{entry.role}</span>
+                    <span>
+                      <StatusBadge value={entry.status} />
+                    </span>
+                    <span className={styles.payintNumericCell}>{formatMoney(entry.net_payment)}</span>
+                    <span className={styles.payintNumericCell}>{formatMoney(entry.gross_pay)}</span>
+                    <span className={`${styles.payintNumericCell} ${styles.payintNegativeText}`}>
+                      {formatMoney(entry.total_deductions)}
+                    </span>
+                    <span className={styles.payintNumericCell}>
+                      {formatMoney(entry.tevkifat_amount)}
+                    </span>
+                    <span className={styles.payintModelCell}>{displayCostModel(entry.cost_model)}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className={styles.payintTableMobile}>
+                {filteredEntries.map((entry) => (
+                  <button
+                    key={`mobile-${entry.personnel_id}`}
+                    type="button"
+                    className={`${styles.payintPersonCard} ${
+                      selectedPersonnelId === entry.personnel_id ? styles.payintPersonCardSelected : ""
+                    }`}
+                    onClick={() => setSelectedPersonnelId(entry.personnel_id)}
+                  >
+                    <div className={styles.payintPersonCardHead}>
+                      <div className={styles.payintPersonCardCopy}>
+                        <strong>{entry.personnel}</strong>
+                        <span>{entry.role}</span>
+                      </div>
+                      <StatusBadge value={entry.status} />
+                    </div>
+                    <div className={styles.payintPersonCardGrid}>
+                      <div>
+                        <small>Net Ödeme</small>
+                        <strong>{formatMoney(entry.net_payment)}</strong>
+                      </div>
+                      <div>
+                        <small>Hakediş</small>
+                        <strong>{formatMoney(entry.gross_pay)}</strong>
+                      </div>
+                      <div>
+                        <small>Kesinti</small>
+                        <strong className={styles.payintNegativeText}>
+                          {formatMoney(entry.total_deductions)}
+                        </strong>
+                      </div>
+                      <div>
+                        <small>Tevkifat</small>
+                        <strong>{formatMoney(entry.tevkifat_amount)}</strong>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            </section>
+          </>
         )}
       </div>
     </AppShell>
