@@ -319,7 +319,10 @@ def test_build_payroll_document_html_renders_template_sections():
 
     assert "Kurye Hakediş Belgesi" in html
     assert "Kesinti Kalemleri" in html
-    assert "Fatura Toplamı" in html
+    assert "Fatura Bilgisi" in html
+    assert "Operasyon Özeti" in html
+    assert "Hakediş Tutarı" in html
+    assert "Brüt Kazanç" not in html
     assert "Neçirvan Bulgan" in html
     assert "Quick China - Ataşehir" in html
 

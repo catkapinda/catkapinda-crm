@@ -78,29 +78,29 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   gap: 10mm;
-  margin-bottom: 6mm;
+  margin-bottom: 5.5mm;
 }
 
 .brand-row {
   display: flex;
   align-items: center;
   gap: 0;
-  margin-bottom: 4mm;
+  margin-bottom: 3.5mm;
 }
 
 .brand-name {
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   color: var(--navy);
 }
 
 .title {
-  margin: 0 0 3mm;
-  font-size: 25px;
+  margin: 0 0 2.2mm;
+  font-size: 24px;
   line-height: 1.08;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   color: var(--text);
 }
 
@@ -135,20 +135,16 @@ body {
 .middle-section {
   display: flex;
   gap: 6mm;
-  margin-bottom: 4.5mm;
+  margin-bottom: 4mm;
 }
 
 .hero-card {
   width: 110mm;
   padding: 20px;
-  background: linear-gradient(145deg, #0f2341 0%, #173454 100%);
+  background: linear-gradient(145deg, #0f2341 0%, #14304f 100%);
   border-color: rgba(255, 255, 255, 0.05);
   color: #ffffff;
   flex: 0 0 110mm;
-}
-
-.hero-card-inner {
-  min-height: 66mm;
 }
 
 .hero-label {
@@ -161,18 +157,18 @@ body {
 }
 
 .hero-amount {
-  font-size: 36px;
+  font-size: 35px;
   line-height: 1.02;
   font-weight: 700;
   letter-spacing: -0.04em;
   color: #ffffff;
-  margin-bottom: 6mm;
+  margin-bottom: 5mm;
 }
 
 .hero-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.14);
-  margin-bottom: 5mm;
+  margin-bottom: 4.2mm;
 }
 
 .hero-metrics {
@@ -197,7 +193,7 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.72);
-  margin-bottom: 2mm;
+  margin-bottom: 1.6mm;
 }
 
 .hero-metric-value {
@@ -215,24 +211,27 @@ body {
 
 .person-card {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
 .person-head {
   display: flex;
   align-items: center;
   gap: 4mm;
-  margin-bottom: 4mm;
+  margin-bottom: 4.5mm;
 }
 
 .person-avatar {
   width: 12mm;
   height: 12mm;
   border-radius: 999px;
-  background: linear-gradient(145deg, #132b4d 0%, #0f2341 100%);
+  background: #eef3ff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--navy);
   font-size: 11px;
   font-weight: 700;
   flex: 0 0 12mm;
@@ -247,18 +246,19 @@ body {
   line-height: 1.15;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 1mm;
+  margin-bottom: 1.2mm;
 }
 
-.person-role {
-  font-size: 11px;
+.person-meta-caption {
+  font-size: 10px;
   color: var(--muted);
+  letter-spacing: 0.02em;
 }
 
 .person-list {
   display: flex;
   flex-direction: column;
-  gap: 2.2mm;
+  gap: 2.8mm;
 }
 
 .info-row {
@@ -272,6 +272,7 @@ body {
 .info-label {
   font-size: 10px;
   color: var(--muted);
+  letter-spacing: 0.01em;
 }
 
 .info-value {
@@ -293,12 +294,6 @@ body {
   font-size: 10px;
   font-weight: 700;
   white-space: nowrap;
-}
-
-.person-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4mm 0 3mm;
 }
 
 .panel-card {
@@ -378,7 +373,7 @@ body {
 }
 
 .summary-bar {
-  margin-top: 4mm;
+  margin-top: 3.6mm;
   padding: 3.5mm 4.5mm;
   border-radius: 14px;
   background: #f8fafc;
@@ -426,7 +421,7 @@ body {
 }
 
 .invoice-total-box {
-  margin-top: 4mm;
+  margin-top: 3.6mm;
   padding: 4mm 4.5mm;
   border-radius: 16px;
   background: #f8fafc;
@@ -451,7 +446,7 @@ body {
 
 .operations-card {
   padding: 18px;
-  margin-bottom: 4.5mm;
+  margin-bottom: 4mm;
 }
 
 .operations-header {
@@ -460,7 +455,7 @@ body {
 
 .operations-note {
   margin: 2mm 0 0;
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--muted);
 }
 
@@ -477,17 +472,21 @@ body {
   border-right: 1px solid var(--border);
 }
 
-.restaurant-line {
-  font-size: 14px;
-  line-height: 1.22;
+.operations-restaurant-label {
+  font-size: 9px;
   font-weight: 700;
-  color: var(--text);
-  margin-bottom: 2mm;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 2.8mm;
 }
 
-.restaurant-count {
-  font-size: 11px;
-  color: var(--muted);
+.restaurant-line {
+  font-size: 13px;
+  line-height: 1.24;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 1.8mm;
 }
 
 .operations-kpis {
@@ -515,7 +514,7 @@ body {
 }
 
 .op-kpi-value {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.1;
   font-weight: 700;
   color: var(--text);
@@ -531,7 +530,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 4.5mm 5mm;
+  padding: 4mm 4.5mm;
 }
 
 .footer-copy {

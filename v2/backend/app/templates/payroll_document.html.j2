@@ -29,11 +29,11 @@
               <div class="hero-divider"></div>
               <div class="hero-metrics">
                 <div class="hero-metric">
-                  <div class="hero-metric-label">Brüt Kazanç</div>
+                  <div class="hero-metric-label">Hakediş Tutarı</div>
                   <div class="hero-metric-value number">{{ gross_earning }}</div>
                 </div>
                 <div class="hero-metric">
-                  <div class="hero-metric-label">Toplam Kesinti</div>
+                  <div class="hero-metric-label">Kesintiler</div>
                   <div class="hero-metric-value number negative">{{ total_deduction }}</div>
                 </div>
                 <div class="hero-metric">
@@ -49,7 +49,7 @@
               <div class="person-avatar">{{ courier_initials }}</div>
               <div class="person-title-wrap">
                 <div class="person-name">{{ courier_name }}</div>
-                <div class="person-role">{{ courier_role }}</div>
+                <div class="person-meta-caption">Personel bilgisi</div>
               </div>
             </div>
 
@@ -65,23 +65,6 @@
               <div class="info-row">
                 <span class="info-label">Durum</span>
                 <span class="status-badge">{{ courier_status }}</span>
-              </div>
-            </div>
-
-            <div class="person-divider"></div>
-
-            <div class="person-list">
-              <div class="info-row">
-                <span class="info-label">Saat</span>
-                <span class="info-value number">{{ total_hours }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Paket</span>
-                <span class="info-value number">{{ total_packages }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Şube</span>
-                <span class="info-value number">{{ total_branches }}</span>
               </div>
             </div>
           </article>
@@ -129,7 +112,7 @@
 
           <article class="card panel-card">
             <div class="panel-head panel-head-single">
-              <h2 class="panel-title">Fatura Detayları</h2>
+              <h2 class="panel-title">Fatura Bilgisi</h2>
             </div>
 
             <div class="invoice-list">
@@ -156,12 +139,13 @@
 
         <section class="card operations-card">
           <div class="operations-header">
-            <h2 class="panel-title">Çalışılan Restoran / Operasyon Noktası</h2>
-            <p class="operations-note">Ay içinde puantaj görülen operasyon noktası</p>
+            <h2 class="panel-title">Operasyon Özeti</h2>
+            <p class="operations-note">Ay içinde puantaj görülen operasyon noktaları</p>
           </div>
 
           <div class="operations-body">
             <div class="operations-restaurant">
+              <div class="operations-restaurant-label">Çalışılan Restoran / Şube</div>
               <div class="operations-restaurant-copy">
                 {% if restaurants %}
                 {% for restaurant in restaurants %}
@@ -170,7 +154,6 @@
                 {% else %}
                 <div class="restaurant-line">—</div>
                 {% endif %}
-                <div class="restaurant-count">{{ total_branches }} şube</div>
               </div>
             </div>
 
