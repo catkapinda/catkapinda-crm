@@ -397,10 +397,6 @@ def _format_month_label(value: str) -> str:
     return f"{month_map.get(month, month)} {year}"
 
 
-def _payroll_logo_path() -> Path:
-    return _repo_root() / "v2/frontend/public/catkapinda_logo.png"
-
-
 def _payroll_template_dir() -> Path:
     return Path(__file__).resolve().parents[1] / "templates"
 
@@ -447,9 +443,6 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
     if not deduction_rows:
         deduction_rows = [{"label": "—", "amount": "—"}]
 
-    logo_path = _payroll_logo_path()
-    logo_uri = logo_path.as_uri() if logo_path.exists() else ""
-
     environment = Environment(
         loader=BaseLoader(),
         autoescape=select_autoescape(default_for_string=True, enabled_extensions=("html", "xml")),
@@ -458,7 +451,6 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
     )
     template = environment.from_string(_read_payroll_template_file("payroll_document.html.j2"))
     return template.render(
-        logo_uri=logo_uri,
         period=_format_month_label(payload.selected_month),
         created_at=date.today().strftime("%d.%m.%Y"),
         courier_name=str(payload.personnel or "—"),
