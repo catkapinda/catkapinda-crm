@@ -977,8 +977,10 @@ def build_payroll_document_file(
         selected_month=selected_month,
         personnel_id=personnel_id,
     )
-    safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", payload.personnel).strip("_") or f"personel_{payload.personnel_id}"
-    file_name = f"hakedis_{safe_name}_{payload.selected_month}.pdf"
+    person_name = re.sub(r'[\\/:*?"<>|]+', " ", str(payload.personnel or "")).strip()
+    person_name = re.sub(r"\s+", " ", person_name)
+    month_label = _format_month_label(payload.selected_month)
+    file_name = f"{person_name or f'Personel {payload.personnel_id}'} {month_label}.pdf"
     return file_name, _render_payroll_document_pdf(payload)
 
 

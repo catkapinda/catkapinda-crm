@@ -531,7 +531,7 @@ def test_build_payroll_document_file_supports_local_sqlite(monkeypatch):
         personnel_id=1,
     )
 
-    assert file_name == "hakedis_Mert_Kurtulu_2026-04.pdf"
+    assert file_name == "Mert Kurtuluş Nisan 2026.pdf"
     assert file_bytes.startswith(b"%PDF")
 
 

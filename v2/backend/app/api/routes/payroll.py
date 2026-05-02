@@ -1,5 +1,6 @@
 from typing import Annotated
 from io import BytesIO
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 import psycopg
@@ -56,5 +57,8 @@ def download_payroll_document(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     response = StreamingResponse(BytesIO(file_bytes), media_type="application/pdf")
-    response.headers["Content-Disposition"] = f'attachment; filename="{file_name}"'
+    encoded_file_name = quote(file_name)
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=\"payroll.pdf\"; filename*=UTF-8''{encoded_file_name}"
+    )
     return response

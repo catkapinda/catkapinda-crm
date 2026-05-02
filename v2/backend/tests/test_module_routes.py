@@ -208,30 +208,32 @@ def test_payroll_routes_smoke(monkeypatch):
             "restaurant_options": ["Tümü", "Burger@ - Kavacık"],
             "selected_role": "Tümü",
             "selected_restaurant": "Tümü",
-            "summary": {
-                "selected_month": "2026-04",
-                "personnel_count": 1,
-                "total_hours": 9.0,
-                "total_packages": 24.0,
-                "gross_payroll": 32000.0,
-                "total_deductions": 1500.0,
-                "net_payment": 30500.0,
-            },
-            "entries": [
-                {
-                    "personnel_id": 1,
+                "summary": {
+                    "selected_month": "2026-04",
+                    "personnel_count": 1,
+                    "total_hours": 9.0,
+                    "total_packages": 24.0,
+                    "gross_payroll": 32000.0,
+                    "total_deductions": 1500.0,
+                    "total_tevkifat": 500.0,
+                    "net_payment": 30500.0,
+                },
+                "entries": [
+                    {
+                        "personnel_id": 1,
                     "personnel": "Mert Kurtuluş",
                     "role": "Kurye",
                     "status": "Aktif",
                     "total_hours": 9.0,
-                    "total_packages": 24.0,
-                    "gross_pay": 32000.0,
-                    "total_deductions": 1500.0,
-                    "net_payment": 30500.0,
-                    "restaurant_count": 1,
-                    "cost_model": "Sabit Aylık",
-                }
-            ],
+                        "total_packages": 24.0,
+                        "gross_pay": 32000.0,
+                        "total_deductions": 1500.0,
+                        "tevkifat_amount": 500.0,
+                        "net_payment": 30500.0,
+                        "restaurant_count": 1,
+                        "cost_model": "Sabit Aylık",
+                    }
+                ],
             "cost_model_breakdown": [
                 {
                     "cost_model": "Sabit Aylık",
@@ -267,7 +269,7 @@ def test_payroll_routes_smoke(monkeypatch):
     )
     monkeypatch.setattr(
         "app.api.routes.payroll.build_payroll_document_file",
-        lambda conn, selected_month, personnel_id: ("hakedis_Mert_Kurtulus_2026-04.pdf", b"%PDF-1.4 test"),
+        lambda conn, selected_month, personnel_id: ("Mert Kurtuluş Nisan 2026.pdf", b"%PDF-1.4 test"),
     )
 
     client = _build_app()
@@ -283,7 +285,7 @@ def test_payroll_routes_smoke(monkeypatch):
 
     assert document_response.status_code == 200
     assert document_response.headers["content-type"] == "application/pdf"
-    assert "hakedis_Mert_Kurtulus_2026-04.pdf" in document_response.headers["content-disposition"]
+    assert "filename*=UTF-8''Mert%20Kurtulu%C5%9F%20Nisan%202026.pdf" in document_response.headers["content-disposition"]
     assert document_response.content.startswith(b"%PDF")
 
 

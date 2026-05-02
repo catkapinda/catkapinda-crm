@@ -999,8 +999,12 @@ export default function PayrollPage() {
         throw new Error("Hakediş PDF'i indirilemedi.");
       }
       const disposition = response.headers.get("Content-Disposition") || "";
+      const encodedFileNameMatch = disposition.match(/filename\*\=UTF-8''([^;]+)/i);
       const fileNameMatch = disposition.match(/filename=\"?([^"]+)\"?/i);
       const fileName =
+        (encodedFileNameMatch?.[1]
+          ? decodeURIComponent(encodedFileNameMatch[1])
+          : undefined) ||
         fileNameMatch?.[1] ||
         `hakedis_${personnelId}_${month}.pdf`;
       const blob = await response.blob();

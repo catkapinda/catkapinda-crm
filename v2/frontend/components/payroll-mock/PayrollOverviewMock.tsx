@@ -882,8 +882,14 @@ export function PayrollOverviewMock() {
         return;
       }
       const disposition = response.headers.get("Content-Disposition") || "";
+      const encodedFileNameMatch = disposition.match(/filename\*\=UTF-8''([^;]+)/i);
       const fileNameMatch = disposition.match(/filename=\"?([^"]+)\"?/i);
-      const fileName = fileNameMatch?.[1] || `hakedis_${selectedPersonnel.personnel_id}_${month}.pdf`;
+      const fileName =
+        (encodedFileNameMatch?.[1]
+          ? decodeURIComponent(encodedFileNameMatch[1])
+          : undefined) ||
+        fileNameMatch?.[1] ||
+        `hakedis_${selectedPersonnel.personnel_id}_${month}.pdf`;
       const blob = await response.blob();
       triggerBrowserDownload(blob, fileName);
     } finally {
