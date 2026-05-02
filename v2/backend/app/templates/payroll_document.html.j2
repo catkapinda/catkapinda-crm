@@ -99,7 +99,7 @@
                 {% for item in deduction_rows %}
                 <tr>
                   <td>{{ item.label }}</td>
-                  <td class="number negative">{{ item.amount }}</td>
+                  <td class="number {{ item.tone_class }}">{{ item.amount }}</td>
                 </tr>
                 {% endfor %}
                 {% else %}

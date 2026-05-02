@@ -50,6 +50,16 @@ const formatMoney = (value: number | null | undefined | string) => {
   );
 };
 
+const formatSignedDeduction = (value: number | null | undefined) => {
+  if (value === null || value === undefined) return "—";
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "—";
+  const absolute = new Intl.NumberFormat("tr-TR", {
+    maximumFractionDigits: 0,
+  }).format(Math.abs(numeric));
+  return `${numeric < 0 ? "+" : "-"}${absolute} ₺`;
+};
+
 const getInitials = (name = "") =>
   name
     .split(" ")
@@ -294,9 +304,12 @@ export default function PayrollPersonnelWorkbench({
                   <div className={styles["ck-pl-deductions"]}>
                     {(selectedPerson.deductions || []).length ? (
                       selectedPerson.deductions?.map((item, index) => (
-                        <div className={styles["ck-pl-deduction-row"]} key={index}>
+                        <div
+                          className={`${styles["ck-pl-deduction-row"]} ${item.amount !== null && item.amount !== undefined && item.amount < 0 ? styles["is-credit"] : ""}`}
+                          key={index}
+                        >
                           <span title={item.label}>{item.label}</span>
-                          <strong>{formatMoney(item.amount)}</strong>
+                          <strong>{formatSignedDeduction(item.amount)}</strong>
                         </div>
                       ))
                     ) : (
@@ -341,7 +354,13 @@ export default function PayrollPersonnelWorkbench({
 
             {activeTab === "trend" ? (
               <div className={styles["ck-pl-section"]}>
-                <div className={styles["ck-pl-trend-empty"]}>Trend verisi henüz hazırlanmadı.</div>
+                <div className={styles["ck-pl-trend-empty"]}>
+                  <strong>Trend için yeterli veri yok</strong>
+                  <span>
+                    Bu personelin aylık hakediş geçmişi oluştuğunda ödeme trendi burada
+                    gösterilecek.
+                  </span>
+                </div>
               </div>
             ) : null}
 

@@ -612,6 +612,12 @@ def test_build_payroll_document_html_renders_template_sections():
         VALUES (1, '2026-03-15', 'Avans', 1500)
         """
     )
+    raw_conn.execute(
+        """
+        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount)
+        VALUES (1, '2026-03-16', 'Box', -750)
+        """
+    )
     raw_conn.commit()
 
     payload = _build_local_payroll_document_payload(
@@ -630,6 +636,7 @@ def test_build_payroll_document_html_renders_template_sections():
     assert "Neçirvan Bulgan" in html
     assert "Quick China - Ataşehir" in html
     assert "9,0 saat • 24 paket" in html
+    assert "+750,00 ₺" in html
 
 
 def test_payroll_dashboard_uses_courier_monthly_threshold_for_package_bonus():

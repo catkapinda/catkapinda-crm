@@ -418,6 +418,10 @@
   white-space: nowrap;
 }
 
+.ck-pl-deduction-row.is-credit strong {
+  color: #16a34a;
+}
+
 .ck-pl-deduction-total {
   border-bottom: 0;
   background: #f8fafc;

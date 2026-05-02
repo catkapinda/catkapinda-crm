@@ -795,6 +795,10 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
         formatted = format_currency(abs(_safe_float(value)))
         return f"-{formatted}"
 
+    def positive_currency(value: float) -> str:
+        formatted = format_currency(abs(_safe_float(value)))
+        return f"+{formatted}"
+
     def initials(value: str) -> str:
         parts = [part for part in str(value or "").strip().split() if part]
         if not parts:
@@ -825,7 +829,12 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
         deduction_rows.append(
             {
                 "label": label,
-                "amount": negative_currency(normalized_amount),
+                "amount": (
+                    positive_currency(normalized_amount)
+                    if normalized_amount < 0
+                    else negative_currency(normalized_amount)
+                ),
+                "tone_class": "positive" if normalized_amount < 0 else "negative",
             }
         )
     if not deduction_rows:
