@@ -262,6 +262,20 @@ def _calculate_standard_courier_cost(
 
 def _calculate_variable_courier_gross_cost(segments: list[dict[str, object]]) -> float:
     gross_cost = 0.0
+    standard_threshold_packages = _safe_float(
+        sum(
+            _safe_float(segment.get("total_packages"))
+            for segment in segments
+            if not _is_dogu_otomotiv_brand(segment.get("brand"))
+            and not _is_quick_china_brand(segment.get("brand"))
+            and not _is_fixed_monthly_brand(segment.get("brand"))
+        )
+    )
+    standard_package_rate = (
+        _COURIER_PACKAGE_COST_DEFAULT_HIGH
+        if standard_threshold_packages > float(_PACKAGE_THRESHOLD_DEFAULT)
+        else _COURIER_PACKAGE_COST_DEFAULT_LOW
+    )
 
     for segment in segments:
         brand = segment.get("brand")
@@ -283,12 +297,7 @@ def _calculate_variable_courier_gross_cost(segments: list[dict[str, object]]) ->
         if _is_quick_china_brand(brand):
             gross_cost += total_packages * _COURIER_PACKAGE_COST_QC
         else:
-            package_rate = (
-                _COURIER_PACKAGE_COST_DEFAULT_HIGH
-                if restaurant_total_packages > float(_PACKAGE_THRESHOLD_DEFAULT)
-                else _COURIER_PACKAGE_COST_DEFAULT_LOW
-            )
-            gross_cost += total_packages * package_rate
+            gross_cost += total_packages * standard_package_rate
 
     return _safe_float(gross_cost)
 

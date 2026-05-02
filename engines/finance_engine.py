@@ -127,14 +127,26 @@ def calculate_personnel_cost(
 
             if not segment_entries.empty:
                 grouped_segment_entries = (
-                    segment_entries.groupby(["restaurant_id", "brand", "branch", "pricing_model"], dropna=False)
-                    .agg(saat=("worked_hours", "sum"), paket=("package_count", "sum"))
+                    segment_entries.assign(
+                        is_support_assignment=(
+                            (
+                                pd.to_numeric(segment_entries["planned_personnel_id"], errors="coerce")
+                                != pd.to_numeric(segment_entries["actual_personnel_id"], errors="coerce")
+                            )
+                            if {"planned_personnel_id", "actual_personnel_id"}.issubset(segment_entries.columns)
+                            else False
+                        )
+                    )
+                    .groupby(
+                        ["restaurant_id", "brand", "branch", "pricing_model", "is_support_assignment"],
+                        dropna=False,
+                    )
+                    .agg(
+                        saat=("worked_hours", "sum"),
+                        paket=("package_count", "sum"),
+                        support_day_count=("entry_date_value", "nunique"),
+                    )
                     .reset_index()
-                )
-                restaurant_package_totals_by_id = (
-                    segment_entries.groupby("restaurant_id", dropna=False)["package_count"].sum().to_dict()
-                    if "restaurant_id" in segment_entries.columns
-                    else {}
                 )
                 gross_cost += calculate_standard_courier_cost_from_segments(
                     [
@@ -142,13 +154,8 @@ def calculate_personnel_cost(
                             "brand": row.get("brand", ""),
                             "total_hours": float(row.get("saat") or 0.0),
                             "total_packages": float(row.get("paket") or 0.0),
-                            "restaurant_total_packages": float(
-                                restaurant_package_totals_by_id.get(
-                                    row.get("restaurant_id"),
-                                    row.get("paket") or 0.0,
-                                )
-                                or 0.0
-                            ),
+                            "is_support_assignment": bool(row.get("is_support_assignment")),
+                            "support_day_count": int(row.get("support_day_count") or 0),
                         }
                         for _, row in grouped_segment_entries.iterrows()
                     ]

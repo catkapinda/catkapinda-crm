@@ -119,7 +119,7 @@ class FinanceEngineTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 59760.0)
 
-    def test_personnel_cost_uses_per_restaurant_monthly_package_threshold(self):
+    def test_personnel_cost_uses_courier_monthly_package_threshold(self):
         month_df = pd.DataFrame(
             [
                 {
@@ -159,11 +159,10 @@ class FinanceEngineTests(unittest.TestCase):
 
         result = finance_engine.calculate_personnel_cost(month_df, personnel_df, pd.DataFrame())
 
-        # Each standard restaurant keeps its own threshold:
-        # 100 saat * 250 + 385 paket * 20
-        # 10 saat * 250 + 40 paket * 20
+        # Standard restoranlarda eşik artık kurye toplam paketine göre belirlenir:
+        # (385 + 40) paket > 390 olduğu için tüm standart paketler 25 ile çarpılır.
         self.assertEqual(len(result), 1)
-        self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 36000.0)
+        self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 38125.0)
 
     def test_personnel_cost_uses_dogu_otomotiv_hourly_only_exception(self):
         month_df = pd.DataFrame(
@@ -198,10 +197,11 @@ class FinanceEngineTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 64310.0)
 
-    def test_personnel_cost_uses_fixed_pay_for_sushi_inn_and_sc_petshop(self):
+    def test_personnel_cost_uses_prorated_support_bonus_for_fixed_monthly_brands(self):
         month_df = pd.DataFrame(
             [
                 {
+                    "planned_personnel_id": 2,
                     "actual_personnel_id": 1,
                     "restaurant_id": 12,
                     "brand": "Sushi Inn",
@@ -212,6 +212,7 @@ class FinanceEngineTests(unittest.TestCase):
                     "entry_date": "2026-01-21",
                 },
                 {
+                    "planned_personnel_id": 3,
                     "actual_personnel_id": 1,
                     "restaurant_id": 13,
                     "brand": "SC Petshop",
@@ -239,7 +240,7 @@ class FinanceEngineTests(unittest.TestCase):
         result = finance_engine.calculate_personnel_cost(month_df, personnel_df, pd.DataFrame())
 
         self.assertEqual(len(result), 1)
-        self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 73600.0)
+        self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 4906.67, places=2)
 
 
 if __name__ == "__main__":

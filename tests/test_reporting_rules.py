@@ -115,7 +115,7 @@ class ReportingRulesTests(unittest.TestCase):
 
         self.assertAlmostEqual(cost, 64310.0)
 
-    def test_segment_cost_uses_per_restaurant_monthly_threshold_for_standard_package_bonus(self):
+    def test_segment_cost_uses_courier_monthly_threshold_for_standard_package_bonus(self):
         cost = reporting_rules.calculate_standard_courier_cost_from_segments(
             [
                 {
@@ -134,17 +134,29 @@ class ReportingRulesTests(unittest.TestCase):
             ]
         )
 
-        self.assertAlmostEqual(cost, 37350.0)
+        self.assertAlmostEqual(cost, 39475.0)
 
-    def test_fixed_monthly_brand_courier_gets_fixed_pay_without_package_bonus(self):
+    def test_fixed_monthly_brand_support_adds_prorated_daily_bonus(self):
         cost = reporting_rules.calculate_standard_courier_cost_from_segments(
             [
-                {"brand": "Sushi Inn", "total_hours": 210.0, "total_packages": 500.0},
-                {"brand": "SC Petshop", "total_hours": 5.0, "total_packages": 20.0},
+                {
+                    "brand": "Sushi Inn",
+                    "total_hours": 210.0,
+                    "total_packages": 500.0,
+                    "is_support_assignment": True,
+                    "support_day_count": 1,
+                },
+                {
+                    "brand": "SC Petshop",
+                    "total_hours": 5.0,
+                    "total_packages": 20.0,
+                    "is_support_assignment": True,
+                    "support_day_count": 1,
+                },
             ]
         )
 
-        self.assertAlmostEqual(cost, 73600.0)
+        self.assertAlmostEqual(cost, 4906.67, places=2)
 
     def test_threshold_package_uses_per_courier_threshold_in_invoice_summary(self):
         month_df = pd.DataFrame(

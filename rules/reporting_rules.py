@@ -376,39 +376,43 @@ def calculate_standard_courier_cost(
 
 def calculate_standard_courier_cost_from_segments(segments: list[dict[str, Any]]) -> float:
     gross_cost = 0.0
-    has_fixed_monthly_brand_attendance = False
+    standard_threshold_packages = _SAFE_FLOAT(
+        sum(
+            _SAFE_FLOAT(segment.get("total_packages", segment.get("paket", 0.0)), 0.0)
+            for segment in segments
+            if not _is_dogu_otomotiv_brand(segment.get("brand", ""))
+            and not _is_quick_china_brand(segment.get("brand", ""))
+            and not _is_fixed_monthly_brand(segment.get("brand", ""))
+        ),
+        0.0,
+    )
+    standard_package_rate = (
+        _COURIER_PACKAGE_COST_DEFAULT_HIGH
+        if standard_threshold_packages > float(_PACKAGE_THRESHOLD_DEFAULT)
+        else _COURIER_PACKAGE_COST_DEFAULT_LOW
+    )
 
     for segment in segments:
         brand = segment.get("brand", "")
         total_hours = _SAFE_FLOAT(segment.get("total_hours", segment.get("saat", 0.0)), 0.0)
         total_packages = _SAFE_FLOAT(segment.get("total_packages", segment.get("paket", 0.0)), 0.0)
-        restaurant_total_packages = _SAFE_FLOAT(
-            segment.get("restaurant_total_packages", total_packages),
-            total_packages,
-        )
+        support_day_count = max(int(segment.get("support_day_count") or 0), 0)
+        is_support_assignment = bool(segment.get("is_support_assignment"))
 
         if _is_dogu_otomotiv_brand(brand):
             gross_cost += total_hours * _COURIER_HOURLY_COST_DOGU_OTOMOTIV
             continue
 
         if _is_fixed_monthly_brand(brand):
-            if total_hours > 0 or total_packages > 0:
-                has_fixed_monthly_brand_attendance = True
+            if is_support_assignment and support_day_count > 0:
+                gross_cost += (_FIXED_MONTHLY_BRAND_COURIER_PAY / 30.0) * support_day_count
             continue
 
         gross_cost += total_hours * _COURIER_HOURLY_COST
         if _is_quick_china_brand(brand):
             gross_cost += total_packages * _COURIER_PACKAGE_COST_QC
         else:
-            package_rate = (
-                _COURIER_PACKAGE_COST_DEFAULT_HIGH
-                if restaurant_total_packages > float(_PACKAGE_THRESHOLD_DEFAULT)
-                else _COURIER_PACKAGE_COST_DEFAULT_LOW
-            )
-            gross_cost += total_packages * package_rate
-
-    if has_fixed_monthly_brand_attendance:
-        gross_cost += _FIXED_MONTHLY_BRAND_COURIER_PAY
+            gross_cost += total_packages * standard_package_rate
 
     return _SAFE_FLOAT(gross_cost, 0.0)
 
