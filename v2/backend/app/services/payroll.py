@@ -388,6 +388,10 @@ def _is_fixed_monthly_brand(brand: object) -> bool:
     return _normalized_brand_key(brand) in _FIXED_MONTHLY_BRAND_KEYS
 
 
+def _is_fixed_monthly_courier_cost_model(cost_model: object) -> bool:
+    return str(cost_model or "").strip() in {"fixed_monthly", "fixed_kurye"}
+
+
 def _calculate_standard_package_cost(total_packages: float, *, brand: object = "") -> float:
     package_total = _safe_float(total_packages)
     if _is_dogu_otomotiv_brand(brand):
@@ -489,7 +493,7 @@ def _build_personnel_earning_items(
     if normalized_role == "Kaptan":
         items.append((_CAPTAIN_BONUS_LABEL, _CAPTAIN_BONUS_AMOUNT))
 
-    if str(cost_model or "").strip() == "fixed_monthly" and _safe_float(fixed_cost) > 0:
+    if normalized_role == "Kurye" and _is_fixed_monthly_courier_cost_model(cost_model) and _safe_float(fixed_cost) > 0:
         overtime_hours = max(_safe_float(total_hours) - _FIXED_MONTHLY_BASE_HOURS, 0.0)
         extra_days = int(overtime_hours // _FIXED_MONTHLY_EXTRA_DAY_HOURS)
         if extra_days > 0:
@@ -557,7 +561,7 @@ def _resolve_fixed_monthly_courier_pay(
     fixed_cost = _safe_float(monthly_fixed_cost)
     if fixed_cost > 0:
         return fixed_cost
-    if str(cost_model or "").strip() != "fixed_monthly":
+    if not _is_fixed_monthly_courier_cost_model(cost_model):
         return fixed_cost
 
     for segment in segments:
@@ -973,6 +977,7 @@ def _build_remote_payroll_document_payload(
     deduction_items.extend(_build_personnel_profile_deduction_items(person_match.iloc[0] if not person_match.empty else None))
 
     restaurant_names: list[str] = []
+    attendance_segments: list[dict[str, object]] = []
     if not month_entries.empty:
         personnel_match_mask = (
             month_entries["actual_personnel_id"].fillna(month_entries["planned_personnel_id"]) == personnel_id
@@ -983,6 +988,36 @@ def _build_remote_payroll_document_payload(
             + month_entries.loc[personnel_match_mask, "branch"].fillna("").astype(str)
         )
         restaurant_names = [value.strip(" -") for value in sorted(rest_series.unique().tolist()) if value.strip(" -")]
+        person_entries = month_entries.loc[personnel_match_mask].copy()
+        if not person_entries.empty:
+            if "is_support_assignment" not in person_entries.columns:
+                person_entries["is_support_assignment"] = (
+                    person_entries["planned_personnel_id"].notna()
+                    & person_entries["actual_personnel_id"].notna()
+                    & (person_entries["planned_personnel_id"] != person_entries["actual_personnel_id"])
+                )
+            grouped_segments = (
+                person_entries.groupby(
+                    ["brand", "restaurant_id", "is_support_assignment"],
+                    dropna=False,
+                )
+                .agg(
+                    total_hours=("worked_hours", "sum"),
+                    total_packages=("package_count", "sum"),
+                    support_day_count=("entry_date", lambda values: len({str(value)[:10] for value in values if str(value or '').strip()})),
+                )
+                .reset_index()
+            )
+            attendance_segments = [
+                {
+                    "brand": str(row["brand"] or ""),
+                    "total_hours": _safe_float(row["total_hours"]),
+                    "total_packages": _safe_float(row["total_packages"]),
+                    "is_support_assignment": bool(row["is_support_assignment"]),
+                    "support_day_count": int(row["support_day_count"] or 0),
+                }
+                for _, row in grouped_segments.iterrows()
+            ]
 
     attendance_dates = {
         parsed_date
@@ -1012,7 +1047,7 @@ def _build_remote_payroll_document_payload(
     resolved_person_fixed_cost = _resolve_fixed_monthly_courier_pay(
         cost_model=person_cost_model,
         monthly_fixed_cost=person_fixed_cost,
-        segments=[],
+        segments=attendance_segments,
     )
     profile_deduction_total = _safe_float(sum(amount for _, amount in _build_personnel_profile_deduction_items(
         person_match.iloc[0] if not person_match.empty else None
