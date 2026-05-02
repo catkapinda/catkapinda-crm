@@ -18,6 +18,11 @@ class PayrollSummary(BaseModel):
     net_payment: float
 
 
+class PayrollDeductionItem(BaseModel):
+    label: str
+    amount: float
+
+
 class PayrollEntry(BaseModel):
     personnel_id: int
     personnel: str
@@ -31,6 +36,7 @@ class PayrollEntry(BaseModel):
     net_payment: float
     restaurant_count: int
     cost_model: str
+    deduction_items: list[PayrollDeductionItem] = []
 
 
 class PayrollCostModelBreakdownEntry(BaseModel):

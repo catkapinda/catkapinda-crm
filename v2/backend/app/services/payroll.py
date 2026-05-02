@@ -21,6 +21,7 @@ from app.services.motor_rental import (
 from app.schemas.payroll import (
     PayrollCostModelBreakdownEntry,
     PayrollDashboardResponse,
+    PayrollDeductionItem,
     PayrollEntry,
     PayrollModuleStatus,
     PayrollRoleBreakdownEntry,
@@ -66,6 +67,59 @@ def _safe_float(value: object) -> float:
         return 0.0
 
 
+def _table_columns(conn: psycopg.Connection, table_name: str) -> set[str]:
+    if is_sqlite_backend(conn):
+        rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        return {str(row["name"]) for row in rows}
+    rows = conn.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = %s
+        """,
+        (table_name,),
+    ).fetchall()
+    return {str(row["column_name"]) for row in rows}
+
+
+def _payroll_optional_personnel_select(conn: psycopg.Connection) -> str:
+    columns = _table_columns(conn, "personnel")
+    optional_fields = []
+    for column_name in ("accountant_cost", "company_setup_cost"):
+        if column_name in columns:
+            optional_fields.append(f"COALESCE({column_name}, 0) AS {column_name}")
+        else:
+            optional_fields.append(f"0 AS {column_name}")
+    return ",\n            ".join(optional_fields)
+
+
+def _row_value(source: object, key: str) -> object:
+    if source is None:
+        return None
+    getter = getattr(source, "get", None)
+    if callable(getter):
+        try:
+            return getter(key)
+        except Exception:
+            pass
+    try:
+        return source[key]  # type: ignore[index]
+    except Exception:
+        return None
+
+
+def _build_personnel_profile_deduction_items(source: object) -> list[tuple[str, float]]:
+    items: list[tuple[str, float]] = []
+    accountant_cost = _safe_float(_row_value(source, "accountant_cost"))
+    company_setup_cost = _safe_float(_row_value(source, "company_setup_cost"))
+    if accountant_cost > 0:
+        items.append((_ACCOUNTANT_COST_DEDUCTION_TYPE, accountant_cost))
+    if company_setup_cost > 0:
+        items.append((_COMPANY_SETUP_COST_DEDUCTION_TYPE, company_setup_cost))
+    return items
+
+
 def _month_key_sql(column: str) -> str:
     return f"substr(COALESCE(CAST({column} AS TEXT), ''), 1, 7)"
 
@@ -94,6 +148,8 @@ _PAYROLL_TEVKIFAT_RATE = 0.20
 _PAYROLL_TEVKIFAT_THRESHOLD = 12000.0
 _SUPPORT_HOLIDAY_DAY_DIVISOR = 30.0
 _PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
+_ACCOUNTANT_COST_DEDUCTION_TYPE = "Muhasebe Kesintisi"
+_COMPANY_SETUP_COST_DEDUCTION_TYPE = "Şirket Açılışı Kesintisi"
 _MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
 _MOTOR_PURCHASE_DEDUCTION_SQL = "('Motor Satış Taksiti', 'Motor Satis Taksiti', 'Motor Satın Alım', 'Motor Satin Alim')"
 _INVOICE_BASE_REDUCING_DEDUCTION_TYPES = {"Fatura Edilmeyen Tutar"}
@@ -661,6 +717,7 @@ def _build_remote_payroll_document_payload(
                 (str(row["deduction_type"] or "Kesinti"), _safe_float(row["amount"]))
                 for _, row in grouped.iterrows()
             ]
+    deduction_items.extend(_build_personnel_profile_deduction_items(person_match.iloc[0] if not person_match.empty else None))
 
     restaurant_names: list[str] = []
     if not month_entries.empty:
@@ -699,7 +756,10 @@ def _build_remote_payroll_document_payload(
         start_date=person_match.iloc[0]["start_date"] if not person_match.empty and "start_date" in person_match.columns else None,
         attendance_dates=attendance_dates,
     )
-    base_deductions = _safe_float(payroll_row.get("kesinti"))
+    profile_deduction_total = _safe_float(sum(amount for _, amount in _build_personnel_profile_deduction_items(
+        person_match.iloc[0] if not person_match.empty else None
+    )))
+    base_deductions = _safe_float(payroll_row.get("kesinti")) + profile_deduction_total
     invoice_base_reducing_deductions = _safe_float(
         sum(
             amount
@@ -743,9 +803,10 @@ def _build_local_payroll_document_payload(
 ) -> PayrollDocumentPayload:
     month_options, attendance_month_options = _fetch_payroll_month_options(conn)
     resolved_month = _resolve_payroll_dashboard_month(month_options, attendance_month_options, selected_month)
+    optional_personnel_select = _payroll_optional_personnel_select(conn)
 
     person_row = conn.execute(
-        """
+        f"""
         SELECT
             id,
             COALESCE(full_name, '-') AS full_name,
@@ -762,7 +823,8 @@ def _build_local_payroll_document_payload(
             motor_purchase_start_date,
             COALESCE(motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
             COALESCE(motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
-            COALESCE(motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction
+            COALESCE(motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
+            {optional_personnel_select}
         FROM personnel
         WHERE id = %s
         """,
@@ -883,6 +945,9 @@ def _build_local_payroll_document_payload(
     base_deductions += auto_motor_purchase
     invoice_base_reducing_deductions += auto_motor_rental
     invoice_base_reducing_deductions += auto_motor_purchase
+    profile_deduction_items = _build_personnel_profile_deduction_items(person_row)
+    profile_deduction_total = _safe_float(sum(amount for _, amount in profile_deduction_items))
+    base_deductions += profile_deduction_total
     total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
         gross_pay=gross_pay,
         base_deductions=base_deductions,
@@ -894,6 +959,7 @@ def _build_local_payroll_document_payload(
         deduction_items.append((MOTOR_RENTAL_DEDUCTION_TYPE, auto_motor_rental))
     if auto_motor_purchase > 0:
         deduction_items.append((MOTOR_PURCHASE_DEDUCTION_TYPE, auto_motor_purchase))
+    deduction_items.extend(profile_deduction_items)
     if tevkifat.tevkifat_amount > 0:
         deduction_items.append(("Tevkifat", tevkifat.tevkifat_amount))
 
@@ -926,6 +992,7 @@ def _build_local_payroll_dashboard(
     limit: int,
 ) -> PayrollDashboardResponse:
     month_options, attendance_month_options = _fetch_payroll_month_options(conn)
+    optional_personnel_select = _payroll_optional_personnel_select(conn)
     if not month_options:
         return PayrollDashboardResponse(
             module="payroll",
@@ -1049,7 +1116,7 @@ def _build_local_payroll_dashboard(
     ).fetchall()
 
     personnel_rows = conn.execute(
-        """
+        f"""
         SELECT
             id,
             COALESCE(full_name, '-') AS full_name,
@@ -1065,7 +1132,8 @@ def _build_local_payroll_dashboard(
             motor_purchase_start_date,
             COALESCE(motor_purchase_commitment_months, 0) AS motor_purchase_commitment_months,
             COALESCE(motor_purchase_sale_price, 0) AS motor_purchase_sale_price,
-            COALESCE(motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction
+            COALESCE(motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
+            {optional_personnel_select}
         FROM personnel
         """
     ).fetchall()
@@ -1113,6 +1181,7 @@ def _build_local_payroll_dashboard(
             continue
         attendance_dates_by_person.setdefault(int(row["personnel_id"]), set()).add(parsed_date)
     deductions_by_person: dict[int, float] = {}
+    deduction_items_by_person: dict[int, list[tuple[str, float]]] = {}
     invoice_base_reducing_deductions_by_person: dict[int, float] = {}
     for row in deduction_rows:
         if row["personnel_id"] is None:
@@ -1120,6 +1189,7 @@ def _build_local_payroll_dashboard(
         person_id = int(row["personnel_id"])
         amount = _safe_float(row["total_amount"])
         deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + amount
+        deduction_items_by_person.setdefault(person_id, []).append((str(row["deduction_type"] or "Kesinti"), amount))
         if _deduction_reduces_invoice_base(row["deduction_type"]):
             invoice_base_reducing_deductions_by_person[person_id] = (
                 _safe_float(invoice_base_reducing_deductions_by_person.get(person_id)) + amount
@@ -1160,6 +1230,7 @@ def _build_local_payroll_dashboard(
         if auto_motor_rental > 0:
             auto_motor_rental_by_person[person_id] = auto_motor_rental
             deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_rental
+            deduction_items_by_person.setdefault(person_id, []).append((MOTOR_RENTAL_DEDUCTION_TYPE, auto_motor_rental))
             invoice_base_reducing_deductions_by_person[person_id] = (
                 _safe_float(invoice_base_reducing_deductions_by_person.get(person_id)) + auto_motor_rental
             )
@@ -1171,9 +1242,15 @@ def _build_local_payroll_dashboard(
         if auto_motor_purchase > 0:
             auto_motor_purchase_by_person[person_id] = auto_motor_purchase
             deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_purchase
+            deduction_items_by_person.setdefault(person_id, []).append((MOTOR_PURCHASE_DEDUCTION_TYPE, auto_motor_purchase))
             invoice_base_reducing_deductions_by_person[person_id] = (
                 _safe_float(invoice_base_reducing_deductions_by_person.get(person_id)) + auto_motor_purchase
             )
+        profile_deduction_items = _build_personnel_profile_deduction_items(person)
+        if profile_deduction_items:
+            profile_deduction_total = _safe_float(sum(amount for _, amount in profile_deduction_items))
+            deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + profile_deduction_total
+            deduction_items_by_person.setdefault(person_id, []).extend(profile_deduction_items)
 
     relevant_personnel_ids = sorted(
         set(attendance_by_person)
@@ -1214,6 +1291,9 @@ def _build_local_payroll_dashboard(
             base_deductions=base_deductions,
             invoice_base_reducing_deductions=invoice_base_reducing_deductions,
         )
+        entry_deduction_items = list(deduction_items_by_person.get(person_id, []))
+        if tevkifat.tevkifat_amount > 0:
+            entry_deduction_items.append(("Tevkifat", tevkifat.tevkifat_amount))
         cost_model_key = str(person["cost_model"] or "-")
 
         entries_payload.append(
@@ -1230,6 +1310,10 @@ def _build_local_payroll_dashboard(
                 net_payment=net_payment,
                 restaurant_count=restaurant_count,
                 cost_model=_COST_MODEL_LABELS.get(cost_model_key, cost_model_key),
+                deduction_items=[
+                    PayrollDeductionItem(label=label, amount=_safe_float(amount))
+                    for label, amount in entry_deduction_items
+                ],
             )
         )
 

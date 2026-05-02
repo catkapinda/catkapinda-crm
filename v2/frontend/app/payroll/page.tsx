@@ -40,6 +40,10 @@ type PayrollDashboard = {
     net_payment: number;
     restaurant_count: number;
     cost_model: string;
+    deduction_items?: Array<{
+      label: string;
+      amount: number;
+    }>;
   }>;
   cost_model_breakdown: Array<{
     cost_model: string;
@@ -1088,14 +1092,25 @@ export default function PayrollPage() {
   const mappedPayrollPeople = useMemo(
     () =>
       filteredEntries.map((entry) => {
-        const residualDeduction = Math.max(entry.total_deductions - entry.tevkifat_amount, 0);
-        const deductions = [] as Array<{ label: string; amount: number }>;
-        if (residualDeduction > 0.01) {
-          deductions.push({ label: "Diğer Kesintiler", amount: residualDeduction });
-        }
-        if (entry.tevkifat_amount > 0.01) {
-          deductions.push({ label: "Tevkifat", amount: entry.tevkifat_amount });
-        }
+        const deductions =
+          entry.deduction_items && entry.deduction_items.length
+            ? entry.deduction_items
+                .filter((item) => Number.isFinite(item.amount) && Math.abs(item.amount) > 0.01)
+                .map((item) => ({
+                  label: item.label || "Kesinti",
+                  amount: Number(item.amount),
+                }))
+            : (() => {
+                const residualDeduction = Math.max(entry.total_deductions - entry.tevkifat_amount, 0);
+                const fallbackItems = [] as Array<{ label: string; amount: number }>;
+                if (residualDeduction > 0.01) {
+                  fallbackItems.push({ label: "Diğer Kesintiler", amount: residualDeduction });
+                }
+                if (entry.tevkifat_amount > 0.01) {
+                  fallbackItems.push({ label: "Tevkifat", amount: entry.tevkifat_amount });
+                }
+                return fallbackItems;
+              })();
 
         return {
           id: entry.personnel_id,
