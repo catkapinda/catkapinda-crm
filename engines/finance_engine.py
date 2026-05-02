@@ -131,12 +131,24 @@ def calculate_personnel_cost(
                     .agg(saat=("worked_hours", "sum"), paket=("package_count", "sum"))
                     .reset_index()
                 )
+                restaurant_package_totals_by_id = (
+                    segment_entries.groupby("restaurant_id", dropna=False)["package_count"].sum().to_dict()
+                    if "restaurant_id" in segment_entries.columns
+                    else {}
+                )
                 gross_cost += calculate_standard_courier_cost_from_segments(
                     [
                         {
                             "brand": row.get("brand", ""),
                             "total_hours": float(row.get("saat") or 0.0),
                             "total_packages": float(row.get("paket") or 0.0),
+                            "restaurant_total_packages": float(
+                                restaurant_package_totals_by_id.get(
+                                    row.get("restaurant_id"),
+                                    row.get("paket") or 0.0,
+                                )
+                                or 0.0
+                            ),
                         }
                         for _, row in grouped_segment_entries.iterrows()
                     ]
@@ -227,18 +239,15 @@ def build_branch_profitability(
                 if segment_entries.empty:
                     continue
                 grouped_segment_entries = (
-                    segment_entries.groupby(["brand", "branch", "pricing_model"], dropna=False)
+                    segment_entries.groupby(["restaurant_id", "brand", "branch", "pricing_model"], dropna=False)
                     .agg(saat=("worked_hours", "sum"), paket=("package_count", "sum"))
                     .reset_index()
                 )
-                segment_total_standard_packages = float(
-                    grouped_segment_entries[
-                        ~grouped_segment_entries["brand"].fillna("").astype(str).str.strip().str.lower().isin(
-                            {"quick china", "doğu otomotiv", "dogu otomotiv", *_FIXED_MONTHLY_BRAND_KEYS}
-                        )
-                    ]["paket"].fillna(0).sum()
+                restaurant_package_totals_by_id = (
+                    segment_entries.groupby("restaurant_id", dropna=False)["package_count"].sum().to_dict()
+                    if "restaurant_id" in segment_entries.columns
+                    else {}
                 )
-                segment_standard_rate = 25.0 if segment_total_standard_packages > 390 else 20.0
                 fixed_brand_mask = grouped_segment_entries["brand"].fillna("").astype(str).str.strip().str.lower().isin(_FIXED_MONTHLY_BRAND_KEYS)
                 fixed_brand_measure_total = float(
                     (
@@ -255,7 +264,18 @@ def build_branch_profitability(
                         fixed_share = fixed_measure / fixed_brand_measure_total if fixed_brand_measure_total > 0 else 1.0
                         allocation_cost = _FIXED_MONTHLY_BRAND_COURIER_PAY * fixed_share
                     else:
-                        package_rate = 25.0 if brand_key == "quick china" else segment_standard_rate
+                        restaurant_total_packages = float(
+                            restaurant_package_totals_by_id.get(
+                                row.get("restaurant_id"),
+                                row.get("paket") or 0.0,
+                            )
+                            or 0.0
+                        )
+                        package_rate = (
+                            25.0
+                            if brand_key == "quick china"
+                            else (25.0 if restaurant_total_packages > 390 else 20.0)
+                        )
                         allocation_cost = float(row["saat"] or 0) * _COURIER_HOURLY_COST + float(row["paket"] or 0) * package_rate
                     allocation_rows.append(
                         {

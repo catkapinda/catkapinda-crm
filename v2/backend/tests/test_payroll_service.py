@@ -508,8 +508,8 @@ def test_payroll_dashboard_uses_monthly_threshold_for_courier_package_bonus():
     payload = build_payroll_dashboard(CompatConnection(raw_conn, "sqlite"), selected_month="2026-04")
 
     assert payload.summary is not None
-    assert payload.summary.gross_payroll == 39475.0
-    assert payload.entries[0].gross_pay == 39475.0
+    assert payload.summary.gross_payroll == 37350.0
+    assert payload.entries[0].gross_pay == 37350.0
 
 
 def test_payroll_dashboard_uses_fixed_pay_for_fixed_monthly_courier():

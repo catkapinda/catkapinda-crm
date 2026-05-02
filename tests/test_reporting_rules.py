@@ -115,16 +115,26 @@ class ReportingRulesTests(unittest.TestCase):
 
         self.assertAlmostEqual(cost, 64310.0)
 
-    def test_segment_cost_uses_monthly_threshold_for_standard_package_bonus(self):
+    def test_segment_cost_uses_per_restaurant_monthly_threshold_for_standard_package_bonus(self):
         cost = reporting_rules.calculate_standard_courier_cost_from_segments(
             [
-                {"brand": "Burger@", "total_hours": 100.0, "total_packages": 385.0},
-                {"brand": "SushiCo", "total_hours": 10.0, "total_packages": 40.0},
+                {
+                    "brand": "Burger@",
+                    "total_hours": 100.0,
+                    "total_packages": 385.0,
+                    "restaurant_total_packages": 385.0,
+                },
+                {
+                    "brand": "SushiCo",
+                    "total_hours": 10.0,
+                    "total_packages": 40.0,
+                    "restaurant_total_packages": 40.0,
+                },
                 {"brand": "Quick China", "total_hours": 5.0, "total_packages": 4.0},
             ]
         )
 
-        self.assertAlmostEqual(cost, 39475.0)
+        self.assertAlmostEqual(cost, 37350.0)
 
     def test_fixed_monthly_brand_courier_gets_fixed_pay_without_package_bonus(self):
         cost = reporting_rules.calculate_standard_courier_cost_from_segments(

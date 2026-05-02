@@ -246,13 +246,13 @@ def _calculate_standard_courier_cost(
 
 
 def _calculate_variable_courier_gross_cost(segments: list[dict[str, object]]) -> float:
-    standard_threshold_packages = 0.0
     gross_cost = 0.0
 
     for segment in segments:
         brand = segment.get("brand")
         total_hours = _safe_float(segment.get("total_hours"))
         total_packages = _safe_float(segment.get("total_packages"))
+        restaurant_total_packages = _safe_float(segment.get("restaurant_total_packages", total_packages))
 
         if _is_dogu_otomotiv_brand(brand):
             gross_cost += total_hours * _COURIER_HOURLY_COST_DOGU_OTOMOTIV
@@ -262,15 +262,12 @@ def _calculate_variable_courier_gross_cost(segments: list[dict[str, object]]) ->
         if _is_quick_china_brand(brand):
             gross_cost += total_packages * _COURIER_PACKAGE_COST_QC
         else:
-            standard_threshold_packages += total_packages
-
-    if standard_threshold_packages > 0:
-        package_rate = (
-            _COURIER_PACKAGE_COST_DEFAULT_HIGH
-            if standard_threshold_packages > float(_PACKAGE_THRESHOLD_DEFAULT)
-            else _COURIER_PACKAGE_COST_DEFAULT_LOW
-        )
-        gross_cost += standard_threshold_packages * package_rate
+            package_rate = (
+                _COURIER_PACKAGE_COST_DEFAULT_HIGH
+                if restaurant_total_packages > float(_PACKAGE_THRESHOLD_DEFAULT)
+                else _COURIER_PACKAGE_COST_DEFAULT_LOW
+            )
+            gross_cost += total_packages * package_rate
 
     return _safe_float(gross_cost)
 
@@ -851,6 +848,23 @@ def _build_local_payroll_document_payload(
         """,
         (resolved_month, personnel_id),
     ).fetchall()
+    restaurant_package_total_rows = conn.execute(
+        f"""
+        SELECT
+            d.restaurant_id,
+            COALESCE(SUM(d.package_count), 0) AS restaurant_total_packages
+        FROM daily_entries d
+        WHERE {_month_key_sql('d.entry_date')} = %s
+          AND d.restaurant_id IS NOT NULL
+        GROUP BY d.restaurant_id
+        """,
+        (resolved_month,),
+    ).fetchall()
+    restaurant_package_totals = {
+        int(row["restaurant_id"]): _safe_float(row["restaurant_total_packages"])
+        for row in restaurant_package_total_rows
+        if row["restaurant_id"] is not None
+    }
 
     deduction_rows = conn.execute(
         f"""
@@ -893,6 +907,12 @@ def _build_local_payroll_document_payload(
             "brand": str(row["brand"] or ""),
             "total_hours": _safe_float(row["total_hours"]),
             "total_packages": _safe_float(row["total_packages"]),
+            "restaurant_total_packages": (
+                _safe_float(restaurant_package_totals.get(int(row["restaurant_id"])))
+                if row["restaurant_id"] is not None
+                else _safe_float(row["total_packages"])
+            )
+            or _safe_float(row["total_packages"]),
         }
         for row in attendance_rows
     ]
@@ -1067,6 +1087,33 @@ def _build_local_payroll_dashboard(
             COALESCE(r.brand, '')
     """
     attendance_rows = conn.execute(attendance_query, tuple(attendance_params)).fetchall()
+    restaurant_package_totals_query = """
+        SELECT
+            d.restaurant_id,
+            COALESCE(SUM(d.package_count), 0) AS restaurant_total_packages
+        FROM daily_entries d
+        LEFT JOIN restaurants r ON r.id = d.restaurant_id
+        WHERE {month_key_sql} = %s
+          AND d.restaurant_id IS NOT NULL
+    """.format(month_key_sql=_month_key_sql("d.entry_date"))
+    restaurant_package_totals_params: list[object] = [resolved_month]
+    if selected_restaurant != "Tümü":
+        restaurant_package_totals_query += """
+          AND COALESCE(r.brand || ' - ' || r.branch, '-') = %s
+        """
+        restaurant_package_totals_params.append(selected_restaurant)
+    restaurant_package_totals_query += """
+        GROUP BY d.restaurant_id
+    """
+    restaurant_package_total_rows = conn.execute(
+        restaurant_package_totals_query,
+        tuple(restaurant_package_totals_params),
+    ).fetchall()
+    restaurant_package_totals = {
+        int(row["restaurant_id"]): _safe_float(row["restaurant_total_packages"])
+        for row in restaurant_package_total_rows
+        if row["restaurant_id"] is not None
+    }
     attendance_date_rows = conn.execute(
         """
         SELECT
@@ -1166,6 +1213,12 @@ def _build_local_payroll_dashboard(
                     "brand": str(row["brand"] or ""),
                     "total_hours": total_hours,
                     "total_packages": total_packages,
+                    "restaurant_total_packages": (
+                        _safe_float(restaurant_package_totals.get(int(row["restaurant_id"])))
+                        if row["restaurant_id"] is not None
+                        else total_packages
+                    )
+                    or total_packages,
                 }
             )
     for bucket in attendance_by_person.values():

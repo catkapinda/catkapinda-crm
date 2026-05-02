@@ -119,7 +119,7 @@ class FinanceEngineTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 59760.0)
 
-    def test_personnel_cost_uses_monthly_package_threshold_across_standard_restaurants(self):
+    def test_personnel_cost_uses_per_restaurant_monthly_package_threshold(self):
         month_df = pd.DataFrame(
             [
                 {
@@ -159,9 +159,11 @@ class FinanceEngineTests(unittest.TestCase):
 
         result = finance_engine.calculate_personnel_cost(month_df, personnel_df, pd.DataFrame())
 
-        # 110 saat * 250 + (385 + 40) paket * 25 because the courier passes 390 monthly packages.
+        # Each standard restaurant keeps its own threshold:
+        # 100 saat * 250 + 385 paket * 20
+        # 10 saat * 250 + 40 paket * 20
         self.assertEqual(len(result), 1)
-        self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 38125.0)
+        self.assertAlmostEqual(float(result.iloc[0]["brut_maliyet"]), 36000.0)
 
     def test_personnel_cost_uses_dogu_otomotiv_hourly_only_exception(self):
         month_df = pd.DataFrame(

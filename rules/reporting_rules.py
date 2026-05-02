@@ -375,7 +375,6 @@ def calculate_standard_courier_cost(
 
 
 def calculate_standard_courier_cost_from_segments(segments: list[dict[str, Any]]) -> float:
-    standard_threshold_packages = 0.0
     gross_cost = 0.0
     has_fixed_monthly_brand_attendance = False
 
@@ -383,6 +382,10 @@ def calculate_standard_courier_cost_from_segments(segments: list[dict[str, Any]]
         brand = segment.get("brand", "")
         total_hours = _SAFE_FLOAT(segment.get("total_hours", segment.get("saat", 0.0)), 0.0)
         total_packages = _SAFE_FLOAT(segment.get("total_packages", segment.get("paket", 0.0)), 0.0)
+        restaurant_total_packages = _SAFE_FLOAT(
+            segment.get("restaurant_total_packages", total_packages),
+            total_packages,
+        )
 
         if _is_dogu_otomotiv_brand(brand):
             gross_cost += total_hours * _COURIER_HOURLY_COST_DOGU_OTOMOTIV
@@ -397,18 +400,15 @@ def calculate_standard_courier_cost_from_segments(segments: list[dict[str, Any]]
         if _is_quick_china_brand(brand):
             gross_cost += total_packages * _COURIER_PACKAGE_COST_QC
         else:
-            standard_threshold_packages += total_packages
+            package_rate = (
+                _COURIER_PACKAGE_COST_DEFAULT_HIGH
+                if restaurant_total_packages > float(_PACKAGE_THRESHOLD_DEFAULT)
+                else _COURIER_PACKAGE_COST_DEFAULT_LOW
+            )
+            gross_cost += total_packages * package_rate
 
     if has_fixed_monthly_brand_attendance:
         gross_cost += _FIXED_MONTHLY_BRAND_COURIER_PAY
-
-    if standard_threshold_packages > 0:
-        package_rate = (
-            _COURIER_PACKAGE_COST_DEFAULT_HIGH
-            if standard_threshold_packages > float(_PACKAGE_THRESHOLD_DEFAULT)
-            else _COURIER_PACKAGE_COST_DEFAULT_LOW
-        )
-        gross_cost += standard_threshold_packages * package_rate
 
     return _SAFE_FLOAT(gross_cost, 0.0)
 
