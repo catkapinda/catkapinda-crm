@@ -197,6 +197,7 @@ export function PersonnelVehicleWorkspace() {
   const [purchaseMonthlyDeduction, setPurchaseMonthlyDeduction] = useState("0");
   const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
+  const [editingHistoryId, setEditingHistoryId] = useState<number | null>(null);
 
   async function loadWorkspace() {
     setLoading(true);
@@ -240,17 +241,49 @@ export function PersonnelVehicleWorkspace() {
     [selectedPersonId, workspace],
   );
 
-  useEffect(() => {
-    if (!selectedPerson) {
+  function resetFormFromPerson(person: PersonnelVehiclePerson | null) {
+    if (!person) {
+      setVehicleMode("Kendi Motoru");
+      setRentalAmount("13000");
+      setPurchaseStartDate("");
+      setPurchaseCommitmentMonths("0");
+      setPurchaseSalePrice("0");
+      setPurchaseMonthlyDeduction("0");
+      setEffectiveDate(new Date().toISOString().slice(0, 10));
+      setNotes("");
       return;
     }
-    setVehicleMode(selectedPerson.vehicle_mode || "Kendi Motoru");
-    setRentalAmount(String(selectedPerson.motor_rental_monthly_amount ?? 0));
-    setPurchaseStartDate(selectedPerson.motor_purchase_start_date ?? "");
-    setPurchaseCommitmentMonths(String(selectedPerson.motor_purchase_commitment_months ?? 0));
-    setPurchaseSalePrice(String(selectedPerson.motor_purchase_sale_price ?? 0));
-    setPurchaseMonthlyDeduction(String(selectedPerson.motor_purchase_monthly_deduction ?? 0));
+    setVehicleMode(person.vehicle_mode || "Kendi Motoru");
+    setRentalAmount(String(person.motor_rental_monthly_amount ?? 0));
+    setPurchaseStartDate(person.motor_purchase_start_date ?? "");
+    setPurchaseCommitmentMonths(String(person.motor_purchase_commitment_months ?? 0));
+    setPurchaseSalePrice(String(person.motor_purchase_sale_price ?? 0));
+    setPurchaseMonthlyDeduction(String(person.motor_purchase_monthly_deduction ?? 0));
+    setEffectiveDate(new Date().toISOString().slice(0, 10));
+    setNotes("");
+  }
+
+  useEffect(() => {
+    setEditingHistoryId(null);
+    resetFormFromPerson(selectedPerson);
   }, [selectedPerson]);
+
+  function beginHistoryEdit(entry: PersonnelVehicleHistory) {
+    setEditingHistoryId(entry.id);
+    setVehicleMode(entry.vehicle_mode || "Kendi Motoru");
+    setRentalAmount(String(entry.motor_rental_monthly_amount ?? 0));
+    setPurchaseStartDate(entry.motor_purchase_start_date ?? "");
+    setPurchaseCommitmentMonths(String(entry.motor_purchase_commitment_months ?? 0));
+    setPurchaseSalePrice(String(entry.motor_purchase_sale_price ?? 0));
+    setPurchaseMonthlyDeduction(String(entry.motor_purchase_monthly_deduction ?? 0));
+    setEffectiveDate(entry.effective_date ?? new Date().toISOString().slice(0, 10));
+    setNotes(entry.notes ?? "");
+  }
+
+  function cancelHistoryEdit() {
+    setEditingHistoryId(null);
+    resetFormFromPerson(selectedPerson);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -261,23 +294,27 @@ export function PersonnelVehicleWorkspace() {
 
     setError("");
     setSuccess("");
-    const response = await apiFetch("/personnel/vehicle-history", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const isEditing = editingHistoryId !== null;
+    const response = await apiFetch(
+      isEditing ? `/personnel/vehicle-history/${editingHistoryId}` : "/personnel/vehicle-history",
+      {
+        method: isEditing ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...(isEditing ? {} : { personnel_id: selectedPersonId }),
+          vehicle_mode: vehicleMode,
+          motor_rental_monthly_amount: Number(rentalAmount || 0),
+          motor_purchase_start_date: purchaseStartDate || null,
+          motor_purchase_commitment_months: Number(purchaseCommitmentMonths || 0),
+          motor_purchase_sale_price: Number(purchaseSalePrice || 0),
+          motor_purchase_monthly_deduction: Number(purchaseMonthlyDeduction || 0),
+          effective_date: effectiveDate || null,
+          notes,
+        }),
       },
-      body: JSON.stringify({
-        personnel_id: selectedPersonId,
-        vehicle_mode: vehicleMode,
-        motor_rental_monthly_amount: Number(rentalAmount || 0),
-        motor_purchase_start_date: purchaseStartDate || null,
-        motor_purchase_commitment_months: Number(purchaseCommitmentMonths || 0),
-        motor_purchase_sale_price: Number(purchaseSalePrice || 0),
-        motor_purchase_monthly_deduction: Number(purchaseMonthlyDeduction || 0),
-        effective_date: effectiveDate || null,
-        notes,
-      }),
-    });
+    );
 
     const payload = (await response.json().catch(() => null)) as
       | { detail?: string; message?: string }
@@ -288,7 +325,7 @@ export function PersonnelVehicleWorkspace() {
     }
 
     setSuccess(payload?.message || "Motor geçmişi güncellendi.");
-    setNotes("");
+    setEditingHistoryId(null);
     await loadWorkspace();
     startTransition(() => {
       router.refresh();
@@ -494,9 +531,45 @@ export function PersonnelVehicleWorkspace() {
                 <div style={{ display: "grid", gap: "6px" }}>
                   <div style={{ fontWeight: 800 }}>Motor geçiş formu</div>
                   <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-                    Kira ve satış hatlarını tarihli şekilde ayrı kayıt altına alıyoruz.
+                    {editingHistoryId
+                      ? "Seçili motor geçmişi kaydını düzenliyorsun."
+                      : "Kira ve satış hatlarını tarihli şekilde ayrı kayıt altına alıyoruz."}
                   </div>
                 </div>
+
+                {editingHistoryId ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      alignItems: "center",
+                      padding: "10px 12px",
+                      borderRadius: "16px",
+                      border: "1px solid rgba(15, 95, 215, 0.14)",
+                      background: "rgba(15, 95, 215, 0.06)",
+                    }}
+                  >
+                    <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+                      Düzenleme modu açık. Tarihi ve motor tipini buradan düzeltebilirsin.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={cancelHistoryEdit}
+                      style={{
+                        border: "1px solid var(--line)",
+                        borderRadius: "12px",
+                        padding: "8px 12px",
+                        background: "rgba(255,255,255,0.96)",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Düzenlemeyi iptal et
+                    </button>
+                  </div>
+                ) : null}
 
                 {renderInfoCard(
                   "Geçiş tarihi notu",
@@ -694,7 +767,7 @@ export function PersonnelVehicleWorkspace() {
                     cursor: isPending ? "wait" : "pointer",
                   }}
                 >
-                  {isPending ? "Kaydediliyor..." : "Motor geçmişine işle"}
+                  {isPending ? "Kaydediliyor..." : editingHistoryId ? "Motor geçmişini güncelle" : "Motor geçmişine işle"}
                 </button>
               </form>
 
@@ -761,7 +834,10 @@ export function PersonnelVehicleWorkspace() {
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
                           <strong>{entry.vehicle_mode}</strong>
-                          {pill(formatDate(entry.effective_date), "soft")}
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                            {editingHistoryId === entry.id ? pill("Düzenleniyor", "accent") : null}
+                            {pill(formatDate(entry.effective_date), "soft")}
+                          </div>
                         </div>
                         <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
                           Kira: {formatCurrency(entry.motor_rental_monthly_amount)} · Satış: {formatCurrency(entry.motor_purchase_sale_price)} · Aylık kesinti: {formatCurrency(entry.motor_purchase_monthly_deduction)}
@@ -770,6 +846,22 @@ export function PersonnelVehicleWorkspace() {
                           Satış başlangıcı: {formatDate(entry.motor_purchase_start_date)} · Taahhüt: {entry.motor_purchase_commitment_months || 0} ay
                         </div>
                         {entry.notes ? <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>{entry.notes}</div> : null}
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                          <button
+                            type="button"
+                            onClick={() => beginHistoryEdit(entry)}
+                            style={{
+                              border: "1px solid var(--line)",
+                              borderRadius: "12px",
+                              padding: "8px 12px",
+                              background: editingHistoryId === entry.id ? "rgba(15, 95, 215, 0.08)" : "rgba(255,255,255,0.96)",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Düzenle
+                          </button>
+                        </div>
                       </article>
                     ))
                   ) : (

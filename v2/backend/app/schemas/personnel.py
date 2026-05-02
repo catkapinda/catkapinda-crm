@@ -333,6 +333,24 @@ class PersonnelVehicleCreateResponse(BaseModel):
     message: str
 
 
+class PersonnelVehicleUpdateRequest(BaseModel):
+    vehicle_mode: str
+    motor_rental_monthly_amount: float = 13000.0
+    motor_purchase_start_date: date | None = None
+    motor_purchase_commitment_months: int = 0
+    motor_purchase_sale_price: float = 0.0
+    motor_purchase_monthly_deduction: float = 0.0
+    effective_date: date | None = None
+    notes: str = ""
+
+
+class PersonnelVehicleUpdateResponse(BaseModel):
+    history_id: int
+    personnel_id: int
+    vehicle_mode: str
+    message: str
+
+
 class PersonnelUpdateResponse(BaseModel):
     person_id: int
     person_code: str

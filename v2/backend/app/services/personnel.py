@@ -49,11 +49,13 @@ from app.repositories.personnel import (
     fetch_recent_personnel_records,
     fetch_latest_role_history_record,
     fetch_latest_vehicle_history_record,
+    fetch_vehicle_history_record_by_id,
     insert_plate_history_record,
     insert_personnel_record,
     insert_accounting_history_record,
     insert_role_history_record,
     insert_vehicle_history_record,
+    update_vehicle_history_record,
     update_personnel_current_plate,
     update_personnel_role_fields,
     update_personnel_status,
@@ -84,6 +86,8 @@ from app.schemas.personnel import (
     PersonnelVehicleCreateResponse,
     PersonnelVehicleHistoryEntry,
     PersonnelVehicleSummary,
+    PersonnelVehicleUpdateRequest,
+    PersonnelVehicleUpdateResponse,
     PersonnelVehicleWorkspaceResponse,
     PersonnelManagementEntry,
     PersonnelManagementResponse,
@@ -968,6 +972,90 @@ def create_personnel_vehicle_history_entry(
     return PersonnelVehicleCreateResponse(
         history_id=history_id,
         personnel_id=payload.personnel_id,
+        vehicle_mode=_display_vehicle_mode(normalized_vehicle_mode),
+        message="Motor geçmişi güncellendi.",
+    )
+
+
+def _sync_personnel_current_vehicle_from_latest_history(
+    conn: psycopg.Connection,
+    *,
+    person_id: int,
+) -> None:
+    latest_row = fetch_latest_vehicle_history_record(conn, person_id)
+    if latest_row is None:
+        update_personnel_vehicle_fields(
+            conn,
+            person_id,
+            vehicle_type="Kendi Motoru",
+            motor_rental="Hayır",
+            motor_rental_monthly_amount=0,
+            motor_purchase="Hayır",
+            motor_purchase_start_date=None,
+            motor_purchase_commitment_months=0,
+            motor_purchase_sale_price=0,
+            motor_purchase_monthly_deduction=0,
+        )
+        return
+
+    update_personnel_vehicle_fields(
+        conn,
+        person_id,
+        vehicle_type=str(latest_row.get("vehicle_type") or ""),
+        motor_rental=str(latest_row.get("motor_rental") or "Hayır"),
+        motor_rental_monthly_amount=float(latest_row.get("motor_rental_monthly_amount") or 0),
+        motor_purchase=str(latest_row.get("motor_purchase") or "Hayır"),
+        motor_purchase_start_date=str(latest_row.get("motor_purchase_start_date") or "") or None,
+        motor_purchase_commitment_months=int(latest_row.get("motor_purchase_commitment_months") or 0),
+        motor_purchase_sale_price=float(latest_row.get("motor_purchase_sale_price") or 0),
+        motor_purchase_monthly_deduction=float(latest_row.get("motor_purchase_monthly_deduction") or 0),
+    )
+
+
+def update_personnel_vehicle_history_entry(
+    conn: psycopg.Connection,
+    *,
+    history_id: int,
+    payload: PersonnelVehicleUpdateRequest,
+) -> PersonnelVehicleUpdateResponse:
+    history_row = fetch_vehicle_history_record_by_id(conn, history_id)
+    if history_row is None:
+        raise LookupError("Motor geçmişi kaydı bulunamadı.")
+
+    person_id = int(history_row["personnel_id"])
+    row = fetch_personnel_record_by_id(conn, person_id)
+    if row is None:
+        raise LookupError("Personel kaydı bulunamadı.")
+
+    normalized_vehicle_mode = _normalize_vehicle_mode(payload.vehicle_mode)
+    effective_date = payload.effective_date or date.today()
+    vehicle_payload = _build_vehicle_payload(
+        vehicle_mode=normalized_vehicle_mode,
+        motor_rental_monthly_amount=float(payload.motor_rental_monthly_amount or 0),
+        motor_purchase_start_date=payload.motor_purchase_start_date,
+        motor_purchase_commitment_months=int(payload.motor_purchase_commitment_months or 0),
+        motor_purchase_sale_price=float(payload.motor_purchase_sale_price or 0),
+        motor_purchase_monthly_deduction=float(payload.motor_purchase_monthly_deduction or 0),
+    )
+    update_vehicle_history_record(
+        conn,
+        history_id,
+        vehicle_type=str(vehicle_payload["vehicle_type"] or ""),
+        motor_rental=str(vehicle_payload["motor_rental"] or "Hayır"),
+        motor_rental_monthly_amount=float(vehicle_payload["motor_rental_monthly_amount"] or 0),
+        motor_purchase=str(vehicle_payload["motor_purchase"] or "Hayır"),
+        motor_purchase_start_date=str(vehicle_payload["motor_purchase_start_date"] or "") or None,
+        motor_purchase_commitment_months=int(vehicle_payload["motor_purchase_commitment_months"] or 0),
+        motor_purchase_sale_price=float(vehicle_payload["motor_purchase_sale_price"] or 0),
+        motor_purchase_monthly_deduction=float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
+        effective_date=effective_date.isoformat(),
+        notes=str(payload.notes or "").strip() or "Sistem: Motor geçiş kaydı düzenlendi",
+    )
+    _sync_personnel_current_vehicle_from_latest_history(conn, person_id=person_id)
+    conn.commit()
+    return PersonnelVehicleUpdateResponse(
+        history_id=history_id,
+        personnel_id=person_id,
         vehicle_mode=_display_vehicle_mode(normalized_vehicle_mode),
         message="Motor geçmişi güncellendi.",
     )

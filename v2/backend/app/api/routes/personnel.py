@@ -24,6 +24,8 @@ from app.schemas.personnel import (
     PersonnelRoleWorkspaceResponse,
     PersonnelVehicleCreateRequest,
     PersonnelVehicleCreateResponse,
+    PersonnelVehicleUpdateRequest,
+    PersonnelVehicleUpdateResponse,
     PersonnelVehicleWorkspaceResponse,
     PersonnelStatusUpdateResponse,
     PersonnelStatusToggleRequest,
@@ -42,6 +44,7 @@ from app.services.personnel import (
     create_personnel_plate_history_entry,
     create_personnel_role_history_entry,
     create_personnel_vehicle_history_entry,
+    update_personnel_vehicle_history_entry,
     create_personnel_record,
     delete_personnel_record_entry,
     toggle_personnel_record_status,
@@ -197,6 +200,34 @@ def create_personnel_vehicle_history_route(
             user=user,
             entity_type="motor",
             action_type="oluştur",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("history_id"),
+            details={**payload.model_dump(mode="json"), "history_id": response_data.get("history_id")},
+        )
+        return response
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.put("/vehicle-history/{history_id}", response_model=PersonnelVehicleUpdateResponse)
+def update_personnel_vehicle_history_route(
+    history_id: int,
+    payload: PersonnelVehicleUpdateRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_action("personnel.update"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> PersonnelVehicleUpdateResponse:
+    try:
+        response = update_personnel_vehicle_history_entry(conn, history_id=history_id, payload=payload)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="motor",
+            action_type="güncelle",
             summary=str(response_data.get("message") or ""),
             entity_id=response_data.get("history_id"),
             details={**payload.model_dump(mode="json"), "history_id": response_data.get("history_id")},

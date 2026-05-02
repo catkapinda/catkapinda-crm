@@ -423,6 +423,15 @@ def test_personnel_vehicle_routes(monkeypatch):
         },
     )
     monkeypatch.setattr(
+        "app.api.routes.personnel.update_personnel_vehicle_history_entry",
+        lambda conn, history_id, payload: {
+            "history_id": history_id,
+            "personnel_id": 9,
+            "vehicle_mode": payload.vehicle_mode,
+            "message": "Motor geçmişi güncellendi.",
+        },
+    )
+    monkeypatch.setattr(
         "app.api.routes.personnel.build_personnel_vehicle_workspace",
         lambda conn, limit: {
             "summary": {
@@ -487,11 +496,21 @@ def test_personnel_vehicle_routes(monkeypatch):
             "notes": "Motor geçişi",
         },
     )
+    update_response = client.put(
+        "/api/personnel/vehicle-history/77",
+        json={
+            "vehicle_mode": "Kendi Motoru",
+            "effective_date": "2026-04-24",
+            "notes": "Motor teslim edildi",
+        },
+    )
 
     assert workspace_response.status_code == 200
     assert workspace_response.json()["summary"]["sale_cards"] == 1
     assert create_response.status_code == 201
     assert create_response.json()["history_id"] == 77
+    assert update_response.status_code == 200
+    assert update_response.json()["history_id"] == 77
 
 
 def test_deductions_mutation_routes(monkeypatch):

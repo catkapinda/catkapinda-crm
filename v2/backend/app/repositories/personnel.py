@@ -996,6 +996,33 @@ def fetch_latest_vehicle_history_record(
     return dict(row) if row else None
 
 
+def fetch_vehicle_history_record_by_id(
+    conn: psycopg.Connection,
+    history_id: int,
+) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT
+            id,
+            personnel_id,
+            vehicle_type,
+            motor_rental,
+            motor_rental_monthly_amount,
+            motor_purchase,
+            motor_purchase_start_date,
+            motor_purchase_commitment_months,
+            motor_purchase_sale_price,
+            motor_purchase_monthly_deduction,
+            effective_date,
+            notes
+        FROM personnel_vehicle_history
+        WHERE id = %s
+        """,
+        (history_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def insert_vehicle_history_record(
     conn: psycopg.Connection,
     *,
@@ -1045,6 +1072,53 @@ def insert_vehicle_history_record(
         ),
     ).fetchone()
     return int(row["id"])
+
+
+def update_vehicle_history_record(
+    conn: psycopg.Connection,
+    history_id: int,
+    *,
+    vehicle_type: str,
+    motor_rental: str,
+    motor_rental_monthly_amount: float,
+    motor_purchase: str,
+    motor_purchase_start_date: str | None,
+    motor_purchase_commitment_months: int,
+    motor_purchase_sale_price: float,
+    motor_purchase_monthly_deduction: float,
+    effective_date: str,
+    notes: str,
+) -> None:
+    conn.execute(
+        """
+        UPDATE personnel_vehicle_history
+        SET
+            vehicle_type = %s,
+            motor_rental = %s,
+            motor_rental_monthly_amount = %s,
+            motor_purchase = %s,
+            motor_purchase_start_date = %s,
+            motor_purchase_commitment_months = %s,
+            motor_purchase_sale_price = %s,
+            motor_purchase_monthly_deduction = %s,
+            effective_date = %s,
+            notes = %s
+        WHERE id = %s
+        """,
+        (
+            vehicle_type,
+            motor_rental,
+            motor_rental_monthly_amount,
+            motor_purchase,
+            motor_purchase_start_date,
+            motor_purchase_commitment_months,
+            motor_purchase_sale_price,
+            motor_purchase_monthly_deduction,
+            effective_date,
+            notes,
+            history_id,
+        ),
+    )
 
 
 def update_personnel_vehicle_fields(
