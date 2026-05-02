@@ -835,7 +835,6 @@ def build_personnel_vehicle_workspace(
     *,
     limit: int,
 ) -> PersonnelVehicleWorkspaceResponse:
-    _sync_personnel_vehicle_history_baselines(conn)
     people = fetch_personnel_vehicle_candidates(conn, limit=limit)
     history_rows = fetch_recent_vehicle_history_records(conn, limit=limit)
     return PersonnelVehicleWorkspaceResponse(
@@ -958,18 +957,7 @@ def create_personnel_vehicle_history_entry(
         effective_date=effective_date.isoformat(),
         notes=str(payload.notes or "").strip() or "Sistem: Motor geçiş kaydı",
     )
-    update_personnel_vehicle_fields(
-        conn,
-        payload.personnel_id,
-        vehicle_type=str(vehicle_payload["vehicle_type"] or ""),
-        motor_rental=str(vehicle_payload["motor_rental"] or "Hayır"),
-        motor_rental_monthly_amount=float(vehicle_payload["motor_rental_monthly_amount"] or 0),
-        motor_purchase=str(vehicle_payload["motor_purchase"] or "Hayır"),
-        motor_purchase_start_date=str(vehicle_payload["motor_purchase_start_date"] or "") or None,
-        motor_purchase_commitment_months=int(vehicle_payload["motor_purchase_commitment_months"] or 0),
-        motor_purchase_sale_price=float(vehicle_payload["motor_purchase_sale_price"] or 0),
-        motor_purchase_monthly_deduction=float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
-    )
+    _sync_personnel_current_vehicle_from_latest_history(conn, person_id=payload.personnel_id)
     conn.commit()
     return PersonnelVehicleCreateResponse(
         history_id=history_id,
@@ -1205,19 +1193,6 @@ def create_personnel_record(
         effective_date=payload.start_date,
         reason="Sistem: Başlangıç plakası",
     )
-    _sync_vehicle_history_after_personnel_write(
-        conn,
-        person_id=person_id,
-        previous_vehicle_mode="",
-        current_vehicle_mode=normalized_vehicle_mode,
-        motor_rental_monthly_amount=float(vehicle_payload["motor_rental_monthly_amount"] or 0),
-        motor_purchase_start_date=payload.motor_purchase_start_date,
-        motor_purchase_commitment_months=int(vehicle_payload["motor_purchase_commitment_months"] or 0),
-        motor_purchase_sale_price=float(vehicle_payload["motor_purchase_sale_price"] or 0),
-        motor_purchase_monthly_deduction=float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
-        effective_date=payload.start_date,
-        reason="Sistem: Başlangıç motor kaydı",
-    )
     _sync_role_history_after_personnel_write(
         conn,
         person_id=person_id,
@@ -1353,19 +1328,6 @@ def update_personnel_record_entry(
             current_plate=current_plate,
             effective_date=date.today(),
             reason="Sistem: Personel kartından plaka değişimi",
-        )
-        _sync_vehicle_history_after_personnel_write(
-            conn,
-            person_id=person_id,
-            previous_vehicle_mode=previous_vehicle_mode,
-            current_vehicle_mode=normalized_vehicle_mode,
-            motor_rental_monthly_amount=float(vehicle_payload["motor_rental_monthly_amount"] or 0),
-            motor_purchase_start_date=payload.motor_purchase_start_date,
-            motor_purchase_commitment_months=int(vehicle_payload["motor_purchase_commitment_months"] or 0),
-            motor_purchase_sale_price=float(vehicle_payload["motor_purchase_sale_price"] or 0),
-            motor_purchase_monthly_deduction=float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
-            effective_date=date.today(),
-            reason="Sistem: Personel kartından motor geçişi",
         )
     _sync_role_history_after_personnel_write(
         conn,

@@ -1,6 +1,10 @@
 from datetime import date
 
-from app.schemas.personnel import PersonnelCreateRequest, PersonnelUpdateRequest
+from app.schemas.personnel import (
+    PersonnelCreateRequest,
+    PersonnelUpdateRequest,
+    PersonnelVehicleCreateRequest,
+)
 from app.services import personnel as personnel_service
 
 
@@ -403,7 +407,7 @@ def test_update_personnel_record_writes_role_history_on_role_change(monkeypatch)
     assert role_calls[0]["monthly_fixed_cost"] == 22000
 
 
-def test_create_personnel_record_creates_vehicle_history_baseline(monkeypatch):
+def test_create_personnel_record_does_not_create_vehicle_history_baseline(monkeypatch):
     conn = FakeConnection()
     vehicle_calls: list[dict] = []
 
@@ -434,13 +438,10 @@ def test_create_personnel_record_creates_vehicle_history_baseline(monkeypatch):
     )
 
     assert response.person_id == 71
-    assert vehicle_calls[0]["vehicle_type"] == "Çat Kapında"
-    assert vehicle_calls[0]["motor_rental"] == "Evet"
-    assert vehicle_calls[0]["motor_rental_monthly_amount"] == 14500
-    assert vehicle_calls[0]["notes"] == "Sistem: Başlangıç motor kaydı"
+    assert vehicle_calls == []
 
 
-def test_update_personnel_record_writes_vehicle_history_on_mode_change(monkeypatch):
+def test_update_personnel_record_does_not_write_vehicle_history_on_mode_change(monkeypatch):
     conn = FakeConnection()
     vehicle_calls: list[dict] = []
 
@@ -489,9 +490,69 @@ def test_update_personnel_record_writes_vehicle_history_on_mode_change(monkeypat
     )
 
     assert response.person_id == 28
-    assert vehicle_calls[0]["motor_purchase"] == "Evet"
-    assert vehicle_calls[0]["motor_purchase_commitment_months"] == 12
-    assert vehicle_calls[0]["motor_purchase_sale_price"] == 84000
+    assert vehicle_calls == []
+
+
+def test_create_personnel_vehicle_history_entry_syncs_current_vehicle_from_latest_history(monkeypatch):
+    conn = FakeConnection()
+    vehicle_updates: list[dict] = []
+
+    monkeypatch.setattr(
+        personnel_service,
+        "fetch_personnel_record_by_id",
+        lambda *args, **kwargs: {
+            "id": 71,
+            "person_code": "CK-K71",
+            "full_name": "Geçiş Test",
+        },
+    )
+    monkeypatch.setattr(personnel_service, "insert_vehicle_history_record", lambda *args, **kwargs: 91)
+    monkeypatch.setattr(
+        personnel_service,
+        "fetch_latest_vehicle_history_record",
+        lambda *args, **kwargs: {
+            "vehicle_type": "Kendi Motoru",
+            "motor_rental": "Hayır",
+            "motor_rental_monthly_amount": 0,
+            "motor_purchase": "Hayır",
+            "motor_purchase_start_date": None,
+            "motor_purchase_commitment_months": 0,
+            "motor_purchase_sale_price": 0,
+            "motor_purchase_monthly_deduction": 0,
+        },
+    )
+    monkeypatch.setattr(
+        personnel_service,
+        "update_personnel_vehicle_fields",
+        lambda _conn, person_id, **kwargs: vehicle_updates.append(
+            {"person_id": person_id, **kwargs}
+        ),
+    )
+
+    response = personnel_service.create_personnel_vehicle_history_entry(
+        conn,
+        payload=PersonnelVehicleCreateRequest(
+            personnel_id=71,
+            vehicle_mode="Çat Kapında Motor Kirası",
+            motor_rental_monthly_amount=13000,
+            effective_date=date(2026, 3, 21),
+        ),
+    )
+
+    assert response.history_id == 91
+    assert vehicle_updates == [
+        {
+            "person_id": 71,
+            "vehicle_type": "Kendi Motoru",
+            "motor_rental": "Hayır",
+            "motor_rental_monthly_amount": 0,
+            "motor_purchase": "Hayır",
+            "motor_purchase_start_date": None,
+            "motor_purchase_commitment_months": 0,
+            "motor_purchase_sale_price": 0,
+            "motor_purchase_monthly_deduction": 0,
+        }
+    ]
 
 
 def test_delete_personnel_record_syncs_mobile_auth_with_passive_fallback(monkeypatch):
