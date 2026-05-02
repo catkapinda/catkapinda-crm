@@ -97,6 +97,7 @@ from app.schemas.personnel import (
 
 PERSONNEL_ROLE_OPTIONS = [
     "Kurye",
+    "Kaptan",
     "Bolge Muduru",
     "Saha Denetmen Sefi",
     "Restoran Takim Sefi",
@@ -112,6 +113,7 @@ VEHICLE_MODE_OPTIONS = [
 ]
 FIXED_COST_MODEL_BY_ROLE = {
     "Kurye": "fixed_kurye",
+    "Kaptan": "fixed_kurye",
     "Bolge Muduru": "fixed_bolge_muduru",
     "Saha Denetmen Sefi": "fixed_saha_denetmen_sefi",
     "Restoran Takim Sefi": "fixed_restoran_takim_sefi",
@@ -119,6 +121,7 @@ FIXED_COST_MODEL_BY_ROLE = {
 }
 ROLE_CODE_PREFIX = {
     "Kurye": "K",
+    "Kaptan": "KPT",
     "Bolge Muduru": "BM",
     "Saha Denetmen Sefi": "SDS",
     "Restoran Takim Sefi": "RTS",

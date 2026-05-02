@@ -260,6 +260,8 @@ _SUPPORT_HOLIDAY_DAY_DIVISOR = 30.0
 _PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
 _ACCOUNTANT_COST_DEDUCTION_TYPE = "Muhasebe Kesintisi"
 _COMPANY_SETUP_COST_DEDUCTION_TYPE = "Şirket Açılışı Kesintisi"
+_CAPTAIN_BONUS_LABEL = "Kaptanlık Hakedişi"
+_CAPTAIN_BONUS_AMOUNT = 3000.0
 _MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
 _MOTOR_PURCHASE_DEDUCTION_SQL = "('Motor Satış Taksiti', 'Motor Satis Taksiti', 'Motor Satın Alım', 'Motor Satin Alim')"
 _INVOICE_BASE_REDUCING_DEDUCTION_TYPES = {"Fatura Edilmeyen Tutar"}
@@ -313,6 +315,7 @@ class PayrollDocumentPayload:
     invoice_vat_amount: float
     tevkifat_amount: float
     restaurant_names: list[str]
+    earning_items: list[tuple[str, float]]
     deduction_items: list[tuple[str, float]]
 
 
@@ -421,6 +424,13 @@ def _count_support_holiday_bonus_days(attendance_dates: set[date]) -> int:
     return sum(1 for entry_date in attendance_dates if entry_date in _RELIGIOUS_HOLIDAY_DOUBLE_DATES)
 
 
+def _build_personnel_earning_items(*, role: object) -> list[tuple[str, float]]:
+    normalized_role = str(role or "").strip()
+    if normalized_role == "Kaptan":
+        return [(_CAPTAIN_BONUS_LABEL, _CAPTAIN_BONUS_AMOUNT)]
+    return []
+
+
 def _calculate_support_holiday_bonus(
     *,
     selected_month: str,
@@ -504,6 +514,7 @@ def _calculate_personnel_gross_pay(
         monthly_fixed_cost=monthly_fixed_cost,
         segments=segments,
     )
+    earning_item_total = _safe_float(sum(amount for _, amount in _build_personnel_earning_items(role=role)))
     has_attendance = total_hours > 0 or total_packages > 0
     holiday_bonus = _calculate_support_holiday_bonus(
         selected_month=selected_month,
@@ -514,10 +525,10 @@ def _calculate_personnel_gross_pay(
         attendance_dates=attendance_dates or set(),
     )
     if _is_fixed_cost_model(cost_model) and fixed_cost > 0:
-        return fixed_cost + holiday_bonus
+        return fixed_cost + holiday_bonus + earning_item_total
     if not has_attendance:
-        return fixed_cost + holiday_bonus
-    return _calculate_variable_courier_gross_cost(segments)
+        return fixed_cost + holiday_bonus + earning_item_total
+    return _calculate_variable_courier_gross_cost(segments) + earning_item_total
 
 
 def build_payroll_status() -> PayrollModuleStatus:
@@ -660,6 +671,17 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
     if not deduction_rows:
         deduction_rows = [{"label": "—", "amount": "—"}]
 
+    earning_rows = []
+    for earning_type, amount in payload.earning_items:
+        label = str(earning_type or "—").strip() or "—"
+        normalized_amount = _safe_float(amount)
+        earning_rows.append(
+            {
+                "label": label,
+                "amount": format_currency(normalized_amount),
+            }
+        )
+
     environment = Environment(
         loader=BaseLoader(),
         autoescape=select_autoescape(default_for_string=True, enabled_extensions=("html", "xml")),
@@ -675,6 +697,7 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
         courier_role=str(payload.role or "—"),
         courier_code=str(payload.person_code or "—"),
         courier_status=str(payload.status or "—"),
+        earning_rows=earning_rows,
         total_hours=format_value(payload.total_hours, decimals=1),
         total_packages=format_value(payload.total_packages, decimals=0),
         total_branches=str(restaurant_count),
@@ -940,6 +963,7 @@ def _build_remote_payroll_document_payload(
         invoice_vat_amount=tevkifat.vat_amount,
         tevkifat_amount=tevkifat.tevkifat_amount,
         restaurant_names=restaurant_names,
+        earning_items=_build_personnel_earning_items(role=payroll_row.get("rol")),
         deduction_items=deduction_items,
     )
 
@@ -1175,6 +1199,7 @@ def _build_local_payroll_document_payload(
         invoice_vat_amount=tevkifat.vat_amount,
         tevkifat_amount=tevkifat.tevkifat_amount,
         restaurant_names=restaurant_names,
+        earning_items=_build_personnel_earning_items(role=person_data["role"]),
         deduction_items=deduction_items,
     )
 

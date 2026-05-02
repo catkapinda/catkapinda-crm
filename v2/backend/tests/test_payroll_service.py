@@ -878,6 +878,92 @@ def test_payroll_dashboard_defaults_fixed_monthly_brand_courier_pay_when_fixed_c
     assert round(payload.entries[0].gross_pay, 2) == 73600.0
 
 
+def test_payroll_dashboard_adds_captain_bonus_and_exposes_it_in_pdf():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
+        VALUES (1, 'Kaptan Kurye', 'CK-KPT01', 'Kaptan', 'Aktif', 'fixed_monthly', 50000)
+        """
+    )
+    raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'Quick China', 'Ataşehir')")
+    raw_conn.execute(
+        """
+        INSERT INTO daily_entries (
+            entry_date,
+            restaurant_id,
+            planned_personnel_id,
+            actual_personnel_id,
+            worked_hours,
+            package_count
+        )
+        VALUES ('2026-04-10', 10, 1, 1, 8, 10)
+        """
+    )
+    raw_conn.commit()
+
+    conn = CompatConnection(raw_conn, "sqlite")
+    payload = build_payroll_dashboard(conn, selected_month="2026-04")
+
+    assert payload.summary is not None
+    assert round(payload.summary.gross_payroll, 2) == 53000.0
+    assert round(payload.entries[0].gross_pay, 2) == 53000.0
+
+    document_payload = _build_local_payroll_document_payload(
+        conn,
+        selected_month="2026-04",
+        personnel_id=1,
+    )
+    assert document_payload.earning_items == [("Kaptanlık Hakedişi", 3000.0)]
+    html = _build_payroll_document_html(document_payload)
+    assert "Kaptanlık Hakedişi" in html
+    assert "3.000,00 ₺" in html
+
+
 def test_payroll_dashboard_keeps_standard_courier_formula_on_fixed_monthly_restaurants():
     raw_conn = sqlite3.connect(":memory:")
     raw_conn.row_factory = sqlite3.Row

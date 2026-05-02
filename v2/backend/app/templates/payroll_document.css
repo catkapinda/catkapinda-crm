@@ -261,6 +261,12 @@ body {
   gap: 2.8mm;
 }
 
+.person-extra {
+  margin-top: 4mm;
+  padding-top: 3mm;
+  border-top: 1px solid var(--border);
+}
+
 .info-row {
   display: flex;
   align-items: center;

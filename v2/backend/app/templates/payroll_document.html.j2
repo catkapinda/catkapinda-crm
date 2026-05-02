@@ -67,6 +67,17 @@
                 <span class="status-badge">{{ courier_status }}</span>
               </div>
             </div>
+
+            {% if earning_rows %}
+            <div class="person-extra">
+              {% for item in earning_rows %}
+              <div class="info-row">
+                <span class="info-label">{{ item.label }}</span>
+                <span class="info-value positive number">{{ item.amount }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
           </article>
         </section>
 
