@@ -122,6 +122,20 @@ def _month_payment_date(month_start: date, month_end: date, preferred_day: int |
     return date(month_start.year, month_start.month, min(preferred_day, month_end.day))
 
 
+def _commercial_month_proration_days(
+    month_start: date,
+    month_end: date,
+    active_start: date,
+    exit_date: date | None,
+) -> int:
+    start_day = 1 if active_start <= month_start else min(active_start.day, 30)
+    if exit_date is None or exit_date > month_end:
+        end_day = 30
+    else:
+        end_day = min(exit_date.day, 30)
+    return max(end_day - start_day + 1, 0)
+
+
 def build_company_motor_rental_plan(
     row: Mapping[str, object],
     selected_month: str,
@@ -151,10 +165,16 @@ def build_company_motor_rental_plan(
     if active_end < active_start:
         return None
 
-    active_days = max((active_end - active_start).days + 1, 0)
     is_full_month_active = active_start == month_start and active_end == month_end
     expected_amount = monthly_amount
+    active_days = 30
     if not is_full_month_active:
+        active_days = _commercial_month_proration_days(
+            month_start,
+            month_end,
+            active_start,
+            exit_date,
+        )
         expected_amount = min(monthly_amount, monthly_amount / 30.0 * active_days)
 
     amount = max(round(expected_amount - _safe_float(existing_amount), 2), 0.0)
