@@ -1769,6 +1769,117 @@ def test_payroll_dashboard_calculates_tevkifat_after_invoice_base_reducing_deduc
     assert any(item[0] == "Tevkifat" and round(item[1], 2) == 4176.89 for item in document_payload.deduction_items)
 
 
+def test_payroll_dashboard_does_not_reduce_tevkifat_base_for_motor_rental():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL,
+            accounting_revenue REAL,
+            accountant_cost REAL,
+            company_setup_revenue REAL,
+            company_setup_cost REAL,
+            accounting_effective_date TEXT,
+            company_setup_effective_date TEXT
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (
+            id, full_name, person_code, role, status, cost_model, monthly_fixed_cost,
+            accounting_revenue, accounting_effective_date
+        )
+        VALUES (
+            1, 'Neçirvan Bulgan', 'CK-K10', 'Kurye', 'Aktif', 'fixed_monthly', 81650,
+            2000, '2026-03-01'
+        )
+        """
+    )
+    raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'Quick China', 'Ataşehir')")
+    raw_conn.execute(
+        """
+        INSERT INTO daily_entries (
+            entry_date,
+            restaurant_id,
+            planned_personnel_id,
+            actual_personnel_id,
+            worked_hours,
+            package_count
+        )
+        VALUES ('2026-03-10', 10, 1, 1, 10, 10)
+        """
+    )
+    raw_conn.executemany(
+        """
+        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount)
+        VALUES (?, ?, ?, ?)
+        """,
+        [
+            (1, "2026-03-25", "Yakıt", 3599.58),
+            (1, "2026-03-25", "Motor Kirası", 13000),
+        ],
+    )
+    raw_conn.commit()
+
+    conn = CompatConnection(raw_conn, "sqlite")
+    payload = build_payroll_dashboard(conn, selected_month="2026-03")
+
+    assert round(payload.entries[0].gross_pay, 2) == 81650.00
+    assert round(payload.entries[0].tevkifat_amount, 2) == 2721.67
+    assert round(payload.entries[0].total_deductions, 2) == 21321.25
+    assert round(payload.entries[0].net_payment, 2) == 60328.75
+
+    document_payload = _build_local_payroll_document_payload(
+        conn,
+        selected_month="2026-03",
+        personnel_id=1,
+    )
+    assert round(document_payload.invoice_base_amount, 2) == 68041.67
+    assert round(document_payload.invoice_vat_amount, 2) == 13608.33
+    assert round(document_payload.tevkifat_amount, 2) == 2721.67
+    assert any(item[0] == "Motor Kirası" and round(item[1], 2) == 13000.00 for item in document_payload.deduction_items)
+    assert any(item[0] == "Muhasebe Kesintisi" and round(item[1], 2) == 2000.00 for item in document_payload.deduction_items)
+    assert any(item[0] == "Tevkifat" and round(item[1], 2) == 2721.67 for item in document_payload.deduction_items)
+
+
 def test_payroll_dashboard_adds_religious_holiday_bonus_for_fixed_support_roles():
     raw_conn = sqlite3.connect(":memory:")
     raw_conn.row_factory = sqlite3.Row
