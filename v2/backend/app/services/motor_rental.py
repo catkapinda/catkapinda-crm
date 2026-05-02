@@ -72,6 +72,16 @@ def _parse_date(value: object) -> date | None:
         return None
 
 
+def _history_effective_date_for_payroll(row: Mapping[str, object]) -> date | None:
+    effective_date = _parse_date(row.get("effective_date")) or _parse_date(row.get("changed_at"))
+    purchase_start_date = _parse_date(row.get("motor_purchase_start_date"))
+    if is_company_motor_purchase(row) and purchase_start_date is not None:
+        if effective_date is None:
+            return purchase_start_date
+        return min(effective_date, purchase_start_date)
+    return effective_date
+
+
 def _month_bounds(month_key: str) -> tuple[date, date]:
     year_text, month_text = str(month_key).split("-", 1)
     year = int(year_text)
@@ -204,7 +214,7 @@ def build_company_motor_rental_plan_from_history(
 
     ordered_history: list[tuple[date, int, Mapping[str, object]]] = []
     for index, row in enumerate(history_rows):
-        effective_date = _parse_date(row.get("effective_date")) or _parse_date(row.get("changed_at"))
+        effective_date = _history_effective_date_for_payroll(row)
         if effective_date is None or effective_date > month_end:
             continue
         row_id = int(_safe_float(row.get("id"), 0))
@@ -342,7 +352,7 @@ def calculate_company_motor_purchase_deduction_from_history(
     latest_effective_date: date | None = None
     latest_row_id = -1
     for index, row in enumerate(history_rows):
-        effective_date = _parse_date(row.get("effective_date")) or _parse_date(row.get("changed_at"))
+        effective_date = _history_effective_date_for_payroll(row)
         if effective_date is None or effective_date > month_end:
             continue
         row_id = int(_safe_float(row.get("id"), index))

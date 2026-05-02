@@ -126,10 +126,17 @@ def _fetch_vehicle_history_rows_by_person_for_month(
             changed_at
         FROM personnel_vehicle_history
         WHERE personnel_id IN ({placeholders})
-          AND {resolved_effective_date_sql} <= %s
+          AND (
+            {resolved_effective_date_sql} <= %s
+            OR (
+                COALESCE(motor_purchase, 'Hayır') = 'Evet'
+                AND NULLIF(CAST(motor_purchase_start_date AS TEXT), '') IS NOT NULL
+                AND CAST(motor_purchase_start_date AS TEXT) <= %s
+            )
+          )
         ORDER BY personnel_id, {resolved_effective_date_sql}, id
         """,
-        (*personnel_ids, month_end),
+        (*personnel_ids, month_end, month_end),
     ).fetchall()
     history_by_person: dict[int, list[dict[str, object]]] = {}
     for row in rows:
