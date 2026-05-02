@@ -157,7 +157,9 @@ def test_payroll_dashboard_and_document_include_accounting_and_company_setup_ded
             motor_purchase_commitment_months INTEGER,
             motor_purchase_sale_price REAL,
             motor_purchase_monthly_deduction REAL,
+            accounting_revenue REAL,
             accountant_cost REAL,
+            company_setup_revenue REAL,
             company_setup_cost REAL
         );
         CREATE TABLE restaurants (
@@ -186,9 +188,10 @@ def test_payroll_dashboard_and_document_include_accounting_and_company_setup_ded
     raw_conn.execute(
         """
         INSERT INTO personnel (
-            id, full_name, person_code, role, status, cost_model, monthly_fixed_cost, accountant_cost, company_setup_cost
+            id, full_name, person_code, role, status, cost_model, monthly_fixed_cost,
+            accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost
         )
-        VALUES (1, 'Recep Şahin', 'CK-TS01', 'Restoran Takım Şefi', 'Aktif', 'fixed_monthly', 20000, 500, 1500)
+        VALUES (1, 'Recep Şahin', 'CK-TS01', 'Restoran Takım Şefi', 'Aktif', 'fixed_monthly', 20000, 2000, 1400, 3000, 1500)
         """
     )
     raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'Burger@', 'Kavacık')")
@@ -212,25 +215,25 @@ def test_payroll_dashboard_and_document_include_accounting_and_company_setup_ded
 
     assert len(payload.entries) == 1
     entry = payload.entries[0]
-    assert round(entry.total_deductions, 2) == 2666.67
-    assert round(entry.net_payment, 2) == 17333.33
+    assert round(entry.total_deductions, 2) == 5666.67
+    assert round(entry.net_payment, 2) == 14333.33
     assert {item.label for item in entry.deduction_items} >= {
         "Muhasebe Kesintisi",
         "Şirket Açılışı Kesintisi",
         "Tevkifat",
     }
-    assert any(item.label == "Muhasebe Kesintisi" and round(item.amount, 2) == 500 for item in entry.deduction_items)
-    assert any(item.label == "Şirket Açılışı Kesintisi" and round(item.amount, 2) == 1500 for item in entry.deduction_items)
+    assert any(item.label == "Muhasebe Kesintisi" and round(item.amount, 2) == 2000 for item in entry.deduction_items)
+    assert any(item.label == "Şirket Açılışı Kesintisi" and round(item.amount, 2) == 3000 for item in entry.deduction_items)
 
     document_payload = _build_local_payroll_document_payload(
         conn,
         selected_month="2026-04",
         personnel_id=1,
     )
-    assert round(document_payload.total_deductions, 2) == 2666.67
-    assert round(document_payload.net_payment, 2) == 17333.33
-    assert any(item[0] == "Muhasebe Kesintisi" and round(item[1], 2) == 500 for item in document_payload.deduction_items)
-    assert any(item[0] == "Şirket Açılışı Kesintisi" and round(item[1], 2) == 1500 for item in document_payload.deduction_items)
+    assert round(document_payload.total_deductions, 2) == 5666.67
+    assert round(document_payload.net_payment, 2) == 14333.33
+    assert any(item[0] == "Muhasebe Kesintisi" and round(item[1], 2) == 2000 for item in document_payload.deduction_items)
+    assert any(item[0] == "Şirket Açılışı Kesintisi" and round(item[1], 2) == 3000 for item in document_payload.deduction_items)
 
 
 def test_build_payroll_document_file_supports_local_sqlite(monkeypatch):

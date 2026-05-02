@@ -86,7 +86,12 @@ def _table_columns(conn: psycopg.Connection, table_name: str) -> set[str]:
 def _payroll_optional_personnel_select(conn: psycopg.Connection) -> str:
     columns = _table_columns(conn, "personnel")
     optional_fields = []
-    for column_name in ("accountant_cost", "company_setup_cost"):
+    for column_name in (
+        "accounting_revenue",
+        "accountant_cost",
+        "company_setup_revenue",
+        "company_setup_cost",
+    ):
         if column_name in columns:
             optional_fields.append(f"COALESCE({column_name}, 0) AS {column_name}")
         else:
@@ -111,12 +116,12 @@ def _row_value(source: object, key: str) -> object:
 
 def _build_personnel_profile_deduction_items(source: object) -> list[tuple[str, float]]:
     items: list[tuple[str, float]] = []
-    accountant_cost = _safe_float(_row_value(source, "accountant_cost"))
-    company_setup_cost = _safe_float(_row_value(source, "company_setup_cost"))
-    if accountant_cost > 0:
-        items.append((_ACCOUNTANT_COST_DEDUCTION_TYPE, accountant_cost))
-    if company_setup_cost > 0:
-        items.append((_COMPANY_SETUP_COST_DEDUCTION_TYPE, company_setup_cost))
+    accounting_revenue = _safe_float(_row_value(source, "accounting_revenue"))
+    company_setup_revenue = _safe_float(_row_value(source, "company_setup_revenue"))
+    if accounting_revenue > 0:
+        items.append((_ACCOUNTANT_COST_DEDUCTION_TYPE, accounting_revenue))
+    if company_setup_revenue > 0:
+        items.append((_COMPANY_SETUP_COST_DEDUCTION_TYPE, company_setup_revenue))
     return items
 
 
