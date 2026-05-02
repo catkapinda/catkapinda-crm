@@ -16,6 +16,7 @@ from app.services.motor_rental import (
     MOTOR_RENTAL_DEDUCTION_TYPE,
     calculate_company_motor_purchase_deduction,
     calculate_company_motor_rental_deduction,
+    calculate_company_motor_rental_deduction_from_history,
     is_motor_purchase_deduction_type,
     is_motor_rental_deduction_type,
 )
@@ -82,6 +83,55 @@ def _table_columns(conn: psycopg.Connection, table_name: str) -> set[str]:
         (table_name,),
     ).fetchall()
     return {str(row["column_name"]) for row in rows}
+
+
+def _coalesced_history_date_sql(date_column: str, changed_at_column: str) -> str:
+    return (
+        f"COALESCE(NULLIF(CAST({date_column} AS TEXT), ''), "
+        f"SUBSTR(CAST({changed_at_column} AS TEXT), 1, 10))"
+    )
+
+
+def _fetch_vehicle_history_rows_by_person_for_month(
+    conn: psycopg.Connection,
+    *,
+    personnel_ids: list[int],
+    selected_month: str,
+) -> dict[int, list[dict[str, object]]]:
+    if not personnel_ids or not _table_columns(conn, "personnel_vehicle_history"):
+        return {}
+
+    year_text, month_text = str(selected_month).split("-", 1)
+    month_end = f"{int(year_text):04d}-{int(month_text):02d}-{monthrange(int(year_text), int(month_text))[1]:02d}"
+    resolved_effective_date_sql = _coalesced_history_date_sql(
+        "effective_date",
+        "changed_at",
+    )
+    placeholders = ", ".join(["%s"] * len(personnel_ids))
+    rows = conn.execute(
+        f"""
+        SELECT
+            id,
+            personnel_id,
+            COALESCE(vehicle_type, '') AS vehicle_type,
+            COALESCE(motor_rental, 'Hayır') AS motor_rental,
+            COALESCE(motor_purchase, 'Hayır') AS motor_purchase,
+            COALESCE(motor_rental_monthly_amount, 13000) AS motor_rental_monthly_amount,
+            {resolved_effective_date_sql} AS effective_date,
+            changed_at
+        FROM personnel_vehicle_history
+        WHERE personnel_id IN ({placeholders})
+          AND {resolved_effective_date_sql} <= %s
+        ORDER BY personnel_id, {resolved_effective_date_sql}, id
+        """,
+        (*personnel_ids, month_end),
+    ).fetchall()
+    history_by_person: dict[int, list[dict[str, object]]] = {}
+    for row in rows:
+        if row["personnel_id"] is None:
+            continue
+        history_by_person.setdefault(int(row["personnel_id"]), []).append(dict(row))
+    return history_by_person
 
 
 def _payroll_optional_personnel_select(conn: psycopg.Connection) -> str:
@@ -1198,10 +1248,24 @@ def _build_local_payroll_document_payload(
         for row in deduction_rows
         if is_motor_purchase_deduction_type(row["deduction_type"])
     )
-    auto_motor_rental = calculate_company_motor_rental_deduction(
-        person_data,
-        resolved_month,
-        existing_amount=existing_motor_rental,
+    vehicle_history_rows = _fetch_vehicle_history_rows_by_person_for_month(
+        conn,
+        personnel_ids=[personnel_id],
+        selected_month=resolved_month,
+    ).get(personnel_id, [])
+    auto_motor_rental = (
+        calculate_company_motor_rental_deduction_from_history(
+            vehicle_history_rows,
+            resolved_month,
+            existing_amount=existing_motor_rental,
+            exit_date=_row_value(person_data, "exit_date"),
+        )
+        if vehicle_history_rows
+        else calculate_company_motor_rental_deduction(
+            person_data,
+            resolved_month,
+            existing_amount=existing_motor_rental,
+        )
     )
     auto_motor_purchase = calculate_company_motor_purchase_deduction(
         person_data,
@@ -1539,6 +1603,11 @@ def _build_local_payroll_dashboard(
     }
 
     personnel_index = {int(row["id"]): row for row in personnel_rows if row["id"] is not None}
+    vehicle_history_by_person = _fetch_vehicle_history_rows_by_person_for_month(
+        conn,
+        personnel_ids=sorted(personnel_index.keys()),
+        selected_month=resolved_month,
+    )
     accounting_history_by_person = _fetch_effective_accounting_history_for_month(
         conn,
         selected_month=resolved_month,
@@ -1547,10 +1616,20 @@ def _build_local_payroll_dashboard(
     auto_motor_rental_by_person: dict[int, float] = {}
     auto_motor_purchase_by_person: dict[int, float] = {}
     for person_id, person in personnel_index.items():
-        auto_motor_rental = calculate_company_motor_rental_deduction(
-            dict(person),
-            resolved_month,
-            existing_amount=existing_motor_rental_by_person.get(person_id, 0.0),
+        person_vehicle_history = vehicle_history_by_person.get(person_id, [])
+        auto_motor_rental = (
+            calculate_company_motor_rental_deduction_from_history(
+                person_vehicle_history,
+                resolved_month,
+                existing_amount=existing_motor_rental_by_person.get(person_id, 0.0),
+                exit_date=_row_value(person, "exit_date"),
+            )
+            if person_vehicle_history
+            else calculate_company_motor_rental_deduction(
+                dict(person),
+                resolved_month,
+                existing_amount=existing_motor_rental_by_person.get(person_id, 0.0),
+            )
         )
         if auto_motor_rental > 0:
             auto_motor_rental_by_person[person_id] = auto_motor_rental

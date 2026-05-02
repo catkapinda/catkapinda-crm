@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from calendar import monthrange
 from dataclasses import dataclass
-from datetime import date, datetime
-from typing import Mapping
+from datetime import date, datetime, timedelta
+from typing import Mapping, Sequence
 
 
 DEFAULT_MOTOR_RENTAL_MONTHLY_AMOUNT = 13000.0
@@ -178,6 +178,123 @@ def build_company_motor_rental_plan(
     )
 
 
+def build_company_motor_rental_plan_from_history(
+    history_rows: Sequence[Mapping[str, object]],
+    selected_month: str,
+    *,
+    existing_amount: float = 0.0,
+    exit_date: object = None,
+) -> MotorPaymentPlan | None:
+    month_start, month_end = _month_bounds(selected_month)
+    month_end_exclusive = month_end + timedelta(days=1)
+    exit_day = _parse_date(exit_date)
+    if exit_day is not None and exit_day < month_start:
+        return None
+    capped_month_end_exclusive = (
+        min(month_end_exclusive, exit_day + timedelta(days=1))
+        if exit_day is not None
+        else month_end_exclusive
+    )
+
+    ordered_history: list[tuple[date, int, Mapping[str, object]]] = []
+    for index, row in enumerate(history_rows):
+        effective_date = _parse_date(row.get("effective_date")) or _parse_date(row.get("changed_at"))
+        if effective_date is None or effective_date > month_end:
+            continue
+        row_id = int(_safe_float(row.get("id"), 0))
+        ordered_history.append((effective_date, row_id or index, row))
+
+    if not ordered_history:
+        return None
+
+    ordered_history.sort(key=lambda item: (item[0], item[1]))
+
+    rental_segments: list[dict[str, object]] = []
+    for idx, (effective_date, _, row) in enumerate(ordered_history):
+        next_effective_date = (
+            ordered_history[idx + 1][0]
+            if idx + 1 < len(ordered_history)
+            else capped_month_end_exclusive
+        )
+        interval_start = max(month_start, effective_date)
+        interval_end_exclusive = min(capped_month_end_exclusive, next_effective_date)
+        if interval_end_exclusive <= interval_start or not is_company_motor_rental(row):
+            continue
+
+        monthly_amount = _safe_float(row.get("motor_rental_monthly_amount"), DEFAULT_MOTOR_RENTAL_MONTHLY_AMOUNT)
+        if monthly_amount <= 0:
+            monthly_amount = DEFAULT_MOTOR_RENTAL_MONTHLY_AMOUNT
+
+        previous_segment = rental_segments[-1] if rental_segments else None
+        if (
+            previous_segment is not None
+            and previous_segment["monthly_amount"] == monthly_amount
+            and previous_segment["end_exclusive"] == interval_start
+        ):
+            previous_segment["end_exclusive"] = interval_end_exclusive
+            continue
+
+        rental_segments.append(
+            {
+                "start": interval_start,
+                "end_exclusive": interval_end_exclusive,
+                "monthly_amount": monthly_amount,
+            }
+        )
+
+    if not rental_segments:
+        return None
+
+    expected_amount = 0.0
+    total_active_days = 0
+    note_parts: list[str] = []
+    for segment in rental_segments:
+        segment_start = segment["start"]
+        segment_end_exclusive = segment["end_exclusive"]
+        monthly_amount = _safe_float(segment["monthly_amount"], DEFAULT_MOTOR_RENTAL_MONTHLY_AMOUNT)
+        active_days = max((segment_end_exclusive - segment_start).days, 0)
+        if active_days <= 0:
+            continue
+        total_active_days += active_days
+        full_month_segment = (
+            len(rental_segments) == 1
+            and segment_start == month_start
+            and segment_end_exclusive == capped_month_end_exclusive
+            and capped_month_end_exclusive == month_end_exclusive
+        )
+        segment_expected_amount = monthly_amount if full_month_segment else min(
+            monthly_amount,
+            monthly_amount / 30.0 * active_days,
+        )
+        expected_amount += segment_expected_amount
+        if not full_month_segment:
+            note_parts.append(f"{active_days} gün prorata {_format_currency_note(segment_expected_amount)}")
+
+    amount = max(round(expected_amount - _safe_float(existing_amount), 2), 0.0)
+    if amount <= 0:
+        return None
+
+    if not note_parts:
+        note_parts = [f"Aylık kira {_format_currency_note(expected_amount)}"]
+    else:
+        note_parts.insert(0, f"Aylık kira {_format_currency_note(sum(_safe_float(seg['monthly_amount']) for seg in rental_segments[:1]))}")
+        note_parts.append(f"toplam {total_active_days} gün")
+    if existing_amount > 0:
+        note_parts.append(f"manuel kayıt {_format_currency_note(existing_amount)} düşüldü")
+
+    history_person_id = ordered_history[0][2].get("personnel_id") or ordered_history[0][2].get("id") or "person"
+    return MotorPaymentPlan(
+        deduction_type=MOTOR_RENTAL_DEDUCTION_TYPE,
+        deduction_date=month_end,
+        amount=amount,
+        expected_amount=round(expected_amount, 2),
+        existing_amount=round(_safe_float(existing_amount), 2),
+        monthly_amount=round(_safe_float(rental_segments[-1]["monthly_amount"]), 2),
+        auto_source_key=f"auto:motor-rental-history:{history_person_id}:{selected_month}",
+        notes=" · ".join(note_parts),
+    )
+
+
 def calculate_company_motor_rental_deduction(
     row: Mapping[str, object],
     selected_month: str,
@@ -188,6 +305,22 @@ def calculate_company_motor_rental_deduction(
         row,
         selected_month,
         existing_amount=existing_amount,
+    )
+    return plan.amount if plan is not None else 0.0
+
+
+def calculate_company_motor_rental_deduction_from_history(
+    history_rows: Sequence[Mapping[str, object]],
+    selected_month: str,
+    *,
+    existing_amount: float = 0.0,
+    exit_date: object = None,
+) -> float:
+    plan = build_company_motor_rental_plan_from_history(
+        history_rows,
+        selected_month,
+        existing_amount=existing_amount,
+        exit_date=exit_date,
     )
     return plan.amount if plan is not None else 0.0
 

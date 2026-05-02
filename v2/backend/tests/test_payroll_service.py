@@ -2311,3 +2311,129 @@ def test_payroll_dashboard_adds_religious_holiday_bonus_for_fixed_team_chief_rol
     assert round(document_payload.net_payment, 2) == 121129.78
     assert ("Tevkifat", round(document_payload.tevkifat_amount, 2)) == ("Tevkifat", 4176.89)
     assert any(item[0] == "Tevkifat" for item in document_payload.deduction_items)
+
+
+def test_payroll_uses_vehicle_history_for_partial_month_motor_rental_deduction():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE personnel_vehicle_history (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase TEXT,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL,
+            effective_date TEXT,
+            changed_at TEXT,
+            notes TEXT
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (
+            id, full_name, person_code, role, status, cost_model, monthly_fixed_cost,
+            start_date, vehicle_type, motor_rental, motor_purchase, motor_rental_monthly_amount
+        )
+        VALUES (1, 'Cüneyt Mehder', 'CK-K55', 'Kurye', 'Aktif', 'fixed_monthly', 30000, '2026-03-19', 'Kendi Motoru', 'Hayır', 'Hayır', 13000)
+        """
+    )
+    raw_conn.executemany(
+        """
+        INSERT INTO personnel_vehicle_history (
+            id,
+            personnel_id,
+            vehicle_type,
+            motor_rental,
+            motor_rental_monthly_amount,
+            motor_purchase,
+            motor_purchase_start_date,
+            motor_purchase_commitment_months,
+            motor_purchase_sale_price,
+            motor_purchase_monthly_deduction,
+            effective_date,
+            changed_at,
+            notes
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (1, 1, 'Kendi Motoru', 'Hayır', 13000, 'Hayır', None, 0, 0, 0, '2026-03-19', '2026-03-19 09:00:00', 'Baslangic'),
+            (2, 1, 'Çat Kapında', 'Evet', 13000, 'Hayır', None, 0, 0, 0, '2026-03-21', '2026-03-21 09:00:00', 'Motor kiraladi'),
+            (3, 1, 'Kendi Motoru', 'Hayır', 13000, 'Hayır', None, 0, 0, 0, '2026-03-24', '2026-03-24 09:00:00', 'Kendi motoruna dondu'),
+        ],
+    )
+    raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'Quick China', 'Ataşehir')")
+    raw_conn.execute(
+        """
+        INSERT INTO daily_entries (
+            entry_date,
+            restaurant_id,
+            planned_personnel_id,
+            actual_personnel_id,
+            worked_hours,
+            package_count
+        )
+        VALUES ('2026-03-25', 10, 1, 1, 8, 12)
+        """
+    )
+    raw_conn.commit()
+
+    conn = CompatConnection(raw_conn, "sqlite")
+    payload = build_payroll_dashboard(conn, selected_month="2026-03")
+
+    assert payload.entries
+    entry = payload.entries[0]
+    assert any(item.label == "Motor Kirası" and round(item.amount, 2) == 1300.00 for item in entry.deduction_items)
+
+    document_payload = _build_local_payroll_document_payload(
+        CompatConnection(raw_conn, "sqlite"),
+        selected_month="2026-03",
+        personnel_id=1,
+    )
+    assert any(item[0] == "Motor Kirası" and round(item[1], 2) == 1300.00 for item in document_payload.deduction_items)
