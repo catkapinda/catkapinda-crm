@@ -97,8 +97,20 @@ _PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndir
 _MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
 _MOTOR_PURCHASE_DEDUCTION_SQL = "('Motor Satış Taksiti', 'Motor Satis Taksiti', 'Motor Satın Alım', 'Motor Satin Alim')"
 _INVOICE_BASE_REDUCING_DEDUCTION_TYPES = {"Fatura Edilmeyen Tutar"}
-_SUPPORT_HOLIDAY_DOUBLE_COST_MODELS = {"fixed_joker", "fixed_bolge_muduru"}
-_SUPPORT_HOLIDAY_DOUBLE_ROLES = {"Joker", "Bölge Müdürü", "Bolge Muduru"}
+_SUPPORT_HOLIDAY_DOUBLE_COST_MODELS = {
+    "fixed_joker",
+    "fixed_bolge_muduru",
+    "fixed_restoran_takim_sefi",
+}
+_SUPPORT_HOLIDAY_DOUBLE_ROLES = {
+    "Joker",
+    "Bölge Müdürü",
+    "Bolge Muduru",
+    "Takım Şefi",
+    "Takim Sefi",
+    "Restoran Takım Şefi",
+    "Restoran Takim Sefi",
+}
 _RELIGIOUS_HOLIDAY_DOUBLE_DATES = {
     date(2025, 3, 30),
     date(2025, 3, 31),
