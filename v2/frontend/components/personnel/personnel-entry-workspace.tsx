@@ -85,6 +85,7 @@ export function PersonnelEntryWorkspace() {
   const [restaurantId, setRestaurantId] = useState<number | "">("");
   const [status, setStatus] = useState("Aktif");
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [exitDate, setExitDate] = useState("");
   const [vehicleMode, setVehicleMode] = useState("Kendi Motoru");
   const [currentPlate, setCurrentPlate] = useState("");
   const [motorRentalMonthlyAmount, setMotorRentalMonthlyAmount] = useState("13000");
@@ -162,6 +163,10 @@ export function PersonnelEntryWorkspace() {
       setSubmitError("Ad soyad zorunlu.");
       return;
     }
+    if (status === "Pasif" && !exitDate) {
+      setSubmitError("Pasif personel için çıkış tarihi zorunlu.");
+      return;
+    }
 
     const response = await apiFetch("/personnel/records", {
       method: "POST",
@@ -187,6 +192,7 @@ export function PersonnelEntryWorkspace() {
         assigned_restaurant_id: typeof restaurantId === "number" ? restaurantId : null,
         status,
         start_date: startDate || null,
+        exit_date: status === "Pasif" ? exitDate || null : null,
         vehicle_mode: vehicleMode,
         current_plate: currentPlate,
         motor_rental_monthly_amount: Number(motorRentalMonthlyAmount || 0),
@@ -224,6 +230,7 @@ export function PersonnelEntryWorkspace() {
     setAccountantCost("0");
     setCompanySetupRevenue("0");
     setCompanySetupCost("0");
+    setExitDate("");
     setCurrentPlate("");
     setMotorRentalMonthlyAmount("13000");
     setMotorPurchaseStartDate("");
@@ -358,6 +365,10 @@ export function PersonnelEntryWorkspace() {
                 <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>İşe Giriş</span>
                   <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} style={fieldStyle} />
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Çıkış Tarihi</span>
+                  <input type="date" value={exitDate} onChange={(event) => setExitDate(event.target.value)} style={fieldStyle} />
                 </label>
                 {canViewPlateArea ? (
                   <label style={{ display: "grid", gap: "8px" }}>

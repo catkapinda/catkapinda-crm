@@ -128,7 +128,10 @@ def build_company_motor_rental_plan(
     *,
     existing_amount: float = 0.0,
 ) -> MotorPaymentPlan | None:
-    if not is_company_motor_rental(row):
+    vehicle_type = _normalize_text(row.get("vehicle_type"))
+    motor_purchase = _is_yes(row.get("motor_purchase"))
+    motor_rental = _is_yes(row.get("motor_rental"))
+    if motor_purchase or not (vehicle_type == "cat kapinda" or motor_rental):
         return None
 
     monthly_amount = _safe_float(row.get("motor_rental_monthly_amount"), DEFAULT_MOTOR_RENTAL_MONTHLY_AMOUNT)
@@ -137,12 +140,21 @@ def build_company_motor_rental_plan(
 
     month_start, month_end = _month_bounds(selected_month)
     start_date = _parse_date(row.get("start_date"))
+    exit_date = _parse_date(row.get("exit_date")) or _parse_date(row.get("end_date"))
     if start_date is not None and start_date > month_end:
         return None
+    if exit_date is not None and exit_date < month_start:
+        return None
 
+    active_start = max(month_start, start_date) if start_date is not None else month_start
+    active_end = min(month_end, exit_date) if exit_date is not None else month_end
+    if active_end < active_start:
+        return None
+
+    active_days = max((active_end - active_start).days + 1, 0)
+    is_full_month_active = active_start == month_start and active_end == month_end
     expected_amount = monthly_amount
-    if start_date is not None and month_start <= start_date <= month_end:
-        active_days = max(month_end.day - start_date.day + 1, 0)
+    if not is_full_month_active:
         expected_amount = min(monthly_amount, monthly_amount / 30.0 * active_days)
 
     amount = max(round(expected_amount - _safe_float(existing_amount), 2), 0.0)
@@ -150,8 +162,8 @@ def build_company_motor_rental_plan(
         return None
 
     note_parts = [f"Aylık kira {_format_currency_note(monthly_amount)}"]
-    if start_date is not None and month_start <= start_date <= month_end:
-        note_parts.append(f"ilk ay prorata {_format_currency_note(expected_amount)}")
+    if not is_full_month_active:
+        note_parts.append(f"{active_days} gün prorata {_format_currency_note(expected_amount)}")
     if existing_amount > 0:
         note_parts.append(f"manuel kayıt {_format_currency_note(existing_amount)} düşüldü")
     return MotorPaymentPlan(

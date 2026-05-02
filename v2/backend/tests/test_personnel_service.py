@@ -293,22 +293,36 @@ def test_build_personnel_detail_masks_plate_fields_without_permission(monkeypatc
 def test_toggle_personnel_record_status_syncs_mobile_auth(monkeypatch):
     conn = FakeConnection()
     sync_calls: list[tuple[int, dict | None]] = []
+    status_calls: list[dict[str, object | None]] = []
 
     monkeypatch.setattr(
         personnel_service,
         "fetch_personnel_record_by_id",
         lambda *args, **kwargs: {"id": 16, "status": "Aktif"},
     )
-    monkeypatch.setattr(personnel_service, "update_personnel_status", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        personnel_service,
+        "update_personnel_status",
+        lambda _conn, person_id, *, status, exit_date: status_calls.append(
+            {"person_id": person_id, "status": status, "exit_date": exit_date}
+        ),
+    )
     monkeypatch.setattr(
         personnel_service,
         "sync_mobile_auth_user_for_personnel",
         lambda _conn, *, personnel_id, fallback_row=None: sync_calls.append((personnel_id, fallback_row)),
     )
 
-    response = personnel_service.toggle_personnel_record_status(conn, person_id=16)
+    response = personnel_service.toggle_personnel_record_status(
+        conn,
+        person_id=16,
+        exit_date=date(2026, 5, 2),
+    )
 
     assert response.message == "Personel pasife alındı."
+    assert status_calls == [
+        {"person_id": 16, "status": "Pasif", "exit_date": "2026-05-02"}
+    ]
     assert sync_calls == [(16, None)]
     assert conn.commit_count == 1
 

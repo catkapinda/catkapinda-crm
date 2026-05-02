@@ -37,6 +37,7 @@ type PersonnelEntry = {
   motor_purchase_sale_price: number;
   motor_purchase_monthly_deduction: number;
   start_date: string | null;
+  exit_date: string | null;
   monthly_fixed_cost: number;
   notes: string;
 };
@@ -109,6 +110,7 @@ export function PersonnelManagementWorkspace() {
   const [editMotorPurchaseSalePrice, setEditMotorPurchaseSalePrice] = useState("0");
   const [editMotorPurchaseMonthlyDeduction, setEditMotorPurchaseMonthlyDeduction] = useState("0");
   const [editStartDate, setEditStartDate] = useState("");
+  const [editExitDate, setEditExitDate] = useState("");
   const [editMonthlyFixedCost, setEditMonthlyFixedCost] = useState("0");
   const [editNotes, setEditNotes] = useState("");
   const [editPersonCode, setEditPersonCode] = useState("");
@@ -199,6 +201,7 @@ export function PersonnelManagementWorkspace() {
       setEditMotorPurchaseSalePrice(String(entry.motor_purchase_sale_price ?? 0));
       setEditMotorPurchaseMonthlyDeduction(String(entry.motor_purchase_monthly_deduction ?? 0));
       setEditStartDate(entry.start_date ?? "");
+      setEditExitDate(entry.exit_date ?? "");
       setEditMonthlyFixedCost(String(entry.monthly_fixed_cost ?? 0));
       setEditNotes(entry.notes ?? "");
       setEditPersonCode(entry.person_code);
@@ -245,6 +248,10 @@ export function PersonnelManagementWorkspace() {
       setError("Duzenlenecek personel seç.");
       return;
     }
+    if (editStatus === "Pasif" && !editExitDate) {
+      setError("Pasife almak için çıkış tarihi gir.");
+      return;
+    }
     setError("");
     setSuccess("");
 
@@ -272,6 +279,7 @@ export function PersonnelManagementWorkspace() {
         assigned_restaurant_id: typeof editRestaurantId === "number" ? editRestaurantId : null,
         status: editStatus,
         start_date: editStartDate || null,
+        exit_date: editStatus === "Pasif" ? editExitDate || null : null,
         vehicle_mode: editVehicleMode,
         current_plate: editCurrentPlate,
         motor_rental_monthly_amount: Number(editMotorRentalMonthlyAmount || 0),
@@ -306,11 +314,22 @@ export function PersonnelManagementWorkspace() {
       setError("Durumu değiştirilecek personel seç.");
       return;
     }
+    const nextStatus = selectedEntry?.status === "Aktif" ? "Pasif" : "Aktif";
+    if (nextStatus === "Pasif" && !editExitDate) {
+      setError("Pasife almak için çıkış tarihi gir.");
+      return;
+    }
     setError("");
     setSuccess("");
 
     const response = await apiFetch(`/personnel/records/${selectedEntryId}/toggle-status`, {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        exit_date: nextStatus === "Pasif" ? editExitDate || null : null,
+      }),
     });
     const payload = (await response.json().catch(() => null)) as
       | { detail?: string; message?: string }
@@ -698,6 +717,15 @@ export function PersonnelManagementWorkspace() {
                   <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>İşe Giriş</span>
                     <input type="date" value={editStartDate} onChange={(event) => setEditStartDate(event.target.value)} style={fieldStyle} />
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Çıkış Tarihi</span>
+                    <input
+                      type="date"
+                      value={editExitDate}
+                      onChange={(event) => setEditExitDate(event.target.value)}
+                      style={fieldStyle}
+                    />
                   </label>
                   <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>Aylık Sabit Tutar</span>

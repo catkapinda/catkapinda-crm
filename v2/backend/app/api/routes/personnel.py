@@ -26,6 +26,7 @@ from app.schemas.personnel import (
     PersonnelVehicleCreateResponse,
     PersonnelVehicleWorkspaceResponse,
     PersonnelStatusUpdateResponse,
+    PersonnelStatusToggleRequest,
     PersonnelUpdateRequest,
     PersonnelUpdateResponse,
 )
@@ -290,9 +291,14 @@ def toggle_personnel_status_route(
     person_id: int,
     user: Annotated[AuthenticatedUser, Depends(require_action("personnel.status_change"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
+    payload: PersonnelStatusToggleRequest | None = None,
 ) -> PersonnelStatusUpdateResponse:
     try:
-        response = toggle_personnel_record_status(conn, person_id=person_id)
+        response = toggle_personnel_record_status(
+            conn,
+            person_id=person_id,
+            exit_date=payload.exit_date if payload is not None else None,
+        )
         response_data = response_to_dict(response)
         safe_record_audit_event(
             conn,
@@ -301,7 +307,11 @@ def toggle_personnel_status_route(
             action_type="durum değiştir",
             summary=str(response_data.get("message") or ""),
             entity_id=person_id,
-            details={"person_id": person_id, "status": response_data.get("status")},
+            details={
+                "person_id": person_id,
+                "status": response_data.get("status"),
+                "exit_date": payload.exit_date.isoformat() if payload and payload.exit_date else None,
+            },
         )
         return response
     except LookupError as exc:

@@ -223,7 +223,7 @@ def test_personnel_mutation_routes(monkeypatch):
     )
     monkeypatch.setattr(
         "app.api.routes.personnel.toggle_personnel_record_status",
-        lambda conn, person_id: {
+        lambda conn, person_id, exit_date=None: {
             "person_id": person_id,
             "status": "Pasif",
             "message": "Personel pasife alındı.",

@@ -128,6 +128,7 @@ def fetch_recent_personnel_records(
             COALESCE(p.motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
             COALESCE(p.current_plate, '') AS current_plate,
             p.start_date,
+            p.exit_date,
             COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
             COALESCE(p.notes, '') AS notes
         FROM personnel p
@@ -194,6 +195,7 @@ def fetch_personnel_management_records(
             COALESCE(p.motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
             COALESCE(p.current_plate, '') AS current_plate,
             p.start_date,
+            p.exit_date,
             COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
             COALESCE(p.notes, '') AS notes
         FROM personnel p
@@ -329,6 +331,7 @@ def fetch_personnel_record_by_id(
             COALESCE(p.motor_purchase_monthly_deduction, 0) AS motor_purchase_monthly_deduction,
             COALESCE(p.current_plate, '') AS current_plate,
             p.start_date,
+            p.exit_date,
             COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
             COALESCE(p.notes, '') AS notes
         FROM personnel p

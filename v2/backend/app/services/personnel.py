@@ -287,6 +287,7 @@ def _build_management_entry(
         motor_purchase_sale_price=motor_purchase_sale_price,
         motor_purchase_monthly_deduction=motor_purchase_monthly_deduction,
         start_date=row["start_date"],
+        exit_date=row.get("exit_date"),
         monthly_fixed_cost=float(row["monthly_fixed_cost"] or 0),
         notes=str(row["notes"] or ""),
     )
@@ -966,6 +967,7 @@ def create_personnel_record(
         _normalize_vehicle_mode(payload.vehicle_mode) if allow_vehicle_fields else "Kendi Motoru"
     )
     normalized_status = payload.status if payload.status in PERSONNEL_STATUS_OPTIONS else "Aktif"
+    exit_date = (payload.exit_date or date.today()) if normalized_status == "Pasif" else None
     person_code = _build_next_person_code(conn, role=normalized_role)
     vehicle_payload = _build_vehicle_payload(
         vehicle_mode=normalized_vehicle_mode,
@@ -1006,7 +1008,7 @@ def create_personnel_record(
             "motor_purchase_monthly_deduction": float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
             "current_plate": str(payload.current_plate or "").strip() if allow_vehicle_fields else "",
             "start_date": payload.start_date,
-            "exit_date": date.today().isoformat() if normalized_status == "Pasif" else None,
+            "exit_date": exit_date,
             "cost_model": _resolve_cost_model_for_role(normalized_role),
             "monthly_fixed_cost": float(payload.monthly_fixed_cost or 0),
             "notes": str(payload.notes or "").strip(),
@@ -1069,6 +1071,7 @@ def update_personnel_record_entry(
     previous_role = str(existing_row.get("role") or "").strip()
     normalized_role = _normalize_role(payload.role)
     normalized_status = payload.status if payload.status in PERSONNEL_STATUS_OPTIONS else "Aktif"
+    exit_date = (payload.exit_date or date.today()) if normalized_status == "Pasif" else None
     next_person_code = _build_next_person_code(conn, role=normalized_role, exclude_id=person_id)
     current_code = str(existing_row.get("person_code") or "").strip()
     person_code = current_code or next_person_code
@@ -1134,7 +1137,7 @@ def update_personnel_record_entry(
             "motor_purchase_monthly_deduction": float(vehicle_payload["motor_purchase_monthly_deduction"] or 0),
             "current_plate": current_plate,
             "start_date": payload.start_date,
-            "exit_date": date.today().isoformat() if normalized_status == "Pasif" else None,
+            "exit_date": exit_date,
             "cost_model": _resolve_cost_model_for_role(normalized_role),
             "monthly_fixed_cost": float(payload.monthly_fixed_cost or 0),
             "notes": str(payload.notes or "").strip(),
@@ -1184,6 +1187,7 @@ def toggle_personnel_record_status(
     conn: psycopg.Connection,
     *,
     person_id: int,
+    exit_date: date | None = None,
 ) -> PersonnelStatusUpdateResponse:
     existing_row = fetch_personnel_record_by_id(conn, person_id)
     if existing_row is None:
@@ -1193,7 +1197,7 @@ def toggle_personnel_record_status(
         conn,
         person_id,
         status=next_status,
-        exit_date=date.today().isoformat() if next_status == "Pasif" else None,
+        exit_date=(exit_date or date.today()).isoformat() if next_status == "Pasif" else None,
     )
     sync_mobile_auth_user_for_personnel(conn, personnel_id=person_id)
     conn.commit()

@@ -66,6 +66,7 @@ class PersonnelManagementEntry(BaseModel):
     motor_purchase_sale_price: float
     motor_purchase_monthly_deduction: float
     start_date: date | None
+    exit_date: date | None = None
     monthly_fixed_cost: float
     notes: str
 
@@ -201,6 +202,7 @@ class PersonnelCreateRequest(BaseModel):
     assigned_restaurant_id: int | None = None
     status: str = "Aktif"
     start_date: date | None = None
+    exit_date: date | None = None
     vehicle_mode: str = "Kendi Motoru"
     motor_rental_monthly_amount: float = 13000.0
     motor_purchase_start_date: date | None = None
@@ -264,6 +266,7 @@ class PersonnelUpdateRequest(BaseModel):
     assigned_restaurant_id: int | None = None
     status: str = "Aktif"
     start_date: date | None = None
+    exit_date: date | None = None
     vehicle_mode: str = "Kendi Motoru"
     motor_rental_monthly_amount: float = 13000.0
     motor_purchase_start_date: date | None = None
@@ -334,6 +337,10 @@ class PersonnelStatusUpdateResponse(BaseModel):
     person_id: int
     status: str
     message: str
+
+
+class PersonnelStatusToggleRequest(BaseModel):
+    exit_date: date | None = None
 
 
 class PersonnelDeleteResponse(BaseModel):

@@ -86,6 +86,10 @@ def _table_columns(conn: psycopg.Connection, table_name: str) -> set[str]:
 def _payroll_optional_personnel_select(conn: psycopg.Connection) -> str:
     columns = _table_columns(conn, "personnel")
     optional_fields = []
+    if "exit_date" in columns:
+        optional_fields.append("exit_date")
+    else:
+        optional_fields.append("NULL AS exit_date")
     for column_name in (
         "accounting_revenue",
         "accountant_cost",
