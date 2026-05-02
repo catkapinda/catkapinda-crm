@@ -467,6 +467,26 @@ def _is_fixed_cost_model(cost_model: object) -> bool:
     return model == "fixed_monthly" or model.startswith("fixed_")
 
 
+def _resolve_fixed_monthly_courier_pay(
+    *,
+    cost_model: object,
+    monthly_fixed_cost: float,
+    segments: list[dict[str, object]],
+) -> float:
+    fixed_cost = _safe_float(monthly_fixed_cost)
+    if fixed_cost > 0:
+        return fixed_cost
+    if str(cost_model or "").strip() != "fixed_monthly":
+        return fixed_cost
+
+    for segment in segments:
+        if bool(segment.get("is_support_assignment")):
+            continue
+        if _is_fixed_monthly_brand(segment.get("brand")):
+            return _FIXED_MONTHLY_BRAND_COURIER_PAY
+    return fixed_cost
+
+
 def _calculate_personnel_gross_pay(
     *,
     selected_month: str,
@@ -479,7 +499,11 @@ def _calculate_personnel_gross_pay(
     segments: list[dict[str, object]],
     attendance_dates: set[date] | None = None,
 ) -> float:
-    fixed_cost = _safe_float(monthly_fixed_cost)
+    fixed_cost = _resolve_fixed_monthly_courier_pay(
+        cost_model=cost_model,
+        monthly_fixed_cost=monthly_fixed_cost,
+        segments=segments,
+    )
     has_attendance = total_hours > 0 or total_packages > 0
     holiday_bonus = _calculate_support_holiday_bonus(
         selected_month=selected_month,
