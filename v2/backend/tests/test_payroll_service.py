@@ -2042,8 +2042,11 @@ def test_payroll_dashboard_calculates_tevkifat_after_invoice_base_reducing_deduc
     )
     raw_conn.execute(
         """
-        INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
-        VALUES (1, 'Cihan Can Çimen', 'CK-BM01', 'Bölge Müdürü', 'Aktif', 'fixed_bolge_muduru', 117475)
+        INSERT INTO personnel (
+            id, full_name, person_code, role, status, cost_model, monthly_fixed_cost,
+            vehicle_type, motor_rental, motor_purchase, motor_rental_monthly_amount
+        )
+        VALUES (1, 'Cihan Can Çimen', 'CK-BM01', 'Bölge Müdürü', 'Aktif', 'fixed_bolge_muduru', 117475, 'Çat Kapında', 'Evet', 'Hayır', 13540)
         """
     )
     raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'Doğu Otomotiv', 'Merkez')")
@@ -2150,11 +2153,13 @@ def test_payroll_dashboard_does_not_reduce_tevkifat_base_for_motor_rental():
         """
         INSERT INTO personnel (
             id, full_name, person_code, role, status, cost_model, monthly_fixed_cost,
-            accounting_revenue, accounting_effective_date
+            accounting_revenue, accounting_effective_date,
+            vehicle_type, motor_rental, motor_purchase, motor_rental_monthly_amount
         )
         VALUES (
             1, 'Neçirvan Bulgan', 'CK-K10', 'Kurye', 'Aktif', 'fixed_monthly', 81650,
-            2000, '2026-03-01'
+            2000, '2026-03-01',
+            'Çat Kapında', 'Evet', 'Hayır', 13000
         )
         """
     )

@@ -1265,23 +1265,19 @@ def _build_local_payroll_document_payload(
             if (parsed_date := _parse_attendance_date(row["entry_date"])) is not None
         },
     )
-    base_deductions = _safe_float(sum(_safe_float(row["total_amount"]) for row in deduction_rows))
+    non_motor_deduction_rows = [
+        row
+        for row in deduction_rows
+        if not is_motor_rental_deduction_type(row["deduction_type"])
+        and not is_motor_purchase_deduction_type(row["deduction_type"])
+    ]
+    base_deductions = _safe_float(sum(_safe_float(row["total_amount"]) for row in non_motor_deduction_rows))
     invoice_base_reducing_deductions = _safe_float(
         sum(
             _safe_float(row["total_amount"])
-            for row in deduction_rows
+            for row in non_motor_deduction_rows
             if _deduction_reduces_invoice_base(row["deduction_type"])
         )
-    )
-    existing_motor_rental = sum(
-        _safe_float(row["total_amount"])
-        for row in deduction_rows
-        if is_motor_rental_deduction_type(row["deduction_type"])
-    )
-    existing_motor_purchase = sum(
-        _safe_float(row["total_amount"])
-        for row in deduction_rows
-        if is_motor_purchase_deduction_type(row["deduction_type"])
     )
     vehicle_history_rows = _fetch_vehicle_history_rows_by_person_for_month(
         conn,
@@ -1292,20 +1288,17 @@ def _build_local_payroll_document_payload(
         calculate_company_motor_rental_deduction_from_history(
             vehicle_history_rows,
             resolved_month,
-            existing_amount=existing_motor_rental,
             exit_date=_row_value(person_data, "exit_date"),
         )
         if vehicle_history_rows
         else calculate_company_motor_rental_deduction(
             person_data,
             resolved_month,
-            existing_amount=existing_motor_rental,
         )
     )
     auto_motor_purchase = calculate_company_motor_purchase_deduction(
         person_data,
         resolved_month,
-        existing_amount=existing_motor_purchase,
     )
     base_deductions += auto_motor_rental
     base_deductions += auto_motor_purchase
@@ -1319,7 +1312,7 @@ def _build_local_payroll_document_payload(
         invoice_base_reducing_deductions=invoice_base_reducing_deductions,
     )
     restaurant_names = [str(row["restaurant_label"]) for row in restaurant_rows if str(row["restaurant_label"]).strip()]
-    deduction_items = [(str(row["deduction_type"]), _safe_float(row["total_amount"])) for row in deduction_rows]
+    deduction_items = [(str(row["deduction_type"]), _safe_float(row["total_amount"])) for row in non_motor_deduction_rows]
     if auto_motor_rental > 0:
         deduction_items.append((MOTOR_RENTAL_DEDUCTION_TYPE, auto_motor_rental))
     if auto_motor_purchase > 0:
@@ -1512,19 +1505,6 @@ def _build_local_payroll_dashboard(
         """,
         (resolved_month,),
     ).fetchall()
-    existing_motor_rental_rows = conn.execute(
-        f"""
-        SELECT
-            personnel_id,
-            COALESCE(SUM(amount), 0) AS total_motor_rental
-        FROM deductions
-        WHERE {_month_key_sql('deduction_date')} = %s
-          AND personnel_id IS NOT NULL
-          AND COALESCE(deduction_type, '') IN {_MOTOR_RENTAL_DEDUCTION_SQL}
-        GROUP BY personnel_id
-        """,
-        (resolved_month,),
-    ).fetchall()
 
     personnel_rows = conn.execute(
         f"""
@@ -1605,6 +1585,8 @@ def _build_local_payroll_dashboard(
     for row in deduction_rows:
         if row["personnel_id"] is None:
             continue
+        if is_motor_rental_deduction_type(row["deduction_type"]) or is_motor_purchase_deduction_type(row["deduction_type"]):
+            continue
         person_id = int(row["personnel_id"])
         amount = _safe_float(row["total_amount"])
         deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + amount
@@ -1613,29 +1595,6 @@ def _build_local_payroll_dashboard(
             invoice_base_reducing_deductions_by_person[person_id] = (
                 _safe_float(invoice_base_reducing_deductions_by_person.get(person_id)) + amount
             )
-    existing_motor_rental_by_person = {
-        int(row["personnel_id"]): _safe_float(row["total_motor_rental"])
-        for row in existing_motor_rental_rows
-        if row["personnel_id"] is not None
-    }
-    existing_motor_purchase_rows = conn.execute(
-        f"""
-        SELECT
-            personnel_id,
-            COALESCE(SUM(amount), 0) AS total_motor_purchase
-        FROM deductions
-        WHERE {_month_key_sql('deduction_date')} = %s
-          AND personnel_id IS NOT NULL
-          AND COALESCE(deduction_type, '') IN {_MOTOR_PURCHASE_DEDUCTION_SQL}
-        GROUP BY personnel_id
-        """,
-        (resolved_month,),
-    ).fetchall()
-    existing_motor_purchase_by_person = {
-        int(row["personnel_id"]): _safe_float(row["total_motor_purchase"])
-        for row in existing_motor_purchase_rows
-        if row["personnel_id"] is not None
-    }
 
     personnel_index = {int(row["id"]): row for row in personnel_rows if row["id"] is not None}
     vehicle_history_by_person = _fetch_vehicle_history_rows_by_person_for_month(
@@ -1656,14 +1615,12 @@ def _build_local_payroll_dashboard(
             calculate_company_motor_rental_deduction_from_history(
                 person_vehicle_history,
                 resolved_month,
-                existing_amount=existing_motor_rental_by_person.get(person_id, 0.0),
                 exit_date=_row_value(person, "exit_date"),
             )
             if person_vehicle_history
             else calculate_company_motor_rental_deduction(
                 dict(person),
                 resolved_month,
-                existing_amount=existing_motor_rental_by_person.get(person_id, 0.0),
             )
         )
         if auto_motor_rental > 0:
@@ -1673,7 +1630,6 @@ def _build_local_payroll_dashboard(
         auto_motor_purchase = calculate_company_motor_purchase_deduction(
             dict(person),
             resolved_month,
-            existing_amount=existing_motor_purchase_by_person.get(person_id, 0.0),
         )
         if auto_motor_purchase > 0:
             auto_motor_purchase_by_person[person_id] = auto_motor_purchase
