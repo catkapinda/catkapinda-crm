@@ -423,7 +423,6 @@ def _deduction_reduces_invoice_base(deduction_type: object) -> bool:
         return False
     return (
         normalized_type in _INVOICE_BASE_REDUCING_DEDUCTION_TYPES
-        or is_motor_rental_deduction_type(normalized_type)
         or is_motor_purchase_deduction_type(normalized_type)
     )
 
@@ -968,7 +967,6 @@ def _build_local_payroll_document_payload(
     )
     base_deductions += auto_motor_rental
     base_deductions += auto_motor_purchase
-    invoice_base_reducing_deductions += auto_motor_rental
     invoice_base_reducing_deductions += auto_motor_purchase
     profile_deduction_items = _build_personnel_profile_deduction_items(person_row)
     profile_deduction_total = _safe_float(sum(amount for _, amount in profile_deduction_items))
@@ -1289,9 +1287,6 @@ def _build_local_payroll_dashboard(
             auto_motor_rental_by_person[person_id] = auto_motor_rental
             deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_rental
             deduction_items_by_person.setdefault(person_id, []).append((MOTOR_RENTAL_DEDUCTION_TYPE, auto_motor_rental))
-            invoice_base_reducing_deductions_by_person[person_id] = (
-                _safe_float(invoice_base_reducing_deductions_by_person.get(person_id)) + auto_motor_rental
-            )
         auto_motor_purchase = calculate_company_motor_purchase_deduction(
             dict(person),
             resolved_month,

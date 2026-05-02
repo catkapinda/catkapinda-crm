@@ -1037,17 +1037,17 @@ def test_payroll_dashboard_calculates_tevkifat_after_invoice_base_reducing_deduc
     payload = build_payroll_dashboard(conn, selected_month="2026-03")
 
     assert round(payload.entries[0].gross_pay, 2) == 125306.67
-    assert round(payload.entries[0].tevkifat_amount, 2) == 3725.56
-    assert round(payload.entries[0].total_deductions, 2) == 51852.66
-    assert round(payload.entries[0].net_payment, 2) == 73454.01
+    assert round(payload.entries[0].tevkifat_amount, 2) == 4176.89
+    assert round(payload.entries[0].total_deductions, 2) == 52303.99
+    assert round(payload.entries[0].net_payment, 2) == 73002.68
 
     document_payload = _build_local_payroll_document_payload(
         conn,
         selected_month="2026-03",
         personnel_id=1,
     )
-    assert round(document_payload.tevkifat_amount, 2) == 3725.56
-    assert any(item[0] == "Tevkifat" and round(item[1], 2) == 3725.56 for item in document_payload.deduction_items)
+    assert round(document_payload.tevkifat_amount, 2) == 4176.89
+    assert any(item[0] == "Tevkifat" and round(item[1], 2) == 4176.89 for item in document_payload.deduction_items)
 
 
 def test_payroll_dashboard_adds_religious_holiday_bonus_for_fixed_support_roles():
