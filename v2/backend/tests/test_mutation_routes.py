@@ -432,6 +432,14 @@ def test_personnel_vehicle_routes(monkeypatch):
         },
     )
     monkeypatch.setattr(
+        "app.api.routes.personnel.delete_personnel_vehicle_history_entry",
+        lambda conn, history_id: {
+            "history_id": history_id,
+            "personnel_id": 9,
+            "message": "Motor geçmişi kaydı silindi.",
+        },
+    )
+    monkeypatch.setattr(
         "app.api.routes.personnel.build_personnel_vehicle_workspace",
         lambda conn, limit: {
             "summary": {
@@ -504,6 +512,7 @@ def test_personnel_vehicle_routes(monkeypatch):
             "notes": "Motor teslim edildi",
         },
     )
+    delete_response = client.delete("/api/personnel/vehicle-history/77")
 
     assert workspace_response.status_code == 200
     assert workspace_response.json()["summary"]["sale_cards"] == 1
@@ -511,6 +520,8 @@ def test_personnel_vehicle_routes(monkeypatch):
     assert create_response.json()["history_id"] == 77
     assert update_response.status_code == 200
     assert update_response.json()["history_id"] == 77
+    assert delete_response.status_code == 200
+    assert delete_response.json()["history_id"] == 77
 
 
 def test_deductions_mutation_routes(monkeypatch):

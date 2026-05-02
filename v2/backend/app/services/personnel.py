@@ -55,6 +55,7 @@ from app.repositories.personnel import (
     insert_accounting_history_record,
     insert_role_history_record,
     insert_vehicle_history_record,
+    delete_vehicle_history_record,
     update_vehicle_history_record,
     update_personnel_current_plate,
     update_personnel_role_fields,
@@ -84,6 +85,7 @@ from app.schemas.personnel import (
     PersonnelVehicleCandidateEntry,
     PersonnelVehicleCreateRequest,
     PersonnelVehicleCreateResponse,
+    PersonnelVehicleDeleteResponse,
     PersonnelVehicleHistoryEntry,
     PersonnelVehicleSummary,
     PersonnelVehicleUpdateRequest,
@@ -1058,6 +1060,25 @@ def update_personnel_vehicle_history_entry(
         personnel_id=person_id,
         vehicle_mode=_display_vehicle_mode(normalized_vehicle_mode),
         message="Motor geçmişi güncellendi.",
+    )
+
+
+def delete_personnel_vehicle_history_entry(
+    conn: psycopg.Connection,
+    *,
+    history_id: int,
+) -> PersonnelVehicleDeleteResponse:
+    history_row = fetch_vehicle_history_record_by_id(conn, history_id)
+    if history_row is None:
+        raise LookupError("Motor geçmişi kaydı bulunamadı.")
+    person_id = int(history_row["personnel_id"])
+    delete_vehicle_history_record(conn, history_id)
+    _sync_personnel_current_vehicle_from_latest_history(conn, person_id=person_id)
+    conn.commit()
+    return PersonnelVehicleDeleteResponse(
+        history_id=history_id,
+        personnel_id=person_id,
+        message="Motor geçmişi kaydı silindi.",
     )
 
 

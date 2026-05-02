@@ -285,6 +285,36 @@ export function PersonnelVehicleWorkspace() {
     resetFormFromPerson(selectedPerson);
   }
 
+  async function handleDeleteHistory(entry: PersonnelVehicleHistory) {
+    const confirmed = window.confirm(
+      `${entry.full_name} için ${formatDate(entry.effective_date)} tarihli "${entry.vehicle_mode}" kaydını silmek istiyor musun?`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    const response = await apiFetch(`/personnel/vehicle-history/${entry.id}`, {
+      method: "DELETE",
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { detail?: string; message?: string }
+      | null;
+    if (!response.ok) {
+      setError(payload?.detail || "Motor geçmişi kaydı silinemedi.");
+      return;
+    }
+    if (editingHistoryId === entry.id) {
+      cancelHistoryEdit();
+    }
+    setSuccess(payload?.message || "Motor geçmişi kaydı silindi.");
+    await loadWorkspace();
+    startTransition(() => {
+      router.refresh();
+    });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedPersonId) {
@@ -846,7 +876,24 @@ export function PersonnelVehicleWorkspace() {
                           Satış başlangıcı: {formatDate(entry.motor_purchase_start_date)} · Taahhüt: {entry.motor_purchase_commitment_months || 0} ay
                         </div>
                         {entry.notes ? <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>{entry.notes}</div> : null}
-                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleDeleteHistory(entry);
+                            }}
+                            style={{
+                              border: "1px solid rgba(178, 51, 51, 0.18)",
+                              borderRadius: "12px",
+                              padding: "8px 12px",
+                              background: "rgba(178, 51, 51, 0.06)",
+                              color: "#9f2a2a",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Sil
+                          </button>
                           <button
                             type="button"
                             onClick={() => beginHistoryEdit(entry)}

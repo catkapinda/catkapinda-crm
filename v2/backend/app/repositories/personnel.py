@@ -1121,6 +1121,19 @@ def update_vehicle_history_record(
     )
 
 
+def delete_vehicle_history_record(
+    conn: psycopg.Connection,
+    history_id: int,
+) -> None:
+    conn.execute(
+        """
+        DELETE FROM personnel_vehicle_history
+        WHERE id = %s
+        """,
+        (history_id,),
+    )
+
+
 def update_personnel_vehicle_fields(
     conn: psycopg.Connection,
     person_id: int,

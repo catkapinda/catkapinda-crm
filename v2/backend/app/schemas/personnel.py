@@ -351,6 +351,12 @@ class PersonnelVehicleUpdateResponse(BaseModel):
     message: str
 
 
+class PersonnelVehicleDeleteResponse(BaseModel):
+    history_id: int
+    personnel_id: int
+    message: str
+
+
 class PersonnelUpdateResponse(BaseModel):
     person_id: int
     person_code: str

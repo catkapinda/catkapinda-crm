@@ -24,6 +24,7 @@ from app.schemas.personnel import (
     PersonnelRoleWorkspaceResponse,
     PersonnelVehicleCreateRequest,
     PersonnelVehicleCreateResponse,
+    PersonnelVehicleDeleteResponse,
     PersonnelVehicleUpdateRequest,
     PersonnelVehicleUpdateResponse,
     PersonnelVehicleWorkspaceResponse,
@@ -44,6 +45,7 @@ from app.services.personnel import (
     create_personnel_plate_history_entry,
     create_personnel_role_history_entry,
     create_personnel_vehicle_history_entry,
+    delete_personnel_vehicle_history_entry,
     update_personnel_vehicle_history_entry,
     create_personnel_record,
     delete_personnel_record_entry,
@@ -239,6 +241,30 @@ def update_personnel_vehicle_history_route(
     except ValueError as exc:
         conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/vehicle-history/{history_id}", response_model=PersonnelVehicleDeleteResponse)
+def delete_personnel_vehicle_history_route(
+    history_id: int,
+    user: Annotated[AuthenticatedUser, Depends(require_action("personnel.update"))],
+    conn: Annotated[psycopg.Connection, Depends(get_db)],
+) -> PersonnelVehicleDeleteResponse:
+    try:
+        response = delete_personnel_vehicle_history_entry(conn, history_id=history_id)
+        response_data = response_to_dict(response)
+        safe_record_audit_event(
+            conn,
+            user=user,
+            entity_type="motor",
+            action_type="sil",
+            summary=str(response_data.get("message") or ""),
+            entity_id=response_data.get("history_id"),
+            details={"history_id": response_data.get("history_id"), "personnel_id": response_data.get("personnel_id")},
+        )
+        return response
+    except LookupError as exc:
+        conn.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/role-history", response_model=PersonnelRoleCreateResponse, status_code=201)
