@@ -20,6 +20,7 @@ type IconName =
   | "home"
   | "attendance"
   | "personnel"
+  | "fleet"
   | "payroll"
   | "deductions"
   | "equipment"
@@ -42,7 +43,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Operasyon",
-    items: ["Kesintiler", "Ekipman", "Restoranlar"],
+    items: ["Filo", "Kesintiler", "Ekipman", "Restoranlar"],
   },
   {
     label: "Finans",
@@ -62,6 +63,7 @@ const iconNameByLabel: Record<string, IconName> = {
   "Genel Bakış": "home",
   Puantaj: "attendance",
   Personel: "personnel",
+  Filo: "fleet",
   "Aylık Hakediş": "payroll",
   Kesintiler: "deductions",
   Ekipman: "equipment",
@@ -114,6 +116,16 @@ function ShellIcon({
         <svg {...commonProps}>
           <path d="M16 19v-1.5A3.5 3.5 0 0 0 12.5 14h-1A3.5 3.5 0 0 0 8 17.5V19" />
           <circle cx="12" cy="8.5" r="3.5" />
+        </svg>
+      );
+    case "fleet":
+      return (
+        <svg {...commonProps}>
+          <circle cx="8" cy="17" r="2.5" />
+          <circle cx="17" cy="17" r="2.5" />
+          <path d="M8 17 11 8h4l3 9" />
+          <path d="M10.5 9H15" />
+          <path d="M14 7h3" />
         </svg>
       );
     case "payroll":

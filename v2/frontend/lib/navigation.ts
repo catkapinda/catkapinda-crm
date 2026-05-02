@@ -12,6 +12,7 @@ const allSidebarItems: SidebarItem[] = [
   { label: "Sistem Kayıtları", href: "/audit", action: "audit.view" },
   { label: "Puantaj", href: "/attendance", action: "attendance.view" },
   { label: "Personel", href: "/personnel", action: "personnel.view" },
+  { label: "Filo", href: "/fleet", action: "personnel.list" },
   { label: "Kesintiler", href: "/deductions", action: "deduction.view" },
   { label: "Ekipman", href: "/equipment", action: "equipment.view" },
   { label: "Aylık Hakediş", href: "/payroll", action: "payroll.view" },
