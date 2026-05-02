@@ -21,6 +21,7 @@ type EquipmentItemDefault = {
 type EquipmentFormOptions = {
   personnel: EquipmentPersonnelOption[];
   issue_items: string[];
+  return_items: string[];
   sale_type_options: string[];
   return_condition_options: string[];
   installment_count_options: number[];
@@ -69,6 +70,7 @@ export function EquipmentEntryWorkspace() {
   const [issueNotes, setIssueNotes] = useState("");
 
   const [boxPersonnelId, setBoxPersonnelId] = useState<number | "">("");
+  const [returnItemName, setReturnItemName] = useState("Box");
   const [returnDate, setReturnDate] = useState(today);
   const [returnQuantity, setReturnQuantity] = useState("1");
   const [conditionStatus, setConditionStatus] = useState("Temiz");
@@ -88,6 +90,7 @@ export function EquipmentEntryWorkspace() {
       setBoxPersonnelId(payload.selected_personnel_id ?? "");
       setItemName(payload.selected_item);
       setSaleType(payload.sale_type_options[0] ?? "Satış");
+      setReturnItemName(payload.return_items[0] ?? "Box");
       setConditionStatus(payload.return_condition_options[0] ?? "Temiz");
       const defaults = payload.item_defaults[payload.selected_item];
       if (defaults) {
@@ -194,6 +197,7 @@ export function EquipmentEntryWorkspace() {
       },
       body: JSON.stringify({
         personnel_id: boxPersonnelId,
+        item_name: returnItemName,
         return_date: returnDate,
         quantity: Number(returnQuantity || 0),
         condition_status: conditionStatus,
@@ -504,6 +508,20 @@ export function EquipmentEntryWorkspace() {
                   {options?.personnel.map((person) => (
                     <option key={person.id} value={person.id}>
                       {person.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: "8px" }}>
+                <span style={{ fontWeight: 700 }}>Ekipman</span>
+                <select
+                  value={returnItemName}
+                  onChange={(event) => setReturnItemName(event.target.value)}
+                  style={fieldStyle}
+                >
+                  {(options?.return_items ?? ["Box", "Punch"]).map((item) => (
+                    <option key={item} value={item}>
+                      {item}
                     </option>
                   ))}
                 </select>

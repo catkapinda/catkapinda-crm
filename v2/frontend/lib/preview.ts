@@ -138,6 +138,7 @@ type PreviewEquipmentIssueRecord = {
 type PreviewBoxReturnRecord = {
   id: number;
   personnel_id: number;
+  item_name: string;
   return_date: string;
   quantity: number;
   condition_status: string;
@@ -744,6 +745,7 @@ let previewBoxReturnRecords: PreviewBoxReturnRecord[] = [
   {
     id: 1201,
     personnel_id: 105,
+    item_name: "Box",
     return_date: "2026-04-14",
     quantity: 2,
     condition_status: "Temiz",
@@ -754,6 +756,7 @@ let previewBoxReturnRecords: PreviewBoxReturnRecord[] = [
   {
     id: 1202,
     personnel_id: 103,
+    item_name: "Punch",
     return_date: "2026-04-10",
     quantity: 1,
     condition_status: "Hasarli",
@@ -764,6 +767,7 @@ let previewBoxReturnRecords: PreviewBoxReturnRecord[] = [
   {
     id: 1203,
     personnel_id: 107,
+    item_name: "Box",
     return_date: "2026-04-06",
     quantity: 1,
     condition_status: "Temiz",
@@ -1283,6 +1287,7 @@ function buildEquipmentIssueEntry(record: PreviewEquipmentIssueRecord) {
 function buildBoxReturnEntry(record: PreviewBoxReturnRecord) {
   return {
     ...record,
+    item_name: record.item_name || "Box",
     personnel_label: personnelLabel(record.personnel_id) || "-",
   };
 }
@@ -1296,6 +1301,7 @@ function buildEquipmentFormOptions() {
         label: `${entry.full_name} · ${restaurantLabel(entry.restaurant_id) || "Atanmadı"}`,
       })),
     issue_items: previewEquipmentIssueItems,
+    return_items: previewEquipmentIssueItems.filter((item) => !["Motor Kirası", "Motor Satın Alım"].includes(item)),
     sale_type_options: previewEquipmentSaleTypeOptions,
     return_condition_options: previewEquipmentReturnConditionOptions,
     installment_count_options: previewEquipmentInstallmentCountOptions,
@@ -3064,6 +3070,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
     const nextRecord: PreviewBoxReturnRecord = {
       id: nextBoxReturnId(),
       personnel_id: Number(body.personnel_id || previewPersonnelRecords[0]?.id || 101),
+      item_name: String(body.item_name || "Box"),
       return_date: String(body.return_date || "2026-04-15"),
       quantity: Number(body.quantity || 1),
       condition_status: String(body.condition_status || previewEquipmentReturnConditionOptions[0]),
@@ -3307,6 +3314,7 @@ export function buildPreviewResponse(path: string, init: RequestInit = {}) {
       previewBoxReturnRecords[index] = {
         ...previewBoxReturnRecords[index],
         personnel_id: Number(body.personnel_id || previewBoxReturnRecords[index].personnel_id),
+        item_name: String(body.item_name || previewBoxReturnRecords[index].item_name || "Box"),
         return_date: String(body.return_date || previewBoxReturnRecords[index].return_date),
         quantity: Number(body.quantity || previewBoxReturnRecords[index].quantity),
         condition_status: String(body.condition_status || previewBoxReturnRecords[index].condition_status),

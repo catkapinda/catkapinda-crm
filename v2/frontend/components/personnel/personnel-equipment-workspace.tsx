@@ -30,6 +30,7 @@ type BoxReturnEntry = {
   id: number;
   personnel_id: number;
   personnel_label: string;
+  item_name: string;
   return_date: string;
   quantity: number;
   condition_status: string;
@@ -41,6 +42,7 @@ type BoxReturnEntry = {
 type EquipmentFormOptions = {
   personnel: Array<{ id: number; label: string }>;
   issue_items: string[];
+  return_items: string[];
   sale_type_options: string[];
   return_condition_options: string[];
   installment_count_options: number[];
@@ -165,12 +167,14 @@ export function PersonnelEquipmentWorkspace() {
   const [issueBusy, setIssueBusy] = useState(false);
 
   const [newReturnDate, setNewReturnDate] = useState(new Date().toISOString().slice(0, 10));
+  const [newReturnItemName, setNewReturnItemName] = useState("Box");
   const [newReturnQuantity, setNewReturnQuantity] = useState("1");
   const [newReturnConditionStatus, setNewReturnConditionStatus] = useState("Temiz");
   const [newReturnPayoutAmount, setNewReturnPayoutAmount] = useState("0");
   const [newReturnNotes, setNewReturnNotes] = useState("");
 
   const [selectedBoxId, setSelectedBoxId] = useState<number | null>(null);
+  const [editReturnItemName, setEditReturnItemName] = useState("Box");
   const [editReturnDate, setEditReturnDate] = useState("");
   const [editReturnQuantity, setEditReturnQuantity] = useState("1");
   const [editReturnConditionStatus, setEditReturnConditionStatus] = useState("Temiz");
@@ -208,7 +212,9 @@ export function PersonnelEquipmentWorkspace() {
         setNewIssueSaleType(payload.sale_type_options[0] || "Satış");
         setEditIssueSaleType(payload.sale_type_options[0] || "Satış");
         setNewReturnConditionStatus(payload.return_condition_options[0] || "Temiz");
+        setNewReturnItemName(payload.return_items[0] || "Box");
         setEditReturnConditionStatus(payload.return_condition_options[0] || "Temiz");
+        setEditReturnItemName(payload.return_items[0] || "Box");
       } catch (error) {
         if (active) {
           setLoadError(
@@ -364,6 +370,7 @@ export function PersonnelEquipmentWorkspace() {
       return;
     }
     setEditReturnDate(selectedBoxEntry.return_date);
+    setEditReturnItemName(selectedBoxEntry.item_name || "Box");
     setEditReturnQuantity(String(selectedBoxEntry.quantity || 1));
     setEditReturnConditionStatus(selectedBoxEntry.condition_status || "Temiz");
     setEditReturnPayoutAmount(String(selectedBoxEntry.payout_amount || 0));
@@ -513,8 +520,9 @@ export function PersonnelEquipmentWorkspace() {
       const response = await apiFetch("/equipment/box-returns", {
         method: "POST",
         body: JSON.stringify({
-          personnel_id: selectedPersonnelId,
-          return_date: newReturnDate,
+        personnel_id: selectedPersonnelId,
+        item_name: newReturnItemName,
+        return_date: newReturnDate,
           quantity: Number(newReturnQuantity),
           condition_status: newReturnConditionStatus,
           payout_amount: Number(newReturnPayoutAmount),
@@ -552,6 +560,7 @@ export function PersonnelEquipmentWorkspace() {
         body: JSON.stringify({
           personnel_id: selectedPersonnelId,
           return_date: editReturnDate,
+          item_name: editReturnItemName,
           quantity: Number(editReturnQuantity),
           condition_status: editReturnConditionStatus,
           payout_amount: Number(editReturnPayoutAmount),
@@ -980,6 +989,17 @@ export function PersonnelEquipmentWorkspace() {
 
           <form onSubmit={handleCreateBoxReturn} style={{ display: "grid", gap: "12px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px" }}>
+              <select
+                value={newReturnItemName}
+                onChange={(event) => setNewReturnItemName(event.target.value)}
+                style={fieldStyle}
+              >
+                {(options.return_items ?? ["Box", "Punch"]).map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
               <input
                 type="date"
                 value={newReturnDate}
@@ -1056,7 +1076,7 @@ export function PersonnelEquipmentWorkspace() {
                 >
                   {boxEntries.map((entry) => (
                     <option key={entry.id} value={entry.id}>
-                      {`${formatDate(entry.return_date)} | ${entry.quantity} adet | ${entry.condition_status} | #${entry.id}`}
+                      {`${entry.item_name || "Box"} | ${formatDate(entry.return_date)} | ${entry.quantity} adet | ${entry.condition_status} | #${entry.id}`}
                     </option>
                   ))}
                 </select>
@@ -1065,12 +1085,23 @@ export function PersonnelEquipmentWorkspace() {
                   <div style={{ display: "grid", gap: "12px" }}>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
                       {smallPill(
-                        selectedBoxEntry.waived ? "Parasını istemedi" : "Ödemeli dönüş",
+                        `${selectedBoxEntry.item_name || "Box"} · ${selectedBoxEntry.waived ? "Parasını istemedi" : "Ödemeli dönüş"}`,
                         selectedBoxEntry.waived ? "accent" : "muted",
                       )}
                       {smallPill(formatCurrency(selectedBoxEntry.payout_amount))}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px" }}>
+                      <select
+                        value={editReturnItemName}
+                        onChange={(event) => setEditReturnItemName(event.target.value)}
+                        style={fieldStyle}
+                      >
+                        {(options.return_items ?? ["Box", "Punch"]).map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
                       <input
                         type="date"
                         value={editReturnDate}

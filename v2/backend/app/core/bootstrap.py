@@ -199,6 +199,7 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS company_setup_cost NUMERIC NOT NULL DEFAULT 0",
     "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS accounting_effective_date DATE",
     "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS company_setup_effective_date DATE",
+    "ALTER TABLE box_returns ADD COLUMN IF NOT EXISTS item_name TEXT DEFAULT 'Box'",
     """
     CREATE TABLE IF NOT EXISTS sales_leads (
         id BIGSERIAL PRIMARY KEY,
@@ -474,6 +475,9 @@ LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
     "courier_equipment_issues": (
         ("vat_rate", "ALTER TABLE courier_equipment_issues ADD COLUMN vat_rate REAL DEFAULT 0"),
         ("auto_source_key", "ALTER TABLE courier_equipment_issues ADD COLUMN auto_source_key TEXT"),
+    ),
+    "box_returns": (
+        ("item_name", "ALTER TABLE box_returns ADD COLUMN item_name TEXT DEFAULT 'Box'"),
     ),
     "personnel_role_history": (
         ("cost_model", "ALTER TABLE personnel_role_history ADD COLUMN cost_model TEXT"),

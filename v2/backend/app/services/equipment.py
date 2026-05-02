@@ -96,6 +96,7 @@ ISSUE_ITEMS = [
     "Motor Kirası",
     "Motor Satın Alım",
 ]
+RETURNABLE_ITEMS = [item_name for item_name in ISSUE_ITEMS if item_name not in {"Motor Kirası", "Motor Satın Alım"}]
 SALE_TYPE_OPTIONS = ["Satış", "Depozit / Teslim"]
 RETURN_CONDITION_OPTIONS = ["Temiz", "Hasarlı", "Parasını istemedi"]
 INSTALLMENT_COUNT_OPTIONS = [1, 2, 3, 6, 12]
@@ -121,6 +122,11 @@ def _normalize_sale_type(value: str) -> str:
 def _normalize_return_condition(value: str) -> str:
     condition = str(value or "").strip()
     return condition if condition in RETURN_CONDITION_OPTIONS else RETURN_CONDITION_OPTIONS[0]
+
+
+def _normalize_return_item(value: str) -> str:
+    item_name = str(value or "").strip()
+    return item_name if item_name in RETURNABLE_ITEMS else RETURNABLE_ITEMS[0]
 
 
 def _get_equipment_vat_rate(item_name: str, issue_date: date) -> float:
@@ -342,12 +348,63 @@ def _build_box_return_entry(row: dict[str, object]) -> BoxReturnManagementEntry:
         id=int(row["id"]),
         personnel_id=int(row.get("personnel_id") or 0),
         personnel_label=str(row.get("personnel_label") or "-"),
+        item_name=str(row.get("item_name") or "Box"),
         return_date=row["return_date"],
         quantity=int(row.get("quantity") or 0),
         condition_status=str(row.get("condition_status") or ""),
         payout_amount=float(row.get("payout_amount") or 0),
         waived=bool(row.get("waived") or 0),
         notes=str(row.get("notes") or ""),
+    )
+
+
+def _box_return_adjustment_source_key(box_return_id: int) -> str:
+    return f"equipment:return:{int(box_return_id)}"
+
+
+def _delete_box_return_adjustments(conn: psycopg.Connection, *, box_return_id: int) -> None:
+    conn.execute(
+        """
+        DELETE FROM deductions
+        WHERE COALESCE(auto_source_key, '') = %s
+        """,
+        (_box_return_adjustment_source_key(box_return_id),),
+    )
+
+
+def _rebuild_box_return_adjustments(
+    conn: psycopg.Connection,
+    *,
+    box_return_id: int,
+    personnel_id: int,
+    item_name: str,
+    return_date: date,
+    payout_amount: float,
+) -> None:
+    _delete_box_return_adjustments(conn, box_return_id=box_return_id)
+    normalized_payout = round(float(payout_amount or 0), 2)
+    if normalized_payout <= 0:
+        return
+    conn.execute(
+        """
+        INSERT INTO deductions (
+            personnel_id,
+            deduction_date,
+            deduction_type,
+            amount,
+            notes,
+            auto_source_key
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        (
+            personnel_id,
+            return_date,
+            item_name,
+            -normalized_payout,
+            f"{item_name} geri alım mahsubu",
+            _box_return_adjustment_source_key(box_return_id),
+        ),
     )
 
 
@@ -460,6 +517,7 @@ def build_equipment_form_options(conn: psycopg.Connection) -> EquipmentFormOptio
             for row in personnel_rows
         ],
         issue_items=ISSUE_ITEMS,
+        return_items=RETURNABLE_ITEMS,
         sale_type_options=SALE_TYPE_OPTIONS,
         return_condition_options=RETURN_CONDITION_OPTIONS,
         installment_count_options=INSTALLMENT_COUNT_OPTIONS,
@@ -812,12 +870,14 @@ def create_box_return_entry(
     if payload.payout_amount < 0:
         raise ValueError("Geri ödeme tutarı negatif olamaz.")
 
+    item_name = _normalize_return_item(payload.item_name)
     condition_status = _normalize_return_condition(payload.condition_status)
     waived = 1 if condition_status == "Parasını istemedi" else 0
     box_return_id = insert_box_return_record(
         conn,
         {
             "personnel_id": payload.personnel_id,
+            "item_name": item_name,
             "return_date": payload.return_date,
             "quantity": int(payload.quantity),
             "condition_status": condition_status,
@@ -825,6 +885,14 @@ def create_box_return_entry(
             "waived": waived,
             "notes": str(payload.notes or "").strip(),
         },
+    )
+    _rebuild_box_return_adjustments(
+        conn,
+        box_return_id=box_return_id,
+        personnel_id=payload.personnel_id,
+        item_name=item_name,
+        return_date=payload.return_date,
+        payout_amount=float(payload.payout_amount),
     )
     conn.commit()
     return BoxReturnCreateResponse(
@@ -847,6 +915,7 @@ def update_box_return_entry(
     if payload.payout_amount < 0:
         raise ValueError("Geri ödeme tutarı negatif olamaz.")
 
+    item_name = _normalize_return_item(payload.item_name)
     condition_status = _normalize_return_condition(payload.condition_status)
     waived = 1 if condition_status == "Parasını istemedi" else 0
     update_box_return_record(
@@ -854,6 +923,7 @@ def update_box_return_entry(
         box_return_id,
         {
             "personnel_id": payload.personnel_id,
+            "item_name": item_name,
             "return_date": payload.return_date,
             "quantity": int(payload.quantity),
             "condition_status": condition_status,
@@ -861,6 +931,14 @@ def update_box_return_entry(
             "waived": waived,
             "notes": str(payload.notes or "").strip(),
         },
+    )
+    _rebuild_box_return_adjustments(
+        conn,
+        box_return_id=box_return_id,
+        personnel_id=payload.personnel_id,
+        item_name=item_name,
+        return_date=payload.return_date,
+        payout_amount=float(payload.payout_amount),
     )
     conn.commit()
     return BoxReturnUpdateResponse(
@@ -877,6 +955,7 @@ def delete_box_return_entry(
     existing = fetch_box_return_by_id(conn, box_return_id)
     if existing is None:
         raise LookupError("Box geri alım kaydı bulunamadı.")
+    _delete_box_return_adjustments(conn, box_return_id=box_return_id)
     delete_box_return_record(conn, box_return_id)
     conn.commit()
     return BoxReturnDeleteResponse(

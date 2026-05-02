@@ -152,6 +152,7 @@ def fetch_recent_box_returns(
             b.id,
             b.personnel_id,
             COALESCE(p.full_name, '-') AS personnel_label,
+            COALESCE(b.item_name, 'Box') AS item_name,
             b.return_date,
             COALESCE(b.quantity, 0) AS quantity,
             COALESCE(b.condition_status, '') AS condition_status,
@@ -455,6 +456,7 @@ def fetch_box_return_management_records(
             b.id,
             b.personnel_id,
             COALESCE(p.full_name, '-') AS personnel_label,
+            COALESCE(b.item_name, 'Box') AS item_name,
             b.return_date,
             COALESCE(b.quantity, 0) AS quantity,
             COALESCE(b.condition_status, '') AS condition_status,
@@ -467,6 +469,7 @@ def fetch_box_return_management_records(
           AND (
             {_optional_text_search_guard_sql()}
             OR COALESCE(p.full_name, '') ILIKE %s
+            OR COALESCE(b.item_name, '') ILIKE %s
             OR COALESCE(b.condition_status, '') ILIKE %s
             OR COALESCE(b.notes, '') ILIKE %s
           )
@@ -476,6 +479,7 @@ def fetch_box_return_management_records(
         (
             personnel_id,
             personnel_id,
+            search_pattern,
             search_pattern,
             search_pattern,
             search_pattern,
@@ -502,6 +506,7 @@ def count_box_return_management_records(
           AND (
             {_optional_text_search_guard_sql()}
             OR COALESCE(p.full_name, '') ILIKE %s
+            OR COALESCE(b.item_name, '') ILIKE %s
             OR COALESCE(b.condition_status, '') ILIKE %s
             OR COALESCE(b.notes, '') ILIKE %s
           )
@@ -509,6 +514,7 @@ def count_box_return_management_records(
         (
             personnel_id,
             personnel_id,
+            search_pattern,
             search_pattern,
             search_pattern,
             search_pattern,
@@ -525,6 +531,7 @@ def fetch_box_return_by_id(conn: psycopg.Connection, box_return_id: int) -> dict
             b.id,
             b.personnel_id,
             COALESCE(p.full_name, '-') AS personnel_label,
+            COALESCE(b.item_name, 'Box') AS item_name,
             b.return_date,
             COALESCE(b.quantity, 0) AS quantity,
             COALESCE(b.condition_status, '') AS condition_status,
@@ -545,6 +552,7 @@ def insert_box_return_record(conn: psycopg.Connection, values: dict[str, object]
         """
         INSERT INTO box_returns (
             personnel_id,
+            item_name,
             return_date,
             quantity,
             condition_status,
@@ -552,11 +560,12 @@ def insert_box_return_record(conn: psycopg.Connection, values: dict[str, object]
             waived,
             notes
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
         """,
         (
             values["personnel_id"],
+            values["item_name"],
             values["return_date"],
             values["quantity"],
             values["condition_status"],
@@ -574,6 +583,7 @@ def update_box_return_record(conn: psycopg.Connection, box_return_id: int, value
         UPDATE box_returns
         SET
             personnel_id = %s,
+            item_name = %s,
             return_date = %s,
             quantity = %s,
             condition_status = %s,
@@ -584,6 +594,7 @@ def update_box_return_record(conn: psycopg.Connection, box_return_id: int, value
         """,
         (
             values["personnel_id"],
+            values["item_name"],
             values["return_date"],
             values["quantity"],
             values["condition_status"],

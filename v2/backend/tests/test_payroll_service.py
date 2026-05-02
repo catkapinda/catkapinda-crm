@@ -352,6 +352,93 @@ def test_payroll_document_keeps_equipment_deductions_itemized():
     assert not any(item[0] == "Zimmet Taksiti" for item in document_payload.deduction_items)
 
 
+def test_payroll_document_net_deductions_drop_when_equipment_is_returned():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL,
+            notes TEXT,
+            auto_source_key TEXT
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
+        VALUES (1, 'Ömer Acar', 'CK-K20', 'Kurye', 'Aktif', 'fixed_kurye', 0)
+        """
+    )
+    raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'Quick China', 'Ataşehir')")
+    raw_conn.execute(
+        """
+        INSERT INTO daily_entries (
+            entry_date, restaurant_id, planned_personnel_id, actual_personnel_id, worked_hours, package_count
+        )
+        VALUES ('2026-05-10', 10, 1, 1, 8, 20)
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes, auto_source_key)
+        VALUES
+            (1, '2026-05-05', 'Box', 3200, 'Box 1/2', ''),
+            (1, '2026-05-06', 'Punch', 2000, 'Punch 1/2', ''),
+            (1, '2026-05-12', 'Box', -1200, 'Box geri alım mahsubu', 'equipment:return:1'),
+            (1, '2026-05-12', 'Punch', -800, 'Punch geri alım mahsubu', 'equipment:return:2')
+        """
+    )
+    raw_conn.commit()
+
+    document_payload = _build_local_payroll_document_payload(
+        CompatConnection(raw_conn, "sqlite"),
+        selected_month="2026-05",
+        personnel_id=1,
+    )
+
+    deduction_map = {label: round(amount, 2) for label, amount in document_payload.deduction_items}
+    assert deduction_map["Box"] == 2000.0
+    assert deduction_map["Punch"] == 1200.0
+    assert round(document_payload.total_deductions, 2) == 3200.0
+
+
 def test_build_payroll_document_file_supports_local_sqlite(monkeypatch):
     raw_conn = sqlite3.connect(":memory:")
     raw_conn.row_factory = sqlite3.Row

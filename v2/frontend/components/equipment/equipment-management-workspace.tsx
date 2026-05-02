@@ -51,6 +51,7 @@ type BoxReturnEntry = {
   id: number;
   personnel_id: number;
   personnel_label: string;
+  item_name: string;
   return_date: string;
   quantity: number;
   condition_status: string;
@@ -71,6 +72,7 @@ type BoxReturnsManagementResponse = {
 type EquipmentFormOptions = {
   personnel: Array<{ id: number; label: string }>;
   issue_items: string[];
+  return_items: string[];
   sale_type_options: string[];
   return_condition_options: string[];
   installment_count_options: number[];
@@ -159,6 +161,7 @@ export function EquipmentManagementWorkspace() {
   const [boxDetailLoading, setBoxDetailLoading] = useState(false);
 
   const [editBoxPersonnelId, setEditBoxPersonnelId] = useState<number | "">("");
+  const [editReturnItemName, setEditReturnItemName] = useState("Box");
   const [editReturnDate, setEditReturnDate] = useState("");
   const [editReturnQuantity, setEditReturnQuantity] = useState("1");
   const [editConditionStatus, setEditConditionStatus] = useState("Temiz");
@@ -178,6 +181,7 @@ export function EquipmentManagementWorkspace() {
     if (!boxFilterPersonnelId && payload.selected_personnel_id) {
       setBoxFilterPersonnelId(payload.selected_personnel_id);
     }
+    setEditReturnItemName(payload.return_items[0] || "Box");
     if (!bulkIssueDate) {
       setBulkIssueDate(new Date().toISOString().slice(0, 10));
     }
@@ -312,6 +316,7 @@ export function EquipmentManagementWorkspace() {
       const payload = (await response.json()) as BoxReturnDetailResponse;
       const entry = payload.entry;
       setEditBoxPersonnelId(entry.personnel_id);
+      setEditReturnItemName(entry.item_name || "Box");
       setEditReturnDate(entry.return_date);
       setEditReturnQuantity(String(entry.quantity ?? 1));
       setEditConditionStatus(entry.condition_status);
@@ -540,6 +545,7 @@ export function EquipmentManagementWorkspace() {
       },
       body: JSON.stringify({
         personnel_id: editBoxPersonnelId,
+        item_name: editReturnItemName,
         return_date: editReturnDate,
         quantity: Number(editReturnQuantity || 0),
         condition_status: editConditionStatus,
@@ -1386,7 +1392,7 @@ export function EquipmentManagementWorkspace() {
                       >
                         <strong>{entry.personnel_label}</strong>
                         <span style={pill(entry.waived ? "muted" : "accent")}>
-                          {entry.waived ? "Talep edilmedi" : entry.condition_status}
+                          {`${entry.item_name || "Box"} · ${entry.waived ? "Talep edilmedi" : entry.condition_status}`}
                         </span>
                       </div>
                       <div
@@ -1466,6 +1472,20 @@ export function EquipmentManagementWorkspace() {
                       {options?.personnel.map((person) => (
                         <option key={person.id} value={person.id}>
                           {person.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: "grid", gap: "8px" }}>
+                    <span style={{ fontWeight: 700 }}>Ekipman</span>
+                    <select
+                      value={editReturnItemName}
+                      onChange={(event) => setEditReturnItemName(event.target.value)}
+                      style={fieldStyle}
+                    >
+                      {(options?.return_items ?? ["Box", "Punch"]).map((item) => (
+                        <option key={item} value={item}>
+                          {item}
                         </option>
                       ))}
                     </select>

@@ -2,8 +2,12 @@ from datetime import date
 import sqlite3
 
 from app.core.database import CompatConnection
-from app.schemas.equipment import EquipmentIssueCreateRequest
-from app.services.equipment import build_equipment_form_options, create_equipment_issue_entry
+from app.schemas.equipment import BoxReturnCreateRequest, EquipmentIssueCreateRequest
+from app.services.equipment import (
+    build_equipment_form_options,
+    create_box_return_entry,
+    create_equipment_issue_entry,
+)
 
 
 def _build_conn() -> CompatConnection:
@@ -50,7 +54,19 @@ def _build_conn() -> CompatConnection:
             deduction_type TEXT,
             amount REAL,
             notes TEXT,
-            equipment_issue_id INTEGER
+            equipment_issue_id INTEGER,
+            auto_source_key TEXT
+        );
+        CREATE TABLE box_returns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            personnel_id INTEGER,
+            item_name TEXT DEFAULT 'Box',
+            return_date TEXT,
+            quantity INTEGER,
+            condition_status TEXT,
+            payout_amount REAL,
+            waived INTEGER,
+            notes TEXT
         );
         """
     )
@@ -74,6 +90,8 @@ def test_build_equipment_form_options_includes_elcik():
 
     assert "Elcik" in payload.issue_items
     assert "Elcik" in payload.item_defaults
+    assert "Box" in payload.return_items
+    assert "Punch" in payload.return_items
 
 
 def test_create_equipment_issue_entry_uses_item_name_for_installments():
@@ -111,3 +129,36 @@ def test_create_equipment_issue_entry_uses_item_name_for_installments():
     assert [row["notes"] for row in rows] == ["Elcik 1/2", "Elcik 2/2"]
     assert round(float(rows[0]["amount"]), 2) == 600.0
     assert round(float(rows[1]["amount"]), 2) == 600.0
+
+
+def test_create_box_return_entry_creates_negative_adjustment_deduction():
+    conn = _build_conn()
+
+    response = create_box_return_entry(
+        conn,
+        payload=BoxReturnCreateRequest(
+            personnel_id=10,
+            item_name="Punch",
+            return_date=date(2026, 5, 12),
+            quantity=1,
+            condition_status="Temiz",
+            payout_amount=850,
+            notes="Punch geri alindi",
+        ),
+    )
+
+    assert response.box_return_id > 0
+
+    rows = conn.execute(
+        """
+        SELECT deduction_type, amount, notes, auto_source_key
+        FROM deductions
+        WHERE auto_source_key = %s
+        """,
+        (f"equipment:return:{response.box_return_id}",),
+    ).fetchall()
+
+    assert len(rows) == 1
+    assert rows[0]["deduction_type"] == "Punch"
+    assert round(float(rows[0]["amount"]), 2) == -850.0
+    assert rows[0]["notes"] == "Punch geri alım mahsubu"

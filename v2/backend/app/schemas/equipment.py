@@ -51,6 +51,7 @@ class BoxReturnManagementEntry(BaseModel):
     id: int
     personnel_id: int
     personnel_label: str
+    item_name: str
     return_date: date
     quantity: int
     condition_status: str
@@ -100,6 +101,7 @@ class EquipmentItemDefault(BaseModel):
 class EquipmentFormOptionsResponse(BaseModel):
     personnel: list[EquipmentPersonnelOption]
     issue_items: list[str]
+    return_items: list[str]
     sale_type_options: list[str]
     return_condition_options: list[str]
     installment_count_options: list[int]
@@ -183,6 +185,7 @@ class EquipmentIssueDetailResponse(BaseModel):
 
 class BoxReturnCreateRequest(BaseModel):
     personnel_id: int
+    item_name: str = "Box"
     return_date: date
     quantity: int
     condition_status: str
@@ -197,6 +200,7 @@ class BoxReturnCreateResponse(BaseModel):
 
 class BoxReturnUpdateRequest(BaseModel):
     personnel_id: int
+    item_name: str = "Box"
     return_date: date
     quantity: int
     condition_status: str
