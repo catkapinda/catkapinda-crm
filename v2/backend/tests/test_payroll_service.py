@@ -629,6 +629,7 @@ def test_build_payroll_document_html_renders_template_sections():
     assert "Brüt Kazanç" not in html
     assert "Neçirvan Bulgan" in html
     assert "Quick China - Ataşehir" in html
+    assert "9,0 saat • 24 paket" in html
 
 
 def test_payroll_dashboard_uses_courier_monthly_threshold_for_package_bonus():

@@ -154,9 +154,12 @@
             <div class="operations-restaurant">
               <div class="operations-restaurant-label">Çalışılan Restoran / Şube</div>
               <div class="operations-restaurant-copy">
-                {% if restaurants %}
-                {% for restaurant in restaurants %}
-                <div class="restaurant-line">{{ restaurant }}</div>
+                {% if restaurant_breakdown %}
+                {% for restaurant in restaurant_breakdown %}
+                <div class="restaurant-line">
+                  <span class="restaurant-line-label">{{ restaurant.label }}</span>
+                  <span class="restaurant-line-meta number">{{ restaurant.hours }} saat • {{ restaurant.packages }} paket</span>
+                </div>
                 {% endfor %}
                 {% else %}
                 <div class="restaurant-line">—</div>

@@ -393,6 +393,7 @@ class PayrollDocumentPayload:
     invoice_vat_amount: float
     tevkifat_amount: float
     restaurant_names: list[str]
+    restaurant_breakdown: list[dict[str, object]]
     earning_items: list[tuple[str, float]]
     deduction_items: list[tuple[str, float]]
 
@@ -804,6 +805,18 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
     if not restaurant_names:
         restaurant_names = ["—"]
     restaurant_count = len(restaurant_names) if restaurant_names != ["—"] else 0
+    restaurant_breakdown = []
+    for item in payload.restaurant_breakdown:
+        label = str(item.get("label") or "—").strip() or "—"
+        restaurant_breakdown.append(
+            {
+                "label": label,
+                "hours": format_value(_safe_float(item.get("hours")), decimals=1),
+                "packages": format_value(_safe_float(item.get("packages")), decimals=0),
+            }
+        )
+    if not restaurant_breakdown:
+        restaurant_breakdown = [{"label": "—", "hours": "—", "packages": "—"}]
 
     deduction_rows = []
     for deduction_type, amount in payload.deduction_items:
@@ -856,6 +869,7 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
         tevkifat=format_currency(payload.tevkifat_amount),
         invoice_total=format_currency(payload.invoice_base_amount + payload.invoice_vat_amount),
         restaurants=restaurant_names,
+        restaurant_breakdown=restaurant_breakdown,
         deduction_rows=deduction_rows,
     )
 
@@ -1039,6 +1053,7 @@ def _build_remote_payroll_document_payload(
     deduction_items.extend(_build_personnel_profile_deduction_items(person_match.iloc[0] if not person_match.empty else None))
 
     restaurant_names: list[str] = []
+    restaurant_breakdown: list[dict[str, object]] = []
     attendance_segments: list[dict[str, object]] = []
     if not month_entries.empty:
         personnel_match_mask = (
@@ -1052,6 +1067,22 @@ def _build_remote_payroll_document_payload(
         restaurant_names = [value.strip(" -") for value in sorted(rest_series.unique().tolist()) if value.strip(" -")]
         person_entries = month_entries.loc[personnel_match_mask].copy()
         if not person_entries.empty:
+            grouped_restaurants = (
+                person_entries.groupby(["brand", "branch"], dropna=False)
+                .agg(
+                    total_hours=("worked_hours", "sum"),
+                    total_packages=("package_count", "sum"),
+                )
+                .reset_index()
+            )
+            restaurant_breakdown = [
+                {
+                    "label": f"{str(row['brand'] or '').strip()} - {str(row['branch'] or '').strip()}".strip(" -") or "—",
+                    "hours": _safe_float(row["total_hours"]),
+                    "packages": _safe_float(row["total_packages"]),
+                }
+                for _, row in grouped_restaurants.iterrows()
+            ]
             if "is_support_assignment" not in person_entries.columns:
                 person_entries["is_support_assignment"] = (
                     person_entries["planned_personnel_id"].notna()
@@ -1147,6 +1178,7 @@ def _build_remote_payroll_document_payload(
         invoice_vat_amount=tevkifat.vat_amount,
         tevkifat_amount=tevkifat.tevkifat_amount,
         restaurant_names=restaurant_names,
+        restaurant_breakdown=restaurant_breakdown,
         earning_items=_build_personnel_earning_items(
             role=payroll_row.get("rol"),
             cost_model=person_cost_model,
@@ -1281,6 +1313,21 @@ def _build_local_payroll_document_payload(
         """,
         (resolved_month, personnel_id),
     ).fetchall()
+    restaurant_breakdown_rows = conn.execute(
+        f"""
+        SELECT
+            COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
+            COALESCE(SUM(d.worked_hours), 0) AS total_hours,
+            COALESCE(SUM(d.package_count), 0) AS total_packages
+        FROM daily_entries d
+        LEFT JOIN restaurants r ON r.id = d.restaurant_id
+        WHERE {_month_key_sql('d.entry_date')} = %s
+          AND COALESCE(d.actual_personnel_id, d.planned_personnel_id) = %s
+        GROUP BY COALESCE(r.brand || ' - ' || r.branch, '-')
+        ORDER BY restaurant_label
+        """,
+        (resolved_month, personnel_id),
+    ).fetchall()
     attendance_date_rows = conn.execute(
         f"""
         SELECT DISTINCT substr(COALESCE(d.entry_date, ''), 1, 10) AS entry_date
@@ -1386,6 +1433,14 @@ def _build_local_payroll_document_payload(
         invoice_base_reducing_deductions=invoice_base_reducing_deductions,
     )
     restaurant_names = [str(row["restaurant_label"]) for row in restaurant_rows if str(row["restaurant_label"]).strip()]
+    restaurant_breakdown = [
+        {
+            "label": str(row["restaurant_label"] or "—").strip() or "—",
+            "hours": _safe_float(row["total_hours"]),
+            "packages": _safe_float(row["total_packages"]),
+        }
+        for row in restaurant_breakdown_rows
+    ]
     deduction_items = [(str(row["deduction_type"]), _safe_float(row["total_amount"])) for row in non_motor_deduction_rows]
     if auto_motor_rental > 0:
         deduction_items.append((MOTOR_RENTAL_DEDUCTION_TYPE, auto_motor_rental))
@@ -1411,6 +1466,7 @@ def _build_local_payroll_document_payload(
         invoice_vat_amount=tevkifat.vat_amount,
         tevkifat_amount=tevkifat.tevkifat_amount,
         restaurant_names=restaurant_names,
+        restaurant_breakdown=restaurant_breakdown,
         earning_items=_build_personnel_earning_items(
             role=person_data["role"],
             cost_model=person_data["cost_model"],

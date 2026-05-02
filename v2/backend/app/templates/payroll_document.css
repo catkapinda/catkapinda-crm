@@ -494,11 +494,34 @@ body {
 }
 
 .restaurant-line {
-  font-size: 13px;
-  line-height: 1.24;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4mm;
+  padding: 2mm 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.restaurant-line:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.restaurant-line-label {
+  min-width: 0;
+  font-size: 11.5px;
+  line-height: 1.3;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 1.8mm;
+}
+
+.restaurant-line-meta {
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  line-height: 1.25;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
 }
 
 .operations-kpis {
