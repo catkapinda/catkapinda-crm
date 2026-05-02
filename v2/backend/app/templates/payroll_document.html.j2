@@ -98,7 +98,12 @@
                 {% if deduction_rows %}
                 {% for item in deduction_rows %}
                 <tr>
-                  <td>{{ item.label }}</td>
+                  <td>
+                    <div class="deduction-label">{{ item.label }}</div>
+                    {% if item.note %}
+                    <div class="deduction-note">{{ item.note }}</div>
+                    {% endif %}
+                  </td>
                   <td class="number {{ item.tone_class }}">{{ item.amount }}</td>
                 </tr>
                 {% endfor %}

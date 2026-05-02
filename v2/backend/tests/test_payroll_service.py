@@ -70,7 +70,8 @@ def test_build_payroll_dashboard_supports_local_sqlite_without_streamlit():
             personnel_id INTEGER,
             deduction_date TEXT,
             deduction_type TEXT,
-            amount REAL
+            amount REAL,
+            notes TEXT
         );
         """
     )
@@ -181,7 +182,8 @@ def test_payroll_dashboard_and_document_include_accounting_and_company_setup_ded
             personnel_id INTEGER,
             deduction_date TEXT,
             deduction_type TEXT,
-            amount REAL
+            amount REAL,
+            notes TEXT
         );
         """
     )
@@ -350,6 +352,8 @@ def test_payroll_document_keeps_equipment_deductions_itemized():
     assert any(item[0] == "Elcik" and round(item[1], 2) == 600 for item in document_payload.deduction_items)
     assert any(item[0] == "Kask" and round(item[1], 2) == 900 for item in document_payload.deduction_items)
     assert not any(item[0] == "Zimmet Taksiti" for item in document_payload.deduction_items)
+    assert document_payload.deduction_notes["Elcik"] == "Elcik 1/2"
+    assert document_payload.deduction_notes["Kask"] == "Kask 1/2"
 
 
 def test_payroll_document_net_deductions_drop_when_equipment_is_returned():
@@ -481,7 +485,8 @@ def test_build_payroll_document_file_supports_local_sqlite(monkeypatch):
             personnel_id INTEGER,
             deduction_date TEXT,
             deduction_type TEXT,
-            amount REAL
+            amount REAL,
+            notes TEXT
         );
         """
     )
@@ -577,7 +582,8 @@ def test_build_payroll_document_html_renders_template_sections():
             personnel_id INTEGER,
             deduction_date TEXT,
             deduction_type TEXT,
-            amount REAL
+            amount REAL,
+            notes TEXT
         );
         """
     )
@@ -608,14 +614,14 @@ def test_build_payroll_document_html_renders_template_sections():
     )
     raw_conn.execute(
         """
-        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount)
-        VALUES (1, '2026-03-15', 'Avans', 1500)
+        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes)
+        VALUES (1, '2026-03-15', 'Avans', 1500, 'Hafta ortası avans kapaması')
         """
     )
     raw_conn.execute(
         """
-        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount)
-        VALUES (1, '2026-03-16', 'Box', -750)
+        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes)
+        VALUES (1, '2026-03-16', 'Box', -750, 'Box geri alım mahsubu')
         """
     )
     raw_conn.commit()
@@ -636,6 +642,8 @@ def test_build_payroll_document_html_renders_template_sections():
     assert "Neçirvan Bulgan" in html
     assert "Quick China - Ataşehir" in html
     assert "9,0 saat • 24 paket" in html
+    assert "Hafta ortası avans kapaması" in html
+    assert "Box geri alım mahsubu" in html
     assert "+750,00 ₺" in html
 
 

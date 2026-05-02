@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from calendar import monthrange
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 import re
 import sys
@@ -184,6 +184,13 @@ def _payroll_optional_personnel_select(conn: psycopg.Connection) -> str:
     return ",\n            ".join(optional_fields)
 
 
+def _payroll_optional_deduction_note_select(conn: psycopg.Connection) -> str:
+    columns = _table_columns(conn, "deductions")
+    if "notes" in columns:
+        return "COALESCE(notes, '') AS notes"
+    return "'' AS notes"
+
+
 def _row_value(source: object, key: str) -> object:
     if source is None:
         return None
@@ -303,6 +310,39 @@ def _build_personnel_profile_deduction_items(source: object, *, selected_month: 
     return items
 
 
+def _normalize_payroll_deduction_note(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _group_payroll_deduction_rows(
+    rows: list[object],
+) -> tuple[list[tuple[str, float]], dict[str, str]]:
+    grouped_amounts: dict[str, float] = {}
+    grouped_notes: dict[str, list[str]] = {}
+    for row in rows:
+        label = str(_row_value(row, "deduction_type") or "Kesinti").strip() or "Kesinti"
+        amount_value = _row_value(row, "amount")
+        if amount_value is None:
+            amount_value = _row_value(row, "total_amount")
+        grouped_amounts[label] = _safe_float(grouped_amounts.get(label)) + _safe_float(amount_value)
+        note = _normalize_payroll_deduction_note(_row_value(row, "notes"))
+        if not note:
+            continue
+        notes = grouped_notes.setdefault(label, [])
+        if note not in notes:
+            notes.append(note)
+    deduction_items = sorted(grouped_amounts.items(), key=lambda item: item[0])
+    deduction_notes = {
+        label: " • ".join(notes)
+        for label, notes in grouped_notes.items()
+        if notes
+    }
+    return deduction_items, deduction_notes
+
+
 def _month_key_sql(column: str) -> str:
     return f"substr(COALESCE(CAST({column} AS TEXT), ''), 1, 7)"
 
@@ -397,6 +437,7 @@ class PayrollDocumentPayload:
     restaurant_breakdown: list[dict[str, object]]
     earning_items: list[tuple[str, float]]
     deduction_items: list[tuple[str, float]]
+    deduction_notes: dict[str, str] = field(default_factory=dict)
 
 
 def _normalized_brand_key(brand: object) -> str:
@@ -830,6 +871,7 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
         deduction_rows.append(
             {
                 "label": label,
+                "note": str(payload.deduction_notes.get(label) or "").strip(),
                 "amount": (
                     positive_currency(normalized_amount)
                     if normalized_amount < 0
@@ -1050,18 +1092,13 @@ def _build_remote_payroll_document_payload(
     person_code = str(person_match.iloc[0]["person_code"] or "") if not person_match.empty and "person_code" in person_match.columns else ""
 
     deduction_items: list[tuple[str, float]] = []
+    deduction_notes: dict[str, str] = {}
     if not payroll_deductions.empty:
         person_deductions = payroll_deductions[payroll_deductions["personnel_id"] == personnel_id].copy()
         if not person_deductions.empty:
-            grouped = (
-                person_deductions.groupby("deduction_type", dropna=False)["amount"]
-                .sum()
-                .reset_index()
+            deduction_items, deduction_notes = _group_payroll_deduction_rows(
+                person_deductions.to_dict("records")
             )
-            deduction_items = [
-                (str(row["deduction_type"] or "Kesinti"), _safe_float(row["amount"]))
-                for _, row in grouped.iterrows()
-            ]
     deduction_items.extend(_build_personnel_profile_deduction_items(person_match.iloc[0] if not person_match.empty else None))
 
     restaurant_names: list[str] = []
@@ -1199,6 +1236,7 @@ def _build_remote_payroll_document_payload(
             segments=attendance_segments,
         ),
         deduction_items=deduction_items,
+        deduction_notes=deduction_notes,
     )
 
 
@@ -1211,6 +1249,7 @@ def _build_local_payroll_document_payload(
     month_options, attendance_month_options = _fetch_payroll_month_options(conn)
     resolved_month = _resolve_payroll_dashboard_month(month_options, attendance_month_options, selected_month)
     optional_personnel_select = _payroll_optional_personnel_select(conn)
+    optional_deduction_note_select = _payroll_optional_deduction_note_select(conn)
 
     person_row = conn.execute(
         f"""
@@ -1303,13 +1342,13 @@ def _build_local_payroll_document_payload(
         f"""
         SELECT
             COALESCE(deduction_type, 'Kesinti') AS deduction_type,
-            COALESCE(SUM(amount), 0) AS total_amount
+            COALESCE(amount, 0) AS amount,
+            {optional_deduction_note_select}
         FROM deductions
         WHERE {_month_key_sql('deduction_date')} = %s
           AND personnel_id = %s
           AND COALESCE(deduction_type, '') NOT IN {_PAYROLL_IGNORED_DEDUCTION_SQL}
-        GROUP BY COALESCE(deduction_type, 'Kesinti')
-        ORDER BY deduction_type
+        ORDER BY COALESCE(deduction_type, 'Kesinti'), deduction_date, id
         """,
         (resolved_month, personnel_id),
     ).fetchall()
@@ -1395,10 +1434,10 @@ def _build_local_payroll_document_payload(
         if not is_motor_rental_deduction_type(row["deduction_type"])
         and not is_motor_purchase_deduction_type(row["deduction_type"])
     ]
-    base_deductions = _safe_float(sum(_safe_float(row["total_amount"]) for row in non_motor_deduction_rows))
+    base_deductions = _safe_float(sum(_safe_float(row["amount"]) for row in non_motor_deduction_rows))
     invoice_base_reducing_deductions = _safe_float(
         sum(
-            _safe_float(row["total_amount"])
+            _safe_float(row["amount"])
             for row in non_motor_deduction_rows
             if _deduction_reduces_invoice_base(row["deduction_type"])
         )
@@ -1453,7 +1492,7 @@ def _build_local_payroll_document_payload(
         }
         for row in restaurant_breakdown_rows
     ]
-    deduction_items = [(str(row["deduction_type"]), _safe_float(row["total_amount"])) for row in non_motor_deduction_rows]
+    deduction_items, deduction_notes = _group_payroll_deduction_rows(non_motor_deduction_rows)
     if auto_motor_rental > 0:
         deduction_items.append((MOTOR_RENTAL_DEDUCTION_TYPE, auto_motor_rental))
     if auto_motor_purchase > 0:
@@ -1487,6 +1526,7 @@ def _build_local_payroll_document_payload(
             segments=attendance_segments,
         ),
         deduction_items=deduction_items,
+        deduction_notes=deduction_notes,
     )
 
 
