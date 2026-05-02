@@ -92,6 +92,7 @@ ISSUE_ITEMS = [
     "Göğüs Çantası",
     "Kask",
     "Telefon Tutacağı",
+    "Elcik",
     "Motor Kirası",
     "Motor Satın Alım",
 ]
@@ -305,7 +306,7 @@ def _rebuild_issue_installments(
             (
                 personnel_id,
                 due_date,
-                "Zimmet Taksiti",
+                item_name,
                 installment_amount,
                 f"{item_name} {index + 1}/{resolved_installment_count}",
                 issue_id,

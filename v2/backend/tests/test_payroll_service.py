@@ -236,6 +236,122 @@ def test_payroll_dashboard_and_document_include_accounting_and_company_setup_ded
     assert any(item[0] == "Şirket Açılışı Kesintisi" and round(item[1], 2) == 3000 for item in document_payload.deduction_items)
 
 
+def test_payroll_document_keeps_equipment_deductions_itemized():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE courier_equipment_issues (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            issue_date TEXT,
+            item_name TEXT,
+            quantity INTEGER,
+            unit_cost REAL,
+            unit_sale_price REAL,
+            vat_rate REAL,
+            installment_count INTEGER,
+            sale_type TEXT,
+            notes TEXT,
+            auto_source_key TEXT
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL,
+            notes TEXT,
+            equipment_issue_id INTEGER
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
+        VALUES (1, 'Neçirvan Bulgan', 'CK-K10', 'Kurye', 'Aktif', 'fixed_kurye', 0)
+        """
+    )
+    raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'Quick China', 'Ataşehir')")
+    raw_conn.execute(
+        """
+        INSERT INTO daily_entries (
+            entry_date,
+            restaurant_id,
+            planned_personnel_id,
+            actual_personnel_id,
+            worked_hours,
+            package_count
+        )
+        VALUES ('2026-05-10', 10, 1, 1, 8, 22)
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO courier_equipment_issues (
+            id, personnel_id, issue_date, item_name, quantity, unit_cost, unit_sale_price,
+            vat_rate, installment_count, sale_type, notes, auto_source_key
+        )
+        VALUES
+            (11, 1, '2026-05-01', 'Elcik', 1, 500, 1200, 0, 2, 'Satış', 'Test', ''),
+            (12, 1, '2026-05-02', 'Kask', 1, 700, 1800, 0, 2, 'Satış', 'Test', '')
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO deductions (
+            personnel_id, deduction_date, deduction_type, amount, notes, equipment_issue_id
+        )
+        VALUES
+            (1, '2026-05-15', 'Elcik', 600, 'Elcik 1/2', 11),
+            (1, '2026-05-15', 'Kask', 900, 'Kask 1/2', 12)
+        """
+    )
+    raw_conn.commit()
+
+    document_payload = _build_local_payroll_document_payload(
+        CompatConnection(raw_conn, "sqlite"),
+        selected_month="2026-05",
+        personnel_id=1,
+    )
+
+    assert any(item[0] == "Elcik" and round(item[1], 2) == 600 for item in document_payload.deduction_items)
+    assert any(item[0] == "Kask" and round(item[1], 2) == 900 for item in document_payload.deduction_items)
+    assert not any(item[0] == "Zimmet Taksiti" for item in document_payload.deduction_items)
+
+
 def test_build_payroll_document_file_supports_local_sqlite(monkeypatch):
     raw_conn = sqlite3.connect(":memory:")
     raw_conn.row_factory = sqlite3.Row
