@@ -98,6 +98,12 @@ def is_company_motor_rental(row: Mapping[str, object]) -> bool:
     )
 
 
+def is_company_motor_rental_history(row: Mapping[str, object]) -> bool:
+    motor_purchase = _is_yes(row.get("motor_purchase"))
+    motor_rental = _is_yes(row.get("motor_rental"))
+    return not motor_purchase and motor_rental
+
+
 def is_motor_rental_deduction_type(value: object) -> bool:
     return _normalize_text(value) in MOTOR_RENTAL_DEDUCTION_TYPE_ALIASES
 
@@ -218,7 +224,7 @@ def build_company_motor_rental_plan_from_history(
         )
         interval_start = max(month_start, effective_date)
         interval_end_exclusive = min(capped_month_end_exclusive, next_effective_date)
-        if interval_end_exclusive <= interval_start or not is_company_motor_rental(row):
+        if interval_end_exclusive <= interval_start or not is_company_motor_rental_history(row):
             continue
 
         monthly_amount = _safe_float(row.get("motor_rental_monthly_amount"), DEFAULT_MOTOR_RENTAL_MONTHLY_AMOUNT)
@@ -321,6 +327,35 @@ def calculate_company_motor_rental_deduction_from_history(
         selected_month,
         existing_amount=existing_amount,
         exit_date=exit_date,
+    )
+    return plan.amount if plan is not None else 0.0
+
+
+def calculate_company_motor_purchase_deduction_from_history(
+    history_rows: Sequence[Mapping[str, object]],
+    selected_month: str,
+    *,
+    existing_amount: float = 0.0,
+) -> float:
+    month_start, month_end = _month_bounds(selected_month)
+    latest_row: Mapping[str, object] | None = None
+    latest_effective_date: date | None = None
+    latest_row_id = -1
+    for index, row in enumerate(history_rows):
+        effective_date = _parse_date(row.get("effective_date")) or _parse_date(row.get("changed_at"))
+        if effective_date is None or effective_date > month_end:
+            continue
+        row_id = int(_safe_float(row.get("id"), index))
+        if latest_row is None or (effective_date, row_id) > (latest_effective_date or month_start, latest_row_id):
+            latest_row = row
+            latest_effective_date = effective_date
+            latest_row_id = row_id
+    if latest_row is None:
+        return 0.0
+    plan = build_company_motor_purchase_plan(
+        latest_row,
+        selected_month,
+        existing_amount=existing_amount,
     )
     return plan.amount if plan is not None else 0.0
 
