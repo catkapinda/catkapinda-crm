@@ -1111,7 +1111,10 @@ export default function PayrollPage() {
                   fallbackItems.push({ label: "Diğer Kesintiler", amount: residualDeduction });
                 }
                 if (entry.tevkifat_amount > 0.01) {
-                  fallbackItems.push({ label: "Tevkifat", amount: entry.tevkifat_amount });
+                  fallbackItems.push({
+                    label: "Tevkifat (Yasal yükümlülük kesintisi)",
+                    amount: entry.tevkifat_amount,
+                  });
                 }
                 return fallbackItems;
               })();

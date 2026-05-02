@@ -220,7 +220,7 @@ def test_payroll_dashboard_and_document_include_accounting_and_company_setup_ded
     assert {item.label for item in entry.deduction_items} >= {
         "Muhasebe Kesintisi",
         "Şirket Açılışı Kesintisi",
-        "Tevkifat",
+        "Tevkifat (Yasal yükümlülük kesintisi)",
     }
     assert any(item.label == "Muhasebe Kesintisi" and round(item.amount, 2) == 2000 for item in entry.deduction_items)
     assert any(item.label == "Şirket Açılışı Kesintisi" and round(item.amount, 2) == 3000 for item in entry.deduction_items)
@@ -2186,7 +2186,7 @@ def test_payroll_dashboard_calculates_tevkifat_after_invoice_base_reducing_deduc
         personnel_id=1,
     )
     assert round(document_payload.tevkifat_amount, 2) == 4176.89
-    assert any(item[0] == "Tevkifat" and round(item[1], 2) == 4176.89 for item in document_payload.deduction_items)
+    assert any(item[0] == "Tevkifat (Yasal yükümlülük kesintisi)" and round(item[1], 2) == 4176.89 for item in document_payload.deduction_items)
 
 
 def test_payroll_dashboard_does_not_reduce_tevkifat_base_for_motor_rental():
@@ -2299,7 +2299,7 @@ def test_payroll_dashboard_does_not_reduce_tevkifat_base_for_motor_rental():
     assert round(document_payload.tevkifat_amount, 2) == 2721.67
     assert any(item[0] == "Motor Kirası" and round(item[1], 2) == 13000.00 for item in document_payload.deduction_items)
     assert any(item[0] == "Muhasebe Kesintisi" and round(item[1], 2) == 2000.00 for item in document_payload.deduction_items)
-    assert any(item[0] == "Tevkifat" and round(item[1], 2) == 2721.67 for item in document_payload.deduction_items)
+    assert any(item[0] == "Tevkifat (Yasal yükümlülük kesintisi)" and round(item[1], 2) == 2721.67 for item in document_payload.deduction_items)
 
 
 def test_payroll_dashboard_adds_religious_holiday_bonus_for_fixed_support_roles():
@@ -2391,8 +2391,8 @@ def test_payroll_dashboard_adds_religious_holiday_bonus_for_fixed_support_roles(
     assert round(document_payload.gross_pay, 2) == 125306.67
     assert round(document_payload.total_deductions, 2) == 4176.89
     assert round(document_payload.net_payment, 2) == 121129.78
-    assert ("Tevkifat", round(document_payload.tevkifat_amount, 2)) == ("Tevkifat", 4176.89)
-    assert any(item[0] == "Tevkifat" for item in document_payload.deduction_items)
+    assert ("Tevkifat (Yasal yükümlülük kesintisi)", round(document_payload.tevkifat_amount, 2)) == ("Tevkifat (Yasal yükümlülük kesintisi)", 4176.89)
+    assert any(item[0] == "Tevkifat (Yasal yükümlülük kesintisi)" for item in document_payload.deduction_items)
 
 
 def test_payroll_dashboard_adds_religious_holiday_bonus_for_fixed_team_chief_roles():
@@ -2484,8 +2484,8 @@ def test_payroll_dashboard_adds_religious_holiday_bonus_for_fixed_team_chief_rol
     assert round(document_payload.gross_pay, 2) == 125306.67
     assert round(document_payload.total_deductions, 2) == 4176.89
     assert round(document_payload.net_payment, 2) == 121129.78
-    assert ("Tevkifat", round(document_payload.tevkifat_amount, 2)) == ("Tevkifat", 4176.89)
-    assert any(item[0] == "Tevkifat" for item in document_payload.deduction_items)
+    assert ("Tevkifat (Yasal yükümlülük kesintisi)", round(document_payload.tevkifat_amount, 2)) == ("Tevkifat (Yasal yükümlülük kesintisi)", 4176.89)
+    assert any(item[0] == "Tevkifat (Yasal yükümlülük kesintisi)" for item in document_payload.deduction_items)
 
 
 def test_payroll_uses_vehicle_history_for_partial_month_motor_rental_deduction():

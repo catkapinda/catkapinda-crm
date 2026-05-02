@@ -331,6 +331,7 @@ _FIXED_MONTHLY_BRAND_COURIER_PAY = 73600.0
 _PAYROLL_VAT_RATE = 0.20
 _PAYROLL_TEVKIFAT_RATE = 0.20
 _PAYROLL_TEVKIFAT_THRESHOLD = 12000.0
+_PAYROLL_TEVKIFAT_LABEL = "Tevkifat (Yasal yükümlülük kesintisi)"
 _SUPPORT_HOLIDAY_DAY_DIVISOR = 30.0
 _PAYROLL_IGNORED_DEDUCTION_SQL = "('Partner Kart Indirimi', 'Partner Kart İndirimi')"
 _ACCOUNTANT_COST_DEDUCTION_TYPE = "Muhasebe Kesintisi"
@@ -1171,7 +1172,7 @@ def _build_remote_payroll_document_payload(
         invoice_base_reducing_deductions=invoice_base_reducing_deductions,
     )
     if tevkifat.tevkifat_amount > 0:
-        deduction_items.append(("Tevkifat", tevkifat.tevkifat_amount))
+        deduction_items.append((_PAYROLL_TEVKIFAT_LABEL, tevkifat.tevkifat_amount))
 
     return PayrollDocumentPayload(
         selected_month=resolved_month,
@@ -1459,7 +1460,7 @@ def _build_local_payroll_document_payload(
         deduction_items.append((MOTOR_PURCHASE_DEDUCTION_TYPE, auto_motor_purchase))
     deduction_items.extend(profile_deduction_items)
     if tevkifat.tevkifat_amount > 0:
-        deduction_items.append(("Tevkifat", tevkifat.tevkifat_amount))
+        deduction_items.append((_PAYROLL_TEVKIFAT_LABEL, tevkifat.tevkifat_amount))
 
     return PayrollDocumentPayload(
         selected_month=resolved_month,
@@ -1837,7 +1838,7 @@ def _build_local_payroll_dashboard(
         )
         entry_deduction_items = list(deduction_items_by_person.get(person_id, []))
         if tevkifat.tevkifat_amount > 0:
-            entry_deduction_items.append(("Tevkifat", tevkifat.tevkifat_amount))
+            entry_deduction_items.append((_PAYROLL_TEVKIFAT_LABEL, tevkifat.tevkifat_amount))
         cost_model_key = str(person["cost_model"] or "-")
 
         entries_payload.append(
