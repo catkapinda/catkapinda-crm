@@ -152,6 +152,8 @@ _COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
 _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
 _PACKAGE_THRESHOLD_DEFAULT = 390
+_FIXED_MONTHLY_BRAND_KEYS = {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
+_FIXED_MONTHLY_BRAND_COURIER_PAY = 73600.0
 _PAYROLL_VAT_RATE = 0.20
 _PAYROLL_TEVKIFAT_RATE = 0.20
 _PAYROLL_TEVKIFAT_THRESHOLD = 12000.0
@@ -227,6 +229,10 @@ def _is_dogu_otomotiv_brand(brand: object) -> bool:
     return _normalized_brand_key(brand) in {"doğu otomotiv", "dogu otomotiv"}
 
 
+def _is_fixed_monthly_brand(brand: object) -> bool:
+    return _normalized_brand_key(brand) in _FIXED_MONTHLY_BRAND_KEYS
+
+
 def _calculate_standard_package_cost(total_packages: float, *, brand: object = "") -> float:
     package_total = _safe_float(total_packages)
     if _is_dogu_otomotiv_brand(brand):
@@ -262,9 +268,15 @@ def _calculate_variable_courier_gross_cost(segments: list[dict[str, object]]) ->
         total_hours = _safe_float(segment.get("total_hours"))
         total_packages = _safe_float(segment.get("total_packages"))
         restaurant_total_packages = _safe_float(segment.get("restaurant_total_packages", total_packages))
+        support_day_count = max(int(segment.get("support_day_count") or 0), 0)
+        is_support_assignment = bool(segment.get("is_support_assignment"))
 
         if _is_dogu_otomotiv_brand(brand):
             gross_cost += total_hours * _COURIER_HOURLY_COST_DOGU_OTOMOTIV
+            continue
+
+        if _is_fixed_monthly_brand(brand) and is_support_assignment and support_day_count > 0:
+            gross_cost += (_FIXED_MONTHLY_BRAND_COURIER_PAY / _SUPPORT_HOLIDAY_DAY_DIVISOR) * support_day_count
             continue
 
         gross_cost += total_hours * _COURIER_HOURLY_COST
@@ -844,15 +856,28 @@ def _build_local_payroll_document_payload(
         SELECT
             d.restaurant_id,
             COALESCE(r.brand, '') AS brand,
+            CASE
+                WHEN d.planned_personnel_id IS NOT NULL
+                 AND d.actual_personnel_id IS NOT NULL
+                 AND d.actual_personnel_id <> d.planned_personnel_id
+                THEN 1 ELSE 0
+            END AS is_support_assignment,
             COALESCE(SUM(d.worked_hours), 0) AS total_hours,
-            COALESCE(SUM(d.package_count), 0) AS total_packages
+            COALESCE(SUM(d.package_count), 0) AS total_packages,
+            COUNT(DISTINCT substr(COALESCE(d.entry_date, ''), 1, 10)) AS support_day_count
         FROM daily_entries d
         LEFT JOIN restaurants r ON r.id = d.restaurant_id
         WHERE {_month_key_sql('d.entry_date')} = %s
           AND COALESCE(d.actual_personnel_id, d.planned_personnel_id) = %s
         GROUP BY
             d.restaurant_id,
-            COALESCE(r.brand, '')
+            COALESCE(r.brand, ''),
+            CASE
+                WHEN d.planned_personnel_id IS NOT NULL
+                 AND d.actual_personnel_id IS NOT NULL
+                 AND d.actual_personnel_id <> d.planned_personnel_id
+                THEN 1 ELSE 0
+            END
         """,
         (resolved_month, personnel_id),
     ).fetchall()
@@ -915,6 +940,8 @@ def _build_local_payroll_document_payload(
             "brand": str(row["brand"] or ""),
             "total_hours": _safe_float(row["total_hours"]),
             "total_packages": _safe_float(row["total_packages"]),
+            "is_support_assignment": bool(row["is_support_assignment"]),
+            "support_day_count": int(row["support_day_count"] or 0),
             "restaurant_total_packages": (
                 _safe_float(restaurant_package_totals.get(int(row["restaurant_id"])))
                 if row["restaurant_id"] is not None
@@ -1074,8 +1101,15 @@ def _build_local_payroll_dashboard(
             COALESCE(d.actual_personnel_id, d.planned_personnel_id) AS personnel_id,
             d.restaurant_id,
             COALESCE(r.brand, '') AS brand,
+            CASE
+                WHEN d.planned_personnel_id IS NOT NULL
+                 AND d.actual_personnel_id IS NOT NULL
+                 AND d.actual_personnel_id <> d.planned_personnel_id
+                THEN 1 ELSE 0
+            END AS is_support_assignment,
             COALESCE(SUM(d.worked_hours), 0) AS total_hours,
-            COALESCE(SUM(d.package_count), 0) AS total_packages
+            COALESCE(SUM(d.package_count), 0) AS total_packages,
+            COUNT(DISTINCT substr(COALESCE(d.entry_date, ''), 1, 10)) AS support_day_count
         FROM daily_entries d
         LEFT JOIN restaurants r ON r.id = d.restaurant_id
         WHERE {month_key_sql} = %s
@@ -1091,7 +1125,13 @@ def _build_local_payroll_dashboard(
         GROUP BY
             COALESCE(d.actual_personnel_id, d.planned_personnel_id),
             d.restaurant_id,
-            COALESCE(r.brand, '')
+            COALESCE(r.brand, ''),
+            CASE
+                WHEN d.planned_personnel_id IS NOT NULL
+                 AND d.actual_personnel_id IS NOT NULL
+                 AND d.actual_personnel_id <> d.planned_personnel_id
+                THEN 1 ELSE 0
+            END
     """
     attendance_rows = conn.execute(attendance_query, tuple(attendance_params)).fetchall()
     restaurant_package_totals_query = """
@@ -1220,6 +1260,8 @@ def _build_local_payroll_dashboard(
                     "brand": str(row["brand"] or ""),
                     "total_hours": total_hours,
                     "total_packages": total_packages,
+                    "is_support_assignment": bool(row["is_support_assignment"]),
+                    "support_day_count": int(row["support_day_count"] or 0),
                     "restaurant_total_packages": (
                         _safe_float(restaurant_package_totals.get(int(row["restaurant_id"])))
                         if row["restaurant_id"] is not None
