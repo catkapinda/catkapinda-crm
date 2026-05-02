@@ -410,6 +410,27 @@ def _is_fixed_monthly_courier_cost_model(cost_model: object) -> bool:
     return str(cost_model or "").strip() in {"fixed_monthly", "fixed_kurye"}
 
 
+def _has_only_fixed_monthly_brand_segments(segments: list[dict[str, object]]) -> bool:
+    primary_segments = [segment for segment in segments if not bool(segment.get("is_support_assignment"))]
+    if not primary_segments:
+        return False
+    return all(_is_fixed_monthly_brand(segment.get("brand")) for segment in primary_segments)
+
+
+def _uses_fixed_monthly_brand_courier_pay(
+    *,
+    role: object,
+    cost_model: object,
+    fixed_cost: float,
+    segments: list[dict[str, object]],
+) -> bool:
+    if str(role or "").strip() != "Kurye":
+        return False
+    if _safe_float(fixed_cost) <= 0:
+        return False
+    return _is_fixed_monthly_courier_cost_model(cost_model) or _has_only_fixed_monthly_brand_segments(segments)
+
+
 def _calculate_standard_package_cost(total_packages: float, *, brand: object = "") -> float:
     package_total = _safe_float(total_packages)
     if _is_dogu_otomotiv_brand(brand):
@@ -505,13 +526,19 @@ def _build_personnel_earning_items(
     cost_model: object = None,
     total_hours: float = 0.0,
     fixed_cost: float = 0.0,
+    segments: list[dict[str, object]] | None = None,
 ) -> list[tuple[str, float]]:
     items: list[tuple[str, float]] = []
     normalized_role = str(role or "").strip()
     if normalized_role == "Kaptan":
         items.append((_CAPTAIN_BONUS_LABEL, _CAPTAIN_BONUS_AMOUNT))
 
-    if normalized_role == "Kurye" and _is_fixed_monthly_courier_cost_model(cost_model) and _safe_float(fixed_cost) > 0:
+    if _uses_fixed_monthly_brand_courier_pay(
+        role=role,
+        cost_model=cost_model,
+        fixed_cost=fixed_cost,
+        segments=segments or [],
+    ):
         overtime_hours = max(_safe_float(total_hours) - _FIXED_MONTHLY_BASE_HOURS, 0.0)
         extra_days = int(overtime_hours // _FIXED_MONTHLY_EXTRA_DAY_HOURS)
         if extra_days > 0:
@@ -572,6 +599,7 @@ def _is_fixed_cost_model(cost_model: object) -> bool:
 
 def _resolve_fixed_monthly_courier_pay(
     *,
+    role: object = None,
     cost_model: object,
     monthly_fixed_cost: float,
     segments: list[dict[str, object]],
@@ -579,7 +607,9 @@ def _resolve_fixed_monthly_courier_pay(
     fixed_cost = _safe_float(monthly_fixed_cost)
     if fixed_cost > 0:
         return fixed_cost
-    if not _is_fixed_monthly_courier_cost_model(cost_model):
+    if str(role or "").strip() != "Kurye":
+        return fixed_cost
+    if not _is_fixed_monthly_courier_cost_model(cost_model) and not _has_only_fixed_monthly_brand_segments(segments):
         return fixed_cost
 
     for segment in segments:
@@ -603,6 +633,7 @@ def _calculate_personnel_gross_pay(
     attendance_dates: set[date] | None = None,
 ) -> float:
     fixed_cost = _resolve_fixed_monthly_courier_pay(
+        role=role,
         cost_model=cost_model,
         monthly_fixed_cost=monthly_fixed_cost,
         segments=segments,
@@ -615,6 +646,7 @@ def _calculate_personnel_gross_pay(
                 cost_model=cost_model,
                 total_hours=total_hours,
                 fixed_cost=fixed_cost,
+                segments=segments,
             )
         )
     )
@@ -627,7 +659,12 @@ def _calculate_personnel_gross_pay(
         start_date=start_date,
         attendance_dates=attendance_dates or set(),
     )
-    if _is_fixed_cost_model(cost_model) and fixed_cost > 0:
+    if _uses_fixed_monthly_brand_courier_pay(
+        role=role,
+        cost_model=cost_model,
+        fixed_cost=fixed_cost,
+        segments=segments,
+    ) or (_is_fixed_cost_model(cost_model) and fixed_cost > 0):
         return fixed_cost + holiday_bonus + earning_item_total
     if not has_attendance:
         return fixed_cost + holiday_bonus + earning_item_total
@@ -1063,6 +1100,7 @@ def _build_remote_payroll_document_payload(
         attendance_dates=attendance_dates,
     )
     resolved_person_fixed_cost = _resolve_fixed_monthly_courier_pay(
+        role=payroll_row.get("rol"),
         cost_model=person_cost_model,
         monthly_fixed_cost=person_fixed_cost,
         segments=attendance_segments,
@@ -1107,6 +1145,7 @@ def _build_remote_payroll_document_payload(
             cost_model=person_cost_model,
             total_hours=_safe_float(payroll_row.get("calisma_saati")),
             fixed_cost=resolved_person_fixed_cost,
+            segments=attendance_segments,
         ),
         deduction_items=deduction_items,
     )
@@ -1264,6 +1303,7 @@ def _build_local_payroll_document_payload(
     total_hours = _safe_float(sum(_safe_float(row["total_hours"]) for row in attendance_rows))
     total_packages = _safe_float(sum(_safe_float(row["total_packages"]) for row in attendance_rows))
     resolved_fixed_cost = _resolve_fixed_monthly_courier_pay(
+        role=person_data["role"],
         cost_model=person_data["cost_model"],
         monthly_fixed_cost=_safe_float(person_data["monthly_fixed_cost"]),
         segments=attendance_segments,
@@ -1369,6 +1409,7 @@ def _build_local_payroll_document_payload(
             cost_model=person_data["cost_model"],
             total_hours=total_hours,
             fixed_cost=resolved_fixed_cost,
+            segments=attendance_segments,
         ),
         deduction_items=deduction_items,
     )
