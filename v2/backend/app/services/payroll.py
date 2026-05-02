@@ -262,6 +262,9 @@ _ACCOUNTANT_COST_DEDUCTION_TYPE = "Muhasebe Kesintisi"
 _COMPANY_SETUP_COST_DEDUCTION_TYPE = "Şirket Açılışı Kesintisi"
 _CAPTAIN_BONUS_LABEL = "Kaptanlık Hakedişi"
 _CAPTAIN_BONUS_AMOUNT = 3000.0
+_FIXED_MONTHLY_OVERTIME_BONUS_LABEL = "Ek Mesai Hakedişi"
+_FIXED_MONTHLY_BASE_HOURS = 260.0
+_FIXED_MONTHLY_EXTRA_DAY_HOURS = 10.0
 _MOTOR_RENTAL_DEDUCTION_SQL = "('Motor Kirası', 'Motor Kirasi')"
 _MOTOR_PURCHASE_DEDUCTION_SQL = "('Motor Satış Taksiti', 'Motor Satis Taksiti', 'Motor Satın Alım', 'Motor Satin Alim')"
 _INVOICE_BASE_REDUCING_DEDUCTION_TYPES = {"Fatura Edilmeyen Tutar"}
@@ -424,11 +427,29 @@ def _count_support_holiday_bonus_days(attendance_dates: set[date]) -> int:
     return sum(1 for entry_date in attendance_dates if entry_date in _RELIGIOUS_HOLIDAY_DOUBLE_DATES)
 
 
-def _build_personnel_earning_items(*, role: object) -> list[tuple[str, float]]:
+def _build_personnel_earning_items(
+    *,
+    role: object,
+    cost_model: object = None,
+    total_hours: float = 0.0,
+    fixed_cost: float = 0.0,
+) -> list[tuple[str, float]]:
+    items: list[tuple[str, float]] = []
     normalized_role = str(role or "").strip()
     if normalized_role == "Kaptan":
-        return [(_CAPTAIN_BONUS_LABEL, _CAPTAIN_BONUS_AMOUNT)]
-    return []
+        items.append((_CAPTAIN_BONUS_LABEL, _CAPTAIN_BONUS_AMOUNT))
+
+    if str(cost_model or "").strip() == "fixed_monthly" and _safe_float(fixed_cost) > 0:
+        overtime_hours = max(_safe_float(total_hours) - _FIXED_MONTHLY_BASE_HOURS, 0.0)
+        extra_days = int(overtime_hours // _FIXED_MONTHLY_EXTRA_DAY_HOURS)
+        if extra_days > 0:
+            items.append(
+                (
+                    _FIXED_MONTHLY_OVERTIME_BONUS_LABEL,
+                    _safe_float(fixed_cost) / _SUPPORT_HOLIDAY_DAY_DIVISOR * extra_days,
+                )
+            )
+    return items
 
 
 def _calculate_support_holiday_bonus(
@@ -514,7 +535,17 @@ def _calculate_personnel_gross_pay(
         monthly_fixed_cost=monthly_fixed_cost,
         segments=segments,
     )
-    earning_item_total = _safe_float(sum(amount for _, amount in _build_personnel_earning_items(role=role)))
+    earning_item_total = _safe_float(
+        sum(
+            amount
+            for _, amount in _build_personnel_earning_items(
+                role=role,
+                cost_model=cost_model,
+                total_hours=total_hours,
+                fixed_cost=fixed_cost,
+            )
+        )
+    )
     has_attendance = total_hours > 0 or total_packages > 0
     holiday_bonus = _calculate_support_holiday_bonus(
         selected_month=selected_month,
@@ -928,6 +959,11 @@ def _build_remote_payroll_document_payload(
         start_date=person_match.iloc[0]["start_date"] if not person_match.empty and "start_date" in person_match.columns else None,
         attendance_dates=attendance_dates,
     )
+    resolved_person_fixed_cost = _resolve_fixed_monthly_courier_pay(
+        cost_model=person_cost_model,
+        monthly_fixed_cost=person_fixed_cost,
+        segments=[],
+    )
     profile_deduction_total = _safe_float(sum(amount for _, amount in _build_personnel_profile_deduction_items(
         person_match.iloc[0] if not person_match.empty else None
     )))
@@ -963,7 +999,12 @@ def _build_remote_payroll_document_payload(
         invoice_vat_amount=tevkifat.vat_amount,
         tevkifat_amount=tevkifat.tevkifat_amount,
         restaurant_names=restaurant_names,
-        earning_items=_build_personnel_earning_items(role=payroll_row.get("rol")),
+        earning_items=_build_personnel_earning_items(
+            role=payroll_row.get("rol"),
+            cost_model=person_cost_model,
+            total_hours=_safe_float(payroll_row.get("calisma_saati")),
+            fixed_cost=resolved_person_fixed_cost,
+        ),
         deduction_items=deduction_items,
     )
 
@@ -1119,6 +1160,11 @@ def _build_local_payroll_document_payload(
     ]
     total_hours = _safe_float(sum(_safe_float(row["total_hours"]) for row in attendance_rows))
     total_packages = _safe_float(sum(_safe_float(row["total_packages"]) for row in attendance_rows))
+    resolved_fixed_cost = _resolve_fixed_monthly_courier_pay(
+        cost_model=person_data["cost_model"],
+        monthly_fixed_cost=_safe_float(person_data["monthly_fixed_cost"]),
+        segments=attendance_segments,
+    )
     gross_pay = _calculate_personnel_gross_pay(
         selected_month=resolved_month,
         cost_model=person_data["cost_model"],
@@ -1199,7 +1245,12 @@ def _build_local_payroll_document_payload(
         invoice_vat_amount=tevkifat.vat_amount,
         tevkifat_amount=tevkifat.tevkifat_amount,
         restaurant_names=restaurant_names,
-        earning_items=_build_personnel_earning_items(role=person_data["role"]),
+        earning_items=_build_personnel_earning_items(
+            role=person_data["role"],
+            cost_model=person_data["cost_model"],
+            total_hours=total_hours,
+            fixed_cost=resolved_fixed_cost,
+        ),
         deduction_items=deduction_items,
     )
 
