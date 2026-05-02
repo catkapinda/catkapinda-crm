@@ -82,6 +82,8 @@ export function PersonnelEntryWorkspace() {
   const [accountantCost, setAccountantCost] = useState("0");
   const [companySetupRevenue, setCompanySetupRevenue] = useState("0");
   const [companySetupCost, setCompanySetupCost] = useState("0");
+  const [accountingEffectiveDate, setAccountingEffectiveDate] = useState("");
+  const [companySetupEffectiveDate, setCompanySetupEffectiveDate] = useState("");
   const [restaurantId, setRestaurantId] = useState<number | "">("");
   const [status, setStatus] = useState("Aktif");
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
@@ -189,6 +191,8 @@ export function PersonnelEntryWorkspace() {
         accountant_cost: Number(accountantCost || 0),
         company_setup_revenue: Number(companySetupRevenue || 0),
         company_setup_cost: Number(companySetupCost || 0),
+        accounting_effective_date: accountingEffectiveDate || null,
+        company_setup_effective_date: companySetupEffectiveDate || null,
         assigned_restaurant_id: typeof restaurantId === "number" ? restaurantId : null,
         status,
         start_date: startDate || null,
@@ -230,6 +234,8 @@ export function PersonnelEntryWorkspace() {
     setAccountantCost("0");
     setCompanySetupRevenue("0");
     setCompanySetupCost("0");
+    setAccountingEffectiveDate("");
+    setCompanySetupEffectiveDate("");
     setExitDate("");
     setCurrentPlate("");
     setMotorRentalMonthlyAmount("13000");
@@ -531,6 +537,15 @@ export function PersonnelEntryWorkspace() {
                   />
                 </label>
                 <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Muhasebe Geçiş Tarihi</span>
+                  <input
+                    type="date"
+                    value={accountingEffectiveDate}
+                    onChange={(event) => setAccountingEffectiveDate(event.target.value)}
+                    style={fieldStyle}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
                   <span style={{ fontWeight: 700 }}>Şirket Açılış Geliri</span>
                   <input
                     inputMode="decimal"
@@ -545,6 +560,15 @@ export function PersonnelEntryWorkspace() {
                     inputMode="decimal"
                     value={companySetupCost}
                     onChange={(event) => setCompanySetupCost(event.target.value)}
+                    style={fieldStyle}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontWeight: 700 }}>Şirket Açılışı Tarihi</span>
+                  <input
+                    type="date"
+                    value={companySetupEffectiveDate}
+                    onChange={(event) => setCompanySetupEffectiveDate(event.target.value)}
                     style={fieldStyle}
                   />
                 </label>

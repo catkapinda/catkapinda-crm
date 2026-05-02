@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date, datetime
 import re
@@ -95,11 +96,16 @@ def _payroll_optional_personnel_select(conn: psycopg.Connection) -> str:
         "accountant_cost",
         "company_setup_revenue",
         "company_setup_cost",
+        "accounting_effective_date",
+        "company_setup_effective_date",
     ):
         if column_name in columns:
-            optional_fields.append(f"COALESCE({column_name}, 0) AS {column_name}")
+            if column_name.endswith("_date"):
+                optional_fields.append(f"{column_name}")
+            else:
+                optional_fields.append(f"COALESCE({column_name}, 0) AS {column_name}")
         else:
-            optional_fields.append(f"0 AS {column_name}")
+            optional_fields.append(f"{'NULL' if column_name.endswith('_date') else '0'} AS {column_name}")
     return ",\n            ".join(optional_fields)
 
 
@@ -118,13 +124,106 @@ def _row_value(source: object, key: str) -> object:
         return None
 
 
-def _build_personnel_profile_deduction_items(source: object) -> list[tuple[str, float]]:
+def _parse_date_value(value: object) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text[:10]).date()
+    except ValueError:
+        return None
+
+
+def _selected_month_end(selected_month: str) -> date:
+    year_text, month_text = str(selected_month).split("-", 1)
+    year = int(year_text)
+    month = int(month_text)
+    last_day = monthrange(year, month)[1]
+    return date(year, month, last_day)
+
+
+def _fetch_effective_accounting_history_for_month(
+    conn: psycopg.Connection,
+    *,
+    selected_month: str,
+) -> dict[int, dict]:
+    if not _table_columns(conn, "personnel_accounting_history"):
+        return {}
+    month_end = _selected_month_end(selected_month)
+    rows = conn.execute(
+        """
+        SELECT
+            id,
+            personnel_id,
+            accounting_type,
+            new_company_setup,
+            accounting_revenue,
+            accountant_cost,
+            company_setup_revenue,
+            company_setup_cost,
+            accounting_effective_date,
+            company_setup_effective_date,
+            effective_date,
+            changed_at,
+            notes
+        FROM personnel_accounting_history
+        """
+    ).fetchall()
+    latest_by_person: dict[int, tuple[date, int, dict]] = {}
+    for row in rows:
+        person_id = _row_value(row, "personnel_id")
+        if person_id is None:
+            continue
+        effective_date = _parse_date_value(_row_value(row, "effective_date")) or _parse_date_value(_row_value(row, "changed_at"))
+        if effective_date is None or effective_date > month_end:
+            continue
+        payload = dict(row)
+        key = (effective_date, int(_row_value(row, "id") or 0), payload)
+        existing = latest_by_person.get(int(person_id))
+        if existing is None or (effective_date, int(_row_value(row, "id") or 0)) > (existing[0], existing[1]):
+            latest_by_person[int(person_id)] = key
+    return {person_id: item[2] for person_id, item in latest_by_person.items()}
+
+
+def _fetch_accounting_history_person_ids(conn: psycopg.Connection) -> set[int]:
+    if not _table_columns(conn, "personnel_accounting_history"):
+        return set()
+    rows = conn.execute(
+        """
+        SELECT DISTINCT personnel_id
+        FROM personnel_accounting_history
+        WHERE personnel_id IS NOT NULL
+        """
+    ).fetchall()
+    return {int(row["personnel_id"]) for row in rows if row["personnel_id"] is not None}
+
+
+def _build_personnel_profile_deduction_items(source: object, *, selected_month: str) -> list[tuple[str, float]]:
     items: list[tuple[str, float]] = []
+    month_end = _selected_month_end(selected_month)
+    accounting_effective_date = _parse_date_value(_row_value(source, "accounting_effective_date"))
+    company_setup_effective_date = _parse_date_value(_row_value(source, "company_setup_effective_date"))
     accounting_revenue = _safe_float(_row_value(source, "accounting_revenue"))
     company_setup_revenue = _safe_float(_row_value(source, "company_setup_revenue"))
-    if accounting_revenue > 0:
+    accounting_type = _row_value(source, "accounting_type")
+    new_company_setup = _row_value(source, "new_company_setup")
+    if (
+        (accounting_type is None or str(accounting_type) == "Çat Kapında Muhasebe")
+        and accounting_revenue > 0
+        and (accounting_effective_date is None or accounting_effective_date <= month_end)
+    ):
         items.append((_ACCOUNTANT_COST_DEDUCTION_TYPE, accounting_revenue))
-    if company_setup_revenue > 0:
+    if (
+        (new_company_setup is None or str(new_company_setup) == "Evet")
+        and company_setup_revenue > 0
+        and (company_setup_effective_date is None or company_setup_effective_date <= month_end)
+    ):
         items.append((_COMPANY_SETUP_COST_DEDUCTION_TYPE, company_setup_revenue))
     return items
 
@@ -859,6 +958,16 @@ def _build_local_payroll_document_payload(
     if person_row is None:
         raise LookupError("Belgesi oluşturulacak personel bulunamadı.")
     person_data = dict(person_row)
+    accounting_history_by_person = _fetch_effective_accounting_history_for_month(
+        conn,
+        selected_month=resolved_month,
+    )
+    accounting_history_person_ids = _fetch_accounting_history_person_ids(conn)
+    profile_source = (
+        accounting_history_by_person.get(personnel_id)
+        if personnel_id in accounting_history_person_ids
+        else person_data
+    )
 
     attendance_rows = conn.execute(
         f"""
@@ -1008,7 +1117,7 @@ def _build_local_payroll_document_payload(
     base_deductions += auto_motor_rental
     base_deductions += auto_motor_purchase
     invoice_base_reducing_deductions += auto_motor_purchase
-    profile_deduction_items = _build_personnel_profile_deduction_items(person_row)
+    profile_deduction_items = _build_personnel_profile_deduction_items(profile_source, selected_month=resolved_month)
     profile_deduction_total = _safe_float(sum(amount for _, amount in profile_deduction_items))
     base_deductions += profile_deduction_total
     total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
@@ -1330,6 +1439,11 @@ def _build_local_payroll_dashboard(
     }
 
     personnel_index = {int(row["id"]): row for row in personnel_rows if row["id"] is not None}
+    accounting_history_by_person = _fetch_effective_accounting_history_for_month(
+        conn,
+        selected_month=resolved_month,
+    )
+    accounting_history_person_ids = _fetch_accounting_history_person_ids(conn)
     auto_motor_rental_by_person: dict[int, float] = {}
     auto_motor_purchase_by_person: dict[int, float] = {}
     for person_id, person in personnel_index.items():
@@ -1354,7 +1468,8 @@ def _build_local_payroll_dashboard(
             invoice_base_reducing_deductions_by_person[person_id] = (
                 _safe_float(invoice_base_reducing_deductions_by_person.get(person_id)) + auto_motor_purchase
             )
-        profile_deduction_items = _build_personnel_profile_deduction_items(person)
+        profile_source = accounting_history_by_person.get(person_id) if person_id in accounting_history_person_ids else person
+        profile_deduction_items = _build_personnel_profile_deduction_items(profile_source, selected_month=resolved_month)
         if profile_deduction_items:
             profile_deduction_total = _safe_float(sum(amount for _, amount in profile_deduction_items))
             deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + profile_deduction_total

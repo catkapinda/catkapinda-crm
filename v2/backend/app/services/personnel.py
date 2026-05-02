@@ -31,6 +31,7 @@ from app.repositories.personnel import (
     count_total_plate_history_records,
     delete_personnel_and_dependencies,
     fetch_active_plate_history_record,
+    fetch_latest_accounting_history_record,
     fetch_person_code_values,
     fetch_personnel_plate_baseline_candidates,
     fetch_personnel_plate_candidates,
@@ -50,6 +51,7 @@ from app.repositories.personnel import (
     fetch_latest_vehicle_history_record,
     insert_plate_history_record,
     insert_personnel_record,
+    insert_accounting_history_record,
     insert_role_history_record,
     insert_vehicle_history_record,
     update_personnel_current_plate,
@@ -277,6 +279,8 @@ def _build_management_entry(
         accountant_cost=float(row.get("accountant_cost") or 0),
         company_setup_revenue=float(row.get("company_setup_revenue") or 0),
         company_setup_cost=float(row.get("company_setup_cost") or 0),
+        accounting_effective_date=row.get("accounting_effective_date"),
+        company_setup_effective_date=row.get("company_setup_effective_date"),
         restaurant_id=int(row["restaurant_id"]) if row["restaurant_id"] else None,
         restaurant_label=str(row["restaurant_label"] or "-"),
         vehicle_mode=vehicle_mode,
@@ -567,6 +571,71 @@ def _sync_role_history_after_personnel_write(
         effective_date=effective_date_text,
         notes=reason,
     )
+
+
+def _sync_accounting_history_after_personnel_write(
+    conn: psycopg.Connection,
+    *,
+    person_id: int,
+    accounting_type: str,
+    new_company_setup: str,
+    accounting_revenue: float,
+    accountant_cost: float,
+    company_setup_revenue: float,
+    company_setup_cost: float,
+    accounting_effective_date: date | None,
+    company_setup_effective_date: date | None,
+    effective_date: date | None,
+    reason: str,
+) -> None:
+    if not hasattr(conn, "execute"):
+        return
+    latest_row = fetch_latest_accounting_history_record(conn, person_id)
+    effective_date_text = (effective_date or accounting_effective_date or company_setup_effective_date or date.today()).isoformat()
+    accounting_effective_date_text = accounting_effective_date.isoformat() if isinstance(accounting_effective_date, date) else None
+    company_setup_effective_date_text = (
+        company_setup_effective_date.isoformat() if isinstance(company_setup_effective_date, date) else None
+    )
+    normalized_accounting_type = _normalize_accounting_type(accounting_type)
+    normalized_company_setup = _normalize_company_setup(new_company_setup)
+
+    if latest_row:
+        latest_accounting_effective_date = str(latest_row.get("accounting_effective_date") or "") or None
+        latest_company_setup_effective_date = str(latest_row.get("company_setup_effective_date") or "") or None
+        if (
+            str(latest_row.get("accounting_type") or "Kendi Muhasebecisi") == normalized_accounting_type
+            and str(latest_row.get("new_company_setup") or "Hayır") == normalized_company_setup
+            and float(latest_row.get("accounting_revenue") or 0) == float(accounting_revenue or 0)
+            and float(latest_row.get("accountant_cost") or 0) == float(accountant_cost or 0)
+            and float(latest_row.get("company_setup_revenue") or 0) == float(company_setup_revenue or 0)
+            and float(latest_row.get("company_setup_cost") or 0) == float(company_setup_cost or 0)
+            and latest_accounting_effective_date == accounting_effective_date_text
+            and latest_company_setup_effective_date == company_setup_effective_date_text
+        ):
+            return
+
+    insert_accounting_history_record(
+        conn,
+        personnel_id=person_id,
+        accounting_type=normalized_accounting_type,
+        new_company_setup=normalized_company_setup,
+        accounting_revenue=float(accounting_revenue or 0),
+        accountant_cost=float(accountant_cost or 0),
+        company_setup_revenue=float(company_setup_revenue or 0),
+        company_setup_cost=float(company_setup_cost or 0),
+        accounting_effective_date=accounting_effective_date_text,
+        company_setup_effective_date=company_setup_effective_date_text,
+        effective_date=effective_date_text,
+        notes=reason,
+    )
+
+
+def _resolve_accounting_snapshot_effective_date(
+    accounting_effective_date: date | None,
+    company_setup_effective_date: date | None,
+) -> date:
+    candidates = [candidate for candidate in (accounting_effective_date, company_setup_effective_date) if candidate is not None]
+    return min(candidates) if candidates else date.today()
 
 
 def build_personnel_status() -> PersonnelModuleStatus:
@@ -997,6 +1066,8 @@ def create_personnel_record(
             "accountant_cost": float(payload.accountant_cost or 0),
             "company_setup_revenue": float(payload.company_setup_revenue or 0),
             "company_setup_cost": float(payload.company_setup_cost or 0),
+            "accounting_effective_date": payload.accounting_effective_date,
+            "company_setup_effective_date": payload.company_setup_effective_date,
             "assigned_restaurant_id": payload.assigned_restaurant_id,
             "vehicle_type": vehicle_payload["vehicle_type"],
             "motor_rental": vehicle_payload["motor_rental"],
@@ -1043,6 +1114,23 @@ def create_personnel_record(
         monthly_fixed_cost=float(payload.monthly_fixed_cost or 0),
         effective_date=payload.start_date,
         reason="Sistem: Başlangıç rol kaydı",
+    )
+    _sync_accounting_history_after_personnel_write(
+        conn,
+        person_id=person_id,
+        accounting_type=payload.accounting_type,
+        new_company_setup=payload.new_company_setup,
+        accounting_revenue=float(payload.accounting_revenue or 0),
+        accountant_cost=float(payload.accountant_cost or 0),
+        company_setup_revenue=float(payload.company_setup_revenue or 0),
+        company_setup_cost=float(payload.company_setup_cost or 0),
+        accounting_effective_date=payload.accounting_effective_date,
+        company_setup_effective_date=payload.company_setup_effective_date,
+        effective_date=_resolve_accounting_snapshot_effective_date(
+            payload.accounting_effective_date,
+            payload.company_setup_effective_date,
+        ),
+        reason="Sistem: Başlangıç muhasebe kaydı",
     )
     sync_mobile_auth_user_for_personnel(conn, personnel_id=person_id)
     conn.commit()
@@ -1126,6 +1214,8 @@ def update_personnel_record_entry(
             "accountant_cost": float(payload.accountant_cost or 0),
             "company_setup_revenue": float(payload.company_setup_revenue or 0),
             "company_setup_cost": float(payload.company_setup_cost or 0),
+            "accounting_effective_date": payload.accounting_effective_date,
+            "company_setup_effective_date": payload.company_setup_effective_date,
             "assigned_restaurant_id": payload.assigned_restaurant_id,
             "vehicle_type": vehicle_payload["vehicle_type"],
             "motor_rental": vehicle_payload["motor_rental"],
@@ -1174,6 +1264,37 @@ def update_personnel_record_entry(
         effective_date=date.today(),
         reason="Sistem: Personel kartından rol değişimi",
     )
+    existing_accounting_effective_date = existing_row.get("accounting_effective_date")
+    existing_company_setup_effective_date = existing_row.get("company_setup_effective_date")
+    if (
+        str(existing_row.get("accounting_type") or "Kendi Muhasebecisi") != _normalize_accounting_type(payload.accounting_type)
+        or str(existing_row.get("new_company_setup") or "Hayır") != _normalize_company_setup(payload.new_company_setup)
+        or float(existing_row.get("accounting_revenue") or 0) != float(payload.accounting_revenue or 0)
+        or float(existing_row.get("accountant_cost") or 0) != float(payload.accountant_cost or 0)
+        or float(existing_row.get("company_setup_revenue") or 0) != float(payload.company_setup_revenue or 0)
+        or float(existing_row.get("company_setup_cost") or 0) != float(payload.company_setup_cost or 0)
+        or (existing_accounting_effective_date.isoformat() if isinstance(existing_accounting_effective_date, date) else str(existing_accounting_effective_date or "") or None)
+        != (payload.accounting_effective_date.isoformat() if isinstance(payload.accounting_effective_date, date) else None)
+        or (existing_company_setup_effective_date.isoformat() if isinstance(existing_company_setup_effective_date, date) else str(existing_company_setup_effective_date or "") or None)
+        != (payload.company_setup_effective_date.isoformat() if isinstance(payload.company_setup_effective_date, date) else None)
+    ):
+        _sync_accounting_history_after_personnel_write(
+            conn,
+            person_id=person_id,
+            accounting_type=payload.accounting_type,
+            new_company_setup=payload.new_company_setup,
+            accounting_revenue=float(payload.accounting_revenue or 0),
+            accountant_cost=float(payload.accountant_cost or 0),
+            company_setup_revenue=float(payload.company_setup_revenue or 0),
+            company_setup_cost=float(payload.company_setup_cost or 0),
+            accounting_effective_date=payload.accounting_effective_date,
+            company_setup_effective_date=payload.company_setup_effective_date,
+            effective_date=_resolve_accounting_snapshot_effective_date(
+                payload.accounting_effective_date,
+                payload.company_setup_effective_date,
+            ),
+            reason="Sistem: Personel kartından muhasebe değişimi",
+        )
     sync_mobile_auth_user_for_personnel(conn, personnel_id=person_id)
     conn.commit()
     return PersonnelUpdateResponse(

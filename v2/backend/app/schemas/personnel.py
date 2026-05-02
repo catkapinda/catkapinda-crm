@@ -56,6 +56,8 @@ class PersonnelManagementEntry(BaseModel):
     accountant_cost: float
     company_setup_revenue: float
     company_setup_cost: float
+    accounting_effective_date: date | None = None
+    company_setup_effective_date: date | None = None
     restaurant_id: int | None
     restaurant_label: str
     vehicle_mode: str
@@ -199,6 +201,8 @@ class PersonnelCreateRequest(BaseModel):
     accountant_cost: float = 0.0
     company_setup_revenue: float = 0.0
     company_setup_cost: float = 0.0
+    accounting_effective_date: date | None = None
+    company_setup_effective_date: date | None = None
     assigned_restaurant_id: int | None = None
     status: str = "Aktif"
     start_date: date | None = None
@@ -263,6 +267,8 @@ class PersonnelUpdateRequest(BaseModel):
     accountant_cost: float = 0.0
     company_setup_revenue: float = 0.0
     company_setup_cost: float = 0.0
+    accounting_effective_date: date | None = None
+    company_setup_effective_date: date | None = None
     assigned_restaurant_id: int | None = None
     status: str = "Aktif"
     start_date: date | None = None

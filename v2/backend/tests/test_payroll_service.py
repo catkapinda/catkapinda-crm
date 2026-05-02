@@ -1183,6 +1183,235 @@ def test_payroll_dashboard_prorates_company_motor_rental_by_exit_date():
     assert round(payload.summary.total_deductions, 2) == 4333.33
 
 
+def test_payroll_dashboard_applies_accounting_deduction_from_effective_month_only():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            accounting_type TEXT,
+            accounting_revenue REAL,
+            accountant_cost REAL,
+            company_setup_revenue REAL,
+            company_setup_cost REAL,
+            accounting_effective_date TEXT,
+            company_setup_effective_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE personnel_accounting_history (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            accounting_type TEXT,
+            new_company_setup TEXT,
+            accounting_revenue REAL,
+            accountant_cost REAL,
+            company_setup_revenue REAL,
+            company_setup_cost REAL,
+            accounting_effective_date TEXT,
+            company_setup_effective_date TEXT,
+            effective_date TEXT,
+            changed_at TEXT,
+            notes TEXT
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (
+            id, full_name, person_code, role, status, cost_model, monthly_fixed_cost, start_date,
+            accounting_type, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
+            accounting_effective_date, company_setup_effective_date,
+            vehicle_type, motor_rental, motor_purchase, motor_rental_monthly_amount
+        )
+        VALUES (
+            1, 'Nisan Muhasebe', 'CK-A01', 'Kurye', 'Aktif', 'standard_courier', 0, '2026-03-01',
+            'Çat Kapında Muhasebe', 2000, 1400, 0, 0, '2026-04-01', NULL,
+            'Kendi Motoru', 'Hayır', 'Hayır', 0
+        )
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel_accounting_history (
+            id, personnel_id, accounting_type, new_company_setup, accounting_revenue, accountant_cost,
+            company_setup_revenue, company_setup_cost, accounting_effective_date, company_setup_effective_date,
+            effective_date, changed_at, notes
+        )
+        VALUES (
+            1, 1, 'Çat Kapında Muhasebe', 'Hayır', 2000, 1400, 0, 0,
+            '2026-04-01', NULL, '2026-04-01', '2026-04-01 09:00:00', 'test'
+        )
+        """
+    )
+    raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'Burger@', 'Kavacık')")
+    raw_conn.execute(
+        """
+        INSERT INTO daily_entries (entry_date, restaurant_id, planned_personnel_id, actual_personnel_id, worked_hours, package_count)
+        VALUES ('2026-03-10', 10, 1, 1, 10, 0),
+               ('2026-04-10', 10, 1, 1, 10, 0)
+        """
+    )
+    raw_conn.commit()
+
+    march_payload = build_payroll_dashboard(CompatConnection(raw_conn, "sqlite"), selected_month="2026-03")
+    april_payload = build_payroll_dashboard(CompatConnection(raw_conn, "sqlite"), selected_month="2026-04")
+
+    assert march_payload.summary is not None
+    assert april_payload.summary is not None
+    assert round(march_payload.entries[0].total_deductions, 2) == 0.0
+    assert round(april_payload.entries[0].total_deductions, 2) == 2000.0
+
+
+def test_payroll_dashboard_preserves_past_accounting_history_after_switching_away():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            accounting_type TEXT,
+            accounting_revenue REAL,
+            accountant_cost REAL,
+            company_setup_revenue REAL,
+            company_setup_cost REAL,
+            accounting_effective_date TEXT,
+            company_setup_effective_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE personnel_accounting_history (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            accounting_type TEXT,
+            new_company_setup TEXT,
+            accounting_revenue REAL,
+            accountant_cost REAL,
+            company_setup_revenue REAL,
+            company_setup_cost REAL,
+            accounting_effective_date TEXT,
+            company_setup_effective_date TEXT,
+            effective_date TEXT,
+            changed_at TEXT,
+            notes TEXT
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (
+            id, full_name, person_code, role, status, cost_model, monthly_fixed_cost, start_date,
+            accounting_type, accounting_revenue, accountant_cost, company_setup_revenue, company_setup_cost,
+            accounting_effective_date, company_setup_effective_date,
+            vehicle_type, motor_rental, motor_purchase, motor_rental_monthly_amount
+        )
+        VALUES (
+            1, 'Muhasebe Geçmişi', 'CK-A02', 'Kurye', 'Aktif', 'standard_courier', 0, '2026-03-01',
+            'Kendi Muhasebecisi', 0, 0, 0, 0, '2026-04-01', NULL,
+            'Kendi Motoru', 'Hayır', 'Hayır', 0
+        )
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel_accounting_history (
+            id, personnel_id, accounting_type, new_company_setup, accounting_revenue, accountant_cost,
+            company_setup_revenue, company_setup_cost, accounting_effective_date, company_setup_effective_date,
+            effective_date, changed_at, notes
+        )
+        VALUES
+            (1, 1, 'Çat Kapında Muhasebe', 'Hayır', 2000, 1400, 0, 0, '2026-04-01', NULL, '2026-04-01', '2026-04-01 09:00:00', 'start'),
+            (2, 1, 'Kendi Muhasebecisi', 'Hayır', 0, 0, 0, 0, '2026-04-01', NULL, '2026-06-01', '2026-06-01 09:00:00', 'leave')
+        """
+    )
+    raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'Burger@', 'Kavacık')")
+    raw_conn.execute(
+        """
+        INSERT INTO daily_entries (entry_date, restaurant_id, planned_personnel_id, actual_personnel_id, worked_hours, package_count)
+        VALUES ('2026-05-10', 10, 1, 1, 10, 0),
+               ('2026-06-10', 10, 1, 1, 10, 0)
+        """
+    )
+    raw_conn.commit()
+
+    may_payload = build_payroll_dashboard(CompatConnection(raw_conn, "sqlite"), selected_month="2026-05")
+    june_payload = build_payroll_dashboard(CompatConnection(raw_conn, "sqlite"), selected_month="2026-06")
+
+    assert may_payload.summary is not None
+    assert june_payload.summary is not None
+    assert round(may_payload.entries[0].total_deductions, 2) == 2000.0
+    assert round(june_payload.entries[0].total_deductions, 2) == 0.0
+
+
 def test_payroll_dashboard_adds_company_motor_purchase_installment():
     raw_conn = sqlite3.connect(":memory:")
     raw_conn.row_factory = sqlite3.Row

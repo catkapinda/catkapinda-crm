@@ -116,6 +116,8 @@ def fetch_recent_personnel_records(
             COALESCE(p.accountant_cost, 0) AS accountant_cost,
             COALESCE(p.company_setup_revenue, 0) AS company_setup_revenue,
             COALESCE(p.company_setup_cost, 0) AS company_setup_cost,
+            p.accounting_effective_date,
+            p.company_setup_effective_date,
             p.assigned_restaurant_id AS restaurant_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
             COALESCE(p.vehicle_type, '') AS vehicle_type,
@@ -183,6 +185,8 @@ def fetch_personnel_management_records(
             COALESCE(p.accountant_cost, 0) AS accountant_cost,
             COALESCE(p.company_setup_revenue, 0) AS company_setup_revenue,
             COALESCE(p.company_setup_cost, 0) AS company_setup_cost,
+            p.accounting_effective_date,
+            p.company_setup_effective_date,
             p.assigned_restaurant_id AS restaurant_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
             COALESCE(p.vehicle_type, '') AS vehicle_type,
@@ -319,6 +323,8 @@ def fetch_personnel_record_by_id(
             COALESCE(p.accountant_cost, 0) AS accountant_cost,
             COALESCE(p.company_setup_revenue, 0) AS company_setup_revenue,
             COALESCE(p.company_setup_cost, 0) AS company_setup_cost,
+            p.accounting_effective_date,
+            p.company_setup_effective_date,
             p.assigned_restaurant_id AS restaurant_id,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant_label,
             COALESCE(p.vehicle_type, '') AS vehicle_type,
@@ -382,6 +388,8 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             accountant_cost,
             company_setup_revenue,
             company_setup_cost,
+            accounting_effective_date,
+            company_setup_effective_date,
             assigned_restaurant_id,
             vehicle_type,
             motor_rental,
@@ -398,7 +406,7 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             monthly_fixed_cost,
             notes
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
         """,
         (
@@ -419,6 +427,8 @@ def insert_personnel_record(conn: psycopg.Connection, values: dict) -> int:
             values["accountant_cost"],
             values["company_setup_revenue"],
             values["company_setup_cost"],
+            values["accounting_effective_date"],
+            values["company_setup_effective_date"],
             values["assigned_restaurant_id"],
             values["vehicle_type"],
             values["motor_rental"],
@@ -465,6 +475,8 @@ def update_personnel_record(
             accountant_cost = %s,
             company_setup_revenue = %s,
             company_setup_cost = %s,
+            accounting_effective_date = %s,
+            company_setup_effective_date = %s,
             assigned_restaurant_id = %s,
             vehicle_type = %s,
             motor_rental = %s,
@@ -500,6 +512,8 @@ def update_personnel_record(
             values["accountant_cost"],
             values["company_setup_revenue"],
             values["company_setup_cost"],
+            values["accounting_effective_date"],
+            values["company_setup_effective_date"],
             values["assigned_restaurant_id"],
             values["vehicle_type"],
             values["motor_rental"],
@@ -1262,6 +1276,89 @@ def insert_role_history_record(
         RETURNING id
         """,
         (personnel_id, role, cost_model, monthly_fixed_cost, effective_date, notes),
+    ).fetchone()
+    return int(row["id"])
+
+
+def fetch_latest_accounting_history_record(
+    conn: psycopg.Connection,
+    person_id: int,
+) -> dict | None:
+    resolved_effective_date_sql = _coalesced_history_date_sql(
+        "effective_date",
+        "changed_at",
+    )
+    row = conn.execute(
+        f"""
+        SELECT
+            id,
+            accounting_type,
+            new_company_setup,
+            accounting_revenue,
+            accountant_cost,
+            company_setup_revenue,
+            company_setup_cost,
+            accounting_effective_date,
+            company_setup_effective_date,
+            effective_date,
+            notes
+        FROM personnel_accounting_history
+        WHERE personnel_id = %s
+        ORDER BY {resolved_effective_date_sql} DESC, id DESC
+        LIMIT 1
+        """,
+        (person_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def insert_accounting_history_record(
+    conn: psycopg.Connection,
+    *,
+    personnel_id: int,
+    accounting_type: str,
+    new_company_setup: str,
+    accounting_revenue: float,
+    accountant_cost: float,
+    company_setup_revenue: float,
+    company_setup_cost: float,
+    accounting_effective_date: str | None,
+    company_setup_effective_date: str | None,
+    effective_date: str,
+    notes: str,
+) -> int:
+    row = conn.execute(
+        """
+        INSERT INTO personnel_accounting_history (
+            personnel_id,
+            accounting_type,
+            new_company_setup,
+            accounting_revenue,
+            accountant_cost,
+            company_setup_revenue,
+            company_setup_cost,
+            accounting_effective_date,
+            company_setup_effective_date,
+            effective_date,
+            changed_at,
+            notes
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)
+        RETURNING id
+        """,
+        (
+            personnel_id,
+            accounting_type,
+            new_company_setup,
+            accounting_revenue,
+            accountant_cost,
+            company_setup_revenue,
+            company_setup_cost,
+            accounting_effective_date,
+            company_setup_effective_date,
+            effective_date,
+            notes,
+        ),
     ).fetchone()
     return int(row["id"])
 

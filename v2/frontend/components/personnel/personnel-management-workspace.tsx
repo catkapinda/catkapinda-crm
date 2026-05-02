@@ -27,6 +27,8 @@ type PersonnelEntry = {
   accountant_cost: number;
   company_setup_revenue: number;
   company_setup_cost: number;
+  accounting_effective_date: string | null;
+  company_setup_effective_date: string | null;
   restaurant_id: number | null;
   restaurant_label: string;
   vehicle_mode: string;
@@ -100,6 +102,8 @@ export function PersonnelManagementWorkspace() {
   const [editAccountantCost, setEditAccountantCost] = useState("0");
   const [editCompanySetupRevenue, setEditCompanySetupRevenue] = useState("0");
   const [editCompanySetupCost, setEditCompanySetupCost] = useState("0");
+  const [editAccountingEffectiveDate, setEditAccountingEffectiveDate] = useState("");
+  const [editCompanySetupEffectiveDate, setEditCompanySetupEffectiveDate] = useState("");
   const [editRestaurantId, setEditRestaurantId] = useState<number | "">("");
   const [editStatus, setEditStatus] = useState("Aktif");
   const [editVehicleMode, setEditVehicleMode] = useState("Kendi Motoru");
@@ -191,6 +195,8 @@ export function PersonnelManagementWorkspace() {
       setEditAccountantCost(String(entry.accountant_cost ?? 0));
       setEditCompanySetupRevenue(String(entry.company_setup_revenue ?? 0));
       setEditCompanySetupCost(String(entry.company_setup_cost ?? 0));
+      setEditAccountingEffectiveDate(entry.accounting_effective_date ?? "");
+      setEditCompanySetupEffectiveDate(entry.company_setup_effective_date ?? "");
       setEditRestaurantId(entry.restaurant_id ?? "");
       setEditStatus(entry.status);
       setEditVehicleMode(entry.vehicle_mode);
@@ -276,6 +282,8 @@ export function PersonnelManagementWorkspace() {
         accountant_cost: Number(editAccountantCost || 0),
         company_setup_revenue: Number(editCompanySetupRevenue || 0),
         company_setup_cost: Number(editCompanySetupCost || 0),
+        accounting_effective_date: editAccountingEffectiveDate || null,
+        company_setup_effective_date: editCompanySetupEffectiveDate || null,
         assigned_restaurant_id: typeof editRestaurantId === "number" ? editRestaurantId : null,
         status: editStatus,
         start_date: editStartDate || null,
@@ -805,6 +813,15 @@ export function PersonnelManagementWorkspace() {
                     />
                   </label>
                   <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Muhasebe Geçiş Tarihi</span>
+                    <input
+                      type="date"
+                      value={editAccountingEffectiveDate}
+                      onChange={(event) => setEditAccountingEffectiveDate(event.target.value)}
+                      style={fieldStyle}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
                     <span style={{ fontWeight: 700 }}>Şirket Açılış Geliri</span>
                     <input
                       inputMode="decimal"
@@ -819,6 +836,15 @@ export function PersonnelManagementWorkspace() {
                       inputMode="decimal"
                       value={editCompanySetupCost}
                       onChange={(event) => setEditCompanySetupCost(event.target.value)}
+                      style={fieldStyle}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: "6px" }}>
+                    <span style={{ fontWeight: 700 }}>Şirket Açılışı Tarihi</span>
+                    <input
+                      type="date"
+                      value={editCompanySetupEffectiveDate}
+                      onChange={(event) => setEditCompanySetupEffectiveDate(event.target.value)}
                       style={fieldStyle}
                     />
                   </label>

@@ -141,6 +141,33 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS effective_date DATE",
     "ALTER TABLE personnel_vehicle_history ADD COLUMN IF NOT EXISTS changed_at TIMESTAMP NOT NULL DEFAULT NOW()",
     """
+    CREATE TABLE IF NOT EXISTS personnel_accounting_history (
+        id BIGSERIAL PRIMARY KEY,
+        personnel_id BIGINT NOT NULL,
+        accounting_type TEXT,
+        new_company_setup TEXT,
+        accounting_revenue NUMERIC NOT NULL DEFAULT 0,
+        accountant_cost NUMERIC NOT NULL DEFAULT 0,
+        company_setup_revenue NUMERIC NOT NULL DEFAULT 0,
+        company_setup_cost NUMERIC NOT NULL DEFAULT 0,
+        accounting_effective_date DATE,
+        company_setup_effective_date DATE,
+        effective_date DATE,
+        changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        notes TEXT
+    )
+    """,
+    "ALTER TABLE personnel_accounting_history ADD COLUMN IF NOT EXISTS accounting_type TEXT",
+    "ALTER TABLE personnel_accounting_history ADD COLUMN IF NOT EXISTS new_company_setup TEXT",
+    "ALTER TABLE personnel_accounting_history ADD COLUMN IF NOT EXISTS accounting_revenue NUMERIC NOT NULL DEFAULT 0",
+    "ALTER TABLE personnel_accounting_history ADD COLUMN IF NOT EXISTS accountant_cost NUMERIC NOT NULL DEFAULT 0",
+    "ALTER TABLE personnel_accounting_history ADD COLUMN IF NOT EXISTS company_setup_revenue NUMERIC NOT NULL DEFAULT 0",
+    "ALTER TABLE personnel_accounting_history ADD COLUMN IF NOT EXISTS company_setup_cost NUMERIC NOT NULL DEFAULT 0",
+    "ALTER TABLE personnel_accounting_history ADD COLUMN IF NOT EXISTS accounting_effective_date DATE",
+    "ALTER TABLE personnel_accounting_history ADD COLUMN IF NOT EXISTS company_setup_effective_date DATE",
+    "ALTER TABLE personnel_accounting_history ADD COLUMN IF NOT EXISTS effective_date DATE",
+    "ALTER TABLE personnel_accounting_history ADD COLUMN IF NOT EXISTS changed_at TIMESTAMP NOT NULL DEFAULT NOW()",
+    """
     CREATE TABLE IF NOT EXISTS plate_history (
         id BIGSERIAL PRIMARY KEY,
         personnel_id BIGINT NOT NULL,
@@ -170,6 +197,8 @@ AUTH_BOOTSTRAP_STATEMENTS: tuple[str, ...] = (
     "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS accountant_cost NUMERIC NOT NULL DEFAULT 0",
     "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS company_setup_revenue NUMERIC NOT NULL DEFAULT 0",
     "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS company_setup_cost NUMERIC NOT NULL DEFAULT 0",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS accounting_effective_date DATE",
+    "ALTER TABLE personnel ADD COLUMN IF NOT EXISTS company_setup_effective_date DATE",
     """
     CREATE TABLE IF NOT EXISTS sales_leads (
         id BIGSERIAL PRIMARY KEY,
@@ -328,6 +357,23 @@ AUTH_BOOTSTRAP_SQLITE_STATEMENTS: tuple[str, ...] = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS personnel_accounting_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        personnel_id INTEGER NOT NULL,
+        accounting_type TEXT,
+        new_company_setup TEXT,
+        accounting_revenue REAL NOT NULL DEFAULT 0,
+        accountant_cost REAL NOT NULL DEFAULT 0,
+        company_setup_revenue REAL NOT NULL DEFAULT 0,
+        company_setup_cost REAL NOT NULL DEFAULT 0,
+        accounting_effective_date TEXT,
+        company_setup_effective_date TEXT,
+        effective_date TEXT,
+        changed_at TEXT NOT NULL,
+        notes TEXT
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS plate_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         personnel_id INTEGER NOT NULL,
@@ -408,6 +454,8 @@ LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
         ("accountant_cost", "ALTER TABLE personnel ADD COLUMN accountant_cost REAL DEFAULT 0"),
         ("company_setup_revenue", "ALTER TABLE personnel ADD COLUMN company_setup_revenue REAL DEFAULT 0"),
         ("company_setup_cost", "ALTER TABLE personnel ADD COLUMN company_setup_cost REAL DEFAULT 0"),
+        ("accounting_effective_date", "ALTER TABLE personnel ADD COLUMN accounting_effective_date TEXT"),
+        ("company_setup_effective_date", "ALTER TABLE personnel ADD COLUMN company_setup_effective_date TEXT"),
         ("motor_rental_monthly_amount", "ALTER TABLE personnel ADD COLUMN motor_rental_monthly_amount REAL DEFAULT 13000"),
         ("motor_purchase", "ALTER TABLE personnel ADD COLUMN motor_purchase TEXT DEFAULT 'Hayır'"),
         ("motor_purchase_start_date", "ALTER TABLE personnel ADD COLUMN motor_purchase_start_date TEXT"),
@@ -443,6 +491,18 @@ LOCAL_SQLITE_DOMAIN_ALTERATIONS: dict[str, tuple[tuple[str, str], ...]] = {
         ("motor_purchase_monthly_deduction", "ALTER TABLE personnel_vehicle_history ADD COLUMN motor_purchase_monthly_deduction REAL DEFAULT 0"),
         ("effective_date", "ALTER TABLE personnel_vehicle_history ADD COLUMN effective_date TEXT"),
         ("changed_at", "ALTER TABLE personnel_vehicle_history ADD COLUMN changed_at TEXT"),
+    ),
+    "personnel_accounting_history": (
+        ("accounting_type", "ALTER TABLE personnel_accounting_history ADD COLUMN accounting_type TEXT"),
+        ("new_company_setup", "ALTER TABLE personnel_accounting_history ADD COLUMN new_company_setup TEXT"),
+        ("accounting_revenue", "ALTER TABLE personnel_accounting_history ADD COLUMN accounting_revenue REAL DEFAULT 0"),
+        ("accountant_cost", "ALTER TABLE personnel_accounting_history ADD COLUMN accountant_cost REAL DEFAULT 0"),
+        ("company_setup_revenue", "ALTER TABLE personnel_accounting_history ADD COLUMN company_setup_revenue REAL DEFAULT 0"),
+        ("company_setup_cost", "ALTER TABLE personnel_accounting_history ADD COLUMN company_setup_cost REAL DEFAULT 0"),
+        ("accounting_effective_date", "ALTER TABLE personnel_accounting_history ADD COLUMN accounting_effective_date TEXT"),
+        ("company_setup_effective_date", "ALTER TABLE personnel_accounting_history ADD COLUMN company_setup_effective_date TEXT"),
+        ("effective_date", "ALTER TABLE personnel_accounting_history ADD COLUMN effective_date TEXT"),
+        ("changed_at", "ALTER TABLE personnel_accounting_history ADD COLUMN changed_at TEXT"),
     ),
 }
 
