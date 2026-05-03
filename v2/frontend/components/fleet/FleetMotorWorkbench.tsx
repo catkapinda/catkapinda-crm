@@ -484,6 +484,12 @@ const ownershipLabel = (value: FleetOwnershipType) => {
   return "Kendi Motoru";
 };
 
+const ownershipShortLabel = (value: FleetOwnershipType) => {
+  if (value === "Çat Kapında Kiralık") return "Kiralık";
+  if (value === "Çat Kapında Satılık") return "Satılık";
+  return "Kendi";
+};
+
 export default function FleetMotorWorkbench({
   motors = MOCK_MOTORS,
   onCreateMotor,
@@ -643,7 +649,11 @@ export default function FleetMotorWorkbench({
                 >
                   <div className={styles["ck-fm-row-main"]}>
                     <strong>{motor.code}</strong>
-                    <span>{motor.model}</span>
+                    <span>{ownershipShortLabel(motor.ownershipType)}</span>
+                  </div>
+
+                  <div className={styles["ck-fm-row-plate"]}>
+                    <strong>{motor.plate || "—"}</strong>
                   </div>
 
                   <span
@@ -660,9 +670,6 @@ export default function FleetMotorWorkbench({
 
                   <div className={styles["ck-fm-row-cost"]}>
                     <strong>{formatMoney(motor.monthlyAmount)}</strong>
-                    <small>
-                      {motor.ownershipType === "Çat Kapında Satılık" ? "Aylık Taksit" : "Aylık Kira"}
-                    </small>
                   </div>
                 </button>
               );

@@ -181,9 +181,10 @@
 
 .ck-fm-main-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 820px;
-  gap: 20px;
+  grid-template-columns: minmax(380px, 0.85fr) minmax(0, 1.45fr);
+  gap: 24px;
   align-items: start;
+  min-width: 0;
 }
 
 .ck-fm-list-card,
@@ -197,6 +198,7 @@
 .ck-fm-list-card {
   padding: 20px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .ck-fm-list-head {
@@ -252,23 +254,27 @@
   gap: 10px;
   max-height: 760px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
+  min-width: 0;
+  scrollbar-gutter: stable;
 }
 
 .ck-fm-row {
   width: 100%;
   min-width: 0;
-  min-height: 72px;
+  min-height: 68px;
   border-radius: 18px;
   border: 1px solid transparent;
   background: #ffffff;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) 110px minmax(120px, 0.8fr) 110px;
+  grid-template-columns: minmax(150px, 1.2fr) 120px max-content minmax(120px, 1fr) 96px;
   gap: 12px;
   align-items: center;
   text-align: left;
-  padding: 0 14px;
+  padding: 12px 16px;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .ck-fm-row:hover {
@@ -283,14 +289,23 @@
 }
 
 .ck-fm-row-main,
+.ck-fm-row-plate,
 .ck-fm-row-owner,
 .ck-fm-row-cost {
   min-width: 0;
 }
 
 .ck-fm-row-main strong,
+.ck-fm-row-plate strong,
 .ck-fm-row-owner span,
-.ck-fm-row-cost strong {
+.ck-fm-row-cost strong,
+.ck-fm-detail-model,
+.ck-fm-user-copy strong,
+.ck-fm-user-copy span,
+.ck-fm-note-copy,
+.ck-fm-history-row span,
+.ck-fm-document-copy strong,
+.ck-fm-document-copy span {
   display: block;
   white-space: nowrap;
   overflow: hidden;
@@ -298,22 +313,28 @@
 }
 
 .ck-fm-row-main strong {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.2;
   font-weight: 800;
   color: #0f172a;
 }
 
-.ck-fm-row-main span,
-.ck-fm-row-cost small {
+.ck-fm-row-main span {
   display: block;
   margin-top: 4px;
   color: #64748b;
+  font-size: 12px;
+}
+
+.ck-fm-row-plate strong {
   font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  font-variant-numeric: tabular-nums;
 }
 
 .ck-fm-row-owner span {
-  font-size: 15px;
+  font-size: 14px;
   color: #0f172a;
   font-weight: 600;
 }
@@ -323,18 +344,19 @@
 }
 
 .ck-fm-row-cost strong {
-  font-size: 22px;
+  font-size: 15px;
   font-weight: 800;
   color: #0f172a;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .ck-fm-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 28px;
+  height: 26px;
   padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
@@ -342,6 +364,7 @@
   white-space: nowrap;
   background: #f1f5f9;
   color: #475569;
+  max-width: max-content;
 }
 
 .status-aktif {
@@ -403,7 +426,9 @@
   top: 24px;
   padding: 20px;
   min-width: 0;
-  max-width: 820px;
+  width: 100%;
+  max-width: none;
+  overflow: hidden;
 }
 
 .ck-fm-empty {
@@ -461,12 +486,14 @@
   font-size: 22px;
   line-height: 1.1;
   font-weight: 800;
+  min-width: 0;
 }
 
 .ck-fm-detail-model {
   font-size: 16px;
   color: #334155;
   font-weight: 600;
+  min-width: 0;
 }
 
 .ck-fm-detail-actions {
@@ -474,6 +501,9 @@
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .ck-fm-secondary-btn {
@@ -560,7 +590,7 @@
 .ck-fm-metric-card strong {
   display: block;
   color: #0f172a;
-  font-size: 22px;
+  font-size: clamp(18px, 1.3vw, 24px);
   font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
@@ -675,7 +705,7 @@
 
 .ck-fm-user-copy strong,
 .ck-fm-user-copy span {
-  display: block;
+  min-width: 0;
 }
 
 .ck-fm-user-copy strong {
@@ -708,6 +738,7 @@
   color: #334155;
   font-size: 14px;
   line-height: 1.7;
+  min-width: 0;
 }
 
 .ck-fm-note-meta {
@@ -780,9 +811,7 @@
 }
 
 .ck-fm-history-row strong,
-.ck-fm-history-row span,
-.ck-fm-document-copy strong,
-.ck-fm-document-copy span {
+.ck-fm-document-copy strong {
   display: block;
 }
 
@@ -797,6 +826,7 @@
 .ck-fm-document-copy span {
   font-size: 13px;
   color: #64748b;
+  min-width: 0;
 }
 
 .ck-fm-document-row {
@@ -827,17 +857,21 @@
 
 @media (max-width: 1680px) {
   .ck-fm-main-grid {
-    grid-template-columns: minmax(0, 1fr) 760px;
+    grid-template-columns: minmax(360px, 0.88fr) minmax(0, 1.4fr);
   }
 }
 
 @media (max-width: 1420px) {
   .ck-fm-main-grid {
-    grid-template-columns: minmax(0, 1fr) 680px;
+    grid-template-columns: minmax(340px, 0.92fr) minmax(0, 1.35fr);
   }
 
   .ck-fm-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ck-fm-row {
+    grid-template-columns: minmax(140px, 1.1fr) 104px max-content minmax(110px, 0.9fr) 92px;
   }
 }
 
@@ -874,7 +908,7 @@
   }
 
   .ck-fm-row {
-    grid-template-columns: minmax(0, 1fr) 100px 100px;
+    grid-template-columns: minmax(0, 1fr) 96px max-content 88px;
   }
 
   .ck-fm-row-owner {
@@ -901,6 +935,7 @@
   }
 
   .ck-fm-badge,
+  .ck-fm-row-plate,
   .ck-fm-row-cost {
     display: none;
   }
