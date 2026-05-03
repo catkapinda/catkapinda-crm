@@ -532,7 +532,7 @@ function PayrollRowItem({
               </div>
             </div>
             {/* Tevkifat detay */}
-            {r.is_ck_muhasebe && r.tevkifat > 0 && (
+            {r.tevkifat > 0 && (
               <div className="mt-3 bg-orange-50 border border-orange-200 rounded-lg p-3">
                 <div className="text-[10.5px] uppercase tracking-wider text-orange-800 font-semibold mb-1.5">
                   💼 KDV Tevkifatı

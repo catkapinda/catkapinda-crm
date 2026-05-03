@@ -419,17 +419,28 @@ def list_personnel_payroll(period: str) -> list[dict]:
 
         sabit_total = motor_taksit + motor_kira + muhasebe + sirket_acilis
 
-        # Tevkifat hesabı — sadece ÇK Muhasebe ile çalışan kuryelerde
-        # Fatura matrahı: brüt − fatura matrahını düşüren kesintiler
-        is_ck_muhasebe = p["muhasebe_tipi"] == "Çat Kapında Muhasebe"
+        # KDV + Tevkifat hesabı — şahıs şirketi/serbest meslek kuryeleri (hem
+        # 'Çat Kapında Muhasebe' hem 'Kendi Muhasebecisi') KDV dahil fatura
+        # keser; KDV'nin %20'si tevkifat olarak ÇK tarafından alıkonur.
+        # Fatura matrahı: brüt − "Fatura Edilmeyen Tutar" gibi kalemler.
         invoice_base_reducing = sum(
             float(d["amount"] or 0)
             for d in my_deductions
             if d["deduction_type"] in INVOICE_BASE_REDUCING_TYPES
         )
-        tevkifat_breakdown = {"invoice_base_amount": 0.0, "vat_amount": 0.0, "tevkifat_amount": 0.0}
+        muhasebe_tipi = (p["muhasebe_tipi"] or "").strip()
+        # Bir muhasebe tipi varsa (ÇK ya da Kendi) fatura kesilir → tevkifat var.
+        # Boş ise (eski/eksik veri) yine de varsayılan olarak tevkifat uygulanır
+        # — kuryenin gerçekte fatura kesip kesmediği şu an alanda tutulmuyor.
+        is_invoice_courier = True
+        is_ck_muhasebe = muhasebe_tipi == "Çat Kapında Muhasebe"
+        tevkifat_breakdown = {
+            "invoice_base_amount": 0.0,
+            "vat_amount": 0.0,
+            "tevkifat_amount": 0.0,
+        }
         tevkifat_amount = 0.0
-        if is_ck_muhasebe:
+        if is_invoice_courier:
             invoice_total = max(toplam_brut - invoice_base_reducing, 0.0)
             tevkifat_breakdown = calculate_tevkifat(invoice_total)
             tevkifat_amount = tevkifat_breakdown["tevkifat_amount"]
