@@ -43,8 +43,38 @@ export type DashboardSummary = {
   period: string;
   active_personnel: number;
   active_restaurants: number;
+  kurye_count: number;
+  joker_count: number;
+  total_deductions: number;
+  puantaj_entries: number;
+  total_hours: number;
+  total_packages: number;
 };
 
-export async function getDashboardSummary(): Promise<DashboardSummary> {
-  return apiGet<DashboardSummary>('/api/dashboard/summary');
+export async function getDashboardSummary(period: string = '2026-03'): Promise<DashboardSummary> {
+  return apiGet<DashboardSummary>(`/api/dashboard/summary?period=${period}`);
+}
+
+export type Restaurant = {
+  id: number;
+  brand: string | null;
+  branch: string | null;
+  billing_group: string | null;
+  pricing_model: string | null;
+  hourly_rate: number | null;
+  package_rate: number | null;
+  package_threshold: number | null;
+  package_rate_low: number | null;
+  package_rate_high: number | null;
+  fixed_monthly_fee: number | null;
+  vat_rate: number | null;
+  target_headcount: number | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  start_date: string | null;
+  active: boolean | null;
+};
+
+export async function listRestaurants(): Promise<Restaurant[]> {
+  return apiGet<Restaurant[]>('/api/restaurants');
 }

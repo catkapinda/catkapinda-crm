@@ -1,6 +1,17 @@
 import { Sidebar } from '@/components/sidebar';
+import { getDashboardSummary, type DashboardSummary } from '@/lib/api';
 
-export default function DashboardPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function DashboardPage() {
+  let summary: DashboardSummary | null = null;
+  let error: string | null = null;
+  try {
+    summary = await getDashboardSummary('2026-03');
+  } catch (e) {
+    error = e instanceof Error ? e.message : 'API hatası';
+  }
+
   return (
     <div className="grid grid-cols-[252px_1fr] min-h-screen">
       <Sidebar active="dashboard" />
@@ -14,7 +25,9 @@ export default function DashboardPage() {
               Genel Bakış
             </h1>
             <div className="text-text-3 text-sm mt-1 font-medium">
-              Mart 2026 · 31 günlük dönem · 18 aktif restoran
+              {summary
+                ? `Mart 2026 · ${summary.puantaj_entries.toLocaleString('tr-TR')} puantaj girişi · ${summary.active_restaurants} aktif restoran`
+                : '— veri yükleniyor —'}
             </div>
           </div>
           <button className="bg-brand text-white px-3.5 py-2 rounded-[10px] font-medium text-sm shadow-sm hover:bg-brand-dark transition">
@@ -22,17 +35,54 @@ export default function DashboardPage() {
           </button>
         </header>
 
+        {error ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-red-700 text-sm mb-6">
+            <strong>API hatası:</strong> {error}
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-4 gap-3.5 mb-7">
-          <KpiCard label="Toplam Fatura · KDV hariç" value="4.360.733" suffix="₺" trend="↑ 12.4%" hero />
-          <KpiCard label="KDV Dahil" value="5.232.880" suffix="₺" />
-          <KpiCard label="Toplam Kesinti" value="1.343.774" suffix="₺" trend="↓ 3.2%" />
-          <KpiCard label="Aktif Personel" value="92" sub="85 kurye · 2 joker · 5 yönetim" />
+          <KpiCard
+            label="Toplam Saat"
+            value={summary ? Math.round(summary.total_hours).toLocaleString('tr-TR') : '—'}
+            sub="Mart 2026 puantajı"
+            hero
+          />
+          <KpiCard
+            label="Toplam Paket"
+            value={summary ? summary.total_packages.toLocaleString('tr-TR') : '—'}
+            sub={summary ? `${summary.puantaj_entries} kayıt` : ''}
+          />
+          <KpiCard
+            label="Toplam Kesinti · Mart"
+            value={summary ? Math.round(summary.total_deductions).toLocaleString('tr-TR') : '—'}
+            suffix="₺"
+          />
+          <KpiCard
+            label="Aktif Personel"
+            value={summary ? summary.active_personnel.toString() : '—'}
+            sub={summary ? `${summary.kurye_count} kurye · ${summary.joker_count} joker` : ''}
+          />
         </div>
 
-        <div className="bg-bg-surface border border-border rounded-2xl p-8 text-center text-text-3 shadow-md">
-          <div className="font-display text-xl mb-2">🚧 Kod tarafı kuruluyor</div>
-          <div className="text-sm">
-            Bu sayfa şu an boilerplate. Sonraki adımlarda Supabase'den canlı veri çekecek, mock-up tasarımı kodla bire bir eşleşecek.
+        <div className="bg-gradient-to-br from-brand-mist to-cream-soft border border-brand-border rounded-2xl p-6 mb-6">
+          <div className="font-display text-lg font-semibold mb-2">🚀 Sistem Canlı</div>
+          <div className="text-sm text-text-2 leading-relaxed">
+            Çat Kapında v3 yayında. Veriler Supabase'den canlı çekiliyor. Şu an kullanılabilir:
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-4">
+            <a href="/personel" className="bg-bg-surface border border-border rounded-lg p-3 hover:border-brand transition">
+              <div className="font-semibold text-sm">👥 Personel</div>
+              <div className="text-xs text-text-3">{summary?.active_personnel ?? 92} kurye listesi</div>
+            </a>
+            <a href="/restoranlar" className="bg-bg-surface border border-border rounded-lg p-3 hover:border-brand transition">
+              <div className="font-semibold text-sm">🍽 Restoranlar</div>
+              <div className="text-xs text-text-3">{summary?.active_restaurants ?? 18} aktif anlaşma</div>
+            </a>
+            <div className="bg-bg-surface2 border border-border rounded-lg p-3 opacity-60">
+              <div className="font-semibold text-sm">📅 Puantaj</div>
+              <div className="text-xs text-text-3">yakında</div>
+            </div>
           </div>
         </div>
       </main>
@@ -41,8 +91,8 @@ export default function DashboardPage() {
 }
 
 function KpiCard({
-  label, value, suffix, trend, sub, hero,
-}: { label: string; value: string; suffix?: string; trend?: string; sub?: string; hero?: boolean }) {
+  label, value, suffix, sub, hero,
+}: { label: string; value: string; suffix?: string; sub?: string; hero?: boolean }) {
   return (
     <div
       className={`rounded-2xl p-5 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg ${
@@ -58,15 +108,9 @@ function KpiCard({
         {value}
         {suffix && <span className={`text-base font-medium ml-1 ${hero ? 'opacity-70' : 'text-text-3'}`}>{suffix}</span>}
       </div>
-      {(trend || sub) && (
-        <div className={`mt-3 text-xs ${hero ? 'opacity-85' : 'text-text-3'} flex items-center gap-2`}>
-          {trend && (
-            <span className={`px-2 py-0.5 rounded font-bold text-[11px] ${hero ? 'bg-white/20' : 'bg-green-50 text-green-600'}`}>
-              {trend}
-            </span>
-          )}
-          {sub && <span>{sub}</span>}
-          {trend && !sub && <span>geçen aya göre</span>}
+      {sub && (
+        <div className={`mt-3 text-xs ${hero ? 'opacity-85' : 'text-text-3'}`}>
+          {sub}
         </div>
       )}
     </div>
