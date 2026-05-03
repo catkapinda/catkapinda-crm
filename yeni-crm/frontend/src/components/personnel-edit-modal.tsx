@@ -371,94 +371,196 @@ export function PersonnelEditModal({
             </div>
           </div>
 
-          {/* Atanmış restoran + plaka */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Atanmış Restoran">
-              <select
-                value={form.assigned_restaurant_id ?? ''}
-                onChange={(e) =>
-                  set(
-                    'assigned_restaurant_id',
-                    e.target.value ? parseInt(e.target.value, 10) : null,
-                  )
-                }
-                className="input"
-              >
-                <option value="">— atanmamış / Joker —</option>
-                {restaurants.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.brand} {r.branch ? `· ${r.branch}` : ''}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Plaka">
-              <input
-                type="text"
-                value={form.current_plate}
-                onChange={(e) => set('current_plate', e.target.value.toUpperCase())}
-                className="input num"
-                placeholder="34XXX000"
-              />
-            </Field>
-          </div>
+          {/* Görev & Hakediş — Rol bazlı koşullu alanlar */}
+          {(() => {
+            const role = form.role;
+            const needsRestaurant = ['Kurye', 'Kaptan', 'Restoran Takım Şefi'].includes(role);
+            const noRestaurant = ['Bölge Müdürü', 'Joker'].includes(role);
+            const selectedRest = restaurants.find(
+              (r) => r.id === form.assigned_restaurant_id,
+            );
+            const isFixedMonthlyRestaurant =
+              selectedRest?.pricing_model === 'fixed_monthly';
+            // Sabit aylık alanı kimler için görünür?
+            const showFixedSalary =
+              ['Bölge Müdürü', 'Joker', 'Restoran Takım Şefi'].includes(role) ||
+              isFixedMonthlyRestaurant;
+            // Kaptan bonus banner
+            const isKaptan = role === 'Kaptan';
 
-          {/* Sabit Aylık Anlaşma — yan yana iki alan */}
-          <div className="bg-brand-soft/40 border border-brand/15 rounded-xl p-3.5">
-            <div className="text-[10.5px] font-semibold text-brand uppercase tracking-wider mb-2.5 flex items-center gap-2">
-              <span>💰 Sabit Aylık Anlaşma</span>
-              <span className="text-text-3 font-normal normal-case">
-                (Takım Şefi, Kaptan, BM veya aylık sabit kurye için)
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field
-                label="Kuryeye Ödenen (₺)"
-                hint="net aylık hakediş"
-              >
-                <input
-                  type="number"
-                  step="any"
-                  value={form.monthly_fixed_cost}
-                  onChange={(e) =>
-                    set('monthly_fixed_cost', parseFloat(e.target.value) || 0)
-                  }
-                  className="input num"
-                  placeholder="örn 72050"
-                />
-              </Field>
-              <Field
-                label="Restorana Fatura (₺)"
-                hint="KDV hariç, restorana yansıyan"
-              >
-                <input
-                  type="number"
-                  step="any"
-                  value={form.fixed_monthly_billing}
-                  onChange={(e) =>
-                    set(
-                      'fixed_monthly_billing',
-                      parseFloat(e.target.value) || 0,
-                    )
-                  }
-                  className="input num"
-                  placeholder="örn 84500"
-                />
-              </Field>
-            </div>
-            {form.fixed_monthly_billing > 0 &&
-              form.monthly_fixed_cost > 0 && (
-                <div className="mt-2 text-[11.5px] text-text-2">
-                  <span className="text-text-3">Aylık kar farkı:</span>{' '}
-                  <span className="font-semibold text-brand num">
-                    {(form.fixed_monthly_billing - form.monthly_fixed_cost).toLocaleString(
-                      'tr-TR',
-                    )}{' '}
-                    ₺
-                  </span>
-                </div>
-              )}
-          </div>
+            const modelLabel: Record<string, { label: string; ico: string; color: string }> = {
+              hourly_only: { label: 'Sadece Saatlik', ico: '⏱', color: 'bg-blue-50 border-blue-200 text-blue-800' },
+              hourly_plus_package: { label: 'Saat + Prim', ico: '+', color: 'bg-orange-50 border-orange-200 text-orange-800' },
+              threshold_package: { label: 'Eşikli (390)', ico: '≷', color: 'bg-cream-100 border-yellow-300 text-yellow-900' },
+              fixed_monthly: { label: 'Aylık Sabit', ico: '∞', color: 'bg-green-50 border-green-200 text-green-800' },
+            };
+
+            return (
+              <>
+                {/* Atanan Restoran (Kurye/Kaptan/RTŞ) veya bilgi banner (BM/Joker) */}
+                {needsRestaurant && (
+                  <Field label="Atanan Restoran *">
+                    <select
+                      value={form.assigned_restaurant_id ?? ''}
+                      onChange={(e) =>
+                        set(
+                          'assigned_restaurant_id',
+                          e.target.value ? parseInt(e.target.value, 10) : null,
+                        )
+                      }
+                      className="input"
+                    >
+                      <option value="">— Restoran seçin (anlaşma türü açılacak) —</option>
+                      {restaurants.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.brand} {r.branch ? `· ${r.branch}` : ''}
+                          {r.pricing_model
+                            ? ` (${modelLabel[r.pricing_model]?.label ?? r.pricing_model})`
+                            : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
+
+                {noRestaurant && (
+                  <div className="flex gap-2.5 items-start bg-cream-100 border border-yellow-200 rounded-xl p-3 text-[12px] text-yellow-900">
+                    <span className="text-base leading-none mt-0.5">🌐</span>
+                    <div>
+                      <strong>Bu rol bir restorana atanmaz.</strong> Tüm
+                      restoranlardan sorumludur — sadece sabit aylık tutar
+                      tanımlanır.
+                    </div>
+                  </div>
+                )}
+
+                {/* Restoran seçildiyse pricing banner */}
+                {needsRestaurant && selectedRest && (
+                  <div
+                    className={`flex gap-2.5 items-start border rounded-xl p-3 text-[12px] ${
+                      modelLabel[selectedRest.pricing_model ?? '']?.color ??
+                      'bg-bg-surface2 border-border text-text-2'
+                    }`}
+                  >
+                    <span className="text-lg leading-none mt-0.5 font-bold">
+                      {modelLabel[selectedRest.pricing_model ?? '']?.ico ?? '?'}
+                    </span>
+                    <div className="space-y-1">
+                      <div>
+                        <strong>
+                          {modelLabel[selectedRest.pricing_model ?? '']?.label ??
+                            selectedRest.pricing_model}
+                        </strong>{' '}
+                        anlaşma — restoran tarifesi otomatik uygulanır.
+                      </div>
+                      <div className="font-mono text-[11.5px] opacity-90">
+                        {selectedRest.hourly_rate
+                          ? `Saat ${selectedRest.hourly_rate} ₺/sa  ·  `
+                          : ''}
+                        {selectedRest.package_rate
+                          ? `Paket ${selectedRest.package_rate} ₺/pkt`
+                          : ''}
+                        {selectedRest.pricing_model === 'threshold_package'
+                          ? `≤390: ${selectedRest.package_rate_low ?? 0} ₺  ·  >390: ${selectedRest.package_rate_high ?? 0} ₺/pkt`
+                          : ''}
+                        {selectedRest.pricing_model === 'fixed_monthly'
+                          ? `Restoran tarife: ${(selectedRest.fixed_monthly_fee ?? 0).toLocaleString('tr-TR')} ₺/ay`
+                          : ''}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Kaptan bonusu banner */}
+                {isKaptan && (
+                  <div className="flex gap-2.5 items-start bg-green-50 border border-green-200 rounded-xl p-3 text-[12px] text-green-900">
+                    <span className="text-base leading-none mt-0.5">⭐</span>
+                    <div>
+                      <strong>Kaptan rolü:</strong> standart kurye gibi saat +
+                      paket alır, ek olarak{' '}
+                      <strong>her ay otomatik +3.000 ₺ Kaptan Bonusu</strong>{' '}
+                      hakedişine eklenir.
+                    </div>
+                  </div>
+                )}
+
+                {/* Sabit Aylık alanları (RTŞ/BM/Joker veya fixed_monthly restoran) */}
+                {showFixedSalary && (
+                  <div className="bg-brand-soft/40 border border-brand/15 rounded-xl p-3.5">
+                    <div className="text-[10.5px] font-semibold text-brand uppercase tracking-wider mb-2.5 flex items-center gap-2">
+                      <span>💰 Sabit Aylık Anlaşma</span>
+                      <span className="text-text-3 font-normal normal-case">
+                        {role === 'Bölge Müdürü' || role === 'Joker'
+                          ? '(zorunlu)'
+                          : role === 'Restoran Takım Şefi'
+                          ? '(Takım Şefi için zorunlu)'
+                          : '(Aylık Sabit anlaşma için zorunlu)'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field
+                        label="Kuryeye Ödenen (₺)"
+                        hint="net aylık hakediş"
+                      >
+                        <input
+                          type="number"
+                          step="any"
+                          value={form.monthly_fixed_cost}
+                          onChange={(e) =>
+                            set('monthly_fixed_cost', parseFloat(e.target.value) || 0)
+                          }
+                          className="input num"
+                          placeholder="örn 72050"
+                        />
+                      </Field>
+                      <Field
+                        label="Restorana Fatura (₺)"
+                        hint="KDV hariç, restorana yansıyan"
+                      >
+                        <input
+                          type="number"
+                          step="any"
+                          value={form.fixed_monthly_billing}
+                          onChange={(e) =>
+                            set('fixed_monthly_billing', parseFloat(e.target.value) || 0)
+                          }
+                          className="input num"
+                          placeholder="örn 84500"
+                        />
+                      </Field>
+                    </div>
+                    {form.fixed_monthly_billing > 0 &&
+                      form.monthly_fixed_cost > 0 && (
+                        <div className="mt-2 text-[11.5px] text-text-2">
+                          <span className="text-text-3">Aylık kar farkı:</span>{' '}
+                          <span className="font-semibold text-brand num">
+                            {(
+                              form.fixed_monthly_billing - form.monthly_fixed_cost
+                            ).toLocaleString('tr-TR')}{' '}
+                            ₺
+                          </span>
+                        </div>
+                      )}
+                  </div>
+                )}
+
+                {/* Plaka — sadece restoran atanan rollerde göster */}
+                {needsRestaurant && (
+                  <Field label="Plaka">
+                    <input
+                      type="text"
+                      value={form.current_plate}
+                      onChange={(e) =>
+                        set('current_plate', e.target.value.toUpperCase())
+                      }
+                      className="input num"
+                      placeholder="34XXX000"
+                    />
+                  </Field>
+                )}
+              </>
+            );
+          })()}
 
           {/* Araç tipi — radio cards (3 seçenek) */}
           <Field label="Araç Tipi *">
