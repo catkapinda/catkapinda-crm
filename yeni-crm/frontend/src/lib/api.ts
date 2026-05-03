@@ -667,6 +667,7 @@ export type PayrollRow = {
   kaptan_bonus: number;
   toplam_brut: number;
   motor_taksit: number;
+  motor_kira: number;
   muhasebe: number;
   sirket_acilis: number;
   kesinti_groups: PayrollKesintiGroup[];

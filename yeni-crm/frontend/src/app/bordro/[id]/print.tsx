@@ -23,6 +23,15 @@ function tr(value: number | null | undefined, digits = 0): string {
   });
 }
 
+// Para tutarı: 2 ondalık zorunlu (asla yuvarlama)
+function m(value: number | null | undefined): string {
+  if (value == null) return '—';
+  return value.toLocaleString('tr-TR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 export function BordroPrint({
   payroll, personnel, period,
 }: {
@@ -148,29 +157,29 @@ export function BordroPrint({
             {payroll.is_fixed_salary ? (
               <Line
                 label="Sabit aylık tutar"
-                value={`${tr(payroll.ana_brut)} ₺`}
+                value={`${m(payroll.ana_brut)} ₺`}
               />
             ) : (
-              <Line label="Ana atama" value={`${tr(payroll.ana_brut)} ₺`} />
+              <Line label="Ana atama" value={`${m(payroll.ana_brut)} ₺`} />
             )}
             {payroll.destek_brut > 0 && (
               <Line
                 label={`Destek vardiyaları (${payroll.destek_days} gün)`}
-                value={`+${tr(payroll.destek_brut)} ₺`}
+                value={`+${m(payroll.destek_brut)} ₺`}
                 color="text-orange-700"
               />
             )}
             {payroll.kaptan_bonus > 0 && (
               <Line
                 label="Kaptan bonusu"
-                value={`+${tr(payroll.kaptan_bonus)} ₺`}
+                value={`+${m(payroll.kaptan_bonus)} ₺`}
                 color="text-green-700"
               />
             )}
             <div className="border-t border-border pt-2 flex justify-between font-semibold">
               <span>Toplam Brüt</span>
               <span className="num font-mono text-[14px]">
-                {tr(payroll.toplam_brut)} ₺
+                {m(payroll.toplam_brut)} ₺
               </span>
             </div>
           </div>
@@ -186,28 +195,35 @@ export function BordroPrint({
               {payroll.motor_taksit > 0 && (
                 <Line
                   label="Motor satış taksiti"
-                  value={`−${tr(payroll.motor_taksit)} ₺`}
+                  value={`−${m(payroll.motor_taksit)} ₺`}
+                  color="text-red-700"
+                />
+              )}
+              {payroll.motor_kira > 0 && (
+                <Line
+                  label={`Motor kirası${payroll.ana_days < 28 ? ` (${payroll.ana_days} gün × aylık/30)` : ''}`}
+                  value={`−${m(payroll.motor_kira)} ₺`}
                   color="text-red-700"
                 />
               )}
               {payroll.muhasebe > 0 && (
                 <Line
                   label="ÇK Muhasebe bedeli"
-                  value={`−${tr(payroll.muhasebe)} ₺`}
+                  value={`−${m(payroll.muhasebe)} ₺`}
                   color="text-red-700"
                 />
               )}
               {payroll.sirket_acilis > 0 && (
                 <Line
                   label="Şirket açılış bedeli (1×)"
-                  value={`−${tr(payroll.sirket_acilis)} ₺`}
+                  value={`−${m(payroll.sirket_acilis)} ₺`}
                   color="text-red-700"
                 />
               )}
               <div className="border-t border-border pt-2 flex justify-between font-semibold">
                 <span>Sabit Toplam</span>
                 <span className="num font-mono text-red-700 text-[14px]">
-                  −{tr(payroll.sabit_total)} ₺
+                  −{m(payroll.sabit_total)} ₺
                 </span>
               </div>
             </div>
@@ -225,7 +241,7 @@ export function BordroPrint({
                 <div key={g.type}>
                   <Line
                     label={`${g.type} (${g.count} kayıt)`}
-                    value={`−${tr(g.total)} ₺`}
+                    value={`−${m(g.total)} ₺`}
                     color="text-red-700"
                   />
                   {/* Zimmet detay açıklamaları */}
@@ -235,7 +251,7 @@ export function BordroPrint({
                         l.equipment ? (
                           <div key={i} className="flex justify-between">
                             <span>↳ {l.equipment} {l.notes && `· ${l.notes}`}</span>
-                            <span className="font-mono">{tr(l.amount)} ₺</span>
+                            <span className="font-mono">{m(l.amount)} ₺</span>
                           </div>
                         ) : null
                       ))}
@@ -246,7 +262,7 @@ export function BordroPrint({
               <div className="border-t border-border pt-2 flex justify-between font-semibold">
                 <span>Manuel Toplam</span>
                 <span className="num font-mono text-red-700 text-[14px]">
-                  −{tr(payroll.kesinti_total)} ₺
+                  −{m(payroll.kesinti_total)} ₺
                 </span>
               </div>
             </div>
@@ -262,15 +278,15 @@ export function BordroPrint({
             <div className="space-y-1.5 text-[12.5px]">
               <Line
                 label="Fatura matrahı (KDV hariç)"
-                value={`${tr(payroll.tevkifat_breakdown.invoice_base_amount)} ₺`}
+                value={`${m(payroll.tevkifat_breakdown.invoice_base_amount)} ₺`}
               />
               <Line
                 label="KDV (%20)"
-                value={`+${tr(payroll.tevkifat_breakdown.vat_amount)} ₺`}
+                value={`+${m(payroll.tevkifat_breakdown.vat_amount)} ₺`}
               />
               <Line
                 label="Tevkifat (%20 × KDV — alıcı tarafından kesilir)"
-                value={`−${tr(payroll.tevkifat_breakdown.tevkifat_amount)} ₺`}
+                value={`−${m(payroll.tevkifat_breakdown.tevkifat_amount)} ₺`}
                 color="text-orange-800"
               />
             </div>
@@ -285,12 +301,12 @@ export function BordroPrint({
                 Net Aylık Hakediş
               </div>
               <div className="text-[11px] opacity-85 mt-1">
-                Brüt {tr(payroll.toplam_brut)} ₺ − Toplam Kesinti{' '}
-                {tr(total_kesinti)} ₺
+                Brüt {m(payroll.toplam_brut)} ₺ − Toplam Kesinti{' '}
+                {m(total_kesinti)} ₺
               </div>
             </div>
             <div className="font-display text-[34px] font-bold tracking-tight num">
-              {tr(payroll.net)} ₺
+              {m(payroll.net)} ₺
             </div>
           </div>
         </div>

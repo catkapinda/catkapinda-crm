@@ -27,6 +27,15 @@ function tr(value: number | null | undefined, digits = 0): string {
   });
 }
 
+// Para tutarı — 2 ondalık zorunlu, asla yuvarlama (90.543,50)
+function m(value: number | null | undefined): string {
+  if (value == null) return '—';
+  return value.toLocaleString('tr-TR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 const ROLE_STYLES: Record<string, string> = {
   Kurye: 'bg-brand-soft text-brand',
   Joker: 'bg-cream-100 text-yellow-800',
@@ -103,9 +112,9 @@ export function BordroView({
           </h1>
           <div className="text-text-3 text-sm mt-1 font-medium">
             {payroll.summary.courier_count} kurye · brüt{' '}
-            <strong>{tr(payroll.summary.total_brut)} ₺</strong> · kesinti{' '}
-            <strong className="text-red-600">−{tr(payroll.summary.total_kesinti)} ₺</strong> · net{' '}
-            <strong className="text-brand">{tr(payroll.summary.total_net)} ₺</strong>
+            <strong>{m(payroll.summary.total_brut)} ₺</strong> · kesinti{' '}
+            <strong className="text-red-600">−{m(payroll.summary.total_kesinti)} ₺</strong> · net{' '}
+            <strong className="text-brand">{m(payroll.summary.total_net)} ₺</strong>
           </div>
         </div>
         <div className="flex gap-2 items-center">
@@ -137,21 +146,21 @@ export function BordroView({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         <HeroCard
           label="Toplam Brüt"
-          value={tr(Math.round(payroll.summary.total_brut))}
+          value={m(payroll.summary.total_brut)}
           suffix="₺"
           accent="brand"
           meta={`${payroll.summary.courier_count} kurye`}
         />
         <HeroCard
           label="Toplam Kesinti"
-          value={tr(Math.round(payroll.summary.total_kesinti))}
+          value={m(payroll.summary.total_kesinti)}
           suffix="₺"
           accent="danger"
-          meta={`tevkifat ${tr(Math.round(payroll.summary.total_tevkifat ?? 0))} ₺ dahil`}
+          meta={`tevkifat ${m(payroll.summary.total_tevkifat ?? 0)} ₺ dahil`}
         />
         <HeroCard
           label="Toplam Net"
-          value={tr(Math.round(payroll.summary.total_net))}
+          value={m(payroll.summary.total_net)}
           suffix="₺"
           accent="success"
           meta="kuryelere ödenecek"
@@ -197,8 +206,8 @@ export function BordroView({
           ))}
         </select>
         <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider ml-auto">
-          {filtered.length} sonuç · brüt {tr(Math.round(filteredBrut))} ₺ · net{' '}
-          {tr(Math.round(filteredNet))} ₺
+          {filtered.length} sonuç · brüt {m(filteredBrut)} ₺ · net{' '}
+          {m(filteredNet)} ₺
         </span>
       </div>
 
@@ -242,16 +251,16 @@ export function BordroView({
                   Toplam ({filtered.length} kurye)
                 </td>
                 <td className="px-3 py-3 text-right num text-text">
-                  {tr(filteredBrut)} ₺
+                  {m(filteredBrut)} ₺
                 </td>
                 <td className="px-3 py-3 text-right num text-red-600">
-                  −{tr(filteredKesintiNonTev)} ₺
+                  −{m(filteredKesintiNonTev)} ₺
                 </td>
                 <td className="px-3 py-3 text-right num text-orange-600">
-                  −{tr(filteredTevkifat)} ₺
+                  −{m(filteredTevkifat)} ₺
                 </td>
                 <td className="px-3 py-3 text-right font-display text-brand text-[15px] num bg-brand-soft">
-                  {tr(filteredNet)} ₺
+                  {m(filteredNet)} ₺
                 </td>
                 <td colSpan={2}></td>
               </tr>
@@ -376,7 +385,7 @@ function PayrollRowItem({
             <span className="text-text-3">gün</span>
           </div>
           <div className="text-[10.5px] text-text-3 num font-mono">
-            {tr(Math.round(r.ana_hours))} sa
+            {tr(r.ana_hours, 1)} sa
           </div>
         </td>
         <td className="px-3 py-2.5 text-right num font-mono text-text-2">
@@ -384,22 +393,22 @@ function PayrollRowItem({
         </td>
         <td className="px-3 py-2.5 text-right">
           <div className="num font-mono font-semibold">
-            {tr(r.toplam_brut)} ₺
+            {m(r.toplam_brut)} ₺
           </div>
           {r.kaptan_bonus > 0 && (
             <div className="text-[10px] text-green-600 font-semibold">
-              +{tr(r.kaptan_bonus)} kaptan
+              +{m(r.kaptan_bonus)} kaptan
             </div>
           )}
         </td>
         <td className="px-3 py-2.5 text-right num font-mono text-red-600">
-          −{tr(r.kesinti_total + r.sabit_total)} ₺
+          −{m(r.kesinti_total + r.sabit_total)} ₺
         </td>
         <td className="px-3 py-2.5 text-right num font-mono text-orange-600">
-          {r.tevkifat > 0 ? `−${tr(r.tevkifat)} ₺` : '—'}
+          {r.tevkifat > 0 ? `−${m(r.tevkifat)} ₺` : '—'}
         </td>
         <td className="px-3 py-2.5 text-right num font-display font-bold text-brand text-[14.5px] bg-brand-soft/40">
-          {tr(r.net)} ₺
+          {m(r.net)} ₺
         </td>
         <td
           className="px-2 py-2.5 text-text-3 text-center w-10"
@@ -432,25 +441,25 @@ function PayrollRowItem({
                 <div className="space-y-1">
                   <DetailRow
                     label="Ana atama"
-                    value={`${tr(r.ana_brut)} ₺`}
+                    value={`${m(r.ana_brut)} ₺`}
                   />
                   {r.destek_brut > 0 && (
                     <DetailRow
                       label={`Destek (${r.destek_days} gün)`}
-                      value={`+${tr(r.destek_brut)} ₺`}
+                      value={`+${m(r.destek_brut)} ₺`}
                       color="text-orange-700"
                     />
                   )}
                   {r.kaptan_bonus > 0 && (
                     <DetailRow
                       label="Kaptan bonusu"
-                      value={`+${tr(r.kaptan_bonus)} ₺`}
+                      value={`+${m(r.kaptan_bonus)} ₺`}
                       color="text-green-700"
                     />
                   )}
                   <div className="flex justify-between pt-1 border-t border-border font-semibold">
                     <span>Toplam Brüt</span>
-                    <span className="num font-mono">{tr(r.toplam_brut)} ₺</span>
+                    <span className="num font-mono">{m(r.toplam_brut)} ₺</span>
                   </div>
                 </div>
                 {r.destek_lines.length > 0 && (
@@ -473,20 +482,27 @@ function PayrollRowItem({
                 </div>
                 <div className="space-y-1">
                   {r.motor_taksit > 0 && (
-                    <DetailRow label="Motor taksiti" value={`−${tr(r.motor_taksit)} ₺`} color="text-red-600" />
+                    <DetailRow label="Motor taksiti" value={`−${m(r.motor_taksit)} ₺`} color="text-red-600" />
+                  )}
+                  {r.motor_kira > 0 && (
+                    <DetailRow
+                      label={`Motor kirası${r.ana_days < 28 ? ` (${r.ana_days} gün)` : ''}`}
+                      value={`−${m(r.motor_kira)} ₺`}
+                      color="text-red-600"
+                    />
                   )}
                   {r.muhasebe > 0 && (
-                    <DetailRow label="ÇK Muhasebe bedeli" value={`−${tr(r.muhasebe)} ₺`} color="text-red-600" />
+                    <DetailRow label="ÇK Muhasebe bedeli" value={`−${m(r.muhasebe)} ₺`} color="text-red-600" />
                   )}
                   {r.sirket_acilis > 0 && (
-                    <DetailRow label="Şirket açılışı (1×)" value={`−${tr(r.sirket_acilis)} ₺`} color="text-red-600" />
+                    <DetailRow label="Şirket açılışı (1×)" value={`−${m(r.sirket_acilis)} ₺`} color="text-red-600" />
                   )}
                   {r.sabit_total === 0 && (
                     <div className="text-text-3 italic">— sabit kesinti yok —</div>
                   )}
                   <div className="flex justify-between pt-1 border-t border-border font-semibold">
                     <span>Sabit Toplam</span>
-                    <span className="num font-mono text-red-600">−{tr(r.sabit_total)} ₺</span>
+                    <span className="num font-mono text-red-600">−{m(r.sabit_total)} ₺</span>
                   </div>
                 </div>
               </div>
@@ -501,7 +517,7 @@ function PayrollRowItem({
                     <DetailRow
                       key={g.type}
                       label={`${normalizeTr(g.type)} (${g.count})`}
-                      value={`−${tr(g.total)} ₺`}
+                      value={`−${m(g.total)} ₺`}
                       color="text-red-600"
                     />
                   ))}
@@ -510,7 +526,7 @@ function PayrollRowItem({
                   )}
                   <div className="flex justify-between pt-1 border-t border-border font-semibold">
                     <span>Manuel Toplam</span>
-                    <span className="num font-mono text-red-600">−{tr(r.kesinti_total)} ₺</span>
+                    <span className="num font-mono text-red-600">−{m(r.kesinti_total)} ₺</span>
                   </div>
                 </div>
               </div>
@@ -524,15 +540,15 @@ function PayrollRowItem({
                 <div className="grid grid-cols-3 gap-3 text-[11.5px]">
                   <DetailRow
                     label="Fatura matrahı (KDV hariç)"
-                    value={`${tr(r.tevkifat_breakdown.invoice_base_amount)} ₺`}
+                    value={`${m(r.tevkifat_breakdown.invoice_base_amount)} ₺`}
                   />
                   <DetailRow
                     label="KDV (%20)"
-                    value={`${tr(r.tevkifat_breakdown.vat_amount)} ₺`}
+                    value={`${m(r.tevkifat_breakdown.vat_amount)} ₺`}
                   />
                   <DetailRow
                     label="Tevkifat (%20 × KDV)"
-                    value={`−${tr(r.tevkifat_breakdown.tevkifat_amount)} ₺`}
+                    value={`−${m(r.tevkifat_breakdown.tevkifat_amount)} ₺`}
                     color="text-orange-700"
                   />
                 </div>
@@ -542,12 +558,12 @@ function PayrollRowItem({
             {/* Net büyük */}
             <div className="mt-4 pt-3 border-t-2 border-brand/20 flex items-center justify-between">
               <div className="text-[11.5px] text-text-3">
-                Brüt {tr(r.toplam_brut)} ₺ − Kesinti{' '}
-                {tr(r.kesinti_total + r.sabit_total)} ₺
-                {r.tevkifat > 0 && ` − Tevkifat ${tr(r.tevkifat)} ₺`} =
+                Brüt {m(r.toplam_brut)} ₺ − Kesinti{' '}
+                {m(r.kesinti_total + r.sabit_total)} ₺
+                {r.tevkifat > 0 && ` − Tevkifat ${m(r.tevkifat)} ₺`} =
               </div>
               <div className="font-display text-2xl font-bold text-brand num">
-                Net {tr(r.net)} ₺
+                Net {m(r.net)} ₺
               </div>
             </div>
           </td>

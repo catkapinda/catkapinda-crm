@@ -1,5 +1,11 @@
 """Bordro servisi — kurye bazında aylık net hakediş hesabı.
 
+Önemli kurallar:
+- Tutarlar yuvarlanmaz, küsüratıyla saklanır.
+- Motor kirası prorate edilir: ay içinde aktif gün × (aylık_tutar / 30).
+  Sude 31.03.2026 işe girdiyse 1 gün × 13.000/30 = 433,33 ₺ kira düşer.
+- Diğer aylık kesintiler (motor satış taksiti, muhasebe, şirket) tam aydır.
+
 Brüt = ana atama + destek günleri (her birinin restoran formülüne göre)
 - Kurye aylık sabitse (`monthly_fixed_cost > 0`) → standart formül atlanır,
   sabit tutar geçerli + Kaptan bonusu (rolü Kaptan ise)
@@ -22,9 +28,60 @@ Kesintiler (deductions tablosundan):
 
 Net = Brüt + Kaptan bonusu − tüm kesintiler
 """
+from calendar import monthrange
+from datetime import date
+
 from psycopg.rows import dict_row
 
 from app.core.database import get_connection
+
+
+def _parse_date(value: object) -> date | None:
+    """ISO tarih veya date objesini date'e dönüştür."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except (ValueError, TypeError):
+        return None
+
+
+def active_days_in_period(
+    period: str,
+    start_date: object | None,
+    exit_date: object | None,
+) -> int:
+    """Bir kuryenin verilen ay (period: 'YYYY-MM') içindeki aktif gün sayısı.
+
+    - start_date: işe giriş tarihi (varsa)
+    - exit_date: işten ayrılış tarihi (varsa)
+    - Aktif aralık ay sınırlarıyla kesişir; gün sayısı dahildir.
+    """
+    try:
+        y, m = period.split("-")
+        yi, mi = int(y), int(m)
+    except (ValueError, AttributeError):
+        return 30
+
+    last_day = monthrange(yi, mi)[1]
+    period_start = date(yi, mi, 1)
+    period_end = date(yi, mi, last_day)
+
+    sd = _parse_date(start_date)
+    ed = _parse_date(exit_date)
+
+    active_start = max(period_start, sd) if sd else period_start
+    active_end = min(period_end, ed) if ed else period_end
+
+    # Bu ayda hiç aktif değilse 0
+    if sd and sd > period_end:
+        return 0
+    if ed and ed < period_start:
+        return 0
+
+    return max(0, (active_end - active_start).days + 1)
 
 
 KAPTAN_BONUS = 3000.0
@@ -100,12 +157,15 @@ def list_personnel_payroll(period: str) -> list[dict]:
                     COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
                     COALESCE(p.fixed_monthly_billing, 0) AS fixed_monthly_billing,
                     COALESCE(p.motor_purchase_monthly_amount, 0) AS motor_taksit,
-                    COALESCE(p.motor_rental_monthly_amount, 0) AS motor_kira,
+                    COALESCE(p.motor_rental_monthly_amount, 0) AS motor_kira_aylik,
+                    COALESCE(p.motor_rental, '') AS motor_rental_flag,
                     COALESCE(p.accountant_cost, 0) AS muhasebe_aylik,
                     COALESCE(p.new_company_setup, 'Hayır') AS sirket,
                     COALESCE(p.company_setup_cost, 0) AS sirket_acilis,
                     COALESCE(p.company_setup_effective_date::text, '') AS sirket_tarih,
                     COALESCE(p.accounting_type, '') AS muhasebe_tipi,
+                    p.start_date::text AS start_date,
+                    p.exit_date::text AS exit_date,
                     r.brand AS rest_brand, r.branch AS rest_branch,
                     r.pricing_model AS pricing_model
                 FROM personnel p
@@ -332,14 +392,32 @@ def list_personnel_payroll(period: str) -> list[dict]:
 
         # Sabit kesintiler (personnel'den)
         motor_taksit = float(p["motor_taksit"] or 0)
-        muhasebe = float(p["muhasebe_aylik"] or 0) if p["muhasebe_tipi"] == "Çat Kapında Muhasebe" else 0
+
+        # Motor kirası — ay içindeki aktif gün × (aylık tutar / 30)
+        # Sude 31.03 işe girdiyse 1 gün × 13.000/30 = 433,33 ₺
+        motor_kira = 0.0
+        if p.get("motor_rental_flag") == "Evet":
+            kira_aylik = float(p.get("motor_kira_aylik") or 0)
+            if kira_aylik > 0:
+                aktif_gun = active_days_in_period(
+                    period, p.get("start_date"), p.get("exit_date")
+                )
+                # Tam ay (30+) tam kira, daha azsa orantılı
+                prorate = min(aktif_gun, 30) / 30
+                motor_kira = kira_aylik * prorate
+
+        muhasebe = (
+            float(p["muhasebe_aylik"] or 0)
+            if p["muhasebe_tipi"] == "Çat Kapında Muhasebe"
+            else 0
+        )
         sirket_acilis = 0.0
         # Şirket açılış bedeli — sadece o ay yapıldıysa düş
         if p["sirket"] == "Evet" and p["sirket_tarih"]:
             if p["sirket_tarih"][:7] == period:
                 sirket_acilis = float(p["sirket_acilis"] or 0)
 
-        sabit_total = motor_taksit + muhasebe + sirket_acilis
+        sabit_total = motor_taksit + motor_kira + muhasebe + sirket_acilis
 
         # Tevkifat hesabı — sadece ÇK Muhasebe ile çalışan kuryelerde
         # Fatura matrahı: brüt − fatura matrahını düşüren kesintiler
@@ -381,6 +459,7 @@ def list_personnel_payroll(period: str) -> list[dict]:
             "toplam_brut": round(toplam_brut, 2),
             # Kesintiler
             "motor_taksit": motor_taksit,
+            "motor_kira": round(motor_kira, 2),
             "muhasebe": muhasebe,
             "sirket_acilis": sirket_acilis,
             "kesinti_groups": [
