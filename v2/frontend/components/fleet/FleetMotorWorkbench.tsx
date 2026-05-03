@@ -637,6 +637,14 @@ export default function FleetMotorWorkbench({
             </button>
           </div>
 
+          <div className={styles["ck-fm-list-columns"]} aria-hidden="true">
+            <span>Motor</span>
+            <span>Plaka</span>
+            <span>Durum</span>
+            <span>Kullanıcı</span>
+            <span className={styles["ck-fm-list-columns-money"]}>Aylık Tutar</span>
+          </div>
+
           <div className={styles["ck-fm-list"]}>
             {filteredMotors.map((motor) => {
               const selected = selectedMotor?.id === motor.id;
@@ -665,11 +673,15 @@ export default function FleetMotorWorkbench({
                   </span>
 
                   <div className={styles["ck-fm-row-owner"]}>
-                    <span>{motor.assigneeName || "Atanmamış"}</span>
+                    <strong>{motor.assigneeName || "Atanmamış"}</strong>
+                    <span>{motor.assigneeRole || ownershipShortLabel(motor.ownershipType)}</span>
                   </div>
 
                   <div className={styles["ck-fm-row-cost"]}>
                     <strong>{formatMoney(motor.monthlyAmount)}</strong>
+                    <small>
+                      {motor.ownershipType === "Çat Kapında Satılık" ? "Aylık taksit" : "Aylık kayıt"}
+                    </small>
                   </div>
                 </button>
               );

@@ -57,6 +57,24 @@ type PersonnelVehicleWorkspaceResponse = {
   history: PersonnelVehicleHistoryEntry[];
 };
 
+type DeductionEntry = {
+  id: number;
+  personnel_id: number;
+  personnel_label: string;
+  deduction_date: string;
+  deduction_type: string;
+  type_caption: string;
+  amount: number;
+  notes: string;
+  auto_source_key: string;
+  is_auto_record: boolean;
+};
+
+type DeductionsManagementResponse = {
+  total_entries: number;
+  entries: DeductionEntry[];
+};
+
 type FleetOwnershipType = FleetMotorRecord["ownershipType"];
 type FleetStatus = FleetMotorRecord["status"];
 
@@ -216,8 +234,49 @@ function buildPaidInstallmentsLabel(
   return "Kayıtlı plan yok";
 }
 
+function isMaintenanceDeductionType(value: string) {
+  const normalized = normalizeText(value);
+  return normalized.includes("motor servis") || normalized.includes("motor hasar");
+}
+
+function buildMaintenanceItems(
+  person: PersonnelVehicleCandidateEntry,
+  deductions: DeductionEntry[],
+) {
+  const relevant = deductions
+    .filter((entry) => entry.personnel_id === person.id && isMaintenanceDeductionType(entry.deduction_type))
+    .sort((left, right) => {
+      const leftTime = left.deduction_date ? new Date(left.deduction_date).getTime() : 0;
+      const rightTime = right.deduction_date ? new Date(right.deduction_date).getTime() : 0;
+      return rightTime - leftTime;
+    });
+
+  if (!relevant.length) {
+    return [
+      { label: "Bakım Kayıtları", value: "—" },
+      { label: "Toplam Bakım Masrafı", value: "—" },
+      { label: "Son Kayıt", value: "—" },
+      { label: "Not", value: "Kayıtlı bakım / masraf bulunmuyor." },
+    ];
+  }
+
+  const totalAmount = relevant.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const latest = relevant[0];
+  const items = relevant.slice(0, 3).map((entry) => ({
+    label: `${formatDateLabel(entry.deduction_date)} • ${entry.deduction_type || "Masraf"}`,
+    value: `${formatMoneyLabel(entry.amount)}${entry.notes ? ` • ${entry.notes}` : ""}`,
+  }));
+
+  return [
+    { label: "Toplam Bakım Masrafı", value: formatMoneyLabel(totalAmount) },
+    { label: "Son Kayıt", value: `${formatDateLabel(latest.deduction_date)} • ${latest.deduction_type || "—"}` },
+    ...items,
+  ];
+}
+
 function mapVehicleWorkspaceToMotors(
   workspace: PersonnelVehicleWorkspaceResponse | null,
+  deductions: DeductionEntry[],
 ): FleetMotorRecord[] {
   if (!workspace) {
     return [];
@@ -297,12 +356,7 @@ function mapVehicleWorkspaceToMotors(
                   { label: "Şube / Restoran", value: person.restaurant_label || "—" },
                   { label: "Son Geçiş", value: formatDateLabel(personHistory[0]?.effective_date ?? null) },
                 ],
-        maintenanceItems: [
-          { label: "Durum", value: status },
-          { label: "Şube / Restoran", value: person.restaurant_label || "—" },
-          { label: "Güncel Plaka", value: person.current_plate?.trim() || "—" },
-          { label: "Araç Geçiş Kaydı", value: person.vehicle_history_count > 0 ? `${person.vehicle_history_count} kayıt` : "—" },
-        ],
+        maintenanceItems: buildMaintenanceItems(person, deductions),
         ownershipHistory:
           personHistory.length > 0
             ? personHistory.map((entry) => ({
@@ -349,6 +403,7 @@ export default function FleetPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [workspace, setWorkspace] = useState<PersonnelVehicleWorkspaceResponse | null>(null);
+  const [deductions, setDeductions] = useState<DeductionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -370,17 +425,32 @@ export default function FleetPage() {
       setLoading(true);
       setError("");
       try {
-        const response = await apiFetch("/personnel/vehicle-workspace?limit=500");
-        if (!response.ok) {
-          throw new Error(await apiErrorMessage(response, "Motor yönetimi verileri yüklenemedi."));
+        const [workspaceResponse, deductionsResponse] = await Promise.all([
+          apiFetch("/personnel/vehicle-workspace?limit=500"),
+          user.allowed_actions?.includes("deduction.view")
+            ? apiFetch("/deductions/records?limit=400")
+            : Promise.resolve(null),
+        ]);
+
+        if (!workspaceResponse.ok) {
+          throw new Error(
+            await apiErrorMessage(workspaceResponse, "Motor yönetimi verileri yüklenemedi."),
+          );
         }
-        const payload = (await response.json()) as PersonnelVehicleWorkspaceResponse;
+        const payload = (await workspaceResponse.json()) as PersonnelVehicleWorkspaceResponse;
         if (active) {
           setWorkspace(payload);
+          if (deductionsResponse && deductionsResponse.ok) {
+            const deductionsPayload = (await deductionsResponse.json()) as DeductionsManagementResponse;
+            setDeductions(deductionsPayload.entries ?? []);
+          } else {
+            setDeductions([]);
+          }
         }
       } catch (nextError) {
         if (active) {
           setWorkspace(null);
+          setDeductions([]);
           setError(
             nextError instanceof Error ? nextError.message : "Motor yönetimi verileri yüklenemedi.",
           );
@@ -398,7 +468,10 @@ export default function FleetPage() {
     };
   }, [authLoading, user]);
 
-  const mappedMotors = useMemo(() => mapVehicleWorkspaceToMotors(workspace), [workspace]);
+  const mappedMotors = useMemo(
+    () => mapVehicleWorkspaceToMotors(workspace, deductions),
+    [workspace, deductions],
+  );
 
   return (
     <AppShell activeItem="Filo">
