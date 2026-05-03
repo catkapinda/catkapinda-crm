@@ -3,6 +3,7 @@ from fastapi import APIRouter
 
 from app.services.puantaj import (
     available_periods,
+    daily_matrix,
     list_entries,
     summary_by_restaurant,
 )
@@ -36,3 +37,9 @@ async def entries(
 async def summary_restaurant(period: str) -> list[dict]:
     """Restoran bazında aylık özet."""
     return summary_by_restaurant(period=period)
+
+
+@router.get("/matrix")
+async def matrix(period: str = "2026-03") -> dict:
+    """Personel × gün matrisi — grid sayfası için."""
+    return daily_matrix(period=period)

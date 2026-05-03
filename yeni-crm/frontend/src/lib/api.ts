@@ -538,3 +538,48 @@ export async function getPuantajSummaryByRestaurant(
     `/api/puantaj/summary-by-restaurant?period=${period}`
   );
 }
+
+// ─────────────────────────────────────────────────────────────
+// Puantaj matrix — kişi × 31 gün grid
+// ─────────────────────────────────────────────────────────────
+
+export type MatrixCell = {
+  type: 'normal' | 'izin' | 'gelmedi' | 'raporlu' | 'ihbarsiz' | 'empty';
+  hours: number;
+  packages: number;
+  is_support: boolean;
+  restaurant_id: number | null;
+};
+
+export type MatrixRow = {
+  id: number;
+  full_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  rest_brand: string | null;
+  rest_branch: string | null;
+  cells: MatrixCell[];
+  total_hours: number;
+  total_packages: number;
+  worked_days: number;
+  joker_days: number;
+};
+
+export type PuantajMatrix = {
+  period: string;
+  rows: MatrixRow[];
+  summary: {
+    total_hours: number;
+    total_packages: number;
+    worked_days: number;
+    joker_days: number;
+    cell_counts: Record<string, number>;
+    personnel_count: number;
+  };
+};
+
+export async function getPuantajMatrix(
+  period: string = '2026-03',
+): Promise<PuantajMatrix> {
+  return apiGet<PuantajMatrix>(`/api/puantaj/matrix?period=${period}`);
+}
