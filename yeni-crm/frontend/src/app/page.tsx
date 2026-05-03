@@ -1,20 +1,29 @@
 import { Sidebar } from '@/components/sidebar';
-import { getDashboardSummary, type DashboardSummary } from '@/lib/api';
+import {
+  getDashboardSummary,
+  getSidebarCounts,
+  type DashboardSummary,
+  type SidebarCounts,
+} from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   let summary: DashboardSummary | null = null;
+  let counts: SidebarCounts | null = null;
   let error: string | null = null;
   try {
-    summary = await getDashboardSummary('2026-03');
+    [summary, counts] = await Promise.all([
+      getDashboardSummary('2026-03'),
+      getSidebarCounts().catch(() => null),
+    ]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'API hatası';
   }
 
   return (
     <div className="grid grid-cols-[252px_1fr] min-h-screen">
-      <Sidebar active="dashboard" />
+      <Sidebar active="dashboard" counts={counts} />
       <main className="p-8 max-w-[1500px]">
         <header className="flex justify-between items-start mb-7 gap-5">
           <div>

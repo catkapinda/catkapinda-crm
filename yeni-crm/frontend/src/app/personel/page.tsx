@@ -1,13 +1,22 @@
 import { Sidebar } from '@/components/sidebar';
-import { listPersonnel, type Personnel } from '@/lib/api';
+import {
+  listPersonnel,
+  getSidebarCounts,
+  type Personnel,
+  type SidebarCounts,
+} from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PersonelPage() {
   let personnel: Personnel[] = [];
+  let counts: SidebarCounts | null = null;
   let error: string | null = null;
   try {
-    personnel = await listPersonnel('Aktif');
+    [personnel, counts] = await Promise.all([
+      listPersonnel('Aktif'),
+      getSidebarCounts().catch(() => null),
+    ]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'API hatası';
   }
@@ -18,7 +27,7 @@ export default async function PersonelPage() {
 
   return (
     <div className="grid grid-cols-[252px_1fr] min-h-screen">
-      <Sidebar active="personel" />
+      <Sidebar active="personel" counts={counts} />
       <main className="p-8 max-w-[1500px]">
         <header className="mb-6">
           <div className="text-[13px] text-text-3 font-medium mb-1.5">

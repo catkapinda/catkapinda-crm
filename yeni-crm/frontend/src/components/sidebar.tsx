@@ -2,30 +2,42 @@
 
 import Link from 'next/link';
 import clsx from 'clsx';
+import type { SidebarCounts } from '@/lib/api';
 
 type NavKey =
   | 'dashboard' | 'personel' | 'puantaj' | 'puantaj-onay' | 'hakedis-onay'
   | 'kesintiler' | 'avans' | 'motor' | 'muhasebe-degisim'
   | 'talepler' | 'restoranlar' | 'faturalar' | 'bordro' | 'kar-zarar';
 
-const NAV: { key: NavKey; label: string; href: string; section: string; badge?: string; badgeKind?: 'new' | 'warn' | 'default' }[] = [
+type BadgeKind = 'new' | 'warn' | 'default';
+
+type NavItem = {
+  key: NavKey;
+  label: string;
+  href: string;
+  section: string;
+  countKey?: keyof SidebarCounts;
+  badgeKind?: BadgeKind;
+};
+
+const NAV: NavItem[] = [
   { key: 'dashboard', label: 'Genel Bakış', href: '/', section: 'Genel' },
-  { key: 'personel', label: 'Personel', href: '/personel', section: 'Operasyon', badge: '92' },
+  { key: 'personel', label: 'Personel', href: '/personel', section: 'Operasyon', countKey: 'personel' },
   { key: 'puantaj', label: 'Puantaj', href: '/puantaj', section: 'Operasyon' },
-  { key: 'puantaj-onay', label: 'Puantaj Onayları', href: '/puantaj-onaylari', section: 'Operasyon', badge: '7', badgeKind: 'warn' },
-  { key: 'hakedis-onay', label: 'Hakediş Onayları', href: '/hakedis-onaylari', section: 'Operasyon', badge: '14' },
+  { key: 'puantaj-onay', label: 'Puantaj Onayları', href: '/puantaj-onaylari', section: 'Operasyon', countKey: 'puantaj_onay', badgeKind: 'warn' },
+  { key: 'hakedis-onay', label: 'Hakediş Onayları', href: '/hakedis-onaylari', section: 'Operasyon', countKey: 'hakedis_onay' },
   { key: 'kesintiler', label: 'Kesintiler', href: '/kesintiler', section: 'Operasyon' },
-  { key: 'avans', label: 'Avans Talepleri', href: '/avans', section: 'Operasyon', badge: '3', badgeKind: 'new' },
+  { key: 'avans', label: 'Avans Talepleri', href: '/avans', section: 'Operasyon', countKey: 'avans', badgeKind: 'new' },
   { key: 'motor', label: 'Motor Değişikliği', href: '/motor-degisikligi', section: 'Operasyon' },
   { key: 'muhasebe-degisim', label: 'Muhasebe Değişimi', href: '/muhasebe-degisimi', section: 'Operasyon' },
-  { key: 'talepler', label: 'Talepler', href: '/talepler', section: 'Satış', badge: '8' },
-  { key: 'restoranlar', label: 'Restoranlar', href: '/restoranlar', section: 'Satış', badge: '18' },
+  { key: 'talepler', label: 'Talepler', href: '/talepler', section: 'Satış', countKey: 'talepler' },
+  { key: 'restoranlar', label: 'Restoranlar', href: '/restoranlar', section: 'Satış', countKey: 'restoranlar' },
   { key: 'faturalar', label: 'Faturalar', href: '/faturalar', section: 'Finans' },
   { key: 'bordro', label: 'Bordro', href: '/bordro', section: 'Finans' },
   { key: 'kar-zarar', label: 'Kâr-Zarar Raporu', href: '/kar-zarar', section: 'Finans' },
 ];
 
-export function Sidebar({ active }: { active: NavKey }) {
+export function Sidebar({ active, counts }: { active: NavKey; counts?: SidebarCounts | null }) {
   const sections = ['Genel', 'Operasyon', 'Satış', 'Finans'] as const;
 
   return (
@@ -48,36 +60,41 @@ export function Sidebar({ active }: { active: NavKey }) {
           <div className="px-3 pt-3 pb-1.5 text-[10px] font-bold text-text-3 tracking-[0.1em] uppercase">
             {sec}
           </div>
-          {NAV.filter((n) => n.section === sec).map((item) => (
-            <Link
-              key={item.key}
-              href={item.href}
-              className={clsx(
-                'flex items-center gap-3 px-2.5 py-2 rounded-md text-[13.5px] font-medium transition mb-px',
-                active === item.key
-                  ? 'bg-brand text-white shadow-[0_4px_14px_rgba(15,82,186,0.3)]'
-                  : 'text-text-2 hover:bg-bg-surface2 hover:text-text'
-              )}
-            >
-              <span>{item.label}</span>
-              {item.badge && (
-                <span
-                  className={clsx(
-                    'ml-auto px-2 py-0.5 rounded-full text-[11px] font-semibold',
-                    active === item.key
-                      ? 'bg-white/20 text-white'
-                      : item.badgeKind === 'new'
-                      ? 'bg-brand text-white'
-                      : item.badgeKind === 'warn'
-                      ? 'bg-yellow-500 text-white'
-                      : 'bg-bg-surface2 text-text-3'
-                  )}
-                >
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          ))}
+          {NAV.filter((n) => n.section === sec).map((item) => {
+            const value = item.countKey && counts ? counts[item.countKey] : undefined;
+            const showBadge = typeof value === 'number' && value > 0;
+
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={clsx(
+                  'flex items-center gap-3 px-2.5 py-2 rounded-md text-[13.5px] font-medium transition mb-px',
+                  active === item.key
+                    ? 'bg-brand text-white shadow-[0_4px_14px_rgba(15,82,186,0.3)]'
+                    : 'text-text-2 hover:bg-bg-surface2 hover:text-text'
+                )}
+              >
+                <span>{item.label}</span>
+                {showBadge && (
+                  <span
+                    className={clsx(
+                      'ml-auto px-2 py-0.5 rounded-full text-[11px] font-semibold tabular-nums',
+                      active === item.key
+                        ? 'bg-white/20 text-white'
+                        : item.badgeKind === 'new'
+                        ? 'bg-brand text-white'
+                        : item.badgeKind === 'warn'
+                        ? 'bg-yellow-500 text-white'
+                        : 'bg-bg-surface2 text-text-3'
+                    )}
+                  >
+                    {value}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </div>
       ))}
     </aside>

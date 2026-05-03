@@ -1,5 +1,10 @@
 import { Sidebar } from '@/components/sidebar';
-import { listRestaurants, type Restaurant } from '@/lib/api';
+import {
+  listRestaurants,
+  getSidebarCounts,
+  type Restaurant,
+  type SidebarCounts,
+} from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,9 +17,13 @@ const MODEL_LABELS: Record<string, { label: string; color: string }> = {
 
 export default async function RestoranlarPage() {
   let restaurants: Restaurant[] = [];
+  let counts: SidebarCounts | null = null;
   let error: string | null = null;
   try {
-    restaurants = await listRestaurants();
+    [restaurants, counts] = await Promise.all([
+      listRestaurants(),
+      getSidebarCounts().catch(() => null),
+    ]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'API hatası';
   }
@@ -27,7 +36,7 @@ export default async function RestoranlarPage() {
 
   return (
     <div className="grid grid-cols-[252px_1fr] min-h-screen">
-      <Sidebar active="restoranlar" />
+      <Sidebar active="restoranlar" counts={counts} />
       <main className="p-8 max-w-[1500px]">
         <header className="mb-6">
           <div className="text-[13px] text-text-3 font-medium mb-1.5">

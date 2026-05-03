@@ -78,3 +78,16 @@ export type Restaurant = {
 export async function listRestaurants(): Promise<Restaurant[]> {
   return apiGet<Restaurant[]>('/api/restaurants');
 }
+
+export type SidebarCounts = {
+  personel: number;
+  restoranlar: number;
+  puantaj_onay: number;
+  hakedis_onay: number;
+  avans: number;
+  talepler: number;
+};
+
+export async function getSidebarCounts(): Promise<SidebarCounts> {
+  return apiGet<SidebarCounts>('/api/sidebar/counts');
+}
