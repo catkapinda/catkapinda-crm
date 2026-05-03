@@ -642,6 +642,12 @@ export type PayrollDestekLine = {
   amount: number;
 };
 
+export type TevkifatBreakdown = {
+  invoice_base_amount: number;
+  vat_amount: number;
+  tevkifat_amount: number;
+};
+
 export type PayrollRow = {
   id: number;
   full_name: string | null;
@@ -666,6 +672,9 @@ export type PayrollRow = {
   kesinti_groups: PayrollKesintiGroup[];
   kesinti_total: number;
   sabit_total: number;
+  tevkifat: number;
+  tevkifat_breakdown: TevkifatBreakdown;
+  is_ck_muhasebe: boolean;
   net: number;
 };
 
@@ -676,6 +685,7 @@ export type PayrollResult = {
     courier_count: number;
     total_brut: number;
     total_kesinti: number;
+    total_tevkifat: number;
     total_net: number;
   };
 };
@@ -684,4 +694,11 @@ export async function getPayroll(
   period: string = '2026-03',
 ): Promise<PayrollResult> {
   return apiGet<PayrollResult>(`/api/payroll?period=${period}`);
+}
+
+export async function getPersonnelPayroll(
+  id: number,
+  period: string = '2026-03',
+): Promise<PayrollRow> {
+  return apiGet<PayrollRow>(`/api/payroll/${id}?period=${period}`);
 }

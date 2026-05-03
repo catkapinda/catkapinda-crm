@@ -5,6 +5,8 @@ import { useMemo, useState } from 'react';
 
 import type { PayrollResult, PayrollRow } from '@/lib/api';
 
+const PDF_ICON = '📄';
+
 const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
   'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
@@ -79,7 +81,12 @@ export function BordroView({
   }, [payroll.rows, search, restFilter]);
 
   const filteredBrut = filtered.reduce((s, r) => s + r.toplam_brut, 0);
-  const filteredKesinti = filtered.reduce((s, r) => s + r.kesinti_total + r.sabit_total, 0);
+  const filteredKesintiNonTev = filtered.reduce(
+    (s, r) => s + r.kesinti_total + r.sabit_total,
+    0,
+  );
+  const filteredTevkifat = filtered.reduce((s, r) => s + r.tevkifat, 0);
+  const filteredKesinti = filteredKesintiNonTev + filteredTevkifat;
   const filteredNet = filtered.reduce((s, r) => s + r.net, 0);
 
   return (
@@ -206,9 +213,11 @@ export function BordroView({
                 <th className="text-right px-3 py-2.5 font-semibold">Paket</th>
                 <th className="text-right px-3 py-2.5 font-semibold">Brüt</th>
                 <th className="text-right px-3 py-2.5 font-semibold">Kesinti</th>
+                <th className="text-right px-3 py-2.5 font-semibold">Tevkifat</th>
                 <th className="text-right px-3 py-2.5 font-semibold bg-brand-soft text-brand">
                   Net
                 </th>
+                <th className="px-2 py-2.5"></th>
                 <th className="px-2 py-2.5"></th>
               </tr>
             </thead>
@@ -231,12 +240,15 @@ export function BordroView({
                   {tr(filteredBrut)} ₺
                 </td>
                 <td className="px-3 py-3 text-right num text-red-600">
-                  −{tr(filteredKesinti)} ₺
+                  −{tr(filteredKesintiNonTev)} ₺
+                </td>
+                <td className="px-3 py-3 text-right num text-orange-600">
+                  −{tr(filteredTevkifat)} ₺
                 </td>
                 <td className="px-3 py-3 text-right font-display text-brand text-[15px] num bg-brand-soft">
                   {tr(filteredNet)} ₺
                 </td>
-                <td></td>
+                <td colSpan={2}></td>
               </tr>
             </tfoot>
           </table>
@@ -378,8 +390,24 @@ function PayrollRowItem({
         <td className="px-3 py-2.5 text-right num font-mono text-red-600">
           −{tr(r.kesinti_total + r.sabit_total)} ₺
         </td>
+        <td className="px-3 py-2.5 text-right num font-mono text-orange-600">
+          {r.tevkifat > 0 ? `−${tr(r.tevkifat)} ₺` : '—'}
+        </td>
         <td className="px-3 py-2.5 text-right num font-display font-bold text-brand text-[14.5px] bg-brand-soft/40">
           {tr(r.net)} ₺
+        </td>
+        <td
+          className="px-2 py-2.5 text-text-3 text-center w-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Link
+            href={`/bordro/${r.id}?ay=${typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ay') ?? '' : ''}`}
+            target="_blank"
+            className="hover:text-brand text-[14px]"
+            title="PDF / Yazdır"
+          >
+            {PDF_ICON}
+          </Link>
         </td>
         <td className="px-2 py-2.5 text-text-3 text-[12px] w-8">
           {open ? '▾' : '▸'}
@@ -389,7 +417,7 @@ function PayrollRowItem({
       {/* Detay paneli */}
       {open && (
         <tr className="bg-cream-50/50 border-b border-border">
-          <td colSpan={8} className="px-5 py-4">
+          <td colSpan={10} className="px-5 py-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[12px]">
               {/* Brüt detay */}
               <div>
@@ -482,11 +510,36 @@ function PayrollRowItem({
                 </div>
               </div>
             </div>
+            {/* Tevkifat detay */}
+            {r.is_ck_muhasebe && r.tevkifat > 0 && (
+              <div className="mt-3 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <div className="text-[10.5px] uppercase tracking-wider text-orange-800 font-semibold mb-1.5">
+                  💼 KDV Tevkifatı
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-[11.5px]">
+                  <DetailRow
+                    label="Fatura matrahı (KDV hariç)"
+                    value={`${tr(r.tevkifat_breakdown.invoice_base_amount)} ₺`}
+                  />
+                  <DetailRow
+                    label="KDV (%20)"
+                    value={`${tr(r.tevkifat_breakdown.vat_amount)} ₺`}
+                  />
+                  <DetailRow
+                    label="Tevkifat (%20 × KDV)"
+                    value={`−${tr(r.tevkifat_breakdown.tevkifat_amount)} ₺`}
+                    color="text-orange-700"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Net büyük */}
             <div className="mt-4 pt-3 border-t-2 border-brand/20 flex items-center justify-between">
               <div className="text-[11.5px] text-text-3">
                 Brüt {tr(r.toplam_brut)} ₺ − Kesinti{' '}
-                {tr(r.kesinti_total + r.sabit_total)} ₺ =
+                {tr(r.kesinti_total + r.sabit_total)} ₺
+                {r.tevkifat > 0 && ` − Tevkifat ${tr(r.tevkifat)} ₺`} =
               </div>
               <div className="font-display text-2xl font-bold text-brand num">
                 Net {tr(r.net)} ₺

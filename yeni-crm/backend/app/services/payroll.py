@@ -29,6 +29,37 @@ from app.core.database import get_connection
 
 KAPTAN_BONUS = 3000.0
 
+# KDV tevkifat parametreleri (v2'den taşındı)
+VAT_RATE = 0.20  # %20 KDV
+TEVKIFAT_RATE = 0.20  # KDV'nin %20'si tevkifat olarak alıkonur
+TEVKIFAT_THRESHOLD = 12000.0  # 12.000 ₺ altı fatura tevkifat'tan muaf
+
+# Fatura matrahını düşüren kesinti tipleri (faturadan önce düşülür)
+INVOICE_BASE_REDUCING_TYPES = {"Fatura Edilmeyen Tutar", "Fatura Edilemeyen Tutar"}
+
+
+def calculate_tevkifat(invoice_total: float) -> dict:
+    """KDV tevkifat hesabı.
+
+    Args:
+        invoice_total: Brüt fatura tutarı (KDV dahil)
+    Returns:
+        invoice_base_amount: KDV hariç matrah
+        vat_amount: KDV tutarı (matrah × %20)
+        tevkifat_amount: Tevkifat tutarı (KDV × %20, threshold üzerindeyse)
+    """
+    if invoice_total <= 0:
+        return {"invoice_base_amount": 0.0, "vat_amount": 0.0, "tevkifat_amount": 0.0}
+
+    invoice_base = invoice_total / (1 + VAT_RATE)
+    vat = invoice_total - invoice_base
+    tevkifat = vat * TEVKIFAT_RATE if invoice_total >= TEVKIFAT_THRESHOLD else 0.0
+    return {
+        "invoice_base_amount": round(invoice_base, 2),
+        "vat_amount": round(vat, 2),
+        "tevkifat_amount": round(tevkifat, 2),
+    }
+
 
 def _calc_brut_for_restaurant(
     pricing_model: str | None,
@@ -310,8 +341,23 @@ def list_personnel_payroll(period: str) -> list[dict]:
 
         sabit_total = motor_taksit + muhasebe + sirket_acilis
 
+        # Tevkifat hesabı — sadece ÇK Muhasebe ile çalışan kuryelerde
+        # Fatura matrahı: brüt − fatura matrahını düşüren kesintiler
+        is_ck_muhasebe = p["muhasebe_tipi"] == "Çat Kapında Muhasebe"
+        invoice_base_reducing = sum(
+            float(d["amount"] or 0)
+            for d in my_deductions
+            if d["deduction_type"] in INVOICE_BASE_REDUCING_TYPES
+        )
+        tevkifat_breakdown = {"invoice_base_amount": 0.0, "vat_amount": 0.0, "tevkifat_amount": 0.0}
+        tevkifat_amount = 0.0
+        if is_ck_muhasebe:
+            invoice_total = max(toplam_brut - invoice_base_reducing, 0.0)
+            tevkifat_breakdown = calculate_tevkifat(invoice_total)
+            tevkifat_amount = tevkifat_breakdown["tevkifat_amount"]
+
         # Net
-        net = toplam_brut - ded_total - sabit_total
+        net = toplam_brut - ded_total - sabit_total - tevkifat_amount
 
         payroll.append({
             "id": pid,
@@ -342,6 +388,10 @@ def list_personnel_payroll(period: str) -> list[dict]:
             ],
             "kesinti_total": round(ded_total, 2),
             "sabit_total": round(sabit_total, 2),
+            # Tevkifat
+            "tevkifat": round(tevkifat_amount, 2),
+            "tevkifat_breakdown": tevkifat_breakdown,
+            "is_ck_muhasebe": is_ck_muhasebe,
             # Net
             "net": round(net, 2),
         })
@@ -349,7 +399,10 @@ def list_personnel_payroll(period: str) -> list[dict]:
     # Özet
     total_brut = sum(x["toplam_brut"] for x in payroll)
     total_net = sum(x["net"] for x in payroll)
-    total_kesinti = sum(x["kesinti_total"] + x["sabit_total"] for x in payroll)
+    total_kesinti = sum(
+        x["kesinti_total"] + x["sabit_total"] + x["tevkifat"] for x in payroll
+    )
+    total_tevkifat = sum(x["tevkifat"] for x in payroll)
 
     return {
         "period": period,
@@ -358,6 +411,7 @@ def list_personnel_payroll(period: str) -> list[dict]:
             "courier_count": len(payroll),
             "total_brut": round(total_brut, 2),
             "total_kesinti": round(total_kesinti, 2),
+            "total_tevkifat": round(total_tevkifat, 2),
             "total_net": round(total_net, 2),
         },
     }
@@ -366,3 +420,12 @@ def list_personnel_payroll(period: str) -> list[dict]:
 def list_payroll(period: str) -> dict:
     """API'den çağrılan public fonksiyon."""
     return list_personnel_payroll(period=period)
+
+
+def get_personnel_payroll(personnel_id: int, period: str) -> dict | None:
+    """Tek kurye için bordro detayı (PDF/yazdır için)."""
+    result = list_personnel_payroll(period=period)
+    for r in result["rows"]:
+        if r["id"] == personnel_id:
+            return r
+    return None
