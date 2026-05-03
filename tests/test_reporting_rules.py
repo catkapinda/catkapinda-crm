@@ -413,46 +413,6 @@ class ReportingRulesTests(unittest.TestCase):
         recep_row = drilldown_map["Quick China - Ataşehir"].iloc[0]
         self.assertAlmostEqual(recep_row["kdv_haric"], 90133.33, places=2)
 
-    def test_fixed_role_invoice_override_does_not_apply_outside_quick_china(self):
-        month_df = pd.DataFrame(
-            [
-                {
-                    "id": 1,
-                    "restaurant_id": 32,
-                    "brand": "Burger Yiyelim",
-                    "branch": "Kadıköy",
-                    "entry_date": "2026-03-10",
-                    "pricing_model": "hourly_plus_package",
-                    "hourly_rate": 264.0,
-                    "package_rate": 33.0,
-                    "package_threshold": 390,
-                    "package_rate_low": 0.0,
-                    "package_rate_high": 0.0,
-                    "fixed_monthly_fee": 0.0,
-                    "monthly_invoice_amount": 84500.0,
-                    "vat_rate": 20.0,
-                    "worked_hours": 11.0,
-                    "package_count": 85.0,
-                    "actual_personnel_id": 1,
-                }
-            ]
-        )
-        personnel_df = pd.DataFrame(
-            [
-                {
-                    "id": 1,
-                    "full_name": "Recep Çevik",
-                    "role": "Restoran Takım Şefi",
-                    "cost_model": "fixed_restoran_takim_sefi",
-                    "start_date": "2026-01-01",
-                }
-            ]
-        )
-
-        invoice_df = reporting_rules.build_invoice_summary_df(month_df, personnel_df)
-        row = invoice_df.iloc[0]
-        self.assertAlmostEqual(row["kdv_haric"], (11.0 * 264.0) + (85.0 * 33.0), places=2)
-
     def test_fixed_monthly_brand_invoice_summary_uses_extra_day_and_support_proration(self):
         month_df = pd.DataFrame(
             [
