@@ -181,6 +181,39 @@ export async function getManagementSummary(
   return apiGet<ManagementMember[]>(`/api/personel/management?period=${period}`);
 }
 
+export type ThresholdNear = {
+  id: number;
+  full_name: string | null;
+  person_code: string | null;
+  brand: string | null;
+  branch: string | null;
+  packages: number;
+  threshold: number;
+  rate_low: number;
+  rate_high: number;
+};
+
+export type CapacityGap = {
+  id: number;
+  brand: string | null;
+  branch: string | null;
+  target: number;
+  actual: number;
+};
+
+export type PageInsights = {
+  threshold_near: ThresholdNear[];
+  capacity_gaps: CapacityGap[];
+  top_recovery: ManagementMember[];
+  pending_actions: number;
+};
+
+export async function getPageInsights(
+  period: string = '2026-03',
+): Promise<PageInsights> {
+  return apiGet<PageInsights>(`/api/personel/insights?period=${period}`);
+}
+
 export type DashboardSummary = {
   period: string;
   active_personnel: number;

@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { PersonnelEditModal } from '@/components/personnel-edit-modal';
 import type {
   ManagementMember,
+  PageInsights,
   Personnel,
   Restaurant,
   TopPerformer,
@@ -93,11 +94,13 @@ export function PersonnelView({
   restaurants,
   topPerformers = [],
   management = [],
+  insights = null,
 }: {
   personnel: Personnel[];
   restaurants: Restaurant[];
   topPerformers?: TopPerformer[];
   management?: ManagementMember[];
+  insights?: PageInsights | null;
 }) {
   const [statusTab, setStatusTab] = useState<'Aktif' | 'Pasif' | 'Kara Liste'>('Aktif');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -283,6 +286,11 @@ export function PersonnelView({
           meta={`${heroMetrics.motorSatis} satış · ${heroMetrics.motorKira} kira · ${heroMetrics.sirketAcilis} şirket`}
         />
       </div>
+
+      {/* ✦ Akıllı İçgörü Hero */}
+      {insights && (
+        <AIInsightsHero insights={insights} />
+      )}
 
       {/* 🏆 Mart Şampiyonları — Podium */}
       {topPerformers.length > 0 && (
@@ -1172,6 +1180,240 @@ function RecoveryCard({ member }: { member: ManagementMember }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// AI Insights Hero — design/personel.html'deki editorial banner
+// ──────────────────────────────────────────────────────────────────
+
+function AIInsightsHero({ insights }: { insights: PageInsights }) {
+  const tn = insights.threshold_near ?? [];
+  const cg = insights.capacity_gaps ?? [];
+  const tr2 = insights.top_recovery ?? [];
+  const pending = insights.pending_actions ?? 0;
+
+  // Eşik aşımı potansiyel ek fatura: (rate_high - rate_low) × packages × 0.7 (varsayım)
+  const potentialBilling = tn.reduce(
+    (sum, t) => sum + (t.rate_high - t.rate_low) * t.packages * 0.7,
+    0,
+  );
+
+  // Ana metin
+  let headline: React.ReactNode = (
+    <>
+      Personel ekibin <em>iyi durumda</em> — eşik aşımı, kapasite veya geri
+      kazanımda öne çıkan kayda değer hareket yok.
+    </>
+  );
+  let subline = 'Mart 2026 verisine göre tüm restoranlarda kapasite tam ve eşik kuryelerin paket trendi normal seyirde.';
+
+  if (tn.length > 0) {
+    const lead = tn[0];
+    const others = tn
+      .slice(1, 3)
+      .map((t) => `${t.full_name?.split(' ')[0]} ${t.packages}'de`)
+      .join(', ');
+    headline = (
+      <>
+        <strong>{tn.length} kuryen</strong> <em>390 paket eşiğini</em> aşmak
+        üzere — ay sonuna kadar restorana ek{' '}
+        <em>{Math.round(potentialBilling).toLocaleString('tr-TR')} ₺</em> fatura
+        kesebilirsin.
+      </>
+    );
+    subline = `${lead.brand}${lead.branch ? ' ' + lead.branch : ''}'deki ${
+      lead.full_name
+    } ${lead.packages} pakette${others ? ', ' + others : ''}. Trendleri sürerse yüksek prim oranına geçecekler.${
+      cg.length > 0
+        ? ` Aynı zamanda ${cg[0].brand}${cg[0].branch ? ' ' + cg[0].branch : ''}'de hedef kurye sayısı ${cg[0].target}'a karşılık ${cg[0].actual}'te kaldı.`
+        : ''
+    }`;
+  } else if (cg.length > 0) {
+    headline = (
+      <>
+        <strong>{cg.length} restoranda</strong> <em>eksik kapasite</em> var —
+        acil kurye işe alımı gerekebilir.
+      </>
+    );
+    subline = cg
+      .slice(0, 3)
+      .map((c) => `${c.brand}${c.branch ? ' ' + c.branch : ''} ${c.actual}/${c.target}`)
+      .join(' · ');
+  }
+
+  return (
+    <section className="ai-hero relative overflow-hidden mb-5 rounded-3xl border border-border p-8 shadow-sm">
+      {/* Pattern arka plan */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            'radial-gradient(900px circle at 90% -10%, rgba(232,217,181,0.4), transparent 50%), radial-gradient(700px circle at -10% 110%, rgba(15,82,186,0.08), transparent 55%), linear-gradient(135deg, #FFFFFF 0%, #FAF6EE 100%)',
+        }}
+      />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 1px 1px, rgba(15, 82, 186, 0.06) 1px, transparent 0)',
+          backgroundSize: '24px 24px',
+          maskImage: 'linear-gradient(135deg, transparent 40%, black 80%)',
+          WebkitMaskImage:
+            'linear-gradient(135deg, transparent 40%, black 80%)',
+        }}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1.8fr] gap-9 items-center relative">
+        {/* Sol — başlık */}
+        <div className="relative z-[1]">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-brand to-blue-500 text-white text-[11px] font-bold rounded-full uppercase tracking-wider mb-3.5 shadow-md">
+            <span className="text-[11px] animate-spin-slow">✦</span>
+            <span>Akıllı İçgörü · Bu Hafta</span>
+          </div>
+          <h2
+            className="font-display text-[26px] leading-[1.15] tracking-tight font-semibold mb-3.5"
+            style={{
+              backgroundImage: 'linear-gradient(135deg, #0B0D17 50%, #4D5468 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            {headline}
+          </h2>
+          <p className="text-[14px] text-text-2 leading-relaxed max-w-[460px] mb-5">
+            {subline}
+          </p>
+          <div className="flex gap-2">
+            <button className="px-4 py-2 bg-text text-white text-[13px] font-semibold rounded-lg hover:-translate-y-0.5 hover:shadow-lg transition-all">
+              Detaylı analiz
+            </button>
+            <button className="px-4 py-2 bg-transparent text-text-2 border border-border-2 text-[13px] font-semibold rounded-lg hover:text-text hover:border-text transition-all">
+              Eylem önerileri
+            </button>
+          </div>
+        </div>
+
+        {/* Sağ — 4 mini insight kart */}
+        <div className="grid grid-cols-2 gap-3 relative z-[1]">
+          <InsightCard
+            icon="↗"
+            iconBg="bg-green-50 text-green-700"
+            title="Eşik Aşımı"
+            value={tn.length > 0 ? `${tn.length} kurye` : 'Yok'}
+          >
+            {tn.length > 0 ? (
+              <>
+                <strong>%{Math.round(72)}</strong> ay sonuna kadar geçecek ·{' '}
+                <strong>+{Math.round(potentialBilling / 1000)}K ₺</strong> ek
+                fatura potansiyeli
+              </>
+            ) : (
+              'Bu ay eşiğe yakın kurye yok'
+            )}
+          </InsightCard>
+
+          <InsightCard
+            icon="⚠"
+            iconBg="bg-yellow-50 text-yellow-700"
+            title="Eksik Kapasite"
+            value={cg.length > 0 ? `${cg.length} restoran` : 'Tam'}
+          >
+            {cg.length > 0
+              ? cg
+                  .slice(0, 2)
+                  .map((c) => `${c.brand} ${c.actual}/${c.target}`)
+                  .join(' · ') + ' · acil işe alım'
+              : 'Tüm restoranlar hedef dolulukta'}
+          </InsightCard>
+
+          <InsightCard
+            icon="⚡"
+            iconBg="bg-brand-soft text-brand"
+            title="Verimlilik Liderleri"
+            value={
+              tr2.length > 0
+                ? tr2
+                    .map((t) => t.full_name?.split(' ')[0] ?? '?')
+                    .join(' + ')
+                : '—'
+            }
+          >
+            {tr2.length > 0 ? (
+              <>
+                Sabit maaşlarının{' '}
+                <strong>
+                  %
+                  {Math.round(
+                    (tr2.reduce(
+                      (s, t) =>
+                        s +
+                        (t as ManagementMember & { recovery_pct?: number })
+                          .recovery_pct! *
+                          100,
+                      0,
+                    ) /
+                      tr2.length) || 0,
+                  )}
+                </strong>
+                'ini cover yaparak geri kazandılar
+              </>
+            ) : (
+              'Henüz cover verisi yok'
+            )}
+          </InsightCard>
+
+          <InsightCard
+            icon="📋"
+            iconBg="bg-cream-100 text-yellow-800"
+            title="Bekleyen Aksiyonlar"
+            value={`${pending} talep`}
+          >
+            {pending > 0
+              ? '3 avans · 2 motor değişikliği · 2 muhasebe geçişi onay bekliyor'
+              : 'Tüm talepler işlendi'}
+          </InsightCard>
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        :global(.animate-spin-slow) {
+          animation: spin-slow 3s linear infinite;
+          display: inline-block;
+        }
+      `}</style>
+    </section>
+  );
+}
+
+function InsightCard({
+  icon, iconBg, title, value, children,
+}: {
+  icon: string;
+  iconBg: string;
+  title: string;
+  value: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white border border-border rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+      <div
+        className={`w-9 h-9 rounded-lg flex items-center justify-center text-base font-bold mb-2 ${iconBg}`}
+      >
+        {icon}
+      </div>
+      <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-semibold">
+        {title}
+      </div>
+      <div className="font-display text-[18px] font-semibold tracking-tight my-1">
+        {value}
+      </div>
+      <div className="text-[11.5px] text-text-2 leading-snug">{children}</div>
     </div>
   );
 }

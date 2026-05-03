@@ -1,11 +1,13 @@
 import { Sidebar } from '@/components/sidebar';
 import {
   getManagementSummary,
+  getPageInsights,
   getSidebarCounts,
   getTopPerformers,
   listPersonnel,
   listRestaurants,
   type ManagementMember,
+  type PageInsights,
   type Personnel,
   type Restaurant,
   type SidebarCounts,
@@ -21,16 +23,18 @@ export default async function PersonelPage() {
   let counts: SidebarCounts | null = null;
   let topPerformers: TopPerformer[] = [];
   let management: ManagementMember[] = [];
+  let insights: PageInsights | null = null;
   let error: string | null = null;
 
   try {
-    [allPersonnel, restaurants, counts, topPerformers, management] =
+    [allPersonnel, restaurants, counts, topPerformers, management, insights] =
       await Promise.all([
         listPersonnel(),
         listRestaurants().catch(() => []),
         getSidebarCounts().catch(() => null),
         getTopPerformers('2026-03', 3).catch(() => []),
         getManagementSummary('2026-03').catch(() => []),
+        getPageInsights('2026-03').catch(() => null),
       ]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'API hatası';
@@ -50,6 +54,7 @@ export default async function PersonelPage() {
             restaurants={restaurants}
             topPerformers={topPerformers}
             management={management}
+            insights={insights}
           />
         )}
       </main>

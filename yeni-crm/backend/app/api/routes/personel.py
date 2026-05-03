@@ -10,6 +10,7 @@ from app.services.personel import (
     list_personnel,
     management_summary,
     next_person_code,
+    page_insights,
     top_performers,
     update_personnel,
 )
@@ -115,6 +116,12 @@ async def get_top_performers(period: str = "2026-03", limit: int = 3) -> list[di
 async def get_management(period: str = "2026-03") -> list[dict]:
     """Yönetim & Yedek Operasyon — sabit maaşlı kişiler + cover özeti."""
     return management_summary(period=period)
+
+
+@router.get("/insights")
+async def get_insights(period: str = "2026-03") -> dict:
+    """Akıllı içgörü hero kartları için aggregat veri."""
+    return page_insights(period=period)
 
 
 @router.get("/{personnel_id}")
