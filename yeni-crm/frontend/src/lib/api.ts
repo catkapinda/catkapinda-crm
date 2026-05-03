@@ -214,6 +214,131 @@ export async function getPageInsights(
   return apiGet<PageInsights>(`/api/personel/insights?period=${period}`);
 }
 
+// ─────────────────────────────────────────────────────────────
+// Kesintiler
+// ─────────────────────────────────────────────────────────────
+
+export type Deduction = {
+  id: number;
+  personnel_id: number | null;
+  deduction_type: string;
+  amount: number;
+  deduction_date: string | null;
+  notes: string | null;
+  equipment_issue_id: number | null;
+  personnel_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  equipment_name: string | null;
+  equipment_total_installments: number | null;
+};
+
+export async function listDeductions(opts?: {
+  period?: string;
+  personnel_id?: number;
+  deduction_type?: string;
+}): Promise<Deduction[]> {
+  const p = new URLSearchParams();
+  if (opts?.period) p.set('period', opts.period);
+  if (opts?.personnel_id) p.set('personnel_id', String(opts.personnel_id));
+  if (opts?.deduction_type) p.set('deduction_type', opts.deduction_type);
+  const qs = p.toString();
+  return apiGet<Deduction[]>(`/api/deductions${qs ? '?' + qs : ''}`);
+}
+
+export async function getDeductionTypes(): Promise<string[]> {
+  return apiGet<string[]>('/api/deductions/types');
+}
+
+export type DeductionByType = {
+  deduction_type: string;
+  count: number;
+  total: number;
+};
+
+export async function getDeductionSummaryByType(
+  period: string = '2026-03',
+): Promise<DeductionByType[]> {
+  return apiGet<DeductionByType[]>(
+    `/api/deductions/summary/by-type?period=${period}`,
+  );
+}
+
+export async function createDeduction(payload: {
+  personnel_id: number;
+  deduction_type: string;
+  amount: number;
+  deduction_date?: string;
+  notes?: string;
+}): Promise<Deduction> {
+  return apiMutate<Deduction>(`/api/deductions`, payload, 'POST');
+}
+
+// ─────────────────────────────────────────────────────────────
+// Ekipman & Zimmet
+// ─────────────────────────────────────────────────────────────
+
+export type EquipmentCatalogItem = {
+  name: string;
+  category: string;
+  default_price: number;
+};
+
+export type EquipmentAssignment = {
+  id: number;
+  personnel_id: number | null;
+  item_name: string;
+  quantity: number;
+  unit_cost: number;
+  unit_sale_price: number;
+  vat_rate: number;
+  sale_type: string | null;
+  installment_count: number;
+  issue_date: string | null;
+  notes: string | null;
+  personnel_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  total_amount: number;
+  per_installment: number;
+  taksit_kesilen: number;
+};
+
+export async function getEquipmentCatalog(): Promise<EquipmentCatalogItem[]> {
+  return apiGet<EquipmentCatalogItem[]>('/api/equipment/catalog');
+}
+
+export async function listEquipmentAssignments(opts?: {
+  personnel_id?: number;
+  period?: string;
+}): Promise<EquipmentAssignment[]> {
+  const p = new URLSearchParams();
+  if (opts?.personnel_id) p.set('personnel_id', String(opts.personnel_id));
+  if (opts?.period) p.set('period', opts.period);
+  const qs = p.toString();
+  return apiGet<EquipmentAssignment[]>(
+    `/api/equipment/assignments${qs ? '?' + qs : ''}`,
+  );
+}
+
+export async function createEquipmentAssignment(payload: {
+  personnel_id: number;
+  item_name: string;
+  quantity?: number;
+  unit_sale_price: number;
+  unit_cost?: number;
+  vat_rate?: number;
+  installment_count?: number;
+  issue_date?: string;
+  notes?: string;
+}): Promise<EquipmentAssignment> {
+  return apiMutate<EquipmentAssignment>(
+    `/api/equipment/assignments`,
+    payload,
+    'POST',
+  );
+}
+
 export type DashboardSummary = {
   period: string;
   active_personnel: number;

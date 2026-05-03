@@ -6,7 +6,7 @@ import type { SidebarCounts } from '@/lib/api';
 
 type NavKey =
   | 'dashboard' | 'personel' | 'puantaj' | 'puantaj-onay' | 'hakedis-onay'
-  | 'kesintiler' | 'avans' | 'motor' | 'muhasebe-degisim'
+  | 'kesintiler' | 'ekipman' | 'avans' | 'motor' | 'muhasebe-degisim'
   | 'talepler' | 'restoranlar' | 'faturalar' | 'bordro' | 'kar-zarar';
 
 type BadgeKind = 'new' | 'warn' | 'default';
@@ -27,6 +27,7 @@ const NAV: NavItem[] = [
   { key: 'puantaj-onay', label: 'Puantaj Onayları', href: '/puantaj-onaylari', section: 'Operasyon', countKey: 'puantaj_onay', badgeKind: 'warn' },
   { key: 'hakedis-onay', label: 'Hakediş Onayları', href: '/hakedis-onaylari', section: 'Operasyon', countKey: 'hakedis_onay' },
   { key: 'kesintiler', label: 'Kesintiler', href: '/kesintiler', section: 'Operasyon' },
+  { key: 'ekipman', label: 'Ekipman & Zimmet', href: '/ekipman-zimmet', section: 'Operasyon' },
   { key: 'avans', label: 'Avans Talepleri', href: '/avans', section: 'Operasyon', countKey: 'avans', badgeKind: 'new' },
   { key: 'motor', label: 'Motor Değişikliği', href: '/motor-degisikligi', section: 'Operasyon' },
   { key: 'muhasebe-degisim', label: 'Muhasebe Değişimi', href: '/muhasebe-degisimi', section: 'Operasyon' },
