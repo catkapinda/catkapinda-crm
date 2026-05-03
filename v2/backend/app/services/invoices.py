@@ -128,7 +128,9 @@ def _build_invoice_drilldown_fallback(
                 COALESCE(d.package_count, 0) AS package_count,
                 COALESCE(d.monthly_invoice_amount, 0) AS monthly_invoice_amount,
                 COALESCE(p.full_name, '-') AS personnel,
-                COALESCE(p.role, '-') AS role
+                COALESCE(p.role, '-') AS role,
+                COALESCE(p.cost_model, '') AS cost_model,
+                p.start_date AS start_date
             FROM daily_entries d
             JOIN restaurants r ON r.id = d.restaurant_id
             LEFT JOIN personnel p ON p.id = COALESCE(d.actual_personnel_id, d.planned_personnel_id)

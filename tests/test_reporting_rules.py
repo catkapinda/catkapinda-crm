@@ -368,6 +368,127 @@ class ReportingRulesTests(unittest.TestCase):
         self.assertAlmostEqual(row["kdv_haric"], 92000.0)
         self.assertAlmostEqual(row["kdv_dahil"], 110400.0)
 
+    def test_fixed_role_invoice_summary_uses_monthly_amount_and_holiday_bonus(self):
+        month_df = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "restaurant_id": 30,
+                    "brand": "Quick China",
+                    "branch": "Ataşehir",
+                    "entry_date": "2026-03-10",
+                    "pricing_model": "hourly_plus_package",
+                    "hourly_rate": 264.0,
+                    "package_rate": 33.0,
+                    "package_threshold": 390,
+                    "package_rate_low": 0.0,
+                    "package_rate_high": 0.0,
+                    "fixed_monthly_fee": 0.0,
+                    "monthly_invoice_amount": 84500.0,
+                    "vat_rate": 20.0,
+                    "worked_hours": 11.0,
+                    "package_count": 85.0,
+                    "actual_personnel_id": 1,
+                }
+            ]
+        )
+        personnel_df = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "full_name": "Recep Çevik",
+                    "role": "Restoran Takım Şefi",
+                    "cost_model": "fixed_restoran_takim_sefi",
+                    "start_date": "2026-01-01",
+                }
+            ]
+        )
+
+        invoice_df = reporting_rules.build_invoice_summary_df(month_df, personnel_df)
+        row = invoice_df.iloc[0]
+        self.assertAlmostEqual(row["kdv_haric"], 90133.33, places=2)
+        self.assertAlmostEqual(row["kdv_dahil"], 108160.0, places=2)
+
+        drilldown_map = reporting_rules.build_restaurant_invoice_drilldown_map(month_df, personnel_df)
+        recep_row = drilldown_map["Quick China - Ataşehir"].iloc[0]
+        self.assertAlmostEqual(recep_row["kdv_haric"], 90133.33, places=2)
+
+    def test_fixed_monthly_brand_invoice_summary_uses_extra_day_and_support_proration(self):
+        month_df = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "restaurant_id": 31,
+                    "brand": "SC Petshop",
+                    "branch": "Merkez",
+                    "entry_date": "2026-03-12",
+                    "pricing_model": "fixed_monthly",
+                    "hourly_rate": 0.0,
+                    "package_rate": 0.0,
+                    "package_threshold": 390,
+                    "package_rate_low": 0.0,
+                    "package_rate_high": 0.0,
+                    "fixed_monthly_fee": 79800.0,
+                    "monthly_invoice_amount": 79800.0,
+                    "vat_rate": 20.0,
+                    "worked_hours": 270.0,
+                    "package_count": 0.0,
+                    "planned_personnel_id": 1,
+                    "actual_personnel_id": 1,
+                },
+                {
+                    "id": 2,
+                    "restaurant_id": 31,
+                    "brand": "SC Petshop",
+                    "branch": "Merkez",
+                    "entry_date": "2026-03-14",
+                    "pricing_model": "fixed_monthly",
+                    "hourly_rate": 0.0,
+                    "package_rate": 0.0,
+                    "package_threshold": 390,
+                    "package_rate_low": 0.0,
+                    "package_rate_high": 0.0,
+                    "fixed_monthly_fee": 79800.0,
+                    "monthly_invoice_amount": 79800.0,
+                    "vat_rate": 20.0,
+                    "worked_hours": 10.0,
+                    "package_count": 0.0,
+                    "planned_personnel_id": 1,
+                    "actual_personnel_id": 2,
+                },
+            ]
+        )
+        personnel_df = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "full_name": "Seyfullah",
+                    "role": "Kurye",
+                    "cost_model": "fixed_kurye",
+                    "start_date": "2026-01-01",
+                },
+                {
+                    "id": 2,
+                    "full_name": "Erkan Çelik",
+                    "role": "Kaptan",
+                    "cost_model": "fixed_kaptan",
+                    "start_date": "2026-01-01",
+                },
+            ]
+        )
+
+        invoice_df = reporting_rules.build_invoice_summary_df(month_df, personnel_df)
+        row = invoice_df.iloc[0]
+        self.assertAlmostEqual(row["kdv_haric"], 85120.0, places=2)
+        self.assertAlmostEqual(row["kdv_dahil"], 102144.0, places=2)
+
+        drilldown_map = reporting_rules.build_restaurant_invoice_drilldown_map(month_df, personnel_df)
+        detail_df = drilldown_map["SC Petshop - Merkez"]
+        seyfullah_row = detail_df.loc[detail_df["personel"] == "Seyfullah"].iloc[0]
+        erkan_row = detail_df.loc[detail_df["personel"] == "Erkan Çelik"].iloc[0]
+        self.assertAlmostEqual(seyfullah_row["kdv_haric"], 82460.0, places=2)
+        self.assertAlmostEqual(erkan_row["kdv_haric"], 2660.0, places=2)
+
 
 if __name__ == "__main__":
     unittest.main()
