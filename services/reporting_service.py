@@ -108,9 +108,9 @@ def build_reports_workspace_payload(conn, entries: pd.DataFrame, selected_month:
     personnel_df = fetch_reporting_personnel(conn)
     role_history_df = fetch_reporting_role_history(conn)
     deductions_df = fetch_reporting_deductions_for_period(conn, start_date, end_date)
-    payroll_deductions_df = filter_payroll_effective_deductions_df(deductions_df, personnel_df)
+    payroll_deductions_df = filter_payroll_effective_deductions_df(deductions_df)
 
-    invoice_df = build_invoice_summary_df(month_df, personnel_df).sort_values("restoran").reset_index(drop=True)
+    invoice_df = build_invoice_summary_df(month_df).sort_values("restoran").reset_index(drop=True)
     invoice_drilldown_map = build_restaurant_invoice_drilldown_map(month_df, personnel_df)
     invoice_attendance_export_map = build_restaurant_attendance_export_map(
         month_df,

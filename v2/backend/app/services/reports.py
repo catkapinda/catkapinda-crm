@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -50,32 +49,6 @@ _COURIER_HOURLY_COST_DOGU_OTOMOTIV = 295.0
 _COURIER_PACKAGE_COST_DEFAULT_LOW = 20.0
 _COURIER_PACKAGE_COST_DEFAULT_HIGH = 25.0
 _COURIER_PACKAGE_COST_QC = 25.0
-_FIXED_MONTHLY_BRAND_KEYS = {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
-_FIXED_MONTHLY_BASE_HOURS = 260.0
-_FIXED_MONTHLY_EXTRA_DAY_HOURS = 10.0
-_SUPPORT_HOLIDAY_DAY_DIVISOR = 30.0
-_SUPPORT_HOLIDAY_DOUBLE_COST_MODELS = {
-    "fixed_joker",
-    "fixed_bolge_muduru",
-    "fixed_restoran_takim_sefi",
-}
-_SUPPORT_HOLIDAY_DOUBLE_ROLES = {
-    "Joker",
-    "Bölge Müdürü",
-    "Bolge Muduru",
-    "Takım Şefi",
-    "Takim Sefi",
-    "Restoran Takım Şefi",
-    "Restoran Takim Sefi",
-}
-_RELIGIOUS_HOLIDAY_DOUBLE_DATES = {
-    date(2025, 3, 30),
-    date(2025, 3, 31),
-    date(2025, 6, 6),
-    date(2025, 6, 7),
-    date(2026, 3, 20),
-    date(2026, 3, 21),
-}
 
 _PRICING_MODEL_LABELS = {
     "hourly_plus_package": "Saat + Paket",
@@ -170,10 +143,6 @@ def _is_dogu_otomotiv_brand(brand: object) -> bool:
     return _normalized_brand_key(brand) in {"doğu otomotiv", "dogu otomotiv"}
 
 
-def _is_fixed_monthly_brand(brand: object) -> bool:
-    return _normalized_brand_key(brand) in _FIXED_MONTHLY_BRAND_KEYS
-
-
 def _calculate_standard_package_cost(total_packages: float, *, brand: object = "") -> float:
     package_total = float(total_packages or 0)
     if _is_dogu_otomotiv_brand(brand):
@@ -226,155 +195,6 @@ def _calculate_variable_courier_gross_cost(segments: list[dict[str, object]]) ->
 def _is_fixed_cost_model(cost_model: object) -> bool:
     model = str(cost_model or "").strip()
     return model == "fixed_monthly" or model.startswith("fixed_")
-
-
-def _parse_attendance_date(value: object) -> date | None:
-    if value is None:
-        return None
-    if isinstance(value, date) and not isinstance(value, datetime):
-        return value
-    if isinstance(value, datetime):
-        return value.date()
-    text = str(value).strip()
-    if not text:
-        return None
-    try:
-        return date.fromisoformat(text[:10])
-    except ValueError:
-        return None
-
-
-def _parse_row_attendance_dates(rows: list[dict[str, object]]) -> set[date]:
-    return {parsed for parsed in (_parse_attendance_date(row.get("entry_date")) for row in rows) if parsed is not None}
-
-
-def _count_support_holiday_bonus_days(attendance_dates: set[date]) -> int:
-    return sum(1 for entry_date in attendance_dates if entry_date in _RELIGIOUS_HOLIDAY_DOUBLE_DATES)
-
-
-def _calculate_fixed_invoice_holiday_bonus(
-    *,
-    rows: list[dict[str, object]],
-    fixed_fee: float,
-    cost_model: object,
-    role: object,
-    start_date: object,
-) -> float:
-    normalized_fixed_fee = _safe_float(fixed_fee)
-    if normalized_fixed_fee <= 0:
-        return 0.0
-
-    normalized_cost_model = str(cost_model or "").strip()
-    normalized_role = str(role or "").strip()
-    if (
-        normalized_cost_model not in _SUPPORT_HOLIDAY_DOUBLE_COST_MODELS
-        and normalized_role not in _SUPPORT_HOLIDAY_DOUBLE_ROLES
-    ):
-        return 0.0
-
-    attendance_dates = _parse_row_attendance_dates(rows)
-    if not attendance_dates:
-        return 0.0
-
-    month_prefix = sorted(attendance_dates)[0].strftime("%Y-%m")
-    eligible_holiday_dates = [
-        holiday_date for holiday_date in _RELIGIOUS_HOLIDAY_DOUBLE_DATES if holiday_date.isoformat().startswith(month_prefix)
-    ]
-    if not eligible_holiday_dates:
-        return 0.0
-
-    parsed_start_date = _parse_attendance_date(start_date)
-    active_holiday_dates = [
-        holiday_date
-        for holiday_date in eligible_holiday_dates
-        if parsed_start_date is None or parsed_start_date <= holiday_date
-    ]
-    if not active_holiday_dates:
-        return 0.0
-
-    bonus_days = max(len(active_holiday_dates), _count_support_holiday_bonus_days(attendance_dates))
-    if bonus_days <= 0:
-        return 0.0
-    return _safe_float((normalized_fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * bonus_days)
-
-
-def _is_support_assignment_row(row: dict[str, object]) -> bool:
-    planned_id = _safe_int(row.get("planned_personnel_id"))
-    actual_id = _safe_int(row.get("actual_personnel_id"))
-    return planned_id > 0 and actual_id > 0 and planned_id != actual_id
-
-
-def _count_support_assignment_days(rows: list[dict[str, object]]) -> int:
-    support_dates = {
-        parsed_date
-        for row in rows
-        if _is_support_assignment_row(row)
-        for parsed_date in [_parse_attendance_date(row.get("entry_date"))]
-        if parsed_date is not None
-    }
-    return len(support_dates)
-
-
-def _calculate_invoice_subtotal_for_rows(rows: list[dict[str, object]], *, restaurant_fixed_fee: float) -> float:
-    if not rows:
-        return 0.0
-
-    first = rows[0]
-    pricing_model = str(first.get("pricing_model") or "").strip()
-    brand = first.get("brand")
-    hourly_rate = _safe_float(first.get("hourly_rate"))
-    package_rate = _safe_float(first.get("package_rate"))
-    package_threshold = _safe_int(first.get("package_threshold"), _PACKAGE_THRESHOLD_DEFAULT)
-    if package_threshold <= 0:
-        package_threshold = _PACKAGE_THRESHOLD_DEFAULT
-    package_rate_low = _safe_float(first.get("package_rate_low"))
-    package_rate_high = _safe_float(first.get("package_rate_high"))
-    total_hours = sum(_safe_float(row.get("worked_hours")) for row in rows)
-    total_packages = sum(_safe_float(row.get("package_count")) for row in rows)
-    role = str(first.get("role") or "").strip()
-    cost_model = str(first.get("cost_model") or "").strip()
-    start_date = first.get("start_date")
-    fixed_fee = _fixed_monthly_fee_for_rows(rows, restaurant_fixed_fee)
-    support_day_count = _count_support_assignment_days(rows)
-
-    if (_is_fixed_monthly_brand(brand) or pricing_model == "fixed_monthly") and fixed_fee > 0:
-        if support_day_count > 0:
-            return _safe_float((fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * support_day_count)
-
-        subtotal = fixed_fee
-        if _is_fixed_monthly_brand(brand):
-            overtime_hours = max(total_hours - _FIXED_MONTHLY_BASE_HOURS, 0.0)
-            extra_days = int(overtime_hours // _FIXED_MONTHLY_EXTRA_DAY_HOURS)
-            if extra_days > 0:
-                subtotal += (fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * extra_days
-        elif _is_fixed_cost_model(cost_model):
-            subtotal += _calculate_fixed_invoice_holiday_bonus(
-                rows=rows,
-                fixed_fee=fixed_fee,
-                cost_model=cost_model,
-                role=role,
-                start_date=start_date,
-            )
-        return _safe_float(subtotal)
-
-    if _is_fixed_cost_model(cost_model) and fixed_fee > 0:
-        subtotal = fixed_fee + _calculate_fixed_invoice_holiday_bonus(
-            rows=rows,
-            fixed_fee=fixed_fee,
-            cost_model=cost_model,
-            role=role,
-            start_date=start_date,
-        )
-        return _safe_float(subtotal)
-
-    if pricing_model == "hourly_plus_package":
-        return total_hours * hourly_rate + total_packages * package_rate
-    if pricing_model == "threshold_package":
-        package_rate_for_person = package_rate_low if total_packages <= package_threshold else package_rate_high
-        return total_hours * hourly_rate + total_packages * package_rate_for_person
-    if pricing_model == "hourly_only":
-        return total_hours * hourly_rate
-    return 0.0
 
 
 def _calculate_personnel_gross_cost(
@@ -445,22 +265,25 @@ def _calculate_restaurant_invoice(rows: list[dict[str, object]]) -> tuple[float,
     total_hours = sum(_safe_float(row.get("worked_hours")) for row in rows)
     total_packages = sum(_safe_float(row.get("package_count")) for row in rows)
 
-    person_groups: dict[tuple[str, str], list[dict[str, object]]] = {}
-    for row in rows:
-        person_groups.setdefault(
-            (
-                str(row.get("personnel") or "-"),
-                str(row.get("role") or "-"),
-            ),
-            [],
-        ).append(row)
-
-    subtotal = 0.0
-    for person_rows in person_groups.values():
-        subtotal += _calculate_invoice_subtotal_for_rows(
-            person_rows,
-            restaurant_fixed_fee=fixed_monthly_fee,
-        )
+    if pricing_model == "hourly_plus_package":
+        subtotal = total_hours * hourly_rate + total_packages * package_rate
+    elif pricing_model == "threshold_package":
+        actor_totals: dict[str, dict[str, float]] = {}
+        for row in rows:
+            actor_bucket = actor_totals.setdefault(_invoice_actor_key(row), {"hours": 0.0, "packages": 0.0})
+            actor_bucket["hours"] += _safe_float(row.get("worked_hours"))
+            actor_bucket["packages"] += _safe_float(row.get("package_count"))
+        subtotal = 0.0
+        for values in actor_totals.values():
+            actor_packages = values["packages"]
+            actor_package_rate = package_rate_low if actor_packages <= package_threshold else package_rate_high
+            subtotal += values["hours"] * hourly_rate + actor_packages * actor_package_rate
+    elif pricing_model == "hourly_only":
+        subtotal = total_hours * hourly_rate
+    elif pricing_model == "fixed_monthly":
+        subtotal = _fixed_monthly_fee_for_rows(rows, fixed_monthly_fee)
+    else:
+        subtotal = sum(_safe_float(row.get("monthly_invoice_amount")) for row in rows)
 
     grand_total = subtotal * (1 + (vat_rate / 100.0))
     return total_hours, total_packages, subtotal, grand_total
@@ -497,6 +320,9 @@ def _build_local_invoice_drilldown_entries(rows: list[dict[str, object]]) -> lis
             role_label = str(restaurant_row.get("role") or "-")
             person_groups.setdefault((personnel_label, role_label), []).append(restaurant_row)
 
+        courier_count = len(person_groups)
+        restaurant_total_hours = sum(_safe_float(row.get("worked_hours")) for row in restaurant_rows)
+        restaurant_total_packages = sum(_safe_float(row.get("package_count")) for row in restaurant_rows)
         resolved_fixed_monthly_fee = _fixed_monthly_fee_for_rows(restaurant_rows, fixed_monthly_fee)
 
         for (personnel_label, role_label), person_rows in sorted(person_groups.items()):
@@ -505,10 +331,24 @@ def _build_local_invoice_drilldown_entries(rows: list[dict[str, object]]) -> lis
             if total_hours <= 0 and total_packages <= 0:
                 continue
 
-            net_invoice_amount = _calculate_invoice_subtotal_for_rows(
-                person_rows,
-                restaurant_fixed_fee=resolved_fixed_monthly_fee,
-            )
+            if pricing_model == "hourly_plus_package":
+                net_invoice_amount = total_hours * hourly_rate + total_packages * package_rate
+            elif pricing_model == "threshold_package":
+                package_rate_for_person = (
+                    package_rate_low if total_packages <= package_threshold else package_rate_high
+                )
+                net_invoice_amount = total_hours * hourly_rate + total_packages * package_rate_for_person
+            elif pricing_model == "hourly_only":
+                net_invoice_amount = total_hours * hourly_rate
+            elif pricing_model == "fixed_monthly":
+                if restaurant_total_hours > 0:
+                    net_invoice_amount = resolved_fixed_monthly_fee * (total_hours / restaurant_total_hours)
+                elif restaurant_total_packages > 0:
+                    net_invoice_amount = resolved_fixed_monthly_fee * (total_packages / restaurant_total_packages)
+                else:
+                    net_invoice_amount = resolved_fixed_monthly_fee / max(courier_count, 1)
+            else:
+                net_invoice_amount = 0.0
 
             drilldown_entries.append(
                 ReportInvoiceDrilldownEntry(
@@ -816,8 +656,6 @@ def _build_local_reports_dashboard(
             d.restaurant_id,
             COALESCE(p.full_name, '-') AS personnel,
             COALESCE(p.role, '-') AS role,
-            COALESCE(p.cost_model, '') AS cost_model,
-            p.start_date AS start_date,
             COALESCE(r.brand || ' - ' || r.branch, '-') AS restaurant,
             COALESCE(r.brand, '') AS brand,
             COALESCE(r.branch, '') AS branch,

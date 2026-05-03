@@ -24,31 +24,6 @@ _COURIER_HOURLY_COST_DOGU_OTOMOTIV = 295.0
 _PACKAGE_THRESHOLD_DEFAULT = 390
 _FIXED_MONTHLY_BRAND_KEYS = {"sushi inn", "sushiinn", "sc petshop", "sc pet shop"}
 _FIXED_MONTHLY_BRAND_COURIER_PAY = 73600.0
-_FIXED_MONTHLY_BASE_HOURS = 260.0
-_FIXED_MONTHLY_EXTRA_DAY_HOURS = 10.0
-_SUPPORT_HOLIDAY_DAY_DIVISOR = 30.0
-_SUPPORT_HOLIDAY_DOUBLE_COST_MODELS = {
-    "fixed_joker",
-    "fixed_bolge_muduru",
-    "fixed_restoran_takim_sefi",
-}
-_SUPPORT_HOLIDAY_DOUBLE_ROLES = {
-    "Joker",
-    "Bölge Müdürü",
-    "Bolge Muduru",
-    "Takım Şefi",
-    "Takim Sefi",
-    "Restoran Takım Şefi",
-    "Restoran Takim Sefi",
-}
-_RELIGIOUS_HOLIDAY_DOUBLE_DATES = {
-    date(2025, 3, 30),
-    date(2025, 3, 31),
-    date(2025, 6, 6),
-    date(2025, 6, 7),
-    date(2026, 3, 20),
-    date(2026, 3, 21),
-}
 
 
 def _format_compact_number(value: Any) -> str:
@@ -77,11 +52,6 @@ def _is_dogu_otomotiv_brand(brand: str = "") -> bool:
 
 def _is_fixed_monthly_brand(brand: str = "") -> bool:
     return _normalized_brand_key(brand) in _FIXED_MONTHLY_BRAND_KEYS
-
-
-def _is_fixed_cost_model(cost_model: object) -> bool:
-    normalized = str(cost_model or "").strip()
-    return normalized == "fixed_monthly" or normalized.startswith("fixed_")
 
 
 def configure_reporting_rules(
@@ -317,150 +287,6 @@ def _resolve_fixed_monthly_fee_from_group(group: pd.DataFrame, fallback_fee: flo
     return _SAFE_FLOAT(work.iloc[-1].get("monthly_invoice_amount"), resolved_fallback)
 
 
-def _resolve_cost_model_for_role(cost_model: object, role: object) -> str:
-    normalized_cost_model = str(cost_model or "").strip()
-    normalized_role = str(role or "").strip()
-    if _NORMALIZE_COST_MODEL_VALUE is None:
-        return normalized_cost_model or normalized_role
-    return _NORMALIZE_COST_MODEL_VALUE(normalized_cost_model, normalized_role)
-
-
-def _parse_group_attendance_dates(group: pd.DataFrame) -> set[date]:
-    if group is None or group.empty or "entry_date" not in group.columns:
-        return set()
-    parsed_dates = pd.to_datetime(group["entry_date"], errors="coerce").dropna()
-    return {value.date() for value in parsed_dates.to_list()}
-
-
-def _selected_month_for_group(group: pd.DataFrame) -> str:
-    attendance_dates = sorted(_parse_group_attendance_dates(group))
-    if attendance_dates:
-        return attendance_dates[0].strftime("%Y-%m")
-    return ""
-
-
-def _count_support_holiday_bonus_days(attendance_dates: set[date]) -> int:
-    return sum(1 for entry_date in attendance_dates if entry_date in _RELIGIOUS_HOLIDAY_DOUBLE_DATES)
-
-
-def _calculate_fixed_invoice_holiday_bonus(
-    *,
-    group: pd.DataFrame,
-    fixed_fee: float,
-    cost_model: object,
-    role: object,
-    start_date: object,
-) -> float:
-    normalized_fixed_fee = _SAFE_FLOAT(fixed_fee, 0.0)
-    if normalized_fixed_fee <= 0:
-        return 0.0
-
-    normalized_cost_model = str(cost_model or "").strip()
-    normalized_role = str(role or "").strip()
-    if (
-        normalized_cost_model not in _SUPPORT_HOLIDAY_DOUBLE_COST_MODELS
-        and normalized_role not in _SUPPORT_HOLIDAY_DOUBLE_ROLES
-    ):
-        return 0.0
-
-    selected_month = _selected_month_for_group(group)
-    if not selected_month:
-        return 0.0
-
-    eligible_holiday_dates = [
-        holiday_date for holiday_date in _RELIGIOUS_HOLIDAY_DOUBLE_DATES if holiday_date.isoformat().startswith(selected_month)
-    ]
-    if not eligible_holiday_dates:
-        return 0.0
-
-    parsed_start_date = _PARSE_DATE_VALUE(start_date)
-    active_holiday_dates = [
-        holiday_date
-        for holiday_date in eligible_holiday_dates
-        if parsed_start_date is None or parsed_start_date <= holiday_date
-    ]
-    if not active_holiday_dates:
-        return 0.0
-
-    attendance_dates = _parse_group_attendance_dates(group)
-    bonus_days = len(active_holiday_dates)
-    if attendance_dates:
-        bonus_days = max(bonus_days, _count_support_holiday_bonus_days(attendance_dates))
-    if bonus_days <= 0:
-        return 0.0
-
-    return _SAFE_FLOAT((normalized_fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * bonus_days, 0.0)
-
-
-def _row_is_support_assignment(row: pd.Series | dict[str, Any]) -> bool:
-    planned_id = _SAFE_INT(row.get("planned_personnel_id"), 0)
-    actual_id = _SAFE_INT(row.get("actual_personnel_id"), 0)
-    return planned_id > 0 and actual_id > 0 and planned_id != actual_id
-
-
-def _count_support_assignment_days(group: pd.DataFrame) -> int:
-    if group is None or group.empty:
-        return 0
-    support_rows = group[group.apply(_row_is_support_assignment, axis=1)]
-    if support_rows.empty or "entry_date" not in support_rows.columns:
-        return 0
-    return int(pd.to_datetime(support_rows["entry_date"], errors="coerce").dt.date.dropna().nunique())
-
-
-def _calculate_invoice_subtotal_for_person(group: pd.DataFrame, rule: Any, restaurant_fixed_fee: float) -> float:
-    total_hours = float(group["worked_hours"].fillna(0).sum())
-    total_packages = float(group["package_count"].fillna(0).sum())
-    if total_hours <= 0 and total_packages <= 0:
-        return 0.0
-
-    first = group.iloc[0]
-    brand = str(first.get("brand") or "")
-    pricing_model = str(first.get("pricing_model") or rule.pricing_model or "").strip()
-    role = str(first.get("rol") or first.get("role") or "").strip()
-    cost_model = _resolve_cost_model_for_role(first.get("cost_model"), role)
-    start_date = first.get("start_date")
-    fixed_fee = _resolve_fixed_monthly_fee_from_group(group, restaurant_fixed_fee)
-    support_day_count = _count_support_assignment_days(group)
-
-    if (_is_fixed_monthly_brand(brand) or pricing_model == "fixed_monthly") and fixed_fee > 0:
-        if support_day_count > 0:
-            return _SAFE_FLOAT((fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * support_day_count, 0.0)
-
-        subtotal = fixed_fee
-        if _is_fixed_monthly_brand(brand):
-            overtime_hours = max(total_hours - _FIXED_MONTHLY_BASE_HOURS, 0.0)
-            extra_days = int(overtime_hours // _FIXED_MONTHLY_EXTRA_DAY_HOURS)
-            if extra_days > 0:
-                subtotal += (fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * extra_days
-        elif _is_fixed_cost_model(cost_model):
-            subtotal += _calculate_fixed_invoice_holiday_bonus(
-                group=group,
-                fixed_fee=fixed_fee,
-                cost_model=cost_model,
-                role=role,
-                start_date=start_date,
-            )
-        return _SAFE_FLOAT(subtotal, 0.0)
-
-    if _is_fixed_cost_model(cost_model) and fixed_fee > 0:
-        subtotal = fixed_fee + _calculate_fixed_invoice_holiday_bonus(
-            group=group,
-            fixed_fee=fixed_fee,
-            cost_model=cost_model,
-            role=role,
-            start_date=start_date,
-        )
-        return _SAFE_FLOAT(subtotal, 0.0)
-
-    if pricing_model == "hourly_plus_package":
-        return total_hours * rule.hourly_rate + total_packages * rule.package_rate
-    if pricing_model == "threshold_package":
-        return _calculate_threshold_package_subtotal(total_hours, total_packages, rule)
-    if pricing_model == "hourly_only":
-        return total_hours * rule.hourly_rate
-    return 0.0
-
-
 def _build_invoice_actor_keys(group: pd.DataFrame) -> pd.Series:
     actor_keys = pd.Series([""] * len(group), index=group.index, dtype="object")
 
@@ -597,11 +423,9 @@ def month_bounds(selected_month: str) -> tuple[str, str]:
     return f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{last_day:02d}"
 
 
-def build_invoice_summary_df(month_df: pd.DataFrame, personnel_df: pd.DataFrame | None = None) -> pd.DataFrame:
+def build_invoice_summary_df(month_df: pd.DataFrame) -> pd.DataFrame:
     if month_df is None or month_df.empty:
         return pd.DataFrame()
-
-    drilldown_map = build_restaurant_invoice_drilldown_map(month_df, personnel_df) if personnel_df is not None else {}
 
     invoicing_rows = []
     for (restaurant_id, brand, branch), group in month_df.groupby(["restaurant_id", "brand", "branch"], dropna=False):
@@ -618,19 +442,11 @@ def build_invoice_summary_df(month_df: pd.DataFrame, personnel_df: pd.DataFrame 
             fixed_monthly_fee=_SAFE_FLOAT(first.get("fixed_monthly_fee"), 0.0),
             vat_rate=_VAT_RATE_DEFAULT,
         )
-        restoran_name = f"{brand} - {branch}"
-        detail_df = drilldown_map.get(restoran_name)
-        if detail_df is not None and not detail_df.empty:
-            hours = float(pd.to_numeric(detail_df["calisma_saati"], errors="coerce").fillna(0.0).sum())
-            packages = float(pd.to_numeric(detail_df["paket"], errors="coerce").fillna(0.0).sum())
-            subtotal = float(pd.to_numeric(detail_df["kdv_haric"], errors="coerce").fillna(0.0).sum())
-            grand_total = float(pd.to_numeric(detail_df["kdv_dahil"], errors="coerce").fillna(0.0).sum())
-        else:
-            hours, packages, subtotal, grand_total = calculate_customer_invoice(group, rule)
+        hours, packages, subtotal, grand_total = calculate_customer_invoice(group, rule)
         invoicing_rows.append(
             {
                 "restaurant_id": restaurant_id,
-                "restoran": restoran_name,
+                "restoran": f"{brand} - {branch}",
                 "model": rule.pricing_model,
                 "saat": hours,
                 "paket": packages,
@@ -681,35 +497,10 @@ def build_restaurant_invoice_drilldown_map(
     work["planned_personnel_id"] = pd.to_numeric(work["planned_personnel_id"], errors="coerce").astype("Int64")
 
     if personnel_df is not None and not personnel_df.empty and "id" in personnel_df.columns:
-        people_lookup = personnel_df.copy()
-        for column_name, default_value in {
-            "full_name": "",
-            "role": "",
-            "cost_model": "",
-            "start_date": None,
-        }.items():
-            if column_name not in people_lookup.columns:
-                people_lookup[column_name] = default_value
-        people_lookup = people_lookup[["id", "full_name", "role", "cost_model", "start_date"]].copy()
+        people_lookup = personnel_df[["id", "full_name", "role"]].copy()
         people_lookup["id"] = pd.to_numeric(people_lookup["id"], errors="coerce").astype("Int64")
-        actual_lookup = people_lookup.rename(
-            columns={
-                "id": "actual_personnel_id",
-                "full_name": "actual_personel",
-                "role": "actual_rol",
-                "cost_model": "actual_cost_model",
-                "start_date": "actual_start_date",
-            }
-        )
-        planned_lookup = people_lookup.rename(
-            columns={
-                "id": "planned_personnel_id",
-                "full_name": "planned_personel",
-                "role": "planned_rol",
-                "cost_model": "planned_cost_model",
-                "start_date": "planned_start_date",
-            }
-        )
+        actual_lookup = people_lookup.rename(columns={"id": "actual_personnel_id", "full_name": "actual_personel", "role": "actual_rol"})
+        planned_lookup = people_lookup.rename(columns={"id": "planned_personnel_id", "full_name": "planned_personel", "role": "planned_rol"})
         work = work.merge(actual_lookup, how="left", on="actual_personnel_id")
         work = work.merge(planned_lookup, how="left", on="planned_personnel_id")
     else:
@@ -717,20 +508,12 @@ def build_restaurant_invoice_drilldown_map(
         work["actual_rol"] = None
         work["planned_personel"] = None
         work["planned_rol"] = None
-        work["actual_cost_model"] = None
-        work["planned_cost_model"] = None
-        work["actual_start_date"] = None
-        work["planned_start_date"] = None
 
     work["courier_id"] = work["actual_personnel_id"].where(work["actual_personnel_id"].notna(), work["planned_personnel_id"])
     work["personel"] = work["actual_personel"].fillna("").astype(str)
     work.loc[work["personel"].str.strip() == "", "personel"] = work["planned_personel"].fillna("").astype(str)
     work["rol"] = work["actual_rol"].fillna("").astype(str)
     work.loc[work["rol"].str.strip() == "", "rol"] = work["planned_rol"].fillna("").astype(str)
-    work["cost_model"] = work["actual_cost_model"].fillna("").astype(str)
-    work.loc[work["cost_model"].str.strip() == "", "cost_model"] = work["planned_cost_model"].fillna("").astype(str)
-    work["start_date"] = work["actual_start_date"]
-    work.loc[work["start_date"].isna(), "start_date"] = work["planned_start_date"]
     work.loc[(work["personel"].astype(str).str.strip() == "") & work["courier_id"].notna(), "personel"] = (
         "Personel #" + work["courier_id"].fillna(0).astype(int).astype(str)
     )
@@ -752,6 +535,9 @@ def build_restaurant_invoice_drilldown_map(
             fixed_monthly_fee=_SAFE_FLOAT(first.get("fixed_monthly_fee"), 0.0),
             vat_rate=_VAT_RATE_DEFAULT,
         )
+        resolved_fixed_monthly_fee = _resolve_fixed_monthly_fee_from_group(restaurant_entries, rule.fixed_monthly_fee)
+        restaurant_total_hours, restaurant_total_packages, _, _ = calculate_customer_invoice(restaurant_entries, rule)
+
         grouped = (
             restaurant_entries.groupby(["personel", "rol"], dropna=False)
             .agg(calisma_saati=("worked_hours", "sum"), paket=("package_count", "sum"))
@@ -761,18 +547,26 @@ def build_restaurant_invoice_drilldown_map(
         if grouped.empty:
             continue
 
-        resolved_fixed_monthly_fee = _resolve_fixed_monthly_fee_from_group(restaurant_entries, rule.fixed_monthly_fee)
+        courier_count = len(grouped)
         subtotal_values = []
         for _, courier_row in grouped.iterrows():
-            person_entries = restaurant_entries[
-                (restaurant_entries["personel"] == courier_row["personel"])
-                & (restaurant_entries["rol"] == courier_row["rol"])
-            ].copy()
-            courier_subtotal = _calculate_invoice_subtotal_for_person(
-                person_entries,
-                rule,
-                resolved_fixed_monthly_fee,
-            )
+            courier_hours = _SAFE_FLOAT(courier_row.get("calisma_saati"), 0.0)
+            courier_packages = _SAFE_FLOAT(courier_row.get("paket"), 0.0)
+            if rule.pricing_model == "hourly_plus_package":
+                courier_subtotal = courier_hours * rule.hourly_rate + courier_packages * rule.package_rate
+            elif rule.pricing_model == "threshold_package":
+                courier_subtotal = _calculate_threshold_package_subtotal(courier_hours, courier_packages, rule)
+            elif rule.pricing_model == "hourly_only":
+                courier_subtotal = courier_hours * rule.hourly_rate
+            elif rule.pricing_model == "fixed_monthly":
+                if restaurant_total_hours > 0:
+                    courier_subtotal = resolved_fixed_monthly_fee * (courier_hours / restaurant_total_hours)
+                elif restaurant_total_packages > 0:
+                    courier_subtotal = resolved_fixed_monthly_fee * (courier_packages / restaurant_total_packages)
+                else:
+                    courier_subtotal = resolved_fixed_monthly_fee / max(courier_count, 1)
+            else:
+                courier_subtotal = 0.0
             subtotal_values.append(courier_subtotal)
 
         grouped["kdv_haric"] = subtotal_values

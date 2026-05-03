@@ -142,7 +142,7 @@ def build_dashboard_workspace_payload(
     )
     month_packages = float(month_entries["package_count"].sum()) if not month_entries.empty else 0.0
 
-    invoice_df = build_invoice_summary_df(month_entries, personnel_df)
+    invoice_df = build_invoice_summary_df(month_entries)
     profit_df, _, shared_overhead_df = build_branch_profitability_fn(
         month_entries,
         personnel_df,
