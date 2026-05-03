@@ -72,7 +72,7 @@ export type Restaurant = {
   contact_name: string | null;
   contact_phone: string | null;
   start_date: string | null;
-  active: boolean | null;
+  active: number | null;
 };
 
 export async function listRestaurants(): Promise<Restaurant[]> {

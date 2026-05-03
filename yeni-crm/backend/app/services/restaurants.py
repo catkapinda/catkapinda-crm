@@ -16,9 +16,9 @@ def list_restaurants(active: bool | None = True) -> list[dict]:
     """
     params: list = []
     if active is True:
-        sql += " WHERE active = true"
+        sql += " WHERE active = 1"
     elif active is False:
-        sql += " WHERE active = false"
+        sql += " WHERE active = 0"
     sql += " ORDER BY brand, branch"
 
     with get_connection() as conn:

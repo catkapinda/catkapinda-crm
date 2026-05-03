@@ -29,7 +29,7 @@ def get_dashboard_summary(period: str = "current") -> dict:
             row = cur.fetchone()
             active_count = row[0] if row else 0
 
-            cur.execute("SELECT COUNT(*) FROM restaurants WHERE active = true")
+            cur.execute("SELECT COUNT(*) FROM restaurants WHERE active = 1")
             row = cur.fetchone()
             restaurant_count = row[0] if row else 0
 
