@@ -796,73 +796,156 @@ function PersonCard({
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase())
     .join('');
-  const grad = AVATAR_GRADIENTS[(p.id ?? 0) % AVATAR_GRADIENTS.length];
   const role = p.role ?? '?';
   const roleStyle = ROLE_STYLES[role] ?? 'bg-bg-surface2 text-text-2';
   const veh = vehicleLabel(p);
   const acc = accountingLabel(p);
   const hasFixed = (p.monthly_fixed_cost ?? 0) > 0;
+  const isAktif = (p.status ?? 'Aktif') === 'Aktif';
+
+  // Cover gradient — role'a göre (tasarımdan)
+  const cover =
+    role === 'Kurye'
+      ? 'bg-gradient-to-br from-blue-100 to-blue-200'
+      : role === 'Joker'
+      ? 'bg-gradient-to-br from-yellow-100 to-yellow-200'
+      : role === 'Bölge Müdürü'
+      ? 'bg-gradient-to-br from-slate-800 to-slate-700'
+      : role === 'Kaptan'
+      ? 'bg-gradient-to-br from-cream-200 to-cream-300'
+      : role === 'Restoran Takım Şefi'
+      ? 'bg-gradient-to-br from-blue-200 to-blue-300'
+      : 'bg-gradient-to-br from-bg-surface2 to-bg-surface';
+
+  // Avatar gradient — role'a göre
+  const avatarGrad =
+    role === 'Kurye'
+      ? 'from-blue-700 to-blue-500'
+      : role === 'Joker'
+      ? 'from-yellow-600 to-yellow-400'
+      : role === 'Bölge Müdürü'
+      ? 'from-blue-900 to-blue-700'
+      : role === 'Kaptan'
+      ? 'from-yellow-700 to-yellow-500'
+      : role === 'Restoran Takım Şefi'
+      ? 'from-green-700 to-green-500'
+      : 'from-slate-700 to-slate-500';
 
   return (
     <button
       onClick={onEdit}
-      className="text-left bg-bg-surface border border-border rounded-xl p-3.5 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-brand/40 transition-all"
+      className="group text-left bg-bg-surface border border-border rounded-2xl shadow-sm overflow-hidden hover:shadow-xl hover:-translate-y-1 hover:border-brand/40 transition-all duration-300 relative"
     >
-      <div className="flex items-center gap-2.5 mb-2.5">
+      {/* Sol kenar mavi şerit (hover'da büyür) */}
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-brand origin-top scale-y-[0.3] group-hover:scale-y-100 transition-transform duration-300" />
+
+      {/* Cover */}
+      <div className={`h-[50px] ${cover} relative border-b border-border`}>
+        {isAktif && (
+          <div className="absolute top-3 right-3.5 w-2.5 h-2.5 rounded-full bg-green-500 ring-[3px] ring-white animate-pulse-soft" />
+        )}
+        {hasFixed && (
+          <div className="absolute top-2.5 left-3.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-brand shadow-sm">
+            ₺ Sabit aylık
+          </div>
+        )}
+      </div>
+
+      {/* Avatar — büyük, beyaz halkalı */}
+      <div className="px-[18px] pt-0 pb-[18px] relative">
         <div
-          className={`w-10 h-10 rounded-full bg-gradient-to-br ${grad} text-white font-bold flex items-center justify-center text-[12px] flex-shrink-0`}
+          className={`absolute -top-7 left-[18px] w-14 h-14 rounded-full bg-gradient-to-br ${avatarGrad} text-white font-bold flex items-center justify-center text-[20px] ring-[3px] ring-white shadow-md`}
         >
           {initials || '?'}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="font-medium text-text text-sm truncate">
+
+        {/* Ad + kod + role pill */}
+        <div className="pt-[34px]">
+          <div className="font-display font-semibold text-[15.5px] tracking-tight truncate">
             {p.full_name ?? '—'}
           </div>
-          <div className="text-[10.5px] text-text-3 font-mono">
-            {p.person_code ?? '—'}
+          <div className="flex gap-1.5 items-center mt-1.5 flex-wrap">
+            <span className="font-mono text-[11px] text-text-3 font-medium">
+              {p.person_code ?? '—'}
+            </span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[11.5px] font-semibold ${roleStyle}`}
+            >
+              {role}
+            </span>
+          </div>
+
+          {restName && (
+            <div className="text-[12.5px] text-text-2 font-medium mt-2 flex items-center gap-1.5 truncate">
+              <span className="text-[12px]">🍽</span>
+              <span className="truncate">{restName}</span>
+            </div>
+          )}
+
+          {/* Mini etiket çubuğu — araç + muhasebe + şirket */}
+          <div className="flex flex-wrap items-center gap-1 mt-2.5">
+            <span
+              className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${veh.color}`}
+            >
+              {veh.label}
+            </span>
+            <span
+              className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${acc.color}`}
+            >
+              {acc.label}
+            </span>
+            {p.new_company_setup === 'Evet' && (
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700">
+                🏢 Şirket
+              </span>
+            )}
+          </div>
+
+          {/* Telefon + plaka + ücret */}
+          <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-border bg-cream-50/40 -mx-[18px] -mb-[18px] px-[18px] py-3">
+            <div>
+              <div className="text-[9.5px] text-text-3 font-semibold uppercase tracking-wider">
+                Plaka
+              </div>
+              <div className="font-mono text-[12px] font-bold text-text mt-0.5 truncate">
+                {p.current_plate ?? '—'}
+              </div>
+            </div>
+            <div>
+              <div className="text-[9.5px] text-text-3 font-semibold uppercase tracking-wider">
+                Telefon
+              </div>
+              <div className="font-mono text-[11px] text-text mt-0.5 truncate">
+                {p.phone?.replace(/^0\s/, '0') ?? '—'}
+              </div>
+            </div>
+            <div>
+              <div className="text-[9.5px] text-text-3 font-semibold uppercase tracking-wider">
+                {hasFixed ? 'Aylık' : 'Tarife'}
+              </div>
+              <div className="font-mono text-[12px] font-bold mt-0.5 truncate">
+                {hasFixed ? (
+                  <span className="text-brand">
+                    {((p.monthly_fixed_cost ?? 0) / 1000).toFixed(0)}K ₺
+                  </span>
+                ) : (
+                  <span className="text-text-3">restoran</span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-        <span
-          className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${roleStyle} whitespace-nowrap`}
-        >
-          {role}
-        </span>
       </div>
 
-      {restName && (
-        <div className="text-[11.5px] text-text-2 mb-2 truncate">
-          📍 {restName}
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-1 mb-2">
-        <span
-          className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${veh.color}`}
-        >
-          🏍️ {veh.label}
-        </span>
-        <span
-          className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${acc.color}`}
-        >
-          📊 {acc.label}
-        </span>
-        {p.new_company_setup === 'Evet' && (
-          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700">
-            🏢 Şirket
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-border">
-        <span className="font-mono text-text-3">{p.phone ?? '—'}</span>
-        {hasFixed ? (
-          <span className="num font-semibold text-brand">
-            {tr(p.monthly_fixed_cost)} ₺/ay
-          </span>
-        ) : (
-          <span className="text-text-3">—</span>
-        )}
-      </div>
+      <style jsx>{`
+        @keyframes pulse-soft {
+          0%, 100% { box-shadow: 0 0 0 3px rgba(255,255,255,1), 0 0 0 4px rgba(16,185,129,0.18); }
+          50% { box-shadow: 0 0 0 3px rgba(255,255,255,1), 0 0 0 7px rgba(16,185,129,0.05); }
+        }
+        :global(.animate-pulse-soft) {
+          animation: pulse-soft 2.4s ease-in-out infinite;
+        }
+      `}</style>
     </button>
   );
 }

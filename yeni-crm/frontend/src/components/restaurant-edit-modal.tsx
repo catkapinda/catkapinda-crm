@@ -45,6 +45,9 @@ export function RestaurantEditModal({
     contact_name: r?.contact_name ?? '',
     contact_phone: r?.contact_phone ?? '',
     contact_email: r?.contact_email ?? '',
+    company_title: r?.company_title ?? '',
+    tax_office: r?.tax_office ?? '',
+    tax_number: r?.tax_number ?? '',
     address: r?.address ?? '',
     notes: r?.notes ?? '',
   });
@@ -191,26 +194,34 @@ export function RestaurantEditModal({
           )}
 
           {model === 'threshold_package' && (
-            <div className="grid grid-cols-3 gap-3">
-              <Field label="Eşik (paket)">
+            <>
+              <Field label="Saat Ücreti (₺/saat)">
                 <NumberInput
-                  value={form.package_threshold}
-                  onChange={(v) => set('package_threshold', Math.round(v ?? 0))}
+                  value={form.hourly_rate}
+                  onChange={(v) => set('hourly_rate', v)}
                 />
               </Field>
-              <Field label="≤ Eşik (₺/paket)">
-                <NumberInput
-                  value={form.package_rate_low}
-                  onChange={(v) => set('package_rate_low', v)}
-                />
-              </Field>
-              <Field label="> Eşik (₺/paket)">
-                <NumberInput
-                  value={form.package_rate_high}
-                  onChange={(v) => set('package_rate_high', v)}
-                />
-              </Field>
-            </div>
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Eşik (paket)">
+                  <NumberInput
+                    value={form.package_threshold}
+                    onChange={(v) => set('package_threshold', Math.round(v ?? 0))}
+                  />
+                </Field>
+                <Field label="≤ Eşik (₺/paket)">
+                  <NumberInput
+                    value={form.package_rate_low}
+                    onChange={(v) => set('package_rate_low', v)}
+                  />
+                </Field>
+                <Field label="> Eşik (₺/paket)">
+                  <NumberInput
+                    value={form.package_rate_high}
+                    onChange={(v) => set('package_rate_high', v)}
+                  />
+                </Field>
+              </div>
+            </>
           )}
 
           {model === 'fixed_monthly' && (
@@ -234,17 +245,55 @@ export function RestaurantEditModal({
             </Field>
           </div>
 
+          {/* Resmi Bilgiler */}
+          <div className="border-t border-border pt-4">
+            <div className="text-[11px] uppercase tracking-wider text-text-3 font-semibold mb-3">
+              📋 Resmi Bilgiler
+            </div>
+            <Field label="Ticari Ünvan">
+              <input
+                type="text"
+                value={form.company_title ?? ''}
+                onChange={(e) => set('company_title', e.target.value)}
+                placeholder="Örn. SUSHICO GIDA ANONİM ŞİRKETİ"
+                className="input"
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Field label="Vergi Dairesi">
+                <input
+                  type="text"
+                  value={form.tax_office ?? ''}
+                  onChange={(e) => set('tax_office', e.target.value)}
+                  placeholder="Örn. Sarıgazi VD"
+                  className="input"
+                />
+              </Field>
+              <Field label="Vergi Numarası">
+                <input
+                  type="text"
+                  value={form.tax_number ?? ''}
+                  onChange={(e) => set('tax_number', e.target.value)}
+                  placeholder="10 hane"
+                  maxLength={11}
+                  className="input num"
+                />
+              </Field>
+            </div>
+          </div>
+
           {/* İletişim */}
           <div className="border-t border-border pt-4">
             <div className="text-[11px] uppercase tracking-wider text-text-3 font-semibold mb-3">
-              İletişim
+              📞 İletişim
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Yetkili">
+              <Field label="Yetkili İsim Soyisim">
                 <input
                   type="text"
                   value={form.contact_name ?? ''}
                   onChange={(e) => set('contact_name', e.target.value)}
+                  placeholder="Örn. Gökhan Çelik"
                   className="input"
                 />
               </Field>
