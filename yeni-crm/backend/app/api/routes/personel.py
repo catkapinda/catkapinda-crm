@@ -18,6 +18,7 @@ router = APIRouter()
 class PersonnelUpdate(BaseModel):
     """Güncellenebilir alanlar — hepsi opsiyonel (PATCH)."""
 
+    # Temel
     full_name: str | None = None
     person_code: str | None = None
     role: str | None = None
@@ -27,14 +28,37 @@ class PersonnelUpdate(BaseModel):
     assigned_restaurant_id: int | None = None
     start_date: str | None = None
     exit_date: str | None = None
+    # Hakediş & faturalandırma
     monthly_fixed_cost: float | None = None
     fixed_monthly_billing: float | None = None
+    # Araç
     vehicle_type: str | None = None
+    motor_purchase: str | None = None
+    motor_purchase_sale_price: float | None = None
+    motor_purchase_start_date: str | None = None
+    motor_purchase_commitment_months: int | None = None
+    motor_purchase_installment_count: int | None = None
+    motor_purchase_monthly_amount: float | None = None
+    motor_purchase_monthly_deduction: float | None = None
+    motor_rental: str | None = None
+    motor_rental_monthly_amount: float | None = None
+    # Muhasebe
+    accounting_type: str | None = None
+    accountant_cost: float | None = None
+    accounting_revenue: float | None = None
+    accounting_effective_date: str | None = None
+    # Şirket açılışı
+    new_company_setup: str | None = None
+    company_setup_cost: float | None = None
+    company_setup_revenue: float | None = None
+    company_setup_effective_date: str | None = None
+    cost_model: str | None = None
+    # Kimlik & banka
     tc_no: str | None = None
     iban: str | None = None
     tax_number: str | None = None
     tax_office: str | None = None
-    accounting_type: str | None = None
+    # Adres & acil durum
     address: str | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
@@ -55,9 +79,12 @@ class PersonnelCreate(BaseModel):
     monthly_fixed_cost: float | None = None
     fixed_monthly_billing: float | None = None
     vehicle_type: str | None = None
+    motor_purchase: str | None = None
+    motor_rental: str | None = None
+    accounting_type: str | None = None
+    new_company_setup: str | None = None
     tc_no: str | None = None
     iban: str | None = None
-    accounting_type: str | None = None
     address: str | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None

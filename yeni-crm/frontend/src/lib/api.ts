@@ -61,12 +61,33 @@ export type Personnel = {
   exit_date: string | null;
   monthly_fixed_cost?: number | null;
   fixed_monthly_billing?: number | null;
+  // Araç
   vehicle_type?: string | null;
+  motor_purchase?: string | null;
+  motor_purchase_sale_price?: number | null;
+  motor_purchase_start_date?: string | null;
+  motor_purchase_commitment_months?: number | null;
+  motor_purchase_installment_count?: number | null;
+  motor_purchase_monthly_amount?: number | null;
+  motor_purchase_monthly_deduction?: number | null;
+  motor_rental?: string | null;
+  motor_rental_monthly_amount?: number | null;
+  // Muhasebe
+  accounting_type?: string | null;
+  accountant_cost?: number | null;
+  accounting_revenue?: number | null;
+  accounting_effective_date?: string | null;
+  // Şirket açılışı
+  new_company_setup?: string | null;
+  company_setup_cost?: number | null;
+  company_setup_revenue?: number | null;
+  company_setup_effective_date?: string | null;
+  cost_model?: string | null;
+  // Kimlik & banka
   tc_no?: string | null;
   iban?: string | null;
   tax_number?: string | null;
   tax_office?: string | null;
-  accounting_type?: string | null;
   address?: string | null;
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;

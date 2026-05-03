@@ -5,27 +5,12 @@ import { useMemo, useState } from 'react';
 import { PersonnelEditModal } from '@/components/personnel-edit-modal';
 import type { Personnel, Restaurant } from '@/lib/api';
 
-const ROLE_STYLES: Record<string, { color: string; cover: string }> = {
-  Kurye: {
-    color: 'bg-brand-soft text-brand',
-    cover: 'bg-gradient-to-br from-blue-100 to-blue-200',
-  },
-  Joker: {
-    color: 'bg-cream-100 text-yellow-800',
-    cover: 'bg-gradient-to-br from-yellow-100 to-yellow-200',
-  },
-  'Bölge Müdürü': {
-    color: 'bg-text text-white',
-    cover: 'bg-gradient-to-br from-slate-800 to-slate-700',
-  },
-  Kaptan: {
-    color: 'bg-purple-100 text-purple-800',
-    cover: 'bg-gradient-to-br from-purple-100 to-purple-200',
-  },
-  'Restoran Takım Şefi': {
-    color: 'bg-green-100 text-green-800',
-    cover: 'bg-gradient-to-br from-green-100 to-green-200',
-  },
+const ROLE_STYLES: Record<string, string> = {
+  Kurye: 'bg-brand-soft text-brand',
+  Joker: 'bg-cream-100 text-yellow-800',
+  'Bölge Müdürü': 'bg-text text-white',
+  Kaptan: 'bg-purple-100 text-purple-800',
+  'Restoran Takım Şefi': 'bg-green-100 text-green-800',
 };
 
 const STATUS_TABS = [
@@ -52,6 +37,54 @@ const AVATAR_GRADIENTS = [
   'from-green-700 to-green-500',
 ];
 
+type SortKey = 'code' | 'name' | 'role' | 'restaurant' | 'fixed' | 'start';
+type SortDir = 'asc' | 'desc';
+
+function tr(value: number | null | undefined, digits = 0): string {
+  if (value == null || value === 0) return '—';
+  return value.toLocaleString('tr-TR', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function formatDateShort(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso;
+  return `${m[3]}.${m[2]}.${m[1].slice(2)}`;
+}
+
+function vehicleLabel(p: Personnel): { label: string; color: string } {
+  if (p.motor_purchase === 'Evet') {
+    return { label: 'Satış motoru', color: 'bg-purple-50 text-purple-700' };
+  }
+  if (p.motor_rental === 'Evet') {
+    return { label: 'ÇK kiralık', color: 'bg-orange-50 text-orange-700' };
+  }
+  if (p.vehicle_type) {
+    return { label: 'Kendi motoru', color: 'bg-bg-surface2 text-text-2' };
+  }
+  return { label: '—', color: 'bg-bg-surface2 text-text-3' };
+}
+
+function accountingLabel(p: Personnel): { label: string; color: string } {
+  const t = p.accounting_type ?? '';
+  if (t === 'Çat Kapında Muhasebe') {
+    return { label: 'ÇK muhasebe', color: 'bg-blue-50 text-blue-700' };
+  }
+  if (t === 'Şahıs şirketi') {
+    return { label: 'Şahıs şirketi', color: 'bg-green-50 text-green-700' };
+  }
+  if (t === 'Kendi muhasebesi') {
+    return { label: 'Kendi muhasebesi', color: 'bg-bg-surface2 text-text-2' };
+  }
+  if (t) {
+    return { label: t, color: 'bg-bg-surface2 text-text-2' };
+  }
+  return { label: '—', color: 'bg-bg-surface2 text-text-3' };
+}
+
 export function PersonnelView({
   personnel,
   restaurants,
@@ -63,16 +96,25 @@ export function PersonnelView({
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [restaurantFilter, setRestaurantFilter] = useState<number | 'all' | 'unassigned'>('all');
   const [search, setSearch] = useState('');
+  const [view, setView] = useState<'table' | 'card'>('table');
+  const [sortKey, setSortKey] = useState<SortKey>('code');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
 
-  // Restoran adlarını id'den hızlı bulmak için map
   const restMap = useMemo(() => {
     const m = new Map<number, Restaurant>();
     for (const r of restaurants) m.set(r.id, r);
     return m;
   }, [restaurants]);
+
+  const restName = (id: number | null | undefined): string | null => {
+    if (id == null) return null;
+    const r = restMap.get(id);
+    if (!r) return null;
+    return `${r.brand}${r.branch ? ` · ${r.branch}` : ''}`;
+  };
 
   const counts = useMemo(() => {
     const c = { Aktif: 0, Pasif: 0, 'Kara Liste': 0 };
@@ -85,7 +127,7 @@ export function PersonnelView({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr-TR');
-    return personnel.filter((p) => {
+    let list = personnel.filter((p) => {
       if ((p.status ?? 'Aktif') !== statusTab) return false;
       if (roleFilter !== 'all' && p.role !== roleFilter) return false;
       if (restaurantFilter === 'unassigned') {
@@ -100,9 +142,41 @@ export function PersonnelView({
       }
       return true;
     });
-  }, [personnel, statusTab, roleFilter, restaurantFilter, search]);
 
-  // Hero metrikleri (statusTab'a değil, hep Aktif'e göre)
+    list = [...list].sort((a, b) => {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      switch (sortKey) {
+        case 'name':
+          return dir * (a.full_name ?? '').localeCompare(b.full_name ?? '', 'tr-TR');
+        case 'role':
+          return dir * (a.role ?? '').localeCompare(b.role ?? '', 'tr-TR');
+        case 'restaurant': {
+          const ra = restName(a.assigned_restaurant_id) ?? '';
+          const rb = restName(b.assigned_restaurant_id) ?? '';
+          return dir * ra.localeCompare(rb, 'tr-TR');
+        }
+        case 'fixed':
+          return dir * ((a.monthly_fixed_cost ?? 0) - (b.monthly_fixed_cost ?? 0));
+        case 'start':
+          return dir * (a.start_date ?? '').localeCompare(b.start_date ?? '');
+        default:
+          return dir * (a.person_code ?? '').localeCompare(b.person_code ?? '');
+      }
+    });
+
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personnel, statusTab, roleFilter, restaurantFilter, search, sortKey, sortDir, restMap]);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
+
   const activeOnly = personnel.filter((p) => (p.status ?? '') === 'Aktif');
   const heroMetrics = {
     total: activeOnly.length,
@@ -111,24 +185,20 @@ export function PersonnelView({
     yonetim: activeOnly.filter((p) =>
       ['Bölge Müdürü', 'Kaptan', 'Restoran Takım Şefi'].includes(p.role ?? '')
     ).length,
+    sabitAylik: activeOnly.filter((p) => (p.monthly_fixed_cost ?? 0) > 0).length,
+    motorSatis: activeOnly.filter((p) => p.motor_purchase === 'Evet').length,
+    motorKira: activeOnly.filter((p) => p.motor_rental === 'Evet').length,
+    sirketAcilis: activeOnly.filter((p) => p.new_company_setup === 'Evet').length,
   };
 
   const editing = editingId != null
     ? personnel.find((p) => p.id === editingId) ?? null
     : null;
 
-  // Restoran adı yardımcı
-  const restName = (id: number | null | undefined): string | null => {
-    if (id == null) return null;
-    const r = restMap.get(id);
-    if (!r) return null;
-    return `${r.brand}${r.branch ? ` · ${r.branch}` : ''}`;
-  };
-
   return (
     <>
       {/* Header */}
-      <header className="flex justify-between items-end gap-5 flex-wrap mb-6">
+      <header className="flex justify-between items-end gap-5 flex-wrap mb-5">
         <div>
           <div className="text-[13px] text-text-3 font-medium mb-1.5">
             Operasyon · <span className="text-brand">Personel</span>
@@ -137,7 +207,9 @@ export function PersonnelView({
             Personel
           </h1>
           <div className="text-text-3 text-sm mt-1 font-medium">
-            {personnel.length} toplam · {heroMetrics.total} aktif · {restaurants.length} restoranda görev başında
+            {personnel.length} toplam · {heroMetrics.total} aktif ·{' '}
+            {heroMetrics.sabitAylik} sabit aylık ·{' '}
+            {heroMetrics.motorSatis + heroMetrics.motorKira} motor sözleşmeli
           </div>
         </div>
         <button
@@ -149,38 +221,43 @@ export function PersonnelView({
         </button>
       </header>
 
-      {/* Hero Strip */}
-      <div className="bg-bg-surface border border-border rounded-2xl shadow-md flex overflow-hidden mb-5">
+      {/* Hero strip — daha bilgi yoğun */}
+      <div className="bg-bg-surface border border-border rounded-2xl shadow-md flex overflow-hidden mb-4">
         <HeroCell
           label="Toplam Aktif"
           value={heroMetrics.total.toString()}
           brand
-          meta="canlı veri · Supabase"
+          meta="canlı veri"
         />
         <HeroCell
           label="Kurye"
           value={heroMetrics.kurye.toString()}
-          meta={
-            heroMetrics.total > 0
-              ? `%${Math.round((heroMetrics.kurye / heroMetrics.total) * 100)} ekibin`
-              : ''
-          }
-        />
-        <HeroCell
-          label="Yönetim"
-          value={heroMetrics.yonetim.toString()}
-          meta="BM · Kaptan · Şef"
+          meta={`${heroMetrics.yonetim} yönetici`}
         />
         <HeroCell
           label="Joker"
           value={heroMetrics.joker.toString()}
           meta="dış kurye"
         />
+        <HeroCell
+          label="Sabit Aylık"
+          value={heroMetrics.sabitAylik.toString()}
+          meta="hakedişi belirli"
+        />
+        <HeroCell
+          label="Motor Sözleşmesi"
+          value={(heroMetrics.motorSatis + heroMetrics.motorKira).toString()}
+          meta={`${heroMetrics.motorSatis} satış · ${heroMetrics.motorKira} kira`}
+        />
+        <HeroCell
+          label="Şirket Açılışı"
+          value={heroMetrics.sirketAcilis.toString()}
+          meta="şahıs şirketi"
+        />
       </div>
 
-      {/* Toolbar */}
-      <div className="bg-bg-surface border border-border rounded-2xl p-3 shadow-sm mb-4 flex flex-wrap items-center gap-2 sticky top-0 z-10 backdrop-blur-md bg-bg-surface/90">
-        {/* Status tab'ları */}
+      {/* Sticky Toolbar */}
+      <div className="bg-bg-surface border border-border rounded-2xl p-3 shadow-sm mb-3 flex flex-wrap items-center gap-2 sticky top-0 z-20 backdrop-blur-md bg-bg-surface/95">
         <div className="flex gap-1 bg-bg-surface2 rounded-lg p-1">
           {STATUS_TABS.map((tab) => (
             <button
@@ -213,7 +290,13 @@ export function PersonnelView({
         />
 
         <select
-          value={restaurantFilter === 'all' ? 'all' : restaurantFilter === 'unassigned' ? 'unassigned' : String(restaurantFilter)}
+          value={
+            restaurantFilter === 'all'
+              ? 'all'
+              : restaurantFilter === 'unassigned'
+              ? 'unassigned'
+              : String(restaurantFilter)
+          }
           onChange={(e) => {
             const v = e.target.value;
             if (v === 'all') setRestaurantFilter('all');
@@ -231,13 +314,38 @@ export function PersonnelView({
           ))}
         </select>
 
-        <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider ml-auto">
+        <div className="flex items-center gap-1 bg-bg-surface2 rounded-lg p-1 ml-auto">
+          <button
+            onClick={() => setView('table')}
+            className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition ${
+              view === 'table'
+                ? 'bg-brand text-white shadow-sm'
+                : 'text-text-2 hover:bg-bg-surface'
+            }`}
+            title="Tablo görünümü"
+          >
+            ≡ Tablo
+          </button>
+          <button
+            onClick={() => setView('card')}
+            className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition ${
+              view === 'card'
+                ? 'bg-brand text-white shadow-sm'
+                : 'text-text-2 hover:bg-bg-surface'
+            }`}
+            title="Kart görünümü"
+          >
+            ◫ Kart
+          </button>
+        </div>
+
+        <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider">
           {filtered.length} sonuç
         </span>
       </div>
 
       {/* Rol chip'leri */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-5">
+      <div className="flex flex-wrap items-center gap-1.5 mb-4">
         <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider mr-1">
           Rol
         </span>
@@ -245,7 +353,7 @@ export function PersonnelView({
           const count = personnel.filter(
             (p) =>
               (p.status ?? 'Aktif') === statusTab &&
-              (r.key === 'all' || p.role === r.key)
+              (r.key === 'all' || p.role === r.key),
           ).length;
           return (
             <button
@@ -270,23 +378,26 @@ export function PersonnelView({
         })}
       </div>
 
-      {/* Cards */}
+      {/* İçerik */}
       {filtered.length === 0 ? (
         <div className="bg-bg-surface border border-border rounded-2xl p-8 text-center text-text-3 text-sm">
           Sonuç bulunamadı.
         </div>
+      ) : view === 'table' ? (
+        <PersonnelTable
+          personnel={filtered}
+          restName={restName}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={toggleSort}
+          onEdit={(id) => setEditingId(id)}
+        />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
-          {filtered.map((p, idx) => (
-            <PersonCard
-              key={p.id}
-              p={p}
-              restName={restName(p.assigned_restaurant_id)}
-              onEdit={() => setEditingId(p.id)}
-              delay={Math.min(idx * 25, 250)}
-            />
-          ))}
-        </div>
+        <PersonnelCardGrid
+          personnel={filtered}
+          restName={restName}
+          onEdit={(id) => setEditingId(id)}
+        />
       )}
 
       {creating && (
@@ -309,43 +420,121 @@ export function PersonnelView({
   );
 }
 
-function HeroCell({
-  label, value, meta, brand,
-}: { label: string; value: string; meta?: string; brand?: boolean }) {
+// ──────────────────────────────────────────────────────────────────
+// Tablo görünümü — kompakt, çok bilgi
+// ──────────────────────────────────────────────────────────────────
+
+function PersonnelTable({
+  personnel, restName, sortKey, sortDir, onSort, onEdit,
+}: {
+  personnel: Personnel[];
+  restName: (id: number | null | undefined) => string | null;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (k: SortKey) => void;
+  onEdit: (id: number) => void;
+}) {
   return (
-    <div
-      className={`flex-1 px-5 py-4 border-r border-border last:border-r-0 ${
-        brand ? 'bg-gradient-to-br from-brand-dark to-brand text-white' : ''
-      }`}
-    >
-      <div
-        className={`text-[11px] font-semibold uppercase tracking-wider ${
-          brand ? 'opacity-85' : 'text-text-3'
-        }`}
-      >
-        {label}
+    <div className="bg-bg-surface border border-border rounded-2xl shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13px]">
+          <thead className="bg-bg-surface2 text-text-3 text-[11px] uppercase tracking-wider sticky top-[60px] z-10">
+            <tr>
+              <SortableTh
+                label="Personel"
+                k="code"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={onSort}
+                width="w-[230px]"
+              />
+              <SortableTh
+                label="Rol"
+                k="role"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTh
+                label="Restoran"
+                k="restaurant"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
+              <th className="text-left px-3 py-2.5 font-semibold">Telefon</th>
+              <th className="text-left px-3 py-2.5 font-semibold">Plaka</th>
+              <th className="text-left px-3 py-2.5 font-semibold">Araç</th>
+              <th className="text-left px-3 py-2.5 font-semibold">Muhasebe</th>
+              <th className="text-left px-3 py-2.5 font-semibold">Şirket</th>
+              <SortableTh
+                label="Aylık ₺"
+                k="fixed"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <SortableTh
+                label="Başl."
+                k="start"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
+            </tr>
+          </thead>
+          <tbody>
+            {personnel.map((p) => (
+              <PersonnelRow
+                key={p.id}
+                p={p}
+                restName={restName(p.assigned_restaurant_id)}
+                onClick={() => onEdit(p.id)}
+              />
+            ))}
+          </tbody>
+        </table>
       </div>
-      <div className="font-display text-2xl font-bold tracking-tight mt-1 num">
-        {value}
-      </div>
-      {meta && (
-        <div
-          className={`text-[11.5px] mt-1 ${brand ? 'opacity-85' : 'text-text-3'}`}
-        >
-          {meta}
-        </div>
-      )}
     </div>
   );
 }
 
-function PersonCard({
-  p, restName, onEdit, delay = 0,
+function SortableTh({
+  label, k, sortKey, sortDir, onSort, align = 'left', width,
+}: {
+  label: string;
+  k: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (k: SortKey) => void;
+  align?: 'left' | 'right';
+  width?: string;
+}) {
+  const active = sortKey === k;
+  return (
+    <th
+      className={`px-3 py-2.5 font-semibold cursor-pointer select-none ${
+        align === 'right' ? 'text-right' : 'text-left'
+      } ${width ?? ''} ${active ? 'text-brand' : 'hover:text-text-2'}`}
+      onClick={() => onSort(k)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        <span className="text-[9px] opacity-60">
+          {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+        </span>
+      </span>
+    </th>
+  );
+}
+
+function PersonnelRow({
+  p, restName, onClick,
 }: {
   p: Personnel;
   restName: string | null;
-  onEdit: () => void;
-  delay?: number;
+  onClick: () => void;
 }) {
   const initials = (p.full_name ?? '?')
     .split(' ')
@@ -355,94 +544,247 @@ function PersonCard({
     .join('');
   const grad = AVATAR_GRADIENTS[(p.id ?? 0) % AVATAR_GRADIENTS.length];
   const role = p.role ?? '?';
-  const style = ROLE_STYLES[role] ?? {
-    color: 'bg-bg-surface2 text-text-2',
-    cover: 'bg-gradient-to-br from-bg-surface2 to-bg-surface',
-  };
+  const roleStyle = ROLE_STYLES[role] ?? 'bg-bg-surface2 text-text-2';
+  const veh = vehicleLabel(p);
+  const acc = accountingLabel(p);
+  const hasFixed = (p.monthly_fixed_cost ?? 0) > 0;
+  const fixedAmount = p.monthly_fixed_cost ?? 0;
+
+  return (
+    <tr
+      onClick={onClick}
+      className="border-t border-border hover:bg-bg-surface2/40 transition cursor-pointer"
+    >
+      {/* Personel: avatar + isim + kod */}
+      <td className="px-3 py-2">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`w-8 h-8 rounded-full bg-gradient-to-br ${grad} text-white font-bold flex items-center justify-center text-[11px] flex-shrink-0`}
+          >
+            {initials || '?'}
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium text-text truncate">
+              {p.full_name ?? '—'}
+            </div>
+            <div className="text-[10.5px] text-text-3 font-mono">
+              {p.person_code ?? '—'}
+            </div>
+          </div>
+        </div>
+      </td>
+      {/* Rol */}
+      <td className="px-3 py-2">
+        <span
+          className={`px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold ${roleStyle} whitespace-nowrap`}
+        >
+          {role}
+        </span>
+      </td>
+      {/* Restoran */}
+      <td className="px-3 py-2">
+        {restName ? (
+          <span className="text-text-2 text-[12px]">{restName}</span>
+        ) : (
+          <span className="text-text-3 text-[11.5px]">—</span>
+        )}
+      </td>
+      {/* Telefon */}
+      <td className="px-3 py-2 font-mono text-[12px] text-text-2 whitespace-nowrap">
+        {p.phone ?? <span className="text-text-3">—</span>}
+      </td>
+      {/* Plaka */}
+      <td className="px-3 py-2 font-mono text-[11.5px] text-text-2 whitespace-nowrap">
+        {p.current_plate ?? <span className="text-text-3">—</span>}
+      </td>
+      {/* Araç */}
+      <td className="px-3 py-2">
+        <span
+          className={`px-1.5 py-0.5 rounded-md text-[10.5px] font-medium ${veh.color} whitespace-nowrap`}
+        >
+          {veh.label}
+        </span>
+      </td>
+      {/* Muhasebe */}
+      <td className="px-3 py-2">
+        <span
+          className={`px-1.5 py-0.5 rounded-md text-[10.5px] font-medium ${acc.color} whitespace-nowrap`}
+        >
+          {acc.label}
+        </span>
+      </td>
+      {/* Şirket açılışı */}
+      <td className="px-3 py-2">
+        {p.new_company_setup === 'Evet' ? (
+          <span className="px-1.5 py-0.5 rounded-md text-[10.5px] font-medium bg-blue-50 text-blue-700">
+            ✓ Açıldı
+          </span>
+        ) : (
+          <span className="text-text-3 text-[11px]">—</span>
+        )}
+      </td>
+      {/* Aylık */}
+      <td className="px-3 py-2 text-right">
+        {hasFixed ? (
+          <div>
+            <div className="num text-[12.5px] font-semibold text-brand">
+              {tr(fixedAmount)} ₺
+            </div>
+            {(p.fixed_monthly_billing ?? 0) > 0 && (
+              <div className="num text-[10.5px] text-text-3">
+                fatura {tr(p.fixed_monthly_billing)} ₺
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="text-text-3 text-[11px]">—</span>
+        )}
+      </td>
+      {/* Başlangıç */}
+      <td className="px-3 py-2 font-mono text-[11px] text-text-3 whitespace-nowrap">
+        {formatDateShort(p.start_date)}
+      </td>
+    </tr>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Kart görünümü (alternatif)
+// ──────────────────────────────────────────────────────────────────
+
+function PersonnelCardGrid({
+  personnel, restName, onEdit,
+}: {
+  personnel: Personnel[];
+  restName: (id: number | null | undefined) => string | null;
+  onEdit: (id: number) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      {personnel.map((p) => (
+        <PersonCard
+          key={p.id}
+          p={p}
+          restName={restName(p.assigned_restaurant_id)}
+          onEdit={() => onEdit(p.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function HeroCell({
+  label, value, meta, brand,
+}: { label: string; value: string; meta?: string; brand?: boolean }) {
+  return (
+    <div
+      className={`flex-1 px-4 py-3 border-r border-border last:border-r-0 ${
+        brand ? 'bg-gradient-to-br from-brand-dark to-brand text-white' : ''
+      }`}
+    >
+      <div
+        className={`text-[10px] font-semibold uppercase tracking-wider ${
+          brand ? 'opacity-85' : 'text-text-3'
+        }`}
+      >
+        {label}
+      </div>
+      <div className="font-display text-xl font-bold tracking-tight mt-0.5 num">
+        {value}
+      </div>
+      {meta && (
+        <div
+          className={`text-[10.5px] mt-0.5 ${
+            brand ? 'opacity-85' : 'text-text-3'
+          }`}
+        >
+          {meta}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PersonCard({
+  p, restName, onEdit,
+}: {
+  p: Personnel;
+  restName: string | null;
+  onEdit: () => void;
+}) {
+  const initials = (p.full_name ?? '?')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join('');
+  const grad = AVATAR_GRADIENTS[(p.id ?? 0) % AVATAR_GRADIENTS.length];
+  const role = p.role ?? '?';
+  const roleStyle = ROLE_STYLES[role] ?? 'bg-bg-surface2 text-text-2';
+  const veh = vehicleLabel(p);
+  const acc = accountingLabel(p);
   const hasFixed = (p.monthly_fixed_cost ?? 0) > 0;
 
   return (
     <button
       onClick={onEdit}
-      className="group block text-left bg-bg-surface border border-border rounded-2xl shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 hover:border-brand/60 transition-all duration-300 animate-card relative"
-      style={{ animationDelay: `${delay}ms` }}
+      className="text-left bg-bg-surface border border-border rounded-xl p-3.5 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-brand/40 transition-all"
     >
-      {/* Cover */}
-      <div className={`h-12 ${style.cover} relative`}>
-        {p.status === 'Aktif' && (
-          <div className="w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ring-white absolute top-2.5 right-2.5" />
-        )}
-        {hasFixed && (
-          <div className="absolute top-2 left-3 px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-brand shadow-sm">
-            ₺ Sabit aylık
-          </div>
-        )}
-      </div>
-
-      {/* Body */}
-      <div className="px-4 pt-3 pb-4 relative">
+      <div className="flex items-center gap-2.5 mb-2.5">
         <div
-          className={`absolute -top-7 left-4 w-14 h-14 rounded-full bg-gradient-to-br ${grad} text-white font-bold flex items-center justify-center text-base ring-[3px] ring-white shadow-sm`}
+          className={`w-10 h-10 rounded-full bg-gradient-to-br ${grad} text-white font-bold flex items-center justify-center text-[12px] flex-shrink-0`}
         >
           {initials || '?'}
         </div>
-        <div className="pt-9">
-          <div className="font-display font-semibold text-[15px] tracking-tight truncate">
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-text text-sm truncate">
             {p.full_name ?? '—'}
           </div>
-          <div className="flex gap-1.5 items-center mt-1 flex-wrap">
-            <span className="font-mono text-[11px] text-text-3 font-medium">
-              {p.person_code ?? '—'}
-            </span>
-            <span className="text-text-3 text-xs">·</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${style.color}`}
-            >
-              {role}
-            </span>
-          </div>
-
-          {restName && (
-            <div className="mt-2 text-[11.5px] text-text-2 truncate">
-              <span className="text-text-3">📍 </span>
-              {restName}
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            {p.current_plate && (
-              <span className="font-mono text-[11px] text-text-3 bg-bg-surface2 px-2 py-0.5 rounded">
-                {p.current_plate}
-              </span>
-            )}
-            {p.phone && (
-              <span className="font-mono text-[11px] text-text-2">{p.phone}</span>
-            )}
+          <div className="text-[10.5px] text-text-3 font-mono">
+            {p.person_code ?? '—'}
           </div>
         </div>
-
-        {/* Hover edit hint */}
-        <div className="mt-3 text-[10.5px] text-text-3 group-hover:text-brand transition flex items-center gap-1 opacity-0 group-hover:opacity-100">
-          <span>✎</span>
-          <span>düzenlemek için tıkla</span>
-        </div>
+        <span
+          className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${roleStyle} whitespace-nowrap`}
+        >
+          {role}
+        </span>
       </div>
 
-      <style jsx>{`
-        :global(.animate-card) {
-          animation: card-in 0.4s ease-out both;
-        }
-        @keyframes card-in {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
+      {restName && (
+        <div className="text-[11.5px] text-text-2 mb-2 truncate">
+          📍 {restName}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-1 mb-2">
+        <span
+          className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${veh.color}`}
+        >
+          🏍️ {veh.label}
+        </span>
+        <span
+          className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${acc.color}`}
+        >
+          📊 {acc.label}
+        </span>
+        {p.new_company_setup === 'Evet' && (
+          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700">
+            🏢 Şirket
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-border">
+        <span className="font-mono text-text-3">{p.phone ?? '—'}</span>
+        {hasFixed ? (
+          <span className="num font-semibold text-brand">
+            {tr(p.monthly_fixed_cost)} ₺/ay
+          </span>
+        ) : (
+          <span className="text-text-3">—</span>
+        )}
+      </div>
     </button>
   );
 }

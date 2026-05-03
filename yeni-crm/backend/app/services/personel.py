@@ -6,27 +6,30 @@ from app.core.database import get_connection
 
 # Güncellenebilir kolonlar — beyaz liste
 EDITABLE_COLUMNS: set[str] = {
-    "full_name",
-    "person_code",
-    "role",
-    "status",
-    "phone",
-    "current_plate",
-    "assigned_restaurant_id",
-    "start_date",
-    "exit_date",
-    "monthly_fixed_cost",
-    "fixed_monthly_billing",  # restorana yansıyan sabit aylık (KDV hariç)
+    # Temel
+    "full_name", "person_code", "role", "status", "phone", "current_plate",
+    "assigned_restaurant_id", "start_date", "exit_date",
+    # Hakediş & faturalandırma
+    "monthly_fixed_cost",            # kuryeye ödenen aylık (sabit)
+    "fixed_monthly_billing",         # restorana yansıyan sabit aylık (KDV hariç)
+    # Kimlik & banka
+    "tc_no", "iban", "tax_number", "tax_office",
+    # Adres & acil durum
+    "address", "emergency_contact_name", "emergency_contact_phone", "notes",
+    # Araç
     "vehicle_type",
-    "tc_no",
-    "iban",
-    "tax_number",
-    "tax_office",
-    "accounting_type",
-    "address",
-    "emergency_contact_name",
-    "emergency_contact_phone",
-    "notes",
+    "motor_purchase", "motor_purchase_sale_price",
+    "motor_purchase_start_date", "motor_purchase_commitment_months",
+    "motor_purchase_installment_count", "motor_purchase_monthly_amount",
+    "motor_purchase_monthly_deduction",
+    "motor_rental", "motor_rental_monthly_amount",
+    # Muhasebe
+    "accounting_type", "accountant_cost", "accounting_revenue",
+    "accounting_effective_date",
+    # Şirket açılışı
+    "new_company_setup", "company_setup_cost", "company_setup_revenue",
+    "company_setup_effective_date",
+    "cost_model",
 }
 
 
@@ -34,9 +37,18 @@ EDITABLE_COLUMNS: set[str] = {
 DETAIL_COLUMNS = """
     id, person_code, full_name, role, status, phone, current_plate,
     assigned_restaurant_id, start_date, exit_date,
-    monthly_fixed_cost, fixed_monthly_billing, vehicle_type, tc_no, iban,
-    tax_number, tax_office, accounting_type, address,
-    emergency_contact_name, emergency_contact_phone, notes
+    monthly_fixed_cost, fixed_monthly_billing,
+    vehicle_type,
+    motor_purchase, motor_purchase_sale_price, motor_purchase_start_date,
+    motor_purchase_commitment_months, motor_purchase_installment_count,
+    motor_purchase_monthly_amount, motor_purchase_monthly_deduction,
+    motor_rental, motor_rental_monthly_amount,
+    accounting_type, accountant_cost, accounting_revenue,
+    accounting_effective_date,
+    new_company_setup, company_setup_cost, company_setup_revenue,
+    company_setup_effective_date, cost_model,
+    tc_no, iban, tax_number, tax_office,
+    address, emergency_contact_name, emergency_contact_phone, notes
 """
 
 

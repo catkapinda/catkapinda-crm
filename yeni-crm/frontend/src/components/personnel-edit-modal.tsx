@@ -46,10 +46,28 @@ type FormState = {
   start_date: string;
   monthly_fixed_cost: number;
   fixed_monthly_billing: number;
+  // Araç
   vehicle_type: string;
+  motor_purchase: string; // 'Evet' / 'Hayır'
+  motor_purchase_sale_price: number;
+  motor_purchase_monthly_amount: number;
+  motor_purchase_installment_count: number;
+  motor_purchase_start_date: string;
+  motor_rental: string;
+  motor_rental_monthly_amount: number;
+  // Muhasebe
+  accounting_type: string;
+  accountant_cost: number;
+  accounting_revenue: number;
+  accounting_effective_date: string;
+  // Şirket açılışı
+  new_company_setup: string;
+  company_setup_cost: number;
+  company_setup_revenue: number;
+  company_setup_effective_date: string;
+  // Kimlik & banka
   tc_no: string;
   iban: string;
-  accounting_type: string;
   address: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
@@ -68,9 +86,23 @@ const EMPTY_FORM: FormState = {
   monthly_fixed_cost: 0,
   fixed_monthly_billing: 0,
   vehicle_type: '',
+  motor_purchase: '',
+  motor_purchase_sale_price: 0,
+  motor_purchase_monthly_amount: 0,
+  motor_purchase_installment_count: 0,
+  motor_purchase_start_date: '',
+  motor_rental: '',
+  motor_rental_monthly_amount: 0,
+  accounting_type: '',
+  accountant_cost: 0,
+  accounting_revenue: 0,
+  accounting_effective_date: '',
+  new_company_setup: '',
+  company_setup_cost: 0,
+  company_setup_revenue: 0,
+  company_setup_effective_date: '',
   tc_no: '',
   iban: '',
-  accounting_type: '',
   address: '',
   emergency_contact_name: '',
   emergency_contact_phone: '',
@@ -103,9 +135,23 @@ export function PersonnelEditModal({
         monthly_fixed_cost: personnel.monthly_fixed_cost ?? 0,
         fixed_monthly_billing: personnel.fixed_monthly_billing ?? 0,
         vehicle_type: personnel.vehicle_type ?? '',
+        motor_purchase: personnel.motor_purchase ?? '',
+        motor_purchase_sale_price: personnel.motor_purchase_sale_price ?? 0,
+        motor_purchase_monthly_amount: personnel.motor_purchase_monthly_amount ?? 0,
+        motor_purchase_installment_count: personnel.motor_purchase_installment_count ?? 0,
+        motor_purchase_start_date: personnel.motor_purchase_start_date ?? '',
+        motor_rental: personnel.motor_rental ?? '',
+        motor_rental_monthly_amount: personnel.motor_rental_monthly_amount ?? 0,
+        accounting_type: personnel.accounting_type ?? '',
+        accountant_cost: personnel.accountant_cost ?? 0,
+        accounting_revenue: personnel.accounting_revenue ?? 0,
+        accounting_effective_date: personnel.accounting_effective_date ?? '',
+        new_company_setup: personnel.new_company_setup ?? '',
+        company_setup_cost: personnel.company_setup_cost ?? 0,
+        company_setup_revenue: personnel.company_setup_revenue ?? 0,
+        company_setup_effective_date: personnel.company_setup_effective_date ?? '',
         tc_no: personnel.tc_no ?? '',
         iban: personnel.iban ?? '',
-        accounting_type: personnel.accounting_type ?? '',
         address: personnel.address ?? '',
         emergency_contact_name: personnel.emergency_contact_name ?? '',
         emergency_contact_phone: personnel.emergency_contact_phone ?? '',
@@ -152,7 +198,7 @@ export function PersonnelEditModal({
     setSaving(true);
     setError(null);
     try {
-      // Boş stringleri null'a çevir (db'de NULL kalsın)
+      // Boş stringleri ve 0'ları undefined'a çevir (db'de değişmesin)
       const cleaned: PersonnelUpdate & PersonnelCreate = {
         full_name: form.full_name.trim(),
         person_code: form.person_code.trim() || undefined,
@@ -165,9 +211,23 @@ export function PersonnelEditModal({
         monthly_fixed_cost: form.monthly_fixed_cost || undefined,
         fixed_monthly_billing: form.fixed_monthly_billing || undefined,
         vehicle_type: form.vehicle_type || undefined,
+        motor_purchase: form.motor_purchase || undefined,
+        motor_purchase_sale_price: form.motor_purchase_sale_price || undefined,
+        motor_purchase_monthly_amount: form.motor_purchase_monthly_amount || undefined,
+        motor_purchase_installment_count: form.motor_purchase_installment_count || undefined,
+        motor_purchase_start_date: form.motor_purchase_start_date || undefined,
+        motor_rental: form.motor_rental || undefined,
+        motor_rental_monthly_amount: form.motor_rental_monthly_amount || undefined,
+        accounting_type: form.accounting_type || undefined,
+        accountant_cost: form.accountant_cost || undefined,
+        accounting_revenue: form.accounting_revenue || undefined,
+        accounting_effective_date: form.accounting_effective_date || undefined,
+        new_company_setup: form.new_company_setup || undefined,
+        company_setup_cost: form.company_setup_cost || undefined,
+        company_setup_revenue: form.company_setup_revenue || undefined,
+        company_setup_effective_date: form.company_setup_effective_date || undefined,
         tc_no: form.tc_no.trim() || undefined,
         iban: form.iban.trim() || undefined,
-        accounting_type: form.accounting_type || undefined,
         address: form.address.trim() || undefined,
         emergency_contact_name: form.emergency_contact_name.trim() || undefined,
         emergency_contact_phone: form.emergency_contact_phone.trim() || undefined,
@@ -420,7 +480,199 @@ export function PersonnelEditModal({
             </button>
 
             {showAdvanced && (
-              <div className="mt-4 space-y-4">
+              <div className="mt-4 space-y-5">
+                {/* 🏍️ ARAÇ DETAYLARI */}
+                <SectionTitle icon="🏍️" label="Araç Detayları" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Motor Satın Alma">
+                    <select
+                      value={form.motor_purchase}
+                      onChange={(e) => set('motor_purchase', e.target.value)}
+                      className="input"
+                    >
+                      <option value="">— seç —</option>
+                      <option value="Evet">Evet (satış motoru)</option>
+                      <option value="Hayır">Hayır</option>
+                    </select>
+                  </Field>
+                  <Field label="Motor Kiralama">
+                    <select
+                      value={form.motor_rental}
+                      onChange={(e) => set('motor_rental', e.target.value)}
+                      className="input"
+                    >
+                      <option value="">— seç —</option>
+                      <option value="Evet">Evet (ÇK kiralık)</option>
+                      <option value="Hayır">Hayır</option>
+                    </select>
+                  </Field>
+                </div>
+
+                {form.motor_purchase === 'Evet' && (
+                  <div className="grid grid-cols-2 gap-3 bg-bg-surface2/50 rounded-lg p-3 border border-border">
+                    <Field label="Satış Fiyatı (₺)">
+                      <input
+                        type="number"
+                        step="any"
+                        value={form.motor_purchase_sale_price}
+                        onChange={(e) =>
+                          set('motor_purchase_sale_price', parseFloat(e.target.value) || 0)
+                        }
+                        className="input num"
+                      />
+                    </Field>
+                    <Field label="Aylık Taksit (₺)">
+                      <input
+                        type="number"
+                        step="any"
+                        value={form.motor_purchase_monthly_amount}
+                        onChange={(e) =>
+                          set('motor_purchase_monthly_amount', parseFloat(e.target.value) || 0)
+                        }
+                        className="input num"
+                      />
+                    </Field>
+                    <Field label="Taksit Sayısı (ay)">
+                      <input
+                        type="number"
+                        value={form.motor_purchase_installment_count}
+                        onChange={(e) =>
+                          set('motor_purchase_installment_count', parseInt(e.target.value) || 0)
+                        }
+                        className="input num"
+                      />
+                    </Field>
+                    <Field label="Başlangıç Tarihi">
+                      <input
+                        type="date"
+                        value={form.motor_purchase_start_date}
+                        onChange={(e) =>
+                          set('motor_purchase_start_date', e.target.value)
+                        }
+                        className="input"
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {form.motor_rental === 'Evet' && (
+                  <div className="bg-bg-surface2/50 rounded-lg p-3 border border-border">
+                    <Field label="Aylık Kira (₺)">
+                      <input
+                        type="number"
+                        step="any"
+                        value={form.motor_rental_monthly_amount}
+                        onChange={(e) =>
+                          set('motor_rental_monthly_amount', parseFloat(e.target.value) || 0)
+                        }
+                        className="input num"
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {/* 📊 MUHASEBE */}
+                <SectionTitle icon="📊" label="Muhasebe" />
+                <Field label="Muhasebe Tipi">
+                  <select
+                    value={form.accounting_type}
+                    onChange={(e) => set('accounting_type', e.target.value)}
+                    className="input"
+                  >
+                    {ACCOUNTING_TYPES.map((a) => (
+                      <option key={a.value} value={a.value}>
+                        {a.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <div className="grid grid-cols-3 gap-3">
+                  <Field label="Aylık Maliyet (₺)" hint="muhasebeciye ödenen">
+                    <input
+                      type="number"
+                      step="any"
+                      value={form.accountant_cost}
+                      onChange={(e) =>
+                        set('accountant_cost', parseFloat(e.target.value) || 0)
+                      }
+                      className="input num"
+                    />
+                  </Field>
+                  <Field label="Aylık Gelir (₺)" hint="muhasebeden bana gelen">
+                    <input
+                      type="number"
+                      step="any"
+                      value={form.accounting_revenue}
+                      onChange={(e) =>
+                        set('accounting_revenue', parseFloat(e.target.value) || 0)
+                      }
+                      className="input num"
+                    />
+                  </Field>
+                  <Field label="Geçerlilik Tarihi">
+                    <input
+                      type="date"
+                      value={form.accounting_effective_date}
+                      onChange={(e) =>
+                        set('accounting_effective_date', e.target.value)
+                      }
+                      className="input"
+                    />
+                  </Field>
+                </div>
+
+                {/* 🏢 ŞİRKET AÇILIŞI */}
+                <SectionTitle icon="🏢" label="Şirket Açılışı" />
+                <Field label="Şirket Açılışı Yapıldı mı?">
+                  <select
+                    value={form.new_company_setup}
+                    onChange={(e) => set('new_company_setup', e.target.value)}
+                    className="input"
+                  >
+                    <option value="">— seç —</option>
+                    <option value="Evet">Evet</option>
+                    <option value="Hayır">Hayır</option>
+                  </select>
+                </Field>
+                {form.new_company_setup === 'Evet' && (
+                  <div className="grid grid-cols-3 gap-3 bg-bg-surface2/50 rounded-lg p-3 border border-border">
+                    <Field label="Açılış Maliyeti (₺)">
+                      <input
+                        type="number"
+                        step="any"
+                        value={form.company_setup_cost}
+                        onChange={(e) =>
+                          set('company_setup_cost', parseFloat(e.target.value) || 0)
+                        }
+                        className="input num"
+                      />
+                    </Field>
+                    <Field label="Açılış Geliri (₺)">
+                      <input
+                        type="number"
+                        step="any"
+                        value={form.company_setup_revenue}
+                        onChange={(e) =>
+                          set('company_setup_revenue', parseFloat(e.target.value) || 0)
+                        }
+                        className="input num"
+                      />
+                    </Field>
+                    <Field label="Açılış Tarihi">
+                      <input
+                        type="date"
+                        value={form.company_setup_effective_date}
+                        onChange={(e) =>
+                          set('company_setup_effective_date', e.target.value)
+                        }
+                        className="input"
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {/* 🪪 KİMLİK & BANKA */}
+                <SectionTitle icon="🪪" label="Kimlik & Banka" />
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="TC Kimlik No">
                     <input
@@ -442,20 +694,8 @@ export function PersonnelEditModal({
                   </Field>
                 </div>
 
-                <Field label="Muhasebe Tipi">
-                  <select
-                    value={form.accounting_type}
-                    onChange={(e) => set('accounting_type', e.target.value)}
-                    className="input"
-                  >
-                    {ACCOUNTING_TYPES.map((a) => (
-                      <option key={a.value} value={a.value}>
-                        {a.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-
+                {/* 📍 ADRES & ACİL DURUM */}
+                <SectionTitle icon="📍" label="Adres & Acil Durum" />
                 <Field label="Adres">
                   <textarea
                     value={form.address}
@@ -543,6 +783,18 @@ export function PersonnelEditModal({
           }
         `}</style>
       </div>
+    </div>
+  );
+}
+
+function SectionTitle({ icon, label }: { icon: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2 -mb-1 pt-1">
+      <span className="text-base">{icon}</span>
+      <h4 className="text-[12.5px] font-semibold text-text-2 uppercase tracking-wider">
+        {label}
+      </h4>
+      <div className="flex-1 border-b border-border" />
     </div>
   );
 }
