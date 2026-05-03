@@ -1029,8 +1029,9 @@ export function PersonnelEquipmentWorkspace() {
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 180px) minmax(0, 1fr)", gap: "12px" }}>
               <input
                 type="number"
+                inputMode="decimal"
                 min="0"
-                step="100"
+                step="0.01"
                 value={newReturnPayoutAmount}
                 onChange={(event) => setNewReturnPayoutAmount(event.target.value)}
                 style={fieldStyle}
@@ -1130,8 +1131,9 @@ export function PersonnelEquipmentWorkspace() {
                     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 180px) minmax(0, 1fr)", gap: "12px" }}>
                       <input
                         type="number"
+                        inputMode="decimal"
                         min="0"
-                        step="100"
+                        step="0.01"
                         value={editReturnPayoutAmount}
                         onChange={(event) => setEditReturnPayoutAmount(event.target.value)}
                         style={fieldStyle}
