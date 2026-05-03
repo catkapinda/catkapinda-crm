@@ -154,13 +154,13 @@ export function BordroPrint({
             Brüt Hakediş
           </div>
           <div className="space-y-1.5 text-[12.5px]">
-            {payroll.is_fixed_salary ? (
+            {/* Ana atama satırı: sadece destek veya kaptan bonusu varsa görünür
+                (yoksa zaten Toplam Brüt = Ana atama, tekrar olmaz). */}
+            {(payroll.destek_brut > 0 || payroll.kaptan_bonus > 0) && (
               <Line
-                label="Sabit aylık tutar"
+                label={payroll.is_fixed_salary ? 'Sabit aylık tutar' : 'Ana atama'}
                 value={`${m(payroll.ana_brut)} ₺`}
               />
-            ) : (
-              <Line label="Ana atama" value={`${m(payroll.ana_brut)} ₺`} />
             )}
             {payroll.destek_brut > 0 && (
               <Line
@@ -176,12 +176,18 @@ export function BordroPrint({
                 color="text-green-700"
               />
             )}
-            <div className="border-t border-border pt-2 flex justify-between font-semibold">
-              <span>Toplam Brüt</span>
+            <div className="flex justify-between font-semibold">
+              <span>Toplam Brüt (KDV %20 dahil)</span>
               <span className="num font-mono text-[14px]">
                 {m(payroll.toplam_brut)} ₺
               </span>
             </div>
+            {payroll.tevkifat_breakdown.invoice_base_amount > 0 && (
+              <div className="text-[10.5px] text-text-3 italic">
+                ↳ KDV hariç matrah: {m(payroll.tevkifat_breakdown.invoice_base_amount)} ₺
+                · KDV (%20): {m(payroll.tevkifat_breakdown.vat_amount)} ₺
+              </div>
+            )}
           </div>
         </div>
 
@@ -230,11 +236,11 @@ export function BordroPrint({
           </div>
         )}
 
-        {/* Manuel kesintiler */}
-        {payroll.kesinti_groups.length > 0 && (
+        {/* Manuel kesintiler + Tevkifat */}
+        {(payroll.kesinti_groups.length > 0 || payroll.tevkifat > 0) && (
           <div className="px-8 py-5 border-b border-border">
             <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-3">
-              Manuel Kesintiler & Zimmet
+              Kesintiler & Zimmet
             </div>
             <div className="space-y-1.5 text-[12.5px]">
               {payroll.kesinti_groups.map((g) => (
@@ -259,36 +265,28 @@ export function BordroPrint({
                   )}
                 </div>
               ))}
+              {payroll.tevkifat > 0 && (
+                <>
+                  <div className="flex justify-between">
+                    <div>
+                      <div>KDV Tevkifatı</div>
+                      <div className="text-[10px] text-text-3 italic">
+                        Zorunlu devlet kesintisidir · KDV'nin %20'si
+                        ({m(payroll.tevkifat_breakdown.vat_amount)} ₺)
+                      </div>
+                    </div>
+                    <span className="num font-mono font-semibold text-red-700">
+                      −{m(payroll.tevkifat)} ₺
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="border-t border-border pt-2 flex justify-between font-semibold">
-                <span>Manuel Toplam</span>
+                <span>Toplam Kesinti</span>
                 <span className="num font-mono text-red-700 text-[14px]">
-                  −{m(payroll.kesinti_total)} ₺
+                  −{m(payroll.kesinti_total + payroll.tevkifat)} ₺
                 </span>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* KDV Tevkifatı */}
-        {payroll.is_ck_muhasebe && payroll.tevkifat > 0 && (
-          <div className="px-8 py-5 border-b border-border bg-orange-50/50">
-            <div className="text-[10.5px] uppercase tracking-wider text-orange-800 font-bold mb-3">
-              💼 KDV Tevkifatı
-            </div>
-            <div className="space-y-1.5 text-[12.5px]">
-              <Line
-                label="Fatura matrahı (KDV hariç)"
-                value={`${m(payroll.tevkifat_breakdown.invoice_base_amount)} ₺`}
-              />
-              <Line
-                label="KDV (%20)"
-                value={`+${m(payroll.tevkifat_breakdown.vat_amount)} ₺`}
-              />
-              <Line
-                label="Tevkifat (%20 × KDV — alıcı tarafından kesilir)"
-                value={`−${m(payroll.tevkifat_breakdown.tevkifat_amount)} ₺`}
-                color="text-orange-800"
-              />
             </div>
           </div>
         )}
@@ -301,7 +299,7 @@ export function BordroPrint({
                 Net Aylık Hakediş
               </div>
               <div className="text-[11px] opacity-85 mt-1">
-                Brüt {m(payroll.toplam_brut)} ₺ − Toplam Kesinti{' '}
+                Brüt {m(payroll.toplam_brut)} ₺ − Kesinti{' '}
                 {m(total_kesinti)} ₺
               </div>
             </div>
@@ -318,7 +316,7 @@ export function BordroPrint({
               Düzenleyen
             </div>
             <div className="border-b border-text/30 pb-1.5 text-[11.5px] text-text-2">
-              Çat Kapında · Yönetim
+              Çat Kapında Teknoloji Lojistik ve Dış Ticaret A.Ş.
             </div>
             <div className="text-[10px] text-text-3 mt-1">
               Tarih: {new Date().toLocaleDateString('tr-TR')}
@@ -342,13 +340,10 @@ export function BordroPrint({
           <div>
             Bu belge <strong>{formatPeriod(period)}</strong> ayına ait kurye
             hakediş bordrosudur. Tutarlar puantaj kayıtları, restoran tarifeleri,
-            kesintiler ve zimmet taksitleri üzerinden hesaplanmıştır. KDV oranı
-            %20, tevkifat oranı %20 (12.000 ₺ üzerindeki faturalar için
-            uygulanır). Resmi muhasebe işlemi için bu belge tek başına yeterli
-            değildir.
+            kesintiler ve zimmet taksitleri üzerinden hesaplanmıştır.
           </div>
           <div className="mt-2 flex justify-between text-[10px]">
-            <span className="font-semibold">Çat Kapında · Yönetim Sistemi v3</span>
+            <span className="font-semibold">Çat Kapında CRM Sistemi</span>
             <span className="font-mono">
               Belge: BR-{period.replace('-', '')}-
               {String(payroll.id).padStart(4, '0')}
