@@ -295,18 +295,48 @@ export function BordroPrint({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-8 py-4 text-[10.5px] text-text-3 leading-relaxed border-t border-border">
+        {/* İmza alanları */}
+        <div className="px-8 py-6 grid grid-cols-2 gap-12 border-t border-border">
           <div>
-            Bu belge {formatPeriod(period)} ayına ait kurye hakediş bordrosudur.
-            Tutarlar puantaj kayıtları, restoran tarifeleri, kesintiler ve
-            zimmet taksitleri üzerinden hesaplanmıştır.
+            <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-12">
+              Düzenleyen
+            </div>
+            <div className="border-b border-text/30 pb-1.5 text-[11.5px] text-text-2">
+              Çat Kapında · Yönetim
+            </div>
+            <div className="text-[10px] text-text-3 mt-1">
+              Tarih: {new Date().toLocaleDateString('tr-TR')}
+            </div>
           </div>
-          <div className="mt-2 flex justify-between">
-            <span>
-              Düzenlenme: {new Date().toLocaleDateString('tr-TR')}
+          <div>
+            <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-12">
+              Kurye İmza
+            </div>
+            <div className="border-b border-text/30 pb-1.5 text-[11.5px] text-text-2">
+              {payroll.full_name ?? '—'}
+            </div>
+            <div className="text-[10px] text-text-3 mt-1">
+              Tarih: ____________________
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-8 py-4 text-[10.5px] text-text-3 leading-relaxed border-t border-border bg-cream-50/50">
+          <div>
+            Bu belge <strong>{formatPeriod(period)}</strong> ayına ait kurye
+            hakediş bordrosudur. Tutarlar puantaj kayıtları, restoran tarifeleri,
+            kesintiler ve zimmet taksitleri üzerinden hesaplanmıştır. KDV oranı
+            %20, tevkifat oranı %20 (12.000 ₺ üzerindeki faturalar için
+            uygulanır). Resmi muhasebe işlemi için bu belge tek başına yeterli
+            değildir.
+          </div>
+          <div className="mt-2 flex justify-between text-[10px]">
+            <span className="font-semibold">Çat Kapında · Yönetim Sistemi v3</span>
+            <span className="font-mono">
+              Belge: BR-{period.replace('-', '')}-
+              {String(payroll.id).padStart(4, '0')}
             </span>
-            <span>Çat Kapında · Yönetim Sistemi</span>
           </div>
         </div>
       </div>

@@ -10,6 +10,7 @@ import {
   type Personnel,
   createDeduction,
 } from '@/lib/api';
+import { normalizeTr } from '@/lib/format';
 
 const TYPE_COLORS: Record<string, string> = {
   Yakıt: 'bg-orange-50 text-orange-700 border-orange-200',
@@ -166,7 +167,7 @@ export function KesintilerView({
                 }`}
               >
                 <div className="text-[10.5px] font-semibold uppercase tracking-wider text-text-3">
-                  {t.deduction_type}
+                  {normalizeTr(t.deduction_type)}
                 </div>
                 <div
                   className={`font-display text-[19px] font-bold tracking-tight num mt-1 ${
@@ -246,21 +247,21 @@ export function KesintilerView({
                       <span
                         className={`px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold border ${tc} whitespace-nowrap`}
                       >
-                        {d.deduction_type}
+                        {normalizeTr(d.deduction_type)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-[12px] text-text-2">
-                      {d.notes ?? (
-                        d.equipment_name ? (
-                          <span className="text-text-3">
-                            {d.equipment_name}
-                            {d.equipment_total_installments
-                              ? ` · ${d.equipment_total_installments} taksit`
-                              : ''}
-                          </span>
-                        ) : (
-                          <span className="text-text-3">—</span>
-                        )
+                      {d.notes ? (
+                        normalizeTr(d.notes)
+                      ) : d.equipment_name ? (
+                        <span className="text-text-3">
+                          {normalizeTr(d.equipment_name)}
+                          {d.equipment_total_installments
+                            ? ` · ${d.equipment_total_installments} taksit`
+                            : ''}
+                        </span>
+                      ) : (
+                        <span className="text-text-3">—</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono num font-semibold text-red-600">

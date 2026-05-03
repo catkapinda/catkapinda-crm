@@ -9,6 +9,7 @@ import {
   type Personnel,
   createEquipmentAssignment,
 } from '@/lib/api';
+import { normalizeTr } from '@/lib/format';
 
 const ITEM_ICONS: Record<string, string> = {
   'Korumalı Mont': '🧥',
@@ -123,7 +124,7 @@ export function EkipmanView({
             className="flex-1 px-5 py-4 border-r border-border last:border-r-0"
           >
             <div className="text-[10.5px] font-semibold uppercase tracking-wider text-text-3">
-              {ITEM_ICONS[b.name] ?? '📦'} {b.name}
+              {ITEM_ICONS[normalizeTr(b.name)] ?? ITEM_ICONS[b.name] ?? '📦'} {normalizeTr(b.name)}
             </div>
             <div className="font-display text-[22px] font-bold tracking-tight num mt-1">
               {b.count}
@@ -214,9 +215,9 @@ export function EkipmanView({
                         </td>
                         <td className="px-3 py-2.5">
                           <span className="text-base mr-1">
-                            {ITEM_ICONS[a.item_name] ?? '📦'}
+                            {ITEM_ICONS[normalizeTr(a.item_name)] ?? ITEM_ICONS[a.item_name] ?? '📦'}
                           </span>
-                          {a.item_name}
+                          {normalizeTr(a.item_name)}
                         </td>
                         <td className="px-3 py-2.5 text-right num">
                           {a.quantity}

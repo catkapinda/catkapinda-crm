@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import type { PayrollResult, PayrollRow } from '@/lib/api';
+import { normalizeTr } from '@/lib/format';
 
 const PDF_ICON = '📄';
 
@@ -146,7 +147,7 @@ export function BordroView({
           value={tr(Math.round(payroll.summary.total_kesinti))}
           suffix="₺"
           accent="danger"
-          meta="motor + muhasebe + şirket + manuel + zimmet"
+          meta={`tevkifat ${tr(Math.round(payroll.summary.total_tevkifat ?? 0))} ₺ dahil`}
         />
         <HeroCard
           label="Toplam Net"
@@ -169,6 +170,10 @@ export function BordroView({
           meta="kesinti / brüt"
         />
       </div>
+
+      {/* 📊 Grafikler bölümü */}
+      <PayrollCharts payroll={payroll} />
+
 
       {/* Filters */}
       <div className="bg-bg-surface border border-border rounded-2xl p-3 shadow-sm mb-4 flex flex-wrap items-center gap-2">
@@ -495,7 +500,7 @@ function PayrollRowItem({
                   {r.kesinti_groups.map((g) => (
                     <DetailRow
                       key={g.type}
-                      label={`${g.type} (${g.count})`}
+                      label={`${normalizeTr(g.type)} (${g.count})`}
                       value={`−${tr(g.total)} ₺`}
                       color="text-red-600"
                     />
@@ -563,6 +568,185 @@ function DetailRow({
     <div className="flex justify-between text-[12px]">
       <span className="text-text-2">{label}</span>
       <span className={`num font-mono ${color ?? ''}`}>{value}</span>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// PayrollCharts — bordro grafikleri (donut + bar + top list)
+// ──────────────────────────────────────────────────────────────────
+
+function PayrollCharts({ payroll }: { payroll: PayrollResult }) {
+  const s = payroll.summary;
+  const brut = s.total_brut;
+  const kesinti = s.total_kesinti;
+  const tevkifat = s.total_tevkifat ?? 0;
+  const net = s.total_net;
+  const sabitKesinti = kesinti - tevkifat;
+
+  // Restoran bazlı toplam net
+  const byRestaurant = useMemo(() => {
+    const m = new Map<string, { count: number; brut: number; net: number }>();
+    for (const r of payroll.rows) {
+      const k = r.rest_brand
+        ? `${r.rest_brand}${r.rest_branch ? ' · ' + r.rest_branch : ''}`
+        : '— atanmamış —';
+      const cur = m.get(k) ?? { count: 0, brut: 0, net: 0 };
+      cur.count++;
+      cur.brut += r.toplam_brut;
+      cur.net += r.net;
+      m.set(k, cur);
+    }
+    return Array.from(m.entries())
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.brut - a.brut)
+      .slice(0, 8);
+  }, [payroll.rows]);
+
+  const maxBrut = Math.max(...byRestaurant.map((r) => r.brut), 1);
+
+  // Top 5 kazançlı kurye
+  const top5 = useMemo(
+    () =>
+      [...payroll.rows]
+        .sort((a, b) => b.net - a.net)
+        .slice(0, 5),
+    [payroll.rows],
+  );
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+      {/* Donut: Brüt dağılımı */}
+      <div className="bg-bg-surface border border-border rounded-2xl p-5 shadow-sm">
+        <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-3">
+          Brüt Dağılımı
+        </div>
+        <DonutChart
+          segments={[
+            { label: 'Net', value: net, color: '#0F52BA' },
+            { label: 'Sabit Kesinti', value: sabitKesinti, color: '#EF4444' },
+            { label: 'Tevkifat', value: tevkifat, color: '#F59E0B' },
+          ]}
+          centerLabel="Brüt"
+          centerValue={`${tr(Math.round(brut / 1000))}K ₺`}
+        />
+      </div>
+
+      {/* Restoran bazlı brüt bar chart */}
+      <div className="bg-bg-surface border border-border rounded-2xl p-5 shadow-sm lg:col-span-2">
+        <div className="flex items-baseline justify-between mb-3">
+          <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold">
+            Restoran Bazlı Brüt Hakediş
+          </div>
+          <div className="text-[11px] text-text-3">
+            En yüksek 8 restoran · ay toplamı
+          </div>
+        </div>
+        <div className="space-y-2">
+          {byRestaurant.map((r) => {
+            const ratio = r.brut / maxBrut;
+            return (
+              <div
+                key={r.name}
+                className="grid grid-cols-[160px_1fr_auto] gap-3 items-center text-[12px]"
+              >
+                <div className="truncate text-text-2 font-medium">
+                  {r.name}{' '}
+                  <span className="text-text-3 text-[11px]">
+                    ({r.count} kurye)
+                  </span>
+                </div>
+                <div className="bg-bg-surface2 rounded h-6 relative overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-brand-dark to-brand transition-all duration-1000"
+                    style={{ width: `${ratio * 100}%` }}
+                  />
+                  <div className="absolute inset-0 flex items-center px-2 text-[11px] font-mono font-semibold text-white mix-blend-difference">
+                    Net {tr(Math.round(r.net / 1000))}K
+                  </div>
+                </div>
+                <div className="font-mono font-semibold text-[12.5px] text-right min-w-[80px]">
+                  {tr(Math.round(r.brut / 1000))}K ₺
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DonutChart({
+  segments, centerLabel, centerValue,
+}: {
+  segments: { label: string; value: number; color: string }[];
+  centerLabel: string;
+  centerValue: string;
+}) {
+  const total = segments.reduce((s, x) => s + Math.max(0, x.value), 0);
+  const r = 60;
+  const circumference = 2 * Math.PI * r;
+
+  let offset = 0;
+  const arcs = segments.map((s, i) => {
+    const portion = total > 0 ? Math.max(0, s.value) / total : 0;
+    const length = portion * circumference;
+    const dash = `${length} ${circumference}`;
+    const dashOffset = -offset;
+    offset += length;
+    return { ...s, dash, dashOffset, portion, key: i };
+  });
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative w-[150px] h-[150px] flex-shrink-0">
+        <svg width="150" height="150" viewBox="0 0 150 150">
+          <circle
+            cx="75" cy="75" r={r}
+            fill="none"
+            stroke="rgba(0,0,0,0.06)"
+            strokeWidth="14"
+          />
+          {arcs.map((a) => (
+            <circle
+              key={a.key}
+              cx="75" cy="75" r={r}
+              fill="none"
+              stroke={a.color}
+              strokeWidth="14"
+              strokeDasharray={a.dash}
+              strokeDashoffset={a.dashOffset}
+              transform="rotate(-90 75 75)"
+              style={{
+                transition: 'stroke-dasharray 1s ease',
+              }}
+            />
+          ))}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <div className="text-[10px] uppercase tracking-wider text-text-3 font-semibold">
+            {centerLabel}
+          </div>
+          <div className="font-display text-[18px] font-bold tracking-tight text-text num">
+            {centerValue}
+          </div>
+        </div>
+      </div>
+      <div className="flex-1 space-y-2">
+        {arcs.map((a) => (
+          <div key={a.key} className="flex items-center gap-2 text-[12px]">
+            <span
+              className="w-3 h-3 rounded-sm flex-shrink-0"
+              style={{ backgroundColor: a.color }}
+            />
+            <span className="text-text-2 flex-1">{a.label}</span>
+            <span className="font-mono font-semibold tabular-nums">
+              %{(a.portion * 100).toFixed(1)}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
