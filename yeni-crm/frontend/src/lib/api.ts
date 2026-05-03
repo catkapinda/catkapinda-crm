@@ -59,11 +59,65 @@ export type Personnel = {
   assigned_restaurant_id: number | null;
   start_date: string | null;
   exit_date: string | null;
+  monthly_fixed_cost?: number | null;
+  vehicle_type?: string | null;
+  tc_no?: string | null;
+  iban?: string | null;
+  tax_number?: string | null;
+  tax_office?: string | null;
+  accounting_type?: string | null;
+  address?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  notes?: string | null;
+};
+
+export type PersonnelUpdate = Partial<Omit<Personnel, 'id'>>;
+
+export type PersonnelCreate = {
+  full_name: string;
+  role: string;
+  person_code?: string;
+  status?: string;
+  phone?: string;
+  current_plate?: string;
+  assigned_restaurant_id?: number;
+  start_date?: string;
+  monthly_fixed_cost?: number;
+  vehicle_type?: string;
+  tc_no?: string;
+  iban?: string;
+  accounting_type?: string;
+  address?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  notes?: string;
 };
 
 export async function listPersonnel(status?: 'Aktif' | 'Pasif'): Promise<Personnel[]> {
   const q = status ? `?status=${encodeURIComponent(status)}` : '';
   return apiGet<Personnel[]>(`/api/personel${q}`);
+}
+
+export async function getPersonnel(id: number): Promise<Personnel> {
+  return apiGet<Personnel>(`/api/personel/${id}`);
+}
+
+export async function updatePersonnel(
+  id: number, fields: PersonnelUpdate,
+): Promise<Personnel> {
+  return apiMutate<Personnel>(`/api/personel/${id}`, fields, 'PATCH');
+}
+
+export async function createPersonnel(fields: PersonnelCreate): Promise<Personnel> {
+  return apiMutate<Personnel>(`/api/personel`, fields, 'POST');
+}
+
+export async function getNextPersonCode(role: string): Promise<{ person_code: string }> {
+  return apiGet<{ person_code: string }>(
+    `/api/personel/next-code?role=${encodeURIComponent(role)}`,
+    { revalidate: 0 },
+  );
 }
 
 export type DashboardSummary = {
