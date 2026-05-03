@@ -1,6 +1,7 @@
 import sqlite3
 
 from app.core.database import CompatConnection
+from app.services import payroll as payroll_service
 from app.services.payroll import (
     _build_payroll_document_html,
     _build_local_payroll_document_payload,
@@ -26,6 +27,56 @@ def test_calculate_payroll_tevkifat_breakdown_uses_invoice_total_threshold():
     assert round(below_threshold.invoice_base_amount, 2) == 9999.17
     assert round(below_threshold.vat_amount, 2) == 1999.83
     assert below_threshold.tevkifat_amount == 0.0
+
+
+def test_build_payroll_dashboard_syncs_vehicle_baselines(monkeypatch):
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    conn = CompatConnection(raw_conn, "sqlite")
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        payroll_service,
+        "_sync_vehicle_history_baselines_for_payroll",
+        lambda _conn: calls.append("sync"),
+    )
+    monkeypatch.setattr(
+        payroll_service,
+        "_build_local_payroll_dashboard",
+        lambda _conn, **_kwargs: "ok",
+    )
+
+    response = build_payroll_dashboard(conn, selected_month="2026-03")
+
+    assert response == "ok"
+    assert calls == ["sync"]
+
+
+def test_build_local_payroll_document_payload_syncs_vehicle_baselines(monkeypatch):
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    conn = CompatConnection(raw_conn, "sqlite")
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        payroll_service,
+        "_sync_vehicle_history_baselines_for_payroll",
+        lambda _conn: calls.append("sync"),
+    )
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("stop-after-sync")
+
+    monkeypatch.setattr(payroll_service, "_fetch_payroll_month_options", _boom)
+
+    try:
+        _build_local_payroll_document_payload(conn, selected_month="2026-03", personnel_id=1)
+    except RuntimeError as exc:
+        assert str(exc) == "stop-after-sync"
+    else:
+        raise AssertionError("expected runtime error")
+
+    assert calls == ["sync"]
 
 
 def test_build_payroll_dashboard_supports_local_sqlite_without_streamlit():

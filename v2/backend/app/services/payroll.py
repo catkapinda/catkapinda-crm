@@ -33,6 +33,14 @@ from app.schemas.payroll import (
 )
 
 
+def _sync_vehicle_history_baselines_for_payroll(conn: psycopg.Connection) -> None:
+    if not _table_columns(conn, "personnel_vehicle_history"):
+        return
+    from app.services.personnel import _sync_personnel_vehicle_history_baselines
+
+    _sync_personnel_vehicle_history_baselines(conn)
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
 
@@ -1012,6 +1020,7 @@ def build_payroll_dashboard(
     restaurant_filter: str | None = None,
     limit: int = 300,
 ) -> PayrollDashboardResponse:
+    _sync_vehicle_history_baselines_for_payroll(conn)
     return _build_local_payroll_dashboard(
         conn,
         selected_month=selected_month,
@@ -1249,6 +1258,7 @@ def _build_local_payroll_document_payload(
     selected_month: str | None,
     personnel_id: int,
 ) -> PayrollDocumentPayload:
+    _sync_vehicle_history_baselines_for_payroll(conn)
     month_options, attendance_month_options = _fetch_payroll_month_options(conn)
     resolved_month = _resolve_payroll_dashboard_month(month_options, attendance_month_options, selected_month)
     optional_personnel_select = _payroll_optional_personnel_select(conn)
