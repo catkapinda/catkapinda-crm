@@ -28,6 +28,7 @@ class PersonnelUpdate(BaseModel):
     start_date: str | None = None
     exit_date: str | None = None
     monthly_fixed_cost: float | None = None
+    fixed_monthly_billing: float | None = None
     vehicle_type: str | None = None
     tc_no: str | None = None
     iban: str | None = None
@@ -52,6 +53,7 @@ class PersonnelCreate(BaseModel):
     assigned_restaurant_id: int | None = None
     start_date: str | None = None
     monthly_fixed_cost: float | None = None
+    fixed_monthly_billing: float | None = None
     vehicle_type: str | None = None
     tc_no: str | None = None
     iban: str | None = None

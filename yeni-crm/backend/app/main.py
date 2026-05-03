@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.database import close_pool, get_pool
+from app.core.migrations import run_migrations
 
 
 @asynccontextmanager
@@ -15,6 +16,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Uygulama yaşam döngüsü — başlangıçta DB pool kur, sonunda kapat."""
     # Başlangıç
     get_pool()  # Bağlantı havuzunu önceden başlat
+    run_migrations()  # Eksik kolonları (idempotent) ekle
     yield
     # Kapanış
     close_pool()

@@ -16,6 +16,7 @@ EDITABLE_COLUMNS: set[str] = {
     "start_date",
     "exit_date",
     "monthly_fixed_cost",
+    "fixed_monthly_billing",  # restorana yansıyan sabit aylık (KDV hariç)
     "vehicle_type",
     "tc_no",
     "iban",
@@ -33,7 +34,7 @@ EDITABLE_COLUMNS: set[str] = {
 DETAIL_COLUMNS = """
     id, person_code, full_name, role, status, phone, current_plate,
     assigned_restaurant_id, start_date, exit_date,
-    monthly_fixed_cost, vehicle_type, tc_no, iban,
+    monthly_fixed_cost, fixed_monthly_billing, vehicle_type, tc_no, iban,
     tax_number, tax_office, accounting_type, address,
     emergency_contact_name, emergency_contact_phone, notes
 """

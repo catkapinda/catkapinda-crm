@@ -70,15 +70,24 @@ fixed_monthly     → fixed_monthly_fee + (ekstra destek günleri için fixed_mo
 
 ## 6. Sabit Aylık Anlaşmalı Yöneticiler / Takım Şefleri
 
-> Bazı kişiler (Restoran Takım Şefi, Kaptan vb.) saat+prim bir restoranda çalışsa bile **aylık sabit** anlaşma ile çalışır. Bu durumda:
-> - `personnel.monthly_fixed_cost > 0` ise → o tutar kuryenin aylık net hakedişidir, formül uygulanmaz
-> - O kişinin attığı paket / saat **bana kar olarak yansır** (restoran üzerinden saat+prim baz hesabı yapılıp fatura kesilir, kişi sabit alır, fark kar)
+> Bazı kişiler (Restoran Takım Şefi, Kaptan, Bölge Müdürü) saat+prim bir restoranda çalışsa bile **iki ayrı sabit tutar** ile anlaşmalıdır:
+> - `personnel.monthly_fixed_cost` → kuryeye ödediğimiz aylık net (örn Recep 72.050 ₺)
+> - `personnel.fixed_monthly_billing` → restorana yansıyan KDV hariç sabit aylık (örn Recep için Quick China'ya 84.500 ₺ + KDV)
+>
+> Hakediş motoru kuralı:
+> - Eğer `personnel.fixed_monthly_billing > 0` ve `working_days > 0`:
+>   - **Restoran fatura formülü atlanır** (saat × tarife yapılmaz)
+>   - Restorana yansıyan = `fixed_monthly_billing` (sabit)
+>   - Aradaki fark kar olarak yazılır (kişi attığı paket/saatten ötürü ek kazanç sağlamaz)
+> - `fixed_monthly_billing = 0` ise standart formül (saat × tarife + paket × prim)
 
-**Recep örneği:**
-- Quick China takım şefi
-- Restorana fatura: 84.500 ₺ + KDV (101.400 ₺ KDV dahil)
-- Recep'e net hakediş: 72.050 ₺ aylık sabit
-- Aradaki 12.450 ₺ kar (paket atışından bağımsız)
+**Recep örneği (Quick China takım şefi, Mart 2026):**
+- 296 saat, 85 paket attı (standart formül 85.304 ₺ verirdi — UYGULANMAZ)
+- Restorana fatura: **84.500 ₺ KDV hariç** (101.400 ₺ KDV dahil)
+- Recep'e net hakediş: **72.050 ₺**
+- Kar farkı: **12.450 ₺**
+
+> **Saatlik / saat+prim restoranlarda atılan paket sabit anlaşmalı kişiye ödenen tutarı değiştirmez.** Attığı her paket bana kar yazılır.
 
 ## 7. Aylık Sabit Restoranda Ekstra Mesai Hesabı
 

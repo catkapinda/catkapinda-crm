@@ -60,6 +60,7 @@ export type Personnel = {
   start_date: string | null;
   exit_date: string | null;
   monthly_fixed_cost?: number | null;
+  fixed_monthly_billing?: number | null;
   vehicle_type?: string | null;
   tc_no?: string | null;
   iban?: string | null;
@@ -84,6 +85,7 @@ export type PersonnelCreate = {
   assigned_restaurant_id?: number;
   start_date?: string;
   monthly_fixed_cost?: number;
+  fixed_monthly_billing?: number;
   vehicle_type?: string;
   tc_no?: string;
   iban?: string;

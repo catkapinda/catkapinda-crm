@@ -45,6 +45,7 @@ type FormState = {
   assigned_restaurant_id: number | null;
   start_date: string;
   monthly_fixed_cost: number;
+  fixed_monthly_billing: number;
   vehicle_type: string;
   tc_no: string;
   iban: string;
@@ -65,6 +66,7 @@ const EMPTY_FORM: FormState = {
   assigned_restaurant_id: null,
   start_date: '',
   monthly_fixed_cost: 0,
+  fixed_monthly_billing: 0,
   vehicle_type: '',
   tc_no: '',
   iban: '',
@@ -99,6 +101,7 @@ export function PersonnelEditModal({
         assigned_restaurant_id: personnel.assigned_restaurant_id ?? null,
         start_date: personnel.start_date ?? '',
         monthly_fixed_cost: personnel.monthly_fixed_cost ?? 0,
+        fixed_monthly_billing: personnel.fixed_monthly_billing ?? 0,
         vehicle_type: personnel.vehicle_type ?? '',
         tc_no: personnel.tc_no ?? '',
         iban: personnel.iban ?? '',
@@ -160,6 +163,7 @@ export function PersonnelEditModal({
         assigned_restaurant_id: form.assigned_restaurant_id ?? undefined,
         start_date: form.start_date || undefined,
         monthly_fixed_cost: form.monthly_fixed_cost || undefined,
+        fixed_monthly_billing: form.fixed_monthly_billing || undefined,
         vehicle_type: form.vehicle_type || undefined,
         tc_no: form.tc_no.trim() || undefined,
         iban: form.iban.trim() || undefined,
@@ -321,33 +325,77 @@ export function PersonnelEditModal({
             </Field>
           </div>
 
-          {/* Aylık sabit + araç tipi */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Aylık Sabit Hakediş (₺)" hint="Aylık sabit anlaşmalı kuryeler için">
-              <input
-                type="number"
-                step="any"
-                value={form.monthly_fixed_cost}
-                onChange={(e) =>
-                  set('monthly_fixed_cost', parseFloat(e.target.value) || 0)
-                }
-                className="input num"
-              />
-            </Field>
-            <Field label="Araç Tipi">
-              <select
-                value={form.vehicle_type}
-                onChange={(e) => set('vehicle_type', e.target.value)}
-                className="input"
+          {/* Sabit Aylık Anlaşma — yan yana iki alan */}
+          <div className="bg-brand-soft/40 border border-brand/15 rounded-xl p-3.5">
+            <div className="text-[10.5px] font-semibold text-brand uppercase tracking-wider mb-2.5 flex items-center gap-2">
+              <span>💰 Sabit Aylık Anlaşma</span>
+              <span className="text-text-3 font-normal normal-case">
+                (Takım Şefi, Kaptan, BM veya aylık sabit kurye için)
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field
+                label="Kuryeye Ödenen (₺)"
+                hint="net aylık hakediş"
               >
-                {VEHICLE_TYPES.map((v) => (
-                  <option key={v.value} value={v.value}>
-                    {v.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.monthly_fixed_cost}
+                  onChange={(e) =>
+                    set('monthly_fixed_cost', parseFloat(e.target.value) || 0)
+                  }
+                  className="input num"
+                  placeholder="örn 72050"
+                />
+              </Field>
+              <Field
+                label="Restorana Fatura (₺)"
+                hint="KDV hariç, restorana yansıyan"
+              >
+                <input
+                  type="number"
+                  step="any"
+                  value={form.fixed_monthly_billing}
+                  onChange={(e) =>
+                    set(
+                      'fixed_monthly_billing',
+                      parseFloat(e.target.value) || 0,
+                    )
+                  }
+                  className="input num"
+                  placeholder="örn 84500"
+                />
+              </Field>
+            </div>
+            {form.fixed_monthly_billing > 0 &&
+              form.monthly_fixed_cost > 0 && (
+                <div className="mt-2 text-[11.5px] text-text-2">
+                  <span className="text-text-3">Aylık kar farkı:</span>{' '}
+                  <span className="font-semibold text-brand num">
+                    {(form.fixed_monthly_billing - form.monthly_fixed_cost).toLocaleString(
+                      'tr-TR',
+                    )}{' '}
+                    ₺
+                  </span>
+                </div>
+              )}
           </div>
+
+          {/* Araç tipi (tek satır) */}
+          <Field label="Araç Tipi">
+            <select
+              value={form.vehicle_type}
+              onChange={(e) => set('vehicle_type', e.target.value)}
+              className="input"
+            >
+              {VEHICLE_TYPES.map((v) => (
+                <option key={v.value} value={v.value}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </Field>
 
           <Field label="Başlangıç Tarihi">
             <input

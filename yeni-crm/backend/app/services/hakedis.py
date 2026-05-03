@@ -43,7 +43,8 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
             p.person_code,
             p.role,
             p.assigned_restaurant_id,
-            p.monthly_fixed_cost
+            p.monthly_fixed_cost,
+            p.fixed_monthly_billing
         FROM daily_entries d
         LEFT JOIN personnel p ON p.id = d.actual_personnel_id
         WHERE d.restaurant_id = %s
@@ -86,6 +87,9 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
                     or (assigned is not None and assigned != restaurant_id)
                 ),
                 "monthly_fixed_cost": float(e.get("monthly_fixed_cost") or 0),
+                "fixed_monthly_billing": float(
+                    e.get("fixed_monthly_billing") or 0
+                ),
                 "entries": 0,
                 "working_days": 0,
                 "absences": 0,
@@ -110,6 +114,15 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
         _compute_fixed_monthly(by_courier, fixed_monthly_fee)
     else:
         for c in by_courier.values():
+            # SABİT AYLIK PERSONEL ÖZEL DURUMU:
+            # Restoran Takım Şefi, Kaptan, BM gibi sabit aylık anlaşmalı kişiler
+            # saat+prim restoranda çalışsa bile saat × tarife uygulanmaz.
+            # Restorana yansıyan = personnel.fixed_monthly_billing (KDV hariç).
+            # Attığı saat/paket bana karşılık olmaz, bu kara yazılır.
+            if c["fixed_monthly_billing"] > 0 and c["working_days"] > 0:
+                _compute_personnel_fixed_billing(c)
+                continue
+
             if pricing == "hourly_only":
                 _compute_hourly_only(c, hourly_rate)
             elif pricing == "hourly_plus_package":
@@ -161,6 +174,35 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
             "vat_rate": vat_rate,
         },
     }
+
+
+def _compute_personnel_fixed_billing(c: dict) -> None:
+    """Sabit aylık anlaşmalı personel (Takım Şefi, Kaptan, BM) için fatura.
+
+    `personnel.fixed_monthly_billing` KDV hariç sabit aylık tutardır.
+    Attığı saat/paket fatura formülüne dahil edilmez (kar yazılır).
+    """
+    billing = c["fixed_monthly_billing"]
+    c["billing_excl_vat"] = billing
+    if billing > 0:
+        role_lbl = c.get("role") or "Sabit aylık"
+        c["billing_breakdown"].append({
+            "label": f"Aylık sabit ({role_lbl})",
+            "qty": 1,
+            "rate": billing,
+            "amount": billing,
+        })
+    if c.get("monthly_fixed_cost", 0) > 0:
+        # Bilgilendirme satırı — bu hesaba dahil değil, sadece görüntü
+        c["billing_breakdown"].append({
+            "label": (
+                f"ℹ Kuryeye ödenen aylık: "
+                f"{c['monthly_fixed_cost']:,.0f} ₺ (kar farkı)"
+            ),
+            "qty": 0,
+            "rate": 0,
+            "amount": 0,
+        })
 
 
 def _compute_hourly_only(c: dict, hourly_rate: float) -> None:
