@@ -583,6 +583,29 @@ def test_sync_personnel_vehicle_history_baselines_updates_existing_system_baseli
     assert conn.commit_count == 1
 
 
+def test_build_personnel_vehicle_workspace_runs_baseline_sync(monkeypatch):
+    conn = FakeConnection()
+    sync_calls: list[int] = []
+
+    monkeypatch.setattr(
+        personnel_service,
+        "_sync_personnel_vehicle_history_baselines",
+        lambda _conn: sync_calls.append(1),
+    )
+    monkeypatch.setattr(personnel_service, "fetch_personnel_vehicle_candidates", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(personnel_service, "fetch_recent_vehicle_history_records", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(personnel_service, "count_total_vehicle_history_records", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(personnel_service, "count_active_catkapinda_vehicle_personnel", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(personnel_service, "count_active_motor_rental_cards", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(personnel_service, "count_active_motor_sale_cards", lambda *_args, **_kwargs: 0)
+
+    response = personnel_service.build_personnel_vehicle_workspace(conn, limit=50)
+
+    assert sync_calls == [1]
+    assert response.people == []
+    assert response.history == []
+
+
 def test_create_personnel_vehicle_history_entry_syncs_current_vehicle_from_latest_history(monkeypatch):
     conn = FakeConnection()
     vehicle_updates: list[dict] = []

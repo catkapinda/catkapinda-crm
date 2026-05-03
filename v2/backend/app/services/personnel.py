@@ -906,6 +906,7 @@ def build_personnel_vehicle_workspace(
     *,
     limit: int,
 ) -> PersonnelVehicleWorkspaceResponse:
+    _sync_personnel_vehicle_history_baselines(conn)
     people = fetch_personnel_vehicle_candidates(conn, limit=limit)
     history_rows = fetch_recent_vehicle_history_records(conn, limit=limit)
     return PersonnelVehicleWorkspaceResponse(
