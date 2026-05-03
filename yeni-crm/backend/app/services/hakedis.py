@@ -45,9 +45,16 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
             p.assigned_restaurant_id,
             p.monthly_fixed_cost,
             p.fixed_monthly_billing,
-            COALESCE(p.standard_daily_hours, 11) AS standard_daily_hours
+            -- Vardiya saati: önce restoran (kendi vardiya saati),
+            -- sonra personel kaydı, son çare 11
+            COALESCE(
+                NULLIF(r.standard_daily_hours, 0),
+                NULLIF(p.standard_daily_hours, 0),
+                11
+            ) AS standard_daily_hours
         FROM daily_entries d
         LEFT JOIN personnel p ON p.id = d.actual_personnel_id
+        LEFT JOIN restaurants r ON r.id = d.restaurant_id
         WHERE d.restaurant_id = %s
           AND LEFT(d.entry_date::text, 7) = %s
         ORDER BY p.full_name NULLS LAST, d.entry_date

@@ -369,6 +369,7 @@ export type Restaurant = {
   fixed_monthly_fee: number | null;
   vat_rate: number | null;
   target_headcount: number | null;
+  standard_daily_hours?: number | null;
   contact_name: string | null;
   contact_phone: string | null;
   contact_email?: string | null;

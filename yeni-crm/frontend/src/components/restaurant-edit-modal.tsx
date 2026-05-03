@@ -42,6 +42,7 @@ export function RestaurantEditModal({
     fixed_monthly_fee: r?.fixed_monthly_fee ?? 0,
     vat_rate: r?.vat_rate ?? 20,
     target_headcount: r?.target_headcount ?? 1,
+    standard_daily_hours: r?.standard_daily_hours ?? 11,
     contact_name: r?.contact_name ?? '',
     contact_phone: r?.contact_phone ?? '',
     contact_email: r?.contact_email ?? '',
@@ -233,16 +234,25 @@ export function RestaurantEditModal({
             </Field>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Field label="Hedef Kurye">
               <NumberInput
                 value={form.target_headcount}
                 onChange={(v) => set('target_headcount', Math.round(v ?? 0))}
               />
             </Field>
+            <Field label="Vardiya Saati (gün)">
+              <NumberInput
+                value={form.standard_daily_hours}
+                onChange={(v) => set('standard_daily_hours', Math.round(v ?? 0))}
+              />
+            </Field>
             <Field label="KDV Oranı (%)">
               <NumberInput value={form.vat_rate} onChange={(v) => set('vat_rate', v)} />
             </Field>
+          </div>
+          <div className="text-[11px] text-text-3 -mt-1 px-1">
+            Vardiya saati ekstra mesai hesabında kullanılır (örn. 10 saatlik vardiyada bayram günü 20 saat çalışırsa +1 gün ekstra mesai).
           </div>
 
           {/* Resmi Bilgiler */}

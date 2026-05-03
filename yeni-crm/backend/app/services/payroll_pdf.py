@@ -67,6 +67,46 @@ TR_MONTHS = [
 ]
 
 
+# V2'den gelen kayıtlarda Türkçe karakter eksikse / küçük harfse normalize et
+TR_NORMALIZE: dict[str, str] = {
+    "yakit": "Yakıt",
+    "yakıt": "Yakıt",
+    "idari ceza": "İdari Ceza",
+    "trafik cezasi": "Trafik Cezası",
+    "trafik cezası": "Trafik Cezası",
+    "fatura edilmeyen tutar": "Fatura Edilmeyen Tutar",
+    "fatura edilemeyen tutar": "Fatura Edilemeyen Tutar",
+    "bakim": "Bakım",
+    "bakım": "Bakım",
+    "agir bakim": "Ağır Bakım",
+    "ağır bakım": "Ağır Bakım",
+    "motor servis bakim": "Motor Servis Bakım",
+    "motor servis bakım": "Motor Servis Bakım",
+    "motor hasar": "Motor Hasarı",
+    "motor hasarı": "Motor Hasarı",
+    "korumali mont": "Korumalı Mont",
+    "korumalı mont": "Korumalı Mont",
+    "yagmurluk": "Yağmurluk",
+    "yağmurluk": "Yağmurluk",
+    "tshirt": "T-shirt",
+    "t-shirt": "T-shirt",
+    "gogus cantasi": "Göğüs Çantası",
+    "göğüs çantası": "Göğüs Çantası",
+    "telefon tutacagi": "Telefon Tutacağı",
+    "telefon tutacağı": "Telefon Tutacağı",
+    "elcik": "Elcik",
+    "kask": "Kask",
+    "avans": "Avans",
+}
+
+
+def _normalize_tr(text: str | None) -> str:
+    if not text:
+        return ""
+    key = text.strip().lower()
+    return TR_NORMALIZE.get(key, text.strip())
+
+
 def _format_period(period: str) -> str:
     try:
         y, m = period.split("-")
@@ -357,29 +397,29 @@ def _make_kesinti_section(payroll: dict, styles: dict) -> list:
 
     rows: list[list] = []
     if payroll.get("motor_taksit", 0) > 0:
-        rows.append(["Motor satış taksiti", "−" + _money(payroll["motor_taksit"]) + " ₺"])
+        rows.append(["Motor Satış Taksiti", "−" + _money(payroll["motor_taksit"]) + " ₺"])
     if payroll.get("motor_kira", 0) > 0:
         days = payroll.get("ana_days", 30)
         suffix = f" ({days} gün × aylık/30)" if days < 28 else ""
         rows.append([
-            f"Motor kirası{suffix}", "−" + _money(payroll["motor_kira"]) + " ₺",
+            f"Motor Kirası{suffix}", "−" + _money(payroll["motor_kira"]) + " ₺",
         ])
     if payroll.get("muhasebe", 0) > 0:
-        rows.append(["ÇK Muhasebe bedeli", "−" + _money(payroll["muhasebe"]) + " ₺"])
+        rows.append(["ÇK Muhasebe Bedeli", "−" + _money(payroll["muhasebe"]) + " ₺"])
     if payroll.get("sirket_acilis", 0) > 0:
-        rows.append(["Şirket açılış bedeli (1×)", "−" + _money(payroll["sirket_acilis"]) + " ₺"])
+        rows.append(["Şirket Açılış Bedeli (1×)", "−" + _money(payroll["sirket_acilis"]) + " ₺"])
 
     for g in payroll.get("kesinti_groups", []):
-        # Türkçe normalize basit map
-        type_label = g.get("type", "")
+        # Türkçe normalize + "(N kayıt)" suffix kaldırıldı (kullanıcı isteği)
+        type_label = _normalize_tr(g.get("type", ""))
         rows.append([
-            f"{type_label} ({g.get('count')} kayıt)",
+            type_label,
             "−" + _money(g.get("total", 0)) + " ₺",
         ])
 
     if payroll.get("tevkifat", 0) > 0:
         rows.append([
-            f"KDV Tevkifatı (2/10) — Zorunlu devlet kesintisidir",
+            "KDV Tevkifatı (2/10) — Zorunlu devlet kesintisidir",
             "−" + _money(payroll["tevkifat"]) + " ₺",
         ])
 

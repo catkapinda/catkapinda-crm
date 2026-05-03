@@ -156,7 +156,13 @@ def list_personnel_payroll(period: str) -> list[dict]:
                     p.assigned_restaurant_id,
                     COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
                     COALESCE(p.fixed_monthly_billing, 0) AS fixed_monthly_billing,
-                    COALESCE(p.standard_daily_hours, 11) AS standard_daily_hours,
+                    -- Vardiya standardı: önce restoran (her restoranın kendi
+                    -- vardiya saati), sonra personel kaydı, son çare 11
+                    COALESCE(
+                        NULLIF(r.standard_daily_hours, 0),
+                        NULLIF(p.standard_daily_hours, 0),
+                        11
+                    ) AS standard_daily_hours,
                     COALESCE(p.motor_purchase_monthly_amount, 0) AS motor_taksit,
                     COALESCE(p.motor_rental_monthly_amount, 0) AS motor_kira_aylik,
                     COALESCE(p.motor_rental, '') AS motor_rental_flag,

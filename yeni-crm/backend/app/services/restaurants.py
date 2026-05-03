@@ -18,6 +18,7 @@ EDITABLE_COLUMNS: set[str] = {
     "fixed_monthly_fee",
     "vat_rate",
     "target_headcount",
+    "standard_daily_hours",
     "contact_name",
     "contact_phone",
     "contact_email",
@@ -38,7 +39,8 @@ def list_restaurants(active: bool | None = True) -> list[dict]:
         SELECT id, brand, branch, billing_group, pricing_model,
                hourly_rate, package_rate, package_threshold,
                package_rate_low, package_rate_high, fixed_monthly_fee,
-               vat_rate, target_headcount, contact_name, contact_phone,
+               vat_rate, target_headcount, standard_daily_hours,
+               contact_name, contact_phone,
                start_date, end_date, active, notes
         FROM restaurants
     """
@@ -62,7 +64,8 @@ def get_restaurant(restaurant_id: int) -> dict | None:
         SELECT id, brand, branch, billing_group, pricing_model,
                hourly_rate, package_rate, package_threshold,
                package_rate_low, package_rate_high, fixed_monthly_fee,
-               vat_rate, target_headcount, contact_name, contact_phone,
+               vat_rate, target_headcount, standard_daily_hours,
+               contact_name, contact_phone,
                contact_email, address, company_title, tax_number, tax_office,
                start_date, end_date, active, notes
         FROM restaurants
