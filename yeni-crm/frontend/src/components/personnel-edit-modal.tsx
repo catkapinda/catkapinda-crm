@@ -22,10 +22,21 @@ const ROLES = [
 ];
 
 const VEHICLE_TYPES = [
-  { value: '', label: '— seç —' },
-  { value: 'Kendi motoru', label: 'Kendi motoru' },
-  { value: 'Çat Kapında kiralık', label: 'Çat Kapında kiralık' },
-  { value: 'Şirket motoru', label: 'Şirket motoru' },
+  {
+    value: 'Çat Kapında Kiralık',
+    label: 'Çat Kapında Kiralık',
+    sub: 'Aylık kira · ÇK öder bakım',
+  },
+  {
+    value: 'Çat Kapında Satış',
+    label: 'Çat Kapında Satış',
+    sub: 'Taksit + taahhüt · bakım kuryede',
+  },
+  {
+    value: 'Kendi Motoru',
+    label: 'Kendi Motoru',
+    sub: 'Bakım kuryede · ÇK kira/taksit yok',
+  },
 ];
 
 const ACCOUNTING_TYPES = [
@@ -449,20 +460,127 @@ export function PersonnelEditModal({
               )}
           </div>
 
-          {/* Araç tipi (tek satır) */}
-          <Field label="Araç Tipi">
-            <select
-              value={form.vehicle_type}
-              onChange={(e) => set('vehicle_type', e.target.value)}
-              className="input"
-            >
-              {VEHICLE_TYPES.map((v) => (
-                <option key={v.value} value={v.value}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
+          {/* Araç tipi — radio cards (3 seçenek) */}
+          <Field label="Araç Tipi *">
+            <div className="grid grid-cols-3 gap-2">
+              {VEHICLE_TYPES.map((v) => {
+                const active = form.vehicle_type === v.value;
+                return (
+                  <button
+                    key={v.value}
+                    type="button"
+                    onClick={() => {
+                      set('vehicle_type', v.value);
+                      // Eski flag'leri vehicle_type'a göre senkronize et
+                      set(
+                        'motor_rental',
+                        v.value === 'Çat Kapında Kiralık' ? 'Evet' : 'Hayır',
+                      );
+                      set(
+                        'motor_purchase',
+                        v.value === 'Çat Kapında Satış' ? 'Evet' : 'Hayır',
+                      );
+                    }}
+                    className={`text-left p-3 rounded-lg border transition ${
+                      active
+                        ? 'border-brand bg-brand-soft text-brand'
+                        : 'border-border hover:border-brand/50 text-text-2'
+                    }`}
+                  >
+                    <div className="font-semibold text-[12.5px]">{v.label}</div>
+                    <div className="text-[10.5px] text-text-3 mt-0.5 leading-tight">
+                      {v.sub}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </Field>
+
+          {/* Çat Kapında Kiralık → Aylık kira */}
+          {form.vehicle_type === 'Çat Kapında Kiralık' && (
+            <div className="bg-orange-50/50 border border-orange-200 rounded-xl p-3.5">
+              <div className="text-[10.5px] font-semibold text-orange-800 uppercase tracking-wider mb-2">
+                Çat Kapında Kiralık Detayları
+              </div>
+              <Field label="Aylık Kira (₺)" hint="ÇK gideri · kuryeden düşülmez">
+                <input
+                  type="number"
+                  step="any"
+                  value={form.motor_rental_monthly_amount}
+                  onChange={(e) =>
+                    set(
+                      'motor_rental_monthly_amount',
+                      parseFloat(e.target.value) || 0,
+                    )
+                  }
+                  className="input num"
+                  placeholder="örn 13000"
+                />
+              </Field>
+            </div>
+          )}
+
+          {/* Çat Kapında Satış → Taksit + taahhüt */}
+          {form.vehicle_type === 'Çat Kapında Satış' && (
+            <div className="bg-purple-50/50 border border-purple-200 rounded-xl p-3.5">
+              <div className="text-[10.5px] font-semibold text-purple-800 uppercase tracking-wider mb-2">
+                Çat Kapında Satış Detayları
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Aylık Taksit (₺)" hint="kuryenin maaşından kesilir">
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.motor_purchase_monthly_amount}
+                    onChange={(e) =>
+                      set(
+                        'motor_purchase_monthly_amount',
+                        parseFloat(e.target.value) || 0,
+                      )
+                    }
+                    className="input num"
+                    placeholder="örn 11250"
+                  />
+                </Field>
+                <Field label="Taahhüt Süresi (ay)">
+                  <input
+                    type="number"
+                    value={form.motor_purchase_installment_count}
+                    onChange={(e) =>
+                      set(
+                        'motor_purchase_installment_count',
+                        parseInt(e.target.value) || 0,
+                      )
+                    }
+                    className="input num"
+                    placeholder="örn 18"
+                  />
+                </Field>
+                <Field label="Sözleşme Başlangıcı">
+                  <input
+                    type="date"
+                    value={form.motor_purchase_start_date}
+                    onChange={(e) =>
+                      set('motor_purchase_start_date', e.target.value)
+                    }
+                    className="input"
+                  />
+                </Field>
+                <Field label="Toplam Satış Bedeli (₺)" hint="bilgi · taksit × süre">
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.motor_purchase_sale_price}
+                    onChange={(e) =>
+                      set('motor_purchase_sale_price', parseFloat(e.target.value) || 0)
+                    }
+                    className="input num"
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
 
           <Field label="Başlangıç Tarihi">
             <input
@@ -488,96 +606,6 @@ export function PersonnelEditModal({
 
             {showAdvanced && (
               <div className="mt-4 space-y-5">
-                {/* 🏍️ ARAÇ DETAYLARI */}
-                <SectionTitle icon="🏍️" label="Araç Detayları" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Motor Satın Alma">
-                    <select
-                      value={form.motor_purchase}
-                      onChange={(e) => set('motor_purchase', e.target.value)}
-                      className="input"
-                    >
-                      <option value="">— seç —</option>
-                      <option value="Evet">Evet (satış motoru)</option>
-                      <option value="Hayır">Hayır</option>
-                    </select>
-                  </Field>
-                  <Field label="Motor Kiralama">
-                    <select
-                      value={form.motor_rental}
-                      onChange={(e) => set('motor_rental', e.target.value)}
-                      className="input"
-                    >
-                      <option value="">— seç —</option>
-                      <option value="Evet">Evet (ÇK kiralık)</option>
-                      <option value="Hayır">Hayır</option>
-                    </select>
-                  </Field>
-                </div>
-
-                {form.motor_purchase === 'Evet' && (
-                  <div className="grid grid-cols-2 gap-3 bg-bg-surface2/50 rounded-lg p-3 border border-border">
-                    <Field label="Satış Fiyatı (₺)">
-                      <input
-                        type="number"
-                        step="any"
-                        value={form.motor_purchase_sale_price}
-                        onChange={(e) =>
-                          set('motor_purchase_sale_price', parseFloat(e.target.value) || 0)
-                        }
-                        className="input num"
-                      />
-                    </Field>
-                    <Field label="Aylık Taksit (₺)">
-                      <input
-                        type="number"
-                        step="any"
-                        value={form.motor_purchase_monthly_amount}
-                        onChange={(e) =>
-                          set('motor_purchase_monthly_amount', parseFloat(e.target.value) || 0)
-                        }
-                        className="input num"
-                      />
-                    </Field>
-                    <Field label="Taksit Sayısı (ay)">
-                      <input
-                        type="number"
-                        value={form.motor_purchase_installment_count}
-                        onChange={(e) =>
-                          set('motor_purchase_installment_count', parseInt(e.target.value) || 0)
-                        }
-                        className="input num"
-                      />
-                    </Field>
-                    <Field label="Başlangıç Tarihi">
-                      <input
-                        type="date"
-                        value={form.motor_purchase_start_date}
-                        onChange={(e) =>
-                          set('motor_purchase_start_date', e.target.value)
-                        }
-                        className="input"
-                      />
-                    </Field>
-                  </div>
-                )}
-
-                {form.motor_rental === 'Evet' && (
-                  <div className="bg-bg-surface2/50 rounded-lg p-3 border border-border">
-                    <Field label="Aylık Kira (₺)">
-                      <input
-                        type="number"
-                        step="any"
-                        value={form.motor_rental_monthly_amount}
-                        onChange={(e) =>
-                          set('motor_rental_monthly_amount', parseFloat(e.target.value) || 0)
-                        }
-                        className="input num"
-                      />
-                    </Field>
-                  </div>
-                )}
-
                 {/* 📊 MUHASEBE & VERGİ */}
                 <SectionTitle icon="📊" label="Muhasebe & Vergi" />
                 <div className="grid grid-cols-2 gap-3">

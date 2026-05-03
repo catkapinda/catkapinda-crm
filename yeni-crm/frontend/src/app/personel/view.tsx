@@ -56,14 +56,15 @@ function formatDateShort(iso: string | null | undefined): string {
 }
 
 function vehicleLabel(p: Personnel): { label: string; color: string } {
-  if (p.motor_purchase === 'Evet') {
-    return { label: 'Satış motoru', color: 'bg-purple-50 text-purple-700' };
+  // Yeni vehicle_type değerleri
+  if (p.vehicle_type === 'Çat Kapında Satış' || p.motor_purchase === 'Evet') {
+    return { label: 'ÇK Satış', color: 'bg-purple-50 text-purple-700' };
   }
-  if (p.motor_rental === 'Evet') {
-    return { label: 'ÇK kiralık', color: 'bg-orange-50 text-orange-700' };
+  if (p.vehicle_type === 'Çat Kapında Kiralık' || p.motor_rental === 'Evet') {
+    return { label: 'ÇK Kiralık', color: 'bg-orange-50 text-orange-700' };
   }
-  if (p.vehicle_type) {
-    return { label: 'Kendi motoru', color: 'bg-bg-surface2 text-text-2' };
+  if (p.vehicle_type === 'Kendi Motoru' || p.vehicle_type) {
+    return { label: 'Kendi Motoru', color: 'bg-bg-surface2 text-text-2' };
   }
   return { label: '—', color: 'bg-bg-surface2 text-text-3' };
 }
