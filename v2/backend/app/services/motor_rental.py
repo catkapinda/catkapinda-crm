@@ -155,7 +155,7 @@ def build_company_motor_rental_plan(
         monthly_amount = DEFAULT_MOTOR_RENTAL_MONTHLY_AMOUNT
 
     month_start, month_end = _month_bounds(selected_month)
-    start_date = _parse_date(row.get("start_date"))
+    start_date = _parse_date(row.get("motor_purchase_start_date")) or _parse_date(row.get("start_date"))
     exit_date = _parse_date(row.get("exit_date")) or _parse_date(row.get("end_date"))
     if start_date is not None and start_date > month_end:
         return None

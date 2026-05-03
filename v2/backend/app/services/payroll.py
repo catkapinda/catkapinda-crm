@@ -1462,29 +1462,33 @@ def _build_local_payroll_document_payload(
     ).get(personnel_id, [])
     vehicle_history_person_ids = _fetch_vehicle_history_person_ids(conn)
     has_vehicle_history = personnel_id in vehicle_history_person_ids
-    auto_motor_rental = (
+    history_motor_rental = (
         calculate_company_motor_rental_deduction_from_history(
             vehicle_history_rows,
             resolved_month,
             exit_date=_row_value(person_data, "exit_date"),
         )
         if has_vehicle_history
-        else calculate_company_motor_rental_deduction(
-            person_data,
-            resolved_month,
-        )
+        else 0.0
     )
-    auto_motor_purchase = (
+    fallback_motor_rental = calculate_company_motor_rental_deduction(
+        person_data,
+        resolved_month,
+    )
+    auto_motor_rental = history_motor_rental if history_motor_rental > 0 else fallback_motor_rental
+    history_motor_purchase = (
         calculate_company_motor_purchase_deduction_from_history(
             vehicle_history_rows,
             resolved_month,
         )
         if has_vehicle_history
-        else calculate_company_motor_purchase_deduction(
-            person_data,
-            resolved_month,
-        )
+        else 0.0
     )
+    fallback_motor_purchase = calculate_company_motor_purchase_deduction(
+        person_data,
+        resolved_month,
+    )
+    auto_motor_purchase = history_motor_purchase if history_motor_purchase > 0 else fallback_motor_purchase
     base_deductions += auto_motor_rental
     base_deductions += auto_motor_purchase
     invoice_base_reducing_deductions += auto_motor_purchase
@@ -1809,33 +1813,37 @@ def _build_local_payroll_dashboard(
     for person_id, person in personnel_index.items():
         person_vehicle_history = vehicle_history_by_person.get(person_id, [])
         has_vehicle_history = person_id in vehicle_history_person_ids
-        auto_motor_rental = (
+        history_motor_rental = (
             calculate_company_motor_rental_deduction_from_history(
                 person_vehicle_history,
                 resolved_month,
                 exit_date=_row_value(person, "exit_date"),
             )
             if has_vehicle_history
-            else calculate_company_motor_rental_deduction(
-                dict(person),
-                resolved_month,
-            )
+            else 0.0
         )
+        fallback_motor_rental = calculate_company_motor_rental_deduction(
+            dict(person),
+            resolved_month,
+        )
+        auto_motor_rental = history_motor_rental if history_motor_rental > 0 else fallback_motor_rental
         if auto_motor_rental > 0:
             auto_motor_rental_by_person[person_id] = auto_motor_rental
             deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_rental
             deduction_items_by_person.setdefault(person_id, []).append((MOTOR_RENTAL_DEDUCTION_TYPE, auto_motor_rental))
-        auto_motor_purchase = (
+        history_motor_purchase = (
             calculate_company_motor_purchase_deduction_from_history(
                 person_vehicle_history,
                 resolved_month,
             )
             if has_vehicle_history
-            else calculate_company_motor_purchase_deduction(
-                dict(person),
-                resolved_month,
-            )
+            else 0.0
         )
+        fallback_motor_purchase = calculate_company_motor_purchase_deduction(
+            dict(person),
+            resolved_month,
+        )
+        auto_motor_purchase = history_motor_purchase if history_motor_purchase > 0 else fallback_motor_purchase
         if auto_motor_purchase > 0:
             auto_motor_purchase_by_person[person_id] = auto_motor_purchase
             deductions_by_person[person_id] = _safe_float(deductions_by_person.get(person_id)) + auto_motor_purchase
