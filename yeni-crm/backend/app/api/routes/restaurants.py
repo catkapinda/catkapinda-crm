@@ -4,6 +4,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.services.hakedis import restaurant_monthly_breakdown
 from app.services.restaurants import (
     get_restaurant,
     list_restaurants,
@@ -67,3 +68,12 @@ async def update_one(restaurant_id: int, payload: RestaurantUpdate) -> dict:
     if not row:
         raise HTTPException(status_code=404, detail="Restoran bulunamadı")
     return row
+
+
+@router.get("/{restaurant_id}/monthly")
+async def monthly_breakdown(restaurant_id: int, period: str = "2026-03") -> dict:
+    """Restoranın o aydaki kurye bazında detayı + fatura tutarı."""
+    result = restaurant_monthly_breakdown(restaurant_id, period)
+    if result.get("restaurant") is None:
+        raise HTTPException(status_code=404, detail="Restoran bulunamadı")
+    return result

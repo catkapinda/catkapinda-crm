@@ -126,6 +126,62 @@ export async function updateRestaurant(
   return apiMutate<Restaurant>(`/api/restaurants/${id}`, fields, 'PATCH');
 }
 
+// ─────────────────────────────────────────────────────────────
+// Restoran aylık fatura kırılımı (hakediş motoru sonucu)
+// ─────────────────────────────────────────────────────────────
+
+export type CourierBillingLine = {
+  label: string;
+  qty: number;
+  rate: number;
+  amount: number;
+};
+
+export type CourierBilling = {
+  personnel_id: number | null;
+  full_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  is_support: boolean;
+  monthly_fixed_cost: number;
+  entries: number;
+  working_days: number;
+  absences: number;
+  total_hours: number;
+  total_packages: number;
+  billing_excl_vat: number;
+  billing_incl_vat: number;
+  billing_breakdown: CourierBillingLine[];
+};
+
+export type RestaurantMonthly = {
+  restaurant: Restaurant;
+  period: string;
+  couriers: CourierBilling[];
+  totals: {
+    courier_count: number;
+    support_count: number;
+    total_entries: number;
+    total_working_days: number;
+    total_absences: number;
+    total_hours: number;
+    total_packages: number;
+    total_billing_excl_vat: number;
+    total_billing_incl_vat: number;
+    vat_amount: number;
+    vat_rate: number;
+  };
+};
+
+export async function getRestaurantMonthly(
+  id: number,
+  period: string = '2026-03'
+): Promise<RestaurantMonthly> {
+  return apiGet<RestaurantMonthly>(
+    `/api/restaurants/${id}/monthly?period=${period}`
+  );
+}
+
 export type SidebarCounts = {
   personel: number;
   restoranlar: number;
