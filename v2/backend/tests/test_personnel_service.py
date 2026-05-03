@@ -493,6 +493,96 @@ def test_update_personnel_record_does_not_write_vehicle_history_on_mode_change(m
     assert vehicle_calls == []
 
 
+def test_sync_personnel_vehicle_history_baselines_uses_motor_start_date_for_company_motor(monkeypatch):
+    conn = FakeConnection()
+    vehicle_calls: list[dict] = []
+
+    monkeypatch.setattr(
+        personnel_service,
+        "fetch_personnel_vehicle_baseline_candidates",
+        lambda *_args, **_kwargs: [
+            {
+                "id": 91,
+                "vehicle_history_count": 0,
+                "vehicle_type": "Çat Kapında",
+                "motor_rental": "Evet",
+                "motor_purchase": "Hayır",
+                "motor_rental_monthly_amount": 13000,
+                "motor_purchase_start_date": date(2026, 3, 1),
+                "motor_purchase_commitment_months": 0,
+                "motor_purchase_sale_price": 0,
+                "motor_purchase_monthly_deduction": 0,
+                "start_date": date(2026, 2, 9),
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        personnel_service,
+        "insert_vehicle_history_record",
+        lambda _conn, **kwargs: vehicle_calls.append(kwargs) or 501,
+    )
+
+    personnel_service._sync_personnel_vehicle_history_baselines(conn)
+
+    assert vehicle_calls[0]["effective_date"] == "2026-03-01"
+    assert vehicle_calls[0]["notes"] == "Sistem: Başlangıç motor kaydı"
+    assert conn.commit_count == 1
+
+
+def test_sync_personnel_vehicle_history_baselines_updates_existing_system_baseline(monkeypatch):
+    conn = FakeConnection()
+    update_calls: list[tuple[int, dict]] = []
+
+    monkeypatch.setattr(
+        personnel_service,
+        "fetch_personnel_vehicle_baseline_candidates",
+        lambda *_args, **_kwargs: [
+            {
+                "id": 92,
+                "vehicle_history_count": 1,
+                "vehicle_type": "Çat Kapında",
+                "motor_rental": "Evet",
+                "motor_purchase": "Hayır",
+                "motor_rental_monthly_amount": 13000,
+                "motor_purchase_start_date": date(2026, 3, 1),
+                "motor_purchase_commitment_months": 0,
+                "motor_purchase_sale_price": 0,
+                "motor_purchase_monthly_deduction": 0,
+                "start_date": date(2026, 2, 9),
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        personnel_service,
+        "fetch_latest_vehicle_history_record",
+        lambda *_args, **_kwargs: {
+            "id": 701,
+            "vehicle_type": "Çat Kapında",
+            "motor_rental": "Evet",
+            "motor_rental_monthly_amount": 13000,
+            "motor_purchase": "Hayır",
+            "motor_purchase_start_date": None,
+            "motor_purchase_commitment_months": 0,
+            "motor_purchase_sale_price": 0,
+            "motor_purchase_monthly_deduction": 0,
+            "effective_date": "2026-04-12",
+            "notes": "Sistem: Başlangıç araç kaydı",
+        },
+    )
+    monkeypatch.setattr(
+        personnel_service,
+        "update_vehicle_history_record",
+        lambda _conn, history_id, **kwargs: update_calls.append((history_id, kwargs)),
+    )
+
+    personnel_service._sync_personnel_vehicle_history_baselines(conn)
+
+    assert update_calls[0][0] == 701
+    assert update_calls[0][1]["effective_date"] == "2026-03-01"
+    assert update_calls[0][1]["notes"] == "Sistem: Başlangıç motor kaydı"
+    assert conn.commit_count == 1
+
+
 def test_create_personnel_vehicle_history_entry_syncs_current_vehicle_from_latest_history(monkeypatch):
     conn = FakeConnection()
     vehicle_updates: list[dict] = []

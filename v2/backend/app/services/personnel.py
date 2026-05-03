@@ -402,8 +402,7 @@ def _sync_plate_history_after_personnel_write(
 def _sync_personnel_vehicle_history_baselines(conn: psycopg.Connection) -> None:
     changed = False
     for row in fetch_personnel_vehicle_baseline_candidates(conn):
-        if int(row.get("vehicle_history_count") or 0) > 0:
-            continue
+        existing_history_count = int(row.get("vehicle_history_count") or 0)
         vehicle_mode = _derive_vehicle_mode(row)
         payload = _build_vehicle_payload(
             vehicle_mode=vehicle_mode,
@@ -414,9 +413,59 @@ def _sync_personnel_vehicle_history_baselines(conn: psycopg.Connection) -> None:
             motor_purchase_monthly_deduction=float(row.get("motor_purchase_monthly_deduction") or 0),
         )
         start_date = row.get("start_date")
-        insert_vehicle_history_record(
+        baseline_effective_date = _resolve_vehicle_baseline_effective_date(
+            vehicle_mode=vehicle_mode,
+            start_date=start_date if isinstance(start_date, date) else None,
+            motor_start_date=row.get("motor_purchase_start_date"),
+        ).isoformat()
+
+        if existing_history_count <= 0:
+            insert_vehicle_history_record(
+                conn,
+                personnel_id=int(row["id"]),
+                vehicle_type=str(payload["vehicle_type"] or ""),
+                motor_rental=str(payload["motor_rental"] or "Hayır"),
+                motor_rental_monthly_amount=float(payload["motor_rental_monthly_amount"] or 0),
+                motor_purchase=str(payload["motor_purchase"] or "Hayır"),
+                motor_purchase_start_date=str(payload["motor_purchase_start_date"] or "") or None,
+                motor_purchase_commitment_months=int(payload["motor_purchase_commitment_months"] or 0),
+                motor_purchase_sale_price=float(payload["motor_purchase_sale_price"] or 0),
+                motor_purchase_monthly_deduction=float(payload["motor_purchase_monthly_deduction"] or 0),
+                effective_date=baseline_effective_date,
+                notes="Sistem: Başlangıç motor kaydı",
+            )
+            changed = True
+            continue
+
+        if existing_history_count != 1:
+            continue
+
+        latest_row = fetch_latest_vehicle_history_record(conn, int(row["id"]))
+        if latest_row is None or not _is_system_vehicle_baseline_history(latest_row):
+            continue
+
+        latest_start_date = str(latest_row.get("motor_purchase_start_date") or "") or None
+        latest_effective_date = str(latest_row.get("effective_date") or "") or None
+        latest_mode = _derive_vehicle_mode(latest_row)
+        if (
+            latest_mode == vehicle_mode
+            and float(latest_row.get("motor_rental_monthly_amount") or 0)
+            == float(payload["motor_rental_monthly_amount"] or 0)
+            and str(latest_row.get("motor_purchase") or "Hayır") == str(payload["motor_purchase"] or "Hayır")
+            and latest_start_date == (str(payload["motor_purchase_start_date"] or "") or None)
+            and int(latest_row.get("motor_purchase_commitment_months") or 0)
+            == int(payload["motor_purchase_commitment_months"] or 0)
+            and float(latest_row.get("motor_purchase_sale_price") or 0)
+            == float(payload["motor_purchase_sale_price"] or 0)
+            and float(latest_row.get("motor_purchase_monthly_deduction") or 0)
+            == float(payload["motor_purchase_monthly_deduction"] or 0)
+            and latest_effective_date == baseline_effective_date
+        ):
+            continue
+
+        update_vehicle_history_record(
             conn,
-            personnel_id=int(row["id"]),
+            int(latest_row["id"]),
             vehicle_type=str(payload["vehicle_type"] or ""),
             motor_rental=str(payload["motor_rental"] or "Hayır"),
             motor_rental_monthly_amount=float(payload["motor_rental_monthly_amount"] or 0),
@@ -425,16 +474,38 @@ def _sync_personnel_vehicle_history_baselines(conn: psycopg.Connection) -> None:
             motor_purchase_commitment_months=int(payload["motor_purchase_commitment_months"] or 0),
             motor_purchase_sale_price=float(payload["motor_purchase_sale_price"] or 0),
             motor_purchase_monthly_deduction=float(payload["motor_purchase_monthly_deduction"] or 0),
-            effective_date=(
-                start_date.isoformat()
-                if isinstance(start_date, date)
-                else str(start_date or date.today().isoformat())
-            ),
+            effective_date=baseline_effective_date,
             notes="Sistem: Başlangıç motor kaydı",
         )
         changed = True
     if changed:
         conn.commit()
+
+
+def _resolve_vehicle_baseline_effective_date(
+    *,
+    vehicle_mode: str,
+    start_date: date | None,
+    motor_start_date: date | str | None,
+) -> date:
+    normalized_mode = _normalize_vehicle_mode(vehicle_mode)
+    parsed_motor_start: date | None = None
+    if isinstance(motor_start_date, date):
+        parsed_motor_start = motor_start_date
+    elif motor_start_date:
+        try:
+            parsed_motor_start = date.fromisoformat(str(motor_start_date))
+        except ValueError:
+            parsed_motor_start = None
+
+    if normalized_mode in {"Cat Kapinda Motor Kirasi", "Cat Kapinda Motor Satisi"} and parsed_motor_start is not None:
+        return parsed_motor_start
+    return start_date or date.today()
+
+
+def _is_system_vehicle_baseline_history(row: dict[str, object]) -> bool:
+    note = str(row.get("notes") or "").strip()
+    return note in {"Sistem: Başlangıç motor kaydı", "Sistem: Başlangıç araç kaydı"}
 
 
 def _sync_vehicle_history_after_personnel_write(
