@@ -6,14 +6,13 @@ const config: NextConfig = {
     serverActions: { bodySizeLimit: '2mb' },
   },
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/:path*`
-          : 'http://localhost:8000/api/:path*',
-      },
-    ];
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl) {
+      return [{ source: '/api/:path*', destination: 'http://localhost:8000/api/:path*' }];
+    }
+    // Render hostport format: "host:port" → http:// prefix gerekli
+    const prefix = apiUrl.startsWith('http') ? '' : 'http://';
+    return [{ source: '/api/:path*', destination: `${prefix}${apiUrl}/api/:path*` }];
   },
 };
 
