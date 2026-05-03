@@ -74,11 +74,11 @@ def _parse_date(value: object) -> date | None:
 
 def _history_effective_date_for_payroll(row: Mapping[str, object]) -> date | None:
     effective_date = _parse_date(row.get("effective_date")) or _parse_date(row.get("changed_at"))
-    purchase_start_date = _parse_date(row.get("motor_purchase_start_date"))
-    if is_company_motor_purchase(row) and purchase_start_date is not None:
+    motor_start_date = _parse_date(row.get("motor_purchase_start_date"))
+    if (is_company_motor_purchase(row) or is_company_motor_rental_history(row)) and motor_start_date is not None:
         if effective_date is None:
-            return purchase_start_date
-        return min(effective_date, purchase_start_date)
+            return motor_start_date
+        return min(effective_date, motor_start_date)
     return effective_date
 
 

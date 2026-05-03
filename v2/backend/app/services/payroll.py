@@ -129,7 +129,10 @@ def _fetch_vehicle_history_rows_by_person_for_month(
           AND (
             {resolved_effective_date_sql} <= %s
             OR (
-                COALESCE(motor_purchase, 'Hayır') = 'Evet'
+                (
+                    COALESCE(motor_purchase, 'Hayır') = 'Evet'
+                    OR COALESCE(motor_rental, 'Hayır') = 'Evet'
+                )
                 AND NULLIF(CAST(motor_purchase_start_date AS TEXT), '') IS NOT NULL
                 AND CAST(motor_purchase_start_date AS TEXT) <= %s
             )
