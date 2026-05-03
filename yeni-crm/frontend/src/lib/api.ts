@@ -158,6 +158,8 @@ export type RestaurantMonthly = {
   restaurant: Restaurant;
   period: string;
   couriers: CourierBilling[];
+  unassigned_entries?: number;
+  unassigned_absences?: number;
   totals: {
     courier_count: number;
     support_count: number;

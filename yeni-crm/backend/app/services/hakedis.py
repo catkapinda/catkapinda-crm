@@ -56,14 +56,24 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
             cur.execute(sql, (restaurant_id, period))
             entries = cur.fetchall()
 
-    # Kurye bazında grupla
-    by_courier: dict[int | None, dict] = {}
+    # Kurye bazında grupla — personel atanmamış kayıtları ayrı bir bucket'ta
+    by_courier: dict[int, dict] = {}
+    unassigned_count = 0
+    unassigned_absences = 0
+
     for e in entries:
         cid = e["actual_personnel_id"]
         absent = bool(
             e["absence_reason"] and str(e["absence_reason"]).strip()
         )
         coverage = (e.get("coverage_type") or "").strip()
+
+        # personnel_id null kayıtları fatura hesabı dışında
+        if cid is None:
+            unassigned_count += 1
+            if absent:
+                unassigned_absences += 1
+            continue
 
         if cid not in by_courier:
             by_courier[cid] = {
@@ -96,131 +106,35 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
             c["total_packages"] += int(e.get("package_count") or 0)
 
     # Anlaşma tipine göre hesap
-    for cid, c in by_courier.items():
-        billing = 0.0
-        breakdown: list[dict] = []
-
-        if pricing == "hourly_only":
-            amt = c["total_hours"] * hourly_rate
-            billing = amt
-            if amt > 0:
-                breakdown.append(
-                    {
-                        "label": f"Saat × {hourly_rate:g} ₺",
-                        "qty": c["total_hours"],
-                        "rate": hourly_rate,
-                        "amount": amt,
-                    }
+    if pricing == "fixed_monthly":
+        _compute_fixed_monthly(by_courier, fixed_monthly_fee)
+    else:
+        for cid, c in by_courier.items():
+            if pricing == "hourly_only":
+                _compute_hourly_only(c, hourly_rate)
+            elif pricing == "hourly_plus_package":
+                _compute_hourly_plus_package(c, hourly_rate, package_rate)
+            elif pricing == "threshold_package":
+                _compute_threshold_package(
+                    c, hourly_rate, package_threshold,
+                    package_rate_low, package_rate_high,
                 )
 
-        elif pricing == "hourly_plus_package":
-            saat_amt = c["total_hours"] * hourly_rate
-            pkt_amt = c["total_packages"] * package_rate
-            billing = saat_amt + pkt_amt
-            if saat_amt > 0:
-                breakdown.append(
-                    {
-                        "label": f"Saat × {hourly_rate:g} ₺",
-                        "qty": c["total_hours"],
-                        "rate": hourly_rate,
-                        "amount": saat_amt,
-                    }
-                )
-            if pkt_amt > 0:
-                breakdown.append(
-                    {
-                        "label": f"Paket × {package_rate:g} ₺",
-                        "qty": c["total_packages"],
-                        "rate": package_rate,
-                        "amount": pkt_amt,
-                    }
-                )
+    # KDV hesabı
+    for c in by_courier.values():
+        c["billing_excl_vat"] = round(c["billing_excl_vat"], 2)
+        c["billing_incl_vat"] = round(
+            c["billing_excl_vat"] * (1 + vat_rate / 100), 2
+        )
 
-        elif pricing == "threshold_package":
-            saat_amt = c["total_hours"] * hourly_rate
-            # Eşik karşılaştırması: kuryenin bu restorandaki toplam paket sayısı
-            # Destek de olsa kuryenin kendi paketleri ile kontrol edilir.
-            crossed = c["total_packages"] > package_threshold
-            rate_used = package_rate_high if crossed else package_rate_low
-            pkt_amt = c["total_packages"] * rate_used
-            billing = saat_amt + pkt_amt
-            if saat_amt > 0:
-                breakdown.append(
-                    {
-                        "label": f"Saat × {hourly_rate:g} ₺",
-                        "qty": c["total_hours"],
-                        "rate": hourly_rate,
-                        "amount": saat_amt,
-                    }
-                )
-            if pkt_amt > 0:
-                lbl = (
-                    f"Paket × {rate_used:g} ₺ ("
-                    f"{'>' if crossed else '≤'}{package_threshold})"
-                )
-                breakdown.append(
-                    {
-                        "label": lbl,
-                        "qty": c["total_packages"],
-                        "rate": rate_used,
-                        "amount": pkt_amt,
-                    }
-                )
-
-        elif pricing == "fixed_monthly":
-            # Aylık sabit:
-            # - Ana atanmış kurye → tam aylık tutar; gün sayısı 30'dan fazla ise ekstra
-            # - Destek gelen kurye → günlük tarife × destek_günü
-            if c["is_support"]:
-                daily = fixed_monthly_fee / 30 if fixed_monthly_fee else 0
-                amt = daily * c["working_days"]
-                billing = amt
-                if amt > 0:
-                    breakdown.append(
-                        {
-                            "label": (
-                                f"Destek vardiyası — {c['working_days']} gün × "
-                                f"{daily:.2f} ₺ ({fixed_monthly_fee:g}/30)"
-                            ),
-                            "qty": c["working_days"],
-                            "rate": daily,
-                            "amount": amt,
-                        }
-                    )
-            else:
-                # Ana kurye: ay başına sabit fee
-                billing = fixed_monthly_fee
-                if fixed_monthly_fee > 0:
-                    breakdown.append(
-                        {
-                            "label": "Aylık sabit",
-                            "qty": 1,
-                            "rate": fixed_monthly_fee,
-                            "amount": fixed_monthly_fee,
-                        }
-                    )
-                # 30 günden fazla çalıştıysa ekstra
-                if c["working_days"] > 30 and fixed_monthly_fee > 0:
-                    extra_days = c["working_days"] - 30
-                    daily = fixed_monthly_fee / 30
-                    extra_amt = daily * extra_days
-                    billing += extra_amt
-                    breakdown.append(
-                        {
-                            "label": f"Ekstra mesai — {extra_days} gün × {daily:.2f} ₺",
-                            "qty": extra_days,
-                            "rate": daily,
-                            "amount": extra_amt,
-                        }
-                    )
-
-        c["billing_excl_vat"] = round(billing, 2)
-        c["billing_incl_vat"] = round(billing * (1 + vat_rate / 100), 2)
-        c["billing_breakdown"] = breakdown
-
+    # Sıralama: ana kuryeler önce (working_days çoğa az), sonra destekler, sonra inaktifler
     couriers = sorted(
         by_courier.values(),
-        key=lambda x: -x["billing_excl_vat"],
+        key=lambda x: (
+            x["is_support"],  # False (ana) önce
+            -x["billing_excl_vat"],
+            -x["working_days"],
+        ),
     )
 
     total_excl = sum(c["billing_excl_vat"] for c in couriers)
@@ -230,12 +144,16 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
         "restaurant": rest,
         "period": period,
         "couriers": couriers,
+        "unassigned_entries": unassigned_count,
+        "unassigned_absences": unassigned_absences,
         "totals": {
             "courier_count": len(couriers),
             "support_count": sum(1 for c in couriers if c["is_support"]),
-            "total_entries": sum(c["entries"] for c in couriers),
+            "total_entries": sum(c["entries"] for c in couriers) + unassigned_count,
             "total_working_days": sum(c["working_days"] for c in couriers),
-            "total_absences": sum(c["absences"] for c in couriers),
+            "total_absences": (
+                sum(c["absences"] for c in couriers) + unassigned_absences
+            ),
             "total_hours": round(sum(c["total_hours"] for c in couriers), 2),
             "total_packages": sum(c["total_packages"] for c in couriers),
             "total_billing_excl_vat": round(total_excl, 2),
@@ -244,3 +162,141 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
             "vat_rate": vat_rate,
         },
     }
+
+
+def _compute_hourly_only(c: dict, hourly_rate: float) -> None:
+    amt = c["total_hours"] * hourly_rate
+    c["billing_excl_vat"] = amt
+    if amt > 0:
+        c["billing_breakdown"].append({
+            "label": f"Saat × {hourly_rate:g} ₺",
+            "qty": c["total_hours"],
+            "rate": hourly_rate,
+            "amount": amt,
+        })
+
+
+def _compute_hourly_plus_package(
+    c: dict, hourly_rate: float, package_rate: float
+) -> None:
+    saat_amt = c["total_hours"] * hourly_rate
+    pkt_amt = c["total_packages"] * package_rate
+    c["billing_excl_vat"] = saat_amt + pkt_amt
+    if saat_amt > 0:
+        c["billing_breakdown"].append({
+            "label": f"Saat × {hourly_rate:g} ₺",
+            "qty": c["total_hours"],
+            "rate": hourly_rate,
+            "amount": saat_amt,
+        })
+    if pkt_amt > 0:
+        c["billing_breakdown"].append({
+            "label": f"Paket × {package_rate:g} ₺",
+            "qty": c["total_packages"],
+            "rate": package_rate,
+            "amount": pkt_amt,
+        })
+
+
+def _compute_threshold_package(
+    c: dict,
+    hourly_rate: float,
+    threshold: int,
+    rate_low: float,
+    rate_high: float,
+) -> None:
+    saat_amt = c["total_hours"] * hourly_rate
+    # Eşik karşılaştırması: kuryenin bu restorandaki paket sayısı
+    # Destek günleri ana atamadan ayrı sayılır (zaten ayrı kurye satırı).
+    crossed = c["total_packages"] > threshold
+    rate_used = rate_high if crossed else rate_low
+    pkt_amt = c["total_packages"] * rate_used
+    c["billing_excl_vat"] = saat_amt + pkt_amt
+
+    if saat_amt > 0:
+        c["billing_breakdown"].append({
+            "label": f"Saat × {hourly_rate:g} ₺",
+            "qty": c["total_hours"],
+            "rate": hourly_rate,
+            "amount": saat_amt,
+        })
+    if pkt_amt > 0:
+        lbl = (
+            f"Paket × {rate_used:g} ₺ "
+            f"({'>' if crossed else '≤'}{threshold})"
+        )
+        c["billing_breakdown"].append({
+            "label": lbl,
+            "qty": c["total_packages"],
+            "rate": rate_used,
+            "amount": pkt_amt,
+        })
+
+
+def _compute_fixed_monthly(
+    by_courier: dict[int, dict], fixed_monthly_fee: float
+) -> None:
+    """Aylık sabit hesabı:
+
+    - Restoranın o ayki tutarı **1 kez** ana atanmış kuryeye yazılır
+      (en çok çalışan ana kurye seçilir; genelde tek kişidir).
+    - Eğer hiç ana kurye yoksa ama destek varsa, sabit ücret yine restoran
+      toplamından gelir; tüm günler destek olarak fee/30 × gün hesabıyla.
+    - Ana kurye 30 günden fazla çalıştıysa ekstra günler için fee/30 × ekstra.
+    - Destek kuryeler için: fee/30 × destek_günü.
+    """
+    daily = fixed_monthly_fee / 30 if fixed_monthly_fee > 0 else 0
+
+    # Ana kuryeler arasında en çok working_days olanı bul (genelde tek kişi)
+    main_couriers = [
+        c for c in by_courier.values() if not c["is_support"]
+    ]
+    main_couriers.sort(key=lambda c: -c["working_days"])
+    primary = main_couriers[0] if main_couriers else None
+
+    for cid, c in by_courier.items():
+        if c is primary:
+            # Ana kurye: aylık sabit tutar
+            billing = fixed_monthly_fee
+            if fixed_monthly_fee > 0:
+                c["billing_breakdown"].append({
+                    "label": "Aylık sabit",
+                    "qty": 1,
+                    "rate": fixed_monthly_fee,
+                    "amount": fixed_monthly_fee,
+                })
+            # 30 günden fazla mesai için ekstra
+            if c["working_days"] > 30 and daily > 0:
+                extra_days = c["working_days"] - 30
+                extra_amt = daily * extra_days
+                billing += extra_amt
+                c["billing_breakdown"].append({
+                    "label": (
+                        f"Ekstra mesai — {extra_days} gün × {daily:.2f} ₺"
+                    ),
+                    "qty": extra_days,
+                    "rate": daily,
+                    "amount": extra_amt,
+                })
+            c["billing_excl_vat"] = billing
+
+        elif c["is_support"]:
+            # Destek kurye: sadece çalıştığı günler × günlük tarife
+            if c["working_days"] > 0 and daily > 0:
+                amt = daily * c["working_days"]
+                c["billing_excl_vat"] = amt
+                c["billing_breakdown"].append({
+                    "label": (
+                        f"Destek vardiyası — {c['working_days']} gün × "
+                        f"{daily:.2f} ₺"
+                    ),
+                    "qty": c["working_days"],
+                    "rate": daily,
+                    "amount": amt,
+                })
+            else:
+                c["billing_excl_vat"] = 0.0
+
+        else:
+            # Diğer ana kuryeler (çoğul atama varsa) — fatura yok, primary aldı
+            c["billing_excl_vat"] = 0.0

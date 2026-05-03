@@ -78,7 +78,15 @@ export default async function RestaurantDetailPage({
 
   const r = data?.restaurant;
   const totals = data?.totals;
-  const couriers = data?.couriers ?? [];
+  const allCouriers = data?.couriers ?? [];
+
+  // Aktif (ay içinde gerçekten çalışmış) ve plan-only (gelmemiş) ayrımı
+  const activeCouriers = allCouriers.filter((c) => c.working_days > 0);
+  const noShowCouriers = allCouriers.filter((c) => c.working_days === 0);
+  const noShowAbsenceTotal = noShowCouriers.reduce(
+    (sum, c) => sum + c.absences,
+    0,
+  );
 
   return (
     <div className="grid grid-cols-[252px_1fr] min-h-screen">
@@ -154,7 +162,7 @@ export default async function RestaurantDetailPage({
             </span>
           </div>
 
-          {couriers.length === 0 ? (
+          {activeCouriers.length === 0 && noShowCouriers.length === 0 ? (
             <div className="bg-bg-surface border border-border rounded-2xl p-8 text-center text-text-3 text-sm">
               Bu ay için kayıt bulunamadı.
             </div>
@@ -177,9 +185,17 @@ export default async function RestaurantDetailPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {couriers.map((c) => (
-                    <CourierRow key={c.personnel_id ?? Math.random()} c={c} />
-                  ))}
+                  {activeCouriers.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-8 text-center text-text-3 text-sm">
+                        Bu ay çalışan kurye yok.
+                      </td>
+                    </tr>
+                  ) : (
+                    activeCouriers.map((c) => (
+                      <CourierRow key={c.personnel_id ?? Math.random()} c={c} />
+                    ))
+                  )}
                 </tbody>
                 {totals && (
                   <tfoot>
@@ -213,6 +229,72 @@ export default async function RestaurantDetailPage({
                 )}
               </table>
             </div>
+          )}
+
+          {/* Plan yapılıp gelmeyen kuryeler */}
+          {noShowCouriers.length > 0 && (
+            <details className="mt-4 bg-yellow-50/40 border border-yellow-200 rounded-2xl overflow-hidden">
+              <summary className="px-4 py-3 cursor-pointer flex items-center justify-between gap-3 hover:bg-yellow-50 transition">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-yellow-700">⚠</span>
+                  <span className="font-semibold text-yellow-900">
+                    Plan yapıldı, çalışmadı
+                  </span>
+                  <span className="text-yellow-800 text-[12px]">
+                    {noShowCouriers.length} kişi · {noShowAbsenceTotal} devamsızlık
+                  </span>
+                </div>
+                <span className="text-[11px] text-yellow-700 group-open:rotate-90 transition">
+                  detay ▾
+                </span>
+              </summary>
+              <div className="border-t border-yellow-200 bg-bg-surface">
+                <table className="w-full text-sm">
+                  <thead className="bg-yellow-50/60 text-yellow-900 text-[11.5px] uppercase tracking-wider">
+                    <tr>
+                      <th className="text-left px-4 py-2.5 font-semibold">Kurye</th>
+                      <th className="text-left px-4 py-2.5 font-semibold">Rol</th>
+                      <th className="text-left px-4 py-2.5 font-semibold">Durum</th>
+                      <th className="text-right px-4 py-2.5 font-semibold">Devamsızlık</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {noShowCouriers.map((c) => (
+                      <tr
+                        key={c.personnel_id ?? Math.random()}
+                        className="border-t border-yellow-100"
+                      >
+                        <td className="px-4 py-2.5">
+                          <div className="font-medium text-text-2">
+                            {c.full_name ?? '—'}
+                          </div>
+                          <div className="text-[11px] text-text-3 font-mono">
+                            {c.person_code ?? ''}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className="text-[11.5px] text-text-2">
+                            {c.role ?? '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-yellow-50 text-yellow-800 border border-yellow-200">
+                            {c.is_support ? '↪ Destek planı' : 'Plan'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-right num text-yellow-800">
+                          {c.absences}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="px-4 py-2.5 text-[11.5px] text-text-3 bg-bg-surface2/40 border-t border-yellow-100">
+                  Bu kişiler bu ay puantaja yazıldı ama gelmediği için fatura
+                  hesabına dahil edilmedi.
+                </div>
+              </div>
+            </details>
           )}
         </section>
       </main>
