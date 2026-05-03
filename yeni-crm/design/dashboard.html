@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Çat Kapında — Yönetim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Brand */
+    --brand: #1E40FF;
+    --brand-hover: #1731c8;
+    --brand-soft: #EEF2FF;
+    --brand-border: #DBE3FF;
+
+    /* Surfaces */
+    --bg: #FAFAFB;
+    --surface: #FFFFFF;
+    --surface-2: #F5F6F8;
+
+    /* Text */
+    --text: #0A0E1A;
+    --text-2: #4B5468;
+    --text-3: #8B92A7;
+    --muted: #B8BECC;
+
+    /* Borders */
+    --border: #ECEEF3;
+    --border-strong: #DEE1E8;
+
+    /* Semantic */
+    --good: #10B981;
+    --good-soft: #ECFDF5;
+    --warn: #F59E0B;
+    --warn-soft: #FFFBEB;
+    --bad: #EF4444;
+    --bad-soft: #FEF2F2;
+    --info: #3B82F6;
+
+    /* Radii & shadows */
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.04);
+    --shadow-lg: 0 1px 3px rgba(15, 23, 42, 0.05), 0 12px 32px rgba(15, 23, 42, 0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* === LAYOUT === */
+  .app { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+
+  /* === SIDEBAR === */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 14px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 10px 22px; border-bottom: 1px solid var(--border); margin-bottom: 18px;
+  }
+  .brand-mark {
+    width: 30px; height: 30px;
+    background: var(--brand);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 14px;
+    letter-spacing: -0.02em;
+  }
+  .brand-text { font-weight: 600; font-size: 14.5px; letter-spacing: -0.01em; color: var(--text); }
+  .brand-text small { display: block; font-weight: 400; font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+  .nav-section-title {
+    padding: 14px 12px 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--r-sm);
+    font-size: 13.5px;
+    color: var(--text-2);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    margin-bottom: 1px;
+  }
+  .nav-item:hover { background: var(--surface-2); color: var(--text); }
+  .nav-item.active {
+    background: var(--brand-soft);
+    color: var(--brand);
+  }
+  .nav-item.active .nav-icon { color: var(--brand); }
+  .nav-icon {
+    width: 16px; height: 16px;
+    color: var(--text-3);
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .nav-icon svg { width: 16px; height: 16px; stroke-width: 1.8; }
+  .nav-badge {
+    margin-left: auto;
+    background: var(--surface-2);
+    color: var(--text-3);
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .nav-badge.alert {
+    background: var(--brand);
+    color: white;
+  }
+  .nav-item.active .nav-badge {
+    background: rgba(30,64,255,0.15);
+    color: var(--brand);
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 14px 6px 0;
+    border-top: 1px solid var(--border);
+  }
+  .user-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+  }
+  .user-card:hover { background: var(--surface-2); }
+  .user-avatar {
+    width: 30px; height: 30px;
+    background: linear-gradient(135deg, #FBBF24, #F59E0B);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 600; font-size: 12px;
+  }
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 12.5px; font-weight: 500; color: var(--text); }
+  .user-role { font-size: 11px; color: var(--text-3); }
+
+  /* === MAIN === */
+  .main { padding: 24px 32px 56px; max-width: 1480px; }
+
+  .page-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 28px;
+  }
+  .page-title {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    color: var(--text);
+  }
+  .page-subtitle {
+    color: var(--text-3);
+    font-size: 13.5px;
+    margin-top: 4px;
+  }
+
+  .toolbar {
+    display: flex; gap: 8px; align-items: center;
+  }
+  .segmented {
+    display: inline-flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 3px;
+    box-shadow: var(--shadow-sm);
+  }
+  .segmented button {
+    padding: 6px 12px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-2);
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+  }
+  .segmented button.active {
+    background: var(--text);
+    color: white;
+  }
+  .btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-2);
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    box-shadow: var(--shadow-sm);
+  }
+  .btn:hover { background: var(--surface-2); color: var(--text); }
+  .btn-primary {
+    background: var(--brand);
+    color: white;
+    border-color: var(--brand);
+  }
+  .btn-primary:hover { background: var(--brand-hover); color: white; }
+
+  /* === KPI CARDS === */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .kpi {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-label {
+    font-size: 12.5px;
+    color: var(--text-3);
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .kpi-currency {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-3);
+    margin-left: 3px;
+  }
+  .kpi-meta {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .trend.up { background: var(--good-soft); color: var(--good); }
+  .trend.down { background: var(--bad-soft); color: var(--bad); }
+  .trend.flat { background: var(--surface-2); color: var(--text-3); }
+
+  .kpi-hero {
+    background: linear-gradient(135deg, var(--brand) 0%, #2952ff 100%);
+    color: white;
+    border: none;
+  }
+  .kpi-hero .kpi-label { color: rgba(255,255,255,0.85); }
+  .kpi-hero .kpi-value { color: white; }
+  .kpi-hero .kpi-currency { color: rgba(255,255,255,0.7); }
+  .kpi-hero .kpi-meta { color: rgba(255,255,255,0.8); }
+  .kpi-hero .trend.up { background: rgba(255,255,255,0.2); color: white; }
+
+  /* === SECTIONS === */
+  .section {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--border);
+    padding: 22px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-md);
+  }
+  .section-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 18px;
+  }
+  .section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .section-sub {
+    font-size: 12.5px;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+  .section-link {
+    color: var(--brand);
+    font-size: 12.5px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+  /* === DEDUCTIONS === */
+  .ded-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 100px 60px;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ded-row:last-child { border-bottom: none; }
+  .ded-label { color: var(--text-2); font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .ded-bar {
+    height: 6px;
+    background: var(--surface-2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .ded-fill {
+    height: 100%;
+    border-radius: 3px;
+  }
+  .ded-amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--text);
+    font-size: 13px;
+  }
+  .ded-pct {
+    text-align: right;
+    color: var(--text-3);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  /* === MARGIN BREAKDOWN === */
+  .margin-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 11px 0;
+    font-size: 13.5px;
+    color: var(--text-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .margin-row:last-child { border-bottom: none; }
+  .margin-row .num { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--text); }
+  .margin-row.sub { color: var(--text-3); font-size: 12.5px; padding: 8px 0; }
+  .margin-row.sub .num { color: var(--text-2); }
+  .margin-row.total {
+    border-top: 1px solid var(--border-strong);
+    border-bottom: none;
+    padding-top: 16px;
+    margin-top: 8px;
+    font-weight: 600;
+    color: var(--text);
+    font-size: 15px;
+  }
+  .margin-row.total .num { font-size: 18px; color: var(--brand); }
+  .margin-note {
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: var(--brand-soft);
+    border-radius: var(--r-sm);
+    color: var(--text-2);
+    font-size: 11.5px;
+    line-height: 1.5;
+    border: 1px solid var(--brand-border);
+  }
+
+  /* === RESTAURANT TABLE === */
+  table.rt {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.rt th {
+    text-align: left;
+    color: var(--text-3);
+    font-weight: 500;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  table.rt td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  table.rt tr:hover td { background: var(--surface-2); }
+  table.rt tr:last-child td { border-bottom: none; }
+  table.rt td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  table.rt .rname { font-weight: 500; color: var(--text); }
+  table.rt .rbranch { font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .pill::before {
+    content: "";
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .pill.hourly { background: var(--surface-2); color: var(--text-2); }
+  .pill.hourly::before { background: var(--info); }
+  .pill.threshold { background: #F5F3FF; color: #6D28D9; }
+  .pill.threshold::before { background: #6D28D9; }
+  .pill.fixed { background: var(--good-soft); color: var(--good); }
+  .pill.fixed::before { background: var(--good); }
+  .pill.hp { background: #FFF7ED; color: #C2410C; }
+  .pill.hp::before { background: #F97316; }
+
+  /* === PIPELINE === */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  .stage {
+    background: var(--surface-2);
+    border-radius: var(--r-md);
+    padding: 12px;
+    min-height: 130px;
+    border-top: 2px solid;
+  }
+  .stage h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .stage h4 .count {
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+  }
+  .lead-card {
+    background: var(--surface);
+    border-radius: var(--r-sm);
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .lead-card:hover { box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+  .lead-name { font-size: 12.5px; font-weight: 500; color: var(--text); }
+  .lead-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+  /* === QUICK ACTIONS === */
+  .quick-actions {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .qa {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 8px 14px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-2);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.15s ease;
+  }
+  .qa:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
+  .qa-plus {
+    color: var(--brand);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  /* Banner */
+  .demo-banner {
+    background: var(--surface);
+    border: 1px solid var(--brand-border);
+    border-radius: var(--r-lg);
+    padding: 16px 20px;
+    margin-bottom: 22px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .demo-banner .icon-wrap {
+    width: 40px; height: 40px;
+    background: var(--brand-soft);
+    border-radius: var(--r-md);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--brand);
+    flex-shrink: 0;
+  }
+  .demo-banner .text {
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.55;
+  }
+  .demo-banner strong { color: var(--text); font-weight: 600; }
+
+  /* Mini stats below */
+  .mini-stat {
+    display: flex; flex-direction: column;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-md);
+  }
+  .mini-stat-title { font-size: 12.5px; color: var(--text-3); font-weight: 500; margin-bottom: 8px; }
+  .mini-stat-list { display: flex; flex-direction: column; gap: 8px; }
+  .mini-stat-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text-2); }
+  .mini-stat-item .num { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .mini-stat-item.alert .num { color: var(--brand); }
+
+  /* Search bar in header */
+  .search {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 7px 12px;
+    font-size: 13px;
+    color: var(--text-3);
+    width: 240px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .search svg { width: 14px; height: 14px; }
+
+  /* Icon SVG helper */
+  svg { stroke: currentColor; fill: none; }
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">Ç</div>
+      <div class="brand-text">çat<span style="font-weight:700;">kapında</span><small>Yönetim Paneli</small></div>
+    </div>
+
+    <div class="nav-section-title">Genel</div>
+    <div class="nav-item active">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg></span>
+      Genel Bakış
+    </div>
+
+    <div class="nav-section-title">Operasyon</div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19v-1a4 4 0 014-4h4a4 4 0 014 4v1M16 13.5a3 3 0 013 3V18"/></svg></span>
+      Personel <span class="nav-badge">92</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></span>
+      Puantaj
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/></svg></span>
+      Kesintiler
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M5 9l7-7 7 7M5 15l7 7 7-7"/></svg></span>
+      Avans Talepleri <span class="nav-badge alert">3</span>
+    </div>
+
+    <div class="nav-section-title">Satış</div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 7l9 6 9-6M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l3-4h12l3 4"/></svg></span>
+      Talepler <span class="nav-badge">8</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 12h18M5 12V6a2 2 0 012-2h10a2 2 0 012 2v6M5 12v6a2 2 0 002 2h10a2 2 0 002-2v-6"/></svg></span>
+      Restoranlar <span class="nav-badge">18</span>
+    </div>
+
+    <div class="nav-section-title">Finans</div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 3h-4l-1 4 1 4h4l1-4z M5 21l2-7M19 21l-2-7M5 14h14"/></svg></span>
+      Faturalar
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9h4.5a2.5 2.5 0 010 5H9a2.5 2.5 0 000 5h6"/></svg></span>
+      Bordro
+    </div>
+
+    <div class="nav-section-title">Sistem</div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z M14 3v6h6M9 14h6M9 17h4M9 11h2"/></svg></span>
+      Raporlar
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
+      Ayarlar
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar">E</div>
+        <div class="user-info">
+          <div class="user-name">Ebru Aslan</div>
+          <div class="user-role">Yönetici</div>
+        </div>
+        <span class="nav-icon" style="color: var(--text-3);">
+          <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+        </span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Genel Bakış</h1>
+        <div class="page-subtitle">Mart 2026 · 1 Mart – 31 Mart</div>
+      </div>
+      <div class="toolbar">
+        <div class="search">
+          <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <span>Ara… <span style="color: var(--muted); margin-left:8px;">⌘K</span></span>
+        </div>
+        <div class="segmented">
+          <button>Hafta</button>
+          <button class="active">Ay</button>
+          <button>Yıl</button>
+        </div>
+        <button class="btn">Mart 2026 ▾</button>
+        <button class="btn btn-primary">+ Yeni</button>
+      </div>
+    </div>
+
+    <!-- HERO KPIs -->
+    <div class="kpi-row">
+      <div class="kpi kpi-hero">
+        <div class="kpi-label">Toplam Fatura (KDV hariç)</div>
+        <div class="kpi-value">4.360.733<span class="kpi-currency">₺</span></div>
+        <div class="kpi-meta">
+          <span class="trend up">↑ 12.4%</span>
+          <span>geçen aya göre</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">KDV Dahil Tutar</div>
+        <div class="kpi-value">5.232.880<span class="kpi-currency">₺</span></div>
+        <div class="kpi-meta">
+          <span>KDV: <strong style="color: var(--text);">872.147 ₺</strong></span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Toplam Kesinti</div>
+        <div class="kpi-value">1.343.774<span class="kpi-currency">₺</span></div>
+        <div class="kpi-meta">
+          <span>11 farklı kesinti tipi</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Aktif Personel</div>
+        <div class="kpi-value">92</div>
+        <div class="kpi-meta">
+          <span>85 kurye</span><span>·</span><span>2 joker</span><span>·</span><span>5 yönetim</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEMO BANNER -->
+    <div class="demo-banner">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" stroke-width="1.8" style="width:18px; height:18px;"><path d="M12 9v4M12 17h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/></svg>
+      </div>
+      <div class="text">
+        <strong>Bu bir mock-up.</strong> Gerçek Mart 2026 veriniden çıkarılmış sayılarla tasarım yönünü göstermek için. Renkler, yerleşim, hangi widget'lar olacak — hepsi tartışmaya açık.
+      </div>
+    </div>
+
+    <!-- MARGIN + DEDUCTIONS -->
+    <div class="grid-2">
+      <!-- Left: Net Margin -->
+      <div class="section">
+        <div class="section-head">
+          <div>
+            <div class="section-title">Aylık Kâr-Zarar Özeti</div>
+            <div class="section-sub">Restoranlardan gelir → kurye ve diğer maliyetler → net marj</div>
+          </div>
+          <a class="section-link">Detay →</a>
+        </div>
+
+        <div class="margin-row">
+          <span>Brüt Fatura (KDV hariç)</span>
+          <span class="num">+ 4.360.733 ₺</span>
+        </div>
+
+        <div class="margin-row sub">
+          <span>+ Kurye saat ücretleri (tahmini)</span>
+          <span class="num">−1.470.000 ₺</span>
+        </div>
+        <div class="margin-row sub">
+          <span>+ Kurye paket primleri (tahmini)</span>
+          <span class="num">−630.000 ₺</span>
+        </div>
+        <div class="margin-row sub">
+          <span>+ Joker maliyeti (2 × 88K KDV dahil)</span>
+          <span class="num">−176.000 ₺</span>
+        </div>
+        <div class="margin-row sub">
+          <span>+ Yönetim ekibi (kaptan, BM, RTŞ)</span>
+          <span class="num">−195.000 ₺</span>
+        </div>
+
+        <div class="margin-row">
+          <span>Net Kurye + Operasyon Maliyeti</span>
+          <span class="num" style="color: var(--bad);">− 2.471.000 ₺</span>
+        </div>
+
+        <div class="margin-row sub">
+          <span>+ Hakedişten geri kazanılan kesintiler</span>
+          <span class="num" style="color: var(--good);">+ 1.343.774 ₺</span>
+        </div>
+
+        <div class="margin-row total">
+          <span>Tahmini Brüt Marj</span>
+          <span class="num">3.233.507 ₺</span>
+        </div>
+
+        <div class="margin-note">
+          <strong style="color: var(--brand);">ⓘ</strong> Kurye saatlik + prim oranları henüz sisteme girilmedi. Kuryeler ekleyince bu rakam tahmini değil <strong>kesin</strong> olacak.
+        </div>
+      </div>
+
+      <!-- Right: Deductions -->
+      <div class="section">
+        <div class="section-head">
+          <div>
+            <div class="section-title">Kesinti Dağılımı</div>
+            <div class="section-sub">Mart 2026 · 11 tip · 263 kayıt</div>
+          </div>
+          <a class="section-link">Tümü →</a>
+        </div>
+
+        <div class="ded-row">
+          <div class="ded-label"><span class="dot" style="background:#1E40FF"></span>Avans</div>
+          <div class="ded-bar"><div class="ded-fill" style="width:100%; background:#1E40FF"></div></div>
+          <div class="ded-amount">751.600 ₺</div>
+          <div class="ded-pct">55,9%</div>
+        </div>
+        <div class="ded-row">
+          <div class="ded-label"><span class="dot" style="background:#3B82F6"></span>Yakıt</div>
+          <div class="ded-bar"><div class="ded-fill" style="width:25.4%; background:#3B82F6"></div></div>
+          <div class="ded-amount">191.240 ₺</div>
+          <div class="ded-pct">14,2%</div>
+        </div>
+        <div class="ded-row">
+          <div class="ded-label"><span class="dot" style="background:#8B5CF6"></span>Zimmet Taksiti</div>
+          <div class="ded-bar"><div class="ded-fill" style="width:21.7%; background:#8B5CF6"></div></div>
+          <div class="ded-amount">163.050 ₺</div>
+          <div class="ded-pct">12,1%</div>
+        </div>
+        <div class="ded-row">
+          <div class="ded-label"><span class="dot" style="background:#EF4444"></span>Fatura Edilmeyen</div>
+          <div class="ded-bar"><div class="ded-fill" style="width:12.7%; background:#EF4444"></div></div>
+          <div class="ded-amount">95.360 ₺</div>
+          <div class="ded-pct">7,1%</div>
+        </div>
+        <div class="ded-row">
+          <div class="ded-label"><span class="dot" style="background:#F59E0B"></span>Motor Bakım</div>
+          <div class="ded-bar"><div class="ded-fill" style="width:9.5%; background:#F59E0B"></div></div>
+          <div class="ded-amount">71.050 ₺</div>
+          <div class="ded-pct">5,3%</div>
+        </div>
+        <div class="ded-row">
+          <div class="ded-label"><span class="dot" style="background:#14B8A6"></span>HGS</div>
+          <div class="ded-bar"><div class="ded-fill" style="width:6.1%; background:#14B8A6"></div></div>
+          <div class="ded-amount">45.649 ₺</div>
+          <div class="ded-pct">3,4%</div>
+        </div>
+        <div class="ded-row">
+          <div class="ded-label"><span class="dot" style="background:#F43F5E"></span>İdari Ceza</div>
+          <div class="ded-bar"><div class="ded-fill" style="width:2.9%; background:#F43F5E"></div></div>
+          <div class="ded-amount">21.650 ₺</div>
+          <div class="ded-pct">1,6%</div>
+        </div>
+        <div class="ded-row">
+          <div class="ded-label"><span class="dot" style="background:#6B7280"></span>Diğer (kıyafet, vs.)</div>
+          <div class="ded-bar"><div class="ded-fill" style="width:0.6%; background:#6B7280"></div></div>
+          <div class="ded-amount">4.175 ₺</div>
+          <div class="ded-pct">0,3%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="quick-actions">
+      <button class="qa"><span class="qa-plus">+</span> Yeni Puantaj</button>
+      <button class="qa"><span class="qa-plus">+</span> Personel Ekle</button>
+      <button class="qa"><span class="qa-plus">+</span> Restoran Ekle</button>
+      <button class="qa"><span class="qa-plus">+</span> Kesinti Gir</button>
+      <button class="qa"><span class="qa-plus">+</span> Yeni Talep</button>
+      <button class="qa"><span class="qa-plus">+</span> Avans</button>
+      <button class="qa">📄 Aylık PDF</button>
+    </div>
+
+    <!-- RESTAURANTS -->
+    <div class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Restoran Bazında Fatura</div>
+          <div class="section-sub">En yüksek 8 · 18 toplam</div>
+        </div>
+        <a class="section-link">Tümünü gör →</a>
+      </div>
+      <table class="rt">
+        <thead>
+          <tr>
+            <th>Restoran</th>
+            <th>Anlaşma</th>
+            <th class="num">Saat</th>
+            <th class="num">Paket</th>
+            <th class="num">Fatura (KDV hariç)</th>
+            <th class="num">Pay</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><div class="rname">Quick China</div><div class="rbranch">Ataşehir</div></td><td><span class="pill hp">Saat + Prim</span></td><td class="num">1.236</td><td class="num">4.860</td><td class="num">492.240 ₺</td><td class="num" style="color: var(--text-3);">11,3%</td></tr>
+          <tr><td><div class="rname">Köroğlu Pide</div><div class="rbranch">Merkez</div></td><td><span class="pill threshold">Eşikli</span></td><td class="num">974</td><td class="num">3.842</td><td class="num">365.818 ₺</td><td class="num" style="color: var(--text-3);">8,4%</td></tr>
+          <tr><td><div class="rname">SushiCo</div><div class="rbranch">Sancaktepe</div></td><td><span class="pill hp">Saat + Prim</span></td><td class="num">896</td><td class="num">3.642</td><td class="num">358.944 ₺</td><td class="num" style="color: var(--text-3);">8,2%</td></tr>
+          <tr><td><div class="rname">SushiCo</div><div class="rbranch">İdealistpark</div></td><td><span class="pill hp">Saat + Prim</span></td><td class="num">894</td><td class="num">3.620</td><td class="num">358.422 ₺</td><td class="num" style="color: var(--text-3);">8,2%</td></tr>
+          <tr><td><div class="rname">Quick China</div><div class="rbranch">Suadiye</div></td><td><span class="pill hp">Saat + Prim</span></td><td class="num">876</td><td class="num">3.564</td><td class="num">351.100 ₺</td><td class="num" style="color: var(--text-3);">8,1%</td></tr>
+          <tr><td><div class="rname">SushiCo</div><div class="rbranch">Beyoğlu</div></td><td><span class="pill hp">Saat + Prim</span></td><td class="num">866</td><td class="num">3.522</td><td class="num">346.942 ₺</td><td class="num" style="color: var(--text-3);">8,0%</td></tr>
+          <tr><td><div class="rname">Doğu Otomotiv</div><div class="rbranch">Merkez</div></td><td><span class="pill hourly">Saatlik</span></td><td class="num">1.014</td><td class="num">—</td><td class="num">334.785 ₺</td><td class="num" style="color: var(--text-3);">7,7%</td></tr>
+          <tr><td><div class="rname">SushiCo</div><div class="rbranch">Çengelköy</div></td><td><span class="pill hp">Saat + Prim</span></td><td class="num">714</td><td class="num">2.888</td><td class="num">286.052 ₺</td><td class="num" style="color: var(--text-3);">6,6%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PIPELINE -->
+    <div class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Satış Pipeline</div>
+          <div class="section-sub">Yeni restoran müşterisi olma süreci</div>
+        </div>
+        <a class="section-link">+ Yeni Talep</a>
+      </div>
+      <div class="pipeline">
+        <div class="stage" style="border-top-color: #3B82F6;">
+          <h4>Görüşme <span class="count">3</span></h4>
+          <div class="lead-card"><div class="lead-name">Big Chefs</div><div class="lead-meta">Anadolu yakası · 6 kurye</div></div>
+          <div class="lead-card"><div class="lead-name">Pizzami</div><div class="lead-meta">3 şube · saat+prim</div></div>
+          <div class="lead-card"><div class="lead-name">Tatlı Stop</div><div class="lead-meta">1 şube</div></div>
+        </div>
+        <div class="stage" style="border-top-color: #F59E0B;">
+          <h4>Teklif <span class="count">2</span></h4>
+          <div class="lead-card"><div class="lead-name">Bafra Pide</div><div class="lead-meta">Eşikli · 2 şube</div></div>
+          <div class="lead-card"><div class="lead-name">Burger King</div><div class="lead-meta">Aylık sabit</div></div>
+        </div>
+        <div class="stage" style="border-top-color: #8B5CF6;">
+          <h4>Müzakere <span class="count">1</span></h4>
+          <div class="lead-card"><div class="lead-name">Domino's</div><div class="lead-meta">Fiyat görüşmesi</div></div>
+        </div>
+        <div class="stage" style="border-top-color: #10B981;">
+          <h4>Anlaşma <span class="count">2</span></h4>
+          <div class="lead-card"><div class="lead-name">Yavuzbey İskender</div><div class="lead-meta">15 Mart başladı</div></div>
+          <div class="lead-card"><div class="lead-name">SC Petshop</div><div class="lead-meta">Aylık sabit · aktif</div></div>
+        </div>
+        <div class="stage" style="border-top-color: #EF4444;">
+          <h4>Olumsuz <span class="count">4</span></h4>
+          <div class="lead-card"><div class="lead-name">Mado</div><div class="lead-meta">Bütçe dışı</div></div>
+          <div class="lead-card"><div class="lead-name">Komagene</div><div class="lead-meta">İç ekiple yapacak</div></div>
+        </div>
+      </div>
+      <div style="font-size: 11.5px; color: var(--text-3); margin-top: 12px;">📌 Pipeline örnek veri ile gösteriliyor — gerçek lead'ler yeni sisteme girince burada görünecek.</div>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="grid-3">
+      <div class="mini-stat">
+        <div class="mini-stat-title">Bu Ay Beklenen</div>
+        <div class="mini-stat-list">
+          <div class="mini-stat-item"><span>15 Nis · Mart maaş ödemesi</span><span class="num">2,7M ₺</span></div>
+          <div class="mini-stat-item"><span>25 Nis · Avans dağıtımı</span><span class="num">~800K ₺</span></div>
+          <div class="mini-stat-item"><span>30 Nis · Restoran fatura</span><span class="num">~5,3M ₺</span></div>
+        </div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-title">Dikkat İstenen</div>
+        <div class="mini-stat-list">
+          <div class="mini-stat-item alert"><span>Avans talebi onayı</span><span class="num">3</span></div>
+          <div class="mini-stat-item"><span>Köroğlu Pide kurye eksik</span><span class="num">3 / 6</span></div>
+          <div class="mini-stat-item"><span>Karara bağlanmamış idari ceza</span><span class="num">2</span></div>
+        </div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-title">Trend</div>
+        <div class="mini-stat-list">
+          <div class="mini-stat-item"><span>Bu hafta tahmini fatura</span><span class="num">1,16M ₺</span></div>
+          <div class="mini-stat-item"><span>Geçen yıl Mart</span><span class="num">3,4M ₺</span></div>
+          <div class="mini-stat-item"><span style="color: var(--good);">↑ Yıllık büyüme</span><span class="num" style="color: var(--good);">+28%</span></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

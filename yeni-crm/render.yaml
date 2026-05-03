@@ -1,0 +1,62 @@
+# Render deploy konfigürasyonu — Çat Kapında CRM v3
+# Bu dosyayı GitHub'a push ettiğinde Render otomatik 2 servis kurar.
+
+services:
+  # ==========================
+  # BACKEND — FastAPI
+  # ==========================
+  - type: web
+    name: crmcatkapinda-v3-api
+    runtime: python
+    rootDir: backend
+    plan: starter
+    buildCommand: pip install --upgrade pip && pip install -e .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: APP_ENV
+        value: production
+      - key: APP_NAME
+        value: Catkapinda CRM
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        sync: false  # Manuel olarak Render dashboard'da girilecek
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SMS_PROVIDER
+        value: netgsm
+      - key: SMS_API_URL
+        value: https://api.netgsm.com.tr
+      - key: SMS_NETGSM_USERNAME
+        sync: false
+      - key: SMS_NETGSM_PASSWORD
+        sync: false
+      - key: SMS_SENDER
+        value: CATKAPINDA
+
+  # ==========================
+  # FRONTEND — Next.js
+  # ==========================
+  - type: web
+    name: crmcatkapinda-v3
+    runtime: node
+    rootDir: frontend
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm run start -- --hostname 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: crmcatkapinda-v3-api
+          property: hostport

@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Çat Kapında — Yönetim Paneli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    /* Brand — Saks mavisi */
+    --brand: #0F52BA;
+    --brand-light: #3B7BCF;
+    --brand-dark: #0A3F8F;
+    --brand-soft: #E8EFFB;
+    --brand-mist: #F2F6FC;
+    --brand-border: #C9DAF1;
+
+    /* Surfaces */
+    --bg: #F8F5EE;
+    --surface: #FFFFFF;
+    --surface-2: #F4EFE3;
+    --surface-3: #EDE5D2;
+
+    /* Cream palette (warm secondary) */
+    --cream-50: #FDFAF3;
+    --cream-100: #F8F2E6;
+    --cream-200: #F0E6D0;
+    --cream-300: #E5D4B0;
+    --cream-400: #C9AE7A;
+    --cream-soft: #FAF6EE;
+    --cream-warm: #E8D9B5;
+
+    /* Text */
+    --text: #0B0D17;
+    --text-2: #4D5468;
+    --text-3: #8B92A7;
+    --text-4: #B8BECC;
+
+    /* Borders */
+    --border: #ECEEF3;
+    --border-2: #E2E5EC;
+
+    /* Semantic */
+    --success: #10B981;
+    --success-soft: #ECFDF5;
+    --success-light: #34D399;
+    --warning: #F59E0B;
+    --warning-soft: #FFFBEB;
+    --danger: #EF4444;
+    --danger-soft: #FEF2F2;
+    --info: #3B82F6;
+    --pink: #EC4899;
+    --teal: #14B8A6;
+    --amber: #D97706;
+    --terra: #B45309;
+
+    /* Shadows */
+    --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+    --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.05), 0 2px 4px rgba(15, 23, 42, 0.04);
+    --shadow-lg: 0 10px 32px rgba(15, 23, 42, 0.08), 0 4px 8px rgba(15, 23, 42, 0.04);
+    --shadow-xl: 0 20px 48px rgba(15, 23, 42, 0.12), 0 8px 16px rgba(15, 23, 42, 0.06);
+    --shadow-glow: 0 0 0 1px rgba(30, 64, 255, 0.15), 0 12px 32px rgba(30, 64, 255, 0.18);
+
+    /* Radii */
+    --r-xs: 4px;
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-xl: 18px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01", "cv11";
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(30, 64, 255, 0.04) 1px, transparent 0);
+    background-size: 32px 32px;
+  }
+  .display { font-family: 'Bricolage Grotesque', system-ui, sans-serif; letter-spacing: -0.025em; font-weight: 600; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: "ss02", "zero"; }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+  /* === LAYOUT === */
+  .app { display: grid; grid-template-columns: 252px 1fr; min-height: 100vh; }
+
+  /* === SIDEBAR === */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 22px 14px 16px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  .brand-block {
+    display: flex; align-items: center; gap: 11px;
+    padding: 0 8px 22px; border-bottom: 1px solid var(--border); margin-bottom: 16px;
+  }
+  .brand-mark {
+    width: 34px; height: 34px;
+    background: var(--brand);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 16px;
+    letter-spacing: -0.02em;
+    box-shadow: 0 4px 10px rgba(30,64,255,0.25);
+    position: relative;
+    overflow: hidden;
+  }
+  .brand-mark::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.18) 50%);
+    border-radius: inherit;
+  }
+  .brand-text { display: flex; flex-direction: column; }
+  .brand-title { font-family: 'Bricolage Grotesque'; font-weight: 600; font-size: 15px; letter-spacing: -0.02em; color: var(--text); line-height: 1.1; }
+  .brand-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; font-weight: 500; }
+
+  .nav-section { padding: 14px 12px 6px; font-size: 10px; font-weight: 700; color: var(--text-3); letter-spacing: 0.1em; text-transform: uppercase; }
+  .nav-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 11px;
+    border-radius: var(--r-sm);
+    font-size: 13.5px;
+    color: var(--text-2);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-bottom: 1px;
+    position: relative;
+  }
+  .nav-item:hover { background: var(--surface-2); color: var(--text); }
+  .nav-item.active {
+    background: var(--brand);
+    color: white;
+    box-shadow: 0 4px 14px rgba(30,64,255,0.3);
+  }
+  .nav-item.active .nav-badge { background: rgba(255,255,255,0.22); color: white; }
+  .nav-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.85; }
+  .nav-icon svg { width: 16px; height: 16px; stroke-width: 1.8; stroke: currentColor; fill: none; }
+  .nav-badge { margin-left: auto; background: var(--surface-2); color: var(--text-3); padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; min-width: 22px; text-align: center; }
+  .nav-badge.new { background: var(--brand); color: white; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(30,64,255,0.4); } 50% { box-shadow: 0 0 0 4px rgba(30,64,255,0); } }
+
+  .sidebar-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
+  .user-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-md); cursor: pointer; transition: background 0.15s; }
+  .user-card:hover { background: var(--surface-2); }
+  .user-avatar {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 13px;
+    box-shadow: 0 2px 6px rgba(245,158,11,0.3);
+  }
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .user-role { font-size: 11px; color: var(--text-3); }
+
+  /* === MAIN === */
+  .main { padding: 28px 36px 60px; max-width: 1500px; }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; gap: 20px; }
+  .greeting { font-size: 13px; color: var(--text-3); margin-bottom: 6px; font-weight: 500; }
+  .greeting span { color: var(--brand); font-weight: 600; }
+  .page-title { font-family: 'Bricolage Grotesque'; font-weight: 600; font-size: 32px; letter-spacing: -0.03em; color: var(--text); line-height: 1.05; }
+  .page-sub { color: var(--text-3); font-size: 14px; margin-top: 6px; font-weight: 500; }
+
+  .toolbar { display: flex; gap: 8px; align-items: center; }
+  .search-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--text-3);
+    width: 260px;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: var(--shadow-xs);
+    transition: all 0.18s ease;
+  }
+  .search-box:hover { border-color: var(--border-2); }
+  .search-box svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .kbd { background: var(--surface-2); border: 1px solid var(--border); padding: 1px 5px; border-radius: 4px; font-size: 10.5px; color: var(--text-3); margin-left: auto; font-family: 'JetBrains Mono'; font-weight: 500; }
+  .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 3px; box-shadow: var(--shadow-xs); }
+  .seg button { padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: var(--text-2); background: none; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .seg button.on { background: var(--text); color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+  .btn { padding: 8px 14px; font-size: 13px; font-weight: 500; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: all 0.18s; box-shadow: var(--shadow-xs); }
+  .btn:hover { border-color: var(--border-2); color: var(--text); }
+  .btn-primary { background: var(--brand); color: white; border-color: var(--brand); box-shadow: 0 2px 8px rgba(30,64,255,0.25); }
+  .btn-primary:hover { background: var(--brand-dark); color: white; border-color: var(--brand-dark); }
+
+  /* === KPI ROW (FANCY) === */
+  .kpi-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 14px; margin-bottom: 28px; }
+  .kpi {
+    background: var(--surface);
+    border-radius: var(--r-xl);
+    padding: 22px 24px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .kpi-label {
+    font-size: 12.5px;
+    color: var(--text-3);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .kpi-label-icon { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
+  .kpi-value { font-family: 'Bricolage Grotesque'; font-weight: 600; font-size: 36px; letter-spacing: -0.03em; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+  .kpi-currency { font-size: 18px; font-weight: 500; color: var(--text-3); margin-left: 4px; font-family: 'Inter Tight'; }
+  .kpi-meta { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 12px; color: var(--text-3); flex-wrap: wrap; }
+  .trend { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 5px; font-weight: 600; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .trend.up { background: var(--success-soft); color: var(--success); }
+  .trend.down { background: var(--danger-soft); color: var(--danger); }
+  .kpi-spark { position: absolute; right: 18px; bottom: 18px; width: 88px; height: 32px; opacity: 0.85; }
+
+  /* HERO KPI */
+  .kpi-hero {
+    background: linear-gradient(135deg, #0A3F8F 0%, #0F52BA 35%, #3B7BCF 70%, #E8D9B5 100%);
+    color: white;
+    border: none;
+    overflow: hidden;
+    grid-column: span 1;
+    position: relative;
+  }
+  .kpi-hero::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(900px circle at 90% -10%, rgba(248, 242, 230, 0.35), transparent 45%),
+      radial-gradient(700px circle at 110% 60%, rgba(232, 217, 181, 0.5), transparent 55%),
+      radial-gradient(500px circle at 10% 100%, rgba(0,0,0,0.18), transparent 50%);
+    pointer-events: none;
+  }
+  .kpi-hero::after {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0);
+    background-size: 16px 16px;
+    pointer-events: none;
+  }
+  .kpi-hero.hovered {
+    background:
+      radial-gradient(400px circle at var(--mx) var(--my), rgba(255,255,255,0.18), transparent 60%),
+      linear-gradient(135deg, #0A3F8F 0%, #0F52BA 35%, #3B7BCF 70%, #E8D9B5 100%);
+  }
+  /* Refined focus rings */
+  *:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--cream-200); border-radius: 5px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--cream-300); }
+  .kpi-hero > * { position: relative; }
+  .kpi-hero .kpi-label { color: rgba(255,255,255,0.85); }
+  .kpi-hero .kpi-value { color: white; font-size: 44px; }
+  .kpi-hero .kpi-currency { color: rgba(255,255,255,0.7); }
+  .kpi-hero .kpi-meta { color: rgba(255,255,255,0.85); }
+  .kpi-hero .trend.up { background: rgba(255,255,255,0.22); color: white; }
+  .kpi-hero .label-mini { font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 16px; font-weight: 500; }
+
+  /* Mesh background pattern */
+  .mesh-overlay { position: absolute; inset: 0; opacity: 0.6; mix-blend-mode: overlay; background:
+    radial-gradient(at 80% 0%, hsla(189,100%,56%,0.5) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, hsla(355,100%,93%,0.3) 0px, transparent 50%),
+    radial-gradient(at 80% 50%, hsla(340,100%,76%,0.3) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, hsla(22,100%,77%,0.3) 0px, transparent 50%);
+    pointer-events: none;
+  }
+
+  /* === CHART SECTION === */
+  .grid-2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+  .panel {
+    background: var(--surface);
+    border-radius: var(--r-xl);
+    border: 1px solid var(--border);
+    padding: 22px;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 16px;
+  }
+  .panel-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+  .panel-title { font-family: 'Bricolage Grotesque'; font-size: 17px; font-weight: 600; color: var(--text); letter-spacing: -0.015em; }
+  .panel-sub { font-size: 12.5px; color: var(--text-3); margin-top: 2px; font-weight: 500; }
+  .panel-link { color: var(--brand); font-size: 12.5px; font-weight: 600; text-decoration: none; cursor: pointer; }
+
+  .chart-wrap { position: relative; height: 280px; }
+  .donut-wrap { position: relative; height: 220px; display: flex; align-items: center; justify-content: center; }
+  .donut-center { position: absolute; text-align: center; pointer-events: none; }
+  .donut-label { font-size: 11px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .donut-value { font-family: 'Bricolage Grotesque'; font-size: 24px; font-weight: 600; color: var(--text); margin-top: 4px; letter-spacing: -0.02em; }
+  .donut-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+  .legend { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+  .legend-row { display: grid; grid-template-columns: 18px 1fr auto auto; align-items: center; gap: 10px; font-size: 13px; padding: 6px 0; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+  .legend-name { color: var(--text-2); font-weight: 500; }
+  .legend-amount { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .legend-pct { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 42px; text-align: right; }
+
+  /* P&L Grid */
+  .pnl { display: flex; flex-direction: column; gap: 0; }
+  .pnl-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; font-size: 13.5px; color: var(--text-2); border-bottom: 1px dashed var(--border); }
+  .pnl-row:last-child { border-bottom: none; }
+  .pnl-row .num { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .pnl-row.sub { color: var(--text-3); font-size: 12.5px; padding: 7px 0 7px 16px; border-bottom: none; }
+  .pnl-row.sub .num { color: var(--text-2); font-weight: 500; }
+  .pnl-row.summary { padding: 14px 0; border-top: 2px solid var(--text); border-bottom: none; margin-top: 8px; font-weight: 600; color: var(--text); }
+  .pnl-row.summary .display { font-size: 18px; }
+  .pnl-row.summary .num { color: var(--brand); font-size: 22px; font-family: 'Bricolage Grotesque'; }
+  .pnl-row.minus .num { color: var(--danger); }
+  .pnl-row.plus .num { color: var(--success); }
+
+  .pnl-note {
+    margin-top: 16px; padding: 12px 14px;
+    background: linear-gradient(135deg, var(--brand-mist), var(--brand-soft));
+    border-radius: var(--r-md);
+    color: var(--text-2); font-size: 12px; line-height: 1.6;
+    border: 1px solid var(--brand-border);
+  }
+
+  /* === RESTAURANT BARS === */
+  .rest-list { display: flex; flex-direction: column; gap: 12px; }
+  .rest-item {
+    display: grid;
+    grid-template-columns: 240px 1fr 130px;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    border-radius: var(--r-md);
+    transition: background 0.15s;
+  }
+  .rest-item:hover { background: var(--surface-2); }
+  .rest-name { display: flex; flex-direction: column; gap: 2px; }
+  .rest-name .top { display: flex; align-items: center; gap: 8px; }
+  .rest-brand { font-size: 13.5px; font-weight: 600; color: var(--text); }
+  .rest-branch { font-size: 12px; color: var(--text-3); }
+  .rest-bar { height: 28px; background: var(--surface-2); border-radius: 6px; position: relative; overflow: hidden; }
+  .rest-bar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; padding: 0 10px; color: white; font-size: 11px; font-weight: 600; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+  .rest-amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); font-size: 14px; font-family: 'JetBrains Mono'; }
+
+  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; }
+  .pill.hourly { background: #EFF6FF; color: #1D4ED8; }
+  .pill.threshold { background: var(--cream-100); color: var(--terra); }
+  .pill.fixed { background: #ECFDF5; color: #047857; }
+  .pill.hp { background: #FFF7ED; color: #C2410C; }
+
+  /* === PIPELINE === */
+  .pipeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .stage {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border-radius: var(--r-md);
+    padding: 14px 12px;
+    min-height: 160px;
+    border-top: 3px solid;
+    border: 1px solid var(--border);
+    border-top-width: 3px;
+  }
+  .stage h4 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 12px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.05em; }
+  .stage-count { background: var(--surface); color: var(--text-2); font-size: 11px; padding: 2px 7px; border-radius: 999px; font-weight: 600; border: 1px solid var(--border); }
+  .lead {
+    background: var(--surface);
+    border-radius: var(--r-sm);
+    padding: 10px 12px;
+    margin-bottom: 7px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .lead:hover { box-shadow: var(--shadow-sm); transform: translateY(-1px); border-color: var(--border-2); }
+  .lead-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
+  .lead-meta { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+
+  /* === ACTIVITY === */
+  .activity { display: flex; flex-direction: column; gap: 14px; }
+  .act-item { display: flex; gap: 12px; align-items: flex-start; }
+  .act-dot { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
+  .act-text { font-size: 13px; color: var(--text); flex: 1; line-height: 1.5; }
+  .act-text strong { font-weight: 600; }
+  .act-time { font-size: 11px; color: var(--text-3); margin-top: 2px; font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono'; }
+
+  /* === MINI STAT === */
+  .mini { padding: 18px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); box-shadow: var(--shadow-md); position: relative; overflow: hidden; }
+  .mini-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .mini-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+  .mini-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; color: var(--text-2); border-bottom: 1px solid var(--border); }
+  .mini-row:last-child { border-bottom: none; }
+  .mini-row .v { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* Restaurant Network Visualization */
+  .net-canvas { width: 100%; height: 360px; position: relative; }
+  .net-canvas svg { width: 100%; height: 100%; }
+  .net-node { position: absolute; transform: translate(-50%, -50%); cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .net-node:hover { z-index: 20; }
+  .net-node:hover .net-bubble { transform: scale(1.12); }
+  .net-bubble { border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: 700; box-shadow: 0 8px 24px rgba(15,82,186,0.18); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); border: 3px solid white; position: relative; padding: 4px; }
+  .net-bubble.xl { width: 132px; height: 132px; background: linear-gradient(135deg, #0A3F8F, #0F52BA); }
+  .net-bubble.lg { width: 116px; height: 116px; background: linear-gradient(135deg, #0F52BA, #3B7BCF); }
+  .net-bubble.md { width: 104px; height: 104px; background: linear-gradient(135deg, #1B4FAB, #5C8FD8); }
+  .net-bubble.sm { width: 88px; height: 88px; background: linear-gradient(135deg, #3B7BCF, #7BA6E1); }
+  .net-bubble.cream { background: linear-gradient(135deg, #C9AE7A, #E8D9B5); color: var(--text); }
+  .net-bubble.terra { background: linear-gradient(135deg, #1B4FAB, #3B7BCF); }
+  .net-bubble-name { font-size: 10.5px; line-height: 1.15; text-align: center; padding: 0 6px; font-weight: 700; }
+  .net-bubble.sm .net-bubble-name { font-size: 9.5px; }
+  .net-bubble-val { font-family: 'JetBrains Mono'; font-size: 12px; opacity: 0.9; margin-top: 4px; font-weight: 700; }
+  .net-bubble.sm .net-bubble-val { font-size: 11px; margin-top: 2px; }
+  .net-pulse { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 0 rgba(15,82,186,0.4); animation: net-pulse 2.4s infinite; pointer-events: none; }
+  @keyframes net-pulse { 0% { box-shadow: 0 0 0 0 rgba(15,82,186,0.4); } 100% { box-shadow: 0 0 0 18px rgba(15,82,186,0); } }
+  .net-legend { display: flex; gap: 14px; margin-top: 14px; flex-wrap: wrap; font-size: 12px; }
+  .net-legend-item { display: flex; align-items: center; gap: 6px; color: var(--text-2); }
+  .net-legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+  /* Banner */
+  .demo {
+    background: linear-gradient(135deg, var(--brand-mist), var(--surface));
+    border: 1px solid var(--brand-border);
+    border-radius: var(--r-xl);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex; gap: 14px; align-items: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .demo-icon { width: 40px; height: 40px; background: white; border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; color: var(--brand); flex-shrink: 0; box-shadow: 0 2px 6px rgba(30,64,255,0.15); }
+  .demo-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .demo-text { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+  .demo-text strong { color: var(--text); font-weight: 600; }
+
+  /* === ENTRY ANIMATIONS === */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .anim { animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+  .anim-1 { animation-delay: 0.05s; }
+  .anim-2 { animation-delay: 0.1s; }
+  .anim-3 { animation-delay: 0.15s; }
+  .anim-4 { animation-delay: 0.2s; }
+  .anim-5 { animation-delay: 0.25s; }
+  .anim-6 { animation-delay: 0.3s; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="brand-block">
+      <div class="brand-mark">Ç</div>
+      <div class="brand-text">
+        <div class="brand-title">çat<span style="font-weight:700;">kapında</span></div>
+        <div class="brand-sub">Yönetim Paneli</div>
+      </div>
+    </div>
+
+    <div class="nav-section">Genel</div>
+    <div class="nav-item active">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg></span>
+      Genel Bakış
+    </div>
+
+    <div class="nav-section">Operasyon</div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19v-1a4 4 0 014-4h4a4 4 0 014 4v1M16 13.5a3 3 0 013 3V18"/></svg></span>
+      Personel <span class="nav-badge">92</span>
+    </div>
+    <a class="nav-item" href="puantaj.html" style="text-decoration: none;">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></span>
+      Puantaj
+    </a>
+    <a class="nav-item" href="puantaj-onaylari.html" style="text-decoration: none;">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
+      Puantaj Onayları <span class="nav-badge" style="background: #F59E0B; color: white;">7</span>
+    </a>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z M14 3v6h6"/></svg></span>
+      Hakediş Onayları <span class="nav-badge">14</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/></svg></span>
+      Kesintiler
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg></span>
+      Avans Talepleri <span class="nav-badge new">3</span>
+    </div>
+
+    <div class="nav-section">Satış</div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 7l9 6 9-6M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l3-4h12l3 4"/></svg></span>
+      Talepler <span class="nav-badge">8</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 12h18M5 12V6a2 2 0 012-2h10a2 2 0 012 2v6M5 12v6a2 2 0 002 2h10a2 2 0 002-2v-6"/></svg></span>
+      Restoranlar <span class="nav-badge">18</span>
+    </div>
+
+    <div class="nav-section">Finans</div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z M14 3v6h6M9 14h6M9 17h4M9 11h2"/></svg></span>
+      Faturalar
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9h4.5a2.5 2.5 0 010 5H9a2.5 2.5 0 000 5h6"/></svg></span>
+      Bordro
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l4-4 4 4 6-6"/></svg></span>
+      Kâr-Zarar Raporu
+    </div>
+
+    <div class="nav-section">Sistem</div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z M14 3v6h6M9 14h6M9 17h4M9 11h2"/></svg></span>
+      Raporlar
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
+      Ayarlar
+    </div>
+
+    <div class="sidebar-foot">
+      <div class="user-card">
+        <div class="user-avatar">E</div>
+        <div class="user-info">
+          <div class="user-name">Ebru Aslan</div>
+          <div class="user-role">Yönetici · Kurucu</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+
+    <!-- HEADER -->
+    <div class="header anim anim-1">
+      <div>
+        <div class="greeting">İyi akşamlar, <span>Ebru</span> 👋</div>
+        <h1 class="page-title">Genel Bakış</h1>
+        <div class="page-sub">Mart 2026 · 31 günlük dönem · 18 aktif restoran</div>
+      </div>
+      <div class="toolbar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <span>Ara…</span>
+          <span class="kbd">⌘K</span>
+        </div>
+        <div class="seg">
+          <button>Hafta</button>
+          <button class="on">Ay</button>
+          <button>Yıl</button>
+        </div>
+        <button class="btn">Mart 2026 ▾</button>
+        <button class="btn btn-primary">+ Yeni</button>
+      </div>
+    </div>
+
+    <!-- AI INSIGHT BAR -->
+    <div class="demo anim anim-2" style="background: linear-gradient(135deg, var(--cream-soft), white 60%, var(--brand-mist)); border-color: var(--cream-200);">
+      <div class="demo-icon" style="background: linear-gradient(135deg, var(--brand), #4F6BFF); color: white; box-shadow: 0 4px 12px rgba(30,64,255,0.25);">
+        <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4L7 17M17 7l1.4-1.4M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+      </div>
+      <div class="demo-text">
+        <strong style="color: var(--brand);">Bu hafta dikkat:</strong> Köroğlu Pide kuryelerinin %72'si paket eşiğini geçti — bu trend ay sonuna kadar sürerse <strong>ek 84.000 ₺</strong> fatura kesilecek. Quick China Suadiye saatlik kapasitesi düşük (hedef 6, mevcut 4). <a class="panel-link" style="margin-left: 8px;">Detaylar →</a>
+      </div>
+    </div>
+
+    <!-- KPI ROW -->
+    <div class="kpi-row">
+      <div class="kpi kpi-hero anim anim-2">
+        <div class="kpi-label" style="color: rgba(255,255,255,0.85);">
+          Toplam Fatura · KDV hariç
+        </div>
+        <div class="kpi-value"><span class="counter" data-target="4360733">0</span><span class="kpi-currency">₺</span></div>
+        <div class="kpi-meta">
+          <span class="trend up">↑ 12.4%</span>
+          <span>geçen aya göre</span>
+        </div>
+        <div class="label-mini">+KDV: 5.232.880 ₺ &nbsp;·&nbsp; Tevkifat dahil net: 4.797.760 ₺</div>
+      </div>
+
+      <div class="kpi anim anim-3">
+        <div class="kpi-label">
+          <span class="kpi-label-icon" style="background: var(--success-soft); color: var(--success);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 7L13 16l-4-4-7 7M22 7h-6M22 7v6"/></svg>
+          </span>
+          Tahmini Marj
+        </div>
+        <div class="kpi-value"><span class="counter-decimal" data-target="3.23" data-suffix="M">0</span><span class="kpi-currency">₺</span></div>
+        <div class="kpi-meta">
+          <span class="trend up">↑ 8.7%</span>
+          <span>~%74 marj oranı</span>
+        </div>
+        <canvas class="kpi-spark" id="spark1"></canvas>
+      </div>
+
+      <div class="kpi anim anim-4">
+        <div class="kpi-label">
+          <span class="kpi-label-icon" style="background: #FFF7ED; color: #C2410C;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/></svg>
+          </span>
+          Kesintiler
+        </div>
+        <div class="kpi-value"><span class="counter-decimal" data-target="1.34" data-suffix="M">0</span><span class="kpi-currency">₺</span></div>
+        <div class="kpi-meta">
+          <span class="trend down">↓ 3.2%</span>
+          <span>11 kesinti tipi</span>
+        </div>
+        <canvas class="kpi-spark" id="spark2"></canvas>
+      </div>
+
+      <div class="kpi anim anim-5">
+        <div class="kpi-label">
+          <span class="kpi-label-icon" style="background: var(--brand-soft); color: var(--brand);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19v-1a4 4 0 014-4h4a4 4 0 014 4v1M16 13.5a3 3 0 013 3V18"/></svg>
+          </span>
+          Aktif Personel
+        </div>
+        <div class="kpi-value"><span class="counter" data-target="92">0</span></div>
+        <div class="kpi-meta">
+          <span class="trend up">+4</span>
+          <span>85 kurye · 2 joker · 5 yönetim ekibi</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SABİT MALİYET VERİMLİLİĞİ - üst tarafa taşındı -->
+    <div class="panel anim anim-3">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title">Sabit Maliyet Verimliliği</div>
+          <div class="panel-sub">Yönetim ekibi & Joker — sabit maaşlarını geri kazanma oranları</div>
+        </div>
+        <a class="panel-link">Detay analiz →</a>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;">
+        <!-- Cihan -->
+        <div style="border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; background: linear-gradient(180deg, var(--surface) 0%, var(--cream-50) 100%); position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--brand), var(--brand-light));"></div>
+          <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 14px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #0A3F8F, #1B4FAB); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">CT</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 700; font-size: 14px;">Cihan Tunç</div>
+              <div style="font-size: 11px; color: var(--text-3);">Bölge Müdürü · Anadolu</div>
+            </div>
+            <div style="text-align: right; font-size: 11px; font-weight: 600;"><span style="color: var(--success);">↑ %14</span><br><span style="font-size: 10px; color: var(--text-3);">vs Şubat</span></div>
+          </div>
+          <div style="margin-bottom: 14px;">
+            <div style="height: 28px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border-2); position: relative; overflow: hidden;">
+              <div style="height: 100%; width: 37.5%; background: linear-gradient(90deg, var(--success), #34D399); border-radius: 7px; display: flex; align-items: center; justify-content: flex-end; padding: 0 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);">
+                <span style="color: white; font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono';">−%37.5</span>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 2px 0;">
+              <span style="font-family: 'JetBrains Mono'; font-size: 10px; color: var(--text-3);">0 ₺</span>
+              <span style="font-family: 'JetBrains Mono'; font-size: 10px; color: var(--text-3);">100K ₺</span>
+            </div>
+          </div>
+          <div style="padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12.5px; color: var(--text-2);"><span>Sabit maaş</span><span style="font-weight: 600; color: var(--text); font-family: 'JetBrains Mono'; font-size: 12px;">100.000 ₺</span></div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12.5px; color: var(--success);"><span>Cover ile geri kazanım</span><span style="font-weight: 600; font-family: 'JetBrains Mono'; font-size: 12px;">+37.520 ₺</span></div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0 4px; font-size: 13px; font-weight: 700; border-top: 1px dashed var(--border); margin-top: 4px;"><span>Net maliyet</span><span style="color: var(--brand); font-family: 'JetBrains Mono';">62.480 ₺</span></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+            <div style="text-align: center; padding: 8px 4px; background: var(--surface-2); border-radius: 6px;"><div style="font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700;">14</div><div style="font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase;">Cover</div></div>
+            <div style="text-align: center; padding: 8px 4px; background: var(--surface-2); border-radius: 6px;"><div style="font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700;">186</div><div style="font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase;">Paket</div></div>
+            <div style="text-align: center; padding: 8px 4px; background: var(--surface-2); border-radius: 6px;"><div style="font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700;">98sa</div><div style="font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase;">Çalışma</div></div>
+          </div>
+        </div>
+
+        <!-- Tunç -->
+        <div style="border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; background: linear-gradient(180deg, var(--surface) 0%, var(--cream-50) 100%); position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--brand), var(--brand-light));"></div>
+          <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 14px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #0A3F8F, #1B4FAB); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">TY</div>
+            <div style="flex: 1;"><div style="font-weight: 700; font-size: 14px;">Tunç Yılmaz</div><div style="font-size: 11px; color: var(--text-3);">Bölge Müdürü · Avrupa</div></div>
+            <div style="text-align: right; font-size: 11px; font-weight: 600;"><span style="color: var(--success);">↑ %8</span><br><span style="font-size: 10px; color: var(--text-3);">vs Şubat</span></div>
+          </div>
+          <div style="margin-bottom: 14px;">
+            <div style="height: 28px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border-2); position: relative; overflow: hidden;">
+              <div style="height: 100%; width: 28.7%; background: linear-gradient(90deg, var(--success), #34D399); border-radius: 7px; display: flex; align-items: center; justify-content: flex-end; padding: 0 10px;"><span style="color: white; font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono';">−%28.7</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 2px 0;"><span style="font-family: 'JetBrains Mono'; font-size: 10px; color: var(--text-3);">0 ₺</span><span style="font-family: 'JetBrains Mono'; font-size: 10px; color: var(--text-3);">100K ₺</span></div>
+          </div>
+          <div style="padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12.5px; color: var(--text-2);"><span>Sabit maaş</span><span style="font-weight: 600; color: var(--text); font-family: 'JetBrains Mono'; font-size: 12px;">100.000 ₺</span></div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12.5px; color: var(--success);"><span>Cover ile geri kazanım</span><span style="font-weight: 600; font-family: 'JetBrains Mono'; font-size: 12px;">+28.770 ₺</span></div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0 4px; font-size: 13px; font-weight: 700; border-top: 1px dashed var(--border); margin-top: 4px;"><span>Net maliyet</span><span style="color: var(--brand); font-family: 'JetBrains Mono';">71.230 ₺</span></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+            <div style="text-align: center; padding: 8px 4px; background: var(--surface-2); border-radius: 6px;"><div style="font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700;">11</div><div style="font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase;">Cover</div></div>
+            <div style="text-align: center; padding: 8px 4px; background: var(--surface-2); border-radius: 6px;"><div style="font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700;">142</div><div style="font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase;">Paket</div></div>
+            <div style="text-align: center; padding: 8px 4px; background: var(--surface-2); border-radius: 6px;"><div style="font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700;">82sa</div><div style="font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase;">Çalışma</div></div>
+          </div>
+        </div>
+
+        <!-- Selim -->
+        <div style="border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; background: linear-gradient(180deg, var(--surface) 0%, var(--cream-50) 100%); position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--cream-400), var(--cream-warm));"></div>
+          <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 14px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #C9AE7A, #E8D9B5); color: var(--text); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">SK</div>
+            <div style="flex: 1;"><div style="font-weight: 700; font-size: 14px;">Selim Kaya</div><div style="font-size: 11px; color: var(--text-3);">Joker · Yedek</div></div>
+            <div style="text-align: right; font-size: 11px; font-weight: 600;"><span style="color: var(--success);">↑ %22</span><br><span style="font-size: 10px; color: var(--text-3);">vs Şubat</span></div>
+          </div>
+          <div style="margin-bottom: 14px;">
+            <div style="height: 28px; background: var(--cream-100); border-radius: 8px; border: 1px solid var(--border-2); position: relative; overflow: hidden;">
+              <div style="height: 100%; width: 52.1%; background: linear-gradient(90deg, var(--terra), var(--amber)); border-radius: 7px; display: flex; align-items: center; justify-content: flex-end; padding: 0 10px;"><span style="color: white; font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono';">−%52.1</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 2px 0;"><span style="font-family: 'JetBrains Mono'; font-size: 10px; color: var(--text-3);">0 ₺</span><span style="font-family: 'JetBrains Mono'; font-size: 10px; color: var(--text-3);">88K ₺</span></div>
+          </div>
+          <div style="padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12.5px; color: var(--text-2);"><span>Sabit maaş <small>(KDV dahil)</small></span><span style="font-weight: 600; color: var(--text); font-family: 'JetBrains Mono'; font-size: 12px;">88.000 ₺</span></div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12.5px; color: var(--success);"><span>Cover ile geri kazanım</span><span style="font-weight: 600; font-family: 'JetBrains Mono'; font-size: 12px;">+45.820 ₺</span></div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0 4px; font-size: 13px; font-weight: 700; border-top: 1px dashed var(--border); margin-top: 4px;"><span>Net maliyet</span><span style="color: var(--brand); font-family: 'JetBrains Mono';">42.180 ₺</span></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+            <div style="text-align: center; padding: 8px 4px; background: var(--surface-2); border-radius: 6px;"><div style="font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700;">21</div><div style="font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase;">Cover</div></div>
+            <div style="text-align: center; padding: 8px 4px; background: var(--surface-2); border-radius: 6px;"><div style="font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700;">142</div><div style="font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase;">Paket</div></div>
+            <div style="text-align: center; padding: 8px 4px; background: var(--surface-2); border-radius: 6px;"><div style="font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700;">178sa</div><div style="font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase;">Çalışma</div></div>
+          </div>
+        </div>
+
+        <!-- Toplam -->
+        <div style="border: 2px solid var(--brand); border-radius: 14px; padding: 18px 20px; background: linear-gradient(135deg, var(--brand-mist), var(--surface) 70%); display: flex; flex-direction: column; justify-content: center;">
+          <div style="font-size: 11px; color: var(--brand); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px;">Toplam Verimlilik</div>
+          <div style="font-family: 'Bricolage Grotesque'; font-size: 28px; font-weight: 700; color: var(--brand); letter-spacing: -0.02em; line-height: 1;">228.890 ₺</div>
+          <div style="font-size: 12px; color: var(--text-3); margin-top: 4px;">Net sabit maliyet</div>
+          <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--brand-border);">
+            <div style="display: flex; justify-content: space-between; font-size: 12.5px; padding: 4px 0;"><span style="color: var(--text-2);">Brüt gider</span><span style="font-weight: 600; font-family: 'JetBrains Mono'; font-size: 12px;">376.000 ₺</span></div>
+            <div style="display: flex; justify-content: space-between; font-size: 12.5px; padding: 4px 0; color: var(--success);"><span>Geri kazanım</span><span style="font-weight: 700; font-family: 'JetBrains Mono'; font-size: 12px;">−147.110 ₺</span></div>
+          </div>
+          <div style="margin-top: 14px; font-size: 11.5px; color: var(--success); font-weight: 700; text-align: center; background: var(--success-soft); padding: 6px 8px; border-radius: 8px;">⚡ %39.1 toplam geri kazanım</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHART ROW -->
+    <div class="grid-2">
+      <!-- Revenue trend chart -->
+      <div class="panel anim anim-3">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">Aylık Fatura Trendi</div>
+            <div class="panel-sub">Son 6 ay · KDV hariç</div>
+          </div>
+          <a class="panel-link">Detaylı analiz →</a>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="revChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Deductions donut -->
+      <div class="panel anim anim-4">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">Kesinti Dağılımı</div>
+            <div class="panel-sub">Mart 2026 · 263 kayıt</div>
+          </div>
+        </div>
+        <div class="donut-wrap">
+          <canvas id="dedDonut"></canvas>
+          <div class="donut-center">
+            <div class="donut-label">Toplam</div>
+            <div class="donut-value">1.34M ₺</div>
+            <div class="donut-sub">11 tip</div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="legend-row"><span class="legend-dot" style="background:#1E40FF"></span><span class="legend-name">Avans</span><span class="legend-amount">751.600 ₺</span><span class="legend-pct">55,9%</span></div>
+          <div class="legend-row"><span class="legend-dot" style="background:#3B82F6"></span><span class="legend-name">Yakıt</span><span class="legend-amount">191.240 ₺</span><span class="legend-pct">14,2%</span></div>
+          <div class="legend-row"><span class="legend-dot" style="background:#C9AE7A"></span><span class="legend-name">Zimmet Taksiti</span><span class="legend-amount">163.050 ₺</span><span class="legend-pct">12,1%</span></div>
+          <div class="legend-row"><span class="legend-dot" style="background:#EF4444"></span><span class="legend-name">Fatura Edilmeyen</span><span class="legend-amount">95.360 ₺</span><span class="legend-pct">7,1%</span></div>
+          <div class="legend-row"><span class="legend-dot" style="background:#F59E0B"></span><span class="legend-name">Motor Bakım</span><span class="legend-amount">71.050 ₺</span><span class="legend-pct">5,3%</span></div>
+          <div class="legend-row"><span class="legend-dot" style="background:#94A3B8"></span><span class="legend-name">Diğer (HGS, ceza, vb.)</span><span class="legend-amount">71.474 ₺</span><span class="legend-pct">5,4%</span></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- RESTAURANT NETWORK VISUALIZATION -->
+    <div class="panel anim anim-6">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title">🌐 Restoran Performans Ağı</div>
+          <div class="panel-sub">balon büyüklüğü = aylık fatura · pozisyon = anlaşma tipi · tıkla detay</div>
+        </div>
+        <a class="panel-link">Restoran sayfasına git →</a>
+      </div>
+      <div class="net-canvas">
+        <svg style="position: absolute; inset: 0;">
+          <defs>
+            <linearGradient id="netLineDash" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#0F52BA" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="#0F52BA" stop-opacity="0.04"/>
+            </linearGradient>
+          </defs>
+          <line x1="50%" y1="22%" x2="80%" y2="46%" stroke="url(#netLineDash)" stroke-width="1.5" stroke-dasharray="3,4"/>
+          <line x1="20%" y1="38%" x2="50%" y2="22%" stroke="url(#netLineDash)" stroke-width="1.5" stroke-dasharray="3,4"/>
+          <line x1="50%" y1="22%" x2="36%" y2="76%" stroke="url(#netLineDash)" stroke-width="1.5" stroke-dasharray="3,4"/>
+          <line x1="80%" y1="46%" x2="66%" y2="80%" stroke="url(#netLineDash)" stroke-width="1.5" stroke-dasharray="3,4"/>
+          <line x1="20%" y1="38%" x2="12%" y2="70%" stroke="url(#netLineDash)" stroke-width="1.5" stroke-dasharray="3,4"/>
+          <line x1="50%" y1="22%" x2="62%" y2="52%" stroke="url(#netLineDash)" stroke-width="1.5" stroke-dasharray="3,4"/>
+          <line x1="62%" y1="52%" x2="66%" y2="80%" stroke="url(#netLineDash)" stroke-width="1.5" stroke-dasharray="3,4"/>
+          <line x1="66%" y1="80%" x2="90%" y2="82%" stroke="url(#netLineDash)" stroke-width="1.5" stroke-dasharray="3,4"/>
+        </svg>
+
+        <div class="net-node" style="left: 50%; top: 22%;">
+          <div class="net-bubble xl"><div class="net-pulse"></div><div class="net-bubble-name">Quick China<br>Ataşehir</div><div class="net-bubble-val">492K ₺</div></div>
+        </div>
+        <div class="net-node" style="left: 80%; top: 46%;">
+          <div class="net-bubble lg terra"><div class="net-bubble-name">Köroğlu Pide<br>Merkez</div><div class="net-bubble-val">365K ₺</div></div>
+        </div>
+        <div class="net-node" style="left: 20%; top: 38%;">
+          <div class="net-bubble lg"><div class="net-bubble-name">SushiCo<br>Sancaktepe</div><div class="net-bubble-val">358K ₺</div></div>
+        </div>
+        <div class="net-node" style="left: 62%; top: 52%;">
+          <div class="net-bubble md"><div class="net-bubble-name">Quick China<br>Suadiye</div><div class="net-bubble-val">351K ₺</div></div>
+        </div>
+        <div class="net-node" style="left: 36%; top: 76%;">
+          <div class="net-bubble md"><div class="net-bubble-name">SushiCo<br>Beyoğlu</div><div class="net-bubble-val">346K ₺</div></div>
+        </div>
+        <div class="net-node" style="left: 12%; top: 70%;">
+          <div class="net-bubble md"><div class="net-bubble-name">Doğu<br>Otomotiv</div><div class="net-bubble-val">334K ₺</div></div>
+        </div>
+        <div class="net-node" style="left: 66%; top: 80%;">
+          <div class="net-bubble sm"><div class="net-bubble-name">SushiCo<br>Çengelköy</div><div class="net-bubble-val">286K ₺</div></div>
+        </div>
+        <div class="net-node" style="left: 90%; top: 82%;">
+          <div class="net-bubble sm cream"><div class="net-bubble-name">SC<br>Petshop</div><div class="net-bubble-val">79K ₺</div></div>
+        </div>
+      </div>
+      <div class="net-legend">
+        <div class="net-legend-item"><span class="net-legend-dot" style="background: linear-gradient(135deg, #0A3F8F, #0F52BA);"></span> Saat + Prim · Saatlik</div>
+        <div class="net-legend-item"><span class="net-legend-dot" style="background: linear-gradient(135deg, #1B4FAB, #3B7BCF);"></span> Eşikli</div>
+        <div class="net-legend-item"><span class="net-legend-dot" style="background: linear-gradient(135deg, #C9AE7A, #E8D9B5);"></span> Aylık Sabit</div>
+        <div class="net-legend-item" style="margin-left: auto; color: var(--text-3);">+ 10 restoran daha</div>
+      </div>
+    </div>
+
+    <!-- SATIS HATTI - Yeniden Tasarlanmış -->
+    <div class="panel anim anim-6">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title">🤝 Yeni Müşteri Kazanım Hattı</div>
+          <div class="panel-sub">12 aktif lead · son 30 günde 2 anlaşma · ortalama %40 dönüşüm oranı</div>
+        </div>
+        <a class="panel-link">+ Yeni Lead Ekle</a>
+      </div>
+
+      <!-- Conversion funnel summary -->
+      <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px;">
+        <div style="background: linear-gradient(135deg, var(--brand-mist), white); border: 1px solid var(--brand-border); border-radius: 12px; padding: 14px 16px; position: relative;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            <span style="font-size: 11px; color: var(--text-3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Görüşme</span>
+            <span style="background: var(--brand); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; font-family: 'JetBrains Mono';">3</span>
+          </div>
+          <div style="font-family: 'Bricolage Grotesque'; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;">~470K ₺</div>
+          <div style="font-size: 11px; color: var(--text-3); margin-top: 4px;">tahmini aylık değer</div>
+          <div style="height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 10px; overflow: hidden;">
+            <div style="height: 100%; width: 100%; background: var(--brand); border-radius: 2px;"></div>
+          </div>
+        </div>
+
+        <div style="background: linear-gradient(135deg, var(--brand-mist), white); border: 1px solid var(--brand-border); border-radius: 12px; padding: 14px 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            <span style="font-size: 11px; color: var(--text-3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Teklif</span>
+            <span style="background: var(--brand); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; font-family: 'JetBrains Mono';">2</span>
+          </div>
+          <div style="font-family: 'Bricolage Grotesque'; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;">~280K ₺</div>
+          <div style="font-size: 11px; color: var(--text-3); margin-top: 4px;">teklif iletilmiş</div>
+          <div style="height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 10px; overflow: hidden;">
+            <div style="height: 100%; width: 80%; background: var(--brand-light); border-radius: 2px;"></div>
+          </div>
+        </div>
+
+        <div style="background: linear-gradient(135deg, var(--brand-mist), white); border: 1px solid var(--brand-border); border-radius: 12px; padding: 14px 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            <span style="font-size: 11px; color: var(--text-3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Müzakere</span>
+            <span style="background: var(--cream-400); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; font-family: 'JetBrains Mono';">1</span>
+          </div>
+          <div style="font-family: 'Bricolage Grotesque'; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;">~190K ₺</div>
+          <div style="font-size: 11px; color: var(--text-3); margin-top: 4px;">aktif görüşme</div>
+          <div style="height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 10px; overflow: hidden;">
+            <div style="height: 100%; width: 60%; background: var(--cream-400); border-radius: 2px;"></div>
+          </div>
+        </div>
+
+        <div style="background: linear-gradient(135deg, var(--success-soft), white); border: 1px solid rgba(16,185,129,0.25); border-radius: 12px; padding: 14px 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            <span style="font-size: 11px; color: var(--text-3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Anlaşma</span>
+            <span style="background: var(--success); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; font-family: 'JetBrains Mono';">2 ✓</span>
+          </div>
+          <div style="font-family: 'Bricolage Grotesque'; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: var(--success);">+319K ₺</div>
+          <div style="font-size: 11px; color: var(--text-3); margin-top: 4px;">bu ay kazanılan</div>
+          <div style="height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 10px; overflow: hidden;">
+            <div style="height: 100%; width: 40%; background: var(--success); border-radius: 2px;"></div>
+          </div>
+        </div>
+
+        <div style="background: linear-gradient(135deg, var(--danger-soft), white); border: 1px solid rgba(239,68,68,0.18); border-radius: 12px; padding: 14px 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            <span style="font-size: 11px; color: var(--text-3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Olumsuz</span>
+            <span style="background: var(--danger); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; font-family: 'JetBrains Mono';">4</span>
+          </div>
+          <div style="font-family: 'Bricolage Grotesque'; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: var(--danger);">~410K ₺</div>
+          <div style="font-size: 11px; color: var(--text-3); margin-top: 4px;">kaçırılan fırsat</div>
+          <div style="height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 10px; overflow: hidden;">
+            <div style="height: 100%; width: 25%; background: var(--danger); border-radius: 2px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pipeline Kanban -->
+      <div class="pipeline">
+        <div class="stage" style="border-top-color: var(--brand);">
+          <h4>Görüşme <span class="stage-count">3</span></h4>
+          <div class="lead"><div class="lead-name">Big Chefs</div><div class="lead-meta">Anadolu · 6 kurye · ~180K</div></div>
+          <div class="lead"><div class="lead-name">Pizzami</div><div class="lead-meta">3 şube · saat+prim · ~210K</div></div>
+          <div class="lead"><div class="lead-name">Tatlı Stop</div><div class="lead-meta">1 şube · ~80K</div></div>
+        </div>
+        <div class="stage" style="border-top-color: var(--brand-light);">
+          <h4>Teklif <span class="stage-count">2</span></h4>
+          <div class="lead"><div class="lead-name">Bafra Pide</div><div class="lead-meta">Eşikli · 2 şube · ~145K</div></div>
+          <div class="lead"><div class="lead-name">Burger King</div><div class="lead-meta">Aylık sabit · ~135K</div></div>
+        </div>
+        <div class="stage" style="border-top-color: var(--cream-400);">
+          <h4>Müzakere <span class="stage-count">1</span></h4>
+          <div class="lead"><div class="lead-name">Domino's Pizza</div><div class="lead-meta">Fiyat görüşmesi · ~190K</div></div>
+        </div>
+        <div class="stage" style="border-top-color: var(--success);">
+          <h4>Anlaşma ✓ <span class="stage-count">2</span></h4>
+          <div class="lead"><div class="lead-name">Yavuzbey İskender</div><div class="lead-meta">15 Mart başladı · 240K</div></div>
+          <div class="lead"><div class="lead-name">SC Petshop</div><div class="lead-meta">Aylık sabit · 79K</div></div>
+        </div>
+        <div class="stage" style="border-top-color: var(--danger);">
+          <h4>Olumsuz <span class="stage-count">4</span></h4>
+          <div class="lead"><div class="lead-name">Mado</div><div class="lead-meta">Bütçe dışı · 220K kayıp</div></div>
+          <div class="lead"><div class="lead-name">Komagene</div><div class="lead-meta">İç ekiple yapacak · 90K</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM 3 - Yenilenmiş -->
+    <div class="grid-3">
+      <!-- Bu Ay Beklenen - Calendar timeline -->
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px 22px; box-shadow: var(--shadow-md); position: relative; overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--brand), var(--brand-light)); color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(15,82,186,0.25);">📅</div>
+          <div>
+            <div style="font-family: 'Bricolage Grotesque'; font-size: 16px; font-weight: 600; letter-spacing: -0.01em;">Bu Ay Beklenen</div>
+            <div style="font-size: 11px; color: var(--text-3);">3 ödeme noktası · Nisan 2026</div>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div style="position: relative; padding-left: 26px;">
+          <div style="position: absolute; left: 9px; top: 8px; bottom: 8px; width: 2px; background: linear-gradient(180deg, var(--brand), var(--cream-300));"></div>
+
+          <div style="position: relative; padding: 6px 0 14px;">
+            <div style="position: absolute; left: -22px; width: 18px; height: 18px; background: var(--brand); border: 3px solid white; border-radius: 50%; box-shadow: 0 0 0 2px var(--brand-soft);"></div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-weight: 700; font-size: 13px;">15 Nis</span><span style="font-family: 'Bricolage Grotesque'; font-size: 16px; font-weight: 700; color: var(--brand);">2,7M ₺</span></div>
+            <div style="font-size: 11.5px; color: var(--text-3); margin-top: 2px;">Mart kuryeleri maaş ödemesi</div>
+          </div>
+
+          <div style="position: relative; padding: 6px 0 14px;">
+            <div style="position: absolute; left: -22px; width: 18px; height: 18px; background: var(--brand-light); border: 3px solid white; border-radius: 50%;"></div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-weight: 700; font-size: 13px;">25 Nis</span><span style="font-family: 'Bricolage Grotesque'; font-size: 16px; font-weight: 700;">~800K ₺</span></div>
+            <div style="font-size: 11.5px; color: var(--text-3); margin-top: 2px;">Nisan avans dağıtımı</div>
+          </div>
+
+          <div style="position: relative; padding: 6px 0 0;">
+            <div style="position: absolute; left: -22px; width: 18px; height: 18px; background: var(--cream-400); border: 3px solid white; border-radius: 50%;"></div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-weight: 700; font-size: 13px;">30 Nis</span><span style="font-family: 'Bricolage Grotesque'; font-size: 16px; font-weight: 700; color: var(--success);">+5,3M ₺</span></div>
+            <div style="font-size: 11.5px; color: var(--text-3); margin-top: 2px;">Nisan restoran fatura kesimi</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dikkat İstenen - priority cards -->
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px 22px; box-shadow: var(--shadow-md); position: relative; overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--warning), #FCD34D); color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(245,158,11,0.3);">⚠</div>
+          <div>
+            <div style="font-family: 'Bricolage Grotesque'; font-size: 16px; font-weight: 600; letter-spacing: -0.01em;">Dikkat İstenen</div>
+            <div style="font-size: 11px; color: var(--text-3);">6 aksiyon bekliyor · 1 acil</div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="background: var(--brand-mist); border-left: 3px solid var(--brand); padding: 10px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: transform 0.15s;">
+            <div>
+              <div style="font-size: 12.5px; font-weight: 600;">Avans onayı bekliyor</div>
+              <div style="font-size: 11px; color: var(--text-3);">Eren Kayır, Yusuf Erdal, Ali Cem</div>
+            </div>
+            <div style="background: var(--brand); color: white; padding: 3px 9px; border-radius: 999px; font-weight: 700; font-size: 12px;">3</div>
+          </div>
+
+          <div style="background: var(--danger-soft); border-left: 3px solid var(--danger); padding: 10px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+            <div>
+              <div style="font-size: 12.5px; font-weight: 600;">Köroğlu Pide kurye eksik <span style="background: var(--danger); color: white; font-size: 9px; padding: 1px 5px; border-radius: 4px; margin-left: 4px; font-weight: 700;">ACİL</span></div>
+              <div style="font-size: 11px; color: var(--text-3);">3/6 atanmış · 2 hafta sürdü</div>
+            </div>
+            <div style="font-family: 'JetBrains Mono'; color: var(--danger); font-weight: 700; font-size: 14px;">3/6</div>
+          </div>
+
+          <div style="background: var(--cream-50); border-left: 3px solid var(--cream-400); padding: 10px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+            <div>
+              <div style="font-size: 12.5px; font-weight: 600;">İdari ceza karar bekliyor</div>
+              <div style="font-size: 11px; color: var(--text-3);">2 dosya · son 5 günde</div>
+            </div>
+            <div style="background: var(--cream-warm); color: var(--text); padding: 3px 9px; border-radius: 999px; font-weight: 700; font-size: 12px;">2</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Yıllık Trend - Mini chart -->
+      <div style="background: linear-gradient(135deg, var(--surface) 0%, var(--success-soft) 200%); border: 1px solid var(--border); border-radius: 18px; padding: 20px 22px; box-shadow: var(--shadow-md); position: relative; overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--success), #34D399); color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(16,185,129,0.25);">↗</div>
+          <div>
+            <div style="font-family: 'Bricolage Grotesque'; font-size: 16px; font-weight: 600; letter-spacing: -0.01em;">Yıllık Büyüme</div>
+            <div style="font-size: 11px; color: var(--text-3);">Mart 2025 → Mart 2026</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: baseline; gap: 8px; margin: 10px 0 6px;">
+          <div style="font-family: 'Bricolage Grotesque'; font-size: 38px; font-weight: 700; color: var(--success); letter-spacing: -0.03em; line-height: 1;">+%28</div>
+          <div style="font-size: 12px; color: var(--text-3); font-weight: 600;">YoY büyüme</div>
+        </div>
+
+        <div style="position: relative; height: 60px; margin: 14px 0 8px;">
+          <svg width="100%" height="60" viewBox="0 0 240 60" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="growGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#10B981" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#10B981" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,48 L20,46 L40,42 L60,38 L80,40 L100,32 L120,30 L140,24 L160,20 L180,18 L200,12 L220,10 L240,6 L240,60 L0,60 Z" fill="url(#growGrad)"/>
+            <path d="M0,48 L20,46 L40,42 L60,38 L80,40 L100,32 L120,30 L140,24 L160,20 L180,18 L200,12 L220,10 L240,6" stroke="#10B981" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <circle cx="240" cy="6" r="4" fill="#10B981" stroke="white" stroke-width="2"/>
+          </svg>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12px;">
+          <div><div style="color: var(--text-3); font-size: 11px;">Geçen yıl Mart</div><div style="font-weight: 700; font-family: 'JetBrains Mono'; margin-top: 2px;">3.404.250 ₺</div></div>
+          <div style="text-align: right;"><div style="color: var(--text-3); font-size: 11px;">Bu yıl Mart</div><div style="font-weight: 700; font-family: 'JetBrains Mono'; color: var(--success); margin-top: 2px;">4.360.733 ₺</div></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  Chart.defaults.font.family = "'Inter Tight', sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = '#8B92A7';
+  Chart.defaults.borderColor = '#ECEEF3';
+
+  // === MAIN REVENUE CHART ===
+  const revCtx = document.getElementById('revChart').getContext('2d');
+  const grad = revCtx.createLinearGradient(0, 0, 0, 280);
+  grad.addColorStop(0, 'rgba(30, 64, 255, 0.25)');
+  grad.addColorStop(1, 'rgba(30, 64, 255, 0)');
+
+  new Chart(revCtx, {
+    type: 'line',
+    data: {
+      labels: ['Eki', 'Kas', 'Ara', 'Oca', 'Şub', 'Mar'],
+      datasets: [
+        {
+          label: 'KDV hariç',
+          data: [3120000, 3380000, 3680000, 3850000, 3880000, 4360733],
+          borderColor: '#1E40FF',
+          backgroundColor: grad,
+          tension: 0.4,
+          fill: true,
+          borderWidth: 2.5,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointHoverBackgroundColor: '#1E40FF',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2
+        },
+        {
+          label: 'KDV dahil',
+          data: [3744000, 4056000, 4416000, 4620000, 4656000, 5232880],
+          borderColor: '#C9AE7A',
+          borderDash: [5, 5],
+          tension: 0.4,
+          fill: false,
+          borderWidth: 1.8,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#C9AE7A',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', align: 'end', labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 12, weight: '500' } } },
+        tooltip: {
+          backgroundColor: '#0B0D17',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 8,
+          displayColors: true,
+          boxPadding: 4,
+          callbacks: { label: (ctx) => ctx.dataset.label + ': ' + new Intl.NumberFormat('tr-TR').format(ctx.parsed.y) + ' ₺' }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: false,
+          grid: { color: '#ECEEF3', drawBorder: false },
+          ticks: { callback: (v) => (v / 1e6).toFixed(1) + 'M ₺', font: { size: 11 } }
+        },
+        x: { grid: { display: false }, ticks: { font: { size: 11.5, weight: '500' } } }
+      }
+    }
+  });
+
+  // === DEDUCTIONS DONUT ===
+  new Chart(document.getElementById('dedDonut').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Avans', 'Yakıt', 'Zimmet Taksiti', 'Fatura Edilmeyen', 'Motor Bakım', 'Diğer'],
+      datasets: [{
+        data: [751600, 191240, 163050, 95360, 71050, 71474],
+        backgroundColor: ['#1E40FF', '#3B82F6', '#C9AE7A', '#EF4444', '#F59E0B', '#94A3B8'],
+        borderWidth: 0,
+        hoverOffset: 8,
+        spacing: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '72%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0B0D17',
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            label: (ctx) => {
+              const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+              const pct = (ctx.parsed / total * 100).toFixed(1);
+              return ctx.label + ': ' + new Intl.NumberFormat('tr-TR').format(ctx.parsed) + ' ₺ (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // === SPARKLINES ===
+  function sparkline(id, data, color) {
+    const ctx = document.getElementById(id).getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: { labels: data.map((_,i) => i), datasets: [{ data, borderColor: color, borderWidth: 1.8, tension: 0.4, fill: false, pointRadius: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } }
+    });
+  }
+  sparkline('spark1', [2.1, 2.4, 2.6, 2.8, 2.95, 3.23], '#10B981');
+  sparkline('spark2', [1.42, 1.45, 1.39, 1.38, 1.36, 1.34], '#F59E0B');
+
+  // === COUNT-UP ANIMATIONS ===
+  function animateCount(el, target, duration = 1400, decimal = false, suffix = '') {
+    const start = performance.now();
+    const easeOut = (t) => 1 - Math.pow(1 - t, 4);
+    function frame(now) {
+      const elapsed = (now - start) / duration;
+      const t = Math.min(elapsed, 1);
+      const eased = easeOut(t);
+      const current = target * eased;
+      if (decimal) {
+        el.textContent = current.toFixed(2) + suffix;
+      } else {
+        el.textContent = Math.round(current).toLocaleString('tr-TR');
+      }
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // Trigger when KPIs come into view
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !entry.target.dataset.animated) {
+        entry.target.dataset.animated = '1';
+        const target = parseFloat(entry.target.dataset.target);
+        const decimal = entry.target.classList.contains('counter-decimal');
+        const suffix = entry.target.dataset.suffix || '';
+        animateCount(entry.target, target, 1400, decimal, suffix);
+      }
+    });
+  }, { threshold: 0.3 });
+  document.querySelectorAll('.counter, .counter-decimal').forEach(el => observer.observe(el));
+
+  // === SUBTLE MOUSE TRACKING ON HERO ===
+  const hero = document.querySelector('.kpi-hero');
+  if (hero) {
+    hero.addEventListener('mousemove', (e) => {
+      const rect = hero.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      hero.style.setProperty('--mx', x + '%');
+      hero.style.setProperty('--my', y + '%');
+      hero.classList.add('hovered');
+    });
+    hero.addEventListener('mouseleave', () => hero.classList.remove('hovered'));
+  }
+</script>
+</body>
+</html>

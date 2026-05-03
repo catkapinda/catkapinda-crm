@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Çat Kapında — Puantaj Onayları</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand: #0F52BA; --brand-light: #3B7BCF; --brand-dark: #0A3F8F;
+    --brand-soft: #E8EFFB; --brand-mist: #F2F6FC; --brand-border: #C9DAF1;
+    --bg: #F8F5EE; --surface: #FFFFFF; --surface-2: #F4EFE3; --surface-3: #EDE5D2;
+    --cream-50: #FDFAF3; --cream-100: #F8F2E6; --cream-200: #F0E6D0;
+    --cream-300: #E5D4B0; --cream-400: #C9AE7A; --cream-soft: #FAF6EE; --cream-warm: #E8D9B5;
+    --text: #0B0D17; --text-2: #4D5468; --text-3: #8B92A7; --text-4: #B8BECC;
+    --border: #ECEEF3; --border-2: #E2E5EC;
+    --success: #10B981; --success-soft: #ECFDF5;
+    --warning: #F59E0B; --warning-soft: #FFFBEB;
+    --danger: #EF4444; --danger-soft: #FEF2F2;
+    --info: #3B82F6; --terra: #B45309;
+    --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+    --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.05);
+    --shadow-lg: 0 10px 32px rgba(15, 23, 42, 0.08);
+    --r-md: 10px; --r-lg: 14px; --r-xl: 18px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter Tight', sans-serif; background: var(--bg); color: var(--text); line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    background-image: radial-gradient(circle at 1px 1px, rgba(15, 82, 186, 0.04) 1px, transparent 0);
+    background-size: 32px 32px;
+  }
+  .num { font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono'; }
+  .display { font-family: 'Bricolage Grotesque', sans-serif; letter-spacing: -0.025em; font-weight: 600; }
+
+  .app { display: grid; grid-template-columns: 252px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 22px 14px 16px; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
+  .brand-block { display: flex; align-items: center; gap: 11px; padding: 0 8px 22px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .brand-mark { width: 34px; height: 34px; background: var(--brand); border-radius: 9px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 16px; box-shadow: 0 4px 10px rgba(15,82,186,0.3); }
+  .brand-title { font-family: 'Bricolage Grotesque'; font-weight: 600; font-size: 15px; }
+  .brand-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; font-weight: 500; }
+  .nav-section { padding: 14px 12px 6px; font-size: 10px; font-weight: 700; color: var(--text-3); letter-spacing: 0.1em; text-transform: uppercase; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: 6px; font-size: 13.5px; color: var(--text-2); font-weight: 500; cursor: pointer; transition: all 0.18s; margin-bottom: 1px; text-decoration: none; }
+  .nav-item:hover { background: var(--surface-2); color: var(--text); }
+  .nav-item.active { background: var(--brand); color: white; box-shadow: 0 4px 14px rgba(15,82,186,0.3); }
+  .nav-item.active .nav-badge { background: rgba(255,255,255,0.22); color: white; }
+  .nav-icon svg { width: 16px; height: 16px; stroke-width: 1.8; stroke: currentColor; fill: none; }
+  .nav-badge { margin-left: auto; background: var(--surface-2); color: var(--text-3); padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .nav-badge.new { background: var(--brand); color: white; }
+  .nav-badge.warn { background: var(--warning); color: white; }
+
+  /* Main */
+  .main { padding: 24px 32px 60px; max-width: 1500px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 22px; gap: 20px; }
+  .greeting { font-size: 13px; color: var(--text-3); margin-bottom: 6px; font-weight: 500; }
+  .page-title { font-family: 'Bricolage Grotesque'; font-weight: 600; font-size: 30px; letter-spacing: -0.03em; line-height: 1.05; }
+  .page-sub { color: var(--text-3); font-size: 13.5px; margin-top: 4px; font-weight: 500; }
+  .toolbar { display: flex; gap: 8px; align-items: center; }
+  .btn { padding: 8px 14px; font-size: 13px; font-weight: 500; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: all 0.18s; box-shadow: var(--shadow-xs); }
+  .btn:hover { border-color: var(--border-2); color: var(--text); }
+  .btn-primary { background: var(--brand); color: white; border-color: var(--brand); box-shadow: 0 2px 8px rgba(15,82,186,0.25); }
+  .btn-primary:hover { background: var(--brand-dark); }
+
+  /* Status overview cards */
+  .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl);
+    padding: 18px 20px; box-shadow: var(--shadow-md); position: relative; overflow: hidden;
+  }
+  .stat-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+  .stat-card.brand::before { background: var(--brand); }
+  .stat-card.success::before { background: var(--success); }
+  .stat-card.warn::before { background: var(--warning); }
+  .stat-card.danger::before { background: var(--danger); }
+  .stat-label { font-size: 11.5px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .stat-value { font-family: 'Bricolage Grotesque'; font-size: 28px; font-weight: 700; letter-spacing: -0.025em; line-height: 1; }
+  .stat-meta { font-size: 12px; color: var(--text-3); margin-top: 6px; }
+  .stat-meta strong { color: var(--text); font-weight: 700; }
+
+  /* Clean horizontal progress flow */
+  .flow-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl);
+    padding: 24px 28px; margin-bottom: 22px; box-shadow: var(--shadow-md);
+  }
+  .flow-track {
+    position: relative; display: grid; grid-template-columns: repeat(7, 1fr); gap: 0;
+    margin-top: 18px; padding: 0 22px;
+  }
+  .flow-track::before {
+    content: ""; position: absolute; left: 32px; right: 32px; top: 18px; height: 2px;
+    background: linear-gradient(90deg, var(--success) 0%, var(--success) 30%, var(--brand) 30%, var(--brand) 42%, var(--border-2) 42%);
+    border-radius: 2px; z-index: 0;
+  }
+  .flow-node { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .flow-dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--border-2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bricolage Grotesque'; font-weight: 700; font-size: 14px;
+    color: var(--text-3); transition: all 0.3s ease;
+  }
+  .flow-node.done .flow-dot { background: var(--success); border-color: var(--success); color: white; }
+  .flow-node.active .flow-dot {
+    background: var(--brand); border-color: var(--brand); color: white;
+    box-shadow: 0 0 0 6px var(--brand-mist);
+    animation: pulse-active 2s infinite;
+  }
+  @keyframes pulse-active { 50% { box-shadow: 0 0 0 12px rgba(15,82,186,0.08); } }
+  .flow-lbl { font-size: 11px; font-weight: 600; color: var(--text-3); text-align: center; line-height: 1.3; max-width: 90px; }
+  .flow-node.done .flow-lbl, .flow-node.active .flow-lbl { color: var(--text); }
+
+  /* Tabs */
+  .tab-bar { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 6px; margin-bottom: 16px; box-shadow: var(--shadow-sm); width: fit-content; }
+  .tab { padding: 9px 16px; font-size: 13px; font-weight: 500; color: var(--text-2); background: none; border: none; border-radius: 8px; cursor: pointer; font-family: inherit; transition: all 0.18s; display: flex; align-items: center; gap: 8px; }
+  .tab:hover { background: var(--surface-2); color: var(--text); }
+  .tab.active { background: var(--brand); color: white; box-shadow: 0 2px 8px rgba(15,82,186,0.2); }
+  .tab-count { background: rgba(0,0,0,0.06); padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .tab.active .tab-count { background: rgba(255,255,255,0.22); }
+
+  /* Approval list */
+  .approval-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: 18px 22px; margin-bottom: 12px; box-shadow: var(--shadow-sm);
+    transition: all 0.2s; cursor: pointer;
+  }
+  .approval-card:hover { border-color: var(--brand-border); box-shadow: var(--shadow-md); }
+  .ac-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .ac-info { flex: 1; min-width: 0; }
+  .ac-title { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .ac-name { font-family: 'Bricolage Grotesque'; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  .ac-meta { font-size: 12px; color: var(--text-3); display: flex; gap: 12px; flex-wrap: wrap; }
+  .ac-meta-item { display: inline-flex; align-items: center; gap: 4px; }
+
+  .ac-status { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .status-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+  .status-pill.pending { background: var(--cream-100); color: var(--terra); }
+  .status-pill.pending::before { background: var(--cream-400); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+  .status-pill.sent { background: var(--brand-soft); color: var(--brand); }
+  .status-pill.sent::before { background: var(--brand); }
+  .status-pill.viewed { background: #F0FDFA; color: #0E7490; }
+  .status-pill.viewed::before { background: #06B6D4; }
+  .status-pill.approved { background: var(--success-soft); color: var(--success); }
+  .status-pill.approved::before { background: var(--success); }
+  .status-pill.rejected { background: var(--danger-soft); color: var(--danger); }
+  .status-pill.rejected::before { background: var(--danger); }
+  .status-pill.escalated { background: var(--warning-soft); color: var(--warning); }
+  .status-pill.escalated::before { background: var(--warning); animation: pulse 0.8s infinite; }
+
+  .ac-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .ac-stat { font-size: 11.5px; color: var(--text-3); font-weight: 500; }
+  .ac-stat-num { font-family: 'JetBrains Mono'; font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 1px; }
+
+  .ac-actions { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+  .ac-action { padding: 6px 11px; font-size: 12px; font-weight: 500; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; font-family: inherit; }
+  .ac-action:hover { border-color: var(--text-2); color: var(--text); }
+  .ac-action.primary { background: var(--brand); color: white; border-color: var(--brand); }
+  .ac-action.danger { color: var(--danger); }
+
+  /* Channel indicators */
+  .channels { display: flex; gap: 4px; margin-top: 4px; }
+  .channel { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 600; }
+  .channel.sent { background: var(--brand-soft); color: var(--brand); }
+  .channel.opened { background: var(--success-soft); color: var(--success); }
+  .channel.clicked { background: linear-gradient(135deg, var(--success-soft), var(--brand-soft)); color: var(--brand); }
+  .channel.unread { background: var(--surface-2); color: var(--text-3); }
+
+  /* Dispute box */
+  .dispute-box {
+    margin-top: 14px; padding: 12px 14px;
+    background: var(--danger-soft); border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 8px; font-size: 13px; color: var(--text-2); line-height: 1.5;
+    position: relative; padding-left: 38px;
+  }
+  .dispute-box::before { content: "⚠"; position: absolute; left: 14px; top: 12px; color: var(--danger); font-size: 14px; }
+  .dispute-box strong { color: var(--danger); font-weight: 700; }
+
+  /* AI alert */
+  .ai-alert {
+    margin-top: 14px; padding: 12px 14px;
+    background: linear-gradient(135deg, var(--brand-mist), var(--cream-soft));
+    border: 1px solid var(--brand-border);
+    border-radius: 8px; font-size: 12.5px; color: var(--text-2); line-height: 1.5;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .ai-alert-icon {
+    width: 24px; height: 24px; background: linear-gradient(135deg, var(--brand), var(--brand-light));
+    color: white; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 11px; font-weight: 700;
+  }
+  .ai-alert strong { color: var(--brand); font-weight: 700; }
+
+  /* Phone frame for SMS preview */
+  .phone-frame {
+    width: 280px; height: 540px; margin: 0 auto;
+    background: #0B0D17; border-radius: 36px;
+    padding: 12px; position: relative;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .phone-frame::before {
+    content: ""; position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+    width: 100px; height: 22px; background: #0B0D17; border-radius: 12px;
+    z-index: 5;
+  }
+  .phone-screen {
+    background: linear-gradient(180deg, #F4F4F8, #E8E8EE);
+    border-radius: 28px; height: 100%;
+    padding: 38px 14px 14px;
+    overflow: hidden; position: relative;
+  }
+  .phone-status-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; font-weight: 700; color: #0B0D17;
+    padding: 0 12px 12px;
+    font-family: -apple-system, sans-serif;
+  }
+  .phone-status-icons { display: flex; gap: 4px; align-items: center; }
+  .sms-from {
+    text-align: center; font-size: 11px; color: var(--text-3); margin-bottom: 10px; font-weight: 600;
+  }
+  .sms-from strong { color: var(--text); display: block; font-size: 13px; margin-bottom: 1px; }
+  .sms-bubble {
+    background: linear-gradient(135deg, var(--brand), var(--brand-light));
+    color: white; padding: 12px 14px; border-radius: 18px 18px 18px 6px;
+    font-size: 11.5px; line-height: 1.55;
+    margin-bottom: 4px;
+    box-shadow: 0 2px 8px rgba(15,82,186,0.18);
+    max-width: 92%;
+  }
+  .sms-link { color: white; text-decoration: underline; font-weight: 600; }
+  .sms-time { font-size: 9.5px; color: var(--text-3); text-align: center; margin-top: 4px; }
+
+  /* Editorial action center */
+  .action-center {
+    background:
+      radial-gradient(800px circle at 90% -10%, rgba(232,217,181,0.4), transparent 50%),
+      radial-gradient(600px circle at 0% 110%, rgba(15,82,186,0.06), transparent 55%),
+      linear-gradient(135deg, var(--surface) 0%, var(--cream-soft) 100%);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 28px 32px;
+    margin-bottom: 22px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.04);
+  }
+  .action-center::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(15, 82, 186, 0.06) 1px, transparent 0);
+    background-size: 24px 24px;
+    mask-image: linear-gradient(135deg, transparent 50%, black 90%);
+    pointer-events: none;
+  }
+  .ac-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 32px; align-items: center; position: relative; z-index: 2; }
+  .action-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px;
+    background: white; border: 1px solid var(--brand-border);
+    color: var(--brand); font-size: 11px; font-weight: 700;
+    border-radius: 999px; text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 14px;
+  }
+  .action-tag::before { content: "●"; color: var(--brand); animation: pulse 1.5s infinite; }
+  .action-headline {
+    font-family: 'Bricolage Grotesque'; font-size: 28px; font-weight: 600;
+    letter-spacing: -0.03em; line-height: 1.2; margin-bottom: 12px;
+  }
+  .action-headline strong { background: linear-gradient(135deg, var(--brand), var(--brand-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700; }
+  .action-sub { font-size: 13.5px; color: var(--text-2); line-height: 1.6; margin-bottom: 18px; }
+  .action-cta { display: flex; gap: 8px; }
+  .action-cta button { padding: 10px 18px; font-size: 13px; font-weight: 600; border-radius: 10px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+  .action-cta .primary { background: var(--text); color: white; border: none; }
+  .action-cta .primary:hover { transform: translateY(-1px); box-shadow: 0 8px 16px rgba(0,0,0,0.15); }
+  .action-cta .ghost { background: transparent; border: 1px solid var(--border-2); color: var(--text-2); }
+
+  /* Visual progress funnel */
+  .funnel-block { display: flex; flex-direction: column; gap: 8px; }
+  .funnel-row { display: grid; grid-template-columns: 100px 1fr 90px; align-items: center; gap: 12px; }
+  .funnel-label { font-size: 12px; font-weight: 600; color: var(--text-2); }
+  .funnel-bar { height: 32px; background: var(--surface-2); border-radius: 8px; overflow: hidden; position: relative; }
+  .funnel-fill { height: 100%; border-radius: 8px; display: flex; align-items: center; padding: 0 12px; color: white; font-size: 11.5px; font-weight: 700; transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1); }
+  .funnel-fill.f1 { background: linear-gradient(90deg, var(--text), #2D3848); }
+  .funnel-fill.f2 { background: linear-gradient(90deg, var(--brand-dark), var(--brand)); }
+  .funnel-fill.f3 { background: linear-gradient(90deg, var(--brand), var(--brand-light)); }
+  .funnel-fill.f4 { background: linear-gradient(90deg, #06B6D4, #22D3EE); }
+  .funnel-fill.f5 { background: linear-gradient(90deg, var(--success), #34D399); }
+  .funnel-count { text-align: right; font-family: 'JetBrains Mono'; font-weight: 700; font-size: 14px; }
+
+  /* Response score badge */
+  .resp-score {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+    font-family: 'JetBrains Mono';
+  }
+  .resp-score.excellent { background: var(--success-soft); color: var(--success); }
+  .resp-score.good { background: var(--brand-soft); color: var(--brand); }
+  .resp-score.average { background: var(--cream-100); color: var(--terra); }
+  .resp-score.poor { background: var(--danger-soft); color: var(--danger); }
+
+  /* Mini timeline */
+  .resp-timeline { display: flex; gap: 4px; align-items: center; margin-top: 10px; padding: 8px 0 0; border-top: 1px dashed var(--border); }
+  .timeline-step { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-3); }
+  .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-2); }
+  .timeline-dot.done { background: var(--success); }
+  .timeline-dot.active { background: var(--brand); animation: pulse 1.5s infinite; }
+  .timeline-line { flex: 1; height: 1px; background: var(--border-2); }
+  .timeline-line.done { background: var(--success); }
+
+  *:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--cream-300); border-radius: 5px; border: 2px solid var(--bg); }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .anim { animation: fadeUp 0.4s ease backwards; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand-block">
+      <div class="brand-mark">Ç</div>
+      <div>
+        <div class="brand-title">çat<span style="font-weight:700;">kapında</span></div>
+        <div class="brand-sub">Yönetim Paneli</div>
+      </div>
+    </div>
+    <div class="nav-section">Genel</div>
+    <a class="nav-item" href="dashboard-v3.html"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg></span> Genel Bakış</a>
+    <div class="nav-section">Operasyon</div>
+    <a class="nav-item" href="personel.html"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19v-1a4 4 0 014-4h4a4 4 0 014 4v1"/></svg></span> Personel <span class="nav-badge">92</span></a>
+    <a class="nav-item" href="puantaj.html"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></span> Puantaj</a>
+    <div class="nav-item active"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span> Puantaj Onayları <span class="nav-badge warn">7</span></div>
+    <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z M14 3v6h6"/></svg></span> Hakediş Onayları <span class="nav-badge">14</span></div>
+    <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/></svg></span> Kesintiler</div>
+    <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg></span> Avans Talepleri <span class="nav-badge new">3</span></div>
+    <div class="nav-section">Satış</div>
+    <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 7l9 6 9-6M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7"/></svg></span> Talepler <span class="nav-badge">8</span></div>
+    <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 12h18M5 12V6a2 2 0 012-2h10a2 2 0 012 2v6"/></svg></span> Restoranlar <span class="nav-badge">18</span></div>
+    <div class="nav-section">Finans</div>
+    <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/></svg></span> Faturalar</div>
+    <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10"/></svg></span> Bordro</div>
+    <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l4-4 4 4 6-6"/></svg></span> Kâr-Zarar Raporu</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="header anim">
+      <div>
+        <div class="greeting">Onaylar · <span style="color: var(--brand);">Puantaj</span></div>
+        <h1 class="page-title">Puantaj Onayları</h1>
+        <div class="page-sub">Mart 2026 dönemi · 18 restoran · 7 onay bekleniyor · ortalama yanıt 1.4 gün</div>
+      </div>
+      <div class="toolbar">
+        <button class="btn">📊 Onay raporu</button>
+        <button class="btn">⏰ Tüm bekleyenleri hatırlat</button>
+        <button class="btn btn-primary">📤 Bekleyenlere tekrar gönder</button>
+      </div>
+    </div>
+
+    <!-- Editorial Action Center -->
+    <div class="action-center anim">
+      <div class="ac-grid">
+        <div>
+          <div class="action-tag">Bugün dikkat</div>
+          <h2 class="action-headline">3 restoran <strong>cevap bekliyor</strong>, 1'i aciliyet eşiğini geçti — ortalama tamamlanma süresi <strong>3.2 gün</strong>.</h2>
+          <p class="action-sub">Köroğlu Pide 3 gündür cevap vermiyor (sözlü iletişim öneriliyor). SushiCo Beyoğlu değişiklik talep etti — tek tık ile düzeltebilirsin. Bu ay onay süresi geçen aydan <strong style="color: var(--success);">%18 daha hızlı</strong>.</p>
+          <div class="action-cta">
+            <button class="primary">Köroğlu'nu ara</button>
+            <button class="ghost">Tüm bekleyenleri gör</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size: 11px; color: var(--text-3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px;">Onay Hunisi · Mart 2026</div>
+          <div class="funnel-block">
+            <div class="funnel-row">
+              <span class="funnel-label">Hazırlandı</span>
+              <div class="funnel-bar"><div class="funnel-fill f1" style="width: 100%;">18 / 18</div></div>
+              <span class="funnel-count">100%</span>
+            </div>
+            <div class="funnel-row">
+              <span class="funnel-label">İletildi</span>
+              <div class="funnel-bar"><div class="funnel-fill f2" style="width: 100%;">18 / 18</div></div>
+              <span class="funnel-count">100%</span>
+            </div>
+            <div class="funnel-row">
+              <span class="funnel-label">Görüldü</span>
+              <div class="funnel-bar"><div class="funnel-fill f3" style="width: 78%;">14</div></div>
+              <span class="funnel-count">78%</span>
+            </div>
+            <div class="funnel-row">
+              <span class="funnel-label">Yanıtlandı</span>
+              <div class="funnel-bar"><div class="funnel-fill f4" style="width: 61%;">11</div></div>
+              <span class="funnel-count">61%</span>
+            </div>
+            <div class="funnel-row">
+              <span class="funnel-label">Onaylandı</span>
+              <div class="funnel-bar"><div class="funnel-fill f5" style="width: 50%;">9</div></div>
+              <span class="funnel-count">50%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status overview -->
+    <div class="status-grid anim">
+      <div class="stat-card success">
+        <div class="stat-label">Onaylı</div>
+        <div class="stat-value" style="color: var(--success);">9</div>
+        <div class="stat-meta">9/18 restoran · <strong>%50</strong> tamamlandı</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-label">İtirazlı</div>
+        <div class="stat-value" style="color: var(--warning);">2</div>
+        <div class="stat-meta">değişiklik talep edildi</div>
+      </div>
+      <div class="stat-card brand">
+        <div class="stat-label">Bekliyor</div>
+        <div class="stat-value" style="color: var(--brand);">7</div>
+        <div class="stat-meta">3 görüldü · 4 henüz açılmadı</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="stat-label">Süresi Geçti</div>
+        <div class="stat-value" style="color: var(--danger);">1</div>
+        <div class="stat-meta">3+ gün cevap yok · üst yönetime bildirildi</div>
+      </div>
+    </div>
+
+    <!-- Clean linear progress flow -->
+    <div class="flow-panel anim">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div class="display" style="font-size: 16px; margin-bottom: 2px;">Onay Süreci</div>
+          <div style="font-size: 12.5px; color: var(--text-3);">Mart 2026 dönemi · şu anda <strong style="color: var(--brand);">3. adımda</strong> (restoran onayı bekleniyor)</div>
+        </div>
+        <div style="font-size: 12px; color: var(--text-3);">Ortalama tamamlanma: <strong style="color: var(--text);">3.2 gün</strong></div>
+      </div>
+      <div class="flow-track">
+        <div class="flow-node done"><div class="flow-dot">✓</div><div class="flow-lbl">Puantaj<br>Hazırlandı</div></div>
+        <div class="flow-node done"><div class="flow-dot">✓</div><div class="flow-lbl">Restoranlara<br>İletildi</div></div>
+        <div class="flow-node active"><div class="flow-dot">3</div><div class="flow-lbl">Restoran<br>Onayı</div></div>
+        <div class="flow-node"><div class="flow-dot">4</div><div class="flow-lbl">Hakediş<br>PDF Üretimi</div></div>
+        <div class="flow-node"><div class="flow-dot">5</div><div class="flow-lbl">Kuryelere<br>İletim</div></div>
+        <div class="flow-node"><div class="flow-dot">6</div><div class="flow-lbl">Kurye<br>Onayı</div></div>
+        <div class="flow-node"><div class="flow-dot">7</div><div class="flow-lbl">Bordro<br>Aktarımı</div></div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar anim">
+      <button class="tab">Tümü <span class="tab-count">18</span></button>
+      <button class="tab active">Bekleyen <span class="tab-count">7</span></button>
+      <button class="tab">Onaylanan <span class="tab-count">9</span></button>
+      <button class="tab">İtirazlı <span class="tab-count">2</span></button>
+      <button class="tab">Üst Yönetime Bildirildi <span class="tab-count">1</span></button>
+    </div>
+
+    <!-- Approval Cards -->
+
+    <!-- 1. Üst Yönetime Bildirildi - critical -->
+    <div class="approval-card anim" style="border-color: var(--danger); background: linear-gradient(180deg, var(--surface) 0%, var(--danger-soft) 200%);">
+      <div class="ac-header">
+        <div class="ac-info">
+          <div class="ac-title">
+            <span class="ac-name">Köroğlu Pide · Merkez</span>
+            <span class="status-pill escalated">⚠ Süresi Geçti · 3 gün</span>
+          </div>
+          <div class="ac-meta">
+            <span class="ac-meta-item">👤 Mehmet Köroğlu</span>
+            <span class="ac-meta-item">📞 0 532 845 1234</span>
+            <span class="ac-meta-item">✉ mehmet@koroglu.com.tr</span>
+            <span class="ac-meta-item">📅 Gönderildi: <strong>30 Mart 14:22</strong></span>
+          </div>
+          <div class="channels" style="margin-top: 8px;">
+            <span class="channel sent">📧 Email gönderildi</span>
+            <span class="channel sent">📱 SMS gönderildi</span>
+            <span class="channel opened">👁 1 kez görüldü</span>
+            <span class="channel unread">🔗 Linke tıklanmadı</span>
+          </div>
+        </div>
+        <div class="ac-status">
+          <div style="font-size: 11px; color: var(--text-3); font-weight: 600;">3+ gün</div>
+          <div class="display" style="font-size: 18px; color: var(--danger);">365.818 ₺</div>
+          <div style="font-size: 11px; color: var(--text-3);">974sa · 3.842pkt</div>
+        </div>
+      </div>
+      <div class="ai-alert">
+        <div class="ai-alert-icon">✦</div>
+        <div><strong>Sistem Önerisi:</strong> Mehmet Köroğlu son 3 ayda da geç cevap verdi (ortalama 4.2 gün). <strong>Telefonla doğrudan iletişim kurmanız</strong> önerilir — sözlü onay alınması daha hızlı sonuç verir.</div>
+      </div>
+      <div class="ac-actions">
+        <button class="ac-action primary">📞 Bizzat ara</button>
+        <button class="ac-action">📤 3. kez gönder</button>
+        <button class="ac-action">📋 Detay gör</button>
+        <button class="ac-action danger">⚠ Yöneticiye bildir</button>
+      </div>
+    </div>
+
+    <!-- 2. Sent, just viewed -->
+    <div class="approval-card anim">
+      <div class="ac-header">
+        <div class="ac-info">
+          <div class="ac-title">
+            <span class="ac-name">Quick China · Ataşehir</span>
+            <span class="status-pill viewed">Az önce görüldü</span>
+            <span class="resp-score excellent">A · 9.2/10</span>
+          </div>
+          <div class="ac-meta">
+            <span class="ac-meta-item">👤 Burak Demir</span>
+            <span class="ac-meta-item">📞 0 555 234 5678</span>
+            <span class="ac-meta-item">✉ burak@quickchina.com</span>
+            <span class="ac-meta-item">📅 Gönderildi: <strong>2 Nis 09:15</strong></span>
+          </div>
+          <div class="channels" style="margin-top: 8px;">
+            <span class="channel sent">📧 Email · 09:15</span>
+            <span class="channel sent">📱 SMS · 09:15</span>
+            <span class="channel opened">👁 Mail açıldı 11:42</span>
+            <span class="channel clicked">🔗 Link tıklandı 14:38</span>
+          </div>
+        </div>
+        <div class="ac-status">
+          <div style="font-size: 11px; color: var(--info); font-weight: 700;">İncelemede</div>
+          <div class="display" style="font-size: 18px;">492.240 ₺</div>
+          <div style="font-size: 11px; color: var(--text-3);">1.236sa · 4.860pkt</div>
+        </div>
+      </div>
+      <div class="ac-summary">
+        <div><div class="ac-stat-num num">4</div><div class="ac-stat">Kurye</div></div>
+        <div><div class="ac-stat-num num">31/31</div><div class="ac-stat">Çalışılan gün</div></div>
+        <div><div class="ac-stat-num num">2</div><div class="ac-stat">Yedek görev</div></div>
+        <div><div class="ac-stat-num num">14:38</div><div class="ac-stat">Linke tıklandı</div></div>
+      </div>
+      <div class="resp-timeline">
+        <span class="timeline-step"><span class="timeline-dot done"></span>İletildi</span>
+        <span class="timeline-line done"></span>
+        <span class="timeline-step"><span class="timeline-dot done"></span>Görüldü</span>
+        <span class="timeline-line done"></span>
+        <span class="timeline-step"><span class="timeline-dot active"></span>İncelemede</span>
+        <span class="timeline-line"></span>
+        <span class="timeline-step"><span class="timeline-dot"></span>Onay</span>
+      </div>
+      <div class="ac-actions">
+        <button class="ac-action">Detay gör</button>
+        <button class="ac-action">Mesaj gönder</button>
+      </div>
+    </div>
+
+    <!-- 3. Disputed - changes requested -->
+    <div class="approval-card anim" style="border-left: 4px solid var(--warning);">
+      <div class="ac-header">
+        <div class="ac-info">
+          <div class="ac-title">
+            <span class="ac-name">SushiCo · Beyoğlu</span>
+            <span class="status-pill rejected">🔄 Değişiklik Talep Edildi</span>
+          </div>
+          <div class="ac-meta">
+            <span class="ac-meta-item">👤 Selin Yılmaz</span>
+            <span class="ac-meta-item">📞 0 530 765 4321</span>
+            <span class="ac-meta-item">✉ selin@sushico.com.tr</span>
+            <span class="ac-meta-item">⏰ Yanıt geldi: <strong>3 Nis 16:30</strong></span>
+          </div>
+        </div>
+        <div class="ac-status">
+          <div class="display" style="font-size: 18px;">346.942 ₺</div>
+          <div style="font-size: 11px; color: var(--warning); font-weight: 700;">Düzeltme bekleniyor</div>
+        </div>
+      </div>
+      <div class="dispute-box">
+        <strong>İtiraz Notu:</strong> "12 Mart Çarşamba günü Yunus Altunkılıç'ı 9 saat girmişsiniz ama kapatma zamanını kontrol ettim, 7.5 saat çalıştı. Lütfen güncelleyin."
+      </div>
+      <div class="ac-actions">
+        <button class="ac-action primary">✏️ 12 Mart'ı düzelt</button>
+        <button class="ac-action">📋 Detay gör</button>
+        <button class="ac-action">💬 Cevap yaz</button>
+        <button class="ac-action">📞 Selin'i ara</button>
+      </div>
+    </div>
+
+    <!-- 4. Sent, not yet viewed -->
+    <div class="approval-card anim">
+      <div class="ac-header">
+        <div class="ac-info">
+          <div class="ac-title">
+            <span class="ac-name">Hacıbaşar · Maltepe</span>
+            <span class="status-pill sent">📤 Gönderildi</span>
+          </div>
+          <div class="ac-meta">
+            <span class="ac-meta-item">👤 Ahmet Hacıbaşar</span>
+            <span class="ac-meta-item">📞 0 542 111 2233</span>
+            <span class="ac-meta-item">✉ ahmet@hacibasar.com</span>
+            <span class="ac-meta-item">📅 Gönderildi: <strong>2 Nis 14:00</strong></span>
+          </div>
+          <div class="channels" style="margin-top: 8px;">
+            <span class="channel sent">📧 Email · 14:00</span>
+            <span class="channel sent">📱 SMS · 14:00</span>
+            <span class="channel unread">⏳ Henüz açılmadı (18sa)</span>
+          </div>
+        </div>
+        <div class="ac-status">
+          <div style="font-size: 11px; color: var(--brand); font-weight: 700;">18 saat önce</div>
+          <div class="display" style="font-size: 18px;">184.076 ₺</div>
+          <div style="font-size: 11px; color: var(--text-3);">588sa · 2.250pkt</div>
+        </div>
+      </div>
+      <div class="ac-actions">
+        <button class="ac-action">📤 Hatırlat</button>
+        <button class="ac-action">📋 Detay gör</button>
+        <button class="ac-action">📞 Bizzat ara</button>
+      </div>
+    </div>
+
+    <!-- 5. Approved -->
+    <div class="approval-card anim" style="border-left: 4px solid var(--success);">
+      <div class="ac-header">
+        <div class="ac-info">
+          <div class="ac-title">
+            <span class="ac-name">Doğu Otomotiv · Merkez</span>
+            <span class="status-pill approved">✓ Onaylandı</span>
+          </div>
+          <div class="ac-meta">
+            <span class="ac-meta-item">👤 Hasan Doğu</span>
+            <span class="ac-meta-item">⏰ Onay süresi: <strong>4 saat</strong></span>
+            <span class="ac-meta-item">📅 Onaylandı: <strong>2 Nis 18:22</strong></span>
+            <span class="ac-meta-item" style="color: var(--success);">→ Hakediş PDF üretildi</span>
+          </div>
+        </div>
+        <div class="ac-status">
+          <div class="display" style="font-size: 18px; color: var(--success);">334.785 ₺</div>
+          <div style="font-size: 11px; color: var(--text-3);">1.014sa</div>
+        </div>
+      </div>
+      <div class="ac-actions">
+        <button class="ac-action">📋 Onay detayı</button>
+        <button class="ac-action">📑 İmza belgesi indir</button>
+      </div>
+    </div>
+
+    <!-- SMS preview - phone frame style -->
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 28px; box-shadow: var(--shadow-md); margin-top: 22px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div class="display" style="font-size: 18px; margin-bottom: 4px;">SMS Şablonları</div>
+        <div style="font-size: 12.5px; color: var(--text-3);">Sistem tarafından otomatik gönderilen kurumsal mesajlar</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; max-width: 760px; margin: 0 auto;">
+        <div>
+          <div style="text-align: center; font-size: 11px; color: var(--text-3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px;">Restoran Yetkilisine</div>
+          <div class="phone-frame">
+            <div class="phone-screen">
+              <div class="phone-status-bar">
+                <span>14:00</span>
+                <div class="phone-status-icons">
+                  <span style="font-size: 9px;">●●●</span>
+                  <span style="font-size: 10px;">📶</span>
+                  <span style="font-size: 9px;">98%</span>
+                </div>
+              </div>
+              <div class="sms-from"><strong>Çat Kapında</strong>SMS · 4452</div>
+              <div class="sms-bubble">
+                <strong>Sayın Selin Hanım,</strong><br><br>
+                SushiCo Beyoğlu şubeniz için <strong>Mart 2026 dönemi puantaj raporu</strong> tarafımızca hazırlanmış olup onayınıza sunulmuştur.<br><br>
+                · 4 personel<br>
+                · 866 saat çalışma<br>
+                · 3.522 paket<br>
+                · 346.942 TL + KDV<br><br>
+                Onay: <span class="sms-link">ck.app/o/abc123</span><br>
+                <small style="opacity: 0.85;">Bağlantı 7 gün geçerlidir.</small><br><br>
+                Saygılarımızla,<br>
+                <strong>Çat Kapında</strong>
+              </div>
+              <div class="sms-time">2 Nisan 2026, 14:00</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="text-align: center; font-size: 11px; color: var(--text-3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px;">Kuryeye</div>
+          <div class="phone-frame">
+            <div class="phone-screen">
+              <div class="phone-status-bar">
+                <span>09:30</span>
+                <div class="phone-status-icons">
+                  <span style="font-size: 9px;">●●●</span>
+                  <span style="font-size: 10px;">📶</span>
+                  <span style="font-size: 9px;">76%</span>
+                </div>
+              </div>
+              <div class="sms-from"><strong>Çat Kapında</strong>SMS · 4452</div>
+              <div class="sms-bubble">
+                <strong>Sayın Yunus Bey,</strong><br><br>
+                <strong>Mart 2026 dönemi hakediş hesaplamanız</strong> tamamlanmış olup onayınıza sunulmuştur.<br><br>
+                · Net hakediş: <strong>24.380 TL</strong><br>
+                · Ödeme: 15 Nisan 2026<br><br>
+                Detaylı inceleme ve onay: <span class="sms-link">ck.app/h/x9k2</span><br>
+                <small style="opacity: 0.85;">İtiraz olmadığı takdirde 48 saat içinde onaylanmış sayılır.</small><br><br>
+                Saygılarımızla,<br>
+                <strong>Çat Kapında İK</strong>
+              </div>
+              <div class="sms-time">3 Nisan 2026, 09:30</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>
