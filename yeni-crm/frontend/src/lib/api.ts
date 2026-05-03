@@ -91,3 +91,64 @@ export type SidebarCounts = {
 export async function getSidebarCounts(): Promise<SidebarCounts> {
   return apiGet<SidebarCounts>('/api/sidebar/counts');
 }
+
+// ─────────────────────────────────────────────────────────────
+// Puantaj
+// ─────────────────────────────────────────────────────────────
+
+export type PuantajEntry = {
+  id: number;
+  entry_date: string;
+  restaurant_id: number | null;
+  restaurant_brand: string | null;
+  restaurant_branch: string | null;
+  pricing_model: string | null;
+  actual_personnel_id: number | null;
+  planned_personnel_id: number | null;
+  personnel_name: string | null;
+  person_code: string | null;
+  personnel_role: string | null;
+  worked_hours: number | null;
+  package_count: number | null;
+  coverage_type: string | null;
+  absence_reason: string | null;
+  status: string | null;
+  notes: string | null;
+  monthly_invoice_amount: number | null;
+};
+
+export type RestaurantPuantajSummary = {
+  restaurant_id: number | null;
+  brand: string | null;
+  branch: string | null;
+  pricing_model: string | null;
+  target_headcount: number | null;
+  entries: number;
+  unique_personnel: number;
+  total_hours: number;
+  total_packages: number;
+  absences: number;
+};
+
+export async function listPuantajPeriods(): Promise<string[]> {
+  return apiGet<string[]>('/api/puantaj/periods');
+}
+
+export async function listPuantajEntries(
+  period: string,
+  opts?: { restaurantId?: number; personnelId?: number; limit?: number }
+): Promise<PuantajEntry[]> {
+  const params = new URLSearchParams({ period });
+  if (opts?.restaurantId) params.set('restaurant_id', String(opts.restaurantId));
+  if (opts?.personnelId) params.set('personnel_id', String(opts.personnelId));
+  if (opts?.limit) params.set('limit', String(opts.limit));
+  return apiGet<PuantajEntry[]>(`/api/puantaj/entries?${params.toString()}`);
+}
+
+export async function getPuantajSummaryByRestaurant(
+  period: string
+): Promise<RestaurantPuantajSummary[]> {
+  return apiGet<RestaurantPuantajSummary[]>(
+    `/api/puantaj/summary-by-restaurant?period=${period}`
+  );
+}

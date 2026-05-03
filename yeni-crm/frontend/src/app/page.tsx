@@ -88,10 +88,10 @@ export default async function DashboardPage() {
               <div className="font-semibold text-sm">🍽 Restoranlar</div>
               <div className="text-xs text-text-3">{summary?.active_restaurants ?? 18} aktif anlaşma</div>
             </a>
-            <div className="bg-bg-surface2 border border-border rounded-lg p-3 opacity-60">
+            <a href="/puantaj" className="bg-bg-surface border border-border rounded-lg p-3 hover:border-brand transition">
               <div className="font-semibold text-sm">📅 Puantaj</div>
-              <div className="text-xs text-text-3">yakında</div>
-            </div>
+              <div className="text-xs text-text-3">{summary?.puantaj_entries.toLocaleString('tr-TR') ?? '—'} mart girişi</div>
+            </a>
           </div>
         </div>
       </main>
