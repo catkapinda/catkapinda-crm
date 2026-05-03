@@ -440,9 +440,16 @@ function PayrollRowItem({
                 </div>
                 <div className="space-y-1">
                   <DetailRow
-                    label="Ana atama"
+                    label={r.is_fixed_salary ? 'Sabit aylık' : 'Ana atama'}
                     value={`${m(r.ana_brut)} ₺`}
                   />
+                  {r.ekstra_mesai_brut > 0 && (
+                    <DetailRow
+                      label={`Bayram/ekstra mesai (${r.ekstra_mesai_days} gün)`}
+                      value={`+${m(r.ekstra_mesai_brut)} ₺`}
+                      color="text-purple-700"
+                    />
+                  )}
                   {r.destek_brut > 0 && (
                     <DetailRow
                       label={`Destek (${r.destek_days} gün)`}

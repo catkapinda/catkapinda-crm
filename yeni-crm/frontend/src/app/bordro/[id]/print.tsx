@@ -154,12 +154,21 @@ export function BordroPrint({
             Brüt Hakediş
           </div>
           <div className="space-y-1.5 text-[12.5px]">
-            {/* Ana atama satırı: sadece destek veya kaptan bonusu varsa görünür
-                (yoksa zaten Toplam Brüt = Ana atama, tekrar olmaz). */}
-            {(payroll.destek_brut > 0 || payroll.kaptan_bonus > 0) && (
+            {/* Ana atama satırı: sadece ekstra/destek/kaptan bonusu varsa
+                ayrı görünür (yoksa zaten Toplam Brüt = Ana). */}
+            {(payroll.destek_brut > 0 ||
+              payroll.kaptan_bonus > 0 ||
+              payroll.ekstra_mesai_brut > 0) && (
               <Line
                 label={payroll.is_fixed_salary ? 'Sabit aylık tutar' : 'Ana atama'}
                 value={`${m(payroll.ana_brut)} ₺`}
+              />
+            )}
+            {payroll.ekstra_mesai_brut > 0 && (
+              <Line
+                label={`Bayram / ekstra mesai (${payroll.ekstra_mesai_days} gün)`}
+                value={`+${m(payroll.ekstra_mesai_brut)} ₺`}
+                color="text-purple-700"
               />
             )}
             {payroll.destek_brut > 0 && (
@@ -177,25 +186,37 @@ export function BordroPrint({
               />
             )}
             <div className="flex justify-between font-semibold">
-              <span>Toplam Brüt (KDV %20 dahil)</span>
+              <span>Toplam Brüt</span>
               <span className="num font-mono text-[14px]">
                 {m(payroll.toplam_brut)} ₺
               </span>
             </div>
-            {payroll.tevkifat_breakdown.invoice_base_amount > 0 && (
-              <div className="text-[10.5px] text-text-3 italic">
-                ↳ KDV hariç matrah: {m(payroll.tevkifat_breakdown.invoice_base_amount)} ₺
-                · KDV (%20): {m(payroll.tevkifat_breakdown.vat_amount)} ₺
-              </div>
-            )}
+            {payroll.tevkifat_breakdown.fatura_total !== undefined &&
+              payroll.tevkifat_breakdown.fatura_total > 0 && (
+                <>
+                  <div className="flex justify-between text-[11.5px] mt-1">
+                    <span className="font-semibold">
+                      Fatura Tutarı (KDV %20 dahil)
+                    </span>
+                    <span className="num font-mono font-semibold">
+                      {m(payroll.tevkifat_breakdown.fatura_total)} ₺
+                    </span>
+                  </div>
+                  <div className="text-[10.5px] text-text-2 font-semibold mt-0.5">
+                    ↳ KDV hariç matrah: {m(payroll.tevkifat_breakdown.invoice_base_amount)} ₺ · KDV (%20): {m(payroll.tevkifat_breakdown.vat_amount)} ₺
+                  </div>
+                </>
+              )}
           </div>
         </div>
 
-        {/* Sabit kesintiler */}
-        {payroll.sabit_total > 0 && (
+        {/* Tüm Kesintiler (sabit + manuel + tevkifat) */}
+        {(payroll.sabit_total > 0 ||
+          payroll.kesinti_groups.length > 0 ||
+          payroll.tevkifat > 0) && (
           <div className="px-8 py-5 border-b border-border">
             <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-3">
-              Sabit Kesintiler
+              Kesintiler & Zimmet
             </div>
             <div className="space-y-1.5 text-[12.5px]">
               {payroll.motor_taksit > 0 && (
@@ -226,23 +247,6 @@ export function BordroPrint({
                   color="text-red-700"
                 />
               )}
-              <div className="border-t border-border pt-2 flex justify-between font-semibold">
-                <span>Sabit Toplam</span>
-                <span className="num font-mono text-red-700 text-[14px]">
-                  −{m(payroll.sabit_total)} ₺
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Manuel kesintiler + Tevkifat */}
-        {(payroll.kesinti_groups.length > 0 || payroll.tevkifat > 0) && (
-          <div className="px-8 py-5 border-b border-border">
-            <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-3">
-              Kesintiler & Zimmet
-            </div>
-            <div className="space-y-1.5 text-[12.5px]">
               {payroll.kesinti_groups.map((g) => (
                 <div key={g.type}>
                   <Line
@@ -266,25 +270,23 @@ export function BordroPrint({
                 </div>
               ))}
               {payroll.tevkifat > 0 && (
-                <>
-                  <div className="flex justify-between">
-                    <div>
-                      <div>KDV Tevkifatı</div>
-                      <div className="text-[10px] text-text-3 italic">
-                        Zorunlu devlet kesintisidir · KDV'nin %20'si
-                        ({m(payroll.tevkifat_breakdown.vat_amount)} ₺)
-                      </div>
+                <div className="flex justify-between">
+                  <div>
+                    <div>KDV Tevkifatı (2/10)</div>
+                    <div className="text-[10px] text-text-3 italic">
+                      Zorunlu devlet kesintisidir · KDV'nin %20'si
+                      ({m(payroll.tevkifat_breakdown.vat_amount)} ₺)
                     </div>
-                    <span className="num font-mono font-semibold text-red-700">
-                      −{m(payroll.tevkifat)} ₺
-                    </span>
                   </div>
-                </>
+                  <span className="num font-mono font-semibold text-red-700">
+                    −{m(payroll.tevkifat)} ₺
+                  </span>
+                </div>
               )}
               <div className="border-t border-border pt-2 flex justify-between font-semibold">
                 <span>Toplam Kesinti</span>
                 <span className="num font-mono text-red-700 text-[14px]">
-                  −{m(payroll.kesinti_total + payroll.tevkifat)} ₺
+                  −{m(payroll.sabit_total + payroll.kesinti_total + payroll.tevkifat)} ₺
                 </span>
               </div>
             </div>

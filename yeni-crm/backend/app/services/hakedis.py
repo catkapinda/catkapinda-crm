@@ -44,7 +44,8 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
             p.role,
             p.assigned_restaurant_id,
             p.monthly_fixed_cost,
-            p.fixed_monthly_billing
+            p.fixed_monthly_billing,
+            COALESCE(p.standard_daily_hours, 11) AS standard_daily_hours
         FROM daily_entries d
         LEFT JOIN personnel p ON p.id = d.actual_personnel_id
         WHERE d.restaurant_id = %s
@@ -90,11 +91,16 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
                 "fixed_monthly_billing": float(
                     e.get("fixed_monthly_billing") or 0
                 ),
+                "standard_daily_hours": float(
+                    e.get("standard_daily_hours") or 11
+                ),
                 "entries": 0,
                 "working_days": 0,
                 "absences": 0,
                 "total_hours": 0.0,
                 "total_packages": 0,
+                "overtime_hours": 0.0,
+                "ekstra_mesai_days": 0.0,
                 "billing_excl_vat": 0.0,
                 "billing_incl_vat": 0.0,
                 "billing_breakdown": [],
@@ -106,8 +112,18 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
             c["working_days"] += 1
             c["total_hours"] += worked_hours
             c["total_packages"] += int(e.get("package_count") or 0)
+            # Bayram/x2 mesai: günlük standart saatten fazla yazılmış kayıtlar
+            std = c.get("standard_daily_hours") or 11
+            if worked_hours > std:
+                c["overtime_hours"] += worked_hours - std
         else:
             c["absences"] += 1
+
+    # Ekstra mesai gün sayısı (bayram x2 katsayısı)
+    for c in by_courier.values():
+        std = c.get("standard_daily_hours") or 11
+        if std > 0:
+            c["ekstra_mesai_days"] = c["overtime_hours"] / std
 
     # Anlaşma tipine göre hesap
     if pricing == "fixed_monthly":
@@ -180,24 +196,42 @@ def _compute_personnel_fixed_billing(c: dict) -> None:
     """Sabit aylık anlaşmalı personel (Takım Şefi, Kaptan, BM) için fatura.
 
     `personnel.fixed_monthly_billing` KDV hariç sabit aylık tutardır.
-    Attığı saat/paket fatura formülüne dahil edilmez (kar yazılır).
+    Bayram / fazla mesai (kuryenin günlük standart saat üzeri çalıştığı saatler)
+    aynı oranda restoran faturasına da yansır.
     """
     billing = c["fixed_monthly_billing"]
-    c["billing_excl_vat"] = billing
+    role_lbl = c.get("role") or "Sabit aylık"
     if billing > 0:
-        role_lbl = c.get("role") or "Sabit aylık"
         c["billing_breakdown"].append({
             "label": f"Aylık sabit ({role_lbl})",
             "qty": 1,
             "rate": billing,
             "amount": billing,
         })
+    # Ekstra mesai: payroll'da hesaplanan ekstra_mesai_days değerini kullan
+    extra_days = float(c.get("ekstra_mesai_days") or 0)
+    if extra_days > 0 and billing > 0:
+        daily = billing / 30
+        extra_amt = daily * extra_days
+        billing += extra_amt
+        c["billing_breakdown"].append({
+            "label": (
+                f"Bayram/ekstra mesai — {extra_days:g} gün × "
+                f"{daily:,.2f} ₺ (aylık/30)"
+            ),
+            "qty": extra_days,
+            "rate": daily,
+            "amount": extra_amt,
+        })
+
+    c["billing_excl_vat"] = billing
+
     if c.get("monthly_fixed_cost", 0) > 0:
         # Bilgilendirme satırı — bu hesaba dahil değil, sadece görüntü
         c["billing_breakdown"].append({
             "label": (
                 f"ℹ Kuryeye ödenen aylık: "
-                f"{c['monthly_fixed_cost']:,.0f} ₺ (kar farkı)"
+                f"{c['monthly_fixed_cost']:,.2f} ₺ (kar farkı)"
             ),
             "qty": 0,
             "rate": 0,

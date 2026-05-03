@@ -646,6 +646,7 @@ export type TevkifatBreakdown = {
   invoice_base_amount: number;
   vat_amount: number;
   tevkifat_amount: number;
+  fatura_total?: number;
 };
 
 export type PayrollRow = {
@@ -663,6 +664,8 @@ export type PayrollRow = {
   destek_days: number;
   destek_lines: PayrollDestekLine[];
   ana_brut: number;
+  ekstra_mesai_brut: number;
+  ekstra_mesai_days: number;
   destek_brut: number;
   kaptan_bonus: number;
   toplam_brut: number;

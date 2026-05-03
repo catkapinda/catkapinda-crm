@@ -27,6 +27,13 @@ MIGRATIONS: list[tuple[str, str]] = [
         ADD COLUMN IF NOT EXISTS standard_daily_hours integer DEFAULT 0
         """,
     ),
+    (
+        "personnel.standard_daily_hours",
+        """
+        ALTER TABLE personnel
+        ADD COLUMN IF NOT EXISTS standard_daily_hours integer DEFAULT 11
+        """,
+    ),
 ]
 
 

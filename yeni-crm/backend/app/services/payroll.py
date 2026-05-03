@@ -156,6 +156,7 @@ def list_personnel_payroll(period: str) -> list[dict]:
                     p.assigned_restaurant_id,
                     COALESCE(p.monthly_fixed_cost, 0) AS monthly_fixed_cost,
                     COALESCE(p.fixed_monthly_billing, 0) AS fixed_monthly_billing,
+                    COALESCE(p.standard_daily_hours, 11) AS standard_daily_hours,
                     COALESCE(p.motor_purchase_monthly_amount, 0) AS motor_taksit,
                     COALESCE(p.motor_rental_monthly_amount, 0) AS motor_kira_aylik,
                     COALESCE(p.motor_rental, '') AS motor_rental_flag,
@@ -301,10 +302,35 @@ def list_personnel_payroll(period: str) -> list[dict]:
 
         # Ana brüt hesabı
         ana_brut = 0.0
+        ekstra_mesai_brut = 0.0  # bayram x2 fazlası → ana brut'a eklenir
+        ekstra_mesai_days = 0.0
         is_fixed_billing = float(p["monthly_fixed_cost"] or 0) > 0
+        std_daily = float(p.get("standard_daily_hours") or 11)
+
         if is_fixed_billing:
             # Sabit aylık personel — formül atlanır
             ana_brut = float(p["monthly_fixed_cost"])
+
+            # Bayram / ekstra mesai: günlük standart üstündeki saatler
+            # (örn 22 saat yazılan bayram günü → 11 saat fazla = 1 gün ekstra)
+            if std_daily > 0:
+                overtime_hours = 0.0
+                for e in my_entries:
+                    cov = (e.get("coverage_type") or "").strip()
+                    if cov == "Destek":
+                        continue  # destek günleri ana atamada sayılmaz
+                    e_assigned = e.get("assigned_restaurant_id")
+                    if e_assigned is not None and e["rid"] != e_assigned:
+                        continue  # destek (ana atama dışı)
+                    wh = float(e.get("worked_hours") or 0)
+                    if wh > std_daily:
+                        overtime_hours += wh - std_daily
+                if overtime_hours > 0:
+                    ekstra_mesai_days = overtime_hours / std_daily
+                    daily_rate = ana_brut / 30
+                    ekstra_mesai_brut = daily_rate * ekstra_mesai_days
+                    ana_brut += ekstra_mesai_brut
+
         elif assigned_rid:
             rest_data = pricing_map.get(assigned_rid)
             if rest_data:
@@ -422,27 +448,29 @@ def list_personnel_payroll(period: str) -> list[dict]:
         # KDV + Tevkifat hesabı — şahıs şirketi/serbest meslek kuryeleri (hem
         # 'Çat Kapında Muhasebe' hem 'Kendi Muhasebecisi') KDV dahil fatura
         # keser; KDV'nin %20'si tevkifat olarak ÇK tarafından alıkonur.
-        # Fatura matrahı: brüt − "Fatura Edilmeyen Tutar" gibi kalemler.
+        # Fatura matrahı: brüt − ("Fatura Edilmeyen Tutar" + motor satış taksiti).
+        # Motor satış taksiti faturadan düşülür (kuryenin kendi varlığı haline
+        # geliyor) → KDV ve tevkifat o tutar üzerinden hesaplanmaz.
         invoice_base_reducing = sum(
             float(d["amount"] or 0)
             for d in my_deductions
             if d["deduction_type"] in INVOICE_BASE_REDUCING_TYPES
         )
+        invoice_base_reducing += motor_taksit  # motor satış taksiti
         muhasebe_tipi = (p["muhasebe_tipi"] or "").strip()
-        # Bir muhasebe tipi varsa (ÇK ya da Kendi) fatura kesilir → tevkifat var.
-        # Boş ise (eski/eksik veri) yine de varsayılan olarak tevkifat uygulanır
-        # — kuryenin gerçekte fatura kesip kesmediği şu an alanda tutulmuyor.
-        is_invoice_courier = True
+        is_invoice_courier = True  # KDV dahil fatura keserler
         is_ck_muhasebe = muhasebe_tipi == "Çat Kapında Muhasebe"
         tevkifat_breakdown = {
             "invoice_base_amount": 0.0,
             "vat_amount": 0.0,
             "tevkifat_amount": 0.0,
+            "fatura_total": 0.0,
         }
         tevkifat_amount = 0.0
         if is_invoice_courier:
             invoice_total = max(toplam_brut - invoice_base_reducing, 0.0)
             tevkifat_breakdown = calculate_tevkifat(invoice_total)
+            tevkifat_breakdown["fatura_total"] = round(invoice_total, 2)
             tevkifat_amount = tevkifat_breakdown["tevkifat_amount"]
 
         # Net
@@ -464,7 +492,9 @@ def list_personnel_payroll(period: str) -> list[dict]:
             "destek_days": destek_days_total,
             "destek_lines": destek_lines,
             # Brüt
-            "ana_brut": round(ana_brut, 2),
+            "ana_brut": round(ana_brut - ekstra_mesai_brut, 2),
+            "ekstra_mesai_brut": round(ekstra_mesai_brut, 2),
+            "ekstra_mesai_days": round(ekstra_mesai_days, 2),
             "destek_brut": round(destek_brut_total, 2),
             "kaptan_bonus": kaptan_bonus,
             "toplam_brut": round(toplam_brut, 2),
