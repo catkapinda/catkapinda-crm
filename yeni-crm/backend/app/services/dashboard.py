@@ -43,7 +43,7 @@ def get_dashboard_summary(period: str = "current") -> dict:
 
             cur.execute(
                 "SELECT COALESCE(SUM(amount), 0) FROM deductions "
-                "WHERE TO_CHAR(deduction_date, 'YYYY-MM') = %s",
+                "WHERE LEFT(deduction_date::text, 7) = %s",
                 (period_str,),
             )
             row = cur.fetchone()
@@ -55,7 +55,7 @@ def get_dashboard_summary(period: str = "current") -> dict:
                 "COALESCE(SUM(worked_hours), 0) AS total_hours, "
                 "COALESCE(SUM(package_count), 0) AS total_packages "
                 "FROM daily_entries "
-                "WHERE TO_CHAR(entry_date, 'YYYY-MM') = %s",
+                "WHERE LEFT(entry_date::text, 7) = %s",
                 (period_str,),
             )
             row = cur.fetchone()
