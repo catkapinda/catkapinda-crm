@@ -900,7 +900,7 @@ function GorevHakedis({
             </Field>
             <Field
               label="Restorana Fatura"
-              hint="KDV hariç, sabit"
+              hint="KDV hariç · +%20 ile kesilir"
               optional={role !== 'Restoran Takım Şefi'}
               required={role === 'Restoran Takım Şefi'}
             >
@@ -912,6 +912,28 @@ function GorevHakedis({
               />
             </Field>
           </Row>
+
+          {/* Canlı KDV dahil + kar göstergesi */}
+          {form.fixed_monthly_billing > 0 && (
+            <div className="flex flex-wrap gap-2 -mt-1">
+              <span className="px-2.5 py-1 rounded-md text-[11.5px] font-semibold bg-brand text-white">
+                KDV dahil kesilen fatura ={' '}
+                {Math.round(form.fixed_monthly_billing * 1.2).toLocaleString(
+                  'tr-TR',
+                )}{' '}
+                ₺
+              </span>
+              {form.monthly_fixed_cost > 0 && (
+                <span className="px-2.5 py-1 rounded-md text-[11.5px] font-semibold bg-green-50 text-green-700 border border-green-200">
+                  Aylık kar ={' '}
+                  {Math.round(
+                    form.fixed_monthly_billing - form.monthly_fixed_cost,
+                  ).toLocaleString('tr-TR')}{' '}
+                  ₺
+                </span>
+              )}
+            </div>
+          )}
         </>
       )}
 

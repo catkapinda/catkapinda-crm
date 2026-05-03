@@ -135,16 +135,17 @@ export default async function RestaurantDetailPage({
               sub={`${tr(totals.total_entries)} puantaj kaydı`}
             />
             <KpiCard
-              label="Fatura · KDV Hariç"
-              value={tr(totals.total_billing_excl_vat)}
-              suffix="₺"
-              hero
-            />
-            <KpiCard
               label="Fatura · KDV Dahil"
               value={tr(totals.total_billing_incl_vat)}
               suffix="₺"
-              sub={`KDV %${totals.vat_rate} = ${tr(totals.vat_amount)} ₺`}
+              sub={`KDV hariç ${tr(totals.total_billing_excl_vat)} ₺`}
+              hero
+            />
+            <KpiCard
+              label={`KDV %${totals.vat_rate}`}
+              value={tr(totals.vat_amount)}
+              suffix="₺"
+              sub="restorandan +KDV alınır"
               hero
             />
           </div>
@@ -178,9 +179,8 @@ export default async function RestaurantDetailPage({
                     <th className="text-right px-4 py-3 font-semibold">Paket</th>
                     <th className="text-right px-4 py-3 font-semibold">Devamsızlık</th>
                     <th className="text-left px-4 py-3 font-semibold">Hesaplama</th>
-                    <th className="text-right px-4 py-3 font-semibold">KDV Hariç</th>
                     <th className="text-right px-4 py-3 font-semibold bg-brand-soft text-brand">
-                      KDV Dahil
+                      Fatura (KDV dahil)
                     </th>
                   </tr>
                 </thead>
@@ -218,11 +218,13 @@ export default async function RestaurantDetailPage({
                       <td className="px-4 py-3 text-text-3 text-[11.5px]">
                         KDV %{totals.vat_rate} → {tr(totals.vat_amount)} ₺
                       </td>
-                      <td className="px-4 py-3 text-right num text-text">
-                        {tr(totals.total_billing_excl_vat)} ₺
-                      </td>
-                      <td className="px-4 py-3 text-right num font-display text-brand text-[15px] bg-brand-soft">
-                        {tr(totals.total_billing_incl_vat)} ₺
+                      <td className="px-4 py-3 text-right bg-brand-soft">
+                        <div className="num font-display text-brand text-[16px] font-bold">
+                          {tr(totals.total_billing_incl_vat)} ₺
+                        </div>
+                        <div className="text-[10.5px] text-text-3 mt-0.5">
+                          KDV hariç {tr(totals.total_billing_excl_vat)} ₺
+                        </div>
                       </td>
                     </tr>
                   </tfoot>
@@ -403,9 +405,13 @@ function CourierRow({ c }: { c: CourierBilling }) {
           </div>
         )}
       </td>
-      <td className="px-4 py-3 text-right num text-text">{tr(c.billing_excl_vat)} ₺</td>
-      <td className="px-4 py-3 text-right num font-semibold text-brand bg-brand-soft/50">
-        {tr(c.billing_incl_vat)} ₺
+      <td className="px-4 py-3 text-right">
+        <div className="num font-display text-[15px] font-semibold text-brand">
+          {tr(c.billing_incl_vat)} ₺
+        </div>
+        <div className="text-[10.5px] text-text-3 mt-0.5">
+          KDV hariç {tr(c.billing_excl_vat)} ₺
+        </div>
       </td>
     </tr>
   );
