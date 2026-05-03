@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 
 import {
   type Restaurant,
+  type RestaurantCreate,
   type RestaurantUpdate,
+  createRestaurant,
   updateRestaurant,
 } from '@/lib/api';
 
@@ -19,29 +21,32 @@ const PRICING_OPTIONS: { value: string; label: string; help: string }[] = [
 export function RestaurantEditModal({
   restaurant,
   onClose,
+  mode = 'edit',
 }: {
-  restaurant: Restaurant;
+  restaurant: Restaurant | null;
   onClose: () => void;
+  mode?: 'edit' | 'create';
 }) {
   const router = useRouter();
+  const r = restaurant; // shorthand
   const [form, setForm] = useState<RestaurantUpdate>({
-    brand: restaurant.brand ?? '',
-    branch: restaurant.branch ?? '',
-    billing_group: restaurant.billing_group ?? '',
-    pricing_model: restaurant.pricing_model ?? 'hourly_plus_package',
-    hourly_rate: restaurant.hourly_rate ?? 0,
-    package_rate: restaurant.package_rate ?? 0,
-    package_threshold: restaurant.package_threshold ?? 390,
-    package_rate_low: restaurant.package_rate_low ?? 0,
-    package_rate_high: restaurant.package_rate_high ?? 0,
-    fixed_monthly_fee: restaurant.fixed_monthly_fee ?? 0,
-    vat_rate: restaurant.vat_rate ?? 20,
-    target_headcount: restaurant.target_headcount ?? 1,
-    contact_name: restaurant.contact_name ?? '',
-    contact_phone: restaurant.contact_phone ?? '',
-    contact_email: restaurant.contact_email ?? '',
-    address: restaurant.address ?? '',
-    notes: restaurant.notes ?? '',
+    brand: r?.brand ?? '',
+    branch: r?.branch ?? '',
+    billing_group: r?.billing_group ?? '',
+    pricing_model: r?.pricing_model ?? 'hourly_plus_package',
+    hourly_rate: r?.hourly_rate ?? 0,
+    package_rate: r?.package_rate ?? 0,
+    package_threshold: r?.package_threshold ?? 390,
+    package_rate_low: r?.package_rate_low ?? 0,
+    package_rate_high: r?.package_rate_high ?? 0,
+    fixed_monthly_fee: r?.fixed_monthly_fee ?? 0,
+    vat_rate: r?.vat_rate ?? 20,
+    target_headcount: r?.target_headcount ?? 1,
+    contact_name: r?.contact_name ?? '',
+    contact_phone: r?.contact_phone ?? '',
+    contact_email: r?.contact_email ?? '',
+    address: r?.address ?? '',
+    notes: r?.notes ?? '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,10 +71,18 @@ export function RestaurantEditModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.brand?.trim()) {
+      setError('Marka adı zorunludur');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      await updateRestaurant(restaurant.id, form);
+      if (mode === 'create') {
+        await createRestaurant(form as RestaurantCreate);
+      } else if (restaurant) {
+        await updateRestaurant(restaurant.id, form);
+      }
       onClose();
       router.refresh();
     } catch (err) {
@@ -96,11 +109,13 @@ export function RestaurantEditModal({
         <div className="bg-gradient-to-r from-brand-dark to-brand text-white px-6 py-5 rounded-t-2xl flex justify-between items-start">
           <div>
             <div className="text-[11px] uppercase tracking-wider opacity-80 font-semibold">
-              Restoran Düzenle
+              {mode === 'create' ? 'Yeni Müşteri / Restoran' : 'Restoran Düzenle'}
             </div>
             <div className="font-display text-xl font-semibold tracking-tight mt-0.5">
-              {restaurant.brand ?? '—'}
-              {restaurant.branch && (
+              {mode === 'create'
+                ? form.brand?.trim() || 'Yeni kayıt'
+                : restaurant?.brand ?? '—'}
+              {mode === 'edit' && restaurant?.branch && (
                 <span className="opacity-70 font-normal"> · {restaurant.branch}</span>
               )}
             </div>
@@ -291,7 +306,11 @@ export function RestaurantEditModal({
               disabled={saving}
               className="px-4 py-2 rounded-lg text-sm font-semibold bg-brand text-white shadow-sm hover:bg-brand-dark transition disabled:opacity-60"
             >
-              {saving ? 'Kaydediliyor…' : 'Kaydet'}
+              {saving
+                ? 'Kaydediliyor…'
+                : mode === 'create'
+                ? '+ Müşteri Ekle'
+                : 'Kaydet'}
             </button>
           </div>
         </form>

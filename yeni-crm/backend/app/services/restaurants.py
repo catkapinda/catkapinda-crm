@@ -75,6 +75,34 @@ def get_restaurant(restaurant_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def create_restaurant(fields: dict) -> dict | None:
+    """Yeni restoran ekle. Sadece beyaz listedeki kolonlar geçerli."""
+    safe = {k: v for k, v in fields.items() if k in EDITABLE_COLUMNS}
+    if not safe.get("brand"):
+        raise ValueError("Marka adı (brand) zorunludur")
+    # Varsayılan: aktif
+    if "active" not in safe:
+        safe["active"] = 1
+
+    cols = list(safe.keys())
+    vals = list(safe.values())
+    placeholders = ", ".join(["%s"] * len(cols))
+    sql = f"""
+        INSERT INTO restaurants ({', '.join(cols)})
+        VALUES ({placeholders})
+        RETURNING id
+    """
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, vals)
+            row = cur.fetchone()
+            conn.commit()
+    if not row:
+        return None
+    return get_restaurant(row[0])
+
+
 def update_restaurant(restaurant_id: int, fields: dict) -> dict | None:
     """Restoran alanlarını güncelle. Sadece beyaz listedeki kolonlar geçerli."""
     safe = {k: v for k, v in fields.items() if k in EDITABLE_COLUMNS}

@@ -203,6 +203,14 @@ export async function updateRestaurant(
   return apiMutate<Restaurant>(`/api/restaurants/${id}`, fields, 'PATCH');
 }
 
+export type RestaurantCreate = Omit<RestaurantUpdate, 'id'> & { brand: string };
+
+export async function createRestaurant(
+  fields: RestaurantCreate
+): Promise<Restaurant> {
+  return apiMutate<Restaurant>(`/api/restaurants`, fields, 'POST');
+}
+
 // ─────────────────────────────────────────────────────────────
 // Restoran aylık fatura kırılımı (hakediş motoru sonucu)
 // ─────────────────────────────────────────────────────────────

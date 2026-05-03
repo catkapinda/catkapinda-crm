@@ -51,6 +51,7 @@ export function RestaurantsView({
   perf: RestaurantPuantajSummary[];
 }) {
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
   const [activeBrand, setActiveBrand] = useState<string | null>(null);
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -151,6 +152,20 @@ export function RestaurantsView({
 
   return (
     <>
+      {/* Header — Yeni Müşteri butonu */}
+      <header className="flex justify-between items-center gap-5 flex-wrap mb-4">
+        <div className="text-[12.5px] text-text-3 font-medium">
+          {restaurants.length} aktif restoran · karta tıklayıp düzenle
+        </div>
+        <button
+          onClick={() => setCreating(true)}
+          className="px-4 py-2 rounded-xl bg-brand text-white text-sm font-semibold shadow-sm hover:bg-brand-dark transition flex items-center gap-2"
+        >
+          <span className="text-base">+</span>
+          <span>Yeni Müşteri / Restoran</span>
+        </button>
+      </header>
+
       {/* Hero strip */}
       <div className="bg-bg-surface border border-border rounded-2xl shadow-md flex overflow-hidden mb-5">
         <HeroCell
@@ -306,6 +321,14 @@ export function RestaurantsView({
         <RestaurantEditModal
           restaurant={editing}
           onClose={() => setEditingId(null)}
+          mode="edit"
+        />
+      )}
+      {creating && (
+        <RestaurantEditModal
+          restaurant={null}
+          onClose={() => setCreating(false)}
+          mode="create"
         />
       )}
     </>

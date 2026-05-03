@@ -31,8 +31,7 @@ const VEHICLE_TYPES = [
 const ACCOUNTING_TYPES = [
   { value: '', label: '— seç —' },
   { value: 'Çat Kapında Muhasebe', label: 'Çat Kapında Muhasebe' },
-  { value: 'Kendi muhasebesi', label: 'Kendi muhasebesi' },
-  { value: 'Şahıs şirketi', label: 'Şahıs şirketi' },
+  { value: 'Kendi Muhasebecisi', label: 'Kendi Muhasebecisi' },
 ];
 
 type FormState = {
@@ -68,6 +67,8 @@ type FormState = {
   // Kimlik & banka
   tc_no: string;
   iban: string;
+  tax_number: string;
+  tax_office: string;
   address: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
@@ -103,6 +104,8 @@ const EMPTY_FORM: FormState = {
   company_setup_effective_date: '',
   tc_no: '',
   iban: '',
+  tax_number: '',
+  tax_office: '',
   address: '',
   emergency_contact_name: '',
   emergency_contact_phone: '',
@@ -152,6 +155,8 @@ export function PersonnelEditModal({
         company_setup_effective_date: personnel.company_setup_effective_date ?? '',
         tc_no: personnel.tc_no ?? '',
         iban: personnel.iban ?? '',
+        tax_number: personnel.tax_number ?? '',
+        tax_office: personnel.tax_office ?? '',
         address: personnel.address ?? '',
         emergency_contact_name: personnel.emergency_contact_name ?? '',
         emergency_contact_phone: personnel.emergency_contact_phone ?? '',
@@ -228,6 +233,8 @@ export function PersonnelEditModal({
         company_setup_effective_date: form.company_setup_effective_date || undefined,
         tc_no: form.tc_no.trim() || undefined,
         iban: form.iban.trim() || undefined,
+        tax_number: form.tax_number.trim() || undefined,
+        tax_office: form.tax_office.trim() || undefined,
         address: form.address.trim() || undefined,
         emergency_contact_name: form.emergency_contact_name.trim() || undefined,
         emergency_contact_phone: form.emergency_contact_phone.trim() || undefined,
@@ -571,45 +578,23 @@ export function PersonnelEditModal({
                   </div>
                 )}
 
-                {/* 📊 MUHASEBE */}
-                <SectionTitle icon="📊" label="Muhasebe" />
-                <Field label="Muhasebe Tipi">
-                  <select
-                    value={form.accounting_type}
-                    onChange={(e) => set('accounting_type', e.target.value)}
-                    className="input"
-                  >
-                    {ACCOUNTING_TYPES.map((a) => (
-                      <option key={a.value} value={a.value}>
-                        {a.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <div className="grid grid-cols-3 gap-3">
-                  <Field label="Aylık Maliyet (₺)" hint="muhasebeciye ödenen">
-                    <input
-                      type="number"
-                      step="any"
-                      value={form.accountant_cost}
-                      onChange={(e) =>
-                        set('accountant_cost', parseFloat(e.target.value) || 0)
-                      }
-                      className="input num"
-                    />
+                {/* 📊 MUHASEBE & VERGİ */}
+                <SectionTitle icon="📊" label="Muhasebe & Vergi" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Muhasebe Tipi *">
+                    <select
+                      value={form.accounting_type}
+                      onChange={(e) => set('accounting_type', e.target.value)}
+                      className="input"
+                    >
+                      {ACCOUNTING_TYPES.map((a) => (
+                        <option key={a.value} value={a.value}>
+                          {a.label}
+                        </option>
+                      ))}
+                    </select>
                   </Field>
-                  <Field label="Aylık Gelir (₺)" hint="muhasebeden bana gelen">
-                    <input
-                      type="number"
-                      step="any"
-                      value={form.accounting_revenue}
-                      onChange={(e) =>
-                        set('accounting_revenue', parseFloat(e.target.value) || 0)
-                      }
-                      className="input num"
-                    />
-                  </Field>
-                  <Field label="Geçerlilik Tarihi">
+                  <Field label="Muhasebe Geçiş Tarihi" hint="varsa">
                     <input
                       type="date"
                       value={form.accounting_effective_date}
@@ -621,53 +606,134 @@ export function PersonnelEditModal({
                   </Field>
                 </div>
 
-                {/* 🏢 ŞİRKET AÇILIŞI */}
-                <SectionTitle icon="🏢" label="Şirket Açılışı" />
-                <Field label="Şirket Açılışı Yapıldı mı?">
-                  <select
-                    value={form.new_company_setup}
-                    onChange={(e) => set('new_company_setup', e.target.value)}
-                    className="input"
-                  >
-                    <option value="">— seç —</option>
-                    <option value="Evet">Evet</option>
-                    <option value="Hayır">Hayır</option>
-                  </select>
-                </Field>
-                {form.new_company_setup === 'Evet' && (
-                  <div className="grid grid-cols-3 gap-3 bg-bg-surface2/50 rounded-lg p-3 border border-border">
-                    <Field label="Açılış Maliyeti (₺)">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Vergi Dairesi">
+                    <input
+                      type="text"
+                      value={form.tax_office}
+                      onChange={(e) => set('tax_office', e.target.value)}
+                      className="input"
+                      placeholder="Örn. Sarıgazi VD"
+                    />
+                  </Field>
+                  <Field label="Vergi Numarası">
+                    <input
+                      type="text"
+                      value={form.tax_number}
+                      onChange={(e) => set('tax_number', e.target.value)}
+                      className="input num"
+                      placeholder="10 hane"
+                      maxLength={11}
+                    />
+                  </Field>
+                </div>
+
+                {/* ÇK Muhasebe seçilince → Aylık bedel + Şirket Açılışı toggle */}
+                {form.accounting_type === 'Çat Kapında Muhasebe' && (
+                  <div className="bg-brand-soft/40 border border-brand/15 rounded-xl p-3.5 space-y-3">
+                    <div className="text-[10.5px] font-semibold text-brand uppercase tracking-wider">
+                      Çat Kapında Muhasebe Detayları
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field
+                        label="Aylık Muhasebe Bedeli (₺)"
+                        hint="kuryeden alınan"
+                      >
+                        <input
+                          type="number"
+                          step="any"
+                          value={form.accountant_cost}
+                          onChange={(e) =>
+                            set('accountant_cost', parseFloat(e.target.value) || 0)
+                          }
+                          className="input num"
+                          placeholder="örn 2000"
+                        />
+                      </Field>
+                      <Field
+                        label="Aylık Muhasebe Geliri (₺)"
+                        hint="bana kalan"
+                      >
+                        <input
+                          type="number"
+                          step="any"
+                          value={form.accounting_revenue}
+                          onChange={(e) =>
+                            set('accounting_revenue', parseFloat(e.target.value) || 0)
+                          }
+                          className="input num"
+                          placeholder="örn 1500"
+                        />
+                      </Field>
+                    </div>
+
+                    {/* Şirket Açılışı toggle */}
+                    <label className="flex items-center gap-2.5 cursor-pointer p-2 -mx-2 rounded-lg hover:bg-bg-surface/60 transition">
                       <input
-                        type="number"
-                        step="any"
-                        value={form.company_setup_cost}
+                        type="checkbox"
+                        checked={form.new_company_setup === 'Evet'}
                         onChange={(e) =>
-                          set('company_setup_cost', parseFloat(e.target.value) || 0)
+                          set(
+                            'new_company_setup',
+                            e.target.checked ? 'Evet' : 'Hayır',
+                          )
                         }
-                        className="input num"
+                        className="w-4 h-4 accent-brand"
                       />
-                    </Field>
-                    <Field label="Açılış Geliri (₺)">
-                      <input
-                        type="number"
-                        step="any"
-                        value={form.company_setup_revenue}
-                        onChange={(e) =>
-                          set('company_setup_revenue', parseFloat(e.target.value) || 0)
-                        }
-                        className="input num"
-                      />
-                    </Field>
-                    <Field label="Açılış Tarihi">
-                      <input
-                        type="date"
-                        value={form.company_setup_effective_date}
-                        onChange={(e) =>
-                          set('company_setup_effective_date', e.target.value)
-                        }
-                        className="input"
-                      />
-                    </Field>
+                      <div>
+                        <div className="text-[12.5px] font-semibold text-text">
+                          Şirket açılışı yapılacak / yapıldı
+                        </div>
+                        <div className="text-[10.5px] text-text-3">
+                          Tek seferlik bedel + bilgilerini gir
+                        </div>
+                      </div>
+                    </label>
+
+                    {form.new_company_setup === 'Evet' && (
+                      <div className="grid grid-cols-3 gap-3 bg-bg-surface rounded-lg p-3 border border-border">
+                        <Field label="Açılış Bedeli (₺)" hint="kuryeden">
+                          <input
+                            type="number"
+                            step="any"
+                            value={form.company_setup_cost}
+                            onChange={(e) =>
+                              set(
+                                'company_setup_cost',
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="input num"
+                            placeholder="örn 1500"
+                          />
+                        </Field>
+                        <Field label="Açılış Geliri (₺)" hint="bana kalan">
+                          <input
+                            type="number"
+                            step="any"
+                            value={form.company_setup_revenue}
+                            onChange={(e) =>
+                              set(
+                                'company_setup_revenue',
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="input num"
+                            placeholder="örn 1000"
+                          />
+                        </Field>
+                        <Field label="Açılış Tarihi">
+                          <input
+                            type="date"
+                            value={form.company_setup_effective_date}
+                            onChange={(e) =>
+                              set('company_setup_effective_date', e.target.value)
+                            }
+                            className="input"
+                          />
+                        </Field>
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -73,11 +73,8 @@ function accountingLabel(p: Personnel): { label: string; color: string } {
   if (t === 'Çat Kapında Muhasebe') {
     return { label: 'ÇK muhasebe', color: 'bg-blue-50 text-blue-700' };
   }
-  if (t === 'Şahıs şirketi') {
-    return { label: 'Şahıs şirketi', color: 'bg-green-50 text-green-700' };
-  }
-  if (t === 'Kendi muhasebesi') {
-    return { label: 'Kendi muhasebesi', color: 'bg-bg-surface2 text-text-2' };
+  if (t === 'Kendi Muhasebecisi' || t === 'Kendi muhasebesi') {
+    return { label: 'Kendi muhasebecisi', color: 'bg-bg-surface2 text-text-2' };
   }
   if (t) {
     return { label: t, color: 'bg-bg-surface2 text-text-2' };
