@@ -209,6 +209,27 @@ def _payroll_attendance_invoice_amount_sql(conn: psycopg.Connection) -> str:
     return "0 AS monthly_invoice_amount"
 
 
+def _payroll_attendance_invoice_amount_total_sql(conn: psycopg.Connection) -> str:
+    columns = _table_columns(conn, "daily_entries")
+    if "monthly_invoice_amount" in columns:
+        return "COALESCE(SUM(d.monthly_invoice_amount), 0) AS invoice_amount_total"
+    return "0 AS invoice_amount_total"
+
+
+def _payroll_restaurant_pricing_model_sql(conn: psycopg.Connection) -> str:
+    columns = _table_columns(conn, "restaurants")
+    if "pricing_model" in columns:
+        return "COALESCE(r.pricing_model, '') AS pricing_model"
+    return "'' AS pricing_model"
+
+
+def _payroll_restaurant_pricing_model_group_sql(conn: psycopg.Connection) -> str:
+    columns = _table_columns(conn, "restaurants")
+    if "pricing_model" in columns:
+        return "COALESCE(r.pricing_model, '')"
+    return "''"
+
+
 def _row_value(source: object, key: str) -> object:
     if source is None:
         return None
@@ -827,29 +848,71 @@ def _resolve_personnel_invoice_total_override(
     segments: list[dict[str, object]] | None = None,
 ) -> float | None:
     normalized_segments = segments or []
-    if not _is_fixed_cost_model(cost_model):
-        return None
-
-    fixed_invoice_base = _safe_float(
-        sum(
-            _safe_float(segment.get("monthly_invoice_amount"))
-            for segment in normalized_segments
-            if _safe_float(segment.get("monthly_invoice_amount")) > 0
+    has_fixed_invoice_logic = any(
+        (
+            _is_fixed_monthly_brand(segment.get("brand"))
+            or str(segment.get("pricing_model") or "").strip() == "fixed_monthly"
+            or (_is_fixed_cost_model(cost_model) and _safe_float(segment.get("monthly_invoice_amount")) > 0)
         )
+        for segment in normalized_segments
     )
-    if fixed_invoice_base <= 0:
+    if not has_fixed_invoice_logic:
         return None
 
-    holiday_bonus_base = _calculate_support_holiday_bonus(
-        selected_month=selected_month,
-        cost_model=cost_model,
-        role=role,
-        monthly_fixed_cost=fixed_invoice_base,
-        start_date=start_date,
-        attendance_dates=attendance_dates or set(),
-    )
-    invoice_base = fixed_invoice_base + holiday_bonus_base
-    return _safe_float(invoice_base * (1 + _PAYROLL_VAT_RATE))
+    invoice_base_total = 0.0
+    for segment in normalized_segments:
+        brand = segment.get("brand")
+        pricing_model = str(segment.get("pricing_model") or "").strip()
+        monthly_invoice_amount = _safe_float(segment.get("monthly_invoice_amount"))
+        invoice_amount_total = _safe_float(segment.get("invoice_amount_total"))
+        total_hours = _safe_float(segment.get("total_hours"))
+        is_support_assignment = bool(segment.get("is_support_assignment"))
+        support_day_count = max(int(segment.get("support_day_count") or 0), 0)
+
+        if _is_fixed_monthly_brand(brand) or pricing_model == "fixed_monthly":
+            fixed_fee = monthly_invoice_amount if monthly_invoice_amount > 0 else invoice_amount_total
+            if fixed_fee <= 0:
+                continue
+            if is_support_assignment and support_day_count > 0:
+                invoice_base_total += (fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * support_day_count
+                continue
+
+            segment_invoice_base = fixed_fee
+            if _is_fixed_monthly_brand(brand):
+                overtime_hours = max(total_hours - _FIXED_MONTHLY_BASE_HOURS, 0.0)
+                extra_days = int(overtime_hours // _FIXED_MONTHLY_EXTRA_DAY_HOURS)
+                if extra_days > 0:
+                    segment_invoice_base += (fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * extra_days
+            elif _is_fixed_cost_model(cost_model):
+                segment_invoice_base += _calculate_support_holiday_bonus(
+                    selected_month=selected_month,
+                    cost_model=cost_model,
+                    role=role,
+                    monthly_fixed_cost=fixed_fee,
+                    start_date=start_date,
+                    attendance_dates=attendance_dates or set(),
+                )
+            invoice_base_total += segment_invoice_base
+            continue
+
+        if _is_fixed_cost_model(cost_model) and monthly_invoice_amount > 0:
+            segment_invoice_base = monthly_invoice_amount + _calculate_support_holiday_bonus(
+                selected_month=selected_month,
+                cost_model=cost_model,
+                role=role,
+                monthly_fixed_cost=monthly_invoice_amount,
+                start_date=start_date,
+                attendance_dates=attendance_dates or set(),
+            )
+            invoice_base_total += segment_invoice_base
+            continue
+
+        if invoice_amount_total > 0:
+            invoice_base_total += invoice_amount_total
+
+    if invoice_base_total <= 0:
+        return None
+    return _safe_float(invoice_base_total * (1 + _PAYROLL_VAT_RATE))
 
 
 def _format_month_label(value: str) -> str:
@@ -1202,7 +1265,7 @@ def _build_remote_payroll_document_payload(
                 person_entries["monthly_invoice_amount"] = 0.0
             grouped_segments = (
                 person_entries.groupby(
-                    ["brand", "restaurant_id", "is_support_assignment"],
+                    ["brand", "restaurant_id", "pricing_model", "is_support_assignment"],
                     dropna=False,
                 )
                 .agg(
@@ -1210,17 +1273,20 @@ def _build_remote_payroll_document_payload(
                     total_packages=("package_count", "sum"),
                     support_day_count=("entry_date", lambda values: len({str(value)[:10] for value in values if str(value or '').strip()})),
                     monthly_invoice_amount=("monthly_invoice_amount", "max"),
+                    invoice_amount_total=("monthly_invoice_amount", "sum"),
                 )
                 .reset_index()
             )
             attendance_segments = [
                 {
                     "brand": str(row["brand"] or ""),
+                    "pricing_model": str(row["pricing_model"] or ""),
                     "total_hours": _safe_float(row["total_hours"]),
                     "total_packages": _safe_float(row["total_packages"]),
                     "is_support_assignment": bool(row["is_support_assignment"]),
                     "support_day_count": int(row["support_day_count"] or 0),
                     "monthly_invoice_amount": _safe_float(row["monthly_invoice_amount"]),
+                    "invoice_amount_total": _safe_float(row["invoice_amount_total"]),
                 }
                 for _, row in grouped_segments.iterrows()
             ]
@@ -1324,6 +1390,9 @@ def _build_local_payroll_document_payload(
     resolved_month = _resolve_payroll_dashboard_month(month_options, attendance_month_options, selected_month)
     optional_personnel_select = _payroll_optional_personnel_select(conn)
     attendance_invoice_amount_select = _payroll_attendance_invoice_amount_sql(conn)
+    attendance_invoice_amount_total_select = _payroll_attendance_invoice_amount_total_sql(conn)
+    restaurant_pricing_model_select = _payroll_restaurant_pricing_model_sql(conn)
+    restaurant_pricing_model_group = _payroll_restaurant_pricing_model_group_sql(conn)
     optional_deduction_note_select = _payroll_optional_deduction_note_select(conn)
 
     person_row = conn.execute(
@@ -1370,6 +1439,7 @@ def _build_local_payroll_document_payload(
         SELECT
             d.restaurant_id,
             COALESCE(r.brand, '') AS brand,
+            {restaurant_pricing_model_select},
             CASE
                 WHEN d.planned_personnel_id IS NOT NULL
                  AND d.actual_personnel_id IS NOT NULL
@@ -1379,7 +1449,8 @@ def _build_local_payroll_document_payload(
             COALESCE(SUM(d.worked_hours), 0) AS total_hours,
             COALESCE(SUM(d.package_count), 0) AS total_packages,
             COUNT(DISTINCT substr(COALESCE(d.entry_date, ''), 1, 10)) AS support_day_count,
-            {attendance_invoice_amount_select}
+            {attendance_invoice_amount_select},
+            {attendance_invoice_amount_total_select}
         FROM daily_entries d
         LEFT JOIN restaurants r ON r.id = d.restaurant_id
         WHERE {_month_key_sql('d.entry_date')} = %s
@@ -1387,6 +1458,7 @@ def _build_local_payroll_document_payload(
         GROUP BY
             d.restaurant_id,
             COALESCE(r.brand, ''),
+            {restaurant_pricing_model_group},
             CASE
                 WHEN d.planned_personnel_id IS NOT NULL
                  AND d.actual_personnel_id IS NOT NULL
@@ -1468,6 +1540,7 @@ def _build_local_payroll_document_payload(
     attendance_segments = [
         {
             "brand": str(row["brand"] or ""),
+            "pricing_model": str(row["pricing_model"] or ""),
             "total_hours": _safe_float(row["total_hours"]),
             "total_packages": _safe_float(row["total_packages"]),
             "is_support_assignment": bool(row["is_support_assignment"]),
@@ -1479,6 +1552,7 @@ def _build_local_payroll_document_payload(
             )
             or _safe_float(row["total_packages"]),
             "monthly_invoice_amount": _safe_float(row["monthly_invoice_amount"]),
+            "invoice_amount_total": _safe_float(row["invoice_amount_total"]),
         }
         for row in attendance_rows
     ]
@@ -1636,6 +1710,9 @@ def _build_local_payroll_dashboard(
     month_options, attendance_month_options = _fetch_payroll_month_options(conn)
     optional_personnel_select = _payroll_optional_personnel_select(conn)
     attendance_invoice_amount_select = _payroll_attendance_invoice_amount_sql(conn)
+    attendance_invoice_amount_total_select = _payroll_attendance_invoice_amount_total_sql(conn)
+    restaurant_pricing_model_select = _payroll_restaurant_pricing_model_sql(conn)
+    restaurant_pricing_model_group = _payroll_restaurant_pricing_model_group_sql(conn)
     if not month_options:
         return PayrollDashboardResponse(
             module="payroll",
@@ -1690,6 +1767,7 @@ def _build_local_payroll_dashboard(
             COALESCE(d.actual_personnel_id, d.planned_personnel_id) AS personnel_id,
             d.restaurant_id,
             COALESCE(r.brand, '') AS brand,
+            {restaurant_pricing_model_select},
             CASE
                 WHEN d.planned_personnel_id IS NOT NULL
                  AND d.actual_personnel_id IS NOT NULL
@@ -1699,14 +1777,18 @@ def _build_local_payroll_dashboard(
             COALESCE(SUM(d.worked_hours), 0) AS total_hours,
             COALESCE(SUM(d.package_count), 0) AS total_packages,
             COUNT(DISTINCT substr(COALESCE(d.entry_date, ''), 1, 10)) AS support_day_count,
-            {attendance_invoice_amount_select}
+            {attendance_invoice_amount_select},
+            {attendance_invoice_amount_total_select}
         FROM daily_entries d
         LEFT JOIN restaurants r ON r.id = d.restaurant_id
         WHERE {month_key_sql} = %s
           AND COALESCE(d.actual_personnel_id, d.planned_personnel_id) IS NOT NULL
     """.format(
         month_key_sql=_month_key_sql("d.entry_date"),
+        restaurant_pricing_model_select=restaurant_pricing_model_select,
+        restaurant_pricing_model_group=restaurant_pricing_model_group,
         attendance_invoice_amount_select=attendance_invoice_amount_select,
+        attendance_invoice_amount_total_select=attendance_invoice_amount_total_select,
     )
     attendance_params: list[object] = [resolved_month]
     if selected_restaurant != "Tümü":
@@ -1719,13 +1801,14 @@ def _build_local_payroll_dashboard(
             COALESCE(d.actual_personnel_id, d.planned_personnel_id),
             d.restaurant_id,
             COALESCE(r.brand, ''),
+            {restaurant_pricing_model_group},
             CASE
                 WHEN d.planned_personnel_id IS NOT NULL
                  AND d.actual_personnel_id IS NOT NULL
                  AND d.actual_personnel_id <> d.planned_personnel_id
                 THEN 1 ELSE 0
             END
-    """
+    """.format(restaurant_pricing_model_group=restaurant_pricing_model_group)
     attendance_rows = conn.execute(attendance_query, tuple(attendance_params)).fetchall()
     restaurant_package_totals_query = """
         SELECT
@@ -1838,6 +1921,7 @@ def _build_local_payroll_dashboard(
             segments.append(
                 {
                     "brand": str(row["brand"] or ""),
+                    "pricing_model": str(row["pricing_model"] or ""),
                     "total_hours": total_hours,
                     "total_packages": total_packages,
                     "is_support_assignment": bool(row["is_support_assignment"]),
@@ -1849,6 +1933,7 @@ def _build_local_payroll_dashboard(
                     )
                     or total_packages,
                     "monthly_invoice_amount": _safe_float(row["monthly_invoice_amount"]),
+                    "invoice_amount_total": _safe_float(row["invoice_amount_total"]),
                 }
             )
     for bucket in attendance_by_person.values():
