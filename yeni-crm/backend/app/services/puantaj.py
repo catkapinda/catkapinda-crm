@@ -105,6 +105,126 @@ def summary_by_restaurant(period: str) -> list[dict]:
     return out
 
 
+def upsert_cell(
+    personnel_id: int,
+    entry_date: str,
+    cell_type: str,
+    worked_hours: float = 0,
+    package_count: int = 0,
+    coverage_type: str | None = None,
+    notes: str | None = None,
+    restaurant_id: int | None = None,
+) -> dict:
+    """Bir günün puantajını güncelle / oluştur.
+
+    cell_type: 'normal' | 'izin' | 'gelmedi' | 'raporlu' | 'ihbarsiz' | 'empty'
+    - normal → status='Normal', absence_reason=None
+    - izin → status='İzin', absence_reason='İzin', hours=0, packages=0
+    - gelmedi → status='Gelmedi', absence_reason='Gelmedi', hours=0
+    - raporlu → status='Raporlu', absence_reason='Raporlu', hours=0
+    - ihbarsiz → status='İhbarsız', absence_reason='İhbarsız', hours=0
+    - empty → kayıt sil
+    """
+    type_map = {
+        "normal": ("Normal", None),
+        "izin": ("İzin", "İzin"),
+        "gelmedi": ("Gelmedi", "Gelmedi"),
+        "raporlu": ("Raporlu", "Raporlu"),
+        "ihbarsiz": ("İhbarsız", "İhbarsız"),
+    }
+
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            # Önce mevcut kayıt var mı bak
+            cur.execute(
+                """
+                SELECT id, restaurant_id FROM daily_entries
+                WHERE actual_personnel_id = %s
+                  AND entry_date::text = %s
+                LIMIT 1
+                """,
+                (personnel_id, entry_date),
+            )
+            existing = cur.fetchone()
+
+            if cell_type == "empty":
+                # Sil
+                if existing:
+                    cur.execute(
+                        "DELETE FROM daily_entries WHERE id = %s",
+                        (existing["id"],),
+                    )
+                conn.commit()
+                return {"action": "deleted", "id": existing["id"] if existing else None}
+
+            status, absence = type_map.get(cell_type, ("Normal", None))
+
+            # Sadece normal'da saat/paket geçerli
+            if cell_type != "normal":
+                worked_hours = 0
+                package_count = 0
+
+            # Restaurant_id yoksa: kuryenin atandığı restoran (Joker hariç)
+            if restaurant_id is None:
+                cur.execute(
+                    "SELECT assigned_restaurant_id FROM personnel WHERE id = %s",
+                    (personnel_id,),
+                )
+                p = cur.fetchone()
+                if p and p.get("assigned_restaurant_id"):
+                    restaurant_id = p["assigned_restaurant_id"]
+                elif existing and existing.get("restaurant_id"):
+                    restaurant_id = existing["restaurant_id"]
+                else:
+                    raise ValueError(
+                        "Restoran belirlenemedi (kurye atanmamış olabilir)",
+                    )
+
+            if existing:
+                cur.execute(
+                    """
+                    UPDATE daily_entries
+                    SET worked_hours = %s,
+                        package_count = %s,
+                        status = %s,
+                        absence_reason = %s,
+                        coverage_type = %s,
+                        notes = %s,
+                        restaurant_id = COALESCE(%s, restaurant_id)
+                    WHERE id = %s
+                    RETURNING id
+                    """,
+                    (
+                        worked_hours, package_count, status, absence,
+                        coverage_type, notes, restaurant_id,
+                        existing["id"],
+                    ),
+                )
+                action = "updated"
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO daily_entries
+                        (entry_date, restaurant_id, actual_personnel_id,
+                         planned_personnel_id, worked_hours, package_count,
+                         status, absence_reason, coverage_type, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (
+                        entry_date, restaurant_id, personnel_id, personnel_id,
+                        worked_hours, package_count,
+                        status, absence, coverage_type, notes,
+                    ),
+                )
+                action = "created"
+
+            row = cur.fetchone()
+            conn.commit()
+
+    return {"action": action, "id": row["id"] if row else None}
+
+
 def daily_matrix(period: str) -> dict:
     """Personel × gün matrisi — puantaj grid sayfası için.
 

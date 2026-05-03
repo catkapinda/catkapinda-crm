@@ -583,3 +583,20 @@ export async function getPuantajMatrix(
 ): Promise<PuantajMatrix> {
   return apiGet<PuantajMatrix>(`/api/puantaj/matrix?period=${period}`);
 }
+
+export type PuantajCellUpdate = {
+  personnel_id: number;
+  entry_date: string;
+  cell_type: 'normal' | 'izin' | 'gelmedi' | 'raporlu' | 'ihbarsiz' | 'empty';
+  worked_hours?: number;
+  package_count?: number;
+  coverage_type?: string;
+  restaurant_id?: number;
+  notes?: string;
+};
+
+export async function updatePuantajCell(
+  payload: PuantajCellUpdate,
+): Promise<{ action: string; id: number | null }> {
+  return apiMutate(`/api/puantaj/cell`, payload, 'PATCH');
+}

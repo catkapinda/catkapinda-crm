@@ -1,9 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-import type { MatrixCell, MatrixRow, PuantajMatrix } from '@/lib/api';
+import {
+  type MatrixCell,
+  type MatrixRow,
+  type PuantajMatrix,
+  updatePuantajCell,
+} from '@/lib/api';
 
 const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -74,6 +80,12 @@ export function PuantajGrid({
   const [search, setSearch] = useState('');
   const [restFilter, setRestFilter] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{
+    row: MatrixRow;
+    day: number;
+    cell: MatrixCell;
+    pos: { x: number; y: number };
+  } | null>(null);
 
   const totalDays = daysInMonth(period);
 
@@ -300,6 +312,15 @@ export function PuantajGrid({
                   row={row}
                   totalDays={totalDays}
                   period={period}
+                  onCellClick={(day, cell, target) => {
+                    const rect = (target as HTMLElement).getBoundingClientRect();
+                    setEditing({
+                      row,
+                      day,
+                      cell,
+                      pos: { x: rect.right + 8, y: rect.top },
+                    });
+                  }}
                 />
               ))}
             </tbody>
@@ -362,6 +383,17 @@ export function PuantajGrid({
           </button>
         </div>
       </div>
+
+      {editing && (
+        <CellPopover
+          row={editing.row}
+          day={editing.day}
+          cell={editing.cell}
+          pos={editing.pos}
+          period={period}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </>
   );
 }
@@ -417,11 +449,12 @@ function Legend({
 }
 
 function PersonRow({
-  row, totalDays, period,
+  row, totalDays, period, onCellClick,
 }: {
   row: MatrixRow;
   totalDays: number;
   period: string;
+  onCellClick: (day: number, cell: MatrixCell, target: EventTarget) => void;
 }) {
   const initials = (row.full_name ?? '?')
     .split(' ')
@@ -463,7 +496,7 @@ function PersonRow({
       </td>
       {/* Gün hücreleri */}
       {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => {
-        const cell = row.cells[day - 1] ?? { type: 'empty', hours: 0, packages: 0, is_support: false };
+        const cell = row.cells[day - 1] ?? { type: 'empty', hours: 0, packages: 0, is_support: false, restaurant_id: null };
         const dow = dayOfWeek(period, day);
         const isWE = dow === 0 || dow === 6;
         const today = isToday(period, day);
@@ -471,6 +504,7 @@ function PersonRow({
           <td
             key={day}
             className="border-b border-border p-0 align-middle"
+            onClick={(e) => onCellClick(day, cell, e.currentTarget)}
           >
             <Cell cell={cell} weekend={isWE} today={today} />
           </td>
@@ -558,5 +592,222 @@ function Cell({
     >
       {content}
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Cell Popover — hücre düzenleme
+// ──────────────────────────────────────────────────────────────────
+
+const STATUSES: { key: 'normal' | 'izin' | 'gelmedi' | 'raporlu' | 'ihbarsiz' | 'empty'; label: string; emoji: string }[] = [
+  { key: 'normal', label: 'Normal', emoji: '✓' },
+  { key: 'izin', label: 'İzin', emoji: '🌴' },
+  { key: 'gelmedi', label: 'Gelmedi', emoji: '✗' },
+  { key: 'raporlu', label: 'Raporlu', emoji: '⚕' },
+  { key: 'ihbarsiz', label: 'İhbarsız', emoji: '!' },
+  { key: 'empty', label: 'Boş', emoji: '—' },
+];
+
+function CellPopover({
+  row, day, cell, pos, period, onClose,
+}: {
+  row: MatrixRow;
+  day: number;
+  cell: MatrixCell;
+  pos: { x: number; y: number };
+  period: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [status, setStatus] = useState<typeof STATUSES[number]['key']>(cell.type);
+  const [hours, setHours] = useState<number>(cell.hours || 0);
+  const [packages, setPackages] = useState<number>(cell.packages || 0);
+  const [isSupport, setIsSupport] = useState<boolean>(cell.is_support);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Tarih: YYYY-MM-DD
+  const [y, m] = period.split('-');
+  const dateStr = `${y}-${m}-${String(day).padStart(2, '0')}`;
+  const dateTr = `${day} ${TR_MONTHS[parseInt(m, 10) - 1]} ${y}`;
+  const restName = row.rest_brand
+    ? `${row.rest_brand}${row.rest_branch ? ' · ' + row.rest_branch : ''}`
+    : '— atanmamış —';
+
+  // ESC ile kapat
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  // Status değişince saat/paket sıfırla
+  useEffect(() => {
+    if (status !== 'normal') {
+      setHours(0);
+      setPackages(0);
+    }
+  }, [status]);
+
+  // Konumu ekran sınırları içinde tut
+  const popX = Math.min(pos.x, window.innerWidth - 320);
+  const popY = Math.min(pos.y, window.innerHeight - 380);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      await updatePuantajCell({
+        personnel_id: row.id,
+        entry_date: dateStr,
+        cell_type: status,
+        worked_hours: hours,
+        package_count: packages,
+        coverage_type: status === 'normal' && isSupport ? 'Destek' : undefined,
+      });
+      onClose();
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kaydedilemedi');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      {/* Backdrop (tıklayınca kapat) */}
+      <div
+        className="fixed inset-0 z-[90]"
+        onClick={onClose}
+      />
+      {/* Popover */}
+      <div
+        className="fixed z-[100] bg-bg-surface border border-border rounded-xl shadow-2xl w-[300px] p-4 animate-pop-in"
+        style={{ left: popX, top: Math.max(20, popY) }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-start mb-1">
+          <div className="font-display text-[14px] font-semibold tracking-tight">
+            {row.full_name}
+          </div>
+          <button
+            onClick={onClose}
+            className="text-text-3 hover:text-text text-lg leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-bg-surface2"
+          >
+            ×
+          </button>
+        </div>
+        <div className="text-[11.5px] text-text-3 mb-3">
+          {dateTr} · {restName}
+        </div>
+
+        {/* Status grid */}
+        <div className="grid grid-cols-3 gap-1.5 mb-3">
+          {STATUSES.map((s) => {
+            const active = status === s.key;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setStatus(s.key)}
+                className={`px-2 py-2 rounded-md border-[1.5px] text-[11px] font-semibold flex flex-col items-center gap-0.5 transition ${
+                  active
+                    ? 'border-brand bg-brand-soft text-brand'
+                    : 'border-border hover:border-text-3 text-text-2'
+                }`}
+              >
+                <span className="text-[12px]">{s.emoji}</span>
+                <span>{s.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Saat & paket — sadece normal aktif */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <label className="block">
+            <div className="text-[10.5px] text-text-3 font-semibold mb-1">
+              Saat
+            </div>
+            <input
+              type="number"
+              step="any"
+              min={0}
+              value={hours || ''}
+              onChange={(e) => setHours(parseFloat(e.target.value) || 0)}
+              disabled={status !== 'normal'}
+              className="w-full px-2.5 py-1.5 rounded-md border border-border bg-bg-surface2 text-[13px] font-mono font-semibold disabled:opacity-50"
+            />
+          </label>
+          <label className="block">
+            <div className="text-[10.5px] text-text-3 font-semibold mb-1">
+              Paket
+            </div>
+            <input
+              type="number"
+              min={0}
+              value={packages || ''}
+              onChange={(e) => setPackages(parseInt(e.target.value, 10) || 0)}
+              disabled={status !== 'normal'}
+              className="w-full px-2.5 py-1.5 rounded-md border border-border bg-bg-surface2 text-[13px] font-mono font-semibold disabled:opacity-50"
+            />
+          </label>
+        </div>
+
+        {/* Destek toggle (Normal'da) */}
+        {status === 'normal' && (
+          <label className="flex items-center gap-2 cursor-pointer mb-3 p-2 -mx-1 rounded-md hover:bg-bg-surface2">
+            <input
+              type="checkbox"
+              checked={isSupport}
+              onChange={(e) => setIsSupport(e.target.checked)}
+              className="w-4 h-4 accent-brand"
+            />
+            <span className="text-[12px] text-text-2">
+              ↪ Destek vardiyası (kuryenin kendi restoranı dışında)
+            </span>
+          </label>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-2 text-red-700 text-[11.5px] mb-3">
+            {error}
+          </div>
+        )}
+
+        {/* Butonlar */}
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-3 py-1.5 rounded-md text-[12px] font-semibold border border-border bg-bg-surface text-text-2 hover:bg-bg-surface2 transition"
+            disabled={saving}
+          >
+            İptal
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="flex-1 px-3 py-1.5 rounded-md text-[12px] font-semibold bg-brand text-white shadow-sm hover:bg-brand-dark transition disabled:opacity-60"
+          >
+            {saving ? 'Kaydediliyor…' : 'Kaydet'}
+          </button>
+        </div>
+
+        <style jsx>{`
+          @keyframes pop-in {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+          }
+          :global(.animate-pop-in) {
+            animation: pop-in 0.18s ease-out;
+          }
+        `}</style>
+      </div>
+    </>
   );
 }
