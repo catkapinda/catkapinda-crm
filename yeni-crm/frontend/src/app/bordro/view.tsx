@@ -240,6 +240,7 @@ export function BordroView({
                 <PayrollRowItem
                   key={r.id}
                   r={r}
+                  period={period}
                   open={openRow === r.id}
                   onToggle={() => setOpenRow(openRow === r.id ? null : r.id)}
                 />
@@ -311,9 +312,10 @@ function HeroCard({
 }
 
 function PayrollRowItem({
-  r, open, onToggle,
+  r, period, open, onToggle,
 }: {
   r: PayrollRow;
+  period: string;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -414,14 +416,14 @@ function PayrollRowItem({
           className="px-2 py-2.5 text-text-3 text-center w-10"
           onClick={(e) => e.stopPropagation()}
         >
-          <Link
-            href={`/bordro/${r.id}?ay=${typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ay') ?? '' : ''}`}
-            target="_blank"
-            className="hover:text-brand text-[14px]"
-            title="PDF / Yazdır"
+          <a
+            href={`/api/payroll/${r.id}/pdf?period=${encodeURIComponent(period)}`}
+            download
+            className="hover:text-brand text-[14px] inline-block"
+            title="PDF indir"
           >
             {PDF_ICON}
-          </Link>
+          </a>
         </td>
         <td className="px-2 py-2.5 text-text-3 text-[12px] w-8">
           {open ? '▾' : '▸'}
