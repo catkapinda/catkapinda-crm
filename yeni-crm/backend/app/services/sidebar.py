@@ -41,24 +41,27 @@ def get_sidebar_counts() -> dict:
             except Exception:
                 counts["hakedis_onay"] = 0
 
-            # Bekleyen avans talepleri
+            # Bekleyen kurye talepleri (avans / motor / muhasebe değişimi)
             try:
                 cur.execute(
-                    "SELECT COUNT(*) FROM advance_requests WHERE status = 'pending'"
-                )
-                row = cur.fetchone()
-                counts["avans"] = row[0] if row else 0
-            except Exception:
-                counts["avans"] = 0
-
-            # Açık talepler (lead/talep tablosu varsa)
-            try:
-                cur.execute(
-                    "SELECT COUNT(*) FROM sales_leads WHERE status IN ('open', 'in_progress')"
+                    "SELECT COUNT(*) FROM courier_requests WHERE status = 'Beklemede'"
                 )
                 row = cur.fetchone()
                 counts["talepler"] = row[0] if row else 0
             except Exception:
                 counts["talepler"] = 0
+
+            # Geriye uyum: avans alias
+            counts["avans"] = counts["talepler"]
+
+            # Açık satış lead'leri (varsa)
+            try:
+                cur.execute(
+                    "SELECT COUNT(*) FROM sales_leads WHERE status IN ('open', 'in_progress')"
+                )
+                row = cur.fetchone()
+                counts["satis_leads"] = row[0] if row else 0
+            except Exception:
+                counts["satis_leads"] = 0
 
     return counts

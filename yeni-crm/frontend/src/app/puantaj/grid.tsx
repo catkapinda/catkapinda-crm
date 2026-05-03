@@ -655,10 +655,11 @@ function Cell({
 import {
   AlertCircle as StAlert, CheckCircle2 as StCheck, Minus as StMinus,
   Plane as StPlane, Stethoscope as StSteth, XCircle as StX,
+  type LucideIcon,
 } from 'lucide-react';
 
 type StatusKey = 'normal' | 'izin' | 'gelmedi' | 'raporlu' | 'ihbarsiz' | 'empty';
-const STATUSES: { key: StatusKey; label: string; Icon: React.FC<{ className?: string; strokeWidth?: number }> }[] = [
+const STATUSES: { key: StatusKey; label: string; Icon: LucideIcon }[] = [
   { key: 'normal', label: 'Normal', Icon: StCheck },
   { key: 'izin', label: 'İzin', Icon: StPlane },
   { key: 'gelmedi', label: 'Gelmedi', Icon: StX },

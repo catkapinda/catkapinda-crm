@@ -489,6 +489,84 @@ export async function getSidebarCounts(): Promise<SidebarCounts> {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Talepler — Avans / Motor Değişikliği / Muhasebe Değişimi
+// ─────────────────────────────────────────────────────────────
+
+export type CourierRequest = {
+  id: number;
+  personnel_id: number;
+  personnel_name: string | null;
+  person_code: string | null;
+  personnel_role: string | null;
+  rest_brand: string | null;
+  rest_branch: string | null;
+  request_type: 'Avans' | 'Motor Değişikliği' | 'Muhasebe Değişimi' | string;
+  amount: number;
+  reason: string | null;
+  status: 'Beklemede' | 'Onaylandı' | 'Reddedildi' | string;
+  decision_notes: string | null;
+  requested_at: string | null;
+  decided_at: string | null;
+  decided_by: string | null;
+};
+
+export type CourierRequestCounts = {
+  Beklemede: number;
+  Onaylandı: number;
+  Reddedildi: number;
+  total: number;
+};
+
+export type CourierRequestCreate = {
+  personnel_id: number;
+  request_type: string;
+  amount?: number;
+  reason?: string | null;
+};
+
+export type CourierRequestDecide = {
+  status: 'Onaylandı' | 'Reddedildi';
+  decided_by?: string | null;
+  decision_notes?: string | null;
+};
+
+export async function listCourierRequests(filters?: {
+  status?: string;
+  request_type?: string;
+  personnel_id?: number;
+}): Promise<CourierRequest[]> {
+  const qs = new URLSearchParams();
+  if (filters?.status) qs.set('status', filters.status);
+  if (filters?.request_type) qs.set('request_type', filters.request_type);
+  if (filters?.personnel_id != null) qs.set('personnel_id', String(filters.personnel_id));
+  const q = qs.toString();
+  return apiGet<CourierRequest[]>(`/api/requests${q ? `?${q}` : ''}`);
+}
+
+export async function getCourierRequestCounts(): Promise<CourierRequestCounts> {
+  return apiGet<CourierRequestCounts>('/api/requests/counts');
+}
+
+export async function getCourierRequestTypes(): Promise<string[]> {
+  return apiGet<string[]>('/api/requests/types');
+}
+
+export async function createCourierRequest(payload: CourierRequestCreate): Promise<CourierRequest> {
+  return apiMutate<CourierRequest>('/api/requests', payload, 'POST');
+}
+
+export async function decideCourierRequest(
+  id: number,
+  payload: CourierRequestDecide,
+): Promise<CourierRequest> {
+  return apiMutate<CourierRequest>(`/api/requests/${id}/decide`, payload, 'PATCH');
+}
+
+export async function deleteCourierRequest(id: number): Promise<{ ok: boolean }> {
+  return apiMutate<{ ok: boolean }>(`/api/requests/${id}`, {}, 'DELETE');
+}
+
+// ─────────────────────────────────────────────────────────────
 // Puantaj
 // ─────────────────────────────────────────────────────────────
 
