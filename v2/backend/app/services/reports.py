@@ -319,37 +319,6 @@ def _count_support_assignment_days(rows: list[dict[str, object]]) -> int:
     return len(support_dates)
 
 
-def _calculate_fixed_monthly_brand_restaurant_invoice_subtotal(
-    rows: list[dict[str, object]],
-    *,
-    fixed_fee: float,
-) -> float:
-    if not rows or fixed_fee <= 0:
-        return 0.0
-
-    total_hours = sum(_safe_float(row.get("worked_hours")) for row in rows)
-    total_packages = sum(_safe_float(row.get("package_count")) for row in rows)
-    if total_hours <= 0 and total_packages <= 0:
-        return 0.0
-
-    daily_invoice_amount = fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR
-    support_hours = sum(
-        _safe_float(row.get("worked_hours"))
-        for row in rows
-        if _is_support_assignment_row(row)
-    )
-    if support_hours > 0:
-        support_worked_days = support_hours / _FIXED_MONTHLY_EXTRA_DAY_HOURS
-        return _safe_float(daily_invoice_amount * support_worked_days)
-
-    subtotal = fixed_fee
-    overtime_hours = max(total_hours - _FIXED_MONTHLY_BASE_HOURS, 0.0)
-    extra_days = int(overtime_hours // _FIXED_MONTHLY_EXTRA_DAY_HOURS)
-    if extra_days > 0:
-        subtotal += daily_invoice_amount * extra_days
-    return _safe_float(subtotal)
-
-
 def _calculate_invoice_subtotal_for_rows(rows: list[dict[str, object]], *, restaurant_fixed_fee: float) -> float:
     if not rows:
         return 0.0
@@ -370,8 +339,27 @@ def _calculate_invoice_subtotal_for_rows(rows: list[dict[str, object]], *, resta
     cost_model = str(first.get("cost_model") or "").strip()
     start_date = first.get("start_date")
     fixed_fee = _fixed_monthly_fee_for_rows(rows, restaurant_fixed_fee)
-    if _is_fixed_monthly_brand(brand) and fixed_fee > 0:
-        return _calculate_fixed_monthly_brand_restaurant_invoice_subtotal(rows, fixed_fee=fixed_fee)
+    support_day_count = _count_support_assignment_days(rows)
+
+    if (_is_fixed_monthly_brand(brand) or pricing_model == "fixed_monthly") and fixed_fee > 0:
+        if support_day_count > 0:
+            return _safe_float((fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * support_day_count)
+
+        subtotal = fixed_fee
+        if _is_fixed_monthly_brand(brand):
+            overtime_hours = max(total_hours - _FIXED_MONTHLY_BASE_HOURS, 0.0)
+            extra_days = int(overtime_hours // _FIXED_MONTHLY_EXTRA_DAY_HOURS)
+            if extra_days > 0:
+                subtotal += (fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * extra_days
+        elif _is_fixed_cost_model(cost_model):
+            subtotal += _calculate_fixed_invoice_holiday_bonus(
+                rows=rows,
+                fixed_fee=fixed_fee,
+                cost_model=cost_model,
+                role=role,
+                start_date=start_date,
+            )
+        return _safe_float(subtotal)
 
     if _is_fixed_cost_model(cost_model) and fixed_fee > 0:
         subtotal = fixed_fee + _calculate_fixed_invoice_holiday_bonus(

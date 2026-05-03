@@ -411,33 +411,6 @@ def _count_support_assignment_days(group: pd.DataFrame) -> int:
     return int(pd.to_datetime(support_rows["entry_date"], errors="coerce").dt.date.dropna().nunique())
 
 
-def _calculate_fixed_monthly_brand_restaurant_invoice_subtotal(
-    group: pd.DataFrame,
-    *,
-    fixed_fee: float,
-) -> float:
-    if group is None or group.empty or fixed_fee <= 0:
-        return 0.0
-
-    total_hours = float(group["worked_hours"].fillna(0).sum())
-    total_packages = float(group["package_count"].fillna(0).sum())
-    if total_hours <= 0 and total_packages <= 0:
-        return 0.0
-
-    daily_invoice_amount = fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR
-    support_rows = group[group.apply(_row_is_support_assignment, axis=1)]
-    if not support_rows.empty:
-        support_worked_days = _SAFE_FLOAT(support_rows["worked_hours"].fillna(0).sum() / _FIXED_MONTHLY_EXTRA_DAY_HOURS, 0.0)
-        return _SAFE_FLOAT(daily_invoice_amount * support_worked_days, 0.0)
-
-    subtotal = fixed_fee
-    overtime_hours = max(total_hours - _FIXED_MONTHLY_BASE_HOURS, 0.0)
-    extra_days = int(overtime_hours // _FIXED_MONTHLY_EXTRA_DAY_HOURS)
-    if extra_days > 0:
-        subtotal += daily_invoice_amount * extra_days
-    return _SAFE_FLOAT(subtotal, 0.0)
-
-
 def _calculate_invoice_subtotal_for_person(group: pd.DataFrame, rule: Any, restaurant_fixed_fee: float) -> float:
     total_hours = float(group["worked_hours"].fillna(0).sum())
     total_packages = float(group["package_count"].fillna(0).sum())
@@ -451,8 +424,27 @@ def _calculate_invoice_subtotal_for_person(group: pd.DataFrame, rule: Any, resta
     cost_model = _resolve_cost_model_for_role(first.get("cost_model"), role)
     start_date = first.get("start_date")
     fixed_fee = _resolve_fixed_monthly_fee_from_group(group, restaurant_fixed_fee)
-    if _is_fixed_monthly_brand(brand) and fixed_fee > 0:
-        return _calculate_fixed_monthly_brand_restaurant_invoice_subtotal(group, fixed_fee=fixed_fee)
+    support_day_count = _count_support_assignment_days(group)
+
+    if (_is_fixed_monthly_brand(brand) or pricing_model == "fixed_monthly") and fixed_fee > 0:
+        if support_day_count > 0:
+            return _SAFE_FLOAT((fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * support_day_count, 0.0)
+
+        subtotal = fixed_fee
+        if _is_fixed_monthly_brand(brand):
+            overtime_hours = max(total_hours - _FIXED_MONTHLY_BASE_HOURS, 0.0)
+            extra_days = int(overtime_hours // _FIXED_MONTHLY_EXTRA_DAY_HOURS)
+            if extra_days > 0:
+                subtotal += (fixed_fee / _SUPPORT_HOLIDAY_DAY_DIVISOR) * extra_days
+        elif _is_fixed_cost_model(cost_model):
+            subtotal += _calculate_fixed_invoice_holiday_bonus(
+                group=group,
+                fixed_fee=fixed_fee,
+                cost_model=cost_model,
+                role=role,
+                start_date=start_date,
+            )
+        return _SAFE_FLOAT(subtotal, 0.0)
 
     if _is_fixed_cost_model(cost_model) and fixed_fee > 0:
         subtotal = fixed_fee + _calculate_fixed_invoice_holiday_bonus(
