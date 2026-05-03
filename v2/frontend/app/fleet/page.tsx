@@ -248,6 +248,34 @@ function isMotorPaymentDeductionType(value: string) {
   return normalized.includes("motor kiras") || normalized.includes("motor satis");
 }
 
+function formatMaintenanceItemLabel(value: string | null | undefined) {
+  const raw = String(value || "").trim();
+  const normalized = normalizeText(raw);
+
+  if (!raw) {
+    return "Bakım Masrafı";
+  }
+  if (normalized.includes("motor servis")) {
+    return "Periyodik Bakım";
+  }
+  if (normalized.includes("motor hasar")) {
+    return "Hasar / Onarım";
+  }
+  return raw;
+}
+
+function formatMaintenanceDescription(entry: DeductionEntry) {
+  const note = entry.notes?.trim();
+  if (note) {
+    return note;
+  }
+  const caption = String(entry.type_caption || "").trim();
+  if (caption) {
+    return caption;
+  }
+  return `${formatMaintenanceItemLabel(entry.deduction_type)} kaydı`;
+}
+
 function buildMaintenanceData(
   person: PersonnelVehicleCandidateEntry,
   deductions: DeductionEntry[],
@@ -284,7 +312,7 @@ function buildMaintenanceData(
     relevant.map((entry) => String(entry.deduction_date || "").slice(0, 7)).filter(Boolean),
   ).size;
   const items = relevant.slice(0, 3).map((entry) => ({
-    label: `${formatDateLabel(entry.deduction_date)} • ${entry.deduction_type || "Masraf"}`,
+    label: `${formatDateLabel(entry.deduction_date)} • ${formatMaintenanceItemLabel(entry.deduction_type)}`,
     value: `${formatMoneyLabel(entry.amount)}${entry.notes ? ` • ${entry.notes}` : ""}`,
   }));
 
@@ -297,13 +325,16 @@ function buildMaintenanceData(
     } satisfies FleetMaintenanceSummary,
     records: relevant.map((entry) => ({
       date: formatDateLabel(entry.deduction_date),
-      item: entry.deduction_type || entry.type_caption || "Masraf",
-      description: entry.notes?.trim() || entry.type_caption || entry.deduction_type || "Bakım kaydı",
+      item: formatMaintenanceItemLabel(entry.deduction_type),
+      description: formatMaintenanceDescription(entry),
       amount: formatMoneyLabel(entry.amount),
     })) satisfies FleetMaintenanceRecord[],
     items: [
       { label: "Toplam Bakım Masrafı", value: formatMoneyLabel(totalAmount) },
-      { label: "Son Kayıt", value: `${formatDateLabel(latest.deduction_date)} • ${latest.deduction_type || "—"}` },
+      {
+        label: "Son Kayıt",
+        value: `${formatDateLabel(latest.deduction_date)} • ${formatMaintenanceItemLabel(latest.deduction_type)}`,
+      },
       ...items,
     ],
   };
