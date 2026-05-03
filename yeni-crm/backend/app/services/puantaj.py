@@ -234,17 +234,47 @@ def daily_matrix(period: str) -> dict:
 
     Sıralama: ana atanmış kuryeler restoran adına göre, sonra Joker/BM.
     """
-    # 1. Aktif personel + atanmış restoran adı
+    # 1. Aktif personel + O AYKI GERÇEK ÇALIŞTIĞI restoranı al
+    # (kuryenin assigned_restaurant_id'si güncel olmayabilir; örn Doyuyo
+    # Mart'ta kapandı ama kuryeler hâlâ orada görünüyor — gerçekte rest_id=9'da
+    # çalışıyorlar). En çok puantaj kaydı olan restoranı tercih et.
     personnel_sql = """
+        WITH active_rest AS (
+            SELECT pid, rid FROM (
+                SELECT
+                    d.actual_personnel_id AS pid,
+                    d.restaurant_id AS rid,
+                    COUNT(*) AS cnt,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY d.actual_personnel_id
+                        ORDER BY COUNT(*) DESC, d.restaurant_id
+                    ) AS rn
+                FROM daily_entries d
+                WHERE LEFT(d.entry_date::text, 7) = %s
+                  AND COALESCE(d.worked_hours, 0) > 0
+                GROUP BY d.actual_personnel_id, d.restaurant_id
+            ) t
+            WHERE rn = 1
+        )
         SELECT
             p.id, p.full_name, p.person_code, p.role,
             p.assigned_restaurant_id,
-            r.brand AS rest_brand, r.branch AS rest_branch
+            COALESCE(r_active.brand, r_assigned.brand) AS rest_brand,
+            COALESCE(r_active.branch, r_assigned.branch) AS rest_branch
         FROM personnel p
-        LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+        LEFT JOIN active_rest a ON a.pid = p.id
+        LEFT JOIN restaurants r_active ON r_active.id = a.rid
+        LEFT JOIN restaurants r_assigned ON r_assigned.id = p.assigned_restaurant_id
         WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
-        ORDER BY r.brand NULLS LAST, r.branch NULLS LAST,
-                 p.role, p.person_code
+           OR EXISTS (
+               SELECT 1 FROM daily_entries d2
+               WHERE d2.actual_personnel_id = p.id
+                 AND LEFT(d2.entry_date::text, 7) = %s
+           )
+        ORDER BY
+            COALESCE(r_active.brand, r_assigned.brand) NULLS LAST,
+            COALESCE(r_active.branch, r_assigned.branch) NULLS LAST,
+            p.role, p.person_code
     """
 
     # 2. O ayın tüm puantaj kayıtları
@@ -266,11 +296,27 @@ def daily_matrix(period: str) -> dict:
 
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(personnel_sql)
+            # personnel_sql 2 parametre: CTE içinde period + EXISTS içinde period
+            cur.execute(personnel_sql, (period, period))
             personnel = cur.fetchall()
 
             cur.execute(entries_sql, (period,))
             entries = cur.fetchall()
+
+            # Toplam summary'yi direkt DB'den çek (Dashboard ile aynı toplam)
+            cur.execute(
+                """
+                SELECT
+                    COUNT(*) AS total_entries,
+                    COALESCE(SUM(worked_hours), 0) AS total_hours,
+                    COALESCE(SUM(package_count), 0) AS total_packages,
+                    COUNT(*) FILTER (WHERE COALESCE(worked_hours, 0) > 0) AS worked_days
+                FROM daily_entries
+                WHERE LEFT(entry_date::text, 7) = %s
+                """,
+                (period,),
+            )
+            db_totals = cur.fetchone() or {}
 
     # 3. Personel + gün → cell map
     by_pid_day: dict[tuple[int, int], dict] = {}
@@ -374,10 +420,10 @@ def daily_matrix(period: str) -> dict:
         "period": period,
         "rows": rows,
         "summary": {
-            "total_hours": round(
-                sum(r["total_hours"] for r in rows), 1),
-            "total_packages": sum(r["total_packages"] for r in rows),
-            "worked_days": sum(r["worked_days"] for r in rows),
+            # DB'den direkt — dashboard ile tutarlı (null personel kayıtları dahil)
+            "total_hours": round(float(db_totals.get("total_hours") or 0), 1),
+            "total_packages": int(db_totals.get("total_packages") or 0),
+            "worked_days": int(db_totals.get("worked_days") or 0),
             "joker_days": sum(r["joker_days"] for r in rows),
             "cell_counts": cell_counts,
             "personnel_count": len(rows),
