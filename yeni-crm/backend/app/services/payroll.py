@@ -164,8 +164,10 @@ def list_personnel_payroll(period: str) -> list[dict]:
                         11
                     ) AS standard_daily_hours,
                     COALESCE(p.motor_purchase_monthly_amount, 0) AS motor_taksit,
+                    COALESCE(p.motor_purchase, '') AS motor_purchase_flag,
                     COALESCE(p.motor_rental_monthly_amount, 0) AS motor_kira_aylik,
                     COALESCE(p.motor_rental, '') AS motor_rental_flag,
+                    COALESCE(p.vehicle_type, '') AS vehicle_type,
                     COALESCE(p.accountant_cost, 0) AS muhasebe_aylik,
                     COALESCE(p.new_company_setup, 'Hayır') AS sirket,
                     COALESCE(p.company_setup_cost, 0) AS sirket_acilis,
@@ -423,12 +425,21 @@ def list_personnel_payroll(period: str) -> list[dict]:
             grp["lines"].append(line)
 
         # Sabit kesintiler (personnel'den)
-        motor_taksit = float(p["motor_taksit"] or 0)
+        # Araç tipi: "Çat Kapında Satış", "Çat Kapında Kiralık", "Kendi Motoru"
+        vehicle_type = (p.get("vehicle_type") or "").strip()
+        is_own_motor = vehicle_type == "Kendi Motoru"
+
+        # Motor satış taksiti — sadece "Çat Kapında Satış" + flag "Evet" + tutar > 0
+        # Kendi motoru ile çalışan kuryelerden taksit kesilmez
+        motor_taksit = 0.0
+        if not is_own_motor and p.get("motor_purchase_flag") == "Evet":
+            motor_taksit = float(p["motor_taksit"] or 0)
 
         # Motor kirası — ay içindeki aktif gün × (aylık tutar / 30)
         # Sude 31.03 işe girdiyse 1 gün × 13.000/30 = 433,33 ₺
+        # Kendi motoru ile çalışan kuryelerden kira kesilmez
         motor_kira = 0.0
-        if p.get("motor_rental_flag") == "Evet":
+        if not is_own_motor and p.get("motor_rental_flag") == "Evet":
             kira_aylik = float(p.get("motor_kira_aylik") or 0)
             if kira_aylik > 0:
                 aktif_gun = active_days_in_period(

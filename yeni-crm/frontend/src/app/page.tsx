@@ -1,3 +1,5 @@
+import { CalendarDays, Plus, Sparkles, Store, Users } from 'lucide-react';
+
 import { Sidebar } from '@/components/sidebar';
 import {
   getDashboardSummary,
@@ -28,7 +30,7 @@ export default async function DashboardPage() {
         <header className="flex justify-between items-start mb-7 gap-5">
           <div>
             <div className="text-[13px] text-text-3 font-medium mb-1.5">
-              İyi akşamlar, <span className="text-brand">Ebru</span> 👋
+              İyi akşamlar, <span className="text-brand">Ebru</span>
             </div>
             <h1 className="font-display text-[30px] font-semibold tracking-tight leading-tight">
               Genel Bakış
@@ -39,8 +41,8 @@ export default async function DashboardPage() {
                 : '— veri yükleniyor —'}
             </div>
           </div>
-          <button className="bg-brand text-white px-3.5 py-2 rounded-[10px] font-medium text-sm shadow-sm hover:bg-brand-dark transition">
-            + Yeni
+          <button className="bg-brand text-white px-3.5 py-2 rounded-[10px] font-medium text-sm shadow-sm hover:bg-brand-dark transition inline-flex items-center gap-1.5">
+            <Plus className="w-4 h-4" strokeWidth={2.5} /> Yeni
           </button>
         </header>
 
@@ -75,21 +77,29 @@ export default async function DashboardPage() {
         </div>
 
         <div className="bg-gradient-to-br from-brand-mist to-cream-soft border border-brand-border rounded-2xl p-6 mb-6">
-          <div className="font-display text-lg font-semibold mb-2">🚀 Sistem Canlı</div>
+          <div className="font-display text-lg font-semibold mb-2 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-brand" strokeWidth={2.2} /> Sistem Canlı
+          </div>
           <div className="text-sm text-text-2 leading-relaxed">
             Çat Kapında v3 yayında. Veriler Supabase'den canlı çekiliyor. Şu an kullanılabilir:
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-4">
             <a href="/personel" className="bg-bg-surface border border-border rounded-lg p-3 hover:border-brand transition">
-              <div className="font-semibold text-sm">👥 Personel</div>
+              <div className="font-semibold text-sm flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-brand" strokeWidth={2.2} /> Personel
+              </div>
               <div className="text-xs text-text-3">{summary?.active_personnel ?? 92} kurye listesi</div>
             </a>
             <a href="/restoranlar" className="bg-bg-surface border border-border rounded-lg p-3 hover:border-brand transition">
-              <div className="font-semibold text-sm">🍽 Restoranlar</div>
+              <div className="font-semibold text-sm flex items-center gap-1.5">
+                <Store className="w-3.5 h-3.5 text-brand" strokeWidth={2.2} /> Restoranlar
+              </div>
               <div className="text-xs text-text-3">{summary?.active_restaurants ?? 18} aktif anlaşma</div>
             </a>
             <a href="/puantaj" className="bg-bg-surface border border-border rounded-lg p-3 hover:border-brand transition">
-              <div className="font-semibold text-sm">📅 Puantaj</div>
+              <div className="font-semibold text-sm flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5 text-brand" strokeWidth={2.2} /> Puantaj
+              </div>
               <div className="text-xs text-text-3">{summary?.puantaj_entries.toLocaleString('tr-TR') ?? '—'} mart girişi</div>
             </a>
           </div>

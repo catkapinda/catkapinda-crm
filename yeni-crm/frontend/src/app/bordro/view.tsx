@@ -2,11 +2,16 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import {
+  Activity, ArrowDownToLine, BadgeCheck, Building2,
+  ChevronDown, ChevronRight, Filter, Flame, Gem, Layers,
+  PieChart, ReceiptText, Search, Sparkles, Store,
+  TrendingDown, Trophy, Users, Wallet, X,
+} from 'lucide-react';
 
+import { backendUrl } from '@/lib/api';
 import type { PayrollResult, PayrollRow } from '@/lib/api';
 import { normalizeTr } from '@/lib/format';
-
-const PDF_ICON = '📄';
 
 const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -104,7 +109,6 @@ export function BordroView({
     0,
   );
   const filteredTevkifat = filtered.reduce((s, r) => s + r.tevkifat, 0);
-  const filteredKesinti = filteredKesintiNonTev + filteredTevkifat;
   const filteredNet = filtered.reduce((s, r) => s + r.net, 0);
 
   const profitMargin = payroll.summary.total_brut > 0
@@ -117,7 +121,6 @@ export function BordroView({
           HERO — cinematic gradient header
          ──────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden rounded-3xl mb-6 shadow-lg">
-        {/* Gradient bg with mesh feel */}
         <div className="absolute inset-0 bg-gradient-to-br from-brand-dark via-brand to-blue-600" />
         <div className="absolute inset-0 opacity-30 mix-blend-overlay"
           style={{
@@ -125,7 +128,6 @@ export function BordroView({
               'radial-gradient(circle at 20% 20%, rgba(255,255,255,.4) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,200,100,.3) 0%, transparent 50%)',
           }}
         />
-        {/* dot pattern */}
         <div className="absolute inset-0 opacity-[0.07]"
           style={{
             backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
@@ -135,20 +137,21 @@ export function BordroView({
 
         <div className="relative px-7 py-7 flex justify-between items-start gap-6 flex-wrap">
           <div className="text-white">
-            <div className="text-[12px] font-medium tracking-[0.2em] uppercase text-white/70 mb-2 flex items-center gap-2">
+            <div className="text-[11px] font-medium tracking-[0.2em] uppercase text-white/70 mb-2 flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full bg-yellow-300 animate-pulse" />
               Finans · Bordro
             </div>
             <h1 className="font-display text-[42px] font-bold tracking-tight leading-none">
               {formatPeriod(period)}
             </h1>
-            <div className="text-white/80 text-sm mt-2 font-medium">
+            <div className="text-white/80 text-sm mt-2 font-medium flex items-center gap-1.5">
+              <Users className="w-4 h-4" strokeWidth={2.2} />
               <strong className="text-white text-[15px]">
                 {payroll.summary.courier_count}
               </strong>{' '}
-              kurye · toplam{' '}
+              kurye · brüt{' '}
               <strong className="text-white">{m(payroll.summary.total_brut)} ₺</strong>{' '}
-              brüt → ödenecek{' '}
+              → ödenecek{' '}
               <strong className="text-yellow-300">
                 {m(payroll.summary.total_net)} ₺
               </strong>
@@ -156,7 +159,6 @@ export function BordroView({
           </div>
 
           <div className="flex gap-2 items-center">
-            {/* Glass period selector */}
             <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-1 shadow-lg">
               {periods.slice(0, 4).map((p) => {
                 const isActive = p === period;
@@ -176,12 +178,12 @@ export function BordroView({
               })}
             </div>
             <button className="px-4 py-2 rounded-xl bg-white text-brand text-[13px] font-semibold shadow-md hover:bg-yellow-50 hover:scale-105 transition-all flex items-center gap-1.5">
-              ⬇ Tüm Bordrolar
+              <ArrowDownToLine className="w-4 h-4" strokeWidth={2.2} />
+              Tüm Bordrolar
             </button>
           </div>
         </div>
 
-        {/* Footer ribbon — quick stats */}
         <div className="relative grid grid-cols-2 md:grid-cols-4 border-t border-white/15 backdrop-blur-sm">
           <RibbonStat
             label="Brüt"
@@ -208,7 +210,7 @@ export function BordroView({
       </section>
 
       {/* ────────────────────────────────────────────────────────────
-          KPI cards — neon-edge gradient
+          KPI cards
          ──────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <KpiCard
@@ -216,7 +218,7 @@ export function BordroView({
           value={m(payroll.summary.total_brut)}
           suffix="₺"
           accent="brand"
-          icon="💎"
+          icon={<Gem className="w-4 h-4" strokeWidth={2.2} />}
           meta={`${payroll.summary.courier_count} kurye · ${kCompact(payroll.summary.total_brut)} ₺`}
         />
         <KpiCard
@@ -224,7 +226,7 @@ export function BordroView({
           value={m(payroll.summary.total_kesinti)}
           suffix="₺"
           accent="danger"
-          icon="🧾"
+          icon={<ReceiptText className="w-4 h-4" strokeWidth={2.2} />}
           meta={`tevkifat ${m(payroll.summary.total_tevkifat ?? 0)} ₺ dahil`}
         />
         <KpiCard
@@ -232,57 +234,62 @@ export function BordroView({
           value={m(payroll.summary.total_net)}
           suffix="₺"
           accent="success"
-          icon="💰"
+          icon={<Wallet className="w-4 h-4" strokeWidth={2.2} />}
           meta="kuryelere transfer"
         />
         <KpiCard
           label="Kesinti Oranı"
           value={`%${profitMargin.toFixed(1)}`}
           accent="warn"
-          icon="📊"
+          icon={<TrendingDown className="w-4 h-4" strokeWidth={2.2} />}
           meta="brütün kesintisi"
         />
       </div>
 
       {/* ────────────────────────────────────────────────────────────
-          GRAFIKLER — donut + restaurant ranking + podium
+          GRAFIKLER
          ──────────────────────────────────────────────────────────── */}
       <PayrollCharts payroll={payroll} />
 
       {/* ────────────────────────────────────────────────────────────
-          FILTRELER — floating chips
+          FILTRELER
          ──────────────────────────────────────────────────────────── */}
       <div className="bg-white/70 backdrop-blur-sm border border-border rounded-2xl p-3 shadow-sm mb-4 flex flex-wrap items-center gap-2 sticky top-2 z-10">
-        <div className="relative">
+        <div className="relative flex items-center">
+          <Search className="w-4 h-4 absolute left-2.5 text-text-3" strokeWidth={2.2} />
           <input
             type="search"
-            placeholder="🔍 Kurye ara…"
+            placeholder="Kurye ara…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-3 py-1.5 rounded-lg border border-border text-sm w-64 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition bg-white"
+            className="pl-8 pr-3 py-1.5 rounded-lg border border-border text-sm w-64 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition bg-white"
           />
         </div>
-        <select
-          value={restFilter ?? ''}
-          onChange={(e) => setRestFilter(e.target.value || null)}
-          className="px-3 py-1.5 rounded-lg border border-border text-sm bg-white focus:outline-none focus:border-brand transition"
-        >
-          <option value="">🏪 Tüm Restoranlar</option>
-          {restaurantOptions.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
+        <div className="relative flex items-center">
+          <Building2 className="w-4 h-4 absolute left-2.5 text-text-3 pointer-events-none" strokeWidth={2.2} />
+          <select
+            value={restFilter ?? ''}
+            onChange={(e) => setRestFilter(e.target.value || null)}
+            className="pl-8 pr-3 py-1.5 rounded-lg border border-border text-sm bg-white focus:outline-none focus:border-brand transition appearance-none"
+          >
+            <option value="">Tüm Restoranlar</option>
+            {restaurantOptions.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </div>
         {(search || restFilter) && (
           <button
             onClick={() => { setSearch(''); setRestFilter(null); }}
-            className="text-[11px] text-text-3 hover:text-brand transition px-2 py-1"
+            className="text-[11px] text-text-3 hover:text-brand transition px-2 py-1 flex items-center gap-1"
           >
-            ✕ filtreleri temizle
+            <X className="w-3 h-3" strokeWidth={2.2} /> filtreleri temizle
           </button>
         )}
-        <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider ml-auto">
+        <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider ml-auto flex items-center gap-1">
+          <Filter className="w-3 h-3" strokeWidth={2.2} />
           {filtered.length} sonuç · brüt{' '}
           <span className="text-brand font-mono">{m(filteredBrut)} ₺</span> · net{' '}
           <span className="text-green-700 font-mono">{m(filteredNet)} ₺</span>
@@ -290,26 +297,38 @@ export function BordroView({
       </div>
 
       {/* ────────────────────────────────────────────────────────────
-          TABLO — sticky header, color-coded ribbons, hover ring
+          TABLO — premium B2B SaaS density
          ──────────────────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
         <div className="bg-bg-surface border border-border rounded-2xl p-12 text-center">
-          <div className="text-4xl mb-3">🔍</div>
+          <Search className="w-10 h-10 mx-auto text-text-3 mb-3" strokeWidth={1.5} />
           <div className="text-text-3 text-sm">Sonuç bulunamadı.</div>
         </div>
       ) : (
         <div className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-[13px]">
-            <thead className="bg-gradient-to-r from-cream-100 to-cream-50 text-text-3 text-[11px] uppercase tracking-wider sticky top-0 z-10 backdrop-blur-sm">
+            <colgroup>
+              <col className="w-[260px]" />
+              <col className="w-[200px]" />
+              <col className="w-[110px]" />
+              <col className="w-[80px]" />
+              <col />
+              <col />
+              <col />
+              <col />
+              <col className="w-[40px]" />
+              <col className="w-[28px]" />
+            </colgroup>
+            <thead className="bg-cream-50/80 text-text-3 text-[10.5px] uppercase tracking-[0.08em] sticky top-0 z-10 backdrop-blur-md border-b border-border">
               <tr>
-                <th className="text-left px-3 py-3 font-bold">Kurye</th>
+                <th className="text-left px-4 py-3 font-bold">Kurye</th>
                 <th className="text-left px-3 py-3 font-bold">Restoran</th>
-                <th className="text-right px-3 py-3 font-bold">Gün/Saat</th>
+                <th className="text-right px-3 py-3 font-bold">Gün · Saat</th>
                 <th className="text-right px-3 py-3 font-bold">Paket</th>
                 <th className="text-right px-3 py-3 font-bold">Brüt</th>
                 <th className="text-right px-3 py-3 font-bold">Kesinti</th>
                 <th className="text-right px-3 py-3 font-bold">Tevkifat</th>
-                <th className="text-right px-3 py-3 font-bold bg-brand-soft text-brand">
+                <th className="text-right px-3 py-3 font-bold bg-brand-soft/60 text-brand">
                   Net
                 </th>
                 <th className="px-2 py-3"></th>
@@ -328,20 +347,20 @@ export function BordroView({
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-brand/30 bg-gradient-to-r from-brand-soft/40 to-transparent font-semibold">
-                <td colSpan={4} className="px-3 py-3.5 text-text">
+              <tr className="border-t-2 border-brand/30 bg-gradient-to-r from-brand-soft/50 to-transparent font-semibold">
+                <td colSpan={4} className="px-4 py-3 text-text text-[12.5px]">
                   Toplam ({filtered.length} kurye)
                 </td>
-                <td className="px-3 py-3.5 text-right num text-text">
+                <td className="px-3 py-3 text-right num font-mono text-text tabular-nums">
                   {m(filteredBrut)} ₺
                 </td>
-                <td className="px-3 py-3.5 text-right num text-red-600">
+                <td className="px-3 py-3 text-right num font-mono text-red-600 tabular-nums">
                   −{m(filteredKesintiNonTev)} ₺
                 </td>
-                <td className="px-3 py-3.5 text-right num text-orange-600">
+                <td className="px-3 py-3 text-right num font-mono text-orange-600 tabular-nums">
                   −{m(filteredTevkifat)} ₺
                 </td>
-                <td className="px-3 py-3.5 text-right font-display text-brand text-[16px] num bg-brand-soft">
+                <td className="px-3 py-3 text-right font-display text-brand text-[15px] num bg-brand-soft tabular-nums">
                   {m(filteredNet)} ₺
                 </td>
                 <td colSpan={2}></td>
@@ -354,9 +373,6 @@ export function BordroView({
   );
 }
 
-// ──────────────────────────────────────────────────────────────────
-// HERO ribbon stat (4 kolonlu mini özet, hero altı)
-// ──────────────────────────────────────────────────────────────────
 function RibbonStat({
   label, value, color, highlight,
 }: { label: string; value: string; color: string; highlight?: boolean }) {
@@ -372,9 +388,6 @@ function RibbonStat({
   );
 }
 
-// ──────────────────────────────────────────────────────────────────
-// KPI Card — gradient border + icon + dramatic number
-// ──────────────────────────────────────────────────────────────────
 function KpiCard({
   label, value, suffix, meta, accent, icon,
 }: {
@@ -383,31 +396,30 @@ function KpiCard({
   suffix?: string;
   meta?: string;
   accent: 'brand' | 'success' | 'danger' | 'warn';
-  icon?: string;
+  icon?: React.ReactNode;
 }) {
-  const ringMap: Record<string, string> = {
-    brand: 'before:bg-gradient-to-br before:from-brand before:to-blue-400',
-    success: 'before:bg-gradient-to-br before:from-green-500 before:to-emerald-300',
-    danger: 'before:bg-gradient-to-br before:from-red-500 before:to-orange-400',
-    warn: 'before:bg-gradient-to-br before:from-yellow-500 before:to-amber-300',
-  };
   const iconBgMap: Record<string, string> = {
     brand: 'bg-brand-soft text-brand',
     success: 'bg-green-100 text-green-700',
     danger: 'bg-red-100 text-red-700',
     warn: 'bg-yellow-100 text-yellow-800',
   };
+  const accentBarMap: Record<string, string> = {
+    brand: 'bg-gradient-to-b from-brand to-blue-400',
+    success: 'bg-gradient-to-b from-green-500 to-emerald-300',
+    danger: 'bg-gradient-to-b from-red-500 to-orange-400',
+    warn: 'bg-gradient-to-b from-yellow-500 to-amber-300',
+  };
 
   return (
-    <div
-      className={`relative bg-white rounded-2xl px-5 py-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 overflow-hidden border border-border before:content-[''] before:absolute before:inset-0 before:rounded-2xl before:opacity-0 hover:before:opacity-100 before:transition-opacity before:-z-10 before:m-[-1px] ${ringMap[accent]}`}
-    >
+    <div className="relative bg-white rounded-2xl px-5 py-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 overflow-hidden border border-border">
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${accentBarMap[accent]}`} />
       <div className="flex items-start justify-between mb-2">
         <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold">
           {label}
         </div>
         {icon && (
-          <div className={`w-7 h-7 rounded-lg ${iconBgMap[accent]} flex items-center justify-center text-[14px]`}>
+          <div className={`w-8 h-8 rounded-lg ${iconBgMap[accent]} flex items-center justify-center`}>
             {icon}
           </div>
         )}
@@ -427,9 +439,6 @@ function KpiCard({
   );
 }
 
-// ──────────────────────────────────────────────────────────────────
-// PayrollRowItem — tablo satırı + açılır detay
-// ──────────────────────────────────────────────────────────────────
 function PayrollRowItem({
   r, period, open, onToggle,
 }: {
@@ -447,109 +456,144 @@ function PayrollRowItem({
   const grad = AVATAR_GRADIENTS[(r.id ?? 0) % AVATAR_GRADIENTS.length];
   const role = r.role ?? '?';
   const roleStyle = ROLE_STYLES[role] ?? 'bg-bg-surface2 text-text-2';
+  const totalKesinti = r.kesinti_total + r.sabit_total;
 
   return (
     <>
       <tr
-        className="border-t border-border hover:bg-cream-50/60 hover:shadow-[inset_3px_0_0_var(--color-brand,#0F52BA)] transition cursor-pointer group"
+        className={`border-t border-border/70 transition cursor-pointer group ${
+          open ? 'bg-brand-soft/20' : 'hover:bg-cream-50/70'
+        }`}
         onClick={onToggle}
       >
-        <td className="px-3 py-2.5">
+        {/* Kurye — kompakt tek satır */}
+        <td className="px-4 py-2.5">
           <div className="flex items-center gap-2.5">
             <div
-              className={`w-9 h-9 rounded-full bg-gradient-to-br ${grad} text-white font-bold flex items-center justify-center text-[12px] flex-shrink-0 shadow-md ring-2 ring-white group-hover:scale-110 transition-transform`}
+              className={`w-8 h-8 rounded-full bg-gradient-to-br ${grad} text-white font-bold flex items-center justify-center text-[11px] flex-shrink-0 shadow ring-2 ring-white`}
             >
               {initials || '?'}
             </div>
-            <div className="min-w-0">
-              <div className="font-medium text-text truncate">
-                {r.full_name ?? '—'}
-              </div>
-              <div className="flex gap-1.5 items-center mt-0.5">
-                <span className="text-[10.5px] font-mono text-text-3">
-                  {r.person_code ?? ''}
-                </span>
-                <span
-                  className={`px-1.5 py-px rounded text-[10px] font-semibold ${roleStyle}`}
-                >
-                  {role}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="font-semibold text-text text-[13px] truncate">
+                  {r.full_name ?? '—'}
                 </span>
                 {r.is_fixed_salary && (
-                  <span className="px-1.5 py-px rounded text-[10px] font-semibold bg-brand-soft text-brand">
-                    Sabit
+                  <span
+                    className="px-1.5 py-px rounded text-[9.5px] font-bold bg-brand-soft text-brand inline-flex items-center gap-0.5 flex-shrink-0"
+                    title="Sabit aylık"
+                  >
+                    <BadgeCheck className="w-2.5 h-2.5" strokeWidth={2.5} />
+                    SBT
                   </span>
                 )}
               </div>
+              <div className="flex gap-1.5 items-center text-[10.5px] mt-0.5">
+                <span className="font-mono text-text-3">
+                  {r.person_code ?? ''}
+                </span>
+                <span className="text-text-3">·</span>
+                <span className={`font-medium ${roleStyle.replace('bg-', 'text-').split(' ').filter(c => c.startsWith('text-')).join(' ') || 'text-text-2'}`}>
+                  {role}
+                </span>
+              </div>
             </div>
           </div>
         </td>
+
+        {/* Restoran — sade */}
         <td className="px-3 py-2.5">
-          <div className="text-[12px] text-text-2 truncate">
-            {r.rest_brand ? (
-              <>
-                {r.rest_brand}
+          {r.rest_brand ? (
+            <div className="text-[12.5px] text-text truncate flex items-center gap-1.5">
+              <span className="w-1 h-4 rounded-full bg-brand/40" />
+              <div className="min-w-0">
+                <div className="truncate font-medium">{r.rest_brand}</div>
                 {r.rest_branch && (
-                  <span className="text-text-3"> · {r.rest_branch}</span>
+                  <div className="text-[10.5px] text-text-3 truncate">
+                    {r.rest_branch}
+                  </div>
                 )}
-              </>
-            ) : (
-              <span className="text-text-3 italic">— atanmamış —</span>
-            )}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <span className="text-text-3 italic text-[12px]">— atanmamış</span>
+          )}
         </td>
+
+        {/* Gün · Saat — tek satır kompakt */}
         <td className="px-3 py-2.5 text-right">
-          <div className="num font-mono text-[12px]">
+          <div className="font-mono text-[12px] text-text tabular-nums">
             <strong>{r.ana_days}</strong>
             {r.destek_days > 0 && (
-              <span className="text-orange-600"> +{r.destek_days}</span>
-            )}{' '}
-            <span className="text-text-3">gün</span>
-          </div>
-          <div className="text-[10.5px] text-text-3 num font-mono">
-            {tr(r.ana_hours, 1)} sa
+              <span className="text-orange-600 font-semibold">+{r.destek_days}</span>
+            )}
+            <span className="text-text-3 mx-1">·</span>
+            <span className="text-text-2">{tr(r.ana_hours, 0)}</span>
+            <span className="text-text-3 text-[10px] ml-0.5">sa</span>
           </div>
         </td>
-        <td className="px-3 py-2.5 text-right num font-mono text-text-2">
-          {tr(r.ana_packages)}
+
+        {/* Paket */}
+        <td className="px-3 py-2.5 text-right num font-mono text-[12px] text-text-2 tabular-nums">
+          {r.ana_packages > 0 ? tr(r.ana_packages) : <span className="text-text-3">—</span>}
         </td>
+
+        {/* Brüt */}
         <td className="px-3 py-2.5 text-right">
-          <div className="num font-mono font-semibold">
-            {m(r.toplam_brut)} ₺
+          <div className="num font-mono font-semibold text-[13px] tabular-nums text-text">
+            {m(r.toplam_brut)}
           </div>
           {r.kaptan_bonus > 0 && (
-            <div className="text-[10px] text-green-600 font-semibold">
-              +{m(r.kaptan_bonus)} kaptan
+            <div className="text-[9.5px] text-green-700 font-semibold">
+              +kaptan {m(r.kaptan_bonus)}
             </div>
           )}
         </td>
-        <td className="px-3 py-2.5 text-right num font-mono text-red-600">
-          −{m(r.kesinti_total + r.sabit_total)} ₺
+
+        {/* Kesinti */}
+        <td className="px-3 py-2.5 text-right num font-mono text-red-600 tabular-nums text-[12.5px]">
+          {totalKesinti > 0 ? `−${m(totalKesinti)}` : <span className="text-text-3">—</span>}
         </td>
-        <td className="px-3 py-2.5 text-right num font-mono text-orange-600">
-          {r.tevkifat > 0 ? `−${m(r.tevkifat)} ₺` : '—'}
+
+        {/* Tevkifat */}
+        <td className="px-3 py-2.5 text-right num font-mono text-orange-600 tabular-nums text-[12.5px]">
+          {r.tevkifat > 0 ? `−${m(r.tevkifat)}` : <span className="text-text-3">—</span>}
         </td>
-        <td className="px-3 py-2.5 text-right num font-display font-bold text-brand text-[14.5px] bg-brand-soft/40 group-hover:bg-brand-soft transition-colors">
-          {m(r.net)} ₺
+
+        {/* Net — accent column */}
+        <td className={`px-3 py-2.5 text-right num font-display font-bold text-[14.5px] tabular-nums ${
+          open ? 'bg-brand-soft text-brand-dark' : 'bg-brand-soft/35 text-brand group-hover:bg-brand-soft'
+        } transition-colors`}>
+          {m(r.net)}
         </td>
+
+        {/* PDF download */}
         <td
-          className="px-2 py-2.5 text-text-3 text-center w-10"
+          className="px-1 py-2.5 text-center"
           onClick={(e) => e.stopPropagation()}
         >
           <a
-            href={`/api/payroll/${r.id}/pdf?period=${encodeURIComponent(period)}`}
+            href={backendUrl(`/api/payroll/${r.id}/pdf?period=${encodeURIComponent(period)}`)}
             download
-            className="hover:text-brand text-[16px] inline-block hover:scale-110 transition-transform"
-            title="PDF indir"
+            rel="noopener"
+            className="text-text-3 hover:text-brand inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-brand-soft transition"
+            title="PDF bordro indir"
           >
-            {PDF_ICON}
+            <ArrowDownToLine className="w-3.5 h-3.5" strokeWidth={2.2} />
           </a>
         </td>
-        <td className="px-2 py-2.5 text-text-3 text-[12px] w-8">
-          {open ? '▾' : '▸'}
+
+        {/* Toggle */}
+        <td className="px-1 py-2.5 text-text-3 w-7">
+          {open ? (
+            <ChevronDown className="w-4 h-4 text-brand" strokeWidth={2.2} />
+          ) : (
+            <ChevronRight className="w-4 h-4" strokeWidth={2.2} />
+          )}
         </td>
       </tr>
 
-      {/* Detay paneli */}
       {open && (
         <tr className="bg-gradient-to-br from-cream-50 to-white border-b-2 border-brand/20">
           <td colSpan={10} className="px-5 py-5">
@@ -557,7 +601,7 @@ function PayrollRowItem({
               {/* Brüt detay */}
               <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
                 <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-3 flex items-center gap-1.5">
-                  <span>📊</span> Brüt Hesabı
+                  <Activity className="w-3.5 h-3.5" strokeWidth={2.2} /> Brüt Hesabı
                 </div>
                 <div className="space-y-1.5">
                   <DetailRow
@@ -606,7 +650,7 @@ function PayrollRowItem({
               {/* Sabit kesintiler */}
               <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
                 <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-3 flex items-center gap-1.5">
-                  <span>📋</span> Sabit Kesintiler
+                  <Layers className="w-3.5 h-3.5" strokeWidth={2.2} /> Sabit Kesintiler
                 </div>
                 <div className="space-y-1.5">
                   {r.motor_taksit > 0 && (
@@ -614,7 +658,7 @@ function PayrollRowItem({
                   )}
                   {r.motor_kira > 0 && (
                     <DetailRow
-                      label={`Motor Kirası${r.ana_days < 28 ? ` (${r.ana_days} gün)` : ''}`}
+                      label="Motor Kirası"
                       value={`−${m(r.motor_kira)} ₺`}
                       color="text-red-600"
                     />
@@ -638,7 +682,7 @@ function PayrollRowItem({
               {/* Manuel + zimmet */}
               <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
                 <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-3 flex items-center gap-1.5">
-                  <span>🧾</span> Kesintiler & Zimmet
+                  <ReceiptText className="w-3.5 h-3.5" strokeWidth={2.2} /> Kesintiler & Zimmet
                 </div>
                 <div className="space-y-1.5">
                   {r.kesinti_groups.map((g) => (
@@ -663,7 +707,7 @@ function PayrollRowItem({
             {r.tevkifat > 0 && (
               <div className="mt-3 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-xl p-4">
                 <div className="text-[10.5px] uppercase tracking-wider text-orange-800 font-bold mb-2 flex items-center gap-1.5">
-                  <span>💼</span> KDV Tevkifatı (2/10)
+                  <Flame className="w-3.5 h-3.5" strokeWidth={2.2} /> KDV Tevkifatı (2/10)
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-[11.5px]">
                   <DetailRow
@@ -684,7 +728,7 @@ function PayrollRowItem({
             )}
 
             {/* Net büyük gradient bant */}
-            <div className="mt-4 pt-4 bg-gradient-to-r from-brand to-blue-600 rounded-xl px-5 py-4 flex items-center justify-between text-white shadow-md">
+            <div className="mt-4 bg-gradient-to-r from-brand to-blue-600 rounded-xl px-5 py-4 flex items-center justify-between text-white shadow-md">
               <div className="text-[12px] font-medium opacity-90">
                 Brüt {m(r.toplam_brut)} ₺ − Kesinti{' '}
                 {m(r.kesinti_total + r.sabit_total)} ₺
@@ -716,10 +760,6 @@ function DetailRow({
   );
 }
 
-// ──────────────────────────────────────────────────────────────────
-// PayrollCharts — Donut + Restoran ranking + Top performer podium
-// ──────────────────────────────────────────────────────────────────
-
 function PayrollCharts({ payroll }: { payroll: PayrollResult }) {
   const s = payroll.summary;
   const brut = s.total_brut;
@@ -728,7 +768,7 @@ function PayrollCharts({ payroll }: { payroll: PayrollResult }) {
   const net = s.total_net;
   const sabitKesinti = kesinti - tevkifat;
 
-  // Restoran bazlı toplam net
+  // Restoran bazlı agregasyon
   const byRestaurant = useMemo(() => {
     const m = new Map<string, { count: number; brut: number; net: number }>();
     for (const r of payroll.rows) {
@@ -744,129 +784,220 @@ function PayrollCharts({ payroll }: { payroll: PayrollResult }) {
     return Array.from(m.entries())
       .map(([name, v]) => ({ name, ...v }))
       .sort((a, b) => b.brut - a.brut)
-      .slice(0, 8);
+      .slice(0, 6);
   }, [payroll.rows]);
 
-  const maxBrut = Math.max(...byRestaurant.map((r) => r.brut), 1);
+  const totalRestBrut = byRestaurant.reduce((s, r) => s + r.brut, 0);
 
-  // Top 3 kazançlı kurye (podium)
-  const top3 = useMemo(
-    () =>
-      [...payroll.rows]
-        .sort((a, b) => b.net - a.net)
-        .slice(0, 3),
-    [payroll.rows],
-  );
+  // Verimlilik metrikleri
+  const performers = useMemo(() => {
+    const couriers = payroll.rows.filter((r) => r.ana_packages > 0 && r.ana_hours > 0);
+    if (couriers.length === 0) return null;
+
+    const enCokPaket = [...couriers].sort((a, b) => b.ana_packages - a.ana_packages)[0];
+    const enVerimli = [...couriers].sort(
+      (a, b) => (b.ana_packages / b.ana_hours) - (a.ana_packages / a.ana_hours),
+    )[0];
+    // En verimsiz: en az saatte-paket oranı + minimum saat eşiği
+    const enVerimsizCandidates = couriers.filter((r) => r.ana_hours >= 50);
+    const enVerimsiz = enVerimsizCandidates.length > 0
+      ? [...enVerimsizCandidates].sort(
+          (a, b) => (a.ana_packages / a.ana_hours) - (b.ana_packages / b.ana_hours),
+        )[0]
+      : null;
+
+    return { enCokPaket, enVerimli, enVerimsiz };
+  }, [payroll.rows]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-      {/* Donut: Brüt dağılımı */}
-      <div className="bg-white border border-border rounded-2xl p-5 shadow-sm">
-        <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-3 flex items-center gap-1.5">
-          <span>🎯</span> Brüt Dağılımı
-        </div>
-        <DonutChart
-          segments={[
-            { label: 'Net', value: net, color: '#0F52BA' },
-            { label: 'Sabit Kesinti', value: sabitKesinti, color: '#EF4444' },
-            { label: 'Tevkifat', value: tevkifat, color: '#F59E0B' },
-          ]}
-          centerLabel="Brüt"
-          centerValue={`${kCompact(brut)} ₺`}
-        />
-      </div>
-
-      {/* Restoran bazlı brüt bar chart */}
-      <div className="bg-white border border-border rounded-2xl p-5 shadow-sm lg:col-span-2">
-        <div className="flex items-baseline justify-between mb-3">
-          <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold flex items-center gap-1.5">
-            <span>🏪</span> Restoran Bazlı Brüt Hakediş
+    <>
+      {/* Üst grafikler — Donut + Restoran ranking */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
+        {/* Donut: Brüt dağılımı */}
+        <div className="lg:col-span-2 bg-white border border-border rounded-2xl p-5 shadow-sm">
+          <div className="text-[11px] uppercase tracking-[0.08em] text-text-3 font-bold mb-3 flex items-center gap-1.5">
+            <PieChart className="w-3.5 h-3.5" strokeWidth={2.2} /> Brüt Dağılımı
           </div>
-          <div className="text-[11px] text-text-3">
-            En yüksek 8 restoran · ay toplamı
-          </div>
+          <DonutChart
+            segments={[
+              { label: 'Net', value: net, color: '#0F52BA' },
+              { label: 'Sabit Kesinti', value: sabitKesinti, color: '#EF4444' },
+              { label: 'Tevkifat', value: tevkifat, color: '#F59E0B' },
+            ]}
+            centerLabel="Brüt"
+            centerValue={`${kCompact(brut)} ₺`}
+          />
         </div>
-        <div className="space-y-2">
-          {byRestaurant.map((r, idx) => {
-            const ratio = r.brut / maxBrut;
-            return (
-              <div
-                key={r.name}
-                className="grid grid-cols-[170px_1fr_auto] gap-3 items-center text-[12px] group"
-              >
-                <div className="truncate text-text-2 font-medium flex items-center gap-1.5">
-                  <span className="text-[10px] font-mono text-text-3 w-4">
-                    #{idx + 1}
-                  </span>
-                  <span className="truncate">{r.name}</span>{' '}
-                  <span className="text-text-3 text-[11px] flex-shrink-0">
-                    ({r.count})
-                  </span>
-                </div>
-                <div className="bg-cream-50 rounded-lg h-7 relative overflow-hidden border border-border/60">
-                  <div
-                    className="h-full bg-gradient-to-r from-brand-dark via-brand to-blue-400 transition-all duration-1000 ease-out group-hover:from-blue-700 group-hover:to-blue-300 shadow-inner relative"
-                    style={{ width: `${ratio * 100}%` }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/10 to-transparent" />
-                  </div>
-                  <div className="absolute inset-0 flex items-center px-2.5 text-[11px] font-mono font-semibold text-white mix-blend-difference">
-                    Net {kCompact(r.net)}
-                  </div>
-                </div>
-                <div className="font-mono font-bold text-[12.5px] text-right min-w-[70px] tabular-nums">
-                  {kCompact(r.brut)} ₺
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
-      {/* Top 3 podium */}
-      <div className="lg:col-span-3 bg-gradient-to-br from-white to-cream-50 border border-border rounded-2xl p-5 shadow-sm">
-        <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-4 flex items-center gap-1.5">
-          <span>🏆</span> Ay Şampiyonları (en yüksek net)
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {top3.map((p, idx) => {
-            const grad = AVATAR_GRADIENTS[(p.id ?? 0) % AVATAR_GRADIENTS.length];
-            const initials = (p.full_name ?? '?')
-              .split(' ').filter(Boolean).slice(0, 2)
-              .map((w) => w[0]?.toUpperCase()).join('');
-            const medals = ['🥇', '🥈', '🥉'];
-            const podiumStyle = [
-              'border-yellow-400 bg-gradient-to-br from-yellow-50 to-white',
-              'border-slate-300 bg-gradient-to-br from-slate-50 to-white',
-              'border-orange-300 bg-gradient-to-br from-orange-50 to-white',
-            ];
-            return (
-              <div
-                key={p.id}
-                className={`relative rounded-xl border-2 ${podiumStyle[idx]} p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition`}
-              >
-                <div className="absolute -top-2 -right-2 text-2xl">{medals[idx]}</div>
+        {/* Restoran ranking — yeniden tasarım: tile cards */}
+        <div className="lg:col-span-3 bg-white border border-border rounded-2xl p-5 shadow-sm">
+          <div className="flex items-baseline justify-between mb-3">
+            <div className="text-[11px] uppercase tracking-[0.08em] text-text-3 font-bold flex items-center gap-1.5">
+              <Store className="w-3.5 h-3.5" strokeWidth={2.2} /> Restoran Bazlı Hakediş
+            </div>
+            <div className="text-[10.5px] text-text-3">
+              {byRestaurant.length} restoran · top 6
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {byRestaurant.map((r, idx) => {
+              const share = totalRestBrut > 0 ? (r.brut / totalRestBrut) * 100 : 0;
+              return (
                 <div
-                  className={`w-12 h-12 rounded-full bg-gradient-to-br ${grad} text-white font-bold flex items-center justify-center text-[14px] flex-shrink-0 shadow-md ring-2 ring-white`}
+                  key={r.name}
+                  className="relative bg-gradient-to-br from-cream-50 to-white border border-border/70 rounded-xl p-3 hover:border-brand/40 hover:shadow-sm transition group"
                 >
-                  {initials || '?'}
+                  {/* Soft accent ring */}
+                  <div
+                    className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl bg-gradient-to-b from-brand to-blue-400"
+                    style={{ opacity: 0.3 + (share / 100) * 0.7 }}
+                  />
+                  <div className="pl-2">
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[10px] font-mono text-text-3 w-4">
+                          #{idx + 1}
+                        </span>
+                        <span className="font-semibold text-text text-[12px] truncate">
+                          {r.name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-text-3 flex-shrink-0">
+                        %{share.toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <div className="font-display text-[16px] font-bold text-brand tabular-nums leading-none">
+                          {kCompact(r.brut)} ₺
+                        </div>
+                        <div className="text-[10px] text-text-3 mt-0.5">
+                          net {kCompact(r.net)} ₺ · {r.count} kurye
+                        </div>
+                      </div>
+                      {/* Mini horizontal progress */}
+                      <div className="w-16 h-1.5 bg-bg-surface2 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-brand-dark to-brand transition-all duration-700"
+                          style={{ width: `${Math.min(100, share * 2)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-text truncate text-[13px]">
-                    {p.full_name}
-                  </div>
-                  <div className="text-[11px] text-text-3 truncate">
-                    {p.rest_brand ?? 'Atanmamış'}
-                    {p.rest_branch && ` · ${p.rest_branch}`}
-                  </div>
-                  <div className="font-display text-[18px] font-bold text-brand mt-1 num tabular-nums">
-                    {m(p.net)} ₺
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
+      </div>
+
+      {/* Verimlilik kartları — En çok paket / En verimli / En verimsiz */}
+      {performers && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          <PerformerCard
+            label="En Çok Paket"
+            icon={<Trophy className="w-3.5 h-3.5" strokeWidth={2.2} />}
+            tone="gold"
+            row={performers.enCokPaket}
+            metric={`${tr(performers.enCokPaket.ana_packages)} paket`}
+            sub={`${tr(performers.enCokPaket.ana_hours, 0)} saatte`}
+          />
+          <PerformerCard
+            label="Saatte En Verimli"
+            icon={<Sparkles className="w-3.5 h-3.5" strokeWidth={2.2} />}
+            tone="brand"
+            row={performers.enVerimli}
+            metric={`${(performers.enVerimli.ana_packages / Math.max(performers.enVerimli.ana_hours, 1)).toFixed(2)} paket/sa`}
+            sub={`${tr(performers.enVerimli.ana_packages)} paket · ${tr(performers.enVerimli.ana_hours, 0)} sa`}
+          />
+          {performers.enVerimsiz ? (
+            <PerformerCard
+              label="En Az Verimli"
+              icon={<TrendingDown className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              tone="muted"
+              row={performers.enVerimsiz}
+              metric={`${(performers.enVerimsiz.ana_packages / Math.max(performers.enVerimsiz.ana_hours, 1)).toFixed(2)} paket/sa`}
+              sub={`${tr(performers.enVerimsiz.ana_packages)} paket · ${tr(performers.enVerimsiz.ana_hours, 0)} sa`}
+            />
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border bg-cream-50/50 p-4 flex items-center justify-center text-[11px] text-text-3 text-center">
+              Verimsiz analizi için en az 50 saat çalışan kurye gerekli.
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function PerformerCard({
+  label, icon, tone, row, metric, sub,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  tone: 'gold' | 'brand' | 'muted';
+  row: PayrollRow;
+  metric: string;
+  sub: string;
+}) {
+  const grad = AVATAR_GRADIENTS[(row.id ?? 0) % AVATAR_GRADIENTS.length];
+  const initials = (row.full_name ?? '?')
+    .split(' ').filter(Boolean).slice(0, 2)
+    .map((w) => w[0]?.toUpperCase()).join('');
+
+  const toneStyles: Record<string, { card: string; iconBg: string; metricColor: string; ring: string }> = {
+    gold: {
+      card: 'bg-gradient-to-br from-yellow-50 via-white to-amber-50 border-yellow-300/70',
+      iconBg: 'bg-yellow-100 text-yellow-700',
+      metricColor: 'text-yellow-700',
+      ring: 'ring-yellow-200',
+    },
+    brand: {
+      card: 'bg-gradient-to-br from-brand-soft via-white to-blue-50 border-brand/30',
+      iconBg: 'bg-brand-soft text-brand',
+      metricColor: 'text-brand',
+      ring: 'ring-brand/20',
+    },
+    muted: {
+      card: 'bg-gradient-to-br from-slate-50 via-white to-cream-50 border-slate-200',
+      iconBg: 'bg-slate-100 text-slate-600',
+      metricColor: 'text-slate-600',
+      ring: 'ring-slate-200',
+    },
+  };
+  const t = toneStyles[tone];
+
+  return (
+    <div className={`relative rounded-2xl border ${t.card} p-4 shadow-sm hover:shadow-md transition group`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[10.5px] uppercase tracking-[0.08em] text-text-3 font-bold flex items-center gap-1.5">
+          {icon} {label}
+        </div>
+        <div className={`w-7 h-7 rounded-lg ${t.iconBg} flex items-center justify-center`}>
+          {icon}
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div
+          className={`w-12 h-12 rounded-full bg-gradient-to-br ${grad} text-white font-bold flex items-center justify-center text-[14px] flex-shrink-0 shadow-md ring-2 ring-white`}
+        >
+          {initials || '?'}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold text-text truncate text-[13px]">
+            {row.full_name}
+          </div>
+          <div className="text-[10.5px] text-text-3 truncate">
+            {row.rest_brand ?? 'Atanmamış'}
+            {row.rest_branch && ` · ${row.rest_branch}`}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 pt-3 border-t border-border/60">
+        <div className={`font-display text-[18px] font-bold tabular-nums leading-none ${t.metricColor}`}>
+          {metric}
+        </div>
+        <div className="text-[10.5px] text-text-3 mt-1">{sub}</div>
       </div>
     </div>
   );

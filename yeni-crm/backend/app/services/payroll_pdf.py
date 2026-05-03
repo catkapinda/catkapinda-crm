@@ -159,8 +159,8 @@ def _styles() -> dict[str, ParagraphStyle]:
             textColor=colors.white, leading=11,
         ),
         "net_value": ParagraphStyle(
-            name="nv", fontName=FONT_BOLD, fontSize=22,
-            textColor=colors.white, leading=24, alignment=TA_RIGHT,
+            name="nv", fontName=FONT_BOLD, fontSize=18,
+            textColor=colors.white, leading=20, alignment=TA_RIGHT,
         ),
         "net_meta": ParagraphStyle(
             name="nm", fontName=FONT_REGULAR, fontSize=8,
@@ -184,21 +184,22 @@ def _make_header(payroll: dict, period: str, styles: dict) -> Table:
         Paragraph(
             belge,
             ParagraphStyle(
-                "br", fontName=FONT_REGULAR, fontSize=10,
-                textColor=colors.white, alignment=TA_RIGHT, leading=12,
+                "br", fontName=FONT_REGULAR, fontSize=8.5,
+                textColor=colors.white, alignment=TA_RIGHT, leading=11,
             ),
         ),
     ]
+    # Sol kolonu daraltıp sağ kolonu Belge No için genişlettik
     t = Table(
-        [[left, right]], colWidths=[110 * mm, 60 * mm], rowHeights=[24 * mm],
+        [[left, right]], colWidths=[104 * mm, 70 * mm], rowHeights=[18 * mm],
     )
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), BRAND),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 12),
         ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ("ALIGN", (1, 0), (1, 0), "RIGHT"),
     ]))
     return t
@@ -237,14 +238,14 @@ def _make_info(payroll: dict, personnel: dict | None, styles: dict) -> Table:
 
     t = Table(
         [[_build_lines(left_data), _build_lines(right_data)]],
-        colWidths=[85 * mm, 85 * mm],
+        colWidths=[87 * mm, 87 * mm],
     )
     t.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 12),
         ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 12),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
         ("LINEBELOW", (0, 0), (-1, 0), 0.5, BORDER),
     ]))
     return t
@@ -263,15 +264,15 @@ def _make_stats(payroll: dict, styles: dict) -> Table:
     rows = [[
         [
             Paragraph(label.upper(), styles["label"]),
-            Spacer(1, 2),
+            Spacer(1, 1),
             Paragraph(value, ParagraphStyle(
-                "stv", fontName=FONT_BOLD, fontSize=16,
-                textColor=TEXT, leading=18, alignment=TA_CENTER,
+                "stv", fontName=FONT_BOLD, fontSize=14,
+                textColor=TEXT, leading=16, alignment=TA_CENTER,
             )),
         ]
         for label, value in cells
     ]]
-    col_w = (170 * mm) / 4
+    col_w = (174 * mm) / 4
     t = Table(rows, colWidths=[col_w] * 4)
     t.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.5, BORDER),
@@ -280,8 +281,8 @@ def _make_stats(payroll: dict, styles: dict) -> Table:
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("LEFTPADDING", (0, 0), (-1, -1), 6),
         ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
     return t
 
@@ -291,7 +292,7 @@ def _make_brut_section(payroll: dict, styles: dict) -> list:
     flowables.append(
         Paragraph("BRÜT HAKEDİŞ", styles["section_title"])
     )
-    flowables.append(Spacer(1, 4))
+    flowables.append(Spacer(1, 2))
 
     rows = []
 
@@ -346,14 +347,14 @@ def _make_brut_section(payroll: dict, styles: dict) -> list:
         ])
 
     table_data = [[r[0], r[1]] for r in rows]
-    t = Table(table_data, colWidths=[120 * mm, 50 * mm])
+    t = Table(table_data, colWidths=[124 * mm, 50 * mm])
     style = TableStyle([
-        ("FONT", (0, 0), (-1, -1), FONT_REGULAR, 10),
+        ("FONT", (0, 0), (-1, -1), FONT_REGULAR, 9),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ])
     for i, r in enumerate(rows):
         kind = r[2]
@@ -364,63 +365,76 @@ def _make_brut_section(payroll: dict, styles: dict) -> list:
         elif kind == "kaptan":
             style.add("TEXTCOLOR", (1, i), (1, i), SUCCESS)
         elif kind == "total":
-            style.add("FONT", (0, i), (-1, i), FONT_BOLD, 11)
+            style.add("FONT", (0, i), (-1, i), FONT_BOLD, 10.5)
             style.add("LINEABOVE", (0, i), (-1, i), 0.5, BORDER)
-            style.add("TOPPADDING", (0, i), (-1, i), 6)
+            style.add("TOPPADDING", (0, i), (-1, i), 4)
         elif kind == "fatura":
-            style.add("FONT", (0, i), (-1, i), FONT_BOLD, 10)
+            style.add("FONT", (0, i), (-1, i), FONT_BOLD, 9.5)
     t.setStyle(style)
     flowables.append(t)
-
-    # KDV breakdown italik
-    tev = payroll.get("tevkifat_breakdown", {})
-    if (tev.get("invoice_base_amount") or 0) > 0:
-        flowables.append(Spacer(1, 4))
-        kdv_text = (
-            f"↳ <b>KDV hariç matrah:</b> {_money(tev['invoice_base_amount'])} ₺  ·  "
-            f"<b>KDV (%20):</b> {_money(tev['vat_amount'])} ₺"
-        )
-        flowables.append(Paragraph(
-            kdv_text,
-            ParagraphStyle(
-                "kdv", fontName=FONT_REGULAR, fontSize=8.5,
-                textColor=TEXT_2, leading=11,
-            ),
-        ))
+    # KDV breakdown bölümünü kaldırdık (tevkifat detayını kesinti tarafında veriyoruz)
     return flowables
 
 
 def _make_kesinti_section(payroll: dict, styles: dict) -> list:
     flowables: list = []
     flowables.append(Paragraph("KESİNTİLER & ZİMMET", styles["section_title"]))
-    flowables.append(Spacer(1, 4))
+    flowables.append(Spacer(1, 2))
 
+    # Her satır: [label_paragraph_or_str, value, kind]
+    # kind: "row" (normal), "subitem" (zimmet alt-kalemi), "tevkifat", "total"
     rows: list[list] = []
     if payroll.get("motor_taksit", 0) > 0:
-        rows.append(["Motor Satış Taksiti", "−" + _money(payroll["motor_taksit"]) + " ₺"])
+        rows.append(["Motor Satış Taksiti", "−" + _money(payroll["motor_taksit"]) + " ₺", "row"])
     if payroll.get("motor_kira", 0) > 0:
-        days = payroll.get("ana_days", 30)
-        suffix = f" ({days} gün × aylık/30)" if days < 28 else ""
+        # Formül göstermiyoruz; sadece "Motor Kirası"
         rows.append([
-            f"Motor Kirası{suffix}", "−" + _money(payroll["motor_kira"]) + " ₺",
+            "Motor Kirası", "−" + _money(payroll["motor_kira"]) + " ₺", "row",
         ])
     if payroll.get("muhasebe", 0) > 0:
-        rows.append(["ÇK Muhasebe Bedeli", "−" + _money(payroll["muhasebe"]) + " ₺"])
+        rows.append(["ÇK Muhasebe Bedeli", "−" + _money(payroll["muhasebe"]) + " ₺", "row"])
     if payroll.get("sirket_acilis", 0) > 0:
-        rows.append(["Şirket Açılış Bedeli (1×)", "−" + _money(payroll["sirket_acilis"]) + " ₺"])
+        rows.append(["Şirket Açılış Bedeli (1×)", "−" + _money(payroll["sirket_acilis"]) + " ₺", "row"])
+
+    subitem_style = ParagraphStyle(
+        "ksub", fontName=FONT_REGULAR, fontSize=8,
+        textColor=TEXT_3, leading=10, leftIndent=10,
+    )
 
     for g in payroll.get("kesinti_groups", []):
-        # Türkçe normalize + "(N kayıt)" suffix kaldırıldı (kullanıcı isteği)
         type_label = _normalize_tr(g.get("type", ""))
         rows.append([
             type_label,
             "−" + _money(g.get("total", 0)) + " ₺",
+            "row",
         ])
+        # Detaylı alt-kalemler (özellikle zimmet için)
+        for line in g.get("lines", []) or []:
+            equip = line.get("equipment")
+            inst = line.get("installments")
+            note = line.get("notes")
+            amt = float(line.get("amount") or 0)
+            parts = []
+            if equip:
+                parts.append(_normalize_tr(equip))
+            if inst and int(inst) > 1:
+                parts.append(f"{int(inst)} taksit")
+            if note and not equip:
+                parts.append(str(note))
+            if not parts:
+                continue  # tek satırlık manuel kayıt → suffix yok, atla
+            label_txt = "↳ " + " · ".join(parts)
+            rows.append([
+                Paragraph(label_txt, subitem_style),
+                "−" + _money(amt) + " ₺",
+                "subitem",
+            ])
 
     if payroll.get("tevkifat", 0) > 0:
         rows.append([
             "KDV Tevkifatı (2/10) — Zorunlu devlet kesintisidir",
             "−" + _money(payroll["tevkifat"]) + " ₺",
+            "row",
         ])
 
     if not rows:
@@ -431,22 +445,31 @@ def _make_kesinti_section(payroll: dict, styles: dict) -> list:
         + payroll.get("kesinti_total", 0)
         + payroll.get("tevkifat", 0)
     )
-    rows.append(["Toplam Kesinti", "−" + _money(total_kesinti) + " ₺"])
+    rows.append(["Toplam Kesinti", "−" + _money(total_kesinti) + " ₺", "total"])
 
-    t = Table(rows, colWidths=[120 * mm, 50 * mm])
+    table_data = [[r[0], r[1]] for r in rows]
+    t = Table(table_data, colWidths=[124 * mm, 50 * mm])
     style = TableStyle([
-        ("FONT", (0, 0), (-1, -1), FONT_REGULAR, 10),
+        ("FONT", (0, 0), (-1, -1), FONT_REGULAR, 9),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
         ("TEXTCOLOR", (1, 0), (1, -1), DANGER),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ])
-    last = len(rows) - 1
-    style.add("FONT", (0, last), (-1, last), FONT_BOLD, 11)
-    style.add("LINEABOVE", (0, last), (-1, last), 0.5, BORDER)
-    style.add("TOPPADDING", (0, last), (-1, last), 6)
+    for i, r in enumerate(rows):
+        kind = r[2] if len(r) > 2 else "row"
+        if kind == "subitem":
+            # alt-kalem gri, küçük, sağ taraftaki tutar da soluk
+            style.add("TEXTCOLOR", (1, i), (1, i), TEXT_3)
+            style.add("FONT", (0, i), (-1, i), FONT_REGULAR, 8)
+            style.add("TOPPADDING", (0, i), (-1, i), 1)
+            style.add("BOTTOMPADDING", (0, i), (-1, i), 1)
+        elif kind == "total":
+            style.add("FONT", (0, i), (-1, i), FONT_BOLD, 10.5)
+            style.add("LINEABOVE", (0, i), (-1, i), 0.5, BORDER)
+            style.add("TOPPADDING", (0, i), (-1, i), 5)
     t.setStyle(style)
     flowables.append(t)
     return flowables
@@ -470,40 +493,60 @@ def _make_net(payroll: dict, styles: dict) -> Table:
         Paragraph(_money(payroll["net"]) + " ₺", styles["net_value"]),
     ]
     t = Table(
-        [[left, right]], colWidths=[100 * mm, 70 * mm], rowHeights=[28 * mm],
+        [[left, right]], colWidths=[104 * mm, 70 * mm], rowHeights=[22 * mm],
     )
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), BRAND),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 14),
         ("RIGHTPADDING", (0, 0), (-1, -1), 14),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ("ALIGN", (1, 0), (1, 0), "RIGHT"),
     ]))
     return t
 
 
 def _make_signatures(payroll: dict, styles: dict) -> Table:
+    """İmza bloğu — kompakt: başlık → ad → ad altında sağ-sol hizalı 'Tarih' ve 'İmza'."""
     from datetime import date
     today_str = date.today().strftime("%d.%m.%Y")
 
-    def block(title: str, name: str, date_str: str):
+    name_style = ParagraphStyle(
+        "sn", fontName=FONT_BOLD, fontSize=9.5,
+        textColor=TEXT, leading=12,
+    )
+
+    meta_style = ParagraphStyle(
+        "sd", fontName=FONT_REGULAR, fontSize=8,
+        textColor=TEXT_3, leading=10,
+    )
+    meta_right = ParagraphStyle(
+        "sd_r", fontName=FONT_REGULAR, fontSize=8,
+        textColor=TEXT_3, leading=10, alignment=TA_RIGHT,
+    )
+
+    def block(title: str, name: str, date_str: str) -> list:
+        # Tarih (sol) + İmza (sağ) yan yana, tek satır
+        meta_row = Table(
+            [[
+                Paragraph(f"Tarih: {date_str}", meta_style),
+                Paragraph("İmza", meta_right),
+            ]],
+            colWidths=[35 * mm, 35 * mm],
+        )
+        meta_row.setStyle(TableStyle([
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
         return [
             Paragraph(title.upper(), styles["section_title"]),
-            Spacer(1, 32),  # imza için boşluk
-            Paragraph(name, ParagraphStyle(
-                "sn", fontName=FONT_REGULAR, fontSize=10,
-                textColor=TEXT_2, leading=12,
-                borderPadding=(0, 0, 4, 0),
-            )),
-            Paragraph(
-                f"Tarih: {date_str}",
-                ParagraphStyle(
-                    "sd", fontName=FONT_REGULAR, fontSize=8,
-                    textColor=TEXT_3, leading=10,
-                ),
-            ),
+            Spacer(1, 2),
+            Paragraph(name, name_style),
+            Spacer(1, 2),
+            meta_row,
         ]
 
     left = block(
@@ -514,18 +557,18 @@ def _make_signatures(payroll: dict, styles: dict) -> Table:
     right = block(
         "Kurye İmza",
         payroll.get("full_name") or "—",
-        "____________________",
+        "____________",
     )
 
     t = Table(
-        [[left, right]], colWidths=[85 * mm, 85 * mm],
+        [[left, right]], colWidths=[87 * mm, 87 * mm],
     )
     t.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 12),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
     ]))
     return t
 
@@ -552,7 +595,7 @@ def _make_footer(payroll: dict, period: str) -> Table:
         "ft2", fontName=FONT_REGULAR, fontSize=7.5,
         textColor=TEXT_3, leading=10,
     ))
-    t = Table([[p1], [Spacer(1, 4)], [p2]], colWidths=[170 * mm])
+    t = Table([[p1], [Spacer(1, 4)], [p2]], colWidths=[174 * mm])
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), CREAM_50),
         ("LEFTPADDING", (0, 0), (-1, -1), 12),
@@ -573,10 +616,10 @@ def generate_payroll_pdf(payroll: dict, personnel: dict | None, period: str) -> 
     doc = BaseDocTemplate(
         buf,
         pagesize=A4,
-        leftMargin=20 * mm,
-        rightMargin=20 * mm,
-        topMargin=15 * mm,
-        bottomMargin=15 * mm,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
         title=f"Bordro {payroll.get('full_name','')} {period}",
     )
     frame = Frame(
@@ -589,19 +632,19 @@ def generate_payroll_pdf(payroll: dict, personnel: dict | None, period: str) -> 
     flow.append(_make_header(payroll, period, styles))
     flow.append(Spacer(1, 0))
     flow.append(_make_info(payroll, personnel, styles))
-    flow.append(Spacer(1, 8))
+    flow.append(Spacer(1, 6))
     flow.append(_make_stats(payroll, styles))
-    flow.append(Spacer(1, 12))
+    flow.append(Spacer(1, 9))
     flow += _make_brut_section(payroll, styles)
-    flow.append(Spacer(1, 14))
+    flow.append(Spacer(1, 10))
     kesinti = _make_kesinti_section(payroll, styles)
     if kesinti:
         flow += kesinti
-        flow.append(Spacer(1, 14))
+        flow.append(Spacer(1, 10))
     flow.append(_make_net(payroll, styles))
-    flow.append(Spacer(1, 12))
-    flow.append(_make_signatures(payroll, styles))
     flow.append(Spacer(1, 8))
+    flow.append(_make_signatures(payroll, styles))
+    flow.append(Spacer(1, 4))
     flow.append(_make_footer(payroll, period))
 
     doc.build(flow)

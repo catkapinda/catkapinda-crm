@@ -11,6 +11,15 @@ const SERVER_API = process.env.NEXT_PUBLIC_API_URL
       : `http://${process.env.NEXT_PUBLIC_API_URL}`)
   : 'http://localhost:8000';
 
+/**
+ * PDF / dosya indirme gibi durumlar için backend'in tam URL'ini döner.
+ * Tarayıcıda relative path Next.js rewrites kullanır; ancak `<a download>`
+ * bazı tarayıcılarda rewrites'ı atlayabildiği için tam URL daha güvenli.
+ */
+export function backendUrl(path: string): string {
+  return `${SERVER_API}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 export async function apiGet<T>(path: string, opts?: { revalidate?: number }): Promise<T> {
   const url = `${SERVER_API}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(url, {
