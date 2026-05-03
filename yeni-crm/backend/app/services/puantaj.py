@@ -225,6 +225,144 @@ def upsert_cell(
     return {"action": action, "id": row["id"] if row else None}
 
 
+def bulk_fill(
+    period: str,
+    pattern: str,
+    hours: float = 9,
+    package_count: int = 0,
+    personnel_ids: list[int] | None = None,
+    restaurant_id: int | None = None,
+) -> dict:
+    """Hızlı doldur (toplu giriş).
+
+    pattern:
+      - 'weekdays' → hafta içi tüm günleri dolduruir (boş hücreler)
+      - 'all' → ayın tüm günlerini doldurur (boş hücreler)
+      - 'weekend_off' → hafta sonu boş bırakır, hafta içi 9 saat
+      - 'copy_previous' → bir önceki ayın puantajını kopyalar
+    """
+    from datetime import date as date_cls
+    from calendar import monthrange
+
+    y, m = period.split("-")
+    yi, mi = int(y), int(m)
+    last_day = monthrange(yi, mi)[1]
+
+    inserted = 0
+    skipped = 0
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Personel listesi
+            if personnel_ids:
+                cur.execute(
+                    "SELECT id, assigned_restaurant_id FROM personnel "
+                    "WHERE id = ANY(%s) AND COALESCE(status, 'Aktif') = 'Aktif'",
+                    (personnel_ids,),
+                )
+            else:
+                cur.execute(
+                    "SELECT id, assigned_restaurant_id FROM personnel "
+                    "WHERE COALESCE(status, 'Aktif') = 'Aktif' "
+                    "AND assigned_restaurant_id IS NOT NULL",
+                )
+            personnel = cur.fetchall()
+
+            if pattern == "copy_previous":
+                # Önceki ayı kopyala
+                prev_y, prev_m = (yi, mi - 1) if mi > 1 else (yi - 1, 12)
+                prev_period = f"{prev_y:04d}-{prev_m:02d}"
+                cur.execute(
+                    """
+                    SELECT actual_personnel_id, restaurant_id, entry_date,
+                           worked_hours, package_count, coverage_type, status
+                    FROM daily_entries
+                    WHERE LEFT(entry_date::text, 7) = %s
+                      AND COALESCE(worked_hours, 0) > 0
+                    """,
+                    (prev_period,),
+                )
+                prev_rows = cur.fetchall()
+                for r in prev_rows:
+                    pid, rid, ed, wh, pc, ct, st = r
+                    # Ay/gün shift
+                    if not ed:
+                        continue
+                    eds = str(ed)
+                    try:
+                        d = int(eds[8:10])
+                    except ValueError:
+                        continue
+                    if d > last_day:
+                        continue  # Mart 31, Şubat 28-29 farkı için
+                    new_date = f"{yi:04d}-{mi:02d}-{d:02d}"
+                    # Var mı kontrol
+                    cur.execute(
+                        "SELECT 1 FROM daily_entries "
+                        "WHERE actual_personnel_id = %s AND entry_date::text = %s",
+                        (pid, new_date),
+                    )
+                    if cur.fetchone():
+                        skipped += 1
+                        continue
+                    cur.execute(
+                        """
+                        INSERT INTO daily_entries
+                            (entry_date, restaurant_id, actual_personnel_id,
+                             planned_personnel_id, worked_hours, package_count,
+                             status, coverage_type)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (new_date, rid, pid, pid, wh, pc, st or "Normal", ct),
+                    )
+                    inserted += 1
+            else:
+                # weekdays / all / weekend_off pattern
+                for p in personnel:
+                    pid, p_rid = p
+                    target_rid = restaurant_id or p_rid
+                    if not target_rid:
+                        continue
+                    for day in range(1, last_day + 1):
+                        dt = date_cls(yi, mi, day)
+                        is_weekend = dt.weekday() >= 5  # Cts/Paz
+                        if pattern == "weekdays" and is_weekend:
+                            continue
+                        if pattern == "weekend_off" and is_weekend:
+                            continue
+                        # 'all' ise her gün doldur
+
+                        date_str = dt.isoformat()
+                        # Var mı?
+                        cur.execute(
+                            "SELECT 1 FROM daily_entries "
+                            "WHERE actual_personnel_id = %s "
+                            "  AND entry_date::text = %s",
+                            (pid, date_str),
+                        )
+                        if cur.fetchone():
+                            skipped += 1
+                            continue
+
+                        cur.execute(
+                            """
+                            INSERT INTO daily_entries
+                                (entry_date, restaurant_id, actual_personnel_id,
+                                 planned_personnel_id, worked_hours, package_count,
+                                 status)
+                            VALUES (%s, %s, %s, %s, %s, %s, 'Normal')
+                            """,
+                            (
+                                date_str, target_rid, pid, pid,
+                                hours, package_count,
+                            ),
+                        )
+                        inserted += 1
+            conn.commit()
+
+    return {"inserted": inserted, "skipped": skipped, "pattern": pattern}
+
+
 def daily_matrix(period: str) -> dict:
     """Personel × gün matrisi — puantaj grid sayfası için.
 
@@ -265,12 +403,26 @@ def daily_matrix(period: str) -> dict:
         LEFT JOIN active_rest a ON a.pid = p.id
         LEFT JOIN restaurants r_active ON r_active.id = a.rid
         LEFT JOIN restaurants r_assigned ON r_assigned.id = p.assigned_restaurant_id
-        WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
-           OR EXISTS (
-               SELECT 1 FROM daily_entries d2
-               WHERE d2.actual_personnel_id = p.id
-                 AND LEFT(d2.entry_date::text, 7) = %s
-           )
+        WHERE
+            -- 1) Aktif personel
+            COALESCE(p.status, 'Aktif') = 'Aktif'
+            -- 2) Atanmamış (Joker) veya AKTİF restorana atanmış
+            AND (
+                p.assigned_restaurant_id IS NULL
+                OR EXISTS (
+                    SELECT 1 FROM restaurants r3
+                    WHERE r3.id = p.assigned_restaurant_id
+                      AND COALESCE(r3.active, 1) = 1
+                )
+            )
+            -- 3) O ay AKTİF bir restoranda puantaj kaydı VAR
+            AND EXISTS (
+                SELECT 1 FROM daily_entries d2
+                LEFT JOIN restaurants r4 ON r4.id = d2.restaurant_id
+                WHERE d2.actual_personnel_id = p.id
+                  AND LEFT(d2.entry_date::text, 7) = %s
+                  AND COALESCE(r4.active, 1) = 1
+            )
         ORDER BY
             COALESCE(r_active.brand, r_assigned.brand) NULLS LAST,
             COALESCE(r_active.branch, r_assigned.branch) NULLS LAST,

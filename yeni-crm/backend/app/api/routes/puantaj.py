@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from app.services.puantaj import (
     available_periods,
+    bulk_fill,
     daily_matrix,
     list_entries,
     summary_by_restaurant,
@@ -56,6 +57,28 @@ async def summary_restaurant(period: str) -> list[dict]:
 async def matrix(period: str = "2026-03") -> dict:
     """Personel × gün matrisi — grid sayfası için."""
     return daily_matrix(period=period)
+
+
+class BulkFillPayload(BaseModel):
+    period: str
+    pattern: str  # weekdays | all | weekend_off | copy_previous
+    hours: float = 9
+    package_count: int = 0
+    personnel_ids: list[int] | None = None
+    restaurant_id: int | None = None
+
+
+@router.post("/bulk-fill")
+async def post_bulk_fill(payload: BulkFillPayload) -> dict:
+    """Hızlı doldur (toplu giriş) — boş hücreleri varsayılan değerlerle doldurur."""
+    return bulk_fill(
+        period=payload.period,
+        pattern=payload.pattern,
+        hours=payload.hours,
+        package_count=payload.package_count,
+        personnel_ids=payload.personnel_ids,
+        restaurant_id=payload.restaurant_id,
+    )
 
 
 @router.patch("/cell")

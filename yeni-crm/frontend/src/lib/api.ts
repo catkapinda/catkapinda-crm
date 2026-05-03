@@ -600,3 +600,88 @@ export async function updatePuantajCell(
 ): Promise<{ action: string; id: number | null }> {
   return apiMutate(`/api/puantaj/cell`, payload, 'PATCH');
 }
+
+export type PuantajBulkFill = {
+  period: string;
+  pattern: 'weekdays' | 'all' | 'weekend_off' | 'copy_previous';
+  hours?: number;
+  package_count?: number;
+  personnel_ids?: number[];
+  restaurant_id?: number;
+};
+
+export async function bulkFillPuantaj(
+  payload: PuantajBulkFill,
+): Promise<{ inserted: number; skipped: number; pattern: string }> {
+  return apiMutate(`/api/puantaj/bulk-fill`, payload, 'POST');
+}
+
+// ─────────────────────────────────────────────────────────────
+// Bordro
+// ─────────────────────────────────────────────────────────────
+
+export type PayrollKesintiLine = {
+  amount: number;
+  notes?: string | null;
+  equipment?: string;
+  installments?: number;
+};
+
+export type PayrollKesintiGroup = {
+  type: string;
+  count: number;
+  total: number;
+  lines: PayrollKesintiLine[];
+};
+
+export type PayrollDestekLine = {
+  restaurant_id: number;
+  days: number;
+  hours: number;
+  packages: number;
+  amount: number;
+};
+
+export type PayrollRow = {
+  id: number;
+  full_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  rest_brand: string | null;
+  rest_branch: string | null;
+  pricing_model: string | null;
+  is_fixed_salary: boolean;
+  ana_hours: number;
+  ana_packages: number;
+  ana_days: number;
+  destek_days: number;
+  destek_lines: PayrollDestekLine[];
+  ana_brut: number;
+  destek_brut: number;
+  kaptan_bonus: number;
+  toplam_brut: number;
+  motor_taksit: number;
+  muhasebe: number;
+  sirket_acilis: number;
+  kesinti_groups: PayrollKesintiGroup[];
+  kesinti_total: number;
+  sabit_total: number;
+  net: number;
+};
+
+export type PayrollResult = {
+  period: string;
+  rows: PayrollRow[];
+  summary: {
+    courier_count: number;
+    total_brut: number;
+    total_kesinti: number;
+    total_net: number;
+  };
+};
+
+export async function getPayroll(
+  period: string = '2026-03',
+): Promise<PayrollResult> {
+  return apiGet<PayrollResult>(`/api/payroll?period=${period}`);
+}

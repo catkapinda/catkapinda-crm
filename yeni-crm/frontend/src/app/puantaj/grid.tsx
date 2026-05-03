@@ -8,6 +8,7 @@ import {
   type MatrixCell,
   type MatrixRow,
   type PuantajMatrix,
+  bulkFillPuantaj,
   updatePuantajCell,
 } from '@/lib/api';
 
@@ -86,8 +87,41 @@ export function PuantajGrid({
     cell: MatrixCell;
     pos: { x: number; y: number };
   } | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
+  const router = useRouter();
 
   const totalDays = daysInMonth(period);
+
+  async function runBulk(
+    pattern: 'weekdays' | 'all' | 'weekend_off' | 'copy_previous',
+    hours = 9,
+  ) {
+    if (bulkBusy) return;
+    const label =
+      pattern === 'copy_previous'
+        ? 'Geçen aydan kopyala'
+        : pattern === 'weekend_off'
+        ? 'Hafta sonu boş + hafta içi 9 saat'
+        : pattern === 'weekdays'
+        ? 'Hafta içi → 9 saat'
+        : 'Tüm gün → 9 saat';
+    if (!confirm(`${label} işlemini onayla? Mevcut hücreler atlanır, sadece boşlar doldurulur.`)) return;
+    setBulkBusy(true);
+    setBulkMsg(null);
+    try {
+      const res = await bulkFillPuantaj({ period, pattern, hours });
+      setBulkMsg(`✅ ${res.inserted} kayıt eklendi · ${res.skipped} atlandı (zaten dolu)`);
+      router.refresh();
+    } catch (err) {
+      setBulkMsg(
+        err instanceof Error ? `❌ ${err.message}` : '❌ Hata oluştu',
+      );
+    } finally {
+      setBulkBusy(false);
+      setTimeout(() => setBulkMsg(null), 6000);
+    }
+  }
 
   const restaurantOptions = useMemo(() => {
     const set = new Set<string>();
@@ -356,13 +390,25 @@ export function PuantajGrid({
           <span className="text-[12px] text-white/70">
             <strong className="text-white">Hızlı doldur:</strong>
           </span>
-          <button className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[12.5px] font-medium hover:bg-white/20 transition">
+          <button
+            onClick={() => runBulk('all', 9)}
+            disabled={bulkBusy}
+            className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[12.5px] font-medium hover:bg-white/20 transition disabled:opacity-50"
+          >
             Tüm gün → 9 saat
           </button>
-          <button className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[12.5px] font-medium hover:bg-white/20 transition">
+          <button
+            onClick={() => runBulk('weekend_off', 9)}
+            disabled={bulkBusy}
+            className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[12.5px] font-medium hover:bg-white/20 transition disabled:opacity-50"
+          >
             Hafta sonu → boş
           </button>
-          <button className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[12.5px] font-medium hover:bg-white/20 transition">
+          <button
+            onClick={() => runBulk('copy_previous')}
+            disabled={bulkBusy}
+            className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[12.5px] font-medium hover:bg-white/20 transition disabled:opacity-50"
+          >
             Geçen aydan kopyala
           </button>
           <span className="w-px h-5 bg-white/20" />
@@ -376,7 +422,7 @@ export function PuantajGrid({
         </div>
         <div className="flex gap-2 items-center">
           <span className="text-[11.5px] text-white/60">
-            ✓ Otomatik kaydedildi
+            {bulkMsg ?? (bulkBusy ? '⏳ Doldur işlemi…' : '✓ Otomatik kaydedildi')}
           </span>
           <button className="px-3 py-1.5 rounded-lg bg-brand border border-brand text-[12.5px] font-semibold hover:bg-brand-dark transition">
             PDF Önizleme

@@ -3,7 +3,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     dashboard, deductions, equipment, health,
-    personel, puantaj, restaurants, sidebar,
+    payroll, personel, puantaj, restaurants, sidebar,
 )
 
 api_router = APIRouter(prefix="/api")
@@ -16,3 +16,4 @@ api_router.include_router(sidebar.router, prefix="/sidebar", tags=["sidebar"])
 api_router.include_router(puantaj.router, prefix="/puantaj", tags=["puantaj"])
 api_router.include_router(deductions.router, prefix="/deductions", tags=["deductions"])
 api_router.include_router(equipment.router, prefix="/equipment", tags=["equipment"])
+api_router.include_router(payroll.router, prefix="/payroll", tags=["payroll"])
