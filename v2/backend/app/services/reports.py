@@ -377,26 +377,6 @@ def _calculate_invoice_subtotal_for_rows(rows: list[dict[str, object]], *, resta
     return 0.0
 
 
-def _rows_use_special_invoice_person_logic(rows: list[dict[str, object]]) -> bool:
-    if not rows:
-        return False
-    first = rows[0]
-    brand = first.get("brand")
-    pricing_model = str(first.get("pricing_model") or "").strip()
-    if _is_fixed_monthly_brand(brand):
-        return True
-    if pricing_model == "fixed_monthly":
-        return False
-    return any(
-        _safe_float(row.get("monthly_invoice_amount")) > 0
-        and (
-            str(row.get("role") or "").strip() in _SUPPORT_HOLIDAY_DOUBLE_ROLES
-            or str(row.get("cost_model") or "").strip() in _SUPPORT_HOLIDAY_DOUBLE_COST_MODELS
-        )
-        for row in rows
-    )
-
-
 def _calculate_personnel_gross_cost(
     *,
     cost_model: object,
@@ -465,42 +445,23 @@ def _calculate_restaurant_invoice(rows: list[dict[str, object]]) -> tuple[float,
     total_hours = sum(_safe_float(row.get("worked_hours")) for row in rows)
     total_packages = sum(_safe_float(row.get("package_count")) for row in rows)
 
-    if _rows_use_special_invoice_person_logic(rows):
-        person_groups: dict[tuple[str, str], list[dict[str, object]]] = {}
-        for row in rows:
-            person_groups.setdefault(
-                (
-                    str(row.get("personnel") or "-"),
-                    str(row.get("role") or "-"),
-                ),
-                [],
-            ).append(row)
+    person_groups: dict[tuple[str, str], list[dict[str, object]]] = {}
+    for row in rows:
+        person_groups.setdefault(
+            (
+                str(row.get("personnel") or "-"),
+                str(row.get("role") or "-"),
+            ),
+            [],
+        ).append(row)
 
-        subtotal = 0.0
-        for person_rows in person_groups.values():
-            subtotal += _calculate_invoice_subtotal_for_rows(
-                person_rows,
-                restaurant_fixed_fee=fixed_monthly_fee,
-            )
-    elif pricing_model == "hourly_plus_package":
-        subtotal = total_hours * hourly_rate + total_packages * package_rate
-    elif pricing_model == "threshold_package":
-        actor_totals: dict[str, dict[str, float]] = {}
-        for row in rows:
-            actor_bucket = actor_totals.setdefault(_invoice_actor_key(row), {"hours": 0.0, "packages": 0.0})
-            actor_bucket["hours"] += _safe_float(row.get("worked_hours"))
-            actor_bucket["packages"] += _safe_float(row.get("package_count"))
-        subtotal = 0.0
-        for values in actor_totals.values():
-            actor_packages = values["packages"]
-            actor_package_rate = package_rate_low if actor_packages <= package_threshold else package_rate_high
-            subtotal += values["hours"] * hourly_rate + actor_packages * actor_package_rate
-    elif pricing_model == "hourly_only":
-        subtotal = total_hours * hourly_rate
-    elif pricing_model == "fixed_monthly":
-        subtotal = _fixed_monthly_fee_for_rows(rows, fixed_monthly_fee)
-    else:
-        subtotal = sum(_safe_float(row.get("monthly_invoice_amount")) for row in rows)
+    subtotal = 0.0
+    for person_rows in person_groups.values():
+        subtotal += _calculate_invoice_subtotal_for_rows(
+            person_rows,
+            restaurant_fixed_fee=fixed_monthly_fee,
+        )
+
     grand_total = subtotal * (1 + (vat_rate / 100.0))
     return total_hours, total_packages, subtotal, grand_total
 
@@ -537,9 +498,6 @@ def _build_local_invoice_drilldown_entries(rows: list[dict[str, object]]) -> lis
             person_groups.setdefault((personnel_label, role_label), []).append(restaurant_row)
 
         resolved_fixed_monthly_fee = _fixed_monthly_fee_for_rows(restaurant_rows, fixed_monthly_fee)
-        use_special_person_logic = _rows_use_special_invoice_person_logic(restaurant_rows)
-        restaurant_total_hours = sum(_safe_float(row.get("worked_hours")) for row in restaurant_rows)
-        restaurant_total_packages = sum(_safe_float(row.get("package_count")) for row in restaurant_rows)
 
         for (personnel_label, role_label), person_rows in sorted(person_groups.items()):
             total_hours = sum(_safe_float(row.get("worked_hours")) for row in person_rows)
@@ -547,29 +505,10 @@ def _build_local_invoice_drilldown_entries(rows: list[dict[str, object]]) -> lis
             if total_hours <= 0 and total_packages <= 0:
                 continue
 
-            if use_special_person_logic:
-                net_invoice_amount = _calculate_invoice_subtotal_for_rows(
-                    person_rows,
-                    restaurant_fixed_fee=resolved_fixed_monthly_fee,
-                )
-            elif pricing_model == "hourly_plus_package":
-                net_invoice_amount = total_hours * hourly_rate + total_packages * package_rate
-            elif pricing_model == "threshold_package":
-                package_rate_for_person = (
-                    package_rate_low if total_packages <= package_threshold else package_rate_high
-                )
-                net_invoice_amount = total_hours * hourly_rate + total_packages * package_rate_for_person
-            elif pricing_model == "hourly_only":
-                net_invoice_amount = total_hours * hourly_rate
-            elif pricing_model == "fixed_monthly":
-                if restaurant_total_hours > 0:
-                    net_invoice_amount = resolved_fixed_monthly_fee * (total_hours / restaurant_total_hours)
-                elif restaurant_total_packages > 0:
-                    net_invoice_amount = resolved_fixed_monthly_fee * (total_packages / restaurant_total_packages)
-                else:
-                    net_invoice_amount = resolved_fixed_monthly_fee / max(len(person_groups), 1)
-            else:
-                net_invoice_amount = 0.0
+            net_invoice_amount = _calculate_invoice_subtotal_for_rows(
+                person_rows,
+                restaurant_fixed_fee=resolved_fixed_monthly_fee,
+            )
 
             drilldown_entries.append(
                 ReportInvoiceDrilldownEntry(
