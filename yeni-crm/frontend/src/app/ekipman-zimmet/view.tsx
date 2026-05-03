@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Backpack, Box, CloudRain, Package, Shield, Shirt,
+  Sparkles, Timer, type LucideIcon,
+} from 'lucide-react';
 
 import {
   type EquipmentAssignment,
@@ -11,16 +15,23 @@ import {
 } from '@/lib/api';
 import { normalizeTr } from '@/lib/format';
 
-const ITEM_ICONS: Record<string, string> = {
-  'Korumalı Mont': '🧥',
-  Yağmurluk: '🌧️',
-  Tshirt: '👕',
-  Polar: '🧶',
-  Yelek: '🦺',
-  'Göğüs Çantası': '🎒',
-  Box: '📦',
-  Punch: '⏱️',
+const ITEM_ICONS: Record<string, LucideIcon> = {
+  'Korumalı Mont': Shield,
+  Yağmurluk: CloudRain,
+  Tshirt: Shirt,
+  Polar: Sparkles,
+  Yelek: Shield,
+  'Göğüs Çantası': Backpack,
+  Box: Box,
+  Punch: Timer,
 };
+
+function ItemIcon({
+  name, className = 'w-3.5 h-3.5', strokeWidth = 2.2,
+}: { name: string | null | undefined; className?: string; strokeWidth?: number }) {
+  const Icon = (name && ITEM_ICONS[name]) || Package;
+  return <Icon className={className} strokeWidth={strokeWidth} />;
+}
 
 function tr(value: number | null | undefined, digits = 0): string {
   if (value == null) return '—';
@@ -123,8 +134,8 @@ export function EkipmanView({
             key={b.name}
             className="flex-1 px-5 py-4 border-r border-border last:border-r-0"
           >
-            <div className="text-[10.5px] font-semibold uppercase tracking-wider text-text-3">
-              {ITEM_ICONS[normalizeTr(b.name)] ?? ITEM_ICONS[b.name] ?? '📦'} {normalizeTr(b.name)}
+            <div className="text-[10.5px] font-semibold uppercase tracking-wider text-text-3 flex items-center gap-1.5">
+              <ItemIcon name={normalizeTr(b.name) || b.name} className="w-3 h-3" /> {normalizeTr(b.name)}
             </div>
             <div className="font-display text-[22px] font-bold tracking-tight num mt-1">
               {b.count}
@@ -214,10 +225,10 @@ export function EkipmanView({
                           </div>
                         </td>
                         <td className="px-3 py-2.5">
-                          <span className="text-base mr-1">
-                            {ITEM_ICONS[normalizeTr(a.item_name)] ?? ITEM_ICONS[a.item_name] ?? '📦'}
+                          <span className="inline-flex items-center gap-1.5">
+                            <ItemIcon name={normalizeTr(a.item_name) || a.item_name} className="w-4 h-4 text-text-3" />
+                            {normalizeTr(a.item_name)}
                           </span>
-                          {normalizeTr(a.item_name)}
                         </td>
                         <td className="px-3 py-2.5 text-right num">
                           {a.quantity}
@@ -270,7 +281,9 @@ export function EkipmanView({
               key={item.name}
               className="bg-bg-surface border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all"
             >
-              <div className="text-3xl mb-2">{ITEM_ICONS[item.name] ?? '📦'}</div>
+              <div className="w-10 h-10 rounded-lg bg-brand-soft text-brand flex items-center justify-center mb-2">
+                <ItemIcon name={item.name} className="w-5 h-5" />
+              </div>
               <div className="font-display font-semibold text-[16px] tracking-tight">
                 {item.name}
               </div>
@@ -416,8 +429,8 @@ function NewAssignmentModal({
                       : 'border-border hover:border-brand/40 text-text-2'
                   }`}
                 >
-                  <div className="text-lg mb-0.5">
-                    {ITEM_ICONS[c.name] ?? '📦'}
+                  <div className="flex items-center justify-center mb-0.5">
+                    <ItemIcon name={c.name} className="w-4 h-4" />
                   </div>
                   {c.name}
                 </button>

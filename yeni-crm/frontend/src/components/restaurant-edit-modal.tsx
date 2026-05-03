@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ClipboardList, Phone } from 'lucide-react';
 
 import {
   type Restaurant,
@@ -257,8 +258,8 @@ export function RestaurantEditModal({
 
           {/* Resmi Bilgiler */}
           <div className="border-t border-border pt-4">
-            <div className="text-[11px] uppercase tracking-wider text-text-3 font-semibold mb-3">
-              📋 Resmi Bilgiler
+            <div className="text-[11px] uppercase tracking-wider text-text-3 font-semibold mb-3 flex items-center gap-1.5">
+              <ClipboardList className="w-3.5 h-3.5" strokeWidth={2.2} /> Resmi Bilgiler
             </div>
             <Field label="Ticari Ünvan">
               <input
@@ -294,8 +295,8 @@ export function RestaurantEditModal({
 
           {/* İletişim */}
           <div className="border-t border-border pt-4">
-            <div className="text-[11px] uppercase tracking-wider text-text-3 font-semibold mb-3">
-              📞 İletişim
+            <div className="text-[11px] uppercase tracking-wider text-text-3 font-semibold mb-3 flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5" strokeWidth={2.2} /> İletişim
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Yetkili İsim Soyisim">

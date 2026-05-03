@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Activity, Bike, ClipboardList, Sparkles, Star, UserCircle2, Utensils,
+} from 'lucide-react';
 
 import {
   type Personnel,
@@ -412,7 +415,7 @@ export function PersonnelEditModal({
           {/* FORM */}
           <div className="overflow-y-auto px-7 pt-4 pb-6 space-y-6">
             {/* 1. KİMLİK */}
-            <Section id="pp-step-1" icon="👤" title="Kimlik Bilgileri">
+            <Section id="pp-step-1" icon={<UserCircle2 className="w-4 h-4" strokeWidth={2.2} />} title="Kimlik Bilgileri">
               <Row>
                 <Field label="Ad Soyad" required>
                   <input
@@ -492,7 +495,7 @@ export function PersonnelEditModal({
             </Section>
 
             {/* 2. GÖREV */}
-            <Section id="pp-step-2" icon="🍽" title="Görev & Hakediş">
+            <Section id="pp-step-2" icon={<Utensils className="w-4 h-4" strokeWidth={2.2} />} title="Görev & Hakediş">
               <Row>
                 <Field label="Rol" required>
                   <select
@@ -529,7 +532,7 @@ export function PersonnelEditModal({
             </Section>
 
             {/* 3. ARAÇ */}
-            <Section id="pp-step-3" icon="🛵" title="Araç Bilgisi">
+            <Section id="pp-step-3" icon={<Bike className="w-4 h-4" strokeWidth={2.2} />} title="Araç Bilgisi">
               <ArayCard
                 value={form.vehicle_type}
                 onChange={(v) => {
@@ -568,7 +571,7 @@ export function PersonnelEditModal({
 
               {form.vehicle_type === 'Çat Kapında Satış' && (
                 <>
-                  <Banner color="cream" icon="📜">
+                  <Banner color="cream" icon={<ClipboardList className="w-3.5 h-3.5" strokeWidth={2.2} />}>
                     <strong>Taahhüt:</strong> kurye sözleşme süresince aylık
                     taksiti ödemekle yükümlü. PDF hakedişte "Motor Satış Taksidi
                     18/2" gibi gösterilir.
@@ -622,7 +625,7 @@ export function PersonnelEditModal({
             </Section>
 
             {/* 4. MUHASEBE */}
-            <Section id="pp-step-4" icon="📋" title="Muhasebe & Vergi">
+            <Section id="pp-step-4" icon={<ClipboardList className="w-4 h-4" strokeWidth={2.2} />} title="Muhasebe & Vergi">
               <Row>
                 <Field label="Muhasebe Tipi" required>
                   <select
@@ -747,8 +750,8 @@ export function PersonnelEditModal({
 
           {/* SIDE — Canlı Hesap */}
           <aside className="bg-cream-50 border-l border-border p-5 overflow-y-auto">
-            <div className="text-[10.5px] font-semibold text-text-3 uppercase tracking-wider mb-3">
-              📊 Canlı Hesap
+            <div className="text-[10.5px] font-semibold text-text-3 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Activity className="w-3 h-3" strokeWidth={2.4} /> Canlı Hesap
             </div>
 
             {/* Avatar preview */}
@@ -939,7 +942,7 @@ function GorevHakedis({
 
       {/* Kaptan bonusu */}
       {isKaptan && (
-        <Banner color="success" icon="⭐">
+        <Banner color="success" icon={<Star className="w-3.5 h-3.5" strokeWidth={2.2} />}>
           <strong>Kaptan rolü:</strong> standart kurye gibi saat + paket alır,
           ek olarak <strong>her ay otomatik +3.000 ₺ Kaptan Bonusu</strong>{' '}
           hakedişine eklenir.
@@ -975,7 +978,7 @@ function GorevHakedis({
 
       {/* BM/Joker için bilgi banner */}
       {noRestaurant && (
-        <Banner color="cream" icon="🌐">
+        <Banner color="cream" icon={<Sparkles className="w-3.5 h-3.5" strokeWidth={2.2} />}>
           <strong>Bu rol bir restorana atanmaz.</strong> Tüm restoranlardan
           sorumludur.
         </Banner>
@@ -1046,14 +1049,14 @@ function Section({
   id, icon, title, children,
 }: {
   id?: string;
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
 }) {
   return (
     <section id={id} className="space-y-3 scroll-mt-2">
       <div className="text-[12px] font-bold text-text-3 uppercase tracking-[0.06em] flex items-center gap-2">
-        <span className="text-base">{icon}</span>
+        <span className="text-brand">{icon}</span>
         <span>{title}</span>
       </div>
       <div className="space-y-3">{children}</div>
@@ -1169,7 +1172,7 @@ function Banner({
   color = 'brand', icon, children,
 }: {
   color?: keyof typeof BANNER_STYLES;
-  icon: string;
+  icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   const s = BANNER_STYLES[color] ?? BANNER_STYLES.brand;

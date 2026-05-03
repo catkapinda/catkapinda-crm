@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { AlertTriangle, ChevronLeft } from 'lucide-react';
 
 import { Sidebar } from '@/components/sidebar';
 import {
@@ -94,8 +95,8 @@ export default async function RestaurantDetailPage({
       <main className="p-8 max-w-[1500px]">
         {/* Breadcrumb */}
         <div className="text-[13px] text-text-3 font-medium mb-3 flex items-center gap-2">
-          <Link href="/restoranlar" className="hover:text-brand transition">
-            ← Restoranlar
+          <Link href="/restoranlar" className="hover:text-brand transition inline-flex items-center gap-0.5">
+            <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2.2} /> Restoranlar
           </Link>
           {r && (
             <>
@@ -238,7 +239,7 @@ export default async function RestaurantDetailPage({
             <details className="mt-4 bg-yellow-50/40 border border-yellow-200 rounded-2xl overflow-hidden">
               <summary className="px-4 py-3 cursor-pointer flex items-center justify-between gap-3 hover:bg-yellow-50 transition">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-yellow-700">⚠</span>
+                  <AlertTriangle className="w-4 h-4 text-yellow-700" strokeWidth={2.2} />
                   <span className="font-semibold text-yellow-900">
                     Plan yapıldı, çalışmadı
                   </span>

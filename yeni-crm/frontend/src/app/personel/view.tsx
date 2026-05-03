@@ -1,6 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import {
+  AlertTriangle, Award, Bike, Box, Building2, Check, ClipboardList,
+  Crown, Sparkles, Trophy, TrendingUp, Utensils, Zap,
+} from 'lucide-react';
 
 import { PersonnelEditModal } from '@/components/personnel-edit-modal';
 import type {
@@ -247,7 +251,7 @@ export function PersonnelView({
         <RichHeroCell
           label="Kurye"
           value={heroMetrics.kurye}
-          icon="🛵"
+          icon={<Bike className="w-4 h-4" strokeWidth={2.2} />}
           iconBg="bg-brand-soft text-brand"
           fraction={heroMetrics.total > 0 ? heroMetrics.kurye / heroMetrics.total : 0}
           fractionColor="bg-brand"
@@ -256,7 +260,7 @@ export function PersonnelView({
         <RichHeroCell
           label="Yönetim"
           value={heroMetrics.yonetim}
-          icon="👔"
+          icon={<Crown className="w-4 h-4" strokeWidth={2.2} />}
           iconBg="bg-bg-surface2 text-text-2"
           meta="BM · Kaptan · Şef"
           stack={[
@@ -268,7 +272,7 @@ export function PersonnelView({
         <RichHeroCell
           label="Joker"
           value={heroMetrics.joker}
-          icon="🃏"
+          icon={<Award className="w-4 h-4" strokeWidth={2.2} />}
           iconBg="bg-cream-100 text-yellow-800"
           meta="dış kurye"
           fraction={
@@ -281,7 +285,7 @@ export function PersonnelView({
         <RichHeroCell
           label="Motor / Şirket"
           value={heroMetrics.motorSatis + heroMetrics.motorKira}
-          icon="📦"
+          icon={<Box className="w-4 h-4" strokeWidth={2.2} />}
           iconBg="bg-orange-50 text-orange-700"
           meta={`${heroMetrics.motorSatis} satış · ${heroMetrics.motorKira} kira · ${heroMetrics.sirketAcilis} şirket`}
         />
@@ -292,13 +296,14 @@ export function PersonnelView({
         <AIInsightsHero insights={insights} />
       )}
 
-      {/* 🏆 Mart Şampiyonları — Podium */}
+      {/* Mart Şampiyonları — Podium */}
       {topPerformers.length > 0 && (
         <section className="mb-5">
           <div className="flex items-baseline justify-between mb-3">
             <div>
-              <span className="font-display text-lg font-semibold tracking-tight">
-                🏆 Mart Şampiyonları
+              <span className="font-display text-lg font-semibold tracking-tight inline-flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-yellow-500" strokeWidth={2.2} />
+                Mart Şampiyonları
               </span>
               <span className="text-text-3 text-[12.5px] ml-2 font-medium">
                 paket sayısına göre · Mart 2026
@@ -313,13 +318,14 @@ export function PersonnelView({
         </section>
       )}
 
-      {/* ⚡ Yönetim & Yedek Operasyon */}
+      {/* Yönetim & Yedek Operasyon */}
       {management.length > 0 && (
         <section className="mb-5">
           <div className="flex items-baseline justify-between mb-3">
             <div>
-              <span className="font-display text-lg font-semibold tracking-tight">
-                ⚡ Yönetim & Yedek Operasyon
+              <span className="font-display text-lg font-semibold tracking-tight inline-flex items-center gap-2">
+                <Zap className="w-5 h-5 text-brand" strokeWidth={2.2} />
+                Yönetim & Yedek Operasyon
               </span>
               <span className="text-text-3 text-[12.5px] ml-2 font-medium">
                 sabit maaşlı · operasyondan sorumlu · maliyet geri kazanımıyla
@@ -694,8 +700,8 @@ function PersonnelRow({
       {/* Şirket açılışı */}
       <td className="px-3 py-2">
         {p.new_company_setup === 'Evet' ? (
-          <span className="px-1.5 py-0.5 rounded-md text-[10.5px] font-medium bg-blue-50 text-blue-700">
-            ✓ Açıldı
+          <span className="px-1.5 py-0.5 rounded-md text-[10.5px] font-medium bg-blue-50 text-blue-700 inline-flex items-center gap-0.5">
+            <Check className="w-3 h-3" strokeWidth={2.4} /> Açıldı
           </span>
         ) : (
           <span className="text-text-3 text-[11px]">—</span>
@@ -877,7 +883,7 @@ function PersonCard({
 
           {restName && (
             <div className="text-[12.5px] text-text-2 font-medium mt-2 flex items-center gap-1.5 truncate">
-              <span className="text-[12px]">🍽</span>
+              <Utensils className="w-3 h-3 text-text-3 flex-shrink-0" strokeWidth={2.2} />
               <span className="truncate">{restName}</span>
             </div>
           )}
@@ -895,8 +901,8 @@ function PersonCard({
               {acc.label}
             </span>
             {p.new_company_setup === 'Evet' && (
-              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700">
-                🏢 Şirket
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700 inline-flex items-center gap-0.5">
+                <Building2 className="w-2.5 h-2.5" strokeWidth={2.4} /> Şirket
               </span>
             )}
           </div>
@@ -960,7 +966,7 @@ function RichHeroCell({
   label: string;
   value: number;
   brand?: boolean;
-  icon?: string;
+  icon?: React.ReactNode;
   iconBg?: string;
   meta?: React.ReactNode;
   fraction?: number;
@@ -1040,7 +1046,7 @@ function PodiumCard({
   performer: TopPerformer;
   rank: number;
 }) {
-  const medals = ['🥇', '🥈', '🥉'];
+  const medalColors = ['text-yellow-500', 'text-slate-400', 'text-orange-400'];
   const grads = [
     'from-blue-700 to-blue-500', // 1
     'from-blue-900 to-blue-700', // 2
@@ -1074,7 +1080,13 @@ function PodiumCard({
       >
         {rank}
       </div>
-      <div className="text-2xl absolute top-4 left-4">{medals[rank - 1] ?? '🏅'}</div>
+      <div className="absolute top-4 left-4">
+        <Crown
+          className={`w-6 h-6 ${medalColors[rank - 1] ?? 'text-slate-300'}`}
+          strokeWidth={2}
+          fill="currentColor"
+        />
+      </div>
 
       <div className="pt-7 relative">
         <div
@@ -1352,7 +1364,7 @@ function AIInsightsHero({ insights }: { insights: PageInsights }) {
         {/* Sol — başlık */}
         <div className="relative z-[1]">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-brand to-blue-500 text-white text-[11px] font-bold rounded-full uppercase tracking-wider mb-3.5 shadow-md">
-            <span className="text-[11px] animate-spin-slow">✦</span>
+            <Sparkles className="w-3 h-3 animate-spin-slow" strokeWidth={2.4} />
             <span>Akıllı İçgörü · Bu Hafta</span>
           </div>
           <h2
@@ -1381,7 +1393,7 @@ function AIInsightsHero({ insights }: { insights: PageInsights }) {
         {/* Sağ — 4 mini insight kart */}
         <div className="grid grid-cols-2 gap-3 relative z-[1]">
           <InsightCard
-            icon="↗"
+            icon={<TrendingUp className="w-4 h-4" strokeWidth={2.2} />}
             iconBg="bg-green-50 text-green-700"
             title="Eşik Aşımı"
             value={tn.length > 0 ? `${tn.length} kurye` : 'Yok'}
@@ -1398,7 +1410,7 @@ function AIInsightsHero({ insights }: { insights: PageInsights }) {
           </InsightCard>
 
           <InsightCard
-            icon="⚠"
+            icon={<AlertTriangle className="w-4 h-4" strokeWidth={2.2} />}
             iconBg="bg-yellow-50 text-yellow-700"
             title="Eksik Kapasite"
             value={cg.length > 0 ? `${cg.length} restoran` : 'Tam'}
@@ -1412,7 +1424,7 @@ function AIInsightsHero({ insights }: { insights: PageInsights }) {
           </InsightCard>
 
           <InsightCard
-            icon="⚡"
+            icon={<Zap className="w-4 h-4" strokeWidth={2.2} />}
             iconBg="bg-brand-soft text-brand"
             title="Verimlilik Liderleri"
             value={
@@ -1448,7 +1460,7 @@ function AIInsightsHero({ insights }: { insights: PageInsights }) {
           </InsightCard>
 
           <InsightCard
-            icon="📋"
+            icon={<ClipboardList className="w-4 h-4" strokeWidth={2.2} />}
             iconBg="bg-cream-100 text-yellow-800"
             title="Bekleyen Aksiyonlar"
             value={`${pending} talep`}
@@ -1477,7 +1489,7 @@ function AIInsightsHero({ insights }: { insights: PageInsights }) {
 function InsightCard({
   icon, iconBg, title, value, children,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   iconBg: string;
   title: string;
   value: string;

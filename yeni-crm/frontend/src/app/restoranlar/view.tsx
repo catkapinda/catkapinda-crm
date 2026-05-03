@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import {
+  ArrowRight, ArrowUpDown, LayoutGrid, List, Pencil, X,
+} from 'lucide-react';
 
 import { RestaurantEditModal } from '@/components/restaurant-edit-modal';
 import type { Restaurant, RestaurantPuantajSummary } from '@/lib/api';
@@ -215,16 +218,28 @@ export function RestaurantsView({
         />
 
         <div className="flex items-center gap-1 bg-bg-surface2 rounded-lg p-1">
-          <SortPill active={sortKey === 'brand'} onClick={() => setSortKey('brand')}>A→Z</SortPill>
-          <SortPill active={sortKey === 'packages'} onClick={() => setSortKey('packages')}>Paket ▾</SortPill>
-          <SortPill active={sortKey === 'hours'} onClick={() => setSortKey('hours')}>Saat ▾</SortPill>
-          <SortPill active={sortKey === 'fill'} onClick={() => setSortKey('fill')}>Doluluk ▾</SortPill>
-          <SortPill active={sortKey === 'absences'} onClick={() => setSortKey('absences')}>Devamsızlık ▾</SortPill>
+          <SortPill active={sortKey === 'brand'} onClick={() => setSortKey('brand')}>A–Z</SortPill>
+          <SortPill active={sortKey === 'packages'} onClick={() => setSortKey('packages')}>
+            <span className="inline-flex items-center gap-1">Paket <ArrowUpDown className="w-3 h-3" strokeWidth={2.2} /></span>
+          </SortPill>
+          <SortPill active={sortKey === 'hours'} onClick={() => setSortKey('hours')}>
+            <span className="inline-flex items-center gap-1">Saat <ArrowUpDown className="w-3 h-3" strokeWidth={2.2} /></span>
+          </SortPill>
+          <SortPill active={sortKey === 'fill'} onClick={() => setSortKey('fill')}>
+            <span className="inline-flex items-center gap-1">Doluluk <ArrowUpDown className="w-3 h-3" strokeWidth={2.2} /></span>
+          </SortPill>
+          <SortPill active={sortKey === 'absences'} onClick={() => setSortKey('absences')}>
+            <span className="inline-flex items-center gap-1">Devamsızlık <ArrowUpDown className="w-3 h-3" strokeWidth={2.2} /></span>
+          </SortPill>
         </div>
 
         <div className="flex items-center gap-1 bg-bg-surface2 rounded-lg p-1">
-          <SortPill active={view === 'grid'} onClick={() => setView('grid')}>◫ Kart</SortPill>
-          <SortPill active={view === 'group'} onClick={() => setView('group')}>≡ Marka</SortPill>
+          <SortPill active={view === 'grid'} onClick={() => setView('grid')}>
+            <span className="inline-flex items-center gap-1"><LayoutGrid className="w-3.5 h-3.5" strokeWidth={2.2} /> Kart</span>
+          </SortPill>
+          <SortPill active={view === 'group'} onClick={() => setView('group')}>
+            <span className="inline-flex items-center gap-1"><List className="w-3.5 h-3.5" strokeWidth={2.2} /> Marka</span>
+          </SortPill>
         </div>
 
         <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider ml-auto">
@@ -274,9 +289,9 @@ export function RestaurantsView({
               setActiveModel(null);
               setSearch('');
             }}
-            className="ml-auto text-[12px] text-text-3 hover:text-brand transition underline-offset-2 hover:underline"
+            className="ml-auto text-[12px] text-text-3 hover:text-brand transition underline-offset-2 hover:underline inline-flex items-center gap-1"
           >
-            ✕ filtreleri temizle
+            <X className="w-3 h-3" strokeWidth={2.4} /> filtreleri temizle
           </button>
         )}
       </div>
@@ -408,8 +423,10 @@ function ModelCell({
       >
         {value}
       </div>
-      <div className={`text-[11.5px] mt-1 ${isActive ? 'text-brand/75' : 'text-text-3'}`}>
-        {isActive ? 'filtre aktif' : 'filtrele →'}
+      <div className={`text-[11.5px] mt-1 ${isActive ? 'text-brand/75' : 'text-text-3'} inline-flex items-center gap-1`}>
+        {isActive ? 'filtre aktif' : (
+          <>filtrele <ArrowRight className="w-3 h-3" strokeWidth={2.2} /></>
+        )}
       </div>
     </button>
   );
@@ -548,7 +565,7 @@ function RestaurantCard({
         <div className="mt-4 flex items-center justify-between gap-2">
           <span className="text-[12px] text-text-2 group-hover:text-brand transition flex items-center gap-1.5 font-medium">
             <span>Detayı görüntüle</span>
-            <span className="opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition">→</span>
+            <ArrowRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition" strokeWidth={2.2} />
           </span>
           <button
             type="button"
@@ -557,10 +574,10 @@ function RestaurantCard({
               e.stopPropagation();
               onEdit();
             }}
-            className="text-[11px] text-text-3 hover:text-brand transition px-2 py-1 rounded-md hover:bg-brand-soft"
+            className="text-[11px] text-text-3 hover:text-brand transition px-2 py-1 rounded-md hover:bg-brand-soft inline-flex items-center gap-1"
             title="Düzenle"
           >
-            ✎ Düzenle
+            <Pencil className="w-3 h-3" strokeWidth={2.2} /> Düzenle
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { ChevronLeft, Printer } from 'lucide-react';
 
 import type { PayrollRow, Personnel } from '@/lib/api';
 
@@ -55,15 +56,15 @@ export function BordroPrint({
       <div className="max-w-[800px] mx-auto mb-3 flex justify-end gap-2 print:hidden">
         <button
           onClick={() => window.history.back()}
-          className="px-3 py-1.5 rounded-lg border border-border bg-bg-surface text-[12.5px] font-medium hover:bg-bg-surface2 transition"
+          className="px-3 py-1.5 rounded-lg border border-border bg-bg-surface text-[12.5px] font-medium hover:bg-bg-surface2 transition inline-flex items-center gap-1"
         >
-          ← Geri
+          <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2.4} /> Geri
         </button>
         <button
           onClick={() => window.print()}
-          className="px-4 py-1.5 rounded-lg bg-brand text-white text-[12.5px] font-semibold shadow-sm hover:bg-brand-dark transition"
+          className="px-4 py-1.5 rounded-lg bg-brand text-white text-[12.5px] font-semibold shadow-sm hover:bg-brand-dark transition inline-flex items-center gap-1.5"
         >
-          🖨️ PDF olarak yazdır
+          <Printer className="w-3.5 h-3.5" strokeWidth={2.4} /> PDF olarak yazdır
         </button>
       </div>
 

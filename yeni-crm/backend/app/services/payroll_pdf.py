@@ -205,10 +205,23 @@ def _make_header(payroll: dict, period: str, styles: dict) -> Table:
     return t
 
 
+def _no_restaurant_label(role: str | None) -> str:
+    """Joker / BM / Kaptan için 'atanmamış' yerine anlamlı etiket."""
+    r = (role or "").strip()
+    if r == "Joker":
+        return "Havuz · Esnek Atama"
+    if r in ("Bölge Müdürü", "Kaptan"):
+        return "Tüm Operasyon"
+    return "—"
+
+
 def _make_info(payroll: dict, personnel: dict | None, styles: dict) -> Table:
-    rest = payroll.get("rest_brand") or "—"
+    rest = payroll.get("rest_brand")
     branch = payroll.get("rest_branch")
-    rest_label = f"{rest} · {branch}" if branch else rest
+    if rest:
+        rest_label = f"{rest} · {branch}" if branch else rest
+    else:
+        rest_label = _no_restaurant_label(payroll.get("role"))
 
     left_data = [
         ("Adı Soyadı", payroll.get("full_name") or "—"),

@@ -40,7 +40,7 @@ export default async function RestoranlarPage() {
           </h1>
           <div className="text-text-3 text-sm mt-1 font-medium">
             {error
-              ? '⚠ Veriler yüklenemedi'
+              ? 'Veriler yüklenemedi'
               : `${restaurants.length} aktif restoran · Mart 2026 performansı yansıtılıyor · karta tıklayıp düzenleyin`}
           </div>
         </header>

@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  ArrowDownToLine, BarChart3, Check, CheckCircle2, Copy, Loader2,
+} from 'lucide-react';
 
 import {
   type MatrixCell,
@@ -111,11 +114,11 @@ export function PuantajGrid({
     setBulkMsg(null);
     try {
       const res = await bulkFillPuantaj({ period, pattern, hours });
-      setBulkMsg(`✅ ${res.inserted} kayıt eklendi · ${res.skipped} atlandı (zaten dolu)`);
+      setBulkMsg(`${res.inserted} kayıt eklendi · ${res.skipped} atlandı (zaten dolu)`);
       router.refresh();
     } catch (err) {
       setBulkMsg(
-        err instanceof Error ? `❌ ${err.message}` : '❌ Hata oluştu',
+        err instanceof Error ? err.message : 'Hata oluştu',
       );
     } finally {
       setBulkBusy(false);
@@ -198,13 +201,13 @@ export function PuantajGrid({
             })}
           </div>
           <button className="px-3 py-2 rounded-xl bg-bg-surface border border-border text-text-2 text-[13px] font-medium hover:border-text/30 transition flex items-center gap-1.5">
-            📋 Geçen aydan kopyala
+            <Copy className="w-3.5 h-3.5" strokeWidth={2.2} /> Geçen aydan kopyala
           </button>
           <button className="px-3 py-2 rounded-xl bg-bg-surface border border-border text-text-2 text-[13px] font-medium hover:border-text/30 transition flex items-center gap-1.5">
-            ⬇ Excel Şablonu
+            <ArrowDownToLine className="w-3.5 h-3.5" strokeWidth={2.2} /> Excel Şablonu
           </button>
           <button className="px-4 py-2 rounded-xl bg-brand text-white text-[13px] font-semibold shadow-sm hover:bg-brand-dark transition flex items-center gap-1.5">
-            ✓ Onayla & Bordroya
+            <CheckCircle2 className="w-4 h-4" strokeWidth={2.2} /> Onayla & Bordroya
           </button>
         </div>
       </header>
@@ -395,14 +398,14 @@ export function PuantajGrid({
             disabled={bulkBusy}
             className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[12.5px] font-medium hover:bg-white/20 transition disabled:opacity-50"
           >
-            Tüm gün → 9 saat
+            Tüm gün · 9 saat
           </button>
           <button
             onClick={() => runBulk('weekend_off', 9)}
             disabled={bulkBusy}
             className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[12.5px] font-medium hover:bg-white/20 transition disabled:opacity-50"
           >
-            Hafta sonu → boş
+            Hafta sonu boş
           </button>
           <button
             onClick={() => runBulk('copy_previous')}
@@ -412,8 +415,8 @@ export function PuantajGrid({
             Geçen aydan kopyala
           </button>
           <span className="w-px h-5 bg-white/20" />
-          <span className="text-[12px] text-white/75">
-            📊 Toplam:{' '}
+          <span className="text-[12px] text-white/75 inline-flex items-center gap-1">
+            <BarChart3 className="w-3.5 h-3.5" strokeWidth={2.2} /> Toplam:{' '}
             <strong className="text-white font-mono">
               {tr(Math.round(matrix.summary.total_hours))} sa ·{' '}
               {tr(matrix.summary.total_packages)} paket
@@ -421,8 +424,12 @@ export function PuantajGrid({
           </span>
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-[11.5px] text-white/60">
-            {bulkMsg ?? (bulkBusy ? '⏳ Doldur işlemi…' : '✓ Otomatik kaydedildi')}
+          <span className="text-[11.5px] text-white/60 inline-flex items-center gap-1">
+            {bulkMsg ?? (bulkBusy ? (
+              <><Loader2 className="w-3 h-3 animate-spin" strokeWidth={2.2} /> Doldur işlemi…</>
+            ) : (
+              <><Check className="w-3 h-3" strokeWidth={2.4} /> Otomatik kaydedildi</>
+            ))}
           </span>
           <button className="px-3 py-1.5 rounded-lg bg-brand border border-brand text-[12.5px] font-semibold hover:bg-brand-dark transition">
             PDF Önizleme
@@ -608,16 +615,16 @@ function Cell({
     );
   } else if (t === 'izin') {
     bg = 'bg-cream-100';
-    content = <span className="text-[13px]">🌴</span>;
+    content = <StPlane className="w-3 h-3 text-yellow-700" strokeWidth={2.2} />;
   } else if (t === 'gelmedi') {
     bg = 'bg-red-50';
-    content = <span className="text-[13px] text-red-600 font-bold">✗</span>;
+    content = <StX className="w-3.5 h-3.5 text-red-600" strokeWidth={2.4} />;
   } else if (t === 'raporlu') {
     bg = 'bg-yellow-50';
-    content = <span className="text-[12px] text-yellow-700">⚕</span>;
+    content = <StSteth className="w-3 h-3 text-yellow-700" strokeWidth={2.2} />;
   } else if (t === 'ihbarsiz') {
     bg = 'bg-gradient-to-br from-red-50 to-cream-100';
-    content = <span className="text-[11px] text-red-700 font-bold">!</span>;
+    content = <StAlert className="w-3 h-3 text-red-700" strokeWidth={2.4} />;
   }
 
   // Weekend pattern for empty cells
@@ -645,13 +652,19 @@ function Cell({
 // Cell Popover — hücre düzenleme
 // ──────────────────────────────────────────────────────────────────
 
-const STATUSES: { key: 'normal' | 'izin' | 'gelmedi' | 'raporlu' | 'ihbarsiz' | 'empty'; label: string; emoji: string }[] = [
-  { key: 'normal', label: 'Normal', emoji: '✓' },
-  { key: 'izin', label: 'İzin', emoji: '🌴' },
-  { key: 'gelmedi', label: 'Gelmedi', emoji: '✗' },
-  { key: 'raporlu', label: 'Raporlu', emoji: '⚕' },
-  { key: 'ihbarsiz', label: 'İhbarsız', emoji: '!' },
-  { key: 'empty', label: 'Boş', emoji: '—' },
+import {
+  AlertCircle as StAlert, CheckCircle2 as StCheck, Minus as StMinus,
+  Plane as StPlane, Stethoscope as StSteth, XCircle as StX,
+} from 'lucide-react';
+
+type StatusKey = 'normal' | 'izin' | 'gelmedi' | 'raporlu' | 'ihbarsiz' | 'empty';
+const STATUSES: { key: StatusKey; label: string; Icon: React.FC<{ className?: string; strokeWidth?: number }> }[] = [
+  { key: 'normal', label: 'Normal', Icon: StCheck },
+  { key: 'izin', label: 'İzin', Icon: StPlane },
+  { key: 'gelmedi', label: 'Gelmedi', Icon: StX },
+  { key: 'raporlu', label: 'Raporlu', Icon: StSteth },
+  { key: 'ihbarsiz', label: 'İhbarsız', Icon: StAlert },
+  { key: 'empty', label: 'Boş', Icon: StMinus },
 ];
 
 function CellPopover({
@@ -765,7 +778,7 @@ function CellPopover({
                     : 'border-border hover:border-text-3 text-text-2'
                 }`}
               >
-                <span className="text-[12px]">{s.emoji}</span>
+                <s.Icon className="w-3.5 h-3.5" strokeWidth={2.2} />
                 <span>{s.label}</span>
               </button>
             );

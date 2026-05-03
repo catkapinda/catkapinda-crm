@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { Pencil, Target, User } from 'lucide-react';
 
 import { RestaurantEditModal } from '@/components/restaurant-edit-modal';
 import type { Restaurant } from '@/lib/api';
@@ -60,13 +61,17 @@ export function RestaurantDetailHeader({
           </div>
           <div className="text-text-3 text-sm font-medium flex items-center gap-3 flex-wrap">
             {restaurant.contact_name && (
-              <span>👤 {restaurant.contact_name}</span>
+              <span className="inline-flex items-center gap-1">
+                <User className="w-3.5 h-3.5" strokeWidth={2.2} /> {restaurant.contact_name}
+              </span>
             )}
             {restaurant.contact_phone && (
               <span className="font-mono">{restaurant.contact_phone}</span>
             )}
             {restaurant.target_headcount != null && restaurant.target_headcount > 0 && (
-              <span>🎯 {restaurant.target_headcount} kurye</span>
+              <span className="inline-flex items-center gap-1">
+                <Target className="w-3.5 h-3.5" strokeWidth={2.2} /> {restaurant.target_headcount} kurye
+              </span>
             )}
             {restaurant.vat_rate != null && (
               <span>· KDV %{restaurant.vat_rate}</span>
@@ -95,7 +100,7 @@ export function RestaurantDetailHeader({
             onClick={() => setEditing(true)}
             className="px-3.5 py-2 rounded-xl bg-brand text-white text-sm font-semibold shadow-sm hover:bg-brand-dark transition flex items-center gap-1.5"
           >
-            <span>✎</span>
+            <Pencil className="w-3.5 h-3.5" strokeWidth={2.4} />
             <span>Düzenle</span>
           </button>
         </div>

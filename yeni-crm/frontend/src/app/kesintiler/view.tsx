@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { X } from 'lucide-react';
 
 import {
   type Deduction,
@@ -197,9 +198,9 @@ export function KesintilerView({
         {typeFilter && (
           <button
             onClick={() => setTypeFilter(null)}
-            className="text-[12px] text-brand hover:underline"
+            className="text-[12px] text-brand hover:underline inline-flex items-center gap-1"
           >
-            ✕ {typeFilter} filtresini kaldır
+            <X className="w-3 h-3" strokeWidth={2.4} /> {typeFilter} filtresini kaldır
           </button>
         )}
         <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider ml-auto">

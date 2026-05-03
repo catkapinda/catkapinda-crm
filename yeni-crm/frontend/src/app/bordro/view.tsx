@@ -9,7 +9,6 @@ import {
   TrendingDown, Trophy, Users, Wallet, X,
 } from 'lucide-react';
 
-import { backendUrl } from '@/lib/api';
 import type { PayrollResult, PayrollRow } from '@/lib/api';
 import { normalizeTr } from '@/lib/format';
 
@@ -47,6 +46,16 @@ function kCompact(value: number | null | undefined): string {
   if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
   return tr(value, 0);
+}
+
+// Restoran ataması yoksa rolüne göre anlamlı etiket
+// (Joker dış kurye; Bölge Müdürü tüm operasyondan sorumlu — hiçbiri "atanmamış" değil)
+function noRestaurantLabel(role: string | null | undefined): string {
+  const r = (role ?? '').trim();
+  if (r === 'Joker') return 'Havuz · Esnek Atama';
+  if (r === 'Bölge Müdürü') return 'Tüm Operasyon';
+  if (r === 'Kaptan') return 'Tüm Operasyon';
+  return '— atanmamış —';
 }
 
 const ROLE_STYLES: Record<string, string> = {
@@ -517,7 +526,12 @@ function PayrollRowItem({
               </div>
             </div>
           ) : (
-            <span className="text-text-3 italic text-[12px]">— atanmamış</span>
+            <div className="text-[12.5px] flex items-center gap-1.5">
+              <span className="w-1 h-4 rounded-full bg-text-3/30" />
+              <span className="text-text-3 font-medium italic">
+                {noRestaurantLabel(r.role)}
+              </span>
+            </div>
           )}
         </td>
 
@@ -574,7 +588,7 @@ function PayrollRowItem({
           onClick={(e) => e.stopPropagation()}
         >
           <a
-            href={backendUrl(`/api/payroll/${r.id}/pdf?period=${encodeURIComponent(period)}`)}
+            href={`/api/payroll/${r.id}/pdf?period=${encodeURIComponent(period)}`}
             download
             rel="noopener"
             className="text-text-3 hover:text-brand inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-brand-soft transition"
@@ -774,7 +788,7 @@ function PayrollCharts({ payroll }: { payroll: PayrollResult }) {
     for (const r of payroll.rows) {
       const k = r.rest_brand
         ? `${r.rest_brand}${r.rest_branch ? ' · ' + r.rest_branch : ''}`
-        : '— atanmamış —';
+        : noRestaurantLabel(r.role);
       const cur = m.get(k) ?? { count: 0, brut: 0, net: 0 };
       cur.count++;
       cur.brut += r.toplam_brut;
@@ -988,8 +1002,9 @@ function PerformerCard({
             {row.full_name}
           </div>
           <div className="text-[10.5px] text-text-3 truncate">
-            {row.rest_brand ?? 'Atanmamış'}
-            {row.rest_branch && ` · ${row.rest_branch}`}
+            {row.rest_brand
+              ? `${row.rest_brand}${row.rest_branch ? ` · ${row.rest_branch}` : ''}`
+              : noRestaurantLabel(row.role)}
           </div>
         </div>
       </div>
