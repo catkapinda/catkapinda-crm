@@ -523,6 +523,13 @@ const ownershipShortLabel = (value: FleetOwnershipType) => {
   return "Kendi";
 };
 
+const ownershipFilterOptions: Array<{ value: string; label: string }> = [
+  { value: "Tümü", label: "Tümü" },
+  { value: "Kendi Motoru", label: "Şahsi Motor" },
+  { value: "Çat Kapında Kiralık", label: "Kiralık Motor" },
+  { value: "Çat Kapında Satılık", label: "Satış Motoru" },
+];
+
 function buildFallbackPaymentSummary(motor: FleetMotorRecord): FleetPaymentSummary {
   return {
     monthlyAmount: formatMoney(motor.monthlyAmount),
@@ -590,10 +597,6 @@ export default function FleetMotorWorkbench({
   const typeOptions = useMemo(
     () => ["Tümü", ...Array.from(new Set(motors.map((motor) => motor.type))).sort()],
     [motors],
-  );
-  const ownershipOptions = useMemo(
-    () => ["Tümü", "Kendi Motoru", "Çat Kapında Kiralık", "Çat Kapında Satılık"],
-    [],
   );
 
   const filteredMotors = useMemo(() => {
@@ -699,7 +702,7 @@ export default function FleetMotorWorkbench({
         </label>
 
         <label className={styles["ck-fm-filter-field"]}>
-          <span>Tip</span>
+          <span>Model</span>
           <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
             {typeOptions.map((option) => (
               <option key={option} value={option}>
@@ -710,11 +713,11 @@ export default function FleetMotorWorkbench({
         </label>
 
         <label className={styles["ck-fm-filter-field"]}>
-          <span>Sahiplik</span>
+          <span>Sahiplik Türü</span>
           <select value={ownershipFilter} onChange={(event) => setOwnershipFilter(event.target.value)}>
-            {ownershipOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
+            {ownershipFilterOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
