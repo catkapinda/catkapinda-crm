@@ -1,8 +1,6 @@
 """Hakediş & faturalandırma motoru.
 
-Bu modül `yeni-crm/docs/hakedis-kurallari.md` dosyasındaki kuralları uygular.
-İlk sürüm: restorana fatura kırılımı (kurye bazında).
-Sonraki sürümler: kurye hakediş PDF'si + destek vardiyası özel kuralları.
+Kurallar: `yeni-crm/docs/hakedis-kurallari.md`.
 """
 from psycopg.rows import dict_row
 
@@ -10,12 +8,14 @@ from app.core.database import get_connection
 from app.services.restaurants import get_restaurant
 
 
-def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
-    """Restoranın o aydaki kurye bazında detayı + fatura tutarı.
+# Aylık sabit anlaşmalı restoranlarda günlük standart saat.
+# Veride henüz dedicated kolon yok; SC Petshop ve Sushi Inn için 10 saat.
+# Modal ile düzenlenebilir hâle gelene kadar varsayılan budur.
+DEFAULT_FIXED_DAILY_HOURS = 10
 
-    Anlaşma tipine göre her kurye için ayrı hesap yapılır.
-    Sonunda toplam (KDV hariç + KDV dahil + KDV tutarı) hesaplanır.
-    """
+
+def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
+    """Restoranın o aydaki kurye bazında detayı + fatura tutarı."""
     rest = get_restaurant(restaurant_id)
     if not rest:
         return {"restaurant": None, "couriers": [], "totals": {}}
@@ -29,7 +29,6 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
     fixed_monthly_fee = float(rest.get("fixed_monthly_fee") or 0)
     vat_rate = float(rest.get("vat_rate") or 0)
 
-    # O ayın puantajları, kurye bilgisi JOIN'lı
     sql = """
         SELECT
             d.id,
@@ -56,35 +55,36 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
             cur.execute(sql, (restaurant_id, period))
             entries = cur.fetchall()
 
-    # Kurye bazında grupla — personel atanmamış kayıtları ayrı bir bucket'ta
     by_courier: dict[int, dict] = {}
     unassigned_count = 0
     unassigned_absences = 0
 
     for e in entries:
         cid = e["actual_personnel_id"]
-        absent = bool(
-            e["absence_reason"] and str(e["absence_reason"]).strip()
-        )
+        worked_hours = float(e.get("worked_hours") or 0)
+        # KRİTİK: çalışıldı mı/değil mi sadece worked_hours üzerinden.
+        # absence_reason yanlış etiketlenmiş olabilir (örn destek satırlarında
+        # status='Normal' ama absence_reason='Diğer' yazıyor). Saat varsa çalıştı.
+        worked = worked_hours > 0
         coverage = (e.get("coverage_type") or "").strip()
 
-        # personnel_id null kayıtları fatura hesabı dışında
         if cid is None:
             unassigned_count += 1
-            if absent:
+            if not worked:
                 unassigned_absences += 1
             continue
 
         if cid not in by_courier:
+            assigned = e.get("assigned_restaurant_id")
             by_courier[cid] = {
                 "personnel_id": cid,
                 "full_name": e.get("full_name"),
                 "person_code": e.get("person_code"),
                 "role": e.get("role"),
                 "is_support": (
-                    e.get("assigned_restaurant_id") is not None
-                    and e.get("assigned_restaurant_id") != restaurant_id
-                ) or coverage == "Destek",
+                    coverage == "Destek"
+                    or (assigned is not None and assigned != restaurant_id)
+                ),
                 "monthly_fixed_cost": float(e.get("monthly_fixed_cost") or 0),
                 "entries": 0,
                 "working_days": 0,
@@ -98,18 +98,18 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
 
         c = by_courier[cid]
         c["entries"] += 1
-        if absent:
-            c["absences"] += 1
-        else:
+        if worked:
             c["working_days"] += 1
-            c["total_hours"] += float(e.get("worked_hours") or 0)
+            c["total_hours"] += worked_hours
             c["total_packages"] += int(e.get("package_count") or 0)
+        else:
+            c["absences"] += 1
 
     # Anlaşma tipine göre hesap
     if pricing == "fixed_monthly":
         _compute_fixed_monthly(by_courier, fixed_monthly_fee)
     else:
-        for cid, c in by_courier.items():
+        for c in by_courier.values():
             if pricing == "hourly_only":
                 _compute_hourly_only(c, hourly_rate)
             elif pricing == "hourly_plus_package":
@@ -127,11 +127,10 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
             c["billing_excl_vat"] * (1 + vat_rate / 100), 2
         )
 
-    # Sıralama: ana kuryeler önce (working_days çoğa az), sonra destekler, sonra inaktifler
     couriers = sorted(
         by_courier.values(),
         key=lambda x: (
-            x["is_support"],  # False (ana) önce
+            x["is_support"],
             -x["billing_excl_vat"],
             -x["working_days"],
         ),
@@ -206,8 +205,6 @@ def _compute_threshold_package(
     rate_high: float,
 ) -> None:
     saat_amt = c["total_hours"] * hourly_rate
-    # Eşik karşılaştırması: kuryenin bu restorandaki paket sayısı
-    # Destek günleri ana atamadan ayrı sayılır (zaten ayrı kurye satırı).
     crossed = c["total_packages"] > threshold
     rate_used = rate_high if crossed else rate_low
     pkt_amt = c["total_packages"] * rate_used
@@ -236,18 +233,20 @@ def _compute_threshold_package(
 def _compute_fixed_monthly(
     by_courier: dict[int, dict], fixed_monthly_fee: float
 ) -> None:
-    """Aylık sabit hesabı:
+    """Aylık sabit hesabı.
 
-    - Restoranın o ayki tutarı **1 kez** ana atanmış kuryeye yazılır
-      (en çok çalışan ana kurye seçilir; genelde tek kişidir).
-    - Eğer hiç ana kurye yoksa ama destek varsa, sabit ücret yine restoran
-      toplamından gelir; tüm günler destek olarak fee/30 × gün hesabıyla.
-    - Ana kurye 30 günden fazla çalıştıysa ekstra günler için fee/30 × ekstra.
-    - Destek kuryeler için: fee/30 × destek_günü.
+    - Restoranın aylık sabit tutarı (örn 79.800 ₺) **1 kez** ana atanmış kuryeye
+      yazılır (en çok mesai yapan ana kurye).
+    - Ana kurye ekstra mesai yaptıysa: standart günlük saat üzerinden hesaplanır.
+        beklenen_saat = working_days × standard_daily_hours
+        ekstra_saat = total_hours - beklenen_saat
+        ekstra_gün = ekstra_saat / standard_daily_hours
+        ekstra_fatura = ekstra_gün × (fixed_monthly_fee / 30)
+    - Destek olarak gelen kurye: working_days × (fixed_monthly_fee / 30).
     """
-    daily = fixed_monthly_fee / 30 if fixed_monthly_fee > 0 else 0
+    daily_fee = fixed_monthly_fee / 30 if fixed_monthly_fee > 0 else 0
+    standard_daily_hours = DEFAULT_FIXED_DAILY_HOURS
 
-    # Ana kuryeler arasında en çok working_days olanı bul (genelde tek kişi)
     main_couriers = [
         c for c in by_courier.values() if not c["is_support"]
     ]
@@ -256,7 +255,6 @@ def _compute_fixed_monthly(
 
     for cid, c in by_courier.items():
         if c is primary:
-            # Ana kurye: aylık sabit tutar
             billing = fixed_monthly_fee
             if fixed_monthly_fee > 0:
                 c["billing_breakdown"].append({
@@ -265,38 +263,43 @@ def _compute_fixed_monthly(
                     "rate": fixed_monthly_fee,
                     "amount": fixed_monthly_fee,
                 })
-            # 30 günden fazla mesai için ekstra
-            if c["working_days"] > 30 and daily > 0:
-                extra_days = c["working_days"] - 30
-                extra_amt = daily * extra_days
+            # Ekstra mesai — saat bazında karar
+            expected_hours = c["working_days"] * standard_daily_hours
+            extra_hours = c["total_hours"] - expected_hours
+            if extra_hours > 0 and daily_fee > 0:
+                extra_days = extra_hours / standard_daily_hours
+                extra_amt = extra_days * daily_fee
                 billing += extra_amt
+                if extra_days == int(extra_days):
+                    qty_lbl = f"{int(extra_days)} gün"
+                else:
+                    qty_lbl = f"{extra_days:.2f} gün"
                 c["billing_breakdown"].append({
                     "label": (
-                        f"Ekstra mesai — {extra_days} gün × {daily:.2f} ₺"
+                        f"Ekstra mesai — {qty_lbl} × {daily_fee:.2f} ₺ "
+                        f"({extra_hours:g} saat fazlalık)"
                     ),
                     "qty": extra_days,
-                    "rate": daily,
+                    "rate": daily_fee,
                     "amount": extra_amt,
                 })
             c["billing_excl_vat"] = billing
 
         elif c["is_support"]:
-            # Destek kurye: sadece çalıştığı günler × günlük tarife
-            if c["working_days"] > 0 and daily > 0:
-                amt = daily * c["working_days"]
+            if c["working_days"] > 0 and daily_fee > 0:
+                amt = daily_fee * c["working_days"]
                 c["billing_excl_vat"] = amt
                 c["billing_breakdown"].append({
                     "label": (
                         f"Destek vardiyası — {c['working_days']} gün × "
-                        f"{daily:.2f} ₺"
+                        f"{daily_fee:.2f} ₺"
                     ),
                     "qty": c["working_days"],
-                    "rate": daily,
+                    "rate": daily_fee,
                     "amount": amt,
                 })
             else:
                 c["billing_excl_vat"] = 0.0
 
         else:
-            # Diğer ana kuryeler (çoğul atama varsa) — fatura yok, primary aldı
             c["billing_excl_vat"] = 0.0

@@ -96,3 +96,25 @@ Joker = dış kurye (Çat Kapında ekibinden değil). Aylık 88.000 ₺ KDV dahi
 - ⚠ **Sushi Inn**: `restaurants.fixed_monthly_fee = 79,8` virgülle girilmiş; doğrusu **79.800** olmalı. Restoran düzenleme modalından düzeltilebilir.
 - ⚠ **Sushi Inn kuryeleri** (Yusuf, Hayrettin): `personnel.monthly_fixed_cost = 0`. Doğru tutarı bilmiyoruz, kullanıcıdan alınacak.
 - ⚠ **Joker faturalandırması**: 88.000 ₺ KDV dahil tutarın hangi tarafa nasıl yansıdığı (restoran fatura veya operasyon gideri) netleştirilecek.
+- ⚠ **`standard_daily_hours` kolonu yok**: Aylık sabit anlaşmalı restoranlarda günlük standart saat (SC Petshop & Sushi Inn için 10 saat) ayrı bir kolonda tutulmalı. Şu an hakediş motorunda `DEFAULT_FIXED_DAILY_HOURS = 10` hardcoded.
+
+## 10. Veri Tutarlılığı Notları (ÖNEMLİ)
+
+`daily_entries` tablosundaki bazı satırlarda **`absence_reason` ve `status` arasında tutarsızlık** var:
+- `coverage_type='Destek'` + `status='Normal'` + `worked_hours=10` ise kurye **çalışmış** (örn. Erkan, Ömer, Umut SC Petshop'a destek).
+- Aynı satırda `absence_reason='Diğer'` yazsa bile **bu yanıltıcı** — kurye gelmiş ve çalışmış.
+- **Kural:** Hakediş motoru "çalıştı/çalışmadı" kararını **`worked_hours > 0`** üzerinden verir. `absence_reason` etiketi tek başına dikkate alınmaz.
+
+## 11. Aylık Sabit Restoran — Ekstra Mesai Hesabı (ÖRNEKLERLE)
+
+SC Petshop için Mart 2026 verisi:
+- Seyfullah 26 gün çalışmış, **270 saat** (bir gün 20 saat = 1 gün ekstra mesai)
+- `standard_daily_hours = 10`
+- `expected_hours = 26 × 10 = 260`
+- `extra_hours = 270 − 260 = 10`
+- `extra_days = 10 / 10 = 1`
+- `extra_billing = 1 × (79.800 / 30) = 2.660 ₺`
+- **Seyfullah'ın restoran faturası**: 79.800 + 2.660 = **82.460 ₺ KDV hariç**
+- Destek gelen 3 kişi (her biri 1 gün × 10 saat): 3 × 2.660 = **7.980 ₺ KDV hariç**
+- **SC Petshop Mart 2026 toplam KDV hariç fatura**: 82.460 + 7.980 = **90.440 ₺**
+- KDV %20 = 18.088 ₺ → **KDV dahil 108.528 ₺**
