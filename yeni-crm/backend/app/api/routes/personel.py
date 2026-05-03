@@ -8,7 +8,9 @@ from app.services.personel import (
     create_personnel,
     get_personnel,
     list_personnel,
+    management_summary,
     next_person_code,
+    top_performers,
     update_personnel,
 )
 
@@ -101,6 +103,18 @@ async def list_all(status: str | None = None) -> list[dict]:
 async def get_next_code(role: str) -> dict:
     """Role göre bir sonraki uygun person_code'u öner."""
     return {"person_code": next_person_code(role)}
+
+
+@router.get("/top-performers")
+async def get_top_performers(period: str = "2026-03", limit: int = 3) -> list[dict]:
+    """Aya göre en çok paket atan personeller (podium için)."""
+    return top_performers(period=period, limit=limit)
+
+
+@router.get("/management")
+async def get_management(period: str = "2026-03") -> list[dict]:
+    """Yönetim & Yedek Operasyon — sabit maaşlı kişiler + cover özeti."""
+    return management_summary(period=period)
 
 
 @router.get("/{personnel_id}")

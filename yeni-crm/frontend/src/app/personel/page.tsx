@@ -1,11 +1,15 @@
 import { Sidebar } from '@/components/sidebar';
 import {
+  getManagementSummary,
+  getSidebarCounts,
+  getTopPerformers,
   listPersonnel,
   listRestaurants,
-  getSidebarCounts,
+  type ManagementMember,
   type Personnel,
   type Restaurant,
   type SidebarCounts,
+  type TopPerformer,
 } from '@/lib/api';
 import { PersonnelView } from './view';
 
@@ -15,15 +19,19 @@ export default async function PersonelPage() {
   let allPersonnel: Personnel[] = [];
   let restaurants: Restaurant[] = [];
   let counts: SidebarCounts | null = null;
+  let topPerformers: TopPerformer[] = [];
+  let management: ManagementMember[] = [];
   let error: string | null = null;
 
   try {
-    // Tüm statüsleri çek; filtrelemeyi client'ta yap
-    [allPersonnel, restaurants, counts] = await Promise.all([
-      listPersonnel(),
-      listRestaurants().catch(() => []),
-      getSidebarCounts().catch(() => null),
-    ]);
+    [allPersonnel, restaurants, counts, topPerformers, management] =
+      await Promise.all([
+        listPersonnel(),
+        listRestaurants().catch(() => []),
+        getSidebarCounts().catch(() => null),
+        getTopPerformers('2026-03', 3).catch(() => []),
+        getManagementSummary('2026-03').catch(() => []),
+      ]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'API hatası';
   }
@@ -37,7 +45,12 @@ export default async function PersonelPage() {
             <strong>API hatası:</strong> {error}
           </div>
         ) : (
-          <PersonnelView personnel={allPersonnel} restaurants={restaurants} />
+          <PersonnelView
+            personnel={allPersonnel}
+            restaurants={restaurants}
+            topPerformers={topPerformers}
+            management={management}
+          />
         )}
       </main>
     </div>

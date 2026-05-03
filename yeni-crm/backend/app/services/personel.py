@@ -132,6 +132,86 @@ def create_personnel(fields: dict) -> dict | None:
     return get_personnel(row[0])
 
 
+def top_performers(period: str, limit: int = 3) -> list[dict]:
+    """Aya göre paket sayısı en yüksek personel (sahne için)."""
+    sql = """
+        SELECT
+            p.id, p.full_name, p.person_code, p.role,
+            r.brand, r.branch,
+            COALESCE(SUM(d.package_count), 0) AS total_packages,
+            COALESCE(SUM(d.worked_hours), 0) AS total_hours,
+            COUNT(*) FILTER (WHERE d.worked_hours > 0) AS working_days
+        FROM daily_entries d
+        JOIN personnel p ON p.id = d.actual_personnel_id
+        LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+        WHERE LEFT(d.entry_date::text, 7) = %s
+          AND COALESCE(p.status, 'Aktif') = 'Aktif'
+          AND COALESCE(d.worked_hours, 0) > 0
+        GROUP BY p.id, p.full_name, p.person_code, p.role, r.brand, r.branch
+        HAVING COALESCE(SUM(d.package_count), 0) > 0
+        ORDER BY total_packages DESC, total_hours DESC
+        LIMIT %s
+    """
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(sql, (period, limit))
+            rows = cur.fetchall()
+    out: list[dict] = []
+    for r in rows:
+        out.append({
+            "id": r["id"],
+            "full_name": r["full_name"],
+            "person_code": r["person_code"],
+            "role": r["role"],
+            "brand": r["brand"],
+            "branch": r["branch"],
+            "total_packages": int(r["total_packages"] or 0),
+            "total_hours": float(r["total_hours"] or 0),
+            "working_days": int(r["working_days"] or 0),
+        })
+    return out
+
+
+def management_summary(period: str) -> list[dict]:
+    """Yönetim & Yedek Operasyon — sabit maaşlı kişiler + ay içindeki cover."""
+    sql = """
+        SELECT
+            p.id, p.full_name, p.person_code, p.role,
+            COALESCE(p.monthly_fixed_cost, 0) AS salary,
+            COALESCE(SUM(d.worked_hours), 0) FILTER (WHERE d.worked_hours > 0) AS cover_hours,
+            COALESCE(SUM(d.package_count), 0) FILTER (WHERE d.worked_hours > 0) AS cover_packages,
+            COUNT(*) FILTER (WHERE d.worked_hours > 0) AS cover_days
+        FROM personnel p
+        LEFT JOIN daily_entries d
+            ON d.actual_personnel_id = p.id
+           AND LEFT(d.entry_date::text, 7) = %s
+        WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
+          AND (
+              p.role IN ('Bölge Müdürü', 'Joker', 'Kaptan', 'Restoran Takım Şefi')
+              OR COALESCE(p.monthly_fixed_cost, 0) > 0
+          )
+        GROUP BY p.id, p.full_name, p.person_code, p.role, p.monthly_fixed_cost
+        ORDER BY salary DESC, cover_packages DESC
+    """
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(sql, (period,))
+            rows = cur.fetchall()
+    out: list[dict] = []
+    for r in rows:
+        out.append({
+            "id": r["id"],
+            "full_name": r["full_name"],
+            "person_code": r["person_code"],
+            "role": r["role"],
+            "salary": float(r["salary"] or 0),
+            "cover_hours": float(r["cover_hours"] or 0),
+            "cover_packages": int(r["cover_packages"] or 0),
+            "cover_days": int(r["cover_days"] or 0),
+        })
+    return out
+
+
 def next_person_code(role: str) -> str:
     """Role göre bir sonraki uygun person_code'u öner.
 

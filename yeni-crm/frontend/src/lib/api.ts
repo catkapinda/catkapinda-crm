@@ -143,6 +143,44 @@ export async function getNextPersonCode(role: string): Promise<{ person_code: st
   );
 }
 
+export type TopPerformer = {
+  id: number;
+  full_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  brand: string | null;
+  branch: string | null;
+  total_packages: number;
+  total_hours: number;
+  working_days: number;
+};
+
+export async function getTopPerformers(
+  period: string = '2026-03',
+  limit: number = 3,
+): Promise<TopPerformer[]> {
+  return apiGet<TopPerformer[]>(
+    `/api/personel/top-performers?period=${period}&limit=${limit}`,
+  );
+}
+
+export type ManagementMember = {
+  id: number;
+  full_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  salary: number;
+  cover_hours: number;
+  cover_packages: number;
+  cover_days: number;
+};
+
+export async function getManagementSummary(
+  period: string = '2026-03',
+): Promise<ManagementMember[]> {
+  return apiGet<ManagementMember[]>(`/api/personel/management?period=${period}`);
+}
+
 export type DashboardSummary = {
   period: string;
   active_personnel: number;
