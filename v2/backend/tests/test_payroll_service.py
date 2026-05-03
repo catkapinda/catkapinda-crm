@@ -494,6 +494,90 @@ def test_payroll_document_net_deductions_drop_when_equipment_is_returned():
     assert round(document_payload.total_deductions, 2) == 3200.0
 
 
+def test_payroll_document_box_return_credit_increases_net_payment_and_shows_positive_total():
+    raw_conn = sqlite3.connect(":memory:")
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.executescript(
+        """
+        CREATE TABLE personnel (
+            id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            person_code TEXT,
+            role TEXT,
+            status TEXT,
+            cost_model TEXT,
+            monthly_fixed_cost REAL,
+            start_date TEXT,
+            vehicle_type TEXT,
+            motor_rental TEXT,
+            motor_purchase TEXT,
+            motor_rental_monthly_amount REAL,
+            motor_purchase_start_date TEXT,
+            motor_purchase_commitment_months INTEGER,
+            motor_purchase_sale_price REAL,
+            motor_purchase_monthly_deduction REAL
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY,
+            brand TEXT,
+            branch TEXT
+        );
+        CREATE TABLE daily_entries (
+            id INTEGER PRIMARY KEY,
+            entry_date TEXT,
+            restaurant_id INTEGER,
+            planned_personnel_id INTEGER,
+            actual_personnel_id INTEGER,
+            worked_hours REAL,
+            package_count REAL
+        );
+        CREATE TABLE deductions (
+            id INTEGER PRIMARY KEY,
+            personnel_id INTEGER,
+            deduction_date TEXT,
+            deduction_type TEXT,
+            amount REAL,
+            notes TEXT
+        );
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO personnel (id, full_name, person_code, role, status, cost_model, monthly_fixed_cost)
+        VALUES (1, 'Mert Ali Demir', 'CK-K22', 'Kurye', 'Aktif', 'standard_courier', 0)
+        """
+    )
+    raw_conn.execute("INSERT INTO restaurants (id, brand, branch) VALUES (10, 'Burger@', 'Kavacık')")
+    raw_conn.execute(
+        """
+        INSERT INTO daily_entries (
+            entry_date, restaurant_id, planned_personnel_id, actual_personnel_id, worked_hours, package_count
+        )
+        VALUES ('2026-03-10', 10, 1, 1, 8, 20)
+        """
+    )
+    raw_conn.execute(
+        """
+        INSERT INTO deductions (personnel_id, deduction_date, deduction_type, amount, notes)
+        VALUES (1, '2026-03-16', 'Box', -1250, 'Box geri alım mahsubu')
+        """
+    )
+    raw_conn.commit()
+
+    document_payload = _build_local_payroll_document_payload(
+        CompatConnection(raw_conn, "sqlite"),
+        selected_month="2026-03",
+        personnel_id=1,
+    )
+    html = _build_payroll_document_html(document_payload)
+
+    assert round(document_payload.gross_pay, 2) == 2400.0
+    assert round(document_payload.total_deductions, 2) == -1250.0
+    assert round(document_payload.net_payment, 2) == 3650.0
+    assert any(item[0] == "Box" and round(item[1], 2) == -1250.0 for item in document_payload.deduction_items)
+    assert "+1.250,00 ₺" in html
+
+
 def test_build_payroll_document_file_supports_local_sqlite(monkeypatch):
     raw_conn = sqlite3.connect(":memory:")
     raw_conn.row_factory = sqlite3.Row

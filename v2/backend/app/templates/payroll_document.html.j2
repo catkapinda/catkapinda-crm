@@ -34,7 +34,7 @@
                 </div>
                 <div class="hero-metric">
                   <div class="hero-metric-label">Kesintiler</div>
-                  <div class="hero-metric-value number negative">{{ total_deduction }}</div>
+                  <div class="hero-metric-value number {{ total_deduction_tone }}">{{ total_deduction }}</div>
                 </div>
                 <div class="hero-metric">
                   <div class="hero-metric-label">Ödeme Durumu</div>
@@ -118,7 +118,7 @@
 
             <div class="summary-bar">
               <span>Toplam</span>
-              <strong class="number negative">{{ total_deduction }}</strong>
+              <strong class="number {{ total_deduction_tone }}">{{ total_deduction }}</strong>
             </div>
           </article>
 

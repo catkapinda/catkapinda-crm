@@ -824,7 +824,7 @@ def _apply_payroll_tevkifat_as_deduction(
 ) -> tuple[float, PayrollTevkifatBreakdown, float]:
     # Payroll net payment is computed after withholding is added as a real deduction line.
     normalized_gross = max(_safe_float(gross_pay), 0.0)
-    normalized_base_deductions = max(_safe_float(base_deductions), 0.0)
+    normalized_base_deductions = _safe_float(base_deductions)
     normalized_invoice_base_reducing_deductions = max(_safe_float(invoice_base_reducing_deductions), 0.0)
     normalized_invoice_total_override = _safe_float(invoice_total_override) if invoice_total_override is not None else 0.0
     invoice_total = (
@@ -963,6 +963,13 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
         formatted = format_currency(abs(_safe_float(value)))
         return f"+{formatted}"
 
+    def total_deduction_display(value: float) -> str:
+        normalized = _safe_float(value)
+        return positive_currency(normalized) if normalized < 0 else negative_currency(normalized)
+
+    def total_deduction_tone(value: float) -> str:
+        return "positive" if _safe_float(value) < 0 else "negative"
+
     def initials(value: str) -> str:
         parts = [part for part in str(value or "").strip().split() if part]
         if not parts:
@@ -1037,7 +1044,8 @@ def _build_payroll_document_html(payload: PayrollDocumentPayload) -> str:
         total_branches=str(restaurant_count),
         net_payment=format_currency(payload.net_payment),
         gross_earning=format_currency(payload.gross_pay),
-        total_deduction=format_currency(payload.total_deductions),
+        total_deduction=total_deduction_display(payload.total_deductions),
+        total_deduction_tone=total_deduction_tone(payload.total_deductions),
         invoice_base=format_currency(payload.invoice_base_amount),
         invoice_vat=format_currency(payload.invoice_vat_amount),
         tevkifat=format_currency(payload.tevkifat_amount),
