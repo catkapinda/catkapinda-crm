@@ -461,6 +461,121 @@ def _calculate_invoice_subtotal_for_person(group: pd.DataFrame, rule: Any, resta
     return 0.0
 
 
+def _group_rows_by_invoice_person(group: pd.DataFrame) -> list[pd.DataFrame]:
+    actor_keys = _build_invoice_actor_keys(group)
+    if actor_keys.astype(str).str.strip().eq("").all():
+        return [group]
+    work = group.copy()
+    work["invoice_actor_key"] = actor_keys
+    return [
+        actor_group.copy()
+        for _, actor_group in work.groupby("invoice_actor_key", dropna=False)
+        if not actor_group.empty
+    ]
+
+
+def _invoice_group_uses_special_person_logic(group: pd.DataFrame, rule: Any) -> bool:
+    if group is None or group.empty:
+        return False
+    brand = str(group.iloc[0].get("brand") or "")
+    if _is_fixed_monthly_brand(brand):
+        return True
+    if str(getattr(rule, "pricing_model", "") or "").strip() == "fixed_monthly":
+        return False
+
+    work = group.copy()
+    if "monthly_invoice_amount" not in work.columns:
+        return False
+    work["monthly_invoice_amount"] = pd.to_numeric(work["monthly_invoice_amount"], errors="coerce").fillna(0.0)
+    work = work[work["monthly_invoice_amount"] > 0].copy()
+    if work.empty:
+        return False
+
+    roles = work["rol"] if "rol" in work.columns else work["role"] if "role" in work.columns else pd.Series([], dtype="object")
+    cost_models = work["cost_model"] if "cost_model" in work.columns else pd.Series([], dtype="object")
+    normalized_roles = {str(value or "").strip() for value in roles.tolist()}
+    normalized_cost_models = {str(value or "").strip() for value in cost_models.tolist()}
+    return bool(normalized_roles & _SUPPORT_HOLIDAY_DOUBLE_ROLES or normalized_cost_models & _SUPPORT_HOLIDAY_DOUBLE_COST_MODELS)
+
+
+def _enrich_invoice_rows_with_personnel(month_df: pd.DataFrame, personnel_df: pd.DataFrame | None) -> pd.DataFrame:
+    work = month_df.copy()
+    for column_name, default_value in {
+        "actual_personnel_id": None,
+        "planned_personnel_id": None,
+        "worked_hours": 0.0,
+        "package_count": 0.0,
+        "monthly_invoice_amount": 0.0,
+        "brand": "",
+        "branch": "",
+    }.items():
+        if column_name not in work.columns:
+            work[column_name] = default_value
+
+    work["worked_hours"] = pd.to_numeric(work["worked_hours"], errors="coerce").fillna(0.0)
+    work["package_count"] = pd.to_numeric(work["package_count"], errors="coerce").fillna(0.0)
+    work["actual_personnel_id"] = pd.to_numeric(work["actual_personnel_id"], errors="coerce").astype("Int64")
+    work["planned_personnel_id"] = pd.to_numeric(work["planned_personnel_id"], errors="coerce").astype("Int64")
+
+    if personnel_df is not None and not personnel_df.empty and "id" in personnel_df.columns:
+        people_lookup = personnel_df.copy()
+        for column_name, default_value in {
+            "full_name": "",
+            "role": "",
+            "cost_model": "",
+            "start_date": None,
+        }.items():
+            if column_name not in people_lookup.columns:
+                people_lookup[column_name] = default_value
+        people_lookup = people_lookup[["id", "full_name", "role", "cost_model", "start_date"]].copy()
+        people_lookup["id"] = pd.to_numeric(people_lookup["id"], errors="coerce").astype("Int64")
+        actual_lookup = people_lookup.rename(
+            columns={
+                "id": "actual_personnel_id",
+                "full_name": "actual_personel",
+                "role": "actual_rol",
+                "cost_model": "actual_cost_model",
+                "start_date": "actual_start_date",
+            }
+        )
+        planned_lookup = people_lookup.rename(
+            columns={
+                "id": "planned_personnel_id",
+                "full_name": "planned_personel",
+                "role": "planned_rol",
+                "cost_model": "planned_cost_model",
+                "start_date": "planned_start_date",
+            }
+        )
+        work = work.merge(actual_lookup, how="left", on="actual_personnel_id")
+        work = work.merge(planned_lookup, how="left", on="planned_personnel_id")
+    else:
+        work["actual_personel"] = None
+        work["actual_rol"] = None
+        work["planned_personel"] = None
+        work["planned_rol"] = None
+        work["actual_cost_model"] = None
+        work["planned_cost_model"] = None
+        work["actual_start_date"] = None
+        work["planned_start_date"] = None
+
+    work["courier_id"] = work["actual_personnel_id"].where(work["actual_personnel_id"].notna(), work["planned_personnel_id"])
+    work["personel"] = work["actual_personel"].fillna("").astype(str)
+    work.loc[work["personel"].str.strip() == "", "personel"] = work["planned_personel"].fillna("").astype(str)
+    work["rol"] = work["actual_rol"].fillna("").astype(str)
+    work.loc[work["rol"].str.strip() == "", "rol"] = work["planned_rol"].fillna("").astype(str)
+    work["cost_model"] = work["actual_cost_model"].fillna("").astype(str)
+    work.loc[work["cost_model"].str.strip() == "", "cost_model"] = work["planned_cost_model"].fillna("").astype(str)
+    work["start_date"] = work["actual_start_date"]
+    work.loc[work["start_date"].isna(), "start_date"] = work["planned_start_date"]
+    work.loc[(work["personel"].astype(str).str.strip() == "") & work["courier_id"].notna(), "personel"] = (
+        "Personel #" + work["courier_id"].fillna(0).astype(int).astype(str)
+    )
+    work.loc[work["personel"].astype(str).str.strip() == "", "personel"] = "Belirsiz Personel"
+    work.loc[work["rol"].astype(str).str.strip() == "", "rol"] = "-"
+    return work
+
+
 def _build_invoice_actor_keys(group: pd.DataFrame) -> pd.Series:
     actor_keys = pd.Series([""] * len(group), index=group.index, dtype="object")
 
@@ -485,7 +600,15 @@ def calculate_customer_invoice(group: pd.DataFrame, rule: Any) -> tuple[float, f
     total_hours = float(group["worked_hours"].fillna(0).sum())
     total_packages = float(group["package_count"].fillna(0).sum())
 
-    if rule.pricing_model == "hourly_plus_package":
+    if _invoice_group_uses_special_person_logic(group, rule):
+        restaurant_fixed_fee = _resolve_fixed_monthly_fee_from_group(group, getattr(rule, "fixed_monthly_fee", 0.0))
+        subtotal = float(
+            sum(
+                _calculate_invoice_subtotal_for_person(person_group, rule, restaurant_fixed_fee)
+                for person_group in _group_rows_by_invoice_person(group)
+            )
+        )
+    elif rule.pricing_model == "hourly_plus_package":
         subtotal = total_hours * rule.hourly_rate + total_packages * rule.package_rate
     elif rule.pricing_model == "threshold_package":
         actor_keys = _build_invoice_actor_keys(group)
@@ -600,11 +723,10 @@ def month_bounds(selected_month: str) -> tuple[str, str]:
 def build_invoice_summary_df(month_df: pd.DataFrame, personnel_df: pd.DataFrame | None = None) -> pd.DataFrame:
     if month_df is None or month_df.empty:
         return pd.DataFrame()
-
-    drilldown_map = build_restaurant_invoice_drilldown_map(month_df, personnel_df) if personnel_df is not None else {}
+    work = _enrich_invoice_rows_with_personnel(month_df, personnel_df)
 
     invoicing_rows = []
-    for (restaurant_id, brand, branch), group in month_df.groupby(["restaurant_id", "brand", "branch"], dropna=False):
+    for (restaurant_id, brand, branch), group in work.groupby(["restaurant_id", "brand", "branch"], dropna=False):
         if group.empty:
             continue
         first = group.iloc[0]
@@ -618,19 +740,11 @@ def build_invoice_summary_df(month_df: pd.DataFrame, personnel_df: pd.DataFrame 
             fixed_monthly_fee=_SAFE_FLOAT(first.get("fixed_monthly_fee"), 0.0),
             vat_rate=_VAT_RATE_DEFAULT,
         )
-        restoran_name = f"{brand} - {branch}"
-        detail_df = drilldown_map.get(restoran_name)
-        if detail_df is not None and not detail_df.empty:
-            hours = float(pd.to_numeric(detail_df["calisma_saati"], errors="coerce").fillna(0.0).sum())
-            packages = float(pd.to_numeric(detail_df["paket"], errors="coerce").fillna(0.0).sum())
-            subtotal = float(pd.to_numeric(detail_df["kdv_haric"], errors="coerce").fillna(0.0).sum())
-            grand_total = float(pd.to_numeric(detail_df["kdv_dahil"], errors="coerce").fillna(0.0).sum())
-        else:
-            hours, packages, subtotal, grand_total = calculate_customer_invoice(group, rule)
+        hours, packages, subtotal, grand_total = calculate_customer_invoice(group, rule)
         invoicing_rows.append(
             {
                 "restaurant_id": restaurant_id,
-                "restoran": restoran_name,
+                "restoran": f"{brand} - {branch}",
                 "model": rule.pricing_model,
                 "saat": hours,
                 "paket": packages,
@@ -651,91 +765,7 @@ def build_restaurant_invoice_drilldown_map(
     if month_df is None or month_df.empty:
         return {}
 
-    work = month_df.copy()
-    for column_name, default_value in {
-        "brand": "",
-        "branch": "",
-        "worked_hours": 0.0,
-        "package_count": 0.0,
-        "actual_personnel_id": None,
-        "planned_personnel_id": None,
-        "absence_reason": "",
-        "coverage_type": "",
-        "pricing_model": "",
-        "hourly_rate": 0.0,
-        "package_rate": 0.0,
-        "package_threshold": _PACKAGE_THRESHOLD_DEFAULT,
-        "package_rate_low": 0.0,
-        "package_rate_high": 0.0,
-        "fixed_monthly_fee": 0.0,
-        "monthly_invoice_amount": 0.0,
-        "vat_rate": _VAT_RATE_DEFAULT,
-    }.items():
-        if column_name not in work.columns:
-            work[column_name] = default_value
-
-    work["restoran"] = work["brand"].fillna("").astype(str) + " - " + work["branch"].fillna("").astype(str)
-    work["worked_hours"] = pd.to_numeric(work["worked_hours"], errors="coerce").fillna(0.0)
-    work["package_count"] = pd.to_numeric(work["package_count"], errors="coerce").fillna(0.0)
-    work["actual_personnel_id"] = pd.to_numeric(work["actual_personnel_id"], errors="coerce").astype("Int64")
-    work["planned_personnel_id"] = pd.to_numeric(work["planned_personnel_id"], errors="coerce").astype("Int64")
-
-    if personnel_df is not None and not personnel_df.empty and "id" in personnel_df.columns:
-        people_lookup = personnel_df.copy()
-        for column_name, default_value in {
-            "full_name": "",
-            "role": "",
-            "cost_model": "",
-            "start_date": None,
-        }.items():
-            if column_name not in people_lookup.columns:
-                people_lookup[column_name] = default_value
-        people_lookup = people_lookup[["id", "full_name", "role", "cost_model", "start_date"]].copy()
-        people_lookup["id"] = pd.to_numeric(people_lookup["id"], errors="coerce").astype("Int64")
-        actual_lookup = people_lookup.rename(
-            columns={
-                "id": "actual_personnel_id",
-                "full_name": "actual_personel",
-                "role": "actual_rol",
-                "cost_model": "actual_cost_model",
-                "start_date": "actual_start_date",
-            }
-        )
-        planned_lookup = people_lookup.rename(
-            columns={
-                "id": "planned_personnel_id",
-                "full_name": "planned_personel",
-                "role": "planned_rol",
-                "cost_model": "planned_cost_model",
-                "start_date": "planned_start_date",
-            }
-        )
-        work = work.merge(actual_lookup, how="left", on="actual_personnel_id")
-        work = work.merge(planned_lookup, how="left", on="planned_personnel_id")
-    else:
-        work["actual_personel"] = None
-        work["actual_rol"] = None
-        work["planned_personel"] = None
-        work["planned_rol"] = None
-        work["actual_cost_model"] = None
-        work["planned_cost_model"] = None
-        work["actual_start_date"] = None
-        work["planned_start_date"] = None
-
-    work["courier_id"] = work["actual_personnel_id"].where(work["actual_personnel_id"].notna(), work["planned_personnel_id"])
-    work["personel"] = work["actual_personel"].fillna("").astype(str)
-    work.loc[work["personel"].str.strip() == "", "personel"] = work["planned_personel"].fillna("").astype(str)
-    work["rol"] = work["actual_rol"].fillna("").astype(str)
-    work.loc[work["rol"].str.strip() == "", "rol"] = work["planned_rol"].fillna("").astype(str)
-    work["cost_model"] = work["actual_cost_model"].fillna("").astype(str)
-    work.loc[work["cost_model"].str.strip() == "", "cost_model"] = work["planned_cost_model"].fillna("").astype(str)
-    work["start_date"] = work["actual_start_date"]
-    work.loc[work["start_date"].isna(), "start_date"] = work["planned_start_date"]
-    work.loc[(work["personel"].astype(str).str.strip() == "") & work["courier_id"].notna(), "personel"] = (
-        "Personel #" + work["courier_id"].fillna(0).astype(int).astype(str)
-    )
-    work.loc[work["personel"].astype(str).str.strip() == "", "personel"] = "Belirsiz Personel"
-    work.loc[work["rol"].astype(str).str.strip() == "", "rol"] = "-"
+    work = _enrich_invoice_rows_with_personnel(month_df, personnel_df)
 
     drilldown_map: dict[str, pd.DataFrame] = {}
     for (restaurant_id, brand, branch), restaurant_entries in work.groupby(["restaurant_id", "brand", "branch"], dropna=False):
@@ -762,17 +792,40 @@ def build_restaurant_invoice_drilldown_map(
             continue
 
         resolved_fixed_monthly_fee = _resolve_fixed_monthly_fee_from_group(restaurant_entries, rule.fixed_monthly_fee)
+        use_special_person_logic = _invoice_group_uses_special_person_logic(restaurant_entries, rule)
+        restaurant_total_hours, restaurant_total_packages, _, _ = calculate_customer_invoice(restaurant_entries, rule)
+        courier_count = len(grouped)
+
         subtotal_values = []
         for _, courier_row in grouped.iterrows():
-            person_entries = restaurant_entries[
-                (restaurant_entries["personel"] == courier_row["personel"])
-                & (restaurant_entries["rol"] == courier_row["rol"])
-            ].copy()
-            courier_subtotal = _calculate_invoice_subtotal_for_person(
-                person_entries,
-                rule,
-                resolved_fixed_monthly_fee,
-            )
+            if use_special_person_logic:
+                person_entries = restaurant_entries[
+                    (restaurant_entries["personel"] == courier_row["personel"])
+                    & (restaurant_entries["rol"] == courier_row["rol"])
+                ].copy()
+                courier_subtotal = _calculate_invoice_subtotal_for_person(
+                    person_entries,
+                    rule,
+                    resolved_fixed_monthly_fee,
+                )
+            else:
+                courier_hours = _SAFE_FLOAT(courier_row.get("calisma_saati"), 0.0)
+                courier_packages = _SAFE_FLOAT(courier_row.get("paket"), 0.0)
+                if rule.pricing_model == "hourly_plus_package":
+                    courier_subtotal = courier_hours * rule.hourly_rate + courier_packages * rule.package_rate
+                elif rule.pricing_model == "threshold_package":
+                    courier_subtotal = _calculate_threshold_package_subtotal(courier_hours, courier_packages, rule)
+                elif rule.pricing_model == "hourly_only":
+                    courier_subtotal = courier_hours * rule.hourly_rate
+                elif rule.pricing_model == "fixed_monthly":
+                    if restaurant_total_hours > 0:
+                        courier_subtotal = resolved_fixed_monthly_fee * (courier_hours / restaurant_total_hours)
+                    elif restaurant_total_packages > 0:
+                        courier_subtotal = resolved_fixed_monthly_fee * (courier_packages / restaurant_total_packages)
+                    else:
+                        courier_subtotal = resolved_fixed_monthly_fee / max(courier_count, 1)
+                else:
+                    courier_subtotal = 0.0
             subtotal_values.append(courier_subtotal)
 
         grouped["kdv_haric"] = subtotal_values
