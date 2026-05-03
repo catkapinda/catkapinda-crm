@@ -21,6 +21,33 @@ export async function apiGet<T>(path: string, opts?: { revalidate?: number }): P
   return res.json() as Promise<T>;
 }
 
+/**
+ * Tarayıcıdan (client) yapılan mutasyon çağrıları — Next.js rewrite üzerinden.
+ * SSR'da kullanılmaz; relative path tarayıcı domain'ine bağlanır.
+ */
+export async function apiMutate<T>(
+  path: string,
+  body: unknown,
+  method: 'POST' | 'PATCH' | 'PUT' | 'DELETE' = 'PATCH'
+): Promise<T> {
+  const res = await fetch(path.startsWith('/') ? path : `/${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let msg = `API ${res.status}`;
+    try {
+      const err = await res.json();
+      msg = err?.detail ?? msg;
+    } catch {
+      /* sessizce yut */
+    }
+    throw new Error(msg);
+  }
+  return res.json() as Promise<T>;
+}
+
 export type Personnel = {
   id: number;
   person_code: string | null;
@@ -71,12 +98,32 @@ export type Restaurant = {
   target_headcount: number | null;
   contact_name: string | null;
   contact_phone: string | null;
+  contact_email?: string | null;
+  address?: string | null;
+  company_title?: string | null;
+  tax_number?: string | null;
+  tax_office?: string | null;
   start_date: string | null;
+  end_date?: string | null;
   active: number | null;
+  notes?: string | null;
 };
+
+export type RestaurantUpdate = Partial<Omit<Restaurant, 'id'>>;
 
 export async function listRestaurants(): Promise<Restaurant[]> {
   return apiGet<Restaurant[]>('/api/restaurants');
+}
+
+export async function getRestaurant(id: number): Promise<Restaurant> {
+  return apiGet<Restaurant>(`/api/restaurants/${id}`);
+}
+
+export async function updateRestaurant(
+  id: number,
+  fields: RestaurantUpdate
+): Promise<Restaurant> {
+  return apiMutate<Restaurant>(`/api/restaurants/${id}`, fields, 'PATCH');
 }
 
 export type SidebarCounts = {
