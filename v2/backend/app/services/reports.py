@@ -174,6 +174,10 @@ def _is_fixed_monthly_brand(brand: object) -> bool:
     return _normalized_brand_key(brand) in _FIXED_MONTHLY_BRAND_KEYS
 
 
+def _is_fixed_role_invoice_override_brand(brand: object) -> bool:
+    return _is_quick_china_brand(brand)
+
+
 def _calculate_standard_package_cost(total_packages: float, *, brand: object = "") -> float:
     package_total = float(total_packages or 0)
     if _is_dogu_otomotiv_brand(brand):
@@ -385,6 +389,8 @@ def _rows_use_special_invoice_person_logic(rows: list[dict[str, object]]) -> boo
     pricing_model = str(first.get("pricing_model") or "").strip()
     if _is_fixed_monthly_brand(brand):
         return True
+    if not _is_fixed_role_invoice_override_brand(brand):
+        return False
     if pricing_model == "fixed_monthly":
         return False
     return any(

@@ -79,6 +79,10 @@ def _is_fixed_monthly_brand(brand: str = "") -> bool:
     return _normalized_brand_key(brand) in _FIXED_MONTHLY_BRAND_KEYS
 
 
+def _is_fixed_role_invoice_override_brand(brand: str = "") -> bool:
+    return _is_quick_china_brand(brand)
+
+
 def _is_fixed_cost_model(cost_model: object) -> bool:
     normalized = str(cost_model or "").strip()
     return normalized == "fixed_monthly" or normalized.startswith("fixed_")
@@ -480,6 +484,8 @@ def _invoice_group_uses_special_person_logic(group: pd.DataFrame, rule: Any) -> 
     brand = str(group.iloc[0].get("brand") or "")
     if _is_fixed_monthly_brand(brand):
         return True
+    if not _is_fixed_role_invoice_override_brand(brand):
+        return False
     if str(getattr(rule, "pricing_model", "") or "").strip() == "fixed_monthly":
         return False
 
