@@ -34,6 +34,38 @@ MIGRATIONS: list[tuple[str, str]] = [
         ADD COLUMN IF NOT EXISTS standard_daily_hours integer DEFAULT 11
         """,
     ),
+    # ─── Talep modülleri (Avans / Motor değişikliği / Muhasebe değişimi) ───
+    (
+        "courier_requests.table",
+        """
+        CREATE TABLE IF NOT EXISTS courier_requests (
+            id SERIAL PRIMARY KEY,
+            personnel_id integer NOT NULL REFERENCES personnel(id) ON DELETE CASCADE,
+            request_type varchar(40) NOT NULL,
+            amount numeric DEFAULT 0,
+            reason text,
+            status varchar(20) NOT NULL DEFAULT 'Beklemede',
+            decision_notes text,
+            requested_at timestamptz DEFAULT now(),
+            decided_at timestamptz,
+            decided_by varchar(120)
+        )
+        """,
+    ),
+    (
+        "courier_requests.idx_personnel",
+        """
+        CREATE INDEX IF NOT EXISTS idx_requests_personnel
+        ON courier_requests(personnel_id)
+        """,
+    ),
+    (
+        "courier_requests.idx_status",
+        """
+        CREATE INDEX IF NOT EXISTS idx_requests_status
+        ON courier_requests(status)
+        """,
+    ),
 ]
 
 
