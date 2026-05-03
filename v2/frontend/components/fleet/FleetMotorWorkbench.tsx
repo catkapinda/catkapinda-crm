@@ -34,6 +34,35 @@ type FleetDocument = {
   description: string;
 };
 
+type FleetMaintenanceSummary = {
+  totalCost: string;
+  lastServiceDate: string;
+  nextServiceDate: string;
+  averageMonthlyCost: string;
+};
+
+type FleetMaintenanceRecord = {
+  date: string;
+  item: string;
+  description: string;
+  amount: string;
+};
+
+type FleetPaymentSummary = {
+  monthlyAmount: string;
+  startDate: string;
+  totalPaid: string;
+  remainingPayment: string;
+  lastPayment: string;
+  nextPayment: string;
+};
+
+type FleetPaymentRecord = {
+  date: string;
+  label: string;
+  amount: string;
+};
+
 type FleetMotorRecord = {
   id: string;
   code: string;
@@ -55,6 +84,10 @@ type FleetMotorRecord = {
   chassisNo: string;
   engineNo: string;
   branchLabel: string | null;
+  maintenanceSummary?: FleetMaintenanceSummary;
+  maintenanceRecords?: FleetMaintenanceRecord[];
+  paymentSummary?: FleetPaymentSummary;
+  paymentRecords?: FleetPaymentRecord[];
   rentalHistory: Array<{
     label: string;
     value: string;
@@ -490,6 +523,50 @@ const ownershipShortLabel = (value: FleetOwnershipType) => {
   return "Kendi";
 };
 
+function buildFallbackPaymentSummary(motor: FleetMotorRecord): FleetPaymentSummary {
+  return {
+    monthlyAmount: formatMoney(motor.monthlyAmount),
+    startDate: formatDateLabel(motor.startDate),
+    totalPaid: formatMoney(motor.totalPaid),
+    remainingPayment: "—",
+    lastPayment:
+      motor.rentalHistory.find((item) => item.label.toLowerCase().includes("son ödeme"))?.value ?? "—",
+    nextPayment: formatDateLabel(motor.nextPaymentDate),
+  };
+}
+
+function buildFallbackPaymentRecords(motor: FleetMotorRecord): FleetPaymentRecord[] {
+  if (!motor.rentalHistory.length) {
+    return [];
+  }
+
+  return motor.rentalHistory.map((item) => ({
+    date: item.label.toLowerCase().includes("başlangıç") ? item.value : "—",
+    label: item.label,
+    amount: item.value,
+  }));
+}
+
+function buildFallbackMaintenanceSummary(motor: FleetMotorRecord): FleetMaintenanceSummary {
+  const totalCostEntry = motor.maintenanceItems.find((item) => item.label.toLowerCase().includes("masraf"));
+  const latestEntry = motor.maintenanceItems.find((item) => item.label.toLowerCase().includes("servis"));
+  return {
+    totalCost: totalCostEntry?.value ?? "—",
+    lastServiceDate: latestEntry?.value ?? "—",
+    nextServiceDate: "—",
+    averageMonthlyCost: "—",
+  };
+}
+
+function buildFallbackMaintenanceRecords(motor: FleetMotorRecord): FleetMaintenanceRecord[] {
+  return motor.maintenanceItems.map((item) => ({
+    date: "—",
+    item: item.label,
+    description: item.value,
+    amount: "—",
+  }));
+}
+
 export default function FleetMotorWorkbench({
   motors = MOCK_MOTORS,
   onCreateMotor,
@@ -502,6 +579,9 @@ export default function FleetMotorWorkbench({
   const [ownershipFilter, setOwnershipFilter] = useState("Tümü");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("general");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const PAGE_SIZE = 10;
 
   const statusOptions = useMemo(
     () => ["Tümü", "Aktif", "Bakımda", "Pasif", "Satıldı"],
@@ -536,17 +616,38 @@ export default function FleetMotorWorkbench({
     });
   }, [motors, ownershipFilter, search, statusFilter, typeFilter]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredMotors.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedMotors = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * PAGE_SIZE;
+    return filteredMotors.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filteredMotors, safeCurrentPage]);
+
   const selectedMotor =
     filteredMotors.find((motor) => motor.id === selectedMotorId) ??
     motors.find((motor) => motor.id === selectedMotorId) ??
     filteredMotors[0] ??
     null;
 
+  const selectedPaymentSummary = selectedMotor
+    ? selectedMotor.paymentSummary ?? buildFallbackPaymentSummary(selectedMotor)
+    : null;
+  const selectedPaymentRecords = selectedMotor
+    ? selectedMotor.paymentRecords ?? buildFallbackPaymentRecords(selectedMotor)
+    : [];
+  const selectedMaintenanceSummary = selectedMotor
+    ? selectedMotor.maintenanceSummary ?? buildFallbackMaintenanceSummary(selectedMotor)
+    : null;
+  const selectedMaintenanceRecords = selectedMotor
+    ? selectedMotor.maintenanceRecords ?? buildFallbackMaintenanceRecords(selectedMotor)
+    : [];
+
   const resetFilters = () => {
     setStatusFilter("Tümü");
     setTypeFilter("Tümü");
     setOwnershipFilter("Tümü");
     setSearch("");
+    setCurrentPage(1);
   };
 
   return (
@@ -639,14 +740,12 @@ export default function FleetMotorWorkbench({
 
           <div className={styles["ck-fm-list-columns"]} aria-hidden="true">
             <span>Motor</span>
-            <span>Plaka</span>
-            <span>Durum</span>
-            <span>Kullanıcı</span>
-            <span className={styles["ck-fm-list-columns-money"]}>Aylık Tutar</span>
+            <span>Durum / Kullanıcı</span>
+            <span className={styles["ck-fm-list-columns-money"]}>Sahiplik / Tutar</span>
           </div>
 
           <div className={styles["ck-fm-list"]}>
-            {filteredMotors.map((motor) => {
+            {paginatedMotors.map((motor) => {
               const selected = selectedMotor?.id === motor.id;
               return (
                 <button
@@ -657,31 +756,23 @@ export default function FleetMotorWorkbench({
                 >
                   <div className={styles["ck-fm-row-main"]}>
                     <strong>{motor.code}</strong>
-                    <span>{ownershipShortLabel(motor.ownershipType)}</span>
+                    <span>{`${motor.plate || "—"} · ${motor.model || "—"}`}</span>
                   </div>
 
-                  <div className={styles["ck-fm-row-plate"]}>
-                    <strong>{motor.plate || "—"}</strong>
-                  </div>
-
-                  <span
-                    className={`${styles["ck-fm-badge"]} ${
-                      styles[`status-${motor.status.toLowerCase().replace(/ı/g, "i")}`] ?? ""
-                    }`}
-                  >
-                    {motor.status}
-                  </span>
-
-                  <div className={styles["ck-fm-row-owner"]}>
+                  <div className={styles["ck-fm-row-assignment"]}>
+                    <span
+                      className={`${styles["ck-fm-badge"]} ${
+                        styles[`status-${motor.status.toLowerCase().replace(/ı/g, "i")}`] ?? ""
+                      }`}
+                    >
+                      {motor.status}
+                    </span>
                     <strong>{motor.assigneeName || "Atanmamış"}</strong>
-                    <span>{motor.assigneeRole || ownershipShortLabel(motor.ownershipType)}</span>
                   </div>
 
                   <div className={styles["ck-fm-row-cost"]}>
+                    <span>{ownershipShortLabel(motor.ownershipType)}</span>
                     <strong>{formatMoney(motor.monthlyAmount)}</strong>
-                    <small>
-                      {motor.ownershipType === "Çat Kapında Satılık" ? "Aylık taksit" : "Aylık kayıt"}
-                    </small>
                   </div>
                 </button>
               );
@@ -689,15 +780,27 @@ export default function FleetMotorWorkbench({
           </div>
 
           <div className={styles["ck-fm-pagination"]}>
-            <button type="button">‹</button>
-            <button type="button" className={styles["is-current-page"]}>
-              1
+            <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>
+              ‹
             </button>
-            <button type="button">2</button>
-            <button type="button">3</button>
-            <span>…</span>
-            <button type="button">4</button>
-            <button type="button">›</button>
+            {Array.from({ length: totalPages }, (_, index) => index + 1)
+              .slice(Math.max(0, safeCurrentPage - 3), Math.max(0, safeCurrentPage - 3) + 5)
+              .map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  className={page === safeCurrentPage ? styles["is-current-page"] : ""}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            >
+              ›
+            </button>
           </div>
         </article>
 
@@ -895,20 +998,76 @@ export default function FleetMotorWorkbench({
 
               {activeTab === "rental" ? (
                 <div className={styles["ck-fm-detail-grid-single"]}>
-                  <InfoCard title="Kira & Geçmiş">
-                    {selectedMotor.rentalHistory.map((item) => (
-                      <InfoRow key={`${item.label}-${item.value}`} label={item.label} value={item.value} />
-                    ))}
+                  <div className={styles["ck-fm-tab-summary-grid"]}>
+                    <MetricCard icon={<Wallet size={18} />} label="Aylık Taksit / Kira" value={selectedPaymentSummary?.monthlyAmount ?? "—"} helper="Güncel plan" />
+                    <MetricCard icon={<Calendar size={18} />} label="Başlangıç Tarihi" value={selectedPaymentSummary?.startDate ?? "—"} helper="İlk kayıt" />
+                    <MetricCard icon={<ShieldCheck size={18} />} label="Toplam Ödeme" value={selectedPaymentSummary?.totalPaid ?? "—"} helper="İşlenen kayıtlar" />
+                    <MetricCard icon={<Wallet size={18} />} label="Kalan Ödeme" value={selectedPaymentSummary?.remainingPayment ?? "—"} helper="Plan bakiyesi" />
+                    <MetricCard icon={<Calendar size={18} />} label="Son Ödeme" value={selectedPaymentSummary?.lastPayment ?? "—"} helper="Son işlenen tahsilat" />
+                    <MetricCard icon={<Calendar size={18} />} label="Sıradaki Ödeme" value={selectedPaymentSummary?.nextPayment ?? "—"} helper="Takvimdeki tarih" />
+                  </div>
+
+                  <InfoCard title="Ödeme Geçmişi">
+                    {selectedPaymentRecords.length ? (
+                      <div className={styles["ck-fm-records-table"]}>
+                        <div className={styles["ck-fm-records-head"]}>
+                          <span>Tarih</span>
+                          <span>Kalem</span>
+                          <span className={styles["ck-fm-records-money"]}>Tutar</span>
+                        </div>
+                        {selectedPaymentRecords.map((item, index) => (
+                          <div key={`${item.date}-${item.label}-${index}`} className={styles["ck-fm-records-row"]}>
+                            <span>{item.date}</span>
+                            <strong title={item.label}>{item.label}</strong>
+                            <strong className={styles["ck-fm-records-money"]}>{item.amount}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles["ck-fm-empty-substate"]}>
+                        Bu motor için ödeme geçmişi kaydı bulunmuyor.
+                      </div>
+                    )}
                   </InfoCard>
                 </div>
               ) : null}
 
               {activeTab === "maintenance" ? (
                 <div className={styles["ck-fm-detail-grid-single"]}>
-                  <InfoCard title="Bakım & Masraf">
-                    {selectedMotor.maintenanceItems.map((item) => (
-                      <InfoRow key={`${item.label}-${item.value}`} label={item.label} value={item.value} />
-                    ))}
+                  <div className={styles["ck-fm-tab-summary-grid"]}>
+                    <MetricCard icon={<Wrench size={18} />} label="Toplam Bakım Masrafı" value={selectedMaintenanceSummary?.totalCost ?? "—"} helper="Kaydedilen masraflar" />
+                    <MetricCard icon={<Calendar size={18} />} label="Son Bakım Tarihi" value={selectedMaintenanceSummary?.lastServiceDate ?? "—"} helper="En güncel bakım kaydı" />
+                    <MetricCard icon={<Calendar size={18} />} label="Sıradaki Bakım" value={selectedMaintenanceSummary?.nextServiceDate ?? "—"} helper="Planlı tarih" />
+                    <MetricCard icon={<Wallet size={18} />} label="Ortalama Aylık Masraf" value={selectedMaintenanceSummary?.averageMonthlyCost ?? "—"} helper="Kayıtlı aylara göre" />
+                  </div>
+
+                  <InfoCard title="Bakım & Masraf Kayıtları">
+                    {selectedMaintenanceRecords.length ? (
+                      <div className={styles["ck-fm-records-table"]}>
+                        <div className={styles["ck-fm-records-head"]}>
+                          <span>Tarih</span>
+                          <span>Kalem</span>
+                          <span>Açıklama</span>
+                          <span className={styles["ck-fm-records-money"]}>Tutar</span>
+                        </div>
+                        {selectedMaintenanceRecords.map((item, index) => (
+                          <div key={`${item.date}-${item.item}-${index}`} className={styles["ck-fm-records-row"]}>
+                            <span>{item.date}</span>
+                            <strong title={item.item}>{item.item}</strong>
+                            <span title={item.description}>{item.description}</span>
+                            <strong className={styles["ck-fm-records-money"]}>{item.amount}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles["ck-fm-empty-substate"]}>
+                        <p>Bu motor için bakım veya masraf kaydı bulunmuyor.</p>
+                        <button type="button" className={styles["ck-fm-primary-btn"]}>
+                          <Plus size={16} />
+                          Bakım Masrafı Ekle
+                        </button>
+                      </div>
+                    )}
                   </InfoCard>
                 </div>
               ) : null}

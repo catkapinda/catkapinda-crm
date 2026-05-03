@@ -77,6 +77,10 @@ type DeductionsManagementResponse = {
 
 type FleetOwnershipType = FleetMotorRecord["ownershipType"];
 type FleetStatus = FleetMotorRecord["status"];
+type FleetMaintenanceSummary = NonNullable<FleetMotorRecord["maintenanceSummary"]>;
+type FleetMaintenanceRecord = NonNullable<FleetMotorRecord["maintenanceRecords"]>[number];
+type FleetPaymentSummary = NonNullable<FleetMotorRecord["paymentSummary"]>;
+type FleetPaymentRecord = NonNullable<FleetMotorRecord["paymentRecords"]>[number];
 
 const pageSectionStyle = {
   display: "grid",
@@ -239,7 +243,12 @@ function isMaintenanceDeductionType(value: string) {
   return normalized.includes("motor servis") || normalized.includes("motor hasar");
 }
 
-function buildMaintenanceItems(
+function isMotorPaymentDeductionType(value: string) {
+  const normalized = normalizeText(value);
+  return normalized.includes("motor kiras") || normalized.includes("motor satis");
+}
+
+function buildMaintenanceData(
   person: PersonnelVehicleCandidateEntry,
   deductions: DeductionEntry[],
 ) {
@@ -252,26 +261,104 @@ function buildMaintenanceItems(
     });
 
   if (!relevant.length) {
-    return [
-      { label: "Bakım Kayıtları", value: "—" },
-      { label: "Toplam Bakım Masrafı", value: "—" },
-      { label: "Son Kayıt", value: "—" },
-      { label: "Not", value: "Kayıtlı bakım / masraf bulunmuyor." },
-    ];
+    return {
+      summary: {
+        totalCost: "—",
+        lastServiceDate: "—",
+        nextServiceDate: "—",
+        averageMonthlyCost: "—",
+      } satisfies FleetMaintenanceSummary,
+      records: [] as FleetMaintenanceRecord[],
+      items: [
+        { label: "Bakım Kayıtları", value: "—" },
+        { label: "Toplam Bakım Masrafı", value: "—" },
+        { label: "Son Kayıt", value: "—" },
+        { label: "Not", value: "Kayıtlı bakım / masraf bulunmuyor." },
+      ],
+    };
   }
 
   const totalAmount = relevant.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
   const latest = relevant[0];
+  const monthCount = new Set(
+    relevant.map((entry) => String(entry.deduction_date || "").slice(0, 7)).filter(Boolean),
+  ).size;
   const items = relevant.slice(0, 3).map((entry) => ({
     label: `${formatDateLabel(entry.deduction_date)} • ${entry.deduction_type || "Masraf"}`,
     value: `${formatMoneyLabel(entry.amount)}${entry.notes ? ` • ${entry.notes}` : ""}`,
   }));
 
-  return [
-    { label: "Toplam Bakım Masrafı", value: formatMoneyLabel(totalAmount) },
-    { label: "Son Kayıt", value: `${formatDateLabel(latest.deduction_date)} • ${latest.deduction_type || "—"}` },
-    ...items,
-  ];
+  return {
+    summary: {
+      totalCost: formatMoneyLabel(totalAmount),
+      lastServiceDate: formatDateLabel(latest.deduction_date),
+      nextServiceDate: "—",
+      averageMonthlyCost: formatMoneyLabel(monthCount > 0 ? totalAmount / monthCount : 0),
+    } satisfies FleetMaintenanceSummary,
+    records: relevant.map((entry) => ({
+      date: formatDateLabel(entry.deduction_date),
+      item: entry.deduction_type || entry.type_caption || "Masraf",
+      description: entry.notes?.trim() || entry.type_caption || entry.deduction_type || "Bakım kaydı",
+      amount: formatMoneyLabel(entry.amount),
+    })) satisfies FleetMaintenanceRecord[],
+    items: [
+      { label: "Toplam Bakım Masrafı", value: formatMoneyLabel(totalAmount) },
+      { label: "Son Kayıt", value: `${formatDateLabel(latest.deduction_date)} • ${latest.deduction_type || "—"}` },
+      ...items,
+    ],
+  };
+}
+
+function buildPaymentData(
+  person: PersonnelVehicleCandidateEntry,
+  ownershipType: FleetOwnershipType,
+  deductions: DeductionEntry[],
+  startDate: string | null,
+  monthlyAmount: number | null,
+) {
+  const relevant = deductions
+    .filter((entry) => entry.personnel_id === person.id && isMotorPaymentDeductionType(entry.deduction_type))
+    .sort((left, right) => {
+      const leftTime = left.deduction_date ? new Date(left.deduction_date).getTime() : 0;
+      const rightTime = right.deduction_date ? new Date(right.deduction_date).getTime() : 0;
+      return rightTime - leftTime;
+    });
+
+  const totalPaidRaw = relevant.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const latest = relevant[0];
+  const remainingRaw =
+    ownershipType === "Çat Kapında Satılık" && person.motor_purchase_sale_price > 0
+      ? Math.max(person.motor_purchase_sale_price - totalPaidRaw, 0)
+      : null;
+
+  const records: FleetPaymentRecord[] = [];
+  if (startDate) {
+    records.push({
+      date: formatDateLabel(startDate),
+      label: ownershipType,
+      amount: formatMoneyLabel(monthlyAmount),
+    });
+  }
+  relevant.slice(0, 8).forEach((entry) => {
+    records.push({
+      date: formatDateLabel(entry.deduction_date),
+      label: entry.deduction_type || entry.type_caption || "Ödeme kaydı",
+      amount: formatMoneyLabel(entry.amount),
+    });
+  });
+
+  return {
+    totalPaidRaw,
+    summary: {
+      monthlyAmount: formatMoneyLabel(monthlyAmount),
+      startDate: formatDateLabel(startDate),
+      totalPaid: relevant.length ? formatMoneyLabel(totalPaidRaw) : "—",
+      remainingPayment: remainingRaw !== null ? formatMoneyLabel(remainingRaw) : "—",
+      lastPayment: latest ? formatDateLabel(latest.deduction_date) : "—",
+      nextPayment: formatDateLabel(computeNextPaymentDate(startDate, monthlyAmount)),
+    } satisfies FleetPaymentSummary,
+    records,
+  };
 }
 
 function mapVehicleWorkspaceToMotors(
@@ -304,6 +391,8 @@ function mapVehicleWorkspaceToMotors(
       const startDate = computeStartDate(person, ownershipType, personHistory);
       const latestNote = personHistory.find((entry) => entry.notes?.trim())?.notes?.trim() ?? "";
       const status = toMotorStatus(person, ownershipType);
+      const maintenanceData = buildMaintenanceData(person, deductions);
+      const paymentData = buildPaymentData(person, ownershipType, deductions, startDate, monthlyAmount);
 
       return {
         id: `fleet-${person.id}`,
@@ -318,7 +407,7 @@ function mapVehicleWorkspaceToMotors(
         monthlyAmount,
         startDate,
         nextPaymentDate: computeNextPaymentDate(startDate, monthlyAmount),
-        totalPaid: null,
+        totalPaid: paymentData.totalPaidRaw || null,
         paidInstallmentsLabel: buildPaidInstallmentsLabel(person, ownershipType, monthlyAmount),
         notes: latestNote || (person.restaurant_label?.trim() && person.restaurant_label !== "-" ? `${person.restaurant_label} ataması` : "—"),
         modelYear: "—",
@@ -326,6 +415,10 @@ function mapVehicleWorkspaceToMotors(
         chassisNo: "—",
         engineNo: "—",
         branchLabel: person.restaurant_label?.trim() && person.restaurant_label !== "-" ? person.restaurant_label : null,
+        maintenanceSummary: maintenanceData.summary,
+        maintenanceRecords: maintenanceData.records,
+        paymentSummary: paymentData.summary,
+        paymentRecords: paymentData.records,
         rentalHistory:
           ownershipType === "Çat Kapında Satılık"
             ? [
@@ -356,7 +449,7 @@ function mapVehicleWorkspaceToMotors(
                   { label: "Şube / Restoran", value: person.restaurant_label || "—" },
                   { label: "Son Geçiş", value: formatDateLabel(personHistory[0]?.effective_date ?? null) },
                 ],
-        maintenanceItems: buildMaintenanceItems(person, deductions),
+        maintenanceItems: maintenanceData.items,
         ownershipHistory:
           personHistory.length > 0
             ? personHistory.map((entry) => ({
