@@ -202,6 +202,13 @@ def _payroll_optional_deduction_note_select(conn: psycopg.Connection) -> str:
     return "'' AS notes"
 
 
+def _payroll_attendance_invoice_amount_sql(conn: psycopg.Connection) -> str:
+    columns = _table_columns(conn, "daily_entries")
+    if "monthly_invoice_amount" in columns:
+        return "COALESCE(MAX(d.monthly_invoice_amount), 0) AS monthly_invoice_amount"
+    return "0 AS monthly_invoice_amount"
+
+
 def _row_value(source: object, key: str) -> object:
     if source is None:
         return None
@@ -792,16 +799,57 @@ def _apply_payroll_tevkifat_as_deduction(
     gross_pay: float,
     base_deductions: float,
     invoice_base_reducing_deductions: float,
+    invoice_total_override: float | None = None,
 ) -> tuple[float, PayrollTevkifatBreakdown, float]:
     # Payroll net payment is computed after withholding is added as a real deduction line.
     normalized_gross = max(_safe_float(gross_pay), 0.0)
     normalized_base_deductions = max(_safe_float(base_deductions), 0.0)
     normalized_invoice_base_reducing_deductions = max(_safe_float(invoice_base_reducing_deductions), 0.0)
-    invoice_total = max(normalized_gross - normalized_invoice_base_reducing_deductions, 0.0)
+    normalized_invoice_total_override = _safe_float(invoice_total_override) if invoice_total_override is not None else 0.0
+    invoice_total = (
+        max(normalized_invoice_total_override - normalized_invoice_base_reducing_deductions, 0.0)
+        if invoice_total_override is not None
+        else max(normalized_gross - normalized_invoice_base_reducing_deductions, 0.0)
+    )
     tevkifat = _calculate_payroll_tevkifat_breakdown(invoice_total)
     total_deductions = normalized_base_deductions + tevkifat.tevkifat_amount
     net_payment = max(normalized_gross - total_deductions, 0.0)
     return total_deductions, tevkifat, net_payment
+
+
+def _resolve_personnel_invoice_total_override(
+    *,
+    selected_month: str,
+    cost_model: object,
+    role: object,
+    start_date: object = None,
+    attendance_dates: set[date] | None = None,
+    segments: list[dict[str, object]] | None = None,
+) -> float | None:
+    normalized_segments = segments or []
+    if not _is_fixed_cost_model(cost_model):
+        return None
+
+    fixed_invoice_base = _safe_float(
+        sum(
+            _safe_float(segment.get("monthly_invoice_amount"))
+            for segment in normalized_segments
+            if _safe_float(segment.get("monthly_invoice_amount")) > 0
+        )
+    )
+    if fixed_invoice_base <= 0:
+        return None
+
+    holiday_bonus_base = _calculate_support_holiday_bonus(
+        selected_month=selected_month,
+        cost_model=cost_model,
+        role=role,
+        monthly_fixed_cost=fixed_invoice_base,
+        start_date=start_date,
+        attendance_dates=attendance_dates or set(),
+    )
+    invoice_base = fixed_invoice_base + holiday_bonus_base
+    return _safe_float(invoice_base * (1 + _PAYROLL_VAT_RATE))
 
 
 def _format_month_label(value: str) -> str:
@@ -1150,6 +1198,8 @@ def _build_remote_payroll_document_payload(
                     & person_entries["actual_personnel_id"].notna()
                     & (person_entries["planned_personnel_id"] != person_entries["actual_personnel_id"])
                 )
+            if "monthly_invoice_amount" not in person_entries.columns:
+                person_entries["monthly_invoice_amount"] = 0.0
             grouped_segments = (
                 person_entries.groupby(
                     ["brand", "restaurant_id", "is_support_assignment"],
@@ -1159,6 +1209,7 @@ def _build_remote_payroll_document_payload(
                     total_hours=("worked_hours", "sum"),
                     total_packages=("package_count", "sum"),
                     support_day_count=("entry_date", lambda values: len({str(value)[:10] for value in values if str(value or '').strip()})),
+                    monthly_invoice_amount=("monthly_invoice_amount", "max"),
                 )
                 .reset_index()
             )
@@ -1169,6 +1220,7 @@ def _build_remote_payroll_document_payload(
                     "total_packages": _safe_float(row["total_packages"]),
                     "is_support_assignment": bool(row["is_support_assignment"]),
                     "support_day_count": int(row["support_day_count"] or 0),
+                    "monthly_invoice_amount": _safe_float(row["monthly_invoice_amount"]),
                 }
                 for _, row in grouped_segments.iterrows()
             ]
@@ -1215,10 +1267,19 @@ def _build_remote_payroll_document_payload(
             if _deduction_reduces_invoice_base(deduction_type)
         )
     )
+    invoice_total_override = _resolve_personnel_invoice_total_override(
+        selected_month=resolved_month,
+        cost_model=person_cost_model,
+        role=payroll_row.get("rol"),
+        start_date=person_match.iloc[0]["start_date"] if not person_match.empty and "start_date" in person_match.columns else None,
+        attendance_dates=attendance_dates,
+        segments=attendance_segments,
+    )
     total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
         gross_pay=gross_pay,
         base_deductions=base_deductions,
         invoice_base_reducing_deductions=invoice_base_reducing_deductions,
+        invoice_total_override=invoice_total_override,
     )
     if tevkifat.tevkifat_amount > 0:
         deduction_items.append((_PAYROLL_TEVKIFAT_LABEL, tevkifat.tevkifat_amount))
@@ -1262,6 +1323,7 @@ def _build_local_payroll_document_payload(
     month_options, attendance_month_options = _fetch_payroll_month_options(conn)
     resolved_month = _resolve_payroll_dashboard_month(month_options, attendance_month_options, selected_month)
     optional_personnel_select = _payroll_optional_personnel_select(conn)
+    attendance_invoice_amount_select = _payroll_attendance_invoice_amount_sql(conn)
     optional_deduction_note_select = _payroll_optional_deduction_note_select(conn)
 
     person_row = conn.execute(
@@ -1316,7 +1378,8 @@ def _build_local_payroll_document_payload(
             END AS is_support_assignment,
             COALESCE(SUM(d.worked_hours), 0) AS total_hours,
             COALESCE(SUM(d.package_count), 0) AS total_packages,
-            COUNT(DISTINCT substr(COALESCE(d.entry_date, ''), 1, 10)) AS support_day_count
+            COUNT(DISTINCT substr(COALESCE(d.entry_date, ''), 1, 10)) AS support_day_count,
+            {attendance_invoice_amount_select}
         FROM daily_entries d
         LEFT JOIN restaurants r ON r.id = d.restaurant_id
         WHERE {_month_key_sql('d.entry_date')} = %s
@@ -1415,6 +1478,7 @@ def _build_local_payroll_document_payload(
                 else _safe_float(row["total_packages"])
             )
             or _safe_float(row["total_packages"]),
+            "monthly_invoice_amount": _safe_float(row["monthly_invoice_amount"]),
         }
         for row in attendance_rows
     ]
@@ -1495,10 +1559,24 @@ def _build_local_payroll_document_payload(
     profile_deduction_items = _build_personnel_profile_deduction_items(profile_source, selected_month=resolved_month)
     profile_deduction_total = _safe_float(sum(amount for _, amount in profile_deduction_items))
     base_deductions += profile_deduction_total
+    attendance_dates = {
+        parsed_date
+        for row in attendance_date_rows
+        if (parsed_date := _parse_attendance_date(row["entry_date"])) is not None
+    }
+    invoice_total_override = _resolve_personnel_invoice_total_override(
+        selected_month=resolved_month,
+        cost_model=person_data["cost_model"],
+        role=person_data["role"],
+        start_date=person_data.get("start_date"),
+        attendance_dates=attendance_dates,
+        segments=attendance_segments,
+    )
     total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
         gross_pay=gross_pay,
         base_deductions=base_deductions,
         invoice_base_reducing_deductions=invoice_base_reducing_deductions,
+        invoice_total_override=invoice_total_override,
     )
     restaurant_names = [str(row["restaurant_label"]) for row in restaurant_rows if str(row["restaurant_label"]).strip()]
     restaurant_breakdown = [
@@ -1557,6 +1635,7 @@ def _build_local_payroll_dashboard(
 ) -> PayrollDashboardResponse:
     month_options, attendance_month_options = _fetch_payroll_month_options(conn)
     optional_personnel_select = _payroll_optional_personnel_select(conn)
+    attendance_invoice_amount_select = _payroll_attendance_invoice_amount_sql(conn)
     if not month_options:
         return PayrollDashboardResponse(
             module="payroll",
@@ -1619,12 +1698,16 @@ def _build_local_payroll_dashboard(
             END AS is_support_assignment,
             COALESCE(SUM(d.worked_hours), 0) AS total_hours,
             COALESCE(SUM(d.package_count), 0) AS total_packages,
-            COUNT(DISTINCT substr(COALESCE(d.entry_date, ''), 1, 10)) AS support_day_count
+            COUNT(DISTINCT substr(COALESCE(d.entry_date, ''), 1, 10)) AS support_day_count,
+            {attendance_invoice_amount_select}
         FROM daily_entries d
         LEFT JOIN restaurants r ON r.id = d.restaurant_id
         WHERE {month_key_sql} = %s
           AND COALESCE(d.actual_personnel_id, d.planned_personnel_id) IS NOT NULL
-    """.format(month_key_sql=_month_key_sql("d.entry_date"))
+    """.format(
+        month_key_sql=_month_key_sql("d.entry_date"),
+        attendance_invoice_amount_select=attendance_invoice_amount_select,
+    )
     attendance_params: list[object] = [resolved_month]
     if selected_restaurant != "Tümü":
         attendance_query += """
@@ -1765,6 +1848,7 @@ def _build_local_payroll_dashboard(
                         else total_packages
                     )
                     or total_packages,
+                    "monthly_invoice_amount": _safe_float(row["monthly_invoice_amount"]),
                 }
             )
     for bucket in attendance_by_person.values():
@@ -1892,10 +1976,19 @@ def _build_local_payroll_dashboard(
         )
         base_deductions = _safe_float(deductions_by_person.get(person_id))
         invoice_base_reducing_deductions = _safe_float(invoice_base_reducing_deductions_by_person.get(person_id))
+        invoice_total_override = _resolve_personnel_invoice_total_override(
+            selected_month=resolved_month,
+            cost_model=person["cost_model"],
+            role=person["role"],
+            start_date=person["start_date"],
+            attendance_dates=attendance_dates_by_person.get(person_id, set()),
+            segments=segments if isinstance(segments, list) else [],
+        )
         total_deductions, tevkifat, net_payment = _apply_payroll_tevkifat_as_deduction(
             gross_pay=gross_pay,
             base_deductions=base_deductions,
             invoice_base_reducing_deductions=invoice_base_reducing_deductions,
+            invoice_total_override=invoice_total_override,
         )
         entry_deduction_items = list(deduction_items_by_person.get(person_id, []))
         if tevkifat.tevkifat_amount > 0:
