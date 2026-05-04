@@ -252,6 +252,85 @@ export async function getDashboardAnalytics(
   return apiGet<DashboardAnalytics>(`/api/dashboard/analytics?period=${period}`);
 }
 
+// ─────────────────────────────────────────────────────────────
+// Faturalar — restoranlara aylık kesilen faturalar
+// ─────────────────────────────────────────────────────────────
+
+export type RestaurantInvoice = {
+  id: number | null;
+  restaurant_id: number;
+  rest_brand: string | null;
+  rest_branch: string | null;
+  period: string;
+  invoice_no: string | null;
+  courier_count: number;
+  amount_excl_vat: number;
+  vat_rate: number;
+  vat_amount: number;
+  amount_incl_vat: number;
+  status: 'Beklemede' | 'Ödendi' | 'Kısmi' | string;
+  issued_at: string | null;
+  paid_at: string | null;
+  paid_amount: number;
+  balance: number;
+  notes: string | null;
+  is_manual_only?: boolean;
+};
+
+export type InvoiceSummary = {
+  period: string;
+  count_total: number;
+  count_paid: number;
+  count_partial: number;
+  count_pending: number;
+  sum_excl_vat: number;
+  sum_vat: number;
+  sum_incl_vat: number;
+  sum_paid: number;
+  sum_balance: number;
+  collection_pct: number;
+};
+
+export async function listInvoices(period: string = '2026-03'): Promise<RestaurantInvoice[]> {
+  return apiGet<RestaurantInvoice[]>(`/api/invoices?period=${period}`);
+}
+
+export async function getInvoiceSummary(period: string = '2026-03'): Promise<InvoiceSummary> {
+  return apiGet<InvoiceSummary>(`/api/invoices/summary?period=${period}`);
+}
+
+export async function upsertInvoice(
+  restaurantId: number,
+  period: string,
+  fields: Partial<{
+    invoice_no: string;
+    amount_excl_vat: number;
+    vat_amount: number;
+    amount_incl_vat: number;
+    status: string;
+    paid_amount: number;
+    notes: string;
+  }>,
+): Promise<RestaurantInvoice> {
+  return apiMutate<RestaurantInvoice>(
+    `/api/invoices/${restaurantId}?period=${encodeURIComponent(period)}`,
+    fields,
+    'PUT',
+  );
+}
+
+export async function markInvoicePaid(
+  restaurantId: number,
+  period: string,
+  amount?: number,
+): Promise<RestaurantInvoice> {
+  return apiMutate<RestaurantInvoice>(
+    `/api/invoices/${restaurantId}/mark-paid?period=${encodeURIComponent(period)}`,
+    amount != null ? { amount } : {},
+    'POST',
+  );
+}
+
 export type ThresholdNear = {
   id: number;
   full_name: string | null;
