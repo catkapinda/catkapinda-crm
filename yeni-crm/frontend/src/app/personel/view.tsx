@@ -334,7 +334,7 @@ export function PersonnelView({
               {[
                 { icon: '↗', bg: 'bg-green-50', border: 'border-green-200', color: 'text-green-700', title: 'Eşik Aşımı', value: '3 kurye', meta: '<strong>%72</strong> ay sonuna kadar geçecek · <strong>+84K ₺</strong> ek fatura potansiyeli' },
                 { icon: '⚠', bg: 'bg-yellow-50', border: 'border-yellow-200', color: 'text-yellow-700', title: 'Eksik Kapasite', value: '2 restoran', meta: 'Quick China Suadiye <strong>4/6</strong> · Köroğlu <strong>5/8</strong> · acil işe alım' },
-                { icon: '⚡', bg: 'bg-brand-soft', border: 'border-brand-border', color: 'text-brand', title: 'Verimlilik Liderleri', value: 'Cihan + Selim', meta: 'Sabit maaşlarının <strong>%52</strong>'sini cover yaparak geri kazandılar' },
+                { icon: '⚡', bg: 'bg-brand-soft', border: 'border-brand-border', color: 'text-brand', title: 'Verimlilik Liderleri', value: 'Cihan + Selim', meta: "Sabit maaşlarının <strong>%52</strong>'sini cover yaparak geri kazandılar" },
                 { icon: '📋', bg: 'bg-cream-100', border: 'border-cream-300', color: 'text-terra', title: 'Bekleyen Aksiyonlar', value: '7 talep', meta: '3 avans · 2 motor değişikliği · 2 muhasebe geçişi onay bekliyor' },
               ].map((item, i) => (
                 <div
