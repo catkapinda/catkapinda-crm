@@ -7,7 +7,7 @@ import type { SidebarCounts } from '@/lib/api';
 type NavKey =
   | 'dashboard' | 'personel' | 'puantaj' | 'puantaj-onay' | 'hakedis-onay'
   | 'kesintiler' | 'ekipman' | 'avans' | 'motor' | 'muhasebe-degisim'
-  | 'talepler' | 'restoranlar' | 'faturalar' | 'bordro' | 'kar-zarar';
+  | 'talepler' | 'restoranlar' | 'faturalar' | 'bordro' | 'kar-zarar' | 'restoran-raporlari';
 
 type BadgeKind = 'new' | 'warn' | 'default';
 
@@ -30,6 +30,7 @@ const NAV: NavItem[] = [
   { key: 'ekipman', label: 'Ekipman & Zimmet', href: '/ekipman-zimmet', section: 'Operasyon' },
   { key: 'talepler', label: 'Talepler (Avans · Motor · Muhasebe)', href: '/talepler', section: 'Operasyon', countKey: 'talepler', badgeKind: 'new' },
   { key: 'restoranlar', label: 'Restoranlar', href: '/restoranlar', section: 'Satış', countKey: 'restoranlar' },
+  { key: 'restoran-raporlari', label: 'Restoran Raporları', href: '/raporlar', section: 'Satış' },
   { key: 'faturalar', label: 'Faturalar', href: '/faturalar', section: 'Finans' },
   { key: 'bordro', label: 'Bordro', href: '/bordro', section: 'Finans' },
   { key: 'kar-zarar', label: 'Kâr-Zarar Raporu', href: '/kar-zarar', section: 'Finans' },

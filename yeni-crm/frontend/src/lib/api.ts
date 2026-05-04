@@ -856,3 +856,75 @@ export async function getPersonnelPayroll(
 ): Promise<PayrollRow> {
   return apiGet<PayrollRow>(`/api/payroll/${id}?period=${period}`);
 }
+
+// ─────────────────────────────────────────────────────────────
+// Restoran Raporları
+// ─────────────────────────────────────────────────────────────
+
+export type TurnoverItem = {
+  restaurant_id: number;
+  brand: string;
+  branch: string;
+  started_count: number;
+  exited_count: number;
+  active_count: number;
+  turnover_pct: number;
+};
+
+export type CourierEfficiencyItem = {
+  personnel_id: number;
+  full_name: string;
+  person_code: string;
+  rest_brand: string;
+  rest_branch: string;
+  packages: number;
+  hours: number;
+  packages_per_hour: number;
+};
+
+export type CostPerPackageRestaurant = {
+  restaurant_id: number;
+  brand: string;
+  branch: string;
+  billing_excl_vat: number;
+  packages: number;
+  cost_per_package: number;
+};
+
+export type CostPerPackageCourier = {
+  personnel_id: number;
+  full_name: string;
+  rest_brand: string;
+  billing: number;
+  packages: number;
+  cost_per_package: number;
+};
+
+export type PackageGrowthItem = {
+  restaurant_id: number;
+  brand: string;
+  branch: string;
+  current_packages: number;
+  previous_packages: number;
+  growth_pct: number;
+  delta: number;
+};
+
+export type RestaurantReports = {
+  period: string;
+  previous_period: string;
+  turnover: TurnoverItem[];
+  courier_efficiency: CourierEfficiencyItem[];
+  cost_per_package: {
+    overall: number;
+    by_restaurant: CostPerPackageRestaurant[];
+    by_courier: CostPerPackageCourier[];
+  };
+  package_growth: PackageGrowthItem[];
+};
+
+export async function getRestaurantReports(
+  period: string = '2026-03',
+): Promise<RestaurantReports> {
+  return apiGet<RestaurantReports>(`/api/restaurant-reports?period=${period}`);
+}
