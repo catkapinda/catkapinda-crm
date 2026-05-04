@@ -190,6 +190,68 @@ export async function getManagementSummary(
   return apiGet<ManagementMember[]>(`/api/personel/management?period=${period}`);
 }
 
+// ─────────────────────────────────────────────────────────────
+// Dashboard Analytics — kapsamlı gerçek veri
+// ─────────────────────────────────────────────────────────────
+
+export type DeductionBreakdown = {
+  deduction_type: string;
+  count: number;
+  total: number;
+};
+
+export type RevenueTrendItem = {
+  period: string;
+  invoiced: number;
+  net_paid: number;
+};
+
+export type RestaurantBreakdownItem = {
+  id: number;
+  brand: string;
+  branch: string;
+  courier_count: number;
+  invoiced: number;
+  net_paid: number;
+  pricing_model: string;
+};
+
+export type PersonnelPerformanceItem = {
+  personnel_id: number;
+  packages: number;
+  hours: number;
+  score_0_1: number;
+};
+
+export type AIInsight = {
+  severity: 'info' | 'warning' | 'alert';
+  text: string;
+  metric: string;
+};
+
+export type DashboardAnalytics = {
+  period: string;
+  invoiced_kdv_haric: number;
+  invoiced_kdv_dahil: number;
+  tevkifat_total: number;
+  total_courier_net: number;
+  total_management_salary: number;
+  total_costs: number;
+  net_profit: number;
+  margin_pct: number;
+  revenue_trend: RevenueTrendItem[];
+  by_restaurant: RestaurantBreakdownItem[];
+  deduction_breakdown: DeductionBreakdown[];
+  personnel_performance: PersonnelPerformanceItem[];
+  ai_insights: AIInsight[];
+};
+
+export async function getDashboardAnalytics(
+  period: string = '2026-03',
+): Promise<DashboardAnalytics> {
+  return apiGet<DashboardAnalytics>(`/api/dashboard/analytics?period=${period}`);
+}
+
 export type ThresholdNear = {
   id: number;
   full_name: string | null;

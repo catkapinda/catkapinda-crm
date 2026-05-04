@@ -11,6 +11,7 @@ import type {
   ManagementMember,
   PageInsights,
   Personnel,
+  PersonnelPerformanceItem,
   Restaurant,
   TopPerformer,
 } from '@/lib/api';
@@ -91,13 +92,21 @@ export function PersonnelView({
   topPerformers = [],
   management = [],
   insights = null,
+  performance = [],
 }: {
   personnel: Personnel[];
   restaurants: Restaurant[];
   topPerformers?: TopPerformer[];
   management?: ManagementMember[];
   insights?: PageInsights | null;
+  performance?: PersonnelPerformanceItem[];
 }) {
+  // Personnel ID → score_0_1 lookup (for real heatmap)
+  const perfMap = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const p of performance) m.set(p.personnel_id, p.score_0_1);
+    return m;
+  }, [performance]);
   const [statusTab, setStatusTab] = useState<'Aktif' | 'Pasif' | 'Kara Liste'>('Aktif');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -281,11 +290,21 @@ export function PersonnelView({
       <div className="bg-white border border-border rounded-2xl shadow-sm p-5.5 mb-4.5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-display text-lg font-semibold">Performans Heatmap</h3>
-          <span className="text-xs text-text-3 font-medium">92 personel</span>
+          <span className="text-xs text-text-3 font-medium">{personnel.length} personel</span>
         </div>
         <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(20px, 1fr))' }}>
-          {personnel.slice(0, 92).map((p, i) => {
-            const level = p.id ? ((p.id * 7) % 6) : 0;
+          {personnel.slice(0, 92).map((p) => {
+            // Gerçek skoru analytics.personnel_performance'tan al → 0-5 seviyesi
+            // Skor yoksa (puantaj girilmemiş) → l0 (boş hücre)
+            const score = p.id != null ? perfMap.get(p.id) : undefined;
+            let level: number;
+            if (score == null || score === 0) level = 0;
+            else if (score < 0.2) level = 1;
+            else if (score < 0.4) level = 2;
+            else if (score < 0.6) level = 3;
+            else if (score < 0.8) level = 4;
+            else level = 5;
+
             const bgColors = [
               'bg-gray-100 border border-dashed border-gray-300',
               'bg-blue-100',
@@ -294,11 +313,14 @@ export function PersonnelView({
               'bg-blue-600',
               'bg-blue-800',
             ];
+            const scoreLabel = score != null
+              ? ` · skor %${Math.round(score * 100)}`
+              : ' · veri yok';
             return (
               <div
                 key={p.id}
                 className={`aspect-square rounded ${bgColors[level]}`}
-                title={`${p.full_name || '?'} · ${p.person_code || '?'}`}
+                title={`${p.full_name || '?'} · ${p.person_code || '?'}${scoreLabel}`}
               />
             );
           })}
