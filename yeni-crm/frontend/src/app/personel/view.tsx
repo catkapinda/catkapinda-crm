@@ -174,13 +174,13 @@ export function PersonnelView({
         </div>
         <div className="flex gap-2">
           <button className="px-3.5 py-2 rounded-lg bg-white border border-border text-text-2 text-xs font-semibold shadow-xs hover:border-border-2 transition inline-flex items-center gap-1.5">
-            <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} /> Excel'e aktar
+            <ArrowDownToLine className="w-3.5 h-3.5" strokeWidth={2.2} /> Excel'e aktar
           </button>
           <button
             onClick={() => setCreating(true)}
-            className="px-3.5 py-2 rounded-lg bg-brand text-white text-xs font-semibold shadow-sm hover:bg-blue-900 transition"
+            className="px-3.5 py-2 rounded-lg bg-brand text-white text-xs font-semibold shadow-sm hover:bg-blue-900 transition inline-flex items-center gap-1.5"
           >
-            + Yeni Personel
+            <Plus className="w-3.5 h-3.5" strokeWidth={2.4} /> Yeni Personel
           </button>
         </div>
       </header>
