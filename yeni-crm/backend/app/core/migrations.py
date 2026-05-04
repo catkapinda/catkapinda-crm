@@ -2,6 +2,8 @@
 
 Backend startup'ında çalışır. ALTER TABLE IF NOT EXISTS gibi güvenli
 ifadelerle kolon ekler. Hâlihazırda var olan veri korunur.
+
+Build trigger: 2026-05-04 03:45 — force redeploy after webpack syntax fix.
 """
 import logging
 
