@@ -649,6 +649,14 @@ export type CourierRequest = {
   requested_at: string | null;
   decided_at: string | null;
   decided_by: string | null;
+  // Motor Değişikliği detayları
+  vehicle_from?: string | null;
+  vehicle_to?: string | null;
+  vehicle_reason?: string | null;
+  plate?: string | null;
+  // Muhasebe Değişimi detayları
+  accounting_from?: string | null;
+  accounting_to?: string | null;
 };
 
 export type CourierRequestCounts = {
@@ -663,6 +671,14 @@ export type CourierRequestCreate = {
   request_type: string;
   amount?: number;
   reason?: string | null;
+  // Motor Değişikliği için
+  vehicle_from?: string | null;
+  vehicle_to?: string | null;
+  vehicle_reason?: string | null;
+  plate?: string | null;
+  // Muhasebe Değişimi için
+  accounting_from?: string | null;
+  accounting_to?: string | null;
 };
 
 export type CourierRequestDecide = {

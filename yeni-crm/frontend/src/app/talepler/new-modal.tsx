@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Banknote, Bike, Calculator, Check, Search, X,
+  AlertCircle, Banknote, Bike, Calculator, Check, Search, X,
+  type LucideIcon,
 } from 'lucide-react';
 
 import {
@@ -10,13 +11,33 @@ import {
   createCourierRequest,
 } from '@/lib/api';
 
-const TYPES = [
-  { key: 'Avans', label: 'Avans', Icon: Banknote, accent: 'green' as const, hint: 'Kuryenin maaşından kesilecek geçici nakit avansı.' },
-  { key: 'Motor Değişikliği', label: 'Motor Değişikliği', Icon: Bike, accent: 'orange' as const, hint: 'Çat Kapında kiralık/satış motor değişiklik talebi.' },
-  { key: 'Muhasebe Değişimi', label: 'Muhasebe Değişimi', Icon: Calculator, accent: 'purple' as const, hint: 'Kendi Muhasebecisi ↔ Çat Kapında Muhasebe geçiş talebi.' },
+const TYPES: { key: ReqType; label: string; Icon: LucideIcon; accent: 'green' | 'orange' | 'purple'; hint: string }[] = [
+  { key: 'Avans', label: 'Avans', Icon: Banknote, accent: 'green', hint: 'Kuryenin maaşından kesilecek geçici nakit avansı.' },
+  { key: 'Motor Değişikliği', label: 'Motor Değişikliği', Icon: Bike, accent: 'orange', hint: 'ÇK Kiralık ↔ Kendi Motoru ↔ ÇK Satış geçişleri (kaza/arıza vb.).' },
+  { key: 'Muhasebe Değişimi', label: 'Muhasebe Değişimi', Icon: Calculator, accent: 'purple', hint: 'Kendi Muhasebecisi ↔ Çat Kapında Muhasebe geçişi.' },
+];
+
+type ReqType = 'Avans' | 'Motor Değişikliği' | 'Muhasebe Değişimi';
+
+const VEHICLE_OPTIONS = [
+  'Çat Kapında Kiralık',
+  'Çat Kapında Satış',
+  'Kendi Motoru',
 ] as const;
 
-type ReqType = (typeof TYPES)[number]['key'];
+const VEHICLE_REASONS = [
+  'Kaza',
+  'Arıza',
+  'Bakım',
+  'Eskime / Yıpranma',
+  'Kişisel Talep',
+  'Diğer',
+] as const;
+
+const ACCOUNTING_OPTIONS = [
+  'Çat Kapında Muhasebe',
+  'Kendi Muhasebecisi',
+] as const;
 
 const ACCENT_STYLES: Record<string, { ring: string; bg: string; iconBg: string; iconText: string }> = {
   green: {
@@ -49,11 +70,21 @@ export function NewRequestModal({
   const [type, setType] = useState<ReqType>('Avans');
   const [personnelId, setPersonnelId] = useState<number | null>(null);
   const [personnelSearch, setPersonnelSearch] = useState('');
-  const [amount, setAmount] = useState<string>('');
+  // Genel
   const [reason, setReason] = useState('');
+  // Avans
+  const [amount, setAmount] = useState<string>('');
+  // Motor
+  const [vehicleFrom, setVehicleFrom] = useState<string>('');
+  const [vehicleTo, setVehicleTo] = useState<string>('');
+  const [vehicleReason, setVehicleReason] = useState<string>('');
+  const [plate, setPlate] = useState<string>('');
+  // Muhasebe
+  const [accountingFrom, setAccountingFrom] = useState<string>('');
+  const [accountingTo, setAccountingTo] = useState<string>('');
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
 
   // ESC ile kapat + body scroll lock
   useEffect(() => {
@@ -78,13 +109,27 @@ export function NewRequestModal({
         return hay.includes(q);
       });
     }
-    return list.slice(0, 30); // İlk 30
+    return list.slice(0, 30);
   }, [personnel, personnelSearch]);
 
   const selectedPersonnel = useMemo(
     () => personnel.find((p) => p.id === personnelId) ?? null,
     [personnel, personnelId],
   );
+
+  // Personel seçilince motor/muhasebe için "from" alanlarını otomatik doldur
+  useEffect(() => {
+    if (!selectedPersonnel) return;
+    if (type === 'Motor Değişikliği' && !vehicleFrom && selectedPersonnel.vehicle_type) {
+      setVehicleFrom(selectedPersonnel.vehicle_type);
+    }
+    if (type === 'Motor Değişikliği' && !plate && selectedPersonnel.current_plate) {
+      setPlate(selectedPersonnel.current_plate);
+    }
+    if (type === 'Muhasebe Değişimi' && !accountingFrom && selectedPersonnel.accounting_type) {
+      setAccountingFrom(selectedPersonnel.accounting_type);
+    }
+  }, [selectedPersonnel, type, vehicleFrom, plate, accountingFrom]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,6 +144,30 @@ export function NewRequestModal({
         return;
       }
     }
+    if (type === 'Motor Değişikliği') {
+      if (!vehicleFrom || !vehicleTo) {
+        setError('Mevcut ve yeni araç tipini seç');
+        return;
+      }
+      if (vehicleFrom === vehicleTo) {
+        setError('Mevcut ve yeni araç tipi farklı olmalı (aynı tip seçildi). Kiralık → kiralık değişimi için neden "Kaza/Arıza" girilebilir.');
+      }
+      if (!vehicleReason) {
+        setError('Değişiklik nedenini seç');
+        return;
+      }
+    }
+    if (type === 'Muhasebe Değişimi') {
+      if (!accountingFrom || !accountingTo) {
+        setError('Mevcut ve yeni muhasebe tipini seç');
+        return;
+      }
+      if (accountingFrom === accountingTo) {
+        setError('Mevcut ve yeni muhasebe tipi aynı olamaz');
+        return;
+      }
+    }
+
     setBusy(true);
     setError(null);
     try {
@@ -107,6 +176,16 @@ export function NewRequestModal({
         request_type: type,
         amount: type === 'Avans' ? parseFloat(amount) : 0,
         reason: reason.trim() || null,
+        ...(type === 'Motor Değişikliği' && {
+          vehicle_from: vehicleFrom,
+          vehicle_to: vehicleTo,
+          vehicle_reason: vehicleReason,
+          plate: plate.trim().toUpperCase() || null,
+        }),
+        ...(type === 'Muhasebe Değişimi' && {
+          accounting_from: accountingFrom,
+          accounting_to: accountingTo,
+        }),
       });
       onCreated();
     } catch (e) {
@@ -122,10 +201,7 @@ export function NewRequestModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        ref={dialogRef}
-        className="bg-white rounded-2xl shadow-xl border border-border w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
-      >
+      <div className="bg-white rounded-2xl shadow-xl border border-border w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* HEADER */}
         <div className="flex items-center justify-between p-5 border-b border-border bg-gradient-to-r from-cream-50 to-white">
           <div>
@@ -133,7 +209,9 @@ export function NewRequestModal({
               Yeni Talep Oluştur
             </div>
             <div className="text-[12.5px] text-text-3 mt-0.5">
-              Kurye için avans, motor değişikliği veya muhasebe değişimi talebi
+              {type === 'Avans' && 'Kurye için nakit avans talebi'}
+              {type === 'Motor Değişikliği' && 'Araç tipi değişikliği (kiralık ↔ kendi ↔ satış)'}
+              {type === 'Muhasebe Değişimi' && 'Muhasebe sağlayıcı değişikliği'}
             </div>
           </div>
           <button
@@ -192,11 +270,9 @@ export function NewRequestModal({
                   className="w-full pl-9 pr-3 py-2.5 text-sm focus:outline-none"
                 />
               </div>
-              <div className="max-h-48 overflow-y-auto">
+              <div className="max-h-44 overflow-y-auto">
                 {filteredPersonnel.length === 0 ? (
-                  <div className="p-4 text-center text-text-3 text-sm">
-                    Sonuç yok
-                  </div>
+                  <div className="p-4 text-center text-text-3 text-sm">Sonuç yok</div>
                 ) : (
                   filteredPersonnel.map((p) => {
                     const active = personnelId === p.id;
@@ -214,9 +290,7 @@ export function NewRequestModal({
                         }`}>
                           {active && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                         </div>
-                        <span className="font-mono text-[10.5px] text-text-3">
-                          {p.person_code}
-                        </span>
+                        <span className="font-mono text-[10.5px] text-text-3">{p.person_code}</span>
                         <span className="font-medium truncate flex-1">{p.full_name}</span>
                         <span className="text-[10.5px] text-text-3 truncate">{p.role}</span>
                       </button>
@@ -228,11 +302,22 @@ export function NewRequestModal({
             {selectedPersonnel && (
               <div className="text-[11.5px] text-brand mt-1.5 font-medium">
                 Seçili: <strong>{selectedPersonnel.full_name}</strong> ({selectedPersonnel.person_code})
+                {type === 'Motor Değişikliği' && selectedPersonnel.vehicle_type && (
+                  <span className="text-text-3 ml-2">
+                    · mevcut: <strong>{selectedPersonnel.vehicle_type}</strong>
+                    {selectedPersonnel.current_plate && ` · ${selectedPersonnel.current_plate}`}
+                  </span>
+                )}
+                {type === 'Muhasebe Değişimi' && selectedPersonnel.accounting_type && (
+                  <span className="text-text-3 ml-2">
+                    · mevcut: <strong>{selectedPersonnel.accounting_type}</strong>
+                  </span>
+                )}
               </div>
             )}
           </div>
 
-          {/* 3. AMOUNT (sadece avans) */}
+          {/* 3. TIPE ÖZEL FIELDS */}
           {type === 'Avans' && (
             <div>
               <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-2">
@@ -254,29 +339,127 @@ export function NewRequestModal({
             </div>
           )}
 
-          {/* 4. REASON */}
+          {type === 'Motor Değişikliği' && (
+            <div className="space-y-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-2">
+                  3. Araç Geçişi
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <SelectField
+                    label="Mevcut Araç"
+                    value={vehicleFrom}
+                    onChange={setVehicleFrom}
+                    options={VEHICLE_OPTIONS}
+                  />
+                  <SelectField
+                    label="Yeni Araç"
+                    value={vehicleTo}
+                    onChange={setVehicleTo}
+                    options={VEHICLE_OPTIONS}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-2">
+                  4. Değişiklik Nedeni
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {VEHICLE_REASONS.map((r) => {
+                    const active = vehicleReason === r;
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setVehicleReason(r)}
+                        className={`px-3 py-2 rounded-lg border-[1.5px] text-[12px] font-semibold transition ${
+                          active
+                            ? 'border-orange-500 bg-orange-50 text-orange-700'
+                            : 'border-border bg-white text-text-2 hover:border-border-strong'
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-2">
+                  5. Plaka
+                </div>
+                <input
+                  type="text"
+                  placeholder="34 ABC 123"
+                  value={plate}
+                  onChange={(e) => setPlate(e.target.value.toUpperCase())}
+                  maxLength={20}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border text-[14px] font-mono focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition uppercase"
+                />
+                <div className="text-[11px] text-text-3 mt-1">
+                  Mevcut motorun plakası (otomatik dolduruldu — gerekirse değiştir).
+                </div>
+              </div>
+            </div>
+          )}
+
+          {type === 'Muhasebe Değişimi' && (
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-2">
+                3. Muhasebe Geçişi
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <SelectField
+                  label="Mevcut Muhasebe"
+                  value={accountingFrom}
+                  onChange={setAccountingFrom}
+                  options={ACCOUNTING_OPTIONS}
+                />
+                <SelectField
+                  label="Yeni Muhasebe"
+                  value={accountingTo}
+                  onChange={setAccountingTo}
+                  options={ACCOUNTING_OPTIONS}
+                />
+              </div>
+              {accountingFrom && accountingTo && accountingFrom !== accountingTo && (
+                <div className="text-[11.5px] text-purple-700 mt-2 font-medium bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                  <strong>{accountingFrom}</strong> → <strong>{accountingTo}</strong> geçişi.
+                  {accountingTo === 'Çat Kapında Muhasebe' && ' Aylık muhasebe bedeli kuryeden kesilmeye başlar.'}
+                  {accountingTo === 'Kendi Muhasebecisi' && ' ÇK Muhasebe bedeli kesilmez; kurye kendi mali müşaviriyle çalışır.'}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* GENEL AÇIKLAMA */}
           <div>
             <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-2">
-              {type === 'Avans' ? '4. Açıklama (opsiyonel)' : '3. Açıklama'}
+              {type === 'Avans' ? '4. Açıklama (opsiyonel)'
+                : type === 'Motor Değişikliği' ? '6. Ek Not (opsiyonel)'
+                : '4. Açıklama (opsiyonel)'}
             </div>
             <textarea
               placeholder={
                 type === 'Avans'
                   ? 'Örn. acil sağlık masrafı'
                   : type === 'Motor Değişikliği'
-                  ? 'Mevcut motor durumu ve istenen değişiklik...'
-                  : 'Mevcut muhasebe + neden değişiklik isteniyor...'
+                  ? 'Hasar detayı, atölye notu, vs.'
+                  : 'Geçiş gerekçesi, talep eden kişi notu, vs.'
               }
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              rows={3}
+              rows={2}
               className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition resize-none"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
-              {error}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" strokeWidth={2.2} />
+              <span>{error}</span>
             </div>
           )}
         </form>
@@ -303,5 +486,32 @@ export function NewRequestModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function SelectField({
+  label, value, onChange, options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: readonly string[];
+}) {
+  return (
+    <label className="block">
+      <div className="text-[10.5px] text-text-3 font-semibold uppercase tracking-wider mb-1">
+        {label}
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2.5 rounded-xl border border-border text-[13px] focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition bg-white"
+      >
+        <option value="">— seçin —</option>
+        {options.map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    </label>
   );
 }

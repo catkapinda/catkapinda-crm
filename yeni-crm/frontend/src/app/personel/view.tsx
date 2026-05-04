@@ -2,9 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowDownToLine, Award, Bike, CheckCircle, Crown,
-  Lightbulb, MoreVertical, Pencil, Plus, Search, Sparkles, Trophy,
-  TrendingUp, Utensils, Zap, Check,
+  ArrowDownToLine, Check, Plus, Search, Sparkles, Utensils, Zap,
 } from 'lucide-react';
 
 import { PersonnelEditModal } from '@/components/personnel-edit-modal';

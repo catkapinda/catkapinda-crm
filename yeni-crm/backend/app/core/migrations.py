@@ -66,6 +66,49 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON courier_requests(status)
         """,
     ),
+    # ─── Talep detay alanları (motor & muhasebe değişikliği) ───
+    (
+        "courier_requests.vehicle_from",
+        """
+        ALTER TABLE courier_requests
+        ADD COLUMN IF NOT EXISTS vehicle_from varchar(40)
+        """,
+    ),
+    (
+        "courier_requests.vehicle_to",
+        """
+        ALTER TABLE courier_requests
+        ADD COLUMN IF NOT EXISTS vehicle_to varchar(40)
+        """,
+    ),
+    (
+        "courier_requests.vehicle_reason",
+        """
+        ALTER TABLE courier_requests
+        ADD COLUMN IF NOT EXISTS vehicle_reason varchar(40)
+        """,
+    ),
+    (
+        "courier_requests.plate",
+        """
+        ALTER TABLE courier_requests
+        ADD COLUMN IF NOT EXISTS plate varchar(20)
+        """,
+    ),
+    (
+        "courier_requests.accounting_from",
+        """
+        ALTER TABLE courier_requests
+        ADD COLUMN IF NOT EXISTS accounting_from varchar(40)
+        """,
+    ),
+    (
+        "courier_requests.accounting_to",
+        """
+        ALTER TABLE courier_requests
+        ADD COLUMN IF NOT EXISTS accounting_to varchar(40)
+        """,
+    ),
     # ─── Faturalar (restoran ödeme takip) ───
     (
         "restaurant_invoices.table",

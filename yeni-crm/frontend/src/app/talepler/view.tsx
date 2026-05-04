@@ -444,6 +444,50 @@ function RequestCard({
         </div>
       )}
 
+      {/* Motor Değişikliği detayları */}
+      {r.request_type === 'Motor Değişikliği' && (r.vehicle_from || r.vehicle_to) && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3 space-y-2">
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="px-2 py-0.5 rounded-md bg-white border border-orange-200 text-orange-800 font-semibold">
+              {r.vehicle_from ?? '—'}
+            </span>
+            <span className="text-orange-600 font-bold">→</span>
+            <span className="px-2 py-0.5 rounded-md bg-orange-600 text-white font-semibold">
+              {r.vehicle_to ?? '—'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11.5px]">
+            {r.vehicle_reason && (
+              <div className="text-orange-800">
+                <strong className="text-[10px] uppercase tracking-wider opacity-75">Neden:</strong>{' '}
+                <span className="font-semibold">{r.vehicle_reason}</span>
+              </div>
+            )}
+            {r.plate && (
+              <div className="text-orange-800">
+                <strong className="text-[10px] uppercase tracking-wider opacity-75">Plaka:</strong>{' '}
+                <span className="font-mono font-bold">{r.plate}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Muhasebe Değişimi detayları */}
+      {r.request_type === 'Muhasebe Değişimi' && (r.accounting_from || r.accounting_to) && (
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-3">
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="px-2 py-0.5 rounded-md bg-white border border-purple-200 text-purple-800 font-semibold">
+              {r.accounting_from ?? '—'}
+            </span>
+            <span className="text-purple-600 font-bold">→</span>
+            <span className="px-2 py-0.5 rounded-md bg-purple-600 text-white font-semibold">
+              {r.accounting_to ?? '—'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Reason */}
       {r.reason && (
         <div className="bg-cream-50 border border-border rounded-lg p-2.5 mb-3">

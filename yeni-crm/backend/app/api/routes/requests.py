@@ -22,6 +22,14 @@ class RequestCreate(BaseModel):
     request_type: str
     amount: float | None = 0
     reason: str | None = None
+    # Motor Değişikliği için
+    vehicle_from: str | None = None
+    vehicle_to: str | None = None
+    vehicle_reason: str | None = None
+    plate: str | None = None
+    # Muhasebe Değişimi için
+    accounting_from: str | None = None
+    accounting_to: str | None = None
 
 
 class RequestDecide(BaseModel):
