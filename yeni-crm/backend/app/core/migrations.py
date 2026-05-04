@@ -66,6 +66,41 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON courier_requests(status)
         """,
     ),
+    # ─── Faturalar (restoran ödeme takip) ───
+    (
+        "restaurant_invoices.table",
+        """
+        CREATE TABLE IF NOT EXISTS restaurant_invoices (
+            id SERIAL PRIMARY KEY,
+            restaurant_id integer NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+            period varchar(7) NOT NULL,
+            invoice_no varchar(40),
+            amount_excl_vat numeric DEFAULT 0,
+            vat_amount numeric DEFAULT 0,
+            amount_incl_vat numeric DEFAULT 0,
+            status varchar(20) NOT NULL DEFAULT 'Beklemede',
+            issued_at timestamptz DEFAULT now(),
+            paid_at timestamptz,
+            paid_amount numeric DEFAULT 0,
+            notes text,
+            UNIQUE(restaurant_id, period)
+        )
+        """,
+    ),
+    (
+        "restaurant_invoices.idx_period",
+        """
+        CREATE INDEX IF NOT EXISTS idx_invoices_period
+        ON restaurant_invoices(period)
+        """,
+    ),
+    (
+        "restaurant_invoices.idx_status",
+        """
+        CREATE INDEX IF NOT EXISTS idx_invoices_status
+        ON restaurant_invoices(status)
+        """,
+    ),
 ]
 
 
