@@ -233,7 +233,7 @@ function TabButton({
 function TurnoverTable({
   data,
 }: {
-  data: typeof RestaurantReports.prototype.turnover;
+  data: RestaurantReports['turnover'];
 }) {
   const [sort, setSort] = useState({ key: 'turnover_pct', desc: true });
 
@@ -354,7 +354,7 @@ function TurnoverTable({
 function EfficiencyTable({
   data,
 }: {
-  data: typeof RestaurantReports.prototype.courier_efficiency;
+  data: RestaurantReports['courier_efficiency'];
 }) {
   const [sort, setSort] = useState({ key: 'packages_per_hour', desc: true });
 
@@ -491,7 +491,7 @@ function EfficiencyTable({
 function CostPerPackageSection({
   data,
 }: {
-  data: typeof RestaurantReports.prototype.cost_per_package;
+  data: RestaurantReports['cost_per_package'];
 }) {
   const [sort, setSort] = useState({ key: 'cost_per_package', desc: true });
 
@@ -605,7 +605,7 @@ function CostPerPackageSection({
 function GrowthTable({
   data,
 }: {
-  data: typeof RestaurantReports.prototype.package_growth;
+  data: RestaurantReports['package_growth'];
 }) {
   const [sort, setSort] = useState({ key: 'growth_pct', desc: true });
 
