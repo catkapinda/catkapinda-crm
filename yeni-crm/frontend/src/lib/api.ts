@@ -848,11 +848,14 @@ export type MatrixCell = {
 
 export type MatrixRow = {
   id: number;
+  row_key: string;
   full_name: string | null;
   person_code: string | null;
   role: string | null;
   rest_brand: string | null;
   rest_branch: string | null;
+  rest_id: number | null;
+  is_support_row: boolean;
   cells: MatrixCell[];
   total_hours: number;
   total_packages: number;
@@ -870,6 +873,7 @@ export type PuantajMatrix = {
     joker_days: number;
     cell_counts: Record<string, number>;
     personnel_count: number;
+    row_count?: number;
   };
 };
 

@@ -84,6 +84,7 @@ export function PuantajGrid({
   const [search, setSearch] = useState('');
   const [restFilter, setRestFilter] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const [hideSupport, setHideSupport] = useState(false);
   const [editing, setEditing] = useState<{
     row: MatrixRow;
     day: number;
@@ -99,6 +100,7 @@ export function PuantajGrid({
   async function runBulk(
     pattern: 'weekdays' | 'all' | 'weekend_off' | 'copy_previous',
     hours = 9,
+    scoped: 'all' | 'view' = 'all',
   ) {
     if (bulkBusy) return;
     const label =
@@ -109,11 +111,22 @@ export function PuantajGrid({
         : pattern === 'weekdays'
         ? 'Hafta içi → 9 saat'
         : 'Tüm gün → 9 saat';
-    if (!confirm(`${label} işlemini onayla? Mevcut hücreler atlanır, sadece boşlar doldurulur.`)) return;
+    const personnel_ids = scoped === 'view'
+      ? Array.from(new Set(filtered.filter((r) => !r.is_support_row).map((r) => r.id)))
+      : undefined;
+    const scopeLabel = scoped === 'view'
+      ? `görünümdeki ${personnel_ids?.length ?? 0} kişi`
+      : 'tüm aktif kuryeler';
+    if (!confirm(`${label} (${scopeLabel}) işlemini onayla?\nMevcut hücreler atlanır, sadece boşlar doldurulur.`)) return;
+    if (personnel_ids && personnel_ids.length === 0) {
+      setBulkMsg('Görünümde uygun kişi yok');
+      setTimeout(() => setBulkMsg(null), 4000);
+      return;
+    }
     setBulkBusy(true);
     setBulkMsg(null);
     try {
-      const res = await bulkFillPuantaj({ period, pattern, hours });
+      const res = await bulkFillPuantaj({ period, pattern, hours, personnel_ids });
       setBulkMsg(`${res.inserted} kayıt eklendi · ${res.skipped} atlandı (zaten dolu)`);
       router.refresh();
     } catch (err) {
@@ -140,6 +153,7 @@ export function PuantajGrid({
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr-TR');
     return matrix.rows.filter((r) => {
+      if (hideSupport && r.is_support_row) return false;
       if (q) {
         const hay = `${r.full_name ?? ''} ${r.person_code ?? ''} ${r.rest_brand ?? ''} ${r.rest_branch ?? ''}`
           .toLocaleLowerCase('tr-TR');
@@ -154,7 +168,7 @@ export function PuantajGrid({
       if (roleFilter && r.role !== roleFilter) return false;
       return true;
     });
-  }, [matrix.rows, search, restFilter, roleFilter]);
+  }, [matrix.rows, search, restFilter, roleFilter, hideSupport]);
 
   const counts = matrix.summary.cell_counts || {};
   const filteredHours = filtered.reduce((s, r) => s + r.total_hours, 0);
@@ -283,6 +297,15 @@ export function PuantajGrid({
           <option value="Kaptan">Kaptan</option>
           <option value="Restoran Takım Şefi">Takım Şefi</option>
         </select>
+        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12.5px] text-text-2 bg-bg-surface cursor-pointer hover:border-text/30 transition select-none">
+          <input
+            type="checkbox"
+            checked={hideSupport}
+            onChange={(e) => setHideSupport(e.target.checked)}
+            className="w-3.5 h-3.5 accent-orange-500"
+          />
+          <span>Destek satırını gizle</span>
+        </label>
         <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider ml-auto">
           {filtered.length} sonuç · {tr(Math.round(filteredHours))} sa ·{' '}
           {tr(filteredPackages)} paket
@@ -345,7 +368,7 @@ export function PuantajGrid({
             <tbody>
               {filtered.map((row) => (
                 <PersonRow
-                  key={row.id}
+                  key={row.row_key ?? `${row.id}-${row.is_support_row ? 'd' : 'm'}-${row.rest_id ?? 'x'}`}
                   row={row}
                   totalDays={totalDays}
                   period={period}
@@ -372,9 +395,8 @@ export function PuantajGrid({
           <Legend swatch="bg-yellow-50" label="Raporlu" />
           <Legend swatch="bg-gradient-to-br from-red-50 to-cream-100" label="İhbarsız" />
           <Legend
-            swatch="bg-white"
-            label="Joker / Destek"
-            ringClass="ring-[2px] ring-blue-500"
+            swatch="bg-orange-100 border-l-2 border-orange-500"
+            label="Destek satırı"
           />
           <Legend
             swatch="bg-white"
@@ -382,14 +404,14 @@ export function PuantajGrid({
             ringClass="ring-[2px] ring-brand ring-inset"
           />
           <span className="ml-auto text-text-3 text-[11px]">
-            Hücre tıklayınca düzenlemeden yakında destek
+            Hücreye tıklayıp düzenle · destek için ↪ rozetli satır
           </span>
         </div>
       </div>
 
       {/* Sticky bottom action bar */}
       <div className="fixed bottom-0 left-[252px] right-0 bg-text text-white px-8 py-3 flex items-center justify-between gap-3 z-40 shadow-[0_-8px_24px_rgba(0,0,0,0.12)]">
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-3 items-center flex-wrap">
           <span className="text-[12px] text-white/70">
             <strong className="text-white">Hızlı doldur:</strong>
           </span>
@@ -397,6 +419,7 @@ export function PuantajGrid({
             onClick={() => runBulk('all', 9)}
             disabled={bulkBusy}
             className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[12.5px] font-medium hover:bg-white/20 transition disabled:opacity-50"
+            title="Tüm aktif kuryelere uygula"
           >
             Tüm gün · 9 saat
           </button>
@@ -415,6 +438,24 @@ export function PuantajGrid({
             Geçen aydan kopyala
           </button>
           <span className="w-px h-5 bg-white/20" />
+          {/* Filtreli doldurma — sadece görünümdeki kişilere */}
+          <span className="text-[11px] text-yellow-200 font-semibold">Görünüme:</span>
+          <button
+            onClick={() => runBulk('all', 9, 'view')}
+            disabled={bulkBusy || filtered.length === 0}
+            className="px-3 py-1.5 rounded-lg bg-yellow-400/20 border border-yellow-400/40 text-yellow-100 text-[12.5px] font-medium hover:bg-yellow-400/30 transition disabled:opacity-50"
+            title={`Filtrelenmiş ${filtered.filter((r) => !r.is_support_row).length} kişiye 9 saat × tüm gün`}
+          >
+            Bu görünümü 9sa
+          </button>
+          <button
+            onClick={() => runBulk('weekend_off', 9, 'view')}
+            disabled={bulkBusy || filtered.length === 0}
+            className="px-3 py-1.5 rounded-lg bg-yellow-400/20 border border-yellow-400/40 text-yellow-100 text-[12.5px] font-medium hover:bg-yellow-400/30 transition disabled:opacity-50"
+          >
+            Hafta sonu boş
+          </button>
+          <span className="w-px h-5 bg-white/20" />
           <span className="text-[12px] text-white/75 inline-flex items-center gap-1">
             <BarChart3 className="w-3.5 h-3.5" strokeWidth={2.2} /> Toplam:{' '}
             <strong className="text-white font-mono">
@@ -431,9 +472,6 @@ export function PuantajGrid({
               <><Check className="w-3 h-3" strokeWidth={2.4} /> Otomatik kaydedildi</>
             ))}
           </span>
-          <button className="px-3 py-1.5 rounded-lg bg-brand border border-brand text-[12.5px] font-semibold hover:bg-brand-dark transition">
-            PDF Önizleme
-          </button>
         </div>
       </div>
 
@@ -517,19 +555,33 @@ function PersonRow({
     .join('');
   const av = avatarClass(row.role);
 
+  const isSupport = row.is_support_row;
+  const rowBg = isSupport ? 'bg-orange-50/40' : 'bg-bg-surface';
+  const rowHoverBg = isSupport ? 'group-hover:bg-orange-100/60' : 'group-hover:bg-brand-mist/40';
+
   return (
-    <tr className="hover:bg-bg-surface2/50 group">
+    <tr className={`hover:bg-bg-surface2/50 group ${isSupport ? 'border-l-2 border-l-orange-300' : ''}`}>
       {/* Personel cell — sticky left */}
-      <td className="col-person sticky left-0 z-[20] bg-bg-surface border-b border-r-2 border-border-2 px-3.5 py-2.5 group-hover:bg-brand-mist/40 transition min-w-[230px] max-w-[230px]">
+      <td className={`col-person sticky left-0 z-[20] ${rowBg} border-b border-r-2 border-border-2 px-3.5 py-2.5 ${rowHoverBg} transition min-w-[230px] max-w-[230px] ${isSupport ? 'pl-7' : ''}`}>
         <div className="flex items-center gap-2.5">
+          {isSupport && (
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 text-orange-500 font-bold text-sm">↪</div>
+          )}
           <div
-            className={`w-8 h-8 rounded-full ${AV_COLORS[av]} font-bold flex items-center justify-center text-[11px] flex-shrink-0`}
+            className={`w-8 h-8 rounded-full ${AV_COLORS[av]} font-bold flex items-center justify-center text-[11px] flex-shrink-0 ${isSupport ? 'opacity-70' : ''}`}
           >
             {initials || '?'}
           </div>
-          <div className="min-w-0">
-            <div className="font-semibold text-[12.5px] text-text truncate">
-              {row.full_name ?? '—'}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className={`font-semibold text-[12.5px] truncate ${isSupport ? 'text-text-2' : 'text-text'}`}>
+                {row.full_name ?? '—'}
+              </span>
+              {isSupport && (
+                <span className="px-1.5 py-px rounded text-[9px] font-bold bg-orange-100 text-orange-700 border border-orange-300 flex-shrink-0">
+                  DESTEK
+                </span>
+              )}
             </div>
             <div className="text-[10.5px] font-mono text-text-3">
               {row.person_code ?? ''}
@@ -538,8 +590,8 @@ function PersonRow({
         </div>
       </td>
       {/* Restoran — sticky */}
-      <td className="col-rest sticky left-[230px] z-[19] bg-bg-surface border-b border-r-2 border-border-2 px-3 py-2.5 group-hover:bg-bg-surface2 transition min-w-[150px] max-w-[150px]">
-        <div className="text-[11.5px] text-text-2 font-medium truncate">
+      <td className={`col-rest sticky left-[230px] z-[19] ${rowBg} border-b border-r-2 border-border-2 px-3 py-2.5 ${rowHoverBg} transition min-w-[150px] max-w-[150px]`}>
+        <div className={`text-[11.5px] font-medium truncate ${isSupport ? 'text-orange-700' : 'text-text-2'}`}>
           {row.rest_brand
             ? `${row.rest_brand}${row.rest_branch ? ' · ' + row.rest_branch : ''}`
             : (
@@ -725,7 +777,12 @@ function CellPopover({
         cell_type: status,
         worked_hours: hours,
         package_count: packages,
-        coverage_type: status === 'normal' && isSupport ? 'Destek' : undefined,
+        // Destek satırından düzenleniyorsa o restoran ID'sine yaz, ayrıca Destek coverage
+        restaurant_id: row.is_support_row ? row.rest_id ?? undefined : undefined,
+        coverage_type:
+          status === 'normal' && (isSupport || row.is_support_row)
+            ? 'Destek'
+            : undefined,
       });
       onClose();
       router.refresh();

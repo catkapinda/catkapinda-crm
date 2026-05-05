@@ -463,8 +463,13 @@ def daily_matrix(period: str) -> dict:
             )
             db_totals = cur.fetchone() or {}
 
-    # 3. Personel + gün → cell map
-    by_pid_day: dict[tuple[int, int], dict] = {}
+    # 3. Personel + restoran + gün → cell map
+    # Aynı kuryenin farklı restoranlardaki kayıtları ayrı tutulur ki ana ve destek
+    # satırları ayrı gösterilebilsin.
+    by_pid_rid_day: dict[tuple[int, int | None, int], dict] = {}
+    pid_to_assigned_rid: dict[int, int | None] = {}
+    pid_destek_rids: dict[int, set[int]] = {}
+
     for e in entries:
         pid = e["actual_personnel_id"]
         if pid is None:
@@ -476,7 +481,11 @@ def daily_matrix(period: str) -> dict:
             day = int(date_str[8:10])
         except ValueError:
             continue
-        key = (pid, day)
+
+        rid = e.get("restaurant_id")
+        assigned_rid = e.get("assigned_restaurant_id")
+        if pid not in pid_to_assigned_rid:
+            pid_to_assigned_rid[pid] = assigned_rid
 
         worked_hours = float(e.get("worked_hours") or 0)
         worked = worked_hours > 0
@@ -484,7 +493,6 @@ def daily_matrix(period: str) -> dict:
         status = (e.get("status") or "").strip()
         absence = (e.get("absence_reason") or "").strip()
 
-        # Hücre tipi
         if worked:
             cell_type = "normal"
         elif status == "İzin" or absence == "İzin":
@@ -498,67 +506,145 @@ def daily_matrix(period: str) -> dict:
         else:
             cell_type = "empty"
 
-        # Destek mi (kendi atandığı restoran dışında çalışıyorsa)
+        # Destek mi: ana atamadan farklı restoran ya da explicit Destek coverage
         is_support = (
             coverage == "Destek"
             or (
-                e["assigned_restaurant_id"] is not None
-                and e["restaurant_id"] is not None
-                and e["assigned_restaurant_id"] != e["restaurant_id"]
+                assigned_rid is not None
+                and rid is not None
+                and assigned_rid != rid
             )
         )
+        if is_support and rid is not None:
+            pid_destek_rids.setdefault(pid, set()).add(rid)
 
-        # Mevcut kaydı koru — eğer zaten normal varsa onu üstüne yazma
-        existing = by_pid_day.get(key)
+        key = (pid, rid, day)
+        existing = by_pid_rid_day.get(key)
+        # Mevcut normal kaydını koru
         if existing and existing["type"] == "normal" and cell_type != "normal":
             continue
 
-        by_pid_day[key] = {
+        by_pid_rid_day[key] = {
             "type": cell_type,
             "hours": worked_hours,
             "packages": int(e.get("package_count") or 0),
             "is_support": is_support,
-            "restaurant_id": e["restaurant_id"],
+            "restaurant_id": rid,
         }
 
-    # 4. Her personel için 31 günlük dizi + toplam
-    rows: list[dict] = []
-    for p in personnel:
-        cells = []
+    # Restoran info map (destek satırlarında brand göstermek için)
+    rest_info: dict[int, dict] = {}
+    try:
+        with get_connection() as conn2:
+            with conn2.cursor(row_factory=dict_row) as cur2:
+                cur2.execute("SELECT id, brand, branch, pricing_model FROM restaurants")
+                for row in cur2.fetchall():
+                    rest_info[int(row["id"])] = {
+                        "brand": row.get("brand"),
+                        "branch": row.get("branch"),
+                        "pricing_model": row.get("pricing_model"),
+                    }
+    except Exception:
+        pass
+
+    # 4. Her personel için: ANA satır + destek satır(lar)ı
+    def _build_cells_for(
+        pid: int, rid: int | None,
+    ) -> tuple[list[dict], float, int, int]:
+        cells: list[dict] = []
         total_hours = 0.0
         total_pkts = 0
         worked_days = 0
-        joker_days = 0
         for day in range(1, 32):
-            cell = by_pid_day.get((p["id"], day))
+            cell = by_pid_rid_day.get((pid, rid, day))
             if cell:
                 cells.append(cell)
                 if cell["type"] == "normal":
                     total_hours += cell["hours"]
                     total_pkts += cell["packages"]
                     worked_days += 1
-                    if cell["is_support"]:
-                        joker_days += 1
             else:
-                cells.append({"type": "empty", "hours": 0, "packages": 0,
-                              "is_support": False, "restaurant_id": None})
+                cells.append({
+                    "type": "empty", "hours": 0, "packages": 0,
+                    "is_support": False, "restaurant_id": rid,
+                })
+        return cells, total_hours, total_pkts, worked_days
+
+    rows: list[dict] = []
+    for p in personnel:
+        pid = p["id"]
+        # Bu kuryenin kullandığı tüm restoran id'leri (ana + destekler)
+        rids_used: set[int | None] = set()
+        for (k_pid, k_rid, _), _ in by_pid_rid_day.items():
+            if k_pid == pid:
+                rids_used.add(k_rid)
+
+        # Ana satırın restoran id'sini belirle:
+        # 1) Personnel.assigned_restaurant_id (eğer kullanılmışsa)
+        # 2) Yoksa en çok kayıt olan restoran (zaten personnel_sql'in bulduğu)
+        assigned_rid = pid_to_assigned_rid.get(pid)
+        ana_rid: int | None = None
+        if assigned_rid is not None and assigned_rid in rids_used:
+            ana_rid = assigned_rid
+        else:
+            # En çok kullanılanı seç (entry sayısı)
+            count_by_rid: dict[int | None, int] = {}
+            for (k_pid, k_rid, _), c in by_pid_rid_day.items():
+                if k_pid == pid and c["type"] != "empty":
+                    count_by_rid[k_rid] = count_by_rid.get(k_rid, 0) + 1
+            if count_by_rid:
+                ana_rid = max(count_by_rid.items(), key=lambda x: x[1])[0]
+            elif rids_used:
+                ana_rid = next(iter(rids_used))
+
+        # Ana satır
+        ana_cells, ana_hours, ana_pkts, ana_days = _build_cells_for(pid, ana_rid)
         rows.append({
-            "id": p["id"],
+            "id": pid,
+            "row_key": f"{pid}-main",
             "full_name": p["full_name"],
             "person_code": p["person_code"],
             "role": p["role"],
             "rest_brand": p["rest_brand"],
             "rest_branch": p["rest_branch"],
-            "cells": cells,
-            "total_hours": round(total_hours, 1),
-            "total_packages": total_pkts,
-            "worked_days": worked_days,
-            "joker_days": joker_days,
+            "rest_id": ana_rid,
+            "is_support_row": False,
+            "cells": ana_cells,
+            "total_hours": round(ana_hours, 1),
+            "total_packages": ana_pkts,
+            "worked_days": ana_days,
+            "joker_days": 0,  # ana satırda destek yok
         })
+
+        # Destek satırları (her destek restoranı için ayrı)
+        destek_rids = pid_destek_rids.get(pid, set())
+        # ana_rid destek setinden çıkar (eğer ana atama yoksa ve en çok destek varsa karışmasın)
+        destek_rids = destek_rids - {ana_rid}
+        for drid in sorted(destek_rids, key=lambda x: (rest_info.get(x, {}).get("brand") or "", x)):
+            d_cells, d_hours, d_pkts, d_days = _build_cells_for(pid, drid)
+            if d_days == 0:
+                continue
+            r_meta = rest_info.get(drid, {})
+            rows.append({
+                "id": pid,
+                "row_key": f"{pid}-d-{drid}",
+                "full_name": p["full_name"],
+                "person_code": p["person_code"],
+                "role": p["role"],
+                "rest_brand": r_meta.get("brand"),
+                "rest_branch": r_meta.get("branch"),
+                "rest_id": drid,
+                "is_support_row": True,
+                "cells": d_cells,
+                "total_hours": round(d_hours, 1),
+                "total_packages": d_pkts,
+                "worked_days": d_days,
+                "joker_days": d_days,  # destek satırının tüm günleri destek
+            })
 
     # 5. Aylık özet sayılar
     cell_counts: dict[str, int] = {}
-    for cell in by_pid_day.values():
+    for cell in by_pid_rid_day.values():
         cell_counts[cell["type"]] = cell_counts.get(cell["type"], 0) + 1
 
     return {
@@ -571,7 +657,9 @@ def daily_matrix(period: str) -> dict:
             "worked_days": int(db_totals.get("worked_days") or 0),
             "joker_days": sum(r["joker_days"] for r in rows),
             "cell_counts": cell_counts,
-            "personnel_count": len(rows),
+            # Tekil kurye sayısı (destek satırı duplicate, sadece personel)
+            "personnel_count": len({r["id"] for r in rows}),
+            "row_count": len(rows),
         },
     }
 
