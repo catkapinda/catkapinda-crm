@@ -10,20 +10,11 @@ import {
   getMyInfo,
   listMyProfileChanges,
   submitProfileChange,
+  type CourierMe,
   type ProfileChangeRequest,
 } from '@/lib/courier-api';
 
-type PersonnelInfo = {
-  id: number;
-  person_code: string;
-  full_name: string;
-  phone: string | null;
-  iban: string | null;
-  address: string | null;
-  emergency_contact_name: string | null;
-  emergency_contact_phone: string | null;
-  [key: string]: unknown;
-};
+type PersonnelInfo = CourierMe;
 
 const EDITABLE_FIELDS = [
   { key: 'phone', label: 'Telefon', icon: Phone, type: 'tel' },

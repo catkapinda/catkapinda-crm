@@ -136,14 +136,23 @@ def revoke_session(token: str) -> None:
 
 
 def get_personnel_for_courier(personnel_id: int) -> dict | None:
-    """Kurye bilgilerini döner."""
+    """Kurye bilgilerini döner — Profilim sayfasında düzenlenebilir alanlar dahil."""
     sql = """
         SELECT
             id,
             person_code,
             full_name,
             role,
-            status
+            status,
+            phone,
+            current_plate,
+            iban,
+            address,
+            emergency_contact_name,
+            emergency_contact_phone,
+            vehicle_type,
+            accounting_type,
+            assigned_restaurant_id
         FROM personnel
         WHERE id = %s
         LIMIT 1

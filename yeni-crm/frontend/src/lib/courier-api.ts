@@ -63,13 +63,24 @@ export async function courierLogout(): Promise<{ ok: boolean }> {
   return res.json();
 }
 
-export async function getMyInfo(): Promise<{
+export type CourierMe = {
   id: number;
   person_code: string;
   full_name: string;
   role: string;
   status: string;
-}> {
+  phone: string | null;
+  current_plate: string | null;
+  iban: string | null;
+  address: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  vehicle_type: string | null;
+  accounting_type: string | null;
+  assigned_restaurant_id: number | null;
+};
+
+export async function getMyInfo(): Promise<CourierMe> {
   const headers = {
     'Content-Type': 'application/json',
     ...getAuthHeader(),
