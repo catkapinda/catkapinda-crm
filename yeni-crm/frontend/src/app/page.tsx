@@ -1,6 +1,7 @@
+import Link from 'next/link';
 import {
   ArrowDownRight, ArrowUpRight, Calendar, AlertCircle, TrendingUp,
-  Plus, Search, ChevronDown, Users, Store, CalendarDays,
+  Plus, Users,
 } from 'lucide-react';
 
 import { Sidebar } from '@/components/sidebar';
@@ -42,7 +43,38 @@ const MOCK_PIPELINE = [
   ]},
 ];
 
-export default async function DashboardPage() {
+const TR_MONTHS = [
+  'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+  'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
+];
+
+function formatPeriod(p: string): string {
+  const [y, m] = p.split('-').map((s) => parseInt(s, 10));
+  if (!y || !m) return p;
+  return `${TR_MONTHS[m - 1]} ${y}`;
+}
+
+// Son 6 ayın dönem listesi (en yeni en üstte)
+function recentPeriods(current: string, count = 6): string[] {
+  const out: string[] = [];
+  let [y, m] = current.split('-').map((s) => parseInt(s, 10));
+  for (let i = 0; i < count; i++) {
+    out.push(`${y.toString().padStart(4, '0')}-${m.toString().padStart(2, '0')}`);
+    m -= 1;
+    if (m < 1) { m = 12; y -= 1; }
+  }
+  return out;
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ay?: string }>;
+}) {
+  const { ay } = await searchParams;
+  const period = ay ?? '2026-03';
+  const periods = recentPeriods(period, 6);
+
   let summary: DashboardSummary | null = null;
   let counts: SidebarCounts | null = null;
   let deductions: Array<{ deduction_type: string; total: number }> = [];
@@ -52,12 +84,12 @@ export default async function DashboardPage() {
 
   try {
     [summary, counts, analytics, management] = await Promise.all([
-      getDashboardSummary('2026-03'),
+      getDashboardSummary(period),
       getSidebarCounts().catch(() => null),
-      getDashboardAnalytics('2026-03'),
-      getManagementSummary('2026-03').catch(() => []),
+      getDashboardAnalytics(period),
+      getManagementSummary(period).catch(() => []),
     ]);
-    deductions = (await getDeductionSummaryByType('2026-03')).map((d) => ({
+    deductions = (await getDeductionSummaryByType(period)).map((d) => ({
       deduction_type: d.deduction_type,
       total: d.total,
     }));
@@ -95,25 +127,50 @@ export default async function DashboardPage() {
       <main className="overflow-auto">
         <div className="px-9 py-7 max-w-[1500px] mx-auto">
           {/* HEADER */}
-          <div className="flex justify-between items-start mb-8 gap-5">
+          <div className="flex justify-between items-start mb-8 gap-5 flex-wrap">
             <div>
               <div className="text-[13px] text-text-3 font-medium mb-1.5">
                 İyi akşamlar, <span className="font-semibold text-brand">Ebru</span>
               </div>
               <h1 className="font-display text-3xl font-semibold tracking-tight leading-tight text-text mb-1.5">
-                Genel Bakış
+                {formatPeriod(period)} · Genel Bakış
               </h1>
               <div className="text-text-3 text-sm font-medium">
                 {summary
-                  ? `Mart 2026 · ${summary.puantaj_entries.toLocaleString('tr-TR')} puantaj girişi · ${summary.active_restaurants} aktif restoran`
+                  ? `${summary.puantaj_entries.toLocaleString('tr-TR')} puantaj girişi · ${summary.active_restaurants} aktif restoran`
                   : '— veri yükleniyor —'}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="bg-bg-surface border border-border rounded-lg px-3 py-2 flex items-center gap-2 text-sm text-text-3">
-                <Search className="w-4 h-4" />
-                <span>Ara…</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Ay seçici (son 6 ay) */}
+              <div className="flex items-center gap-1 bg-bg-surface border border-border rounded-xl p-1 shadow-sm">
+                {periods.slice(0, 4).reverse().map((p) => {
+                  const isActive = p === period;
+                  return (
+                    <Link
+                      key={p}
+                      href={`/?ay=${p}`}
+                      className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition ${
+                        isActive
+                          ? 'bg-brand text-white shadow-sm'
+                          : 'text-text-2 hover:bg-bg-surface2'
+                      }`}
+                    >
+                      {formatPeriod(p)}
+                    </Link>
+                  );
+                })}
               </div>
+              <select
+                value={period}
+                onChange={() => {}}
+                className="hidden md:block bg-bg-surface border border-border rounded-lg px-2 py-2 text-sm text-text-2 focus:outline-none focus:border-brand"
+                aria-label="Ay seçici (tüm aylar)"
+              >
+                {periods.map((p) => (
+                  <option key={p} value={p}>{formatPeriod(p)}</option>
+                ))}
+              </select>
               <button className="bg-brand text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-brand-dark transition inline-flex items-center gap-1.5">
                 <Plus className="w-4 h-4" /> Yeni
               </button>
