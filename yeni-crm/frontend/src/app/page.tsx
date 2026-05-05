@@ -54,14 +54,23 @@ function formatPeriod(p: string): string {
   return `${TR_MONTHS[m - 1]} ${y}`;
 }
 
-// Son 6 ayın dönem listesi (en yeni en üstte)
-function recentPeriods(current: string, count = 6): string[] {
+// Bugüne yakın 6 ay (4 geçmiş + bu ay + 1 gelecek) — Mart, Nisan, Mayıs hep görünür
+function periodsAroundToday(selected?: string): string[] {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = today.getMonth() + 1; // 1-indexed
   const out: string[] = [];
-  let [y, m] = current.split('-').map((s) => parseInt(s, 10));
-  for (let i = 0; i < count; i++) {
-    out.push(`${y.toString().padStart(4, '0')}-${m.toString().padStart(2, '0')}`);
-    m -= 1;
-    if (m < 1) { m = 12; y -= 1; }
+  for (let offset = -4; offset <= 1; offset++) {
+    let nm = m + offset;
+    let ny = y;
+    while (nm < 1) { nm += 12; ny -= 1; }
+    while (nm > 12) { nm -= 12; ny += 1; }
+    out.push(`${ny.toString().padStart(4, '0')}-${nm.toString().padStart(2, '0')}`);
+  }
+  // Seçili dönem listede yoksa ekle (örn çok eski bir aya bakılıyorsa)
+  if (selected && !out.includes(selected)) {
+    out.push(selected);
+    out.sort();
   }
   return out;
 }
@@ -73,7 +82,7 @@ export default async function DashboardPage({
 }) {
   const { ay } = await searchParams;
   const period = ay ?? '2026-03';
-  const periods = recentPeriods(period, 6);
+  const periods = periodsAroundToday(period);
 
   let summary: DashboardSummary | null = null;
   let counts: SidebarCounts | null = null;
