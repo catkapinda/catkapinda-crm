@@ -5,7 +5,7 @@ from calendar import monthrange
 from psycopg.rows import dict_row
 
 from app.core.database import get_connection
-from app.services.payroll import list_personnel_payroll, calculate_tevkifat
+from app.services.payroll import calculate_tevkifat
 from app.services.deductions import deductions_summary_by_type
 
 
@@ -105,23 +105,48 @@ def get_dashboard_analytics(period: str = "2026-03") -> dict:
     }
 
     try:
-        # 1. Bordro verisi — toplam brüt + kurye net ödemeleri
-        # KEY DÜZELTME: gerçek key 'toplam_brut' (önce 'brut' yazılıydı, hep 0 dönüyordu)
-        payroll = list_personnel_payroll(period)
-        invoiced_kdv_haric = sum(float(p.get("toplam_brut") or 0) for p in payroll)
-        invoiced_kdv_dahil = invoiced_kdv_haric * 1.20
-
-        tevkifat_calc = calculate_tevkifat(invoiced_kdv_dahil)
-        tevkifat_total = float(tevkifat_calc.get("tevkifat_amount", 0))
-
-        total_courier_net = sum(
-            float(p.get("net") or 0) for p in payroll
-            if (p.get("role") or "").strip() in ["Kurye", "Joker"]
-        )
-
-        # 2. Yönetim maaşları
+        # 1. Direkt SQL ile gelir & gider hesabı (list_personnel_payroll'a bağımlı değil)
+        # Gelir = saatlik ödeme + paket ödemesi + sabit aylık (tüm tarife modelleri)
         with get_connection() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
+                # 1a. Saatlik + paket bazlı gelir (hourly_only, hourly_plus_package, threshold_package)
+                cur.execute(
+                    """
+                    SELECT
+                        COALESCE(SUM(de.worked_hours * COALESCE(r.hourly_rate, 0)), 0)
+                            AS hourly_revenue,
+                        COALESCE(SUM(de.package_count * COALESCE(r.package_rate, 0)), 0)
+                            AS package_revenue
+                    FROM daily_entries de
+                    LEFT JOIN restaurants r ON r.id = de.restaurant_id
+                    WHERE LEFT(de.entry_date::text, 7) = %s
+                      AND COALESCE(de.worked_hours, 0) > 0
+                    """,
+                    (period,),
+                )
+                rev_row = cur.fetchone() or {}
+                hourly_revenue = float(rev_row.get("hourly_revenue") or 0)
+                package_revenue = float(rev_row.get("package_revenue") or 0)
+
+                # 1b. Sabit aylık gelir (fixed_monthly_billing kuryeler için)
+                cur.execute(
+                    """
+                    SELECT COALESCE(SUM(p.fixed_monthly_billing), 0) AS fixed_billing
+                    FROM personnel p
+                    WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
+                      AND COALESCE(p.fixed_monthly_billing, 0) > 0
+                      AND EXISTS (
+                          SELECT 1 FROM daily_entries d
+                          WHERE d.actual_personnel_id = p.id
+                            AND LEFT(d.entry_date::text, 7) = %s
+                      )
+                    """,
+                    (period,),
+                )
+                fixed_row = cur.fetchone() or {}
+                fixed_billing = float(fixed_row.get("fixed_billing") or 0)
+
+                # 1c. Yönetim maaşları
                 cur.execute(
                     """
                     SELECT COALESCE(SUM(monthly_fixed_cost), 0) AS total_mgmt_salary
@@ -130,8 +155,44 @@ def get_dashboard_analytics(period: str = "2026-03") -> dict:
                       AND role IN ('Bölge Müdürü', 'Kaptan', 'Restoran Takım Şefi', 'Joker')
                     """
                 )
-                mgmt_row = cur.fetchone()
-        total_management_salary = float(mgmt_row.get("total_mgmt_salary") or 0) if mgmt_row else 0
+                mgmt_row = cur.fetchone() or {}
+                total_management_salary = float(mgmt_row.get("total_mgmt_salary") or 0)
+
+                # 1d. Kuryelere ödenen net (sabit maaş + monthly_fixed_cost'lu kuryeler)
+                cur.execute(
+                    """
+                    SELECT COALESCE(SUM(monthly_fixed_cost), 0) AS courier_fixed
+                    FROM personnel
+                    WHERE status = 'Aktif'
+                      AND role = 'Kurye'
+                      AND COALESCE(monthly_fixed_cost, 0) > 0
+                    """
+                )
+                cf_row = cur.fetchone() or {}
+                courier_fixed_total = float(cf_row.get("courier_fixed") or 0)
+
+                # 1e. Kesintiler (manuel zimmet/yakıt vb.)
+                cur.execute(
+                    """
+                    SELECT COALESCE(SUM(amount), 0) AS total_ded
+                    FROM deductions
+                    WHERE LEFT(deduction_date::text, 7) = %s
+                    """,
+                    (period,),
+                )
+                ded_row = cur.fetchone() or {}
+                manual_deductions = float(ded_row.get("total_ded") or 0)
+
+        # Toplam fatura (KDV hariç) = saatlik + paket + sabit aylık
+        invoiced_kdv_haric = hourly_revenue + package_revenue + fixed_billing
+        invoiced_kdv_dahil = invoiced_kdv_haric * 1.20
+
+        tevkifat_calc = calculate_tevkifat(invoiced_kdv_dahil)
+        tevkifat_total = float(tevkifat_calc.get("tevkifat_amount", 0))
+
+        # Kuryelere ödenen ≈ saatlik+paket geliri (kurye payı zaten brüt) + sabit kurye maaşı
+        total_courier_net = (hourly_revenue + package_revenue + courier_fixed_total) - manual_deductions
+        total_courier_net = max(0, total_courier_net)
 
         # 3. Marj hesabı
         total_costs = total_courier_net + total_management_salary
