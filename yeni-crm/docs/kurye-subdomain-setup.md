@@ -1,6 +1,6 @@
-# `kurye.catkapinda.com` Subdomain Kurulumu
+# `kurye.crmcatkapinda.com` Subdomain Kurulumu
 
-Hedef: Kuryelerin doğrudan `https://kurye.catkapinda.com` ile giriş yapabilmesi.
+Hedef: Kuryelerin doğrudan `https://kurye.crmcatkapinda.com` ile giriş yapabilmesi.
 Şu an `crmcatkapinda-v3.onrender.com/kurye` üzerinden çalışıyor.
 
 İki adım var: **Render**'da custom domain ekle, **GoDaddy**'de DNS kaydı oluştur.
@@ -14,7 +14,7 @@ Hedef: Kuryelerin doğrudan `https://kurye.catkapinda.com` ile giriş yapabilmes
 3. Üst menüde **Settings** sekmesine geç
 4. Sol kolonda **Custom Domain** veya **Custom Domains** bölümünü bul
 5. **Add Custom Domain** tıkla
-6. Domain alanına şunu gir: `kurye.catkapinda.com`
+6. Domain alanına şunu gir: `kurye.crmcatkapinda.com`
 7. **Save** tıkla
 8. Render sana bir **CNAME hedefi** verir, örneğin:
    ```
@@ -50,7 +50,7 @@ DNS yayılımı genelde 5–30 dakika sürer. Bazen 2 saat uzayabilir.
 
 DNS yayıldıktan sonra:
 
-1. **Tarayıcıda** `https://kurye.catkapinda.com` aç
+1. **Tarayıcıda** `https://kurye.crmcatkapinda.com` aç
 2. Çalışıyor olmalı — kurye giriş ekranı açılmalı (telefon numarası inputu)
 3. Render dashboard'da custom domain durumu **Verified · Active** olmalı
 4. SSL sertifikası otomatik kurulu — adres çubuğunda kilit ikonu görünür
@@ -59,7 +59,7 @@ DNS yayıldıktan sonra:
 
 ## Adım 4 — Frontend kök yönlendirmesi (opsiyonel iyileştirme)
 
-Şu an `kurye.catkapinda.com` açıldığında ana ekran `/` olur (admin login sayfası).
+Şu an `kurye.crmcatkapinda.com` açıldığında ana ekran `/` olur (admin login sayfası).
 Kurye için `/kurye` olarak gelmesi daha güzel.
 
 İki seçenek:
@@ -91,8 +91,8 @@ export const config = {
 ```
 
 Bu sayede:
-- `kurye.catkapinda.com/` → `/kurye` (login sayfası)
-- `kurye.catkapinda.com/dashboard` → `/kurye/dashboard`
+- `kurye.crmcatkapinda.com/` → `/kurye` (login sayfası)
+- `kurye.crmcatkapinda.com/dashboard` → `/kurye/dashboard`
 - vb.
 
 **B) Render rewrite kuralı ile** (panelden):
@@ -101,7 +101,7 @@ Render frontend service'inde **Settings → Redirects/Rewrites** ekle:
 - Source: `*`
 - Destination: `/kurye/*`
 - Type: Rewrite
-- Conditions: `Host header equals kurye.catkapinda.com`
+- Conditions: `Host header equals kurye.crmcatkapinda.com`
 
 ---
 
@@ -109,7 +109,7 @@ Render frontend service'inde **Settings → Redirects/Rewrites** ekle:
 
 **"DNS_PROBE_FINISHED_NXDOMAIN"** → DNS henüz yayılmamış, 30 dk bekle, DNS Checker ile kontrol et:
 ```
-https://dnschecker.org/#CNAME/kurye.catkapinda.com
+https://dnschecker.org/#CNAME/kurye.crmcatkapinda.com
 ```
 
 **Render: "Domain Not Verified"** → CNAME yanlış girilmiş veya GoDaddy'de eski kayıt var. GoDaddy'de `kurye` ile başlayan tüm kayıtları gör, sadece CNAME kalmalı.
@@ -122,9 +122,9 @@ https://dnschecker.org/#CNAME/kurye.catkapinda.com
 
 ## Sıralama özeti (3 dakikalık iş)
 
-1. Render dashboard → Custom Domain ekle (`kurye.catkapinda.com`)
+1. Render dashboard → Custom Domain ekle (`kurye.crmcatkapinda.com`)
 2. GoDaddy DNS → CNAME ekle (`kurye` → `crmcatkapinda-v3.onrender.com`)
-3. 30 dk bekle, `https://kurye.catkapinda.com` aç → çalışıyor mu kontrol
+3. 30 dk bekle, `https://kurye.crmcatkapinda.com` aç → çalışıyor mu kontrol
 4. (Opsiyonel) middleware ekle, push et
 
 Hata yaşarsan ekran görüntüsünü gönder, birlikte hallederiz.

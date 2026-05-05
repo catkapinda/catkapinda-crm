@@ -1,13 +1,15 @@
 /**
- * Next.js middleware — kurye.catkapinda.com subdomain'inden gelen
+ * Next.js middleware — kurye.crmcatkapinda.com subdomain'inden gelen
  * istekleri /kurye altına yönlendir.
  *
  * Kuruluş:
  * - GoDaddy'de CNAME kurye → crmcatkapinda-v3.onrender.com
- * - Render'da custom domain: kurye.catkapinda.com
+ * - Render'da custom domain: kurye.crmcatkapinda.com
  *
- * Bu middleware host header'ında 'kurye.' olan istekler için path başına /kurye
- * ekler (rewrite — URL değişmez, sadece sunucu içinde yönlendirilir).
+ * Bu middleware host header'ında 'kurye.' ile başlayan tüm istekler için path
+ * başına /kurye ekler (rewrite — URL değişmez, sunucu içinde yönlendirilir).
+ * 'kurye.' prefix kontrolü domain-bağımsız çalışır; üretim domain'i
+ * crmcatkapinda.com da olsa catkapinda.com da olsa fark etmez.
  */
 import { NextRequest, NextResponse } from 'next/server';
 
