@@ -6,7 +6,7 @@ from psycopg.rows import dict_row
 
 from app.core.database import get_connection
 from app.services.payroll import list_personnel_payroll, calculate_tevkifat
-from app.services.deductions import get_deduction_summary_by_type
+from app.services.deductions import deductions_summary_by_type
 
 
 def get_dashboard_summary(period: str = "current") -> dict:
@@ -137,7 +137,7 @@ def get_dashboard_analytics(period: str = "2026-03") -> dict:
             by_restaurant = _get_restaurant_breakdown(period, conn)
 
             # 6. Kesinti dağılımı (zaten var)
-            deduction_breakdown = get_deduction_summary_by_type(period)
+            deduction_breakdown = deductions_summary_by_type(period)
 
             # 7. Personel performansı (paket/saat bazında)
             personnel_performance = _get_personnel_performance(period, conn)
