@@ -931,6 +931,9 @@ export type PayrollKesintiGroup = {
 
 export type PayrollDestekLine = {
   restaurant_id: number;
+  rest_brand?: string | null;
+  rest_branch?: string | null;
+  pricing_model?: string | null;
   days: number;
   hours: number;
   packages: number;

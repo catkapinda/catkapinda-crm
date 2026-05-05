@@ -266,6 +266,23 @@ def list_personnel_payroll(period: str) -> list[dict]:
                 "fixed_monthly_fee": e["fixed_monthly_fee"],
             }
 
+    # Restaurant brand/branch — destek satırlarında göstermek için
+    rest_info_map: dict[int, dict] = {}
+    try:
+        with get_connection() as conn2:
+            with conn2.cursor(row_factory=dict_row) as cur2:
+                cur2.execute(
+                    "SELECT id, brand, branch, pricing_model FROM restaurants"
+                )
+                for row in cur2.fetchall():
+                    rest_info_map[int(row["id"])] = {
+                        "brand": row.get("brand"),
+                        "branch": row.get("branch"),
+                        "pricing_model": row.get("pricing_model"),
+                    }
+    except Exception:
+        pass
+
     # 4. Her personel için brüt hesapla
     payroll: list[dict] = []
     for p in personnel:
@@ -391,8 +408,12 @@ def list_personnel_payroll(period: str) -> list[dict]:
                 )
             destek_brut_total += amt
             destek_days_total += dvals["days"]
+            rinfo = rest_info_map.get(rid, {})
             destek_lines.append({
                 "restaurant_id": rid,
+                "rest_brand": rinfo.get("brand"),
+                "rest_branch": rinfo.get("branch"),
+                "pricing_model": rinfo.get("pricing_model") or pm,
                 "days": dvals["days"],
                 "hours": dvals["hours"],
                 "packages": dvals["pkts"],

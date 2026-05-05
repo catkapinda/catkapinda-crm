@@ -66,6 +66,44 @@ const ROLE_STYLES: Record<string, string> = {
   'Restoran Takım Şefi': 'bg-green-100 text-green-800',
 };
 
+// Anlaşma tipi: kısa Türkçe etiket + renk
+type PricingMeta = { label: string; short: string; bg: string; text: string; border: string };
+const PRICING_META: Record<string, PricingMeta> = {
+  hourly_only: {
+    label: 'Saatlik',
+    short: 'SAA',
+    bg: 'bg-blue-50',
+    text: 'text-blue-700',
+    border: 'border-blue-200',
+  },
+  hourly_plus_package: {
+    label: 'Saat + Prim',
+    short: 'SAA+P',
+    bg: 'bg-purple-50',
+    text: 'text-purple-700',
+    border: 'border-purple-200',
+  },
+  threshold_package: {
+    label: 'Eşikli Paket',
+    short: 'EŞK',
+    bg: 'bg-teal-50',
+    text: 'text-teal-700',
+    border: 'border-teal-200',
+  },
+  fixed_monthly: {
+    label: 'Aylık Sabit',
+    short: 'AY',
+    bg: 'bg-amber-50',
+    text: 'text-amber-700',
+    border: 'border-amber-200',
+  },
+};
+
+function pricingMeta(model: string | null | undefined): PricingMeta | null {
+  if (!model) return null;
+  return PRICING_META[model] ?? null;
+}
+
 const AVATAR_GRADIENTS = [
   'from-blue-700 to-blue-500',
   'from-blue-900 to-blue-700',
@@ -511,13 +549,27 @@ function PayrollRowItem({
           </div>
         </td>
 
-        {/* Restoran — sade */}
+        {/* Restoran — anlaşma tipi badge'i ile */}
         <td className="px-3 py-2.5">
           {r.rest_brand ? (
             <div className="text-[12.5px] text-text truncate flex items-center gap-1.5">
               <span className="w-1 h-4 rounded-full bg-brand/40" />
               <div className="min-w-0">
-                <div className="truncate font-medium">{r.rest_brand}</div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="truncate font-medium">{r.rest_brand}</span>
+                  {(() => {
+                    const pm = pricingMeta(r.pricing_model);
+                    if (!pm) return null;
+                    return (
+                      <span
+                        className={`px-1.5 py-px rounded text-[9.5px] font-bold ${pm.bg} ${pm.text} border ${pm.border} inline-flex flex-shrink-0`}
+                        title={pm.label}
+                      >
+                        {pm.short}
+                      </span>
+                    );
+                  })()}
+                </div>
                 {r.rest_branch && (
                   <div className="text-[10.5px] text-text-3 truncate">
                     {r.rest_branch}
@@ -617,6 +669,37 @@ function PayrollRowItem({
                 <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-3 flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5" strokeWidth={2.2} /> Brüt Hesabı
                 </div>
+                {/* Anlaşma tipi açıklaması */}
+                {(() => {
+                  const pm = pricingMeta(r.pricing_model);
+                  if (!pm || r.is_fixed_salary) return null;
+                  const formulaText: Record<string, string> = {
+                    hourly_only: 'Çalışılan saat × restoranın saatlik tarifesi',
+                    hourly_plus_package: 'Saat × saatlik tarife + paket × paket primi',
+                    threshold_package: 'Saat × saatlik + paket × eşikli tarife (eşik aşılırsa yüksek)',
+                    fixed_monthly: 'Restoranın aylık sabit ücreti, ana kuryeye yazılır',
+                  };
+                  return (
+                    <div className={`mb-3 p-2 rounded-lg ${pm.bg} border ${pm.border} flex items-start gap-2`}>
+                      <span className={`px-1.5 py-px rounded text-[10px] font-bold ${pm.text} bg-white/80 border ${pm.border} flex-shrink-0`}>
+                        {pm.label}
+                      </span>
+                      <span className={`text-[11px] ${pm.text} leading-snug`}>
+                        {formulaText[r.pricing_model || ''] || 'Restoranın anlaşma tipine göre hesap'}
+                      </span>
+                    </div>
+                  );
+                })()}
+                {r.is_fixed_salary && (
+                  <div className="mb-3 p-2 rounded-lg bg-brand-soft border border-brand-border flex items-start gap-2">
+                    <span className="px-1.5 py-px rounded text-[10px] font-bold text-brand bg-white/80 border border-brand-border flex-shrink-0">
+                      Sabit Aylık Personel
+                    </span>
+                    <span className="text-[11px] text-brand leading-snug">
+                      Saat/paket tarifesi uygulanmaz, monthly_fixed_cost esas alınır
+                    </span>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <DetailRow
                     label={r.is_fixed_salary ? 'Sabit aylık' : 'Ana atama'}
@@ -649,14 +732,34 @@ function PayrollRowItem({
                   </div>
                 </div>
                 {r.destek_lines.length > 0 && (
-                  <div className="mt-3 text-[11px] text-text-3 bg-cream-50 rounded p-2">
-                    <strong>Destek satırları:</strong>{' '}
-                    {r.destek_lines.map((d, i) => (
-                      <span key={i}>
-                        Restoran #{d.restaurant_id}: {d.days}g/{tr(d.amount)}₺
-                        {i < r.destek_lines.length - 1 ? ' · ' : ''}
-                      </span>
-                    ))}
+                  <div className="mt-3 bg-orange-50 border border-orange-200 rounded-lg p-2.5 space-y-1.5">
+                    <div className="text-[10.5px] uppercase tracking-wider text-orange-700 font-bold flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" /> Destek Vardiyaları
+                    </div>
+                    {r.destek_lines.map((d, i) => {
+                      const pm = pricingMeta(d.pricing_model);
+                      const restName = d.rest_brand
+                        ? `${d.rest_brand}${d.rest_branch ? ' · ' + d.rest_branch : ''}`
+                        : `Restoran #${d.restaurant_id}`;
+                      return (
+                        <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                            <span className="text-text-2 truncate font-medium">{restName}</span>
+                            {pm && (
+                              <span className={`px-1 py-px rounded text-[9px] font-bold ${pm.bg} ${pm.text} border ${pm.border} flex-shrink-0`}>
+                                {pm.short}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-text-3 font-mono text-[10.5px] flex-shrink-0">
+                            {d.days}g · {tr(d.hours, 0)}sa · {d.packages}pk
+                          </div>
+                          <div className="font-mono font-semibold text-orange-700 flex-shrink-0 min-w-[70px] text-right">
+                            +{m(d.amount)} ₺
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
