@@ -174,7 +174,7 @@ export function ProfilimView() {
         {
           id: Math.max(0, ...prev.map((c) => c.id)) + 1,
           field: fieldKey,
-          old_value: (info?.[fieldKey] as string | null) || null,
+          old_value: (info?.[fieldKey as keyof CourierMe] as string | null) ?? null,
           new_value: newValue,
           status: 'Beklemede',
           requested_at: new Date().toISOString(),
@@ -252,7 +252,7 @@ export function ProfilimView() {
               <EditField
                 field={key}
                 label={label}
-                current={(info[key] as string | null) || null}
+                current={(info[key as keyof CourierMe] as string | null) ?? null}
                 onSubmit={(newValue) => handleFieldChange(key, newValue)}
               />
             </div>
