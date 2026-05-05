@@ -23,6 +23,10 @@ from app.services.courier_auth import (
     revoke_session,
     verify_credentials,
 )
+from app.services.otp import (
+    request_otp_for_phone,
+    verify_otp,
+)
 from app.services.courier_portal import (
     create_avans_request,
     get_my_bordro,
@@ -48,10 +52,23 @@ router = APIRouter()
 
 
 class LoginRequest(BaseModel):
-    """Kurye giriş isteği."""
+    """Kurye giriş isteği (eski yöntem — person_code + TC son 4)."""
 
     person_code: str
     last4_tc: str
+
+
+class OtpRequestPayload(BaseModel):
+    """SMS OTP isteme — telefon numarası girişi."""
+
+    phone: str
+
+
+class OtpVerifyPayload(BaseModel):
+    """SMS OTP doğrulama."""
+
+    phone: str
+    code: str
 
 
 class AvansRequest(BaseModel):
@@ -137,6 +154,44 @@ async def login(req: LoginRequest) -> dict:
             "person_code": personnel["person_code"],
             "full_name": personnel["full_name"],
             "role": personnel["role"],
+        },
+    }
+
+
+@router.post("/login/request-otp")
+async def request_login_otp(
+    body: OtpRequestPayload, request: Request
+) -> dict:
+    """Telefon numarasına SMS OTP gönder (kurye giriş ilk adım)."""
+    ip = request.client.host if request.client else None
+    try:
+        return request_otp_for_phone(body.phone, ip_address=ip)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+
+
+@router.post("/login/verify-otp")
+async def verify_login_otp(body: OtpVerifyPayload) -> dict:
+    """SMS OTP doğrula → session yarat → token döner."""
+    try:
+        personnel = verify_otp(body.phone, body.code)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
+
+    if not personnel:
+        raise HTTPException(status_code=401, detail="Doğrulama başarısız")
+
+    session = create_session(personnel["id"])
+    return {
+        "token": session["token"],
+        "expires_at": session["expires_at"],
+        "courier": {
+            "id": personnel["id"],
+            "person_code": personnel.get("person_code"),
+            "full_name": personnel.get("full_name"),
+            "role": personnel.get("role"),
         },
     }
 

@@ -43,6 +43,55 @@ export async function courierLogin(
   return res.json();
 }
 
+// ─────────────────────────────────────────────────────────────────
+// SMS OTP login (Sprint 2)
+// ─────────────────────────────────────────────────────────────────
+
+export type OtpRequestResult = {
+  sent: boolean;
+  masked_phone: string;
+  expires_in_seconds: number;
+  cooldown_seconds: number;
+};
+
+export async function requestLoginOtp(phone: string): Promise<OtpRequestResult> {
+  const res = await fetch(`${API_BASE}/login/request-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Kod gönderilemedi');
+  }
+  return res.json();
+}
+
+export async function verifyLoginOtp(
+  phone: string,
+  code: string,
+): Promise<{
+  token: string;
+  expires_at: string;
+  courier: {
+    id: number;
+    person_code: string;
+    full_name: string;
+    role: string;
+  };
+}> {
+  const res = await fetch(`${API_BASE}/login/verify-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, code }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Kod doğrulanamadı');
+  }
+  return res.json();
+}
+
 export async function courierLogout(): Promise<{ ok: boolean }> {
   const headers = {
     'Content-Type': 'application/json',

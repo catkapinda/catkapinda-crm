@@ -284,6 +284,30 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON payroll_signatures(personnel_id, period)
         """,
     ),
+    # ─── Sprint 2: SMS OTP login ───
+    (
+        "courier_otp_codes.table",
+        """
+        CREATE TABLE IF NOT EXISTS courier_otp_codes (
+            id SERIAL PRIMARY KEY,
+            personnel_id integer NOT NULL REFERENCES personnel(id) ON DELETE CASCADE,
+            code_hash varchar(120) NOT NULL,
+            phone_used varchar(20) NOT NULL,
+            attempts integer DEFAULT 0,
+            created_at timestamptz DEFAULT now(),
+            expires_at timestamptz NOT NULL,
+            verified_at timestamptz,
+            ip_address varchar(45)
+        )
+        """,
+    ),
+    (
+        "courier_otp_codes.idx_personnel_active",
+        """
+        CREATE INDEX IF NOT EXISTS idx_otp_personnel_expires
+        ON courier_otp_codes(personnel_id, expires_at DESC)
+        """,
+    ),
 ]
 
 
