@@ -407,6 +407,7 @@ def daily_matrix(period: str) -> dict:
             -- 1) Aktif personel
             COALESCE(p.status, 'Aktif') = 'Aktif'
             -- 2) Atanmamış (Joker) veya AKTİF restorana atanmış
+            -- (Pasif restoranın kuryeleri burada elenir — örn ay içinde kapanan restoran)
             AND (
                 p.assigned_restaurant_id IS NULL
                 OR EXISTS (
@@ -414,14 +415,6 @@ def daily_matrix(period: str) -> dict:
                     WHERE r3.id = p.assigned_restaurant_id
                       AND COALESCE(r3.active, 1) = 1
                 )
-            )
-            -- 3) O ay AKTİF bir restoranda puantaj kaydı VAR
-            AND EXISTS (
-                SELECT 1 FROM daily_entries d2
-                LEFT JOIN restaurants r4 ON r4.id = d2.restaurant_id
-                WHERE d2.actual_personnel_id = p.id
-                  AND LEFT(d2.entry_date::text, 7) = %s
-                  AND COALESCE(r4.active, 1) = 1
             )
         ORDER BY
             COALESCE(r_active.brand, r_assigned.brand) NULLS LAST,
@@ -448,8 +441,8 @@ def daily_matrix(period: str) -> dict:
 
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            # personnel_sql 2 parametre: CTE içinde period + EXISTS içinde period
-            cur.execute(personnel_sql, (period, period))
+            # personnel_sql tek parametre: CTE içinde period (active_rest)
+            cur.execute(personnel_sql, (period,))
             personnel = cur.fetchall()
 
             cur.execute(entries_sql, (period,))
