@@ -18,30 +18,6 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-// MOCK — gerçek pipeline modülü gelene kadar
-const MOCK_PIPELINE = [
-  { stage: 'Görüşme', count: 3, color: 'border-brand', items: [
-    { name: 'Big Chefs', meta: 'Anadolu · 6 kurye · ~180K' },
-    { name: 'Pizzami', meta: '3 şube · saat+prim · ~210K' },
-    { name: 'Tatlı Stop', meta: '1 şube · ~80K' },
-  ]},
-  { stage: 'Teklif', count: 2, color: 'border-brand-light', items: [
-    { name: 'Bafra Pide', meta: 'Eşikli · 2 şube · ~145K' },
-    { name: 'Burger King', meta: 'Aylık sabit · ~135K' },
-  ]},
-  { stage: 'Müzakere', count: 1, color: 'border-cream-400', items: [
-    { name: 'Domino\'s Pizza', meta: 'Fiyat görüşmesi · ~190K' },
-  ]},
-  { stage: 'Anlaşma ✓', count: 2, color: 'border-green-500', items: [
-    { name: 'Yavuzbey İskender', meta: '15 Mart başladı · 240K' },
-    { name: 'SC Petshop', meta: 'Aylık sabit · 79K' },
-  ]},
-  { stage: 'Olumsuz', count: 4, color: 'border-red-500', items: [
-    { name: 'Mado', meta: 'Bütçe dışı · 220K kayıp' },
-    { name: 'Komagene', meta: 'İç ekiple yapacak · 90K' },
-  ]},
-];
-
 export default async function DashboardPage() {
   let summary: DashboardSummary | null = null;
   let counts: SidebarCounts | null = null;
@@ -288,44 +264,7 @@ export default async function DashboardPage() {
             <NetworkVisualization restaurants={analytics?.by_restaurant || []} />
           </div>
 
-          {/* Sales Pipeline */}
-          <div className="bg-bg-surface border border-border rounded-2xl shadow-md p-6 mb-6">
-            <div className="mb-4">
-              <h2 className="font-display text-lg font-semibold text-text">Yeni Müşteri Kazanım Hattı</h2>
-              <p className="text-sm text-text-3">12 aktif lead · son 30 günde 2 anlaşma · ortalama %40 dönüşüm oranı</p>
-            </div>
-
-            {/* Funnel Summary */}
-            <div className="grid grid-cols-5 gap-3 mb-6">
-              <FunnelStage stage="Görüşme" count="3" value="~470K ₺" sub="tahmini aylık değer" percent={100} color="bg-brand" />
-              <FunnelStage stage="Teklif" count="2" value="~280K ₺" sub="teklif iletilmiş" percent={80} color="bg-brand-light" />
-              <FunnelStage stage="Müzakere" count="1" value="~190K ₺" sub="aktif görüşme" percent={60} color="bg-cream-400" />
-              <FunnelStage stage="Anlaşma" count="2 ✓" value="+319K ₺" sub="bu ay kazanılan" percent={40} color="bg-green-500" />
-              <FunnelStage stage="Olumsuz" count="4" value="~410K ₺" sub="kaçırılan fırsat" percent={25} color="bg-red-500" />
-            </div>
-
-            {/* Kanban */}
-            <div className="grid grid-cols-5 gap-3">
-              {MOCK_PIPELINE.map((col) => (
-                <div key={col.stage} className={`border-t-3 border-${col.color} rounded-lg bg-gradient-to-b from-bg-surface2 to-bg-surface p-3`}>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-text mb-3 flex justify-between items-center">
-                    {col.stage}
-                    <span className="text-xs font-semibold bg-bg-surface text-text-2 px-2 py-1 rounded-full border border-border">
-                      {col.count}
-                    </span>
-                  </h4>
-                  <div className="space-y-2">
-                    {col.items.map((item, i) => (
-                      <div key={i} className="bg-bg-surface border border-border rounded-lg p-2.5 cursor-pointer hover:shadow-sm transition">
-                        <div className="text-xs font-semibold text-text">{item.name}</div>
-                        <div className="text-xs text-text-3 mt-1">{item.meta}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Sales Pipeline — gerçek lead/pipeline modülü gelene kadar gizli */}
 
           {/* Bottom 3 Grid */}
           <div className="grid grid-cols-3 gap-6 mb-12">
