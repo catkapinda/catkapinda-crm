@@ -142,15 +142,15 @@ export default async function DashboardPage({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Ay seçici (son 6 ay) */}
-              <div className="flex items-center gap-1 bg-bg-surface border border-border rounded-xl p-1 shadow-sm">
-                {periods.slice(0, 4).reverse().map((p) => {
+              {/* Ay seçici (son 6 ay, en eski → en yeni) */}
+              <div className="flex items-center gap-1 bg-bg-surface border border-border rounded-xl p-1 shadow-sm flex-wrap">
+                {[...periods].reverse().map((p) => {
                   const isActive = p === period;
                   return (
                     <Link
                       key={p}
                       href={`/?ay=${p}`}
-                      className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition ${
+                      className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition whitespace-nowrap ${
                         isActive
                           ? 'bg-brand text-white shadow-sm'
                           : 'text-text-2 hover:bg-bg-surface2'
@@ -161,16 +161,6 @@ export default async function DashboardPage({
                   );
                 })}
               </div>
-              <select
-                value={period}
-                onChange={() => {}}
-                className="hidden md:block bg-bg-surface border border-border rounded-lg px-2 py-2 text-sm text-text-2 focus:outline-none focus:border-brand"
-                aria-label="Ay seçici (tüm aylar)"
-              >
-                {periods.map((p) => (
-                  <option key={p} value={p}>{formatPeriod(p)}</option>
-                ))}
-              </select>
               <button className="bg-brand text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-brand-dark transition inline-flex items-center gap-1.5">
                 <Plus className="w-4 h-4" /> Yeni
               </button>
