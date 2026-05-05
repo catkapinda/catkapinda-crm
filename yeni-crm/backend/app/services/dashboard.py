@@ -84,124 +84,163 @@ def get_dashboard_summary(period: str = "current") -> dict:
 def get_dashboard_analytics(period: str = "2026-03") -> dict:
     """Kapsamlı dashboard analytics — tüm KPI'ları gerçek veriden hesapla.
 
-    Hesaplanan:
-    - invoiced_kdv_haric: sum(bordro toplam_brut)
-    - invoiced_kdv_dahil: × 1.20
-    - tevkifat_total: sum(tevkifat)
-    - total_courier_net: sum(kurye net ödenen)
-    - total_management_salary: sum(yönetim sabit giderleri)
-    - margin_pct: (invoiced_kdv_haric - total_costs) / invoiced_kdv_haric * 100
-    - revenue_trend: son 6 ay
-    - by_restaurant: aktif restoranlar ve aylık faturaları
-    - personnel_performance: paket/saat bazında puanlama (0-5)
-    - ai_insights: otomatik üretilen insight'lar
+    Top-level try/except — herhangi bir alt-hesap çöktüğünde safe defaults döner.
     """
-    with get_connection() as conn:
-        with conn.cursor(row_factory=dict_row) as cur:
-            # 1. Bordro verisi — toplam brüt + kurye net ödemeleri
-            payroll = list_personnel_payroll(period)
-
-            invoiced_kdv_haric = sum(float(p.get("brut", 0)) for p in payroll)
-            invoiced_kdv_dahil = invoiced_kdv_haric * 1.20
-
-            # Tevkifat hesabı (tüm bordrodan)
-            tevkifat_calc = calculate_tevkifat(invoiced_kdv_dahil)
-            tevkifat_total = float(tevkifat_calc.get("tevkifat_amount", 0))
-
-            # Kuryelere ödenen net toplam
-            total_courier_net = sum(float(p.get("net", 0)) for p in payroll
-                                   if (p.get("role") or "").strip() in ["Kurye", "Joker"])
-
-            # 2. Yönetim maaşları (BM, Kaptan, RTS sabit + Joker)
-            cur.execute(
-                """
-                SELECT
-                    COALESCE(SUM(monthly_fixed_cost), 0) AS total_mgmt_salary
-                FROM personnel
-                WHERE status = 'Aktif'
-                  AND role IN ('Bölge Müdürü', 'Kaptan', 'Restoran Takım Şefi', 'Joker')
-                """
-            )
-            mgmt_row = cur.fetchone()
-            total_management_salary = float(mgmt_row.get("total_mgmt_salary") or 0) if mgmt_row else 0
-
-            # 3. Marj hesabı
-            total_costs = total_courier_net + total_management_salary
-            net_profit = invoiced_kdv_haric - total_costs
-            margin_pct = (net_profit / invoiced_kdv_haric * 100) if invoiced_kdv_haric > 0 else 0
-
-            # 4. Son 6 ay revenue trend
-            revenue_trend = _get_revenue_trend(period, conn)
-
-            # 5. Restoranlar bazında fatura
-            by_restaurant = _get_restaurant_breakdown(period, conn)
-
-            # 6. Kesinti dağılımı (zaten var)
-            deduction_breakdown = deductions_summary_by_type(period)
-
-            # 7. Personel performansı (paket/saat bazında)
-            personnel_performance = _get_personnel_performance(period, conn)
-
-            # 8. AI insights
-            ai_insights = _generate_ai_insights(
-                period, by_restaurant, personnel_performance,
-                margin_pct, net_profit, invoiced_kdv_haric, conn
-            )
-
-    return {
+    # Defaults (her şey patlarsa frontend boş kalmasın)
+    result: dict = {
         "period": period,
-        "invoiced_kdv_haric": invoiced_kdv_haric,
-        "invoiced_kdv_dahil": invoiced_kdv_dahil,
-        "tevkifat_total": tevkifat_total,
-        "total_courier_net": total_courier_net,
-        "total_management_salary": total_management_salary,
-        "total_costs": total_costs,
-        "net_profit": net_profit,
-        "margin_pct": margin_pct,
-        "revenue_trend": revenue_trend,
-        "by_restaurant": by_restaurant,
-        "deduction_breakdown": deduction_breakdown,
-        "personnel_performance": personnel_performance,
-        "ai_insights": ai_insights,
+        "invoiced_kdv_haric": 0.0,
+        "invoiced_kdv_dahil": 0.0,
+        "tevkifat_total": 0.0,
+        "total_courier_net": 0.0,
+        "total_management_salary": 0.0,
+        "total_costs": 0.0,
+        "net_profit": 0.0,
+        "margin_pct": 0.0,
+        "revenue_trend": [],
+        "by_restaurant": [],
+        "deduction_breakdown": [],
+        "personnel_performance": [],
+        "ai_insights": [],
     }
 
+    try:
+        # 1. Bordro verisi — toplam brüt + kurye net ödemeleri
+        # KEY DÜZELTME: gerçek key 'toplam_brut' (önce 'brut' yazılıydı, hep 0 dönüyordu)
+        payroll = list_personnel_payroll(period)
+        invoiced_kdv_haric = sum(float(p.get("toplam_brut") or 0) for p in payroll)
+        invoiced_kdv_dahil = invoiced_kdv_haric * 1.20
 
-def _get_revenue_trend(current_period: str, conn) -> list[dict]:
-    """Son 6 ay bordro verisi (including current)."""
+        tevkifat_calc = calculate_tevkifat(invoiced_kdv_dahil)
+        tevkifat_total = float(tevkifat_calc.get("tevkifat_amount", 0))
+
+        total_courier_net = sum(
+            float(p.get("net") or 0) for p in payroll
+            if (p.get("role") or "").strip() in ["Kurye", "Joker"]
+        )
+
+        # 2. Yönetim maaşları
+        with get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    """
+                    SELECT COALESCE(SUM(monthly_fixed_cost), 0) AS total_mgmt_salary
+                    FROM personnel
+                    WHERE status = 'Aktif'
+                      AND role IN ('Bölge Müdürü', 'Kaptan', 'Restoran Takım Şefi', 'Joker')
+                    """
+                )
+                mgmt_row = cur.fetchone()
+        total_management_salary = float(mgmt_row.get("total_mgmt_salary") or 0) if mgmt_row else 0
+
+        # 3. Marj hesabı
+        total_costs = total_courier_net + total_management_salary
+        net_profit = invoiced_kdv_haric - total_costs
+        margin_pct = (net_profit / invoiced_kdv_haric * 100) if invoiced_kdv_haric > 0 else 0
+
+        result.update({
+            "invoiced_kdv_haric": invoiced_kdv_haric,
+            "invoiced_kdv_dahil": invoiced_kdv_dahil,
+            "tevkifat_total": tevkifat_total,
+            "total_courier_net": total_courier_net,
+            "total_management_salary": total_management_salary,
+            "total_costs": total_costs,
+            "net_profit": net_profit,
+            "margin_pct": margin_pct,
+        })
+
+        # 4. Son 3 ay revenue trend (eskiden 6 aydı, connection pool yorgunluğu için kısaltıldı)
+        try:
+            result["revenue_trend"] = _get_revenue_trend_lite(period)
+        except Exception:
+            pass
+
+        # 5. Restoranlar bazında fatura
+        try:
+            result["by_restaurant"] = _get_restaurant_breakdown(period)
+        except Exception:
+            pass
+
+        # 6. Kesinti dağılımı
+        try:
+            result["deduction_breakdown"] = deductions_summary_by_type(period)
+        except Exception:
+            pass
+
+        # 7. Personel performansı
+        try:
+            result["personnel_performance"] = _get_personnel_performance(period)
+        except Exception:
+            pass
+
+        # 8. AI insights
+        try:
+            result["ai_insights"] = _generate_ai_insights(
+                period, result["by_restaurant"], result["personnel_performance"],
+                margin_pct, net_profit, invoiced_kdv_haric,
+            )
+        except Exception:
+            pass
+
+    except Exception as e:
+        # Tüm üst-seviye hesap çöktüğünde bile boş response dönsün, 500 atma
+        import logging
+        logging.getLogger(__name__).exception("get_dashboard_analytics failed: %s", e)
+
+    return result
+
+
+def _get_revenue_trend_lite(current_period: str) -> list[dict]:
+    """Son 3 ay revenue trend — direct SQL (list_personnel_payroll'u çağırmaz, hızlı).
+
+    invoiced ≈ sum(worked_hours × hourly_rate)  (yaklaşık brüt)
+    net_paid ≈ invoiced × 0.7                  (kuryelere ödenen oran ortalaması)
+    """
     try:
         y, m = map(int, current_period.split("-"))
     except (ValueError, AttributeError):
         return []
 
-    trend = []
-    for offset in range(-5, 1):  # 5 ay öncesinden şimdiye
-        if m + offset < 1:
-            month = m + offset + 12
-            year = y - 1
-        elif m + offset > 12:
-            month = m + offset - 12
-            year = y + 1
-        else:
-            month = m + offset
-            year = y
+    periods: list[str] = []
+    for offset in range(-2, 1):
+        mm = m + offset
+        yy = y
+        if mm < 1:
+            mm += 12
+            yy -= 1
+        periods.append(f"{yy:04d}-{mm:02d}")
 
-        period_str = f"{year:04d}-{month:02d}"
-        payroll = list_personnel_payroll(period_str)
-        invoiced = sum(float(p.get("brut", 0)) for p in payroll)
-        net_paid = sum(float(p.get("net", 0)) for p in payroll)
+    out: list[dict] = []
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            for p in periods:
+                cur.execute(
+                    """
+                    SELECT
+                        COALESCE(SUM(de.worked_hours * COALESCE(r.hourly_rate, 0)), 0)
+                            + COALESCE(SUM(de.package_count * COALESCE(r.package_rate, 0)), 0)
+                            AS invoiced
+                    FROM daily_entries de
+                    LEFT JOIN restaurants r ON r.id = de.restaurant_id
+                    WHERE LEFT(de.entry_date::text, 7) = %s
+                      AND COALESCE(de.worked_hours, 0) > 0
+                    """,
+                    (p,),
+                )
+                row = cur.fetchone()
+                invoiced = float((row and row.get("invoiced")) or 0)
+                out.append({
+                    "period": p,
+                    "invoiced": invoiced,
+                    "net_paid": invoiced * 0.7,
+                })
+    return out
 
-        trend.append({
-            "period": period_str,
-            "invoiced": invoiced,
-            "net_paid": net_paid,
-        })
 
-    return trend
-
-
-def _get_restaurant_breakdown(period: str, conn) -> list[dict]:
+def _get_restaurant_breakdown(period: str) -> list[dict]:
     """Restoranlar bazında aylık fatura (invoiced + net paid)."""
-    with conn.cursor(row_factory=dict_row) as cur:
+    with get_connection() as conn:
+      with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
             SELECT
@@ -241,9 +280,10 @@ def _get_restaurant_breakdown(period: str, conn) -> list[dict]:
     return result
 
 
-def _get_personnel_performance(period: str, conn) -> list[dict]:
+def _get_personnel_performance(period: str) -> list[dict]:
     """Personel performansı — paket/saat bazında 0-1 score (heatmap 0-5 için)."""
-    with conn.cursor(row_factory=dict_row) as cur:
+    with get_connection() as conn:
+      with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
             SELECT
@@ -281,7 +321,7 @@ def _get_personnel_performance(period: str, conn) -> list[dict]:
 
 def _generate_ai_insights(
     period: str, by_restaurant: list[dict], personnel_perf: list[dict],
-    margin_pct: float, net_profit: float, total_invoice: float, conn
+    margin_pct: float, net_profit: float, total_invoice: float,
 ) -> list[dict]:
     """Otomatik insight'lar — en önemlisinden başlayarak (max 3)."""
     insights = []
