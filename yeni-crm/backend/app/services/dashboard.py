@@ -426,3 +426,43 @@ def _generate_ai_insights(
         })
 
     return insights[:3]  # En çok 3 insight
+
+
+def get_available_periods() -> list[str]:
+    """Sistemde gerçek veri (puantaj veya fatura) olan ayların listesi.
+
+    En yeniden eskiye doğru sıralı, max 24 ay döner.
+    Boş ay (puantajı sıfır + faturası sıfır) döndürmez.
+    """
+    periods: set[str] = set()
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                # Puantaj verisi olan aylar
+                cur.execute(
+                    """
+                    SELECT DISTINCT LEFT(entry_date::text, 7) AS period
+                    FROM daily_entries
+                    WHERE entry_date IS NOT NULL
+                      AND COALESCE(worked_hours, 0) > 0
+                    """
+                )
+                for row in cur.fetchall():
+                    if row[0]:
+                        periods.add(row[0])
+
+                # Fatura kesilen aylar (manuel ayda da gözüksün)
+                cur.execute(
+                    """
+                    SELECT DISTINCT period
+                    FROM restaurant_invoices
+                    WHERE period IS NOT NULL
+                    """
+                )
+                for row in cur.fetchall():
+                    if row[0]:
+                        periods.add(row[0])
+    except Exception:
+        pass
+
+    return sorted(periods, reverse=True)[:24]

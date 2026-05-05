@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import {
-  ArrowDownRight, ArrowUpRight, Calendar, TrendingUp,
+  ArrowDownRight, ArrowUpRight, TrendingUp,
   Plus, Users, Wallet, Activity, Package, Clock, FileText, Sparkles,
   CheckCircle2, CircleDot, Hourglass, Receipt, Trophy,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { Sidebar } from '@/components/sidebar';
@@ -13,6 +14,7 @@ import {
   getDashboardAnalytics,
   getManagementSummary,
   getInvoiceSummary,
+  getAvailablePeriods,
   type DashboardSummary,
   type SidebarCounts,
   type DashboardAnalytics,
@@ -21,32 +23,6 @@ import {
 } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
-
-// ─────────────────────────────────────────────────────────────
-// MOCK / DEMO veriler — modüller geliştirildikçe gerçek API'ye bağlanacak
-// ─────────────────────────────────────────────────────────────
-const MOCK_PIPELINE = [
-  { stage: 'Görüşme', count: 3, color: 'border-brand', items: [
-    { name: 'Big Chefs', meta: 'Anadolu · 6 kurye · ~180K' },
-    { name: 'Pizzami', meta: '3 şube · saat+prim · ~210K' },
-    { name: 'Tatlı Stop', meta: '1 şube · ~80K' },
-  ]},
-  { stage: 'Teklif', count: 2, color: 'border-brand-light', items: [
-    { name: 'Bafra Pide', meta: 'Eşikli · 2 şube · ~145K' },
-    { name: 'Burger King', meta: 'Aylık sabit · ~135K' },
-  ]},
-  { stage: 'Müzakere', count: 1, color: 'border-cream-400', items: [
-    { name: "Domino's Pizza", meta: 'Fiyat görüşmesi · ~190K' },
-  ]},
-  { stage: 'Anlaşma', count: 2, color: 'border-green-500', items: [
-    { name: 'Yavuzbey İskender', meta: '15 Mart başladı · 240K' },
-    { name: 'SC Petshop', meta: 'Aylık sabit · 79K' },
-  ]},
-  { stage: 'Olumsuz', count: 4, color: 'border-red-500', items: [
-    { name: 'Mado', meta: 'Bütçe dışı · 220K kayıp' },
-    { name: 'Komagene', meta: 'İç ekiple yapacak · 90K' },
-  ]},
-];
 
 const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -66,26 +42,6 @@ function shortMonth(p: string): string {
   return map[m - 1];
 }
 
-// Bugüne yakın 6 ay (4 geçmiş + bu ay + 1 gelecek)
-function periodsAroundToday(selected?: string): string[] {
-  const today = new Date();
-  const y = today.getFullYear();
-  const m = today.getMonth() + 1;
-  const out: string[] = [];
-  for (let offset = -4; offset <= 1; offset++) {
-    let nm = m + offset;
-    let ny = y;
-    while (nm < 1) { nm += 12; ny -= 1; }
-    while (nm > 12) { nm -= 12; ny += 1; }
-    out.push(`${ny.toString().padStart(4, '0')}-${nm.toString().padStart(2, '0')}`);
-  }
-  if (selected && !out.includes(selected)) {
-    out.push(selected);
-    out.sort();
-  }
-  return out;
-}
-
 // ─────────────────────────────────────────────────────────────
 // PAGE
 // ─────────────────────────────────────────────────────────────
@@ -95,8 +51,21 @@ export default async function DashboardPage({
   searchParams: Promise<{ ay?: string }>;
 }) {
   const { ay } = await searchParams;
-  const period = ay ?? '2026-03';
-  const periods = periodsAroundToday(period);
+
+  // Önce backend'den gerçek veri olan ayları al
+  let availablePeriods: string[] = [];
+  try {
+    availablePeriods = await getAvailablePeriods();
+  } catch {
+    availablePeriods = [];
+  }
+
+  // Seçili dönem: URL'den gelen, yoksa en yeni veri olan ay, o da yoksa bu ay
+  const today = new Date();
+  const thisMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const period = ay && availablePeriods.includes(ay)
+    ? ay
+    : availablePeriods[0] ?? thisMonth;
 
   let summary: DashboardSummary | null = null;
   let counts: SidebarCounts | null = null;
@@ -122,7 +91,7 @@ export default async function DashboardPage({
     error = e instanceof Error ? e.message : 'API hatası';
   }
 
-  // Sabit Maliyet Verimliliği — gerçek management verisinden hesapla
+  // Sabit Maliyet Verimliliği — gerçek management
   const efficiencyCards = management
     .filter((m) => m.salary > 0)
     .map((m) => {
@@ -143,13 +112,26 @@ export default async function DashboardPage({
   const totalPct = totalSalary > 0 ? (totalRecovery / totalSalary) * 100 : 0;
 
   // Bekleyen aksiyonlar — gerçek sidebar counts'tan
-  const pendingActions = counts ? [
-    { key: 'avans', label: 'Avans onayı', count: counts.avans, href: '/talepler/avans', icon: Wallet, urgent: counts.avans > 5 },
-    { key: 'puantaj', label: 'Puantaj onayı', count: counts.puantaj_onay, href: '/puantaj-onay', icon: CheckCircle2, urgent: counts.puantaj_onay > 10 },
-    { key: 'hakedis', label: 'Hakediş onayı', count: counts.hakedis_onay, href: '/hakedis-onay', icon: Receipt, urgent: counts.hakedis_onay > 5 },
+  type PendingAction = {
+    key: string;
+    label: string;
+    count: number;
+    href: string;
+    icon: LucideIcon;
+    urgent: boolean;
+  };
+  const pendingActions: PendingAction[] = counts ? [
+    { key: 'avans', label: 'Avans onayı', count: counts.avans, href: '/talepler', icon: Wallet, urgent: counts.avans > 5 },
+    { key: 'puantaj', label: 'Puantaj onayı', count: counts.puantaj_onay, href: '/puantaj-onaylari', icon: CheckCircle2, urgent: counts.puantaj_onay > 10 },
+    { key: 'hakedis', label: 'Hakediş onayı', count: counts.hakedis_onay, href: '/hakedis-onaylari', icon: Receipt, urgent: counts.hakedis_onay > 5 },
     { key: 'talepler', label: 'Motor/Muhasebe talepleri', count: counts.talepler, href: '/talepler', icon: FileText, urgent: false },
     { key: 'profil', label: 'Profil onayı', count: counts.profil_onay, href: '/profil-onaylari', icon: Users, urgent: false },
   ].filter((a) => a.count > 0) : [];
+
+  // Ay seçici listesi: backend'den gelen veri olan aylar (eskiden yeniye sırayla)
+  const periodPills = availablePeriods.length > 0
+    ? [...availablePeriods].slice(0, 6).reverse()
+    : [period];
 
   return (
     <div className="grid grid-cols-[252px_1fr] min-h-screen bg-bg">
@@ -172,24 +154,30 @@ export default async function DashboardPage({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1 bg-bg-surface border border-border rounded-xl p-1 shadow-sm flex-wrap">
-                {[...periods].reverse().map((p) => {
-                  const isActive = p === period;
-                  return (
-                    <Link
-                      key={p}
-                      href={`/?ay=${p}`}
-                      className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition whitespace-nowrap ${
-                        isActive
-                          ? 'bg-brand text-white shadow-sm'
-                          : 'text-text-2 hover:bg-bg-surface2'
-                      }`}
-                    >
-                      {formatPeriod(p)}
-                    </Link>
-                  );
-                })}
-              </div>
+              {availablePeriods.length > 0 ? (
+                <div className="flex items-center gap-1 bg-bg-surface border border-border rounded-xl p-1 shadow-sm flex-wrap">
+                  {periodPills.map((p) => {
+                    const isActive = p === period;
+                    return (
+                      <Link
+                        key={p}
+                        href={`/?ay=${p}`}
+                        className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition whitespace-nowrap ${
+                          isActive
+                            ? 'bg-brand text-white shadow-sm'
+                            : 'text-text-2 hover:bg-bg-surface2'
+                        }`}
+                      >
+                        {formatPeriod(p)}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-[12.5px] text-text-3 italic px-3 py-1.5 border border-border rounded-xl bg-bg-surface">
+                  Henüz veri olan ay yok
+                </div>
+              )}
               <button className="bg-brand text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-brand-dark transition inline-flex items-center gap-1.5">
                 <Plus className="w-4 h-4" /> Yeni
               </button>
@@ -202,7 +190,7 @@ export default async function DashboardPage({
             </div>
           ) : null}
 
-          {/* AI INSIGHT BANNER */}
+          {/* AI INSIGHT — sadece gerçek insight varsa göster */}
           {analytics && analytics.ai_insights.length > 0 ? (
             <div className="bg-gradient-to-r from-cream-soft via-white to-brand-mist border border-cream-200 rounded-2xl p-4 mb-7 flex gap-4 items-start">
               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-brand to-brand-light flex items-center justify-center text-white">
@@ -218,7 +206,7 @@ export default async function DashboardPage({
             </div>
           ) : null}
 
-          {/* HERO KPI ROW — 4 kart, hepsi gerçek veri */}
+          {/* HERO KPI ROW — 4 kart, hepsi gerçek */}
           <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-3.5 mb-6">
             <KpiCardHero analytics={analytics} />
 
@@ -249,10 +237,10 @@ export default async function DashboardPage({
             />
           </div>
 
-          {/* TAHSİLAT BANNER — gerçek InvoiceSummary verisi */}
+          {/* TAHSİLAT BANNER — gerçek InvoiceSummary */}
           <CollectionBanner invoiceSummary={invoiceSummary} period={period} />
 
-          {/* OPERASYONEL VITAL SIGNS — gerçek summary verisi */}
+          {/* OPERASYONEL VITAL SIGNS — gerçek summary */}
           <div className="grid grid-cols-5 gap-3 mb-6">
             <VitalCard
               icon={<Activity className="w-4 h-4" />}
@@ -294,20 +282,15 @@ export default async function DashboardPage({
           </div>
 
           {/* SABİT MALİYET VERİMLİLİĞİ — gerçek management */}
-          <div className="bg-bg-surface border border-border rounded-2xl shadow-md p-6 mb-6">
-            <div className="mb-4">
-              <h2 className="font-display text-lg font-semibold text-text mb-1">Sabit Maliyet Verimliliği</h2>
-              <p className="text-sm text-text-3">
-                Yönetim ekibi & Joker — sabit maaşlarını geri kazanma oranları
-                {management.length > 0 && ` · ${management.length} kişi`}
-              </p>
-            </div>
-
-            {efficiencyCards.length === 0 ? (
-              <div className="text-sm text-text-3 italic py-6 text-center">
-                Bu ay için sabit maaşlı yönetim verisi yok.
+          {efficiencyCards.length > 0 && (
+            <div className="bg-bg-surface border border-border rounded-2xl shadow-md p-6 mb-6">
+              <div className="mb-4">
+                <h2 className="font-display text-lg font-semibold text-text mb-1">Sabit Maliyet Verimliliği</h2>
+                <p className="text-sm text-text-3">
+                  Yönetim ekibi & Joker — sabit maaşlarını geri kazanma oranları · {management.length} kişi
+                </p>
               </div>
-            ) : (
+
               <div className="grid grid-cols-4 gap-3">
                 {efficiencyCards.map((m) => {
                   const isJoker = m.role === 'Joker';
@@ -366,15 +349,15 @@ export default async function DashboardPage({
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* CHARTS ROW — Trendi + Donut */}
           <div className="grid grid-cols-[1.6fr_1fr] gap-4 mb-6">
             <div className="bg-bg-surface border border-border rounded-2xl shadow-md p-6">
               <div className="mb-4">
                 <h2 className="font-display text-lg font-semibold text-text">Aylık Fatura Trendi</h2>
-                <p className="text-sm text-text-3">Son 3 ay · KDV hariç · gerçek puantaj verisi</p>
+                <p className="text-sm text-text-3">Son 3 ay · KDV hariç · gerçek puantaj geliri</p>
               </div>
               <RevenueLargeChart data={analytics?.revenue_trend || []} />
             </div>
@@ -394,12 +377,12 @@ export default async function DashboardPage({
             </div>
           </div>
 
-          {/* TOP RESTORANLAR — gerçek by_restaurant verisi, yeni tasarım */}
+          {/* TOP RESTORANLAR — gerçek by_restaurant */}
           <TopRestaurantsPanel restaurants={analytics?.by_restaurant || []} period={period} />
 
-          {/* DİKKAT İSTENEN — gerçek bekleyen aksiyonlar (counts) */}
+          {/* DİKKAT İSTENEN — gerçek bekleyen aksiyonlar */}
           {pendingActions.length > 0 && (
-            <div className="bg-bg-surface border border-border rounded-2xl shadow-md p-6 mb-6">
+            <div className="bg-bg-surface border border-border rounded-2xl shadow-md p-6 mb-12">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h2 className="font-display text-lg font-semibold text-text">Dikkat İstenen</h2>
@@ -446,111 +429,20 @@ export default async function DashboardPage({
             </div>
           )}
 
-          {/* SALES PIPELINE — DEMO */}
-          <div className="bg-bg-surface border border-border rounded-2xl shadow-md p-6 mb-6 relative">
-            <span className="absolute top-4 right-4 px-2 py-0.5 rounded-md bg-yellow-100 text-yellow-800 text-[10px] font-bold uppercase tracking-wider border border-yellow-200">
-              DEMO · Örnek Veri
-            </span>
-            <div className="mb-4">
-              <h2 className="font-display text-lg font-semibold text-text">Yeni Müşteri Kazanım Hattı</h2>
-              <p className="text-sm text-text-3">
-                Lead modülü geliştirildikçe gerçek satış pipeline'ı buraya gelecek
+          {/* Boş hâl — hiç veri yoksa */}
+          {!analytics && !summary && !error && (
+            <div className="bg-bg-surface border border-border rounded-2xl p-12 text-center mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-brand-soft text-brand mx-auto mb-4 flex items-center justify-center">
+                <Hourglass className="w-6 h-6" />
+              </div>
+              <h3 className="font-display text-lg font-semibold text-text mb-2">
+                Bu dönem için veri yok
+              </h3>
+              <p className="text-sm text-text-3 max-w-md mx-auto">
+                Puantaj girişi yapıldıkça veya restoranlara fatura kesildikçe burada gerçek metrikler görünecek.
               </p>
             </div>
-
-            <div className="grid grid-cols-5 gap-3 mb-6">
-              <FunnelStage stage="Görüşme" count="3" value="~470K ₺" sub="tahmini aylık değer" percent={100} color="bg-brand" />
-              <FunnelStage stage="Teklif" count="2" value="~280K ₺" sub="teklif iletilmiş" percent={80} color="bg-brand-light" />
-              <FunnelStage stage="Müzakere" count="1" value="~190K ₺" sub="aktif görüşme" percent={60} color="bg-cream-400" />
-              <FunnelStage stage="Anlaşma" count="2" value="+319K ₺" sub="bu ay kazanılan" percent={40} color="bg-green-500" />
-              <FunnelStage stage="Olumsuz" count="4" value="~410K ₺" sub="kaçırılan fırsat" percent={25} color="bg-red-500" />
-            </div>
-
-            <div className="grid grid-cols-5 gap-3">
-              {MOCK_PIPELINE.map((col) => (
-                <div key={col.stage} className={`border-t-3 ${col.color} rounded-lg bg-gradient-to-b from-bg-surface2 to-bg-surface p-3`}>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-text mb-3 flex justify-between items-center">
-                    {col.stage}
-                    <span className="text-xs font-semibold bg-bg-surface text-text-2 px-2 py-1 rounded-full border border-border">
-                      {col.count}
-                    </span>
-                  </h4>
-                  <div className="space-y-2">
-                    {col.items.map((item, i) => (
-                      <div key={i} className="bg-bg-surface border border-border rounded-lg p-2.5 cursor-pointer hover:shadow-sm transition">
-                        <div className="text-xs font-semibold text-text">{item.name}</div>
-                        <div className="text-xs text-text-3 mt-1">{item.meta}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* BOTTOM 2 — Bu Ay Beklenen + YoY (DEMO) */}
-          <div className="grid grid-cols-2 gap-6 mb-12">
-            {/* Bu Ay Beklenen — DEMO */}
-            <div className="bg-bg-surface border border-border rounded-2xl shadow-md p-6 relative">
-              <span className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-yellow-100 text-yellow-800 text-[9.5px] font-bold uppercase tracking-wider border border-yellow-200">
-                DEMO
-              </span>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand to-brand-light flex items-center justify-center text-white">
-                  <Calendar className="w-5 h-5" strokeWidth={2.2} />
-                </div>
-                <div>
-                  <h3 className="font-display text-base font-semibold">Bu Ay Beklenen</h3>
-                  <p className="text-xs text-text-3">3 ödeme noktası · {formatPeriod(period)}</p>
-                </div>
-              </div>
-
-              <div className="space-y-4 text-sm">
-                <TimelineItem date="15" amount="2,7M ₺" text="Kuryelere maaş ödemesi" isFirst />
-                <TimelineItem date="25" amount="~800K ₺" text="Avans dağıtımı" />
-                <TimelineItem date="30" amount="+5,3M ₺" text="Restoran fatura kesimi" isFinal />
-              </div>
-            </div>
-
-            {/* YoY — DEMO */}
-            <div className="bg-gradient-to-br from-bg-surface to-green-50 border border-border rounded-2xl shadow-md p-6 relative">
-              <span className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-yellow-100 text-yellow-800 text-[9.5px] font-bold uppercase tracking-wider border border-yellow-200">
-                DEMO
-              </span>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-green-500 to-green-400 flex items-center justify-center text-white">
-                  <ArrowUpRight className="w-5 h-5" strokeWidth={2.2} />
-                </div>
-                <div>
-                  <h3 className="font-display text-base font-semibold">Yıllık Büyüme</h3>
-                  <p className="text-xs text-text-3">Geçen yıl verisi geldikçe canlanacak</p>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <div className="font-display text-4xl font-bold text-green-600 mb-1">+%28</div>
-                <p className="text-sm text-text-3 font-semibold">örnek büyüme oranı</p>
-              </div>
-
-              <div className="mb-2">
-                <svg width="100%" height="60" viewBox="0 0 240 60" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="growGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10B981" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M0,48 L20,46 L40,42 L60,38 L80,40 L100,32 L120,30 L140,24 L160,20 L180,18 L200,12 L220,10 L240,6 L240,60 L0,60 Z" fill="url(#growGrad)" />
-                  <path d="M0,48 L20,46 L40,42 L60,38 L80,40 L100,32 L120,30 L140,24 L160,20 L180,18 L200,12 L220,10 L240,6" stroke="#10B981" strokeWidth="2" fill="none" strokeLinecap="round" />
-                  <circle cx="240" cy="6" r="4" fill="#10B981" stroke="white" strokeWidth="2" />
-                </svg>
-              </div>
-
-              <div className="border-t border-border pt-3 text-xs text-text-3">
-                Geçmiş yıl puantaj verisi sisteme aktarıldıkça gerçek YoY değeri burada görünecek.
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
@@ -570,7 +462,6 @@ function KpiCardHero({ analytics }: { analytics: DashboardAnalytics | null }) {
       <div className="absolute inset-0 opacity-30 mix-blend-overlay pointer-events-none" style={{
         backgroundImage: 'radial-gradient(900px circle at 90% -10%, rgba(248, 242, 230, 0.35), transparent 45%), radial-gradient(700px circle at 110% 60%, rgba(232, 217, 181, 0.5), transparent 55%), radial-gradient(500px circle at 10% 100%, rgba(0,0,0,0.18), transparent 50%)',
       }} />
-
       <div className="absolute inset-0 opacity-[0.06] pointer-events-none" style={{
         backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0)',
         backgroundSize: '16px 16px',
@@ -605,8 +496,6 @@ function KpiCardHero({ analytics }: { analytics: DashboardAnalytics | null }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// KPI Card (basit)
-// ─────────────────────────────────────────────────────────────
 function KpiCard({
   label, icon, iconBg, value, valueSuffix, subtitle,
 }: {
@@ -638,8 +527,6 @@ function KpiCard({
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Tahsilat Banner — gerçek InvoiceSummary
 // ─────────────────────────────────────────────────────────────
 function CollectionBanner({
   invoiceSummary, period,
@@ -690,7 +577,6 @@ function CollectionBanner({
       </div>
 
       <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] gap-4 items-stretch">
-        {/* Big Collection % */}
         <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200 rounded-xl p-5 relative overflow-hidden">
           <div className="absolute top-3 right-3 w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center">
             <CheckCircle2 className="w-4 h-4" />
@@ -704,7 +590,6 @@ function CollectionBanner({
           <div className="text-xs text-emerald-700/80 mt-2 font-medium">
             {collectedM}M ₺ tahsil edildi
           </div>
-          {/* Progress bar */}
           <div className="mt-4 h-2 bg-emerald-200/40 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full"
@@ -725,7 +610,7 @@ function CollectionBanner({
           color="text-amber-600 bg-amber-50"
           label="Kısmi ödeme"
           count={s.count_partial}
-          amount={s.count_partial > 0 ? ((s.sum_paid - 0) / 1_000_000).toFixed(2) : '0.00'}
+          amount="—"
           isPartial
         />
         <CollectionCell
@@ -769,15 +654,13 @@ function CollectionCell({
         <div className={`text-sm font-mono font-semibold ${
           isPending ? 'text-rose-600' : isPartial ? 'text-amber-600' : 'text-emerald-600'
         }`}>
-          {isPending ? '−' : ''}{amount}M ₺
+          {amount === '—' ? '—' : `${isPending ? '−' : ''}${amount}M ₺`}
         </div>
       </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Vital Sign Card
 // ─────────────────────────────────────────────────────────────
 function VitalCard({
   icon, iconColor, label, value, unit, subtitle,
@@ -810,8 +693,6 @@ function VitalCard({
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Top Restoranlar — yeni tasarım, gerçek by_restaurant verisi
 // ─────────────────────────────────────────────────────────────
 function TopRestaurantsPanel({
   restaurants, period,
@@ -865,7 +746,6 @@ function TopRestaurantsPanel({
       </div>
 
       <div className="grid grid-cols-[1.2fr_2fr] gap-5">
-        {/* Leader card */}
         <div
           className="rounded-2xl p-5 text-white relative overflow-hidden"
           style={{ background: 'linear-gradient(135deg, #0A3F8F 0%, #0F52BA 50%, #3B7BCF 100%)' }}
@@ -915,11 +795,10 @@ function TopRestaurantsPanel({
           </div>
         </div>
 
-        {/* Bar list */}
         <div className="space-y-2">
           {rest.length === 0 ? (
             <div className="text-sm text-text-3 italic text-center py-8">
-              Diğer restoranlar için veri henüz akmıyor.
+              Diğer restoranlar için bu ayda veri yok.
             </div>
           ) : (
             rest.map((r, idx) => {
@@ -966,8 +845,6 @@ function TopRestaurantsPanel({
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Revenue Trend Chart
 // ─────────────────────────────────────────────────────────────
 function RevenueLargeChart({
   data: providedData,
@@ -1030,7 +907,6 @@ function RevenueLargeChart({
           strokeLinejoin="round"
         />
 
-        {/* Data point dots */}
         {data.map((d, i) => (
           <circle
             key={`pt-${i}`}
@@ -1088,8 +964,6 @@ function RevenueLargeChart({
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Donut Chart
 // ─────────────────────────────────────────────────────────────
 function DonutChart({
   deductions, total,
@@ -1161,8 +1035,6 @@ function DonutChart({
 }
 
 // ─────────────────────────────────────────────────────────────
-// Efficiency Card (Sabit Maliyet panel)
-// ─────────────────────────────────────────────────────────────
 function EfficiencyCard({
   initials, name, role, trend, barPercent, salary, recovery, netCost,
   cover, packages, workHours, gradientFrom, gradientTo, isJoker,
@@ -1210,10 +1082,6 @@ function EfficiencyCard({
             <span className="text-white text-xs font-bold font-mono">−%{barPercent.toFixed(1)}</span>
           </div>
         </div>
-        <div className="flex justify-between text-xs text-text-3 px-1 font-mono text-[10px]">
-          <span>0 ₺</span>
-          <span>{isJoker ? '88K ₺' : '100K ₺'}</span>
-        </div>
       </div>
 
       <div className="space-y-1.5 py-3 border-y border-border text-xs mb-3">
@@ -1245,45 +1113,6 @@ function EfficiencyCard({
           <div className="text-xs text-text-3 font-semibold uppercase tracking-wider">Çalışma</div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// Mock pipeline pieces
-// ─────────────────────────────────────────────────────────────
-function FunnelStage({ stage, count, value, sub, percent, color }: any) {
-  return (
-    <div className="bg-gradient-to-br from-brand-mist to-white border border-brand-border rounded-2xl p-4">
-      <div className="flex justify-between items-start mb-2">
-        <span className="text-xs font-bold text-text-3 uppercase tracking-wider">{stage}</span>
-        <span className={`${color} text-white text-xs font-bold px-2 py-0.5 rounded-full font-mono`}>
-          {count}
-        </span>
-      </div>
-      <div className="font-display text-2xl font-bold text-text mb-1">{value}</div>
-      <div className="text-xs text-text-3 mb-3">{sub}</div>
-      <div className="h-1 bg-bg-surface2 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full`} style={{ width: `${percent}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function TimelineItem({ date, amount, text, isFirst, isFinal }: any) {
-  return (
-    <div className="relative pl-6 pb-4 last:pb-0">
-      <div className="absolute left-0 top-2 w-4 h-4 rounded-full border-3 border-white" style={{
-        background: isFirst ? '#0F52BA' : isFinal ? '#C9AE7A' : '#3B7BCF',
-        boxShadow: isFirst ? '0 0 0 2px #E8EFFB' : '0 0 0 2px white',
-      }} />
-      <div className="flex justify-between items-baseline gap-2">
-        <span className="font-semibold text-text text-sm">{date}</span>
-        <span className="font-display font-bold" style={{ color: isFinal ? '#10B981' : '#0F52BA' }}>
-          {amount}
-        </span>
-      </div>
-      <div className="text-xs text-text-3 mt-0.5">{text}</div>
     </div>
   );
 }

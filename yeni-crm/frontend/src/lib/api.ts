@@ -252,6 +252,10 @@ export async function getDashboardAnalytics(
   return apiGet<DashboardAnalytics>(`/api/dashboard/analytics?period=${period}`);
 }
 
+export async function getAvailablePeriods(): Promise<string[]> {
+  return apiGet<string[]>('/api/dashboard/available-periods');
+}
+
 // ─────────────────────────────────────────────────────────────
 // Faturalar — restoranlara aylık kesilen faturalar
 // ─────────────────────────────────────────────────────────────
