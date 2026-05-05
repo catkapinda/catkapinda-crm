@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  AlertCircle, Check, ChevronRight, Mail, MapPin, Phone, Search, Trash2, User,
-  X, XCircle, type LucideIcon,
+  AlertCircle, Check, Mail, MapPin, Phone, Search, Trash2, User,
+  XCircle, type LucideIcon,
 } from 'lucide-react';
 
 import {
@@ -12,7 +12,6 @@ import {
   type SidebarCounts,
   decideProfileChange,
   deleteProfileChange,
-  listProfileChanges,
 } from '@/lib/api';
 
 type StatusKey = 'Beklemede' | 'Onaylandı' | 'Reddedildi';

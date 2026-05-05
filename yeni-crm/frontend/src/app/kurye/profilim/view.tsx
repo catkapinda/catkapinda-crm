@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  AlertCircle, Check, Edit2, Mail, MapPin, Phone, User, X,
+  AlertCircle, Edit2, Mail, MapPin, Phone, User,
 } from 'lucide-react';
 
 import {

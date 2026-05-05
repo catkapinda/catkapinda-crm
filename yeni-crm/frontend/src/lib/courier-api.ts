@@ -187,18 +187,18 @@ export async function getMySummary(period: string): Promise<{
   return res.json();
 }
 
-export async function listMyProfileChanges(): Promise<
-  Array<{
-    id: number;
-    field: string;
-    old_value: string | null;
-    new_value: string | null;
-    status: string;
-    requested_at: string;
-    decided_at: string | null;
-    decision_notes: string | null;
-  }>
-> {
+export type ProfileChangeRequest = {
+  id: number;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  status: string;
+  requested_at: string;
+  decided_at: string | null;
+  decision_notes: string | null;
+};
+
+export async function listMyProfileChanges(): Promise<ProfileChangeRequest[]> {
   const headers = {
     'Content-Type': 'application/json',
     ...getAuthHeader(),
