@@ -623,6 +623,7 @@ export type SidebarCounts = {
   hakedis_onay: number;
   avans: number;
   talepler: number;
+  profil_onay: number;
 };
 
 export async function getSidebarCounts(): Promise<SidebarCounts> {
@@ -721,6 +722,51 @@ export async function decideCourierRequest(
 
 export async function deleteCourierRequest(id: number): Promise<{ ok: boolean }> {
   return apiMutate<{ ok: boolean }>(`/api/requests/${id}`, {}, 'DELETE');
+}
+
+// ─────────────────────────────────────────────────────────────
+// Profil Değişiklik Talepleri
+// ─────────────────────────────────────────────────────────────
+
+export type ProfileChangeRequest = {
+  id: number;
+  personnel_id: number;
+  personnel_name: string | null;
+  person_code: string | null;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  status: 'Beklemede' | 'Onaylandı' | 'Reddedildi' | 'İptal Edildi' | string;
+  requested_at: string | null;
+  decided_at: string | null;
+  decided_by: string | null;
+  decision_notes: string | null;
+};
+
+export async function listProfileChanges(status?: string): Promise<ProfileChangeRequest[]> {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  return apiGet<ProfileChangeRequest[]>(`/api/profile-changes${params.toString() ? '?' + params.toString() : ''}`);
+}
+
+export async function getProfileChangeCounts(): Promise<{ pending: number }> {
+  return apiGet<{ pending: number }>('/api/profile-changes/counts');
+}
+
+export async function decideProfileChange(
+  id: number,
+  status: 'Onaylandı' | 'Reddedildi',
+  decision_notes?: string,
+): Promise<ProfileChangeRequest> {
+  return apiMutate<ProfileChangeRequest>(
+    `/api/profile-changes/${id}/decide`,
+    { status, decided_by: undefined, decision_notes },
+    'PATCH'
+  );
+}
+
+export async function deleteProfileChange(id: number): Promise<{ ok: boolean }> {
+  return apiMutate<{ ok: boolean }>(`/api/profile-changes/${id}`, {}, 'DELETE');
 }
 
 // ─────────────────────────────────────────────────────────────

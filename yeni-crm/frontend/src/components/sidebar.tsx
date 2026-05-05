@@ -7,7 +7,7 @@ import type { SidebarCounts } from '@/lib/api';
 type NavKey =
   | 'dashboard' | 'personel' | 'puantaj' | 'puantaj-onay' | 'hakedis-onay'
   | 'kesintiler' | 'ekipman' | 'avans' | 'motor' | 'muhasebe-degisim'
-  | 'talepler' | 'restoranlar' | 'faturalar' | 'bordro' | 'kar-zarar' | 'restoran-raporlari';
+  | 'talepler' | 'profil-onay' | 'restoranlar' | 'faturalar' | 'bordro' | 'kar-zarar' | 'restoran-raporlari';
 
 type BadgeKind = 'new' | 'warn' | 'default';
 
@@ -26,6 +26,7 @@ const NAV: NavItem[] = [
   { key: 'puantaj', label: 'Puantaj', href: '/puantaj', section: 'Operasyon' },
   { key: 'puantaj-onay', label: 'Puantaj Onayları', href: '/puantaj-onaylari', section: 'Operasyon', countKey: 'puantaj_onay', badgeKind: 'warn' },
   { key: 'hakedis-onay', label: 'Hakediş Onayları', href: '/hakedis-onaylari', section: 'Operasyon', countKey: 'hakedis_onay' },
+  { key: 'profil-onay', label: 'Profil Onayları', href: '/profil-onaylari', section: 'Operasyon', countKey: 'profil_onay', badgeKind: 'warn' },
   { key: 'kesintiler', label: 'Kesintiler', href: '/kesintiler', section: 'Operasyon' },
   { key: 'ekipman', label: 'Ekipman & Zimmet', href: '/ekipman-zimmet', section: 'Operasyon' },
   { key: 'talepler', label: 'Talepler (Avans · Motor · Muhasebe)', href: '/talepler', section: 'Operasyon', countKey: 'talepler', badgeKind: 'new' },

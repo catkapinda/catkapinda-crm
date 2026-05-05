@@ -1,5 +1,6 @@
 """Sidebar sayaç (badge) servisi — yan menüdeki canlı rozetler."""
 from app.core.database import get_connection
+from app.services.profile_changes import count_pending_changes
 
 
 def get_sidebar_counts() -> dict:
@@ -63,5 +64,11 @@ def get_sidebar_counts() -> dict:
                 counts["satis_leads"] = row[0] if row else 0
             except Exception:
                 counts["satis_leads"] = 0
+
+            # Bekleyen profil değişiklik talebi
+            try:
+                counts["profil_onay"] = count_pending_changes()
+            except Exception:
+                counts["profil_onay"] = 0
 
     return counts

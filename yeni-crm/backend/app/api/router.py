@@ -2,8 +2,8 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
-    dashboard, deductions, equipment, health, invoices,
-    payroll, personel, puantaj, requests as requests_route,
+    courier, dashboard, deductions, equipment, health, invoices,
+    payroll, personel, profile_changes, puantaj, requests as requests_route,
     restaurant_reports, restaurants, sidebar,
 )
 
@@ -14,10 +14,12 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboar
 api_router.include_router(personel.router, prefix="/personel", tags=["personel"])
 api_router.include_router(restaurants.router, prefix="/restaurants", tags=["restaurants"])
 api_router.include_router(sidebar.router, prefix="/sidebar", tags=["sidebar"])
+api_router.include_router(courier.router, prefix="/courier", tags=["courier"])
 api_router.include_router(puantaj.router, prefix="/puantaj", tags=["puantaj"])
 api_router.include_router(deductions.router, prefix="/deductions", tags=["deductions"])
 api_router.include_router(equipment.router, prefix="/equipment", tags=["equipment"])
 api_router.include_router(payroll.router, prefix="/payroll", tags=["payroll"])
 api_router.include_router(requests_route.router, prefix="/requests", tags=["requests"])
+api_router.include_router(profile_changes.router, prefix="/profile-changes", tags=["profile-changes"])
 api_router.include_router(restaurant_reports.router, prefix="/restaurant-reports", tags=["reports"])
 api_router.include_router(invoices.router, prefix="/invoices", tags=["invoices"])

@@ -146,6 +146,72 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON restaurant_invoices(status)
         """,
     ),
+    # ─── Kurye oturum yönetimi (Sprint 1 MVP) ───
+    (
+        "courier_sessions.table",
+        """
+        CREATE TABLE IF NOT EXISTS courier_sessions (
+            id SERIAL PRIMARY KEY,
+            personnel_id integer NOT NULL REFERENCES personnel(id) ON DELETE CASCADE,
+            token varchar(64) NOT NULL UNIQUE,
+            expires_at timestamptz NOT NULL,
+            created_at timestamptz DEFAULT now()
+        )
+        """,
+    ),
+    (
+        "courier_sessions.idx_token",
+        """
+        CREATE INDEX IF NOT EXISTS idx_courier_sessions_token
+        ON courier_sessions(token)
+        """,
+    ),
+    (
+        "courier_sessions.idx_personnel",
+        """
+        CREATE INDEX IF NOT EXISTS idx_courier_sessions_personnel
+        ON courier_sessions(personnel_id)
+        """,
+    ),
+    (
+        "courier_sessions.idx_expires_at",
+        """
+        CREATE INDEX IF NOT EXISTS idx_courier_sessions_expires
+        ON courier_sessions(expires_at)
+        """,
+    ),
+    # ─── Kurye profil değişiklik talepleri ───
+    (
+        "profile_change_requests.table",
+        """
+        CREATE TABLE IF NOT EXISTS profile_change_requests (
+            id SERIAL PRIMARY KEY,
+            personnel_id integer NOT NULL REFERENCES personnel(id) ON DELETE CASCADE,
+            field varchar(40) NOT NULL,
+            old_value text,
+            new_value text,
+            status varchar(20) NOT NULL DEFAULT 'Beklemede',
+            requested_at timestamptz DEFAULT now(),
+            decided_at timestamptz,
+            decided_by varchar(120),
+            decision_notes text
+        )
+        """,
+    ),
+    (
+        "profile_change_requests.idx_personnel",
+        """
+        CREATE INDEX IF NOT EXISTS idx_profile_changes_personnel
+        ON profile_change_requests(personnel_id)
+        """,
+    ),
+    (
+        "profile_change_requests.idx_status",
+        """
+        CREATE INDEX IF NOT EXISTS idx_profile_changes_status
+        ON profile_change_requests(status)
+        """,
+    ),
 ]
 
 

@@ -206,6 +206,24 @@ def decide_request(
                         (new_acc, pid),
                     )
 
+                elif rtype == "Avans" and float(existing.get("amount") or 0) > 0:
+                    # Avans onaylandı → bordro kesintisi olarak ekle
+                    # deductions tablosuna 'Avans' tipinde kayıt at
+                    # deduction_date = bugün → bir sonraki bordrodan otomatik düşer
+                    note_parts = [f"Talep #{request_id}"]
+                    if existing.get("reason"):
+                        note_parts.append(existing["reason"])
+                    if decision_notes:
+                        note_parts.append(f"Karar notu: {decision_notes}")
+                    notes_str = " · ".join(note_parts)
+                    cur.execute(
+                        """
+                        INSERT INTO deductions (personnel_id, deduction_type, amount, deduction_date, notes)
+                        VALUES (%s, 'Avans', %s, CURRENT_DATE, %s)
+                        """,
+                        (pid, float(existing["amount"]), notes_str),
+                    )
+
             conn.commit()
     return get_request(request_id)
 
