@@ -3,6 +3,7 @@
 `get_personnel_payroll(...)` çıktısını alıp profesyonel A4 PDF döner.
 Türkçe karakter için DejaVu Sans fontu (backend/app/assets/fonts/) kullanılır.
 """
+import base64
 from io import BytesIO
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
+    Image,
     PageTemplate,
     Paragraph,
     Spacer,
@@ -22,6 +24,19 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
+
+
+def _decode_signature_image(data_url: str | None) -> Image | None:
+    """Canvas'tan gelen 'data:image/png;base64,...' formatını ReportLab Image'a çevir."""
+    if not data_url or "," not in data_url:
+        return None
+    try:
+        b64_part = data_url.split(",", 1)[1]
+        png_bytes = base64.b64decode(b64_part)
+        # max 35mm genişlik, oranı koru
+        return Image(BytesIO(png_bytes), width=60 * mm, height=18 * mm)
+    except Exception:
+        return None
 
 # ─── Font kayıt ─────────────────────────────────────────────────────────────
 FONT_DIR = Path(__file__).parent.parent / "assets" / "fonts"
@@ -520,8 +535,14 @@ def _make_net(payroll: dict, styles: dict) -> Table:
     return t
 
 
-def _make_signatures(payroll: dict, styles: dict) -> Table:
-    """İmza bloğu — kompakt: başlık → ad → ad altında sağ-sol hizalı 'Tarih' ve 'İmza'."""
+def _make_signatures(
+    payroll: dict, styles: dict, signature: dict | None = None,
+) -> Table:
+    """İmza bloğu — kompakt: başlık → ad → ad altında sağ-sol hizalı 'Tarih' ve 'İmza'.
+
+    signature: {'signature_data': 'data:image/png;base64,...', 'signed_at': '2026-...'}
+    Verilmişse Kurye İmza tarafına dijital imza görseli + imza tarihi yazılır.
+    """
     from datetime import date
     today_str = date.today().strftime("%d.%m.%Y")
 
@@ -567,11 +588,52 @@ def _make_signatures(payroll: dict, styles: dict) -> Table:
         "Çat Kapında Teknoloji Lojistik ve Dış Ticaret A.Ş.",
         today_str,
     )
-    right = block(
-        "Kurye İmza",
-        payroll.get("full_name") or "—",
-        "____________",
-    )
+
+    # Kurye imza bloğu: dijital imza varsa görseli yerleştir
+    courier_name = payroll.get("full_name") or "—"
+    if signature and signature.get("signature_data"):
+        sig_image = _decode_signature_image(signature["signature_data"])
+        signed_date = (
+            signature.get("signed_at", "")[:10]
+            if signature.get("signed_at")
+            else today_str
+        )
+        meta_style = ParagraphStyle(
+            "sd", fontName=FONT_REGULAR, fontSize=8,
+            textColor=TEXT_3, leading=10,
+        )
+        meta_right = ParagraphStyle(
+            "sd_r", fontName=FONT_REGULAR, fontSize=8,
+            textColor=TEXT_3, leading=10, alignment=TA_RIGHT,
+        )
+        meta_row = Table(
+            [[
+                Paragraph(f"Tarih: {signed_date}", meta_style),
+                Paragraph("Dijital İmzalı ✓", meta_right),
+            ]],
+            colWidths=[35 * mm, 35 * mm],
+        )
+        meta_row.setStyle(TableStyle([
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        right = [
+            Paragraph("KURYE İMZA", styles["section_title"]),
+            Spacer(1, 2),
+            Paragraph(courier_name, name_style),
+            Spacer(1, 2),
+            sig_image if sig_image else Paragraph("____________", meta_style),
+            Spacer(1, 2),
+            meta_row,
+        ]
+    else:
+        right = block(
+            "Kurye İmza",
+            courier_name,
+            "____________",
+        )
 
     t = Table(
         [[left, right]], colWidths=[87 * mm, 87 * mm],
@@ -620,8 +682,17 @@ def _make_footer(payroll: dict, period: str) -> Table:
     return t
 
 
-def generate_payroll_pdf(payroll: dict, personnel: dict | None, period: str) -> bytes:
-    """Tek kurye için bordro PDF üret. Bytes döner."""
+def generate_payroll_pdf(
+    payroll: dict,
+    personnel: dict | None,
+    period: str,
+    signature: dict | None = None,
+) -> bytes:
+    """Tek kurye için bordro PDF üret. Bytes döner.
+
+    signature: opsiyonel — payroll_signatures'tan dönen kayıt (signature_data dahil).
+               Verilmişse PDF'in imza bloğunda dijital imza görseli gösterilir.
+    """
     _register_fonts()
     styles = _styles()
 
@@ -656,7 +727,7 @@ def generate_payroll_pdf(payroll: dict, personnel: dict | None, period: str) -> 
         flow.append(Spacer(1, 10))
     flow.append(_make_net(payroll, styles))
     flow.append(Spacer(1, 8))
-    flow.append(_make_signatures(payroll, styles))
+    flow.append(_make_signatures(payroll, styles, signature=signature))
     flow.append(Spacer(1, 4))
     flow.append(_make_footer(payroll, period))
 

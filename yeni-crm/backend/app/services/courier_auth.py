@@ -152,7 +152,11 @@ def get_personnel_for_courier(personnel_id: int) -> dict | None:
             emergency_contact_phone,
             vehicle_type,
             accounting_type,
-            assigned_restaurant_id
+            assigned_restaurant_id,
+            profile_photo_data,
+            birth_date,
+            tshirt_size,
+            start_date
         FROM personnel
         WHERE id = %s
         LIMIT 1
@@ -163,4 +167,12 @@ def get_personnel_for_courier(personnel_id: int) -> dict | None:
             cur.execute(sql, (personnel_id,))
             row = cur.fetchone()
 
-    return dict(row) if row else None
+    if not row:
+        return None
+    out = dict(row)
+    # Tarih alanlarını ISO string'e çevir (date → "YYYY-MM-DD")
+    if out.get("birth_date"):
+        out["birth_date"] = str(out["birth_date"])
+    if out.get("start_date"):
+        out["start_date"] = str(out["start_date"])
+    return out

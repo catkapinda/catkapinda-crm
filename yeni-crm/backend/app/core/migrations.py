@@ -212,6 +212,78 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON profile_change_requests(status)
         """,
     ),
+    # ─── Profile edit Sprint 2: avatar + direct edit log ───
+    (
+        "personnel.profile_photo_url",
+        """
+        ALTER TABLE personnel
+        ADD COLUMN IF NOT EXISTS profile_photo_url text
+        """,
+    ),
+    (
+        "personnel.profile_photo_data",
+        """
+        ALTER TABLE personnel
+        ADD COLUMN IF NOT EXISTS profile_photo_data text
+        """,
+    ),
+    (
+        "personnel.birth_date",
+        """
+        ALTER TABLE personnel
+        ADD COLUMN IF NOT EXISTS birth_date date
+        """,
+    ),
+    (
+        "personnel.tshirt_size",
+        """
+        ALTER TABLE personnel
+        ADD COLUMN IF NOT EXISTS tshirt_size varchar(10)
+        """,
+    ),
+    (
+        "courier_direct_changes.table",
+        """
+        CREATE TABLE IF NOT EXISTS courier_direct_changes (
+            id SERIAL PRIMARY KEY,
+            personnel_id integer NOT NULL REFERENCES personnel(id) ON DELETE CASCADE,
+            field varchar(60) NOT NULL,
+            old_value text,
+            new_value text,
+            changed_at timestamptz DEFAULT now()
+        )
+        """,
+    ),
+    (
+        "courier_direct_changes.idx_personnel",
+        """
+        CREATE INDEX IF NOT EXISTS idx_direct_changes_personnel
+        ON courier_direct_changes(personnel_id, changed_at DESC)
+        """,
+    ),
+    # ─── Sprint 2: E-imza (bordro/sözleşme dijital imza) ───
+    (
+        "payroll_signatures.table",
+        """
+        CREATE TABLE IF NOT EXISTS payroll_signatures (
+            id SERIAL PRIMARY KEY,
+            personnel_id integer NOT NULL REFERENCES personnel(id) ON DELETE CASCADE,
+            period varchar(7) NOT NULL,
+            signature_data text NOT NULL,
+            signed_at timestamptz DEFAULT now(),
+            ip_address varchar(45),
+            user_agent text,
+            UNIQUE (personnel_id, period)
+        )
+        """,
+    ),
+    (
+        "payroll_signatures.idx_personnel_period",
+        """
+        CREATE INDEX IF NOT EXISTS idx_signatures_personnel_period
+        ON payroll_signatures(personnel_id, period)
+        """,
+    ),
 ]
 
 

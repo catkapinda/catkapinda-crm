@@ -78,6 +78,10 @@ export type CourierMe = {
   vehicle_type: string | null;
   accounting_type: string | null;
   assigned_restaurant_id: number | null;
+  profile_photo_data: string | null;
+  birth_date: string | null;
+  tshirt_size: string | null;
+  start_date: string | null;
 };
 
 export async function getMyInfo(): Promise<CourierMe> {
@@ -248,5 +252,108 @@ export async function submitProfileChange(
     throw new Error(err.detail || 'Talep gönderilemedi');
   }
 
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Sprint 2: doğrudan güncelleme + fotoğraf
+// ─────────────────────────────────────────────────────────────────
+
+export async function directUpdateProfile(
+  field: string,
+  new_value: string | null,
+): Promise<{ field: string; old_value: string | null; new_value: string | null; changed: boolean }> {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader() };
+  const res = await fetch(`${API_BASE}/my-profile/direct-update`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ field, new_value }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Güncellenemedi');
+  }
+  return res.json();
+}
+
+export async function uploadProfilePhoto(
+  photoDataUrl: string | null,
+): Promise<{ has_photo: boolean }> {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader() };
+  const res = await fetch(`${API_BASE}/my-profile/photo`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ photo_data_url: photoDataUrl }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Fotoğraf kaydedilemedi');
+  }
+  return res.json();
+}
+
+export type EditableFieldsConfig = {
+  critical: string[];
+  direct: string[];
+};
+
+export async function getEditableFields(): Promise<EditableFieldsConfig> {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader() };
+  const res = await fetch(`${API_BASE}/my-profile/editable-fields`, { headers });
+  if (!res.ok) throw new Error('Alan konfigürasyonu yüklenemedi');
+  return res.json();
+}
+
+export type DirectChangeLog = {
+  id: number;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  changed_at: string;
+};
+
+export async function listMyDirectChangeLog(): Promise<DirectChangeLog[]> {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader() };
+  const res = await fetch(`${API_BASE}/my-profile/direct-log`, { headers });
+  if (!res.ok) throw new Error('Değişim logu yüklenemedi');
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// E-imza
+// ─────────────────────────────────────────────────────────────────
+
+export type BordroSignature = {
+  is_signed: boolean;
+  period: string;
+  id?: number;
+  personnel_id?: number;
+  signed_at?: string;
+  ip_address?: string | null;
+};
+
+export async function getMyBordroSignature(period: string): Promise<BordroSignature> {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader() };
+  const res = await fetch(`${API_BASE}/my-bordro/${encodeURIComponent(period)}/signature`, {
+    headers,
+  });
+  if (!res.ok) throw new Error('İmza durumu alınamadı');
+  return res.json();
+}
+
+export async function signMyBordro(
+  period: string,
+  signature_data: string,
+): Promise<BordroSignature> {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader() };
+  const res = await fetch(`${API_BASE}/my-bordro/${encodeURIComponent(period)}/sign`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ signature_data }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'İmza kaydedilemedi');
+  }
   return res.json();
 }

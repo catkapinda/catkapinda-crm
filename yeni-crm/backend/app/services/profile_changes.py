@@ -4,19 +4,32 @@ from typing import Any
 
 from app.core.database import get_connection
 
-# Kuryeler tarafından değiştirilebilecek alanlar
-EDITABLE_FIELDS = {"phone", "iban", "address", "emergency_contact_name", "emergency_contact_phone"}
+# Kritik alanlar — admin onayı GEREK (talep akışı)
+CRITICAL_FIELDS = {"phone", "iban", "address"}
+
+# Düşük riskli alanlar — kurye DOĞRUDAN değiştirebilir (sadece log atılır)
+DIRECT_EDITABLE_FIELDS = {
+    "emergency_contact_name",
+    "emergency_contact_phone",
+    "birth_date",
+    "tshirt_size",
+}
+
+# Backwards-compat: tüm düzenlenebilir alanlar
+EDITABLE_FIELDS = CRITICAL_FIELDS | DIRECT_EDITABLE_FIELDS
 
 
 def submit_change(personnel_id: int, field: str, new_value: str | None) -> dict[str, Any]:
-    """Profil değişiklik talebi gönder.
+    """Kritik alan için onay-gerekli değişiklik talebi gönder.
 
-    - field EDITABLE_FIELDS'de olmalı
+    - field CRITICAL_FIELDS'de olmalı
     - new_value current value'dan farklı olmalı
     - Aynı (personnel_id, field) için bekleyen talep varsa iptal et
     """
-    if field not in EDITABLE_FIELDS:
-        raise ValueError(f"Alan düzenlenemez: {field}")
+    if field not in CRITICAL_FIELDS:
+        raise ValueError(
+            f"Alan onay gerektirmiyor (doğrudan güncellenebilir): {field}"
+        )
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -193,6 +206,144 @@ def count_pending_changes() -> int:
             )
             row = cur.fetchone()
             return row[0] if row else 0
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Sprint 2: doğrudan düzenleme (düşük riskli alanlar) + log
+# ─────────────────────────────────────────────────────────────────────
+
+
+def direct_update(
+    personnel_id: int, field: str, new_value: str | None
+) -> dict[str, Any]:
+    """Kuryenin doğrudan değiştirebildiği düşük riskli alanlar için
+    anında personnel tablosunu günceller, courier_direct_changes'e log atar.
+
+    Sadece DIRECT_EDITABLE_FIELDS'deki alanlar için çalışır.
+    Kritik alanlar (phone/iban/address) için submit_change'i kullan.
+    """
+    if field not in DIRECT_EDITABLE_FIELDS:
+        raise ValueError(
+            f"Doğrudan düzenlenemez (onay gerekir): {field}"
+        )
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f'SELECT {field} FROM personnel WHERE id = %s',
+                (personnel_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise ValueError("Kurye bulunamadı")
+
+            old_value = row[0]
+            # Boş -> boş
+            if (old_value or "") == (new_value or ""):
+                return {
+                    "personnel_id": personnel_id,
+                    "field": field,
+                    "old_value": old_value,
+                    "new_value": new_value,
+                    "changed": False,
+                }
+
+            # Personnel tablosunu güncelle
+            cur.execute(
+                f"UPDATE personnel SET {field} = %s WHERE id = %s",
+                (new_value, personnel_id),
+            )
+
+            # Log
+            cur.execute(
+                """
+                INSERT INTO courier_direct_changes
+                (personnel_id, field, old_value, new_value)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (personnel_id, field, str(old_value or ""), str(new_value or "")),
+            )
+
+            conn.commit()
+
+    return {
+        "personnel_id": personnel_id,
+        "field": field,
+        "old_value": old_value,
+        "new_value": new_value,
+        "changed": True,
+    }
+
+
+def update_photo(personnel_id: int, photo_data_url: str | None) -> dict[str, Any]:
+    """Profil fotoğrafını günceller.
+
+    photo_data_url: data URI formatında base64 PNG/JPEG
+    (örn 'data:image/jpeg;base64,/9j/4AAQ...')
+    None gönderilirse fotoğraf kaldırılır.
+    """
+    # Boyut limiti — max ~500KB base64 (≈ 370KB binary)
+    if photo_data_url and len(photo_data_url) > 700_000:
+        raise ValueError("Fotoğraf çok büyük (max ~500KB)")
+
+    if photo_data_url and not photo_data_url.startswith("data:image/"):
+        raise ValueError("Geçersiz fotoğraf formatı")
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE personnel
+                SET profile_photo_data = %s
+                WHERE id = %s
+                """,
+                (photo_data_url, personnel_id),
+            )
+            cur.execute(
+                """
+                INSERT INTO courier_direct_changes
+                (personnel_id, field, old_value, new_value)
+                VALUES (%s, 'profile_photo', %s, %s)
+                """,
+                (
+                    personnel_id,
+                    "(eski fotoğraf)" if photo_data_url else "(silindi)",
+                    "(yeni fotoğraf)" if photo_data_url else "(silindi)",
+                ),
+            )
+            conn.commit()
+
+    return {
+        "personnel_id": personnel_id,
+        "has_photo": photo_data_url is not None,
+    }
+
+
+def list_my_direct_changes(personnel_id: int, limit: int = 30) -> list[dict[str, Any]]:
+    """Kuryenin kendi doğrudan değişiklik logu (kişisel akış)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, field, old_value, new_value, changed_at
+                FROM courier_direct_changes
+                WHERE personnel_id = %s
+                ORDER BY changed_at DESC
+                LIMIT %s
+                """,
+                (personnel_id, limit),
+            )
+            rows = cur.fetchall()
+    return [
+        {
+            "id": r[0],
+            "field": r[1],
+            "old_value": r[2],
+            "new_value": r[3],
+            "changed_at": r[4].isoformat() if r[4] else None,
+        }
+        for r in rows
+    ]
 
 
 def _serialize(row: tuple | None) -> dict[str, Any]:

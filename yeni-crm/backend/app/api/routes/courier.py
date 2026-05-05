@@ -13,7 +13,7 @@ Prefix: /api/courier
 """
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from app.services.courier_auth import (
@@ -31,8 +31,17 @@ from app.services.courier_portal import (
 )
 from app.services.payroll_pdf import generate_payroll_pdf
 from app.services.profile_changes import (
+    CRITICAL_FIELDS,
+    DIRECT_EDITABLE_FIELDS,
+    direct_update,
     list_changes,
+    list_my_direct_changes,
     submit_change,
+    update_photo,
+)
+from app.services.signatures import (
+    get_signature,
+    save_signature,
 )
 
 router = APIRouter()
@@ -57,6 +66,25 @@ class ProfileChangeRequest(BaseModel):
 
     field: str
     new_value: str | None = None
+
+
+class DirectUpdateRequest(BaseModel):
+    """Doğrudan profil güncelleme (düşük riskli alan)."""
+
+    field: str
+    new_value: str | None = None
+
+
+class PhotoUploadRequest(BaseModel):
+    """Profil fotoğrafı yükleme (data URI)."""
+
+    photo_data_url: str | None = None
+
+
+class SignatureRequest(BaseModel):
+    """Bordro/sözleşme imzası — canvas'tan gelen PNG data URI."""
+
+    signature_data: str
 
 
 # Bağımlılık: Authorization header'dan veya cookie'den token al
@@ -157,10 +185,20 @@ async def get_bordro_pdf(
     period: str = "2026-03",
     authorization: str | None = None,
 ) -> Response:
-    """Bordro PDF indir."""
+    """Bordro PDF indir — varsa kuryenin dijital imzası gömülü gelir."""
+    from app.services.payroll import get_personnel_payroll
+    from app.services.personel import get_personnel
+
     personnel_id = get_current_personnel_id(authorization)
     try:
-        pdf_bytes = generate_payroll_pdf(personnel_id, period)
+        payroll = get_personnel_payroll(personnel_id=personnel_id, period=period)
+        if not payroll:
+            raise HTTPException(status_code=404, detail="Bordro bulunamadı")
+        personnel = get_personnel(personnel_id)
+        signature = get_signature(personnel_id, period, include_data=True)
+        pdf_bytes = generate_payroll_pdf(
+            payroll, personnel, period, signature=signature,
+        )
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
@@ -224,7 +262,7 @@ async def create_profile_change(
     req: ProfileChangeRequest,
     authorization: str | None = None,
 ) -> dict:
-    """Profil değişiklik talebi oluştur."""
+    """Kritik alan için profil değişiklik talebi oluştur (admin onaylı)."""
     personnel_id = get_current_personnel_id(authorization)
 
     if not req.field:
@@ -235,3 +273,89 @@ async def create_profile_change(
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/my-profile/direct-update")
+async def direct_update_profile(
+    req: DirectUpdateRequest,
+    authorization: str | None = None,
+) -> dict:
+    """Düşük riskli alan için doğrudan güncelle (acil durum kişisi, doğum tarihi vb.)"""
+    personnel_id = get_current_personnel_id(authorization)
+    if not req.field:
+        raise HTTPException(status_code=400, detail="Field gerekli")
+    try:
+        return direct_update(personnel_id, req.field, req.new_value)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/my-profile/photo")
+async def upload_profile_photo(
+    req: PhotoUploadRequest,
+    authorization: str | None = None,
+) -> dict:
+    """Profil fotoğrafı yükle/sil — data URI formatında."""
+    personnel_id = get_current_personnel_id(authorization)
+    try:
+        return update_photo(personnel_id, req.photo_data_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/my-profile/direct-log")
+async def list_my_direct_log(authorization: str | None = None) -> list[dict]:
+    """Kendi doğrudan değişiklik logunu döner (son 30)."""
+    personnel_id = get_current_personnel_id(authorization)
+    return list_my_direct_changes(personnel_id)
+
+
+@router.get("/my-profile/editable-fields")
+async def get_editable_fields(authorization: str | None = None) -> dict:
+    """Hangi alanların direkt vs onay-gerekli olduğunu döner."""
+    get_current_personnel_id(authorization)  # auth check
+    return {
+        "critical": sorted(CRITICAL_FIELDS),
+        "direct": sorted(DIRECT_EDITABLE_FIELDS),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────
+# E-imza endpointleri
+# ─────────────────────────────────────────────────────────────────
+
+
+@router.post("/my-bordro/{period}/sign")
+async def sign_my_bordro(
+    period: str,
+    body: SignatureRequest,
+    request: Request,
+    authorization: str | None = None,
+) -> dict:
+    """Bordroyu dijital olarak imzala (canvas PNG data URI gönderilir)."""
+    personnel_id = get_current_personnel_id(authorization)
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    try:
+        return save_signature(
+            personnel_id=personnel_id,
+            period=period,
+            signature_data=body.signature_data,
+            ip_address=ip,
+            user_agent=ua,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/my-bordro/{period}/signature")
+async def get_my_bordro_signature(
+    period: str,
+    authorization: str | None = None,
+) -> dict:
+    """Verilen ay için imza durumunu döner (data dahil değil — sadece meta)."""
+    personnel_id = get_current_personnel_id(authorization)
+    sig = get_signature(personnel_id, period, include_data=False)
+    if not sig:
+        return {"is_signed": False, "period": period}
+    return sig
