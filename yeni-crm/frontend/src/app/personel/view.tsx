@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowDownToLine, ArrowUpRight, Award, Bike, Check,
-  Inbox, Pencil, Plus, Search, ShieldCheck, Sparkles, Target, TrendingUp,
-  Users, Utensils, Zap,
+  AlertTriangle, ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpRight, Award,
+  Bike, Check, ChevronRight, Inbox, LayoutGrid, List, Pencil, Phone,
+  Plus, Search, ShieldCheck, Sparkles, Target, TrendingUp, Users,
+  Utensils, Zap,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -108,6 +109,9 @@ export function PersonnelView({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [sortKey, setSortKey] = useState<'name' | 'code' | 'packages' | 'hours' | 'days'>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const restMap = useMemo(() => {
     const m = new Map<number, Restaurant>();
@@ -143,8 +147,28 @@ export function PersonnelView({
       }
       return true;
     });
+
+    // Sort
+    const dir = sortDir === 'asc' ? 1 : -1;
+    list = [...list].sort((a, b) => {
+      const sa = statsMap.get(a.id);
+      const sb = statsMap.get(b.id);
+      switch (sortKey) {
+        case 'code':
+          return (a.person_code ?? '').localeCompare(b.person_code ?? '', 'tr-TR') * dir;
+        case 'packages':
+          return ((sa?.total_packages ?? 0) - (sb?.total_packages ?? 0)) * dir;
+        case 'hours':
+          return ((sa?.total_hours ?? 0) - (sb?.total_hours ?? 0)) * dir;
+        case 'days':
+          return ((sa?.working_days ?? 0) - (sb?.working_days ?? 0)) * dir;
+        case 'name':
+        default:
+          return (a.full_name ?? '').localeCompare(b.full_name ?? '', 'tr-TR') * dir;
+      }
+    });
     return list;
-  }, [personnel, statusTab, roleFilter, search]);
+  }, [personnel, statusTab, roleFilter, search, sortKey, sortDir, statsMap]);
 
   const activeOnly = useMemo(() => {
     return personnel.filter((p) => (p.status ?? 'Aktif') === 'Aktif');
@@ -622,13 +646,222 @@ export function PersonnelView({
             {filtered.length} sonuç
           </span>
         </div>
+
+        {/* Second row: sort + view toggle */}
+        <div className="flex gap-2.5 items-center mt-2.5 pt-2.5 border-t border-border/60">
+          <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider">
+            Sırala
+          </span>
+          <div className="flex gap-1">
+            {([
+              { key: 'name', label: 'Ad' },
+              { key: 'code', label: 'Kod' },
+              { key: 'packages', label: 'Paket' },
+              { key: 'hours', label: 'Saat' },
+              { key: 'days', label: 'Gün' },
+            ] as const).map((s) => {
+              const active = sortKey === s.key;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => {
+                    if (active) {
+                      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortKey(s.key);
+                      setSortDir(s.key === 'name' || s.key === 'code' ? 'asc' : 'desc');
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition ${
+                    active
+                      ? 'bg-text text-white shadow-sm'
+                      : 'bg-white border border-border text-text-2 hover:border-text/30'
+                  }`}
+                >
+                  {s.label}
+                  {active && (sortDir === 'asc'
+                    ? <ArrowUp className="w-3 h-3" strokeWidth={2.5} />
+                    : <ArrowDown className="w-3 h-3" strokeWidth={2.5} />)}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="ml-auto flex items-center gap-1 bg-surface-2 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              aria-label="Liste görünümü"
+              title="Liste görünümü"
+              className={`p-1.5 rounded transition ${
+                viewMode === 'list'
+                  ? 'bg-white shadow-sm text-brand'
+                  : 'text-text-3 hover:text-text-2'
+              }`}
+            >
+              <List className="w-4 h-4" strokeWidth={2.2} />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              aria-label="Kart görünümü"
+              title="Kart görünümü"
+              className={`p-1.5 rounded transition ${
+                viewMode === 'grid'
+                  ? 'bg-white shadow-sm text-brand'
+                  : 'text-text-3 hover:text-text-2'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" strokeWidth={2.2} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* ──── PERSONNEL CARDS GRID ──── */}
+      {/* ──── PERSONNEL LIST / GRID ──── */}
       {filtered.length === 0 ? (
         <div className="bg-white border border-border rounded-2xl p-8 text-center text-text-3 text-sm">
           Sonuç bulunamadı.
         </div>
+      ) : viewMode === 'list' ? (
+        <>
+          {/* Premium row liste */}
+          <div className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden divide-y divide-border/60">
+            {/* Column headers */}
+            <div className="hidden lg:grid grid-cols-[44px_minmax(220px,1.4fr)_minmax(160px,1fr)_280px_120px] items-center gap-4 px-5 py-2.5 bg-surface-2/40 text-[10px] font-bold uppercase tracking-wider text-text-3">
+              <div></div>
+              <div>Personel</div>
+              <div>Restoran · Araç</div>
+              <div className="text-center">Mart 2026 · Paket / Saat / Gün</div>
+              <div></div>
+            </div>
+
+            {filtered.map((p) => {
+              const initials = (p.full_name ?? '?')
+                .split(' ').filter(Boolean).slice(0, 2)
+                .map((w) => w[0]?.toUpperCase()).join('');
+              const grad = AVATAR_COLORS[p.role as keyof typeof AVATAR_COLORS] || 'from-blue-700 to-blue-500';
+              const veh = vehicleLabel(p);
+              const isSelected = selectedIds.has(p.id);
+              const status = p.status ?? 'Aktif';
+              const s = statsMap.get(p.id);
+              const hasData = !!s && (s.total_packages > 0 || s.total_hours > 0 || s.working_days > 0);
+              const statusBar =
+                status === 'Aktif' ? 'bg-emerald-500'
+                : status === 'Pasif' ? 'bg-slate-300'
+                : 'bg-rose-500';
+
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => setEditingId(p.id)}
+                  className={`group relative flex items-center gap-4 px-5 py-3 pl-6 cursor-pointer transition-all duration-150 ${
+                    isSelected ? 'bg-brand-soft/40' : 'hover:bg-surface-2/40'
+                  }`}
+                  title="Düzenlemek için tıkla"
+                >
+                  {/* Status accent bar (sol) */}
+                  <div className={`absolute left-0 top-0 bottom-0 w-1 ${statusBar} ${
+                    status === 'Aktif' ? '' : 'opacity-60'
+                  }`} />
+
+                  {/* Multi-select checkbox (hover'da) */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleSelect(p.id); }}
+                    aria-label={isSelected ? 'Seçimi kaldır' : 'Seç'}
+                    className={`w-5 h-5 rounded-md border-1.5 flex items-center justify-center flex-shrink-0 transition ${
+                      isSelected
+                        ? 'bg-brand border-brand opacity-100'
+                        : 'bg-white border-border opacity-0 group-hover:opacity-100 hover:border-brand'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                  </button>
+
+                  {/* Avatar + identity (1.4fr) */}
+                  <div className="flex items-center gap-3 min-w-0 flex-1 lg:flex-initial lg:min-w-[220px] lg:max-w-[420px]">
+                    <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${grad} text-white font-semibold flex items-center justify-center text-sm shadow-sm flex-shrink-0`}>
+                      {initials}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <h4 className="font-display text-[14.5px] font-semibold text-text truncate">
+                          {p.full_name || '—'}
+                        </h4>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
+                          ROLE_STYLES[p.role ?? ''] || 'bg-surface-2 text-text-2'
+                        }`}>
+                          {p.role || '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11.5px] text-text-3">
+                        <span className="font-mono tabular-nums">{p.person_code || '—'}</span>
+                        {p.phone && (
+                          <>
+                            <span>·</span>
+                            <span className="inline-flex items-center gap-0.5 truncate">
+                              <Phone className="w-3 h-3" strokeWidth={2} />
+                              <span className="tabular-nums">{p.phone}</span>
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Restaurant + vehicle (orta sütun) */}
+                  <div className="hidden lg:flex flex-col gap-0.5 min-w-0 flex-1 max-w-[200px]">
+                    {restName(p.assigned_restaurant_id) ? (
+                      <span className="text-xs text-text-2 inline-flex items-center gap-1.5 truncate">
+                        <Utensils className="w-3 h-3 text-text-3 flex-shrink-0" strokeWidth={2} />
+                        <span className="truncate">{restName(p.assigned_restaurant_id)}</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-text-3 italic">Atanmamış</span>
+                    )}
+                    <span className={`inline-flex w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded ${veh.color}`}>
+                      {veh.label}
+                    </span>
+                  </div>
+
+                  {/* Stats inline strip */}
+                  <div className={`hidden md:flex items-center gap-4 px-3.5 py-1.5 rounded-lg border flex-shrink-0 ${
+                    hasData ? 'bg-blue-50/50 border-blue-100' : 'bg-surface-2/50 border-border/70'
+                  }`} style={{ width: 280 }}>
+                    <Metric
+                      label="Paket"
+                      value={hasData ? (s!.total_packages).toLocaleString('tr-TR') : '—'}
+                      active={hasData}
+                    />
+                    <div className="w-px h-7 bg-border/60" />
+                    <Metric
+                      label="Saat"
+                      value={hasData ? Math.round(s!.total_hours).toLocaleString('tr-TR') : '—'}
+                      active={hasData}
+                    />
+                    <div className="w-px h-7 bg-border/60" />
+                    <Metric
+                      label="Gün"
+                      value={hasData ? `${s!.working_days}/${periodMaxDays}` : '—'}
+                      active={hasData}
+                    />
+                  </div>
+
+                  {/* Edit action */}
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-auto lg:ml-0" style={{ width: 120 }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }}
+                      aria-label="Bilgileri düzenle"
+                      className="opacity-60 group-hover:opacity-100 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-border text-text-2 text-xs font-semibold transition-all duration-200 group-hover:bg-brand group-hover:text-white group-hover:border-brand group-hover:shadow-md"
+                    >
+                      <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
+                      Düzenle
+                    </button>
+                    <ChevronRight className="w-4 h-4 text-text-3 opacity-0 group-hover:opacity-100 transition" strokeWidth={2.2} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       ) : (
         <>
           <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
@@ -774,12 +1007,6 @@ export function PersonnelView({
             })}
           </div>
 
-          {/* Load more button */}
-          <div className="text-center py-6">
-            <button className="px-3.5 py-2 bg-white border border-border text-text-2 text-xs font-semibold rounded-lg hover:border-border-2 transition">
-              ↓ Daha fazla yükle (84 personel daha)
-            </button>
-          </div>
         </>
       )}
 
@@ -1369,6 +1596,30 @@ function formatTL(value: number): string {
   if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
   return Math.round(value).toLocaleString('tr-TR');
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Inline metric (paket / saat / gün) — liste satırı için
+// ──────────────────────────────────────────────────────────────────
+function Metric({
+  label, value, active,
+}: {
+  label: string;
+  value: string;
+  active: boolean;
+}) {
+  return (
+    <div className="text-center min-w-[60px] flex-1">
+      <div className={`font-mono text-[14px] font-bold tabular-nums leading-tight ${
+        active ? 'text-blue-700' : 'text-text-3'
+      }`}>
+        {value}
+      </div>
+      <div className="text-[9px] text-text-3 uppercase tracking-wider font-bold mt-0.5">
+        {label}
+      </div>
+    </div>
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────
