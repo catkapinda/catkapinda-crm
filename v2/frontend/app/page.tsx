@@ -669,133 +669,6 @@ function Waterfall({
 }
 
 /* ====================================================================
-   6 AYLIK KAR/ZARAR (TODO: backend extension — currently mock + current)
-   ==================================================================== */
-
-function SixMonthPL({ currentNetKar }: { currentNetKar: number }) {
-  // TODO: backend should return last 6 months net profit. For now we
-  // anchor on the real current month value and synthesize realistic
-  // trailing 5 months around it (downturn at year-start, recovery).
-  const factors = [0.747, 0.626, 0.687, 0.812, 0.877, 1.0]; // Ara → May
-  const months = ["Ara", "Oca", "Şub", "Mar", "Nis", "May"];
-  const values = factors.map((f) => Math.round(currentNetKar * f));
-  const max = Math.max(...values, 1);
-  const chartH = 120;
-  const chartTop = 42;
-  const chartBottom = chartTop + chartH;
-  const baseValues = values.map((v) => ({
-    height: (v / max) * chartH,
-    y: chartBottom - (v / max) * chartH,
-  }));
-
-  const previous = values[values.length - 2] || 1;
-  const current = values[values.length - 1];
-  const growthMtm = previous > 0 ? ((current - previous) / previous) * 100 : 0;
-  const first = values[0] || 1;
-  const growth6m = first > 0 ? ((current - first) / first) * 100 : 0;
-
-  const xPositions = [50, 105, 160, 215, 270, 325];
-
-  return (
-    <div className={`${styles.card} ${styles.reveal} ${styles.d3}`}>
-      <div className={styles.cardHead}>
-        <div>
-          <h3 className={styles.cardTitle}>6 Aylık Kar/Zarar</h3>
-          <div className={styles.cardSub}>Son 6 ay · net kâr trendi</div>
-        </div>
-      </div>
-
-      <div className={styles.plStat}>
-        <div className={styles.plStatL}>Bu ay net kâr</div>
-        <div className={styles.plStatV}>{formatCurrency(current)}</div>
-        <div className={styles.plStatD}>
-          <span className={`${styles.delta} ${growthMtm >= 0 ? styles.deltaUp : styles.deltaDown}`}>
-            {growthMtm >= 0 ? "▲" : "▼"} %{Math.abs(growthMtm).toFixed(1).replace(".", ",")}
-          </span>
-          önceki aya göre
-        </div>
-      </div>
-
-      <div className={styles.plChartWrap}>
-        <svg className={styles.plChart} viewBox="0 0 400 200" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="pl-current" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#1d6fff" />
-              <stop offset="100%" stopColor="#0f52ba" />
-            </linearGradient>
-            <linearGradient id="pl-prev" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#a8c5ff" />
-              <stop offset="100%" stopColor="#7aa8ff" />
-            </linearGradient>
-            <filter id="pl-glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="4" result="b" />
-              <feMerge>
-                <feMergeNode in="b" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          <line x1="0" y1="40" x2="400" y2="40" stroke="rgba(15,82,186,0.06)" strokeDasharray="3 4" />
-          <line x1="0" y1="100" x2="400" y2="100" stroke="rgba(15,82,186,0.06)" strokeDasharray="3 4" />
-          <line x1="0" y1="160" x2="400" y2="160" stroke="rgba(15,82,186,0.06)" strokeDasharray="3 4" />
-
-          {baseValues.map((b, i) => {
-            const isCurrent = i === baseValues.length - 1;
-            const fill = isCurrent ? "url(#pl-current)" : "url(#pl-prev)";
-            const x = xPositions[i];
-            return (
-              <g key={i}>
-                <rect
-                  className={`${styles.plBar} ${styles[`plBar${i}`]}`}
-                  x={x}
-                  y={b.y}
-                  width="40"
-                  height={b.height}
-                  rx="4"
-                  fill={fill}
-                />
-                {isCurrent ? (
-                  <rect
-                    className={`${styles.plBar} ${styles[`plBar${i}`]}`}
-                    x={x}
-                    y={b.y}
-                    width="40"
-                    height={b.height}
-                    rx="4"
-                    fill={fill}
-                    opacity="0.35"
-                    filter="url(#pl-glow)"
-                  />
-                ) : null}
-                <text x={x + 20} y={b.y - 8} textAnchor="middle" fontSize={isCurrent ? 11 : 10} fill={isCurrent ? "#0f52ba" : "#475569"} fontWeight={isCurrent ? 800 : 700}>
-                  {formatCompactCurrency(values[i])}
-                </text>
-                <text x={x + 20} y="180" textAnchor="middle" fontSize="10" fill={isCurrent ? "#0f52ba" : "#94a3b8"} fontWeight={isCurrent ? 800 : 600}>
-                  {months[i]}
-                </text>
-              </g>
-            );
-          })}
-
-          <line x1="0" y1="160" x2="400" y2="160" stroke="rgba(15,82,186,0.18)" strokeWidth="1" />
-        </svg>
-      </div>
-
-      <div className={styles.plSummary}>
-        <div className={`${styles.plMini} ${growth6m >= 0 ? styles.plMiniUp : ""}`}>
-          6 ay büyüme<b>{growth6m >= 0 ? "+" : ""}%{growth6m.toFixed(0)}</b>
-        </div>
-        <div className={styles.plMini}>
-          Ortalama marj
-          <b>%{(values.reduce((a, b) => a + b, 0) / values.length / Math.max(currentNetKar, 1) * 38).toFixed(1).replace(".", ",")}</b>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ====================================================================
    OPERASYON TRENDI
    ==================================================================== */
 
@@ -1411,7 +1284,7 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* AYLIK MALİ AKIŞ + 6 AYLIK */}
+          {/* AYLIK MALİ AKIŞ */}
           <div className={styles.maliRow}>
             <Waterfall
               fatura={fatura}
@@ -1419,7 +1292,6 @@ export default function OverviewPage() {
               netKar={netKar}
               selectedMonth={finance.selected_month}
             />
-            <SixMonthPL currentNetKar={netKar} />
           </div>
 
           {/* OPERASYON TRENDI (büyük chart) */}
