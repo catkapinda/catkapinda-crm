@@ -153,17 +153,55 @@ export default function CourierDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center px-6">
-        <div className="text-center">
-          <div className="relative w-16 h-16 mx-auto mb-4">
-            <div className="absolute inset-0 rounded-2xl bg-blue-500/20 blur-xl animate-pulse" />
-            <img
-              src="/catkapinda-logo.png?v=4"
-              alt="Çat Kapında"
-              className="relative w-16 h-16 object-contain drop-shadow-lg"
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 px-5 pt-8 pb-12 overflow-hidden">
+        {/* Decorative gradient orbs (matches dashboard hero vibe) */}
+        <div className="fixed -top-32 -right-32 w-80 h-80 rounded-full bg-blue-300/20 blur-3xl pointer-events-none animate-pulse" />
+        <div className="fixed -bottom-32 -left-32 w-96 h-96 rounded-full bg-cyan-300/20 blur-3xl pointer-events-none animate-pulse [animation-delay:-1s]" />
+
+        <div className="relative max-w-2xl mx-auto">
+          {/* Hero skeleton — gradient mavi şerit */}
+          <div className="relative h-44 rounded-3xl bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 overflow-hidden shadow-xl">
+            <div
+              className="absolute inset-0 opacity-[0.08]"
+              style={{
+                backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+                backgroundSize: '20px 20px',
+              }}
             />
+            {/* Sweeping shimmer — sağa doğru kayan ışık */}
+            <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            {/* Three-dot bounce, ortada */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-white/90 animate-bounce [animation-delay:-0.32s]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-white/90 animate-bounce [animation-delay:-0.16s]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-white/90 animate-bounce" />
+              </div>
+            </div>
           </div>
-          <p className="text-slate-600 text-sm font-medium animate-pulse">Yükleniyor...</p>
+
+          {/* KPI cards skeleton — 2 kolon */}
+          <div className="grid grid-cols-2 gap-3 mt-5">
+            <div className="h-24 rounded-2xl bg-white/80 backdrop-blur-sm shadow-sm border border-blue-100/60 animate-pulse" />
+            <div className="h-24 rounded-2xl bg-white/80 backdrop-blur-sm shadow-sm border border-blue-100/60 animate-pulse [animation-delay:-0.4s]" />
+          </div>
+
+          {/* Liste satırları skeleton */}
+          <div className="space-y-3 mt-5">
+            <div className="h-16 rounded-2xl bg-white/80 backdrop-blur-sm shadow-sm border border-blue-100/40 animate-pulse" />
+            <div className="h-16 rounded-2xl bg-white/80 backdrop-blur-sm shadow-sm border border-blue-100/40 animate-pulse [animation-delay:-0.2s]" />
+            <div className="h-16 rounded-2xl bg-white/80 backdrop-blur-sm shadow-sm border border-blue-100/40 animate-pulse [animation-delay:-0.4s]" />
+          </div>
+
+          {/* Status text */}
+          <p className="text-center mt-8 text-slate-500 text-sm font-medium tracking-wide">
+            Bordron hazırlanıyor
+            <span className="inline-flex ml-1">
+              <span className="animate-[blink_1.4s_infinite_both] [animation-delay:0s]">.</span>
+              <span className="animate-[blink_1.4s_infinite_both] [animation-delay:0.2s]">.</span>
+              <span className="animate-[blink_1.4s_infinite_both] [animation-delay:0.4s]">.</span>
+            </span>
+          </p>
         </div>
       </div>
     );
@@ -218,11 +256,17 @@ export default function CourierDashboard() {
         <div className="relative px-5 pt-8 pb-32 max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-7">
             <div className="flex items-center gap-2.5">
-              <img
-                src="/catkapinda-logo.png?v=4"
-                alt="Çat Kapında"
-                className="w-9 h-9 object-contain drop-shadow-md"
-              />
+              <div className="relative w-10 h-10 flex-shrink-0">
+                {/* Soft white glow halo — koyu mavi gradient üstünde logoyu öne çıkarır */}
+                <div className="absolute inset-0 rounded-2xl bg-white/25 blur-md scale-125" />
+                <div className="relative w-10 h-10 rounded-2xl bg-white/95 shadow-lg flex items-center justify-center p-1.5 ring-1 ring-white/40">
+                  <img
+                    src="/catkapinda-logo.png?v=4"
+                    alt="Çat Kapında"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </div>
               <div>
                 <div className="font-bold text-sm tracking-tight">Çat Kapında</div>
                 <div className="text-[10px] uppercase tracking-widest text-blue-100/60 font-semibold">
