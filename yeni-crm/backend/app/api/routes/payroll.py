@@ -1,5 +1,6 @@
 """Bordro endpoint'leri."""
 import logging
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
@@ -12,11 +13,35 @@ from app.services.personel import get_personnel
 from app.services.signatures import (
     delete_signature,
     list_signatures_for_period,
+    mark_paid as svc_mark_paid,
+    unmark_paid as svc_unmark_paid,
 )
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# Türkçe karakter → ASCII tablosu (Content-Disposition filename için)
+_TR_ASCII = str.maketrans({
+    "ç": "c", "Ç": "C",
+    "ğ": "g", "Ğ": "G",
+    "ı": "i", "İ": "I",
+    "ö": "o", "Ö": "O",
+    "ş": "s", "Ş": "S",
+    "ü": "u", "Ü": "U",
+    "â": "a", "Â": "A",
+    "î": "i", "Î": "I",
+    "û": "u", "Û": "U",
+})
+
+
+def _safe_filename(name: str) -> str:
+    """HTTP Content-Disposition için güvenli ASCII dosya adı."""
+    s = name.translate(_TR_ASCII)
+    # Geriye kalan ASCII-dışı karakterleri at
+    s = s.encode("ascii", "ignore").decode("ascii")
+    return s.replace(" ", "_").replace("/", "-").replace("\\", "-")
 
 
 @router.get("/signatures")
@@ -108,6 +133,37 @@ async def list_payroll_sms_log(
     return out
 
 
+@router.patch("/signatures/{personnel_id}/mark-paid")
+async def mark_signature_paid(
+    personnel_id: int,
+    period: str,
+    paid_by: str | None = None,
+    paid_amount: float | None = None,
+) -> dict:
+    """İmzalı bordroyu 'ödendi' olarak işaretle (Hakediş Onayları sayfası)."""
+    row = svc_mark_paid(
+        personnel_id=personnel_id,
+        period=period,
+        paid_by=paid_by,
+        paid_amount=paid_amount,
+    )
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail="İmza kaydı bulunamadı (kurye+ay)",
+        )
+    return row
+
+
+@router.patch("/signatures/{personnel_id}/unmark-paid")
+async def unmark_signature_paid(personnel_id: int, period: str) -> dict:
+    """Ödendi işaretini geri al (admin yanlış işaretlediyse)."""
+    ok = svc_unmark_paid(personnel_id=personnel_id, period=period)
+    if not ok:
+        raise HTTPException(status_code=404, detail="İmza kaydı bulunamadı")
+    return {"unmarked": True, "personnel_id": personnel_id, "period": period}
+
+
 @router.delete("/signatures/{personnel_id}")
 async def delete_personnel_signature(
     personnel_id: int,
@@ -171,18 +227,23 @@ async def get_personnel_payroll_pdf(
         ) from exc
 
     full_name = (payroll.get("full_name") or f"kurye-{personnel_id}").strip()
-    safe_name = (
-        full_name.replace(" ", "_")
-        .replace("/", "-")
-        .replace("\\", "-")
-    )
-    filename = f"Bordro_{safe_name}_{period}.pdf"
+
+    # ASCII fallback (eski tarayıcılar) + RFC 5987 UTF-8 (modern tarayıcılar).
+    # Bu kombinasyon UnicodeEncodeError'ı önler (latin-1 zorunluluğu) ve
+    # modern tarayıcılarda Türkçe karakterli dosya adı görünür.
+    ascii_name = _safe_filename(full_name)
+    pretty_name = full_name.replace(" ", "_").replace("/", "-").replace("\\", "-")
+    ascii_filename = f"Bordro_{ascii_name}_{period}.pdf"
+    utf8_filename = f"Bordro_{pretty_name}_{period}.pdf"
 
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": (
+                f'attachment; filename="{ascii_filename}"; '
+                f"filename*=UTF-8''{quote(utf8_filename)}"
+            ),
             "Cache-Control": "no-store",
         },
     )
