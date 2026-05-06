@@ -401,7 +401,6 @@ const NAV_FIN: NavLink[] = [
   { href: "/payroll", label: "Bordro", icon: <Icon.Money /> },
   { href: "/invoices", label: "Faturalar", icon: <Icon.File /> },
   { href: "/sales", label: "Satışlar", icon: <Icon.Receipt /> },
-  { href: "/purchases", label: "Satın Alma", icon: <Icon.Cart /> },
   { href: "/deductions", label: "Kesintiler", icon: <Icon.Trend /> },
 ];
 
@@ -550,13 +549,11 @@ function HeroCard({ label, value, delta, meta, icon, sparkPath, sparkColor = "#0
 function Waterfall({
   fatura,
   kuryeNet,
-  yanGelir,
   netKar,
   selectedMonth,
 }: {
   fatura: number;
   kuryeNet: number;
-  yanGelir: number;
   netKar: number;
   selectedMonth: string | null;
 }) {
@@ -570,12 +567,8 @@ function Waterfall({
   const barFaturaY = baselineY - barFaturaH;
 
   const cumulativeAfterCost = fatura - kuryeNet;
-  const yAfterCost = baselineY - scale(cumulativeAfterCost);
+  const yAfterCost = baselineY - scale(Math.max(cumulativeAfterCost, 0));
   const barCostH = yAfterCost - barFaturaY;
-
-  const cumulativeAfterSide = cumulativeAfterCost + yanGelir;
-  const yAfterSide = baselineY - scale(cumulativeAfterSide);
-  const barSideH = Math.max(yAfterCost - yAfterSide, 4);
 
   const barNetH = scale(Math.max(netKar, 0));
   const barNetY = baselineY - barNetH;
@@ -588,7 +581,7 @@ function Waterfall({
         <div>
           <h3 className={styles.cardTitle}>Aylık Mali Akış</h3>
           <div className={styles.cardSub}>
-            {formatMonthLabel(selectedMonth)} · fatura → kurye → kesinti → net kâr
+            {formatMonthLabel(selectedMonth)} · fatura → kurye → net kâr
           </div>
         </div>
         <Link href="/reports" className={styles.cardLink}>
@@ -606,10 +599,6 @@ function Waterfall({
             <linearGradient id="wf-cost" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="#f59e0b" />
               <stop offset="100%" stopColor="#d97706" />
-            </linearGradient>
-            <linearGradient id="wf-side" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#10b981" />
-              <stop offset="100%" stopColor="#059669" />
             </linearGradient>
             <linearGradient id="wf-net" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="#1d6fff" />
@@ -631,60 +620,46 @@ function Waterfall({
 
           {/* Bar 1: Kestiğin fatura */}
           <g className={`${styles.wfBar} ${styles.wfBarB1}`}>
-            <rect x="60" y={barFaturaY} width="100" height={barFaturaH} rx="6" fill="url(#wf-rev)" />
-            <rect x="60" y={barFaturaY} width="100" height={barFaturaH} rx="6" fill="url(#wf-rev)" opacity="0.3" filter="url(#wf-glow)" />
+            <rect x="120" y={barFaturaY} width="120" height={barFaturaH} rx="6" fill="url(#wf-rev)" />
+            <rect x="120" y={barFaturaY} width="120" height={barFaturaH} rx="6" fill="url(#wf-rev)" opacity="0.3" filter="url(#wf-glow)" />
           </g>
-          <text x="110" y={barFaturaY - 8} textAnchor="middle" fontSize="13" fill="#0f52ba" fontWeight="700">
+          <text x="180" y={barFaturaY - 8} textAnchor="middle" fontSize="14" fill="#0f52ba" fontWeight="800">
             {formatCompactCurrency(fatura)}
           </text>
-          <text x="110" y="220" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="600">RESTORAN</text>
-          <text x="110" y="234" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="600">FATURASI</text>
+          <text x="180" y="220" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="700">RESTORAN</text>
+          <text x="180" y="234" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="700">FATURASI</text>
 
-          <line className={`${styles.wfLink} ${styles.wfLinkL1}`} x1="160" y1={barFaturaY} x2="220" y2={barFaturaY} stroke="#0f52ba" strokeWidth="1.5" strokeDasharray="4 4" />
-          <text x="190" y={barFaturaY + 6} textAnchor="middle" fill="#d97706" fontSize="18" fontWeight="700" fontFamily="JetBrains Mono, monospace">−</text>
+          <line className={`${styles.wfLink} ${styles.wfLinkL1}`} x1="240" y1={barFaturaY} x2="320" y2={barFaturaY} stroke="#0f52ba" strokeWidth="1.5" strokeDasharray="4 4" />
+          <text x="280" y={barFaturaY + 6} textAnchor="middle" fill="#d97706" fontSize="20" fontWeight="700" fontFamily="JetBrains Mono, monospace">−</text>
 
           {/* Bar 2: Kurye Net */}
           <g className={`${styles.wfBar} ${styles.wfBarB2}`}>
-            <rect x="220" y={barFaturaY} width="100" height={barCostH} rx="6" fill="url(#wf-cost)" />
-            <rect x="220" y={barFaturaY} width="100" height={barCostH} rx="6" fill="url(#wf-cost)" opacity="0.3" filter="url(#wf-glow)" />
+            <rect x="320" y={barFaturaY} width="120" height={barCostH} rx="6" fill="url(#wf-cost)" />
+            <rect x="320" y={barFaturaY} width="120" height={barCostH} rx="6" fill="url(#wf-cost)" opacity="0.3" filter="url(#wf-glow)" />
           </g>
-          <text x="270" y={barFaturaY - 8} textAnchor="middle" fontSize="13" fill="#a25804" fontWeight="700">
+          <text x="380" y={barFaturaY - 8} textAnchor="middle" fontSize="14" fill="#a25804" fontWeight="800">
             −{formatCompactCurrency(kuryeNet)}
           </text>
-          <text x="270" y="220" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="600">KURYE</text>
-          <text x="270" y="234" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="600">NET ÖDEME</text>
+          <text x="380" y="220" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="700">KURYE</text>
+          <text x="380" y="234" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="700">NET ÖDEME</text>
 
-          <line className={`${styles.wfLink} ${styles.wfLinkL2}`} x1="320" y1={yAfterCost} x2="380" y2={yAfterCost} stroke="#0f52ba" strokeWidth="1.5" strokeDasharray="4 4" />
-          <text x="350" y={yAfterCost + 6} textAnchor="middle" fill="#059669" fontSize="18" fontWeight="700" fontFamily="JetBrains Mono, monospace">+</text>
+          <line className={`${styles.wfLink} ${styles.wfLinkL2}`} x1="440" y1={yAfterCost} x2="520" y2={yAfterCost} stroke="#0f52ba" strokeWidth="1.5" strokeDasharray="4 4" />
+          <text x="480" y={yAfterCost + 6} textAnchor="middle" fill="#0f52ba" fontSize="20" fontWeight="700" fontFamily="JetBrains Mono, monospace">=</text>
 
-          {/* Bar 3: Yan gelir */}
-          <g className={`${styles.wfBar} ${styles.wfBarB3}`}>
-            <rect x="380" y={yAfterSide} width="100" height={barSideH} rx="3" fill="url(#wf-side)" />
-            <rect x="380" y={yAfterSide} width="100" height={barSideH} rx="3" fill="url(#wf-side)" opacity="0.4" filter="url(#wf-glow)" />
-          </g>
-          <text x="430" y={yAfterSide - 8} textAnchor="middle" fontSize="13" fill="#059669" fontWeight="700">
-            +{formatCompactCurrency(yanGelir)}
-          </text>
-          <text x="430" y="220" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="600">YAN</text>
-          <text x="430" y="234" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="600">GELİR</text>
-
-          <line className={`${styles.wfLink} ${styles.wfLinkL3}`} x1="480" y1={yAfterSide} x2="540" y2={yAfterSide} stroke="#0f52ba" strokeWidth="1.5" strokeDasharray="4 4" />
-          <text x="510" y={yAfterSide + 6} textAnchor="middle" fill="#0f52ba" fontSize="18" fontWeight="700" fontFamily="JetBrains Mono, monospace">=</text>
-
-          {/* Bar 4: Net kâr */}
+          {/* Bar 3: Net kâr */}
           <g className={`${styles.wfBar} ${styles.wfBarB4}`}>
-            <rect x="540" y={barNetY} width="120" height={barNetH} rx="8" fill="url(#wf-net)" />
-            <rect x="540" y={barNetY} width="120" height={barNetH} rx="8" fill="url(#wf-net)" opacity="0.45" filter="url(#wf-glow)" />
+            <rect x="520" y={barNetY} width="140" height={barNetH} rx="8" fill="url(#wf-net)" />
+            <rect x="520" y={barNetY} width="140" height={barNetH} rx="8" fill="url(#wf-net)" opacity="0.45" filter="url(#wf-glow)" />
           </g>
-          <text x="600" y={barNetY - 13} textAnchor="middle" fontSize="15" fill="#0f52ba" fontWeight="800">
+          <text x="590" y={barNetY - 13} textAnchor="middle" fontSize="16" fill="#0f52ba" fontWeight="800">
             {formatCompactCurrency(netKar)}
           </text>
-          <text x="600" y="220" textAnchor="middle" fontSize="11" fill="#0f52ba" fontWeight="800">NET KAR</text>
-          <text x="600" y="234" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="600">
+          <text x="590" y="220" textAnchor="middle" fontSize="11" fill="#0f52ba" fontWeight="800">NET KAR</text>
+          <text x="590" y="234" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="700">
             %{marj.toFixed(1).replace(".", ",")} marj
           </text>
 
-          <rect x="540" y={barNetY} width="120" height={barNetH} rx="8" fill="none" stroke="#1d6fff" strokeWidth="2" opacity="0.5">
+          <rect x="520" y={barNetY} width="140" height={barNetH} rx="8" fill="none" stroke="#1d6fff" strokeWidth="2" opacity="0.5">
             <animate attributeName="opacity" values="0.5;0.15;0.5" dur="2.5s" repeatCount="indefinite" />
           </rect>
         </svg>
@@ -1131,7 +1106,7 @@ function BrandRace({ brands }: { brands: OverviewDashboard["operations"]["brand_
    ==================================================================== */
 
 function ModulesGrid({ modules }: { modules: OverviewDashboard["modules"] }) {
-  const visible = modules.slice(0, 4);
+  const visible = modules.filter((m) => m.key !== "purchases").slice(0, 4);
   return (
     <>
       <div className={`${styles.modulesHeader} ${styles.reveal} ${styles.d5}`}>
@@ -1321,8 +1296,8 @@ export default function OverviewPage() {
 
   const fatura = finance.total_revenue || 0;
   const kuryeNet = finance.total_personnel_cost || 0;
-  const yanGelir = finance.side_income_net || 0;
-  const netKar = finance.gross_profit || 0;
+  // Yan gelir kasıtlı olarak hesaba dahil edilmiyor (kaldırıldı).
+  const netKar = fatura - kuryeNet;
   const marj = fatura > 0 ? (netKar / fatura) * 100 : 0;
 
   const kesintiTahmini = Math.round(kuryeNet * 0.03); // ~%3 kesinti tahmini
@@ -1429,12 +1404,7 @@ export default function OverviewPage() {
                 brüt {formatCompactCurrency(kuryeBrut)} − kesinti {formatCompactCurrency(kesintiTahmini)}
               </div>
             </div>
-            <div className={`${styles.maliKpi} ${styles.reveal} ${styles.d4}`}>
-              <div className={styles.maliKpiLabel}>Yan gelir</div>
-              <div className={styles.maliKpiValue}>{formatCurrency(yanGelir)}</div>
-              <div className={styles.maliKpiDetail}>ekipman & kasko</div>
-            </div>
-            <div className={`${styles.maliKpi} ${styles.maliHighlight} ${styles.reveal} ${styles.d5}`}>
+            <div className={`${styles.maliKpi} ${styles.maliHighlight} ${styles.reveal} ${styles.d4}`}>
               <div className={styles.maliKpiLabel}>Net kâr</div>
               <div className={styles.maliKpiValue}>{formatCurrency(netKar)}</div>
               <div className={styles.maliKpiDetail}>%{marj.toFixed(1).replace(".", ",")} marj</div>
@@ -1446,7 +1416,6 @@ export default function OverviewPage() {
             <Waterfall
               fatura={fatura}
               kuryeNet={kuryeNet}
-              yanGelir={yanGelir}
               netKar={netKar}
               selectedMonth={finance.selected_month}
             />

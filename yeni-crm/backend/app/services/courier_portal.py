@@ -37,14 +37,32 @@ def create_avans_request(personnel_id: int, amount: float, reason: str) -> dict:
 def get_my_summary(personnel_id: int, period: str) -> dict:
     """Kuryenin dashboard özet bilgilerini döner.
 
-    - Seçilen aya ait bordro (brüt, kesintiler, net)
+    - Seçilen aya ait bordro (brüt, kesintiler, net) — yoksa sıfırlar
     - Beklemede talep sayısı
     - En son 3 talep
     """
-    bordro = get_personnel_payroll(personnel_id, period)
+    bordro_raw = get_personnel_payroll(personnel_id, period)
+    # Frontend `bordro.total_brut` gibi alanlar bekliyor; dashboard'un kabul ettiği
+    # düz şema. Bordro yoksa (yeni ay, henüz puantaj yok) sıfır döndür.
+    if bordro_raw:
+        bordro = {
+            "total_brut": float(bordro_raw.get("toplam_brut") or 0),
+            "total_deductions": float(
+                (bordro_raw.get("kesinti_total") or 0)
+                + (bordro_raw.get("sabit_total") or 0)
+                + (bordro_raw.get("tevkifat") or 0)
+            ),
+            "total_net": float(bordro_raw.get("net") or 0),
+        }
+    else:
+        bordro = {
+            "total_brut": 0.0,
+            "total_deductions": 0.0,
+            "total_net": 0.0,
+        }
+
     all_requests = list_my_requests(personnel_id)
 
-    # Beklemede talepler
     pending_requests = [r for r in all_requests if r.get("status") == "Beklemede"]
     approved_requests = [r for r in all_requests if r.get("status") == "Onaylandı"]
     rejected_requests = [r for r in all_requests if r.get("status") == "Reddedildi"]
