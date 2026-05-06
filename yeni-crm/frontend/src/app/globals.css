@@ -59,3 +59,10 @@
   50%      { opacity: 0.85; transform: scale(1.05); }
 }
 .animate-pulse-soft { animation: pulse-soft 2.4s ease-in-out infinite; }
+
+/* Akıllı içgörü hero — açılışta yumuşak fade + yukarı kayma */
+@keyframes hero-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-hero-fade-in { animation: hero-fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }

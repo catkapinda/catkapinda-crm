@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import {
-  ArrowDownToLine, Check, Plus, Search, Sparkles, Utensils, Zap,
+  AlertTriangle, ArrowDownToLine, ArrowUpRight, Award, Check,
+  Inbox, Plus, Search, Sparkles, Target, TrendingUp,
+  Utensils, Zap,
 } from 'lucide-react';
 
 import { PersonnelEditModal } from '@/components/personnel-edit-modal';
@@ -279,85 +281,8 @@ export function PersonnelView({
         </div>
       </div>
 
-      {/* ──── AKILLI İÇGÖRÜ HERO ──── */}
-      {insights && (
-        <div
-          className="rounded-3xl border border-border shadow-sm p-8 mb-4.5 relative overflow-hidden"
-          style={{
-            background: `radial-gradient(900px circle at 90% -10%, rgba(232,217,181,0.4), transparent 50%),
-                        radial-gradient(700px circle at -10% 110%, rgba(15,82,186,0.08), transparent 55%),
-                        linear-gradient(135deg, #FFFFFF 0%, #FAF6EE 100%)`,
-          }}
-        >
-          <div className="absolute inset-0" style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(15, 82, 186, 0.06) 1px, transparent 0)`,
-            backgroundSize: '24px 24px',
-            maskImage: 'linear-gradient(135deg, transparent 40%, black 80%)',
-            pointerEvents: 'none',
-          }} />
-
-          <div className="grid grid-cols-3 gap-9 relative z-10">
-            {/* Content */}
-            <div className="col-span-2">
-              <div className="flex items-center gap-2 mb-3" style={{
-                display: 'inline-flex',
-                padding: '5px 11px',
-                background: 'linear-gradient(135deg, #0F52BA, #4F6BFF)',
-                color: 'white',
-                fontSize: '11px',
-                fontWeight: 700,
-                borderRadius: '999px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-              }}>
-                <Sparkles className="w-3.5 h-3.5" strokeWidth={2} />
-                Akıllı İçgörü · Bu Hafta
-              </div>
-              <h2 className="font-display text-3xl font-semibold tracking-tight leading-snug text-text mb-3">
-                3 kuryen <em style={{ fontStyle: 'normal', background: 'linear-gradient(135deg, #0F52BA, #3B7BCF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>390 paket eşiğini</em> aşmak üzere — ay sonuna kadar restorana ek <em style={{ fontStyle: 'normal', background: 'linear-gradient(135deg, #0F52BA, #3B7BCF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>84.000 ₺</em> fatura kesebilirsin.
-              </h2>
-              <p className="text-text-2 text-sm leading-relaxed mb-5">
-                Köroğlu Pide'deki Oğuzhan Kır 462 pakette, Furkan Ton 450'de. Trendleri sürerse +%55 prim oranına geçecekler. Aynı zamanda Quick China Suadiye'de hedef kurye sayısı 6'ya karşılık 4'te kaldı.
-              </p>
-              <div className="flex gap-2">
-                <button className="px-4 py-2.5 bg-text text-white text-xs font-semibold rounded-lg hover:shadow-lg transition">
-                  Detaylı analiz
-                </button>
-                <button className="px-4 py-2.5 border border-border text-text-2 text-xs font-semibold rounded-lg hover:bg-surface-2 transition">
-                  Eylem önerileri
-                </button>
-              </div>
-            </div>
-
-            {/* Insight cards */}
-            <div className="grid grid-cols-2 gap-2.5">
-              {[
-                { icon: '↗', bg: 'bg-green-50', border: 'border-green-200', color: 'text-green-700', title: 'Eşik Aşımı', value: '3 kurye', meta: '<strong>%72</strong> ay sonuna kadar geçecek · <strong>+84K ₺</strong> ek fatura potansiyeli' },
-                { icon: '⚠', bg: 'bg-yellow-50', border: 'border-yellow-200', color: 'text-yellow-700', title: 'Eksik Kapasite', value: '2 restoran', meta: 'Quick China Suadiye <strong>4/6</strong> · Köroğlu <strong>5/8</strong> · acil işe alım' },
-                { icon: '⚡', bg: 'bg-brand-soft', border: 'border-brand-border', color: 'text-brand', title: 'Verimlilik Liderleri', value: 'Cihan + Selim', meta: "Sabit maaşlarının <strong>%52</strong>'sini cover yaparak geri kazandılar" },
-                { icon: '📋', bg: 'bg-cream-100', border: 'border-cream-300', color: 'text-terra', title: 'Bekleyen Aksiyonlar', value: '7 talep', meta: '3 avans · 2 motor değişikliği · 2 muhasebe geçişi onay bekliyor' },
-              ].map((item, i) => (
-                <div
-                  key={i}
-                  className={`${item.bg} border ${item.border} rounded-2xl p-4 cursor-pointer hover:shadow-sm transition relative`}
-                  style={{ borderColor: item.border === 'border-green-200' ? 'rgba(16,185,129,0.3)' : item.border === 'border-yellow-200' ? 'rgba(245,158,11,0.3)' : item.border === 'border-brand-border' ? 'var(--brand-border)' : 'var(--cream-300)' }}
-                >
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-2 text-lg`} style={{ background: item.bg, color: item.color }}>
-                    {item.icon}
-                  </div>
-                  <div className={`text-xs font-semibold uppercase tracking-wider text-text-3 mb-1`}>
-                    {item.title}
-                  </div>
-                  <div className="font-display text-lg font-semibold text-text leading-tight mb-1">
-                    {item.value}
-                  </div>
-                  <div className="text-xs text-text-2 leading-snug" dangerouslySetInnerHTML={{ __html: item.meta }} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ──── AKILLI İÇGÖRÜ HERO — gerçek veriye bağlı dinamik anlatım ──── */}
+      {insights && <SmartInsightsHero insights={insights} />}
 
       {/* ──── YÖNETIM & YEDEK OPERASYON ──── */}
       {management.length > 0 && (
@@ -834,4 +759,286 @@ export function PersonnelView({
       )}
     </>
   );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Akıllı İçgörü Hero — gerçek insights verisinden anlatım üretir
+// ──────────────────────────────────────────────────────────────────
+function SmartInsightsHero({ insights }: { insights: PageInsights }) {
+  // Eşik aşımı potansiyel ek fatura — paket eşiğini aşma trendiyle
+  // her kurye için (eşik+50 paket × rate_high) kaba potansiyel
+  const thresholdPotential = useMemo(() => {
+    return insights.threshold_near.reduce((sum, t) => {
+      const projected = Math.max(t.threshold, t.packages) + 50;
+      const extraPackages = Math.max(0, projected - t.threshold);
+      return sum + extraPackages * (t.rate_high || 0);
+    }, 0);
+  }, [insights.threshold_near]);
+
+  // Geri kazanım %'leri — top_recovery'den
+  const topRecovery = useMemo(() => {
+    return insights.top_recovery.slice(0, 2).map((m) => ({
+      name: m.full_name?.split(' ')[0] ?? '—',
+      pct: m.salary > 0
+        ? Math.min(100, Math.round(((m.cover_hours * 200 + m.cover_packages * 25) / m.salary) * 100))
+        : 0,
+    }));
+  }, [insights.top_recovery]);
+
+  // Kapasite açığı toplam (target - actual) farkları
+  const capacityGap = useMemo(() => {
+    return insights.capacity_gaps.reduce((s, g) => s + Math.max(0, g.target - g.actual), 0);
+  }, [insights.capacity_gaps]);
+
+  const top1 = insights.threshold_near[0];
+  const top2 = insights.threshold_near[1];
+  const cap1 = insights.capacity_gaps[0];
+
+  // Hero başlığı — gerçek sayılarla dinamik
+  const headlineParts: { text: string; em?: boolean }[] = [];
+  if (insights.threshold_near.length > 0) {
+    headlineParts.push({ text: `${insights.threshold_near.length} kuryen ` });
+    headlineParts.push({
+      text: `${top1?.threshold ?? 390} paket eşiğini`,
+      em: true,
+    });
+    headlineParts.push({ text: ' aşmak üzere — ay sonuna kadar ek ' });
+    headlineParts.push({
+      text: `${formatTL(thresholdPotential)} ₺`,
+      em: true,
+    });
+    headlineParts.push({ text: ' fatura potansiyeli.' });
+  } else if (insights.capacity_gaps.length > 0) {
+    headlineParts.push({ text: `${insights.capacity_gaps.length} restoranda ` });
+    headlineParts.push({ text: `kapasite açığı`, em: true });
+    headlineParts.push({ text: ` — toplam ${capacityGap} kuryelik boşluk.` });
+  } else {
+    headlineParts.push({ text: 'Tüm operasyon dengede — ' });
+    headlineParts.push({ text: 'eşik / kapasite uyarısı yok', em: true });
+    headlineParts.push({ text: '.' });
+  }
+
+  return (
+    <div
+      className="rounded-3xl border border-border shadow-sm p-7 mb-5 relative overflow-hidden animate-hero-fade-in"
+      style={{
+        background: `radial-gradient(900px circle at 92% -8%, rgba(56,189,248,0.16), transparent 50%),
+                    radial-gradient(700px circle at -8% 110%, rgba(15,82,186,0.12), transparent 55%),
+                    linear-gradient(135deg, #FFFFFF 0%, #F4F8FE 100%)`,
+      }}
+    >
+      {/* Dot pattern overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(15,82,186,0.07) 1px, transparent 0)',
+          backgroundSize: '22px 22px',
+          maskImage: 'linear-gradient(135deg, transparent 35%, black 80%)',
+        }}
+      />
+
+      <div className="grid grid-cols-3 gap-7 relative z-10">
+        {/* Sol: dinamik anlatım */}
+        <div className="col-span-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider text-white shadow-sm bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500">
+            <Sparkles className="w-3.5 h-3.5" strokeWidth={2.4} />
+            Akıllı İçgörü · Bu Hafta
+            <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/25 text-[9.5px] font-semibold tracking-normal">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse-soft" />
+              Canlı
+            </span>
+          </div>
+
+          <h2 className="font-display text-[28px] font-semibold tracking-tight leading-snug text-text mt-3 mb-3">
+            {headlineParts.map((p, i) => p.em ? (
+              <em
+                key={i}
+                style={{
+                  fontStyle: 'normal',
+                  background: 'linear-gradient(135deg, #0F52BA, #38BDF8)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  fontWeight: 700,
+                }}
+              >
+                {p.text}
+              </em>
+            ) : (
+              <span key={i}>{p.text}</span>
+            ))}
+          </h2>
+
+          <p className="text-text-2 text-[13.5px] leading-relaxed mb-5">
+            {top1 ? (
+              <>
+                <strong>{top1.brand ?? '—'}{top1.branch ? ` · ${top1.branch}` : ''}</strong>
+                {' '}restoranındaki <strong>{top1.full_name ?? '—'}</strong>{' '}
+                {top1.packages} pakette
+                {top2 ? (
+                  <>, <strong>{top2.full_name?.split(' ')[0] ?? '—'}</strong> {top2.packages}'de</>
+                ) : null}
+                . Trendleri sürerse <strong>+%{Math.round(((top1.rate_high - top1.rate_low) / Math.max(top1.rate_low, 1)) * 100)} prim oranına</strong> geçecekler.
+                {cap1 ? (
+                  <>{' '}Aynı zamanda <strong>{cap1.brand}{cap1.branch ? ` · ${cap1.branch}` : ''}</strong>'de hedef kurye sayısı <strong>{cap1.target}'ya karşılık {cap1.actual}'te</strong> kaldı.</>
+                ) : null}
+              </>
+            ) : cap1 ? (
+              <>
+                Restoran kapasitelerinde açık var: <strong>{cap1.brand}{cap1.branch ? ` · ${cap1.branch}` : ''}</strong>{' '}
+                hedef <strong>{cap1.target}/kurye</strong>'ya karşılık aktif <strong>{cap1.actual}</strong>. Acil işe alım önerilir.
+              </>
+            ) : (
+              <>Eşik aşımı veya eksik kapasite tespit edilmedi. Operasyon ölçek kırmızı çizgileri içinde.</>
+            )}
+          </p>
+
+          <div className="flex gap-2">
+            <button className="px-4 py-2.5 bg-text text-white text-xs font-semibold rounded-lg hover:shadow-lg transition flex items-center gap-1.5">
+              <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2.4} />
+              Detaylı analiz
+            </button>
+            <button className="px-4 py-2.5 border border-border text-text-2 text-xs font-semibold rounded-lg hover:bg-bg-surface2 transition">
+              Eylem önerileri
+            </button>
+          </div>
+        </div>
+
+        {/* Sağ: 4 dinamik kart */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <InsightCard
+            tone="emerald"
+            Icon={TrendingUp}
+            label="Eşik Aşımı"
+            value={`${insights.threshold_near.length} kurye`}
+            metaJsx={
+              insights.threshold_near.length > 0 ? (
+                <>
+                  <strong>+{formatTL(thresholdPotential)} ₺</strong> ek fatura potansiyeli
+                </>
+              ) : (
+                <>Bu ay eşik yakını yok</>
+              )
+            }
+          />
+          <InsightCard
+            tone="amber"
+            Icon={AlertTriangle}
+            label="Eksik Kapasite"
+            value={`${insights.capacity_gaps.length} restoran`}
+            metaJsx={
+              cap1 ? (
+                <>
+                  <strong>{cap1.brand}</strong>{' '}{cap1.actual}/{cap1.target}
+                  {capacityGap > 0 ? <> · toplam <strong>{capacityGap} açık</strong></> : null}
+                </>
+              ) : (
+                <>Hedef kapasite tam</>
+              )
+            }
+          />
+          <InsightCard
+            tone="blue"
+            Icon={Award}
+            label="Verimlilik Liderleri"
+            value={
+              topRecovery.length > 0
+                ? topRecovery.map((r) => r.name).join(' + ')
+                : '—'
+            }
+            metaJsx={
+              topRecovery.length > 0 ? (
+                <>
+                  Sabit maaşının <strong>%{topRecovery[0].pct}</strong>'sini cover ile geri kazandı
+                </>
+              ) : (
+                <>Sabit maaşlı veri yok</>
+              )
+            }
+          />
+          <InsightCard
+            tone="rose"
+            Icon={Inbox}
+            label="Bekleyen Aksiyonlar"
+            value={`${insights.pending_actions} talep`}
+            metaJsx={
+              <>onay/red için bekliyor</>
+            }
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InsightCard({
+  tone, Icon, label, value, metaJsx,
+}: {
+  tone: 'emerald' | 'amber' | 'blue' | 'rose';
+  Icon: typeof Target;
+  label: string;
+  value: string;
+  metaJsx: React.ReactNode;
+}) {
+  const palettes = {
+    emerald: {
+      bg: 'bg-emerald-50/80',
+      border: 'border-emerald-200',
+      iconBg: 'bg-emerald-100',
+      iconText: 'text-emerald-700',
+      label: 'text-emerald-800',
+    },
+    amber: {
+      bg: 'bg-amber-50/80',
+      border: 'border-amber-200',
+      iconBg: 'bg-amber-100',
+      iconText: 'text-amber-700',
+      label: 'text-amber-800',
+    },
+    blue: {
+      bg: 'bg-blue-50/80',
+      border: 'border-blue-200',
+      iconBg: 'bg-blue-100',
+      iconText: 'text-blue-700',
+      label: 'text-blue-800',
+    },
+    rose: {
+      bg: 'bg-rose-50/80',
+      border: 'border-rose-200',
+      iconBg: 'bg-rose-100',
+      iconText: 'text-rose-700',
+      label: 'text-rose-800',
+    },
+  } as const;
+  const p = palettes[tone];
+  return (
+    <div
+      className={[
+        p.bg, p.border,
+        'rounded-2xl border p-3.5 backdrop-blur-sm',
+        'transition-all duration-200',
+        'hover:shadow-md hover:-translate-y-0.5 cursor-pointer',
+      ].join(' ')}
+    >
+      <div className="flex items-start justify-between mb-2">
+        <div className={`w-8 h-8 rounded-lg ${p.iconBg} ${p.iconText} flex items-center justify-center shadow-sm`}>
+          <Icon className="w-4 h-4" strokeWidth={2.4} />
+        </div>
+      </div>
+      <div className={`text-[10.5px] font-bold uppercase tracking-wider ${p.label} mb-1`}>
+        {label}
+      </div>
+      <div className="font-display text-[16px] font-semibold text-text leading-tight mb-1">
+        {value}
+      </div>
+      <div className="text-[11.5px] text-text-2 leading-snug">
+        {metaJsx}
+      </div>
+    </div>
+  );
+}
+
+function formatTL(value: number): string {
+  if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
+  return Math.round(value).toLocaleString('tr-TR');
 }
