@@ -120,6 +120,34 @@ def send_sms(phone: str, message: str) -> dict[str, Any]:
         raise RuntimeError("NetGSM sunucusuna ulaşılamadı") from exc
 
 
+def send_sms_allowlist_aware(phone: str, message: str) -> dict[str, Any]:
+    """Allowlist-bilinçli SMS gönderim sarmalayıcısı.
+
+    `SMS_TEST_PHONES` env'i tanımlıysa sadece o listedeki numaralara
+    gerçek SMS gider (staging davranışı). Listede olmayan numaralar
+    için ``{"status": "not_in_allowlist", "phone": <10 hane>}`` döner —
+    SMS GÖNDERİLMEZ. Allowlist boşsa (production) tüm numaralara
+    normal gönderim yapılır.
+
+    Telefon normalize hatası raise eder (numara geçersizse caller'ın
+    yakalamasını bekleriz). NetGSM hatası ``RuntimeError`` olarak
+    yukarı yansır.
+    """
+    s = get_settings()
+    phone10 = normalize_phone(phone)
+
+    if s.sms_allowlist_enabled and phone10 not in s.sms_test_phones_set:
+        log.info(
+            "sms allowlist skip phone=%s (allowlist=%d numara)",
+            phone10[:3] + "***" + phone10[-2:],
+            len(s.sms_test_phones_set),
+        )
+        return {"status": "not_in_allowlist", "phone": phone10}
+
+    result = send_sms(phone10, message)
+    return {"status": "sent", "phone": phone10, "raw": result}
+
+
 def send_otp_sms(phone: str, code: str, minutes: int = 5) -> None:
     """OTP kodu için kısa SMS gönder."""
     msg = DEFAULT_MESSAGE_TEMPLATE.format(code=code, minutes=minutes)

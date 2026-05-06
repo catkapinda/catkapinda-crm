@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     sms_netgsm_username: str = ""
     sms_netgsm_password: str = ""
     sms_sender: str = "CATKAPINDA"
+    # Test/staging allowlist — virgülle ayrılmış telefon listesi
+    # (örn. "05551234567,05559876543"). Boşsa allowlist devre dışı,
+    # tüm numaralara gönderim açık (production için bu bekleniyor).
+    sms_test_phones: str = ""
 
     # App
     app_env: str = "development"
@@ -28,6 +32,29 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def sms_test_phones_set(self) -> set[str]:
+        """Allowlist'teki numaraları normalize edilmiş (10 hane '5XX...') set olarak döndürür."""
+        out: set[str] = set()
+        for raw in (self.sms_test_phones or "").split(","):
+            raw = raw.strip()
+            if not raw:
+                continue
+            # Inline normalize (sms.py'a circular import olmasın diye)
+            digits = "".join(ch for ch in raw if ch.isdigit())
+            if digits.startswith("90") and len(digits) == 12:
+                digits = digits[2:]
+            if digits.startswith("0") and len(digits) == 11:
+                digits = digits[1:]
+            if len(digits) == 10 and digits.startswith("5"):
+                out.add(digits)
+        return out
+
+    @property
+    def sms_allowlist_enabled(self) -> bool:
+        """Allowlist boş değilse aktif (staging davranışı)."""
+        return len(self.sms_test_phones_set) > 0
 
 
 @lru_cache(maxsize=1)

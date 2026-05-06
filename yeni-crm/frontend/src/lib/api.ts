@@ -919,6 +919,16 @@ export async function bulkFillPuantaj(
 // Puantaj Onayları (operasyon → admin onay akışı)
 // ─────────────────────────────────────────────────────────────
 
+export type PuantajApprovalNotification = {
+  sent?: number;
+  skipped_already_sent?: number;
+  no_phone?: number;
+  not_in_allowlist?: number;
+  failed?: number;
+  total?: number;
+  error?: string;
+};
+
 export type PuantajApproval = {
   id: number;
   restaurant_id: number;
@@ -935,6 +945,8 @@ export type PuantajApproval = {
   entry_count: number;
   total_hours: number;
   total_packages: number;
+  // 'approved' decide sonrası backend ekler — SMS bildirim sonucu özeti
+  notification?: PuantajApprovalNotification;
 };
 
 export type PuantajApprovalSummary = {

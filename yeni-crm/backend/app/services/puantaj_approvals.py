@@ -10,11 +10,14 @@
 Aynı (restaurant_id, period) için birden fazla kayıt olamaz (UNIQUE).
 Yeniden gönderim yapılmak istenirse mevcut kayıt güncellenir.
 """
+import logging
 from typing import Any
 
 from psycopg.rows import dict_row
 
 from app.core.database import get_connection
+
+log = logging.getLogger(__name__)
 
 
 def _row_summary(restaurant_id: int, period: str) -> dict:
@@ -176,7 +179,13 @@ def decide(
     decided_by: str | None = None,
     decision_notes: str | None = None,
 ) -> dict | None:
-    """Admin onayı/reddi."""
+    """Admin onayı/reddi.
+
+    `status='approved'` ise, etkilenen kuryelere "bordron hazır" SMS'i
+    gönderilir (de-dup ile, kurye+ay başına tek SMS). SMS sonucu
+    response'a `notification` anahtarı altında eklenir; SMS hatası
+    onay işlemini iptal etmez.
+    """
     if status not in ("approved", "rejected"):
         raise ValueError(f"Geçersiz status: {status}")
 
@@ -201,7 +210,33 @@ def decide(
             row = cur.fetchone()
             conn.commit()
 
-    return _serialize(row) if row else None
+    if not row:
+        return None
+
+    serialized = _serialize(row)
+
+    # Onay sonrası SMS bildirim hook'u — rejected'de tetiklenmez.
+    # Hata onay akışını bozmaz; sayımlar response'a eklenir.
+    if status == "approved":
+        try:
+            # Lazy import: circular import / opsiyonel SMS env durumu için
+            from app.services.payroll_notifications import (
+                notify_couriers_for_approval,
+            )
+            counts = notify_couriers_for_approval(
+                approval_id=int(row["id"]),
+                restaurant_id=int(row["restaurant_id"]),
+                period=str(row["period"]),
+            )
+            serialized["notification"] = counts
+        except Exception as exc:
+            log.warning(
+                "payroll notify hook failed for approval=%s: %s",
+                approval_id, exc,
+            )
+            serialized["notification"] = {"error": str(exc)[:200]}
+
+    return serialized
 
 
 def get_summary_by_period(period: str) -> dict:

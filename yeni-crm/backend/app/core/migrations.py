@@ -336,6 +336,35 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON courier_otp_codes(personnel_id, expires_at DESC)
         """,
     ),
+    # ─── Bordro hazır SMS bildirim log'u (puantaj onayı sonrası) ───
+    # Bir restoran×ay onaylanınca o ayın puantajına dahil kuryelere
+    # "bordrun hazır, imzala" SMS'i atılır. UNIQUE(personnel_id, period)
+    # kısıtı sayesinde aynı kurye+ay için birden fazla restoran
+    # onaylandığında tek SMS gider (de-dup).
+    (
+        "payroll_sms_log.table",
+        """
+        CREATE TABLE IF NOT EXISTS payroll_sms_log (
+            id SERIAL PRIMARY KEY,
+            personnel_id integer NOT NULL REFERENCES personnel(id) ON DELETE CASCADE,
+            period varchar(7) NOT NULL,
+            sent_at timestamptz DEFAULT now(),
+            status varchar(24) NOT NULL DEFAULT 'sent',
+              -- sent | failed | no_phone | not_in_allowlist | dry_run
+            phone_used varchar(20),
+            error text,
+            triggered_by_approval_id integer,
+            UNIQUE (personnel_id, period)
+        )
+        """,
+    ),
+    (
+        "payroll_sms_log.idx_period",
+        """
+        CREATE INDEX IF NOT EXISTS idx_payroll_sms_log_period
+        ON payroll_sms_log(period DESC)
+        """,
+    ),
 ]
 
 

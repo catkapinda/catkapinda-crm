@@ -67,6 +67,7 @@ export function PuantajOnayView({
   const [approvals, setApprovals] = useState<PuantajApproval[]>(initialApprovals);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [rejectFor, setRejectFor] = useState<PuantajApproval | null>(null);
   const [rejectNotes, setRejectNotes] = useState('');
   const router = useRouter();
@@ -88,6 +89,7 @@ export function PuantajOnayView({
   ) {
     setBusyId(approval.id);
     setErrorMsg(null);
+    setSuccessMsg(null);
     try {
       const updated = await decidePuantajApproval(
         approval.id,
@@ -98,6 +100,40 @@ export function PuantajOnayView({
       setApprovals((prev) =>
         prev.map((a) => (a.id === approval.id ? updated : a)),
       );
+      // Onay sonrası SMS bildirim sonucu — backend response.notification içinde
+      if (status === 'approved') {
+        const n = updated.notification;
+        const restaurant = `${approval.rest_brand ?? '—'}${
+          approval.rest_branch ? ' · ' + approval.rest_branch : ''
+        }`;
+        const period = formatPeriod(approval.period);
+        if (n?.error) {
+          setSuccessMsg(
+            `${restaurant} · ${period} onaylandı, fakat SMS bildiriminde sorun oluştu (${n.error}). Backend log'a bakınız.`,
+          );
+        } else if (n) {
+          const parts: string[] = [];
+          if (n.sent && n.sent > 0) parts.push(`${n.sent} kuryeye SMS gönderildi`);
+          if (n.skipped_already_sent && n.skipped_already_sent > 0)
+            parts.push(`${n.skipped_already_sent} kurye için bu ay zaten SMS atılmıştı`);
+          if (n.not_in_allowlist && n.not_in_allowlist > 0)
+            parts.push(`${n.not_in_allowlist} kurye allowlist dışı (test modu)`);
+          if (n.no_phone && n.no_phone > 0)
+            parts.push(`${n.no_phone} kuryenin telefonu kayıtlı değil`);
+          if (n.failed && n.failed > 0) parts.push(`${n.failed} kuryede SMS hatası`);
+          const detail = parts.length ? ` · ${parts.join(' · ')}` : '';
+          setSuccessMsg(`${restaurant} · ${period} onaylandı${detail}.`);
+        } else {
+          setSuccessMsg(`${restaurant} · ${period} onaylandı.`);
+        }
+      } else {
+        // rejected
+        setSuccessMsg(
+          `${approval.rest_brand ?? ''}${
+            approval.rest_branch ? ' · ' + approval.rest_branch : ''
+          } · ${formatPeriod(approval.period)} reddedildi.`,
+        );
+      }
       router.refresh();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'İşlem başarısız');
@@ -220,6 +256,20 @@ export function PuantajOnayView({
       {errorMsg && (
         <div className="mb-4 px-4 py-2.5 rounded-xl text-[13px] font-medium border bg-red-50 border-red-200 text-red-700">
           {errorMsg}
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="mb-4 flex items-start gap-2 px-4 py-3 rounded-xl text-[13px] font-medium border bg-emerald-50 border-emerald-200 text-emerald-800">
+          <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" strokeWidth={2.4} />
+          <div className="flex-1">{successMsg}</div>
+          <button
+            onClick={() => setSuccessMsg(null)}
+            className="text-emerald-700/60 hover:text-emerald-900 transition flex-shrink-0"
+            aria-label="Kapat"
+          >
+            <XCircle className="w-4 h-4" />
+          </button>
         </div>
       )}
 
