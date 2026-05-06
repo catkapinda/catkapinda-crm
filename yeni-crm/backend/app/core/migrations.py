@@ -365,6 +365,41 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON payroll_sms_log(period DESC)
         """,
     ),
+    # ─── Bordro ödeme takibi (Hakediş Onayları sayfası için) ───
+    # Mevcut payroll_signatures tablosuna ödeme alanları eklenir:
+    # - paid_at: ödeme yapıldığında doldurulur
+    # - paid_by: hangi admin/yönetici işaretledi
+    # - paid_amount: net ödenen tutar (snapshot)
+    # ALTER TABLE idempotent: kolon yoksa ekle, varsa atla.
+    (
+        "payroll_signatures.add_paid_at",
+        """
+        ALTER TABLE payroll_signatures
+        ADD COLUMN IF NOT EXISTS paid_at timestamptz
+        """,
+    ),
+    (
+        "payroll_signatures.add_paid_by",
+        """
+        ALTER TABLE payroll_signatures
+        ADD COLUMN IF NOT EXISTS paid_by varchar(120)
+        """,
+    ),
+    (
+        "payroll_signatures.add_paid_amount",
+        """
+        ALTER TABLE payroll_signatures
+        ADD COLUMN IF NOT EXISTS paid_amount numeric
+        """,
+    ),
+    (
+        "payroll_signatures.idx_paid_at",
+        """
+        CREATE INDEX IF NOT EXISTS idx_signatures_paid_at
+        ON payroll_signatures(paid_at)
+        WHERE paid_at IS NULL
+        """,
+    ),
 ]
 
 

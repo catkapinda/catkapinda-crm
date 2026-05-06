@@ -32,10 +32,13 @@ def get_sidebar_counts() -> dict:
             except Exception:
                 counts["puantaj_onay"] = 0
 
-            # Bekleyen hakediş onayları
+            # Bekleyen hakediş onayları — imzalanmış ama ödenmemiş bordrolar
             try:
                 cur.execute(
-                    "SELECT COUNT(*) FROM hakedis_approvals WHERE status = 'pending'"
+                    """
+                    SELECT COUNT(*) FROM payroll_signatures
+                    WHERE paid_at IS NULL
+                    """
                 )
                 row = cur.fetchone()
                 counts["hakedis_onay"] = row[0] if row else 0

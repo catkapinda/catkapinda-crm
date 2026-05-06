@@ -1177,3 +1177,57 @@ export async function getRestaurantReports(
 ): Promise<RestaurantReports> {
   return apiGet<RestaurantReports>(`/api/restaurant-reports?period=${period}`);
 }
+
+// ─────────────────────────────────────────────────────────────
+// Hakediş Onayları (imzalanan bordrolar + ödeme takibi)
+// ─────────────────────────────────────────────────────────────
+
+export type PayrollSignature = {
+  id: number;
+  personnel_id: number;
+  personnel_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  iban: string | null;
+  period: string;
+  signed_at: string | null;
+  ip_address: string | null;
+  paid_at: string | null;
+  paid_by: string | null;
+  paid_amount: number | null;
+};
+
+export async function listPayrollSignatures(
+  period: string,
+): Promise<PayrollSignature[]> {
+  return apiGet<PayrollSignature[]>(
+    `/api/payroll/signatures?period=${encodeURIComponent(period)}`,
+  );
+}
+
+export async function markBordroPaid(
+  personnel_id: number,
+  period: string,
+  paid_amount?: number,
+  paid_by?: string,
+): Promise<PayrollSignature> {
+  const params = new URLSearchParams({ period });
+  if (paid_amount != null) params.set('paid_amount', String(paid_amount));
+  if (paid_by) params.set('paid_by', paid_by);
+  return apiMutate(
+    `/api/payroll/signatures/${personnel_id}/mark-paid?${params.toString()}`,
+    {},
+    'PATCH',
+  );
+}
+
+export async function unmarkBordroPaid(
+  personnel_id: number,
+  period: string,
+): Promise<{ unmarked: boolean; personnel_id: number; period: string }> {
+  return apiMutate(
+    `/api/payroll/signatures/${personnel_id}/unmark-paid?period=${encodeURIComponent(period)}`,
+    {},
+    'PATCH',
+  );
+}
