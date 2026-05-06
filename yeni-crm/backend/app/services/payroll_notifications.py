@@ -24,31 +24,34 @@ from app.core.sms import is_sms_configured, send_sms_allowlist_aware
 log = logging.getLogger(__name__)
 
 
-# Türkçe ay isimleri — NetGSM TR encoding güvenliği için ASCII normalize
-TR_MONTHS_ASCII = [
-    "Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran",
-    "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik",
+# NetGSM TR encoding ("encoding": "TR" sms.py'da) Türkçe karakterleri
+# destekler (155 karakter / SMS). Kurumsal ton için Türkçe karakter
+# kullanıyoruz; karakter sayımı aşağıdaki şablonla ~110 karaktere
+# denk geliyor (tek SMS).
+TR_MONTHS = [
+    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
 ]
 
 
-def _format_period_ascii(period: str) -> str:
-    """``"2026-03"`` → ``"Mart 2026"`` (ASCII)."""
+def _format_period(period: str) -> str:
+    """``"2026-03"`` → ``"Mart 2026"`` (Türkçe ay adı)."""
     try:
         y, m = period.split("-")
         idx = int(m) - 1
         if 0 <= idx < 12:
-            return f"{TR_MONTHS_ASCII[idx]} {y}"
+            return f"{TR_MONTHS[idx]} {y}"
     except Exception:
         pass
     return period
 
 
 def _build_message(period: str) -> str:
-    """SMS metni — kısa, ASCII-safe, link içerir."""
-    ay_yil = _format_period_ascii(period)
+    """Bordro hazır SMS metni — Türkçe, kurumsal ton, link içerir."""
+    ay_yil = _format_period(period)
     return (
-        f"Cat Kapinda: {ay_yil} bordron hazir.\n"
-        f"Imzalamak icin: kurye.crmcatkapinda.com"
+        f"Çat Kapında: {ay_yil} dönemi bordronuz onaylandı. "
+        f"İmzalamak için kurye.crmcatkapinda.com adresine giriş yapınız."
     )
 
 
