@@ -121,21 +121,53 @@ def send_sms(phone: str, message: str) -> dict[str, Any]:
 
 
 def send_sms_allowlist_aware(phone: str, message: str) -> dict[str, Any]:
-    """Allowlist-bilinçli SMS gönderim sarmalayıcısı.
+    """Redirect + Allowlist bilinçli SMS gönderim sarmalayıcısı.
 
-    `SMS_TEST_PHONES` env'i tanımlıysa sadece o listedeki numaralara
-    gerçek SMS gider (staging davranışı). Listede olmayan numaralar
-    için ``{"status": "not_in_allowlist", "phone": <10 hane>}`` döner —
-    SMS GÖNDERİLMEZ. Allowlist boşsa (production) tüm numaralara
-    normal gönderim yapılır.
+    Öncelik sırası:
 
-    Telefon normalize hatası raise eder (numara geçersizse caller'ın
-    yakalamasını bekleriz). NetGSM hatası ``RuntimeError`` olarak
-    yukarı yansır.
+    1. **Redirect mode** — ``SMS_TEST_REDIRECT_PHONE`` set ise, hedef
+       numara bu numaraya yönlendirilir (allowlist by-pass'lanır).
+       Tüm SMS'ler tek bir test numarasına gider; kuryelerin gerçek
+       numaralarına dokunulmaz, sadece NetGSM'e giden istekteki ``no``
+       alanı override edilir.
+
+    2. **Allowlist mode** — ``SMS_TEST_PHONES`` (virgülle ayrılmış)
+       set ise, sadece o listedeki numaralara gerçek SMS gider.
+       Diğerleri için ``{"status": "not_in_allowlist"}`` döner; NetGSM
+       çağrılmaz.
+
+    3. **Production mode** — yukarıdaki ikisi de boşsa, tüm numaralara
+       normal gönderim yapılır.
+
+    Telefon normalize hatası raise eder. NetGSM hatası ``RuntimeError``
+    olarak yukarı yansır.
     """
     s = get_settings()
     phone10 = normalize_phone(phone)
 
+    # 1) Redirect mode — tüm SMS'leri tek bir test numarasına yönlendir
+    redirect_raw = (s.sms_test_redirect_phone or "").strip()
+    if redirect_raw:
+        try:
+            redirect10 = normalize_phone(redirect_raw)
+            log.info(
+                "sms redirect %s -> %s (test mode)",
+                phone10[:3] + "***" + phone10[-2:],
+                redirect10[:3] + "***" + redirect10[-2:],
+            )
+            result = send_sms(redirect10, message)
+            return {
+                "status": "sent",
+                "phone": redirect10,
+                "redirected_from": phone10,
+                "raw": result,
+            }
+        except ValueError as exc:
+            log.warning(
+                "SMS_TEST_REDIRECT_PHONE geçersiz, redirect atlandı: %s", exc,
+            )
+
+    # 2) Allowlist mode — sadece allowlist'teki numaralara
     if s.sms_allowlist_enabled and phone10 not in s.sms_test_phones_set:
         log.info(
             "sms allowlist skip phone=%s (allowlist=%d numara)",
@@ -144,6 +176,7 @@ def send_sms_allowlist_aware(phone: str, message: str) -> dict[str, Any]:
         )
         return {"status": "not_in_allowlist", "phone": phone10}
 
+    # 3) Production / direct send
     result = send_sms(phone10, message)
     return {"status": "sent", "phone": phone10, "raw": result}
 

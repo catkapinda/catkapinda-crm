@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # (örn. "05551234567,05559876543"). Boşsa allowlist devre dışı,
     # tüm numaralara gönderim açık (production için bu bekleniyor).
     sms_test_phones: str = ""
+    # Redirect mode (test): set edildiyse, **tüm** SMS'lerin hedef
+    # numarası bu numaraya yönlendirilir (allowlist by-pass). Kuryelerin
+    # gerçek numaralarına dokunulmaz, sadece NetGSM'e giden istekteki
+    # `no` alanı override edilir. Production'da boş bırakılır.
+    sms_test_redirect_phone: str = ""
 
     # App
     app_env: str = "development"
