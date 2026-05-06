@@ -25,13 +25,14 @@ const NAV: NavItem[] = [
   { key: 'dashboard', label: 'Genel Bakış', href: '/', section: 'Genel' },
   { key: 'personel', label: 'Personel', href: '/personel', section: 'Operasyon', countKey: 'personel' },
   { key: 'puantaj', label: 'Puantaj', href: '/puantaj', section: 'Operasyon' },
-  { key: 'puantaj-onay', label: 'Puantaj Onayları', href: '/puantaj-onaylari', section: 'Operasyon', countKey: 'puantaj_onay', badgeKind: 'warn' },
-  { key: 'hakedis-onay', label: 'Hakediş Onayları', href: '/hakedis-onaylari', section: 'Operasyon', countKey: 'hakedis_onay' },
-  { key: 'profil-onay', label: 'Profil Onayları', href: '/profil-onaylari', section: 'Operasyon', countKey: 'profil_onay', badgeKind: 'warn' },
   { key: 'kesintiler', label: 'Kesintiler', href: '/kesintiler', section: 'Operasyon' },
   { key: 'ekipman', label: 'Ekipman & Zimmet', href: '/ekipman-zimmet', section: 'Operasyon' },
   { key: 'avans-talepleri', label: 'Avans Talepleri', href: '/avans-talepleri', section: 'Operasyon', countKey: 'avans', badgeKind: 'warn' },
   { key: 'talepler', label: 'Motor ve Muhasebe Değişikliği', href: '/talepler', section: 'Operasyon', countKey: 'talepler', badgeKind: 'new' },
+  // Onaylar — bekleyen iş kuyruğu (puantaj / hakediş / profil)
+  { key: 'puantaj-onay', label: 'Puantaj Onayları', href: '/puantaj-onaylari', section: 'Onaylar', countKey: 'puantaj_onay', badgeKind: 'warn' },
+  { key: 'hakedis-onay', label: 'Hakediş Onayları', href: '/hakedis-onaylari', section: 'Onaylar', countKey: 'hakedis_onay' },
+  { key: 'profil-onay', label: 'Profil Onayları', href: '/profil-onaylari', section: 'Onaylar', countKey: 'profil_onay', badgeKind: 'warn' },
   { key: 'restoranlar', label: 'Restoranlar', href: '/restoranlar', section: 'Satış', countKey: 'restoranlar' },
   { key: 'restoran-raporlari', label: 'Restoran Raporları', href: '/raporlar', section: 'Satış' },
   { key: 'faturalar', label: 'Faturalar', href: '/faturalar', section: 'Finans' },
@@ -40,7 +41,8 @@ const NAV: NavItem[] = [
 ];
 
 export function Sidebar({ active, counts }: { active: NavKey; counts?: SidebarCounts | null }) {
-  const sections = ['Genel', 'Operasyon', 'Satış', 'Finans'] as const;
+  // Sıra: Genel → Operasyon → Onaylar → Satış → Finans
+  const sections = ['Genel', 'Operasyon', 'Onaylar', 'Satış', 'Finans'] as const;
 
   return (
     <aside className="bg-bg-surface border-r border-border p-5 sticky top-0 h-screen overflow-y-auto flex flex-col">
