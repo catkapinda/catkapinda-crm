@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import {
   AlertTriangle, ArrowDownToLine, ArrowUpRight, Award, Bike, Check,
-  Inbox, Plus, Search, ShieldCheck, Sparkles, Target, TrendingUp,
+  Inbox, Pencil, Plus, Search, ShieldCheck, Sparkles, Target, TrendingUp,
   Users, Utensils, Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -647,33 +647,43 @@ export function PersonnelView({
               return (
                 <div
                   key={p.id}
-                  onClick={() => toggleSelect(p.id)}
-                  className={`bg-white border rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer shadow-sm hover:shadow-lg relative group ${
-                    isSelected ? 'border-brand shadow-md ring-3 ring-brand/20' : 'border-border hover:border-brand/50'
+                  onClick={() => setEditingId(p.id)}
+                  className={`bg-white border rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-0.5 relative group ${
+                    isSelected ? 'border-brand shadow-md ring-3 ring-brand/20' : 'border-border hover:border-brand/40'
                   }`}
+                  title="Düzenlemek için tıkla"
                 >
-                  {/* Multi-select checkbox */}
+                  {/* Multi-select checkbox (sol üst, hover'da görünür) */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleSelect(p.id);
                     }}
-                    className={`absolute top-3.5 right-3.5 w-5.5 h-5.5 rounded border-1.5 flex items-center justify-center z-10 transition opacity-0 group-hover:opacity-100 ${
+                    aria-label={isSelected ? 'Seçimi kaldır' : 'Seç'}
+                    className={`absolute top-3 left-3 w-5 h-5 rounded-md border-1.5 flex items-center justify-center z-10 transition shadow-sm ${
                       isSelected
-                        ? 'bg-brand border-brand'
-                        : 'bg-white border-border hover:border-brand'
+                        ? 'bg-brand border-brand opacity-100'
+                        : 'bg-white/90 backdrop-blur-sm border-border hover:border-brand opacity-0 group-hover:opacity-100'
                     }`}
                   >
                     {isSelected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
                   </button>
 
+                  {/* Edit button (sağ üst, hep görünür — daha belirgin hover'da) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingId(p.id);
+                    }}
+                    aria-label="Bilgileri düzenle"
+                    className="absolute top-3 right-3 z-10 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white/95 backdrop-blur-sm border border-border text-text-2 text-xs font-semibold shadow-sm hover:bg-brand hover:text-white hover:border-brand hover:shadow-md transition-all duration-200"
+                  >
+                    <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    <span className="hidden group-hover:inline">Düzenle</span>
+                  </button>
+
                   {/* Cover strip (h-12) */}
                   <div className={`h-12 ${coverColor}`} />
-
-                  {/* Status dot */}
-                  {(p.status ?? 'Aktif') === 'Aktif' && (
-                    <div className="absolute top-12 right-3.5 w-2.5 h-2.5 rounded-full bg-green-500 shadow-md border-2 border-white" style={{ transform: 'translateY(-50%)' }} />
-                  )}
 
                   {/* Body */}
                   <div className="p-4.5">
