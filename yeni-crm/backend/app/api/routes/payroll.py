@@ -21,6 +21,30 @@ async def list_signatures(period: str = "2026-03") -> list[dict]:
     return list_signatures_for_period(period=period)
 
 
+@router.get("/sms-log/clear")
+async def clear_payroll_sms_log(personnel_id: int, period: str) -> dict:
+    """Belirli kurye+ay için SMS log kaydını siler.
+
+    Admin debug — yeniden SMS gönderim akışını test etmek için.
+    Kayıt silindiğinde aynı kurye×ay için bir sonraki onayda yeniden
+    SMS gönderim denemesi yapılır (dedup sıfırlanır).
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM payroll_sms_log "
+                "WHERE personnel_id = %s AND period = %s",
+                (personnel_id, period),
+            )
+            deleted = cur.rowcount
+            conn.commit()
+    return {
+        "deleted": int(deleted),
+        "personnel_id": int(personnel_id),
+        "period": period,
+    }
+
+
 @router.get("/sms-log")
 async def list_payroll_sms_log(
     period: str | None = None,
