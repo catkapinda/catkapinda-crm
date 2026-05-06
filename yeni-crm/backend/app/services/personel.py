@@ -354,3 +354,41 @@ def next_person_code(role: str) -> str:
         return f"{prefix}{next_num:02d}"
     except (ValueError, IndexError):
         return f"{prefix}01"
+
+
+def list_personnel_stats(period: str) -> list[dict]:
+    """Personel listesi için aylık aggregate stats — paket / saat / çalışılan gün.
+
+    /personel sayfasındaki kart bazlı 'Paket / Saat / Gün' alanları için
+    kullanılır. Tek query ile tüm aktif personel için per-period
+    toplamları döndürür (LEFT JOIN ile veri olmayanlar 0/0/0 görünür).
+
+    Args:
+        period: 'YYYY-MM' formatında ay
+    """
+    sql = """
+        SELECT
+            p.id,
+            COALESCE(SUM(d.package_count), 0) AS total_packages,
+            COALESCE(SUM(d.worked_hours), 0) AS total_hours,
+            COUNT(DISTINCT d.entry_date)
+                FILTER (WHERE COALESCE(d.worked_hours, 0) > 0) AS working_days
+        FROM personnel p
+        LEFT JOIN daily_entries d
+            ON d.actual_personnel_id = p.id
+           AND LEFT(d.entry_date::text, 7) = %s
+        GROUP BY p.id
+    """
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(sql, (period,))
+            rows = cur.fetchall()
+    return [
+        {
+            "personnel_id": int(r["id"]),
+            "total_packages": int(r["total_packages"] or 0),
+            "total_hours": float(r["total_hours"] or 0),
+            "working_days": int(r["working_days"] or 0),
+        }
+        for r in rows
+    ]

@@ -8,6 +8,7 @@ from app.services.personel import (
     create_personnel,
     get_personnel,
     list_personnel,
+    list_personnel_stats,
     management_summary,
     next_person_code,
     page_insights,
@@ -122,6 +123,17 @@ async def get_management(period: str = "2026-03") -> list[dict]:
 async def get_insights(period: str = "2026-03") -> dict:
     """Akıllı içgörü hero kartları için aggregat veri."""
     return page_insights(period=period)
+
+
+@router.get("/stats")
+async def get_personnel_stats(period: str = "2026-03") -> list[dict]:
+    """Personel listesi için aylık paket/saat/gün toplamları.
+
+    /personel sayfasındaki kart bazlı 'Paket / Saat / Gün' alanları
+    bu endpoint'in döndürdüğü {personnel_id, total_packages,
+    total_hours, working_days} listesinden eşleşir.
+    """
+    return list_personnel_stats(period=period)
 
 
 @router.get("/{personnel_id}")

@@ -13,6 +13,7 @@ import type {
   ManagementMember,
   PageInsights,
   Personnel,
+  PersonnelStats,
   Restaurant,
   TopPerformer,
 } from '@/lib/api';
@@ -83,13 +84,24 @@ export function PersonnelView({
   topPerformers = [],
   management = [],
   insights = null,
+  stats = [],
 }: {
   personnel: Personnel[];
   restaurants: Restaurant[];
   topPerformers?: TopPerformer[];
   management?: ManagementMember[];
   insights?: PageInsights | null;
+  stats?: PersonnelStats[];
 }) {
+  // Personel id → aylık stats eşlemesi (kart bazlı paket/saat/gün için)
+  const statsMap = useMemo(() => {
+    const m = new Map<number, PersonnelStats>();
+    for (const s of stats) m.set(s.personnel_id, s);
+    return m;
+  }, [stats]);
+
+  // Maksimum gün sayısı — Mart 2026'da 31 (period sabit)
+  const periodMaxDays = 31;
   const [statusTab, setStatusTab] = useState<'Aktif' | 'Pasif' | 'Kara Liste'>('Aktif');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -651,23 +663,41 @@ export function PersonnelView({
                       </div>
                     )}
 
-                    {/* Stats (placeholder) */}
-                    <div className="bg-cream-50 rounded-lg p-2 mb-2.5 border border-border">
-                      <div className="grid grid-cols-3 gap-1 text-center text-xs">
-                        <div>
-                          <div className="font-mono font-bold text-text">—</div>
-                          <div className="text-text-3 uppercase tracking-wide font-semibold mt-0.5 text-xs">Paket</div>
+                    {/* Stats (Mart 2026 aylık aggregate — backend stats'tan) */}
+                    {(() => {
+                      const s = statsMap.get(p.id);
+                      const pkts = s?.total_packages ?? 0;
+                      const hrs = s?.total_hours ?? 0;
+                      const days = s?.working_days ?? 0;
+                      const hasData = pkts > 0 || hrs > 0 || days > 0;
+                      return (
+                        <div className={[
+                          'rounded-lg p-2 mb-2.5 border',
+                          hasData ? 'bg-blue-50/60 border-blue-100' : 'bg-cream-50 border-border',
+                        ].join(' ')}>
+                          <div className="grid grid-cols-3 gap-1 text-center text-xs">
+                            <div>
+                              <div className={`font-mono font-bold ${hasData ? 'text-blue-700' : 'text-text-3'}`}>
+                                {hasData ? pkts.toLocaleString('tr-TR') : '—'}
+                              </div>
+                              <div className="text-text-3 uppercase tracking-wide font-semibold mt-0.5 text-xs">Paket</div>
+                            </div>
+                            <div>
+                              <div className={`font-mono font-bold ${hasData ? 'text-blue-700' : 'text-text-3'}`}>
+                                {hasData ? Math.round(hrs).toLocaleString('tr-TR') : '—'}
+                              </div>
+                              <div className="text-text-3 uppercase tracking-wide font-semibold mt-0.5 text-xs">Saat</div>
+                            </div>
+                            <div>
+                              <div className={`font-mono font-bold ${hasData ? 'text-blue-700' : 'text-text-3'}`}>
+                                {hasData ? `${days}/${periodMaxDays}` : '—/—'}
+                              </div>
+                              <div className="text-text-3 uppercase tracking-wide font-semibold mt-0.5 text-xs">Gün</div>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="font-mono font-bold text-text">—</div>
-                          <div className="text-text-3 uppercase tracking-wide font-semibold mt-0.5 text-xs">Saat</div>
-                        </div>
-                        <div>
-                          <div className="font-mono font-bold text-text">—/—</div>
-                          <div className="text-text-3 uppercase tracking-wide font-semibold mt-0.5 text-xs">Gün</div>
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* Vehicle badge */}
                     <span className={`inline-flex text-xs font-semibold px-2 py-1 rounded-lg ${veh.color}`}>

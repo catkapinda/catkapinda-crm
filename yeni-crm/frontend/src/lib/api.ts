@@ -368,6 +368,20 @@ export async function getPageInsights(
   return apiGet<PageInsights>(`/api/personel/insights?period=${period}`);
 }
 
+// Personel listesi için aylık aggregate stats (paket / saat / gün)
+export type PersonnelStats = {
+  personnel_id: number;
+  total_packages: number;
+  total_hours: number;
+  working_days: number;
+};
+
+export async function getPersonnelStats(
+  period: string = '2026-03',
+): Promise<PersonnelStats[]> {
+  return apiGet<PersonnelStats[]>(`/api/personel/stats?period=${period}`);
+}
+
 // ─────────────────────────────────────────────────────────────
 // Kesintiler
 // ─────────────────────────────────────────────────────────────
