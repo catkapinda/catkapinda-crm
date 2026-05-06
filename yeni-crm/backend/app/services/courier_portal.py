@@ -34,6 +34,55 @@ def create_avans_request(personnel_id: int, amount: float, reason: str) -> dict:
     return create_request(fields)
 
 
+def get_my_bordro_periods(personnel_id: int) -> list[dict]:
+    """Kuryenin bordrosu olan ayların listesi — yeni tarih başta.
+
+    Return:
+        [{period: '2026-03', total_net: 89234.50, is_signed: bool}, ...]
+    """
+    from app.core.database import get_connection
+    from psycopg.rows import dict_row
+
+    sql = """
+        SELECT DISTINCT LEFT(entry_date::text, 7) AS period
+        FROM daily_entries
+        WHERE actual_personnel_id = %s
+          AND entry_date IS NOT NULL
+          AND COALESCE(worked_hours, 0) > 0
+        ORDER BY period DESC
+        LIMIT 24
+    """
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(sql, (personnel_id,))
+            periods = [r["period"] for r in cur.fetchall()]
+
+            # Her period için imza durumu
+            cur.execute(
+                """
+                SELECT period FROM payroll_signatures
+                WHERE personnel_id = %s
+                """,
+                (personnel_id,),
+            )
+            signed = {r["period"] for r in cur.fetchall()}
+
+    out: list[dict] = []
+    for p in periods:
+        try:
+            bordro = get_personnel_payroll(personnel_id, p)
+        except Exception:
+            bordro = None
+        out.append({
+            "period": p,
+            "total_net": float((bordro or {}).get("net") or 0),
+            "total_brut": float((bordro or {}).get("toplam_brut") or 0),
+            "ana_days": int((bordro or {}).get("ana_days") or 0),
+            "is_signed": p in signed,
+        })
+    return out
+
+
 def get_my_summary(personnel_id: int, period: str) -> dict:
     """Kuryenin dashboard özet bilgilerini döner.
 

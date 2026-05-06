@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowDownRight, ArrowUpRight, BadgeCheck, ChevronRight,
@@ -154,15 +153,16 @@ export default function CourierDashboard() {
         <div className="text-center">
           <div className="relative w-16 h-16 mx-auto mb-4">
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 animate-pulse" />
-            <div className="absolute inset-2 rounded-xl bg-white flex items-center justify-center">
-              <Image
+            <div className="absolute inset-2 rounded-xl bg-white flex items-center justify-center overflow-hidden">
+              <img
                 src="/catkapinda-logo.png"
-                alt="Çat Kapında"
-                width={36}
-                height={36}
-                className="object-contain"
-                priority
+                alt=""
+                className="w-9 h-9 object-contain"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
               />
+              <span className="absolute font-display font-bold text-2xl text-blue-600">
+                Ç
+              </span>
             </div>
           </div>
           <p className="text-slate-600 text-sm font-medium animate-pulse">Yükleniyor...</p>
@@ -221,8 +221,14 @@ export default function CourierDashboard() {
         <div className="relative px-5 pt-8 pb-32 max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-7">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden">
-                <Image src="/catkapinda-logo.png" alt="logo" width={28} height={28} className="object-contain" priority />
+              <div className="relative w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden">
+                <img
+                  src="/catkapinda-logo.png"
+                  alt=""
+                  className="absolute inset-1 w-7 h-7 object-contain"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                />
+                <span className="font-display font-bold text-base text-white">Ç</span>
               </div>
               <div>
                 <div className="font-bold text-sm tracking-tight">Çat Kapında</div>
@@ -321,9 +327,9 @@ export default function CourierDashboard() {
         {/* Quick action grid */}
         <div className="grid grid-cols-2 gap-3 mt-4 animate-stagger-in">
           <ActionTile
-            href={`/kurye/bordro?period=${period}`}
-            label="Bordrom"
-            sublabel="Detay & PDF"
+            href="/kurye/bordro"
+            label="Bordrolarım"
+            sublabel="Geçmiş aylar"
             icon={<Receipt className="w-5 h-5" />}
             gradient="from-blue-500 to-blue-700"
             shadowColor="shadow-blue-500/25"

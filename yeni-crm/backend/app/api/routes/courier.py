@@ -30,6 +30,7 @@ from app.services.otp import (
 from app.services.courier_portal import (
     create_avans_request,
     get_my_bordro,
+    get_my_bordro_periods,
     get_my_summary,
     list_my_requests,
 )
@@ -233,6 +234,15 @@ async def get_bordro(
         return get_my_bordro(personnel_id, period)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/my-bordro-periods")
+async def list_my_bordro_periods(
+    authorization: str | None = Header(None, alias="Authorization"),
+) -> list[dict]:
+    """Kuryenin bordrosu olan ayların listesi (yeni → eski)."""
+    personnel_id = get_current_personnel_id(authorization)
+    return get_my_bordro_periods(personnel_id)
 
 
 @router.get("/my-bordro/pdf")

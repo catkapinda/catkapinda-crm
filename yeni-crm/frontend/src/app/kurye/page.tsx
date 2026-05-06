@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import {
   AlertCircle, ArrowLeft, ArrowRight, KeyRound,
   Loader2, Phone, Shield, Sparkles,
@@ -196,15 +195,18 @@ export default function CourierLoginPage() {
           <div className="text-center mb-8 animate-fade-in-down">
             <div className="inline-block mb-3 relative">
               <div className="absolute inset-0 blur-2xl bg-blue-400/30 rounded-full scale-110" />
-              <div className="relative w-24 h-24 mx-auto rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl flex items-center justify-center overflow-hidden">
-                <Image
+              <div className="relative w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-xl border border-white/30 shadow-2xl flex items-center justify-center overflow-hidden">
+                {/* Stylized "Ç" logomark — fallback as image */}
+                <img
                   src="/catkapinda-logo.png"
-                  alt="Çat Kapında"
-                  width={72}
-                  height={72}
-                  className="object-contain drop-shadow-lg"
-                  priority
+                  alt=""
+                  className="absolute inset-2 w-[calc(100%-1rem)] h-[calc(100%-1rem)] object-contain drop-shadow-lg z-10"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
+                {/* Background fallback letter — visible if logo fails */}
+                <span className="font-display font-bold text-5xl text-white/95 drop-shadow-lg">
+                  Ç
+                </span>
               </div>
             </div>
             <h1 className="font-display text-2xl font-bold text-white tracking-tight">

@@ -390,6 +390,21 @@ export async function getMyBordroSignature(period: string): Promise<BordroSignat
   return res.json();
 }
 
+export type CourierBordroPeriod = {
+  period: string;
+  total_net: number;
+  total_brut: number;
+  ana_days: number;
+  is_signed: boolean;
+};
+
+export async function listMyBordroPeriods(): Promise<CourierBordroPeriod[]> {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader() };
+  const res = await fetch(`${API_BASE}/my-bordro-periods`, { headers });
+  if (!res.ok) throw new Error('Bordro listesi alınamadı');
+  return res.json();
+}
+
 export async function signMyBordro(
   period: string,
   signature_data: string,

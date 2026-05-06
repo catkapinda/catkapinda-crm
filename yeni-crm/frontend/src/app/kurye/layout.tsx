@@ -16,15 +16,8 @@ export default function CourierLayout({ children }: { children: React.ReactNode 
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased bg-cream-50 text-text font-sans min-h-screen">
-        <div className="flex flex-col min-h-screen">
-          {/* Brand Bar */}
-          <div className="border-b border-cream-200 bg-white px-4 py-3 md:px-6">
-            <p className="text-sm font-medium text-text">çatkapında · kurye paneli</p>
-          </div>
-          {/* Content */}
-          <div className="flex-1">{children}</div>
-        </div>
+      <body className="antialiased text-slate-900 font-sans min-h-screen">
+        {children}
       </body>
     </html>
   );

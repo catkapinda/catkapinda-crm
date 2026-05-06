@@ -4,14 +4,16 @@ import { useEffect, useRef, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Download, AlertCircle, ShieldCheck,
-  PenTool, Check, X,
+  PenTool, Check, X, Calendar, ChevronRight, FileText, Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 
 import {
   getMyBordroSignature,
+  listMyBordroPeriods,
   signMyBordro,
   type BordroSignature,
+  type CourierBordroPeriod,
 } from '@/lib/courier-api';
 import { SignaturePad } from '@/components/signature-pad';
 
@@ -58,6 +60,162 @@ function BordroContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const period = searchParams.get('period') || '';
+
+  // Period yoksa liste sayfasını göster
+  if (!period) {
+    return <BordroListView />;
+  }
+  return <BordroDetailView period={period} router={router} />;
+}
+
+// ──────────────────────────────────────────────────────────
+// Bordro liste — period yoksa burası açılır
+// ──────────────────────────────────────────────────────────
+function BordroListView() {
+  const router = useRouter();
+  const [periods, setPeriods] = useState<CourierBordroPeriod[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('courier_token') : null;
+    if (!token) {
+      router.push('/kurye');
+      return;
+    }
+    listMyBordroPeriods()
+      .then(setPeriods)
+      .catch((e) => setError(e instanceof Error ? e.message : 'Yüklenemedi'))
+      .finally(() => setIsLoading(false));
+  }, [router]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 pb-20">
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+          <Link
+            href="/kurye/dashboard"
+            className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 transition"
+          >
+            <ArrowLeft className="w-4 h-4" /> Pano
+          </Link>
+          <h1 className="font-bold text-slate-900">Bordrolarım</h1>
+          <div className="w-12" />
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="mb-5 animate-fade-in">
+          <h2 className="text-2xl font-bold text-slate-900">Bordro Geçmişi</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Aylık net hakedişlerini incele, PDF olarak indir, dijital olarak imzala
+          </p>
+        </div>
+
+        {isLoading ? (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
+            <Loader2 className="w-8 h-8 text-blue-600 mx-auto mb-3 animate-spin" />
+            <p className="text-sm text-slate-500">Bordrolar yükleniyor...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex gap-3 items-start">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        ) : periods.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
+            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="font-bold text-slate-900 mb-1">Henüz bordron yok</h3>
+            <p className="text-sm text-slate-500">
+              Puantaj girilmeye başlandığında bordroların burada listelenecek
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {periods.map((p, idx) => (
+              <Link
+                key={p.period}
+                href={`/kurye/bordro?period=${p.period}`}
+                className="group block bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 overflow-hidden animate-stagger"
+                style={{ animationDelay: `${idx * 50}ms` }}
+              >
+                <div className="p-5 flex items-center gap-4">
+                  <div
+                    className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center flex-shrink-0 shadow-md ${
+                      p.is_signed
+                        ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-emerald-500/30'
+                        : 'bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-blue-500/30'
+                    }`}
+                  >
+                    <span className="text-[10px] font-bold uppercase opacity-80">
+                      {formatPeriod(p.period).split(' ')[0].slice(0, 3)}
+                    </span>
+                    <span className="font-display text-lg font-bold leading-none">
+                      {p.period.split('-')[0]}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-slate-900">
+                        {formatPeriod(p.period)}
+                      </h3>
+                      {p.is_signed ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                          <ShieldCheck className="w-3 h-3" /> İmzalı
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                          <PenTool className="w-3 h-3" /> İmza bekliyor
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <span className="font-mono font-bold text-emerald-700 text-lg tabular-nums">
+                        {p.total_net.toLocaleString('tr-TR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                        <span className="text-xs text-emerald-600/70 ml-0.5">₺</span>
+                      </span>
+                      <span className="text-xs text-slate-400">net</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {p.ana_days} gün çalışma · brüt{' '}
+                      {p.total_brut.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-slate-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes stagger {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        :global(.animate-fade-in) {
+          animation: fade-in 0.4s ease-out;
+        }
+        :global(.animate-stagger) {
+          animation: stagger 0.5s ease-out backwards;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// Bordro detay — period varsa burası
+// ──────────────────────────────────────────────────────────
+function BordroDetailView({ period, router }: { period: string; router: ReturnType<typeof useRouter> }) {
   const [bordro, setBordro] = useState<BordroData | null>(null);
   const [signature, setSignature] = useState<BordroSignature | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,12 +235,6 @@ function BordroContent() {
   useEffect(() => {
     if (!token) {
       router.push('/kurye');
-      return;
-    }
-
-    if (!period) {
-      setError('Dönem belirtilmedi');
-      setIsLoading(false);
       return;
     }
 
