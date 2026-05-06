@@ -165,7 +165,7 @@ export function TaleplerView({
             Operasyon · <span className="text-brand font-semibold">Talepler</span>
           </div>
           <h1 className="font-display text-[30px] font-semibold tracking-tight leading-tight">
-            Talepler (Motor · Muhasebe)
+            Motor ve Muhasebe Değişikliği
           </h1>
           <div className="text-text-3 text-sm mt-1 font-medium">
             {counts.Beklemede} bekleyen · {counts.Onaylandı} onaylanan · {counts.Reddedildi} reddedilen

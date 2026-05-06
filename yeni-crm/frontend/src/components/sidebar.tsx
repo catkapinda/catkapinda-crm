@@ -31,7 +31,7 @@ const NAV: NavItem[] = [
   { key: 'kesintiler', label: 'Kesintiler', href: '/kesintiler', section: 'Operasyon' },
   { key: 'ekipman', label: 'Ekipman & Zimmet', href: '/ekipman-zimmet', section: 'Operasyon' },
   { key: 'avans-talepleri', label: 'Avans Talepleri', href: '/avans-talepleri', section: 'Operasyon', countKey: 'avans', badgeKind: 'warn' },
-  { key: 'talepler', label: 'Talepler (Motor · Muhasebe)', href: '/talepler', section: 'Operasyon', countKey: 'talepler', badgeKind: 'new' },
+  { key: 'talepler', label: 'Motor ve Muhasebe Değişikliği', href: '/talepler', section: 'Operasyon', countKey: 'talepler', badgeKind: 'new' },
   { key: 'restoranlar', label: 'Restoranlar', href: '/restoranlar', section: 'Satış', countKey: 'restoranlar' },
   { key: 'restoran-raporlari', label: 'Restoran Raporları', href: '/raporlar', section: 'Satış' },
   { key: 'faturalar', label: 'Faturalar', href: '/faturalar', section: 'Finans' },

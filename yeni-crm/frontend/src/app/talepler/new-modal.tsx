@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AlertCircle, Banknote, Bike, Calculator, Check, Search, X,
+  AlertCircle, Bike, Calculator, Check, Search, X,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -11,13 +11,15 @@ import {
   createCourierRequest,
 } from '@/lib/api';
 
-const TYPES: { key: ReqType; label: string; Icon: LucideIcon; accent: 'green' | 'orange' | 'purple'; hint: string }[] = [
-  { key: 'Avans', label: 'Avans', Icon: Banknote, accent: 'green', hint: 'Kuryenin maaşından kesilecek geçici nakit avansı.' },
+// Avans talepleri artık kuryeler tarafından kurye portalı üzerinden
+// gönderiliyor (/avans-talepleri sayfasında ayrı listeleniyor).
+// Bu modal sadece Motor + Muhasebe Değişikliği için kullanılır.
+const TYPES: { key: ReqType; label: string; Icon: LucideIcon; accent: 'orange' | 'purple'; hint: string }[] = [
   { key: 'Motor Değişikliği', label: 'Motor Değişikliği', Icon: Bike, accent: 'orange', hint: 'ÇK Kiralık ↔ Kendi Motoru ↔ ÇK Satış geçişleri (kaza/arıza vb.).' },
   { key: 'Muhasebe Değişimi', label: 'Muhasebe Değişimi', Icon: Calculator, accent: 'purple', hint: 'Kendi Muhasebecisi ↔ Çat Kapında Muhasebe geçişi.' },
 ];
 
-type ReqType = 'Avans' | 'Motor Değişikliği' | 'Muhasebe Değişimi';
+type ReqType = 'Motor Değişikliği' | 'Muhasebe Değişimi';
 
 const VEHICLE_OPTIONS = [
   'Çat Kapında Kiralık',
@@ -67,13 +69,11 @@ export function NewRequestModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [type, setType] = useState<ReqType>('Avans');
+  const [type, setType] = useState<ReqType>('Motor Değişikliği');
   const [personnelId, setPersonnelId] = useState<number | null>(null);
   const [personnelSearch, setPersonnelSearch] = useState('');
   // Genel
   const [reason, setReason] = useState('');
-  // Avans
-  const [amount, setAmount] = useState<string>('');
   // Motor
   const [vehicleFrom, setVehicleFrom] = useState<string>('');
   const [vehicleTo, setVehicleTo] = useState<string>('');
@@ -137,13 +137,6 @@ export function NewRequestModal({
       setError('Lütfen bir kurye seç');
       return;
     }
-    if (type === 'Avans') {
-      const amt = parseFloat(amount);
-      if (isNaN(amt) || amt <= 0) {
-        setError('Avans tutarı 0\'dan büyük olmalı');
-        return;
-      }
-    }
     if (type === 'Motor Değişikliği') {
       if (!vehicleFrom || !vehicleTo) {
         setError('Mevcut ve yeni araç tipini seç');
@@ -174,7 +167,7 @@ export function NewRequestModal({
       await createCourierRequest({
         personnel_id: personnelId,
         request_type: type,
-        amount: type === 'Avans' ? parseFloat(amount) : 0,
+        amount: 0,
         reason: reason.trim() || null,
         ...(type === 'Motor Değişikliği' && {
           vehicle_from: vehicleFrom,
@@ -209,7 +202,6 @@ export function NewRequestModal({
               Yeni Talep Oluştur
             </div>
             <div className="text-[12.5px] text-text-3 mt-0.5">
-              {type === 'Avans' && 'Kurye için nakit avans talebi'}
               {type === 'Motor Değişikliği' && 'Araç tipi değişikliği (kiralık ↔ kendi ↔ satış)'}
               {type === 'Muhasebe Değişimi' && 'Muhasebe sağlayıcı değişikliği'}
             </div>
@@ -318,27 +310,6 @@ export function NewRequestModal({
           </div>
 
           {/* 3. TIPE ÖZEL FIELDS */}
-          {type === 'Avans' && (
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-2">
-                3. Avans Tutarı (₺)
-              </div>
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
-                placeholder="0,00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-border text-[15px] font-mono num focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition"
-              />
-              <div className="text-[11px] text-text-3 mt-1">
-                Onaylandığında kuryenin bordrosundan otomatik kesilir.
-              </div>
-            </div>
-          )}
-
           {type === 'Motor Değişikliği' && (
             <div className="space-y-3">
               <div>
@@ -437,15 +408,11 @@ export function NewRequestModal({
           {/* GENEL AÇIKLAMA */}
           <div>
             <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-2">
-              {type === 'Avans' ? '4. Açıklama (opsiyonel)'
-                : type === 'Motor Değişikliği' ? '6. Ek Not (opsiyonel)'
-                : '4. Açıklama (opsiyonel)'}
+              {type === 'Motor Değişikliği' ? '6. Ek Not (opsiyonel)' : '4. Açıklama (opsiyonel)'}
             </div>
             <textarea
               placeholder={
-                type === 'Avans'
-                  ? 'Örn. acil sağlık masrafı'
-                  : type === 'Motor Değişikliği'
+                type === 'Motor Değişikliği'
                   ? 'Hasar detayı, atölye notu, vs.'
                   : 'Geçiş gerekçesi, talep eden kişi notu, vs.'
               }
