@@ -156,18 +156,12 @@ export default function CourierDashboard() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center px-6">
         <div className="text-center">
           <div className="relative w-16 h-16 mx-auto mb-4">
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 animate-pulse" />
-            <div className="absolute inset-2 rounded-xl bg-white flex items-center justify-center overflow-hidden">
-              <img
-                src="/catkapinda-logo.png?v=3"
-                alt=""
-                className="w-9 h-9 object-contain"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-              />
-              <span className="absolute font-display font-bold text-2xl text-blue-600">
-                Ç
-              </span>
-            </div>
+            <div className="absolute inset-0 rounded-2xl bg-blue-500/20 blur-xl animate-pulse" />
+            <img
+              src="/catkapinda-logo.png?v=4"
+              alt="Çat Kapında"
+              className="relative w-16 h-16 object-contain drop-shadow-lg"
+            />
           </div>
           <p className="text-slate-600 text-sm font-medium animate-pulse">Yükleniyor...</p>
         </div>
@@ -224,15 +218,11 @@ export default function CourierDashboard() {
         <div className="relative px-5 pt-8 pb-32 max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-7">
             <div className="flex items-center gap-2.5">
-              <div className="relative w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden">
-                <img
-                  src="/catkapinda-logo.png?v=3"
-                  alt=""
-                  className="absolute inset-1 w-7 h-7 object-contain"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                />
-                <span className="font-display font-bold text-base text-white">Ç</span>
-              </div>
+              <img
+                src="/catkapinda-logo.png?v=4"
+                alt="Çat Kapında"
+                className="w-9 h-9 object-contain drop-shadow-md"
+              />
               <div>
                 <div className="font-bold text-sm tracking-tight">Çat Kapında</div>
                 <div className="text-[10px] uppercase tracking-widest text-blue-100/60 font-semibold">

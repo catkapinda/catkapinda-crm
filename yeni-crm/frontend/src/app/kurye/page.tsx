@@ -194,20 +194,13 @@ export default function CourierLoginPage() {
           {/* Brand */}
           <div className="text-center mb-8 animate-fade-in-down">
             <div className="inline-block mb-3 relative">
+              {/* Soft glow only — no card chrome behind the mark */}
               <div className="absolute inset-0 blur-2xl bg-blue-400/30 rounded-full scale-110" />
-              <div className="relative w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-xl border border-white/30 shadow-2xl flex items-center justify-center overflow-hidden">
-                {/* Stylized "Ç" logomark — fallback as image */}
-                <img
-                  src="/catkapinda-logo.png?v=3"
-                  alt=""
-                  className="absolute inset-2 w-[calc(100%-1rem)] h-[calc(100%-1rem)] object-contain drop-shadow-lg z-10"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                />
-                {/* Background fallback letter — visible if logo fails */}
-                <span className="font-display font-bold text-5xl text-white/95 drop-shadow-lg">
-                  Ç
-                </span>
-              </div>
+              <img
+                src="/catkapinda-logo.png?v=4"
+                alt="Çat Kapında"
+                className="relative w-24 h-24 mx-auto object-contain drop-shadow-2xl"
+              />
             </div>
             <h1 className="font-display text-2xl font-bold text-white tracking-tight">
               Çat Kapında
