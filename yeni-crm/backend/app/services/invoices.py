@@ -22,7 +22,12 @@ def list_invoices(period: str) -> list[dict]:
     3) Otomatik agregasyon + manuel kayıt birleştirilir
     """
     # 1) Bordro datasından restoran bazlı toplam topla
-    payroll_rows = list_personnel_payroll(period)
+    payroll_data = list_personnel_payroll(period)
+    payroll_rows = (
+        payroll_data.get("rows", [])
+        if isinstance(payroll_data, dict)
+        else (payroll_data or [])
+    )
     by_restaurant: dict[int, dict] = {}
     for r in payroll_rows:
         rid = r.get("assigned_restaurant_id")
