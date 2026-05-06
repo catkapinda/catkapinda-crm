@@ -17,6 +17,7 @@ class OverviewFinanceHighlight(BaseModel):
 
 class OverviewFinanceSummary(BaseModel):
     selected_month: str | None
+    month_options: list[str] = []
     total_revenue: float
     gross_profit: float
     total_personnel_cost: float

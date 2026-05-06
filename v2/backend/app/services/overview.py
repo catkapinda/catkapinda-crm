@@ -41,12 +41,18 @@ def _restaurant_active_sql(column: str = "r.active") -> str:
 
 def _build_finance_summary(
     conn: psycopg.Connection,
+    *,
+    selected_month: str | None = None,
 ) -> OverviewFinanceSummary:
-    reports_dashboard = build_reports_dashboard(conn, limit=24)
+    reports_dashboard = build_reports_dashboard(
+        conn, selected_month=selected_month, limit=24
+    )
     summary = reports_dashboard.summary
+    month_options = list(reports_dashboard.month_options or [])
     if summary is None:
         return OverviewFinanceSummary(
             selected_month=None,
+            month_options=month_options,
             total_revenue=0.0,
             gross_profit=0.0,
             total_personnel_cost=0.0,
@@ -76,6 +82,7 @@ def _build_finance_summary(
 
     return OverviewFinanceSummary(
         selected_month=summary.selected_month,
+        month_options=month_options,
         total_revenue=float(summary.total_revenue or 0),
         gross_profit=float(summary.gross_profit or 0),
         total_personnel_cost=float(summary.total_personnel_cost or 0),
@@ -418,12 +425,13 @@ def build_overview_dashboard(
     conn: psycopg.Connection,
     *,
     reference_date: date,
+    selected_month: str | None = None,
 ) -> OverviewDashboardResponse:
     attendance_dashboard = build_attendance_dashboard(conn, reference_date=reference_date, limit=6)
     personnel_dashboard = build_personnel_dashboard(conn, limit=6)
     deductions_dashboard = build_deductions_dashboard(conn, reference_date=reference_date, limit=6)
     restaurants_dashboard = build_restaurants_dashboard(conn, limit=6)
-    finance_summary = _build_finance_summary(conn)
+    finance_summary = _build_finance_summary(conn, selected_month=selected_month)
     hygiene_summary = _build_hygiene_summary(conn)
     operations_summary = _build_operations_summary(
         conn,

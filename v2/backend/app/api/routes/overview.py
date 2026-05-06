@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 import psycopg
 
 from app.api.deps.auth import require_action
@@ -17,5 +17,10 @@ router = APIRouter()
 def get_overview_dashboard(
     _user: Annotated[AuthenticatedUser, Depends(require_action("dashboard.view"))],
     conn: Annotated[psycopg.Connection, Depends(get_db)],
+    month: Annotated[str | None, Query(description="YYYY-MM format")] = None,
 ) -> OverviewDashboardResponse:
-    return build_overview_dashboard(conn, reference_date=date.today())
+    return build_overview_dashboard(
+        conn,
+        reference_date=date.today(),
+        selected_month=month,
+    )
