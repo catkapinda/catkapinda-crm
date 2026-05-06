@@ -18,7 +18,9 @@ import {
 import { NewRequestModal } from './new-modal';
 
 // ─── Helpers ───────────────────────────────────────────────────────
-const TYPES = ['Avans', 'Motor Değişikliği', 'Muhasebe Değişimi'] as const;
+// Avans talepleri ayrı sayfada (/avans-talepleri); burada sadece
+// Motor Değişikliği ve Muhasebe Değişimi gösterilir.
+const TYPES = ['Motor Değişikliği', 'Muhasebe Değişimi'] as const;
 type ReqType = (typeof TYPES)[number] | 'all';
 type StatusKey = 'Beklemede' | 'Onaylandı' | 'Reddedildi';
 
@@ -99,7 +101,7 @@ export function TaleplerView({
   }, [requests]);
 
   const typeCounts = useMemo(() => {
-    const c: Record<string, number> = { Avans: 0, 'Motor Değişikliği': 0, 'Muhasebe Değişimi': 0 };
+    const c: Record<string, number> = { 'Motor Değişikliği': 0, 'Muhasebe Değişimi': 0 };
     for (const r of requests) {
       if (r.status === 'Beklemede' && r.request_type in c) {
         c[r.request_type]++;
@@ -108,15 +110,11 @@ export function TaleplerView({
     return c;
   }, [requests]);
 
-  const totalAvans = useMemo(() => {
-    return requests
-      .filter((r) => r.status === 'Beklemede' && r.request_type === 'Avans')
-      .reduce((s, r) => s + (r.amount || 0), 0);
-  }, [requests]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr-TR');
     return requests.filter((r) => {
+      // Avans talepleri ayrı sayfada — burada gösterme
+      if (r.request_type === 'Avans') return false;
       if (r.status !== statusTab) return false;
       if (typeFilter !== 'all' && r.request_type !== typeFilter) return false;
       if (q) {
@@ -167,11 +165,10 @@ export function TaleplerView({
             Operasyon · <span className="text-brand font-semibold">Talepler</span>
           </div>
           <h1 className="font-display text-[30px] font-semibold tracking-tight leading-tight">
-            Kurye Talepleri
+            Talepler (Motor · Muhasebe)
           </h1>
           <div className="text-text-3 text-sm mt-1 font-medium">
-            {counts.Beklemede} bekleyen · {counts.Onaylandı} onaylanan · {counts.Reddedildi} reddedilen ·
-            avans bekleyen toplam <strong className="text-brand">{tr(totalAvans)} ₺</strong>
+            {counts.Beklemede} bekleyen · {counts.Onaylandı} onaylanan · {counts.Reddedildi} reddedilen
           </div>
         </div>
         <button
@@ -182,21 +179,14 @@ export function TaleplerView({
         </button>
       </header>
 
-      {/* HERO STRIP — 4 KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      {/* HERO STRIP — 3 KPI */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
         <KpiCard
           icon={<Clock className="w-3.5 h-3.5" strokeWidth={2.2} />}
           accent="brand"
           label="Bekleyen Toplam"
           value={String(counts.Beklemede)}
           sub="onay bekliyor"
-        />
-        <KpiCard
-          icon={<Banknote className="w-3.5 h-3.5" strokeWidth={2.2} />}
-          accent="success"
-          label="Avans"
-          value={String(typeCounts.Avans)}
-          sub={`${tr(totalAvans)} ₺ talep`}
         />
         <KpiCard
           icon={<Bike className="w-3.5 h-3.5" strokeWidth={2.2} />}
