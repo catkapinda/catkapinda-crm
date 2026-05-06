@@ -24,6 +24,7 @@ type OverviewDashboard = {
   };
   finance: {
     selected_month: string | null;
+    month_options?: string[];
     total_revenue: number;
     gross_profit: number;
     total_personnel_cost: number;
@@ -116,6 +117,22 @@ function userInitials(user: AuthUser | null): string {
   const first = parts[0]?.[0] ?? "";
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
   return (first + last).toUpperCase() || "??";
+}
+
+const TR_MONTHS = [
+  "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+  "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+];
+
+function formatMonthLabel(value: string | null | undefined): string {
+  if (!value) return "Bu ay";
+  // Expects "YYYY-MM"
+  const match = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!match) return value;
+  const year = match[1];
+  const idx = parseInt(match[2], 10) - 1;
+  if (idx < 0 || idx > 11) return value;
+  return `${TR_MONTHS[idx]} ${year}`;
 }
 
 /* ====================================================================
@@ -286,6 +303,81 @@ const brandTagInitials = (brand: string): string => {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[1][0]).toUpperCase();
 };
+
+/* ====================================================================
+   MONTH PICKER
+   ==================================================================== */
+
+function MonthPicker({
+  value,
+  options,
+  onChange,
+}: {
+  value: string | null;
+  options: string[];
+  onChange: (next: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(`.${styles.monthPicker}`)) setOpen(false);
+    };
+    window.addEventListener("click", handler);
+    return () => window.removeEventListener("click", handler);
+  }, [open]);
+
+  const sortedOptions = [...options].sort((a, b) => b.localeCompare(a));
+
+  return (
+    <div className={styles.monthPicker}>
+      <button
+        type="button"
+        className={`${styles.monthPickerBtn} ${open ? styles.monthPickerOpen : ""}`}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <svg className={styles.btnIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path d="M16 2v4M8 2v4M3 10h18" />
+        </svg>
+        {formatMonthLabel(value)}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 2, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.18s" }}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open ? (
+        <div className={styles.monthDropdown}>
+          {sortedOptions.length === 0 ? (
+            <div style={{ padding: "12px", fontSize: 12, color: "var(--text-2)" }}>
+              Ay seçeneği yok
+            </div>
+          ) : (
+            sortedOptions.map((opt) => {
+              const isActive = opt === value;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  className={`${styles.monthOption} ${isActive ? styles.monthOptionActive : ""}`}
+                  onClick={() => {
+                    onChange(opt);
+                    setOpen(false);
+                  }}
+                >
+                  <span>{formatMonthLabel(opt)}</span>
+                  {isActive ? <span className={styles.monthCheck}>✓</span> : null}
+                </button>
+              );
+            })
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /* ====================================================================
    SIDEBAR
@@ -496,7 +588,7 @@ function Waterfall({
         <div>
           <h3 className={styles.cardTitle}>Aylık Mali Akış</h3>
           <div className={styles.cardSub}>
-            {selectedMonth ?? "Seçili ay"} · fatura → kurye → kesinti → net kâr
+            {formatMonthLabel(selectedMonth)} · fatura → kurye → kesinti → net kâr
           </div>
         </div>
         <Link href="/reports" className={styles.cardLink}>
@@ -1166,6 +1258,7 @@ export default function OverviewPage() {
   const [dashboard, setDashboard] = useState<OverviewDashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -1183,7 +1276,10 @@ export default function OverviewPage() {
 
       setDashboardLoading(true);
       try {
-        const response = await apiFetch("/overview/dashboard");
+        const url = selectedMonth
+          ? `/overview/dashboard?month=${encodeURIComponent(selectedMonth)}`
+          : "/overview/dashboard";
+        const response = await apiFetch(url);
         if (!response.ok) {
           if (active) {
             setDashboard(null);
@@ -1214,7 +1310,7 @@ export default function OverviewPage() {
     return () => {
       active = false;
     };
-  }, [loading, user]);
+  }, [loading, user, selectedMonth]);
 
   if (loading || dashboardLoading) return <LoadingState user={user} />;
   if (dashboardError || !dashboard) {
@@ -1232,7 +1328,8 @@ export default function OverviewPage() {
   const kesintiTahmini = Math.round(kuryeNet * 0.03); // ~%3 kesinti tahmini
   const kuryeBrut = kuryeNet + kesintiTahmini;
 
-  const monthLabel = finance.selected_month ?? "Bu ay";
+  const monthLabel = formatMonthLabel(finance.selected_month);
+  const monthOptions = finance.month_options ?? [];
 
   // Sparkline paths from daily trend
   const recent = operations.daily_trend.slice(-12);
@@ -1271,10 +1368,11 @@ export default function OverviewPage() {
                 <span className={styles.liveDot} />
                 Canlı
               </span>
-              <button className={styles.btn}>
-                <Icon.CalendarBtn />
-                {monthLabel}
-              </button>
+              <MonthPicker
+                value={finance.selected_month}
+                options={monthOptions}
+                onChange={setSelectedMonth}
+              />
               <Link href="/reports" className={`${styles.btn} ${styles.btnPrimary}`}>
                 <Icon.Download />
                 Rapor indir

@@ -276,7 +276,9 @@
   margin-bottom: 28px;
   flex-wrap: wrap;
   position: relative;
+  z-index: 50;
 }
+.pageActions { position: relative; z-index: 51; }
 .pageTitle {
   font-size: 32px;
   font-weight: 800;
@@ -323,6 +325,75 @@
   transform: translateY(-2px);
 }
 .btnIcon { width: 14px; height: 14px; }
+
+.monthPicker {
+  position: relative;
+  display: inline-block;
+}
+.monthPickerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: -0.005em;
+  cursor: pointer;
+}
+.monthPickerBtn:hover {
+  border-color: var(--saks);
+  color: var(--saks);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.monthPickerOpen {
+  border-color: var(--saks);
+  color: var(--saks);
+}
+.monthPicker { z-index: 100; }
+.monthDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  max-height: 360px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  z-index: 9999;
+  animation: fadeUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.monthOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  width: 100%;
+}
+.monthOption:hover { background: var(--surface-2); }
+.monthOptionActive {
+  background: var(--grad-saks);
+  color: #fff;
+  font-weight: 700;
+}
+.monthOptionActive:hover { background: var(--grad-saks); }
+.monthCheck { color: var(--saks); font-weight: 700; }
+.monthOptionActive .monthCheck { color: #fff; }
 
 .livePill {
   display: inline-flex;
