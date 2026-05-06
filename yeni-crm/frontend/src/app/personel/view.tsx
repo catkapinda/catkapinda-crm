@@ -1583,7 +1583,8 @@ function formatTL(value: number): string {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// Management Card — BM / Joker için premium yeni nesil kart
+// Management Card — Çat Kapında brand: saks mavisi + krem
+// SVG donut · brand gradient ring · krem zemin · subtle pattern
 // ──────────────────────────────────────────────────────────────────
 function ManagementCard({
   member, onEdit,
@@ -1601,85 +1602,169 @@ function ManagementCard({
     .split(' ').filter(Boolean).slice(0, 2)
     .map((w) => w[0]?.toUpperCase()).join('');
 
-  // Role-based subtle accent (rose for BM, amber for Joker)
-  const accent = isBM
-    ? { bar: 'from-slate-700 to-slate-900', chip: 'bg-slate-900 text-white', avatar: 'from-slate-700 to-slate-900' }
-    : { bar: 'from-amber-500 to-amber-700', chip: 'bg-amber-100 text-amber-900', avatar: 'from-amber-500 to-amber-700' };
+  // SVG donut math
+  const radius = 32;
+  const stroke = 6;
+  const size = 80;
+  const c = 2 * Math.PI * radius;
+  const dashOffset = c * (1 - recoveryPct / 100);
+
+  // Stable unique id per kart (gradient defs)
+  const gradId = `mgmt-grad-${member.id}`;
+
+  // Cover oranı tonu
+  const tonal =
+    recoveryPct >= 50
+      ? { tint: 'text-brand-dark', chipBg: 'bg-brand-soft', chipText: 'text-brand-dark', label: 'güçlü cover' }
+      : recoveryPct >= 25
+      ? { tint: 'text-cream-400', chipBg: 'bg-cream-100', chipText: 'text-text', label: 'orta cover' }
+      : { tint: 'text-text-2', chipBg: 'bg-cream-soft', chipText: 'text-text-2', label: 'düşük cover' };
 
   return (
     <div
       onClick={onEdit}
-      className="group bg-white border border-border rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden relative"
+      className="group relative cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 border border-cream-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5"
+      style={{
+        // Çat Kapında krem zemin → beyazımsı geçiş
+        background: 'linear-gradient(160deg, #FDFAF3 0%, #FFFFFF 60%)',
+      }}
     >
-      {/* Top accent bar */}
-      <div className={`h-1 bg-gradient-to-r ${accent.bar}`} />
+      {/* Saks mavisi top accent bar — Çat Kapında signature */}
+      <div className="h-1.5" style={{
+        background: 'linear-gradient(90deg, #0A3F8F 0%, #0F52BA 50%, #3B7BCF 100%)',
+      }} />
 
-      <div className="p-4.5">
-        {/* Header: avatar + identity + edit chip */}
+      {/* Decorative brand orb (sağ üstte saks mavisi blur) */}
+      <div
+        className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none opacity-40"
+        style={{
+          background: isBM
+            ? 'radial-gradient(circle, rgba(15,82,186,0.18) 0%, transparent 65%)'
+            : 'radial-gradient(circle, rgba(201,174,122,0.32) 0%, transparent 65%)',
+        }}
+      />
+
+      {/* Subtle dot grid (Çat Kapında textile dokusu) */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.06]"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, #0F52BA 1px, transparent 0)',
+          backgroundSize: '14px 14px',
+        }}
+      />
+
+      <div className="relative z-10 p-5">
+        {/* Header — avatar + ad/kod + role pill */}
         <div className="flex items-start gap-3 mb-4">
-          <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${accent.avatar} text-white font-semibold flex items-center justify-center text-sm shadow-sm flex-shrink-0`}>
+          <div
+            className="w-11 h-11 rounded-xl text-white font-bold flex items-center justify-center text-[13px] flex-shrink-0 shadow-sm"
+            style={{
+              background: isBM
+                ? 'linear-gradient(135deg, #0A3F8F 0%, #0F52BA 100%)'
+                : 'linear-gradient(135deg, #C9AE7A 0%, #E8D9B5 100%)',
+              color: isBM ? '#FFFFFF' : '#5A4A30',
+            }}
+          >
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="font-display text-[14.5px] font-semibold text-text truncate leading-tight">
+            <div className="font-display text-[15px] font-semibold text-text truncate leading-tight">
               {member.full_name || '—'}
             </div>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${accent.chip}`}>
-                {isBM ? 'BM' : 'Joker'}
-              </span>
-              <span className="text-[10.5px] text-text-3 font-mono tabular-nums truncate">
-                {member.person_code ?? ''}
-              </span>
+            <div className="text-[10.5px] text-text-3 font-mono tabular-nums mt-0.5">
+              {member.person_code ?? ''}
             </div>
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            aria-label="Bilgileri düzenle"
-            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-surface-2 hover:bg-brand hover:text-white transition flex-shrink-0"
+          {/* Role badge (Çat Kapında brand) */}
+          <span
+            className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
+            style={{
+              background: isBM ? '#0F52BA' : '#F0E6D0',
+              color: isBM ? '#FFFFFF' : '#5A4A30',
+              boxShadow: isBM ? '0 2px 6px rgba(15,82,186,0.25)' : 'none',
+            }}
           >
-            <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
-          </button>
+            {isBM ? 'BM' : 'Joker'}
+          </span>
         </div>
 
-        {/* Hero: Net Maliyet */}
-        <div className="mb-3.5">
-          <div className="text-[10px] uppercase tracking-wider font-bold text-text-3 mb-0.5">
-            Net Maliyet
+        {/* Hero — donut + net maliyet */}
+        <div className="flex items-center gap-3.5 mb-4">
+          {/* SVG donut — brand gradient ring */}
+          <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+            <svg width={size} height={size} className="-rotate-90">
+              <defs>
+                <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#0F52BA" />
+                  <stop offset="100%" stopColor="#3B7BCF" />
+                </linearGradient>
+              </defs>
+              {/* Track */}
+              <circle
+                cx={size / 2} cy={size / 2} r={radius}
+                stroke="#F4EFE3" strokeWidth={stroke} fill="none"
+              />
+              {/* Progress */}
+              <circle
+                cx={size / 2} cy={size / 2} r={radius}
+                stroke={`url(#${gradId})`}
+                strokeWidth={stroke}
+                fill="none"
+                strokeDasharray={c}
+                strokeDashoffset={dashOffset}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.22, 1, 0.36, 1)' }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+              <div className={`font-display text-[18px] font-bold tabular-nums ${tonal.tint}`}>
+                %{recoveryPct}
+              </div>
+              <div className="text-[8.5px] uppercase tracking-wider font-bold text-text-3 mt-0.5">
+                Cover
+              </div>
+            </div>
           </div>
-          <div className="font-display text-[28px] font-semibold tabular-nums text-text leading-tight">
-            {tr(netCost)} <span className="text-text-3 text-lg font-normal">₺</span>
-          </div>
-          <div className={`text-[11px] font-semibold mt-0.5 inline-flex items-center gap-1 ${
-            recoveryPct >= 50 ? 'text-emerald-700' : recoveryPct >= 25 ? 'text-amber-700' : 'text-rose-700'
-          }`}>
-            {recoveryPct >= 50
-              ? <ArrowDown className="w-3 h-3" strokeWidth={2.6} />
-              : <AlertTriangle className="w-3 h-3" strokeWidth={2.4} />}
-            cover ile %{recoveryPct} geri kazanıldı
+
+          {/* Net maliyet hero */}
+          <div className="min-w-0 flex-1">
+            <div className="text-[9.5px] uppercase tracking-wider font-bold text-text-3 mb-0.5">
+              Net Maliyet
+            </div>
+            <div className="font-display text-[24px] font-semibold text-text leading-none tabular-nums">
+              {tr(netCost)}
+              <span className="text-text-3 text-base font-normal ml-0.5">₺</span>
+            </div>
+            <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded mt-2 text-[10px] font-semibold ${tonal.chipBg} ${tonal.chipText}`}>
+              {tonal.label}
+            </div>
           </div>
         </div>
 
-        {/* Visual ratio bar — maaş vs cover */}
-        <div className="mb-3.5">
-          <div className="flex h-1.5 rounded-full overflow-hidden bg-surface-2">
+        {/* Visual breakdown bar — krem (maaş) + saks mavisi (cover) */}
+        <div className="mb-4">
+          <div className="flex h-2 rounded-full overflow-hidden" style={{ background: '#EDE5D2' }}>
             <div
-              className="bg-gradient-to-r from-rose-400 to-rose-300"
-              style={{ width: `${100 - recoveryPct}%` }}
+              style={{
+                width: `${100 - recoveryPct}%`,
+                background: 'linear-gradient(90deg, #C9AE7A, #E8D9B5)',
+              }}
             />
             <div
-              className="bg-gradient-to-r from-emerald-500 to-emerald-400"
-              style={{ width: `${recoveryPct}%` }}
+              style={{
+                width: `${recoveryPct}%`,
+                background: 'linear-gradient(90deg, #0F52BA, #3B7BCF)',
+              }}
             />
           </div>
           <div className="flex justify-between mt-1.5 text-[10px] font-semibold tabular-nums">
-            <span className="text-rose-700">Maaş {tr(member.salary)} ₺</span>
-            <span className="text-emerald-700">↺ {tr(recovery)} ₺</span>
+            <span className="text-text-2">Maaş {tr(member.salary)} ₺</span>
+            <span className="text-brand">↺ {tr(recovery)} ₺</span>
           </div>
         </div>
 
-        {/* Footer: aktivite stats */}
-        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border/60">
+        {/* Footer — 3 stat */}
+        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-cream-200">
           <ManagementStat label="Cover" value={member.cover_days} />
           <ManagementStat label="Paket" value={member.cover_packages} />
           <ManagementStat
@@ -1688,6 +1773,16 @@ function ManagementCard({
             unit="sa"
           />
         </div>
+
+        {/* Hover edit chip — sağ alt */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          aria-label="Bilgileri düzenle"
+          className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200 px-2 py-1 rounded-md bg-brand text-white text-[10px] font-bold inline-flex items-center gap-1 shadow-md"
+        >
+          <Pencil className="w-3 h-3" strokeWidth={2.4} />
+          Düzenle
+        </button>
       </div>
     </div>
   );
