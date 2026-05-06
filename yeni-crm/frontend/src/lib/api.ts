@@ -916,6 +916,91 @@ export async function bulkFillPuantaj(
 }
 
 // ─────────────────────────────────────────────────────────────
+// Puantaj Onayları (operasyon → admin onay akışı)
+// ─────────────────────────────────────────────────────────────
+
+export type PuantajApproval = {
+  id: number;
+  restaurant_id: number;
+  rest_brand: string | null;
+  rest_branch: string | null;
+  pricing_model: string | null;
+  period: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submitted_by: string | null;
+  submitted_at: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_notes: string | null;
+  entry_count: number;
+  total_hours: number;
+  total_packages: number;
+};
+
+export type PuantajApprovalSummary = {
+  period: string;
+  pending: number;
+  approved: number;
+  rejected: number;
+  total_restaurants_active: number;
+};
+
+export async function listPuantajApprovals(
+  status?: 'pending' | 'approved' | 'rejected',
+  period?: string,
+): Promise<PuantajApproval[]> {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (period) params.set('period', period);
+  const qs = params.toString();
+  return apiGet<PuantajApproval[]>(
+    `/api/puantaj/approvals${qs ? `?${qs}` : ''}`,
+  );
+}
+
+export async function getPuantajApprovalsSummary(
+  period: string,
+): Promise<PuantajApprovalSummary> {
+  return apiGet<PuantajApprovalSummary>(
+    `/api/puantaj/approvals/summary?period=${period}`,
+  );
+}
+
+export async function getPuantajApprovalForRestaurant(
+  restaurant_id: number,
+  period: string,
+): Promise<PuantajApproval | Record<string, never>> {
+  return apiGet<PuantajApproval | Record<string, never>>(
+    `/api/puantaj/approvals/restaurant/${restaurant_id}?period=${period}`,
+  );
+}
+
+export async function submitPuantajApproval(
+  restaurant_id: number,
+  period: string,
+  submitted_by?: string,
+): Promise<PuantajApproval> {
+  return apiMutate(
+    `/api/puantaj/approvals/submit`,
+    { restaurant_id, period, submitted_by },
+    'POST',
+  );
+}
+
+export async function decidePuantajApproval(
+  approval_id: number,
+  status: 'approved' | 'rejected',
+  decided_by?: string,
+  decision_notes?: string,
+): Promise<PuantajApproval> {
+  return apiMutate(
+    `/api/puantaj/approvals/${approval_id}/decide`,
+    { status, decided_by, decision_notes },
+    'PATCH',
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Bordro
 // ─────────────────────────────────────────────────────────────
 

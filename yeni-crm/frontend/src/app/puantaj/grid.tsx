@@ -4,14 +4,17 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowDownToLine, BarChart3, Check, CheckCircle2, Copy, Loader2,
+  ArrowDownToLine, BarChart3, Check, Copy, Loader2,
+  Send, ShieldCheck, AlertCircle,
 } from 'lucide-react';
 
 import {
   type MatrixCell,
   type MatrixRow,
   type PuantajMatrix,
+  type PuantajApproval,
   bulkFillPuantaj,
+  submitPuantajApproval,
   updatePuantajCell,
 } from '@/lib/api';
 
@@ -93,6 +96,8 @@ export function PuantajGrid({
   } | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkMsg, setBulkMsg] = useState<string | null>(null);
+  const [submitBusy, setSubmitBusy] = useState(false);
+  const [submitMsg, setSubmitMsg] = useState<string | null>(null);
   const router = useRouter();
 
   const totalDays = daysInMonth(period);
@@ -149,6 +154,49 @@ export function PuantajGrid({
     }
     return Array.from(set).sort();
   }, [matrix.rows]);
+
+  // Map: "brand · branch" string → restaurant_id (ilk eşleşen)
+  const restaurantIdMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of matrix.rows) {
+      if (!r.rest_brand || !r.rest_id) continue;
+      const k = `${r.rest_brand}${r.rest_branch ? ' · ' + r.rest_branch : ''}`;
+      if (!m.has(k)) m.set(k, r.rest_id);
+    }
+    return m;
+  }, [matrix.rows]);
+
+  const selectedRestaurantId = restFilter ? restaurantIdMap.get(restFilter) : null;
+
+  async function submitApproval() {
+    if (submitBusy) return;
+    if (!selectedRestaurantId) {
+      setSubmitMsg('Önce bir restoran seçin (filtre).');
+      setTimeout(() => setSubmitMsg(null), 4000);
+      return;
+    }
+    if (!confirm(
+      `${restFilter} için ${formatPeriod(period)} puantajını ONAYA gönder?\n` +
+      `Admin onayladıktan sonra bordroya geçecek.`,
+    )) return;
+    setSubmitBusy(true);
+    setSubmitMsg(null);
+    try {
+      const res: PuantajApproval = await submitPuantajApproval(
+        selectedRestaurantId,
+        period,
+      );
+      setSubmitMsg(
+        `✓ Onaya gönderildi · ${res.entry_count} kayıt · ${tr(Math.round(res.total_hours))} sa · ${tr(res.total_packages)} paket`,
+      );
+      router.refresh();
+    } catch (err) {
+      setSubmitMsg(err instanceof Error ? err.message : 'Hata oluştu');
+    } finally {
+      setSubmitBusy(false);
+      setTimeout(() => setSubmitMsg(null), 8000);
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr-TR');
@@ -220,11 +268,43 @@ export function PuantajGrid({
           <button className="px-3 py-2 rounded-xl bg-bg-surface border border-border text-text-2 text-[13px] font-medium hover:border-text/30 transition flex items-center gap-1.5">
             <ArrowDownToLine className="w-3.5 h-3.5" strokeWidth={2.2} /> Excel Şablonu
           </button>
-          <button className="px-4 py-2 rounded-xl bg-brand text-white text-[13px] font-semibold shadow-sm hover:bg-brand-dark transition flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4" strokeWidth={2.2} /> Onayla & Bordroya
+          <button
+            onClick={submitApproval}
+            disabled={submitBusy || !selectedRestaurantId}
+            title={
+              selectedRestaurantId
+                ? `${restFilter} için onaya gönder`
+                : 'Önce bir restoran filtreleyin'
+            }
+            className="px-4 py-2 rounded-xl bg-brand text-white text-[13px] font-semibold shadow-sm hover:bg-brand-dark transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitBusy ? (
+              <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2.2} />
+            ) : (
+              <Send className="w-4 h-4" strokeWidth={2.2} />
+            )}
+            Onaya Gönder
           </button>
         </div>
       </header>
+
+      {/* Onay banner */}
+      {submitMsg && (
+        <div
+          className={`mb-3 px-4 py-2.5 rounded-xl text-[13px] font-medium border flex items-center gap-2 ${
+            submitMsg.startsWith('✓')
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}
+        >
+          {submitMsg.startsWith('✓') ? (
+            <ShieldCheck className="w-4 h-4" strokeWidth={2.2} />
+          ) : (
+            <AlertCircle className="w-4 h-4" strokeWidth={2.2} />
+          )}
+          {submitMsg}
+        </div>
+      )}
 
       {/* Stats Bar — 5 cell */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
