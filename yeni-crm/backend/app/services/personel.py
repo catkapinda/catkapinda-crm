@@ -280,8 +280,8 @@ def management_summary(period: str) -> list[dict]:
         SELECT
             p.id, p.full_name, p.person_code, p.role,
             COALESCE(p.monthly_fixed_cost, 0) AS salary,
-            COALESCE(SUM(d.worked_hours), 0) FILTER (WHERE d.worked_hours > 0) AS cover_hours,
-            COALESCE(SUM(d.package_count), 0) FILTER (WHERE d.worked_hours > 0) AS cover_packages,
+            COALESCE(SUM(d.worked_hours) FILTER (WHERE d.worked_hours > 0), 0) AS cover_hours,
+            COALESCE(SUM(d.package_count) FILTER (WHERE d.worked_hours > 0), 0) AS cover_packages,
             COUNT(*) FILTER (WHERE d.worked_hours > 0) AS cover_days
         FROM personnel p
         LEFT JOIN daily_entries d

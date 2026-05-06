@@ -47,10 +47,15 @@ def _format_period(period: str) -> str:
 
 
 def _build_message(period: str) -> str:
-    """Bordro hazır SMS metni — Türkçe, kurumsal ton, link içerir."""
+    """Bordro hazır SMS metni — Türkçe, kurumsal ton, link içerir.
+
+    NetGSM'de gönderici (msgheader) zaten 'CATKAPINDA' olduğu için
+    metnin başında ek bir marka prefix'ine gerek yok — alıcı
+    göndereni gönderici alanından görüyor.
+    """
     ay_yil = _format_period(period)
     return (
-        f"Çat Kapında: {ay_yil} dönemi bordronuz onaylandı. "
+        f"{ay_yil} dönemi bordronuz onaylandı. "
         f"İmzalamak için kurye.crmcatkapinda.com adresine giriş yapınız."
     )
 

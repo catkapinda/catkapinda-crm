@@ -1,4 +1,6 @@
 """Bordro endpoint'leri."""
+import logging
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from psycopg.rows import dict_row
@@ -11,6 +13,8 @@ from app.services.signatures import (
     delete_signature,
     list_signatures_for_period,
 )
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -140,13 +144,31 @@ async def get_personnel_payroll_pdf(
     """Tek kurye bordrosunu PDF olarak indir (Content-Disposition: attachment)."""
     from app.services.signatures import get_signature
 
-    payroll = get_personnel_payroll(personnel_id=personnel_id, period=period)
-    if not payroll:
-        raise HTTPException(status_code=404, detail="Bordro bulunamadı")
+    try:
+        payroll = get_personnel_payroll(personnel_id=personnel_id, period=period)
+        if not payroll:
+            raise HTTPException(status_code=404, detail="Bordro bulunamadı")
 
-    personnel = get_personnel(personnel_id)
-    signature = get_signature(personnel_id, period, include_data=True)
-    pdf_bytes = generate_payroll_pdf(payroll, personnel, period, signature=signature)
+        personnel = get_personnel(personnel_id)
+        signature = get_signature(personnel_id, period, include_data=True)
+        pdf_bytes = generate_payroll_pdf(
+            payroll, personnel, period, signature=signature,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Tanı için tam traceback log'a yazılsın + response'a hatanın türü
+        # ve mesajı düşsün (sadece staging — production'da generic 500 olabilir)
+        log.exception(
+            "PDF generation failed personnel=%s period=%s",
+            personnel_id, period,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: {str(exc)[:400]}"
+            ),
+        ) from exc
 
     full_name = (payroll.get("full_name") or f"kurye-{personnel_id}").strip()
     safe_name = (
