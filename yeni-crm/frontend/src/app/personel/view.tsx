@@ -765,6 +765,9 @@ export function PersonnelView({
 // Akıllı İçgörü Hero — gerçek insights verisinden anlatım üretir
 // ──────────────────────────────────────────────────────────────────
 function SmartInsightsHero({ insights }: { insights: PageInsights }) {
+  // Hangi alt panel açık: detay listeleri / eylem önerileri / yok
+  const [expanded, setExpanded] = useState<'detail' | 'actions' | null>(null);
+
   // Eşik aşımı potansiyel ek fatura — paket eşiğini aşma trendiyle
   // her kurye için (eşik+50 paket × rate_high) kaba potansiyel
   const thresholdPotential = useMemo(() => {
@@ -871,21 +874,36 @@ function SmartInsightsHero({ insights }: { insights: PageInsights }) {
           <p className="text-text-2 text-[13.5px] leading-relaxed mb-5">
             {top1 ? (
               <>
-                <strong>{top1.brand ?? '—'}{top1.branch ? ` · ${top1.branch}` : ''}</strong>
-                {' '}restoranındaki <strong>{top1.full_name ?? '—'}</strong>{' '}
+                <strong>{top1.brand ?? '—'}{top1.branch ? ` · ${top1.branch}` : ''}</strong>{' '}
+                restoranındaki <strong>{top1.full_name ?? '—'}</strong>{' '}
                 {top1.packages} pakette
                 {top2 ? (
-                  <>, <strong>{top2.full_name?.split(' ')[0] ?? '—'}</strong> {top2.packages}'de</>
+                  <>
+                    , <strong>{top2.full_name?.split(' ')[0] ?? '—'}</strong> {top2.packages} pakette
+                  </>
                 ) : null}
-                . Trendleri sürerse <strong>+%{Math.round(((top1.rate_high - top1.rate_low) / Math.max(top1.rate_low, 1)) * 100)} prim oranına</strong> geçecekler.
+                . Eşik (<strong>{top1.threshold}</strong> paket) aşılınca
+                paket başı tarife <strong>{formatTL(top1.rate_low)} ₺</strong> →{' '}
+                <strong>{formatTL(top1.rate_high)} ₺</strong>'ye yükseliyor (paket başı{' '}
+                <strong>+%{Math.round(((top1.rate_high - top1.rate_low) / Math.max(top1.rate_low, 1)) * 100)}</strong>) — restoranın ödediği faturaya yansıyacak.
                 {cap1 ? (
-                  <>{' '}Aynı zamanda <strong>{cap1.brand}{cap1.branch ? ` · ${cap1.branch}` : ''}</strong>'de hedef kurye sayısı <strong>{cap1.target}'ya karşılık {cap1.actual}'te</strong> kaldı.</>
+                  <>
+                    {' '}Aynı zamanda{' '}
+                    <strong>{cap1.brand}{cap1.branch ? ` · ${cap1.branch}` : ''}</strong>{' '}
+                    için hedef <strong>{cap1.target} kurye</strong>, aktif{' '}
+                    <strong>{cap1.actual}</strong> — kapasite{' '}
+                    {cap1.actual === 0 ? 'tamamen boş' : `${cap1.target - cap1.actual} eksik`}.
+                  </>
                 ) : null}
               </>
             ) : cap1 ? (
               <>
-                Restoran kapasitelerinde açık var: <strong>{cap1.brand}{cap1.branch ? ` · ${cap1.branch}` : ''}</strong>{' '}
-                hedef <strong>{cap1.target}/kurye</strong>'ya karşılık aktif <strong>{cap1.actual}</strong>. Acil işe alım önerilir.
+                Restoran kapasitelerinde açık var:{' '}
+                <strong>{cap1.brand}{cap1.branch ? ` · ${cap1.branch}` : ''}</strong>{' '}
+                için hedef <strong>{cap1.target} kurye</strong>, aktif{' '}
+                <strong>{cap1.actual}</strong>
+                {cap1.actual === 0 ? ' — kapasite tamamen boş' : ` — ${cap1.target - cap1.actual} kurye eksik`}.
+                Acil işe alım önerilir.
               </>
             ) : (
               <>Eşik aşımı veya eksik kapasite tespit edilmedi. Operasyon ölçek kırmızı çizgileri içinde.</>
@@ -893,12 +911,28 @@ function SmartInsightsHero({ insights }: { insights: PageInsights }) {
           </p>
 
           <div className="flex gap-2">
-            <button className="px-4 py-2.5 bg-text text-white text-xs font-semibold rounded-lg hover:shadow-lg transition flex items-center gap-1.5">
+            <button
+              onClick={() => setExpanded(expanded === 'detail' ? null : 'detail')}
+              className={[
+                'px-4 py-2.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5',
+                expanded === 'detail'
+                  ? 'bg-text/90 text-white shadow-lg'
+                  : 'bg-text text-white hover:shadow-lg',
+              ].join(' ')}
+            >
               <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2.4} />
-              Detaylı analiz
+              {expanded === 'detail' ? 'Detayı gizle' : 'Detaylı analiz'}
             </button>
-            <button className="px-4 py-2.5 border border-border text-text-2 text-xs font-semibold rounded-lg hover:bg-bg-surface2 transition">
-              Eylem önerileri
+            <button
+              onClick={() => setExpanded(expanded === 'actions' ? null : 'actions')}
+              className={[
+                'px-4 py-2.5 text-xs font-semibold rounded-lg transition',
+                expanded === 'actions'
+                  ? 'bg-blue-50 border border-blue-300 text-blue-700'
+                  : 'border border-border text-text-2 hover:bg-bg-surface2',
+              ].join(' ')}
+            >
+              {expanded === 'actions' ? 'Önerileri gizle' : 'Eylem önerileri'}
             </button>
           </div>
         </div>
@@ -966,8 +1000,224 @@ function SmartInsightsHero({ insights }: { insights: PageInsights }) {
           />
         </div>
       </div>
+
+      {/* Detaylı analiz / Eylem önerileri açılır panel */}
+      {expanded === 'detail' && (
+        <div className="relative z-10 mt-6 pt-6 border-t border-blue-200/60 grid grid-cols-3 gap-5 animate-hero-fade-in">
+          <DetailColumn
+            title="Eşik Yakını Kuryeler"
+            empty="Eşiğe yaklaşan yok"
+            tone="emerald"
+          >
+            {insights.threshold_near.map((t) => {
+              const pct = Math.min(100, Math.round((t.packages / Math.max(t.threshold, 1)) * 100));
+              return (
+                <li key={t.id} className="bg-white/70 rounded-lg px-3 py-2 border border-emerald-100">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <span className="font-semibold text-[13px] text-text truncate">
+                      {t.full_name}
+                    </span>
+                    <span className="text-[11px] text-text-3 font-mono whitespace-nowrap">
+                      {t.packages}/{t.threshold}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-text-3 mt-0.5">
+                    {t.brand}{t.branch ? ` · ${t.branch}` : ''}
+                  </div>
+                  {/* Progress bar — eşiğin %X'inde */}
+                  <div className="mt-1.5 h-1.5 bg-emerald-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </DetailColumn>
+
+          <DetailColumn
+            title="Kapasite Açıkları"
+            empty="Tüm restoranlar dolu"
+            tone="amber"
+          >
+            {insights.capacity_gaps.map((g) => {
+              const fill = Math.round((g.actual / Math.max(g.target, 1)) * 100);
+              return (
+                <li key={g.id} className="bg-white/70 rounded-lg px-3 py-2 border border-amber-100">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <span className="font-semibold text-[13px] text-text truncate">
+                      {g.brand}
+                    </span>
+                    <span className="text-[11px] text-text-3 font-mono whitespace-nowrap">
+                      {g.actual}/{g.target}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-text-3 mt-0.5">
+                    {g.branch ?? '—'} · {g.target - g.actual} kurye eksik
+                  </div>
+                  <div className="mt-1.5 h-1.5 bg-amber-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full transition-all"
+                      style={{ width: `${fill}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </DetailColumn>
+
+          <DetailColumn
+            title="Verimlilik Liderleri"
+            empty="Sabit maaşlı veri yok"
+            tone="blue"
+          >
+            {insights.top_recovery.map((m) => {
+              const cover = m.cover_hours * 200 + m.cover_packages * 25;
+              const pct = m.salary > 0 ? Math.min(100, Math.round((cover / m.salary) * 100)) : 0;
+              return (
+                <li key={m.id} className="bg-white/70 rounded-lg px-3 py-2 border border-blue-100">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <span className="font-semibold text-[13px] text-text truncate">
+                      {m.full_name}
+                    </span>
+                    <span className="text-[11px] text-blue-700 font-bold whitespace-nowrap">
+                      %{pct}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-text-3 mt-0.5">
+                    {m.role} · {m.cover_packages} paket · {Math.round(m.cover_hours)} sa
+                  </div>
+                  <div className="mt-1.5 h-1.5 bg-blue-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </DetailColumn>
+        </div>
+      )}
+
+      {expanded === 'actions' && (
+        <div className="relative z-10 mt-6 pt-6 border-t border-blue-200/60 animate-hero-fade-in">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-blue-700 mb-3">
+            Önerilen Eylemler
+          </div>
+          <ul className="space-y-2.5">
+            {buildActionItems(insights, thresholdPotential, capacityGap).map((a, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-3 bg-white/70 rounded-xl border border-border px-4 py-3"
+              >
+                <span className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-sm ${a.tone}`}>
+                  <a.Icon className="w-3.5 h-3.5" strokeWidth={2.4} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-text">
+                    {a.title}
+                  </div>
+                  <div className="text-[12px] text-text-2 mt-0.5 leading-relaxed">
+                    {a.detail}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
+}
+
+function DetailColumn({
+  title, tone, empty, children,
+}: {
+  title: string;
+  tone: 'emerald' | 'amber' | 'blue';
+  empty: string;
+  children: React.ReactNode;
+}) {
+  const labelTone = {
+    emerald: 'text-emerald-700',
+    amber: 'text-amber-700',
+    blue: 'text-blue-700',
+  }[tone];
+  const childArray = Array.isArray(children) ? children : [children];
+  const isEmpty = !childArray || childArray.length === 0 || childArray.every((c) => !c);
+  return (
+    <div>
+      <div className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${labelTone}`}>
+        {title}
+      </div>
+      {isEmpty ? (
+        <div className="text-[12px] text-text-3 italic px-3 py-2">{empty}</div>
+      ) : (
+        <ul className="space-y-1.5">{children}</ul>
+      )}
+    </div>
+  );
+}
+
+function buildActionItems(
+  insights: PageInsights,
+  thresholdPotential: number,
+  capacityGap: number,
+): { title: string; detail: string; Icon: typeof Target; tone: string }[] {
+  const out: { title: string; detail: string; Icon: typeof Target; tone: string }[] = [];
+
+  if (insights.threshold_near.length > 0 && thresholdPotential > 0) {
+    out.push({
+      title: `${insights.threshold_near.length} kuryeyi eşik aşımı için takipte tut`,
+      detail: `Eşiği geçtiklerinde paket başı tarife yüksek seviyeye atlayacak — ay sonuna kadar yaklaşık ${formatTL(thresholdPotential)} ₺ ek fatura. Restoran müdürlerini bilgilendir, motivasyon planla.`,
+      Icon: TrendingUp,
+      tone: 'bg-gradient-to-br from-emerald-500 to-emerald-700',
+    });
+  }
+
+  if (insights.capacity_gaps.length > 0) {
+    const totalGap = capacityGap;
+    out.push({
+      title: `${insights.capacity_gaps.length} restorana toplam ${totalGap} kurye al`,
+      detail: `Aktif personel hedefin altında. Joker yönlendirmesi (kısa vadeli) + işe alım (kalıcı) paralel başlat. Öncelik: en büyük açıktan başla.`,
+      Icon: AlertTriangle,
+      tone: 'bg-gradient-to-br from-amber-500 to-amber-700',
+    });
+  }
+
+  if (insights.top_recovery.length > 0) {
+    const m = insights.top_recovery[0];
+    const cover = m.cover_hours * 200 + m.cover_packages * 25;
+    const pct = m.salary > 0 ? Math.round((cover / m.salary) * 100) : 0;
+    out.push({
+      title: `${m.full_name?.split(' ')[0] ?? 'Lider'} verimlilik liderini öne çıkar`,
+      detail: `Sabit maaşının %${pct}'sini saha cover ile geri kazandırdı. Bu modeli diğer yönetim/yedek personele örnek olarak paylaş — ay başı toplantı veya ekip içi tanıtım önerilir.`,
+      Icon: Award,
+      tone: 'bg-gradient-to-br from-blue-500 to-blue-700',
+    });
+  }
+
+  if (insights.pending_actions > 0) {
+    out.push({
+      title: `${insights.pending_actions} bekleyen kurye talebini bugün karara bağla`,
+      detail: `Avans / motor / muhasebe talepleri bekliyor. Geç kalan onaylar kurye memnuniyetini düşürür ve avans gecikmeleri kasaya yansır.`,
+      Icon: Inbox,
+      tone: 'bg-gradient-to-br from-rose-500 to-rose-700',
+    });
+  }
+
+  if (out.length === 0) {
+    out.push({
+      title: 'Operasyon dengede — fırsat aramaya geç',
+      detail: 'Eşik aşımı veya kapasite açığı yok. Performans top performer\'ları analiz et, restoran satışlarını artırma fırsatları üzerine odaklan.',
+      Icon: Sparkles,
+      tone: 'bg-gradient-to-br from-blue-500 to-cyan-500',
+    });
+  }
+
+  return out;
 }
 
 function InsightCard({
