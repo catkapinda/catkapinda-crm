@@ -155,7 +155,7 @@ export default function CourierDashboard() {
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 animate-pulse" />
             <div className="absolute inset-2 rounded-xl bg-white flex items-center justify-center overflow-hidden">
               <img
-                src="/catkapinda-logo.png"
+                src="/catkapinda-logo.png?v=3"
                 alt=""
                 className="w-9 h-9 object-contain"
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
@@ -223,7 +223,7 @@ export default function CourierDashboard() {
             <div className="flex items-center gap-2.5">
               <div className="relative w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden">
                 <img
-                  src="/catkapinda-logo.png"
+                  src="/catkapinda-logo.png?v=3"
                   alt=""
                   className="absolute inset-1 w-7 h-7 object-contain"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
