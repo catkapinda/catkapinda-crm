@@ -13,7 +13,7 @@ Prefix: /api/courier
 """
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from app.services.courier_auth import (
@@ -106,7 +106,7 @@ class SignatureRequest(BaseModel):
 
 # Bağımlılık: Authorization header'dan veya cookie'den token al
 def get_current_personnel_id(
-    authorization: str | None = None,
+    authorization: str | None = Header(None, alias="Authorization"),
 ) -> int:
     """FastAPI dependency — request'ten token al ve personnel_id döner.
 
@@ -197,7 +197,7 @@ async def verify_login_otp(body: OtpVerifyPayload) -> dict:
 
 
 @router.post("/logout")
-async def logout(authorization: str | None = None) -> dict:
+async def logout(authorization: str | None = Header(None, alias="Authorization")) -> dict:
     """Kuryeyi çıkış yap — token'ı iptal et."""
     if not authorization:
         raise HTTPException(status_code=401, detail="Token gerekli")
@@ -213,7 +213,7 @@ async def logout(authorization: str | None = None) -> dict:
 
 
 @router.get("/me")
-async def get_me(authorization: str | None = None) -> dict:
+async def get_me(authorization: str | None = Header(None, alias="Authorization")) -> dict:
     """Oturum açmış kuryenin bilgileri."""
     personnel_id = get_current_personnel_id(authorization)
     courier = get_personnel_for_courier(personnel_id)
@@ -225,7 +225,7 @@ async def get_me(authorization: str | None = None) -> dict:
 @router.get("/my-bordro")
 async def get_bordro(
     period: str = "2026-03",
-    authorization: str | None = None,
+    authorization: str | None = Header(None, alias="Authorization"),
 ) -> dict:
     """Kuryenin kendi bordrosunu döner."""
     personnel_id = get_current_personnel_id(authorization)
@@ -238,7 +238,7 @@ async def get_bordro(
 @router.get("/my-bordro/pdf")
 async def get_bordro_pdf(
     period: str = "2026-03",
-    authorization: str | None = None,
+    authorization: str | None = Header(None, alias="Authorization"),
 ) -> Response:
     """Bordro PDF indir — varsa kuryenin dijital imzası gömülü gelir."""
     from app.services.payroll import get_personnel_payroll
@@ -264,7 +264,7 @@ async def get_bordro_pdf(
 
 
 @router.get("/my-requests")
-async def list_requests(authorization: str | None = None) -> list[dict]:
+async def list_requests(authorization: str | None = Header(None, alias="Authorization")) -> list[dict]:
     """Kuryenin talep geçmişi."""
     personnel_id = get_current_personnel_id(authorization)
     return list_my_requests(personnel_id)
@@ -273,7 +273,7 @@ async def list_requests(authorization: str | None = None) -> list[dict]:
 @router.post("/my-requests")
 async def create_request(
     req: AvansRequest,
-    authorization: str | None = None,
+    authorization: str | None = Header(None, alias="Authorization"),
 ) -> dict:
     """Avans talep oluştur."""
     personnel_id = get_current_personnel_id(authorization)
@@ -295,7 +295,7 @@ async def create_request(
 @router.get("/my-summary")
 async def get_summary(
     period: str = "2026-03",
-    authorization: str | None = None,
+    authorization: str | None = Header(None, alias="Authorization"),
 ) -> dict:
     """Kuryenin dashboard özet bilgileri."""
     personnel_id = get_current_personnel_id(authorization)
@@ -306,7 +306,7 @@ async def get_summary(
 
 
 @router.get("/my-profile-changes")
-async def list_profile_changes(authorization: str | None = None) -> list[dict]:
+async def list_profile_changes(authorization: str | None = Header(None, alias="Authorization")) -> list[dict]:
     """Kuryenin profil değişiklik talepleri."""
     personnel_id = get_current_personnel_id(authorization)
     return list_changes(personnel_id=personnel_id)
@@ -315,7 +315,7 @@ async def list_profile_changes(authorization: str | None = None) -> list[dict]:
 @router.post("/my-profile-changes")
 async def create_profile_change(
     req: ProfileChangeRequest,
-    authorization: str | None = None,
+    authorization: str | None = Header(None, alias="Authorization"),
 ) -> dict:
     """Kritik alan için profil değişiklik talebi oluştur (admin onaylı)."""
     personnel_id = get_current_personnel_id(authorization)
@@ -333,7 +333,7 @@ async def create_profile_change(
 @router.post("/my-profile/direct-update")
 async def direct_update_profile(
     req: DirectUpdateRequest,
-    authorization: str | None = None,
+    authorization: str | None = Header(None, alias="Authorization"),
 ) -> dict:
     """Düşük riskli alan için doğrudan güncelle (acil durum kişisi, doğum tarihi vb.)"""
     personnel_id = get_current_personnel_id(authorization)
@@ -348,7 +348,7 @@ async def direct_update_profile(
 @router.post("/my-profile/photo")
 async def upload_profile_photo(
     req: PhotoUploadRequest,
-    authorization: str | None = None,
+    authorization: str | None = Header(None, alias="Authorization"),
 ) -> dict:
     """Profil fotoğrafı yükle/sil — data URI formatında."""
     personnel_id = get_current_personnel_id(authorization)
@@ -359,14 +359,14 @@ async def upload_profile_photo(
 
 
 @router.get("/my-profile/direct-log")
-async def list_my_direct_log(authorization: str | None = None) -> list[dict]:
+async def list_my_direct_log(authorization: str | None = Header(None, alias="Authorization")) -> list[dict]:
     """Kendi doğrudan değişiklik logunu döner (son 30)."""
     personnel_id = get_current_personnel_id(authorization)
     return list_my_direct_changes(personnel_id)
 
 
 @router.get("/my-profile/editable-fields")
-async def get_editable_fields(authorization: str | None = None) -> dict:
+async def get_editable_fields(authorization: str | None = Header(None, alias="Authorization")) -> dict:
     """Hangi alanların direkt vs onay-gerekli olduğunu döner."""
     get_current_personnel_id(authorization)  # auth check
     return {
@@ -385,7 +385,7 @@ async def sign_my_bordro(
     period: str,
     body: SignatureRequest,
     request: Request,
-    authorization: str | None = None,
+    authorization: str | None = Header(None, alias="Authorization"),
 ) -> dict:
     """Bordroyu dijital olarak imzala (canvas PNG data URI gönderilir)."""
     personnel_id = get_current_personnel_id(authorization)
@@ -406,7 +406,7 @@ async def sign_my_bordro(
 @router.get("/my-bordro/{period}/signature")
 async def get_my_bordro_signature(
     period: str,
-    authorization: str | None = None,
+    authorization: str | None = Header(None, alias="Authorization"),
 ) -> dict:
     """Verilen ay için imza durumunu döner (data dahil değil — sadece meta)."""
     personnel_id = get_current_personnel_id(authorization)
