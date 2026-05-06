@@ -13,17 +13,23 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 
+// public/ altındaki statik dosyaların uzantıları — bunları /kurye'ye rewrite etme
+// (örn. /catkapinda-logo.png → 404 olmasın diye)
+const STATIC_ASSET_RE =
+  /\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|css|js|map|woff|woff2|ttf|eot)$/i;
+
 export function middleware(req: NextRequest) {
   const host = req.headers.get('host') ?? '';
   const url = req.nextUrl;
 
   // Sadece kurye. subdomain'inden gelenler için
   if (host.startsWith('kurye.')) {
-    // Zaten /kurye altındaysa veya /api / _next ise dokunma
+    // Zaten /kurye altındaysa, /api / _next ise veya statik asset ise dokunma
     if (
       !url.pathname.startsWith('/kurye') &&
       !url.pathname.startsWith('/api') &&
-      !url.pathname.startsWith('/_next')
+      !url.pathname.startsWith('/_next') &&
+      !STATIC_ASSET_RE.test(url.pathname)
     ) {
       const newUrl = url.clone();
       newUrl.pathname = '/kurye' + (url.pathname === '/' ? '' : url.pathname);

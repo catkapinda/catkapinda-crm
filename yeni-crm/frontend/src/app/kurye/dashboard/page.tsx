@@ -75,14 +75,6 @@ function getInitials(name?: string | null) {
     .join('');
 }
 
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 6) return 'İyi geceler';
-  if (hour < 12) return 'Günaydın';
-  if (hour < 18) return 'Tünaydın';
-  return 'İyi akşamlar';
-}
-
 export default function CourierDashboard() {
   const router = useRouter();
   const [data, setData] = useState<CourierSummary | null>(null);
@@ -90,6 +82,18 @@ export default function CourierDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [period, setPeriod] = useState<string>('');
+  // Saat-bağımlı selamlama: SSR'da sabit varsayılanla başla, client mount'ta
+  // gerçek saate göre güncelle. Aksi halde server saati ↔ client saati farkı
+  // hydration mismatch'ine (React #418) yol açıyor.
+  const [greeting, setGreeting] = useState('Merhaba');
+
+  useEffect(() => {
+    const h = new Date().getHours();
+    if (h < 6) setGreeting('İyi geceler');
+    else if (h < 12) setGreeting('Günaydın');
+    else if (h < 18) setGreeting('Tünaydın');
+    else setGreeting('İyi akşamlar');
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -193,7 +197,6 @@ export default function CourierDashboard() {
 
   const bordro = normalizeBordro(data.bordro);
   const stats = data.request_stats ?? {};
-  const greeting = getGreeting();
   const initials = getInitials(me?.full_name);
   const firstName = me?.full_name?.split(' ')[0] ?? 'Kurye';
 
