@@ -284,6 +284,34 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON payroll_signatures(personnel_id, period)
         """,
     ),
+    # ─── Puantaj Onayları (operasyon → admin onay akışı) ───
+    (
+        "puantaj_approvals.table",
+        """
+        CREATE TABLE IF NOT EXISTS puantaj_approvals (
+            id SERIAL PRIMARY KEY,
+            restaurant_id integer NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+            period varchar(7) NOT NULL,
+            status varchar(20) NOT NULL DEFAULT 'pending',
+            submitted_by varchar(120),
+            submitted_at timestamptz DEFAULT now(),
+            decided_by varchar(120),
+            decided_at timestamptz,
+            decision_notes text,
+            entry_count integer DEFAULT 0,
+            total_hours numeric DEFAULT 0,
+            total_packages integer DEFAULT 0,
+            UNIQUE (restaurant_id, period)
+        )
+        """,
+    ),
+    (
+        "puantaj_approvals.idx_status",
+        """
+        CREATE INDEX IF NOT EXISTS idx_puantaj_approvals_status
+        ON puantaj_approvals(status, period DESC)
+        """,
+    ),
     # ─── Sprint 2: SMS OTP login ───
     (
         "courier_otp_codes.table",
