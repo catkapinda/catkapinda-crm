@@ -1,7 +1,9 @@
 """Bordro endpoint'leri."""
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
+from psycopg.rows import dict_row
 
+from app.core.database import get_connection
 from app.services.payroll import get_personnel_payroll, list_payroll
 from app.services.payroll_pdf import generate_payroll_pdf
 from app.services.personel import get_personnel
@@ -17,6 +19,65 @@ router = APIRouter()
 async def list_signatures(period: str = "2026-03") -> list[dict]:
     """Belirli ay için bordrosunu imzalayan kuryeler — admin için."""
     return list_signatures_for_period(period=period)
+
+
+@router.get("/sms-log")
+async def list_payroll_sms_log(
+    period: str | None = None,
+    limit: int = 200,
+) -> list[dict]:
+    """Bordro hazır SMS gönderim log'u — admin debugging için.
+
+    Kim ne aldı / kime gitmedi / hangi sebeple atlandı görmek için.
+    İsteğe bağlı `period=YYYY-MM` filtresi.
+    """
+    sql_base = """
+        SELECT
+          psl.id,
+          psl.personnel_id,
+          p.full_name,
+          p.phone AS personnel_phone,
+          psl.period,
+          psl.sent_at,
+          psl.status,
+          psl.phone_used,
+          psl.error,
+          psl.triggered_by_approval_id
+        FROM payroll_sms_log psl
+        LEFT JOIN personnel p ON p.id = psl.personnel_id
+    """
+    params: tuple = ()
+    if period:
+        sql = sql_base + " WHERE psl.period = %s ORDER BY psl.sent_at DESC LIMIT %s"
+        params = (period, limit)
+    else:
+        sql = sql_base + " ORDER BY psl.sent_at DESC LIMIT %s"
+        params = (limit,)
+
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+
+    out: list[dict] = []
+    for r in rows:
+        out.append({
+            "id": int(r["id"]),
+            "personnel_id": int(r["personnel_id"]),
+            "full_name": r.get("full_name"),
+            "personnel_phone": r.get("personnel_phone"),
+            "period": str(r["period"]),
+            "sent_at": r["sent_at"].isoformat() if r.get("sent_at") else None,
+            "status": str(r["status"]),
+            "phone_used": r.get("phone_used"),
+            "error": r.get("error"),
+            "triggered_by_approval_id": (
+                int(r["triggered_by_approval_id"])
+                if r.get("triggered_by_approval_id") is not None
+                else None
+            ),
+        })
+    return out
 
 
 @router.delete("/signatures/{personnel_id}")

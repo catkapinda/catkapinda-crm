@@ -1,4 +1,5 @@
 """FastAPI uygulamasının giriş noktası."""
+import logging
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
@@ -9,6 +10,19 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.database import close_pool, get_pool
 from app.core.migrations import run_migrations
+
+# Application logging — config.LOG_LEVEL env'e göre seviyeyi ayarla.
+# Default WARNING olduğunda `log.info(...)` mesajları (örn. payroll SMS
+# özeti, NetGSM çağrısı sonucu) Render log akışında görünmez.
+_settings_for_log = get_settings()
+logging.basicConfig(
+    level=getattr(
+        logging,
+        (_settings_for_log.log_level or "INFO").upper(),
+        logging.INFO,
+    ),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 
 @asynccontextmanager
