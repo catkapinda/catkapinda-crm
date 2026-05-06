@@ -5,19 +5,43 @@ import { useRouter } from 'next/navigation';
 import { FileText, Plus, Clock, Download, LogOut, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
+// Backend bordro şemaları arasında uyumluluk:
+// - Yeni şema (get_my_summary fix): { total_brut, total_deductions, total_net }
+// - Eski şema (raw payroll): { toplam_brut, kesinti_total, sabit_total, tevkifat, net }
+type RawBordro = {
+  total_brut?: number;
+  total_deductions?: number;
+  total_net?: number;
+  toplam_brut?: number;
+  kesinti_total?: number;
+  sabit_total?: number;
+  tevkifat?: number;
+  net?: number;
+};
+
 type CourierSummary = {
   period: string;
-  bordro: {
-    total_brut: number;
-    total_deductions: number;
-    total_net: number;
-  };
-  request_stats: {
-    pending_count: number;
-    approved_count: number;
-    rejected_count: number;
+  bordro: RawBordro | null;
+  request_stats?: {
+    pending_count?: number;
+    approved_count?: number;
+    rejected_count?: number;
   };
 };
+
+function normalizeBordro(b: RawBordro | null | undefined) {
+  if (!b) return { total_brut: 0, total_deductions: 0, total_net: 0 };
+  const total_brut = b.total_brut ?? b.toplam_brut ?? 0;
+  const total_deductions =
+    b.total_deductions ??
+    ((b.kesinti_total ?? 0) + (b.sabit_total ?? 0) + (b.tevkifat ?? 0));
+  const total_net = b.total_net ?? b.net ?? 0;
+  return {
+    total_brut: Number(total_brut) || 0,
+    total_deductions: Number(total_deductions) || 0,
+    total_net: Number(total_net) || 0,
+  };
+}
 
 export default function CourierDashboard() {
   const router = useRouter();
@@ -103,7 +127,12 @@ export default function CourierDashboard() {
     );
   }
 
-  const { bordro, request_stats } = data;
+  const bordro = normalizeBordro(data.bordro);
+  const request_stats = data.request_stats ?? {
+    pending_count: 0,
+    approved_count: 0,
+    rejected_count: 0,
+  };
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
@@ -189,7 +218,7 @@ export default function CourierDashboard() {
           <div className="text-sm">
             <p className="font-medium text-text">Geçmiş Taleplerim</p>
             <p className="text-xs text-text-secondary">
-              {request_stats.pending_count} beklemede
+              {request_stats.pending_count ?? 0} beklemede
             </p>
           </div>
         </Link>
@@ -205,19 +234,19 @@ export default function CourierDashboard() {
           <div>
             <p className="text-text-secondary mb-1">Beklemede</p>
             <p className="text-2xl font-semibold text-yellow-600">
-              {request_stats.pending_count}
+              {request_stats.pending_count ?? 0}
             </p>
           </div>
           <div>
             <p className="text-text-secondary mb-1">Onaylandı</p>
             <p className="text-2xl font-semibold text-green-600">
-              {request_stats.approved_count}
+              {request_stats.approved_count ?? 0}
             </p>
           </div>
           <div>
             <p className="text-text-secondary mb-1">Reddedildi</p>
             <p className="text-2xl font-semibold text-red-600">
-              {request_stats.rejected_count}
+              {request_stats.rejected_count ?? 0}
             </p>
           </div>
         </div>
