@@ -10,6 +10,7 @@ from app.services.puantaj import (
     summary_by_restaurant,
     upsert_cell,
 )
+from app.services import puantaj_approvals as approvals
 
 router = APIRouter()
 
@@ -79,6 +80,77 @@ async def post_bulk_fill(payload: BulkFillPayload) -> dict:
         personnel_ids=payload.personnel_ids,
         restaurant_id=payload.restaurant_id,
     )
+
+
+# ─────────────────────────────────────────────────────────
+# Onay endpoint'leri (operasyon → admin akışı)
+# ─────────────────────────────────────────────────────────
+
+
+class ApprovalSubmitPayload(BaseModel):
+    restaurant_id: int
+    period: str
+    submitted_by: str | None = None
+
+
+class ApprovalDecidePayload(BaseModel):
+    status: str  # approved | rejected
+    decided_by: str | None = None
+    decision_notes: str | None = None
+
+
+@router.get("/approvals")
+async def get_approvals(
+    status: str | None = None,
+    period: str | None = None,
+) -> list[dict]:
+    """Onay listesi. Default: tümü, en yeni başta. status='pending' ile filtre."""
+    return approvals.list_approvals(status=status, period=period)
+
+
+@router.get("/approvals/summary")
+async def get_approvals_summary(period: str) -> dict:
+    """O ay için pending/approved/rejected sayıları."""
+    return approvals.get_summary_by_period(period=period)
+
+
+@router.get("/approvals/restaurant/{restaurant_id}")
+async def get_approval_for_restaurant(
+    restaurant_id: int, period: str,
+) -> dict:
+    """Belirli restoran+ay için onay durumu (yoksa boş dict)."""
+    res = approvals.get_for_restaurant(restaurant_id, period)
+    return res or {}
+
+
+@router.post("/approvals/submit")
+async def submit_approval(payload: ApprovalSubmitPayload) -> dict:
+    """Restoranın aylık puantajını onaya gönder."""
+    try:
+        return approvals.submit_for_approval(
+            restaurant_id=payload.restaurant_id,
+            period=payload.period,
+            submitted_by=payload.submitted_by,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.patch("/approvals/{approval_id}/decide")
+async def decide_approval(approval_id: int, payload: ApprovalDecidePayload) -> dict:
+    """Admin onay/red — status='approved' veya 'rejected'."""
+    try:
+        result = approvals.decide(
+            approval_id=approval_id,
+            status=payload.status,
+            decided_by=payload.decided_by,
+            decision_notes=payload.decision_notes,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    if not result:
+        raise HTTPException(status_code=404, detail="Onay kaydı bulunamadı")
+    return result
 
 
 @router.patch("/cell")
