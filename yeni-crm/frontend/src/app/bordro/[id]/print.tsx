@@ -33,12 +33,19 @@ function m(value: number | null | undefined): string {
   });
 }
 
+export type BordroPrintSignature = {
+  signed_at?: string | null;
+  ip_address?: string | null;
+  signature_data?: string;
+};
+
 export function BordroPrint({
-  payroll, personnel, period,
+  payroll, personnel, period, signature,
 }: {
   payroll: PayrollRow;
   personnel: Personnel | null;
   period: string;
+  signature?: BordroPrintSignature | null;
 }) {
   // Sayfa açılınca kısa bir gecikme sonrası yazdır diyaloğunu aç
   useEffect(() => {
@@ -326,15 +333,46 @@ export function BordroPrint({
             </div>
           </div>
           <div>
-            <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-12">
+            <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold mb-2">
               Kurye İmza
             </div>
-            <div className="border-b border-text/30 pb-1.5 text-[11.5px] text-text-2">
-              {payroll.full_name ?? '—'}
-            </div>
-            <div className="text-[10px] text-text-3 mt-1">
-              Tarih: ____________________
-            </div>
+            {signature && signature.signature_data ? (
+              <>
+                {/* Dijital imza görseli — kurye'nin canvas üzerinden attığı imza */}
+                <div className="h-[72px] flex items-end border-b border-text/30 pb-0.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={signature.signature_data}
+                    alt="Kurye imzası"
+                    className="max-h-[68px] max-w-full object-contain"
+                  />
+                </div>
+                <div className="text-[11.5px] text-text-2 mt-1.5 font-medium">
+                  {payroll.full_name ?? '—'}
+                </div>
+                <div className="text-[10px] text-text-3 mt-0.5 flex items-center gap-2">
+                  <span>
+                    Tarih:{' '}
+                    {signature.signed_at
+                      ? new Date(signature.signed_at).toLocaleDateString('tr-TR')
+                      : '—'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9.5px] font-semibold">
+                    Dijital İmzalı ✓
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="h-[72px] border-b border-text/30 mb-1" />
+                <div className="text-[11.5px] text-text-2 mt-1.5">
+                  {payroll.full_name ?? '—'}
+                </div>
+                <div className="text-[10px] text-text-3 mt-0.5">
+                  Tarih: ____________________
+                </div>
+              </>
+            )}
           </div>
         </div>
 

@@ -50,6 +50,26 @@ async def list_signatures(period: str = "2026-03") -> list[dict]:
     return list_signatures_for_period(period=period)
 
 
+@router.get("/signatures/{personnel_id}")
+async def get_personnel_signature(
+    personnel_id: int,
+    period: str = "2026-03",
+    include_data: bool = True,
+) -> dict | None:
+    """Tek kurye + ay için imza kaydı (default: signature_data dahil).
+
+    Admin bordro önizleme sayfası bunu çağırıp imza PNG'sini render
+    eder. Kayıt yoksa ``null`` döner (frontend onu '— imzalanmadı —'
+    olarak gösterir).
+    """
+    from app.services.signatures import get_signature
+    return get_signature(
+        personnel_id=personnel_id,
+        period=period,
+        include_data=include_data,
+    )
+
+
 @router.get("/sms-log/clear")
 async def clear_payroll_sms_log(personnel_id: int, period: str) -> dict:
     """Belirli kurye+ay için SMS log kaydını siler.

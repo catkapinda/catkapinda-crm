@@ -13,9 +13,43 @@ from app.services.requests import list_requests, create_request
 def get_my_bordro(personnel_id: int, period: str) -> dict:
     """Kuryenin kendi bordrosunu döner (aylık net hakediş).
 
+    Frontend ``BordroData`` tipi yeni şemayı kullanıyor
+    (``total_brut/total_deductions/total_net``). Buradaki normalize
+    eski raw payroll alanlarını (``toplam_brut/kesinti_total/sabit_total/
+    tevkifat/net``) yeni şemaya çevirir; ham veri ``detail`` altında
+    saklı kalır (PDF / detaylı görünüm hâlâ erişebilir).
+
     period: 'YYYY-MM' formatında
     """
-    return get_personnel_payroll(personnel_id, period)
+    raw = get_personnel_payroll(personnel_id, period)
+    if not raw:
+        return {
+            "personnel_id": personnel_id,
+            "period": period,
+            "total_brut": 0.0,
+            "total_deductions": 0.0,
+            "total_net": 0.0,
+            "detail": None,
+        }
+
+    total_brut = float(raw.get("toplam_brut") or 0)
+    total_deductions = float(
+        (raw.get("kesinti_total") or 0)
+        + (raw.get("sabit_total") or 0)
+        + (raw.get("tevkifat") or 0)
+    )
+    total_net = float(raw.get("net") or 0)
+
+    # Geriye dönük uyum: full_name vs. UI bordrolarım listesinde de var
+    return {
+        "personnel_id": personnel_id,
+        "period": period,
+        "full_name": raw.get("full_name"),
+        "total_brut": total_brut,
+        "total_deductions": total_deductions,
+        "total_net": total_net,
+        "detail": raw,
+    }
 
 
 def list_my_requests(personnel_id: int) -> list[dict]:
