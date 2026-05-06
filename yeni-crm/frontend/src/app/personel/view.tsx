@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   AlertTriangle, ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpRight, Award,
-  Bike, Check, ChevronRight, Inbox, LayoutGrid, List, Pencil, Phone,
+  Bike, Calendar, Check, ChevronRight, Inbox, LayoutGrid, List, Pencil, Phone,
   Plus, Search, ShieldCheck, Sparkles, Target, TrendingUp, Users,
   Utensils, Zap,
   type LucideIcon,
@@ -79,6 +80,34 @@ function vehicleLabel(p: Personnel): { label: string; color: string } {
   return { label: '—', color: 'bg-surface-2 text-text-3' };
 }
 
+const TR_MONTHS = [
+  'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+  'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
+];
+
+function periodToLabel(period: string, withYear = true): string {
+  const [y, m] = period.split('-').map(Number);
+  if (!y || !m) return period;
+  return withYear ? `${TR_MONTHS[m - 1]} ${y}` : TR_MONTHS[m - 1];
+}
+
+function periodMaxDaysOf(period: string): number {
+  const [y, m] = period.split('-').map(Number);
+  if (!y || !m) return 30;
+  return new Date(y, m, 0).getDate();
+}
+
+function recentPeriodOptions(count = 6): { value: string; label: string }[] {
+  const now = new Date();
+  const out: { value: string; label: string }[] = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    out.push({ value, label: `${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}` });
+  }
+  return out;
+}
+
 export function PersonnelView({
   personnel,
   restaurants,
@@ -86,6 +115,7 @@ export function PersonnelView({
   management = [],
   insights = null,
   stats = [],
+  period = '2026-03',
 }: {
   personnel: Personnel[];
   restaurants: Restaurant[];
@@ -93,7 +123,10 @@ export function PersonnelView({
   management?: ManagementMember[];
   insights?: PageInsights | null;
   stats?: PersonnelStats[];
+  period?: string;
 }) {
+  const router = useRouter();
+
   // Personel id → aylık stats eşlemesi (kart bazlı paket/saat/gün için)
   const statsMap = useMemo(() => {
     const m = new Map<number, PersonnelStats>();
@@ -101,8 +134,18 @@ export function PersonnelView({
     return m;
   }, [stats]);
 
-  // Maksimum gün sayısı — Mart 2026'da 31 (period sabit)
-  const periodMaxDays = 31;
+  // Period'a göre dinamik
+  const periodLabel = useMemo(() => periodToLabel(period), [period]);
+  const periodLabelShort = useMemo(() => periodToLabel(period, false), [period]);
+  const periodMaxDays = useMemo(() => periodMaxDaysOf(period), [period]);
+  const periodOptions = useMemo(() => recentPeriodOptions(6), []);
+  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
+
+  function changePeriod(next: string) {
+    setPeriodPickerOpen(false);
+    if (next === period) return;
+    router.push(`/personel?period=${next}`);
+  }
   const [statusTab, setStatusTab] = useState<'Aktif' | 'Pasif' | 'Kara Liste'>('Aktif');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -223,10 +266,52 @@ export function PersonnelView({
             Personel
           </h1>
           <div className="text-text-3 text-sm font-medium">
-            {activeOnly.length} aktif personel · {restaurants.length} restoranada görev başında · Mart 2026 performansı
+            {activeOnly.length} aktif personel · {restaurants.length} restoranada görev başında · {periodLabel} performansı
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-start">
+          {/* Period selector — premium dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setPeriodPickerOpen((v) => !v)}
+              className="px-3.5 py-2 rounded-lg bg-white border border-border text-text-2 text-xs font-semibold shadow-xs hover:border-brand/40 transition inline-flex items-center gap-2"
+            >
+              <Calendar className="w-3.5 h-3.5 text-brand" strokeWidth={2.2} />
+              <span className="text-text">{periodLabel}</span>
+              <ArrowDown className={`w-3 h-3 text-text-3 transition-transform ${periodPickerOpen ? 'rotate-180' : ''}`} strokeWidth={2.4} />
+            </button>
+            {periodPickerOpen && (
+              <>
+                {/* Click-outside backdrop */}
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setPeriodPickerOpen(false)}
+                />
+                <div className="absolute right-0 mt-1.5 z-40 w-48 bg-white border border-border rounded-xl shadow-xl overflow-hidden animate-hero-fade-in">
+                  <div className="px-3 py-2 text-[10px] uppercase tracking-wider font-bold text-text-3 border-b border-border/60">
+                    Dönem seç
+                  </div>
+                  {periodOptions.map((opt) => {
+                    const active = opt.value === period;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => changePeriod(opt.value)}
+                        className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center justify-between transition ${
+                          active
+                            ? 'bg-brand-soft text-brand'
+                            : 'text-text-2 hover:bg-surface-2'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {active && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
           <button className="px-3.5 py-2 rounded-lg bg-white border border-border text-text-2 text-xs font-semibold shadow-xs hover:border-border-2 transition inline-flex items-center gap-1.5">
             <ArrowDownToLine className="w-3.5 h-3.5" strokeWidth={2.2} /> Excel'e aktar
           </button>
@@ -368,116 +453,15 @@ export function PersonnelView({
               />
             </div>
 
-            {/* Kart listesi */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5">
-              {bmJoker.slice(0, 4).map((m) => {
-              const isBM = m.role?.includes('Bölge');
-              const isJoker = m.role?.includes('Joker');
-              const coverPercent = m.salary > 0 ? Math.min(100, (m.cover_hours * 200 + m.cover_packages * 25) / m.salary * 100) : 0;
-              const recoveryAmount = m.cover_hours * 200 + m.cover_packages * 25;
-
-              return (
-                <div
+            {/* Kart listesi — premium yeni nesil tasarım */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {bmJoker.slice(0, 4).map((m) => (
+                <ManagementCard
                   key={m.id}
-                  className="border border-border rounded-3xl overflow-hidden shadow-sm hover:shadow-lg transition relative"
-                  style={{
-                    background: `linear-gradient(180deg, ${isBM ? '#1F2937' : isJoker ? '#FEF9E7' : '#FFFFFF'} 0%, ${isBM ? '#111827' : isJoker ? '#FEF3C7' : '#FDFAF3'} 100%)`,
-                    borderTopColor: isBM ? '#6B7280' : isJoker ? '#FBBF24' : '#3B7BCF',
-                    borderTopWidth: '3px',
-                  }}
-                >
-                  <div className="p-4.5">
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <div
-                        className="w-10 h-10 rounded-full text-white font-bold flex items-center justify-center text-xs flex-shrink-0"
-                        style={{
-                          background: isBM ? 'linear-gradient(135deg, #0A3F8F, #1B4FAB)' : 'linear-gradient(135deg, #C9AE7A, #E8D9B5)',
-                          color: isJoker ? '#8B7355' : 'white',
-                        }}
-                      >
-                        {(m.full_name ?? '?').split(' ').map(w => w[0]).join('').substring(0, 2)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className={`text-sm font-bold ${isBM || isJoker ? (isBM ? 'text-white' : 'text-text') : 'text-text'}`}>
-                          {m.full_name || '—'}
-                        </div>
-                        <div className={`text-xs mt-0.5 ${isBM || isJoker ? (isBM ? 'text-gray-300' : 'text-text-3') : 'text-text-3'}`}>
-                          <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
-                            isBM ? 'bg-blue-900 text-white' : isJoker ? 'bg-yellow-200 text-text' : 'bg-brand-soft text-brand'
-                          }`}>
-                            {isBM ? 'BM' : isJoker ? 'Joker' : 'Kaptan'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className={`text-right text-xs leading-tight ${isBM || isJoker ? (isBM ? 'text-green-300' : 'text-terra') : 'text-success'}`}>
-                        <div className="font-bold">↑ %14</div>
-                        <div className={isBM || isJoker ? (isBM ? 'text-gray-400' : 'text-text-3') : 'text-text-3'}>vs Şubat</div>
-                      </div>
-                    </div>
-
-                    {/* Battery */}
-                    <div className="mb-2.5">
-                      <div className="flex-1 h-7 rounded-lg overflow-hidden mb-1" style={{
-                        background: isBM || isJoker ? 'rgba(255,255,255,0.15)' : '#F4EFE3',
-                      }}>
-                        <div
-                          className="h-full flex items-center justify-end pr-2 transition-all duration-1400"
-                          style={{
-                            width: `${coverPercent}%`,
-                            background: isJoker ? 'linear-gradient(90deg, #B45309, #D97706)' : 'linear-gradient(90deg, #10B981, #34D399)',
-                          }}
-                        >
-                          <span className={`text-xs font-bold ${isJoker ? 'text-text' : 'text-white'}`}>
-                            −%{Math.round(coverPercent)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between text-xs" style={{
-                        color: isBM || isJoker ? '#9CA3AF' : '#8B92A7',
-                        fontFamily: 'JetBrains Mono, monospace',
-                      }}>
-                        <span>0 ₺</span>
-                        <span>{tr(m.salary / 1000)}K ₺</span>
-                      </div>
-                    </div>
-
-                    {/* Summary */}
-                    <div className={`py-2.5 border-b border-t ${isBM || isJoker ? (isBM ? 'border-gray-700 border-gray-600' : 'border-cream-300') : 'border-border'} mb-2.5`}>
-                      <div className={`flex justify-between text-xs mb-1.5 ${isBM || isJoker ? (isBM ? 'text-gray-300' : 'text-text-2') : 'text-text-2'}`}>
-                        <span>Sabit maaş</span>
-                        <span className={`font-semibold font-mono ${isBM || isJoker ? (isBM ? 'text-gray-200' : 'text-text') : 'text-text'}`}>{tr(m.salary)}</span>
-                      </div>
-                      <div className={`flex justify-between text-xs ${isJoker ? 'text-terra' : 'text-success'}`}>
-                        <span>Cover ile geri kazanım</span>
-                        <span className="font-bold font-mono">+{tr(recoveryAmount)}</span>
-                      </div>
-                      <div className={`flex justify-between text-xs font-bold mt-1.5 pt-1 border-t ${isBM || isJoker ? (isBM ? 'border-gray-600 text-blue-200' : 'border-cream-200 text-text') : 'border-dashed border-border text-brand'}`}>
-                        <span>Net maliyet</span>
-                        <span className="font-mono">{tr(Math.max(0, m.salary - recoveryAmount))}</span>
-                      </div>
-                    </div>
-
-                    {/* Mini bars */}
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { val: m.cover_days, lbl: 'Cover' },
-                        { val: m.cover_packages, lbl: 'Paket' },
-                        { val: Math.round(m.cover_hours), lbl: 'Çalışma', suffix: 'sa' },
-                      ].map((stat, i) => (
-                        <div key={i} className={`text-center p-2 rounded ${isBM || isJoker ? (isBM ? 'bg-gray-700' : 'bg-cream-100') : 'bg-surface-2'}`}>
-                          <div className={`font-mono text-sm font-bold ${isBM || isJoker ? (isBM ? 'text-white' : 'text-text') : 'text-text'}`}>
-                            {stat.val}{stat.suffix || ''}
-                          </div>
-                          <div className={`text-xs font-semibold uppercase tracking-wide mt-1 ${isBM || isJoker ? (isBM ? 'text-gray-400' : 'text-text-3') : 'text-text-3'}`}>
-                            {stat.lbl}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  member={m}
+                  onEdit={() => setEditingId(m.id)}
+                />
+              ))}
             </div>
 
             {/* RTŞ — Restoran Takım Şefleri (Restorana Faturalı) */}
@@ -492,7 +476,7 @@ export function PersonnelView({
           <div className="flex items-baseline justify-between mb-3">
             <div>
               <h3 className="font-display text-lg font-semibold inline-flex items-center gap-2">
-                🏆 Mart Şampiyonları
+                🏆 {periodLabelShort} Şampiyonları
               </h3>
               <span className="text-text-3 text-xs ml-2 font-medium">
                 paket sayısına göre
@@ -730,7 +714,7 @@ export function PersonnelView({
               <div></div>
               <div>Personel</div>
               <div>Restoran · Araç</div>
-              <div className="text-center">Mart 2026 · Paket / Saat / Gün</div>
+              <div className="text-center">{periodLabel} · Paket / Saat / Gün</div>
               <div></div>
             </div>
 
@@ -961,7 +945,7 @@ export function PersonnelView({
                       </div>
                     )}
 
-                    {/* Stats (Mart 2026 aylık aggregate — backend stats'tan) */}
+                    {/* Stats (seçili dönemin aylık aggregate — backend stats'tan) */}
                     {(() => {
                       const s = statsMap.get(p.id);
                       const pkts = s?.total_packages ?? 0;
@@ -1596,6 +1580,136 @@ function formatTL(value: number): string {
   if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
   return Math.round(value).toLocaleString('tr-TR');
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Management Card — BM / Joker için premium yeni nesil kart
+// ──────────────────────────────────────────────────────────────────
+function ManagementCard({
+  member, onEdit,
+}: {
+  member: ManagementMember;
+  onEdit: () => void;
+}) {
+  const isBM = member.role?.includes('Bölge');
+  const recovery = member.cover_hours * 200 + member.cover_packages * 25;
+  const recoveryPct = member.salary > 0
+    ? Math.min(100, Math.round((recovery / member.salary) * 100))
+    : 0;
+  const netCost = Math.max(0, member.salary - recovery);
+  const initials = (member.full_name ?? '?')
+    .split(' ').filter(Boolean).slice(0, 2)
+    .map((w) => w[0]?.toUpperCase()).join('');
+
+  // Role-based subtle accent (rose for BM, amber for Joker)
+  const accent = isBM
+    ? { bar: 'from-slate-700 to-slate-900', chip: 'bg-slate-900 text-white', avatar: 'from-slate-700 to-slate-900' }
+    : { bar: 'from-amber-500 to-amber-700', chip: 'bg-amber-100 text-amber-900', avatar: 'from-amber-500 to-amber-700' };
+
+  return (
+    <div
+      onClick={onEdit}
+      className="group bg-white border border-border rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden relative"
+    >
+      {/* Top accent bar */}
+      <div className={`h-1 bg-gradient-to-r ${accent.bar}`} />
+
+      <div className="p-4.5">
+        {/* Header: avatar + identity + edit chip */}
+        <div className="flex items-start gap-3 mb-4">
+          <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${accent.avatar} text-white font-semibold flex items-center justify-center text-sm shadow-sm flex-shrink-0`}>
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-display text-[14.5px] font-semibold text-text truncate leading-tight">
+              {member.full_name || '—'}
+            </div>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${accent.chip}`}>
+                {isBM ? 'BM' : 'Joker'}
+              </span>
+              <span className="text-[10.5px] text-text-3 font-mono tabular-nums truncate">
+                {member.person_code ?? ''}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            aria-label="Bilgileri düzenle"
+            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-surface-2 hover:bg-brand hover:text-white transition flex-shrink-0"
+          >
+            <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
+          </button>
+        </div>
+
+        {/* Hero: Net Maliyet */}
+        <div className="mb-3.5">
+          <div className="text-[10px] uppercase tracking-wider font-bold text-text-3 mb-0.5">
+            Net Maliyet
+          </div>
+          <div className="font-display text-[28px] font-semibold tabular-nums text-text leading-tight">
+            {tr(netCost)} <span className="text-text-3 text-lg font-normal">₺</span>
+          </div>
+          <div className={`text-[11px] font-semibold mt-0.5 inline-flex items-center gap-1 ${
+            recoveryPct >= 50 ? 'text-emerald-700' : recoveryPct >= 25 ? 'text-amber-700' : 'text-rose-700'
+          }`}>
+            {recoveryPct >= 50
+              ? <ArrowDown className="w-3 h-3" strokeWidth={2.6} />
+              : <AlertTriangle className="w-3 h-3" strokeWidth={2.4} />}
+            cover ile %{recoveryPct} geri kazanıldı
+          </div>
+        </div>
+
+        {/* Visual ratio bar — maaş vs cover */}
+        <div className="mb-3.5">
+          <div className="flex h-1.5 rounded-full overflow-hidden bg-surface-2">
+            <div
+              className="bg-gradient-to-r from-rose-400 to-rose-300"
+              style={{ width: `${100 - recoveryPct}%` }}
+            />
+            <div
+              className="bg-gradient-to-r from-emerald-500 to-emerald-400"
+              style={{ width: `${recoveryPct}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-1.5 text-[10px] font-semibold tabular-nums">
+            <span className="text-rose-700">Maaş {tr(member.salary)} ₺</span>
+            <span className="text-emerald-700">↺ {tr(recovery)} ₺</span>
+          </div>
+        </div>
+
+        {/* Footer: aktivite stats */}
+        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border/60">
+          <ManagementStat label="Cover" value={member.cover_days} />
+          <ManagementStat label="Paket" value={member.cover_packages} />
+          <ManagementStat
+            label="Çalışma"
+            value={Math.round(member.cover_hours)}
+            unit="sa"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManagementStat({
+  label, value, unit,
+}: {
+  label: string;
+  value: number;
+  unit?: string;
+}) {
+  return (
+    <div className="text-center">
+      <div className="font-mono text-[15px] font-bold tabular-nums text-text leading-tight">
+        {value.toLocaleString('tr-TR')}{unit ? <span className="text-[11px] text-text-3 font-normal ml-0.5">{unit}</span> : null}
+      </div>
+      <div className="text-[9.5px] text-text-3 uppercase tracking-wider font-bold mt-0.5">
+        {label}
+      </div>
+    </div>
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────

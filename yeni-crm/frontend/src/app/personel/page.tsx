@@ -19,7 +19,24 @@ import { PersonnelView } from './view';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PersonelPage() {
+const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function defaultPeriod(): string {
+  // Bugün - 1 ay (son tamamlanan ay)
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export default async function PersonelPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string | string[] }>;
+}) {
+  const sp = await searchParams;
+  const rawPeriod = typeof sp.period === 'string' ? sp.period : '';
+  const period = PERIOD_RE.test(rawPeriod) ? rawPeriod : defaultPeriod();
+
   let allPersonnel: Personnel[] = [];
   let restaurants: Restaurant[] = [];
   let counts: SidebarCounts | null = null;
@@ -35,10 +52,10 @@ export default async function PersonelPage() {
         listPersonnel(),
         listRestaurants().catch(() => []),
         getSidebarCounts().catch(() => null),
-        getTopPerformers('2026-03', 3).catch(() => []),
-        getManagementSummary('2026-03').catch(() => []),
-        getPageInsights('2026-03').catch(() => null),
-        getPersonnelStats('2026-03').catch(() => []),
+        getTopPerformers(period, 3).catch(() => []),
+        getManagementSummary(period).catch(() => []),
+        getPageInsights(period).catch(() => null),
+        getPersonnelStats(period).catch(() => []),
       ]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'API hatası';
@@ -60,6 +77,7 @@ export default async function PersonelPage() {
             management={management}
             insights={insights}
             stats={stats}
+            period={period}
           />
         )}
       </main>
