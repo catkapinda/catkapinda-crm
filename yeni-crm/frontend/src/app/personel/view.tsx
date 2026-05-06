@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowDownToLine, ArrowUpRight, Award, Check,
-  Inbox, Plus, Search, Sparkles, Target, TrendingUp,
-  Utensils, Zap,
+  AlertTriangle, ArrowDownToLine, ArrowUpRight, Award, Bike, Check,
+  Inbox, Plus, Search, ShieldCheck, Sparkles, Target, TrendingUp,
+  Users, Utensils, Zap,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { PersonnelEditModal } from '@/components/personnel-edit-modal';
@@ -137,14 +138,31 @@ export function PersonnelView({
     return personnel.filter((p) => (p.status ?? 'Aktif') === 'Aktif');
   }, [personnel]);
 
-  const heroMetrics = useMemo(() => ({
-    total: activeOnly.length,
-    kurye: activeOnly.filter((p) => p.role === 'Kurye').length,
-    joker: activeOnly.filter((p) => p.role === 'Joker').length,
-    yonetim: activeOnly.filter((p) =>
-      ['Bölge Müdürü', 'Kaptan', 'Restoran Takım Şefi'].includes(p.role ?? '')
-    ).length,
-  }), [activeOnly]);
+  const heroMetrics = useMemo(() => {
+    const total = activeOnly.length;
+    const kurye = activeOnly.filter((p) => p.role === 'Kurye').length;
+    const joker = activeOnly.filter((p) => p.role === 'Joker').length;
+    const bm = activeOnly.filter((p) => p.role === 'Bölge Müdürü').length;
+    const kaptan = activeOnly.filter((p) => p.role === 'Kaptan').length;
+    const sef = activeOnly.filter((p) => p.role === 'Restoran Takım Şefi').length;
+    const yonetim = bm + kaptan + sef;
+    const pasif = personnel.length - total;
+    return { total, kurye, joker, yonetim, bm, kaptan, sef, pasif };
+  }, [activeOnly, personnel]);
+
+  // Joker recovery — sabit maaş cover'lığını insights'tan al
+  const jokerRecovery = useMemo(() => {
+    const jokers = (insights?.top_recovery ?? []).filter((m) => m.role === 'Joker');
+    if (jokers.length === 0) return { pct: 0, totalSalary: 0 };
+    let totalSalary = 0;
+    let totalCover = 0;
+    for (const m of jokers) {
+      totalSalary += m.salary;
+      totalCover += m.cover_hours * 200 + m.cover_packages * 25;
+    }
+    const pct = totalSalary > 0 ? Math.min(100, Math.round((totalCover / totalSalary) * 100)) : 0;
+    return { pct, totalSalary };
+  }, [insights]);
 
   const editing = editingId != null
     ? personnel.find((p) => p.id === editingId) ?? null
@@ -185,100 +203,65 @@ export function PersonnelView({
         </div>
       </header>
 
-      {/* ──── HERO STRIP ──── */}
-      <div className="bg-white border border-border rounded-2xl shadow-md flex overflow-hidden mb-4.5">
-        {/* Cell 1: Toplam Aktif (Brand gradient) */}
-        <div
-          className="flex-1 flex flex-col justify-center p-5.5 border-r border-border relative overflow-hidden"
-          style={{
-            background: 'linear-gradient(135deg, #0A3F8F, #0F52BA)',
-            color: 'white',
-          }}
-        >
-          <div className="flex justify-between items-start gap-3 mb-2.5">
-            <div className="text-xs font-semibold uppercase tracking-wide opacity-85">Toplam Aktif</div>
-            <div className="px-2 py-1 rounded-full bg-green-500/25 text-green-100 text-xs font-bold">
-              ↑ %4.5
-            </div>
-          </div>
-          <div className="text-5xl font-bold font-display tracking-tight mb-2">
-            {heroMetrics.total}
-          </div>
-          <div className="text-sm opacity-90">
-            <span className="font-bold">+4</span> son 30 günde · 11 pasif arşivde
-          </div>
-          <div className="mt-2.5 h-7 bg-white/10 rounded opacity-30" />
-        </div>
+      {/* ──── KPI HERO — premium 4 kart ──── */}
+      <div className="grid grid-cols-4 gap-3.5 mb-5">
+        {/* 1. Toplam Aktif — primary mavi gradient */}
+        <KpiHeroCard
+          variant="brand"
+          Icon={Users}
+          label="Toplam Aktif"
+          value={heroMetrics.total}
+          sub={
+            heroMetrics.pasif > 0
+              ? `${heroMetrics.pasif} pasif arşivde`
+              : 'tüm kayıtlar aktif'
+          }
+          subBold={`${heroMetrics.total} kişi`}
+          progress={100}
+        />
 
-        {/* Cell 2: Kurye */}
-        <div className="flex-1 flex flex-col justify-center p-5.5 border-r border-border">
-          <div className="flex justify-between items-start gap-3 mb-2.5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-text-3">Kurye</div>
-            <div className="w-7 h-7 rounded-lg bg-brand-soft flex items-center justify-center text-brand text-sm flex-shrink-0">
-              🛵
-            </div>
-          </div>
-          <div className="text-5xl font-bold font-display tracking-tight mb-2">
-            {heroMetrics.kurye}
-          </div>
-          <div className="w-full h-1 bg-surface-2 rounded-full overflow-hidden mb-1.5">
-            <div
-              className="h-full bg-brand transition-all duration-1200"
-              style={{
-                width: `${heroMetrics.total > 0 ? Math.round((heroMetrics.kurye / heroMetrics.total) * 100) : 0}%`,
-              }}
-            />
-          </div>
-          <div className="text-xs text-text-3">
-            %{heroMetrics.total > 0 ? Math.round((heroMetrics.kurye / heroMetrics.total) * 100) : 0} ekibin · ortalama 24sa/gün
-          </div>
-        </div>
+        {/* 2. Kurye — saha ekibi ana kütle */}
+        <KpiHeroCard
+          variant="blue"
+          Icon={Bike}
+          label="Kurye"
+          value={heroMetrics.kurye}
+          sub={`ekibin %${heroMetrics.total > 0 ? Math.round((heroMetrics.kurye / heroMetrics.total) * 100) : 0}'i sahada`}
+          progress={heroMetrics.total > 0 ? (heroMetrics.kurye / heroMetrics.total) * 100 : 0}
+        />
 
-        {/* Cell 3: Yönetim */}
-        <div className="flex-1 flex flex-col justify-center p-5.5 border-r border-border">
-          <div className="flex justify-between items-start gap-3 mb-2.5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-text-3">Yönetim</div>
-            <div className="w-7 h-7 rounded-lg bg-surface-3 flex items-center justify-center text-text-2 text-sm flex-shrink-0">
-              👔
-            </div>
-          </div>
-          <div className="text-5xl font-bold font-display tracking-tight mb-2">
-            {heroMetrics.yonetim}
-          </div>
-          <div className="flex gap-0.5 h-1.5 rounded-full overflow-hidden mb-1.5">
-            <div className="bg-blue-900 flex-1" />
-            <div className="bg-yellow-600 flex-1" />
-            <div className="bg-slate-600 flex-[0.5]" />
-          </div>
-          <div className="text-xs text-text-3">
-            2 BM · 2 Kaptan · 1 Şef
-          </div>
-        </div>
+        {/* 3. Yönetim — BM + Kaptan + Şef gerçek dağılım */}
+        <KpiHeroCard
+          variant="slate"
+          Icon={ShieldCheck}
+          label="Yönetim"
+          value={heroMetrics.yonetim}
+          sub={
+            <>
+              {heroMetrics.bm > 0 && <><strong>{heroMetrics.bm}</strong> BM</>}
+              {heroMetrics.bm > 0 && (heroMetrics.kaptan > 0 || heroMetrics.sef > 0) && ' · '}
+              {heroMetrics.kaptan > 0 && <><strong>{heroMetrics.kaptan}</strong> Kaptan</>}
+              {heroMetrics.kaptan > 0 && heroMetrics.sef > 0 && ' · '}
+              {heroMetrics.sef > 0 && <><strong>{heroMetrics.sef}</strong> Şef</>}
+              {heroMetrics.yonetim === 0 && <>operasyondan sorumlu kayıt yok</>}
+            </>
+          }
+          progress={heroMetrics.total > 0 ? (heroMetrics.yonetim / heroMetrics.total) * 100 : 0}
+        />
 
-        {/* Cell 4: Joker */}
-        <div className="flex-1 flex flex-col justify-center p-5.5">
-          <div className="flex justify-between items-start gap-3 mb-2.5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-text-3">Joker</div>
-            <div className="w-7 h-7 rounded-lg bg-cream-100 flex items-center justify-center text-terra text-sm flex-shrink-0">
-              🃏
-            </div>
-          </div>
-          <div className="text-5xl font-bold font-display tracking-tight mb-2">
-            {heroMetrics.joker}
-          </div>
-          <div className="w-full h-1 bg-surface-2 rounded-full overflow-hidden mb-1.5">
-            <div
-              className="h-full transition-all duration-1200"
-              style={{
-                width: '47%',
-                background: 'linear-gradient(90deg, #10B981, #34D399)',
-              }}
-            />
-          </div>
-          <div className="text-xs text-text-3">
-            %47 geri kazanım · 176K ₺/ay sabit
-          </div>
-        </div>
+        {/* 4. Joker — sabit maaş cover oranı */}
+        <KpiHeroCard
+          variant="amber"
+          Icon={Sparkles}
+          label="Joker"
+          value={heroMetrics.joker}
+          sub={
+            jokerRecovery.totalSalary > 0
+              ? <><strong>%{jokerRecovery.pct}</strong> sabit maaş cover oranı</>
+              : <>esnek atama · havuz</>
+          }
+          progress={jokerRecovery.pct}
+        />
       </div>
 
       {/* ──── AKILLI İÇGÖRÜ HERO — gerçek veriye bağlı dinamik anlatım ──── */}
@@ -1291,4 +1274,110 @@ function formatTL(value: number): string {
   if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
   return Math.round(value).toLocaleString('tr-TR');
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Premium KPI Hero Kartı — 4 kart aynı dilde, gradient + progress
+// ──────────────────────────────────────────────────────────────────
+function KpiHeroCard({
+  variant, Icon, label, value, sub, subBold, progress,
+}: {
+  variant: 'brand' | 'blue' | 'slate' | 'amber';
+  Icon: LucideIcon;
+  label: string;
+  value: number;
+  sub: React.ReactNode;
+  subBold?: string;
+  progress?: number;
+}) {
+  // Tüm kartlar aynı tasarım dilinde, sadece tone değişiyor
+  const palettes = {
+    brand: {
+      bg: 'bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500',
+      text: 'text-white',
+      label: 'text-blue-100/90',
+      sub: 'text-white/85',
+      iconBg: 'bg-white/20 ring-1 ring-white/30',
+      iconText: 'text-white',
+      progressBg: 'bg-white/20',
+      progressFill: 'bg-gradient-to-r from-cyan-300 to-white',
+      shadow: 'shadow-[0_8px_24px_rgba(15,82,186,0.35)]',
+    },
+    blue: {
+      bg: 'bg-white',
+      text: 'text-text',
+      label: 'text-blue-700',
+      sub: 'text-text-3',
+      iconBg: 'bg-blue-100',
+      iconText: 'text-blue-700',
+      progressBg: 'bg-blue-100',
+      progressFill: 'bg-gradient-to-r from-blue-400 to-blue-600',
+      shadow: 'shadow-sm',
+    },
+    slate: {
+      bg: 'bg-white',
+      text: 'text-text',
+      label: 'text-slate-700',
+      sub: 'text-text-3',
+      iconBg: 'bg-slate-100',
+      iconText: 'text-slate-700',
+      progressBg: 'bg-slate-100',
+      progressFill: 'bg-gradient-to-r from-slate-500 to-slate-700',
+      shadow: 'shadow-sm',
+    },
+    amber: {
+      bg: 'bg-white',
+      text: 'text-text',
+      label: 'text-amber-700',
+      sub: 'text-text-3',
+      iconBg: 'bg-amber-100',
+      iconText: 'text-amber-700',
+      progressBg: 'bg-amber-100',
+      progressFill: 'bg-gradient-to-r from-amber-400 to-amber-600',
+      shadow: 'shadow-sm',
+    },
+  } as const;
+  const p = palettes[variant];
+
+  return (
+    <div
+      className={[
+        p.bg, p.text, p.shadow,
+        'rounded-2xl p-5 border border-border/60',
+        'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
+        'relative overflow-hidden',
+      ].join(' ')}
+    >
+      {/* Top-right ikon */}
+      <div className="flex items-start justify-between mb-3">
+        <div className={`text-[10.5px] font-bold uppercase tracking-[0.12em] ${p.label}`}>
+          {label}
+        </div>
+        <div className={`w-9 h-9 rounded-xl ${p.iconBg} ${p.iconText} flex items-center justify-center shadow-sm`}>
+          <Icon className="w-4 h-4" strokeWidth={2.4} />
+        </div>
+      </div>
+
+      {/* Sayı */}
+      <div className="font-display text-[40px] font-bold tracking-tight tabular-nums leading-none mb-2.5">
+        {value.toLocaleString('tr-TR')}
+      </div>
+
+      {/* Progress bar — 0..100% */}
+      {typeof progress === 'number' && (
+        <div className={`h-1 rounded-full overflow-hidden mb-2 ${p.progressBg}`}>
+          <div
+            className={`h-full ${p.progressFill} transition-all duration-700 ease-out rounded-full`}
+            style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
+          />
+        </div>
+      )}
+
+      {/* Alt bilgi */}
+      <div className={`text-[12px] leading-snug ${p.sub}`}>
+        {subBold && <span className="font-semibold">{subBold}{' · '}</span>}
+        {sub}
+      </div>
+    </div>
+  );
 }
