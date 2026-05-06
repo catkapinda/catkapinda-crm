@@ -279,23 +279,74 @@ export function PersonnelView({
       {/* ──── AKILLI İÇGÖRÜ HERO — gerçek veriye bağlı dinamik anlatım ──── */}
       {insights && <SmartInsightsHero insights={insights} />}
 
-      {/* ──── YÖNETIM & YEDEK OPERASYON ──── */}
-      {management.length > 0 && (
-        <div className="mb-4.5">
-          <div className="flex items-baseline justify-between mb-3">
-            <div>
-              <h3 className="font-display text-lg font-semibold inline-flex items-center gap-2">
-                <Zap className="w-5 h-5 text-brand" strokeWidth={2.2} />
-                Yönetim & Yedek Operasyon
-              </h3>
-              <span className="text-text-3 text-xs ml-2 font-medium">
-                sabit maaşlı · operasyondan sorumlu · maliyet geri kazanımıyla
-              </span>
+      {/* ──── BÖLGE MÜDÜRÜ & JOKER MAAŞLARI — sadece bizim cebimizden ödenen sabit maaşlılar ──── */}
+      {management.length > 0 && (() => {
+        // Sadece BM ve Joker — Kaptan ve RTŞ ayrı kategoriler:
+        // - Kaptan: aslında Kurye, +3000₺ unvan farkı (ana kurye listesinde sayılır)
+        // - RTŞ: maaşı restoran tarafından karşılanır (Quick China'ya faturalı)
+        const bmJoker = management.filter((m) =>
+          m.role === 'Bölge Müdürü' || m.role === 'Joker'
+        );
+        const rts = management.filter((m) => m.role === 'Restoran Takım Şefi');
+
+        const toplamSabitMaas = bmJoker.reduce((s, m) => s + (m.salary || 0), 0);
+        const toplamCover = bmJoker.reduce(
+          (s, m) => s + (m.cover_hours * 200 + m.cover_packages * 25),
+          0,
+        );
+        const aktifRestoran = restaurants.filter((r) => r.active !== 0).length;
+        const restoranBasiMaliyet = aktifRestoran > 0 ? toplamSabitMaas / aktifRestoran : 0;
+        const netPozisyon = toplamCover - toplamSabitMaas;
+        const coverPct = toplamSabitMaas > 0
+          ? Math.min(100, Math.round((toplamCover / toplamSabitMaas) * 100))
+          : 0;
+
+        return (
+          <div className="mb-5">
+            {/* Header */}
+            <div className="flex items-baseline justify-between mb-3">
+              <div>
+                <h3 className="font-display text-lg font-semibold inline-flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-brand" strokeWidth={2.2} />
+                  Bölge Müdürü & Joker Maaşları
+                </h3>
+                <span className="text-text-3 text-[12.5px] ml-2 font-medium">
+                  sabit maaşlı · bizim cebimizden · saha cover ile geri kazanım
+                </span>
+              </div>
             </div>
-            <span className="text-brand text-xs font-semibold cursor-pointer">Hepsini gör →</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5">
-            {management.slice(0, 4).map((m) => {
+
+            {/* Özet — operasyonel maliyet özeti */}
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              <SummaryCard
+                tone="rose"
+                label="Toplam Sabit Maaş"
+                value={`${formatTL(toplamSabitMaas)} ₺`}
+                sub={`${bmJoker.length} kişi (${bmJoker.filter(m => m.role === 'Bölge Müdürü').length} BM · ${bmJoker.filter(m => m.role === 'Joker').length} Joker)`}
+              />
+              <SummaryCard
+                tone="blue"
+                label="Restoran Başı Maliyet"
+                value={`${formatTL(restoranBasiMaliyet)} ₺`}
+                sub={`${aktifRestoran} aktif restorana bölündü`}
+              />
+              <SummaryCard
+                tone="emerald"
+                label="Saha Cover Geri Kazanım"
+                value={`${formatTL(toplamCover)} ₺`}
+                sub={`maaşların %${coverPct}'i geri kazanıldı`}
+              />
+              <SummaryCard
+                tone={netPozisyon >= 0 ? 'emerald' : 'amber'}
+                label={netPozisyon >= 0 ? 'Net Kar' : 'Net Maliyet (kayıp)'}
+                value={`${netPozisyon >= 0 ? '+' : '−'}${formatTL(Math.abs(netPozisyon))} ₺`}
+                sub={netPozisyon >= 0 ? 'cover, maaşı geçti' : 'maaş > cover · ek paket motivasyonu gerekli'}
+              />
+            </div>
+
+            {/* Kart listesi */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5">
+              {bmJoker.slice(0, 4).map((m) => {
               const isBM = m.role?.includes('Bölge');
               const isJoker = m.role?.includes('Joker');
               const coverPercent = m.salary > 0 ? Math.min(100, (m.cover_hours * 200 + m.cover_packages * 25) / m.salary * 100) : 0;
@@ -403,9 +454,13 @@ export function PersonnelView({
                 </div>
               );
             })}
+            </div>
+
+            {/* RTŞ — Restoran Takım Şefleri (Restorana Faturalı) */}
+            {rts.length > 0 && <RTSSection rts={rts} restMap={restMap} />}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ──── TOP PERFORMERS PODIUM (MART ŞAMPİYONLARI) ──── */}
       {topPerformers.length > 0 && (
@@ -1304,6 +1359,117 @@ function formatTL(value: number): string {
   if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
   return Math.round(value).toLocaleString('tr-TR');
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Yönetim özet kartı — toplam maaş / restoran başı / cover / net
+// ──────────────────────────────────────────────────────────────────
+function SummaryCard({
+  tone, label, value, sub,
+}: {
+  tone: 'rose' | 'blue' | 'emerald' | 'amber';
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  const palettes = {
+    rose: { bg: 'bg-rose-50/70', border: 'border-rose-200', label: 'text-rose-700', value: 'text-rose-900' },
+    blue: { bg: 'bg-blue-50/70', border: 'border-blue-200', label: 'text-blue-700', value: 'text-blue-900' },
+    emerald: { bg: 'bg-emerald-50/70', border: 'border-emerald-200', label: 'text-emerald-700', value: 'text-emerald-900' },
+    amber: { bg: 'bg-amber-50/70', border: 'border-amber-200', label: 'text-amber-700', value: 'text-amber-900' },
+  } as const;
+  const p = palettes[tone];
+  return (
+    <div className={`rounded-2xl border ${p.bg} ${p.border} p-3.5`}>
+      <div className={`text-[10.5px] font-bold uppercase tracking-[0.1em] ${p.label} mb-1.5`}>
+        {label}
+      </div>
+      <div className={`font-display text-[20px] font-bold tabular-nums tracking-tight ${p.value} leading-tight`}>
+        {value}
+      </div>
+      {sub && (
+        <div className="text-[11.5px] text-text-3 mt-1 leading-snug">
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Restoran Takım Şefleri — restorana faturalı, bizim cebimize değil
+// ──────────────────────────────────────────────────────────────────
+function RTSSection({
+  rts, restMap,
+}: {
+  rts: ManagementMember[];
+  restMap: Map<number, Restaurant>;
+}) {
+  // RTŞ'ler için 'Quick China' gibi bir restoran ataması olmayabilir,
+  // ama paket/cover varsa bu restorana ekstra fatura olarak yansır.
+  const totalPackages = rts.reduce((s, m) => s + m.cover_packages, 0);
+  const totalHours = rts.reduce((s, m) => s + m.cover_hours, 0);
+  void restMap; // ileride restoran adı eşlemesi için tutuldu
+
+  return (
+    <div className="mt-5 pt-5 border-t border-border/60">
+      <div className="flex items-baseline justify-between mb-2.5">
+        <div>
+          <h4 className="font-display text-[15px] font-semibold inline-flex items-center gap-2">
+            <Award className="w-4 h-4 text-emerald-600" strokeWidth={2.4} />
+            Restoran Takım Şefleri (Restorana Faturalı)
+          </h4>
+          <span className="text-text-3 text-[12px] ml-2 font-medium">
+            ücreti restoran tarafından karşılanır · attıkları paketler restorana ekstra fatura
+          </span>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+        {rts.map((m) => {
+          const cover = m.cover_hours * 200 + m.cover_packages * 25;
+          return (
+            <div
+              key={m.id}
+              className="bg-white/80 rounded-xl border border-emerald-100 px-3 py-2.5"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="font-semibold text-[13px] text-text truncate">
+                  {m.full_name}
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 px-1.5 py-0.5 rounded bg-emerald-100">
+                  RTŞ
+                </span>
+              </div>
+              <div className="text-[11.5px] text-text-3 mt-0.5">
+                {m.person_code} · sabit faturalı maaş
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-2 text-[11px]">
+                <div className="text-center">
+                  <div className="font-mono font-bold text-emerald-700">{m.cover_packages}</div>
+                  <div className="text-text-3 text-[10px] uppercase tracking-wide">Paket</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-mono font-bold text-emerald-700">{Math.round(m.cover_hours)}</div>
+                  <div className="text-text-3 text-[10px] uppercase tracking-wide">Saat</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-mono font-bold text-emerald-700">+{formatTL(cover)}</div>
+                  <div className="text-text-3 text-[10px] uppercase tracking-wide">Ekstra</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="text-[11.5px] text-text-3 mt-2 px-1 leading-relaxed">
+        Toplam <strong className="text-emerald-700">{totalPackages} paket</strong> ve{' '}
+        <strong className="text-emerald-700">{Math.round(totalHours)} saat</strong> RTŞ cover'ı —
+        {' '}restoran faturasına ekstra prim yansır, RTŞ'ye direkt ödeme yapılmaz.
+      </div>
+    </div>
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────
