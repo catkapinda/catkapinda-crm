@@ -464,7 +464,7 @@ export function PersonnelView({
               ))}
             </div>
 
-            {/* RTŞ — Restoran Takım Şefleri (Restorana Faturalı) */}
+            {/* RTŞ — Recep'in attığı paketler şirkete ek kar (restoran maliyetiyle ilgisi yok) */}
             {rts.length > 0 && <RTSSection rts={rts} restMap={restMap} />}
           </div>
         );
@@ -1886,7 +1886,7 @@ function SummaryCard({
 }
 
 // ──────────────────────────────────────────────────────────────────
-// Restoran Takım Şefleri — restorana faturalı, bizim cebimize değil
+// Restoran Takım Şefleri — attıkları paketler şirkete ek kâr (paket × oran)
 // ──────────────────────────────────────────────────────────────────
 function RTSSection({
   rts, restMap,
@@ -1894,8 +1894,9 @@ function RTSSection({
   rts: ManagementMember[];
   restMap: Map<number, Restaurant>;
 }) {
-  // RTŞ paket başı oranı — bizim ekstra kâr kalemimiz
+  // RTŞ paket başı net oranı — KDV hariç, faturada %20 KDV eklenir
   const RTS_RATE = 32;
+  const KDV = 0.20;
   void restMap;
 
   if (rts.length === 0) return null;
@@ -1903,7 +1904,9 @@ function RTSSection({
   return (
     <div className="mt-3 space-y-1.5">
       {rts.map((m) => {
-        const ekstra = m.cover_packages * RTS_RATE;
+        const net = m.cover_packages * RTS_RATE;
+        const kdv = net * KDV;
+        const brut = net + kdv;
         return (
           <div
             key={m.id}
@@ -1918,14 +1921,21 @@ function RTSSection({
             <span className="text-[11.5px] text-text-3 font-mono tabular-nums truncate">
               {m.person_code}
             </span>
-            <span className="ml-auto text-[12px] text-text-2 inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span className="ml-auto text-[12px] text-text-2 inline-flex items-baseline gap-1.5 whitespace-nowrap">
               <span className="font-mono tabular-nums font-semibold text-text">{m.cover_packages}</span>
               <span className="text-text-3">paket × {RTS_RATE} ₺</span>
+              <span className="text-text-3">+ KDV</span>
               <span className="text-text-3">=</span>
               <span className="font-mono tabular-nums font-bold text-brand-dark">
-                +{ekstra.toLocaleString('tr-TR')} ₺
+                +{Math.round(brut).toLocaleString('tr-TR')} ₺
               </span>
-              <span className="text-[10.5px] text-text-3 font-medium">restorana fatura</span>
+              <span className="text-[10.5px] text-text-3 font-medium">şirkete kar</span>
+              <span
+                className="text-[10px] text-text-3 font-mono tabular-nums"
+                title={`Net ${net.toLocaleString('tr-TR')} ₺ · KDV %20 ${Math.round(kdv).toLocaleString('tr-TR')} ₺`}
+              >
+                ({net.toLocaleString('tr-TR')}+{Math.round(kdv).toLocaleString('tr-TR')})
+              </span>
             </span>
           </div>
         );
