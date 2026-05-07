@@ -145,6 +145,67 @@ export async function createPersonnel(fields: PersonnelCreate): Promise<Personne
   return apiMutate<Personnel>(`/api/personel`, fields, 'POST');
 }
 
+// Pasife alma / kalıcı silme — backend 422'de dict (code+message+context) döner;
+// burada onu kullanıcıya gösterilebilir mesaja çeviriyoruz.
+export class PersonnelActionError extends Error {
+  code: string;
+  context: Record<string, unknown>;
+  constructor(message: string, code: string, context: Record<string, unknown> = {}) {
+    super(message);
+    this.name = 'PersonnelActionError';
+    this.code = code;
+    this.context = context;
+  }
+}
+
+async function personnelAction<T>(
+  path: string,
+  method: 'POST' | 'DELETE',
+  body: unknown,
+): Promise<T> {
+  const res = await fetch(path.startsWith('/') ? path : `/${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let msg = `API ${res.status}`;
+    let code = 'unknown';
+    let context: Record<string, unknown> = {};
+    try {
+      const err = await res.json();
+      const d = err?.detail;
+      if (typeof d === 'object' && d !== null) {
+        msg = (d.message as string) ?? msg;
+        code = (d.code as string) ?? code;
+        context = (d.context as Record<string, unknown>) ?? {};
+      } else if (typeof d === 'string') {
+        msg = d;
+      }
+    } catch {
+      /* sessizce yut */
+    }
+    throw new PersonnelActionError(msg, code, context);
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function deactivatePersonnel(
+  id: number, exitDate: string,
+): Promise<Personnel> {
+  return personnelAction<Personnel>(
+    `/api/personel/${id}/deactivate`, 'POST', { exit_date: exitDate },
+  );
+}
+
+export async function deletePersonnel(
+  id: number, confirmName: string,
+): Promise<{ deleted: boolean; id: number; full_name: string | null }> {
+  return personnelAction(
+    `/api/personel/${id}`, 'DELETE', { confirm_name: confirmName },
+  );
+}
+
 export async function getNextPersonCode(role: string): Promise<{ person_code: string }> {
   return apiGet<{ person_code: string }>(
     `/api/personel/next-code?role=${encodeURIComponent(role)}`,

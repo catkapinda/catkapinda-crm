@@ -3,15 +3,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Activity, Bike, ClipboardList, Sparkles, Star, UserCircle2, Utensils,
+  Activity, AlertTriangle, Bike, ClipboardList, Power,
+  Sparkles, Star, Trash2, UserCircle2, Utensils,
 } from 'lucide-react';
 
 import {
+  PersonnelActionError,
   type Personnel,
   type PersonnelCreate,
   type PersonnelUpdate,
   type Restaurant,
   createPersonnel,
+  deactivatePersonnel,
+  deletePersonnel,
   getNextPersonCode,
   updatePersonnel,
 } from '@/lib/api';
@@ -130,6 +134,14 @@ export function PersonnelEditModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+
+  // Pasife alma & kalıcı silme — alt diyaloglar
+  const [confirmAction, setConfirmAction] = useState<'deactivate' | 'delete' | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [exitDateInput, setExitDateInput] = useState<string>(todayStr);
+  const [confirmNameInput, setConfirmNameInput] = useState<string>('');
 
   const [form, setForm] = useState<FormState>(() => {
     if (mode === 'edit' && personnel) {
@@ -269,6 +281,62 @@ export function PersonnelEditModal({
       setError(err instanceof Error ? err.message : 'Kaydedilemedi');
     } finally {
       setSaving(false);
+    }
+  }
+
+  function openDeactivate() {
+    setActionError(null);
+    setExitDateInput(todayStr);
+    setConfirmAction('deactivate');
+  }
+
+  function openDelete() {
+    setActionError(null);
+    setConfirmNameInput('');
+    setConfirmAction('delete');
+  }
+
+  function closeAction() {
+    if (actionLoading) return;
+    setConfirmAction(null);
+    setActionError(null);
+  }
+
+  async function handleDeactivate() {
+    if (!personnel) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await deactivatePersonnel(personnel.id, exitDateInput);
+      setConfirmAction(null);
+      handleClose();
+      router.refresh();
+    } catch (err) {
+      const msg = err instanceof PersonnelActionError
+        ? err.message
+        : err instanceof Error ? err.message : 'Pasife alınamadı';
+      setActionError(msg);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!personnel) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await deletePersonnel(personnel.id, confirmNameInput);
+      setConfirmAction(null);
+      handleClose();
+      router.refresh();
+    } catch (err) {
+      const msg = err instanceof PersonnelActionError
+        ? err.message
+        : err instanceof Error ? err.message : 'Silinemedi';
+      setActionError(msg);
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -741,6 +809,69 @@ export function PersonnelEditModal({
               )}
             </Section>
 
+            {/* STATÜ & KAPANIŞ — sadece edit mode */}
+            {mode === 'edit' && personnel && (
+              <Section
+                id="pp-step-status"
+                icon={<AlertTriangle className="w-4 h-4" strokeWidth={2.2} />}
+                title="Statü & Kapanış"
+              >
+                {/* Mevcut durum chip */}
+                <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-border bg-bg-surface">
+                  <span className={`w-2 h-2 rounded-full ${
+                    (personnel.status ?? 'Aktif') === 'Aktif' ? 'bg-emerald-500' : 'bg-slate-400'
+                  }`} />
+                  <span className="text-[13px] font-semibold text-text">
+                    Mevcut durum:{' '}
+                    <span className={(personnel.status ?? 'Aktif') === 'Aktif' ? 'text-emerald-700' : 'text-text-2'}>
+                      {personnel.status ?? 'Aktif'}
+                    </span>
+                  </span>
+                  {personnel.exit_date && (
+                    <span className="text-[11.5px] text-text-3 ml-auto">
+                      Çıkış: <span className="font-mono tabular-nums">{personnel.exit_date}</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* İki tehlikeli aksiyon */}
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <button
+                    type="button"
+                    onClick={openDeactivate}
+                    disabled={(personnel.status ?? 'Aktif') !== 'Aktif'}
+                    className="flex items-start gap-3 p-3.5 rounded-xl border border-cream-300 bg-cream-50 hover:bg-cream-100 hover:border-cream-400 transition disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-cream-warm/50 text-cream-400 flex items-center justify-center flex-shrink-0">
+                      <Power className="w-4.5 h-4.5" strokeWidth={2.2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-semibold text-text">Pasife Al</div>
+                      <div className="text-[11.5px] text-text-3 mt-0.5 leading-snug">
+                        Çıkış tarihiyle pasife taşı. Son ay bordrosu ödenmiş olmalı.
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={openDelete}
+                    className="flex items-start gap-3 p-3.5 rounded-xl border border-rose-200 bg-rose-50/40 hover:bg-rose-50 hover:border-rose-300 transition text-left"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                      <Trash2 className="w-4.5 h-4.5" strokeWidth={2.2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-semibold text-rose-900">Kalıcı Sil</div>
+                      <div className="text-[11.5px] text-rose-700/80 mt-0.5 leading-snug">
+                        Geri alınamaz. Tüm puantaj/bordro kayıtları da silinir.
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </Section>
+            )}
+
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
                 {error}
@@ -841,6 +972,135 @@ export function PersonnelEditModal({
           </button>
         </div>
       </div>
+
+      {/* ─────────── PASİFE AL ONAY DİYALOĞU ─────────── */}
+      {confirmAction === 'deactivate' && personnel && (
+        <ConfirmDialog
+          tone="warn"
+          title="Pasife Al"
+          icon={<Power className="w-5 h-5" strokeWidth={2.2} />}
+          onClose={closeAction}
+        >
+          <p className="text-[13px] text-text-2 leading-relaxed mb-3">
+            <strong className="text-text">{personnel.full_name}</strong> kaydını pasife
+            almak için son ay performansının kapanmış olması gerekiyor. Doğru sıra:
+          </p>
+          <ol className="text-[12.5px] text-text-2 leading-relaxed mb-4 space-y-1.5 list-decimal list-inside marker:text-text-3 marker:font-semibold">
+            <li>Son ay bordrosu hazırlanır</li>
+            <li>Kurye, kurye CRM üzerinden bordroyu imzalar</li>
+            <li>Hak edilen tutar Hakediş Onayları'ndan ödenir</li>
+            <li>Bu ekrandan çıkış tarihiyle pasife alma yapılır</li>
+          </ol>
+          <div className="bg-cream-50 border border-cream-200 rounded-lg p-3 mb-4">
+            <label className="text-[11px] font-semibold text-text-3 uppercase tracking-wider block mb-1.5">
+              Çıkış Tarihi
+            </label>
+            <input
+              type="date"
+              value={exitDateInput}
+              onChange={(e) => setExitDateInput(e.target.value)}
+              className="input"
+              disabled={actionLoading}
+            />
+            <div className="text-[10.5px] text-text-3 mt-1.5">
+              Bu tarihten itibaren puantaj ve hakedişlerde görünmez.
+            </div>
+          </div>
+
+          {actionError && (
+            <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 mb-4 flex gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" strokeWidth={2.2} />
+              <div className="text-[12.5px] text-rose-800 leading-relaxed">{actionError}</div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={closeAction}
+              disabled={actionLoading}
+              className="px-3.5 py-2 rounded-lg text-sm font-medium text-text-2 border border-border bg-bg-surface hover:bg-bg-surface2 transition disabled:opacity-60"
+            >
+              Vazgeç
+            </button>
+            <button
+              type="button"
+              onClick={handleDeactivate}
+              disabled={actionLoading || !exitDateInput}
+              className="px-4 py-2 rounded-lg text-sm font-semibold bg-cream-400 text-text shadow-sm hover:bg-cream-warm transition disabled:opacity-60 inline-flex items-center gap-1.5"
+            >
+              <Power className="w-3.5 h-3.5" strokeWidth={2.4} />
+              {actionLoading ? 'İşleniyor…' : 'Pasife Al'}
+            </button>
+          </div>
+        </ConfirmDialog>
+      )}
+
+      {/* ─────────── KALICI SİL ONAY DİYALOĞU ─────────── */}
+      {confirmAction === 'delete' && personnel && (
+        <ConfirmDialog
+          tone="danger"
+          title="Kalıcı Olarak Sil"
+          icon={<Trash2 className="w-5 h-5" strokeWidth={2.2} />}
+          onClose={closeAction}
+        >
+          <div className="bg-rose-50 border border-rose-200 rounded-lg p-3.5 mb-4 flex gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" strokeWidth={2.2} />
+            <div className="text-[12.5px] text-rose-800 leading-relaxed">
+              <strong className="font-bold">Bu işlem geri alınamaz.</strong>{' '}
+              <strong>{personnel.full_name}</strong> kaydı ile birlikte tüm puantajları,
+              bordroları, imzaları, avansları ve talepleri kalıcı olarak silinecek.
+            </div>
+          </div>
+
+          <p className="text-[12.5px] text-text-2 leading-relaxed mb-2">
+            Onaylamak için kuryenin tam adını birebir yazın:
+          </p>
+          <div className="text-[12px] text-text-3 mb-2 font-mono">
+            Beklenen: <strong className="text-text">{personnel.full_name}</strong>
+          </div>
+          <input
+            type="text"
+            value={confirmNameInput}
+            onChange={(e) => setConfirmNameInput(e.target.value)}
+            placeholder="Tam adı yazın…"
+            className="input mb-4"
+            disabled={actionLoading}
+            autoFocus
+          />
+
+          {actionError && (
+            <div className="bg-rose-50 border border-rose-300 rounded-lg p-3 mb-4 flex gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" strokeWidth={2.2} />
+              <div className="text-[12.5px] text-rose-800 leading-relaxed">{actionError}</div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={closeAction}
+              disabled={actionLoading}
+              className="px-3.5 py-2 rounded-lg text-sm font-medium text-text-2 border border-border bg-bg-surface hover:bg-bg-surface2 transition disabled:opacity-60"
+            >
+              Vazgeç
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={
+                actionLoading
+                || confirmNameInput.trim().toLocaleLowerCase('tr-TR')
+                   !== (personnel.full_name ?? '').trim().toLocaleLowerCase('tr-TR')
+              }
+              className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-600 text-white shadow-sm hover:bg-rose-700 transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={2.4} />
+              {actionLoading ? 'Siliniyor…' : 'Kalıcı Olarak Sil'}
+            </button>
+          </div>
+        </ConfirmDialog>
+      )}
 
       <style jsx>{`
         :global(.input) {
@@ -1061,6 +1321,50 @@ function Section({
       </div>
       <div className="space-y-3">{children}</div>
     </section>
+  );
+}
+
+// ConfirmDialog — pasife al / kalıcı sil için ortak overlay diyalog
+function ConfirmDialog({
+  tone, title, icon, onClose, children,
+}: {
+  tone: 'warn' | 'danger';
+  title: string;
+  icon: React.ReactNode;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const ringClass = tone === 'danger' ? 'border-rose-200' : 'border-cream-300';
+  const iconBg =
+    tone === 'danger'
+      ? 'bg-rose-100 text-rose-700'
+      : 'bg-cream-warm/60 text-cream-400';
+
+  return (
+    <>
+      {/* Daha koyu overlay */}
+      <div
+        className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      {/* Center modal */}
+      <div className="fixed inset-0 z-[71] flex items-center justify-center p-5 pointer-events-none">
+        <div
+          className={`bg-bg-surface rounded-2xl shadow-2xl border ${ringClass} w-full max-w-[460px] pointer-events-auto`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-5 pt-5 pb-3 flex items-center gap-3 border-b border-border/60">
+            <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0`}>
+              {icon}
+            </div>
+            <div className="font-display text-[17px] font-semibold tracking-tight">
+              {title}
+            </div>
+          </div>
+          <div className="p-5">{children}</div>
+        </div>
+      </div>
+    </>
   );
 }
 

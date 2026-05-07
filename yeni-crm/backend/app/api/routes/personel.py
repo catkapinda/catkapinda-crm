@@ -5,7 +5,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.personel import (
+    DeactivationError,
     create_personnel,
+    deactivate_personnel,
+    delete_personnel_cascade,
     get_personnel,
     list_personnel,
     list_personnel_stats,
@@ -156,6 +159,78 @@ async def update_one(personnel_id: int, payload: PersonnelUpdate) -> dict:
     if not row:
         raise HTTPException(status_code=404, detail="Personel bulunamadı")
     return row
+
+
+class DeactivatePayload(BaseModel):
+    """Pasife alma — çıkış tarihi (YYYY-MM-DD) zorunlu."""
+
+    exit_date: str
+
+
+class HardDeletePayload(BaseModel):
+    """Kalıcı sil — çift onay için kullanıcı kişinin tam adını yazar."""
+
+    confirm_name: str
+
+
+@router.post("/{personnel_id}/deactivate")
+async def deactivate_one(
+    personnel_id: int, payload: DeactivatePayload
+) -> dict:
+    """Personeli pasife al — bordro/imza/ödeme kontrolünden sonra.
+
+    Hatalar:
+      - 404: personel yok
+      - 422: bordro yok / imzasız / ödenmemiş (DeactivationError)
+    """
+    try:
+        return deactivate_personnel(personnel_id, payload.exit_date)
+    except DeactivationError as e:
+        if e.code == "bulunamadi":
+            raise HTTPException(status_code=404, detail=e.detail) from e
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": e.code,
+                "message": e.detail,
+                "context": e.context,
+            },
+        ) from e
+
+
+@router.delete("/{personnel_id}")
+async def delete_one(
+    personnel_id: int, payload: HardDeletePayload
+) -> dict:
+    """Personeli ve tüm ilişkili kayıtlarını kalıcı olarak siler.
+
+    - Body'de `confirm_name` kişinin `full_name`'iyle birebir eşleşmeli
+      (fazladan boşluk silinerek karşılaştırılır).
+    - Cascade: daily_entries, payroll_signatures, payroll_sms_log,
+      advances, courier_requests, sonra personnel.
+    """
+    person = get_personnel(personnel_id)
+    if not person:
+        raise HTTPException(status_code=404, detail="Personel bulunamadı.")
+
+    expected = (person.get("full_name") or "").strip().lower()
+    given = (payload.confirm_name or "").strip().lower()
+    if not expected or expected != given:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "ad_dogrulanmadi",
+                "message": (
+                    "Silmeyi onaylamak için kuryenin tam adını birebir yazmanız gerekiyor. "
+                    f"Beklenen: {person.get('full_name')}"
+                ),
+            },
+        )
+
+    ok = delete_personnel_cascade(personnel_id)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Personel silinemedi.")
+    return {"deleted": True, "id": personnel_id, "full_name": person.get("full_name")}
 
 
 @router.post("")

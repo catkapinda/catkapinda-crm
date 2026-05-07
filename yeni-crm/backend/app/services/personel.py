@@ -106,6 +106,198 @@ def update_personnel(personnel_id: int, fields: dict) -> dict | None:
     return get_personnel(personnel_id)
 
 
+class DeactivationError(Exception):
+    """Pasife alma akışında ön-koşul karşılanmadığında atılır.
+
+    code: bordro_yok | bordro_imzasiz | bordro_odenmedi | zaten_pasif
+    detail: insan-okur Türkçe mesaj
+    context: opsiyonel ek alanlar (period, signature_id, vs.)
+    """
+
+    def __init__(self, code: str, detail: str, context: dict | None = None) -> None:
+        super().__init__(detail)
+        self.code = code
+        self.detail = detail
+        self.context = context or {}
+
+
+def _last_period_with_entries(personnel_id: int) -> str | None:
+    """Kişinin daily_entries içinde puantajı olan en son ayı döner (YYYY-MM)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT TO_CHAR(MAX(entry_date), 'YYYY-MM') AS last_period
+                FROM daily_entries
+                WHERE personnel_id = %s
+                """,
+                (personnel_id,),
+            )
+            row = cur.fetchone()
+    return row[0] if row and row[0] else None
+
+
+def _signature_state(personnel_id: int, period: str) -> dict | None:
+    """Bir kişinin verilen dönem için bordro/imza/ödeme durumunu döner.
+
+    Dönüş: None (kayıt yok) | dict {id, signed_at, paid_at}
+    """
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT id, signed_at, paid_at
+                FROM payroll_signatures
+                WHERE personnel_id = %s AND period = %s
+                LIMIT 1
+                """,
+                (personnel_id, period),
+            )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def deactivate_personnel(personnel_id: int, exit_date: str) -> dict:
+    """Personeli pasife al — ön kontroller geçilirse status='Pasif' + exit_date.
+
+    Akış:
+      1. Personel mevcut mu? Zaten pasif mi?
+      2. Son puantajı olan ay'ı bul → o ay için bordro hazır mı?
+         - Hazır değilse: DeactivationError('bordro_yok', ...)
+      3. Bordro imzalı mı? Değilse: DeactivationError('bordro_imzasiz', ...)
+      4. Bordro ödendi (paid_at NOT NULL)? Değilse: DeactivationError('bordro_odenmedi', ...)
+      5. Hepsi tamamsa: status='Pasif', exit_date = parametre
+    """
+    # 1. Personel kontrolü
+    person = get_personnel(personnel_id)
+    if not person:
+        raise DeactivationError(
+            "bulunamadi",
+            "Personel bulunamadı.",
+        )
+    if (person.get("status") or "Aktif") == "Pasif":
+        raise DeactivationError(
+            "zaten_pasif",
+            f"{person.get('full_name')} zaten pasif durumda.",
+            {"exit_date": person.get("exit_date")},
+        )
+
+    # 2. Son puantaj ayı
+    last_period = _last_period_with_entries(personnel_id)
+    if not last_period:
+        # Hiç puantajı yoksa direkt pasife alabilir (yeni eklenmiş ama hiç çalışmamış)
+        # Bu pratikte 'iptal' senaryosudur, mali yükümlülük yok
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE personnel
+                    SET status = 'Pasif', exit_date = %s
+                    WHERE id = %s
+                    """,
+                    (exit_date, personnel_id),
+                )
+                conn.commit()
+        return get_personnel(personnel_id) or {}
+
+    # 3. Son ay bordrosu hazır mı?
+    sig = _signature_state(personnel_id, last_period)
+    if not sig:
+        raise DeactivationError(
+            "bordro_yok",
+            f"{person.get('full_name')} için {last_period} bordrosu henüz "
+            "hazırlanmamış. Pasife almadan önce bordroyu hazırlayıp kuryeye "
+            "imzalatmanız ve ödemeyi tamamlamanız gerekiyor.",
+            {"period": last_period},
+        )
+
+    # 4. İmzalı mı?
+    if not sig.get("signed_at"):
+        raise DeactivationError(
+            "bordro_imzasiz",
+            f"{last_period} dönemi bordrosu kuryenin imzasını bekliyor. "
+            "Kurye CRM üzerinden imzaladıktan sonra ödeme yapıp pasife alabilirsiniz.",
+            {"period": last_period, "signature_id": sig.get("id")},
+        )
+
+    # 5. Ödendi mi?
+    if not sig.get("paid_at"):
+        raise DeactivationError(
+            "bordro_odenmedi",
+            f"{last_period} dönemi bordrosu imzalı ancak ödeme henüz yapılmadı. "
+            "Hakediş Onayları'ndan ödemeyi işaretleyip ardından pasife alabilirsiniz.",
+            {"period": last_period, "signature_id": sig.get("id")},
+        )
+
+    # Tüm koşullar tamam — pasife al
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE personnel
+                SET status = 'Pasif', exit_date = %s
+                WHERE id = %s
+                """,
+                (exit_date, personnel_id),
+            )
+            conn.commit()
+
+    return get_personnel(personnel_id) or {}
+
+
+def delete_personnel_cascade(personnel_id: int) -> bool:
+    """Personeli kalıcı olarak sil — tüm ilişkili kayıtlarla.
+
+    Cascade silinen tablolar:
+      - daily_entries (puantaj girişleri)
+      - payroll_signatures (bordro imzaları)
+      - payroll_sms_log (gönderilmiş SMS log'ları)
+      - advances (avans talepleri)
+      - courier_requests (motor/muhasebe talepleri)
+      - personnel (asıl kayıt)
+
+    Tablolardan biri yoksa `IF EXISTS` veya try/except ile atlanır.
+    Tek transaction içinde — biri patlarsa hiçbiri silinmez.
+    """
+    person = get_personnel(personnel_id)
+    if not person:
+        return False
+
+    # Hangi tablolar var, kontrol et — bazı ortamlarda eksik olabilir
+    related_tables = [
+        ("daily_entries", "personnel_id"),
+        ("payroll_signatures", "personnel_id"),
+        ("payroll_sms_log", "personnel_id"),
+        ("advances", "personnel_id"),
+        ("courier_requests", "personnel_id"),
+    ]
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            for table, col in related_tables:
+                # Tablo var mı kontrol et
+                cur.execute(
+                    """
+                    SELECT to_regclass(%s) IS NOT NULL AS exists
+                    """,
+                    (f"public.{table}",),
+                )
+                row = cur.fetchone()
+                if row and row[0]:
+                    cur.execute(
+                        f"DELETE FROM {table} WHERE {col} = %s",
+                        (personnel_id,),
+                    )
+
+            # Asıl personel kaydı
+            cur.execute(
+                "DELETE FROM personnel WHERE id = %s",
+                (personnel_id,),
+            )
+            conn.commit()
+    return True
+
+
 def create_personnel(fields: dict) -> dict | None:
     """Yeni personel ekle."""
     safe = {k: v for k, v in fields.items() if k in EDITABLE_COLUMNS}
