@@ -248,46 +248,64 @@ def deactivate_personnel(personnel_id: int, exit_date: str) -> dict:
 def delete_personnel_cascade(personnel_id: int) -> bool:
     """Personeli kalıcı olarak sil — tüm ilişkili kayıtlarla.
 
-    Cascade silinen tablolar:
-      - daily_entries (puantaj girişleri)
-      - payroll_signatures (bordro imzaları)
-      - payroll_sms_log (gönderilmiş SMS log'ları)
-      - advances (avans talepleri)
-      - courier_requests (motor/muhasebe talepleri)
-      - personnel (asıl kayıt)
+    Cascade silinen tablolar (sıra önemli — foreign key bağımlılığı):
+      - daily_entries (col: actual_personnel_id) — puantaj girişleri
+      - deductions — kesintiler
+      - equipment_assignments — ekipman zimmeti
+      - courier_sessions — kurye CRM giriş token'ları
+      - payroll_signatures — bordro imzaları
+      - payroll_sms_log — gönderilmiş SMS log'ları
+      - courier_requests — motor/muhasebe/avans talepleri
+      - personnel — asıl kayıt
 
-    Tablolardan biri yoksa `IF EXISTS` veya try/except ile atlanır.
-    Tek transaction içinde — biri patlarsa hiçbiri silinmez.
+    Tablo yoksa atlanır (to_regclass kontrolü). Tek transaction —
+    biri patlarsa hiçbiri silinmez.
     """
     person = get_personnel(personnel_id)
     if not person:
         return False
 
-    # Hangi tablolar var, kontrol et — bazı ortamlarda eksik olabilir
+    # ÖNEMLİ: daily_entries kolonu 'actual_personnel_id', diğerleri 'personnel_id'.
+    # Tablolar foreign key bağımlılığına göre sıralı silinir.
     related_tables = [
-        ("daily_entries", "personnel_id"),
+        ("daily_entries", "actual_personnel_id"),
+        ("deductions", "personnel_id"),
+        ("equipment_assignments", "personnel_id"),
+        ("courier_sessions", "personnel_id"),
         ("payroll_signatures", "personnel_id"),
         ("payroll_sms_log", "personnel_id"),
-        ("advances", "personnel_id"),
         ("courier_requests", "personnel_id"),
     ]
 
     with get_connection() as conn:
         with conn.cursor() as cur:
             for table, col in related_tables:
-                # Tablo var mı kontrol et
+                # Tablo var mı kontrol et — eksikse atla
                 cur.execute(
-                    """
-                    SELECT to_regclass(%s) IS NOT NULL AS exists
-                    """,
+                    "SELECT to_regclass(%s) IS NOT NULL AS exists",
                     (f"public.{table}",),
                 )
                 row = cur.fetchone()
-                if row and row[0]:
-                    cur.execute(
-                        f"DELETE FROM {table} WHERE {col} = %s",
-                        (personnel_id,),
-                    )
+                if not (row and row[0]):
+                    continue
+
+                # Kolon var mı kontrol et — eski schema'da olmayabilir
+                cur.execute(
+                    """
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                      AND table_name = %s
+                      AND column_name = %s
+                    """,
+                    (table, col),
+                )
+                if not cur.fetchone():
+                    continue
+
+                cur.execute(
+                    f"DELETE FROM {table} WHERE {col} = %s",
+                    (personnel_id,),
+                )
 
             # Asıl personel kaydı
             cur.execute(
