@@ -482,7 +482,26 @@ export function PersonnelView({
                 paket sayısına göre
               </span>
             </div>
-            <span className="text-brand text-xs font-semibold cursor-pointer">Tüm sıralama →</span>
+            <button
+              type="button"
+              onClick={() => {
+                setSortKey('packages');
+                setSortDir('desc');
+                setViewMode('list');
+                setRoleFilter('Kurye');
+                setStatusTab('Aktif');
+                setTimeout(() => {
+                  document.getElementById('personnel-list')?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                  });
+                }, 60);
+              }}
+              className="text-brand text-xs font-semibold inline-flex items-center gap-1 hover:gap-1.5 hover:text-brand-dark transition-all"
+            >
+              Tüm sıralama
+              <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2.4} />
+            </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
             {topPerformers.map((p, idx) => {
@@ -708,7 +727,7 @@ export function PersonnelView({
       ) : viewMode === 'list' ? (
         <>
           {/* Premium row liste */}
-          <div className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden divide-y divide-border/60">
+          <div id="personnel-list" className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden divide-y divide-border/60">
             {/* Column headers */}
             <div className="hidden lg:grid grid-cols-[44px_minmax(220px,1.4fr)_minmax(160px,1fr)_280px_120px] items-center gap-4 px-5 py-2.5 bg-surface-2/40 text-[10px] font-bold uppercase tracking-wider text-text-3">
               <div></div>
@@ -1875,69 +1894,42 @@ function RTSSection({
   rts: ManagementMember[];
   restMap: Map<number, Restaurant>;
 }) {
-  // RTŞ'ler için 'Quick China' gibi bir restoran ataması olmayabilir,
-  // ama paket/cover varsa bu restorana ekstra fatura olarak yansır.
-  const totalPackages = rts.reduce((s, m) => s + m.cover_packages, 0);
-  const totalHours = rts.reduce((s, m) => s + m.cover_hours, 0);
-  void restMap; // ileride restoran adı eşlemesi için tutuldu
+  // RTŞ paket başı oranı — bizim ekstra kâr kalemimiz
+  const RTS_RATE = 32;
+  void restMap;
+
+  if (rts.length === 0) return null;
 
   return (
-    <div className="mt-5 pt-5 border-t border-border/60">
-      <div className="flex items-baseline justify-between mb-2.5">
-        <div>
-          <h4 className="font-display text-[15px] font-semibold inline-flex items-center gap-2">
-            <Award className="w-4 h-4 text-emerald-600" strokeWidth={2.4} />
-            Restoran Takım Şefleri (Restorana Faturalı)
-          </h4>
-          <span className="text-text-3 text-[12px] ml-2 font-medium">
-            ücreti restoran tarafından karşılanır · attıkları paketler restorana ekstra fatura
-          </span>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3 grid grid-cols-1 md:grid-cols-3 gap-2">
-        {rts.map((m) => {
-          const cover = m.cover_hours * 200 + m.cover_packages * 25;
-          return (
-            <div
-              key={m.id}
-              className="bg-white/80 rounded-xl border border-emerald-100 px-3 py-2.5"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <div className="font-semibold text-[13px] text-text truncate">
-                  {m.full_name}
-                </div>
-                <span className="text-[10px] font-bold text-emerald-700 px-1.5 py-0.5 rounded bg-emerald-100">
-                  RTŞ
-                </span>
-              </div>
-              <div className="text-[11.5px] text-text-3 mt-0.5">
-                {m.person_code} · sabit faturalı maaş
-              </div>
-              <div className="grid grid-cols-3 gap-2 mt-2 text-[11px]">
-                <div className="text-center">
-                  <div className="font-mono font-bold text-emerald-700">{m.cover_packages}</div>
-                  <div className="text-text-3 text-[10px] uppercase tracking-wide">Paket</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-mono font-bold text-emerald-700">{Math.round(m.cover_hours)}</div>
-                  <div className="text-text-3 text-[10px] uppercase tracking-wide">Saat</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-mono font-bold text-emerald-700">+{formatTL(cover)}</div>
-                  <div className="text-text-3 text-[10px] uppercase tracking-wide">Ekstra</div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="text-[11.5px] text-text-3 mt-2 px-1 leading-relaxed">
-        Toplam <strong className="text-emerald-700">{totalPackages} paket</strong> ve{' '}
-        <strong className="text-emerald-700">{Math.round(totalHours)} saat</strong> RTŞ cover'ı —
-        {' '}restoran faturasına ekstra prim yansır, RTŞ'ye direkt ödeme yapılmaz.
-      </div>
+    <div className="mt-3 space-y-1.5">
+      {rts.map((m) => {
+        const ekstra = m.cover_packages * RTS_RATE;
+        return (
+          <div
+            key={m.id}
+            className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-cream-200 bg-cream-50/60"
+          >
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-cream-200 text-text flex-shrink-0">
+              RTŞ
+            </span>
+            <span className="font-semibold text-[13.5px] text-text truncate">
+              {m.full_name}
+            </span>
+            <span className="text-[11.5px] text-text-3 font-mono tabular-nums truncate">
+              {m.person_code}
+            </span>
+            <span className="ml-auto text-[12px] text-text-2 inline-flex items-center gap-1.5 whitespace-nowrap">
+              <span className="font-mono tabular-nums font-semibold text-text">{m.cover_packages}</span>
+              <span className="text-text-3">paket × {RTS_RATE} ₺</span>
+              <span className="text-text-3">=</span>
+              <span className="font-mono tabular-nums font-bold text-brand-dark">
+                +{ekstra.toLocaleString('tr-TR')} ₺
+              </span>
+              <span className="text-[10.5px] text-text-3 font-medium">restorana fatura</span>
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
