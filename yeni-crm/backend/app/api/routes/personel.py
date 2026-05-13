@@ -18,6 +18,7 @@ from app.services.personel import (
     top_performers,
     update_personnel,
 )
+from app.services.ai_insights import get_or_generate as get_or_generate_ai_insights
 
 router = APIRouter()
 
@@ -124,8 +125,41 @@ async def get_management(period: str = "2026-03") -> list[dict]:
 
 @router.get("/insights")
 async def get_insights(period: str = "2026-03") -> dict:
-    """Akıllı içgörü hero kartları için aggregat veri."""
+    """Akıllı içgörü hero kartları için aggregat veri (deterministik)."""
     return page_insights(period=period)
+
+
+@router.get("/ai-insights")
+async def get_ai_insights(period: str = "2026-03", force: bool = False) -> dict:
+    """Claude API ile üretilen akıllı içgörü raporu.
+
+    Cache TTL: settings.ai_insights_ttl_seconds (default 48h).
+    force=true: cache by-pass, taze çağrı yap.
+
+    Cevap şeması:
+      {
+        "stale": false,
+        "generated_at": "2026-05-07T...",
+        "model": "claude-sonnet-4-5",
+        "payload": {
+          "ai": { headline, narrative, cards: [4], actions: [...] },
+          "raw": { threshold_near, capacity_gaps, top_recovery, pending_actions }
+        }
+      }
+
+    Hata durumunda 503 döner; frontend deterministik /insights endpoint'ine
+    fallback yapar.
+    """
+    try:
+        return get_or_generate_ai_insights(period=period, force=force)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "ai_unavailable",
+                "message": str(e),
+            },
+        ) from e
 
 
 @router.get("/stats")

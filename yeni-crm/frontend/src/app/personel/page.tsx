@@ -1,5 +1,6 @@
 import { Sidebar } from '@/components/sidebar';
 import {
+  getAiInsights,
   getManagementSummary,
   getPageInsights,
   getPersonnelStats,
@@ -7,6 +8,7 @@ import {
   getTopPerformers,
   listPersonnel,
   listRestaurants,
+  type AiInsightsResponse,
   type ManagementMember,
   type PageInsights,
   type Personnel,
@@ -44,10 +46,11 @@ export default async function PersonelPage({
   let management: ManagementMember[] = [];
   let insights: PageInsights | null = null;
   let stats: PersonnelStats[] = [];
+  let aiInsights: AiInsightsResponse | null = null;
   let error: string | null = null;
 
   try {
-    [allPersonnel, restaurants, counts, topPerformers, management, insights, stats] =
+    [allPersonnel, restaurants, counts, topPerformers, management, insights, stats, aiInsights] =
       await Promise.all([
         listPersonnel(),
         listRestaurants().catch(() => []),
@@ -56,6 +59,9 @@ export default async function PersonelPage({
         getManagementSummary(period).catch(() => []),
         getPageInsights(period).catch(() => null),
         getPersonnelStats(period).catch(() => []),
+        // AI Insights — SSR fetch (60sn cache). API_KEY yoksa null döner,
+        // SmartInsightsHero deterministik fallback kullanır.
+        getAiInsights(period, false, { revalidate: 60 }).catch(() => null),
       ]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'API hatası';
@@ -78,6 +84,7 @@ export default async function PersonelPage({
             insights={insights}
             stats={stats}
             period={period}
+            aiInsights={aiInsights}
           />
         )}
       </main>

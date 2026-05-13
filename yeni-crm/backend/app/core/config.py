@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     app_name: str = "Catkapinda CRM"
     log_level: str = "INFO"
 
+    # Anthropic / AI Insights
+    # ANTHROPIC_API_KEY — Console'dan alınan key. Boşsa AI Insights
+    # devre dışı, frontend deterministik fallback'i kullanır.
+    anthropic_api_key: str = ""
+    ai_insights_model: str = "claude-sonnet-4-5"
+    # Cache TTL — saniye (default 48 saat). Yaşı bu değerin üzerindeyse
+    # bir sonraki istekte arka planda yeniler ('lazy refresh').
+    ai_insights_ttl_seconds: int = 60 * 60 * 48
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

@@ -400,6 +400,35 @@ MIGRATIONS: list[tuple[str, str]] = [
         WHERE paid_at IS NULL
         """,
     ),
+    # ─── AI Insights cache ───
+    # Akıllı İçgörü hero kartı için Claude API'den dönen JSON payload
+    # burada cache'lenir. TTL: 48 saat (uygulama tarafında kontrol).
+    # period: '2026-04' gibi — her dönem ayrı satır
+    # generated_at: cache yaşı için
+    # payload: JSONB (headline, narrative, cards: [...])
+    (
+        "ai_insights_cache.table",
+        """
+        CREATE TABLE IF NOT EXISTS ai_insights_cache (
+            id SERIAL PRIMARY KEY,
+            scope varchar(40) NOT NULL DEFAULT 'personel',
+            period varchar(7) NOT NULL,
+            generated_at timestamptz NOT NULL DEFAULT now(),
+            payload jsonb NOT NULL,
+            model varchar(80),
+            input_tokens integer,
+            output_tokens integer,
+            UNIQUE (scope, period)
+        )
+        """,
+    ),
+    (
+        "ai_insights_cache.idx_generated_at",
+        """
+        CREATE INDEX IF NOT EXISTS idx_ai_insights_generated_at
+        ON ai_insights_cache(scope, period, generated_at DESC)
+        """,
+    ),
 ]
 
 

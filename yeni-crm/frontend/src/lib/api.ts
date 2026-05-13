@@ -429,6 +429,53 @@ export async function getPageInsights(
   return apiGet<PageInsights>(`/api/personel/insights?period=${period}`);
 }
 
+// AI Insights — Claude API ile üretilen akıllı içgörü raporu
+export type AiInsightCard = {
+  key: 'esik_asimi' | 'eksik_kapasite' | 'verimlilik' | 'bekleyen_aksiyon';
+  label: string;
+  value: string;
+  sub: string;
+  tone?: 'positive' | 'warning' | 'neutral' | 'info';
+};
+
+export type AiInsightAction = {
+  title: string;
+  detail: string;
+  priority?: 'yuksek' | 'orta' | 'dusuk';
+};
+
+export type AiInsightsPayload = {
+  ai?: {
+    headline: string;
+    narrative: string;
+    cards: AiInsightCard[];
+    actions?: AiInsightAction[];
+  };
+  raw?: PageInsights;
+};
+
+export type AiInsightsResponse = {
+  stale: boolean;
+  generated_at: string;
+  model?: string | null;
+  payload: AiInsightsPayload;
+  error?: string;
+};
+
+export async function getAiInsights(
+  period: string,
+  force: boolean = false,
+  opts: { revalidate?: number } = {},
+): Promise<AiInsightsResponse | null> {
+  const url = `/api/personel/ai-insights?period=${encodeURIComponent(period)}${force ? '&force=true' : ''}`;
+  try {
+    return await apiGet<AiInsightsResponse>(url, opts);
+  } catch {
+    // AI servis erişilemiyorsa null dön → frontend deterministik fallback'i kullansın
+    return null;
+  }
+}
+
 // Personel listesi için aylık aggregate stats (paket / saat / gün)
 export type PersonnelStats = {
   personnel_id: number;

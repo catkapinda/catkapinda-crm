@@ -12,6 +12,7 @@ import {
 
 import { PersonnelEditModal } from '@/components/personnel-edit-modal';
 import type {
+  AiInsightsResponse,
   ManagementMember,
   PageInsights,
   Personnel,
@@ -19,6 +20,7 @@ import type {
   Restaurant,
   TopPerformer,
 } from '@/lib/api';
+import { getAiInsights } from '@/lib/api';
 
 const ROLE_STYLES: Record<string, string> = {
   Kurye: 'bg-brand-soft text-brand',
@@ -116,6 +118,7 @@ export function PersonnelView({
   insights = null,
   stats = [],
   period = '2026-03',
+  aiInsights = null,
 }: {
   personnel: Personnel[];
   restaurants: Restaurant[];
@@ -124,6 +127,7 @@ export function PersonnelView({
   insights?: PageInsights | null;
   stats?: PersonnelStats[];
   period?: string;
+  aiInsights?: AiInsightsResponse | null;
 }) {
   const router = useRouter();
 
@@ -386,7 +390,13 @@ export function PersonnelView({
       </div>
 
       {/* ──── AKILLI İÇGÖRÜ HERO — gerçek veriye bağlı dinamik anlatım ──── */}
-      {insights && <SmartInsightsHero insights={insights} />}
+      {insights && (
+        <SmartInsightsHero
+          insights={insights}
+          aiInsights={aiInsights}
+          period={period}
+        />
+      )}
 
       {/* ──── BÖLGE MÜDÜRÜ & JOKER MAAŞLARI — sadece bizim cebimizden ödenen sabit maaşlılar ──── */}
       {management.length > 0 && (() => {
@@ -1072,9 +1082,63 @@ export function PersonnelView({
 // ──────────────────────────────────────────────────────────────────
 // Akıllı İçgörü Hero — gerçek insights verisinden anlatım üretir
 // ──────────────────────────────────────────────────────────────────
-function SmartInsightsHero({ insights }: { insights: PageInsights }) {
+// AI kart key'lerine ikon + fallback tone eşlemesi
+const AI_CARD_META: Record<string, { Icon: LucideIcon; tone: 'emerald' | 'amber' | 'blue' | 'rose' }> = {
+  esik_asimi: { Icon: TrendingUp, tone: 'emerald' },
+  eksik_kapasite: { Icon: AlertTriangle, tone: 'amber' },
+  verimlilik: { Icon: Award, tone: 'blue' },
+  bekleyen_aksiyon: { Icon: Inbox, tone: 'rose' },
+};
+
+function SmartInsightsHero({
+  insights, aiInsights, period,
+}: {
+  insights: PageInsights;
+  aiInsights: AiInsightsResponse | null;
+  period: string;
+}) {
   // Hangi alt panel açık: detay listeleri / eylem önerileri / yok
   const [expanded, setExpanded] = useState<'detail' | 'actions' | null>(null);
+
+  // AI state — refresh için canlı tutulur
+  const [aiData, setAiData] = useState<AiInsightsResponse | null>(aiInsights);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+
+  const ai = aiData?.payload?.ai ?? null;
+  const aiCards = ai?.cards ?? null;
+
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      const fresh = await getAiInsights(period, true);
+      if (fresh) {
+        setAiData(fresh);
+      } else {
+        setRefreshError('AI servisine ulaşılamadı.');
+      }
+    } catch (e) {
+      setRefreshError(e instanceof Error ? e.message : 'Yenileme başarısız.');
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const generatedAtLabel = useMemo(() => {
+    if (!aiData?.generated_at) return null;
+    const d = new Date(aiData.generated_at);
+    if (Number.isNaN(d.getTime())) return null;
+    const now = new Date();
+    const diffMin = Math.max(0, Math.floor((now.getTime() - d.getTime()) / 60000));
+    if (diffMin < 1) return 'az önce';
+    if (diffMin < 60) return `${diffMin} dakika önce`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr} saat önce`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay} gün önce`;
+  }, [aiData?.generated_at]);
 
   // Eşik aşımı potansiyel ek fatura — paket eşiğini aşma trendiyle
   // her kurye için (eşik+50 paket × rate_high) kaba potansiyel
@@ -1151,36 +1215,71 @@ function SmartInsightsHero({ insights }: { insights: PageInsights }) {
       <div className="grid grid-cols-3 gap-7 relative z-10">
         {/* Sol: dinamik anlatım */}
         <div className="col-span-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider text-white shadow-sm bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500">
-            <Sparkles className="w-3.5 h-3.5" strokeWidth={2.4} />
-            Akıllı İçgörü · Bu Hafta
-            <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/25 text-[9.5px] font-semibold tracking-normal">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse-soft" />
-              Canlı
-            </span>
+          <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider text-white shadow-sm bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500">
+              <Sparkles className="w-3.5 h-3.5" strokeWidth={2.4} />
+              {ai ? 'AI Üretimi · Claude' : 'Akıllı İçgörü · Bu Hafta'}
+              <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/25 text-[9.5px] font-semibold tracking-normal">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse-soft" />
+                {aiData?.stale ? 'Eski' : 'Canlı'}
+              </span>
+            </div>
+
+            {/* Cache yaşı + Yenile butonu */}
+            {ai && (
+              <div className="inline-flex items-center gap-2 text-[11px] text-text-3">
+                {generatedAtLabel && (
+                  <span className="font-medium">{generatedAtLabel} üretildi</span>
+                )}
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-border hover:border-brand/40 hover:text-brand transition disabled:opacity-60 font-semibold"
+                  title="AI'a tekrar üret"
+                >
+                  <span className={refreshing ? 'animate-spin' : ''}>↻</span>
+                  {refreshing ? 'Yenileniyor…' : 'AI yenile'}
+                </button>
+              </div>
+            )}
           </div>
 
-          <h2 className="font-display text-[28px] font-semibold tracking-tight leading-snug text-text mt-3 mb-3">
-            {headlineParts.map((p, i) => p.em ? (
-              <em
-                key={i}
+          <h2 className="font-display text-[28px] font-semibold tracking-tight leading-snug text-text mt-1 mb-3">
+            {ai?.headline ? (
+              <span
                 style={{
-                  fontStyle: 'normal',
-                  background: 'linear-gradient(135deg, #0F52BA, #38BDF8)',
+                  background: 'linear-gradient(135deg, #0B0D17 0%, #0F52BA 70%, #38BDF8 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
-                  fontWeight: 700,
+                  fontWeight: 600,
                 }}
               >
-                {p.text}
-              </em>
+                {ai.headline}
+              </span>
             ) : (
-              <span key={i}>{p.text}</span>
-            ))}
+              headlineParts.map((p, i) => p.em ? (
+                <em
+                  key={i}
+                  style={{
+                    fontStyle: 'normal',
+                    background: 'linear-gradient(135deg, #0F52BA, #38BDF8)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    fontWeight: 700,
+                  }}
+                >
+                  {p.text}
+                </em>
+              ) : (
+                <span key={i}>{p.text}</span>
+              ))
+            )}
           </h2>
 
           <p className="text-text-2 text-[13.5px] leading-relaxed mb-5">
-            {top1 ? (
+            {ai?.narrative ? (
+              ai.narrative
+            ) : top1 ? (
               <>
                 <strong>{top1.brand ?? '—'}{top1.branch ? ` · ${top1.branch}` : ''}</strong>{' '}
                 restoranındaki <strong>{top1.full_name ?? '—'}</strong>{' '}
@@ -1245,69 +1344,96 @@ function SmartInsightsHero({ insights }: { insights: PageInsights }) {
           </div>
         </div>
 
-        {/* Sağ: 4 dinamik kart */}
+        {/* Sağ: 4 dinamik kart — AI varsa AI'dan, yoksa deterministik */}
         <div className="grid grid-cols-2 gap-2.5">
-          <InsightCard
-            tone="emerald"
-            Icon={TrendingUp}
-            label="Eşik Aşımı"
-            value={`${insights.threshold_near.length} kurye`}
-            metaJsx={
-              insights.threshold_near.length > 0 ? (
-                <>
-                  <strong>+{formatTL(thresholdPotential)} ₺</strong> ek fatura potansiyeli
-                </>
-              ) : (
-                <>Bu ay eşik yakını yok</>
-              )
-            }
-          />
-          <InsightCard
-            tone="amber"
-            Icon={AlertTriangle}
-            label="Eksik Kapasite"
-            value={`${insights.capacity_gaps.length} restoran`}
-            metaJsx={
-              cap1 ? (
-                <>
-                  <strong>{cap1.brand}</strong>{' '}{cap1.actual}/{cap1.target}
-                  {capacityGap > 0 ? <> · toplam <strong>{capacityGap} açık</strong></> : null}
-                </>
-              ) : (
-                <>Hedef kapasite tam</>
-              )
-            }
-          />
-          <InsightCard
-            tone="blue"
-            Icon={Award}
-            label="Verimlilik Liderleri"
-            value={
-              topRecovery.length > 0
-                ? topRecovery.map((r) => r.name).join(' + ')
-                : '—'
-            }
-            metaJsx={
-              topRecovery.length > 0 ? (
-                <>
-                  Sabit maaşının <strong>%{topRecovery[0].pct}</strong>'sini cover ile geri kazandı
-                </>
-              ) : (
-                <>Sabit maaşlı veri yok</>
-              )
-            }
-          />
-          <InsightCard
-            tone="rose"
-            Icon={Inbox}
-            label="Bekleyen Aksiyonlar"
-            value={`${insights.pending_actions} talep`}
-            metaJsx={
-              <>onay/red için bekliyor</>
-            }
-          />
+          {aiCards && aiCards.length === 4 ? (
+            aiCards.map((card) => {
+              // key'e göre ikon ve ton eşle (görsel tutarlılık için)
+              const meta = AI_CARD_META[card.key] ?? AI_CARD_META.bekleyen_aksiyon;
+              return (
+                <InsightCard
+                  key={card.key}
+                  tone={card.tone === 'positive' ? 'emerald'
+                       : card.tone === 'warning' ? 'amber'
+                       : card.tone === 'info' ? 'blue'
+                       : meta.tone}
+                  Icon={meta.Icon}
+                  label={card.label}
+                  value={card.value}
+                  metaJsx={<>{card.sub}</>}
+                />
+              );
+            })
+          ) : (
+            <>
+              <InsightCard
+                tone="emerald"
+                Icon={TrendingUp}
+                label="Eşik Aşımı"
+                value={`${insights.threshold_near.length} kurye`}
+                metaJsx={
+                  insights.threshold_near.length > 0 ? (
+                    <>
+                      <strong>+{formatTL(thresholdPotential)} ₺</strong> ek fatura potansiyeli
+                    </>
+                  ) : (
+                    <>Bu ay eşik yakını yok</>
+                  )
+                }
+              />
+              <InsightCard
+                tone="amber"
+                Icon={AlertTriangle}
+                label="Eksik Kapasite"
+                value={`${insights.capacity_gaps.length} restoran`}
+                metaJsx={
+                  cap1 ? (
+                    <>
+                      <strong>{cap1.brand}</strong>{' '}{cap1.actual}/{cap1.target}
+                      {capacityGap > 0 ? <> · toplam <strong>{capacityGap} açık</strong></> : null}
+                    </>
+                  ) : (
+                    <>Hedef kapasite tam</>
+                  )
+                }
+              />
+              <InsightCard
+                tone="blue"
+                Icon={Award}
+                label="Verimlilik Liderleri"
+                value={
+                  topRecovery.length > 0
+                    ? topRecovery.map((r) => r.name).join(' + ')
+                    : '—'
+                }
+                metaJsx={
+                  topRecovery.length > 0 ? (
+                    <>
+                      Sabit maaşının <strong>%{topRecovery[0].pct}</strong>'sini cover ile geri kazandı
+                    </>
+                  ) : (
+                    <>Sabit maaşlı veri yok</>
+                  )
+                }
+              />
+              <InsightCard
+                tone="rose"
+                Icon={Inbox}
+                label="Bekleyen Aksiyonlar"
+                value={`${insights.pending_actions} talep`}
+                metaJsx={<>onay/red için bekliyor</>}
+              />
+            </>
+          )}
         </div>
       </div>
+
+      {/* AI refresh hatası — küçük banner */}
+      {refreshError && (
+        <div className="relative z-10 mt-3 text-[11.5px] text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-1.5 inline-block">
+          {refreshError}
+        </div>
+      )}
 
       {/* Detaylı analiz / Eylem önerileri açılır panel */}
       {expanded === 'detail' && (
