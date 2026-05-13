@@ -429,11 +429,18 @@ def page_insights(period: str) -> dict:
                 for r in cur.fetchall()
             ]
 
-    # 3. Top recovery — yönetim listesinden hesapla
+    # 3. Top recovery — SADECE Bölge Müdürü ve Joker.
+    # Cover kavramı sadece sabit maaşlı yönetim rolleri için anlamlıdır.
+    # Kurye/Kaptan: çalıştıkları her şey değişken ödemeyle dönüyor (zaten gider).
+    # RTŞ: maaşı restoran tarafından karşılanır, bizim cebimizden değil.
+    # Sadece BM+Joker bizim cebimizden sabit maaş alır → saha çalışmasıyla
+    # restoran faturasına yansıyan tutar 'cover'ı oluşturur.
     mgmt = management_summary(period=period)
     scored = []
     for m in mgmt:
         if m["salary"] <= 0:
+            continue
+        if m["role"] not in ("Bölge Müdürü", "Joker"):
             continue
         cover = m["cover_hours"] * 200 + m["cover_packages"] * 25
         pct = min(1.0, cover / m["salary"]) if m["salary"] else 0
