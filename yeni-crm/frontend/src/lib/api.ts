@@ -21,7 +21,12 @@ export function backendUrl(path: string): string {
 }
 
 export async function apiGet<T>(path: string, opts?: { revalidate?: number }): Promise<T> {
-  const url = `${SERVER_API}${path.startsWith('/') ? path : `/${path}`}`;
+  // SSR'da NEXT_PUBLIC_API_URL (Render internal hostname) hızlı.
+  // Client'ta relative path → Next.js rewrites backend'e proxy'ler.
+  // (Internal hostname'e tarayıcı erişemez, mutlaka relative gerek.)
+  const isBrowser = typeof window !== 'undefined';
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const url = isBrowser ? cleanPath : `${SERVER_API}${cleanPath}`;
   const res = await fetch(url, {
     next: { revalidate: opts?.revalidate ?? 30 },
     headers: { 'Content-Type': 'application/json' },
