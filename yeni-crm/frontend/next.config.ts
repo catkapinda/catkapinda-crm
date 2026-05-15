@@ -5,15 +5,12 @@ const config: NextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: '2mb' },
   },
-  async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (!apiUrl) {
-      return [{ source: '/api/:path*', destination: 'http://localhost:8000/api/:path*' }];
-    }
-    // Render hostport format: "host:port" → http:// prefix gerekli
-    const prefix = apiUrl.startsWith('http') ? '' : 'http://';
-    return [{ source: '/api/:path*', destination: `${prefix}${apiUrl}/api/:path*` }];
-  },
+  // /api/* için src/app/api/[...path]/route.ts catch-all proxy kullanılıyor.
+  // Rewrites yerine Route Handler tercih edildi çünkü:
+  //   - 'Connection: close' header'ı eklenerek keep-alive socket reuse engellenir.
+  //   - Bağlantı hatası durumunda otomatik tek seferlik retry yapılır.
+  // Bu sayede backend her redeploy'da frontend Node fetch keep-alive cache'i
+  // stale olmuyor ve frontend restart gerekmiyor.
 };
 
 export default config;
