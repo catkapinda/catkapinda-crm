@@ -46,8 +46,6 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
       headers,
       body: bodyBuf,
       cache: 'no-store',
-      // @ts-expect-error — undici-specific option, Next.js routes runtime'da geçerli
-      duplex: 'half',
     });
   }
 
@@ -60,17 +58,30 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
     upstream = await attempt();
   }
 
-  // Backend response'unu olduğu gibi clone'la döndür
+  // Backend response'unu olduğu gibi clone'la döndür.
+  // Strip listesi:
+  //  - content-encoding: undici fetch body'i otomatik decompress eder,
+  //    bu header'ı koruyup decompressed body göndermek tutarsızlık yaratır
+  //  - transfer-encoding: chunked vs. otomatik
+  //  - content-length: orijinal compressed boyutu tutar, decompressed body'i
+  //    göstermez → Next.js status 500 raporlar. Next.js body'den
+  //    otomatik hesaplayacak.
   const respHeaders = new Headers();
   upstream.headers.forEach((v, k) => {
     const kl = k.toLowerCase();
-    if (kl === 'content-encoding' || kl === 'transfer-encoding') return;
+    if (kl === 'content-encoding' || kl === 'transfer-encoding' || kl === 'content-length') {
+      return;
+    }
     respHeaders.set(k, v);
   });
 
-  return new NextResponse(upstream.body, {
+  // Body'i ArrayBuffer olarak topla (stream'i Next.js'e geçirmek yerine
+  // tam buffer ile dönmek status/length tutarsızlığını ortadan kaldırır).
+  const buf = await upstream.arrayBuffer();
+
+  return new NextResponse(buf, {
     status: upstream.status,
-    statusText: upstream.statusText,
+    statusText: upstream.statusText || undefined,
     headers: respHeaders,
   });
 }
