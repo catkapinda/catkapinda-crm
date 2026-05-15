@@ -465,6 +465,21 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON box_returns(return_date DESC)
         """,
     ),
+    # V2'den miras kalan tablo eski şemaya sahipse eksik kolonları ekle
+    (
+        "box_returns.created_at",
+        """
+        ALTER TABLE box_returns
+        ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now()
+        """,
+    ),
+    (
+        "box_returns.updated_at",
+        """
+        ALTER TABLE box_returns
+        ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now()
+        """,
+    ),
     # ─── Tahsilat takibi (restaurant_invoices'a ek alanlar) ───
     # V2'deki restaurant_collections'ın eksik kalan alanlarını V3'ün
     # mevcut restaurant_invoices tablosuna ekliyoruz: due_date,

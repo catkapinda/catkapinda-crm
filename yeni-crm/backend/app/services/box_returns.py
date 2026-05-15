@@ -42,13 +42,17 @@ def list_box_returns(
     limit: int = 500,
 ) -> list[dict]:
     """Filtrelere göre box_returns listesi (en yeni önce)."""
+    # V2'den miras kalan tabloda waived bigint olabilir, > 0 kontrolü
+    # ile bool'a çeviriyoruz. notes ve created_at/updated_at nullable
+    # olabilir → COALESCE ile koruma.
     sql = """
         SELECT
             b.id, b.personnel_id, b.item_name,
             b.return_date::text AS return_date,
             b.quantity, b.condition_status,
             COALESCE(b.payout_amount, 0)::float AS payout_amount,
-            b.waived, b.notes,
+            (COALESCE(b.waived, 0)::int > 0) AS waived,
+            COALESCE(b.notes, '') AS notes,
             b.created_at, b.updated_at,
             COALESCE(p.full_name, '—') AS personnel_name,
             COALESCE(p.person_code, '') AS person_code,
@@ -94,7 +98,14 @@ def get_box_return(box_return_id: int) -> dict | None:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 """
-                SELECT b.*, COALESCE(p.full_name, '—') AS personnel_name
+                SELECT
+                    b.id, b.personnel_id, b.item_name,
+                    b.return_date::text AS return_date,
+                    b.quantity, b.condition_status,
+                    COALESCE(b.payout_amount, 0)::float AS payout_amount,
+                    (COALESCE(b.waived, 0)::int > 0) AS waived,
+                    COALESCE(b.notes, '') AS notes,
+                    COALESCE(p.full_name, '—') AS personnel_name
                 FROM box_returns b
                 LEFT JOIN personnel p ON p.id = b.personnel_id
                 WHERE b.id = %s
@@ -117,7 +128,7 @@ def stats_summary(
             COALESCE(SUM(quantity),0) AS total_quantity,
             COALESCE(SUM(payout_amount),0)::float AS total_payout,
             COUNT(DISTINCT personnel_id) AS unique_personnel,
-            COUNT(*) FILTER (WHERE waived = true) AS waived_count
+            COUNT(*) FILTER (WHERE COALESCE(waived, 0)::int > 0) AS waived_count
         FROM box_returns
         WHERE 1=1
     """
@@ -172,7 +183,9 @@ def _validate(payload: dict) -> dict:
         raise ValueError("Ödeme tutarı negatif olamaz.")
     out["payout_amount"] = payout
 
-    out["waived"] = bool(payload.get("waived", False))
+    # waived bigint (V2 schema) için 0/1, boolean için False/True olarak
+    # psycopg otomatik dönüşüm yapar. Ama explicit int kullanmak güvenli.
+    out["waived"] = 1 if payload.get("waived") else 0
     out["notes"] = (payload.get("notes") or "").strip()
 
     return out
