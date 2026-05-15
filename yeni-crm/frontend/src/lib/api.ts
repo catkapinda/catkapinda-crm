@@ -1305,6 +1305,19 @@ export async function getRestaurantReports(
   return apiGet<RestaurantReports>(`/api/restaurant-reports?period=${period}`);
 }
 
+// Restoran performans raporu PDF (preview/download için backend URL).
+// Tarayıcıda <iframe src={url}> ile render edilir, ya da <a download>.
+export function getRestaurantReportPdfUrl(
+  restaurantId: number,
+  period: string,
+  skipAi: boolean = false,
+): string {
+  const qs = `period=${encodeURIComponent(period)}${skipAi ? '&skip_ai=true' : ''}`;
+  // SSR'da NEXT_PUBLIC_API_URL kullan; client'ta rewrite proxy çalışır.
+  // iframe src için relative path en güvenlisi.
+  return `/api/restaurant-reports/${restaurantId}/pdf?${qs}`;
+}
+
 // Restoran raporları için AI içgörü — scope='restoran' ile cache'lenir.
 // Cevap şeması AiInsightsResponse ile aynı, kart key'leri farklı:
 // turnover_riski / verim_lideri / maliyet_baskisi / buyume_trendi.

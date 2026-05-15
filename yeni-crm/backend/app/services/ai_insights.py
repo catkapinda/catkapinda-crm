@@ -531,6 +531,191 @@ def get_or_generate(
         raise
 
 
+# ──────────────────────────────────────────────────────────────────
+# Restaurant Commentary — tek bir restoran için derinlemesine AI yorumu
+# (PDF raporunda kullanılır)
+# ──────────────────────────────────────────────────────────────────
+
+RESTAURANT_COMMENTARY_TOOL: dict[str, Any] = {
+    "name": "rapor_yorumu",
+    "description": (
+        "Tek bir restoran için Çat Kapında ekosistem benchmark'larına dayalı "
+        "derinlemesine AI yorumu üretir. headline + 3 paragraf + tek satır karar."
+    ),
+    "input_schema": {
+        "type": "object",
+        "required": ["headline", "paragraphs", "verdict"],
+        "properties": {
+            "headline": {
+                "type": "string",
+                "description": (
+                    "Tek cümlelik vurucu başlık. Sayısal ve restorana özel. "
+                    "Örn: 'Hacıbaşar Ümraniye: %42 churn ekosistem ortalamasının "
+                    "2.5 katı, ama paket başına %18 daha verimli.'"
+                ),
+            },
+            "paragraphs": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 4,
+                "items": {
+                    "type": "string",
+                    "description": (
+                        "Tek paragraf — restoranın metriğini ekosistem ortalamasıyla "
+                        "karşılaştır, gerçek sayılar kullan, sektör bilgisiyle yorumla."
+                    ),
+                },
+                "description": (
+                    "Sıralama: (1) Paket hacmi ve büyüme, "
+                    "(2) Operasyon istikrarı (churn, aktif kurye), "
+                    "(3) Maliyet & verimlilik karşılaştırması. "
+                    "İsteğe bağlı 4. paragraf: yapısal öneri/içgörü."
+                ),
+            },
+            "verdict": {
+                "type": "string",
+                "description": (
+                    "Tek satır operasyon kararı. Örn: 'Acil aksiyon: ekibi "
+                    "stabilize et, churn'ü %20 altına çek; aksi halde 30 günlük "
+                    "tahmini paket kaybı 1.200 adet.'"
+                ),
+            },
+        },
+    },
+}
+
+
+RESTAURANT_COMMENTARY_PROMPT = """Sen Çat Kapında'nın restoran performans analistsin.
+Bir restoranın o ayki metriklerini incele ve Çat Kapında ekosistemindeki diğer
+restoranlarla karşılaştırarak DERINLEMESINE bir analiz yaz.
+
+KURAL #1: SADECE GERÇEK VERİYİ KULLAN.
+- Sana verilen JSON'daki sayıları kullan.
+- Karşılaştırma yapacaksan SADECE sana verilen ecosystem ortalamalarını kullan.
+- ASLA 'sektör ortalaması Türkiye genelinde X', 'global pazarda Y' gibi hayalî
+  veri uydurma. Yalnızca Çat Kapında'nın kendi içindeki kıyaslama geçerli.
+- Sayıları olduğu gibi kullan; tahmin/projeksiyon yapacaksan 'mevcut trende
+  bağlı', 'bu hızla devam ederse' gibi şartlı ifadeyle yaz.
+
+KURAL #2: ÇAT KAPINDA DOMAIN BILGISI.
+- 'Turnover' (churn): bir ayda işten çıkan / aktif kurye sayısı oranı.
+  %30+ kritik, %15-30 izlemeli, <%15 sağlıklı.
+- 'Paket başı maliyet': KDV hariç toplam faturanın paket sayısına bölümü.
+  Düşük = restoran iyi kâr ediyor. Yüksek = maliyet baskısı.
+- 'Paket/saat': kurye verimliliği. Yüksek = daha az kuryeyle daha çok iş.
+- 'Paket büyüme': bu ayın paketi / önceki ay. +%20 hızlı büyüme; -%10 düşüş.
+
+KURAL #3: ÜSLUP.
+- Sade, profesyonel Türkçe. Slang yok.
+- Türk Lirası: '15.000 ₺' veya 'K ₺' kısaltması.
+- Yüzdelerde virgül: '%48,5'.
+- Her paragraf 2-4 cümle, dolu ve odaklı olsun.
+- Restoran adını birkaç kez geçir, sayıları somut tut.
+- Gerçek kurye isimlerini metriklerle zenginleştir (varsa).
+
+KURAL #4: YAPISI.
+1. Paragraf: paket hacmi + büyüme trendi (yüzde olarak ekosistem ile karşılaştır).
+2. Paragraf: operasyon istikrarı — churn, aktif kurye, işe giriş/çıkış.
+3. Paragraf: maliyet & verimlilik kıyaslaması (ecosystem_cpp, ecosystem_pph).
+4. (Opsiyonel) Paragraf: yapısal öneri (kurye sayısı, ek vardiya, performans odaklı eylem).
+
+Görev: rapor_yorumu tool'unu çağırarak yapılandırılmış JSON döndür.
+"""
+
+
+def _build_commentary_message(
+    restaurant: dict, period: str, metrics: dict,
+    top_couriers: list[dict],
+) -> str:
+    """Restoran commentary için kullanıcı mesajı oluştur."""
+    return (
+        f"Restoran: {restaurant.get('brand', '—')}"
+        f"{(' · ' + restaurant['branch']) if restaurant.get('branch') else ''}\n"
+        f"Dönem: {period}\n\n"
+        f"Bu restoranın metrikleri (JSON):\n"
+        f"{json.dumps(metrics, ensure_ascii=False, indent=2)}\n\n"
+        f"Bu restorandaki kurye performansları (top 8, JSON):\n"
+        f"{json.dumps(top_couriers, ensure_ascii=False, indent=2)}\n\n"
+        f"Lütfen rapor_yorumu tool'unu çağırarak 3 (veya 4) paragraflık, "
+        f"sayısal ve karşılaştırmalı bir AI yorumu üret. Ekosistem "
+        f"benchmark'larına dayanarak yorumla, asla dış sektör verisi uydurma."
+    )
+
+
+def generate_restaurant_commentary(
+    restaurant: dict,
+    period: str,
+    reports: dict | None = None,
+) -> dict[str, Any] | None:
+    """Tek restoran için Claude'dan derin yorum üret.
+
+    restaurant: get_restaurant(id) çıktısı (brand, branch, id, ...)
+    period: 'YYYY-MM'
+    reports: opsiyonel — get_restaurant_reports(period) çıktısı.
+             Verilmezse fonksiyon kendisi çağırır.
+
+    Hata durumunda None döner (PDF AI yorumu olmadan üretilir).
+    """
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        log.warning("commentary: ANTHROPIC_API_KEY yok, AI yorumu üretilemiyor.")
+        return None
+
+    if reports is None:
+        reports = get_restaurant_reports(period)
+
+    # restaurant_report_pdf._compile_metrics yapısı buraya da uygun
+    from app.services.restaurant_report_pdf import _compile_metrics
+    metrics = _compile_metrics(restaurant["id"], period, reports)
+
+    # Couriers büyük olabilir; top 8'i gönder
+    top_couriers = [
+        {
+            "full_name": c.get("full_name"),
+            "packages": c.get("packages"),
+            "hours": c.get("hours"),
+            "packages_per_hour": c.get("packages_per_hour"),
+        }
+        for c in metrics["couriers"][:8]
+    ]
+
+    # Hafif metrik özeti (token tasarrufu — couriers olmadan)
+    summary_metrics = {k: v for k, v in metrics.items() if k != "couriers"}
+
+    try:
+        from anthropic import Anthropic
+    except Exception as e:
+        log.error("commentary: anthropic SDK import edilemedi: %s", e)
+        return None
+
+    client = Anthropic(api_key=settings.anthropic_api_key)
+    user_msg = _build_commentary_message(
+        restaurant, period, summary_metrics, top_couriers,
+    )
+
+    try:
+        resp = client.messages.create(
+            model=settings.ai_insights_model,
+            max_tokens=2048,
+            system=RESTAURANT_COMMENTARY_PROMPT,
+            tools=[RESTAURANT_COMMENTARY_TOOL],
+            tool_choice={
+                "type": "tool", "name": RESTAURANT_COMMENTARY_TOOL["name"],
+            },
+            messages=[{"role": "user", "content": user_msg}],
+        )
+    except Exception as e:
+        log.exception("commentary: Claude çağrısı başarısız: %s", e)
+        return None
+
+    for block in resp.content:
+        if getattr(block, "type", None) == "tool_use":
+            return block.input  # type: ignore[return-value]
+
+    log.warning("commentary: tool_use bloğu dönmedi.")
+    return None
+
+
 def _shape_response(cache_row: dict, stale: bool, error: str | None = None) -> dict[str, Any]:
     generated_at = cache_row["generated_at"]
     if isinstance(generated_at, datetime):

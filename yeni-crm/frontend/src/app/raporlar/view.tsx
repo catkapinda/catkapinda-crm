@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity, AlertTriangle, BarChart3, Building2, ChevronDown, ChevronRight,
-  Package, Sparkles, TrendingDown, TrendingUp, Users,
+  Loader2, Mail, Package, Send, Sparkles, TrendingDown, TrendingUp, Users, X,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -14,7 +14,10 @@ import type {
   RestaurantReports,
   SidebarCounts,
 } from '@/lib/api';
-import { getRestaurantsAiInsights } from '@/lib/api';
+import {
+  getRestaurantReportPdfUrl,
+  getRestaurantsAiInsights,
+} from '@/lib/api';
 
 const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -51,6 +54,16 @@ function getTurnoverColor(pct: number): string {
   return 'bg-red-100 text-red-800';
 }
 
+// ─────────────────────────────────────────────────────────────
+// Mail/PDF modal state — view içinde tek kanal (her tabloya prop drilling
+// yerine ortak handler taşıyoruz).
+// ─────────────────────────────────────────────────────────────
+type ReportTarget = {
+  restaurantId: number;
+  brand: string;
+  branch: string;
+};
+
 export function RaporlarView({
   reports,
   period,
@@ -68,6 +81,11 @@ export function RaporlarView({
   );
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDesc, setSortDesc] = useState(false);
+
+  // PDF modal state
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+  const openReport = (t: ReportTarget) => setReportTarget(t);
+  const closeReport = () => setReportTarget(null);
 
   // KPI Kartları
   const totalPackages = useMemo(() => {
@@ -186,18 +204,27 @@ export function RaporlarView({
       {/* Content */}
       <div>
         {activeTab === 'turnover' && (
-          <TurnoverTable data={reports.turnover} />
+          <TurnoverTable data={reports.turnover} onOpenReport={openReport} />
         )}
         {activeTab === 'efficiency' && (
           <EfficiencyTable data={reports.courier_efficiency} />
         )}
         {activeTab === 'cost' && (
-          <CostPerPackageSection data={reports.cost_per_package} />
+          <CostPerPackageSection data={reports.cost_per_package} onOpenReport={openReport} />
         )}
         {activeTab === 'growth' && (
-          <GrowthTable data={reports.package_growth} />
+          <GrowthTable data={reports.package_growth} onOpenReport={openReport} />
         )}
       </div>
+
+      {/* PDF Preview + Maile Gönder Modal */}
+      {reportTarget && (
+        <ReportPreviewModal
+          target={reportTarget}
+          period={period}
+          onClose={closeReport}
+        />
+      )}
     </div>
   );
 }
@@ -250,8 +277,10 @@ function TabButton({
 
 function TurnoverTable({
   data,
+  onOpenReport,
 }: {
   data: RestaurantReports['turnover'];
+  onOpenReport: (t: ReportTarget) => void;
 }) {
   const [sort, setSort] = useState({ key: 'turnover_pct', desc: true });
 
@@ -328,10 +357,21 @@ function TurnoverTable({
         </thead>
         <tbody className="divide-y divide-border">
           {sorted.map((row) => (
-            <tr key={row.restaurant_id} className="hover:bg-bg-surface2 transition">
+            <tr key={row.restaurant_id} className="hover:bg-bg-surface2 transition group">
               <td className="px-6 py-4">
-                <div className="text-sm font-medium text-text">{row.brand}</div>
-                {row.branch && <div className="text-xs text-text-3 mt-0.5">{row.branch}</div>}
+                <div className="flex items-center gap-2">
+                  <div>
+                    <div className="text-sm font-medium text-text">{row.brand}</div>
+                    {row.branch && <div className="text-xs text-text-3 mt-0.5">{row.branch}</div>}
+                  </div>
+                  <ReportIconButton
+                    onClick={() => onOpenReport({
+                      restaurantId: row.restaurant_id,
+                      brand: row.brand,
+                      branch: row.branch,
+                    })}
+                  />
+                </div>
               </td>
               <td className="px-6 py-4 text-right text-sm font-medium text-text">
                 {row.active_count}
@@ -508,8 +548,10 @@ function EfficiencyTable({
 
 function CostPerPackageSection({
   data,
+  onOpenReport,
 }: {
   data: RestaurantReports['cost_per_package'];
+  onOpenReport: (t: ReportTarget) => void;
 }) {
   const [sort, setSort] = useState({ key: 'cost_per_package', desc: true });
 
@@ -591,10 +633,21 @@ function CostPerPackageSection({
           </thead>
           <tbody className="divide-y divide-border">
             {sorted.map((row) => (
-              <tr key={row.restaurant_id} className="hover:bg-bg-surface2 transition">
+              <tr key={row.restaurant_id} className="hover:bg-bg-surface2 transition group">
                 <td className="px-6 py-4">
-                  <div className="text-sm font-medium text-text">{row.brand}</div>
-                  {row.branch && <div className="text-xs text-text-3 mt-0.5">{row.branch}</div>}
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <div className="text-sm font-medium text-text">{row.brand}</div>
+                      {row.branch && <div className="text-xs text-text-3 mt-0.5">{row.branch}</div>}
+                    </div>
+                    <ReportIconButton
+                      onClick={() => onOpenReport({
+                        restaurantId: row.restaurant_id,
+                        brand: row.brand,
+                        branch: row.branch,
+                      })}
+                    />
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-right text-sm font-medium text-text">
                   {m(row.billing_excl_vat)}
@@ -622,8 +675,10 @@ function CostPerPackageSection({
 
 function GrowthTable({
   data,
+  onOpenReport,
 }: {
   data: RestaurantReports['package_growth'];
+  onOpenReport: (t: ReportTarget) => void;
 }) {
   const [sort, setSort] = useState({ key: 'growth_pct', desc: true });
 
@@ -691,10 +746,21 @@ function GrowthTable({
         </thead>
         <tbody className="divide-y divide-border">
           {sorted.map((row) => (
-            <tr key={row.restaurant_id} className="hover:bg-bg-surface2 transition">
+            <tr key={row.restaurant_id} className="hover:bg-bg-surface2 transition group">
               <td className="px-6 py-4">
-                <div className="text-sm font-medium text-text">{row.brand}</div>
-                {row.branch && <div className="text-xs text-text-3 mt-0.5">{row.branch}</div>}
+                <div className="flex items-center gap-2">
+                  <div>
+                    <div className="text-sm font-medium text-text">{row.brand}</div>
+                    {row.branch && <div className="text-xs text-text-3 mt-0.5">{row.branch}</div>}
+                  </div>
+                  <ReportIconButton
+                    onClick={() => onOpenReport({
+                      restaurantId: row.restaurant_id,
+                      brand: row.brand,
+                      branch: row.branch,
+                    })}
+                  />
+                </div>
               </td>
               <td className="px-6 py-4 text-right text-sm font-medium text-text">
                 {tr(row.previous_packages, 0)}
@@ -946,5 +1012,181 @@ function RestaurantsAiHero({
         </div>
       )}
     </section>
+  );
+}
+
+
+// ──────────────────────────────────────────────────────────────────
+// Mail PDF — restoran satırlarına eklenen küçük ✉️ ikon butonu
+// ──────────────────────────────────────────────────────────────────
+
+function ReportIconButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title="Performans raporunu mailile"
+      aria-label="Performans raporu maile gönder"
+      className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-brand-soft text-text-3 hover:text-brand"
+    >
+      <Mail className="w-4 h-4" strokeWidth={2.2} />
+    </button>
+  );
+}
+
+
+// ──────────────────────────────────────────────────────────────────
+// PDF Preview + Maile Gönder Modal
+// ──────────────────────────────────────────────────────────────────
+
+function ReportPreviewModal({
+  target, period, onClose,
+}: {
+  target: ReportTarget;
+  period: string;
+  onClose: () => void;
+}) {
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<
+    { kind: 'success' | 'error'; message: string } | null
+  >(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+
+  const pdfUrl = useMemo(
+    () => getRestaurantReportPdfUrl(target.restaurantId, period, false),
+    [target.restaurantId, period],
+  );
+
+  // ESC ile kapat
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  async function handleSend() {
+    if (sending) return;
+    setSending(true);
+    setSendResult(null);
+    try {
+      const url = `/api/restaurant-reports/${target.restaurantId}/send-email?period=${encodeURIComponent(period)}`;
+      const res = await fetch(url, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.detail?.message ?? err?.detail ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setSendResult({
+        kind: 'success',
+        message: data?.message ?? `Rapor ${data?.recipient ?? 'restorana'} gönderildi.`,
+      });
+    } catch (e) {
+      setSendResult({
+        kind: 'error',
+        message: e instanceof Error ? e.message : 'Mail gönderilemedi.',
+      });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const restLabel = target.branch
+    ? `${target.brand} · ${target.branch}`
+    : target.brand;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(11, 13, 23, 0.55)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ width: 'min(96vw, 980px)', height: 'min(92vh, 920px)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className="px-6 py-4 flex items-center justify-between border-b border-border"
+          style={{
+            background: 'linear-gradient(135deg, #0A3F8F 0%, #0F52BA 60%, #2563EB 100%)',
+          }}
+        >
+          <div className="text-white">
+            <div className="text-[10px] uppercase tracking-[0.18em] font-bold opacity-80">
+              Performans Raporu · {formatPeriod(period)}
+            </div>
+            <div className="text-lg font-semibold mt-0.5">{restLabel}</div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Kapat"
+            className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* PDF preview */}
+        <div className="flex-1 relative bg-bg-surface2 overflow-hidden">
+          {!iframeLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center text-text-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Rapor yükleniyor (AI yorumu üretiliyor, ~15 sn)…
+              </div>
+            </div>
+          )}
+          <iframe
+            src={pdfUrl}
+            title={`${restLabel} performans raporu`}
+            className="w-full h-full border-0"
+            onLoad={() => setIframeLoaded(true)}
+          />
+        </div>
+
+        {/* Footer / Actions */}
+        <div className="px-6 py-4 border-t border-border bg-white flex items-center justify-between gap-4">
+          <div className="text-xs text-text-3">
+            <strong className="text-text-2">Okumadan göndermeyin.</strong>{' '}
+            Mail butonu, restoranın <code>contact_email</code> alanına PDF eki ile gönderim yapar.
+          </div>
+          <div className="flex items-center gap-2">
+            {sendResult && (
+              <span className={`text-xs px-3 py-1.5 rounded-md font-medium ${
+                sendResult.kind === 'success'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+              }`}>
+                {sendResult.message}
+              </span>
+            )}
+            <a
+              href={pdfUrl}
+              download={`performans_${target.brand.replace(/\s+/g, '_')}_${period}.pdf`}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-border text-text-2 hover:bg-bg-surface2 transition"
+            >
+              PDF indir
+            </a>
+            <button
+              onClick={handleSend}
+              disabled={sending}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-brand text-white hover:bg-brand-dark transition disabled:opacity-60"
+            >
+              {sending ? (
+                <><Loader2 className="w-4 h-4 animate-spin" />Gönderiliyor…</>
+              ) : (
+                <><Send className="w-4 h-4" />Maile Gönder</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
