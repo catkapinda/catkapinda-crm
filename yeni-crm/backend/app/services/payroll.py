@@ -179,7 +179,17 @@ def list_personnel_payroll(period: str) -> list[dict]:
                     r.pricing_model AS pricing_model
                 FROM personnel p
                 LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
-                WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
+                WHERE (
+                      -- Aktif kişiler her zaman dahil
+                      COALESCE(p.status, 'Aktif') = 'Aktif'
+                      -- Pasif kişiler: exit_date'leri bu dönemden ÖNCE
+                      -- DEĞİLSE dahil. Yani 19 Mart pasife alınan Mart
+                      -- bordrosunda var, Nisan'da yok.
+                      OR (
+                          COALESCE(p.exit_date::date, '1900-01-01'::date)
+                          >= (%s || '-01')::date
+                      )
+                  )
                   AND (
                       p.assigned_restaurant_id IS NULL
                       OR COALESCE(r.active, 1) = 1
@@ -191,7 +201,7 @@ def list_personnel_payroll(period: str) -> list[dict]:
                   )
                 ORDER BY r.brand NULLS LAST, r.branch NULLS LAST, p.role, p.person_code
                 """,
-                (period,),
+                (period, period),
             )
             personnel = cur.fetchall()
 

@@ -464,7 +464,13 @@ def top_performers(period: str, limit: int = 3) -> list[dict]:
         JOIN personnel p ON p.id = d.actual_personnel_id
         LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
         WHERE LEFT(d.entry_date::text, 7) = %s
-          AND COALESCE(p.status, 'Aktif') = 'Aktif'
+          -- Aktif kişiler her zaman; pasif kişiler ancak exit_date'i bu
+          -- dönemden ÖNCE değilse (o dönem içinde aktiflerdi).
+          AND (
+              COALESCE(p.status, 'Aktif') = 'Aktif'
+              OR COALESCE(p.exit_date::date, '1900-01-01'::date)
+                 >= (%s || '-01')::date
+          )
           AND COALESCE(d.worked_hours, 0) > 0
         GROUP BY p.id, p.full_name, p.person_code, p.role, r.brand, r.branch
         HAVING COALESCE(SUM(d.package_count), 0) > 0
@@ -473,7 +479,7 @@ def top_performers(period: str, limit: int = 3) -> list[dict]:
     """
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(sql, (period, limit))
+            cur.execute(sql, (period, period, limit))
             rows = cur.fetchall()
     out: list[dict] = []
     for r in rows:

@@ -404,8 +404,17 @@ def daily_matrix(period: str) -> dict:
         LEFT JOIN restaurants r_active ON r_active.id = a.rid
         LEFT JOIN restaurants r_assigned ON r_assigned.id = p.assigned_restaurant_id
         WHERE
-            -- 1) Aktif personel
-            COALESCE(p.status, 'Aktif') = 'Aktif'
+            -- 1) Aktif kişiler her zaman dahil. Pasif kişiler ancak
+            --    exit_date'leri bu dönemden ÖNCE değilse dahil — yani
+            --    Mart'ın 19'unda pasife alınan kişi Mart puantaj listesinde
+            --    görünür, Nisan'da görünmez.
+            (
+                COALESCE(p.status, 'Aktif') = 'Aktif'
+                OR (
+                    COALESCE(p.exit_date::date, '1900-01-01'::date)
+                    >= (%s || '-01')::date
+                )
+            )
             -- 2) Atanmamış (Joker) veya AKTİF restorana atanmış
             -- (Pasif restoranın kuryeleri burada elenir — örn ay içinde kapanan restoran)
             AND (
@@ -441,8 +450,9 @@ def daily_matrix(period: str) -> dict:
 
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            # personnel_sql tek parametre: CTE içinde period (active_rest)
-            cur.execute(personnel_sql, (period,))
+            # personnel_sql 2 parametre: (1) active_rest CTE için period,
+            # (2) pasif filtresi için period (exit_date karşılaştırması).
+            cur.execute(personnel_sql, (period, period))
             personnel = cur.fetchall()
 
             cur.execute(entries_sql, (period,))
