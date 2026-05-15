@@ -120,22 +120,25 @@ export function TahsilatlarView({
   return (
     <div className="flex-1 flex flex-col gap-6 p-6">
       {/* ────────── HERO ────────── */}
-      <section className="relative overflow-hidden rounded-3xl shadow-lg">
-        <div className="absolute inset-0 bg-gradient-to-br from-brand-dark via-brand to-blue-600" />
-        <div
-          className="absolute inset-0 opacity-30 mix-blend-overlay"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 20% 20%, rgba(255,255,255,.4) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,200,100,.3) 0%, transparent 50%)',
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-          }}
-        />
+      <section className="relative rounded-3xl shadow-lg">
+        {/* Dekoratif katman — overflow-hidden burada (dropdown serbest kalır) */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-dark via-brand to-blue-600" />
+          <div
+            className="absolute inset-0 opacity-30 mix-blend-overlay"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 20% 20%, rgba(255,255,255,.4) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,200,100,.3) 0%, transparent 50%)',
+            }}
+          />
+          <div
+            className="absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+              backgroundSize: '24px 24px',
+            }}
+          />
+        </div>
         <div className="relative px-7 py-7 text-white flex items-start justify-between gap-6">
           <div>
             <div className="text-[11px] font-medium tracking-[0.2em] uppercase text-white/70 mb-2 flex items-center gap-2">
