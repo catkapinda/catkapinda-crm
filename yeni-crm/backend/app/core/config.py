@@ -43,6 +43,20 @@ class Settings(BaseSettings):
     # bir sonraki istekte arka planda yeniler ('lazy refresh').
     ai_insights_ttl_seconds: int = 60 * 60 * 48
 
+    # SMTP (restoran performans raporları e-posta gönderimi için)
+    # Render dashboard'da env vars olarak set edilmeli, kod içinde değil.
+    smtp_host: str = ""
+    smtp_port: int = 587  # 587 STARTTLS (default), 465 SSL, 25 plain
+    smtp_user: str = ""
+    smtp_pass: str = ""
+    smtp_from: str = ""  # Boşsa smtp_user kullanılır
+    smtp_from_name: str = "Çat Kapında"
+    smtp_use_tls: bool = True  # STARTTLS (587 için)
+    smtp_use_ssl: bool = False  # SMTPS (465 için)
+    # BCC: her gönderimde kopyası buraya da gitsin (audit trail için).
+    # Virgülle ayrılmış liste.
+    smtp_bcc: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
