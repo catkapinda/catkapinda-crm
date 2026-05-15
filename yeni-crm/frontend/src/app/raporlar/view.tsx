@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  Activity, AlertTriangle, BarChart3, Building2, ChevronDown, ChevronRight,
-  Loader2, Mail, Package, Send, Sparkles, TrendingDown, TrendingUp, Users, X,
+  Activity, AlertTriangle, BarChart3, Building2, Calendar, Check,
+  ChevronDown, ChevronRight, Loader2, Mail, Package, Send, Sparkles,
+  TrendingDown, TrendingUp, Users, X,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -28,6 +30,24 @@ function formatPeriod(p: string): string {
   const [y, m] = p.split('-').map((s) => parseInt(s, 10));
   if (!y || !m) return p;
   return `${TR_MONTHS[m - 1]} ${y}`;
+}
+
+/**
+ * CRM Mart 2026'da başlatıldı. Daha eski dönem seçmek anlamlı değil.
+ * Bu helper, bugünden geri 6 aya kadar inip MIN_PERIOD'da duran liste döner.
+ */
+const MIN_PERIOD = '2026-03';
+
+function recentPeriodOptions(maxCount = 6): { value: string; label: string }[] {
+  const now = new Date();
+  const out: { value: string; label: string }[] = [];
+  for (let i = 0; i < maxCount; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    out.push({ value, label: `${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}` });
+    if (value === MIN_PERIOD) break;
+  }
+  return out;
 }
 
 function m(value: number | null | undefined): string {
@@ -76,6 +96,7 @@ export function RaporlarView({
   aiInsights?: AiInsightsResponse | null;
 }) {
   void counts;
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'turnover' | 'efficiency' | 'cost' | 'growth'>(
     'turnover'
   );
@@ -86,6 +107,15 @@ export function RaporlarView({
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
   const openReport = (t: ReportTarget) => setReportTarget(t);
   const closeReport = () => setReportTarget(null);
+
+  // Period selector
+  const periodOptions = useMemo(() => recentPeriodOptions(6), []);
+  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
+  function changePeriod(next: string) {
+    setPeriodPickerOpen(false);
+    if (next === period) return;
+    router.push(`/raporlar?period=${next}`);
+  }
 
   // KPI Kartları
   const totalPackages = useMemo(() => {
@@ -125,14 +155,63 @@ export function RaporlarView({
           }}
         />
 
-        <div className="relative px-7 py-7 text-white">
-          <div className="text-[11px] font-medium tracking-[0.2em] uppercase text-white/70 mb-2 flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded-full bg-yellow-300 animate-pulse" />
-            Finans
+        <div className="relative px-7 py-7 text-white flex items-start justify-between gap-6">
+          <div>
+            <div className="text-[11px] font-medium tracking-[0.2em] uppercase text-white/70 mb-2 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-yellow-300 animate-pulse" />
+              Finans
+            </div>
+            <h1 className="text-4xl font-bold mb-1">Restoran Performans Raporları</h1>
+            <div className="text-white/80">
+              {formatPeriod(period)} · {reports.turnover.length} restoran
+            </div>
           </div>
-          <h1 className="text-4xl font-bold mb-1">Restoran Performans Raporları</h1>
-          <div className="text-white/80">
-            {formatPeriod(period)} · {reports.turnover.length} restoran
+
+          {/* Period selector — hero üst-sağ köşede */}
+          <div className="relative">
+            <button
+              onClick={() => setPeriodPickerOpen((v) => !v)}
+              className="px-3.5 py-2 rounded-lg bg-white/15 backdrop-blur-sm border border-white/25 text-white text-xs font-semibold hover:bg-white/25 transition inline-flex items-center gap-2"
+            >
+              <Calendar className="w-3.5 h-3.5" strokeWidth={2.2} />
+              <span>{formatPeriod(period)}</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform ${
+                  periodPickerOpen ? 'rotate-180' : ''
+                }`}
+                strokeWidth={2.4}
+              />
+            </button>
+            {periodPickerOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setPeriodPickerOpen(false)}
+                />
+                <div className="absolute right-0 mt-1.5 z-40 w-52 bg-white border border-border rounded-xl shadow-2xl overflow-hidden">
+                  <div className="px-3 py-2 text-[10px] uppercase tracking-wider font-bold text-text-3 border-b border-border/60">
+                    Dönem seç
+                  </div>
+                  {periodOptions.map((opt) => {
+                    const active = opt.value === period;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => changePeriod(opt.value)}
+                        className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center justify-between transition ${
+                          active
+                            ? 'bg-brand-soft text-brand'
+                            : 'text-text-2 hover:bg-bg-surface2'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {active && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
