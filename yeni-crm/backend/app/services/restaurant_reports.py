@@ -6,6 +6,7 @@ Başlıklar:
 3. Paket Başı Maliyet — total fatura (KDV hariç) / paket
 4. Aylık Paket Artışı — ay bazlı paket karşılaştırması (growth %)
 """
+import time
 from datetime import date
 from calendar import monthrange
 
@@ -15,10 +16,42 @@ from app.core.database import get_connection
 from app.services.payroll import list_personnel_payroll
 
 
-def get_restaurant_reports(period: str = "2026-03") -> dict:
+# Module-level basit TTL cache. get_restaurant_reports ağır (list_personnel_payroll
+# iki kere çağrılır, N+1 query'ler var) — Render free tier'ın 30 saniyelik gateway
+# timeout'unu aşabiliyor. Cache sayesinde aynı period için tekrar tekrar
+# hesaplama yapılmaz.
+_CACHE: dict[str, tuple[float, dict]] = {}
+_CACHE_TTL_SECONDS = 300  # 5 dk
+
+
+def _cache_get(key: str) -> dict | None:
+    item = _CACHE.get(key)
+    if not item:
+        return None
+    ts, data = item
+    if time.time() - ts > _CACHE_TTL_SECONDS:
+        _CACHE.pop(key, None)
+        return None
+    return data
+
+
+def _cache_set(key: str, value: dict) -> None:
+    _CACHE[key] = (time.time(), value)
+
+
+def invalidate_cache(period: str | None = None) -> None:
+    """Cache'i temizle (test veya kasıtlı tazeleme için)."""
+    if period is None:
+        _CACHE.clear()
+    else:
+        _CACHE.pop(period, None)
+
+
+def get_restaurant_reports(period: str = "2026-03", *, use_cache: bool = True) -> dict:
     """Tüm restoran analizleri tek endpoint'te.
 
     period: "YYYY-MM" (örn. "2026-03")
+    use_cache: True ise 5 dk TTL cache kullan; False ise direkt hesapla.
 
     Döndüren:
     - turnover: restoran bazlı işe giriş/çıkış analizi
@@ -26,6 +59,10 @@ def get_restaurant_reports(period: str = "2026-03") -> dict:
     - cost_per_package: restoran ve kurye bazlı maliyet
     - package_growth: ay bazlı büyüme yüzdeleri
     """
+    if use_cache:
+        cached = _cache_get(period)
+        if cached is not None:
+            return cached
 
     # Önceki ay hesapla
     try:
@@ -53,7 +90,7 @@ def get_restaurant_reports(period: str = "2026-03") -> dict:
         # 4. Aylık Paket Artışı
         package_growth = _get_package_growth(period, previous_period, conn)
 
-    return {
+    result = {
         "period": period,
         "previous_period": previous_period,
         "turnover": turnover,
@@ -61,6 +98,9 @@ def get_restaurant_reports(period: str = "2026-03") -> dict:
         "cost_per_package": cost_per_package,
         "package_growth": package_growth,
     }
+    if use_cache:
+        _cache_set(period, result)
+    return result
 
 
 def _get_turnover_analysis(period: str, conn) -> list[dict]:
@@ -180,6 +220,10 @@ def _get_cost_per_package(period: str, conn) -> dict:
     """Paket başı maliyet — restoran + kurye bazlı.
 
     cost_per_package = toplam_fatura_kdv_hariç / toplam_paket
+
+    Optimizasyon: list_personnel_payroll(period) tek seferde çağrılır,
+    sonuç 3 alt fonksiyonda paylaşılır. (Eskiden 3 kez çağrılıyordu →
+    Render 30 sn timeout'unu aşıyordu.)
     """
     # Bordrodan toplam brüt ve paket verisi
     # NOT: list_personnel_payroll DICT döner ({period, rows, summary});
@@ -192,11 +236,11 @@ def _get_cost_per_package(period: str, conn) -> dict:
 
     overall_cost = (total_brut / total_packages_all) if total_packages_all > 0 else 0.0
 
-    # Restoran bazlı
-    by_restaurant = _get_cost_per_package_by_restaurant(period, conn)
+    # Restoran bazlı (payroll'u tekrar çağırma — paylaş)
+    by_restaurant = _get_cost_per_package_by_restaurant(period, conn, payroll=payroll)
 
-    # Kurye bazlı (top 20)
-    by_courier = _get_cost_per_package_by_courier(period, conn)
+    # Kurye bazlı (top 20) — payroll'u paylaş
+    by_courier = _get_cost_per_package_by_courier(period, conn, payroll=payroll)
 
     return {
         "overall": round(overall_cost, 2),
@@ -205,7 +249,7 @@ def _get_cost_per_package(period: str, conn) -> dict:
     }
 
 
-def _get_cost_per_package_by_restaurant(period: str, conn) -> list[dict]:
+def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] | None = None) -> list[dict]:
     """Restoran bazlı paket başı maliyet."""
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -228,9 +272,26 @@ def _get_cost_per_package_by_restaurant(period: str, conn) -> list[dict]:
         rest_rows = cur.fetchall()
 
     # Kurye bordro verisi — kişi başı kaç paket
-    payroll_data = list_personnel_payroll(period)
-    payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
+    if payroll is None:
+        payroll_data = list_personnel_payroll(period)
+        payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
     payroll_by_id = {int(p.get("id", 0)): p for p in payroll}
+
+    # N+1 ortadan kaldır: tek query ile restoran→kurye listesi
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT assigned_restaurant_id AS rest_id, id AS personnel_id
+            FROM personnel
+            WHERE role IN ('Kurye', 'Joker')
+              AND status = 'Aktif'
+              AND assigned_restaurant_id IS NOT NULL
+            """
+        )
+        rest_to_couriers: dict[int, list[int]] = {}
+        for row in cur.fetchall():
+            rid = int(row["rest_id"])
+            rest_to_couriers.setdefault(rid, []).append(int(row["personnel_id"]))
 
     result = []
     for r in rest_rows:
@@ -239,20 +300,7 @@ def _get_cost_per_package_by_restaurant(period: str, conn) -> list[dict]:
 
         # Bu restorana atanmış kuryeler için toplam brüt hesapla
         total_brut_for_rest = 0.0
-        with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(
-                """
-                SELECT DISTINCT p.id
-                FROM personnel p
-                WHERE p.assigned_restaurant_id = %s
-                  AND p.role IN ('Kurye', 'Joker')
-                  AND p.status = 'Aktif'
-                """,
-                (rest_id,)
-            )
-            courier_ids = [int(row["id"]) for row in cur.fetchall()]
-
-        for cid in courier_ids:
+        for cid in rest_to_couriers.get(rest_id, []):
             if cid in payroll_by_id:
                 total_brut_for_rest += float(payroll_by_id[cid].get("toplam_brut", 0))
 
@@ -270,10 +318,25 @@ def _get_cost_per_package_by_restaurant(period: str, conn) -> list[dict]:
     return result
 
 
-def _get_cost_per_package_by_courier(period: str, conn) -> list[dict]:
+def _get_cost_per_package_by_courier(period: str, conn, payroll: list[dict] | None = None) -> list[dict]:
     """Kurye bazlı paket başı maliyet (top 20 + bottom 5)."""
-    payroll_data = list_personnel_payroll(period)
-    payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
+    if payroll is None:
+        payroll_data = list_personnel_payroll(period)
+        payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
+
+    # N+1 query'i ortadan kaldır: tek JOIN ile personnel→restaurant mapping
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT p.id AS personnel_id, r.brand AS rest_brand
+            FROM personnel p
+            LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+            """
+        )
+        rest_map: dict[int, str] = {
+            int(row["personnel_id"]): (row.get("rest_brand") or "—")
+            for row in cur.fetchall()
+        }
 
     result = []
     for p in payroll:
@@ -283,32 +346,10 @@ def _get_cost_per_package_by_courier(period: str, conn) -> list[dict]:
 
         if packages > 0:
             cost_per_pkg = brut / packages
-
-            # Bu kuryenin restoranını bul
-            with get_connection() as conn_inner:
-                with conn_inner.cursor(row_factory=dict_row) as cur:
-                    cur.execute(
-                        "SELECT assigned_restaurant_id FROM personnel WHERE id = %s",
-                        (pid,)
-                    )
-                    row = cur.fetchone()
-                    rest_id = row.get("assigned_restaurant_id") if row else None
-
-            # Restoran bilgisi
-            rest_brand = "—"
-            if rest_id:
-                with conn.cursor(row_factory=dict_row) as cur:
-                    cur.execute(
-                        "SELECT brand FROM restaurants WHERE id = %s",
-                        (rest_id,)
-                    )
-                    r = cur.fetchone()
-                    rest_brand = r.get("brand", "—") if r else "—"
-
             result.append({
                 "personnel_id": pid,
                 "full_name": p.get("full_name") or "—",
-                "rest_brand": rest_brand,
+                "rest_brand": rest_map.get(pid, "—"),
                 "billing": round(brut, 2),
                 "packages": packages,
                 "cost_per_package": round(cost_per_pkg, 2),
