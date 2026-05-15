@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import clsx from 'clsx';
 import {
-  Activity, BadgeCheck, BarChart3, Bike, Building2, Calendar,
-  CheckCircle2, ClipboardCheck, FileSpreadsheet, FileText, Home,
+  Activity, BadgeCheck, BarChart3, Bike, Box, Building2, Calendar,
+  CheckCircle2, ClipboardCheck, Coins, FileSpreadsheet, FileText, Home,
   LayoutGrid, MinusCircle, RefreshCw, Sparkles, Store, TrendingUp,
   UserCheck, Users, Wallet, ShieldCheck, ShoppingBag,
   type LucideIcon,
@@ -14,8 +14,9 @@ import type { SidebarCounts } from '@/lib/api';
 type NavKey =
   | 'dashboard' | 'personel' | 'puantaj' | 'puantaj-onay' | 'hakedis-onay'
   | 'kesintiler' | 'ekipman' | 'avans' | 'motor' | 'muhasebe-degisim'
-  | 'talepler' | 'avans-talepleri' | 'profil-onay'
-  | 'restoranlar' | 'faturalar' | 'bordro' | 'kar-zarar' | 'restoran-raporlari';
+  | 'talepler' | 'avans-talepleri' | 'profil-onay' | 'box-geri-alim'
+  | 'restoranlar' | 'faturalar' | 'bordro' | 'kar-zarar' | 'restoran-raporlari'
+  | 'tahsilatlar';
 
 type BadgeKind = 'new' | 'warn' | 'default';
 
@@ -45,6 +46,7 @@ const NAV: NavItem[] = [
   { key: 'puantaj', label: 'Puantaj', href: '/puantaj', section: 'Operasyon', icon: Calendar },
   { key: 'kesintiler', label: 'Kesintiler', href: '/kesintiler', section: 'Operasyon', icon: MinusCircle },
   { key: 'ekipman', label: 'Ekipman & Zimmet', href: '/ekipman-zimmet', section: 'Operasyon', icon: Bike },
+  { key: 'box-geri-alim', label: 'Box Geri Alım', href: '/box-geri-alim', section: 'Operasyon', icon: Box },
   { key: 'avans-talepleri', label: 'Avans Talepleri', href: '/avans-talepleri', section: 'Operasyon', icon: Wallet, countKey: 'avans', badgeKind: 'warn' },
   { key: 'talepler', label: 'Motor ve Muhasebe Değişikliği', href: '/talepler', section: 'Operasyon', icon: RefreshCw, countKey: 'talepler', badgeKind: 'new' },
   // Onaylar
@@ -54,6 +56,7 @@ const NAV: NavItem[] = [
   { key: 'restoranlar', label: 'Restoranlar', href: '/restoranlar', section: 'Satış', icon: Store, countKey: 'restoranlar' },
   { key: 'restoran-raporlari', label: 'Restoran Raporları', href: '/raporlar', section: 'Satış', icon: BarChart3 },
   { key: 'faturalar', label: 'Faturalar', href: '/faturalar', section: 'Finans', icon: FileText },
+  { key: 'tahsilatlar', label: 'Tahsilatlar', href: '/tahsilatlar', section: 'Finans', icon: Coins },
   { key: 'bordro', label: 'Bordro', href: '/bordro', section: 'Finans', icon: FileSpreadsheet },
   { key: 'kar-zarar', label: 'Kâr-Zarar Raporu', href: '/kar-zarar', section: 'Finans', icon: TrendingUp },
 ];

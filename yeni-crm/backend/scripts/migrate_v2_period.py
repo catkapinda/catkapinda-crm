@@ -1,4 +1,10 @@
-"""V2 → V3 belirli bir period için daily_entries (+gerekli personnel/restaurants) migration.
+"""V2 → V3 period veya tablo bazlı migration.
+
+İki mod:
+  1) --period 2026-04   → daily_entries + gerekli personnel/restaurants
+  2) --tables box_returns,restaurant_collections → bu tabloların tamamı
+
+
 
 Kullanım (V3 backend container shell'inde):
     python scripts/migrate_v2_period.py --period 2026-04                    # dry-run

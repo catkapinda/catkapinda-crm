@@ -429,6 +429,76 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON ai_insights_cache(scope, period, generated_at DESC)
         """,
     ),
+    # ─── Box / ekipman geri alım (V2'den taşındı) ───
+    # Bir kuryeden, bir tarihte teslim alınan ekipman (varsayılan 'Box')
+    # kaydı. Quantity, kondisyon, kuryeye ödenen payout_amount ve waived
+    # bayrağı tutulur.
+    (
+        "box_returns.table",
+        """
+        CREATE TABLE IF NOT EXISTS box_returns (
+            id SERIAL PRIMARY KEY,
+            personnel_id integer NOT NULL REFERENCES personnel(id) ON DELETE CASCADE,
+            item_name varchar(80) NOT NULL DEFAULT 'Box',
+            return_date date NOT NULL,
+            quantity integer NOT NULL DEFAULT 1,
+            condition_status varchar(40) NOT NULL,
+            payout_amount numeric NOT NULL DEFAULT 0,
+            waived boolean NOT NULL DEFAULT false,
+            notes text NOT NULL DEFAULT '',
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+        )
+        """,
+    ),
+    (
+        "box_returns.idx_personnel",
+        """
+        CREATE INDEX IF NOT EXISTS idx_box_returns_personnel
+        ON box_returns(personnel_id)
+        """,
+    ),
+    (
+        "box_returns.idx_return_date",
+        """
+        CREATE INDEX IF NOT EXISTS idx_box_returns_date
+        ON box_returns(return_date DESC)
+        """,
+    ),
+    # ─── Tahsilat takibi (restaurant_invoices'a ek alanlar) ───
+    # V2'deki restaurant_collections'ın eksik kalan alanlarını V3'ün
+    # mevcut restaurant_invoices tablosuna ekliyoruz: due_date,
+    # last_contact_date, responsible_name. Böylece /tahsilatlar sayfası
+    # tek tablodan beslenir.
+    (
+        "restaurant_invoices.due_date",
+        """
+        ALTER TABLE restaurant_invoices
+        ADD COLUMN IF NOT EXISTS due_date date
+        """,
+    ),
+    (
+        "restaurant_invoices.last_contact_date",
+        """
+        ALTER TABLE restaurant_invoices
+        ADD COLUMN IF NOT EXISTS last_contact_date date
+        """,
+    ),
+    (
+        "restaurant_invoices.responsible_name",
+        """
+        ALTER TABLE restaurant_invoices
+        ADD COLUMN IF NOT EXISTS responsible_name varchar(120) DEFAULT ''
+        """,
+    ),
+    (
+        "restaurant_invoices.idx_due_date",
+        """
+        CREATE INDEX IF NOT EXISTS idx_invoices_due_date
+        ON restaurant_invoices(due_date)
+        WHERE due_date IS NOT NULL
+        """,
+    ),
 ]
 
 

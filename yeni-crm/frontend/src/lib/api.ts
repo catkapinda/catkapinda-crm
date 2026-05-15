@@ -1389,3 +1389,132 @@ export async function unmarkBordroPaid(
     'PATCH',
   );
 }
+
+// ─────────────────────────────────────────────────────────────
+// Box Geri Alım — /api/box-returns
+// ─────────────────────────────────────────────────────────────
+export type BoxReturn = {
+  id: number;
+  personnel_id: number;
+  personnel_name: string;
+  person_code: string;
+  rest_brand?: string;
+  rest_branch?: string;
+  item_name: string;
+  return_date: string;
+  quantity: number;
+  condition_status: string;
+  payout_amount: number;
+  waived: boolean;
+  notes: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type BoxReturnsSummary = {
+  records_count: number;
+  total_quantity: number;
+  total_payout: number;
+  unique_personnel: number;
+  waived_count: number;
+};
+
+export type BoxReturnsListResponse = {
+  items: BoxReturn[];
+  summary: BoxReturnsSummary;
+  condition_options: string[];
+  item_options: string[];
+};
+
+export async function getBoxReturns(params: {
+  personnel_id?: number;
+  date_from?: string;
+  date_to?: string;
+  condition?: string;
+  search?: string;
+} = {}): Promise<BoxReturnsListResponse> {
+  const qs = new URLSearchParams();
+  if (params.personnel_id) qs.set('personnel_id', String(params.personnel_id));
+  if (params.date_from) qs.set('date_from', params.date_from);
+  if (params.date_to) qs.set('date_to', params.date_to);
+  if (params.condition) qs.set('condition', params.condition);
+  if (params.search) qs.set('search', params.search);
+  const q = qs.toString();
+  return apiGet<BoxReturnsListResponse>(`/api/box-returns${q ? `?${q}` : ''}`);
+}
+
+export async function createBoxReturn(payload: Partial<BoxReturn>): Promise<BoxReturn> {
+  return apiMutate('/api/box-returns', payload, 'POST');
+}
+
+export async function updateBoxReturn(id: number, payload: Partial<BoxReturn>): Promise<BoxReturn> {
+  return apiMutate(`/api/box-returns/${id}`, payload, 'PATCH');
+}
+
+export async function deleteBoxReturn(id: number): Promise<void> {
+  await apiMutate(`/api/box-returns/${id}`, {}, 'DELETE');
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tahsilat — /api/collections
+// ─────────────────────────────────────────────────────────────
+export type CollectionItem = {
+  id: number | null;
+  restaurant_id: number;
+  brand: string;
+  branch: string;
+  collection_month: string | null;
+  status: string;
+  invoice_amount: number;
+  collected_amount: number;
+  remaining_amount: number;
+  due_date: string | null;
+  last_contact_date: string | null;
+  responsible_name: string;
+  note: string;
+  is_overdue: boolean;
+  paid_at: string | null;
+  invoice_no?: string | null;
+};
+
+export type CollectionsSummary = {
+  period: string;
+  total_invoice: number;
+  total_collected: number;
+  total_open: number;
+  overdue_amount: number;
+  overdue_count: number;
+  collected_count: number;
+  pending_count: number;
+  restaurant_count: number;
+  today: string;
+};
+
+export type CollectionsListResponse = {
+  period: string;
+  items: CollectionItem[];
+  summary: CollectionsSummary;
+  status_options: string[];
+};
+
+export async function getCollections(params: {
+  period: string;
+  status?: string;
+  search?: string;
+}): Promise<CollectionsListResponse> {
+  const qs = new URLSearchParams({ period: params.period });
+  if (params.status) qs.set('status', params.status);
+  if (params.search) qs.set('search', params.search);
+  return apiGet<CollectionsListResponse>(`/api/collections?${qs.toString()}`);
+}
+
+export async function upsertCollection(payload: Partial<CollectionItem> & {
+  restaurant_id: number;
+  collection_month: string;
+}): Promise<CollectionItem> {
+  return apiMutate('/api/collections', payload, 'POST');
+}
+
+export async function deleteCollection(id: number): Promise<void> {
+  await apiMutate(`/api/collections/${id}`, {}, 'DELETE');
+}
