@@ -182,10 +182,13 @@ def _get_cost_per_package(period: str, conn) -> dict:
     cost_per_package = toplam_fatura_kdv_hariç / toplam_paket
     """
     # Bordrodan toplam brüt ve paket verisi
-    payroll = list_personnel_payroll(period)
+    # NOT: list_personnel_payroll DICT döner ({period, rows, summary});
+    # rows içindeki her elemanda key adları 'toplam_brut' ve 'ana_packages'.
+    payroll_data = list_personnel_payroll(period)
+    payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
 
-    total_brut = sum(float(p.get("brut", 0)) for p in payroll)
-    total_packages_all = sum(int(p.get("packages", 0)) for p in payroll)
+    total_brut = sum(float(p.get("toplam_brut", 0)) for p in payroll)
+    total_packages_all = sum(int(p.get("ana_packages", 0)) for p in payroll)
 
     overall_cost = (total_brut / total_packages_all) if total_packages_all > 0 else 0.0
 
@@ -225,7 +228,8 @@ def _get_cost_per_package_by_restaurant(period: str, conn) -> list[dict]:
         rest_rows = cur.fetchall()
 
     # Kurye bordro verisi — kişi başı kaç paket
-    payroll = list_personnel_payroll(period)
+    payroll_data = list_personnel_payroll(period)
+    payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
     payroll_by_id = {int(p.get("id", 0)): p for p in payroll}
 
     result = []
@@ -250,7 +254,7 @@ def _get_cost_per_package_by_restaurant(period: str, conn) -> list[dict]:
 
         for cid in courier_ids:
             if cid in payroll_by_id:
-                total_brut_for_rest += float(payroll_by_id[cid].get("brut", 0))
+                total_brut_for_rest += float(payroll_by_id[cid].get("toplam_brut", 0))
 
         cost_per_pkg = (total_brut_for_rest / total_packages) if total_packages > 0 else 0.0
 
@@ -268,13 +272,14 @@ def _get_cost_per_package_by_restaurant(period: str, conn) -> list[dict]:
 
 def _get_cost_per_package_by_courier(period: str, conn) -> list[dict]:
     """Kurye bazlı paket başı maliyet (top 20 + bottom 5)."""
-    payroll = list_personnel_payroll(period)
+    payroll_data = list_personnel_payroll(period)
+    payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
 
     result = []
     for p in payroll:
         pid = int(p.get("id", 0))
-        packages = int(p.get("packages", 0))
-        brut = float(p.get("brut", 0))
+        packages = int(p.get("ana_packages", 0))
+        brut = float(p.get("toplam_brut", 0))
 
         if packages > 0:
             cost_per_pkg = brut / packages
