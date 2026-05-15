@@ -1153,7 +1153,7 @@ function ReportPreviewModal({
         {/* Footer / Actions */}
         <div className="px-6 py-4 border-t border-border bg-white flex items-center justify-between gap-4">
           <div className="text-xs text-text-3">
-            <strong className="text-text-2">Okumadan göndermeyin.</strong>{' '}
+            <strong className="text-text-2">Gönderim öncesi raporu inceleyin.</strong>{' '}
             Mail butonu, restoranın <code>contact_email</code> alanına PDF eki ile gönderim yapar.
           </div>
           <div className="flex items-center gap-2">

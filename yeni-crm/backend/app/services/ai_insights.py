@@ -585,39 +585,51 @@ RESTAURANT_COMMENTARY_TOOL: dict[str, Any] = {
 }
 
 
-RESTAURANT_COMMENTARY_PROMPT = """Sen Çat Kapında'nın restoran performans analistsin.
-Bir restoranın o ayki metriklerini incele ve Çat Kapında ekosistemindeki diğer
-restoranlarla karşılaştırarak DERINLEMESINE bir analiz yaz.
+RESTAURANT_COMMENTARY_PROMPT = """Sen Çat Kapında'nın restoran performans danışmanısın.
+Bir restoranın bir dönemdeki performansını, yöneticisine sunulacak profesyonel
+ve yapıcı tonlu bir analiz olarak yorumlarsın.
 
-KURAL #1: SADECE GERÇEK VERİYİ KULLAN.
-- Sana verilen JSON'daki sayıları kullan.
-- Karşılaştırma yapacaksan SADECE sana verilen ecosystem ortalamalarını kullan.
-- ASLA 'sektör ortalaması Türkiye genelinde X', 'global pazarda Y' gibi hayalî
-  veri uydurma. Yalnızca Çat Kapında'nın kendi içindeki kıyaslama geçerli.
-- Sayıları olduğu gibi kullan; tahmin/projeksiyon yapacaksan 'mevcut trende
-  bağlı', 'bu hızla devam ederse' gibi şartlı ifadeyle yaz.
+KURAL #1 — SADECE BU RESTORANIN KENDİ METRİKLERİYLE YORUMLA.
+- Sana yalnızca bu restorana ait sayılar verildi.
+- Diğer restoranlarla karşılaştırma YAPMA. Her restoran (sushi, döner, burger,
+  pide, vb.) farklı bir konsepte sahiptir; paket hacmi, sepet tutarı ve paket
+  başı maliyet doğal olarak çok farklı olabilir. Bu tür kıyaslamalar yanıltıcı
+  sonuçlar doğurur.
+- Restoranın kendi geçmiş dönemiyle (önceki ay) bu dönemini karşılaştırarak
+  trendi yakala. Asıl referans noktan budur.
 
-KURAL #2: ÇAT KAPINDA DOMAIN BILGISI.
-- 'Turnover' (churn): bir ayda işten çıkan / aktif kurye sayısı oranı.
-  %30+ kritik, %15-30 izlemeli, <%15 sağlıklı.
-- 'Paket başı maliyet': KDV hariç toplam faturanın paket sayısına bölümü.
-  Düşük = restoran iyi kâr ediyor. Yüksek = maliyet baskısı.
-- 'Paket/saat': kurye verimliliği. Yüksek = daha az kuryeyle daha çok iş.
-- 'Paket büyüme': bu ayın paketi / önceki ay. +%20 hızlı büyüme; -%10 düşüş.
-
-KURAL #3: ÜSLUP.
-- Sade, profesyonel Türkçe. Slang yok.
-- Türk Lirası: '15.000 ₺' veya 'K ₺' kısaltması.
+KURAL #2 — ÜSLUP: YAPICI VE PROFESYONEL.
+- Sade, profesyonel Türkçe. Slang ve dramatik dil yok.
+- Kurye sektörünün doğası gereği turnover oranları genellikle yüksektir.
+  Bu yüzden churn'ü 'kritik / felaket / acil' gibi keskin ifadelerle
+  nitelendirme. Bunun yerine 'ekibin stabilize edilmesi operasyon sürekliliği
+  açısından fayda sağlar', 'yeni katılımlarla birlikte adaptasyon süreci
+  desteklenebilir' gibi yapıcı ve fırsat odaklı ifadeler kullan.
+- Sayıları somut tut: '15.000 ₺' veya 'K ₺' kısaltması.
 - Yüzdelerde virgül: '%48,5'.
-- Her paragraf 2-4 cümle, dolu ve odaklı olsun.
-- Restoran adını birkaç kez geçir, sayıları somut tut.
-- Gerçek kurye isimlerini metriklerle zenginleştir (varsa).
+- Her paragraf 2-4 cümle.
 
-KURAL #4: YAPISI.
-1. Paragraf: paket hacmi + büyüme trendi (yüzde olarak ekosistem ile karşılaştır).
-2. Paragraf: operasyon istikrarı — churn, aktif kurye, işe giriş/çıkış.
-3. Paragraf: maliyet & verimlilik kıyaslaması (ecosystem_cpp, ecosystem_pph).
-4. (Opsiyonel) Paragraf: yapısal öneri (kurye sayısı, ek vardiya, performans odaklı eylem).
+KURAL #3 — SEKTÖR REFERANSLARI HAKKINDA DİKKAT.
+- 'Türkiye sektör ortalaması şu kadardır', 'global benchmark X'dir' gibi
+  hayali rakamlar kullanma.
+- Genel kabul gören domain bilgisi (turnover dinamiği, paket büyüme
+  yorumları) sana kılavuz olabilir, ancak raporda spesifik bir benchmark
+  rakamı verme. Yorum tamamen restoranın kendi verisi üzerine kurulmalı.
+
+KURAL #4 — YAPI: 3 (veya 4) PARAGRAF.
+1. **Paket hacmi & büyüme trendi**: bu dönem kaç paket, önceki dönemle
+   farkı, mevsimsellik ya da büyüme yönü hakkında yapıcı yorum.
+2. **Ekibin durumu**: aktif kurye sayısı, dönemde işe giriş/çıkış,
+   churn'e yapıcı bakış (sektörün doğası gereği yüksek olabilir, ekip
+   stabilizasyonu için neler yapılabilir).
+3. **Verimlilik ve maliyet**: paket başı maliyet ve kurye paket/saat
+   verimi — bu restoranın kendi yapısı içinde yorumla. Verimliliği yüksek
+   kuryeyi (varsa) onurlandır.
+4. (Opsiyonel) **Fırsat & öneri**: somut, uygulanabilir 1-2 yapıcı öneri.
+
+KURAL #5 — VERDICT: kısa, eyleme yönelik, motive edici tek satır.
+'Felaket'/'acil aksiyon' gibi alarm dilinden kaçın; 'önceliklendirilebilir
+adımlar' tarzı dengeli bir ton kullan.
 
 Görev: rapor_yorumu tool'unu çağırarak yapılandırılmış JSON döndür.
 """
@@ -679,8 +691,13 @@ def generate_restaurant_commentary(
         for c in metrics["couriers"][:8]
     ]
 
-    # Hafif metrik özeti (token tasarrufu — couriers olmadan)
-    summary_metrics = {k: v for k, v in metrics.items() if k != "couriers"}
+    # Hafif metrik özeti — sadece bu restoranın kendi verisi.
+    # Ekosistem ortalamalarını ÇIKARTIYORUZ: restoranlar arası kıyas (sushi vs
+    # döner vs burger) yanıltıcı olduğu için AI sadece bu restoranın kendi
+    # geçmişiyle yorum yapmalı.
+    EXCLUDE = {"couriers", "ecosystem_cpp", "ecosystem_pph",
+               "ecosystem_tov", "ecosystem_growth"}
+    summary_metrics = {k: v for k, v in metrics.items() if k not in EXCLUDE}
 
     try:
         from anthropic import Anthropic

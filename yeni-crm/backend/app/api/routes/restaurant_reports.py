@@ -233,7 +233,7 @@ async def send_restaurant_report_email(
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #0B0D17;">
   <div style="border-top: 4px solid #0F52BA; padding-top: 24px;">
     <div style="font-size: 11px; letter-spacing: 0.2em; color: #0F52BA; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">
-      Çat Kapında · Performans Raporu
+      Çat Kapında — Performans Raporu
     </div>
     <h1 style="font-size: 22px; margin: 0 0 4px; color: #0A3F8F;">{brand_label}</h1>
     <div style="color: #4D5468; font-size: 14px; margin-bottom: 24px;">
@@ -243,13 +243,13 @@ async def send_restaurant_report_email(
     <p style="line-height: 1.6;">Merhaba {contact_name},</p>
     <p style="line-height: 1.6;">
       {period_label} dönemi için <b>{brand_label}</b> performans raporunuz
-      ekte yer alıyor. Bu rapor; paket hacmi, ekibinizdeki kurye verimliliği,
-      paket başı maliyet ve Çat Kapında ekosistemiyle karşılaştırmalı
-      analizleri içerir. Raporun son bölümünde Claude AI tarafından üretilen,
-      tamamen ham veriye dayalı bir yorum bulacaksınız.
+      ekte yer alıyor. Rapor; paket hacmi ve büyüme trendi, ekibinizdeki
+      kurye verimliliği, paket başı maliyet ve dönemsel karşılaştırma
+      başlıklarını içerir. Son bölümde, gerçekleşen veriler üzerinden
+      Claude AI tarafından hazırlanmış bir dönem analizi yer alır.
     </p>
     <p style="line-height: 1.6;">
-      Sorularınız veya görüşmek istediğiniz bir nokta olursa bu e-postayı
+      Görüşmek istediğiniz bir nokta olursa bu e-postayı doğrudan
       yanıtlayabilirsiniz.
     </p>
     <p style="line-height: 1.6;">İyi çalışmalar,<br><b>Çat Kapında</b></p>
@@ -265,10 +265,10 @@ async def send_restaurant_report_email(
     text_body = (
         f"Merhaba {contact_name},\n\n"
         f"{period_label} dönemi için {brand_label} performans raporunuz "
-        f"ekte yer alıyor. Bu rapor; paket hacmi, kurye verimliliği, "
-        f"paket başı maliyet ve Çat Kapında ekosistemiyle karşılaştırmalı "
-        f"analizleri içerir. Son bölümde Claude AI tarafından ham veriye "
-        f"dayalı bir yorum bulacaksınız.\n\n"
+        f"ekte yer alıyor. Rapor; paket hacmi ve büyüme trendi, kurye "
+        f"verimliliği, paket başı maliyet ve dönemsel karşılaştırma "
+        f"başlıklarını içerir. Son bölümde, gerçekleşen veriler üzerinden "
+        f"Claude AI tarafından hazırlanmış bir dönem analizi yer alır.\n\n"
         f"İyi çalışmalar,\n"
         f"Çat Kapında\n"
         f"info@catkapinda.com"
