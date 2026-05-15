@@ -3,11 +3,18 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  Activity, BarChart3, Building2, ChevronDown, ChevronRight,
-  Package, TrendingDown, TrendingUp,
+  Activity, AlertTriangle, BarChart3, Building2, ChevronDown, ChevronRight,
+  Package, Sparkles, TrendingDown, TrendingUp, Users,
+  type LucideIcon,
 } from 'lucide-react';
 
-import type { RestaurantReports, SidebarCounts } from '@/lib/api';
+import type {
+  AiInsightCard,
+  AiInsightsResponse,
+  RestaurantReports,
+  SidebarCounts,
+} from '@/lib/api';
+import { getRestaurantsAiInsights } from '@/lib/api';
 
 const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -48,11 +55,14 @@ export function RaporlarView({
   reports,
   period,
   counts,
+  aiInsights = null,
 }: {
   reports: RestaurantReports;
   period: string;
   counts?: SidebarCounts | null;
+  aiInsights?: AiInsightsResponse | null;
 }) {
+  void counts;
   const [activeTab, setActiveTab] = useState<'turnover' | 'efficiency' | 'cost' | 'growth'>(
     'turnover'
   );
@@ -138,6 +148,14 @@ export function RaporlarView({
           color="bg-purple-50 text-purple-700"
         />
       </div>
+
+      {/* ────────────────────────────────────────────────────────────
+          AI Insights Hero — Claude'un yorumladığı 4 kartlık özet
+         ──────────────────────────────────────────────────────────── */}
+      <RestaurantsAiHero
+        initial={aiInsights}
+        period={period}
+      />
 
       {/* ────────────────────────────────────────────────────────────
           Tabs
@@ -705,5 +723,228 @@ function GrowthTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+
+// ──────────────────────────────────────────────────────────────────
+// RestaurantsAiHero — Claude'un restoran raporlarından ürettiği
+// 4 kartlık akıllı içgörü. AI yoksa hero gizlenir (sessizce).
+// ──────────────────────────────────────────────────────────────────
+
+const AI_CARD_META: Record<string, { Icon: LucideIcon; tone: 'emerald' | 'amber' | 'blue' | 'rose' }> = {
+  turnover_riski: { Icon: Users, tone: 'rose' },
+  verim_lideri: { Icon: TrendingUp, tone: 'emerald' },
+  maliyet_baskisi: { Icon: AlertTriangle, tone: 'amber' },
+  buyume_trendi: { Icon: Activity, tone: 'blue' },
+};
+
+function RestaurantsAiHero({
+  initial, period,
+}: {
+  initial: AiInsightsResponse | null;
+  period: string;
+}) {
+  const [aiData, setAiData] = useState<AiInsightsResponse | null>(initial);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [expandActions, setExpandActions] = useState(false);
+
+  const ai = aiData?.payload?.ai ?? null;
+
+  // Hero gizlensin eğer AI hiç yoksa (API_KEY yok veya servis çöktü)
+  if (!ai) return null;
+
+  const cards = (ai.cards ?? []) as AiInsightCard[];
+  const actions = ai.actions ?? [];
+
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      const fresh = await getRestaurantsAiInsights(period, true);
+      if (fresh) {
+        setAiData(fresh);
+      } else {
+        setRefreshError('AI servisine ulaşılamadı.');
+      }
+    } catch (e) {
+      setRefreshError(e instanceof Error ? e.message : 'Yenileme başarısız.');
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const generatedAtLabel = useMemo(() => {
+    if (!aiData?.generated_at) return null;
+    const d = new Date(aiData.generated_at);
+    if (Number.isNaN(d.getTime())) return null;
+    const now = new Date();
+    const diffMin = Math.max(0, Math.floor((now.getTime() - d.getTime()) / 60000));
+    if (diffMin < 1) return 'az önce';
+    if (diffMin < 60) return `${diffMin} dakika önce`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr} saat önce`;
+    return `${Math.floor(diffHr / 24)} gün önce`;
+  }, [aiData?.generated_at]);
+
+  return (
+    <section
+      className="rounded-3xl border border-border shadow-sm p-7 relative overflow-hidden"
+      style={{
+        background: `radial-gradient(900px circle at 92% -8%, rgba(56,189,248,0.16), transparent 50%),
+                    radial-gradient(700px circle at -8% 110%, rgba(15,82,186,0.12), transparent 55%),
+                    linear-gradient(135deg, #FFFFFF 0%, #F4F8FE 100%)`,
+      }}
+    >
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 1px 1px, rgba(15,82,186,0.07) 1px, transparent 0)',
+          backgroundSize: '22px 22px',
+          maskImage: 'linear-gradient(135deg, transparent 35%, black 80%)',
+        }}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-7 relative z-10">
+        {/* Sol: anlatım */}
+        <div className="lg:col-span-2">
+          <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider text-white shadow-sm bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500">
+              <Sparkles className="w-3.5 h-3.5" strokeWidth={2.4} />
+              AI Üretimi · Claude
+              <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/25 text-[9.5px] font-semibold tracking-normal">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                {aiData?.stale ? 'Eski' : 'Canlı'}
+              </span>
+            </div>
+            <div className="inline-flex items-center gap-2 text-[11px] text-text-3">
+              {generatedAtLabel && (
+                <span className="font-medium">{generatedAtLabel} üretildi</span>
+              )}
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-border hover:border-brand/40 hover:text-brand transition disabled:opacity-60 font-semibold"
+                title="AI'a tekrar üret"
+              >
+                <span className={refreshing ? 'animate-spin' : ''}>↻</span>
+                {refreshing ? 'Yenileniyor…' : 'AI yenile'}
+              </button>
+            </div>
+          </div>
+
+          <h2 className="font-display text-[26px] font-semibold tracking-tight leading-snug text-text mb-3">
+            <span
+              style={{
+                background: 'linear-gradient(135deg, #0B0D17 0%, #0F52BA 70%, #38BDF8 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontWeight: 600,
+              }}
+            >
+              {ai.headline}
+            </span>
+          </h2>
+
+          <p className="text-text-2 text-[13.5px] leading-relaxed mb-5">
+            {ai.narrative}
+          </p>
+
+          {actions.length > 0 && (
+            <button
+              onClick={() => setExpandActions((v) => !v)}
+              className={[
+                'px-4 py-2.5 text-xs font-semibold rounded-lg transition',
+                expandActions
+                  ? 'bg-blue-50 border border-blue-300 text-blue-700'
+                  : 'bg-text text-white hover:shadow-lg',
+              ].join(' ')}
+            >
+              {expandActions ? 'Önerileri gizle' : `Eylem önerileri (${actions.length})`}
+            </button>
+          )}
+
+          {refreshError && (
+            <div className="mt-3 text-[11.5px] text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-1.5 inline-block">
+              {refreshError}
+            </div>
+          )}
+        </div>
+
+        {/* Sağ: 4 kart */}
+        <div className="grid grid-cols-2 gap-2.5">
+          {cards.map((card) => {
+            const meta = AI_CARD_META[card.key] ?? AI_CARD_META.turnover_riski;
+            const tone = card.tone === 'positive' ? 'emerald'
+                       : card.tone === 'warning' ? 'amber'
+                       : card.tone === 'info' ? 'blue'
+                       : meta.tone;
+            const toneClasses: Record<string, string> = {
+              emerald: 'border-emerald-200 bg-emerald-50/60',
+              amber: 'border-amber-200 bg-amber-50/60',
+              blue: 'border-blue-200 bg-blue-50/60',
+              rose: 'border-rose-200 bg-rose-50/60',
+            };
+            const iconColor: Record<string, string> = {
+              emerald: 'text-emerald-600',
+              amber: 'text-amber-600',
+              blue: 'text-blue-600',
+              rose: 'text-rose-600',
+            };
+            const Icon = meta.Icon;
+            return (
+              <div
+                key={card.key}
+                className={`relative rounded-xl border p-3.5 ${toneClasses[tone]}`}
+              >
+                <Icon className={`w-4 h-4 ${iconColor[tone]} mb-2`} strokeWidth={2.2} />
+                <div className="text-[10px] uppercase tracking-wider font-bold text-text-3">
+                  {card.label}
+                </div>
+                <div className="font-display text-[18px] font-semibold text-text leading-tight mt-1 mb-1">
+                  {card.value}
+                </div>
+                <div className="text-[11px] text-text-2 leading-snug">
+                  {card.sub}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Eylem önerileri açılır panel */}
+      {expandActions && actions.length > 0 && (
+        <div className="relative z-10 mt-6 pt-6 border-t border-blue-200/60">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-text-3 mb-3">
+            Eylem Önerileri ({actions.length})
+          </div>
+          <ul className="space-y-2.5">
+            {actions.map((a, i) => {
+              const priority = a.priority ?? 'orta';
+              const priColor = priority === 'yuksek' ? 'bg-rose-100 text-rose-800'
+                             : priority === 'orta' ? 'bg-amber-100 text-amber-800'
+                             : 'bg-slate-100 text-slate-700';
+              return (
+                <li key={i} className="bg-white border border-border rounded-xl p-3.5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${priColor}`}>
+                      {priority}
+                    </span>
+                    <span className="font-semibold text-[13.5px] text-text">{a.title}</span>
+                  </div>
+                  <div className="text-[12.5px] text-text-2 leading-relaxed">
+                    {a.detail}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }

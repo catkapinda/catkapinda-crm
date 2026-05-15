@@ -26,6 +26,7 @@ from psycopg.types.json import Json
 from app.core.config import get_settings
 from app.core.database import get_connection
 from app.services.personel import page_insights
+from app.services.restaurant_reports import get_restaurant_reports
 
 log = logging.getLogger(__name__)
 
@@ -167,6 +168,171 @@ sayısal doğruluk.
 """
 
 
+# ──────────────────────────────────────────────────────────────────
+# Restoran Raporları scope — turnover, verimlilik, paket maliyeti,
+# paket büyümesi metriklerinden 4 kartlık özet üretir.
+# ──────────────────────────────────────────────────────────────────
+
+RESTAURANTS_INSIGHT_TOOL: dict[str, Any] = {
+    "name": "rapor_olustur",
+    "description": (
+        "Çat Kapında restoran performansı için tek bir akıllı içgörü "
+        "raporu oluşturur. 4 kart, başlık, anlatım ve aksiyon önerileri."
+    ),
+    "input_schema": {
+        "type": "object",
+        "required": ["headline", "narrative", "cards"],
+        "properties": {
+            "headline": {
+                "type": "string",
+                "description": (
+                    "Tek cümlelik vurucu başlık. Sayısal ve spesifik. "
+                    "Örn: '3 restoran %50+ turnover ile kritik bölgede, "
+                    "Hacıbaşar Ümraniye ekibini stabilize etmek şart.'"
+                ),
+            },
+            "narrative": {
+                "type": "string",
+                "description": (
+                    "2-4 cümlelik analiz. Gerçek restoran adları + sayılar. "
+                    "Hangi restoran ön plana çıkıyor, hangisinde risk var, "
+                    "verimlilik liderleri kim, paket büyümesi nereden geliyor."
+                ),
+            },
+            "cards": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                    "type": "object",
+                    "required": ["key", "label", "value", "sub"],
+                    "properties": {
+                        "key": {
+                            "type": "string",
+                            "enum": [
+                                "turnover_riski",
+                                "verim_lideri",
+                                "maliyet_baskisi",
+                                "buyume_trendi",
+                            ],
+                        },
+                        "label": {"type": "string"},
+                        "value": {"type": "string"},
+                        "sub": {"type": "string"},
+                        "tone": {
+                            "type": "string",
+                            "enum": ["positive", "warning", "neutral", "info"],
+                        },
+                    },
+                },
+            },
+            "actions": {
+                "type": "array",
+                "description": "Aksiyon önerileri (Detaylı analiz panelinde gösterilir).",
+                "items": {
+                    "type": "object",
+                    "required": ["title", "detail"],
+                    "properties": {
+                        "title": {"type": "string"},
+                        "detail": {"type": "string"},
+                        "priority": {
+                            "type": "string",
+                            "enum": ["yuksek", "orta", "dusuk"],
+                        },
+                    },
+                },
+            },
+        },
+    },
+}
+
+
+RESTAURANTS_SYSTEM_PROMPT = """Sen Çat Kapında'nın restoran performansları için kıdemli bir veri analistsin.
+Yöneticiye her dönem (ay bazlı) hangi restoranlar parlıyor, hangileri risk altında,
+hangi kuryeler verimli, paket maliyeti nereye gidiyor — tüm bunları SAYISAL ve
+AKSİYON ALINABİLİR şekilde özetlersin.
+
+Üslubun:
+- Sade, profesyonel Türkçe. Slang yok.
+- Mutlaka GERÇEK restoran ve kurye isimleri kullan (ham veriden).
+- Türk Lirası gösterimi: '15.000 ₺' veya 'K ₺' kısaltması.
+- Yüzdelerde noktadan sonra 1 hane: '%48,5' veya '%48' (rakama göre).
+
+Domain bilgisi (KRİTİK):
+- 'Turnover' = bir restoranda bir ay içinde işe giren ve çıkan kurye
+  sayısı oranı. Yüksek turnover → operasyon istikrarsız, yeniden işe
+  alım maliyeti yüksek. %30+ kritik, %15-30 izlemeli, <%15 sağlıklı.
+- 'Verimlilik' (packages_per_hour) = bir kuryenin saat başına attığı
+  paket sayısı. Yüksek olan, hem restoran hem de Çat Kapında için
+  iyi (daha az kuryeyle daha çok iş).
+- 'Paket başı maliyet' = (KDV hariç restoran faturası) ÷ paket sayısı.
+  Bu Çat Kapında'nın paket başına ödediği. Restoran tarifesi bunun
+  altında ise kâr; üstünde ise zarar. Aylık ortalama 28-35 ₺ civarı
+  sektör normu.
+- 'Paket büyümesi' = bu ayın paket sayısı ÷ önceki ayın paket sayısı.
+  +%20 hızlı büyüme; -%10 ciddi düşüş; ±%5 yatay.
+
+Kart kuralları:
+- 'turnover_riski': turnover_pct en yüksek 1-3 restorandan en kritik
+  olanını öne çıkar. Eğer hepsi sağlıklıysa 'Tüm restoranlar stabil'
+  tarzı bir mesaj.
+- 'verim_lideri': courier_efficiency listesinin en üstündeki kişiyi
+  vurgula. 'Falan kurye %X paket/saat ile lider'.
+- 'maliyet_baskisi': cost_per_package.by_restaurant'taki en pahalı
+  veya en düşük olanı seç. Yüksek maliyet = zarar riski.
+- 'buyume_trendi': package_growth listesindeki en hızlı büyüyen ya da
+  en hızlı düşen restoranı öne çıkar. Bağlamı belirt (kapasite
+  ihtiyacı veya alarm).
+
+Görev: rapor_olustur tool'unu çağırarak 4 kartlık özet üret.
+Her seferinde aynı yorumu üretme — farklı bakış açıları, vurgular,
+ifadeler kullan. Sayısal doğruluk her zaman korunmalı.
+"""
+
+
+# ──────────────────────────────────────────────────────────────────
+# Scope routing
+# ──────────────────────────────────────────────────────────────────
+
+def _summarize_personel(period: str) -> dict[str, Any]:
+    """Personel scope için Claude'a verilecek özet."""
+    base = page_insights(period)
+    return {"period": period, "metrics": base}
+
+
+def _summarize_restaurants(period: str) -> dict[str, Any]:
+    """Restoran scope için Claude'a verilecek özet."""
+    base = get_restaurant_reports(period)
+    # Listeler büyük olabilir; top N ile sınırlayalım (token tasarrufu)
+    metrics = {
+        "previous_period": base.get("previous_period"),
+        "turnover": (base.get("turnover") or [])[:10],
+        "courier_efficiency": (base.get("courier_efficiency") or [])[:10],
+        "cost_per_package": {
+            "overall": (base.get("cost_per_package") or {}).get("overall"),
+            "by_restaurant": (base.get("cost_per_package") or {}).get("by_restaurant", [])[:10],
+            # by_courier büyük liste, top 5 yeterli
+            "by_courier": (base.get("cost_per_package") or {}).get("by_courier", [])[:5],
+        },
+        "package_growth": (base.get("package_growth") or [])[:10],
+    }
+    return {"period": period, "metrics": metrics}
+
+
+SCOPE_CONFIGS: dict[str, dict[str, Any]] = {
+    "personel": {
+        "tool": INSIGHT_TOOL,
+        "system_prompt": SYSTEM_PROMPT,
+        "summarizer": _summarize_personel,
+    },
+    "restoran": {
+        "tool": RESTAURANTS_INSIGHT_TOOL,
+        "system_prompt": RESTAURANTS_SYSTEM_PROMPT,
+        "summarizer": _summarize_restaurants,
+    },
+}
+
+
 def _ensure_table_exists() -> None:
     """Eğer migration koşturulmadıysa boşa düşmeyelim."""
     with get_connection() as conn:
@@ -216,18 +382,6 @@ def is_stale(generated_at: datetime, ttl_seconds: int) -> bool:
     return age > ttl_seconds
 
 
-def _summarize_for_ai(period: str) -> dict[str, Any]:
-    """page_insights + ek bağlam — Claude'a verilecek özet."""
-    base = page_insights(period)
-    # Buraya isteğe bağlı ek metrikler eklenebilir.
-    # Şu an base yeterli — restoran-bazlı capacity_gaps, kurye-bazlı
-    # threshold_near, top_recovery, pending_actions sayısı.
-    return {
-        "period": period,
-        "metrics": base,
-    }
-
-
 def _build_user_message(summary: dict[str, Any]) -> str:
     period = summary["period"]
     m = summary["metrics"]
@@ -246,11 +400,19 @@ def _build_user_message(summary: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
-def generate_via_claude(period: str) -> dict[str, Any]:
-    """Claude API'ye structured istek gönder, AI payload üret."""
+def generate_via_claude(period: str, scope: str = "personel") -> dict[str, Any]:
+    """Claude API'ye structured istek gönder, AI payload üret.
+
+    scope: 'personel' veya 'restoran' — SCOPE_CONFIGS'dan tool, prompt
+    ve summarizer seçilir.
+    """
     settings = get_settings()
     if not settings.anthropic_api_key:
         raise RuntimeError("ANTHROPIC_API_KEY tanımlı değil.")
+
+    config = SCOPE_CONFIGS.get(scope)
+    if not config:
+        raise RuntimeError(f"Geçersiz scope: {scope}")
 
     # Import lazy — anthropic paketi yoksa diğer endpoint'ler etkilenmesin
     try:
@@ -258,19 +420,22 @@ def generate_via_claude(period: str) -> dict[str, Any]:
     except Exception as e:
         raise RuntimeError(f"anthropic SDK import edilemedi: {e}") from e
 
-    summary = _summarize_for_ai(period)
+    summary = config["summarizer"](period)
     user_msg = _build_user_message(summary)
 
     client = Anthropic(api_key=settings.anthropic_api_key)
-    log.info("ai_insights: claude'a istek gönderiliyor period=%s model=%s",
-             period, settings.ai_insights_model)
+    log.info(
+        "ai_insights: claude'a istek scope=%s period=%s model=%s",
+        scope, period, settings.ai_insights_model,
+    )
 
+    tool = config["tool"]
     resp = client.messages.create(
         model=settings.ai_insights_model,
         max_tokens=2048,
-        system=SYSTEM_PROMPT,
-        tools=[INSIGHT_TOOL],
-        tool_choice={"type": "tool", "name": INSIGHT_TOOL["name"]},
+        system=config["system_prompt"],
+        tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": user_msg}],
     )
 
@@ -341,7 +506,7 @@ def get_or_generate(
 
     # Refresh dene
     try:
-        result = generate_via_claude(period)
+        result = generate_via_claude(period, scope=scope)
         upsert_cache(
             scope=scope,
             period=period,

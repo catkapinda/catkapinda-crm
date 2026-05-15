@@ -1305,6 +1305,24 @@ export async function getRestaurantReports(
   return apiGet<RestaurantReports>(`/api/restaurant-reports?period=${period}`);
 }
 
+// Restoran raporları için AI içgörü — scope='restoran' ile cache'lenir.
+// Cevap şeması AiInsightsResponse ile aynı, kart key'leri farklı:
+// turnover_riski / verim_lideri / maliyet_baskisi / buyume_trendi.
+export async function getRestaurantsAiInsights(
+  period: string,
+  force: boolean = false,
+  opts: { revalidate?: number } = {},
+): Promise<AiInsightsResponse | null> {
+  const url = `/api/restaurant-reports/ai-insights?period=${encodeURIComponent(period)}${
+    force ? '&force=true' : ''
+  }`;
+  try {
+    return await apiGet<AiInsightsResponse>(url, opts);
+  } catch {
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // Hakediş Onayları (imzalanan bordrolar + ödeme takibi)
 // ─────────────────────────────────────────────────────────────
