@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Activity, AlertCircle, Box, Calendar, CheckCircle2, Coins,
+  AlertCircle, Box, CheckCircle2, Coins,
   Edit2, Loader2, Package, Plus, Search, Trash2, Users, X,
 } from 'lucide-react';
 

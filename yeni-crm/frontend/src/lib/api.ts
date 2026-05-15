@@ -1508,10 +1508,23 @@ export async function getCollections(params: {
   return apiGet<CollectionsListResponse>(`/api/collections?${qs.toString()}`);
 }
 
-export async function upsertCollection(payload: Partial<CollectionItem> & {
+export type CollectionUpsertPayload = {
   restaurant_id: number;
   collection_month: string;
-}): Promise<CollectionItem> {
+  invoice_amount?: number;
+  collected_amount?: number;
+  status?: string;
+  due_date?: string | null;
+  last_contact_date?: string | null;
+  responsible_name?: string;
+  note?: string;
+  notes?: string;
+  paid_at?: string | null;
+  payment_date?: string | null;
+  invoice_no?: string | null;
+};
+
+export async function upsertCollection(payload: CollectionUpsertPayload): Promise<CollectionItem> {
   return apiMutate('/api/collections', payload, 'POST');
 }
 

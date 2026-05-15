@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   AlertCircle, AlertTriangle, Calendar, Check, CheckCircle2,
   ChevronDown, Clock, Coins, Edit3, Loader2, Phone, Search,
-  TrendingUp, Users, Wallet, X,
+  Wallet, X,
 } from 'lucide-react';
 
 import {
@@ -475,8 +475,7 @@ function CollectionModal({
         last_contact_date: form.last_contact_date || null,
         responsible_name: form.responsible_name,
         note: form.note,
-        // payment_date for paid_at
-        ...(form.payment_date ? { paid_at: form.payment_date } as Partial<CollectionItem> : {}),
+        paid_at: form.payment_date || null,
       });
       onSaved();
     } catch (e) {
