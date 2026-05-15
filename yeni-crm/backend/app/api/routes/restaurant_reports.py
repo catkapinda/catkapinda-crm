@@ -89,14 +89,28 @@ async def get_restaurant_report_pdf(
             log.warning("restaurant pdf: commentary üretilemedi: %s", e)
             commentary = None
 
-    pdf_bytes = generate_restaurant_report_pdf(
-        restaurant=restaurant,
-        period=period,
-        reports=reports,
-        commentary=commentary,
-    )
+    try:
+        pdf_bytes = generate_restaurant_report_pdf(
+            restaurant=restaurant,
+            period=period,
+            reports=reports,
+            commentary=commentary,
+        )
+    except Exception as e:
+        log.exception("restaurant pdf üretilemedi: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "pdf_generation_failed",
+                "message": str(e),
+            },
+        ) from e
 
-    safe_brand = (restaurant.get("brand") or "rapor").replace(" ", "_")
+    # Filename: ASCII-safe ve tireli (HTTP header Latin-1 olmalı)
+    raw_brand = (restaurant.get("brand") or "rapor")
+    safe_brand = "".join(
+        c if c.isalnum() else "_" for c in raw_brand.encode("ascii", "ignore").decode("ascii")
+    ) or "rapor"
     filename = f"performans_{safe_brand}_{period}.pdf"
     return Response(
         content=pdf_bytes,

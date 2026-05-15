@@ -117,7 +117,6 @@ def _styles() -> dict[str, ParagraphStyle]:
         "hero_eyebrow": ParagraphStyle(
             "he", fontName=FONT_BOLD, fontSize=8,
             textColor=colors.white, leading=10,
-            letterSpacing=1.4,
         ),
         "hero_title": ParagraphStyle(
             "ht", fontName=FONT_BOLD, fontSize=22,
