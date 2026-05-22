@@ -140,7 +140,7 @@ export function RaporlarView({
       {/* ────────────────────────────────────────────────────────────
           HERO Header
          ──────────────────────────────────────────────────────────── */}
-      <section className="relative rounded-3xl mb-2 shadow-lg">
+      <section className="relative z-20 rounded-3xl mb-2 shadow-lg">
         {/* Dekoratif katman — overflow-hidden burada (period dropdown serbest) */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
           <div className="absolute inset-0 bg-gradient-to-br from-brand-dark via-brand to-blue-600" />

@@ -120,7 +120,7 @@ export function TahsilatlarView({
   return (
     <div className="flex-1 flex flex-col gap-6 p-6">
       {/* ────────── HERO ────────── */}
-      <section className="relative rounded-3xl shadow-lg">
+      <section className="relative z-20 rounded-3xl shadow-lg">
         {/* Dekoratif katman — overflow-hidden burada (dropdown serbest kalır) */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
           <div className="absolute inset-0 bg-gradient-to-br from-brand-dark via-brand to-blue-600" />
