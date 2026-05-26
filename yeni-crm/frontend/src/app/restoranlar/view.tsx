@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight, ArrowUpDown, LayoutGrid, List, Pencil, X,
+  ArrowRight, ArrowUpDown, Building2, LayoutGrid, List, Package,
+  Pencil, Plus, Sparkles, Store, X,
 } from 'lucide-react';
 
 import { RestaurantEditModal } from '@/components/restaurant-edit-modal';
@@ -154,56 +155,89 @@ export function RestaurantsView({
   }, [perf]);
 
   return (
-    <>
-      {/* Header — Yeni Müşteri butonu */}
-      <header className="flex justify-between items-center gap-5 flex-wrap mb-4">
-        <div className="text-[12.5px] text-text-3 font-medium">
-          {restaurants.length} aktif restoran · karta tıklayıp düzenle
+    <div className="flex flex-col gap-6">
+      {/* ────────── HERO ────────── */}
+      <section className="relative z-20 rounded-3xl shadow-lg">
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-dark via-brand to-blue-600" />
+          <div
+            className="absolute inset-0 opacity-30 mix-blend-overlay"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 20% 20%, rgba(255,255,255,.4) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,200,100,.3) 0%, transparent 50%)',
+            }}
+          />
+          <div
+            className="absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+              backgroundSize: '24px 24px',
+            }}
+          />
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="px-4 py-2 rounded-xl bg-brand text-white text-sm font-semibold shadow-sm hover:bg-brand-dark transition flex items-center gap-2"
-        >
-          <span className="text-base">+</span>
-          <span>Yeni Müşteri / Restoran</span>
-        </button>
-      </header>
+        <div className="relative px-7 py-7 text-white flex items-start justify-between gap-6 flex-wrap">
+          <div>
+            <div className="text-[11px] font-medium tracking-[0.2em] uppercase text-white/70 mb-2 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-yellow-300 animate-pulse" />
+              Satış · Restoranlar
+            </div>
+            <h1 className="text-4xl font-bold mb-1 flex items-center gap-3">
+              <Building2 className="w-8 h-8" />
+              Restoranlar
+            </h1>
+            <div className="text-white/80">
+              {restaurants.length} aktif restoran · karta tıklayıp düzenleyin
+              {monthTotals.packages > 0 && (
+                <span className="text-white/65 text-xs ml-2">
+                  · son ay <span className="text-white/90 font-semibold">{monthTotals.packages.toLocaleString('tr-TR')}</span> paket
+                  / <span className="text-white/90 font-semibold">{Math.round(monthTotals.hours).toLocaleString('tr-TR')}</span> saat
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setCreating(true)}
+            className="px-4 py-2.5 rounded-xl bg-white/15 backdrop-blur-sm border border-white/25 text-white text-sm font-semibold hover:bg-white/25 transition inline-flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2.4} />
+            Yeni Müşteri / Restoran
+          </button>
+        </div>
+      </section>
 
-      {/* Hero strip */}
-      <div className="bg-bg-surface border border-border rounded-2xl shadow-md flex overflow-hidden mb-5">
-        <HeroCell
-          label="Toplam Aktif"
-          value={restaurants.length.toString()}
-          brand
-          meta={`${monthTotals.packages.toLocaleString('tr-TR')} paket / ${Math.round(monthTotals.hours).toLocaleString('tr-TR')} saat`}
-        />
-        <ModelCell
+      {/* ────────── KPI: pricing model kırılımı ────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <ModelKpiCard
+          icon={Package}
           label="Saat + Prim"
+          accent="orange"
           value={byModel['hourly_plus_package'] ?? 0}
-          modelKey="hourly_plus_package"
-          activeModel={activeModel}
-          onClick={(k) => setActiveModel(activeModel === k ? null : k)}
+          active={activeModel === 'hourly_plus_package'}
+          onClick={() => setActiveModel(activeModel === 'hourly_plus_package' ? null : 'hourly_plus_package')}
         />
-        <ModelCell
+        <ModelKpiCard
+          icon={Sparkles}
           label="Eşikli"
+          accent="amber"
           value={byModel['threshold_package'] ?? 0}
-          modelKey="threshold_package"
-          activeModel={activeModel}
-          onClick={(k) => setActiveModel(activeModel === k ? null : k)}
+          active={activeModel === 'threshold_package'}
+          onClick={() => setActiveModel(activeModel === 'threshold_package' ? null : 'threshold_package')}
         />
-        <ModelCell
+        <ModelKpiCard
+          icon={Store}
           label="Aylık Sabit"
+          accent="emerald"
           value={byModel['fixed_monthly'] ?? 0}
-          modelKey="fixed_monthly"
-          activeModel={activeModel}
-          onClick={(k) => setActiveModel(activeModel === k ? null : k)}
+          active={activeModel === 'fixed_monthly'}
+          onClick={() => setActiveModel(activeModel === 'fixed_monthly' ? null : 'fixed_monthly')}
         />
-        <ModelCell
+        <ModelKpiCard
+          icon={Building2}
           label="Saatlik"
+          accent="brand"
           value={byModel['hourly_only'] ?? 0}
-          modelKey="hourly_only"
-          activeModel={activeModel}
-          onClick={(k) => setActiveModel(activeModel === k ? null : k)}
+          active={activeModel === 'hourly_only'}
+          onClick={() => setActiveModel(activeModel === 'hourly_only' ? null : 'hourly_only')}
         />
       </div>
 
@@ -346,7 +380,57 @@ export function RestaurantsView({
           mode="create"
         />
       )}
-    </>
+    </div>
+  );
+}
+
+// ────────── Premium KPI kart — pricing model kırılımı ──────────
+
+function ModelKpiCard({
+  icon: Icon, label, value, accent, active, onClick,
+}: {
+  icon: typeof Building2;
+  label: string;
+  value: number;
+  accent: 'brand' | 'orange' | 'amber' | 'emerald';
+  active: boolean;
+  onClick: () => void;
+}) {
+  const ringMap: Record<string, string> = {
+    brand: 'bg-gradient-to-b from-brand to-blue-400',
+    orange: 'bg-gradient-to-b from-orange-500 to-amber-300',
+    amber: 'bg-gradient-to-b from-amber-500 to-yellow-300',
+    emerald: 'bg-gradient-to-b from-emerald-500 to-green-300',
+  };
+  const iconBgMap: Record<string, string> = {
+    brand: 'bg-brand-soft text-brand',
+    orange: 'bg-orange-100 text-orange-700',
+    amber: 'bg-amber-100 text-amber-800',
+    emerald: 'bg-emerald-100 text-emerald-700',
+  };
+  return (
+    <button
+      onClick={onClick}
+      className={`relative bg-white rounded-2xl px-5 py-4 shadow-sm border overflow-hidden text-left transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${
+        active ? 'border-brand ring-2 ring-brand/30' : 'border-border hover:border-brand/40'
+      }`}
+    >
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${ringMap[accent]}`} />
+      <div className="flex items-start justify-between mb-2">
+        <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold">
+          {label}
+        </div>
+        <div className={`w-7 h-7 rounded-lg ${iconBgMap[accent]} flex items-center justify-center`}>
+          <Icon className="w-3.5 h-3.5" strokeWidth={2.2} />
+        </div>
+      </div>
+      <div className="font-display text-[24px] font-bold tracking-tight leading-none tabular-nums">
+        {value}
+      </div>
+      <div className="text-[11px] text-text-3 mt-2 font-medium">
+        {active ? 'Filtre aktif' : 'tıkla → filtrele'}
+      </div>
+    </button>
   );
 }
 
