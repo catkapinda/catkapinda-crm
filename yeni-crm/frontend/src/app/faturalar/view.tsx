@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  AlertCircle, Building2, ChevronDown, ChevronRight, Filter,
-  Receipt, Search, Users2, X,
+  AlertCircle, Building2, Calculator, Calendar, Check,
+  ChevronDown, ChevronRight, Filter, Loader2, Receipt,
+  Search, TrendingUp, Users2, X,
 } from 'lucide-react';
 
 import {
@@ -18,11 +20,24 @@ const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
   'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
 ];
+const MIN_PERIOD = '2026-03';
 
 function formatPeriod(p: string): string {
   const [y, m] = p.split('-').map((s) => parseInt(s, 10));
   if (!y || !m) return p;
   return `${TR_MONTHS[m - 1]} ${y}`;
+}
+
+function recentPeriodOptions(max = 6): { value: string; label: string }[] {
+  const now = new Date();
+  const out: { value: string; label: string }[] = [];
+  for (let i = 0; i < max; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    out.push({ value: v, label: `${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}` });
+    if (v === MIN_PERIOD) break;
+  }
+  return out;
 }
 
 function m(value: number | null | undefined): string {
@@ -48,11 +63,22 @@ export function FaturalarView({
   summary: InvoiceSummary | null;
   period: string;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [breakdownCache, setBreakdownCache] = useState<Record<number, RestaurantMonthly>>({});
   const [loadingId, setLoadingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Period selector
+  const periodOptions = useMemo(() => recentPeriodOptions(6), []);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  function changePeriod(next: string) {
+    setPickerOpen(false);
+    if (next === period) return;
+    router.push(`/faturalar?ay=${next}`);
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr-TR');
@@ -83,7 +109,7 @@ export function FaturalarView({
       return;
     }
     setExpanded((e) => ({ ...e, [rid]: true }));
-    if (breakdownCache[rid]) return; // önbellekte
+    if (breakdownCache[rid]) return;
     setLoadingId(rid);
     setError(null);
     try {
@@ -97,39 +123,101 @@ export function FaturalarView({
   }
 
   return (
-    <>
-      {/* HEADER */}
-      <header className="flex justify-between items-end gap-5 flex-wrap mb-6">
-        <div>
-          <div className="text-[13px] text-text-3 font-medium mb-1.5">
-            Finans · <span className="text-brand font-semibold">Faturalar</span>
+    <div className="flex-1 flex flex-col gap-6">
+      {/* ────────── HERO ────────── */}
+      <section className="relative z-20 rounded-3xl shadow-lg">
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-dark via-brand to-blue-600" />
+          <div
+            className="absolute inset-0 opacity-30 mix-blend-overlay"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 20% 20%, rgba(255,255,255,.4) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,200,100,.3) 0%, transparent 50%)',
+            }}
+          />
+          <div
+            className="absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+              backgroundSize: '24px 24px',
+            }}
+          />
+        </div>
+        <div className="relative px-7 py-7 text-white flex items-start justify-between gap-6">
+          <div>
+            <div className="text-[11px] font-medium tracking-[0.2em] uppercase text-white/70 mb-2 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-yellow-300 animate-pulse" />
+              Finans · Faturalar
+            </div>
+            <h1 className="text-4xl font-bold mb-1 flex items-center gap-3">
+              <Receipt className="w-8 h-8" />
+              Faturalar
+            </h1>
+            <div className="text-white/80">
+              {formatPeriod(period)} dönemi · {invoices.length} restoran
+              {summary && (
+                <span className="text-white/65 text-xs ml-2">
+                  · KDV dahil toplam <span className="font-semibold text-white/90">{m(summary.sum_incl_vat)} ₺</span>
+                </span>
+              )}
+            </div>
+            <div className="text-white/55 text-[11px] mt-1 italic">
+              Ödeme takibi <a href={`/tahsilatlar?period=${period}`} className="underline hover:text-white/90 transition">Tahsilatlar</a> sayfasında
+            </div>
           </div>
-          <h1 className="font-display text-[30px] font-semibold tracking-tight leading-tight">
-            {formatPeriod(period)} Faturaları
-          </h1>
-          <div className="text-text-3 text-sm mt-1 font-medium">
-            {summary
-              ? `${summary.count_total} restoran · toplam ${m(summary.sum_incl_vat)} ₺ (KDV dahil)`
-              : '— veri yükleniyor —'}
-            <span className="text-text-3 text-xs ml-2 opacity-70">
-              · Ödeme takibi /tahsilatlar sayfasında
-            </span>
+          <div className="relative">
+            <button
+              onClick={() => setPickerOpen((v) => !v)}
+              className="px-3.5 py-2 rounded-lg bg-white/15 backdrop-blur-sm border border-white/25 text-white text-xs font-semibold hover:bg-white/25 transition inline-flex items-center gap-2"
+            >
+              <Calendar className="w-3.5 h-3.5" strokeWidth={2.2} />
+              <span>{formatPeriod(period)}</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform ${pickerOpen ? 'rotate-180' : ''}`}
+                strokeWidth={2.4}
+              />
+            </button>
+            {pickerOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setPickerOpen(false)} />
+                <div className="absolute right-0 mt-1.5 z-40 w-52 bg-white border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3 py-2 text-[10px] uppercase tracking-wider font-bold text-text-3 border-b border-border/60">
+                    Dönem seç
+                  </div>
+                  {periodOptions.map((opt) => {
+                    const active = opt.value === period;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => changePeriod(opt.value)}
+                        className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center justify-between transition ${
+                          active ? 'bg-brand-soft text-brand' : 'text-text-2 hover:bg-bg-surface2'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {active && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </header>
+      </section>
 
-      {/* HERO STRIP — 4 KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      {/* ────────── KPI ────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
-          icon={<Receipt className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          icon={Receipt}
           accent="brand"
           label="Toplam Fatura"
           value={summary ? m(summary.sum_incl_vat) : '—'}
           suffix="₺"
-          sub={summary ? `${summary.count_total} restoran · KDV dahil` : ''}
+          sub={`${invoices.length} restoran · KDV dahil`}
         />
         <KpiCard
-          icon={<Receipt className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          icon={Calculator}
           accent="purple"
           label="KDV Hariç"
           value={summary ? m(summary.sum_excl_vat) : '—'}
@@ -137,7 +225,7 @@ export function FaturalarView({
           sub="matrah toplamı"
         />
         <KpiCard
-          icon={<Receipt className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          icon={TrendingUp}
           accent="warn"
           label="Toplam KDV"
           value={summary ? m(summary.sum_vat) : '—'}
@@ -145,16 +233,16 @@ export function FaturalarView({
           sub="hesaplanan KDV"
         />
         <KpiCard
-          icon={<Users2 className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          icon={Users2}
           accent="success"
           label="Kurye Sayısı"
-          value={summary ? String(totals.courier || 0) : '—'}
+          value={totals.courier ? String(totals.courier) : '—'}
           sub={`${invoices.length} restoran toplamı`}
         />
       </div>
 
-      {/* SEARCH */}
-      <div className="bg-white border border-border rounded-2xl p-3 shadow-sm mb-4 flex flex-wrap items-center gap-2">
+      {/* ────────── SEARCH ────────── */}
+      <div className="bg-white border border-border rounded-2xl p-3 shadow-sm flex flex-wrap items-center gap-2">
         <div className="relative flex items-center">
           <Search className="w-3.5 h-3.5 absolute left-2.5 text-text-3" strokeWidth={2.2} />
           <input
@@ -167,22 +255,26 @@ export function FaturalarView({
         </div>
         <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider ml-auto inline-flex items-center gap-1">
           <Filter className="w-3 h-3" strokeWidth={2.2} />
-          {filtered.length} sonuç · KDV dahil <span className="text-brand font-mono">{m(totals.incl)} ₺</span>
+          {filtered.length} sonuç · KDV dahil{' '}
+          <span className="text-brand font-mono">{m(totals.incl)} ₺</span>
         </span>
       </div>
 
-      {/* ERROR */}
+      {/* ────────── ERROR ────────── */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm mb-3 flex items-center gap-2">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm flex items-center gap-2">
           <AlertCircle className="w-4 h-4" strokeWidth={2.2} />
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-auto text-red-600 hover:text-red-800">
+          <button
+            onClick={() => setError(null)}
+            className="ml-auto text-red-600 hover:text-red-800"
+          >
             <X className="w-4 h-4" strokeWidth={2.4} />
           </button>
         </div>
       )}
 
-      {/* TABLE */}
+      {/* ────────── TABLE ────────── */}
       {filtered.length === 0 ? (
         <div className="bg-white border border-border rounded-2xl p-12 text-center">
           <Receipt className="w-10 h-10 mx-auto text-text-3 mb-3" strokeWidth={1.5} />
@@ -224,16 +316,16 @@ export function FaturalarView({
                 <td colSpan={2} className="px-4 py-3 text-text text-[12.5px]">
                   Toplam ({filtered.length} restoran)
                 </td>
-                <td className="px-3 py-3 text-right num font-mono text-text-2 tabular-nums">
+                <td className="px-3 py-3 text-right font-mono text-text-2 tabular-nums">
                   {totals.courier}
                 </td>
-                <td className="px-3 py-3 text-right num font-mono text-text tabular-nums">
+                <td className="px-3 py-3 text-right font-mono text-text tabular-nums">
                   {m(totals.excl)} ₺
                 </td>
-                <td className="px-3 py-3 text-right num font-mono text-text-2 tabular-nums">
+                <td className="px-3 py-3 text-right font-mono text-text-2 tabular-nums">
                   {m(totals.vat)} ₺
                 </td>
-                <td className="px-3 py-3 text-right font-display text-brand text-[15px] num bg-brand-soft tabular-nums">
+                <td className="px-3 py-3 text-right font-display text-brand text-[15px] bg-brand-soft tabular-nums">
                   {m(totals.incl)} ₺
                 </td>
               </tr>
@@ -241,14 +333,14 @@ export function FaturalarView({
           </table>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
 function KpiCard({
-  icon, accent, label, value, suffix, sub,
+  icon: Icon, accent, label, value, suffix, sub,
 }: {
-  icon: React.ReactNode;
+  icon: typeof Receipt;
   accent: 'brand' | 'success' | 'warn' | 'purple';
   label: string;
   value: string;
@@ -269,17 +361,17 @@ function KpiCard({
   };
 
   return (
-    <div className="relative bg-white rounded-2xl px-5 py-4 shadow-sm border border-border overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition">
+    <div className="relative bg-white rounded-2xl px-5 py-4 shadow-sm border border-border overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${ringMap[accent]}`} />
       <div className="flex items-start justify-between mb-2">
         <div className="text-[10.5px] uppercase tracking-wider text-text-3 font-bold">
           {label}
         </div>
         <div className={`w-7 h-7 rounded-lg ${iconBgMap[accent]} flex items-center justify-center`}>
-          {icon}
+          <Icon className="w-3.5 h-3.5" strokeWidth={2.2} />
         </div>
       </div>
-      <div className="font-display text-[24px] font-bold tracking-tight leading-none num tabular-nums">
+      <div className="font-display text-[24px] font-bold tracking-tight leading-none tabular-nums">
         {value}
         {suffix && (
           <span className="text-[14px] font-medium text-text-3 ml-1">{suffix}</span>
@@ -306,19 +398,17 @@ function InvoiceRow({
         className="border-t border-border/70 hover:bg-cream-50/70 transition cursor-pointer group"
         onClick={onToggle}
       >
-        {/* Expand */}
         <td className="px-3 py-2.5 text-text-3">
-          {isOpen ? (
-            <ChevronDown className="w-4 h-4" strokeWidth={2.4} />
-          ) : (
-            <ChevronRight className="w-4 h-4 group-hover:text-brand transition" strokeWidth={2.4} />
-          )}
+          <ChevronRight
+            className={`w-4 h-4 transition-transform duration-200 group-hover:text-brand ${
+              isOpen ? 'rotate-90 text-brand' : ''
+            }`}
+            strokeWidth={2.4}
+          />
         </td>
-
-        {/* Restoran */}
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2.5">
-            <span className="w-1 h-7 rounded-full bg-brand/40" />
+            <span className="w-1 h-7 rounded-full bg-brand/40 group-hover:bg-brand transition" />
             <div className="min-w-0">
               <div className="font-semibold text-text text-[13px] truncate">
                 {inv.rest_brand ?? '—'}
@@ -331,43 +421,36 @@ function InvoiceRow({
             </div>
           </div>
         </td>
-
-        {/* Kurye sayısı */}
-        <td className="px-3 py-2.5 text-right num font-mono text-[12.5px] text-text-2 tabular-nums">
+        <td className="px-3 py-2.5 text-right font-mono text-[12.5px] text-text-2 tabular-nums">
           {inv.courier_count || 0}
         </td>
-
-        {/* KDV hariç */}
-        <td className="px-3 py-2.5 text-right num font-mono text-[12.5px] tabular-nums">
+        <td className="px-3 py-2.5 text-right font-mono text-[12.5px] tabular-nums">
           {m(inv.amount_excl_vat)}
         </td>
-
-        {/* KDV */}
-        <td className="px-3 py-2.5 text-right num font-mono text-[12px] text-text-3 tabular-nums">
+        <td className="px-3 py-2.5 text-right font-mono text-[12px] text-text-3 tabular-nums">
           <div>{m(inv.vat_amount)}</div>
           <div className="text-[10px]">%{inv.vat_rate}</div>
         </td>
-
-        {/* KDV dahil — accent */}
-        <td className="px-3 py-2.5 text-right num font-display font-bold text-brand text-[14px] bg-brand-soft/40 group-hover:bg-brand-soft transition tabular-nums">
+        <td className="px-3 py-2.5 text-right font-display font-bold text-brand text-[14px] bg-brand-soft/40 group-hover:bg-brand-soft transition tabular-nums">
           {m(inv.amount_incl_vat)}
         </td>
       </tr>
-
-      {/* Genişletilmiş kırılım */}
       {isOpen && (
         <tr className="bg-cream-50/40 border-t border-border/60">
           <td colSpan={6} className="px-4 py-3">
             {isLoading ? (
-              <div className="text-text-3 text-[12px] italic px-4 py-3">
+              <div className="text-text-3 text-[12px] italic px-4 py-3 inline-flex items-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2.4} />
                 Kurye kırılımı yükleniyor…
               </div>
             ) : breakdown ? (
-              <CourierBreakdown breakdown={breakdown} restaurantId={inv.restaurant_id} period={period} />
+              <CourierBreakdown
+                breakdown={breakdown}
+                restaurantId={inv.restaurant_id}
+                period={period}
+              />
             ) : (
-              <div className="text-text-3 text-[12px] italic px-4 py-3">
-                Kırılım yok.
-              </div>
+              <div className="text-text-3 text-[12px] italic px-4 py-3">Kırılım yok.</div>
             )}
           </td>
         </tr>
@@ -395,7 +478,7 @@ function CourierBreakdown({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-white overflow-hidden">
+    <div className="rounded-xl border border-border bg-white overflow-hidden shadow-sm">
       <div className="px-4 py-2 flex items-center justify-between bg-bg-surface2 border-b border-border">
         <div className="text-[11px] uppercase tracking-wider font-bold text-text-2 inline-flex items-center gap-2">
           <Users2 className="w-3.5 h-3.5" strokeWidth={2.4} />
@@ -505,9 +588,7 @@ function CourierRow({ c }: { c: CourierBilling }) {
               <div key={i} className="leading-tight">
                 {line.label}{' '}
                 {line.amount !== 0 && (
-                  <span className="text-text-2 font-mono">
-                    = {m(line.amount)} ₺
-                  </span>
+                  <span className="text-text-2 font-mono">= {m(line.amount)} ₺</span>
                 )}
               </div>
             ))}

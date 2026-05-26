@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  ArrowDownToLine, ArrowUpRight, ArrowDownRight, Building2, Coins,
-  Filter, PieChart, Receipt, Search, TrendingDown, TrendingUp,
-  Wallet,
+  ArrowDownToLine, ArrowUpRight, ArrowDownRight, Building2, Calendar, Check,
+  ChevronDown, Coins, Filter, PieChart, Receipt, Search, TrendingDown,
+  TrendingUp, Wallet,
 } from 'lucide-react';
 
 import type { DashboardAnalytics } from '@/lib/api';
@@ -14,6 +15,19 @@ const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
   'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
 ];
+const MIN_PERIOD = '2026-03';
+
+function recentPeriodOptions(max = 6): { value: string; label: string }[] {
+  const now = new Date();
+  const out: { value: string; label: string }[] = [];
+  for (let i = 0; i < max; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    out.push({ value: v, label: `${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}` });
+    if (v === MIN_PERIOD) break;
+  }
+  return out;
+}
 
 function formatPeriod(p: string): string {
   const [y, m] = p.split('-').map((s) => parseInt(s, 10));
@@ -45,9 +59,19 @@ export function KarZararView({
   analytics: DashboardAnalytics;
   period: string;
 }) {
+  const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>('profit');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [search, setSearch] = useState('');
+
+  // Period selector
+  const periodOptions = useMemo(() => recentPeriodOptions(6), []);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  function changePeriod(next: string) {
+    setPickerOpen(false);
+    if (next === period) return;
+    router.push(`/kar-zarar?ay=${next}`);
+  }
 
   const totalRev = analytics.invoiced_kdv_haric;
   const totalCost = analytics.total_costs;
@@ -145,9 +169,50 @@ export function KarZararView({
             </strong> ({marginPct.toFixed(1)}% marj)
           </div>
         </div>
-        <button className="px-4 py-2 rounded-xl bg-white border border-border text-text-2 text-[13px] font-semibold shadow-xs hover:border-border-strong transition flex items-center gap-1.5">
-          <ArrowDownToLine className="w-4 h-4" strokeWidth={2.2} /> Excel'e aktar
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Period picker */}
+          <div className="relative">
+            <button
+              onClick={() => setPickerOpen((v) => !v)}
+              className="px-3.5 py-2 rounded-xl bg-white border border-border text-text-2 text-[13px] font-semibold shadow-xs hover:border-brand hover:text-brand transition inline-flex items-center gap-2"
+            >
+              <Calendar className="w-3.5 h-3.5" strokeWidth={2.2} />
+              <span>{formatPeriod(period)}</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform ${pickerOpen ? 'rotate-180' : ''}`}
+                strokeWidth={2.4}
+              />
+            </button>
+            {pickerOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setPickerOpen(false)} />
+                <div className="absolute right-0 mt-1.5 z-40 w-52 bg-white border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3 py-2 text-[10px] uppercase tracking-wider font-bold text-text-3 border-b border-border/60">
+                    Dönem seç
+                  </div>
+                  {periodOptions.map((opt) => {
+                    const active = opt.value === period;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => changePeriod(opt.value)}
+                        className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center justify-between transition ${
+                          active ? 'bg-brand-soft text-brand' : 'text-text-2 hover:bg-bg-surface2'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {active && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+          <button className="px-4 py-2 rounded-xl bg-white border border-border text-text-2 text-[13px] font-semibold shadow-xs hover:border-border-strong transition flex items-center gap-1.5">
+            <ArrowDownToLine className="w-4 h-4" strokeWidth={2.2} /> Excel'e aktar
+          </button>
+        </div>
       </header>
 
       {/* HERO STRIP — 4 KPI */}

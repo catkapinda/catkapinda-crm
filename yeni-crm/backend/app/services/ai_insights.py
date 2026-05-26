@@ -325,7 +325,11 @@ SCOPE_CONFIGS: dict[str, dict[str, Any]] = {
         "system_prompt": SYSTEM_PROMPT,
         "summarizer": _summarize_personel,
     },
-    "restoran": {
+    # v2 — 2026-05-27: period-aware restoran havuzu + RTS/Joker destek tarife
+    # düzeltmesi sonrası kart üretimi. Scope adı 'restoran_v2' yapıldı ki
+    # eski cache entry'leri ('restoran') otomatik göz ardı edilsin ve her
+    # dönem için Claude yeni veri üzerinden taze 4 kart üretsin.
+    "restoran_v2": {
         "tool": RESTAURANTS_INSIGHT_TOOL,
         "system_prompt": RESTAURANTS_SYSTEM_PROMPT,
         "summarizer": _summarize_restaurants,
