@@ -514,6 +514,77 @@ MIGRATIONS: list[tuple[str, str]] = [
         WHERE due_date IS NOT NULL
         """,
     ),
+    # ─── Restoran tablosuna KURYE TARAFI tarife kolonları ───
+    # Çat Kapında'nın kuryeye ÖDEDİĞİ tarifeler (restorandan ALINAN
+    # tarifeden farklı). Örnek (sistem default — Fasuli/SushiCo/Quick China):
+    #   Restoran: saatlik 273 ₺, eşik 390, low 34, high 47 (KDV hariç)
+    #   Kurye:    saatlik 250 ₺, eşik 390, low 20, high 25 (KDV dahil)
+    # Quick China istisna: kurye saatlik 250 + paket 25 (sabit, eşik yok)
+    (
+        "restaurants.courier_pricing_model",
+        """
+        ALTER TABLE restaurants
+            ADD COLUMN IF NOT EXISTS courier_pricing_model VARCHAR(40)
+        """,
+    ),
+    (
+        "restaurants.courier_hourly_rate",
+        """
+        ALTER TABLE restaurants
+            ADD COLUMN IF NOT EXISTS courier_hourly_rate NUMERIC(10,2)
+        """,
+    ),
+    (
+        "restaurants.courier_package_rate",
+        """
+        ALTER TABLE restaurants
+            ADD COLUMN IF NOT EXISTS courier_package_rate NUMERIC(10,2)
+        """,
+    ),
+    (
+        "restaurants.courier_package_threshold",
+        """
+        ALTER TABLE restaurants
+            ADD COLUMN IF NOT EXISTS courier_package_threshold INTEGER
+        """,
+    ),
+    (
+        "restaurants.courier_package_rate_low",
+        """
+        ALTER TABLE restaurants
+            ADD COLUMN IF NOT EXISTS courier_package_rate_low NUMERIC(10,2)
+        """,
+    ),
+    (
+        "restaurants.courier_package_rate_high",
+        """
+        ALTER TABLE restaurants
+            ADD COLUMN IF NOT EXISTS courier_package_rate_high NUMERIC(10,2)
+        """,
+    ),
+    # Quick China kuryesi: sabit paket başı 25 ₺ (eşik yok)
+    (
+        "restaurants.quick_china_courier_override_20260527",
+        """
+        UPDATE restaurants
+        SET courier_pricing_model = 'hourly_plus_package',
+            courier_hourly_rate = 250,
+            courier_package_rate = 25
+        WHERE brand ILIKE '%quick china%'
+          AND courier_pricing_model IS NULL
+        """,
+    ),
+    # Doğu Otomotiv kuryesi: saatlik 295 ₺ KDV dahil (diğer alanlar
+    # default — threshold 390, low 20, high 25). Yalnız saatlik override.
+    (
+        "restaurants.dogu_otomotiv_courier_override_20260527",
+        """
+        UPDATE restaurants
+        SET courier_hourly_rate = 295
+        WHERE brand ILIKE '%doğu%'
+          AND courier_hourly_rate IS NULL
+        """,
+    ),
     # ─── Restoran tarife geçmişi (rate history) ───
     # Her tarife değişimi tarihli olarak burada saklanır. Hesaplamalar
     # entry_date'e göre geçerli tarifeyi (effective_from <= entry_date,

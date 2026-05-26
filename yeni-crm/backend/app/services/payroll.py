@@ -125,23 +125,40 @@ def _calc_brut_for_restaurant(
     packages: int,
     is_full_threshold: bool = False,
 ) -> float:
-    """Bir restorandaki kurye saat/paketi için brüt hesabı."""
-    pm = (pricing_model or "").strip()
-    hr = float(rest_data.get("hourly_rate") or 0)
-    pr = float(rest_data.get("package_rate") or 0)
-    lo = float(rest_data.get("package_rate_low") or 0)
-    hi = float(rest_data.get("package_rate_high") or 0)
-    threshold = int(rest_data.get("package_threshold") or 390)
+    """Bir restorandaki kurye saat/paketi için brüt hesabı.
 
-    if pm == "hourly_only":
+    KURYE TARAFI tarifeleri kullanılır (restaurants.courier_*).
+    Bu tarifeler restoranın bize kestiği (hourly_rate, package_rate_*) ile
+    KARIŞTIRILMAMALI. Örnek Fasuli/SushiCo/Quick China:
+      Restoran (CK alır): saatlik 273, paket low/high 34/47 — KDV hariç
+      Kurye   (CK öder): saatlik 250, paket low/high 20/25 — KDV dahil
+
+    Sistem default (Fasuli/SushiCo/Köroğlu vb.): threshold_package
+    eşik 390, low 20, high 25, saatlik 250.
+    Quick China özel: hourly_plus_package, saatlik 250 + paket 25 sabit.
+
+    Restoran'da courier_* kolonları doluysa onlar, değilse default.
+    """
+    # Kurye tarafı tarifeleri — daima courier_* alanları + ÇK standardı default
+    # NOT: Restoran pm'i (fixed_monthly, hourly_only vb.) buraya etki ETMEZ.
+    # Sistem default: threshold_package 250/390/20/25 (Quick China override
+    # ile hourly_plus_package olur; Doğu Otomotiv courier_hourly_rate=295).
+    courier_pm = (
+        rest_data.get("courier_pricing_model")
+        or "threshold_package"
+    ).strip()
+    hr = float(rest_data.get("courier_hourly_rate") or 250)
+    pr = float(rest_data.get("courier_package_rate") or 0)
+    lo = float(rest_data.get("courier_package_rate_low") or 20)
+    hi = float(rest_data.get("courier_package_rate_high") or 25)
+
+    if courier_pm == "hourly_only":
         return hours * hr
-    if pm == "hourly_plus_package":
+    if courier_pm == "hourly_plus_package":
         return hours * hr + packages * pr
-    if pm == "threshold_package":
-        # Eşik karşılaştırması için kurye-restoran toplam paketleri kullan
-        rate = hi if is_full_threshold else lo
-        return hours * hr + packages * rate
-    return 0
+    # Default: threshold_package
+    rate = hi if is_full_threshold else lo
+    return hours * hr + packages * rate
 
 
 def list_personnel_payroll(period: str) -> list[dict]:
@@ -215,7 +232,14 @@ def list_personnel_payroll(period: str) -> list[dict]:
                     d.coverage_type,
                     r.pricing_model, r.hourly_rate, r.package_rate,
                     r.package_rate_low, r.package_rate_high,
-                    r.package_threshold, r.fixed_monthly_fee
+                    r.package_threshold, r.fixed_monthly_fee,
+                    -- KURYE TARAFI tarifeleri (CK'nin kuryeye ödediği)
+                    r.courier_pricing_model,
+                    r.courier_hourly_rate,
+                    r.courier_package_rate,
+                    r.courier_package_rate_low,
+                    r.courier_package_rate_high,
+                    r.courier_package_threshold
                 FROM daily_entries d
                 LEFT JOIN restaurants r ON r.id = d.restaurant_id
                 WHERE LEFT(d.entry_date::text, 7) = %s
@@ -267,6 +291,7 @@ def list_personnel_payroll(period: str) -> list[dict]:
     for e in entries:
         if e["rid"] is not None:
             pricing_map[e["rid"]] = {
+                # Restoran tarafı (CK alır) — geriye uyumluluk için
                 "pricing_model": e["pricing_model"],
                 "hourly_rate": e["hourly_rate"],
                 "package_rate": e["package_rate"],
@@ -274,6 +299,13 @@ def list_personnel_payroll(period: str) -> list[dict]:
                 "package_rate_high": e["package_rate_high"],
                 "package_threshold": e["package_threshold"],
                 "fixed_monthly_fee": e["fixed_monthly_fee"],
+                # KURYE TARAFI (CK öder) — hakediş hesabında kullanılır
+                "courier_pricing_model": e.get("courier_pricing_model"),
+                "courier_hourly_rate": e.get("courier_hourly_rate"),
+                "courier_package_rate": e.get("courier_package_rate"),
+                "courier_package_rate_low": e.get("courier_package_rate_low"),
+                "courier_package_rate_high": e.get("courier_package_rate_high"),
+                "courier_package_threshold": e.get("courier_package_threshold"),
             }
 
     # Restaurant brand/branch — destek satırlarında göstermek için
@@ -329,9 +361,17 @@ def list_personnel_payroll(period: str) -> list[dict]:
 
         # Eşikli kontrol için ana restorandaki toplam paket
         ana_threshold_aşıldı = False
-        if assigned_rid and p.get("pricing_model") == "threshold_package":
+        # Eşik karşılaştırması KURYE tarafından (CK'nın kurye eşiği — default 390).
+        # Restoran modeli courier override etmediyse pricing_model'i takip et.
+        rest_pricing = pricing_map.get(assigned_rid, {}) if assigned_rid else {}
+        courier_pm = (rest_pricing.get("courier_pricing_model")
+                      or p.get("pricing_model") or "")
+        if assigned_rid and (courier_pm == "threshold_package"
+                             or p.get("pricing_model") == "threshold_package"):
             threshold = int(
-                pricing_map.get(assigned_rid, {}).get("package_threshold") or 390
+                rest_pricing.get("courier_package_threshold")
+                or rest_pricing.get("package_threshold")
+                or 390
             )
             ana_threshold_aşıldı = ana_pkts > threshold
 
@@ -370,19 +410,16 @@ def list_personnel_payroll(period: str) -> list[dict]:
             rest_data = pricing_map.get(assigned_rid)
             if rest_data:
                 pm = (rest_data.get("pricing_model") or "").strip()
-                if pm == "fixed_monthly":
-                    # Aylık sabit restoran — kurye sabit aylık (monthly_fixed_cost)
-                    # Veride monthly_fixed_cost = 0 ise restoran tarifesinin
-                    # 30'a bölümünden gün × ödenen
-                    daily = (
-                        float(rest_data.get("fixed_monthly_fee") or 0) / 30
-                    )
-                    ana_brut = daily * ana_days
-                else:
-                    ana_brut = _calc_brut_for_restaurant(
-                        pm, rest_data, ana_hours, ana_pkts,
-                        is_full_threshold=ana_threshold_aşıldı,
-                    )
+                # KURYE hakediş hesabı restoran modelinden bağımsız —
+                # daima _calc_brut_for_restaurant (default threshold_package
+                # 250/390/20/25, courier_* override'ları varsa onlar).
+                # Restoran pm = fixed_monthly bile olsa kurye threshold ile
+                # hesaplanır (per-courier monthly_fixed_cost > 0 olan
+                # özel kayıtlar zaten yukarıdaki sabit dal'da yakalanır).
+                ana_brut = _calc_brut_for_restaurant(
+                    pm, rest_data, ana_hours, ana_pkts,
+                    is_full_threshold=ana_threshold_aşıldı,
+                )
 
         # Destek hesabı (her destek restoranı ayrı)
         destek_by_rest: dict[int, dict] = {}
@@ -402,20 +439,23 @@ def list_personnel_payroll(period: str) -> list[dict]:
         for rid, dvals in destek_by_rest.items():
             rest_data = pricing_map.get(rid, {})
             pm = (rest_data.get("pricing_model") or "").strip()
-            # Bu restorandaki destek paket eşiği — destek kuryesi kendi paket
-            # sayısı ile eşik karşılaştırılır
+            courier_pm_support = (
+                (rest_data.get("courier_pricing_model") or pm or "").strip()
+            )
+            # Bu restorandaki destek paket eşiği — kurye eşiği (default 390)
             crossed = False
-            if pm == "threshold_package":
-                threshold = int(rest_data.get("package_threshold") or 390)
-                crossed = dvals["pkts"] > threshold
-            if pm == "fixed_monthly":
-                # Destek günü × günlük tarife
-                daily = float(rest_data.get("fixed_monthly_fee") or 0) / 30
-                amt = daily * dvals["days"]
-            else:
-                amt = _calc_brut_for_restaurant(
-                    pm, rest_data, dvals["hours"], dvals["pkts"], crossed,
+            if courier_pm_support == "threshold_package" or pm == "threshold_package":
+                threshold = int(
+                    rest_data.get("courier_package_threshold")
+                    or rest_data.get("package_threshold")
+                    or 390
                 )
+                crossed = dvals["pkts"] > threshold
+            # Destek hesabı — restoran modelinden bağımsız, kurye threshold
+            # default'u uygulanır (250/390/20/25 + courier_* override).
+            amt = _calc_brut_for_restaurant(
+                pm, rest_data, dvals["hours"], dvals["pkts"], crossed,
+            )
             destek_brut_total += amt
             destek_days_total += dvals["days"]
             rinfo = rest_info_map.get(rid, {})
