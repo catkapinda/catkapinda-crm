@@ -1,18 +1,17 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
-  AlertCircle, ArrowDownToLine, Building2, Check, CheckCircle2,
-  Clock, Filter, Receipt, Search, TrendingUp, Wallet, X,
+  AlertCircle, Building2, ChevronDown, ChevronRight, Filter,
+  Receipt, Search, Users2, X,
 } from 'lucide-react';
 
 import {
+  type CourierBilling,
   type InvoiceSummary,
   type RestaurantInvoice,
-  markInvoicePaid,
-  upsertInvoice,
+  type RestaurantMonthly,
+  getRestaurantMonthly,
 } from '@/lib/api';
 
 const TR_MONTHS = [
@@ -34,35 +33,13 @@ function m(value: number | null | undefined): string {
   });
 }
 
-function kCompact(value: number | null | undefined): string {
+function n(value: number | null | undefined, digits = 1): string {
   if (value == null) return '—';
-  if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
-  return value.toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+  return value.toLocaleString('tr-TR', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
 }
-
-type StatusKey = 'all' | 'Beklemede' | 'Kısmi' | 'Ödendi';
-
-const STATUS_META: Record<string, { color: string; bg: string; text: string; ring: string }> = {
-  'Beklemede': {
-    color: 'orange',
-    bg: 'bg-orange-50',
-    text: 'text-orange-700',
-    ring: 'border-orange-200',
-  },
-  'Kısmi': {
-    color: 'blue',
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    ring: 'border-blue-200',
-  },
-  'Ödendi': {
-    color: 'green',
-    bg: 'bg-green-50',
-    text: 'text-green-700',
-    ring: 'border-green-200',
-  },
-};
 
 export function FaturalarView({
   invoices, summary, period,
@@ -71,79 +48,51 @@ export function FaturalarView({
   summary: InvoiceSummary | null;
   period: string;
 }) {
-  const router = useRouter();
-  const [statusTab, setStatusTab] = useState<StatusKey>('all');
   const [search, setSearch] = useState('');
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [breakdownCache, setBreakdownCache] = useState<Record<number, RestaurantMonthly>>({});
+  const [loadingId, setLoadingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [editingInvoice, setEditingInvoice] = useState<RestaurantInvoice | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr-TR');
+    if (!q) return invoices;
     return invoices.filter((inv) => {
-      if (statusTab !== 'all' && inv.status !== statusTab) return false;
-      if (q) {
-        const hay = `${inv.rest_brand ?? ''} ${inv.rest_branch ?? ''} ${inv.invoice_no ?? ''}`
-          .toLocaleLowerCase('tr-TR');
-        if (!hay.includes(q)) return false;
-      }
-      return true;
+      const hay = `${inv.rest_brand ?? ''} ${inv.rest_branch ?? ''} ${inv.invoice_no ?? ''}`
+        .toLocaleLowerCase('tr-TR');
+      return hay.includes(q);
     });
-  }, [invoices, statusTab, search]);
+  }, [invoices, search]);
 
-  const filteredTotals = useMemo(() => {
-    const t = { excl: 0, vat: 0, incl: 0, paid: 0, balance: 0 };
+  const totals = useMemo(() => {
+    const t = { excl: 0, vat: 0, incl: 0, courier: 0 };
     for (const i of filtered) {
       t.excl += i.amount_excl_vat;
       t.vat += i.vat_amount;
       t.incl += i.amount_incl_vat;
-      t.paid += i.paid_amount;
-      t.balance += i.balance;
+      t.courier += i.courier_count || 0;
     }
     return t;
   }, [filtered]);
 
-  async function handleMarkPaid(inv: RestaurantInvoice, fullPayment: boolean) {
-    if (busyId != null) return;
-    const amount = fullPayment ? inv.amount_incl_vat : 0;
-    const action = fullPayment ? 'ÖDENDİ' : 'BEKLEMEDE';
-    if (!confirm(
-      `${inv.rest_brand} ${inv.rest_branch ?? ''} faturasını ${action} olarak işaretle?\n` +
-      `Tutar: ${m(inv.amount_incl_vat)} ₺ (KDV dahil)`
-    )) return;
-    setBusyId(inv.restaurant_id);
-    setError(null);
-    try {
-      await markInvoicePaid(inv.restaurant_id, period, amount);
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Güncellenemedi');
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function handlePartialPay(inv: RestaurantInvoice) {
-    const ans = prompt(
-      `${inv.rest_brand} — ödenen tutarı gir (₺):\n` +
-      `(Toplam: ${m(inv.amount_incl_vat)})`,
-      String(inv.paid_amount || ''),
-    );
-    if (ans == null) return;
-    const amt = parseFloat(ans.replace(',', '.'));
-    if (isNaN(amt) || amt < 0) {
-      setError('Geçersiz tutar');
+  async function toggleExpand(inv: RestaurantInvoice) {
+    const rid = inv.restaurant_id;
+    const isOpen = !!expanded[rid];
+    if (isOpen) {
+      setExpanded((e) => ({ ...e, [rid]: false }));
       return;
     }
-    setBusyId(inv.restaurant_id);
+    setExpanded((e) => ({ ...e, [rid]: true }));
+    if (breakdownCache[rid]) return; // önbellekte
+    setLoadingId(rid);
     setError(null);
     try {
-      await markInvoicePaid(inv.restaurant_id, period, amt);
-      router.refresh();
+      const data = await getRestaurantMonthly(rid, period);
+      setBreakdownCache((c) => ({ ...c, [rid]: data }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Güncellenemedi');
+      setError(e instanceof Error ? e.message : 'Kırılım yüklenemedi');
     } finally {
-      setBusyId(null);
+      setLoadingId(null);
     }
   }
 
@@ -160,8 +109,11 @@ export function FaturalarView({
           </h1>
           <div className="text-text-3 text-sm mt-1 font-medium">
             {summary
-              ? `${summary.count_total} restoran · toplam ${m(summary.sum_incl_vat)} ₺ (KDV dahil) · tahsilat ${summary.collection_pct.toFixed(1)}%`
+              ? `${summary.count_total} restoran · toplam ${m(summary.sum_incl_vat)} ₺ (KDV dahil)`
               : '— veri yükleniyor —'}
+            <span className="text-text-3 text-xs ml-2 opacity-70">
+              · Ödeme takibi /tahsilatlar sayfasında
+            </span>
           </div>
         </div>
       </header>
@@ -177,73 +129,45 @@ export function FaturalarView({
           sub={summary ? `${summary.count_total} restoran · KDV dahil` : ''}
         />
         <KpiCard
-          icon={<CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2.2} />}
-          accent="success"
-          label="Tahsil Edilen"
-          value={summary ? m(summary.sum_paid) : '—'}
-          suffix="₺"
-          sub={summary ? `${summary.count_paid} ödendi · ${summary.count_partial} kısmi` : ''}
-        />
-        <KpiCard
-          icon={<Clock className="w-3.5 h-3.5" strokeWidth={2.2} />}
-          accent="warn"
-          label="Bekleyen Bakiye"
-          value={summary ? m(summary.sum_balance) : '—'}
-          suffix="₺"
-          sub={summary ? `${summary.count_pending} bekleyen fatura` : ''}
-        />
-        <KpiCard
-          icon={<TrendingUp className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          icon={<Receipt className="w-3.5 h-3.5" strokeWidth={2.2} />}
           accent="purple"
-          label="Tahsilat Oranı"
-          value={summary ? `%${summary.collection_pct.toFixed(1)}` : '—'}
-          sub="ödenen / toplam"
+          label="KDV Hariç"
+          value={summary ? m(summary.sum_excl_vat) : '—'}
+          suffix="₺"
+          sub="matrah toplamı"
+        />
+        <KpiCard
+          icon={<Receipt className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          accent="warn"
+          label="Toplam KDV"
+          value={summary ? m(summary.sum_vat) : '—'}
+          suffix="₺"
+          sub="hesaplanan KDV"
+        />
+        <KpiCard
+          icon={<Users2 className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          accent="success"
+          label="Kurye Sayısı"
+          value={summary ? String(totals.courier || 0) : '—'}
+          sub={`${invoices.length} restoran toplamı`}
         />
       </div>
 
-      {/* STATUS TABS + SEARCH */}
-      <div className="bg-white border border-border rounded-2xl p-3 shadow-sm mb-4 flex flex-wrap items-center gap-2 sticky top-2 z-10 backdrop-blur-sm">
-        <div className="flex items-center gap-1 bg-bg-surface2 rounded-lg p-1">
-          {(['all', 'Beklemede', 'Kısmi', 'Ödendi'] as StatusKey[]).map((s) => {
-            const active = statusTab === s;
-            const label = s === 'all' ? 'Tümü' : s;
-            const count = s === 'all'
-              ? invoices.length
-              : invoices.filter((i) => i.status === s).length;
-            const tone = s === 'Beklemede' ? 'bg-orange-600' : s === 'Kısmi' ? 'bg-blue-600' : s === 'Ödendi' ? 'bg-green-600' : 'bg-text';
-            return (
-              <button
-                key={s}
-                onClick={() => setStatusTab(s)}
-                className={`px-3 py-1.5 rounded-md text-[12.5px] font-semibold transition flex items-center gap-1.5 ${
-                  active ? `${tone} text-white shadow` : 'text-text-2 hover:bg-white'
-                }`}
-              >
-                {label}
-                <span className={`px-1.5 py-px rounded-full text-[10px] tabular-nums ${
-                  active ? 'bg-white/25 text-white' : 'bg-bg-surface text-text-3'
-                }`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="relative flex items-center ml-2">
+      {/* SEARCH */}
+      <div className="bg-white border border-border rounded-2xl p-3 shadow-sm mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative flex items-center">
           <Search className="w-3.5 h-3.5 absolute left-2.5 text-text-3" strokeWidth={2.2} />
           <input
             type="search"
             placeholder="Restoran / fatura no ara…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 rounded-lg border border-border text-sm w-64 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition bg-white"
+            className="pl-8 pr-3 py-1.5 rounded-lg border border-border text-sm w-72 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition bg-white"
           />
         </div>
-
         <span className="text-[11px] text-text-3 font-semibold uppercase tracking-wider ml-auto inline-flex items-center gap-1">
           <Filter className="w-3 h-3" strokeWidth={2.2} />
-          {filtered.length} sonuç · KDV dahil <span className="text-brand font-mono">{m(filteredTotals.incl)} ₺</span>
+          {filtered.length} sonuç · KDV dahil <span className="text-brand font-mono">{m(totals.incl)} ₺</span>
         </span>
       </div>
 
@@ -262,58 +186,56 @@ export function FaturalarView({
       {filtered.length === 0 ? (
         <div className="bg-white border border-border rounded-2xl p-12 text-center">
           <Receipt className="w-10 h-10 mx-auto text-text-3 mb-3" strokeWidth={1.5} />
-          <div className="text-text-2 font-medium">Bu sekmede fatura yok.</div>
+          <div className="text-text-2 font-medium">Bu dönemde fatura yok.</div>
         </div>
       ) : (
         <div className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-[13px]">
             <thead className="bg-cream-50/80 text-text-3 text-[10.5px] uppercase tracking-[0.08em] border-b border-border">
               <tr>
+                <th className="text-left px-3 py-3 font-bold w-8"></th>
                 <th className="text-left px-4 py-3 font-bold">Restoran</th>
-                <th className="text-left px-3 py-3 font-bold">Fatura No</th>
                 <th className="text-right px-3 py-3 font-bold">Kurye</th>
                 <th className="text-right px-3 py-3 font-bold">KDV Hariç</th>
                 <th className="text-right px-3 py-3 font-bold">KDV</th>
                 <th className="text-right px-3 py-3 font-bold bg-brand-soft/60 text-brand">KDV Dahil</th>
-                <th className="text-right px-3 py-3 font-bold">Ödenen</th>
-                <th className="text-right px-3 py-3 font-bold">Bakiye</th>
-                <th className="text-center px-3 py-3 font-bold">Durum</th>
-                <th className="text-center px-3 py-3 font-bold">Aksiyon</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((inv) => (
-                <InvoiceRow
-                  key={`${inv.restaurant_id}-${period}`}
-                  inv={inv}
-                  busy={busyId === inv.restaurant_id}
-                  onMarkPaid={() => handleMarkPaid(inv, true)}
-                  onUnmark={() => handleMarkPaid(inv, false)}
-                  onPartial={() => handlePartialPay(inv)}
-                />
-              ))}
+              {filtered.map((inv) => {
+                const isOpen = !!expanded[inv.restaurant_id];
+                const breakdown = breakdownCache[inv.restaurant_id];
+                const isLoading = loadingId === inv.restaurant_id;
+                return (
+                  <InvoiceRow
+                    key={`${inv.restaurant_id}-${period}`}
+                    inv={inv}
+                    period={period}
+                    isOpen={isOpen}
+                    isLoading={isLoading}
+                    breakdown={breakdown}
+                    onToggle={() => toggleExpand(inv)}
+                  />
+                );
+              })}
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-brand/30 bg-gradient-to-r from-brand-soft/50 to-transparent font-semibold">
-                <td colSpan={3} className="px-4 py-3 text-text text-[12.5px]">
+                <td colSpan={2} className="px-4 py-3 text-text text-[12.5px]">
                   Toplam ({filtered.length} restoran)
                 </td>
+                <td className="px-3 py-3 text-right num font-mono text-text-2 tabular-nums">
+                  {totals.courier}
+                </td>
                 <td className="px-3 py-3 text-right num font-mono text-text tabular-nums">
-                  {m(filteredTotals.excl)} ₺
+                  {m(totals.excl)} ₺
                 </td>
                 <td className="px-3 py-3 text-right num font-mono text-text-2 tabular-nums">
-                  {m(filteredTotals.vat)} ₺
+                  {m(totals.vat)} ₺
                 </td>
                 <td className="px-3 py-3 text-right font-display text-brand text-[15px] num bg-brand-soft tabular-nums">
-                  {m(filteredTotals.incl)} ₺
+                  {m(totals.incl)} ₺
                 </td>
-                <td className="px-3 py-3 text-right num font-mono text-green-700 tabular-nums">
-                  {m(filteredTotals.paid)} ₺
-                </td>
-                <td className="px-3 py-3 text-right num font-mono text-orange-700 tabular-nums">
-                  {m(filteredTotals.balance)} ₺
-                </td>
-                <td colSpan={2}></td>
               </tr>
             </tfoot>
           </table>
@@ -369,124 +291,234 @@ function KpiCard({
 }
 
 function InvoiceRow({
-  inv, busy, onMarkPaid, onUnmark, onPartial,
+  inv, period, isOpen, isLoading, breakdown, onToggle,
 }: {
   inv: RestaurantInvoice;
-  busy: boolean;
-  onMarkPaid: () => void;
-  onUnmark: () => void;
-  onPartial: () => void;
+  period: string;
+  isOpen: boolean;
+  isLoading: boolean;
+  breakdown?: RestaurantMonthly;
+  onToggle: () => void;
 }) {
-  const meta = STATUS_META[inv.status] ?? STATUS_META['Beklemede'];
-
   return (
-    <tr className="border-t border-border/70 hover:bg-cream-50/70 transition group">
-      {/* Restoran */}
-      <td className="px-4 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <span className="w-1 h-7 rounded-full bg-brand/40" />
-          <div className="min-w-0">
-            <div className="font-semibold text-text text-[13px] truncate">
-              {inv.rest_brand ?? '—'}
+    <>
+      <tr
+        className="border-t border-border/70 hover:bg-cream-50/70 transition cursor-pointer group"
+        onClick={onToggle}
+      >
+        {/* Expand */}
+        <td className="px-3 py-2.5 text-text-3">
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4" strokeWidth={2.4} />
+          ) : (
+            <ChevronRight className="w-4 h-4 group-hover:text-brand transition" strokeWidth={2.4} />
+          )}
+        </td>
+
+        {/* Restoran */}
+        <td className="px-4 py-2.5">
+          <div className="flex items-center gap-2.5">
+            <span className="w-1 h-7 rounded-full bg-brand/40" />
+            <div className="min-w-0">
+              <div className="font-semibold text-text text-[13px] truncate">
+                {inv.rest_brand ?? '—'}
+              </div>
+              {inv.rest_branch && (
+                <div className="text-[10.5px] text-text-3 truncate">
+                  {inv.rest_branch}
+                </div>
+              )}
             </div>
-            {inv.rest_branch && (
-              <div className="text-[10.5px] text-text-3 truncate">
-                {inv.rest_branch}
+          </div>
+        </td>
+
+        {/* Kurye sayısı */}
+        <td className="px-3 py-2.5 text-right num font-mono text-[12.5px] text-text-2 tabular-nums">
+          {inv.courier_count || 0}
+        </td>
+
+        {/* KDV hariç */}
+        <td className="px-3 py-2.5 text-right num font-mono text-[12.5px] tabular-nums">
+          {m(inv.amount_excl_vat)}
+        </td>
+
+        {/* KDV */}
+        <td className="px-3 py-2.5 text-right num font-mono text-[12px] text-text-3 tabular-nums">
+          <div>{m(inv.vat_amount)}</div>
+          <div className="text-[10px]">%{inv.vat_rate}</div>
+        </td>
+
+        {/* KDV dahil — accent */}
+        <td className="px-3 py-2.5 text-right num font-display font-bold text-brand text-[14px] bg-brand-soft/40 group-hover:bg-brand-soft transition tabular-nums">
+          {m(inv.amount_incl_vat)}
+        </td>
+      </tr>
+
+      {/* Genişletilmiş kırılım */}
+      {isOpen && (
+        <tr className="bg-cream-50/40 border-t border-border/60">
+          <td colSpan={6} className="px-4 py-3">
+            {isLoading ? (
+              <div className="text-text-3 text-[12px] italic px-4 py-3">
+                Kurye kırılımı yükleniyor…
+              </div>
+            ) : breakdown ? (
+              <CourierBreakdown breakdown={breakdown} restaurantId={inv.restaurant_id} period={period} />
+            ) : (
+              <div className="text-text-3 text-[12px] italic px-4 py-3">
+                Kırılım yok.
               </div>
             )}
-          </div>
-        </div>
-      </td>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
 
-      {/* Fatura no */}
-      <td className="px-3 py-2.5">
-        <span className={`text-[11.5px] font-mono ${inv.invoice_no ? 'text-text-2' : 'text-text-3 italic'}`}>
-          {inv.invoice_no ?? '— atanmamış'}
-        </span>
-      </td>
+function CourierBreakdown({
+  breakdown, restaurantId, period,
+}: {
+  breakdown: RestaurantMonthly;
+  restaurantId: number;
+  period: string;
+}) {
+  const couriers = breakdown.couriers || [];
+  const totals = breakdown.totals;
 
-      {/* Kurye sayısı */}
-      <td className="px-3 py-2.5 text-right num font-mono text-[12.5px] text-text-2 tabular-nums">
-        {inv.courier_count}
-      </td>
+  if (couriers.length === 0) {
+    return (
+      <div className="text-text-3 text-[12px] italic px-4 py-3">
+        Bu ay için kurye kaydı yok.
+      </div>
+    );
+  }
 
-      {/* KDV hariç */}
-      <td className="px-3 py-2.5 text-right num font-mono text-[12.5px] tabular-nums">
-        {m(inv.amount_excl_vat)}
-      </td>
-
-      {/* KDV */}
-      <td className="px-3 py-2.5 text-right num font-mono text-[12px] text-text-3 tabular-nums">
-        <div>{m(inv.vat_amount)}</div>
-        <div className="text-[10px]">%{inv.vat_rate}</div>
-      </td>
-
-      {/* KDV dahil — accent */}
-      <td className="px-3 py-2.5 text-right num font-display font-bold text-brand text-[14px] bg-brand-soft/40 group-hover:bg-brand-soft transition tabular-nums">
-        {m(inv.amount_incl_vat)}
-      </td>
-
-      {/* Ödenen */}
-      <td className="px-3 py-2.5 text-right num font-mono text-[12.5px] text-green-700 tabular-nums">
-        {inv.paid_amount > 0 ? m(inv.paid_amount) : <span className="text-text-3">—</span>}
-      </td>
-
-      {/* Bakiye */}
-      <td className="px-3 py-2.5 text-right num font-mono text-[12.5px] text-orange-700 tabular-nums">
-        {inv.balance > 0 ? m(inv.balance) : <span className="text-text-3">0,00</span>}
-      </td>
-
-      {/* Durum */}
-      <td className="px-3 py-2.5 text-center">
-        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold ${meta.bg} ${meta.text}`}>
-          {inv.status === 'Ödendi' && <CheckCircle2 className="w-3 h-3" strokeWidth={2.4} />}
-          {inv.status === 'Beklemede' && <Clock className="w-3 h-3" strokeWidth={2.4} />}
-          {inv.status === 'Kısmi' && <Wallet className="w-3 h-3" strokeWidth={2.4} />}
-          {inv.status}
-        </span>
-      </td>
-
-      {/* Aksiyon */}
-      <td className="px-3 py-2.5 text-center">
-        <div className="inline-flex items-center gap-1">
-          {inv.status === 'Ödendi' ? (
-            <button
-              onClick={onUnmark}
-              disabled={busy}
-              className="px-2 py-1 rounded-md bg-white border border-border text-text-3 text-[10.5px] font-semibold hover:bg-cream-50 transition disabled:opacity-50"
-              title="Ödendi işaretini kaldır"
-            >
-              Geri al
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={onMarkPaid}
-                disabled={busy}
-                className="px-2 py-1 rounded-md bg-green-600 text-white text-[10.5px] font-semibold hover:bg-green-700 transition disabled:opacity-50 inline-flex items-center gap-1"
-                title="Tamamen ödendi olarak işaretle"
-              >
-                <Check className="w-3 h-3" strokeWidth={2.4} /> Ödendi
-              </button>
-              <button
-                onClick={onPartial}
-                disabled={busy}
-                className="px-2 py-1 rounded-md bg-white border border-border text-text-2 text-[10.5px] font-semibold hover:border-brand hover:text-brand transition disabled:opacity-50"
-                title="Kısmi ödeme gir"
-              >
-                Kısmi
-              </button>
-            </>
+  return (
+    <div className="rounded-xl border border-border bg-white overflow-hidden">
+      <div className="px-4 py-2 flex items-center justify-between bg-bg-surface2 border-b border-border">
+        <div className="text-[11px] uppercase tracking-wider font-bold text-text-2 inline-flex items-center gap-2">
+          <Users2 className="w-3.5 h-3.5" strokeWidth={2.4} />
+          Kurye Kırılımı — {couriers.length} kişi
+          {totals.support_count > 0 && (
+            <span className="text-[10px] text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded-md border border-orange-200">
+              {totals.support_count} destek
+            </span>
           )}
-          {/* Detay link — restoran sayfasına */}
-          <Link
-            href={`/restoranlar/${inv.restaurant_id}?ay=${encodeURIComponent(inv.period)}`}
-            className="px-1.5 py-1 rounded-md text-text-3 hover:text-brand hover:bg-brand-soft transition"
-            title="Restoran detay"
-          >
-            <Building2 className="w-3.5 h-3.5" strokeWidth={2.2} />
-          </Link>
         </div>
+        <a
+          href={`/restoranlar/${restaurantId}?ay=${encodeURIComponent(period)}`}
+          className="text-[11px] text-brand hover:underline inline-flex items-center gap-1 font-semibold"
+        >
+          <Building2 className="w-3 h-3" strokeWidth={2.4} />
+          Restoran sayfasına git
+        </a>
+      </div>
+      <table className="w-full text-[12.5px]">
+        <thead className="bg-bg-surface text-text-3 text-[10px] uppercase tracking-wider">
+          <tr>
+            <th className="text-left px-3 py-2 font-bold">Kurye</th>
+            <th className="text-left px-3 py-2 font-bold">Rol</th>
+            <th className="text-right px-3 py-2 font-bold">Gün</th>
+            <th className="text-right px-3 py-2 font-bold">Saat</th>
+            <th className="text-right px-3 py-2 font-bold">Paket</th>
+            <th className="text-left px-3 py-2 font-bold">Hesap</th>
+            <th className="text-right px-3 py-2 font-bold">KDV Hariç</th>
+            <th className="text-right px-3 py-2 font-bold">KDV Dahil</th>
+          </tr>
+        </thead>
+        <tbody>
+          {couriers.map((c, idx) => (
+            <CourierRow key={c.personnel_id ?? idx} c={c} />
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-brand/30 bg-brand-soft/30 font-semibold">
+            <td colSpan={2} className="px-3 py-2 text-text text-[11.5px]">
+              Restoran toplamı
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums text-text-2">
+              {totals.total_working_days}
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums text-text-2">
+              {n(totals.total_hours, 1)}
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums text-text-2">
+              {totals.total_packages}
+            </td>
+            <td className="px-3 py-2 text-text-3 text-[10.5px]">
+              KDV %{totals.vat_rate}
+            </td>
+            <td className="px-3 py-2 text-right font-mono text-text tabular-nums">
+              {m(totals.total_billing_excl_vat)}
+            </td>
+            <td className="px-3 py-2 text-right font-display text-brand text-[14px] tabular-nums">
+              {m(totals.total_billing_incl_vat)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+function CourierRow({ c }: { c: CourierBilling }) {
+  const isJoker = (c.role ?? '').toLowerCase().includes('joker');
+  const isManager =
+    c.role === 'Bölge Müdürü' || c.role === 'Kaptan' || c.role === 'Restoran Takım Şefi';
+
+  return (
+    <tr className="border-t border-border/60 hover:bg-cream-50/70 transition align-top">
+      <td className="px-3 py-2">
+        <div className="font-medium text-text text-[12.5px]">{c.full_name ?? '—'}</div>
+        <div className="text-[10px] text-text-3 font-mono">{c.person_code ?? ''}</div>
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex flex-col gap-1">
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold inline-block w-fit ${
+              isJoker
+                ? 'bg-cream-100 text-yellow-800'
+                : isManager
+                ? 'bg-text text-white'
+                : 'bg-brand-soft text-brand'
+            }`}
+          >
+            {c.role ?? '—'}
+          </span>
+          {c.is_support && (
+            <span className="px-2 py-0.5 rounded-full text-[9.5px] font-semibold bg-orange-50 text-orange-700 border border-orange-200 inline-block w-fit">
+              ↪ Destek
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-text-2">{c.working_days}</td>
+      <td className="px-3 py-2 text-right tabular-nums text-text-2">{n(c.total_hours, 1)}</td>
+      <td className="px-3 py-2 text-right tabular-nums text-text-2">{c.total_packages}</td>
+      <td className="px-3 py-2 text-[10.5px] text-text-3">
+        {c.billing_breakdown.length === 0 ? (
+          <span>—</span>
+        ) : (
+          <div className="space-y-0.5">
+            {c.billing_breakdown.map((line, i) => (
+              <div key={i} className="leading-tight">
+                {line.label}{' '}
+                {line.amount !== 0 && (
+                  <span className="text-text-2 font-mono">
+                    = {m(line.amount)} ₺
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </td>
+      <td className="px-3 py-2 text-right font-mono tabular-nums text-text">
+        {m(c.billing_excl_vat)}
+      </td>
+      <td className="px-3 py-2 text-right font-display font-semibold text-brand text-[13.5px] tabular-nums">
+        {m(c.billing_incl_vat)}
       </td>
     </tr>
   );
