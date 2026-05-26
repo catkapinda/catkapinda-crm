@@ -151,6 +151,7 @@ async def management_debug(period: str = "2026-03") -> dict:
                 LEFT JOIN daily_entries d
                     ON d.actual_personnel_id = p.id
                    AND LEFT(d.entry_date::text, 7) = %s
+                   AND d.restaurant_id IS DISTINCT FROM p.assigned_restaurant_id
                 WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
                   AND p.role IN ('Bölge Müdürü', 'Joker', 'Kaptan', 'Restoran Takım Şefi')
                 """,

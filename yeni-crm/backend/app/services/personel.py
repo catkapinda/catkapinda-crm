@@ -500,10 +500,19 @@ def top_performers(period: str, limit: int = 3) -> list[dict]:
 def management_summary(period: str) -> list[dict]:
     """Yönetim & Yedek Operasyon — yalnız gerçek yönetim rolleri.
 
-    SC Petshop gibi sabit aylık ücretli restoranların kuryeleri
-    (monthly_fixed_cost > 0 olabilir) verimlilik metriğine dahil EDİLMEZ —
-    onlar normal Kurye, restoran kazancı sabit aylık feeyle sağlanır,
-    paket/saat verimliliği bu hesaba yansımaz.
+    'Cover' tanımı (KRİTİK):
+      RTS / Kaptan / BM kendi atandığı restoranda zaten sabit maaşıyla
+      çalışıyor — bu normal iş, COVER DEĞİL. Cover yalnız:
+        • Restoran Takım Şefi/Kaptan/BM → kendi restoranı DIŞINDA
+          başka restoranlara destek olarak gittiği entry'ler
+        • Joker (assigned_restaurant_id NULL) → her entry cover
+          (Joker'in 'evi' yok)
+
+    SQL: d.restaurant_id IS DISTINCT FROM p.assigned_restaurant_id
+      · Joker (assigned NULL) için: NULL IS DISTINCT FROM <id> → TRUE → dahil
+      · RTS Recep (assigned=Quick China) için:
+          QC entry  → QC IS DISTINCT FROM QC → FALSE → dışlanır ✓
+          Başka  → Other IS DISTINCT FROM QC → TRUE  → dahil ✓
     """
     sql = """
         SELECT
@@ -516,6 +525,7 @@ def management_summary(period: str) -> list[dict]:
         LEFT JOIN daily_entries d
             ON d.actual_personnel_id = p.id
            AND LEFT(d.entry_date::text, 7) = %s
+           AND d.restaurant_id IS DISTINCT FROM p.assigned_restaurant_id
         WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
           AND p.role IN ('Bölge Müdürü', 'Joker', 'Kaptan', 'Restoran Takım Şefi')
         GROUP BY p.id, p.full_name, p.person_code, p.role, p.monthly_fixed_cost
