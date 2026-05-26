@@ -91,17 +91,17 @@ export default async function DashboardPage({
     error = e instanceof Error ? e.message : 'API hatası';
   }
 
-  // Sabit Maliyet Verimliliği — gerçek management
+  // Sabit Maliyet Verimliliği — TÜM yönetim ekibi & Joker
+  // (Önceki sürüm sadece top 3 gösteriyordu; Cihan/Tunç gibi alt
+  // sıradaki BM/Joker'ler kesiliyordu. Artık tümü görünür.)
   const efficiencyCards = management
-    .filter((m) => m.salary > 0)
     .map((m) => {
       const recovery = m.cover_hours * 200 + m.cover_packages * 25;
       const pct = m.salary > 0 ? Math.min(100, (recovery / m.salary) * 100) : 0;
       const netCost = Math.max(0, m.salary - recovery);
       return { ...m, recovery, pct, netCost };
     })
-    .sort((a, b) => b.pct - a.pct)
-    .slice(0, 3);
+    .sort((a, b) => b.pct - a.pct);
 
   const totalSalary = management.reduce((s, m) => s + m.salary, 0);
   const totalRecovery = management.reduce(
