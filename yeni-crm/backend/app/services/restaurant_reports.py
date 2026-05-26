@@ -313,26 +313,36 @@ def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] |
         )
         rest_rows = cur.fetchall()
 
-    # 4) Kurye bordro toplamı (CK maliyeti)
+    # 4) Kurye bordro — DOĞRU ATTRIBUTION
+    # Her restorana yansıyan kurye maliyeti:
+    #   = (ana_brut + ekstra_mesai_brut)  // kuryelerin kendi restoranlarında
+    #     for couriers whose assigned_restaurant_id == bu restoran
+    #   + sum(destek_lines.amount where restaurant_id == bu restoran)
+    #     // başka kuryelerin destek olarak gittiği işler
+    # Bu sayede:
+    #  - Bir restoranda iki kurye var ise: her ikisinin ana_brut'u toplanır
+    #  - Bir kurye destek olarak QC'ye gittiyse: o miktar QC'ye yazılır
+    #  - Bir kuryenin destek dönüşü kendi restoranına etki etmez (zaten ana_brut
+    #    sadece kendi restoranındaki saat/paketten)
     if payroll is None:
         payroll_data = list_personnel_payroll(period)
         payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
-    payroll_by_id = {int(p.get("id", 0)): p for p in payroll}
 
-    with conn.cursor(row_factory=dict_row) as cur:
-        cur.execute(
-            """
-            SELECT assigned_restaurant_id AS rest_id, id AS personnel_id
-            FROM personnel
-            WHERE role IN ('Kurye', 'Joker')
-              AND status = 'Aktif'
-              AND assigned_restaurant_id IS NOT NULL
-            """
-        )
-        rest_to_couriers: dict[int, list[int]] = {}
-        for row in cur.fetchall():
-            rid = int(row["rest_id"])
-            rest_to_couriers.setdefault(rid, []).append(int(row["personnel_id"]))
+    courier_cost_by_rest: dict[int, float] = {}
+    for pr in payroll:
+        # Ana restoran payı
+        assigned_rid = pr.get("assigned_restaurant_id")
+        if assigned_rid:
+            rid = int(assigned_rid)
+            ana = float(pr.get("ana_brut") or 0) + float(pr.get("ekstra_mesai_brut") or 0)
+            courier_cost_by_rest[rid] = courier_cost_by_rest.get(rid, 0.0) + ana
+        # Destek payları (her satır farklı restorana yansıyabilir)
+        for line in (pr.get("destek_lines") or []):
+            dest_rid = line.get("restaurant_id")
+            if dest_rid:
+                drid = int(dest_rid)
+                amount = float(line.get("amount") or 0)
+                courier_cost_by_rest[drid] = courier_cost_by_rest.get(drid, 0.0) + amount
 
     result = []
     for r in rest_rows:
@@ -343,13 +353,10 @@ def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] |
         auto = auto_map.get(rest_id, {})
         billing_excl = float(auto.get("auto_invoice_excl_vat") or 0)
 
-        # Kuryelere ödenen toplam brüt (KDV DAHİL — kurye fatura kesiyor)
-        courier_cost_incl_vat = 0.0
-        for cid in rest_to_couriers.get(rest_id, []):
-            if cid in payroll_by_id:
-                courier_cost_incl_vat += float(payroll_by_id[cid].get("toplam_brut", 0))
+        # Bu restorana yansıyan kurye maliyeti (KDV DAHİL — kurye fatura kesiyor)
+        # Yukarıda hesaplanan courier_cost_by_rest dict'ini kullan
+        courier_cost_incl_vat = courier_cost_by_rest.get(rest_id, 0.0)
         # KDV hariç matrahı (CK için gerçek gider — KDV indirilebilir)
-        # Kurye %20 KDV dahil fatura kesiyor
         courier_cost_excl_vat = courier_cost_incl_vat / 1.20 if courier_cost_incl_vat > 0 else 0.0
 
         # Paket başı metrikler (apples-to-apples: ikisi de KDV HARİÇ)

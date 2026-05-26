@@ -569,6 +569,7 @@ def list_personnel_payroll(period: str) -> list[dict]:
             "full_name": p["full_name"],
             "person_code": p["person_code"],
             "role": p["role"],
+            "assigned_restaurant_id": assigned_rid,
             "rest_brand": p["rest_brand"],
             "rest_branch": p["rest_branch"],
             "pricing_model": p.get("pricing_model"),
