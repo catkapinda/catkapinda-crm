@@ -2,8 +2,8 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
-    box_returns, collections, courier, dashboard, deductions, equipment,
-    health, invoices, payroll, personel, profile_changes, puantaj,
+    box_returns, collections, courier, dashboard, data_health, deductions,
+    equipment, health, invoices, payroll, personel, profile_changes, puantaj,
     requests as requests_route, restaurant_reports, restaurants, sidebar,
 )
 
@@ -25,3 +25,4 @@ api_router.include_router(restaurant_reports.router, prefix="/restaurant-reports
 api_router.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
 api_router.include_router(box_returns.router, prefix="/box-returns", tags=["box-returns"])
 api_router.include_router(collections.router, prefix="/collections", tags=["collections"])
+api_router.include_router(data_health.router, prefix="/data-health", tags=["data-health"])

@@ -840,6 +840,35 @@ export async function getPersonnelMovements(
   );
 }
 
+// ─── Veri Sağlığı (sistem geneli sanity checks) ───────────────────
+export type DataHealthCheck = {
+  key: string;
+  label: string;
+  status: 'green' | 'yellow' | 'red';
+  count: number;
+  total: number;
+  samples: { id: number; name: string | null; detail: string }[];
+  suggestion: string;
+};
+
+export type DataHealthResponse = {
+  period: string;
+  checks: DataHealthCheck[];
+  summary: {
+    green: number;
+    yellow: number;
+    red: number;
+    overall_status: 'green' | 'yellow' | 'red';
+    total_checks: number;
+  };
+};
+
+export async function getDataHealth(period: string): Promise<DataHealthResponse> {
+  return apiGet<DataHealthResponse>(`/api/data-health?period=${period}`, {
+    revalidate: 0,
+  });
+}
+
 export type SidebarCounts = {
   personel: number;
   restoranlar: number;

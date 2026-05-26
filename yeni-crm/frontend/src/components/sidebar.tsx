@@ -4,9 +4,9 @@ import Link from 'next/link';
 import clsx from 'clsx';
 import {
   Activity, BadgeCheck, BarChart3, Bike, Box, Building2, Calendar,
-  CheckCircle2, ClipboardCheck, Coins, FileSpreadsheet, FileText, Home,
-  LayoutGrid, MinusCircle, RefreshCw, Sparkles, Store, TrendingUp,
-  UserCheck, Users, Wallet, ShieldCheck, ShoppingBag,
+  CheckCircle2, ClipboardCheck, Coins, FileSpreadsheet, FileText,
+  HeartPulse, Home, LayoutGrid, MinusCircle, RefreshCw, Sparkles, Store,
+  TrendingUp, UserCheck, Users, Wallet, ShieldCheck, ShoppingBag,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarCounts } from '@/lib/api';
@@ -16,7 +16,7 @@ type NavKey =
   | 'kesintiler' | 'ekipman' | 'avans' | 'motor' | 'muhasebe-degisim'
   | 'talepler' | 'avans-talepleri' | 'profil-onay' | 'box-geri-alim'
   | 'restoranlar' | 'faturalar' | 'bordro' | 'kar-zarar' | 'restoran-raporlari'
-  | 'tahsilatlar';
+  | 'tahsilatlar' | 'veri-sagligi';
 
 type BadgeKind = 'new' | 'warn' | 'default';
 
@@ -59,6 +59,7 @@ const NAV: NavItem[] = [
   { key: 'tahsilatlar', label: 'Tahsilatlar', href: '/tahsilatlar', section: 'Finans', icon: Coins },
   { key: 'bordro', label: 'Bordro', href: '/bordro', section: 'Finans', icon: FileSpreadsheet },
   { key: 'kar-zarar', label: 'Kâr-Zarar Raporu', href: '/kar-zarar', section: 'Finans', icon: TrendingUp },
+  { key: 'veri-sagligi', label: 'Veri Sağlığı', href: '/veri-sagligi', section: 'Finans', icon: HeartPulse },
 ];
 
 const SECTIONS: SectionName[] = ['Genel', 'Operasyon', 'Onaylar', 'Satış', 'Finans'];
