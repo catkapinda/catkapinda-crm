@@ -20,17 +20,29 @@ export function backendUrl(path: string): string {
   return `${SERVER_API}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-export async function apiGet<T>(path: string, opts?: { revalidate?: number }): Promise<T> {
+export async function apiGet<T>(
+  path: string,
+  opts?: { revalidate?: number; cache?: RequestCache },
+): Promise<T> {
   // SSR'da NEXT_PUBLIC_API_URL (Render internal hostname) hızlı.
   // Client'ta relative path → Next.js rewrites backend'e proxy'ler.
   // (Internal hostname'e tarayıcı erişemez, mutlaka relative gerek.)
   const isBrowser = typeof window !== 'undefined';
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const url = isBrowser ? cleanPath : `${SERVER_API}${cleanPath}`;
-  const res = await fetch(url, {
-    next: { revalidate: opts?.revalidate ?? 30 },
+  const revalidate = opts?.revalidate ?? 30;
+  // revalidate=0 ise 'no-store' kullan; Next.js Data Cache tamamen by-pass
+  const fetchInit: RequestInit & { next?: { revalidate?: number } } = {
     headers: { 'Content-Type': 'application/json' },
-  });
+  };
+  if (opts?.cache) {
+    fetchInit.cache = opts.cache;
+  } else if (revalidate === 0) {
+    fetchInit.cache = 'no-store';
+  } else {
+    fetchInit.next = { revalidate };
+  }
+  const res = await fetch(url, fetchInit);
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
   return res.json() as Promise<T>;
 }
@@ -252,8 +264,13 @@ export type ManagementMember = {
 
 export async function getManagementSummary(
   period: string = '2026-03',
+  opts?: { revalidate?: number },
 ): Promise<ManagementMember[]> {
-  return apiGet<ManagementMember[]>(`/api/personel/management?period=${period}`);
+  return apiGet<ManagementMember[]>(
+    `/api/personel/management?period=${period}`,
+    // Default: SSR'da her render'da taze veri (period değişimi anlık yansısın)
+    { revalidate: opts?.revalidate ?? 0 },
+  );
 }
 
 // ─────────────────────────────────────────────────────────────

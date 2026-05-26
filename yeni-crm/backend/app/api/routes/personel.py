@@ -119,8 +119,53 @@ async def get_top_performers(period: str = "2026-03", limit: int = 3) -> list[di
 
 @router.get("/management")
 async def get_management(period: str = "2026-03") -> list[dict]:
-    """Yönetim & Yedek Operasyon — sabit maaşlı kişiler + cover özeti."""
+    """Yönetim & Yedek Operasyon — sabit maaşlı kişiler + cover özeti.
+
+    Period filtresi sağlık göstergesi her satıra debug için bilgi
+    ekleyebilir (cover_hours/packages farklı aylarda farklı olmalı).
+    """
     return management_summary(period=period)
+
+
+@router.get("/management/debug")
+async def management_debug(period: str = "2026-03") -> dict:
+    """Sabit Maliyet Verimliliği için period sağlık özeti.
+
+    Mart ve Nisan'da aynı görünüyorsa, bu endpoint'ten farkı görebilirsin:
+    - matched_entries: o ay için JOIN'e giren daily_entries sayısı
+    - total_hours / total_packages / total_days: toplam cover
+    - personnel_count: query'ye giren kişi sayısı
+    """
+    from app.core.database import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    COUNT(*) AS matched_entries,
+                    COALESCE(SUM(d.worked_hours) FILTER (WHERE d.worked_hours > 0), 0) AS total_hours,
+                    COALESCE(SUM(d.package_count) FILTER (WHERE d.worked_hours > 0), 0) AS total_packages,
+                    COUNT(DISTINCT d.entry_date) FILTER (WHERE d.worked_hours > 0) AS total_days,
+                    COUNT(DISTINCT d.actual_personnel_id) FILTER (WHERE d.worked_hours > 0) AS people
+                FROM personnel p
+                LEFT JOIN daily_entries d
+                    ON d.actual_personnel_id = p.id
+                   AND LEFT(d.entry_date::text, 7) = %s
+                WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
+                  AND p.role IN ('Bölge Müdürü', 'Joker', 'Kaptan', 'Restoran Takım Şefi')
+                """,
+                (period,),
+            )
+            row = cur.fetchone() or (0, 0, 0, 0, 0)
+    return {
+        "period": period,
+        "matched_entries": int(row[0] or 0),
+        "total_cover_hours": float(row[1] or 0),
+        "total_cover_packages": int(row[2] or 0),
+        "total_cover_days": int(row[3] or 0),
+        "people_with_entries": int(row[4] or 0),
+        "rows": management_summary(period=period),
+    }
 
 
 @router.get("/insights")
