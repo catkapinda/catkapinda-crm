@@ -1,14 +1,18 @@
 """Fatura servisi — restoranlara aylık kesilen faturalar.
 
-Otomatik fatura tutarı bordro hakediş datasından (toplam_brut) türetilir.
-restaurant_invoices tablosu opsiyonel ödeme/no/notlar bilgilerini saklar.
+Otomatik fatura tutarı restoran tarife modeli + puantajdan hesaplanır
+(collections._compute_auto_invoice_map paylaşılır). restaurant_invoices
+tablosu manuel kayıt/ödeme bilgilerini saklar.
 """
 from datetime import datetime, timezone
 
 from psycopg.rows import dict_row
 
 from app.core.database import get_connection
-from app.services.payroll import list_personnel_payroll
+from app.services.collections import (
+    _compute_auto_invoice_map,
+    _get_period_restaurants,
+)
 
 
 VAT_RATE = 0.20
@@ -17,33 +21,49 @@ VAT_RATE = 0.20
 def list_invoices(period: str) -> list[dict]:
     """Belirli bir ay için tüm restoranların faturalarını listele.
 
-    1) Bordro datasından (list_personnel_payroll) restoran bazlı brüt topla
-    2) restaurant_invoices tablosundan ödeme/manuel kayıtları join et
-    3) Otomatik agregasyon + manuel kayıt birleştirilir
+    1) collections._compute_auto_invoice_map ile pricing_model + puantajdan
+       restoran bazlı otomatik tutar (KDV hariç + KDV dahil) hesaplanır
+    2) restaurant_invoices tablosundan manuel kayıtlar join edilir
+    3) Manuel kayıt varsa öncelik, yoksa otomatik sanal kayıt
     """
-    # 1) Bordro datasından restoran bazlı toplam topla
-    payroll_data = list_personnel_payroll(period)
-    payroll_rows = (
-        payroll_data.get("rows", [])
-        if isinstance(payroll_data, dict)
-        else (payroll_data or [])
-    )
+    # 1) Pricing model + puantajdan auto invoice
+    auto_map = _compute_auto_invoice_map(period)
+    period_rests = _get_period_restaurants(period)
+
     by_restaurant: dict[int, dict] = {}
-    for r in payroll_rows:
-        rid = r.get("assigned_restaurant_id")
-        if not rid:
-            continue
-        b = by_restaurant.setdefault(rid, {
+    for r in period_rests:
+        rid = int(r["id"])
+        auto = auto_map.get(rid, {})
+        by_restaurant[rid] = {
             "restaurant_id": rid,
-            "rest_brand": r.get("rest_brand"),
-            "rest_branch": r.get("rest_branch"),
-            "courier_count": 0,
-            "fatura_total": 0.0,  # toplam_brut sum (KDV hariç matrah temeli)
-        })
-        b["courier_count"] += 1
-        # Fatura tutarı = personel toplam_brut (motor satış / fatura matrahı düşülmemiş)
-        # Restorana yansıyan brüt değer
-        b["fatura_total"] += float(r.get("toplam_brut") or 0)
+            "rest_brand": r.get("brand"),
+            "rest_branch": r.get("branch"),
+            "courier_count": 0,  # kurye sayısı — eşikli modelden türetilir
+            "fatura_total": float(auto.get("auto_invoice_excl_vat") or 0),
+            "auto_basis": auto.get("auto_basis"),
+            "auto_hours": float(auto.get("auto_hours") or 0),
+            "auto_packages": int(auto.get("auto_packages") or 0),
+        }
+
+    # Kurye sayısı için daily_entries'ten distinct personnel say
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT restaurant_id,
+                       COUNT(DISTINCT actual_personnel_id) AS n
+                FROM daily_entries
+                WHERE LEFT(entry_date::text, 7) = %s
+                  AND actual_personnel_id IS NOT NULL
+                  AND restaurant_id IS NOT NULL
+                GROUP BY restaurant_id
+                """,
+                (period,),
+            )
+            for r in cur.fetchall():
+                rid = int(r["restaurant_id"])
+                if rid in by_restaurant:
+                    by_restaurant[rid]["courier_count"] = int(r["n"] or 0)
 
     # 2) restaurant_invoices tablosundan manuel kayıtları çek
     with get_connection() as conn:
@@ -131,6 +151,9 @@ def list_invoices(period: str) -> list[dict]:
             "balance": round(incl_vat - paid_amount, 2),
             "notes": notes,
             "is_manual_only": False,
+            "auto_basis": agg.get("auto_basis"),
+            "auto_hours": agg.get("auto_hours", 0),
+            "auto_packages": agg.get("auto_packages", 0),
         })
 
     # Manuel kayıtlardan bordroya girmemiş olanlar (örn ek fatura)

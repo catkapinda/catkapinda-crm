@@ -151,6 +151,12 @@ export function TahsilatlarView({
             </h1>
             <div className="text-white/80">
               {formatPeriod(period)} dönemi · {summary?.restaurant_count ?? 0} restoran
+              {(summary?.entries_restaurants ?? 0) > 0 && (
+                <span className="text-white/65 text-xs ml-2">
+                  · {summary?.entries_total_hours ?? 0} sa, {summary?.entries_total_packages ?? 0} paket
+                  ({summary?.entries_restaurants ?? 0} restoran puantajlı)
+                </span>
+              )}
             </div>
           </div>
           <div className="relative">

@@ -38,6 +38,55 @@ def _normalize_period(value: str | None) -> str:
     return p
 
 
+def _get_period_restaurants(period: str) -> list[dict]:
+    """Bir dönem için ilgili restoran kümesi.
+
+    Bir restoran, şu durumlardan biri sağlanıyorsa o ay için listelenir:
+      • active = 1 (şu an aktif)
+      • o dönemde daily_entries kaydı var (puantaj girilmiş)
+      • o dönem için restaurant_invoices kaydı var (manuel fatura/tahsilat)
+
+    Bu sayede Chinese Express gibi sonradan pasife alınan restoranlar
+    da aktif olduğu aylarda görünür.
+    """
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                WITH active_or_seen AS (
+                    SELECT id, brand, branch,
+                           COALESCE(pricing_model, '') AS pricing_model,
+                           COALESCE(hourly_rate, 0)::float AS hourly_rate,
+                           COALESCE(package_rate, 0)::float AS package_rate,
+                           COALESCE(package_threshold, 0)::int AS package_threshold,
+                           COALESCE(package_rate_low, 0)::float AS package_rate_low,
+                           COALESCE(package_rate_high, 0)::float AS package_rate_high,
+                           COALESCE(fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
+                           COALESCE(vat_rate, 20)::float AS vat_rate,
+                           active
+                    FROM restaurants
+                    WHERE active = 1
+                       OR id IN (
+                            SELECT DISTINCT restaurant_id
+                            FROM daily_entries
+                            WHERE LEFT(entry_date::text, 7) = %s
+                              AND restaurant_id IS NOT NULL
+                       )
+                       OR id IN (
+                            SELECT DISTINCT restaurant_id
+                            FROM restaurant_invoices
+                            WHERE period = %s
+                              AND restaurant_id IS NOT NULL
+                       )
+                )
+                SELECT * FROM active_or_seen
+                ORDER BY brand, branch
+                """,
+                (period, period),
+            )
+            return [dict(r) for r in cur.fetchall()]
+
+
 def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
     """Restoran tarife modeline + puantaj verilerine göre beklenen fatura.
 
@@ -62,27 +111,11 @@ def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
     """
     out: dict[int, dict] = {}
 
+    # Period-aware restoran havuzu (aktif + o ay aktif olanlar)
+    rests = _get_period_restaurants(period)
+
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            # Restoran tarifeleri
-            cur.execute(
-                """
-                SELECT
-                    id, brand, branch,
-                    COALESCE(pricing_model, '') AS pricing_model,
-                    COALESCE(hourly_rate, 0)::float AS hourly_rate,
-                    COALESCE(package_rate, 0)::float AS package_rate,
-                    COALESCE(package_threshold, 0)::int AS package_threshold,
-                    COALESCE(package_rate_low, 0)::float AS package_rate_low,
-                    COALESCE(package_rate_high, 0)::float AS package_rate_high,
-                    COALESCE(fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
-                    COALESCE(vat_rate, 20)::float AS vat_rate
-                FROM restaurants
-                WHERE active = 1
-                """
-            )
-            rests = [dict(r) for r in cur.fetchall()]
-
             # Puantaj toplamı (restoran×ay): saat + paket
             cur.execute(
                 """
@@ -228,7 +261,15 @@ def list_collections(
     """
     period = _normalize_period(period) if period else None
 
-    # Restoran listesi (aktif)
+    # Restoran listesi — period-aware (aktif + o dönem aktif olanlar)
+    if period:
+        period_rests = _get_period_restaurants(period)
+        restaurants_list = [
+            {"id": r["id"], "brand": r["brand"], "branch": r["branch"]}
+            for r in period_rests
+        ]
+    else:
+        restaurants_list = None
     rest_sql = """
         SELECT id, brand, branch
         FROM restaurants
@@ -258,8 +299,11 @@ def list_collections(
 
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(rest_sql)
-            restaurants = [dict(r) for r in cur.fetchall()]
+            if restaurants_list is not None:
+                restaurants = restaurants_list
+            else:
+                cur.execute(rest_sql)
+                restaurants = [dict(r) for r in cur.fetchall()]
             cur.execute(coll_sql, coll_params)
             collections = [dict(r) for r in cur.fetchall()]
 
@@ -362,7 +406,7 @@ def list_collections(
 
 
 def summary(period: str) -> dict:
-    """Bir dönem için özet KPI'lar."""
+    """Bir dönem için özet KPI'lar (+ debug: o ayın daily_entries özeti)."""
     items = list_collections(period=period)
     today = date.today()
     total_invoice = sum(float(x.get("invoice_amount") or 0) for x in items)
@@ -372,6 +416,33 @@ def summary(period: str) -> dict:
     overdue_amount = sum(float(x.get("remaining_amount") or 0) for x in overdue)
     collected_count = sum(1 for x in items if x.get("status") == "Tahsil Edildi")
     pending_count = sum(1 for x in items if x.get("status") in ("Bekliyor", "Kısmi Tahsilat"))
+
+    # Debug: o ay için daily_entries toplamı (period filter sağlığını teyit)
+    entries_total_hours = 0.0
+    entries_total_packages = 0
+    entries_restaurants = 0
+    try:
+        with get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        COALESCE(SUM(worked_hours), 0)::float AS h,
+                        COALESCE(SUM(package_count), 0)::int AS p,
+                        COUNT(DISTINCT restaurant_id) AS n
+                    FROM daily_entries
+                    WHERE LEFT(entry_date::text, 7) = %s
+                      AND restaurant_id IS NOT NULL
+                    """,
+                    (period,),
+                )
+                row = cur.fetchone() or {}
+                entries_total_hours = float(row.get("h") or 0)
+                entries_total_packages = int(row.get("p") or 0)
+                entries_restaurants = int(row.get("n") or 0)
+    except Exception:
+        pass
+
     return {
         "period": period,
         "total_invoice": total_invoice,
@@ -383,6 +454,10 @@ def summary(period: str) -> dict:
         "pending_count": pending_count,
         "restaurant_count": len(items),
         "today": today.isoformat(),
+        # Period sağlık göstergesi (her ay farklı olmalı)
+        "entries_total_hours": round(entries_total_hours, 1),
+        "entries_total_packages": entries_total_packages,
+        "entries_restaurants": entries_restaurants,
     }
 
 

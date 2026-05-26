@@ -1505,6 +1505,10 @@ export type CollectionsSummary = {
   pending_count: number;
   restaurant_count: number;
   today: string;
+  // O ay için daily_entries özet (period sağlık göstergesi)
+  entries_total_hours?: number;
+  entries_total_packages?: number;
+  entries_restaurants?: number;
 };
 
 export type CollectionsListResponse = {
