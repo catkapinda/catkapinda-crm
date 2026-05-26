@@ -652,6 +652,32 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON CONFLICT (restaurant_id, effective_from) DO NOTHING
         """,
     ),
+    # 2026-05-27: aktif olmayan veya sonradan eklenen restoranların
+    # history satırını da tamamla (Celal Usta gibi). Bu migration
+    # idempotent — zaten satırı olanları atlar.
+    (
+        "restaurant_pricing_history.backfill_v2_20260527",
+        """
+        INSERT INTO restaurant_pricing_history (
+            restaurant_id, effective_from,
+            pricing_model, hourly_rate, package_rate,
+            package_threshold, package_rate_low, package_rate_high,
+            fixed_monthly_fee, vat_rate, note
+        )
+        SELECT
+            r.id, '2026-03-01'::date,
+            r.pricing_model, r.hourly_rate, r.package_rate,
+            r.package_threshold, r.package_rate_low, r.package_rate_high,
+            r.fixed_monthly_fee, r.vat_rate,
+            'Backfill v2 — eksik satır tamamla'
+        FROM restaurants r
+        WHERE NOT EXISTS (
+            SELECT 1 FROM restaurant_pricing_history ph
+            WHERE ph.restaurant_id = r.id
+        )
+        ON CONFLICT (restaurant_id, effective_from) DO NOTHING
+        """,
+    ),
 ]
 
 

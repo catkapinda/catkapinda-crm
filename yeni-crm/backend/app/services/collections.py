@@ -127,6 +127,12 @@ def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
     try:
         with get_connection() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
+                # İki kademeli fallback:
+                #   1. restaurant_pricing_history (tarihsel doğru tarife)
+                #   2. restaurants (current — history satırı yoksa)
+                #   3. Hardcoded default (her ikisi de NULL ise)
+                # Celal Usta gibi history satırı olmayan restoranlar için bu
+                # önemli; eskiden COALESCE 0'a düşüyordu, fatura 0 çıkıyordu.
                 cur.execute(
                     """
                     SELECT
@@ -135,15 +141,16 @@ def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
                         COALESCE(de.worked_hours, 0)::float AS hours,
                         COALESCE(de.package_count, 0)::int AS packages,
                         h.effective_from,
-                        COALESCE(h.pricing_model, '') AS pricing_model,
-                        COALESCE(h.hourly_rate, 0)::float AS hourly_rate,
-                        COALESCE(h.package_rate, 0)::float AS package_rate,
-                        COALESCE(h.package_threshold, 0)::int AS package_threshold,
-                        COALESCE(h.package_rate_low, 0)::float AS package_rate_low,
-                        COALESCE(h.package_rate_high, 0)::float AS package_rate_high,
-                        COALESCE(h.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
-                        COALESCE(h.vat_rate, 20)::float AS vat_rate
+                        COALESCE(h.pricing_model, r.pricing_model, '') AS pricing_model,
+                        COALESCE(h.hourly_rate, r.hourly_rate, 0)::float AS hourly_rate,
+                        COALESCE(h.package_rate, r.package_rate, 0)::float AS package_rate,
+                        COALESCE(h.package_threshold, r.package_threshold, 0)::int AS package_threshold,
+                        COALESCE(h.package_rate_low, r.package_rate_low, 0)::float AS package_rate_low,
+                        COALESCE(h.package_rate_high, r.package_rate_high, 0)::float AS package_rate_high,
+                        COALESCE(h.fixed_monthly_fee, r.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
+                        COALESCE(h.vat_rate, r.vat_rate, 20)::float AS vat_rate
                     FROM daily_entries de
+                    LEFT JOIN restaurants r ON r.id = de.restaurant_id
                     LEFT JOIN LATERAL (
                         SELECT *
                         FROM restaurant_pricing_history ph
@@ -276,23 +283,30 @@ def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
         try:
             with get_connection() as conn:
                 with conn.cursor(row_factory=dict_row) as cur:
+                    # 2 kademeli — önce history, yoksa restaurants
                     cur.execute(
                         """
-                        SELECT DISTINCT ON (h.restaurant_id)
-                            h.restaurant_id,
-                            COALESCE(h.pricing_model, '') AS pricing_model,
-                            COALESCE(h.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
-                            COALESCE(h.hourly_rate, 0)::float AS hourly_rate,
-                            COALESCE(h.package_rate, 0)::float AS package_rate,
-                            COALESCE(h.package_rate_low, 0)::float AS package_rate_low,
-                            COALESCE(h.package_rate_high, 0)::float AS package_rate_high,
-                            COALESCE(h.vat_rate, 20)::float AS vat_rate
-                        FROM restaurant_pricing_history h
-                        WHERE h.restaurant_id = ANY(%s)
-                          AND h.effective_from <= %s::date
-                        ORDER BY h.restaurant_id, h.effective_from DESC
+                        SELECT
+                            r.id AS restaurant_id,
+                            COALESCE(h.pricing_model, r.pricing_model, '') AS pricing_model,
+                            COALESCE(h.fixed_monthly_fee, r.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
+                            COALESCE(h.hourly_rate, r.hourly_rate, 0)::float AS hourly_rate,
+                            COALESCE(h.package_rate, r.package_rate, 0)::float AS package_rate,
+                            COALESCE(h.package_rate_low, r.package_rate_low, 0)::float AS package_rate_low,
+                            COALESCE(h.package_rate_high, r.package_rate_high, 0)::float AS package_rate_high,
+                            COALESCE(h.vat_rate, r.vat_rate, 20)::float AS vat_rate
+                        FROM restaurants r
+                        LEFT JOIN LATERAL (
+                            SELECT *
+                            FROM restaurant_pricing_history ph
+                            WHERE ph.restaurant_id = r.id
+                              AND ph.effective_from <= %s::date
+                            ORDER BY ph.effective_from DESC
+                            LIMIT 1
+                        ) h ON true
+                        WHERE r.id = ANY(%s)
                         """,
-                        (missing_rids, period_start),
+                        (period_start, missing_rids),
                     )
                     rows = [dict(r) for r in cur.fetchall()]
         except Exception as exc:
