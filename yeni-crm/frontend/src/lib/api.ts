@@ -24,16 +24,18 @@ export async function apiGet<T>(
   path: string,
   opts?: { revalidate?: number; cache?: RequestCache },
 ): Promise<T> {
-  // SSR'da NEXT_PUBLIC_API_URL (Render internal hostname) hızlı.
-  // Client'ta relative path → Next.js rewrites backend'e proxy'ler.
-  // (Internal hostname'e tarayıcı erişemez, mutlaka relative gerek.)
   const isBrowser = typeof window !== 'undefined';
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const url = isBrowser ? cleanPath : `${SERVER_API}${cleanPath}`;
   const revalidate = opts?.revalidate ?? 30;
-  // revalidate=0 ise 'no-store' kullan; Next.js Data Cache tamamen by-pass
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // Browser tarafında: cookie'den token oku → Authorization
+  if (isBrowser) {
+    const m = document.cookie.match(/(?:^|;\s*)ck_auth=([^;]+)/);
+    if (m) headers.Authorization = `Bearer ${decodeURIComponent(m[1])}`;
+  }
   const fetchInit: RequestInit & { next?: { revalidate?: number } } = {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
   };
   if (opts?.cache) {
     fetchInit.cache = opts.cache;
@@ -43,6 +45,13 @@ export async function apiGet<T>(
     fetchInit.next = { revalidate };
   }
   const res = await fetch(url, fetchInit);
+  if (res.status === 401 && isBrowser) {
+    // Token süresi bitti → /login'e gönder
+    document.cookie = 'ck_auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    if (!window.location.pathname.startsWith('/login')) {
+      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+    }
+  }
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
   return res.json() as Promise<T>;
 }
@@ -867,6 +876,141 @@ export async function getDataHealth(period: string): Promise<DataHealthResponse>
   return apiGet<DataHealthResponse>(`/api/data-health?period=${period}`, {
     revalidate: 0,
   });
+}
+
+// ─── Authentication ──────────────────────────────────────────────
+export type AuthUser = {
+  id: number;
+  email: string;
+  full_name: string | null;
+  role: string;
+  last_login_at?: string | null;
+};
+
+export type LoginResponse = {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+};
+
+const AUTH_COOKIE = 'ck_auth';
+const AUTH_USER_KEY = 'ck_auth_user';
+
+export function setAuthToken(token: string, user: AuthUser): void {
+  if (typeof document === 'undefined') return;
+  // 7 gün geçerli cookie + localStorage backup
+  const expires = new Date();
+  expires.setDate(expires.getDate() + 7);
+  document.cookie = `${AUTH_COOKIE}=${token}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+  try {
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  } catch { /* private mode */ }
+}
+
+export function clearAuthToken(): void {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${AUTH_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+  try {
+    localStorage.removeItem(AUTH_USER_KEY);
+  } catch { /* ignore */ }
+}
+
+export function readAuthToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const m = document.cookie.match(/(?:^|;\s*)ck_auth=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+export function readAuthUserCached(): AuthUser | null {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(AUTH_USER_KEY);
+    return raw ? JSON.parse(raw) as AuthUser : null;
+  } catch { return null; }
+}
+
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    let msg = 'Giriş başarısız';
+    try {
+      const err = await res.json();
+      msg = err?.detail ?? msg;
+    } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+  const data: LoginResponse = await res.json();
+  setAuthToken(data.access_token, data.user);
+  return data;
+}
+
+export async function logout(): Promise<void> {
+  clearAuthToken();
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  const res = await fetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok && res.status !== 204) {
+    let msg = 'İstek başarısız';
+    try {
+      const err = await res.json();
+      msg = err?.detail ?? msg;
+    } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+}
+
+export async function resetPasswordWithToken(
+  token: string,
+  newPassword: string,
+): Promise<void> {
+  const res = await fetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  if (!res.ok && res.status !== 204) {
+    let msg = 'Parola değiştirilemedi';
+    try {
+      const err = await res.json();
+      msg = err?.detail ?? msg;
+    } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+}
+
+export async function changeOwnPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const token = readAuthToken();
+  const res = await fetch('/api/auth/change-password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: token ? `Bearer ${token}` : '',
+    },
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
+  if (!res.ok && res.status !== 204) {
+    let msg = 'Parola değiştirilemedi';
+    try {
+      const err = await res.json();
+      msg = err?.detail ?? msg;
+    } catch { /* ignore */ }
+    throw new Error(msg);
+  }
 }
 
 export type SidebarCounts = {

@@ -2,14 +2,16 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
-    box_returns, collections, courier, dashboard, data_health, deductions,
-    equipment, health, invoices, payroll, personel, profile_changes, puantaj,
-    requests as requests_route, restaurant_reports, restaurants, sidebar,
+    auth, box_returns, collections, courier, dashboard, data_health,
+    deductions, equipment, health, invoices, payroll, personel,
+    profile_changes, puantaj, requests as requests_route,
+    restaurant_reports, restaurants, sidebar,
 )
 
 api_router = APIRouter(prefix="/api")
 
 api_router.include_router(health.router, prefix="/health", tags=["health"])
+api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(personel.router, prefix="/personel", tags=["personel"])
 api_router.include_router(restaurants.router, prefix="/restaurants", tags=["restaurants"])

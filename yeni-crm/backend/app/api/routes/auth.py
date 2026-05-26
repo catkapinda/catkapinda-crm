@@ -1,0 +1,168 @@
+"""Authentication endpoints — login, me, forgot/reset password, change."""
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr, Field
+
+from app.core.auth import (
+    change_password,
+    create_access_token,
+    get_current_user,
+    get_user_by_email,
+    set_reset_token,
+    update_last_login,
+    use_reset_token,
+    verify_password,
+)
+from app.core.config import get_settings
+from app.core.email import Attachment, send_email
+
+router = APIRouter()
+log = logging.getLogger(__name__)
+
+
+# ─── Pydantic models ────────────────────────────────────────────────
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=4)
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: dict
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=6)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6)
+
+
+# ─── Endpoints ──────────────────────────────────────────────────────
+
+
+@router.post("/login", response_model=LoginResponse)
+async def login(payload: LoginRequest) -> dict:
+    """Email + parola → JWT token + user info."""
+    user = get_user_by_email(payload.email)
+    if not user or user.get("status") != "active":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="E-posta veya parola hatalı",
+        )
+    if not verify_password(payload.password, user["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="E-posta veya parola hatalı",
+        )
+
+    update_last_login(user["id"])
+    token = create_access_token(user["id"], user["email"])
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "role": user["role"],
+        },
+    }
+
+
+@router.get("/me")
+async def me(user: dict = Depends(get_current_user)) -> dict:
+    """Mevcut oturum sahibinin bilgileri."""
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "full_name": user["full_name"],
+        "role": user["role"],
+        "last_login_at": (
+            user["last_login_at"].isoformat() if user.get("last_login_at") else None
+        ),
+    }
+
+
+@router.post("/forgot-password", status_code=204)
+async def forgot_password(payload: ForgotPasswordRequest) -> None:
+    """Şifremi unuttum — kayıtlı e-postaya reset linki yollar.
+
+    Güvenlik: e-posta sistemde olmasa bile 204 döner (kullanıcı sayma
+    saldırısını engellemek için).
+    """
+    user = get_user_by_email(payload.email)
+    if not user or user.get("status") != "active":
+        return None
+
+    token = set_reset_token(user["id"])
+    settings = get_settings()
+    base_url = getattr(settings, "frontend_url", "") or "https://catkapinda-crm.staging"
+    reset_url = f"{base_url}/sifre-sifirla?token={token}"
+
+    subject = "Çat Kapında CRM — Parola sıfırlama"
+    text_body = (
+        f"Merhaba {user.get('full_name') or ''},\n\n"
+        "Parolanızı sıfırlamak için aşağıdaki linke tıklayın "
+        "(24 saat geçerli):\n\n"
+        f"{reset_url}\n\n"
+        "Bu isteği siz yapmadıysanız bu e-postayı yok sayın.\n\n"
+        "Çat Kapında CRM"
+    )
+    html_body = f"""
+    <p>Merhaba {user.get('full_name') or ''},</p>
+    <p>Parolanızı sıfırlamak için aşağıdaki butona tıklayın (24 saat geçerli):</p>
+    <p><a href="{reset_url}" style="display:inline-block;padding:12px 24px;background:#0F52BA;color:white;text-decoration:none;border-radius:8px;font-weight:600">Parolayı Sıfırla</a></p>
+    <p style="color:#666;font-size:12px">Veya bu linki tarayıcıya yapıştırın: <br>{reset_url}</p>
+    <p style="color:#999;font-size:11px">Bu isteği siz yapmadıysanız bu e-postayı yok sayın.</p>
+    """
+
+    try:
+        send_email(
+            to=user["email"],
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+            attachments=[],
+        )
+    except Exception as e:  # noqa: BLE001
+        log.warning("forgot_password e-posta gönderilemedi: %s", e)
+
+
+@router.post("/reset-password", status_code=204)
+async def reset_password(payload: ResetPasswordRequest) -> None:
+    """Reset token + yeni parola → parolayı günceller, token'ı tüketir."""
+    ok = use_reset_token(payload.token, payload.new_password)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Geçersiz veya süresi dolmuş token",
+        )
+
+
+@router.post("/change-password", status_code=204)
+async def change_password_route(
+    payload: ChangePasswordRequest,
+    user: dict = Depends(get_current_user),
+) -> None:
+    """Oturum açık kullanıcı parolasını değiştirir (mevcut parola gerekir)."""
+    # Mevcut parolayı doğrula
+    full = get_user_by_email(user["email"])
+    if not full or not verify_password(payload.current_password, full["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mevcut parola hatalı",
+        )
+    change_password(user["id"], payload.new_password)

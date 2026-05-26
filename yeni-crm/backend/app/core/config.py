@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     # Virgülle ayrılmış liste.
     smtp_bcc: str = ""
 
+    # Auth
+    # JWT secret — Render env'de ayarlanır. Yoksa secret_key fallback.
+    jwt_secret: str = ""
+    # Şifre sıfırlama linki için frontend base URL
+    frontend_url: str = "https://catkapinda-crm.staging"
+    # Genel secret (geriye uyumluluk için)
+    secret_key: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

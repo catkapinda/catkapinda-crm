@@ -652,6 +652,48 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON CONFLICT (restaurant_id, effective_from) DO NOTHING
         """,
     ),
+    # ─── Authentication: users tablosu ───
+    (
+        "users.table",
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(200) NOT NULL UNIQUE,
+            full_name VARCHAR(200),
+            password_hash VARCHAR(255) NOT NULL,
+            role VARCHAR(40) NOT NULL DEFAULT 'admin',
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            last_login_at TIMESTAMPTZ,
+            reset_token VARCHAR(100),
+            reset_token_expires_at TIMESTAMPTZ
+        )
+        """,
+    ),
+    (
+        "users.idx_email",
+        """
+        CREATE INDEX IF NOT EXISTS idx_users_email
+        ON users (LOWER(email))
+        """,
+    ),
+    # İlk admin kullanıcı — bcrypt hash of 'admin123'
+    # Sadece yoksa ekler. İlk girişten sonra Profil > Şifre Değiştir
+    # ile yeni parola belirleyin!
+    (
+        "users.seed_admin",
+        """
+        INSERT INTO users (email, full_name, password_hash, role, status)
+        VALUES (
+            'admin@catkapinda.com',
+            'CRM Yönetici',
+            '$2b$12$DuHs09ZdXZRVjn0ybXf/iu1qcceDomApAZdCsZFiOYEbOWgILyxay',
+            'admin',
+            'active'
+        )
+        ON CONFLICT (email) DO NOTHING
+        """,
+    ),
     # 2026-05-27: aktif olmayan veya sonradan eklenen restoranların
     # history satırını da tamamla (Celal Usta gibi). Bu migration
     # idempotent — zaten satırı olanları atlar.

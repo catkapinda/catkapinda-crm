@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarCounts } from '@/lib/api';
+import { ProfileDropdownClient } from '@/components/profile-dropdown';
 
 type NavKey =
   | 'dashboard' | 'personel' | 'puantaj' | 'puantaj-onay' | 'hakedis-onay'
@@ -210,6 +211,9 @@ export function Sidebar({ active, counts }: { active: NavKey; counts?: SidebarCo
         })}
       </nav>
 
+      {/* Profil dropdown */}
+      <ProfileDropdown />
+
       {/* Footer — versiyon damgası */}
       <div className="relative pt-3 mt-2 border-t border-border/60 px-2">
         <div className="flex items-center gap-1.5 text-[10px] text-text-3/70">
@@ -220,4 +224,10 @@ export function Sidebar({ active, counts }: { active: NavKey; counts?: SidebarCo
       </div>
     </aside>
   );
+}
+
+
+// Profil Dropdown — kullanıcı bilgisi + çıkış yap + şifre değiştir
+function ProfileDropdown() {
+  return <ProfileDropdownClient />;
 }
