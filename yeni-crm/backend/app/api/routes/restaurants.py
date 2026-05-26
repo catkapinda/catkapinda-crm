@@ -7,7 +7,9 @@ from pydantic import BaseModel
 from app.services.hakedis import restaurant_monthly_breakdown
 from app.services.restaurants import (
     create_restaurant,
+    get_pricing_history,
     get_restaurant,
+    last_pricing_change,
     list_restaurants,
     update_restaurant,
 )
@@ -78,6 +80,18 @@ async def monthly_breakdown(restaurant_id: int, period: str = "2026-03") -> dict
     if result.get("restaurant") is None:
         raise HTTPException(status_code=404, detail="Restoran bulunamadı")
     return result
+
+
+@router.get("/{restaurant_id}/pricing-history")
+async def pricing_history(restaurant_id: int) -> dict:
+    """Restoranın tarife değişim geçmişi (yeni → eski) + son değişim özeti."""
+    history = get_pricing_history(restaurant_id)
+    last = last_pricing_change(restaurant_id)
+    return {
+        "restaurant_id": restaurant_id,
+        "history": history,
+        "last_change": last,
+    }
 
 
 class RestaurantCreate(BaseModel):

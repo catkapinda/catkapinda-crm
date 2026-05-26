@@ -113,138 +113,249 @@ def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
 
     # Period-aware restoran havuzu (aktif + o ay aktif olanlar)
     rests = _get_period_restaurants(period)
+    rest_by_id = {int(r["id"]): r for r in rests}
 
+    if not rest_by_id:
+        return out
+
+    # Tarih-bazlı tarife: her entry için entry_date'de geçerli olan
+    # restaurant_pricing_history satırı LATERAL JOIN ile alınır.
+    # Bu sayede ay ortasında tarife değiştiyse, değişimden ÖNCEKİ
+    # entry'ler eski tarifeyi, SONRAKİ entry'ler yeni tarifeyi kullanır.
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            # Puantaj toplamı (restoran×ay): saat + paket
             cur.execute(
                 """
                 SELECT
-                    restaurant_id,
-                    COALESCE(SUM(worked_hours), 0)::float AS total_hours,
-                    COALESCE(SUM(package_count), 0)::int AS total_packages
-                FROM daily_entries
-                WHERE LEFT(entry_date::text, 7) = %s
-                GROUP BY restaurant_id
+                    de.restaurant_id,
+                    de.actual_personnel_id,
+                    COALESCE(de.worked_hours, 0)::float AS hours,
+                    COALESCE(de.package_count, 0)::int AS packages,
+                    h.effective_from,
+                    COALESCE(h.pricing_model, '') AS pricing_model,
+                    COALESCE(h.hourly_rate, 0)::float AS hourly_rate,
+                    COALESCE(h.package_rate, 0)::float AS package_rate,
+                    COALESCE(h.package_threshold, 0)::int AS package_threshold,
+                    COALESCE(h.package_rate_low, 0)::float AS package_rate_low,
+                    COALESCE(h.package_rate_high, 0)::float AS package_rate_high,
+                    COALESCE(h.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
+                    COALESCE(h.vat_rate, 20)::float AS vat_rate
+                FROM daily_entries de
+                LEFT JOIN LATERAL (
+                    SELECT *
+                    FROM restaurant_pricing_history ph
+                    WHERE ph.restaurant_id = de.restaurant_id
+                      AND ph.effective_from <= de.entry_date
+                    ORDER BY ph.effective_from DESC
+                    LIMIT 1
+                ) h ON true
+                WHERE LEFT(de.entry_date::text, 7) = %s
+                  AND de.restaurant_id = ANY(%s)
                 """,
-                (period,),
+                (period, list(rest_by_id.keys())),
             )
-            entries_by_rest = {
-                int(r["restaurant_id"]): {
-                    "total_hours": float(r["total_hours"] or 0),
-                    "total_packages": int(r["total_packages"] or 0),
-                }
-                for r in cur.fetchall()
+            entries = cur.fetchall()
+
+    # (restaurant_id, effective_from) bazında segmentlere böl — her segment
+    # kendi tarife versiyonunu kullanır.
+    segments: dict[tuple[int, Any], dict] = {}
+    for e in entries:
+        rid = int(e["restaurant_id"])
+        eff = e.get("effective_from")
+        # Eğer history satırı yoksa (eski entry), restaurants tablosunun
+        # mevcut değerlerine fallback
+        key = (rid, eff)
+        seg = segments.get(key)
+        if seg is None:
+            seg = {
+                "rates": {
+                    "pricing_model": str(e["pricing_model"] or "").lower(),
+                    "hourly_rate": float(e["hourly_rate"]),
+                    "package_rate": float(e["package_rate"]),
+                    "package_threshold": int(e["package_threshold"]),
+                    "package_rate_low": float(e["package_rate_low"]),
+                    "package_rate_high": float(e["package_rate_high"]),
+                    "fixed_monthly_fee": float(e["fixed_monthly_fee"]),
+                    "vat_rate": float(e["vat_rate"]),
+                },
+                "total_hours": 0.0,
+                "total_packages": 0,
+                "per_courier": {},
             }
-
-            # Eşikli modelde her kurye için ayrı paket toplamı gerekli
-            # (eşik kurye bazında uygulanır)
-            cur.execute(
-                """
-                SELECT
-                    restaurant_id,
-                    actual_personnel_id AS personnel_id,
-                    COALESCE(SUM(package_count), 0)::int AS pkg
-                FROM daily_entries
-                WHERE LEFT(entry_date::text, 7) = %s
-                  AND actual_personnel_id IS NOT NULL
-                GROUP BY restaurant_id, actual_personnel_id
-                """,
-                (period,),
+            segments[key] = seg
+        seg["total_hours"] += float(e["hours"] or 0)
+        seg["total_packages"] += int(e["packages"] or 0)
+        pid = e.get("actual_personnel_id")
+        if pid is not None:
+            seg["per_courier"][int(pid)] = (
+                seg["per_courier"].get(int(pid), 0) + int(e["packages"] or 0)
             )
-            per_courier: dict[int, list[int]] = {}
-            for r in cur.fetchall():
-                per_courier.setdefault(int(r["restaurant_id"]), []).append(int(r["pkg"]))
 
-    for r in rests:
-        rid = int(r["id"])
-        model = str(r.get("pricing_model") or "").lower()
-        hourly_rate = float(r["hourly_rate"])
-        package_rate = float(r["package_rate"])
-        threshold = int(r["package_threshold"])
-        rate_low = float(r["package_rate_low"])
-        rate_high = float(r["package_rate_high"])
-        fixed_fee = float(r["fixed_monthly_fee"])
-        vat_rate = float(r["vat_rate"])
+    # Restoran bazında agregasyon — segmentleri topla
+    agg_by_rest: dict[int, dict] = {}
+    for (rid, _eff), seg in segments.items():
+        seg_excl, seg_basis = _compute_segment_billing(seg)
+        agg = agg_by_rest.get(rid)
+        if agg is None:
+            agg = {
+                "excl": 0.0,
+                "hours": 0.0,
+                "packages": 0,
+                "vat_rate": seg["rates"]["vat_rate"],
+                "basis": "auto",
+            }
+            agg_by_rest[rid] = agg
+        agg["excl"] += seg_excl
+        agg["hours"] += seg["total_hours"]
+        agg["packages"] += seg["total_packages"]
+        agg["vat_rate"] = seg["rates"]["vat_rate"]  # son segmentin KDV'si
+        if seg_basis != "auto":
+            agg["basis"] = seg_basis
 
-        entry = entries_by_rest.get(rid, {})
-        total_hours = float(entry.get("total_hours") or 0)
-        total_packages = int(entry.get("total_packages") or 0)
-        courier_pkgs = per_courier.get(rid, [])
-
-        # ─── Sabit aylık mı? ──────────────────────────────────────────
-        # Sadece sabit aylık ücretli (SC Petshop gibi) — saatten/paketten
-        # bağımsız tek tutar.
-        only_fixed_filled = (
-            fixed_fee > 0
-            and hourly_rate == 0
-            and package_rate == 0
-            and rate_low == 0
-            and rate_high == 0
-        )
-        is_fixed_only = (
-            "sabit" in model or "fixed" in model
-            or "aylık" in model or "monthly" in model
-            or only_fixed_filled
-        )
-
-        if is_fixed_only and fixed_fee > 0:
-            excl = round(fixed_fee, 2)
-            basis = "fixed"
-        else:
-            # ─── Component-wise hesap ────────────────────────────────
-            # Saat bileşeni
-            hours_part = total_hours * hourly_rate if hourly_rate > 0 else 0.0
-
-            # Paket bileşeni — eşikli mi düz mü?
-            pkg_part = 0.0
-            pkg_basis = None  # 'threshold' | 'package' | None
-            if threshold > 0 and rate_low > 0 and rate_high > 0:
-                # Fasuli modeli: kurye aylık paket toplamı eşiği geçtiyse
-                # TÜM paketler high rate'ten, geçmediyse TÜM paketler low.
-                for pkg in courier_pkgs:
-                    if pkg >= threshold:
-                        pkg_part += pkg * rate_high
-                    else:
-                        pkg_part += pkg * rate_low
-                pkg_basis = "threshold"
-            elif package_rate > 0:
-                # Quick China modeli: her paket sabit fiyat
-                pkg_part = total_packages * package_rate
-                pkg_basis = "package"
-
-            excl = round(hours_part + pkg_part, 2)
-
-            # Basis etiketi (UI tooltip için)
-            if hours_part > 0 and pkg_basis == "threshold":
-                basis = "hourly+threshold"
-            elif hours_part > 0 and pkg_basis == "package":
-                basis = "hourly+package"
-            elif pkg_basis == "threshold":
-                basis = "threshold"
-            elif pkg_basis == "package":
-                basis = "package"
-            elif hours_part > 0:
-                basis = "hourly"
-            elif fixed_fee > 0:
-                # Hibrit alan da boş — fixed_monthly_fee'ye düş
-                excl = round(fixed_fee, 2)
-                basis = "fixed"
-            else:
-                basis = "auto"
-
+    # Çıktıyı hazırla — entries olanlar
+    for rid, agg in agg_by_rest.items():
+        excl = round(agg["excl"], 2)
+        vat_rate = agg["vat_rate"]
         vat_amt = round(excl * vat_rate / 100, 2)
-        incl = round(excl + vat_amt, 2)
-
         out[rid] = {
-            "auto_invoice_excl_vat": round(excl, 2),
-            "auto_invoice_incl_vat": incl,
-            "auto_hours": round(total_hours, 2),
-            "auto_packages": total_packages,
+            "auto_invoice_excl_vat": excl,
+            "auto_invoice_incl_vat": round(excl + vat_amt, 2),
+            "auto_hours": round(agg["hours"], 2),
+            "auto_packages": agg["packages"],
             "auto_vat_rate": vat_rate,
-            "auto_basis": basis,
+            "auto_basis": agg["basis"],
         }
+
+    # Entries OLMAYAN ama sabit aylık ücretli restoranlar için:
+    # son geçerli history satırından fixed_monthly_fee'yi al
+    # (SC Petshop gibi — saatten/paketten bağımsız)
+    missing_rids = [rid for rid in rest_by_id if rid not in out]
+    if missing_rids:
+        with get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                # Period'un son günü için geçerli history
+                period_end = f"{period}-31"  # max bound
+                cur.execute(
+                    """
+                    SELECT DISTINCT ON (h.restaurant_id)
+                        h.restaurant_id,
+                        COALESCE(h.pricing_model, '') AS pricing_model,
+                        COALESCE(h.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
+                        COALESCE(h.hourly_rate, 0)::float AS hourly_rate,
+                        COALESCE(h.package_rate, 0)::float AS package_rate,
+                        COALESCE(h.package_rate_low, 0)::float AS package_rate_low,
+                        COALESCE(h.package_rate_high, 0)::float AS package_rate_high,
+                        COALESCE(h.vat_rate, 20)::float AS vat_rate
+                    FROM restaurant_pricing_history h
+                    WHERE h.restaurant_id = ANY(%s)
+                      AND h.effective_from <= %s::date
+                    ORDER BY h.restaurant_id, h.effective_from DESC
+                    """,
+                    (missing_rids, period_end),
+                )
+                for r in cur.fetchall():
+                    rid = int(r["restaurant_id"])
+                    model = str(r["pricing_model"] or "").lower()
+                    fixed_fee = float(r["fixed_monthly_fee"])
+                    hourly_rate = float(r["hourly_rate"])
+                    package_rate = float(r["package_rate"])
+                    rate_low = float(r["package_rate_low"])
+                    rate_high = float(r["package_rate_high"])
+                    vat_rate = float(r["vat_rate"])
+                    only_fixed_filled = (
+                        fixed_fee > 0
+                        and hourly_rate == 0
+                        and package_rate == 0
+                        and rate_low == 0
+                        and rate_high == 0
+                    )
+                    is_fixed_only = (
+                        "sabit" in model or "fixed" in model
+                        or "aylık" in model or "monthly" in model
+                        or only_fixed_filled
+                    )
+                    if is_fixed_only and fixed_fee > 0:
+                        vat_amt = round(fixed_fee * vat_rate / 100, 2)
+                        out[rid] = {
+                            "auto_invoice_excl_vat": round(fixed_fee, 2),
+                            "auto_invoice_incl_vat": round(fixed_fee + vat_amt, 2),
+                            "auto_hours": 0,
+                            "auto_packages": 0,
+                            "auto_vat_rate": vat_rate,
+                            "auto_basis": "fixed",
+                        }
     return out
+
+
+def _compute_segment_billing(seg: dict) -> tuple[float, str]:
+    """Bir tarife segmenti için (hours, packages, per_courier) → KDV hariç fatura.
+
+    Mevcut pricing_model mantığı korunur (Fasuli karma eşikli, Quick China
+    saat+paket, SC Petshop sabit, vb.) — sadece girdi olarak segmentin
+    KENDİ tarifesi ve KENDİ entry toplamları kullanılır.
+    """
+    rates = seg["rates"]
+    model = rates["pricing_model"]
+    hourly_rate = rates["hourly_rate"]
+    package_rate = rates["package_rate"]
+    threshold = rates["package_threshold"]
+    rate_low = rates["package_rate_low"]
+    rate_high = rates["package_rate_high"]
+    fixed_fee = rates["fixed_monthly_fee"]
+
+    total_hours = seg["total_hours"]
+    total_packages = seg["total_packages"]
+    per_courier = seg["per_courier"]
+
+    only_fixed_filled = (
+        fixed_fee > 0
+        and hourly_rate == 0
+        and package_rate == 0
+        and rate_low == 0
+        and rate_high == 0
+    )
+    is_fixed_only = (
+        "sabit" in model or "fixed" in model
+        or "aylık" in model or "monthly" in model
+        or only_fixed_filled
+    )
+    if is_fixed_only and fixed_fee > 0:
+        # NOT: ay ortasında sabit→saatlik geçiş olursa bu segment yine
+        # full fee yansıtır; geçmişte tek sabit kayıt varsa sorun olmaz.
+        return (fixed_fee, "fixed")
+
+    hours_part = total_hours * hourly_rate if hourly_rate > 0 else 0.0
+    pkg_part = 0.0
+    pkg_basis: str | None = None
+    if threshold > 0 and rate_low > 0 and rate_high > 0:
+        for pkg in per_courier.values():
+            if pkg >= threshold:
+                pkg_part += pkg * rate_high
+            else:
+                pkg_part += pkg * rate_low
+        pkg_basis = "threshold"
+    elif package_rate > 0:
+        pkg_part = total_packages * package_rate
+        pkg_basis = "package"
+
+    excl = hours_part + pkg_part
+    if hours_part > 0 and pkg_basis == "threshold":
+        basis = "hourly+threshold"
+    elif hours_part > 0 and pkg_basis == "package":
+        basis = "hourly+package"
+    elif pkg_basis == "threshold":
+        basis = "threshold"
+    elif pkg_basis == "package":
+        basis = "package"
+    elif hours_part > 0:
+        basis = "hourly"
+    elif fixed_fee > 0:
+        excl = fixed_fee
+        basis = "fixed"
+    else:
+        basis = "auto"
+
+    return (excl, basis)
 
 
 def list_collections(

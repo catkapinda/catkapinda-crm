@@ -514,6 +514,60 @@ MIGRATIONS: list[tuple[str, str]] = [
         WHERE due_date IS NOT NULL
         """,
     ),
+    # ─── Restoran tarife geçmişi (rate history) ───
+    # Her tarife değişimi tarihli olarak burada saklanır. Hesaplamalar
+    # entry_date'e göre geçerli tarifeyi (effective_from <= entry_date,
+    # en yakın) kullanır. Geçmişe dönük rakamlar değişmez.
+    (
+        "restaurant_pricing_history.table",
+        """
+        CREATE TABLE IF NOT EXISTS restaurant_pricing_history (
+            id SERIAL PRIMARY KEY,
+            restaurant_id INTEGER NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+            effective_from DATE NOT NULL,
+            pricing_model VARCHAR(40),
+            hourly_rate NUMERIC(10,2),
+            package_rate NUMERIC(10,2),
+            package_threshold INTEGER,
+            package_rate_low NUMERIC(10,2),
+            package_rate_high NUMERIC(10,2),
+            fixed_monthly_fee NUMERIC(12,2),
+            vat_rate NUMERIC(5,2),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            note TEXT,
+            UNIQUE (restaurant_id, effective_from)
+        )
+        """,
+    ),
+    (
+        "restaurant_pricing_history.idx_lookup",
+        """
+        CREATE INDEX IF NOT EXISTS idx_pricing_history_lookup
+        ON restaurant_pricing_history(restaurant_id, effective_from DESC)
+        """,
+    ),
+    # Backfill: mevcut restoran tarifeleri için ilk satırı oluştur.
+    # effective_from = '2026-03-01' (V3 başlangıç dönemi). Eğer restoran
+    # zaten history'de varsa atlanır (ON CONFLICT).
+    (
+        "restaurant_pricing_history.backfill",
+        """
+        INSERT INTO restaurant_pricing_history (
+            restaurant_id, effective_from,
+            pricing_model, hourly_rate, package_rate,
+            package_threshold, package_rate_low, package_rate_high,
+            fixed_monthly_fee, vat_rate, note
+        )
+        SELECT
+            id, '2026-03-01'::date,
+            pricing_model, hourly_rate, package_rate,
+            package_threshold, package_rate_low, package_rate_high,
+            fixed_monthly_fee, vat_rate, 'Backfill — V3 başlangıç'
+        FROM restaurants
+        WHERE active = 1
+        ON CONFLICT (restaurant_id, effective_from) DO NOTHING
+        """,
+    ),
 ]
 
 

@@ -747,6 +747,34 @@ export async function getRestaurantMonthly(
   );
 }
 
+// ─── Tarife değişim geçmişi ────────────────────────────────────────
+export type PricingHistoryEntry = {
+  id: number;
+  effective_from: string;        // 'YYYY-MM-DD'
+  pricing_model: string | null;
+  hourly_rate: number | null;
+  package_rate: number | null;
+  package_threshold: number | null;
+  package_rate_low: number | null;
+  package_rate_high: number | null;
+  fixed_monthly_fee: number | null;
+  vat_rate: number | null;
+  created_at: string;            // ISO timestamp
+  note: string | null;
+};
+
+export type PricingHistoryResponse = {
+  restaurant_id: number;
+  history: PricingHistoryEntry[];
+  last_change: PricingHistoryEntry | null;
+};
+
+export async function getPricingHistory(restaurantId: number): Promise<PricingHistoryResponse> {
+  return apiGet<PricingHistoryResponse>(
+    `/api/restaurants/${restaurantId}/pricing-history`
+  );
+}
+
 export type SidebarCounts = {
   personel: number;
   restoranlar: number;

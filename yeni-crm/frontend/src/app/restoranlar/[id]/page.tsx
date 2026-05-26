@@ -4,10 +4,12 @@ import { AlertTriangle, ChevronLeft } from 'lucide-react';
 
 import { Sidebar } from '@/components/sidebar';
 import {
+  getPricingHistory,
   getRestaurantMonthly,
   getSidebarCounts,
   listPuantajPeriods,
   type CourierBilling,
+  type PricingHistoryResponse,
   type RestaurantMonthly,
   type SidebarCounts,
 } from '@/lib/api';
@@ -68,9 +70,13 @@ export default async function RestaurantDetailPage({
   const period = ay && periods.includes(ay) ? ay : periods[0] ?? '2026-03';
 
   let data: RestaurantMonthly | null = null;
+  let pricingHistory: PricingHistoryResponse | null = null;
   let error: string | null = null;
   try {
-    data = await getRestaurantMonthly(restaurantId, period);
+    [data, pricingHistory] = await Promise.all([
+      getRestaurantMonthly(restaurantId, period),
+      getPricingHistory(restaurantId).catch(() => null),
+    ]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'Veri alınamadı';
   }
@@ -119,6 +125,7 @@ export default async function RestaurantDetailPage({
             period={period}
             periods={periods}
             modelLabel={MODEL_LABELS[r.pricing_model ?? ''] ?? r.pricing_model ?? ''}
+            pricingHistory={pricingHistory}
           />
         )}
 
