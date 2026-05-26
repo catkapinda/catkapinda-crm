@@ -399,15 +399,22 @@ def _generate_ai_insights(
                 })
                 break
 
-    # Insight 2: Threshold yaklaşan restoran
+    # Insight 2: Yüksek tempolu kurye sayısı — operasyon sağlığı sinyali
+    # (Önceki sürüm 'ek paket talebi olabilir' diyordu — Çat Kapında
+    # restorana paket talep etmez, mantıksız bir yorumdu. Doğrusu:
+    # yüksek performans = operasyon sağlıklı, primlendirme veya
+    # restoranı stabil olarak işaretleme fırsatı.)
     if personnel_perf:
         high_performers = [p for p in personnel_perf if p["score_0_1"] > 0.8]
         if high_performers and by_restaurant:
             top_rest = by_restaurant[0]
             insights.append({
-                "severity": "warning",
-                "text": f"{top_rest['brand']}: {len(high_performers)} kurye yüksek performans — "
-                       f"ek paket talebi olabilir.",
+                "severity": "info",
+                "text": (
+                    f"{top_rest['brand']}: {len(high_performers)} kurye yüksek "
+                    "tempo — operasyon sağlıklı, performans primi/teşekkür için "
+                    "uygun ay."
+                ),
                 "metric": "performance",
             })
 

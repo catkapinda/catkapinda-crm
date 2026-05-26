@@ -498,7 +498,13 @@ def top_performers(period: str, limit: int = 3) -> list[dict]:
 
 
 def management_summary(period: str) -> list[dict]:
-    """Yönetim & Yedek Operasyon — sabit maaşlı kişiler + ay içindeki cover."""
+    """Yönetim & Yedek Operasyon — yalnız gerçek yönetim rolleri.
+
+    SC Petshop gibi sabit aylık ücretli restoranların kuryeleri
+    (monthly_fixed_cost > 0 olabilir) verimlilik metriğine dahil EDİLMEZ —
+    onlar normal Kurye, restoran kazancı sabit aylık feeyle sağlanır,
+    paket/saat verimliliği bu hesaba yansımaz.
+    """
     sql = """
         SELECT
             p.id, p.full_name, p.person_code, p.role,
@@ -511,10 +517,7 @@ def management_summary(period: str) -> list[dict]:
             ON d.actual_personnel_id = p.id
            AND LEFT(d.entry_date::text, 7) = %s
         WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
-          AND (
-              p.role IN ('Bölge Müdürü', 'Joker', 'Kaptan', 'Restoran Takım Şefi')
-              OR COALESCE(p.monthly_fixed_cost, 0) > 0
-          )
+          AND p.role IN ('Bölge Müdürü', 'Joker', 'Kaptan', 'Restoran Takım Şefi')
         GROUP BY p.id, p.full_name, p.person_code, p.role, p.monthly_fixed_cost
         ORDER BY salary DESC, cover_packages DESC
     """
