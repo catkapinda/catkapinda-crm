@@ -137,19 +137,25 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
         _compute_fixed_monthly(by_courier, fixed_monthly_fee)
     else:
         for c in by_courier.values():
-            # SABİT AYLIK PERSONEL — yalnızca KENDİ restoranındaysa:
-            # Restoran Takım Şefi, Kaptan, BM sabit aylık anlaşmalıdır.
-            # Kendi atandığı restoranda → fatura = fixed_monthly_billing.
-            # DESTEK olarak başka restorana giderse (is_support=True) →
-            # o restorana joker gibi yansır, normal tarife uygulanır
-            # (saat × saatlik + paket × paket tarifesi). RTS/joker'in
-            # kendi sabit maaşı zaten kendi restoranına yazıldığı için
-            # destekteki restorandan ekstra para almazız ama o restoranı
-            # tarife üzerinden faturalandırırız.
+            # SABİT AYLIK PERSONEL — yalnızca KENDİ restoranındaysa fixed:
+            # RTS / Kaptan / BM sabit aylık anlaşmalıdır ve kendi atandıkları
+            # restoranda → fatura = fixed_monthly_billing.
+            #
+            # DESTEK olarak veya JOKER olarak başka restorana giderlerse →
+            # o restoran tarife üzerinden faturalandırılır (saat × saatlik
+            # + paket × paket). Kendi sabit maaşı zaten kendi restoranına
+            # yazılır; destekteki restoran tarife öder.
+            #
+            # JOKER özellikle: assigned_restaurant_id None olabilir; o yüzden
+            # role'e göre de kontrol ederiz — Joker her zaman tarife.
+            role_lower = str(c.get("role") or "").strip().lower()
+            is_joker = "joker" in role_lower
+            treat_as_support = bool(c.get("is_support")) or is_joker
+
             if (
                 c["fixed_monthly_billing"] > 0
                 and c["working_days"] > 0
-                and not c.get("is_support")
+                and not treat_as_support
             ):
                 _compute_personnel_fixed_billing(c)
                 continue
@@ -164,19 +170,22 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
                     package_rate_low, package_rate_high,
                 )
 
-            # Destek olarak gelen sabit aylık personel için bilgilendirme
-            # (görsel olarak "joker gibi kullanıldı" açıklaması)
+            # Destek/Joker olarak gelen sabit aylık personel için bilgi notu
             if (
-                c.get("is_support")
+                treat_as_support
                 and c["fixed_monthly_billing"] > 0
                 and c["working_days"] > 0
             ):
                 role_lbl = c.get("role") or "Sabit aylık personel"
+                note = (
+                    f"ℹ {role_lbl} joker olarak çalıştı — sabit maaşı kendi "
+                    "havuzundan ödenir, bu restoran tarife üzerinden faturalandı"
+                    if is_joker else
+                    f"ℹ {role_lbl} destek — kendi sabit maaşı kendi "
+                    "restoranına yazıldı, bu restoran tarife üzerinden faturalandı"
+                )
                 c["billing_breakdown"].append({
-                    "label": (
-                        f"ℹ {role_lbl} destek — kendi sabit maaşı kendi "
-                        f"restoranına yazıldı, buraya tarife üzerinden faturalandı"
-                    ),
+                    "label": note,
                     "qty": 0,
                     "rate": 0,
                     "amount": 0,
