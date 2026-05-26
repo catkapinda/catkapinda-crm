@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  AlertCircle, AlertTriangle, Calendar, Check, CheckCircle2,
+  AlertCircle, AlertTriangle, Calculator, Calendar, Check, CheckCircle2,
   ChevronDown, Clock, Coins, Edit3, Loader2, Phone, Search,
   Wallet, X,
 } from 'lucide-react';
@@ -312,7 +312,18 @@ export function TahsilatlarView({
                       </span>
                     </td>
                     <td className="px-6 py-3.5 text-right text-sm font-medium text-text">
-                      {m(row.invoice_amount)} ₺
+                      <div className="inline-flex items-center gap-1.5 justify-end">
+                        {m(row.invoice_amount)} ₺
+                        {row.is_auto_invoice && (
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-50 text-brand text-[9px] font-bold uppercase tracking-wider"
+                            title="Puantajdan otomatik hesaplandı (KDV dahil). Manuel girersen bu değer override edilir."
+                          >
+                            <Calculator className="w-2.5 h-2.5" strokeWidth={2.4} />
+                            Otomatik
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-3.5 text-right text-sm font-semibold text-emerald-700">
                       {m(row.collected_amount)} ₺
@@ -438,8 +449,11 @@ function CollectionModal({
   onSaved: () => void;
 }) {
   const today = new Date().toISOString().slice(0, 10);
+  // is_auto_invoice ise input boş başlasın; kullanıcı manuel girsin.
+  // Ama auto_invoice_amount'ı placeholder olarak gösterelim.
+  const initialInvoice = item.is_auto_invoice ? 0 : (item.invoice_amount ?? 0);
   const [form, setForm] = useState({
-    invoice_amount: item.invoice_amount ?? 0,
+    invoice_amount: initialInvoice,
     collected_amount: item.collected_amount ?? 0,
     status: item.status,
     due_date: item.due_date ?? '',
@@ -448,6 +462,7 @@ function CollectionModal({
     responsible_name: item.responsible_name ?? '',
     note: item.note ?? '',
   });
+  const autoSuggested = item.auto_invoice_amount ?? 0;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -547,8 +562,19 @@ function CollectionModal({
                 min={0}
                 value={form.invoice_amount}
                 onChange={(e) => setForm({ ...form, invoice_amount: Number(e.target.value) })}
+                placeholder={autoSuggested > 0 ? m(autoSuggested) : '0,00'}
                 className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:border-brand focus:outline-none"
               />
+              {autoSuggested > 0 && form.invoice_amount === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, invoice_amount: autoSuggested })}
+                  className="mt-1 text-[10px] font-semibold text-brand hover:text-brand-dark inline-flex items-center gap-1"
+                >
+                  <Calculator className="w-3 h-3" strokeWidth={2.4} />
+                  Puantajdan otomatik: {m(autoSuggested)} ₺ kullan
+                </button>
+              )}
             </Field>
             <Field label="Tahsil Edilen (₺)">
               <input

@@ -1475,6 +1475,8 @@ export type CollectionItem = {
   is_overdue: boolean;
   paid_at: string | null;
   invoice_no?: string | null;
+  is_auto_invoice?: boolean;     // puantajdan otomatik hesaplandı mı
+  auto_invoice_amount?: number;  // puantaj bazlı tahmini tutar (KDV dahil)
 };
 
 export type CollectionsSummary = {

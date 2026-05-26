@@ -3,6 +3,10 @@
 restaurant_invoices tablosu üzerinden çalışır. V2'deki restaurant_collections
 mantığı: ay bazlı tahsilat durumu (Bekleyen / Kısmi / Tahsil Edildi / Geciken),
 beklenen tutar, tahsil edilen tutar, vade ve son temas tarihi.
+
+Fatura tutarı otomatik hesaplanır (daily_entries × restoran tarifesi).
+Kullanıcı bir kayıt oluşturup invoice_amount manuel girerse, manuel tutar
+döner; aksi halde puantajdan türetilen tahmini tutar gösterilir.
 """
 from __future__ import annotations
 
@@ -13,6 +17,7 @@ from typing import Any
 from psycopg.rows import dict_row
 
 from app.core.database import get_connection
+from app.services.restaurant_reports import get_restaurant_reports
 
 
 STATUS_OPTIONS: list[str] = [
@@ -33,6 +38,50 @@ def _normalize_period(value: str | None) -> str:
     return p
 
 
+def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
+    """Puantajdan otomatik fatura tutarı hesabı.
+
+    Her aktif restoran için daily_entries × tarife = beklenen fatura.
+    get_restaurant_reports zaten by_restaurant'ta billing_excl_vat
+    veriyor (KDV hariç). Buradan KDV ekleyip inclusive tutarı türetiyoruz.
+
+    Returns:
+        { restaurant_id: {
+            'auto_invoice_excl_vat': float,   # KDV hariç
+            'auto_invoice_incl_vat': float,   # KDV dahil
+            'auto_packages': int,
+            'auto_vat_rate': float,
+        } }
+    """
+    try:
+        reports = get_restaurant_reports(period)
+    except Exception:
+        return {}
+
+    by_rest = (reports.get("cost_per_package") or {}).get("by_restaurant") or []
+    out: dict[int, dict] = {}
+
+    # vat_rate'i restaurants tablosundan toplu çek
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT id, COALESCE(vat_rate, 20) AS vat_rate FROM restaurants")
+            vat_by_rest = {int(r["id"]): float(r["vat_rate"] or 20) for r in cur.fetchall()}
+
+    for r in by_rest:
+        rid = int(r.get("restaurant_id") or 0)
+        excl = float(r.get("billing_excl_vat") or 0)
+        vat_rate = vat_by_rest.get(rid, 20.0)
+        vat_amt = round(excl * vat_rate / 100, 2)
+        incl = round(excl + vat_amt, 2)
+        out[rid] = {
+            "auto_invoice_excl_vat": excl,
+            "auto_invoice_incl_vat": incl,
+            "auto_packages": int(r.get("packages") or 0),
+            "auto_vat_rate": vat_rate,
+        }
+    return out
+
+
 def list_collections(
     *,
     period: str | None = None,
@@ -41,9 +90,9 @@ def list_collections(
 ) -> list[dict]:
     """Tahsilat listesi — bir dönem için her aktif restoran için bir satır.
 
-    Eğer bir restoranın o dönem için kaydı yoksa, sanal bir 'Bekliyor'
-    kaydı eklenir (id=None). Böylece /tahsilatlar sayfası her zaman
-    aktif restoran listesini gösterir.
+    Manuel kayıt yoksa: puantajdan otomatik hesaplanan tutar gösterilir
+    (sanal 'Bekliyor' kaydı). Manuel kayıt varsa, kullanıcının girdiği
+    invoice_amount geçerlidir (override).
     """
     period = _normalize_period(period) if period else None
 
@@ -59,7 +108,7 @@ def list_collections(
         SELECT
             id, restaurant_id, period AS collection_month,
             invoice_no,
-            COALESCE(amount_excl_vat, 0)::float AS invoice_amount,
+            COALESCE(amount_incl_vat, amount_excl_vat, 0)::float AS invoice_amount,
             COALESCE(paid_amount, 0)::float AS collected_amount,
             status, paid_at, due_date::text AS due_date,
             last_contact_date::text AS last_contact_date,
@@ -81,6 +130,9 @@ def list_collections(
             cur.execute(coll_sql, coll_params)
             collections = [dict(r) for r in cur.fetchall()]
 
+    # Otomatik hesap (puantajdan)
+    auto_map = _compute_auto_invoice_map(period) if period else {}
+
     # restaurant_id → collection map
     by_rest: dict[int, dict] = {}
     for c in collections:
@@ -90,14 +142,23 @@ def list_collections(
     items: list[dict] = []
     for r in restaurants:
         rid = int(r["id"])
+        auto = auto_map.get(rid, {})
+        auto_invoice = float(auto.get("auto_invoice_incl_vat") or 0)
         existing = by_rest.get(rid)
         if existing:
             row = dict(existing)
             row["brand"] = r["brand"]
             row["branch"] = r["branch"]
+            # Eğer manuel kayıt 0 ise auto'yu göster, ama 'auto' bayrağı koy
             inv = float(row.get("invoice_amount") or 0)
+            if inv <= 0 and auto_invoice > 0:
+                row["invoice_amount"] = auto_invoice
+                row["is_auto_invoice"] = True
+            else:
+                row["is_auto_invoice"] = False
             col = float(row.get("collected_amount") or 0)
-            row["remaining_amount"] = max(0.0, inv - col)
+            row["remaining_amount"] = max(0.0, float(row["invoice_amount"]) - col)
+            row["auto_invoice_amount"] = auto_invoice  # bilgilendirme için
             # Geciken hesabı: due_date geçti + status Tahsil Edildi değil
             try:
                 if row.get("due_date") and row["status"] != "Tahsil Edildi":
@@ -110,7 +171,7 @@ def list_collections(
             except Exception:
                 row["is_overdue"] = False
         else:
-            # Sanal kayıt — henüz tahsilat girilmemiş
+            # Sanal kayıt — henüz tahsilat girilmemiş; puantajdan otomatik
             row = {
                 "id": None,
                 "restaurant_id": rid,
@@ -118,15 +179,17 @@ def list_collections(
                 "brand": r["brand"],
                 "branch": r["branch"],
                 "status": "Bekliyor",
-                "invoice_amount": 0,
+                "invoice_amount": auto_invoice,
                 "collected_amount": 0,
-                "remaining_amount": 0,
+                "remaining_amount": auto_invoice,
                 "due_date": None,
                 "last_contact_date": None,
                 "responsible_name": "",
                 "note": "",
                 "is_overdue": False,
                 "paid_at": None,
+                "is_auto_invoice": auto_invoice > 0,
+                "auto_invoice_amount": auto_invoice,
             }
         items.append(row)
 
