@@ -217,40 +217,78 @@ def _get_courier_efficiency(period: str, conn) -> list[dict]:
 
 
 def _get_cost_per_package(period: str, conn) -> dict:
-    """Paket başı maliyet — restoran + kurye bazlı.
+    """Paket başı maliyet + fatura — restoran + kurye bazlı.
 
-    cost_per_package = toplam_fatura_kdv_hariç / toplam_paket
-
-    Optimizasyon: list_personnel_payroll(period) tek seferde çağrılır,
-    sonuç 3 alt fonksiyonda paylaşılır. (Eskiden 3 kez çağrılıyordu →
-    Render 30 sn timeout'unu aşıyordu.)
+    overall (CK genel):
+      • billing_per_package = SUM(restoran faturası) / SUM(paket)  → ortalama gelir
+      • cost_per_package    = SUM(kurye brüt) / SUM(paket)         → ortalama maliyet
+      • margin_pct          = (billing - cost) / billing × 100
     """
-    # Bordrodan toplam brüt ve paket verisi
-    # NOT: list_personnel_payroll DICT döner ({period, rows, summary});
-    # rows içindeki her elemanda key adları 'toplam_brut' ve 'ana_packages'.
     payroll_data = list_personnel_payroll(period)
     payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
 
     total_brut = sum(float(p.get("toplam_brut", 0)) for p in payroll)
     total_packages_all = sum(int(p.get("ana_packages", 0)) for p in payroll)
 
-    overall_cost = (total_brut / total_packages_all) if total_packages_all > 0 else 0.0
-
-    # Restoran bazlı (payroll'u tekrar çağırma — paylaş)
+    # Restoran bazlı (her satırda billing_excl_vat + cost_per_package + margin)
     by_restaurant = _get_cost_per_package_by_restaurant(period, conn, payroll=payroll)
+
+    # CK toplam fatura (restoran agregesinden)
+    total_billing = sum(float(x.get("billing_excl_vat") or 0) for x in by_restaurant)
+
+    overall_billing_per_pkg = (total_billing / total_packages_all) if total_packages_all > 0 else 0.0
+    overall_cost = (total_brut / total_packages_all) if total_packages_all > 0 else 0.0
+    margin = total_billing - total_brut
+    margin_pct = (margin / total_billing * 100) if total_billing > 0 else 0.0
 
     # Kurye bazlı (top 20) — payroll'u paylaş
     by_courier = _get_cost_per_package_by_courier(period, conn, payroll=payroll)
 
     return {
+        # 'overall' geriye uyumluluk için tek değer (CK paket başı maliyeti)
         "overall": round(overall_cost, 2),
+        # YENİ — eksiksiz CK metrikleri:
+        "overall_billing_excl_vat": round(total_billing, 2),
+        "overall_courier_cost": round(total_brut, 2),
+        "overall_packages": total_packages_all,
+        "overall_billing_per_package": round(overall_billing_per_pkg, 2),
+        "overall_cost_per_package": round(overall_cost, 2),
+        "overall_margin": round(margin, 2),
+        "overall_margin_pct": round(margin_pct, 1),
         "by_restaurant": by_restaurant,
         "by_courier": by_courier,
     }
 
 
 def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] | None = None) -> list[dict]:
-    """Restoran bazlı paket başı maliyet."""
+    """Restoran bazlı paket başı maliyet + restoran faturası.
+
+    Üç farklı kavram döner:
+      • billing_excl_vat — Restorana KESILEN fatura (KDV hariç).
+        pricing_model + puantajdan hesaplanır:
+        saat × hourly_rate + paket × pkg_rate (Fasuli/QuickChina karma)
+        veya fixed_monthly_fee (SC Petshop)
+      • courier_cost — Kuryelere ÖDEDİĞİMİZ toplam brüt (CK'nın maliyeti)
+      • cost_per_package — courier_cost ÷ paket (CK'nın paket başı maliyeti)
+      • billing_per_package — billing_excl_vat ÷ paket (restoranın paket başı ödediği)
+
+    Önceki sürüm billing_excl_vat olarak courier_cost'u dolduruyordu —
+    bu yüzden Quick China gibi karma anlaşmalı restoranlar 'olağandışı
+    düşük fatura' yorumu alıyordu (gerçek fatura çok daha yüksek).
+    """
+    # 1) Restoran havuzu (period-aware: aktif + puantajlı + faturalı)
+    from app.services.collections import (
+        _compute_auto_invoice_map,
+        _get_period_restaurants,
+    )
+
+    period_rests = _get_period_restaurants(period)
+    rest_by_id = {int(r["id"]): r for r in period_rests}
+
+    # 2) Otomatik fatura hesabı (pricing_model'e göre)
+    auto_map = _compute_auto_invoice_map(period)
+
+    # 3) Paket toplamları
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -258,26 +296,24 @@ def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] |
                 r.id AS restaurant_id,
                 r.brand,
                 r.branch,
-                COALESCE(SUM(de.package_count), 0) AS total_packages
+                COALESCE(SUM(de.package_count), 0)::int AS total_packages
             FROM restaurants r
             LEFT JOIN daily_entries de ON de.restaurant_id = r.id
                                       AND LEFT(de.entry_date::text, 7) = %s
-            WHERE r.active = 1
+            WHERE r.id = ANY(%s)
             GROUP BY r.id, r.brand, r.branch
-            HAVING COALESCE(SUM(de.package_count), 0) > 0
             ORDER BY total_packages DESC
             """,
-            (period,)
+            (period, list(rest_by_id.keys()) or [0]),
         )
         rest_rows = cur.fetchall()
 
-    # Kurye bordro verisi — kişi başı kaç paket
+    # 4) Kurye bordro toplamı (CK maliyeti)
     if payroll is None:
         payroll_data = list_personnel_payroll(period)
         payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
     payroll_by_id = {int(p.get("id", 0)): p for p in payroll}
 
-    # N+1 ortadan kaldır: tek query ile restoran→kurye listesi
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -298,21 +334,41 @@ def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] |
         rest_id = int(r["restaurant_id"])
         total_packages = int(r.get("total_packages") or 0)
 
-        # Bu restorana atanmış kuryeler için toplam brüt hesapla
-        total_brut_for_rest = 0.0
+        # Restorana yansıyan fatura (pricing_model'den)
+        auto = auto_map.get(rest_id, {})
+        billing_excl = float(auto.get("auto_invoice_excl_vat") or 0)
+
+        # Kuryelere ödenen toplam brüt (CK maliyeti)
+        courier_cost = 0.0
         for cid in rest_to_couriers.get(rest_id, []):
             if cid in payroll_by_id:
-                total_brut_for_rest += float(payroll_by_id[cid].get("toplam_brut", 0))
+                courier_cost += float(payroll_by_id[cid].get("toplam_brut", 0))
 
-        cost_per_pkg = (total_brut_for_rest / total_packages) if total_packages > 0 else 0.0
+        # Paket başı metrikler
+        cost_per_pkg = (courier_cost / total_packages) if total_packages > 0 else 0.0
+        billing_per_pkg = (billing_excl / total_packages) if total_packages > 0 else 0.0
+        margin = billing_excl - courier_cost
+        margin_pct = (margin / billing_excl * 100) if billing_excl > 0 else 0.0
+
+        # Sıfır paketse listeden çıkar (önemli olan aktif restoranlar)
+        if total_packages == 0 and billing_excl == 0:
+            continue
 
         result.append({
             "restaurant_id": rest_id,
             "brand": r["brand"] or "—",
             "branch": r["branch"] or "—",
-            "billing_excl_vat": round(total_brut_for_rest, 2),
             "packages": total_packages,
+            # YENİ: Restorana kesilen fatura (KDV hariç, pricing_model'den)
+            "billing_excl_vat": round(billing_excl, 2),
+            "billing_per_package": round(billing_per_pkg, 2),
+            # CK maliyeti (kuryeye ödenen)
+            "courier_cost": round(courier_cost, 2),
             "cost_per_package": round(cost_per_pkg, 2),
+            # Marj
+            "margin": round(margin, 2),
+            "margin_pct": round(margin_pct, 1),
+            "auto_basis": auto.get("auto_basis"),
         })
 
     return result

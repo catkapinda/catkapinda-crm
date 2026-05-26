@@ -265,10 +265,22 @@ Domain bilgisi (KRİTİK):
 - 'Verimlilik' (packages_per_hour) = bir kuryenin saat başına attığı
   paket sayısı. Yüksek olan, hem restoran hem de Çat Kapında için
   iyi (daha az kuryeyle daha çok iş).
-- 'Paket başı maliyet' = (KDV hariç restoran faturası) ÷ paket sayısı.
-  Bu Çat Kapında'nın paket başına ödediği. Restoran tarifesi bunun
-  altında ise kâr; üstünde ise zarar. Aylık ortalama 28-35 ₺ civarı
-  sektör normu.
+- ÇOK ÖNEMLİ — İki ayrı kavramı KARIŞTIRMA:
+  · 'billing_excl_vat' = Restorana KESILEN fatura (KDV hariç).
+    Pricing model'e göre: saat × hourly + paket × pkg (Quick China
+    karma), eşikli paket (Fasuli), sabit aylık (SC Petshop).
+    Bu Çat Kapında'nın o restorandan ALDIĞI gelir.
+  · 'courier_cost' = Kuryelere ÖDEDİĞİMİZ toplam brüt
+    (Çat Kapında'nın MALİYETİ).
+  · 'billing_per_package' = billing_excl_vat ÷ paket → restoranın
+    ortalama paket başı ödediği.
+  · 'cost_per_package' = courier_cost ÷ paket → CK'nın paket başı
+    maliyeti.
+  · 'margin' = billing - cost; 'margin_pct' = marj yüzdesi.
+  Karşılaştırırken DAİMA aynı tarafta dur: gelir tarafından gelir,
+  gider tarafından gider. Quick China gibi karma anlaşmalı bir
+  restoran için 'fatura düşük' yorumu yapmadan ÖNCE billing_excl_vat
+  ile auto_basis (hourly+package) değerini doğrula.
 - 'Paket büyümesi' = bu ayın paket sayısı ÷ önceki ayın paket sayısı.
   +%20 hızlı büyüme; -%10 ciddi düşüş; ±%5 yatay.
 
@@ -278,11 +290,17 @@ Kart kuralları:
   tarzı bir mesaj.
 - 'verim_lideri': courier_efficiency listesinin en üstündeki kişiyi
   vurgula. 'Falan kurye %X paket/saat ile lider'.
-- 'maliyet_baskisi': cost_per_package.by_restaurant'taki en pahalı
-  veya en düşük olanı seç. Yüksek maliyet = zarar riski.
+- 'maliyet_baskisi': cost_per_package.by_restaurant satırlarındaki
+  margin_pct DÜŞÜK olanı (zarar riski) ya da NEGATİF olanı (gerçek
+  zarar) seç. 'Fatura düşük, doğrulama' yorumu YAPMA — billing
+  pricing_model'den otomatik hesaplanır, hatalı değil. Bunun yerine:
+  · margin_pct düşük → 'kâr marjı sıkıştı, tarife görüşülmeli'
+  · margin_pct negatif → 'kuryeye ödediğimiz fatura tutarını aşıyor'
 - 'buyume_trendi': package_growth listesindeki en hızlı büyüyen ya da
-  en hızlı düşen restoranı öne çıkar. Bağlamı belirt (kapasite
-  ihtiyacı veya alarm).
+  en hızlı düşen restoranı öne çıkar. ÖNCEKİ DÖNEMİ adıyla doğru ver
+  (ör. Mart'ı analiz ediyorsak previous=Şubat; Nisan'ı analiz
+  ediyorsak previous=Mart). 'Mart' veya 'Nisan' kelimesini sabit
+  kullanma — period'a göre dinamik.
 
 Görev: rapor_olustur tool'unu çağırarak 4 kartlık özet üret.
 Her seferinde aynı yorumu üretme — farklı bakış açıları, vurgular,
@@ -303,16 +321,26 @@ def _summarize_personel(period: str) -> dict[str, Any]:
 def _summarize_restaurants(period: str) -> dict[str, Any]:
     """Restoran scope için Claude'a verilecek özet."""
     base = get_restaurant_reports(period)
+    cpp = base.get("cost_per_package") or {}
     # Listeler büyük olabilir; top N ile sınırlayalım (token tasarrufu)
     metrics = {
+        "current_period": period,
         "previous_period": base.get("previous_period"),
         "turnover": (base.get("turnover") or [])[:10],
         "courier_efficiency": (base.get("courier_efficiency") or [])[:10],
         "cost_per_package": {
-            "overall": (base.get("cost_per_package") or {}).get("overall"),
-            "by_restaurant": (base.get("cost_per_package") or {}).get("by_restaurant", [])[:10],
-            # by_courier büyük liste, top 5 yeterli
-            "by_courier": (base.get("cost_per_package") or {}).get("by_courier", [])[:5],
+            # CK genel (overall_*)
+            "overall_billing_excl_vat": cpp.get("overall_billing_excl_vat"),
+            "overall_courier_cost": cpp.get("overall_courier_cost"),
+            "overall_packages": cpp.get("overall_packages"),
+            "overall_billing_per_package": cpp.get("overall_billing_per_package"),
+            "overall_cost_per_package": cpp.get("overall_cost_per_package"),
+            "overall_margin": cpp.get("overall_margin"),
+            "overall_margin_pct": cpp.get("overall_margin_pct"),
+            # Restoran satırları — billing, cost, margin hepsi var
+            "by_restaurant": cpp.get("by_restaurant", [])[:12],
+            # Kurye listesi (token tasarrufu için top 5)
+            "by_courier": cpp.get("by_courier", [])[:5],
         },
         "package_growth": (base.get("package_growth") or [])[:10],
     }
@@ -325,11 +353,11 @@ SCOPE_CONFIGS: dict[str, dict[str, Any]] = {
         "system_prompt": SYSTEM_PROMPT,
         "summarizer": _summarize_personel,
     },
-    # v2 — 2026-05-27: period-aware restoran havuzu + RTS/Joker destek tarife
-    # düzeltmesi sonrası kart üretimi. Scope adı 'restoran_v2' yapıldı ki
-    # eski cache entry'leri ('restoran') otomatik göz ardı edilsin ve her
-    # dönem için Claude yeni veri üzerinden taze 4 kart üretsin.
-    "restoran_v2": {
+    # v3 — 2026-05-27 hotfix: cost_per_package.by_restaurant artık doğru
+    # 'billing_excl_vat' (pricing_model'den hesaplanmış restoran faturası)
+    # ve ayrı 'courier_cost' + 'margin' alanları taşıyor. AI prompt'u
+    # bu iki kavramı karıştırmaması için güçlendirildi.
+    "restoran_v3": {
         "tool": RESTAURANTS_INSIGHT_TOOL,
         "system_prompt": RESTAURANTS_SYSTEM_PROMPT,
         "summarizer": _summarize_restaurants,
