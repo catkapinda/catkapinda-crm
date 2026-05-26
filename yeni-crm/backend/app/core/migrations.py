@@ -585,6 +585,19 @@ MIGRATIONS: list[tuple[str, str]] = [
           AND courier_hourly_rate IS NULL
         """,
     ),
+    # 2026-05-27 fix: 'Dogu' (ö'süz) yazımını da yakala — ayrıca otomotiv
+    # şartı eklenerek başka 'doğu' geçen marka varsa karışmasın.
+    # Idempotent: zaten 295 olanı tekrar set etmez.
+    (
+        "restaurants.dogu_otomotiv_courier_v2_20260527",
+        """
+        UPDATE restaurants
+        SET courier_hourly_rate = 295
+        WHERE (brand ILIKE '%doğu%' OR brand ILIKE '%dogu%')
+          AND brand ILIKE '%otomotiv%'
+          AND (courier_hourly_rate IS NULL OR courier_hourly_rate <> 295)
+        """,
+    ),
     # ─── Restoran tarife geçmişi (rate history) ───
     # Her tarife değişimi tarihli olarak burada saklanır. Hesaplamalar
     # entry_date'e göre geçerli tarifeyi (effective_from <= entry_date,
