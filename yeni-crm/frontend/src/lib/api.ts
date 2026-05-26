@@ -1475,8 +1475,15 @@ export type CollectionItem = {
   is_overdue: boolean;
   paid_at: string | null;
   invoice_no?: string | null;
-  is_auto_invoice?: boolean;     // puantajdan otomatik hesaplandı mı
-  auto_invoice_amount?: number;  // puantaj bazlı tahmini tutar (KDV dahil)
+  invoice_amount_excl_vat?: number; // KDV hariç tutar (manuel veya auto)
+  vat_rate?: number;                // restoranın KDV oranı (örn. 20)
+  is_auto_invoice?: boolean;        // puantajdan otomatik hesaplandı mı
+  auto_invoice_amount?: number;     // puantaj bazlı tahmini tutar (KDV dahil)
+  auto_invoice_excl_vat?: number;   // puantaj bazlı tahmini (KDV hariç)
+  auto_vat_rate?: number;
+  auto_basis?: 'fixed' | 'hourly' | 'package' | 'mixed' | 'threshold' | 'auto';
+  auto_hours?: number;
+  auto_packages?: number;
 };
 
 export type CollectionsSummary = {

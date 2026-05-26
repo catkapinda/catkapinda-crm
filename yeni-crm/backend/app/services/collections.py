@@ -39,45 +39,169 @@ def _normalize_period(value: str | None) -> str:
 
 
 def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
-    """Puantajdan otomatik fatura tutarı hesabı.
+    """Restoran tarife modeline + puantaj verilerine göre beklenen fatura.
 
-    Her aktif restoran için daily_entries × tarife = beklenen fatura.
-    get_restaurant_reports zaten by_restaurant'ta billing_excl_vat
-    veriyor (KDV hariç). Buradan KDV ekleyip inclusive tutarı türetiyoruz.
+    Pricing model'lerine göre hesap:
+      - 'Sabit'/'Aylık Sabit'/fixed → fixed_monthly_fee
+      - 'Saatlik'/'Hourly' → SUM(worked_hours) × hourly_rate
+      - 'Paketli'/'Package' → SUM(package_count) × package_rate
+      - 'Eşikli'/'Threshold' → kurye başına eşik altı/üstü
+        farklı tarifeyle hesap
+      - 'Karma'/'Mixed' → saat × hourly + paket × package
+      - Tanımsız → mevcut alanlara göre auto-tahmin
 
     Returns:
         { restaurant_id: {
             'auto_invoice_excl_vat': float,   # KDV hariç
             'auto_invoice_incl_vat': float,   # KDV dahil
+            'auto_hours': float,
             'auto_packages': int,
             'auto_vat_rate': float,
+            'auto_basis': str,   # 'fixed' | 'hourly' | 'package' | 'mixed' | 'threshold'
         } }
     """
-    try:
-        reports = get_restaurant_reports(period)
-    except Exception:
-        return {}
-
-    by_rest = (reports.get("cost_per_package") or {}).get("by_restaurant") or []
     out: dict[int, dict] = {}
 
-    # vat_rate'i restaurants tablosundan toplu çek
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute("SELECT id, COALESCE(vat_rate, 20) AS vat_rate FROM restaurants")
-            vat_by_rest = {int(r["id"]): float(r["vat_rate"] or 20) for r in cur.fetchall()}
+            # Restoran tarifeleri
+            cur.execute(
+                """
+                SELECT
+                    id, brand, branch,
+                    COALESCE(pricing_model, '') AS pricing_model,
+                    COALESCE(hourly_rate, 0)::float AS hourly_rate,
+                    COALESCE(package_rate, 0)::float AS package_rate,
+                    COALESCE(package_threshold, 0)::int AS package_threshold,
+                    COALESCE(package_rate_low, 0)::float AS package_rate_low,
+                    COALESCE(package_rate_high, 0)::float AS package_rate_high,
+                    COALESCE(fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
+                    COALESCE(vat_rate, 20)::float AS vat_rate
+                FROM restaurants
+                WHERE active = 1
+                """
+            )
+            rests = [dict(r) for r in cur.fetchall()]
 
-    for r in by_rest:
-        rid = int(r.get("restaurant_id") or 0)
-        excl = float(r.get("billing_excl_vat") or 0)
-        vat_rate = vat_by_rest.get(rid, 20.0)
+            # Puantaj toplamı (restoran×ay): saat + paket
+            cur.execute(
+                """
+                SELECT
+                    restaurant_id,
+                    COALESCE(SUM(worked_hours), 0)::float AS total_hours,
+                    COALESCE(SUM(package_count), 0)::int AS total_packages
+                FROM daily_entries
+                WHERE LEFT(entry_date::text, 7) = %s
+                GROUP BY restaurant_id
+                """,
+                (period,),
+            )
+            entries_by_rest = {
+                int(r["restaurant_id"]): {
+                    "total_hours": float(r["total_hours"] or 0),
+                    "total_packages": int(r["total_packages"] or 0),
+                }
+                for r in cur.fetchall()
+            }
+
+            # Eşikli modelde her kurye için ayrı paket toplamı gerekli
+            # (eşik kurye bazında uygulanır)
+            cur.execute(
+                """
+                SELECT
+                    restaurant_id,
+                    actual_personnel_id AS personnel_id,
+                    COALESCE(SUM(package_count), 0)::int AS pkg
+                FROM daily_entries
+                WHERE LEFT(entry_date::text, 7) = %s
+                  AND actual_personnel_id IS NOT NULL
+                GROUP BY restaurant_id, actual_personnel_id
+                """,
+                (period,),
+            )
+            per_courier: dict[int, list[int]] = {}
+            for r in cur.fetchall():
+                per_courier.setdefault(int(r["restaurant_id"]), []).append(int(r["pkg"]))
+
+    for r in rests:
+        rid = int(r["id"])
+        model = str(r.get("pricing_model") or "").lower()
+        hourly_rate = float(r["hourly_rate"])
+        package_rate = float(r["package_rate"])
+        threshold = int(r["package_threshold"])
+        rate_low = float(r["package_rate_low"])
+        rate_high = float(r["package_rate_high"])
+        fixed_fee = float(r["fixed_monthly_fee"])
+        vat_rate = float(r["vat_rate"])
+
+        entry = entries_by_rest.get(rid, {})
+        total_hours = float(entry.get("total_hours") or 0)
+        total_packages = int(entry.get("total_packages") or 0)
+        courier_pkgs = per_courier.get(rid, [])
+
+        # ─── Model belirleme ──────────────────────────────────────────
+        is_fixed = ("sabit" in model or "fixed" in model or "aylık" in model
+                    or "monthly" in model)
+        is_threshold = ("eşik" in model or "esik" in model or "threshold" in model
+                        or (threshold > 0 and rate_low > 0 and rate_high > 0))
+        is_hourly = ("saat" in model or "hour" in model)
+        is_package = ("paket" in model or "package" in model)
+        is_mixed = ("karma" in model or "mixed" in model)
+
+        # Auto-fallback: eğer model boş ise, dolu alanlara göre seç
+        if not (is_fixed or is_threshold or is_hourly or is_package or is_mixed):
+            if fixed_fee > 0 and hourly_rate == 0 and package_rate == 0:
+                is_fixed = True
+            elif threshold > 0 and rate_low > 0:
+                is_threshold = True
+            elif hourly_rate > 0 and package_rate > 0:
+                is_mixed = True
+            elif hourly_rate > 0:
+                is_hourly = True
+            elif package_rate > 0:
+                is_package = True
+
+        # ─── Hesap ────────────────────────────────────────────────────
+        excl = 0.0
+        basis = "auto"
+        if is_fixed and fixed_fee > 0:
+            excl = fixed_fee
+            basis = "fixed"
+        elif is_threshold and rate_low > 0:
+            # Her kurye için: eşik altı × low + eşik üstü × high
+            total = 0.0
+            for pkg in courier_pkgs:
+                if pkg <= threshold:
+                    total += pkg * rate_low
+                else:
+                    total += threshold * rate_low + (pkg - threshold) * rate_high
+            excl = total
+            basis = "threshold"
+        elif is_mixed:
+            excl = total_hours * hourly_rate + total_packages * package_rate
+            basis = "mixed"
+        elif is_hourly:
+            excl = total_hours * hourly_rate
+            basis = "hourly"
+        elif is_package:
+            excl = total_packages * package_rate
+            basis = "package"
+        else:
+            # Fallback: en yüksek kombinasyon
+            if fixed_fee > 0:
+                excl = fixed_fee
+                basis = "fixed"
+
         vat_amt = round(excl * vat_rate / 100, 2)
         incl = round(excl + vat_amt, 2)
+
         out[rid] = {
-            "auto_invoice_excl_vat": excl,
+            "auto_invoice_excl_vat": round(excl, 2),
             "auto_invoice_incl_vat": incl,
-            "auto_packages": int(r.get("packages") or 0),
+            "auto_hours": round(total_hours, 2),
+            "auto_packages": total_packages,
             "auto_vat_rate": vat_rate,
+            "auto_basis": basis,
         }
     return out
 
@@ -109,6 +233,7 @@ def list_collections(
             id, restaurant_id, period AS collection_month,
             invoice_no,
             COALESCE(amount_incl_vat, amount_excl_vat, 0)::float AS invoice_amount,
+            COALESCE(amount_excl_vat, 0)::float AS invoice_amount_excl_vat,
             COALESCE(paid_amount, 0)::float AS collected_amount,
             status, paid_at, due_date::text AS due_date,
             last_contact_date::text AS last_contact_date,
@@ -143,7 +268,12 @@ def list_collections(
     for r in restaurants:
         rid = int(r["id"])
         auto = auto_map.get(rid, {})
-        auto_invoice = float(auto.get("auto_invoice_incl_vat") or 0)
+        auto_incl = float(auto.get("auto_invoice_incl_vat") or 0)
+        auto_excl = float(auto.get("auto_invoice_excl_vat") or 0)
+        auto_vat_rate = float(auto.get("auto_vat_rate") or 20)
+        auto_basis = str(auto.get("auto_basis") or "auto")
+        auto_hours = float(auto.get("auto_hours") or 0)
+        auto_packages = int(auto.get("auto_packages") or 0)
         existing = by_rest.get(rid)
         if existing:
             row = dict(existing)
@@ -151,14 +281,21 @@ def list_collections(
             row["branch"] = r["branch"]
             # Eğer manuel kayıt 0 ise auto'yu göster, ama 'auto' bayrağı koy
             inv = float(row.get("invoice_amount") or 0)
-            if inv <= 0 and auto_invoice > 0:
-                row["invoice_amount"] = auto_invoice
+            if inv <= 0 and auto_incl > 0:
+                row["invoice_amount"] = auto_incl
+                row["invoice_amount_excl_vat"] = auto_excl
                 row["is_auto_invoice"] = True
             else:
                 row["is_auto_invoice"] = False
             col = float(row.get("collected_amount") or 0)
             row["remaining_amount"] = max(0.0, float(row["invoice_amount"]) - col)
-            row["auto_invoice_amount"] = auto_invoice  # bilgilendirme için
+            row["auto_invoice_amount"] = auto_incl
+            row["auto_invoice_excl_vat"] = auto_excl
+            row["auto_vat_rate"] = auto_vat_rate
+            row["auto_basis"] = auto_basis
+            row["auto_hours"] = auto_hours
+            row["auto_packages"] = auto_packages
+            row.setdefault("vat_rate", auto_vat_rate)
             # Geciken hesabı: due_date geçti + status Tahsil Edildi değil
             try:
                 if row.get("due_date") and row["status"] != "Tahsil Edildi":
@@ -179,17 +316,24 @@ def list_collections(
                 "brand": r["brand"],
                 "branch": r["branch"],
                 "status": "Bekliyor",
-                "invoice_amount": auto_invoice,
+                "invoice_amount": auto_incl,
+                "invoice_amount_excl_vat": auto_excl,
+                "vat_rate": auto_vat_rate,
                 "collected_amount": 0,
-                "remaining_amount": auto_invoice,
+                "remaining_amount": auto_incl,
                 "due_date": None,
                 "last_contact_date": None,
                 "responsible_name": "",
                 "note": "",
                 "is_overdue": False,
                 "paid_at": None,
-                "is_auto_invoice": auto_invoice > 0,
-                "auto_invoice_amount": auto_invoice,
+                "is_auto_invoice": auto_incl > 0,
+                "auto_invoice_amount": auto_incl,
+                "auto_invoice_excl_vat": auto_excl,
+                "auto_vat_rate": auto_vat_rate,
+                "auto_basis": auto_basis,
+                "auto_hours": auto_hours,
+                "auto_packages": auto_packages,
             }
         items.append(row)
 

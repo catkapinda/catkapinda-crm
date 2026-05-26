@@ -311,17 +311,37 @@ export function TahsilatlarView({
                         {row.is_overdue ? 'Geciken' : row.status}
                       </span>
                     </td>
-                    <td className="px-6 py-3.5 text-right text-sm font-medium text-text">
-                      <div className="inline-flex items-center gap-1.5 justify-end">
-                        {m(row.invoice_amount)} ₺
-                        {row.is_auto_invoice && (
-                          <span
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-50 text-brand text-[9px] font-bold uppercase tracking-wider"
-                            title="Puantajdan otomatik hesaplandı (KDV dahil). Manuel girersen bu değer override edilir."
-                          >
-                            <Calculator className="w-2.5 h-2.5" strokeWidth={2.4} />
-                            Otomatik
-                          </span>
+                    <td className="px-6 py-3.5 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className="inline-flex items-center gap-1.5 text-sm font-semibold text-text">
+                          {m(row.invoice_amount)} ₺
+                          <span className="text-[10px] font-medium text-text-3 tracking-wider uppercase">KDV dahil</span>
+                          {row.is_auto_invoice && (
+                            <span
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-50 text-brand text-[9px] font-bold uppercase tracking-wider"
+                              title={
+                                row.auto_basis === 'hourly'
+                                  ? `Saatlik: ${(row.auto_hours ?? 0).toFixed(1)} sa × tarife (KDV %${row.auto_vat_rate ?? 20})`
+                                  : row.auto_basis === 'fixed'
+                                  ? 'Sabit aylık ücret'
+                                  : row.auto_basis === 'threshold'
+                                  ? 'Eşikli (kurye başına)'
+                                  : row.auto_basis === 'mixed'
+                                  ? 'Karma (saat + paket)'
+                                  : row.auto_basis === 'package'
+                                  ? `Paketli: ${row.auto_packages ?? 0} paket × tarife`
+                                  : 'Puantajdan otomatik hesaplandı. Manuel girersen bu değer override edilir.'
+                              }
+                            >
+                              <Calculator className="w-2.5 h-2.5" strokeWidth={2.4} />
+                              Otomatik
+                            </span>
+                          )}
+                        </div>
+                        {(row.invoice_amount_excl_vat ?? 0) > 0 && (
+                          <div className="text-[11px] text-text-3">
+                            {m(row.invoice_amount_excl_vat ?? 0)} ₺ <span className="text-[10px] uppercase tracking-wider">KDV hariç</span>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -570,9 +590,19 @@ function CollectionModal({
                   type="button"
                   onClick={() => setForm({ ...form, invoice_amount: autoSuggested })}
                   className="mt-1 text-[10px] font-semibold text-brand hover:text-brand-dark inline-flex items-center gap-1"
+                  title={
+                    (item.auto_invoice_excl_vat ?? 0) > 0
+                      ? `KDV hariç: ${m(item.auto_invoice_excl_vat ?? 0)} ₺ • KDV: %${item.auto_vat_rate ?? 20}`
+                      : undefined
+                  }
                 >
                   <Calculator className="w-3 h-3" strokeWidth={2.4} />
-                  Puantajdan otomatik: {m(autoSuggested)} ₺ kullan
+                  Puantajdan otomatik: {m(autoSuggested)} ₺ (KDV dahil)
+                  {(item.auto_invoice_excl_vat ?? 0) > 0 && (
+                    <span className="text-text-3 font-normal ml-1">
+                      · {m(item.auto_invoice_excl_vat ?? 0)} ₺ hariç
+                    </span>
+                  )}
                 </button>
               )}
             </Field>
