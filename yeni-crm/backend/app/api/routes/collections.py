@@ -1,9 +1,12 @@
 """Tahsilat (restaurant_invoices) endpoint'leri."""
+import logging
+
 from fastapi import APIRouter, HTTPException
 
 from app.services import collections as svc
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 @router.get("")
@@ -24,6 +27,10 @@ async def list_collections(
         summary = svc.summary(period=period)
     except ValueError as e:
         raise HTTPException(422, detail=str(e)) from e
+    except Exception as e:
+        # Render log'unda gerçek hatanın görünmesi için
+        log.exception("/api/collections failed for period=%s: %s", period, e)
+        raise HTTPException(500, detail=f"collections failed: {type(e).__name__}: {e}") from e
 
     return {
         "period": period,

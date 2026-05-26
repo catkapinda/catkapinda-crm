@@ -120,41 +120,81 @@ def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
 
     # Tarih-bazlı tarife: her entry için entry_date'de geçerli olan
     # restaurant_pricing_history satırı LATERAL JOIN ile alınır.
-    # Bu sayede ay ortasında tarife değiştiyse, değişimden ÖNCEKİ
-    # entry'ler eski tarifeyi, SONRAKİ entry'ler yeni tarifeyi kullanır.
-    with get_connection() as conn:
-        with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(
-                """
-                SELECT
-                    de.restaurant_id,
-                    de.actual_personnel_id,
-                    COALESCE(de.worked_hours, 0)::float AS hours,
-                    COALESCE(de.package_count, 0)::int AS packages,
-                    h.effective_from,
-                    COALESCE(h.pricing_model, '') AS pricing_model,
-                    COALESCE(h.hourly_rate, 0)::float AS hourly_rate,
-                    COALESCE(h.package_rate, 0)::float AS package_rate,
-                    COALESCE(h.package_threshold, 0)::int AS package_threshold,
-                    COALESCE(h.package_rate_low, 0)::float AS package_rate_low,
-                    COALESCE(h.package_rate_high, 0)::float AS package_rate_high,
-                    COALESCE(h.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
-                    COALESCE(h.vat_rate, 20)::float AS vat_rate
-                FROM daily_entries de
-                LEFT JOIN LATERAL (
-                    SELECT *
-                    FROM restaurant_pricing_history ph
-                    WHERE ph.restaurant_id = de.restaurant_id
-                      AND ph.effective_from <= de.entry_date
-                    ORDER BY ph.effective_from DESC
-                    LIMIT 1
-                ) h ON true
-                WHERE LEFT(de.entry_date::text, 7) = %s
-                  AND de.restaurant_id = ANY(%s)
-                """,
-                (period, list(rest_by_id.keys())),
-            )
-            entries = cur.fetchall()
+    # Migration koşulmadıysa veya bir sebepten patarsa, fallback olarak
+    # restaurants tablosunun MEVCUT tarifeleriyle hesap yapılır.
+    entries: list[dict] = []
+    use_history_rates = True
+    try:
+        with get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        de.restaurant_id,
+                        de.actual_personnel_id,
+                        COALESCE(de.worked_hours, 0)::float AS hours,
+                        COALESCE(de.package_count, 0)::int AS packages,
+                        h.effective_from,
+                        COALESCE(h.pricing_model, '') AS pricing_model,
+                        COALESCE(h.hourly_rate, 0)::float AS hourly_rate,
+                        COALESCE(h.package_rate, 0)::float AS package_rate,
+                        COALESCE(h.package_threshold, 0)::int AS package_threshold,
+                        COALESCE(h.package_rate_low, 0)::float AS package_rate_low,
+                        COALESCE(h.package_rate_high, 0)::float AS package_rate_high,
+                        COALESCE(h.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
+                        COALESCE(h.vat_rate, 20)::float AS vat_rate
+                    FROM daily_entries de
+                    LEFT JOIN LATERAL (
+                        SELECT *
+                        FROM restaurant_pricing_history ph
+                        WHERE ph.restaurant_id = de.restaurant_id
+                          AND ph.effective_from <= de.entry_date::date
+                        ORDER BY ph.effective_from DESC
+                        LIMIT 1
+                    ) h ON true
+                    WHERE LEFT(de.entry_date::text, 7) = %s
+                      AND de.restaurant_id = ANY(%s)
+                    """,
+                    (period, list(rest_by_id.keys())),
+                )
+                entries = [dict(r) for r in cur.fetchall()]
+    except Exception as exc:  # pragma: no cover
+        # Tablo yok / cast hatası / başka SQL sorunu → fallback
+        import logging
+        logging.getLogger(__name__).warning(
+            "pricing_history query failed, fallback to restaurants table: %s",
+            exc,
+        )
+        use_history_rates = False
+        # Fallback: restaurants tablosundan mevcut tarifeleri çek + entries
+        with get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        de.restaurant_id,
+                        de.actual_personnel_id,
+                        COALESCE(de.worked_hours, 0)::float AS hours,
+                        COALESCE(de.package_count, 0)::int AS packages,
+                        NULL::date AS effective_from,
+                        COALESCE(r.pricing_model, '') AS pricing_model,
+                        COALESCE(r.hourly_rate, 0)::float AS hourly_rate,
+                        COALESCE(r.package_rate, 0)::float AS package_rate,
+                        COALESCE(r.package_threshold, 0)::int AS package_threshold,
+                        COALESCE(r.package_rate_low, 0)::float AS package_rate_low,
+                        COALESCE(r.package_rate_high, 0)::float AS package_rate_high,
+                        COALESCE(r.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
+                        COALESCE(r.vat_rate, 20)::float AS vat_rate
+                    FROM daily_entries de
+                    JOIN restaurants r ON r.id = de.restaurant_id
+                    WHERE LEFT(de.entry_date::text, 7) = %s
+                      AND de.restaurant_id = ANY(%s)
+                    """,
+                    (period, list(rest_by_id.keys())),
+                )
+                entries = [dict(r) for r in cur.fetchall()]
+    # Sınıf değişkeni izlemek için (gelecek geliştirmeler):
+    _ = use_history_rates
 
     # (restaurant_id, effective_from) bazında segmentlere böl — her segment
     # kendi tarife versiyonunu kullanır.
@@ -227,66 +267,92 @@ def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
         }
 
     # Entries OLMAYAN ama sabit aylık ücretli restoranlar için:
-    # son geçerli history satırından fixed_monthly_fee'yi al
-    # (SC Petshop gibi — saatten/paketten bağımsız)
+    # son geçerli history satırından (yoksa restaurants tablosundan)
+    # fixed_monthly_fee'yi al — SC Petshop gibi sabit ücretli.
     missing_rids = [rid for rid in rest_by_id if rid not in out]
     if missing_rids:
-        # Period'un başlangıç günü — history.effective_from <= bu tarih
-        # olan en son satır geçerli sayılır. Ayın 01'i yeterli; ay içinde
-        # bir değişim varsa zaten yukarıdaki segment hesabına dahildi.
-        # (Eski 'period-31' versiyonu Nisan için geçersiz tarihti — 500.)
         period_start = f"{period}-01"
-        with get_connection() as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(
-                    """
-                    SELECT DISTINCT ON (h.restaurant_id)
-                        h.restaurant_id,
-                        COALESCE(h.pricing_model, '') AS pricing_model,
-                        COALESCE(h.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
-                        COALESCE(h.hourly_rate, 0)::float AS hourly_rate,
-                        COALESCE(h.package_rate, 0)::float AS package_rate,
-                        COALESCE(h.package_rate_low, 0)::float AS package_rate_low,
-                        COALESCE(h.package_rate_high, 0)::float AS package_rate_high,
-                        COALESCE(h.vat_rate, 20)::float AS vat_rate
-                    FROM restaurant_pricing_history h
-                    WHERE h.restaurant_id = ANY(%s)
-                      AND h.effective_from <= %s::date
-                    ORDER BY h.restaurant_id, h.effective_from DESC
-                    """,
-                    (missing_rids, period_start),
-                )
-                for r in cur.fetchall():
-                    rid = int(r["restaurant_id"])
-                    model = str(r["pricing_model"] or "").lower()
-                    fixed_fee = float(r["fixed_monthly_fee"])
-                    hourly_rate = float(r["hourly_rate"])
-                    package_rate = float(r["package_rate"])
-                    rate_low = float(r["package_rate_low"])
-                    rate_high = float(r["package_rate_high"])
-                    vat_rate = float(r["vat_rate"])
-                    only_fixed_filled = (
-                        fixed_fee > 0
-                        and hourly_rate == 0
-                        and package_rate == 0
-                        and rate_low == 0
-                        and rate_high == 0
+        rows: list[dict] = []
+        try:
+            with get_connection() as conn:
+                with conn.cursor(row_factory=dict_row) as cur:
+                    cur.execute(
+                        """
+                        SELECT DISTINCT ON (h.restaurant_id)
+                            h.restaurant_id,
+                            COALESCE(h.pricing_model, '') AS pricing_model,
+                            COALESCE(h.fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
+                            COALESCE(h.hourly_rate, 0)::float AS hourly_rate,
+                            COALESCE(h.package_rate, 0)::float AS package_rate,
+                            COALESCE(h.package_rate_low, 0)::float AS package_rate_low,
+                            COALESCE(h.package_rate_high, 0)::float AS package_rate_high,
+                            COALESCE(h.vat_rate, 20)::float AS vat_rate
+                        FROM restaurant_pricing_history h
+                        WHERE h.restaurant_id = ANY(%s)
+                          AND h.effective_from <= %s::date
+                        ORDER BY h.restaurant_id, h.effective_from DESC
+                        """,
+                        (missing_rids, period_start),
                     )
-                    is_fixed_only = (
-                        "sabit" in model or "fixed" in model
-                        or "aylık" in model or "monthly" in model
-                        or only_fixed_filled
+                    rows = [dict(r) for r in cur.fetchall()]
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "pricing_history fallback query failed, using restaurants: %s",
+                exc,
+            )
+            # Tablo yok ya da başka hata → restaurants tablosuna fallback
+            with get_connection() as conn:
+                with conn.cursor(row_factory=dict_row) as cur:
+                    cur.execute(
+                        """
+                        SELECT
+                            id AS restaurant_id,
+                            COALESCE(pricing_model, '') AS pricing_model,
+                            COALESCE(fixed_monthly_fee, 0)::float AS fixed_monthly_fee,
+                            COALESCE(hourly_rate, 0)::float AS hourly_rate,
+                            COALESCE(package_rate, 0)::float AS package_rate,
+                            COALESCE(package_rate_low, 0)::float AS package_rate_low,
+                            COALESCE(package_rate_high, 0)::float AS package_rate_high,
+                            COALESCE(vat_rate, 20)::float AS vat_rate
+                        FROM restaurants
+                        WHERE id = ANY(%s)
+                        """,
+                        (missing_rids,),
                     )
-                    if is_fixed_only and fixed_fee > 0:
-                        vat_amt = round(fixed_fee * vat_rate / 100, 2)
-                        out[rid] = {
-                            "auto_invoice_excl_vat": round(fixed_fee, 2),
-                            "auto_invoice_incl_vat": round(fixed_fee + vat_amt, 2),
-                            "auto_hours": 0,
-                            "auto_packages": 0,
-                            "auto_vat_rate": vat_rate,
-                            "auto_basis": "fixed",
-                        }
+                    rows = [dict(r) for r in cur.fetchall()]
+
+        for r in rows:
+            rid = int(r["restaurant_id"])
+            model = str(r["pricing_model"] or "").lower()
+            fixed_fee = float(r["fixed_monthly_fee"])
+            hourly_rate = float(r["hourly_rate"])
+            package_rate = float(r["package_rate"])
+            rate_low = float(r["package_rate_low"])
+            rate_high = float(r["package_rate_high"])
+            vat_rate = float(r["vat_rate"])
+            only_fixed_filled = (
+                fixed_fee > 0
+                and hourly_rate == 0
+                and package_rate == 0
+                and rate_low == 0
+                and rate_high == 0
+            )
+            is_fixed_only = (
+                "sabit" in model or "fixed" in model
+                or "aylık" in model or "monthly" in model
+                or only_fixed_filled
+            )
+            if is_fixed_only and fixed_fee > 0:
+                vat_amt = round(fixed_fee * vat_rate / 100, 2)
+                out[rid] = {
+                    "auto_invoice_excl_vat": round(fixed_fee, 2),
+                    "auto_invoice_incl_vat": round(fixed_fee + vat_amt, 2),
+                    "auto_hours": 0,
+                    "auto_packages": 0,
+                    "auto_vat_rate": vat_rate,
+                    "auto_basis": "fixed",
+                }
     return out
 
 
