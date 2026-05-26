@@ -137,12 +137,20 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
         _compute_fixed_monthly(by_courier, fixed_monthly_fee)
     else:
         for c in by_courier.values():
-            # SABİT AYLIK PERSONEL ÖZEL DURUMU:
-            # Restoran Takım Şefi, Kaptan, BM gibi sabit aylık anlaşmalı kişiler
-            # saat+prim restoranda çalışsa bile saat × tarife uygulanmaz.
-            # Restorana yansıyan = personnel.fixed_monthly_billing (KDV hariç).
-            # Attığı saat/paket bana karşılık olmaz, bu kara yazılır.
-            if c["fixed_monthly_billing"] > 0 and c["working_days"] > 0:
+            # SABİT AYLIK PERSONEL — yalnızca KENDİ restoranındaysa:
+            # Restoran Takım Şefi, Kaptan, BM sabit aylık anlaşmalıdır.
+            # Kendi atandığı restoranda → fatura = fixed_monthly_billing.
+            # DESTEK olarak başka restorana giderse (is_support=True) →
+            # o restorana joker gibi yansır, normal tarife uygulanır
+            # (saat × saatlik + paket × paket tarifesi). RTS/joker'in
+            # kendi sabit maaşı zaten kendi restoranına yazıldığı için
+            # destekteki restorandan ekstra para almazız ama o restoranı
+            # tarife üzerinden faturalandırırız.
+            if (
+                c["fixed_monthly_billing"] > 0
+                and c["working_days"] > 0
+                and not c.get("is_support")
+            ):
                 _compute_personnel_fixed_billing(c)
                 continue
 
@@ -155,6 +163,24 @@ def restaurant_monthly_breakdown(restaurant_id: int, period: str) -> dict:
                     c, hourly_rate, package_threshold,
                     package_rate_low, package_rate_high,
                 )
+
+            # Destek olarak gelen sabit aylık personel için bilgilendirme
+            # (görsel olarak "joker gibi kullanıldı" açıklaması)
+            if (
+                c.get("is_support")
+                and c["fixed_monthly_billing"] > 0
+                and c["working_days"] > 0
+            ):
+                role_lbl = c.get("role") or "Sabit aylık personel"
+                c["billing_breakdown"].append({
+                    "label": (
+                        f"ℹ {role_lbl} destek — kendi sabit maaşı kendi "
+                        f"restoranına yazıldı, buraya tarife üzerinden faturalandı"
+                    ),
+                    "qty": 0,
+                    "rate": 0,
+                    "amount": 0,
+                })
 
     # KDV hesabı
     for c in by_courier.values():
