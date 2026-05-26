@@ -233,23 +233,28 @@ def _get_cost_per_package(period: str, conn) -> dict:
     # Restoran bazlı (her satırda billing_excl_vat + cost_per_package + margin)
     by_restaurant = _get_cost_per_package_by_restaurant(period, conn, payroll=payroll)
 
-    # CK toplam fatura (restoran agregesinden)
+    # CK toplam fatura (restoran agregesinden — KDV hariç matrah)
     total_billing = sum(float(x.get("billing_excl_vat") or 0) for x in by_restaurant)
 
+    # total_brut KDV DAHİL — marj için KDV hariç matrahını kullan
+    total_brut_excl_vat = total_brut / 1.20 if total_brut > 0 else 0.0
+
     overall_billing_per_pkg = (total_billing / total_packages_all) if total_packages_all > 0 else 0.0
-    overall_cost = (total_brut / total_packages_all) if total_packages_all > 0 else 0.0
-    margin = total_billing - total_brut
+    overall_cost = (total_brut_excl_vat / total_packages_all) if total_packages_all > 0 else 0.0
+    margin = total_billing - total_brut_excl_vat
     margin_pct = (margin / total_billing * 100) if total_billing > 0 else 0.0
 
     # Kurye bazlı (top 20) — payroll'u paylaş
     by_courier = _get_cost_per_package_by_courier(period, conn, payroll=payroll)
 
     return {
-        # 'overall' geriye uyumluluk için tek değer (CK paket başı maliyeti)
+        # 'overall' geriye uyumluluk için tek değer — CK paket başı maliyeti
+        # (KDV hariç matrah üzerinden)
         "overall": round(overall_cost, 2),
-        # YENİ — eksiksiz CK metrikleri:
+        # CK toplam metrikleri (hepsi KDV HARİÇ apples-to-apples):
         "overall_billing_excl_vat": round(total_billing, 2),
-        "overall_courier_cost": round(total_brut, 2),
+        "overall_courier_cost": round(total_brut_excl_vat, 2),  # KDV hariç (marj için)
+        "overall_courier_cost_incl_vat": round(total_brut, 2),  # KDV dahil (referans)
         "overall_packages": total_packages_all,
         "overall_billing_per_package": round(overall_billing_per_pkg, 2),
         "overall_cost_per_package": round(overall_cost, 2),
@@ -338,19 +343,23 @@ def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] |
         auto = auto_map.get(rest_id, {})
         billing_excl = float(auto.get("auto_invoice_excl_vat") or 0)
 
-        # Kuryelere ödenen toplam brüt (CK maliyeti)
-        courier_cost = 0.0
+        # Kuryelere ödenen toplam brüt (KDV DAHİL — kurye fatura kesiyor)
+        courier_cost_incl_vat = 0.0
         for cid in rest_to_couriers.get(rest_id, []):
             if cid in payroll_by_id:
-                courier_cost += float(payroll_by_id[cid].get("toplam_brut", 0))
+                courier_cost_incl_vat += float(payroll_by_id[cid].get("toplam_brut", 0))
+        # KDV hariç matrahı (CK için gerçek gider — KDV indirilebilir)
+        # Kurye %20 KDV dahil fatura kesiyor
+        courier_cost_excl_vat = courier_cost_incl_vat / 1.20 if courier_cost_incl_vat > 0 else 0.0
 
-        # Paket başı metrikler
-        cost_per_pkg = (courier_cost / total_packages) if total_packages > 0 else 0.0
+        # Paket başı metrikler (apples-to-apples: ikisi de KDV HARİÇ)
+        cost_per_pkg = (courier_cost_excl_vat / total_packages) if total_packages > 0 else 0.0
         billing_per_pkg = (billing_excl / total_packages) if total_packages > 0 else 0.0
-        margin = billing_excl - courier_cost
+        # Marj = CK geliri − CK maliyeti (her ikisi KDV hariç matrah)
+        margin = billing_excl - courier_cost_excl_vat
         margin_pct = (margin / billing_excl * 100) if billing_excl > 0 else 0.0
 
-        # Sıfır paketse listeden çıkar (önemli olan aktif restoranlar)
+        # Sıfır paketse listeden çıkar
         if total_packages == 0 and billing_excl == 0:
             continue
 
@@ -359,13 +368,14 @@ def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] |
             "brand": r["brand"] or "—",
             "branch": r["branch"] or "—",
             "packages": total_packages,
-            # YENİ: Restorana kesilen fatura (KDV hariç, pricing_model'den)
+            # Restorana kesilen fatura (KDV hariç matrah)
             "billing_excl_vat": round(billing_excl, 2),
             "billing_per_package": round(billing_per_pkg, 2),
-            # CK maliyeti (kuryeye ödenen)
-            "courier_cost": round(courier_cost, 2),
+            # CK maliyeti
+            "courier_cost": round(courier_cost_excl_vat, 2),          # KDV hariç (marj için)
+            "courier_cost_incl_vat": round(courier_cost_incl_vat, 2), # KDV dahil (referans)
             "cost_per_package": round(cost_per_pkg, 2),
-            # Marj
+            # Marj (KDV hariç matrahların farkı — gerçek CK kârı)
             "margin": round(margin, 2),
             "margin_pct": round(margin_pct, 1),
             "auto_basis": auto.get("auto_basis"),

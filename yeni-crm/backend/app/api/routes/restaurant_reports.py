@@ -60,13 +60,13 @@ async def get_reports(period: str = "2026-03") -> dict:
 async def get_ai_insights(period: str = "2026-03", force: bool = False) -> dict:
     """Restoran raporları için Claude AI özet — 4 kart + headline + actions.
 
-    Cache: 48 saat TTL (ai_insights_cache scope='restoran_v3').
+    Cache: 48 saat TTL (ai_insights_cache scope='restoran_v4').
     force=true: cache by-pass, taze Claude çağrısı.
 
     Hata durumunda 503; frontend deterministik fallback gösterir.
     """
     try:
-        return get_or_generate_ai(period=period, force=force, scope="restoran_v3")
+        return get_or_generate_ai(period=period, force=force, scope="restoran_v4")
     except Exception as e:
         raise HTTPException(
             status_code=503,

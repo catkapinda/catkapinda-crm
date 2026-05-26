@@ -270,13 +270,19 @@ Domain bilgisi (KRİTİK):
     Pricing model'e göre: saat × hourly + paket × pkg (Quick China
     karma), eşikli paket (Fasuli), sabit aylık (SC Petshop).
     Bu Çat Kapında'nın o restorandan ALDIĞI gelir.
-  · 'courier_cost' = Kuryelere ÖDEDİĞİMİZ toplam brüt
-    (Çat Kapında'nın MALİYETİ).
+  · 'courier_cost' = Kuryelere ÖDEDİĞİMİZ KDV HARİÇ matrah
+    (Çat Kapında'nın gerçek MALİYETİ — KDV pass-through, devlete
+    gidiyor, CK için indirilebilir). 'courier_cost_incl_vat' KDV
+    DAHİL tutarı (kuryeye yatırdığımız nominal) referans için var.
   · 'billing_per_package' = billing_excl_vat ÷ paket → restoranın
-    ortalama paket başı ödediği.
+    ortalama paket başı ödediği matrah.
   · 'cost_per_package' = courier_cost ÷ paket → CK'nın paket başı
-    maliyeti.
-  · 'margin' = billing - cost; 'margin_pct' = marj yüzdesi.
+    KDV hariç maliyeti.
+  · 'margin' = billing_excl_vat - courier_cost (ikisi KDV HARİÇ,
+    apples-to-apples) → CK'nın gerçek brüt kârı.
+  · 'margin_pct' = marj yüzdesi.
+  ÖNEMLİ: 'courier_cost_incl_vat' ile 'billing_excl_vat' KARŞILAŞTIRMA
+  YAPMA — apples-to-oranges, yanıltıcı negatif marj üretir.
   Karşılaştırırken DAİMA aynı tarafta dur: gelir tarafından gelir,
   gider tarafından gider. Quick China gibi karma anlaşmalı bir
   restoran için 'fatura düşük' yorumu yapmadan ÖNCE billing_excl_vat
@@ -353,11 +359,11 @@ SCOPE_CONFIGS: dict[str, dict[str, Any]] = {
         "system_prompt": SYSTEM_PROMPT,
         "summarizer": _summarize_personel,
     },
-    # v3 — 2026-05-27 hotfix: cost_per_package.by_restaurant artık doğru
-    # 'billing_excl_vat' (pricing_model'den hesaplanmış restoran faturası)
-    # ve ayrı 'courier_cost' + 'margin' alanları taşıyor. AI prompt'u
-    # bu iki kavramı karıştırmaması için güçlendirildi.
-    "restoran_v3": {
+    # v4 — KDV uyumlu marj: courier_cost artık KDV HARİÇ matrah
+    # (önceki sürüm billing_excl_vat ile KDV dahil courier_brut'u
+    # apples-to-oranges karşılaştırıyor, AI 'negatif marj' yorumu
+    # üretiyordu).
+    "restoran_v4": {
         "tool": RESTAURANTS_INSIGHT_TOOL,
         "system_prompt": RESTAURANTS_SYSTEM_PROMPT,
         "summarizer": _summarize_restaurants,
