@@ -4,11 +4,13 @@ import { AlertTriangle, ChevronLeft } from 'lucide-react';
 
 import { Sidebar } from '@/components/sidebar';
 import {
+  getPersonnelMovements,
   getPricingHistory,
   getRestaurantMonthly,
   getSidebarCounts,
   listPuantajPeriods,
   type CourierBilling,
+  type PersonnelMovementsResponse,
   type PricingHistoryResponse,
   type RestaurantMonthly,
   type SidebarCounts,
@@ -71,11 +73,13 @@ export default async function RestaurantDetailPage({
 
   let data: RestaurantMonthly | null = null;
   let pricingHistory: PricingHistoryResponse | null = null;
+  let movements: PersonnelMovementsResponse | null = null;
   let error: string | null = null;
   try {
-    [data, pricingHistory] = await Promise.all([
+    [data, pricingHistory, movements] = await Promise.all([
       getRestaurantMonthly(restaurantId, period),
       getPricingHistory(restaurantId).catch(() => null),
+      getPersonnelMovements(restaurantId, period).catch(() => null),
     ]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'Veri alınamadı';
@@ -127,6 +131,11 @@ export default async function RestaurantDetailPage({
             modelLabel={MODEL_LABELS[r.pricing_model ?? ''] ?? r.pricing_model ?? ''}
             pricingHistory={pricingHistory}
           />
+        )}
+
+        {/* Personel Hareketi — şeffaflık paneli */}
+        {movements && (
+          <PersonnelMovementsPanel data={movements} period={period} />
         )}
 
         {/* KPI strip */}
@@ -422,5 +431,179 @@ function CourierRow({ c }: { c: CourierBilling }) {
         </div>
       </td>
     </tr>
+  );
+}
+
+
+// ──────────────────────────────────────────────────────────────────
+// Personel Hareketi paneli — şeffaflık (çıkış/giriş/destek)
+// ──────────────────────────────────────────────────────────────────
+
+function PersonnelMovementsPanel({
+  data, period,
+}: {
+  data: PersonnelMovementsResponse;
+  period: string;
+}) {
+  const periodLabel = formatPeriod(period);
+  const { exits, joins, support_workers, operation_days,
+          month_days, uninterrupted, active_courier_count } = data;
+  const hasAny = exits.length + joins.length + support_workers.length > 0;
+  const jokerN = support_workers.filter((w) => w.source === 'joker').length;
+  const komsuN = support_workers.filter((w) => w.source === 'komşu_şube').length;
+  const ymN = support_workers.filter((w) => w.source === 'yönetim').length;
+  const totalSupportDays = support_workers.reduce((s, w) => s + w.working_days, 0);
+
+  return (
+    <div className="bg-white border border-border rounded-2xl shadow-sm mb-6 overflow-hidden">
+      <div className="px-5 py-3 bg-cream-50/70 border-b border-border flex items-center justify-between">
+        <div className="text-[11px] uppercase tracking-wider font-bold text-text-2">
+          {periodLabel} · Personel Hareketi
+        </div>
+        <div
+          className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
+            uninterrupted
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : 'bg-amber-50 text-amber-700 border-amber-200'
+          }`}
+        >
+          {uninterrupted
+            ? `Kesintisiz operasyon — ${operation_days}/${month_days} gün`
+            : `${operation_days}/${month_days} gün kayıt — ${month_days - operation_days} gün boş`}
+        </div>
+      </div>
+
+      {/* Özet satır */}
+      <div className="px-5 py-3 text-[13px] text-text-2 leading-relaxed border-b border-border bg-bg-surface2/40">
+        {data.summary}
+      </div>
+
+      {/* Detay grid */}
+      {hasAny ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
+          {/* Çıkanlar */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="inline-flex w-6 h-6 rounded-full bg-rose-50 border border-rose-200 items-center justify-center text-rose-700 text-[11px] font-bold">
+                {exits.length}
+              </span>
+              <span className="text-[12px] font-bold text-text-2 uppercase tracking-wider">
+                Çıkan kurye
+              </span>
+            </div>
+            {exits.length === 0 ? (
+              <div className="text-[12px] text-text-3 italic">Yok</div>
+            ) : (
+              <ul className="space-y-1.5">
+                {exits.map((e) => (
+                  <li key={e.id} className="text-[12.5px]">
+                    <div className="font-medium text-text">{e.full_name}</div>
+                    <div className="text-[11px] text-text-3 font-mono">
+                      {e.person_code} · {e.role} · çıkış {e.exit_date}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Katılanlar */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="inline-flex w-6 h-6 rounded-full bg-emerald-50 border border-emerald-200 items-center justify-center text-emerald-700 text-[11px] font-bold">
+                {joins.length}
+              </span>
+              <span className="text-[12px] font-bold text-text-2 uppercase tracking-wider">
+                Yeni katılan
+              </span>
+            </div>
+            {joins.length === 0 ? (
+              <div className="text-[12px] text-text-3 italic">Yok</div>
+            ) : (
+              <ul className="space-y-1.5">
+                {joins.map((j) => (
+                  <li key={j.id} className="text-[12.5px]">
+                    <div className="font-medium text-text">{j.full_name}</div>
+                    <div className="text-[11px] text-text-3 font-mono">
+                      {j.person_code} · {j.role} · giriş {j.start_date}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Destek */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <span className="inline-flex w-6 h-6 rounded-full bg-orange-50 border border-orange-200 items-center justify-center text-orange-700 text-[11px] font-bold">
+                {support_workers.length}
+              </span>
+              <span className="text-[12px] font-bold text-text-2 uppercase tracking-wider">
+                Destek
+              </span>
+              {totalSupportDays > 0 && (
+                <span className="text-[10px] text-text-3 ml-auto">
+                  {totalSupportDays} mesai günü
+                </span>
+              )}
+            </div>
+            {support_workers.length === 0 ? (
+              <div className="text-[12px] text-text-3 italic">Yok</div>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-1 mb-2 text-[10px]">
+                  {jokerN > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-md bg-yellow-50 text-yellow-800 border border-yellow-200">
+                      {jokerN} Joker
+                    </span>
+                  )}
+                  {komsuN > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-md bg-blue-50 text-brand border border-blue-200">
+                      {komsuN} Komşu şube
+                    </span>
+                  )}
+                  {ymN > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-md bg-text text-white">
+                      {ymN} BM/Kaptan/RTS
+                    </span>
+                  )}
+                </div>
+                <ul className="space-y-1.5">
+                  {support_workers.slice(0, 6).map((w) => (
+                    <li key={w.id} className="text-[12.5px]">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium text-text">{w.full_name}</span>
+                        <span className="text-[10px] text-text-3">·</span>
+                        <span className="text-[11px] text-text-3">{w.role}</span>
+                      </div>
+                      <div className="text-[11px] text-text-3">
+                        {w.working_days} gün · {tr(w.total_hours, 1)} sa · {w.total_packages} paket
+                        {w.home_assignment && (
+                          <span className="text-text-3 italic"> · {w.home_assignment}</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                  {support_workers.length > 6 && (
+                    <li className="text-[11px] text-text-3 italic">
+                      ... ve {support_workers.length - 6} kişi daha
+                    </li>
+                  )}
+                </ul>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="px-5 py-4 text-[12.5px] text-text-3 italic">
+          Bu ay personel hareketi (çıkış/giriş/destek) yok.
+        </div>
+      )}
+
+      <div className="px-5 py-2 bg-bg-surface2/30 border-t border-border text-[10.5px] text-text-3">
+        Ay sonu itibarıyla atanmış aktif kurye sayısı: <strong className="text-text-2">{active_courier_count}</strong>
+      </div>
+    </div>
   );
 }

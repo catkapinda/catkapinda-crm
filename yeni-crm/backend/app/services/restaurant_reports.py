@@ -510,3 +510,216 @@ def _get_package_growth(period: str, previous_period: str, conn) -> list[dict]:
     result.sort(key=lambda x: x["growth_pct"], reverse=True)
 
     return result
+
+
+# ──────────────────────────────────────────────────────────────────
+# Personel Hareketi — restoran detay/PDF için şeffaflık paneli
+# ──────────────────────────────────────────────────────────────────
+
+
+def get_personnel_movements(restaurant_id: int, period: str) -> dict:
+    """Bir restoran × ay için personel hareket özeti.
+
+    Restoran yetkilisine 'açık kapı bırakmayan' bir görünüm:
+      • Bu ay kaç kurye atamasından ayrıldı (exit_date bu ayda)
+      • Kaç yeni kurye katıldı (start_date bu ayda, atanmış)
+      • Atanmamış kuryeler dışında kim çalıştı (joker, komşu şube,
+        bölge müdürü/kaptan/RTS destek) — kaç gün, kaç paket
+      • Ay içinde kaç gün operasyon kayıt aldı (kesintisiz mi)
+
+    Returns:
+        {
+          "restaurant_id": int,
+          "period": str,
+          "exits": [{id, full_name, person_code, role, exit_date}],
+          "joins": [{id, full_name, person_code, role, start_date}],
+          "support_workers": [{id, full_name, person_code, role, source,
+                              working_days, total_hours, total_packages}],
+          "active_courier_count": int,    # ay sonunda atanmış aktif kurye
+          "operation_days": int,           # kayıt olan gün sayısı
+          "month_days": int,
+          "uninterrupted": bool,
+          "summary": str                    # tek satırlık restoran-dostu özet
+        }
+    """
+    yyyy, mm = period.split("-")
+    yyyy_i, mm_i = int(yyyy), int(mm)
+    month_days = monthrange(yyyy_i, mm_i)[1]
+
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            # 1) Bu ay çıkanlar (exit_date bu ay içinde, restoranı bu)
+            cur.execute(
+                """
+                SELECT id, full_name, person_code, role,
+                       exit_date::text AS exit_date
+                FROM personnel
+                WHERE assigned_restaurant_id = %s
+                  AND exit_date IS NOT NULL
+                  AND LEFT(exit_date::text, 7) = %s
+                ORDER BY exit_date
+                """,
+                (restaurant_id, period),
+            )
+            exits = [dict(r) for r in cur.fetchall()]
+
+            # 2) Bu ay katılanlar (start_date bu ay içinde, restoranı bu)
+            cur.execute(
+                """
+                SELECT id, full_name, person_code, role,
+                       start_date::text AS start_date
+                FROM personnel
+                WHERE assigned_restaurant_id = %s
+                  AND start_date IS NOT NULL
+                  AND LEFT(start_date::text, 7) = %s
+                ORDER BY start_date
+                """,
+                (restaurant_id, period),
+            )
+            joins = [dict(r) for r in cur.fetchall()]
+
+            # 3) Destek olarak çalışanlar — bu restoranda çalıştı ama
+            #    assigned_restaurant_id farklı (veya NULL = Joker).
+            cur.execute(
+                """
+                SELECT
+                    p.id, p.full_name, p.person_code, p.role,
+                    p.assigned_restaurant_id,
+                    r2.brand AS home_brand,
+                    r2.branch AS home_branch,
+                    COUNT(DISTINCT d.entry_date) AS working_days,
+                    COALESCE(SUM(d.worked_hours), 0)::float AS total_hours,
+                    COALESCE(SUM(d.package_count), 0)::int AS total_packages
+                FROM daily_entries d
+                JOIN personnel p ON p.id = d.actual_personnel_id
+                LEFT JOIN restaurants r2 ON r2.id = p.assigned_restaurant_id
+                WHERE d.restaurant_id = %s
+                  AND LEFT(d.entry_date::text, 7) = %s
+                  AND COALESCE(d.worked_hours, 0) > 0
+                  AND (p.assigned_restaurant_id IS NULL
+                       OR p.assigned_restaurant_id <> %s)
+                GROUP BY p.id, p.full_name, p.person_code, p.role,
+                         p.assigned_restaurant_id, r2.brand, r2.branch
+                ORDER BY working_days DESC, total_packages DESC
+                """,
+                (restaurant_id, period, restaurant_id),
+            )
+            support_rows = cur.fetchall()
+            support_workers = []
+            for r in support_rows:
+                role = r.get("role") or ""
+                # Kaynak tipi
+                if "joker" in role.lower():
+                    source = "joker"
+                elif role in ("Bölge Müdürü", "Kaptan", "Restoran Takım Şefi"):
+                    source = "yönetim"
+                elif r.get("assigned_restaurant_id"):
+                    source = "komşu_şube"
+                else:
+                    source = "diğer"
+                home_label = ""
+                if r.get("home_brand"):
+                    home_label = r["home_brand"]
+                    if r.get("home_branch"):
+                        home_label += f" / {r['home_branch']}"
+                support_workers.append({
+                    "id": int(r["id"]),
+                    "full_name": r.get("full_name"),
+                    "person_code": r.get("person_code"),
+                    "role": role,
+                    "source": source,
+                    "home_assignment": home_label,
+                    "working_days": int(r.get("working_days") or 0),
+                    "total_hours": round(float(r.get("total_hours") or 0), 1),
+                    "total_packages": int(r.get("total_packages") or 0),
+                })
+
+            # 4) Operasyon günü sayısı (kayıt olan gün)
+            cur.execute(
+                """
+                SELECT COUNT(DISTINCT entry_date) AS d
+                FROM daily_entries
+                WHERE restaurant_id = %s
+                  AND LEFT(entry_date::text, 7) = %s
+                  AND COALESCE(worked_hours, 0) > 0
+                """,
+                (restaurant_id, period),
+            )
+            row = cur.fetchone() or {"d": 0}
+            operation_days = int(row.get("d") or 0)
+
+            # 5) Ay sonu itibarıyla atanmış aktif kurye sayısı
+            #    (status='Aktif' VEYA exit_date bu ayın sonundan sonra)
+            month_end = f"{period}-{month_days:02d}"
+            cur.execute(
+                """
+                SELECT COUNT(*) AS n
+                FROM personnel
+                WHERE assigned_restaurant_id = %s
+                  AND role IN ('Kurye', 'Joker')
+                  AND (
+                      COALESCE(status, 'Aktif') = 'Aktif'
+                      OR COALESCE(exit_date::date, '1900-01-01'::date) > %s::date
+                  )
+                """,
+                (restaurant_id, month_end),
+            )
+            ac = cur.fetchone() or {"n": 0}
+            active_courier_count = int(ac.get("n") or 0)
+
+    uninterrupted = operation_days >= month_days
+
+    # Özet cümle — restoran yetkilisi için
+    parts: list[str] = []
+    if exits:
+        parts.append(f"{len(exits)} atanmış kurye ayrıldı")
+    if joins:
+        parts.append(f"{len(joins)} yeni kurye katıldı")
+    if support_workers:
+        joker_n = sum(1 for w in support_workers if w["source"] == "joker")
+        komsu_n = sum(1 for w in support_workers if w["source"] == "komşu_şube")
+        yonetim_n = sum(1 for w in support_workers if w["source"] == "yönetim")
+        bits: list[str] = []
+        if joker_n:
+            bits.append(f"{joker_n} joker")
+        if komsu_n:
+            bits.append(f"{komsu_n} komşu şube kuryesi")
+        if yonetim_n:
+            bits.append(f"{yonetim_n} bölge müdürü/RTS")
+        total_support_days = sum(w["working_days"] for w in support_workers)
+        if bits:
+            parts.append(
+                f"toplam {len(support_workers)} destek (" + " + ".join(bits)
+                + f") {total_support_days} mesai günü çalıştı"
+            )
+
+    if uninterrupted:
+        op_status = (
+            f"ay boyunca operasyon {operation_days}/{month_days} gün açık kaldı"
+        )
+    else:
+        gap = month_days - operation_days
+        op_status = (
+            f"ay içinde {operation_days}/{month_days} gün kayıt var, "
+            f"{gap} gün kayıt yok"
+        )
+
+    if parts:
+        summary = "; ".join(parts) + f"; {op_status}."
+    else:
+        summary = (
+            f"Atanmış kurye değişikliği yok; {op_status}."
+        )
+
+    return {
+        "restaurant_id": restaurant_id,
+        "period": period,
+        "exits": exits,
+        "joins": joins,
+        "support_workers": support_workers,
+        "active_courier_count": active_courier_count,
+        "operation_days": operation_days,
+        "month_days": month_days,
+        "uninterrupted": uninterrupted,
+        "summary": summary,
+    }

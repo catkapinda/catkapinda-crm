@@ -792,6 +792,54 @@ export async function getPricingHistory(restaurantId: number): Promise<PricingHi
   );
 }
 
+// ─── Personel Hareketi (çıkış / giriş / destek) ───────────────────
+export type PersonnelMovementExit = {
+  id: number;
+  full_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  exit_date: string;
+};
+export type PersonnelMovementJoin = {
+  id: number;
+  full_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  start_date: string;
+};
+export type PersonnelMovementSupport = {
+  id: number;
+  full_name: string | null;
+  person_code: string | null;
+  role: string | null;
+  source: 'joker' | 'komşu_şube' | 'yönetim' | 'diğer';
+  home_assignment: string;
+  working_days: number;
+  total_hours: number;
+  total_packages: number;
+};
+export type PersonnelMovementsResponse = {
+  restaurant_id: number;
+  period: string;
+  exits: PersonnelMovementExit[];
+  joins: PersonnelMovementJoin[];
+  support_workers: PersonnelMovementSupport[];
+  active_courier_count: number;
+  operation_days: number;
+  month_days: number;
+  uninterrupted: boolean;
+  summary: string;
+};
+
+export async function getPersonnelMovements(
+  restaurantId: number,
+  period: string,
+): Promise<PersonnelMovementsResponse> {
+  return apiGet<PersonnelMovementsResponse>(
+    `/api/restaurants/${restaurantId}/personnel-movements?period=${period}`,
+  );
+}
+
 export type SidebarCounts = {
   personel: number;
   restoranlar: number;

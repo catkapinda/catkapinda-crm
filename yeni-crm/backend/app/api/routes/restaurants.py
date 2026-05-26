@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.hakedis import restaurant_monthly_breakdown
+from app.services.restaurant_reports import get_personnel_movements
 from app.services.restaurants import (
     create_restaurant,
     get_pricing_history,
@@ -92,6 +93,16 @@ async def pricing_history(restaurant_id: int) -> dict:
         "history": history,
         "last_change": last,
     }
+
+
+@router.get("/{restaurant_id}/personnel-movements")
+async def personnel_movements(restaurant_id: int, period: str = "2026-03") -> dict:
+    """Restoran × ay için 'açık kapı bırakmayan' personel hareketi özeti.
+
+    Çıkış / giriş / destek (joker, komşu şube, yönetim) + operasyon
+    günleri ve restoran-dostu summary cümlesi.
+    """
+    return get_personnel_movements(restaurant_id, period)
 
 
 class RestaurantCreate(BaseModel):
