@@ -323,11 +323,13 @@ export function TahsilatlarView({
                                 row.auto_basis === 'hourly'
                                   ? `Saatlik: ${(row.auto_hours ?? 0).toFixed(1)} sa × tarife (KDV %${row.auto_vat_rate ?? 20})`
                                   : row.auto_basis === 'fixed'
-                                  ? 'Sabit aylık ücret'
+                                  ? 'Sabit aylık ücret (saatten/paketten bağımsız)'
+                                  : row.auto_basis === 'hourly+threshold'
+                                  ? `Saat + Eşikli paket: ${(row.auto_hours ?? 0).toFixed(1)} sa × saatlik + (kurye eşiği aştıysa tüm paketler high, aksi halde low)`
+                                  : row.auto_basis === 'hourly+package'
+                                  ? `Saat + Paket: ${(row.auto_hours ?? 0).toFixed(1)} sa × saatlik + ${row.auto_packages ?? 0} paket × tarife`
                                   : row.auto_basis === 'threshold'
-                                  ? 'Eşikli (kurye başına)'
-                                  : row.auto_basis === 'mixed'
-                                  ? 'Karma (saat + paket)'
+                                  ? 'Eşikli paket — kurye aylık paket toplamı eşiği aştıysa tüm paketler high tarife, aksi halde low'
                                   : row.auto_basis === 'package'
                                   ? `Paketli: ${row.auto_packages ?? 0} paket × tarife`
                                   : 'Puantajdan otomatik hesaplandı. Manuel girersen bu değer override edilir.'

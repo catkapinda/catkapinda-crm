@@ -1481,7 +1481,15 @@ export type CollectionItem = {
   auto_invoice_amount?: number;     // puantaj bazlı tahmini tutar (KDV dahil)
   auto_invoice_excl_vat?: number;   // puantaj bazlı tahmini (KDV hariç)
   auto_vat_rate?: number;
-  auto_basis?: 'fixed' | 'hourly' | 'package' | 'mixed' | 'threshold' | 'auto';
+  auto_basis?:
+    | 'fixed'              // sadece sabit aylık ücret (SC Petshop)
+    | 'hourly'             // saatlik (Doğu Otomotiv)
+    | 'package'            // sadece paket × tarife
+    | 'hourly+package'     // saat + sabit paket (Quick China: 279 saat + 32 paket)
+    | 'hourly+threshold'   // saat + eşikli paket (Fasuli: 273 saat + 390↑/47, ↓/34)
+    | 'threshold'          // sadece eşikli paket
+    | 'mixed'              // (legacy)
+    | 'auto';
   auto_hours?: number;
   auto_packages?: number;
 };
