@@ -231,10 +231,13 @@ def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
     # (SC Petshop gibi — saatten/paketten bağımsız)
     missing_rids = [rid for rid in rest_by_id if rid not in out]
     if missing_rids:
+        # Period'un başlangıç günü — history.effective_from <= bu tarih
+        # olan en son satır geçerli sayılır. Ayın 01'i yeterli; ay içinde
+        # bir değişim varsa zaten yukarıdaki segment hesabına dahildi.
+        # (Eski 'period-31' versiyonu Nisan için geçersiz tarihti — 500.)
+        period_start = f"{period}-01"
         with get_connection() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
-                # Period'un son günü için geçerli history
-                period_end = f"{period}-31"  # max bound
                 cur.execute(
                     """
                     SELECT DISTINCT ON (h.restaurant_id)
@@ -251,7 +254,7 @@ def _compute_auto_invoice_map(period: str) -> dict[int, dict]:
                       AND h.effective_from <= %s::date
                     ORDER BY h.restaurant_id, h.effective_from DESC
                     """,
-                    (missing_rids, period_end),
+                    (missing_rids, period_start),
                 )
                 for r in cur.fetchall():
                     rid = int(r["restaurant_id"])
