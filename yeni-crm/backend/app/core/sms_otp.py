@@ -72,6 +72,17 @@ def request_otp(phone: str) -> dict:
         # Yine sessizce true (user enumeration koruması)
         return {"sent": True, "cooldown_seconds": OTP_RESEND_COOLDOWN_SECONDS}
 
+    # GÜVENLİK: yalnız BM rolüne SMS gönder. Admin kullanıcılar e-posta+parola
+    # akışını kullanmalı; SMS OTP kötüye kullanılmasın.
+    if user.get("role") != "bm":
+        log.info(
+            "otp request: kullanıcı BM değil, SMS gönderilmedi "
+            "(id=%s, role=%s)",
+            user.get("id"), user.get("role"),
+        )
+        # Privacy: sent=True göster ama gerçekte gönderme
+        return {"sent": True, "cooldown_seconds": OTP_RESEND_COOLDOWN_SECONDS}
+
     # Rate limit — son 60 saniye içinde başka bir kod gitti mi?
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -187,6 +198,14 @@ def verify_otp(phone: str, code: str) -> dict | None:
     # Kullanıcıyı dön
     user = get_user_by_phone(normalized)
     if not user or user.get("status") != "active":
+        return None
+    # GÜVENLİK: sadece BM rolü SMS OTP ile giriş yapabilir
+    if user.get("role") != "bm":
+        log.warning(
+            "otp verify: BM olmayan kullanıcı SMS ile giriş denedi "
+            "(id=%s, role=%s)",
+            user.get("id"), user.get("role"),
+        )
         return None
     return {
         "id": user["id"],

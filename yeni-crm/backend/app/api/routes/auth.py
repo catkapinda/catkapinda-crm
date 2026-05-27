@@ -66,12 +66,28 @@ class OtpVerifyRequest(BaseModel):
 
 @router.post("/login", response_model=LoginResponse)
 async def login(payload: LoginRequest) -> dict:
-    """E-posta veya telefon + parola → JWT token + user info."""
+    """E-posta + parola → JWT token + user info (sadece admin için).
+
+    BM kullanıcıları SMS OTP akışını kullanmalı (sms-otp/verify endpoint).
+    Bu endpoint admin role dışındaki kullanıcılara çalışmaz.
+    """
     user = get_user_by_identifier(payload.identifier)
     if not user or user.get("status") != "active":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Bilgileriniz hatalı",
+        )
+    # GÜVENLİK: yalnız admin role parola ile giriş yapabilir.
+    # BM kullanıcıları phone + SMS OTP kullanmalı.
+    if user.get("role") != "admin":
+        log.warning(
+            "login: admin olmayan kullanıcı parola ile giriş denedi "
+            "(id=%s, role=%s)",
+            user.get("id"), user.get("role"),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bu hesap için SMS ile giriş kullanın",
         )
     if not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(
@@ -126,6 +142,16 @@ async def forgot_password(payload: ForgotPasswordRequest) -> None:
             return None
         if not user.get("email"):
             log.info("forgot_password: kullanıcı email'i yok (id=%s)", user.get("id"))
+            return None
+        # GÜVENLİK: yalnız admin rolündeki kullanıcılara e-posta gönder.
+        # BM/diğer roller phone+SMS OTP ile giriş yapıyor — şifre sıfırlama
+        # akışı onlar için geçerli değil (kötüye kullanım koruması).
+        if user.get("role") != "admin":
+            log.info(
+                "forgot_password: kullanıcı admin değil, e-posta gönderilmedi "
+                "(id=%s, role=%s)",
+                user.get("id"), user.get("role"),
+            )
             return None
 
         token = set_reset_token(user["id"])
