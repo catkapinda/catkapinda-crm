@@ -116,45 +116,64 @@ async def me(user: dict = Depends(get_current_user)) -> dict:
 async def forgot_password(payload: ForgotPasswordRequest) -> None:
     """Şifremi unuttum — kayıtlı e-postaya reset linki yollar.
 
-    Güvenlik: e-posta sistemde olmasa bile 204 döner (kullanıcı sayma
-    saldırısını engellemek için).
+    Güvenlik: Tüm hatalar yutulur, daima 204 döner (privacy + güvenlik).
+    Asıl hata Render log'una yazılır (log.exception).
     """
-    user = get_user_by_email(payload.email)
-    if not user or user.get("status") != "active":
-        return None
-
-    token = set_reset_token(user["id"])
-    settings = get_settings()
-    base_url = getattr(settings, "frontend_url", "") or "https://catkapinda-crm.staging"
-    reset_url = f"{base_url}/sifre-sifirla?token={token}"
-
-    subject = "Çat Kapında CRM — Parola sıfırlama"
-    text_body = (
-        f"Merhaba {user.get('full_name') or ''},\n\n"
-        "Parolanızı sıfırlamak için aşağıdaki linke tıklayın "
-        "(24 saat geçerli):\n\n"
-        f"{reset_url}\n\n"
-        "Bu isteği siz yapmadıysanız bu e-postayı yok sayın.\n\n"
-        "Çat Kapında CRM"
-    )
-    html_body = f"""
-    <p>Merhaba {user.get('full_name') or ''},</p>
-    <p>Parolanızı sıfırlamak için aşağıdaki butona tıklayın (24 saat geçerli):</p>
-    <p><a href="{reset_url}" style="display:inline-block;padding:12px 24px;background:#0F52BA;color:white;text-decoration:none;border-radius:8px;font-weight:600">Parolayı Sıfırla</a></p>
-    <p style="color:#666;font-size:12px">Veya bu linki tarayıcıya yapıştırın: <br>{reset_url}</p>
-    <p style="color:#999;font-size:11px">Bu isteği siz yapmadıysanız bu e-postayı yok sayın.</p>
-    """
-
     try:
-        send_email(
-            to=user["email"],
-            subject=subject,
-            text_body=text_body,
-            html_body=html_body,
-            attachments=[],
+        user = get_user_by_email(payload.email)
+        if not user or user.get("status") != "active":
+            log.info("forgot_password: kullanıcı yok veya pasif (%s)", payload.email)
+            return None
+        if not user.get("email"):
+            log.info("forgot_password: kullanıcı email'i yok (id=%s)", user.get("id"))
+            return None
+
+        token = set_reset_token(user["id"])
+        settings = get_settings()
+        base_url = (
+            getattr(settings, "frontend_url", None)
+            or "https://crmcatkapinda-v3.onrender.com"
         )
+        reset_url = f"{base_url}/sifre-sifirla?token={token}"
+
+        subject = "Çat Kapında CRM — Parola sıfırlama"
+        full_name = user.get("full_name") or ""
+        text_body = (
+            f"Merhaba {full_name},\n\n"
+            "Parolanızı sıfırlamak için aşağıdaki linke tıklayın "
+            "(24 saat geçerli):\n\n"
+            f"{reset_url}\n\n"
+            "Bu isteği siz yapmadıysanız bu e-postayı yok sayın.\n\n"
+            "Çat Kapında CRM"
+        )
+        html_body = (
+            f"<p>Merhaba {full_name},</p>"
+            "<p>Parolanızı sıfırlamak için aşağıdaki butona tıklayın "
+            "(24 saat geçerli):</p>"
+            f'<p><a href="{reset_url}" style="display:inline-block;padding:12px '
+            '24px;background:#0F52BA;color:white;text-decoration:none;'
+            'border-radius:8px;font-weight:600">Parolayı Sıfırla</a></p>'
+            '<p style="color:#666;font-size:12px">Veya bu linki tarayıcıya '
+            f"yapıştırın: <br>{reset_url}</p>"
+            '<p style="color:#999;font-size:11px">Bu isteği siz yapmadıysanız '
+            "bu e-postayı yok sayın.</p>"
+        )
+
+        try:
+            send_email(
+                to=user["email"],
+                subject=subject,
+                text_body=text_body,
+                html_body=html_body,
+                attachments=[],
+            )
+            log.info("forgot_password e-posta gönderildi: %s", user["email"])
+        except Exception as e:  # noqa: BLE001
+            log.exception("forgot_password e-posta gönderilemedi: %s", e)
     except Exception as e:  # noqa: BLE001
-        log.warning("forgot_password e-posta gönderilemedi: %s", e)
+        # Genel handler — DB, token vs. herhangi bir hata 204'ü değil 500'ü engeller
+        log.exception("forgot_password genel hata: %s", e)
+    return None
 
 
 @router.post("/reset-password", status_code=204)
