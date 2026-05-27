@@ -108,21 +108,20 @@ export function LoginView({ nextUrl }: { nextUrl: string }) {
 
         {/* TOP — Logo + saat */}
         <div className="relative z-10 flex items-center justify-between animate-rise">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
             <div className="relative">
-              {/* Glow halo arkaplan */}
-              <div className="absolute inset-0 rounded-2xl bg-white/40 blur-xl scale-110" />
-              <div className="absolute inset-0 rounded-2xl bg-yellow-200/30 blur-2xl scale-125" />
-              {/* Beyaz solid kart */}
-              <div className="relative w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-[0_8px_30px_rgba(255,255,255,0.35)] ring-2 ring-white/40">
-                <Image
-                  src="/catkapinda-logo.png"
-                  alt="Çat Kapında"
-                  width={44}
-                  height={44}
-                  className="object-contain"
-                />
-              </div>
+              {/* Yumuşak sarı/amber halo katmanları */}
+              <div className="absolute -inset-3 rounded-full bg-yellow-300/25 blur-2xl" />
+              <div className="absolute -inset-1 rounded-full bg-amber-200/20 blur-lg" />
+              {/* Logo — kart YOK, drop-shadow ile pop */}
+              <Image
+                src="/catkapinda-logo.png"
+                alt="Çat Kapında"
+                width={68}
+                height={68}
+                className="relative object-contain drop-shadow-[0_6px_18px_rgba(252,211,77,0.45)]"
+                priority
+              />
             </div>
             <div>
               <div className="text-[26px] font-bold tracking-tight leading-none">
