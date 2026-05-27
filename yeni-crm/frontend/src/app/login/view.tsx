@@ -108,22 +108,28 @@ export function LoginView({ nextUrl }: { nextUrl: string }) {
 
         {/* TOP — Logo + saat */}
         <div className="relative z-10 flex items-center justify-between animate-rise">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur border border-white/25 flex items-center justify-center shadow-lg">
-              <Image
-                src="/catkapinda-logo.png"
-                alt="Çat Kapında"
-                width={32}
-                height={32}
-                className="object-contain"
-              />
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              {/* Glow halo arkaplan */}
+              <div className="absolute inset-0 rounded-2xl bg-white/40 blur-xl scale-110" />
+              <div className="absolute inset-0 rounded-2xl bg-yellow-200/30 blur-2xl scale-125" />
+              {/* Beyaz solid kart */}
+              <div className="relative w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-[0_8px_30px_rgba(255,255,255,0.35)] ring-2 ring-white/40">
+                <Image
+                  src="/catkapinda-logo.png"
+                  alt="Çat Kapında"
+                  width={44}
+                  height={44}
+                  className="object-contain"
+                />
+              </div>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-[0.2em] text-white/70">
-                CRM v3
-              </div>
-              <div className="text-xl font-bold tracking-tight">
+              <div className="text-[26px] font-bold tracking-tight leading-none">
                 Çat Kapında
+              </div>
+              <div className="text-[11px] uppercase tracking-[0.2em] text-white/65 mt-1.5">
+                Yönetim Paneli
               </div>
             </div>
           </div>
