@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle, ArrowRight, CheckCircle2, Eye, EyeOff,
-  Loader2, Lock, Mail, ShieldCheck,
+  Loader2, Lock, Mail, Phone, ShieldCheck,
 } from 'lucide-react';
 
 import { forgotPassword, login } from '@/lib/api';
@@ -41,7 +41,9 @@ function useLiveTime(): { time: string; date: string } {
 }
 
 export function LoginView({ nextUrl }: { nextUrl: string }) {
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -53,11 +55,15 @@ export function LoginView({ nextUrl }: { nextUrl: string }) {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (!email || !password) { setError('E-posta ve parola gerekli.'); return; }
+    const identifier = loginMethod === 'email' ? email.trim() : phone.trim();
+    if (!identifier || !password) {
+      setError(loginMethod === 'email' ? 'E-posta ve parola gerekli.' : 'Telefon ve parola gerekli.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      await login(email.trim(), password);
+      await login(identifier, password);
       window.location.href = nextUrl && nextUrl !== '/login' ? nextUrl : '/';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Giriş başarısız');
@@ -212,17 +218,58 @@ export function LoginView({ nextUrl }: { nextUrl: string }) {
                   </p>
                 </div>
 
+                {/* Login method toggle */}
+                <div className="mb-4 inline-flex p-1 bg-bg-surface2 rounded-xl gap-1">
+                  <button
+                    type="button"
+                    onClick={() => { setLoginMethod('email'); setError(null); }}
+                    className={`px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition inline-flex items-center gap-1.5 ${
+                      loginMethod === 'email'
+                        ? 'bg-white text-brand shadow-sm'
+                        : 'text-text-3 hover:text-text-2'
+                    }`}
+                  >
+                    <Mail className="w-3.5 h-3.5" strokeWidth={2.4} />
+                    E-posta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setLoginMethod('phone'); setError(null); }}
+                    className={`px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition inline-flex items-center gap-1.5 ${
+                      loginMethod === 'phone'
+                        ? 'bg-white text-brand shadow-sm'
+                        : 'text-text-3 hover:text-text-2'
+                    }`}
+                  >
+                    <Phone className="w-3.5 h-3.5" strokeWidth={2.4} />
+                    Telefon
+                  </button>
+                </div>
+
                 <form onSubmit={handleLogin} className="space-y-4">
-                  <Field
-                    icon={<Mail className="w-4 h-4" />}
-                    type="email"
-                    label="E-posta"
-                    placeholder="ornek@catkapinda.com"
-                    value={email}
-                    onChange={setEmail}
-                    autoFocus
-                    required
-                  />
+                  {loginMethod === 'email' ? (
+                    <Field
+                      icon={<Mail className="w-4 h-4" />}
+                      type="email"
+                      label="E-posta"
+                      placeholder="ornek@catkapinda.com"
+                      value={email}
+                      onChange={setEmail}
+                      autoFocus
+                      required
+                    />
+                  ) : (
+                    <Field
+                      icon={<Phone className="w-4 h-4" />}
+                      type="tel"
+                      label="Telefon"
+                      placeholder="5XX XXX XX XX"
+                      value={phone}
+                      onChange={setPhone}
+                      autoFocus
+                      required
+                    />
+                  )}
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">

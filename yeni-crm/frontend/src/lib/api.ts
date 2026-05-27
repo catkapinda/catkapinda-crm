@@ -881,9 +881,10 @@ export async function getDataHealth(period: string): Promise<DataHealthResponse>
 // ─── Authentication ──────────────────────────────────────────────
 export type AuthUser = {
   id: number;
-  email: string;
+  email: string | null;
+  phone?: string | null;
   full_name: string | null;
-  role: string;
+  role: string;  // 'admin' | 'bm' | ...
   last_login_at?: string | null;
 };
 
@@ -902,6 +903,8 @@ export function setAuthToken(token: string, user: AuthUser): void {
   const expires = new Date();
   expires.setDate(expires.getDate() + 7);
   document.cookie = `${AUTH_COOKIE}=${token}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+  // Role'ü middleware'in görmesi için ayrı cookie
+  document.cookie = `ck_role=${user.role}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
   try {
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
   } catch { /* private mode */ }
@@ -910,6 +913,7 @@ export function setAuthToken(token: string, user: AuthUser): void {
 export function clearAuthToken(): void {
   if (typeof document === 'undefined') return;
   document.cookie = `${AUTH_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+  document.cookie = `ck_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
   try {
     localStorage.removeItem(AUTH_USER_KEY);
   } catch { /* ignore */ }
@@ -929,11 +933,11 @@ export function readAuthUserCached(): AuthUser | null {
   } catch { return null; }
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
+export async function login(identifier: string, password: string): Promise<LoginResponse> {
   const res = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ identifier, password }),
   });
   if (!res.ok) {
     let msg = 'Giriş başarısız';

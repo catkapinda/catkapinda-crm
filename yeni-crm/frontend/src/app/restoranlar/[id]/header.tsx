@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Building2, Clock, History, Pencil, Target, User } from 'lucide-react';
 
 import { RestaurantEditModal } from '@/components/restaurant-edit-modal';
-import type { PricingHistoryResponse, Restaurant } from '@/lib/api';
+import { readAuthUserCached, type PricingHistoryResponse, type Restaurant } from '@/lib/api';
 
 const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -49,6 +49,12 @@ export function RestaurantDetailHeader({
 }) {
   const [editing, setEditing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [isBM, setIsBM] = useState(false);
+
+  useEffect(() => {
+    const u = readAuthUserCached();
+    setIsBM(u?.role === 'bm');
+  }, []);
 
   const lastChange = pricingHistory?.last_change ?? null;
   const lastChangeLabel = formatLastChange(lastChange?.effective_from ?? null);
@@ -163,13 +169,15 @@ export function RestaurantDetailHeader({
                 </Link>
               ))}
             </div>
-            <button
-              onClick={() => setEditing(true)}
-              className="px-3.5 py-2 rounded-xl bg-white/15 backdrop-blur-sm border border-white/25 text-white text-sm font-semibold hover:bg-white/25 transition inline-flex items-center gap-1.5"
-            >
-              <Pencil className="w-3.5 h-3.5" strokeWidth={2.4} />
-              <span>Düzenle</span>
-            </button>
+            {!isBM && (
+              <button
+                onClick={() => setEditing(true)}
+                className="px-3.5 py-2 rounded-xl bg-white/15 backdrop-blur-sm border border-white/25 text-white text-sm font-semibold hover:bg-white/25 transition inline-flex items-center gap-1.5"
+              >
+                <Pencil className="w-3.5 h-3.5" strokeWidth={2.4} />
+                <span>Düzenle</span>
+              </button>
+            )}
           </div>
         </div>
       </section>

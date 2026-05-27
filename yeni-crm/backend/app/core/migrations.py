@@ -738,6 +738,73 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON CONFLICT (email) DO NOTHING
         """,
     ),
+    # ─── 2026-05-27: BM rolü — telefon ile giriş ───
+    # users tablosuna phone kolonu (UNIQUE, nullable — admin'ler için
+    # zorunlu değil, sadece BM giriş yöntemi için)
+    (
+        "users.add_phone_20260527",
+        """
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS phone VARCHAR(20) UNIQUE
+        """,
+    ),
+    (
+        "users.idx_phone_20260527",
+        """
+        CREATE INDEX IF NOT EXISTS idx_users_phone
+        ON users (phone) WHERE phone IS NOT NULL
+        """,
+    ),
+    # email alanını nullable yap — BM kullanıcıları phone ile gireceği
+    # için email zorunlu değil
+    (
+        "users.email_nullable_20260527",
+        """
+        ALTER TABLE users
+            ALTER COLUMN email DROP NOT NULL
+        """,
+    ),
+    # Cihan & Tunç'u personnel tablosundan phone alarak bm role'ünde
+    # seed et. Parola admin123 (ilk girişten sonra değiştirsinler).
+    # Personnel'de yoksa hiçbir satır eklenmez (sessizce).
+    (
+        "users.seed_cihan_20260527",
+        """
+        INSERT INTO users (email, phone, full_name, password_hash, role, status)
+        SELECT
+            NULL,
+            REGEXP_REPLACE(p.phone, '[^0-9]', '', 'g'),
+            p.full_name,
+            '$2b$12$DuHs09ZdXZRVjn0ybXf/iu1qcceDomApAZdCsZFiOYEbOWgILyxay',
+            'bm',
+            'active'
+        FROM personnel p
+        WHERE LOWER(p.full_name) LIKE '%cihan%'
+          AND p.phone IS NOT NULL
+          AND LENGTH(REGEXP_REPLACE(p.phone, '[^0-9]', '', 'g')) >= 10
+        LIMIT 1
+        ON CONFLICT DO NOTHING
+        """,
+    ),
+    (
+        "users.seed_tunc_20260527",
+        """
+        INSERT INTO users (email, phone, full_name, password_hash, role, status)
+        SELECT
+            NULL,
+            REGEXP_REPLACE(p.phone, '[^0-9]', '', 'g'),
+            p.full_name,
+            '$2b$12$DuHs09ZdXZRVjn0ybXf/iu1qcceDomApAZdCsZFiOYEbOWgILyxay',
+            'bm',
+            'active'
+        FROM personnel p
+        WHERE (LOWER(p.full_name) LIKE '%tunç%' OR LOWER(p.full_name) LIKE '%tunc%')
+          AND p.phone IS NOT NULL
+          AND LENGTH(REGEXP_REPLACE(p.phone, '[^0-9]', '', 'g')) >= 10
+        LIMIT 1
+        ON CONFLICT DO NOTHING
+        """,
+    ),
     # 2026-05-27: aktif olmayan veya sonradan eklenen restoranların
     # history satırını da tamamla (Celal Usta gibi). Bu migration
     # idempotent — zaten satırı olanları atlar.

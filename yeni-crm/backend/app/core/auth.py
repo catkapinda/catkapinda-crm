@@ -92,12 +92,31 @@ def reset_token_expiry() -> datetime:
 # ─── User CRUD ──────────────────────────────────────────────────────
 
 
+def _normalize_phone(phone: str) -> str:
+    """Telefon numarasını sadece rakamlara indir + Türk normalize.
+
+    Kabul edilen girdiler:
+      5xxxxxxxxx       → 5xxxxxxxxx (10 hane, ideal)
+      05xxxxxxxxx      → 5xxxxxxxxx (baştaki 0 atılır)
+      +90 5xx xxx ...  → 5xxxxxxxxx (boşluk/+90 atılır)
+      905xxxxxxxxx     → 5xxxxxxxxx (905 prefix atılır)
+    Çıktı: 10 haneli '5xxxxxxxxx' veya boş.
+    """
+    import re
+    digits = re.sub(r"[^0-9]", "", phone or "")
+    if digits.startswith("90") and len(digits) == 12:
+        digits = digits[2:]
+    if digits.startswith("0") and len(digits) == 11:
+        digits = digits[1:]
+    return digits
+
+
 def get_user_by_email(email: str) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 """
-                SELECT id, email, full_name, password_hash, role, status,
+                SELECT id, email, phone, full_name, password_hash, role, status,
                        reset_token, reset_token_expires_at
                 FROM users
                 WHERE LOWER(email) = LOWER(%s)
@@ -107,6 +126,34 @@ def get_user_by_email(email: str) -> dict | None:
             )
             row = cur.fetchone()
             return dict(row) if row else None
+
+
+def get_user_by_phone(phone: str) -> dict | None:
+    normalized = _normalize_phone(phone)
+    if not normalized:
+        return None
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT id, email, phone, full_name, password_hash, role, status,
+                       reset_token, reset_token_expires_at
+                FROM users
+                WHERE phone = %s
+                LIMIT 1
+                """,
+                (normalized,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
+def get_user_by_identifier(identifier: str) -> dict | None:
+    """E-posta veya telefon — '@' varsa email, yoksa phone."""
+    ident = (identifier or "").strip()
+    if "@" in ident:
+        return get_user_by_email(ident)
+    return get_user_by_phone(ident)
 
 
 def get_user_by_id(user_id: int) -> dict | None:

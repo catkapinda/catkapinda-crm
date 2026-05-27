@@ -9,6 +9,7 @@ from app.core.auth import (
     create_access_token,
     get_current_user,
     get_user_by_email,
+    get_user_by_identifier,
     set_reset_token,
     update_last_login,
     use_reset_token,
@@ -25,7 +26,8 @@ log = logging.getLogger(__name__)
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    # Hem e-posta hem telefon kabul eder. '@' varsa email, yoksa phone.
+    identifier: str = Field(min_length=4)
     password: str = Field(min_length=4)
 
 
@@ -54,28 +56,31 @@ class ChangePasswordRequest(BaseModel):
 
 @router.post("/login", response_model=LoginResponse)
 async def login(payload: LoginRequest) -> dict:
-    """Email + parola → JWT token + user info."""
-    user = get_user_by_email(payload.email)
+    """E-posta veya telefon + parola → JWT token + user info."""
+    user = get_user_by_identifier(payload.identifier)
     if not user or user.get("status") != "active":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="E-posta veya parola hatalı",
+            detail="Bilgileriniz hatalı",
         )
     if not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="E-posta veya parola hatalı",
+            detail="Bilgileriniz hatalı",
         )
 
     update_last_login(user["id"])
-    token = create_access_token(user["id"], user["email"])
+    # Token subject e-posta yoksa phone
+    subject_email = user.get("email") or f"phone:{user.get('phone')}"
+    token = create_access_token(user["id"], subject_email)
 
     return {
         "access_token": token,
         "token_type": "bearer",
         "user": {
             "id": user["id"],
-            "email": user["email"],
+            "email": user.get("email"),
+            "phone": user.get("phone"),
             "full_name": user["full_name"],
             "role": user["role"],
         },
@@ -87,7 +92,8 @@ async def me(user: dict = Depends(get_current_user)) -> dict:
     """Mevcut oturum sahibinin bilgileri."""
     return {
         "id": user["id"],
-        "email": user["email"],
+        "email": user.get("email"),
+        "phone": user.get("phone"),
         "full_name": user["full_name"],
         "role": user["role"],
         "last_login_at": (

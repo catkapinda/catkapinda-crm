@@ -10,7 +10,11 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarCounts } from '@/lib/api';
+import { readAuthUserCached } from '@/lib/api';
 import { ProfileDropdownClient } from '@/components/profile-dropdown';
+
+// BM rolünün görebileceği menü öğeleri (whitelist)
+const BM_ALLOWED_KEYS: NavKey[] = ['puantaj', 'restoranlar', 'restoran-raporlari'];
 
 type NavKey =
   | 'dashboard' | 'personel' | 'puantaj' | 'puantaj-onay' | 'hakedis-onay'
@@ -66,6 +70,25 @@ const NAV: NavItem[] = [
 const SECTIONS: SectionName[] = ['Genel', 'Operasyon', 'Onaylar', 'Satış', 'Finans'];
 
 export function Sidebar({ active, counts }: { active: NavKey; counts?: SidebarCounts | null }) {
+  // Role-aware NAV filtering: BM yalnızca whitelist'i görür
+  if (typeof window !== 'undefined') {
+    const cachedUser = readAuthUserCached();
+    if (cachedUser?.role === 'bm') {
+      const allowed = new Set<NavKey>(BM_ALLOWED_KEYS);
+      // NAV listesini in-place daraltmak yerine derived bir liste sun
+      // (compile-time NAV sabit; runtime'da görsel filter)
+      const filteredNav = NAV.filter((n) => allowed.has(n.key));
+      return renderSidebar(active, counts, filteredNav);
+    }
+  }
+  return renderSidebar(active, counts, NAV);
+}
+
+function renderSidebar(
+  active: NavKey,
+  counts: SidebarCounts | null | undefined,
+  navItems: NavItem[],
+) {
   return (
     <aside
       className={clsx(
@@ -112,7 +135,7 @@ export function Sidebar({ active, counts }: { active: NavKey; counts?: SidebarCo
       <nav className="relative flex-1 space-y-2">
         {SECTIONS.map((sec) => {
           const SecIcon = SECTION_ICONS[sec];
-          const items = NAV.filter((n) => n.section === sec);
+          const items = navItems.filter((n) => n.section === sec);
           if (items.length === 0) return null;
 
           // Section'daki toplam bekleyen iş — başlığa rozet için

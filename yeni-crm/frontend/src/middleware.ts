@@ -52,6 +52,7 @@ export function middleware(req: NextRequest) {
   }
 
   const token = req.cookies.get('ck_auth')?.value;
+  const userRole = req.cookies.get('ck_role')?.value;  // 'admin' | 'bm' | ...
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
   if (!token && !isPublic) {
@@ -66,6 +67,27 @@ export function middleware(req: NextRequest) {
     homeUrl.pathname = '/';
     homeUrl.search = '';
     return NextResponse.redirect(homeUrl);
+  }
+
+  // BM rolü için path whitelist — yalnız puantaj + restoranlar + raporlar
+  if (token && userRole === 'bm') {
+    const bmAllowed =
+      pathname === '/' ||  // → /puantaj'a yönlendireceğiz
+      pathname.startsWith('/puantaj') ||
+      pathname.startsWith('/restoranlar') ||
+      pathname.startsWith('/raporlar');
+    if (!bmAllowed) {
+      const allow = url.clone();
+      allow.pathname = '/puantaj';
+      allow.search = '';
+      return NextResponse.redirect(allow);
+    }
+    // BM ana sayfayı puantaj olarak görsün
+    if (pathname === '/') {
+      const allow = url.clone();
+      allow.pathname = '/puantaj';
+      return NextResponse.redirect(allow);
+    }
   }
 
   return NextResponse.next();
