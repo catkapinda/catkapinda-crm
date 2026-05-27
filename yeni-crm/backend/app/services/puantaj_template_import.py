@@ -42,7 +42,8 @@ STATUS_CODE_MAP = {
     "R": "raporlu",
     "Z": "izin",
     "X": "ihbarsiz",
-    "D": "destek",  # özel — normal+is_support gibi davranılır
+    "D": "destek",   # başka restoran kuryesi geldi — ücretli destek
+    "Y": "yonetim",  # Joker/BM/Kaptan/RTŞ geldi — ücretsiz yönetim kapaması
 }
 
 
@@ -176,6 +177,11 @@ def import_puantaj_template(
                     if mapped == "destek":
                         cell_type = "normal"
                         coverage_type = "Destek"
+                    elif mapped == "yonetim":
+                        # Yönetim kapaması — saat/paket girilirse de ekstra ücret
+                        # hesaplanmayacak (payroll yönetim destek brut sıfırlar).
+                        cell_type = "normal"
+                        coverage_type = "Yönetim"
                     else:
                         cell_type = mapped
                         coverage_type = None

@@ -422,19 +422,35 @@ def list_personnel_payroll(period: str) -> list[dict]:
                 )
 
         # Destek hesabı (her destek restoranı ayrı)
+        # NOT: coverage_type='Yönetim' olan kayıtlar (Joker/BM/Kaptan/RTŞ
+        # operasyon kapama günleri) ekstra brut HESAPLANMAZ — bu kişiler
+        # sabit aylık/tarife dışı olarak operasyona katılır, ekstra ücret yok.
+        # Bu kayıtlar sadece operasyonel iz olarak destek_lines'a eklenir
+        # (amount=0). Marj/restoran maliyeti hesabı bu satırları görür ama
+        # bordro toplam_brut'a etki etmez.
         destek_by_rest: dict[int, dict] = {}
         for e in my_entries:
             rid = e["rid"]
             cov = (e.get("coverage_type") or "").strip()
-            is_support = cov == "Destek" or (
-                assigned_rid is not None and rid != assigned_rid
+            is_yonetim_cover = cov == "Yönetim"
+            is_support = (
+                cov == "Destek"
+                or is_yonetim_cover
+                or (assigned_rid is not None and rid != assigned_rid)
             )
             if not is_support or not rid:
                 continue
-            d = destek_by_rest.setdefault(rid, {"hours": 0, "pkts": 0, "days": 0})
+            d = destek_by_rest.setdefault(
+                rid,
+                {"hours": 0, "pkts": 0, "days": 0, "yonetim": False},
+            )
             d["hours"] += float(e.get("worked_hours") or 0)
             d["pkts"] += int(e.get("package_count") or 0)
             d["days"] += 1
+            # Bir gün bile Yönetim kaydı varsa o restoran-destek bloğu
+            # yönetim olarak işaretlenir (fiyatlandırma yapılmaz).
+            if is_yonetim_cover:
+                d["yonetim"] = True
 
         for rid, dvals in destek_by_rest.items():
             rest_data = pricing_map.get(rid, {})
@@ -442,20 +458,26 @@ def list_personnel_payroll(period: str) -> list[dict]:
             courier_pm_support = (
                 (rest_data.get("courier_pricing_model") or pm or "").strip()
             )
-            # Bu restorandaki destek paket eşiği — kurye eşiği (default 390)
-            crossed = False
-            if courier_pm_support == "threshold_package" or pm == "threshold_package":
-                threshold = int(
-                    rest_data.get("courier_package_threshold")
-                    or rest_data.get("package_threshold")
-                    or 390
+
+            # Yönetim destek satırı → ekstra ücret yok
+            if dvals.get("yonetim"):
+                amt = 0.0
+            else:
+                # Bu restorandaki destek paket eşiği — kurye eşiği (default 390)
+                crossed = False
+                if courier_pm_support == "threshold_package" or pm == "threshold_package":
+                    threshold = int(
+                        rest_data.get("courier_package_threshold")
+                        or rest_data.get("package_threshold")
+                        or 390
+                    )
+                    crossed = dvals["pkts"] > threshold
+                # Destek hesabı — restoran modelinden bağımsız, kurye threshold
+                # default'u uygulanır (250/390/20/25 + courier_* override).
+                amt = _calc_brut_for_restaurant(
+                    pm, rest_data, dvals["hours"], dvals["pkts"], crossed,
                 )
-                crossed = dvals["pkts"] > threshold
-            # Destek hesabı — restoran modelinden bağımsız, kurye threshold
-            # default'u uygulanır (250/390/20/25 + courier_* override).
-            amt = _calc_brut_for_restaurant(
-                pm, rest_data, dvals["hours"], dvals["pkts"], crossed,
-            )
+
             destek_brut_total += amt
             destek_days_total += dvals["days"]
             rinfo = rest_info_map.get(rid, {})
@@ -468,6 +490,7 @@ def list_personnel_payroll(period: str) -> list[dict]:
                 "hours": dvals["hours"],
                 "packages": dvals["pkts"],
                 "amount": round(amt, 2),
+                "coverage_kind": "Yönetim" if dvals.get("yonetim") else "Destek",
             })
 
         # Kaptan bonusu

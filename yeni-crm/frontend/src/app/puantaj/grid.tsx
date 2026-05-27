@@ -1153,7 +1153,7 @@ function CellPopover({
               >
                 <option value="">— Yerine kimse girmedi —</option>
                 {candidates?.same_restaurant && candidates.same_restaurant.length > 0 && (
-                  <optgroup label="Aynı restoran kuryeleri">
+                  <optgroup label="Destek · Aynı restoran kuryesi (ücretli)">
                     {candidates.same_restaurant
                       .filter((c) => c.id !== row.id)
                       .map((c) => (
@@ -1164,7 +1164,7 @@ function CellPopover({
                   </optgroup>
                 )}
                 {candidates?.other_restaurant_couriers && candidates.other_restaurant_couriers.length > 0 && (
-                  <optgroup label="Diğer restoran kuryeleri (destek)">
+                  <optgroup label="Destek · Diğer restoran kuryesi (ücretli)">
                     {candidates.other_restaurant_couriers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.full_name} ({c.person_code}) — {c.rest_brand}
@@ -1173,26 +1173,27 @@ function CellPopover({
                     ))}
                   </optgroup>
                 )}
-                {candidates?.jokers && candidates.jokers.length > 0 && (
-                  <optgroup label="Joker">
-                    {candidates.jokers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.full_name} ({c.person_code})
+                {((candidates?.jokers?.length ?? 0) + (candidates?.management?.length ?? 0)) > 0 && (
+                  <optgroup label="Yönetim · Joker / BM / Kaptan / RTŞ (ücretsiz kapama)">
+                    {candidates?.jokers?.map((c) => (
+                      <option key={`j-${c.id}`} value={c.id}>
+                        {c.full_name} — Joker
                       </option>
                     ))}
-                  </optgroup>
-                )}
-                {candidates?.management && candidates.management.length > 0 && (
-                  <optgroup label="Bölge Müdürü / Kaptan / RTŞ">
-                    {candidates.management.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.full_name} ({c.role})
+                    {candidates?.management?.map((c) => (
+                      <option key={`m-${c.id}`} value={c.id}>
+                        {c.full_name} — {c.role}
                       </option>
                     ))}
                   </optgroup>
                 )}
               </select>
             )}
+            <div className="mt-1.5 text-[10px] text-amber-900/80 leading-snug">
+              <strong>Destek</strong>: başka restoran kuryesi → paket × tarife
+              ücret alır, fatura yansır. <strong>Yönetim</strong>: Joker/BM/Kaptan/RTŞ
+              → ekstra ücret yok, sadece operasyon kapaması.
+            </div>
             {cell.covers_personnel_name && coversId === cell.covers_personnel_id && (
               <div className="mt-1.5 text-[11px] text-amber-800">
                 Şu an seçili: <strong>{cell.covers_personnel_name}</strong>
