@@ -1462,6 +1462,7 @@ export type ReplacementCandidate = {
 export type ReplacementCandidatesResponse = {
   restaurant_id: number;
   same_restaurant: ReplacementCandidate[];
+  other_restaurant_couriers?: ReplacementCandidate[];
   jokers: ReplacementCandidate[];
   management: ReplacementCandidate[];
 };

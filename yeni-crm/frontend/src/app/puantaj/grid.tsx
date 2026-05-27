@@ -1163,6 +1163,16 @@ function CellPopover({
                       ))}
                   </optgroup>
                 )}
+                {candidates?.other_restaurant_couriers && candidates.other_restaurant_couriers.length > 0 && (
+                  <optgroup label="Diğer restoran kuryeleri (destek)">
+                    {candidates.other_restaurant_couriers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.full_name} ({c.person_code}) — {c.rest_brand}
+                        {c.rest_branch ? ` / ${c.rest_branch}` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
                 {candidates?.jokers && candidates.jokers.length > 0 && (
                   <optgroup label="Joker">
                     {candidates.jokers.map((c) => (

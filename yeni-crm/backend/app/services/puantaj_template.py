@@ -401,6 +401,88 @@ def generate_puantaj_template(
     support_ws.column_dimensions["E"].width = 10
     support_ws.column_dimensions["F"].width = 30
 
+    # ──────── RESTORANLAR REFERANS SHEET ────────
+    # Aktif restoranların tam listesi — Destek sheet'inde restoran adı
+    # yazarken kolaylık olsun, ID ve tam etiket görsünler.
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT id, brand, branch, pricing_model
+                FROM restaurants
+                WHERE COALESCE(active, 1) = 1
+                ORDER BY brand, branch NULLS FIRST
+                """
+            )
+            rest_rows = cur.fetchall()
+
+    rest_sheet = wb.create_sheet("Restoranlar")
+    rest_headers = ["ID", "Marka (Brand)", "Şube (Branch)", "Tam Etiket", "Tarife Modeli"]
+    for i, h in enumerate(rest_headers, start=1):
+        c = rest_sheet.cell(row=1, column=i, value=h)
+        c.font = Font(name="Arial", size=10, bold=True, color=HEADER_TEXT)
+        c.fill = PatternFill("solid", start_color=BRAND_DARK)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = Border(
+            top=_thin_side(), bottom=_thin_side(),
+            left=_thin_side(), right=_thin_side(),
+        )
+
+    # Açıklama satırı
+    rest_sheet.cell(
+        row=2, column=1,
+        value=(
+            "Destek sheet'inde 'Restoran' sütununa aşağıdaki tablodan kopyala — "
+            "ID, Marka veya Tam Etiket olabilir."
+        ),
+    )
+    rest_sheet.cell(row=2, column=1).font = Font(
+        name="Arial", size=9, italic=True, color="8B92A7",
+    )
+    rest_sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=5)
+    rest_sheet.cell(row=2, column=1).alignment = Alignment(
+        wrap_text=True, vertical="center",
+    )
+    rest_sheet.row_dimensions[2].height = 24
+
+    # Pricing model TR etiketleri
+    pm_labels = {
+        "hourly_only": "Saatlik",
+        "hourly_plus_package": "Saat + Prim",
+        "threshold_package": "Eşikli (390)",
+        "fixed_monthly": "Aylık Sabit",
+    }
+
+    for i, r in enumerate(rest_rows, start=3):  # data row 3'ten itibaren
+        brand = r.get("brand") or ""
+        branch = r.get("branch") or ""
+        tam_etiket = f"{brand} / {branch}" if branch else brand
+        pm = pm_labels.get(r.get("pricing_model") or "", r.get("pricing_model") or "")
+
+        cells = [int(r["id"]), brand, branch, tam_etiket, pm]
+        is_even = (i - 3) % 2 == 0
+        bg = "FFFFFF" if is_even else "F8FAFD"
+        for col, val in enumerate(cells, start=1):
+            c = rest_sheet.cell(row=i, column=col, value=val)
+            c.font = Font(name="Arial", size=10)
+            c.fill = PatternFill("solid", start_color=bg)
+            c.alignment = Alignment(
+                horizontal="center" if col == 1 else "left",
+                vertical="center",
+            )
+            c.border = Border(
+                top=_thin_side(), bottom=_thin_side(),
+                left=_thin_side(), right=_thin_side(),
+            )
+
+    rest_sheet.column_dimensions["A"].width = 8
+    rest_sheet.column_dimensions["B"].width = 24
+    rest_sheet.column_dimensions["C"].width = 24
+    rest_sheet.column_dimensions["D"].width = 36
+    rest_sheet.column_dimensions["E"].width = 18
+    rest_sheet.row_dimensions[1].height = 22
+    rest_sheet.freeze_panes = "A3"
+
     # ──────── KILAVUZ SHEET ────────
     guide = wb.create_sheet("Kullanım")
     guide.cell(row=1, column=1, value="ÇAT KAPINDA · TOPLU PUANTAJ ŞABLONU")
@@ -429,7 +511,10 @@ def generate_puantaj_template(
         "",
         "5. 'Toplam' sütunu Saat ve Paket için otomatik hesaplanır.",
         "",
-        "6. Dolu şablonu CRM'e geri yüklemek için /puantaj sayfasındaki "
+        "6. 'Destek' sekmesinde restoran adı yazarken 'Restoranlar' sekmesinden "
+        "kopyalayabilirsiniz (ID veya tam etiket çalışır).",
+        "",
+        "7. Dolu şablonu CRM'e geri yüklemek için /puantaj sayfasındaki "
         "'Excel Yükle' butonunu kullanın.",
         "",
         "Sorular için: admin@catkapinda.com",

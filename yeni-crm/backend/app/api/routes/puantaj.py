@@ -242,6 +242,7 @@ async def replacement_candidates(restaurant_id: int) -> dict:
 
     Gruplar:
       - same_restaurant: O restorana atanmış aktif kuryeler
+      - other_restaurant_couriers: Diğer restoranların kuryeleri (destek olarak gelebilir)
       - jokers: Tüm aktif Joker'ler
       - management: BM / Kaptan / RTŞ
     Frontend dropdown'da bu grupları gösterir.
@@ -260,12 +261,13 @@ async def replacement_candidates(restaurant_id: int) -> dict:
                 FROM personnel p
                 LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
                 WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
-                ORDER BY p.role, p.full_name
+                ORDER BY p.role, r.brand NULLS LAST, p.full_name
                 """
             )
             rows = cur.fetchall()
 
     same_restaurant: list[dict] = []
+    other_restaurant_couriers: list[dict] = []
     jokers: list[dict] = []
     management: list[dict] = []
 
@@ -285,12 +287,17 @@ async def replacement_candidates(restaurant_id: int) -> dict:
             management.append(item)
         elif role == "Joker":
             jokers.append(item)
-        elif role == "Kurye" and rid == restaurant_id:
-            same_restaurant.append(item)
+        elif role == "Kurye":
+            if rid == restaurant_id:
+                same_restaurant.append(item)
+            elif rid is not None:
+                # Atanmış başka restoranın kuryesi → destek olarak gelebilir
+                other_restaurant_couriers.append(item)
 
     return {
         "restaurant_id": restaurant_id,
         "same_restaurant": same_restaurant,
+        "other_restaurant_couriers": other_restaurant_couriers,
         "jokers": jokers,
         "management": management,
     }
