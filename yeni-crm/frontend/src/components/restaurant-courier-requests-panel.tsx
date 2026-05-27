@@ -21,7 +21,7 @@ import {
   listRestaurantCourierRequests,
   updateRestaurantCourierRequest,
   type RestaurantCourierRequest,
-  type RestaurantRestaurantCourierRequestListResponse,
+  type RestaurantCourierRequestListResponse,
 } from '@/lib/api';
 
 function todayIso(): string {
