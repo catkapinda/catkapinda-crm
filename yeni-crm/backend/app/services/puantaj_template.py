@@ -384,37 +384,61 @@ def generate_puantaj_template(
             left=_thin_side(), right=_thin_side(),
         )
 
-    # İki örnek satır — biri D, biri Y
-    examples = [
-        (
-            f"{period}-15", "(kurye kodu)", "(restoran)",
-            "D", 11, 30, "DESTEK örneği: kurye başka restoranda — ücretli",
+    # Açıklama satırı — header'ın hemen altında
+    support_ws.cell(
+        row=2, column=1,
+        value=(
+            "Personel için sadece KOD yazın (örn: K001) · Restoran için sadece "
+            "ID veya kısa marka adı yeterlidir · Tarihler ayın günlerine göre "
+            "otomatik dolduruldu, ihtiyacınız varsa aynı tarih için satır "
+            "kopyalayıp altına yapıştırabilirsiniz."
         ),
-        (
-            f"{period}-15", "(joker/BM/kaptan kodu)", "(restoran)",
-            "Y", 11, 30, "YÖNETİM örneği: joker/BM kapaması — ücretsiz",
-        ),
-    ]
-    for row_idx, vals in enumerate(examples, start=2):
-        for col_idx, val in enumerate(vals, start=1):
-            c = support_ws.cell(row=row_idx, column=col_idx, value=val)
-            c.font = Font(
-                name="Arial", size=9, italic=True, color="8B92A7",
-            )
-            c.alignment = Alignment(
-                horizontal="center" if col_idx in (1, 4, 5, 6) else "left",
+    )
+    support_ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=7)
+    support_ws.cell(row=2, column=1).font = Font(
+        name="Arial", size=9, italic=True, color="8B92A7",
+    )
+    support_ws.cell(row=2, column=1).alignment = Alignment(
+        wrap_text=True, vertical="center",
+    )
+    support_ws.row_dimensions[2].height = 30
+
+    # Ayın her günü için hazır satır (Tarih kolonu dolu, kalan kolonlar boş)
+    # Kullanıcı ihtiyacı kadar satır kullanır; aynı tarihte birden çok ziyaret
+    # varsa o satırı kopyalayıp altına yapıştırır.
+    for d in range(1, n_days + 1):
+        rr = 2 + d  # row 3'ten itibaren
+        date_str = f"{yyyy_i:04d}-{mm_i:02d}-{d:02d}"
+        c = support_ws.cell(row=rr, column=1, value=date_str)
+        c.font = Font(name="Arial", size=10, bold=True, color=TEXT)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.fill = PatternFill("solid", start_color=CREAM_50)
+        c.border = Border(
+            top=_thin_side(), bottom=_thin_side(),
+            left=_thin_side(), right=_thin_side(),
+        )
+        # Diğer kolonlar boş — sade çerçeve
+        for col in range(2, 8):
+            cc = support_ws.cell(row=rr, column=col, value=None)
+            cc.font = Font(name="Arial", size=10)
+            cc.alignment = Alignment(
+                horizontal="center" if col in (4, 5, 6) else "left",
                 vertical="center",
+            )
+            cc.border = Border(
+                top=_thin_side(), bottom=_thin_side(),
+                left=_thin_side(), right=_thin_side(),
             )
 
     support_ws.column_dimensions["A"].width = 18
     support_ws.column_dimensions["B"].width = 16
-    support_ws.column_dimensions["C"].width = 28
+    support_ws.column_dimensions["C"].width = 24
     support_ws.column_dimensions["D"].width = 12
     support_ws.column_dimensions["E"].width = 10
     support_ws.column_dimensions["F"].width = 10
     support_ws.column_dimensions["G"].width = 36
     support_ws.row_dimensions[1].height = 22
-    support_ws.freeze_panes = "A2"
+    support_ws.freeze_panes = "A3"
 
     # ──────── RESTORANLAR REFERANS SHEET ────────
     # Aktif restoranların tam listesi — Destek sheet'inde restoran adı
@@ -537,6 +561,11 @@ def generate_puantaj_template(
         "Her satır = bir kişinin bir günkü bir restoran ziyareti.",
         "Sütunlar: Tarih | Personel Kodu | Restoran | Tip | Saat | Paket | Not",
         "",
+        "★ TARİHLER ZATEN DOLU. Sadece kullanacağınız günün satırına yazın.",
+        "★ Personel için SADECE KOD yazın (örn: K001) — isim yazmaya gerek yok.",
+        "★ Restoran için SADECE ID veya kısa MARKA yazın (örn: 12 ya da",
+        "  'Quick China') — uzun yazmaya gerek yok.",
+        "",
         "TİP KODLARI:",
         "  D = DESTEK (başka restoran kuryesi geldi)",
         "      → KURYEYE paket × tarife + saat × tarife ücret yansır",
@@ -545,13 +574,15 @@ def generate_puantaj_template(
         "      → KURYEYE ekstra ücret YOK (sabit aylık zaten yeterli)",
         "      → RESTORANA paket × tarife faturası YANSIR",
         "",
-        "ÖRNEKLER:",
-        "  Burger@ kuryesi Ali 12 Mart'ta Quick China'ya destek gitti",
-        "    → Destek sekmesi: 2026-03-12 | K001 | Quick China / Suadiye | D | 11 | 30",
-        "  Joker Mehmet 12 Mart'ta SushiCo'ya kapama gitti",
-        "    → Destek sekmesi: 2026-03-12 | J005 | SushiCo / İdealistpark | Y | 11 | 25",
-        "  Bölge Müdürü Cihan 15 Mart'ta Fasuli'ye kapama gitti",
-        "    → Destek sekmesi: 2026-03-15 | BM001 | Fasuli / Bağdat | Y | 8 | 20",
+        "ÖRNEKLER (kısaltılmış):",
+        "  Kurye K001 başka restorana destek gitti:",
+        "    → 2026-03-12 satırı | K001 | 12 (restoran id) | D | 11 | 30",
+        "  Joker J005 bir restorana kapama gitti:",
+        "    → 2026-03-12 satırı | J005 | Quick China | Y | 11 | 25",
+        "  BM Cihan bir restorana gitti:",
+        "    → 2026-03-15 satırı | BM001 | Fasuli | Y | 8 | 20",
+        "",
+        "Aynı gün birden fazla ziyaret varsa o satırı kopyalayıp altına yapıştırın.",
         "",
         "─── REFERANS SEKMELERİ ───",
         "",
