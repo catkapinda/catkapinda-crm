@@ -60,6 +60,7 @@ class CellPayload(BaseModel):
     coverage_type: str | None = None
     restaurant_id: int | None = None
     notes: str | None = None
+    covers_personnel_id: int | None = None  # gelmediğinde yerine giren
 
 
 @router.get("/periods")
@@ -202,6 +203,67 @@ async def patch_cell(payload: CellPayload) -> dict:
             coverage_type=payload.coverage_type,
             notes=payload.notes,
             restaurant_id=payload.restaurant_id,
+            covers_personnel_id=payload.covers_personnel_id,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/replacement-candidates")
+async def replacement_candidates(restaurant_id: int) -> dict:
+    """Bir restoran için yerine giren olabilecek personel listesi.
+
+    Gruplar:
+      - same_restaurant: O restorana atanmış aktif kuryeler
+      - jokers: Tüm aktif Joker'ler
+      - management: BM / Kaptan / RTŞ
+    Frontend dropdown'da bu grupları gösterir.
+    """
+    from app.core.database import get_connection
+    from psycopg.rows import dict_row
+
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    p.id, p.person_code, p.full_name, p.role,
+                    p.assigned_restaurant_id,
+                    r.brand AS rest_brand, r.branch AS rest_branch
+                FROM personnel p
+                LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+                WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
+                ORDER BY p.role, p.full_name
+                """
+            )
+            rows = cur.fetchall()
+
+    same_restaurant: list[dict] = []
+    jokers: list[dict] = []
+    management: list[dict] = []
+
+    for r in rows:
+        item = {
+            "id": int(r["id"]),
+            "person_code": r.get("person_code"),
+            "full_name": r.get("full_name"),
+            "role": r.get("role"),
+            "rest_brand": r.get("rest_brand"),
+            "rest_branch": r.get("rest_branch"),
+        }
+        role = (r.get("role") or "").strip()
+        rid = r.get("assigned_restaurant_id")
+
+        if role in ("Bölge Müdürü", "Kaptan", "Restoran Takım Şefi"):
+            management.append(item)
+        elif role == "Joker":
+            jokers.append(item)
+        elif role == "Kurye" and rid == restaurant_id:
+            same_restaurant.append(item)
+
+    return {
+        "restaurant_id": restaurant_id,
+        "same_restaurant": same_restaurant,
+        "jokers": jokers,
+        "management": management,
+    }

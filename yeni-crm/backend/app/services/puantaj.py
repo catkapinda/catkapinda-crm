@@ -114,6 +114,7 @@ def upsert_cell(
     coverage_type: str | None = None,
     notes: str | None = None,
     restaurant_id: int | None = None,
+    covers_personnel_id: int | None = None,
 ) -> dict:
     """Bir günün puantajını güncelle / oluştur.
 
@@ -124,6 +125,9 @@ def upsert_cell(
     - raporlu → status='Raporlu', absence_reason='Raporlu', hours=0
     - ihbarsiz → status='İhbarsız', absence_reason='İhbarsız', hours=0
     - empty → kayıt sil
+
+    covers_personnel_id: absence status'larda kullanılır — bu kuryenin yerine
+    o gün operasyonu kapsayan kişinin id'si.
     """
     type_map = {
         "normal": ("Normal", None),
@@ -180,6 +184,10 @@ def upsert_cell(
                         "Restoran belirlenemedi (kurye atanmamış olabilir)",
                     )
 
+            # covers_personnel_id sadece absence status'larda anlamlı
+            if cell_type not in ("gelmedi", "raporlu", "ihbarsiz"):
+                covers_personnel_id = None
+
             if existing:
                 cur.execute(
                     """
@@ -190,13 +198,15 @@ def upsert_cell(
                         absence_reason = %s,
                         coverage_type = %s,
                         notes = %s,
-                        restaurant_id = COALESCE(%s, restaurant_id)
+                        restaurant_id = COALESCE(%s, restaurant_id),
+                        covers_personnel_id = %s
                     WHERE id = %s
                     RETURNING id
                     """,
                     (
                         worked_hours, package_count, status, absence,
                         coverage_type, notes, restaurant_id,
+                        covers_personnel_id,
                         existing["id"],
                     ),
                 )
@@ -207,14 +217,16 @@ def upsert_cell(
                     INSERT INTO daily_entries
                         (entry_date, restaurant_id, actual_personnel_id,
                          planned_personnel_id, worked_hours, package_count,
-                         status, absence_reason, coverage_type, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         status, absence_reason, coverage_type, notes,
+                         covers_personnel_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """,
                     (
                         entry_date, restaurant_id, personnel_id, personnel_id,
                         worked_hours, package_count,
                         status, absence, coverage_type, notes,
+                        covers_personnel_id,
                     ),
                 )
                 action = "created"
@@ -442,9 +454,13 @@ def daily_matrix(period: str) -> dict:
             d.absence_reason,
             d.status,
             d.restaurant_id,
+            d.covers_personnel_id,
+            cp.full_name AS covers_full_name,
+            cp.role AS covers_role,
             p.assigned_restaurant_id
         FROM daily_entries d
         LEFT JOIN personnel p ON p.id = d.actual_personnel_id
+        LEFT JOIN personnel cp ON cp.id = d.covers_personnel_id
         WHERE LEFT(d.entry_date::text, 7) = %s
     """
 
@@ -540,6 +556,9 @@ def daily_matrix(period: str) -> dict:
             "packages": int(e.get("package_count") or 0),
             "is_support": is_support,
             "restaurant_id": rid,
+            "covers_personnel_id": e.get("covers_personnel_id"),
+            "covers_personnel_name": e.get("covers_full_name"),
+            "covers_personnel_role": e.get("covers_role"),
         }
 
     # Restoran info map (destek satırlarında brand göstermek için)
@@ -577,6 +596,9 @@ def daily_matrix(period: str) -> dict:
                 cells.append({
                     "type": "empty", "hours": 0, "packages": 0,
                     "is_support": False, "restaurant_id": rid,
+                    "covers_personnel_id": None,
+                    "covers_personnel_name": None,
+                    "covers_personnel_role": None,
                 })
         return cells, total_hours, total_pkts, worked_days
 

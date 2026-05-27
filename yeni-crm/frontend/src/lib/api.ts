@@ -1388,6 +1388,10 @@ export type MatrixCell = {
   packages: number;
   is_support: boolean;
   restaurant_id: number | null;
+  // Gelmediğinde yerine giren kişi (absence status'larda)
+  covers_personnel_id?: number | null;
+  covers_personnel_name?: string | null;
+  covers_personnel_role?: string | null;
 };
 
 export type MatrixRow = {
@@ -1436,12 +1440,39 @@ export type PuantajCellUpdate = {
   coverage_type?: string;
   restaurant_id?: number;
   notes?: string;
+  covers_personnel_id?: number | null;
 };
 
 export async function updatePuantajCell(
   payload: PuantajCellUpdate,
 ): Promise<{ action: string; id: number | null }> {
   return apiMutate(`/api/puantaj/cell`, payload, 'PATCH');
+}
+
+// ─── Yerine giren kişi adayları ────────────────────────────────
+export type ReplacementCandidate = {
+  id: number;
+  person_code: string | null;
+  full_name: string | null;
+  role: string | null;
+  rest_brand: string | null;
+  rest_branch: string | null;
+};
+
+export type ReplacementCandidatesResponse = {
+  restaurant_id: number;
+  same_restaurant: ReplacementCandidate[];
+  jokers: ReplacementCandidate[];
+  management: ReplacementCandidate[];
+};
+
+export async function getReplacementCandidates(
+  restaurantId: number,
+): Promise<ReplacementCandidatesResponse> {
+  return apiGet<ReplacementCandidatesResponse>(
+    `/api/puantaj/replacement-candidates?restaurant_id=${restaurantId}`,
+    { revalidate: 60 },
+  );
 }
 
 export type PuantajBulkFill = {

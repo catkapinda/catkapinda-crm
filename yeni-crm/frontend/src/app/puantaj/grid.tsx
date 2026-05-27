@@ -13,7 +13,9 @@ import {
   type MatrixRow,
   type PuantajMatrix,
   type PuantajApproval,
+  type ReplacementCandidatesResponse,
   bulkFillPuantaj,
+  getReplacementCandidates,
   submitPuantajApproval,
   updatePuantajCell,
 } from '@/lib/api';
@@ -844,8 +846,27 @@ function CellPopover({
   const [hours, setHours] = useState<number>(cell.hours || 0);
   const [packages, setPackages] = useState<number>(cell.packages || 0);
   const [isSupport, setIsSupport] = useState<boolean>(cell.is_support);
+  const [coversId, setCoversId] = useState<number | null>(
+    cell.covers_personnel_id ?? null,
+  );
+  const [candidates, setCandidates] = useState<ReplacementCandidatesResponse | null>(null);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isAbsence = status === 'gelmedi' || status === 'raporlu' || status === 'ihbarsiz';
+
+  // Absence seçilince adayları yükle (cell'in restoran id'sinden)
+  useEffect(() => {
+    if (!isAbsence) return;
+    const rid = cell.restaurant_id ?? row.rest_id;
+    if (!rid || candidates) return;
+    setCandidatesLoading(true);
+    getReplacementCandidates(rid)
+      .then(setCandidates)
+      .catch(() => setCandidates(null))
+      .finally(() => setCandidatesLoading(false));
+  }, [isAbsence, cell.restaurant_id, row.rest_id, candidates]);
 
   // Tarih: YYYY-MM-DD
   const [y, m] = period.split('-');
@@ -864,11 +885,14 @@ function CellPopover({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // Status değişince saat/paket sıfırla
+  // Status değişince saat/paket sıfırla; absence dışı ise coversId temizle
   useEffect(() => {
     if (status !== 'normal') {
       setHours(0);
       setPackages(0);
+    }
+    if (status !== 'gelmedi' && status !== 'raporlu' && status !== 'ihbarsiz') {
+      setCoversId(null);
     }
   }, [status]);
 
@@ -892,6 +916,7 @@ function CellPopover({
           status === 'normal' && (isSupport || row.is_support_row)
             ? 'Destek'
             : undefined,
+        covers_personnel_id: isAbsence ? coversId : null,
       });
       onClose();
       router.refresh();
@@ -996,6 +1021,63 @@ function CellPopover({
               ↪ Destek vardiyası (kuryenin kendi restoranı dışında)
             </span>
           </label>
+        )}
+
+        {/* Yerine kim girdi? — sadece absence status'larda */}
+        {isAbsence && (
+          <div className="mb-3 -mx-1 p-2 rounded-md bg-amber-50/60 border border-amber-200">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-amber-900 mb-1.5">
+              Yerine kim girdi?
+            </div>
+            {candidatesLoading ? (
+              <div className="text-[11.5px] text-text-3 italic">
+                Yükleniyor…
+              </div>
+            ) : (
+              <select
+                value={coversId ?? ''}
+                onChange={(e) => setCoversId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                className="w-full px-2 py-1.5 rounded-md border border-amber-300 bg-white text-[12px] focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              >
+                <option value="">— Yerine kimse girmedi —</option>
+                {candidates?.same_restaurant && candidates.same_restaurant.length > 0 && (
+                  <optgroup label="Aynı restoran kuryeleri">
+                    {candidates.same_restaurant
+                      .filter((c) => c.id !== row.id)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.full_name} ({c.person_code})
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                {candidates?.jokers && candidates.jokers.length > 0 && (
+                  <optgroup label="Joker">
+                    {candidates.jokers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.full_name} ({c.person_code})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {candidates?.management && candidates.management.length > 0 && (
+                  <optgroup label="Bölge Müdürü / Kaptan / RTŞ">
+                    {candidates.management.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.full_name} ({c.role})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            )}
+            {cell.covers_personnel_name && coversId === cell.covers_personnel_id && (
+              <div className="mt-1.5 text-[11px] text-amber-800">
+                Şu an seçili: <strong>{cell.covers_personnel_name}</strong>
+                {cell.covers_personnel_role && ` (${cell.covers_personnel_role})`}
+              </div>
+            )}
+          </div>
         )}
 
         {error && (

@@ -836,6 +836,26 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON sms_otp_codes (phone, created_at DESC)
         """,
     ),
+    # ─── Puantaj: "yerine kim girdi" bağlantısı ────────────────────
+    # daily_entries kaydı bir kuryenin gelmediği gün için 'Gelmedi/Raporlu/
+    # İhbarsız' status'unda tutulur. covers_personnel_id, o günkü
+    # operasyonu KAPSAYAN (yerine giren) kuryeyi gösterir.
+    (
+        "daily_entries.covers_personnel_id",
+        """
+        ALTER TABLE daily_entries
+        ADD COLUMN IF NOT EXISTS covers_personnel_id integer
+        REFERENCES personnel(id) ON DELETE SET NULL
+        """,
+    ),
+    (
+        "daily_entries.idx_covers",
+        """
+        CREATE INDEX IF NOT EXISTS idx_daily_entries_covers
+        ON daily_entries(covers_personnel_id)
+        WHERE covers_personnel_id IS NOT NULL
+        """,
+    ),
     # ─── Restoran sözleşme/operasyon tarihleri ─────────────────────
     # start_date = operasyon (paket atımı) başlangıç tarihi → ZATEN VAR
     # agreement_date = sözleşme imza/anlaşma tarihi (operasyondan önce)
