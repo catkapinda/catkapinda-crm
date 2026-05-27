@@ -93,7 +93,10 @@ def generate_puantaj_template(
                     if r.get("branch"):
                         rest_name += f" / {r['branch']}"
 
-    # 2) Personel listesi — aktif + (restaurant_id varsa) o restorana atanmış
+    # 2) Personel listesi — SADECE Kurye rolündeki aktif personel.
+    # Joker/BM/Kaptan/RTŞ Puantaj sheet'inde DEĞİL, Destek sheet'inde
+    # (Tip=Y "Yönetim ziyareti") yer alır. Bu sade yapı operasyon
+    # ekibi için kafa karışıklığını giderir.
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             sql = """
@@ -104,24 +107,13 @@ def generate_puantaj_template(
                 FROM personnel p
                 LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
                 WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
-                  AND p.role IN ('Kurye', 'Joker', 'Restoran Takım Şefi',
-                                 'Kaptan', 'Bölge Müdürü')
+                  AND p.role = 'Kurye'
             """
             params: list = []
             if restaurant_id:
                 sql += " AND p.assigned_restaurant_id = %s"
                 params.append(restaurant_id)
-            sql += """
-                ORDER BY
-                    CASE p.role
-                        WHEN 'Bölge Müdürü' THEN 1
-                        WHEN 'Kaptan' THEN 2
-                        WHEN 'Restoran Takım Şefi' THEN 3
-                        WHEN 'Joker' THEN 4
-                        ELSE 5
-                    END,
-                    p.full_name
-            """
+            sql += " ORDER BY r.brand NULLS LAST, r.branch NULLS LAST, p.full_name"
             cur.execute(sql, tuple(params))
             personnel = cur.fetchall()
 
@@ -369,11 +361,19 @@ def generate_puantaj_template(
 
     ws.row_dimensions[summary_row].height = 28
 
-    # ──────── DESTEK SHEET ────────
-    # Kuryelerin kendi restoranı dışındaki vardiyaları için ayrı kayıt.
-    # Format: Tarih · Kurye kodu · Restoran (brand / branch) · Saat · Paket · Not
+    # ──────── DESTEK / RESTORAN ZİYARETLERİ SHEET ────────
+    # Tüm "başka restoran" ziyaretleri burada:
+    #   - Tip 'D' (DESTEK): bir kurye kendi restoranı dışında çalıştı
+    #     (ücretli — paket × tarife + saat × tarife → kuryeye ödeme,
+    #     restorana fatura yansır)
+    #   - Tip 'Y' (YÖNETİM): Joker / Bölge Müdürü / Kaptan / RTŞ bir
+    #     restoranda çalıştı (kuryeye ekstra ücret YOK, restorana
+    #     paket × tarife faturası yansır)
     support_ws = wb.create_sheet("Destek")
-    support_headers = ["Tarih (YYYY-MM-DD)", "Kurye Kodu", "Restoran", "Saat", "Paket", "Not"]
+    support_headers = [
+        "Tarih (YYYY-MM-DD)", "Personel Kodu", "Restoran",
+        "Tip (D/Y)", "Saat", "Paket", "Not",
+    ]
     for i, h in enumerate(support_headers, start=1):
         c = support_ws.cell(row=1, column=i, value=h)
         c.font = Font(name="Arial", size=10, bold=True, color=HEADER_TEXT)
@@ -383,23 +383,38 @@ def generate_puantaj_template(
             top=_thin_side(), bottom=_thin_side(),
             left=_thin_side(), right=_thin_side(),
         )
-    # Örnek satır
-    support_ws.cell(row=2, column=1, value=f"{period}-15")
-    support_ws.cell(row=2, column=2, value="(kurye kodu)")
-    support_ws.cell(row=2, column=3, value="(restoran adı veya kodu)")
-    support_ws.cell(row=2, column=4, value=11)
-    support_ws.cell(row=2, column=5, value=30)
-    support_ws.cell(row=2, column=6, value="örnek — bu satırı silebilirsiniz")
-    for i in range(1, 7):
-        support_ws.cell(row=2, column=i).font = Font(
-            name="Arial", size=9, italic=True, color="8B92A7",
-        )
+
+    # İki örnek satır — biri D, biri Y
+    examples = [
+        (
+            f"{period}-15", "(kurye kodu)", "(restoran)",
+            "D", 11, 30, "DESTEK örneği: kurye başka restoranda — ücretli",
+        ),
+        (
+            f"{period}-15", "(joker/BM/kaptan kodu)", "(restoran)",
+            "Y", 11, 30, "YÖNETİM örneği: joker/BM kapaması — ücretsiz",
+        ),
+    ]
+    for row_idx, vals in enumerate(examples, start=2):
+        for col_idx, val in enumerate(vals, start=1):
+            c = support_ws.cell(row=row_idx, column=col_idx, value=val)
+            c.font = Font(
+                name="Arial", size=9, italic=True, color="8B92A7",
+            )
+            c.alignment = Alignment(
+                horizontal="center" if col_idx in (1, 4, 5, 6) else "left",
+                vertical="center",
+            )
+
     support_ws.column_dimensions["A"].width = 18
-    support_ws.column_dimensions["B"].width = 14
+    support_ws.column_dimensions["B"].width = 16
     support_ws.column_dimensions["C"].width = 28
-    support_ws.column_dimensions["D"].width = 10
+    support_ws.column_dimensions["D"].width = 12
     support_ws.column_dimensions["E"].width = 10
-    support_ws.column_dimensions["F"].width = 30
+    support_ws.column_dimensions["F"].width = 10
+    support_ws.column_dimensions["G"].width = 36
+    support_ws.row_dimensions[1].height = 22
+    support_ws.freeze_panes = "A2"
 
     # ──────── RESTORANLAR REFERANS SHEET ────────
     # Aktif restoranların tam listesi — Destek sheet'inde restoran adı
@@ -491,35 +506,63 @@ def generate_puantaj_template(
     )
     guide_lines = [
         "",
-        "1. 'Puantaj' sekmesinde her personel için ÜÇ satır vardır:",
-        "   • Saat satırı: o gün çalışılan saat (örn: 11 veya 8.5)",
-        "   • Paket satırı: o gün teslim edilen paket sayısı (örn: 30)",
-        "   • Durum satırı: aşağıdaki TEK HARF kodları kullanın (normal çalışma için boş bırakın)",
+        "═══ NASIL DOLDURULUR? ═══",
         "",
-        "2. DURUM KODLARI (Durum satırına yazılır):",
+        "ŞABLON SADE 2 KISIMDAN OLUŞUR:",
+        "  (1) 'Puantaj' sekmesi — SADECE KURYE rolündeki personel",
+        "      Kurye'nin KENDİ restoranındaki günlük çalışmaları",
+        "  (2) 'Destek' sekmesi — BAŞKA RESTORAN ZİYARETLERİ",
+        "      Hem Kurye desteği (D) hem Joker/BM/Kaptan/RTŞ kapama (Y) burada",
+        "",
+        "─── 'Puantaj' SEKMESİ ───",
+        "",
+        "Her kurye için ÜÇ satır vardır:",
+        "  • Saat: o gün çalışılan saat (örn: 11 veya 8.5)",
+        "  • Paket: o gün teslim edilen paket sayısı (örn: 30)",
+        "  • Durum: aşağıdaki TEK HARF kodları (normal çalışma için boş bırakın)",
+        "",
+        "DURUM KODLARI:",
         "      G  =  Gelmedi",
         "      R  =  Raporlu",
         "      Z  =  İzin",
         "      X  =  İhbarsız çıkış",
-        "      D  =  DESTEK (başka restoran kuryesi geldi — KURYE paket × tarife +",
-        "             saat × tarife ücret alır + RESTORANA da fatura yansır)",
-        "             → 'Destek' sekmesinde hangi restoranda çalıştığını belirtin.",
-        "      Y  =  YÖNETİM kapaması (Joker / Bölge Müdürü / Kaptan / RTŞ geldi —",
-        "             KURYEYE ekstra ücret YOK (sabit aylık zaten yeterli), ama",
-        "             RESTORANA paket × tarife faturası YANSIR (operasyon yapıldı)",
+        "      (boş + Saat/Paket dolu) = normal çalışma",
+        "      (hepsi boş) = o gün kayıt yok",
         "",
-        "3. Boş Saat/Paket + boş Durum = o gün hiç giriş yok (kayıtsız gün).",
-        "   Sadece Saat ve Paket dolu, Durum boş = normal çalışma.",
+        "ÖNEMLİ: Kurye kendi restoranı dışında çalıştıysa 'Puantaj' sekmesinde",
+        "DEĞİL, 'Destek' sekmesinde yeni satır olarak yazılır.",
         "",
-        "4. Hafta sonu sütunları gri tonludur — fark etmek kolaydır.",
+        "─── 'Destek' SEKMESİ ───",
         "",
-        "5. 'Toplam' sütunu Saat ve Paket için otomatik hesaplanır.",
+        "Her satır = bir kişinin bir günkü bir restoran ziyareti.",
+        "Sütunlar: Tarih | Personel Kodu | Restoran | Tip | Saat | Paket | Not",
         "",
-        "6. 'Destek' sekmesinde restoran adı yazarken 'Restoranlar' sekmesinden "
-        "kopyalayabilirsiniz (ID veya tam etiket çalışır).",
+        "TİP KODLARI:",
+        "  D = DESTEK (başka restoran kuryesi geldi)",
+        "      → KURYEYE paket × tarife + saat × tarife ücret yansır",
+        "      → RESTORANA aynı tutar fatura yansır",
+        "  Y = YÖNETİM (Joker / Bölge Müdürü / Kaptan / RTŞ geldi)",
+        "      → KURYEYE ekstra ücret YOK (sabit aylık zaten yeterli)",
+        "      → RESTORANA paket × tarife faturası YANSIR",
         "",
-        "7. Dolu şablonu CRM'e geri yüklemek için /puantaj sayfasındaki "
-        "'Excel Yükle' butonunu kullanın.",
+        "ÖRNEKLER:",
+        "  Burger@ kuryesi Ali 12 Mart'ta Quick China'ya destek gitti",
+        "    → Destek sekmesi: 2026-03-12 | K001 | Quick China / Suadiye | D | 11 | 30",
+        "  Joker Mehmet 12 Mart'ta SushiCo'ya kapama gitti",
+        "    → Destek sekmesi: 2026-03-12 | J005 | SushiCo / İdealistpark | Y | 11 | 25",
+        "  Bölge Müdürü Cihan 15 Mart'ta Fasuli'ye kapama gitti",
+        "    → Destek sekmesi: 2026-03-15 | BM001 | Fasuli / Bağdat | Y | 8 | 20",
+        "",
+        "─── REFERANS SEKMELERİ ───",
+        "",
+        "  • 'Restoranlar': aktif restoranların listesi (Tam Etiket'i Destek'e kopyala)",
+        "  • Hafta sonu sütunları gri tonludur",
+        "  • Toplam sütunu otomatik hesaplanır — siz değiştirmeyin",
+        "",
+        "─── YÜKLEME ───",
+        "",
+        "Doldurduktan sonra /puantaj sayfasında 'Excel Yükle' butonuyla CRM'e",
+        "geri yükleyebilirsiniz. Sistem her satırı kontrol edip ekleyecek.",
         "",
         "Sorular için: admin@catkapinda.com",
     ]

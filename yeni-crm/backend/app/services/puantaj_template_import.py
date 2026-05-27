@@ -42,8 +42,6 @@ STATUS_CODE_MAP = {
     "R": "raporlu",
     "Z": "izin",
     "X": "ihbarsiz",
-    "D": "destek",   # başka restoran kuryesi geldi — ücretli destek
-    "Y": "yonetim",  # Joker/BM/Kaptan/RTŞ geldi — ücretsiz yönetim kapaması
 }
 
 
@@ -173,18 +171,8 @@ def import_puantaj_template(
 
                 # cell_type belirle
                 if status_code in STATUS_CODE_MAP:
-                    mapped = STATUS_CODE_MAP[status_code]
-                    if mapped == "destek":
-                        cell_type = "normal"
-                        coverage_type = "Destek"
-                    elif mapped == "yonetim":
-                        # Yönetim kapaması — saat/paket girilirse de ekstra ücret
-                        # hesaplanmayacak (payroll yönetim destek brut sıfırlar).
-                        cell_type = "normal"
-                        coverage_type = "Yönetim"
-                    else:
-                        cell_type = mapped
-                        coverage_type = None
+                    cell_type = STATUS_CODE_MAP[status_code]
+                    coverage_type = None
                 elif hours > 0 or pkts > 0:
                     cell_type = "normal"
                     coverage_type = None
@@ -216,21 +204,27 @@ def import_puantaj_template(
 
             row_idx += 3  # sonraki personel
 
-    # ──────── Destek sheet ────────
+    # ──────── Destek sheet (Tip kolonu D/Y) ────────
     if "Destek" in wb.sheetnames:
         ws = wb["Destek"]
         # Header row 1; data row 2'den itibaren
+        # Sütunlar: A=Tarih · B=Personel Kodu · C=Restoran · D=Tip ·
+        #           E=Saat · F=Paket · G=Not
         for r in range(2, ws.max_row + 1):
             tarih = ws.cell(row=r, column=1).value
             kod = ws.cell(row=r, column=2).value
             rest_label = ws.cell(row=r, column=3).value
-            saat = ws.cell(row=r, column=4).value
-            paket = ws.cell(row=r, column=5).value
-            not_text = ws.cell(row=r, column=6).value
+            tip = ws.cell(row=r, column=4).value
+            saat = ws.cell(row=r, column=5).value
+            paket = ws.cell(row=r, column=6).value
+            not_text = ws.cell(row=r, column=7).value
 
             # Boş veya örnek satır
-            if not tarih or not kod or "(kurye kodu)" in str(kod):
+            kod_str = str(kod or "").strip()
+            if not tarih or not kod_str:
                 continue
+            if kod_str.startswith("(") and kod_str.endswith(")"):
+                continue  # parantezli placeholder
 
             try:
                 tarih_str = str(tarih)[:10]  # YYYY-MM-DD
@@ -238,19 +232,30 @@ def import_puantaj_template(
                 result["destek"]["errors"].append(f"Satır {r}: geçersiz tarih")
                 continue
 
-            person = _lookup_personnel(str(kod))
+            person = _lookup_personnel(kod_str)
             if not person:
                 result["destek"]["errors"].append(
-                    f"Satır {r}: kurye bulunamadı ({kod})"
+                    f"Satır {r}: personel bulunamadı ({kod_str})"
                 )
                 continue
 
-            rid = _lookup_restaurant(str(rest_label) if rest_label else "")
+            rest_str = str(rest_label or "").strip()
+            if rest_str.startswith("(") and rest_str.endswith(")"):
+                continue  # parantezli placeholder
+            rid = _lookup_restaurant(rest_str)
             if not rid:
                 result["destek"]["errors"].append(
                     f"Satır {r}: restoran bulunamadı ({rest_label})"
                 )
                 continue
+
+            # Tip belirle (D=Destek ücretli, Y=Yönetim ücretsiz)
+            tip_code = str(tip or "").strip().upper()[:1]
+            if tip_code == "Y":
+                coverage = "Yönetim"
+            else:
+                # 'D' veya boş → varsayılan Destek
+                coverage = "Destek"
 
             saat_v = float(saat) if saat not in (None, "") else 0.0
             pkt_v = int(paket) if paket not in (None, "") else 0
@@ -261,7 +266,7 @@ def import_puantaj_template(
                     cell_type="normal",
                     worked_hours=saat_v,
                     package_count=pkt_v,
-                    coverage_type="Destek",
+                    coverage_type=coverage,
                     restaurant_id=rid,
                     notes=str(not_text) if not_text else None,
                 )
