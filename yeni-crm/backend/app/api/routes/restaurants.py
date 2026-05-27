@@ -47,6 +47,7 @@ class RestaurantUpdate(BaseModel):
     company_title: str | None = None
     tax_number: str | None = None
     tax_office: str | None = None
+    agreement_date: str | None = None
     start_date: str | None = None
     end_date: str | None = None
     active: int | None = None
@@ -134,7 +135,8 @@ class RestaurantCreate(BaseModel):
     company_title: str | None = None
     tax_number: str | None = None
     tax_office: str | None = None
-    start_date: str | None = None
+    agreement_date: str | None = None  # sözleşme imza tarihi
+    start_date: str | None = None      # operasyon başlangıç tarihi
     notes: str | None = None
     active: int | None = 1
 

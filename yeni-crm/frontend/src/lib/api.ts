@@ -684,7 +684,8 @@ export type Restaurant = {
   company_title?: string | null;
   tax_number?: string | null;
   tax_office?: string | null;
-  start_date: string | null;
+  agreement_date?: string | null;   // sözleşme imza tarihi
+  start_date: string | null;        // operasyon (paket atımı) başlangıç tarihi
   end_date?: string | null;
   active: number | null;
   notes?: string | null;
@@ -836,12 +837,18 @@ export type PersonnelMovementsResponse = {
   active_courier_count: number;
   operation_days: number;
   month_days: number;
+  expected_days?: number;
   uninterrupted: boolean;
-  // Hedef vs gerçek kurye analizi (yeni)
+  // Hedef vs gerçek kurye analizi
   target_headcount?: number;
   actual_unique_couriers?: number;
   headcount_gap?: number;
   headcount_note?: string;
+  // Restoran sözleşme/operasyon tarihleri
+  agreement_date?: string | null;
+  operation_start_date?: string | null;
+  operation_end_date?: string | null;
+  started_mid_month?: boolean;
   summary: string;
 };
 

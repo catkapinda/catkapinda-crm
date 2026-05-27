@@ -836,6 +836,16 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON sms_otp_codes (phone, created_at DESC)
         """,
     ),
+    # ─── Restoran sözleşme/operasyon tarihleri ─────────────────────
+    # start_date = operasyon (paket atımı) başlangıç tarihi → ZATEN VAR
+    # agreement_date = sözleşme imza/anlaşma tarihi (operasyondan önce)
+    (
+        "restaurants.agreement_date",
+        """
+        ALTER TABLE restaurants
+        ADD COLUMN IF NOT EXISTS agreement_date date
+        """,
+    ),
     # ─── Restoran kurye talepleri (ek kurye / kurye azaltma) ───
     (
         "restaurant_courier_requests.table",

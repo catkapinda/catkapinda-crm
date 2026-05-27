@@ -41,7 +41,8 @@ EDITABLE_COLUMNS: set[str] = {
     "company_title",
     "tax_number",
     "tax_office",
-    "start_date",
+    "agreement_date",  # sözleşme imza tarihi
+    "start_date",      # operasyon (paket atımı) başlangıç tarihi
     "end_date",
     "active",
     "notes",
@@ -56,7 +57,7 @@ def list_restaurants(active: bool | None = True) -> list[dict]:
                package_rate_low, package_rate_high, fixed_monthly_fee,
                vat_rate, target_headcount, standard_daily_hours,
                contact_name, contact_phone,
-               start_date, end_date, active, notes
+               agreement_date, start_date, end_date, active, notes
         FROM restaurants
     """
     params: list = []
@@ -82,7 +83,7 @@ def get_restaurant(restaurant_id: int) -> dict | None:
                vat_rate, target_headcount, standard_daily_hours,
                contact_name, contact_phone,
                contact_email, address, company_title, tax_number, tax_office,
-               start_date, end_date, active, notes
+               agreement_date, start_date, end_date, active, notes
         FROM restaurants
         WHERE id = %s
     """

@@ -708,13 +708,22 @@ def get_personnel_movements(restaurant_id: int, period: str) -> dict:
             ac = cur.fetchone() or {"n": 0}
             active_courier_count = int(ac.get("n") or 0)
 
-            # 6) Hedef kurye sayısı (restoran kartından)
+            # 6) Hedef kurye sayısı + tarihler (restoran kartından)
             cur.execute(
-                "SELECT target_headcount FROM restaurants WHERE id = %s",
+                """
+                SELECT target_headcount,
+                       agreement_date::text AS agreement_date,
+                       start_date::text AS start_date,
+                       end_date::text AS end_date
+                FROM restaurants WHERE id = %s
+                """,
                 (restaurant_id,),
             )
             tr = cur.fetchone() or {}
             target_headcount = int(tr.get("target_headcount") or 0)
+            agreement_date = tr.get("agreement_date")
+            op_start_date = tr.get("start_date")
+            op_end_date = tr.get("end_date")
 
             # 7) Ay içinde GERÇEKTEN çalışan unique kurye sayısı
             #    (kendi atanan + jokerler + destek/komşu/yönetim — hepsi)
@@ -736,7 +745,41 @@ def get_personnel_movements(restaurant_id: int, period: str) -> dict:
             #    Tam-gün hizmet kanıtı — operasyon kesintisi olup olmadığı.
             #    'uninterrupted' zaten operation_days >= month_days ile aynı.
 
-    uninterrupted = operation_days >= month_days
+    # Beklenen operasyon günü = ay içinde restoran AKTİF olarak hizmet
+    # vermesi gereken gün sayısı. start_date / end_date kesişimiyle ay
+    # içindeki etkin gün aralığı hesaplanır. Böylece Celal Usta gibi
+    # ay ortasında başlayan restoranlarda "20 gün kayıt yok" yanlış
+    # uyarısı çıkmaz.
+    try:
+        from datetime import date as _date_cls
+        month_start = _date_cls(yyyy_i, mm_i, 1)
+        month_end_dt = _date_cls(yyyy_i, mm_i, month_days)
+        # start_date varsa periyodun başını ona itele
+        eff_start = month_start
+        if op_start_date:
+            try:
+                sd = _date_cls.fromisoformat(op_start_date)
+                if sd > eff_start:
+                    eff_start = sd
+            except (ValueError, TypeError):
+                pass
+        eff_end = month_end_dt
+        if op_end_date:
+            try:
+                ed = _date_cls.fromisoformat(op_end_date)
+                if ed < eff_end:
+                    eff_end = ed
+            except (ValueError, TypeError):
+                pass
+        if eff_end >= eff_start:
+            expected_days = (eff_end - eff_start).days + 1
+        else:
+            expected_days = 0
+    except Exception:
+        expected_days = month_days
+
+    # uninterrupted = ay içinde aktif olunan tüm günlerde kayıt var mı?
+    uninterrupted = operation_days >= expected_days and expected_days > 0
     headcount_gap = actual_unique_couriers - target_headcount  # +/- fark
 
     # Özet cümle — restoran yetkilisi için
@@ -763,16 +806,35 @@ def get_personnel_movements(restaurant_id: int, period: str) -> dict:
                 + f") {total_support_days} mesai günü çalıştı"
             )
 
+    # Operasyon başlangıç bilgisi mesaja eklenir (ay ortasında başlamışsa)
+    started_mid_month = bool(
+        op_start_date and op_start_date >= f"{period}-01"
+        and op_start_date <= f"{period}-{month_days:02d}"
+        and op_start_date != f"{period}-01"
+    )
     if uninterrupted:
-        op_status = (
-            f"ay boyunca operasyon {operation_days}/{month_days} gün kesintisiz açık kaldı"
-        )
+        if started_mid_month:
+            op_status = (
+                f"operasyon {op_start_date} tarihinde başladı; o günden "
+                f"itibaren {operation_days}/{expected_days} gün kesintisiz açık kaldı"
+            )
+        else:
+            op_status = (
+                f"ay boyunca operasyon {operation_days}/{expected_days} gün kesintisiz açık kaldı"
+            )
     else:
-        gap = month_days - operation_days
-        op_status = (
-            f"ay içinde {operation_days}/{month_days} gün kayıt var, "
-            f"{gap} gün kayıt yok"
-        )
+        gap = max(0, expected_days - operation_days)
+        if started_mid_month:
+            op_status = (
+                f"operasyon {op_start_date} tarihinde başladı; "
+                f"{operation_days}/{expected_days} gün kayıt var, "
+                f"{gap} gün kayıt yok"
+            )
+        else:
+            op_status = (
+                f"ay içinde {operation_days}/{expected_days} gün kayıt var, "
+                f"{gap} gün kayıt yok"
+            )
 
     # Hedef vs gerçekleşen kurye analizi
     if target_headcount > 0:
@@ -814,11 +876,17 @@ def get_personnel_movements(restaurant_id: int, period: str) -> dict:
         "active_courier_count": active_courier_count,
         "operation_days": operation_days,
         "month_days": month_days,
+        "expected_days": expected_days,
         "uninterrupted": uninterrupted,
-        # Hedef vs gerçek kurye analizi (yeni)
+        # Hedef vs gerçek kurye analizi
         "target_headcount": target_headcount,
         "actual_unique_couriers": actual_unique_couriers,
         "headcount_gap": headcount_gap,
         "headcount_note": headcount_note,
+        # Restoran sözleşme/operasyon tarihleri
+        "agreement_date": agreement_date,
+        "operation_start_date": op_start_date,
+        "operation_end_date": op_end_date,
+        "started_mid_month": started_mid_month,
         "summary": summary,
     }

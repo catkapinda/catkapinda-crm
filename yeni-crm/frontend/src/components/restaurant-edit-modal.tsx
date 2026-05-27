@@ -51,6 +51,9 @@ export function RestaurantEditModal({
     tax_office: r?.tax_office ?? '',
     tax_number: r?.tax_number ?? '',
     address: r?.address ?? '',
+    agreement_date: r?.agreement_date ?? '',
+    start_date: r?.start_date ?? '',
+    end_date: r?.end_date ?? '',
     notes: r?.notes ?? '',
   });
   const [saving, setSaving] = useState(false);
@@ -333,6 +336,37 @@ export function RestaurantEditModal({
                 className="input resize-none"
               />
             </Field>
+          </div>
+
+          {/* Sözleşme & Operasyon Tarihleri */}
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-text-3 mb-2 inline-flex items-center gap-1.5">
+              <span className="w-1 h-3 bg-brand rounded-full" />
+              Sözleşme & Operasyon
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Anlaşma tarihi (sözleşme)">
+                <input
+                  type="date"
+                  value={form.agreement_date ?? ''}
+                  onChange={(e) => set('agreement_date', e.target.value)}
+                  className="input"
+                />
+              </Field>
+              <Field label="Operasyon başlangıç tarihi">
+                <input
+                  type="date"
+                  value={form.start_date ?? ''}
+                  onChange={(e) => set('start_date', e.target.value)}
+                  className="input"
+                />
+              </Field>
+            </div>
+            <p className="text-[11px] text-text-3 mt-1.5 italic">
+              Anlaşma tarihi sözleşmenin imzalandığı, operasyon başlangıcı ise ilk
+              paket atımının başladığı tarih. Raporlarda &quot;X gün kayıt yok&quot;
+              uyarısı operasyon başlangıcına göre hesaplanır.
+            </p>
           </div>
 
           {/* Notlar */}
