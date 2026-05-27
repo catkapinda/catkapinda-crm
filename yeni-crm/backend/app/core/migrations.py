@@ -813,6 +813,29 @@ MIGRATIONS: list[tuple[str, str]] = [
             ADD COLUMN IF NOT EXISTS welcome_sms_sent_at TIMESTAMPTZ
         """,
     ),
+    # SMS OTP — tek kullanımlık kod ile giriş (parolasız)
+    # Cihan/Tunç gibi BM kullanıcıları için telefonla doğrudan giriş.
+    (
+        "sms_otp_codes.table",
+        """
+        CREATE TABLE IF NOT EXISTS sms_otp_codes (
+            id SERIAL PRIMARY KEY,
+            phone VARCHAR(20) NOT NULL,
+            code_hash VARCHAR(255) NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            used_at TIMESTAMPTZ,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+    ),
+    (
+        "sms_otp_codes.idx_phone",
+        """
+        CREATE INDEX IF NOT EXISTS idx_sms_otp_phone_created
+        ON sms_otp_codes (phone, created_at DESC)
+        """,
+    ),
     # 2026-05-27: aktif olmayan veya sonradan eklenen restoranların
     # history satırını da tamamla (Celal Usta gibi). Bu migration
     # idempotent — zaten satırı olanları atlar.

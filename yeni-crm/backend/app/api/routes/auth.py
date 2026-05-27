@@ -15,6 +15,7 @@ from app.core.auth import (
     use_reset_token,
     verify_password,
 )
+from app.core.sms_otp import request_otp, verify_otp
 from app.core.config import get_settings
 from app.core.email import Attachment, send_email
 
@@ -49,6 +50,15 @@ class ResetPasswordRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(min_length=6)
+
+
+class OtpRequestRequest(BaseModel):
+    phone: str = Field(min_length=10, max_length=20)
+
+
+class OtpVerifyRequest(BaseModel):
+    phone: str = Field(min_length=10, max_length=20)
+    code: str = Field(min_length=6, max_length=6)
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────
@@ -165,10 +175,43 @@ async def change_password_route(
 ) -> None:
     """Oturum açık kullanıcı parolasını değiştirir (mevcut parola gerekir)."""
     # Mevcut parolayı doğrula
-    full = get_user_by_email(user["email"])
+    full = get_user_by_email(user["email"]) if user.get("email") else None
     if not full or not verify_password(payload.current_password, full["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Mevcut parola hatalı",
         )
     change_password(user["id"], payload.new_password)
+
+
+# ─── SMS OTP — parolasız giriş (BM kullanıcıları için) ─────────────
+
+
+@router.post("/sms-otp/request")
+async def sms_otp_request(payload: OtpRequestRequest) -> dict:
+    """Telefona 6-haneli kod gönder.
+
+    Privacy: telefon sistemde olmasa bile sent=True döner (user
+    enumeration koruması). Sadece SMS gönderilmez.
+    """
+    result = request_otp(payload.phone)
+    return result
+
+
+@router.post("/sms-otp/verify", response_model=LoginResponse)
+async def sms_otp_verify(payload: OtpVerifyRequest) -> dict:
+    """Telefon + kod → JWT token + user info."""
+    user = verify_otp(payload.phone, payload.code)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Kod hatalı veya süresi dolmuş",
+        )
+    update_last_login(user["id"])
+    subject = user.get("email") or f"phone:{user.get('phone')}"
+    token = create_access_token(user["id"], subject)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user,
+    }

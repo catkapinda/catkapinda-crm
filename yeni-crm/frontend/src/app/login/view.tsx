@@ -3,11 +3,11 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import {
-  AlertCircle, ArrowRight, CheckCircle2, Eye, EyeOff,
-  Loader2, Lock, Mail, Phone, ShieldCheck,
+  AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff,
+  KeySquare, Loader2, Lock, Mail, Phone, RotateCw, ShieldCheck,
 } from 'lucide-react';
 
-import { forgotPassword, login } from '@/lib/api';
+import { forgotPassword, login, requestSmsOtp, verifySmsOtp } from '@/lib/api';
 
 const TR_DAYS = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -51,22 +51,65 @@ export function LoginView({ nextUrl }: { nextUrl: string }) {
   const [mode, setMode] = useState<'login' | 'forgot'>('login');
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+  // SMS OTP akışı (telefon tab'ı 2 step)
+  const [otpStep, setOtpStep] = useState<'phone' | 'code'>('phone');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpCooldown, setOtpCooldown] = useState(0);
   const { time, date } = useLiveTime();
+
+  // Cooldown sayacı
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const id = setInterval(() => setOtpCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(id);
+  }, [otpCooldown]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    const identifier = loginMethod === 'email' ? email.trim() : phone.trim();
-    if (!identifier || !password) {
-      setError(loginMethod === 'email' ? 'E-posta ve parola gerekli.' : 'Telefon ve parola gerekli.');
+    if (!email.trim() || !password) {
+      setError('E-posta ve parola gerekli.');
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await login(identifier, password);
+      await login(email.trim(), password);
       window.location.href = nextUrl && nextUrl !== '/login' ? nextUrl : '/';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Giriş başarısız');
+      setLoading(false);
+    }
+  }
+
+  async function handleOtpRequest(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!phone.trim()) { setError('Telefon gerekli.'); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await requestSmsOtp(phone.trim());
+      setOtpStep('code');
+      setOtpCooldown(r.cooldown_seconds || 60);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'SMS gönderilemedi');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleOtpVerify(e: React.FormEvent) {
+    e.preventDefault();
+    if (!otpCode.trim() || otpCode.length !== 6) {
+      setError('6 haneli kodu girin.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await verifySmsOtp(phone.trim(), otpCode.trim());
+      window.location.href = nextUrl && nextUrl !== '/login' ? nextUrl : '/';
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kod hatalı');
       setLoading(false);
     }
   }
@@ -234,7 +277,12 @@ export function LoginView({ nextUrl }: { nextUrl: string }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setLoginMethod('phone'); setError(null); }}
+                    onClick={() => {
+                      setLoginMethod('phone');
+                      setError(null);
+                      setOtpStep('phone');
+                      setOtpCode('');
+                    }}
                     className={`px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition inline-flex items-center gap-1.5 ${
                       loginMethod === 'phone'
                         ? 'bg-white text-brand shadow-sm'
@@ -242,12 +290,13 @@ export function LoginView({ nextUrl }: { nextUrl: string }) {
                     }`}
                   >
                     <Phone className="w-3.5 h-3.5" strokeWidth={2.4} />
-                    Telefon
+                    Telefon (SMS)
                   </button>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
-                  {loginMethod === 'email' ? (
+                {loginMethod === 'email' ? (
+                  // ───── E-POSTA + PAROLA ─────
+                  <form onSubmit={handleLogin} className="space-y-4">
                     <Field
                       icon={<Mail className="w-4 h-4" />}
                       type="email"
@@ -258,74 +307,172 @@ export function LoginView({ nextUrl }: { nextUrl: string }) {
                       autoFocus
                       required
                     />
-                  ) : (
-                    <Field
-                      icon={<Phone className="w-4 h-4" />}
-                      type="tel"
-                      label="Telefon"
-                      placeholder="5XX XXX XX XX"
-                      value={phone}
-                      onChange={setPhone}
-                      autoFocus
-                      required
-                    />
-                  )}
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[11.5px] font-bold text-text-2 uppercase tracking-wider">
-                        Parola
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => { setMode('forgot'); setError(null); }}
-                        className="text-[11px] text-brand hover:text-brand-dark hover:underline font-semibold transition"
-                      >
-                        Şifremi unuttum?
-                      </button>
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-[11.5px] font-bold text-text-2 uppercase tracking-wider">
+                          Parola
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => { setMode('forgot'); setError(null); }}
+                          className="text-[11px] text-brand hover:text-brand-dark hover:underline font-semibold transition"
+                        >
+                          Şifremi unuttum?
+                        </button>
+                      </div>
+                      <div className="relative group">
+                        <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-3 group-focus-within:text-brand transition" strokeWidth={2.2} />
+                        <input
+                          type={showPwd ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          placeholder="••••••••"
+                          className="w-full pl-10 pr-10 py-3.5 rounded-xl border border-border text-sm focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 transition-all bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPwd((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-text-3 hover:text-brand transition p-1"
+                        >
+                          {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
-                    <div className="relative group">
-                      <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-3 group-focus-within:text-brand transition" strokeWidth={2.2} />
-                      <input
-                        type={showPwd ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        placeholder="••••••••"
-                        className="w-full pl-10 pr-10 py-3.5 rounded-xl border border-border text-sm focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 transition-all bg-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPwd((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-3 hover:text-brand transition p-1"
-                      >
-                        {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
 
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-[12.5px] flex items-start gap-2 animate-rise">
-                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                      <span>{error}</span>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="relative w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-dark via-brand to-blue-600 text-white font-bold text-sm shadow-lg shadow-brand/30 hover:shadow-xl hover:shadow-brand/40 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-60 disabled:cursor-wait inline-flex items-center justify-center gap-2 overflow-hidden animate-btn-shimmer"
-                  >
-                    {loading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <span className="relative z-10">Giriş Yap</span>
-                        <ArrowRight className="w-4 h-4 relative z-10" strokeWidth={2.4} />
-                      </>
+                    {error && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-[12.5px] flex items-start gap-2 animate-rise">
+                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>{error}</span>
+                      </div>
                     )}
-                  </button>
-                </form>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="relative w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-dark via-brand to-blue-600 text-white font-bold text-sm shadow-lg shadow-brand/30 hover:shadow-xl hover:shadow-brand/40 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-60 disabled:cursor-wait inline-flex items-center justify-center gap-2 overflow-hidden animate-btn-shimmer"
+                    >
+                      {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <span className="relative z-10">Giriş Yap</span>
+                          <ArrowRight className="w-4 h-4 relative z-10" strokeWidth={2.4} />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  // ───── TELEFON + SMS OTP (2 step) ─────
+                  otpStep === 'phone' ? (
+                    <form onSubmit={handleOtpRequest} className="space-y-4">
+                      <div>
+                        <Field
+                          icon={<Phone className="w-4 h-4" />}
+                          type="tel"
+                          label="Telefon"
+                          placeholder="5XX XXX XX XX"
+                          value={phone}
+                          onChange={setPhone}
+                          autoFocus
+                          required
+                        />
+                        <div className="text-[11px] text-text-3 mt-2 flex items-start gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-emerald-600" strokeWidth={2.2} />
+                          <span>Telefonunuza 6 haneli giriş kodu SMS ile gönderilir. Parola gerekmez.</span>
+                        </div>
+                      </div>
+
+                      {error && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-[12.5px] flex items-start gap-2 animate-rise">
+                          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>{error}</span>
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="relative w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-dark via-brand to-blue-600 text-white font-bold text-sm shadow-lg shadow-brand/30 hover:shadow-xl hover:shadow-brand/40 hover:-translate-y-0.5 transition-all disabled:opacity-60 inline-flex items-center justify-center gap-2 overflow-hidden animate-btn-shimmer"
+                      >
+                        {loading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>SMS Kodu Gönder <ArrowRight className="w-4 h-4" strokeWidth={2.4} /></>
+                        )}
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleOtpVerify} className="space-y-4">
+                      <button
+                        type="button"
+                        onClick={() => { setOtpStep('phone'); setOtpCode(''); setError(null); }}
+                        className="text-[11px] text-text-3 hover:text-brand font-semibold inline-flex items-center gap-1 transition"
+                      >
+                        <ArrowLeft className="w-3 h-3" strokeWidth={2.4} />
+                        Numarayı değiştir
+                      </button>
+
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-700 text-[12.5px] flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>
+                          <strong>{phone}</strong> numarasına 6 haneli kod gönderildi.
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11.5px] font-bold text-text-2 uppercase tracking-wider mb-1.5">
+                          Doğrulama Kodu
+                        </label>
+                        <div className="relative group">
+                          <KeySquare className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-3 group-focus-within:text-brand transition" strokeWidth={2.2} />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={6}
+                            value={otpCode}
+                            onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder="• • • • • •"
+                            autoFocus
+                            required
+                            className="w-full pl-10 pr-3 py-3.5 rounded-xl border border-border text-lg font-mono tracking-[0.5em] text-center focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 transition-all bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      {error && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-[12.5px] flex items-start gap-2 animate-rise">
+                          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>{error}</span>
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={loading || otpCode.length !== 6}
+                        className="relative w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-dark via-brand to-blue-600 text-white font-bold text-sm shadow-lg shadow-brand/30 hover:shadow-xl hover:shadow-brand/40 hover:-translate-y-0.5 transition-all disabled:opacity-60 inline-flex items-center justify-center gap-2 overflow-hidden animate-btn-shimmer"
+                      >
+                        {loading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>Doğrula ve Giriş Yap <ArrowRight className="w-4 h-4" strokeWidth={2.4} /></>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOtpRequest()}
+                        disabled={loading || otpCooldown > 0}
+                        className="w-full text-[12px] text-text-2 hover:text-brand transition font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                        <RotateCw className="w-3 h-3" strokeWidth={2.4} />
+                        {otpCooldown > 0 ? `Tekrar gönder (${otpCooldown}sn)` : 'Kodu tekrar gönder'}
+                      </button>
+                    </form>
+                  )
+                )}
 
                 <div className="mt-7 pt-5 border-t border-border/60 text-center">
                   <div className="text-[11px] text-text-3 mb-2">

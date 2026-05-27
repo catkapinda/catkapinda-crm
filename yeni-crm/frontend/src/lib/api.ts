@@ -991,6 +991,36 @@ export async function resetPasswordWithToken(
   }
 }
 
+export async function requestSmsOtp(phone: string): Promise<{ sent: boolean; cooldown_seconds: number }> {
+  const res = await fetch('/api/auth/sms-otp/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone }),
+  });
+  if (!res.ok) {
+    let msg = 'SMS gönderilemedi';
+    try { const err = await res.json(); msg = err?.detail ?? msg; } catch { /* */ }
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+export async function verifySmsOtp(phone: string, code: string): Promise<LoginResponse> {
+  const res = await fetch('/api/auth/sms-otp/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, code }),
+  });
+  if (!res.ok) {
+    let msg = 'Kod doğrulanamadı';
+    try { const err = await res.json(); msg = err?.detail ?? msg; } catch { /* */ }
+    throw new Error(msg);
+  }
+  const data: LoginResponse = await res.json();
+  setAuthToken(data.access_token, data.user);
+  return data;
+}
+
 export async function changeOwnPassword(
   currentPassword: string,
   newPassword: string,
