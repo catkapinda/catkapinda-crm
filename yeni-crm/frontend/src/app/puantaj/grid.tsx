@@ -265,7 +265,36 @@ export function PuantajGrid({
           <button className="px-3 py-2 rounded-xl bg-bg-surface border border-border text-text-2 text-[13px] font-medium hover:border-text/30 transition flex items-center gap-1.5">
             <Copy className="w-3.5 h-3.5" strokeWidth={2.2} /> Geçen aydan kopyala
           </button>
-          <button className="px-3 py-2 rounded-xl bg-bg-surface border border-border text-text-2 text-[13px] font-medium hover:border-text/30 transition flex items-center gap-1.5">
+          <button
+            onClick={async () => {
+              try {
+                const params = new URLSearchParams({ period });
+                if (selectedRestaurantId) {
+                  params.set('restaurant_id', String(selectedRestaurantId));
+                }
+                const res = await fetch(`/api/puantaj/template?${params.toString()}`);
+                if (!res.ok) throw new Error(`Şablon indirilemedi (${res.status})`);
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const restPart = restFilter ? `-${restFilter.replace(/\s+/g, '_')}` : '';
+                a.download = `puantaj-sablon-${period}${restPart}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } catch (e) {
+                alert(e instanceof Error ? e.message : 'Şablon indirilemedi');
+              }
+            }}
+            className="px-3 py-2 rounded-xl bg-bg-surface border border-border text-text-2 text-[13px] font-medium hover:border-text/30 transition flex items-center gap-1.5"
+            title={
+              selectedRestaurantId
+                ? `${restFilter} için ${formatPeriod(period)} şablonu indir`
+                : `Tüm personel için ${formatPeriod(period)} şablonu indir`
+            }
+          >
             <ArrowDownToLine className="w-3.5 h-3.5" strokeWidth={2.2} /> Excel Şablonu
           </button>
           <button

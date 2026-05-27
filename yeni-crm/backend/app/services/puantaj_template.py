@@ -1,0 +1,403 @@
+"""Toplu puantaj Excel şablonu üretimi.
+
+Operasyon ekibinin bir restoran (veya tüm aktif personel) için aylık puantajı
+toplu olarak doldurabileceği Excel şablonu üretir.
+
+Şablon yapısı:
+  - 1 sheet: "Puantaj"
+  - Üstte info satırı: dönem (Mart 2026) + restoran adı (varsa)
+  - Header: Kod | Ad Soyad | Rol | Restoran | Tip | 1 | 2 | ... | N | Toplam
+  - Her kurye iki satır:
+      * Saat — her gün için çalışılan saat
+      * Paket — her gün için teslim edilen paket
+  - Hafta sonu hücreleri arka plan farklı (gri tonlu)
+  - Toplam kolonunda SUM formülü
+  - Açıklama satırı: "Boş hücre = gelmedi; sayı = aktif gün"
+
+Geri dönüş: bytes (XLSX)
+"""
+from __future__ import annotations
+
+import io
+from calendar import monthrange
+from datetime import date
+
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.worksheet import Worksheet
+from psycopg.rows import dict_row
+
+from app.core.database import get_connection
+
+
+TR_MONTHS = [
+    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+]
+TR_DAYS_SHORT = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]  # Monday=0
+
+
+# Çat Kapında brand palet
+BRAND = "0F52BA"
+BRAND_DARK = "0A3F8F"
+BRAND_SOFT = "E8EFFB"
+CREAM_50 = "FDFAF3"
+CREAM_100 = "F5EDD8"
+ROW_SAAT = "FFF7E6"
+ROW_PAKET = "EFF5FB"
+WEEKEND_BG = "F1F4F9"
+HEADER_TEXT = "FFFFFF"
+TEXT = "0B0D17"
+BORDER_GRAY = "ECEEF3"
+
+
+def _format_period(period: str) -> str:
+    y, m = period.split("-")
+    return f"{TR_MONTHS[int(m) - 1]} {y}"
+
+
+def _thin_side() -> Side:
+    return Side(style="thin", color=BORDER_GRAY)
+
+
+def generate_puantaj_template(
+    period: str, restaurant_id: int | None = None,
+) -> bytes:
+    """Excel şablonu üret. restaurant_id verilmezse tüm aktif Kurye/Joker dahil.
+
+    Args:
+        period: 'YYYY-MM'
+        restaurant_id: opsiyonel filtre — sadece bu restorana atanmış personel
+
+    Returns:
+        bytes (xlsx)
+    """
+    yyyy, mm = period.split("-")
+    yyyy_i, mm_i = int(yyyy), int(mm)
+    n_days = monthrange(yyyy_i, mm_i)[1]
+
+    # 1) Restoran info
+    rest_name = ""
+    if restaurant_id:
+        with get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    "SELECT brand, branch FROM restaurants WHERE id = %s",
+                    (restaurant_id,),
+                )
+                r = cur.fetchone()
+                if r:
+                    rest_name = r["brand"] or ""
+                    if r.get("branch"):
+                        rest_name += f" / {r['branch']}"
+
+    # 2) Personel listesi — aktif + (restaurant_id varsa) o restorana atanmış
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            sql = """
+                SELECT
+                    p.id, p.person_code, p.full_name, p.role,
+                    p.assigned_restaurant_id,
+                    r.brand AS rest_brand, r.branch AS rest_branch
+                FROM personnel p
+                LEFT JOIN restaurants r ON r.id = p.assigned_restaurant_id
+                WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
+                  AND p.role IN ('Kurye', 'Joker', 'Restoran Takım Şefi',
+                                 'Kaptan', 'Bölge Müdürü')
+            """
+            params: list = []
+            if restaurant_id:
+                sql += " AND p.assigned_restaurant_id = %s"
+                params.append(restaurant_id)
+            sql += """
+                ORDER BY
+                    CASE p.role
+                        WHEN 'Bölge Müdürü' THEN 1
+                        WHEN 'Kaptan' THEN 2
+                        WHEN 'Restoran Takım Şefi' THEN 3
+                        WHEN 'Joker' THEN 4
+                        ELSE 5
+                    END,
+                    p.full_name
+            """
+            cur.execute(sql, tuple(params))
+            personnel = cur.fetchall()
+
+    # 3) Workbook oluştur
+    wb = Workbook()
+    ws: Worksheet = wb.active
+    ws.title = "Puantaj"
+
+    # ──────── INFO BARI (Row 1-3) ────────
+    ws.cell(row=1, column=1, value="ÇAT KAPINDA — TOPLU PUANTAJ ŞABLONU")
+    ws.cell(row=1, column=1).font = Font(
+        name="Arial", size=14, bold=True, color=BRAND_DARK,
+    )
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=8)
+
+    info_text = f"Dönem: {_format_period(period)}  ·  {n_days} gün"
+    if rest_name:
+        info_text += f"  ·  Restoran: {rest_name}"
+    info_text += f"  ·  {len(personnel)} personel"
+    ws.cell(row=2, column=1, value=info_text)
+    ws.cell(row=2, column=1).font = Font(name="Arial", size=10, color="4D5468")
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=8)
+
+    # Açıklama (Row 3)
+    note = (
+        "Her kurye için iki satır: 'Saat' (çalışılan saat) ve 'Paket' "
+        "(teslim edilen paket). Boş hücre = o gün gelmedi. Hafta sonu sütunları "
+        "gri tonludur. Toplam kolonları otomatik hesaplanır."
+    )
+    ws.cell(row=3, column=1, value=note)
+    ws.cell(row=3, column=1).font = Font(
+        name="Arial", size=9, italic=True, color="8B92A7",
+    )
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=8 + n_days)
+    ws.cell(row=3, column=1).alignment = Alignment(
+        wrap_text=True, vertical="center",
+    )
+    ws.row_dimensions[3].height = 30
+
+    # ──────── HEADER (Row 5) ────────
+    HEADER_ROW = 5
+    headers = ["Personel Kodu", "Ad Soyad", "Rol", "Restoran", "Tip"]
+    for col_idx, h in enumerate(headers, start=1):
+        c = ws.cell(row=HEADER_ROW, column=col_idx, value=h)
+        c.font = Font(name="Arial", size=10, bold=True, color=HEADER_TEXT)
+        c.fill = PatternFill("solid", start_color=BRAND_DARK)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = Border(
+            top=_thin_side(), bottom=_thin_side(),
+            left=_thin_side(), right=_thin_side(),
+        )
+
+    # Gün başlıkları (1, 2, 3, ...)
+    for d in range(1, n_days + 1):
+        col = 5 + d
+        day_date = date(yyyy_i, mm_i, d)
+        weekday = day_date.weekday()  # 0=Mon
+        is_weekend = weekday >= 5  # Sat, Sun
+
+        # Hücre: "1\nPzt"
+        c = ws.cell(
+            row=HEADER_ROW, column=col,
+            value=f"{d}\n{TR_DAYS_SHORT[weekday]}",
+        )
+        c.font = Font(
+            name="Arial", size=9, bold=True,
+            color=HEADER_TEXT,
+        )
+        c.fill = PatternFill(
+            "solid",
+            start_color="6B7280" if is_weekend else BRAND,
+        )
+        c.alignment = Alignment(
+            horizontal="center", vertical="center", wrap_text=True,
+        )
+        c.border = Border(
+            top=_thin_side(), bottom=_thin_side(),
+            left=_thin_side(), right=_thin_side(),
+        )
+
+    # Toplam sütunu (sağ uçta)
+    total_col = 5 + n_days + 1
+    c = ws.cell(row=HEADER_ROW, column=total_col, value="Toplam")
+    c.font = Font(name="Arial", size=10, bold=True, color=HEADER_TEXT)
+    c.fill = PatternFill("solid", start_color=BRAND_DARK)
+    c.alignment = Alignment(horizontal="center", vertical="center")
+    c.border = Border(
+        top=_thin_side(), bottom=_thin_side(),
+        left=_thin_side(), right=_thin_side(),
+    )
+
+    # Header yüksekliği
+    ws.row_dimensions[HEADER_ROW].height = 32
+
+    # Sütun genişlikleri
+    ws.column_dimensions["A"].width = 13  # kod
+    ws.column_dimensions["B"].width = 24  # ad
+    ws.column_dimensions["C"].width = 14  # rol
+    ws.column_dimensions["D"].width = 22  # restoran
+    ws.column_dimensions["E"].width = 8   # tip (Saat/Paket)
+    for d in range(1, n_days + 1):
+        ws.column_dimensions[get_column_letter(5 + d)].width = 6
+    ws.column_dimensions[get_column_letter(total_col)].width = 10
+
+    # Freeze: header altı + sol kolonlar (Tip sütununa kadar)
+    ws.freeze_panes = "F6"
+
+    # ──────── PERSONEL SATIRLARI ────────
+    row = HEADER_ROW + 1
+    for p in personnel:
+        rest_label = ""
+        if p.get("rest_brand"):
+            rest_label = p["rest_brand"]
+            if p.get("rest_branch"):
+                rest_label += f" / {p['rest_branch']}"
+
+        # Saat satırı
+        ws.cell(row=row, column=1, value=p.get("person_code") or "")
+        ws.cell(row=row, column=2, value=p.get("full_name") or "")
+        ws.cell(row=row, column=3, value=p.get("role") or "")
+        ws.cell(row=row, column=4, value=rest_label)
+        ws.cell(row=row, column=5, value="Saat")
+
+        # Paket satırı
+        ws.cell(row=row + 1, column=1, value=p.get("person_code") or "")
+        ws.cell(row=row + 1, column=2, value=p.get("full_name") or "")
+        ws.cell(row=row + 1, column=3, value=p.get("role") or "")
+        ws.cell(row=row + 1, column=4, value=rest_label)
+        ws.cell(row=row + 1, column=5, value="Paket")
+
+        # Stil — her iki satır
+        for r_off, fill_color in [(0, ROW_SAAT), (1, ROW_PAKET)]:
+            rr = row + r_off
+            # Sol bilgi sütunları (A-E)
+            for col in range(1, 6):
+                c = ws.cell(row=rr, column=col)
+                c.font = Font(
+                    name="Arial", size=10,
+                    bold=(col in (1, 5)),
+                )
+                c.fill = PatternFill("solid", start_color=fill_color)
+                c.alignment = Alignment(
+                    horizontal="left" if col != 5 else "center",
+                    vertical="center",
+                )
+                c.border = Border(
+                    top=_thin_side(), bottom=_thin_side(),
+                    left=_thin_side(), right=_thin_side(),
+                )
+
+            # Gün hücreleri (boş — kullanıcı dolduracak)
+            for d in range(1, n_days + 1):
+                col = 5 + d
+                day_date = date(yyyy_i, mm_i, d)
+                is_weekend = day_date.weekday() >= 5
+                c = ws.cell(row=rr, column=col, value=None)
+                c.font = Font(name="Arial", size=10)
+                c.fill = PatternFill(
+                    "solid",
+                    start_color=WEEKEND_BG if is_weekend else "FFFFFF",
+                )
+                c.alignment = Alignment(
+                    horizontal="center", vertical="center",
+                )
+                c.border = Border(
+                    top=_thin_side(), bottom=_thin_side(),
+                    left=_thin_side(), right=_thin_side(),
+                )
+                # Sayı formatı: saat satırı ondalıklı, paket tam sayı
+                c.number_format = "0.0" if r_off == 0 else "0"
+
+            # Toplam (SUM formülü)
+            first_col_letter = get_column_letter(6)
+            last_col_letter = get_column_letter(5 + n_days)
+            total_c = ws.cell(
+                row=rr, column=total_col,
+                value=f"=SUM({first_col_letter}{rr}:{last_col_letter}{rr})",
+            )
+            total_c.font = Font(name="Arial", size=10, bold=True, color=BRAND_DARK)
+            total_c.fill = PatternFill("solid", start_color=CREAM_100)
+            total_c.alignment = Alignment(horizontal="center", vertical="center")
+            total_c.border = Border(
+                top=_thin_side(), bottom=_thin_side(),
+                left=_thin_side(), right=_thin_side(),
+            )
+            total_c.number_format = "0.0" if r_off == 0 else "0"
+
+        row += 2
+
+    # ──────── ALT TOPLAM SATIRI ────────
+    summary_row = row + 1
+    ws.cell(row=summary_row, column=1, value="Toplam")
+    ws.cell(row=summary_row, column=1).font = Font(
+        name="Arial", size=11, bold=True, color=HEADER_TEXT,
+    )
+    ws.merge_cells(
+        start_row=summary_row, start_column=1,
+        end_row=summary_row, end_column=4,
+    )
+    ws.cell(row=summary_row, column=1).fill = PatternFill(
+        "solid", start_color=BRAND_DARK,
+    )
+    ws.cell(row=summary_row, column=1).alignment = Alignment(
+        horizontal="right", vertical="center",
+    )
+
+    ws.cell(row=summary_row, column=5, value="Saat/Paket")
+    ws.cell(row=summary_row, column=5).font = Font(
+        name="Arial", size=10, bold=True, color=HEADER_TEXT,
+    )
+    ws.cell(row=summary_row, column=5).fill = PatternFill(
+        "solid", start_color=BRAND_DARK,
+    )
+    ws.cell(row=summary_row, column=5).alignment = Alignment(
+        horizontal="center", vertical="center",
+    )
+
+    # Gün toplamları (saat + paket karışık olduğu için sadece total kolonunda)
+    data_start = HEADER_ROW + 1
+    data_end = row - 1  # son personel satırı
+    for d in range(1, n_days + 1):
+        col_letter = get_column_letter(5 + d)
+        c = ws.cell(
+            row=summary_row, column=5 + d,
+            value=f"=SUM({col_letter}{data_start}:{col_letter}{data_end})",
+        )
+        c.font = Font(name="Arial", size=10, bold=True, color=HEADER_TEXT)
+        c.fill = PatternFill("solid", start_color=BRAND)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.number_format = "0.0"
+
+    # Genel toplam
+    total_letter = get_column_letter(total_col)
+    c = ws.cell(
+        row=summary_row, column=total_col,
+        value=f"=SUM({total_letter}{data_start}:{total_letter}{data_end})",
+    )
+    c.font = Font(name="Arial", size=11, bold=True, color=HEADER_TEXT)
+    c.fill = PatternFill("solid", start_color=BRAND_DARK)
+    c.alignment = Alignment(horizontal="center", vertical="center")
+    c.number_format = "0.0"
+
+    ws.row_dimensions[summary_row].height = 28
+
+    # ──────── KILAVUZ SHEET ────────
+    guide = wb.create_sheet("Kullanım")
+    guide.cell(row=1, column=1, value="ÇAT KAPINDA · TOPLU PUANTAJ ŞABLONU")
+    guide.cell(row=1, column=1).font = Font(
+        name="Arial", size=14, bold=True, color=BRAND_DARK,
+    )
+    guide_lines = [
+        "",
+        "1. 'Puantaj' sekmesinde personel listesini görürsünüz — her kurye için iki satır vardır:",
+        "   • Saat satırı: o gün çalışılan saat (örn: 11 veya 8.5)",
+        "   • Paket satırı: o gün teslim edilen paket sayısı (örn: 30)",
+        "",
+        "2. Boş hücre = o gün gelmedi (sayılmaz). Sayı yazıldığı an o gün aktif sayılır.",
+        "",
+        "3. Hafta sonu sütunları gri tonludur — fark etmek kolaydır.",
+        "",
+        "4. 'Toplam' sütunu otomatik hesaplanır — siz değiştirmeyin.",
+        "",
+        "5. Dolu şablonu CRM'e geri yüklemek için 'Toplu Puantaj İçe Aktar' "
+        "(yakında eklenecek) butonunu kullanın. O zamana kadar manuel girişle "
+        "puantaj sayfasındaki hücreleri doldurabilirsiniz.",
+        "",
+        "Sorular için: admin@catkapinda.com",
+    ]
+    for i, line in enumerate(guide_lines, start=2):
+        c = guide.cell(row=i, column=1, value=line)
+        c.font = Font(name="Arial", size=10, color=TEXT)
+        c.alignment = Alignment(wrap_text=True, vertical="top")
+    guide.column_dimensions["A"].width = 100
+    for i in range(1, len(guide_lines) + 2):
+        guide.row_dimensions[i].height = 18
+
+    # ──────── EXPORT ────────
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()

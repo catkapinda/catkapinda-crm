@@ -1,5 +1,6 @@
 """Puantaj endpoint'leri."""
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.services.puantaj import (
@@ -11,8 +12,43 @@ from app.services.puantaj import (
     upsert_cell,
 )
 from app.services import puantaj_approvals as approvals
+from app.services.puantaj_template import generate_puantaj_template
 
 router = APIRouter()
+
+
+@router.get("/template")
+async def template(
+    period: str = "2026-03",
+    restaurant_id: int | None = None,
+):
+    """Toplu puantaj Excel şablonu — operasyon ekibi için.
+
+    Her kurye için iki satır (Saat + Paket) × günler matrisi.
+    restaurant_id verilmezse tüm aktif personel dahil.
+    """
+    try:
+        xlsx_bytes = generate_puantaj_template(
+            period=period, restaurant_id=restaurant_id,
+        )
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500, detail=f"Şablon üretilemedi: {e}"
+        ) from e
+
+    filename = f"puantaj-sablon-{period}.xlsx"
+    if restaurant_id:
+        filename = f"puantaj-sablon-{period}-rest{restaurant_id}.xlsx"
+
+    return Response(
+        content=xlsx_bytes,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
 
 
 class CellPayload(BaseModel):
