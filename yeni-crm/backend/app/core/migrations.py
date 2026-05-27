@@ -694,6 +694,50 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON CONFLICT (email) DO NOTHING
         """,
     ),
+    # 2026-05-27: Üç ek admin kullanıcı — hep bcrypt('admin123')
+    # İlk girişten sonra Profil > Şifre Değiştir ile yeni parola.
+    (
+        "users.seed_ebru_20260527",
+        """
+        INSERT INTO users (email, full_name, password_hash, role, status)
+        VALUES (
+            'ebru@catkapinda.com',
+            'Ebru Aslan',
+            '$2b$12$DuHs09ZdXZRVjn0ybXf/iu1qcceDomApAZdCsZFiOYEbOWgILyxay',
+            'admin',
+            'active'
+        )
+        ON CONFLICT (email) DO NOTHING
+        """,
+    ),
+    (
+        "users.seed_muhammed_20260527",
+        """
+        INSERT INTO users (email, full_name, password_hash, role, status)
+        VALUES (
+            'muhammed.terim@catkapinda.com',
+            'Muhammed Terim',
+            '$2b$12$DuHs09ZdXZRVjn0ybXf/iu1qcceDomApAZdCsZFiOYEbOWgILyxay',
+            'admin',
+            'active'
+        )
+        ON CONFLICT (email) DO NOTHING
+        """,
+    ),
+    (
+        "users.seed_mert_20260527",
+        """
+        INSERT INTO users (email, full_name, password_hash, role, status)
+        VALUES (
+            'mert.kurtulus@catkapinda.com',
+            'Mert Kurtuluş',
+            '$2b$12$DuHs09ZdXZRVjn0ybXf/iu1qcceDomApAZdCsZFiOYEbOWgILyxay',
+            'admin',
+            'active'
+        )
+        ON CONFLICT (email) DO NOTHING
+        """,
+    ),
     # 2026-05-27: aktif olmayan veya sonradan eklenen restoranların
     # history satırını da tamamla (Celal Usta gibi). Bu migration
     # idempotent — zaten satırı olanları atlar.
