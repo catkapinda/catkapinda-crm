@@ -836,6 +836,39 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON sms_otp_codes (phone, created_at DESC)
         """,
     ),
+    # ─── Restoran kurye talepleri (ek kurye / kurye azaltma) ───
+    (
+        "restaurant_courier_requests.table",
+        """
+        CREATE TABLE IF NOT EXISTS restaurant_courier_requests (
+            id SERIAL PRIMARY KEY,
+            restaurant_id integer NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+            request_date date NOT NULL DEFAULT current_date,
+            change_type varchar(10) NOT NULL,
+            count integer NOT NULL DEFAULT 1,
+            note text,
+            status varchar(20) NOT NULL DEFAULT 'open',
+            fulfilled_at date,
+            created_by varchar(120),
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+        )
+        """,
+    ),
+    (
+        "restaurant_courier_requests.idx_rest",
+        """
+        CREATE INDEX IF NOT EXISTS idx_rcr_restaurant
+        ON restaurant_courier_requests(restaurant_id, request_date DESC)
+        """,
+    ),
+    (
+        "restaurant_courier_requests.idx_status",
+        """
+        CREATE INDEX IF NOT EXISTS idx_rcr_status
+        ON restaurant_courier_requests(status)
+        """,
+    ),
     # 2026-05-27: aktif olmayan veya sonradan eklenen restoranların
     # history satırını da tamamla (Celal Usta gibi). Bu migration
     # idempotent — zaten satırı olanları atlar.

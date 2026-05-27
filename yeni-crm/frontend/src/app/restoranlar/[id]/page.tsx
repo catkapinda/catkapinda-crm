@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AlertTriangle, ChevronLeft } from 'lucide-react';
 
+import { RestaurantCourierRequestsPanel } from '@/components/restaurant-courier-requests-panel';
 import { Sidebar } from '@/components/sidebar';
 import {
   getPersonnelMovements,
@@ -167,6 +168,9 @@ export default async function RestaurantDetailPage({
             />
           </div>
         )}
+
+        {/* Kurye Talepleri — ek/azaltma talep paneli */}
+        <RestaurantCourierRequestsPanel restaurantId={restaurantId} />
 
         {/* Kurye bazında fatura kırılımı */}
         <section>

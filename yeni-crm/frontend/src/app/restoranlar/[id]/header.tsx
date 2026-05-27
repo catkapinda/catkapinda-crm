@@ -62,22 +62,25 @@ export function RestaurantDetailHeader({
 
   return (
     <>
-      {/* ────────── HERO ────────── */}
-      <section className="relative z-20 rounded-3xl shadow-lg mb-6">
-        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-br from-brand-dark via-brand to-blue-600" />
+      {/* ────────── HERO — animasyonlu mesh + floating orbs ────────── */}
+      <section className="relative z-20 rounded-[28px] shadow-[0_25px_60px_-15px_rgba(15,82,186,0.35)] mb-6 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden rounded-[28px] pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0a2a6f] via-[#0F52BA] to-[#1e4ed8] animate-mesh-shift" />
           <div
-            className="absolute inset-0 opacity-30 mix-blend-overlay"
+            className="absolute inset-0 opacity-50 mix-blend-overlay animate-mesh-shift"
             style={{
               backgroundImage:
-                'radial-gradient(circle at 20% 20%, rgba(255,255,255,.4) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,200,100,.3) 0%, transparent 50%)',
+                'radial-gradient(circle at 20% 30%, rgba(255,255,255,.5) 0%, transparent 45%), radial-gradient(circle at 75% 75%, rgba(255,200,100,.4) 0%, transparent 50%), radial-gradient(circle at 50% 100%, rgba(120,180,255,.3) 0%, transparent 60%)',
+              animationDuration: '20s',
             }}
           />
+          <div className="absolute -top-10 -right-10 w-72 h-72 rounded-full bg-amber-300/20 blur-3xl animate-float-a" />
+          <div className="absolute -bottom-20 -left-10 w-96 h-96 rounded-full bg-blue-300/20 blur-3xl animate-float-b" />
           <div
-            className="absolute inset-0 opacity-[0.07]"
+            className="absolute inset-0 opacity-[0.06]"
             style={{
-              backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-              backgroundSize: '24px 24px',
+              backgroundImage: 'radial-gradient(circle, white 1px, transparent 1.5px)',
+              backgroundSize: '22px 22px',
             }}
           />
         </div>

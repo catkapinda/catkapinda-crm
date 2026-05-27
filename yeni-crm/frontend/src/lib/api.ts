@@ -849,6 +849,99 @@ export async function getPersonnelMovements(
   );
 }
 
+// ─── Restoran Kurye Talepleri (ek / azaltma) ──────────────────────
+// NOT: Personel-bazlı `CourierRequest` (avans, motor değişikliği) tipleri
+// dosyanın altında ayrı tanımlı — burası restoran-bazlı kapasite
+// talepleri için (RestaurantCourierRequest* öneki).
+export type RestaurantCourierRequest = {
+  id: number;
+  restaurant_id: number;
+  request_date: string;  // 'YYYY-MM-DD'
+  change_type: 'add' | 'remove';
+  count: number;
+  note: string | null;
+  status: 'open' | 'fulfilled' | 'cancelled';
+  fulfilled_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RestaurantCourierRequestSummary = {
+  open_count: number;
+  open_add_count: number;
+  open_remove_count: number;
+  fulfilled_count: number;
+  latest_open: string | null;
+};
+
+export type RestaurantCourierRequestListResponse = {
+  items: RestaurantCourierRequest[];
+  summary: RestaurantCourierRequestSummary;
+};
+
+export type RestaurantCourierRequestCreate = {
+  request_date: string;
+  change_type: 'add' | 'remove';
+  count?: number;
+  note?: string | null;
+  created_by?: string | null;
+};
+
+export type RestaurantCourierRequestUpdate = {
+  request_date?: string;
+  change_type?: 'add' | 'remove';
+  count?: number;
+  note?: string | null;
+  status?: 'open' | 'fulfilled' | 'cancelled';
+  fulfilled_at?: string | null;
+};
+
+export async function listRestaurantCourierRequests(
+  restaurantId: number,
+): Promise<RestaurantCourierRequestListResponse> {
+  return apiGet<RestaurantCourierRequestListResponse>(
+    `/api/restaurants/${restaurantId}/courier-requests`,
+    { revalidate: 0 },
+  );
+}
+
+export async function createRestaurantCourierRequest(
+  restaurantId: number,
+  payload: RestaurantCourierRequestCreate,
+): Promise<RestaurantCourierRequest> {
+  return apiMutate<RestaurantCourierRequest>(
+    `/api/restaurants/${restaurantId}/courier-requests`,
+    payload,
+    'POST',
+  );
+}
+
+export async function updateRestaurantCourierRequest(
+  restaurantId: number,
+  requestId: number,
+  payload: RestaurantCourierRequestUpdate,
+): Promise<RestaurantCourierRequest> {
+  return apiMutate<RestaurantCourierRequest>(
+    `/api/restaurants/${restaurantId}/courier-requests/${requestId}`,
+    payload,
+    'PATCH',
+  );
+}
+
+export async function deleteRestaurantCourierRequest(
+  restaurantId: number,
+  requestId: number,
+): Promise<void> {
+  const res = await fetch(
+    `/api/restaurants/${restaurantId}/courier-requests/${requestId}`,
+    { method: 'DELETE' },
+  );
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`API ${res.status}`);
+  }
+}
+
 // ─── Veri Sağlığı (sistem geneli sanity checks) ───────────────────
 export type DataHealthCheck = {
   key: string;

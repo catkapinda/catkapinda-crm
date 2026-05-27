@@ -5,6 +5,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.hakedis import restaurant_monthly_breakdown
+from app.services.restaurant_courier_requests import (
+    create_request as create_courier_request,
+    delete_request as delete_courier_request,
+    list_for_restaurant as list_courier_requests,
+    summary_for_restaurant as courier_requests_summary,
+    update_request as update_courier_request,
+)
 from app.services.restaurant_reports import get_personnel_movements
 from app.services.restaurants import (
     create_restaurant,
@@ -146,3 +153,93 @@ async def create_one(payload: RestaurantCreate) -> dict:
     if not row:
         raise HTTPException(status_code=500, detail="Restoran oluşturulamadı")
     return row
+
+
+# ─── Kurye Talepleri (ek kurye / azaltma) ───────────────────────────
+
+
+class CourierRequestCreate(BaseModel):
+    """Yeni kurye talebi — tarih ve tip zorunlu."""
+
+    request_date: str  # 'YYYY-MM-DD'
+    change_type: str  # 'add' | 'remove'
+    count: int = 1
+    note: str | None = None
+    created_by: str | None = None
+
+
+class CourierRequestUpdate(BaseModel):
+    """Mevcut talep — sadece dolu alanlar güncellenir."""
+
+    request_date: str | None = None
+    change_type: str | None = None
+    count: int | None = None
+    note: str | None = None
+    status: str | None = None  # 'open' | 'fulfilled' | 'cancelled'
+    fulfilled_at: str | None = None  # 'YYYY-MM-DD' | null
+
+
+@router.get("/{restaurant_id}/courier-requests")
+async def list_courier_requests_route(restaurant_id: int) -> dict:
+    """Restorana ait tüm kurye taleplerini ve özeti döndür."""
+    items = list_courier_requests(restaurant_id)
+    summary = courier_requests_summary(restaurant_id)
+    return {"items": items, "summary": summary}
+
+
+@router.post("/{restaurant_id}/courier-requests", status_code=201)
+async def create_courier_request_route(
+    restaurant_id: int, payload: CourierRequestCreate
+) -> dict:
+    """Yeni kurye talebi oluştur (ek veya azaltma)."""
+    if not get_restaurant(restaurant_id):
+        raise HTTPException(status_code=404, detail="Restoran bulunamadı")
+    try:
+        row = create_courier_request(
+            restaurant_id=restaurant_id,
+            request_date=payload.request_date,
+            change_type=payload.change_type,
+            count=payload.count,
+            note=payload.note,
+            created_by=payload.created_by,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return row
+
+
+@router.patch("/{restaurant_id}/courier-requests/{request_id}")
+async def update_courier_request_route(
+    restaurant_id: int,
+    request_id: int,
+    payload: CourierRequestUpdate,
+) -> dict:
+    """Talep güncelle — durum, tarih, vs."""
+    try:
+        row = update_courier_request(
+            request_id,
+            request_date=payload.request_date,
+            change_type=payload.change_type,
+            count=payload.count,
+            note=payload.note,
+            status=payload.status,
+            fulfilled_at=payload.fulfilled_at,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    if not row:
+        raise HTTPException(status_code=404, detail="Talep bulunamadı")
+    return row
+
+
+@router.delete(
+    "/{restaurant_id}/courier-requests/{request_id}", status_code=204
+)
+async def delete_courier_request_route(
+    restaurant_id: int, request_id: int
+) -> None:
+    """Talebi kalıcı sil."""
+    ok = delete_courier_request(request_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Talep bulunamadı")
+    return None
