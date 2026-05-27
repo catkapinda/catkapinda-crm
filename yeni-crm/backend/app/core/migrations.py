@@ -805,6 +805,14 @@ MIGRATIONS: list[tuple[str, str]] = [
         ON CONFLICT DO NOTHING
         """,
     ),
+    # Welcome SMS gönderildi mi takibi — idempotent kontrol
+    (
+        "users.add_welcome_sms_flag_20260527",
+        """
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS welcome_sms_sent_at TIMESTAMPTZ
+        """,
+    ),
     # 2026-05-27: aktif olmayan veya sonradan eklenen restoranların
     # history satırını da tamamla (Celal Usta gibi). Bu migration
     # idempotent — zaten satırı olanları atlar.

@@ -69,13 +69,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(homeUrl);
   }
 
-  // BM rolü için path whitelist — yalnız puantaj + restoranlar + raporlar
+  // BM rolü için path whitelist — yalnız puantaj + restoranlar + raporlar + avans
   if (token && userRole === 'bm') {
     const bmAllowed =
       pathname === '/' ||  // → /puantaj'a yönlendireceğiz
       pathname.startsWith('/puantaj') ||
       pathname.startsWith('/restoranlar') ||
-      pathname.startsWith('/raporlar');
+      pathname.startsWith('/raporlar') ||
+      pathname.startsWith('/avans-talepleri');
     if (!bmAllowed) {
       const allow = url.clone();
       allow.pathname = '/puantaj';

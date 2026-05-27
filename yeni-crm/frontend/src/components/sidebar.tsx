@@ -14,7 +14,12 @@ import { readAuthUserCached } from '@/lib/api';
 import { ProfileDropdownClient } from '@/components/profile-dropdown';
 
 // BM rolünün görebileceği menü öğeleri (whitelist)
-const BM_ALLOWED_KEYS: NavKey[] = ['puantaj', 'restoranlar', 'restoran-raporlari'];
+const BM_ALLOWED_KEYS: NavKey[] = [
+  'puantaj',
+  'restoranlar',
+  'restoran-raporlari',
+  'avans-talepleri',
+];
 
 type NavKey =
   | 'dashboard' | 'personel' | 'puantaj' | 'puantaj-onay' | 'hakedis-onay'

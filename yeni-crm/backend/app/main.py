@@ -10,6 +10,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.database import close_pool, get_pool
 from app.core.migrations import run_migrations
+from app.core.welcome_sms import run_welcome_sms_for_pending_bm
 
 # Application logging — config.LOG_LEVEL env'e göre seviyeyi ayarla.
 # Default WARNING olduğunda `log.info(...)` mesajları (örn. payroll SMS
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Başlangıç
     get_pool()  # Bağlantı havuzunu önceden başlat
     run_migrations()  # Eksik kolonları (idempotent) ekle
+    run_welcome_sms_for_pending_bm()  # BM kullanıcılara karşılama SMS (idempotent)
     yield
     # Kapanış
     close_pool()
