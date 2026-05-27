@@ -422,12 +422,14 @@ def list_personnel_payroll(period: str) -> list[dict]:
                 )
 
         # Destek hesabı (her destek restoranı ayrı)
-        # NOT: coverage_type='Yönetim' olan kayıtlar (Joker/BM/Kaptan/RTŞ
-        # operasyon kapama günleri) ekstra brut HESAPLANMAZ — bu kişiler
-        # sabit aylık/tarife dışı olarak operasyona katılır, ekstra ücret yok.
-        # Bu kayıtlar sadece operasyonel iz olarak destek_lines'a eklenir
-        # (amount=0). Marj/restoran maliyeti hesabı bu satırları görür ama
-        # bordro toplam_brut'a etki etmez.
+        # NOT — coverage_type='Yönetim' (Joker/BM/Kaptan/RTŞ operasyon kapama):
+        #   • KURYEYE ekstra ücret YOK → bordro destek_brut=0 (sabit aylık zaten
+        #     yeterli, ek hak ediş üretmez)
+        #   • RESTORANA fatura YANSIR → daily_entries kaydı durur, restoran
+        #     paket×tarife / saat×tarife olarak faturalanır (collections.py)
+        #   destek_lines'a coverage_kind='Yönetim' ile amount=0 ekleniyor —
+        #   audit trail için. Marj hesabı bu blokları görür ama bordro toplam
+        #   brut'a etki etmez.
         destek_by_rest: dict[int, dict] = {}
         for e in my_entries:
             rid = e["rid"]
