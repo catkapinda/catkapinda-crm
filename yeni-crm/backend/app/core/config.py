@@ -61,7 +61,11 @@ class Settings(BaseSettings):
     # JWT secret — Render env'de ayarlanır. Yoksa secret_key fallback.
     jwt_secret: str = ""
     # Şifre sıfırlama linki için frontend base URL
-    frontend_url: str = "https://catkapinda-crm.staging"
+    # Boş bırakıldığında auth.py içindeki canlı staging URL'i fallback olur
+    # ("https://crmcatkapinda-v3.onrender.com"). Render'da FRONTEND_URL env'i
+    # set edilmemişse default değer ASLA sahte bir domain olmamalı — yoksa
+    # şifre sıfırlama linki DNS hatası verir.
+    frontend_url: str = ""
     # Genel secret (geriye uyumluluk için)
     secret_key: str = ""
 

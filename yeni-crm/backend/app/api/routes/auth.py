@@ -156,11 +156,19 @@ async def forgot_password(payload: ForgotPasswordRequest) -> None:
 
         token = set_reset_token(user["id"])
         settings = get_settings()
-        base_url = (
-            getattr(settings, "frontend_url", None)
-            or "https://crmcatkapinda-v3.onrender.com"
-        )
+        # frontend_url config'ten gelir; boş/placeholder ise canlı URL'e düş.
+        raw_url = (getattr(settings, "frontend_url", None) or "").strip()
+        # Sahte/placeholder default'ları reddet (DNS hatası yaşamayalım)
+        if (
+            not raw_url
+            or raw_url.startswith("https://catkapinda-crm.staging")
+            or "localhost" in raw_url
+            or "127.0.0.1" in raw_url
+        ):
+            raw_url = "https://crmcatkapinda-v3.onrender.com"
+        base_url = raw_url.rstrip("/")
         reset_url = f"{base_url}/sifre-sifirla?token={token}"
+        log.info("forgot_password reset_url base: %s", base_url)
 
         subject = "Çat Kapında CRM — Parola sıfırlama"
         full_name = user.get("full_name") or ""
