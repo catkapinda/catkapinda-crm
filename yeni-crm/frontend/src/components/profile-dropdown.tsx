@@ -41,7 +41,8 @@ export function ProfileDropdownClient() {
 
   if (!user) return null;
 
-  const initials = (user.full_name ?? user.email)
+  const displayName = user.full_name || user.email || user.phone || '';
+  const initials = displayName
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
@@ -60,10 +61,10 @@ export function ProfileDropdownClient() {
           </div>
           <div className="flex-1 text-left min-w-0">
             <div className="text-[12.5px] font-semibold text-text truncate">
-              {user.full_name || user.email.split('@')[0]}
+              {user.full_name || user.email?.split('@')[0] || user.phone || 'Kullanıcı'}
             </div>
             <div className="text-[10.5px] text-text-3 truncate">
-              {user.email}
+              {user.email || user.phone || ''}
             </div>
           </div>
           <ChevronUp
@@ -84,7 +85,7 @@ export function ProfileDropdownClient() {
                 {user.full_name || '—'}
               </div>
               <div className="text-[11.5px] text-text-3 font-mono mt-0.5">
-                {user.email}
+                {user.email || user.phone || '—'}
               </div>
               <div className="text-[10px] text-brand uppercase tracking-wider font-bold mt-1.5">
                 {user.role}
