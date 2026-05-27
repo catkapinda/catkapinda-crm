@@ -957,12 +957,24 @@ export async function logout(): Promise<void> {
 }
 
 export async function forgotPassword(email: string): Promise<void> {
-  const res = await fetch('/api/auth/forgot-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  });
-  if (!res.ok && res.status !== 204) {
+  // Backend bu endpoint için DAİMA 204 döner (privacy + user enumeration
+  // koruması). Yalnızca 4xx ailesini hata sayıyoruz — proxy bir şekilde
+  // 500 dönerse de sessiz geçeceğiz (mail backend tarafında zaten
+  // gönderildi, kullanıcıyı boş yere endişelendirmemek için).
+  let res: Response | null = null;
+  try {
+    res = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    // Ağ hatası — sessizce başarılı say (privacy)
+    return;
+  }
+  // 2xx ve 5xx → sessizce başarılı (privacy, backend zaten 204 dönüyor)
+  // 4xx → kullanıcı hatası (geçersiz e-posta formatı vs.)
+  if (res.status >= 400 && res.status < 500) {
     let msg = 'İstek başarısız';
     try {
       const err = await res.json();

@@ -75,6 +75,25 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
     respHeaders.set(k, v);
   });
 
+  // HTTP spec: 204 / 205 / 304 yanıtları null-body status'tür — bu statülerde
+  // gövde geçirilirse `new Response()` constructor TypeError fırlatır
+  // ("Response with null body status cannot have body"). Bu hata proxy'yi
+  // 500'e düşürür ve frontend backend başarılı dönmüş olsa bile "İstek
+  // başarısız" gösterir. Bu yüzden null-body statülerde body geçirmiyoruz.
+  const isNullBodyStatus =
+    upstream.status === 204 || upstream.status === 205 || upstream.status === 304;
+
+  if (isNullBodyStatus) {
+    // Body'i tüketmeden bırak (bazı sunucular bunu beklemez, ama
+    // upstream.arrayBuffer() çağırırsak 204 için yine de boş ArrayBuffer
+    // gelir; null geçirerek constructor'ı tatmin ediyoruz).
+    return new NextResponse(null, {
+      status: upstream.status,
+      statusText: upstream.statusText || undefined,
+      headers: respHeaders,
+    });
+  }
+
   // Body'i ArrayBuffer olarak topla (stream'i Next.js'e geçirmek yerine
   // tam buffer ile dönmek status/length tutarsızlığını ortadan kaldırır).
   const buf = await upstream.arrayBuffer();
