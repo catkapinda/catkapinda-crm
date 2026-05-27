@@ -638,9 +638,16 @@ def generate_restaurant_report_pdf(
     reports: get_restaurant_reports(period) çıktısı (tüm restoranlar)
     commentary: ai_insights.generate_restaurant_commentary çıktısı (opsiyonel)
     """
+    from app.services.restaurant_reports import get_personnel_movements
+
     _register_fonts()
     styles = _styles()
     metrics = _compile_metrics(restaurant["id"], period, reports)
+    # Personel hareketi + hedef/gerçek kurye analizi
+    try:
+        movements = get_personnel_movements(restaurant["id"], period)
+    except Exception:
+        movements = None
 
     buf = BytesIO()
     doc = BaseDocTemplate(
@@ -671,6 +678,13 @@ def generate_restaurant_report_pdf(
     flow.append(_make_comparison_box(metrics, styles))
     flow.append(Spacer(1, 16))
 
+    # YENİ: Kurye Kapsamı paneli (hedef vs gerçek + joker listesi + operasyon kesintisi)
+    if movements:
+        flow.append(Paragraph("KURYE KAPSAMI", styles["section_eyebrow"]))
+        flow.append(Spacer(1, 4))
+        flow.append(_make_coverage_panel(movements, styles))
+        flow.append(Spacer(1, 16))
+
     # Kurye performansı
     flow.append(Paragraph(
         f"KURYE PERFORMANSI · TOP {min(8, len(metrics['couriers']))}",
@@ -689,3 +703,148 @@ def generate_restaurant_report_pdf(
 
     doc.build(flow)
     return buf.getvalue()
+
+
+# ─── Kurye Kapsamı paneli — hedef vs gerçek + joker + operasyon ─────
+
+def _make_coverage_panel(movements: dict, styles: dict) -> Table:
+    """Restorana atılacak raporda şeffaflık paneli:
+       - Hedef kurye sayısı vs ay içinde gerçekten gelen unique sayı
+       - Operasyon kesintisi var mı (kaç gün açık kaldı / ay)
+       - Joker olarak gelen kurye listesi
+       - Çıkış olduysa, çıkış sonrası tam-gün hizmet kanıtı
+    """
+    target = int(movements.get("target_headcount") or 0)
+    actual = int(movements.get("actual_unique_couriers") or 0)
+    gap = actual - target
+    op_days = int(movements.get("operation_days") or 0)
+    month_days = int(movements.get("month_days") or 0)
+    uninterrupted = bool(movements.get("uninterrupted"))
+    exits = movements.get("exits") or []
+    support = movements.get("support_workers") or []
+    jokers = [w for w in support if w.get("source") == "joker"]
+    komsu = [w for w in support if w.get("source") == "komşu_şube"]
+
+    # Üst özet — 3 sütun KPI satırı
+    if target > 0:
+        if gap >= 0:
+            target_label = f"{actual} kişi (hedef {target}, +{gap} destek)"
+            target_color = SUCCESS
+            target_bg = SUCCESS_SOFT
+        else:
+            target_label = f"{actual} kişi (hedef {target}, {gap} eksik)"
+            target_color = AMBER
+            target_bg = AMBER_SOFT
+    else:
+        target_label = f"{actual} kişi"
+        target_color = TEXT
+        target_bg = CREAM_50
+
+    if uninterrupted:
+        op_label = f"{op_days}/{month_days} gün kesintisiz açık"
+        op_color = SUCCESS
+        op_bg = SUCCESS_SOFT
+    else:
+        gap_days = month_days - op_days
+        op_label = f"{op_days}/{month_days} gün ({gap_days} gün kayıt yok)"
+        op_color = DANGER
+        op_bg = DANGER_SOFT
+
+    summary_rows = [
+        [
+            Paragraph("Hedef Kurye", styles["label"]),
+            Paragraph("Bu Ay Hizmet Veren", styles["label"]),
+            Paragraph("Operasyon Açık Kalma", styles["label"]),
+        ],
+        [
+            Paragraph(
+                f"<font color='{TEXT.hexval()}' size='14'><b>{target if target > 0 else '—'}</b></font>",
+                styles["body"],
+            ),
+            Paragraph(
+                f"<font color='{target_color.hexval()}' size='14'><b>{target_label}</b></font>",
+                styles["body"],
+            ),
+            Paragraph(
+                f"<font color='{op_color.hexval()}' size='12'><b>{op_label}</b></font>",
+                styles["body"],
+            ),
+        ],
+    ]
+    summary = Table(summary_rows, colWidths=[55 * mm, 75 * mm, 50 * mm])
+    summary.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), CREAM_50),
+        ("BACKGROUND", (1, 0), (1, -1), target_bg),
+        ("BACKGROUND", (2, 0), (2, -1), op_bg),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LINEAFTER", (0, 0), (1, -1), 0.4, BORDER),
+        ("BOX", (0, 0), (-1, -1), 0.5, BORDER),
+    ]))
+
+    # Detay alt blok: çıkışlar + joker/komşu listesi + açıklama metni
+    detail_lines: list = []
+    if exits:
+        names = ", ".join(e.get("full_name", "—") for e in exits[:5])
+        more = f" (+{len(exits) - 5})" if len(exits) > 5 else ""
+        detail_lines.append(
+            Paragraph(
+                f"<font color='{TEXT_2.hexval()}'><b>Bu ay ayrılan:</b> {names}{more}</font>",
+                styles["body"],
+            )
+        )
+    if jokers:
+        joker_bits = [
+            f"{w.get('full_name', '—')} ({w.get('working_days', 0)} gün, {w.get('total_packages', 0)} paket)"
+            for w in jokers[:6]
+        ]
+        more = f" (+{len(jokers) - 6})" if len(jokers) > 6 else ""
+        detail_lines.append(
+            Paragraph(
+                f"<font color='{TEXT_2.hexval()}'><b>Joker desteği:</b> {'; '.join(joker_bits)}{more}</font>",
+                styles["body"],
+            )
+        )
+    if komsu:
+        komsu_bits = [
+            f"{w.get('full_name', '—')} → {w.get('home_assignment') or '—'}"
+            f" ({w.get('working_days', 0)} gün)"
+            for w in komsu[:4]
+        ]
+        more = f" (+{len(komsu) - 4})" if len(komsu) > 4 else ""
+        detail_lines.append(
+            Paragraph(
+                f"<font color='{TEXT_2.hexval()}'><b>Komşu şube desteği:</b> {'; '.join(komsu_bits)}{more}</font>",
+                styles["body"],
+            )
+        )
+    if exits and uninterrupted:
+        detail_lines.append(
+            Paragraph(
+                f"<font color='{SUCCESS.hexval()}'><b>✓ Çıkışa rağmen operasyon kesilmedi:</b> "
+                f"ay boyunca {op_days}/{month_days} gün hizmet sürdü "
+                f"(joker/destek devreye girdi).</font>",
+                styles["body"],
+            )
+        )
+
+    rows: list = [[summary]]
+    if detail_lines:
+        for line in detail_lines:
+            rows.append([line])
+
+    panel = Table(rows, colWidths=[180 * mm])
+    panel.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 1), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 1), (-1, -1), 12),
+        ("TOPPADDING", (0, 1), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
+        ("BACKGROUND", (0, 1), (-1, -1), CREAM_50),
+        ("LINEABOVE", (0, 1), (-1, 1), 0.4, BORDER),
+        ("BOX", (0, 0), (-1, -1), 0.5, BORDER),
+    ]))
+    return panel

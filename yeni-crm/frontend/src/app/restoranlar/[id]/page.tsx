@@ -458,6 +458,10 @@ function PersonnelMovementsPanel({
   const ymN = support_workers.filter((w) => w.source === 'yönetim').length;
   const totalSupportDays = support_workers.reduce((s, w) => s + w.working_days, 0);
 
+  const target = data.target_headcount ?? 0;
+  const actual = data.actual_unique_couriers ?? 0;
+  const gap = data.headcount_gap ?? 0;
+
   return (
     <div className="bg-white border border-border rounded-2xl shadow-sm mb-6 overflow-hidden">
       <div className="px-5 py-3 bg-cream-50/70 border-b border-border flex items-center justify-between">
@@ -476,6 +480,33 @@ function PersonnelMovementsPanel({
             : `${operation_days}/${month_days} gün kayıt — ${month_days - operation_days} gün boş`}
         </div>
       </div>
+
+      {/* Hedef vs Gerçek kurye bandı — yeni */}
+      {target > 0 && (
+        <div className="grid grid-cols-3 gap-px bg-border">
+          <CoverageStat
+            label="Hedef kurye"
+            value={target}
+            sub="restoran kartı"
+          />
+          <CoverageStat
+            label="Bu ay hizmet veren"
+            value={actual}
+            sub={
+              gap > 0 ? `+${gap} destek/joker`
+              : gap < 0 ? `${gap} eksik`
+              : 'hedef korundu'
+            }
+            tone={gap >= 0 ? 'emerald' : 'amber'}
+          />
+          <CoverageStat
+            label="Operasyon"
+            value={`${operation_days}/${month_days}`}
+            sub={uninterrupted ? 'kesintisiz açık' : `${month_days - operation_days} gün boş`}
+            tone={uninterrupted ? 'emerald' : 'rose'}
+          />
+        </div>
+      )}
 
       {/* Özet satır */}
       <div className="px-5 py-3 text-[13px] text-text-2 leading-relaxed border-b border-border bg-bg-surface2/40">
@@ -608,6 +639,37 @@ function PersonnelMovementsPanel({
       <div className="px-5 py-2 bg-bg-surface2/30 border-t border-border text-[10.5px] text-text-3">
         Ay sonu itibarıyla atanmış aktif kurye sayısı: <strong className="text-text-2">{active_courier_count}</strong>
       </div>
+    </div>
+  );
+}
+
+function CoverageStat({
+  label, value, sub, tone,
+}: {
+  label: string;
+  value: number | string;
+  sub?: string;
+  tone?: 'emerald' | 'amber' | 'rose';
+}) {
+  const toneMap: Record<string, string> = {
+    emerald: 'text-emerald-700',
+    amber: 'text-amber-700',
+    rose: 'text-rose-700',
+  };
+  const toneClass = tone ? toneMap[tone] : 'text-text';
+  return (
+    <div className="bg-white px-4 py-3">
+      <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-3 mb-1">
+        {label}
+      </div>
+      <div className={`font-display text-[20px] font-bold tracking-tight tabular-nums leading-none ${toneClass}`}>
+        {value}
+      </div>
+      {sub && (
+        <div className={`text-[11px] mt-1 font-medium ${tone ? toneClass : 'text-text-3'}`}>
+          {sub}
+        </div>
+      )}
     </div>
   );
 }

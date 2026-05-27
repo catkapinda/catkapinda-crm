@@ -837,6 +837,11 @@ export type PersonnelMovementsResponse = {
   operation_days: number;
   month_days: number;
   uninterrupted: boolean;
+  // Hedef vs gerçek kurye analizi (yeni)
+  target_headcount?: number;
+  actual_unique_couriers?: number;
+  headcount_gap?: number;
+  headcount_note?: string;
   summary: string;
 };
 

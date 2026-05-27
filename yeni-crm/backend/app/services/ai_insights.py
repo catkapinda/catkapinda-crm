@@ -276,8 +276,12 @@ Domain bilgisi (KRİTİK):
     DAHİL tutarı (kuryeye yatırdığımız nominal) referans için var.
   · 'billing_per_package' = billing_excl_vat ÷ paket → restoranın
     ortalama paket başı ödediği matrah.
-  · 'cost_per_package' = courier_cost ÷ paket → CK'nın paket başı
-    KDV hariç maliyeti.
+  · 'cost_per_package' = billing_excl_vat ÷ paket → ANA METRİK,
+    restoran perspektifinde paket başı maliyet (= billing_per_package
+    ile aynı). 'Kim atmış' önemli değil, kesilen fatura tutarı
+    önemli — basit oran.
+  · 'courier_cost_per_package' = courier_cost ÷ paket → CK'nın paket
+    başı KDV hariç maliyeti (marj analizi için).
   · 'margin' = billing_excl_vat - courier_cost (ikisi KDV HARİÇ,
     apples-to-apples) → CK'nın gerçek brüt kârı.
   · 'margin_pct' = marj yüzdesi.

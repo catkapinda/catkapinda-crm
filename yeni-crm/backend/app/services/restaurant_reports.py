@@ -313,36 +313,68 @@ def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] |
         )
         rest_rows = cur.fetchall()
 
-    # 4) Kurye bordro — DOĞRU ATTRIBUTION
-    # Her restorana yansıyan kurye maliyeti:
-    #   = (ana_brut + ekstra_mesai_brut)  // kuryelerin kendi restoranlarında
-    #     for couriers whose assigned_restaurant_id == bu restoran
-    #   + sum(destek_lines.amount where restaurant_id == bu restoran)
-    #     // başka kuryelerin destek olarak gittiği işler
-    # Bu sayede:
-    #  - Bir restoranda iki kurye var ise: her ikisinin ana_brut'u toplanır
-    #  - Bir kurye destek olarak QC'ye gittiyse: o miktar QC'ye yazılır
-    #  - Bir kuryenin destek dönüşü kendi restoranına etki etmez (zaten ana_brut
-    #    sadece kendi restoranındaki saat/paketten)
+    # 4) Personel maliyet attribution — HYBRID:
+    #    a) Paket/saat bazlı kuryeler (is_fixed_salary=False):
+    #       ana_brut → assigned_rid (kendi tarife oranıyla zaten doğru)
+    #       destek_lines.amount → her destek restoranına ayrı (yine kendi tarifesi)
+    #    b) SABİT AYLIK personel (is_fixed_salary=True — BM/Kaptan/RTŞ):
+    #       toplam_brut, çalıştığı saate orantılı dağıtılır.
+    #       Örnek: BM 15k aylık, QC'de 100sa + A'da 30sa + B'de 20sa + C'de 10sa
+    #         → QC: 15000×(100/160)=9.375  A:2.812  B:1.875  C:937 (sum=15k)
+    #       Aksi halde BM'in tüm aylığı tek restorana yazılıp paket başı
+    #       maliyeti yapay olarak şişirir.
     if payroll is None:
         payroll_data = list_personnel_payroll(period)
         payroll = payroll_data.get("rows", []) if isinstance(payroll_data, dict) else []
 
     courier_cost_by_rest: dict[int, float] = {}
     for pr in payroll:
-        # Ana restoran payı
         assigned_rid = pr.get("assigned_restaurant_id")
-        if assigned_rid:
-            rid = int(assigned_rid)
-            ana = float(pr.get("ana_brut") or 0) + float(pr.get("ekstra_mesai_brut") or 0)
-            courier_cost_by_rest[rid] = courier_cost_by_rest.get(rid, 0.0) + ana
-        # Destek payları (her satır farklı restorana yansıyabilir)
-        for line in (pr.get("destek_lines") or []):
-            dest_rid = line.get("restaurant_id")
-            if dest_rid:
-                drid = int(dest_rid)
-                amount = float(line.get("amount") or 0)
-                courier_cost_by_rest[drid] = courier_cost_by_rest.get(drid, 0.0) + amount
+
+        if pr.get("is_fixed_salary"):
+            # Sabit aylık — toplam_brut'u çalıştığı saate göre dağıt
+            toplam = float(pr.get("toplam_brut") or 0)
+            if toplam <= 0:
+                continue
+            ana_hours = float(pr.get("ana_hours") or 0)
+            rest_hours: dict[int, float] = {}
+            if assigned_rid:
+                rest_hours[int(assigned_rid)] = ana_hours
+            for line in (pr.get("destek_lines") or []):
+                rid = line.get("restaurant_id")
+                if rid:
+                    rid_i = int(rid)
+                    rest_hours[rid_i] = rest_hours.get(rid_i, 0.0) + float(
+                        line.get("hours") or 0
+                    )
+            total_hours = sum(rest_hours.values())
+            if total_hours > 0:
+                for rid, h in rest_hours.items():
+                    share = toplam * (h / total_hours)
+                    courier_cost_by_rest[rid] = (
+                        courier_cost_by_rest.get(rid, 0.0) + share
+                    )
+            elif assigned_rid:
+                # Ay içinde hiç puantaj yoksa fallback: tüm aylığı assigned'a yaz
+                courier_cost_by_rest[int(assigned_rid)] = (
+                    courier_cost_by_rest.get(int(assigned_rid), 0.0) + toplam
+                )
+        else:
+            # Paket/saat bazlı — ana_brut assigned'a, destek_lines kendi rate'inden
+            if assigned_rid:
+                rid = int(assigned_rid)
+                ana = float(pr.get("ana_brut") or 0) + float(
+                    pr.get("ekstra_mesai_brut") or 0
+                )
+                courier_cost_by_rest[rid] = courier_cost_by_rest.get(rid, 0.0) + ana
+            for line in (pr.get("destek_lines") or []):
+                dest_rid = line.get("restaurant_id")
+                if dest_rid:
+                    drid = int(dest_rid)
+                    amount = float(line.get("amount") or 0)
+                    courier_cost_by_rest[drid] = (
+                        courier_cost_by_rest.get(drid, 0.0) + amount
+                    )
 
     result = []
     for r in rest_rows:
@@ -360,8 +392,15 @@ def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] |
         courier_cost_excl_vat = courier_cost_incl_vat / 1.20 if courier_cost_incl_vat > 0 else 0.0
 
         # Paket başı metrikler (apples-to-apples: ikisi de KDV HARİÇ)
-        cost_per_pkg = (courier_cost_excl_vat / total_packages) if total_packages > 0 else 0.0
+        # NOT (2026-05-27): 'cost_per_package' artık BASIT formülle hesaplanır:
+        #   fatura ÷ paket — restoran perspektifi (paket başına ödediği ücret).
+        #   Eski formül (kurye-maliyet ÷ paket) marj analizi için ayrı
+        #   courier_cost_per_package alanı olarak korundu.
         billing_per_pkg = (billing_excl / total_packages) if total_packages > 0 else 0.0
+        cost_per_pkg = billing_per_pkg  # ana metrik: fatura/paket
+        courier_cost_per_pkg = (
+            (courier_cost_excl_vat / total_packages) if total_packages > 0 else 0.0
+        )
         # Marj = CK geliri − CK maliyeti (her ikisi KDV hariç matrah)
         margin = billing_excl - courier_cost_excl_vat
         margin_pct = (margin / billing_excl * 100) if billing_excl > 0 else 0.0
@@ -378,9 +417,11 @@ def _get_cost_per_package_by_restaurant(period: str, conn, payroll: list[dict] |
             # Restorana kesilen fatura (KDV hariç matrah)
             "billing_excl_vat": round(billing_excl, 2),
             "billing_per_package": round(billing_per_pkg, 2),
-            # CK maliyeti
-            "courier_cost": round(courier_cost_excl_vat, 2),          # KDV hariç (marj için)
-            "courier_cost_incl_vat": round(courier_cost_incl_vat, 2), # KDV dahil (referans)
+            # CK maliyeti (marj hesabı için — KDV apples-to-apples)
+            "courier_cost": round(courier_cost_excl_vat, 2),
+            "courier_cost_incl_vat": round(courier_cost_incl_vat, 2),
+            "courier_cost_per_package": round(courier_cost_per_pkg, 2),
+            # Ana metrik: paket başı maliyet = fatura/paket (restoran perspektifi)
             "cost_per_package": round(cost_per_pkg, 2),
             # Marj (KDV hariç matrahların farkı — gerçek CK kârı)
             "margin": round(margin, 2),
@@ -667,7 +708,36 @@ def get_personnel_movements(restaurant_id: int, period: str) -> dict:
             ac = cur.fetchone() or {"n": 0}
             active_courier_count = int(ac.get("n") or 0)
 
+            # 6) Hedef kurye sayısı (restoran kartından)
+            cur.execute(
+                "SELECT target_headcount FROM restaurants WHERE id = %s",
+                (restaurant_id,),
+            )
+            tr = cur.fetchone() or {}
+            target_headcount = int(tr.get("target_headcount") or 0)
+
+            # 7) Ay içinde GERÇEKTEN çalışan unique kurye sayısı
+            #    (kendi atanan + jokerler + destek/komşu/yönetim — hepsi)
+            cur.execute(
+                """
+                SELECT COUNT(DISTINCT d.actual_personnel_id) AS n
+                FROM daily_entries d
+                WHERE d.restaurant_id = %s
+                  AND LEFT(d.entry_date::text, 7) = %s
+                  AND COALESCE(d.worked_hours, 0) > 0
+                  AND d.actual_personnel_id IS NOT NULL
+                """,
+                (restaurant_id, period),
+            )
+            uc = cur.fetchone() or {"n": 0}
+            actual_unique_couriers = int(uc.get("n") or 0)
+
+            # 8) Ay içinde tek günde kapsanmamış (worked_hours=0 olan) gün var mı?
+            #    Tam-gün hizmet kanıtı — operasyon kesintisi olup olmadığı.
+            #    'uninterrupted' zaten operation_days >= month_days ile aynı.
+
     uninterrupted = operation_days >= month_days
+    headcount_gap = actual_unique_couriers - target_headcount  # +/- fark
 
     # Özet cümle — restoran yetkilisi için
     parts: list[str] = []
@@ -695,7 +765,7 @@ def get_personnel_movements(restaurant_id: int, period: str) -> dict:
 
     if uninterrupted:
         op_status = (
-            f"ay boyunca operasyon {operation_days}/{month_days} gün açık kaldı"
+            f"ay boyunca operasyon {operation_days}/{month_days} gün kesintisiz açık kaldı"
         )
     else:
         gap = month_days - operation_days
@@ -704,12 +774,36 @@ def get_personnel_movements(restaurant_id: int, period: str) -> dict:
             f"{gap} gün kayıt yok"
         )
 
-    if parts:
-        summary = "; ".join(parts) + f"; {op_status}."
+    # Hedef vs gerçekleşen kurye analizi
+    if target_headcount > 0:
+        if actual_unique_couriers > target_headcount:
+            extra = actual_unique_couriers - target_headcount
+            headcount_note = (
+                f"hedef {target_headcount} kurye iken ay içinde "
+                f"{actual_unique_couriers} farklı kişi hizmet verdi "
+                f"(+{extra} ek/joker/destek)"
+            )
+        elif actual_unique_couriers < target_headcount:
+            short = target_headcount - actual_unique_couriers
+            headcount_note = (
+                f"hedef {target_headcount} kurye iken ay içinde "
+                f"{actual_unique_couriers} kişi çalıştı (−{short} eksik)"
+            )
+        else:
+            headcount_note = (
+                f"hedef {target_headcount} kurye sayısı korundu "
+                f"({actual_unique_couriers} kişi hizmet verdi)"
+            )
     else:
-        summary = (
-            f"Atanmış kurye değişikliği yok; {op_status}."
-        )
+        headcount_note = ""
+
+    summary_parts: list[str] = []
+    if headcount_note:
+        summary_parts.append(headcount_note)
+    if parts:
+        summary_parts.append("; ".join(parts))
+    summary_parts.append(op_status)
+    summary = ". ".join(p[0].upper() + p[1:] if p else p for p in summary_parts if p) + "."
 
     return {
         "restaurant_id": restaurant_id,
@@ -721,5 +815,10 @@ def get_personnel_movements(restaurant_id: int, period: str) -> dict:
         "operation_days": operation_days,
         "month_days": month_days,
         "uninterrupted": uninterrupted,
+        # Hedef vs gerçek kurye analizi (yeni)
+        "target_headcount": target_headcount,
+        "actual_unique_couriers": actual_unique_couriers,
+        "headcount_gap": headcount_gap,
+        "headcount_note": headcount_note,
         "summary": summary,
     }
