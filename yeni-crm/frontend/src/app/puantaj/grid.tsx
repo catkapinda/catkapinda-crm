@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowDownToLine, BarChart3, Check, Copy, Loader2,
+  ArrowDownToLine, ArrowUpFromLine, BarChart3, Check, Copy, Loader2,
   Send, ShieldCheck, AlertCircle,
 } from 'lucide-react';
 
@@ -80,12 +80,19 @@ function isToday(period: string, day: number): boolean {
 }
 
 export function PuantajGrid({
-  matrix, period, periods,
+  matrix: initialMatrix, period, periods,
 }: {
   matrix: PuantajMatrix;
   period: string;
   periods: string[];
 }) {
+  // Lokal matrix state — optimistic UI için (sayfa yenilemeye gerek kalmasın)
+  const [matrix, setMatrix] = useState<PuantajMatrix>(initialMatrix);
+  // Period veya initial matrix değişirse senkronize et
+  useEffect(() => {
+    setMatrix(initialMatrix);
+  }, [initialMatrix]);
+
   const [search, setSearch] = useState('');
   const [restFilter, setRestFilter] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
@@ -96,6 +103,35 @@ export function PuantajGrid({
     cell: MatrixCell;
     pos: { x: number; y: number };
   } | null>(null);
+
+  // Hücre güncelleme — popover save callback'i (optimistic)
+  const updateLocalCell = (rowId: number, rowKey: string, day: number, newCell: MatrixCell) => {
+    setMatrix((prev) => ({
+      ...prev,
+      rows: prev.rows.map((r) => {
+        if (r.row_key !== rowKey) return r;
+        const newCells = r.cells.map((c, i) => (i === day - 1 ? newCell : c));
+        // Toplam yeniden hesapla (sadece normal hücreler)
+        let totalHours = 0;
+        let totalPkts = 0;
+        let workedDays = 0;
+        for (const c of newCells) {
+          if (c.type === 'normal') {
+            totalHours += c.hours || 0;
+            totalPkts += c.packages || 0;
+            workedDays += 1;
+          }
+        }
+        return {
+          ...r,
+          cells: newCells,
+          total_hours: totalHours,
+          total_packages: totalPkts,
+          worked_days: workedDays,
+        };
+      }),
+    }));
+  };
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkMsg, setBulkMsg] = useState<string | null>(null);
   const [submitBusy, setSubmitBusy] = useState(false);
@@ -245,25 +281,20 @@ export function PuantajGrid({
           </div>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          {/* Ay nav */}
-          <div className="flex items-center gap-1 bg-bg-surface border border-border rounded-xl p-1 shadow-sm">
-            {periods.slice(0, 4).map((p) => {
-              const isActive = p === period;
-              return (
-                <Link
-                  key={p}
-                  href={`/puantaj?ay=${p}`}
-                  className={`px-3 py-1.5 rounded-lg text-[12.5px] font-medium transition ${
-                    isActive
-                      ? 'bg-brand text-white shadow-sm'
-                      : 'text-text-2 hover:bg-bg-surface2'
-                  }`}
-                >
-                  {formatPeriod(p)}
-                </Link>
-              );
-            })}
-          </div>
+          {/* Ay nav — dropdown ile tüm aylar */}
+          <select
+            value={period}
+            onChange={(e) => {
+              window.location.href = `/puantaj?ay=${e.target.value}`;
+            }}
+            className="px-3 py-1.5 rounded-xl bg-bg-surface border border-border text-[12.5px] font-semibold text-text-2 hover:border-text/30 transition cursor-pointer focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          >
+            {periods.map((p) => (
+              <option key={p} value={p}>
+                {formatPeriod(p)}
+              </option>
+            ))}
+          </select>
           <button className="px-3 py-2 rounded-xl bg-bg-surface border border-border text-text-2 text-[13px] font-medium hover:border-text/30 transition flex items-center gap-1.5">
             <Copy className="w-3.5 h-3.5" strokeWidth={2.2} /> Geçen aydan kopyala
           </button>
@@ -299,6 +330,59 @@ export function PuantajGrid({
           >
             <ArrowDownToLine className="w-3.5 h-3.5" strokeWidth={2.2} /> Excel Şablonu
           </button>
+
+          {/* Excel Yükle — gizli file input + tetikleyici buton */}
+          <label className="px-3 py-2 rounded-xl bg-brand-soft border border-brand/30 text-brand text-[13px] font-semibold hover:bg-brand/15 transition flex items-center gap-1.5 cursor-pointer">
+            <ArrowUpFromLine className="w-3.5 h-3.5" strokeWidth={2.2} />
+            Excel Yükle
+            <input
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (!confirm(
+                  `"${file.name}" dosyasını ${formatPeriod(period)} dönemine yüklemek istediğinden emin misin? ` +
+                  `Mevcut hücreler dolduysa ÜZERİNE yazılır.`
+                )) {
+                  e.target.value = '';
+                  return;
+                }
+                try {
+                  const form = new FormData();
+                  form.append('file', file);
+                  const res = await fetch(
+                    `/api/puantaj/template/import?period=${period}`,
+                    { method: 'POST', body: form },
+                  );
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err?.detail ?? `Hata ${res.status}`);
+                  }
+                  const data = await res.json();
+                  const p = data.puantaj || {};
+                  const d = data.destek || {};
+                  const msg = [
+                    `✓ Yükleme tamamlandı`,
+                    `Puantaj: +${p.inserted ?? 0} yeni, ${p.updated ?? 0} güncellendi, ${p.skipped ?? 0} atlandı`,
+                    `Destek: +${d.inserted ?? 0} yeni, ${d.updated ?? 0} güncellendi, ${d.skipped ?? 0} atlandı`,
+                  ];
+                  const allErrors = [...(p.errors || []), ...(d.errors || [])];
+                  if (allErrors.length > 0) {
+                    msg.push('', `Hatalar (${allErrors.length}):`, ...allErrors.slice(0, 5).map((x: string) => `• ${x}`));
+                    if (allErrors.length > 5) msg.push(`• ... ve ${allErrors.length - 5} tane daha`);
+                  }
+                  alert(msg.join('\n'));
+                  window.location.reload();
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : 'Yükleme başarısız');
+                } finally {
+                  e.target.value = '';
+                }
+              }}
+            />
+          </label>
           <button
             onClick={submitApproval}
             disabled={submitBusy || !selectedRestaurantId}
@@ -594,6 +678,9 @@ export function PuantajGrid({
           pos={editing.pos}
           period={period}
           onClose={() => setEditing(null)}
+          onSaved={(newCell) =>
+            updateLocalCell(editing.row.id, editing.row.row_key, editing.day, newCell)
+          }
         />
       )}
     </>
@@ -832,7 +919,7 @@ const STATUSES: { key: StatusKey; label: string; Icon: LucideIcon }[] = [
 ];
 
 function CellPopover({
-  row, day, cell, pos, period, onClose,
+  row, day, cell, pos, period, onClose, onSaved,
 }: {
   row: MatrixRow;
   day: number;
@@ -840,6 +927,7 @@ function CellPopover({
   pos: { x: number; y: number };
   period: string;
   onClose: () => void;
+  onSaved?: (newCell: MatrixCell) => void;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<typeof STATUSES[number]['key']>(cell.type);
@@ -918,8 +1006,32 @@ function CellPopover({
             : undefined,
         covers_personnel_id: isAbsence ? coversId : null,
       });
+      // Optimistic: lokal state'i güncelle, refresh GEREK YOK
+      const coversName = candidates && coversId
+        ? [
+            ...(candidates.same_restaurant || []),
+            ...(candidates.jokers || []),
+            ...(candidates.management || []),
+          ].find((c) => c.id === coversId)?.full_name ?? null
+        : null;
+      const coversRole = candidates && coversId
+        ? [
+            ...(candidates.same_restaurant || []),
+            ...(candidates.jokers || []),
+            ...(candidates.management || []),
+          ].find((c) => c.id === coversId)?.role ?? null
+        : null;
+      onSaved?.({
+        type: status,
+        hours: status === 'normal' ? hours : 0,
+        packages: status === 'normal' ? packages : 0,
+        is_support: status === 'normal' ? (isSupport || row.is_support_row) : cell.is_support,
+        restaurant_id: cell.restaurant_id,
+        covers_personnel_id: isAbsence ? coversId : null,
+        covers_personnel_name: isAbsence ? coversName : null,
+        covers_personnel_role: isAbsence ? coversRole : null,
+      });
       onClose();
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kaydedilemedi');
     } finally {

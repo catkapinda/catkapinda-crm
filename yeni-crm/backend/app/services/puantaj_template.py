@@ -46,6 +46,7 @@ CREAM_50 = "FDFAF3"
 CREAM_100 = "F5EDD8"
 ROW_SAAT = "FFF7E6"
 ROW_PAKET = "EFF5FB"
+ROW_DURUM = "F3E8FF"  # eflatun tonu
 WEEKEND_BG = "F1F4F9"
 HEADER_TEXT = "FFFFFF"
 TEXT = "0B0D17"
@@ -237,22 +238,17 @@ def generate_puantaj_template(
             if p.get("rest_branch"):
                 rest_label += f" / {p['rest_branch']}"
 
-        # Saat satırı
-        ws.cell(row=row, column=1, value=p.get("person_code") or "")
-        ws.cell(row=row, column=2, value=p.get("full_name") or "")
-        ws.cell(row=row, column=3, value=p.get("role") or "")
-        ws.cell(row=row, column=4, value=rest_label)
-        ws.cell(row=row, column=5, value="Saat")
+        # 3 satır: Saat / Paket / Durum
+        for offset, label in ((0, "Saat"), (1, "Paket"), (2, "Durum")):
+            rr = row + offset
+            ws.cell(row=rr, column=1, value=p.get("person_code") or "")
+            ws.cell(row=rr, column=2, value=p.get("full_name") or "")
+            ws.cell(row=rr, column=3, value=p.get("role") or "")
+            ws.cell(row=rr, column=4, value=rest_label)
+            ws.cell(row=rr, column=5, value=label)
 
-        # Paket satırı
-        ws.cell(row=row + 1, column=1, value=p.get("person_code") or "")
-        ws.cell(row=row + 1, column=2, value=p.get("full_name") or "")
-        ws.cell(row=row + 1, column=3, value=p.get("role") or "")
-        ws.cell(row=row + 1, column=4, value=rest_label)
-        ws.cell(row=row + 1, column=5, value="Paket")
-
-        # Stil — her iki satır
-        for r_off, fill_color in [(0, ROW_SAAT), (1, ROW_PAKET)]:
+        # Stil — üç satır
+        for r_off, fill_color in [(0, ROW_SAAT), (1, ROW_PAKET), (2, ROW_DURUM)]:
             rr = row + r_off
             # Sol bilgi sütunları (A-E)
             for col in range(1, 6):
@@ -289,16 +285,25 @@ def generate_puantaj_template(
                     top=_thin_side(), bottom=_thin_side(),
                     left=_thin_side(), right=_thin_side(),
                 )
-                # Sayı formatı: saat satırı ondalıklı, paket tam sayı
-                c.number_format = "0.0" if r_off == 0 else "0"
+                # Sayı formatı: saat ondalık, paket tam, durum text
+                if r_off == 0:
+                    c.number_format = "0.0"
+                elif r_off == 1:
+                    c.number_format = "0"
+                # r_off==2 → text, format dokunma
 
-            # Toplam (SUM formülü)
+            # Toplam (sadece Saat ve Paket satırlarında)
             first_col_letter = get_column_letter(6)
             last_col_letter = get_column_letter(5 + n_days)
-            total_c = ws.cell(
-                row=rr, column=total_col,
-                value=f"=SUM({first_col_letter}{rr}:{last_col_letter}{rr})",
-            )
+            if r_off < 2:
+                total_c = ws.cell(
+                    row=rr, column=total_col,
+                    value=f"=SUM({first_col_letter}{rr}:{last_col_letter}{rr})",
+                )
+                total_c.number_format = "0.0" if r_off == 0 else "0"
+            else:
+                # Durum satırı toplam yok
+                total_c = ws.cell(row=rr, column=total_col, value="")
             total_c.font = Font(name="Arial", size=10, bold=True, color=BRAND_DARK)
             total_c.fill = PatternFill("solid", start_color=CREAM_100)
             total_c.alignment = Alignment(horizontal="center", vertical="center")
@@ -306,9 +311,8 @@ def generate_puantaj_template(
                 top=_thin_side(), bottom=_thin_side(),
                 left=_thin_side(), right=_thin_side(),
             )
-            total_c.number_format = "0.0" if r_off == 0 else "0"
 
-        row += 2
+        row += 3  # 3 satır kullandık
 
     # ──────── ALT TOPLAM SATIRI ────────
     summary_row = row + 1
@@ -365,6 +369,38 @@ def generate_puantaj_template(
 
     ws.row_dimensions[summary_row].height = 28
 
+    # ──────── DESTEK SHEET ────────
+    # Kuryelerin kendi restoranı dışındaki vardiyaları için ayrı kayıt.
+    # Format: Tarih · Kurye kodu · Restoran (brand / branch) · Saat · Paket · Not
+    support_ws = wb.create_sheet("Destek")
+    support_headers = ["Tarih (YYYY-MM-DD)", "Kurye Kodu", "Restoran", "Saat", "Paket", "Not"]
+    for i, h in enumerate(support_headers, start=1):
+        c = support_ws.cell(row=1, column=i, value=h)
+        c.font = Font(name="Arial", size=10, bold=True, color=HEADER_TEXT)
+        c.fill = PatternFill("solid", start_color=BRAND_DARK)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = Border(
+            top=_thin_side(), bottom=_thin_side(),
+            left=_thin_side(), right=_thin_side(),
+        )
+    # Örnek satır
+    support_ws.cell(row=2, column=1, value=f"{period}-15")
+    support_ws.cell(row=2, column=2, value="(kurye kodu)")
+    support_ws.cell(row=2, column=3, value="(restoran adı veya kodu)")
+    support_ws.cell(row=2, column=4, value=11)
+    support_ws.cell(row=2, column=5, value=30)
+    support_ws.cell(row=2, column=6, value="örnek — bu satırı silebilirsiniz")
+    for i in range(1, 7):
+        support_ws.cell(row=2, column=i).font = Font(
+            name="Arial", size=9, italic=True, color="8B92A7",
+        )
+    support_ws.column_dimensions["A"].width = 18
+    support_ws.column_dimensions["B"].width = 14
+    support_ws.column_dimensions["C"].width = 28
+    support_ws.column_dimensions["D"].width = 10
+    support_ws.column_dimensions["E"].width = 10
+    support_ws.column_dimensions["F"].width = 30
+
     # ──────── KILAVUZ SHEET ────────
     guide = wb.create_sheet("Kullanım")
     guide.cell(row=1, column=1, value="ÇAT KAPINDA · TOPLU PUANTAJ ŞABLONU")
@@ -373,19 +409,28 @@ def generate_puantaj_template(
     )
     guide_lines = [
         "",
-        "1. 'Puantaj' sekmesinde personel listesini görürsünüz — her kurye için iki satır vardır:",
+        "1. 'Puantaj' sekmesinde her personel için ÜÇ satır vardır:",
         "   • Saat satırı: o gün çalışılan saat (örn: 11 veya 8.5)",
         "   • Paket satırı: o gün teslim edilen paket sayısı (örn: 30)",
+        "   • Durum satırı: aşağıdaki TEK HARF kodları kullanın (normal çalışma için boş bırakın)",
         "",
-        "2. Boş hücre = o gün gelmedi (sayılmaz). Sayı yazıldığı an o gün aktif sayılır.",
+        "2. DURUM KODLARI (Durum satırına yazılır):",
+        "      G  =  Gelmedi",
+        "      R  =  Raporlu",
+        "      Z  =  İzin",
+        "      X  =  İhbarsız çıkış",
+        "      D  =  Destek vardiyası (kuryenin kendi restoranı dışında çalışması)",
+        "         → 'Destek' sekmesinde hangi restoranda çalıştığını belirtin.",
         "",
-        "3. Hafta sonu sütunları gri tonludur — fark etmek kolaydır.",
+        "3. Boş Saat/Paket + boş Durum = o gün hiç giriş yok (kayıtsız gün).",
+        "   Sadece Saat ve Paket dolu, Durum boş = normal çalışma.",
         "",
-        "4. 'Toplam' sütunu otomatik hesaplanır — siz değiştirmeyin.",
+        "4. Hafta sonu sütunları gri tonludur — fark etmek kolaydır.",
         "",
-        "5. Dolu şablonu CRM'e geri yüklemek için 'Toplu Puantaj İçe Aktar' "
-        "(yakında eklenecek) butonunu kullanın. O zamana kadar manuel girişle "
-        "puantaj sayfasındaki hücreleri doldurabilirsiniz.",
+        "5. 'Toplam' sütunu Saat ve Paket için otomatik hesaplanır.",
+        "",
+        "6. Dolu şablonu CRM'e geri yüklemek için /puantaj sayfasındaki "
+        "'Excel Yükle' butonunu kullanın.",
         "",
         "Sorular için: admin@catkapinda.com",
     ]

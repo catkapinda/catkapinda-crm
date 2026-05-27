@@ -697,7 +697,14 @@ def daily_matrix(period: str) -> dict:
 
 
 def available_periods() -> list[str]:
-    """Veride mevcut olan tüm aylar (YYYY-MM) — yeni → eski sıralı."""
+    """Veride mevcut olan + ileri 3 ay (henüz veri olmayan) aylar.
+
+    Yeni → eski sırada. Operasyon ekibi Mayıs/Haziran gibi yeni ayları
+    önceden doldurmaya başlayabilsin diye, mevcut + bir önceki + bugünkü
+    ay + sonraki 3 ay listeye katılır.
+    """
+    from datetime import date as _date_cls
+
     sql = """
         SELECT DISTINCT LEFT(entry_date::text, 7) AS period
         FROM daily_entries
@@ -708,4 +715,21 @@ def available_periods() -> list[str]:
         with conn.cursor() as cur:
             cur.execute(sql)
             rows = cur.fetchall()
-    return [r[0] for r in rows if r[0]]
+    db_periods = [r[0] for r in rows if r[0]]
+
+    # İleri 3 ay (boş ay olarak girilebilsin)
+    today = _date_cls.today()
+    y, m = today.year, today.month
+    extra: list[str] = []
+    for i in range(0, 4):  # bu ay + 3 sonraki ay
+        mm = m + i
+        yy = y
+        while mm > 12:
+            mm -= 12
+            yy += 1
+        extra.append(f"{yy:04d}-{mm:02d}")
+
+    # Merge — yeni → eski sıralı
+    all_periods = list({*db_periods, *extra})
+    all_periods.sort(reverse=True)
+    return all_periods

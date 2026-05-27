@@ -1,5 +1,5 @@
 """Puantaj endpoint'leri."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -13,6 +13,7 @@ from app.services.puantaj import (
 )
 from app.services import puantaj_approvals as approvals
 from app.services.puantaj_template import generate_puantaj_template
+from app.services.puantaj_template_import import import_puantaj_template
 
 router = APIRouter()
 
@@ -207,6 +208,32 @@ async def patch_cell(payload: CellPayload) -> dict:
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/template/import")
+async def import_template(
+    file: UploadFile = File(...),
+    period: str = "2026-03",
+) -> dict:
+    """Doldurulmuş Excel şablonunu yükle ve daily_entries'e işle.
+
+    Sheet'ler:
+      - 'Puantaj': her kurye 3 satır (Saat / Paket / Durum)
+        Durum kodları: G=Gelmedi, R=Raporlu, Z=İzin, X=İhbarsız, D=Destek
+      - 'Destek': tarih + kurye + restoran + saat + paket
+    """
+    try:
+        file_bytes = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Dosya okunamadı: {e}") from e
+    try:
+        return import_puantaj_template(file_bytes=file_bytes, period=period)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500, detail=f"İçe aktarma hatası: {e}"
+        ) from e
 
 
 @router.get("/replacement-candidates")
