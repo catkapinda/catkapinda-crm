@@ -206,7 +206,7 @@ export function PuantajOnayView({
           >
             Tüm aylar
           </Link>
-          {periods.slice(0, 4).map((p) => {
+          {periods.slice(0, 8).map((p) => {
             const isActive = p === activePeriod;
             return (
               <Link

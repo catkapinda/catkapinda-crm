@@ -157,21 +157,19 @@ export function RestaurantDetailHeader({
 
           {/* Ay seçici + düzenle */}
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex gap-1 bg-white/15 backdrop-blur-sm border border-white/25 rounded-xl p-1">
-              {periods.slice(0, 4).map((p) => (
-                <Link
-                  key={p}
-                  href={`/restoranlar/${restaurant.id}?ay=${p}`}
-                  className={`px-2.5 py-1 rounded-lg text-[12.5px] font-semibold transition ${
-                    p === period
-                      ? 'bg-white text-brand shadow-sm'
-                      : 'text-white/80 hover:bg-white/15'
-                  }`}
-                >
+            <select
+              value={period}
+              onChange={(e) => {
+                window.location.href = `/restoranlar/${restaurant.id}?ay=${e.target.value}`;
+              }}
+              className="px-3 py-2 rounded-xl bg-white/15 backdrop-blur-sm border border-white/25 text-[12.5px] font-semibold text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/40 [&>option]:text-text"
+            >
+              {periods.map((p) => (
+                <option key={p} value={p} className="text-text">
                   {formatPeriod(p)}
-                </Link>
+                </option>
               ))}
-            </div>
+            </select>
             {!isBM && (
               <button
                 onClick={() => setEditing(true)}

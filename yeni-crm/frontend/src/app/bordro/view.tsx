@@ -206,24 +206,20 @@ export function BordroView({
           </div>
 
           <div className="flex gap-2 items-center">
-            <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-1 shadow-lg">
-              {periods.slice(0, 4).map((p) => {
-                const isActive = p === period;
-                return (
-                  <Link
-                    key={p}
-                    href={`/bordro?ay=${p}`}
-                    className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all ${
-                      isActive
-                        ? 'bg-white text-brand shadow-md scale-105'
-                        : 'text-white/85 hover:bg-white/15'
-                    }`}
-                  >
-                    {formatPeriod(p)}
-                  </Link>
-                );
-              })}
-            </div>
+            {/* Ay seçici — tüm aylar dropdown (Mart/Nisan dahil) */}
+            <select
+              value={period}
+              onChange={(e) => {
+                window.location.href = `/bordro?ay=${e.target.value}`;
+              }}
+              className="px-3 py-2 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 text-[12.5px] font-semibold text-white shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/40 [&>option]:text-text"
+            >
+              {periods.map((p) => (
+                <option key={p} value={p} className="text-text">
+                  {formatPeriod(p)}
+                </option>
+              ))}
+            </select>
             <button className="px-4 py-2 rounded-xl bg-white text-brand text-[13px] font-semibold shadow-md hover:bg-yellow-50 hover:scale-105 transition-all flex items-center gap-1.5">
               <ArrowDownToLine className="w-4 h-4" strokeWidth={2.2} />
               Tüm Bordrolar
