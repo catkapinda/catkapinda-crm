@@ -421,38 +421,31 @@ def list_personnel_payroll(period: str) -> list[dict]:
                     is_full_threshold=ana_threshold_aşıldı,
                 )
 
-        # Destek hesabı (her destek restoranı ayrı)
-        # NOT — coverage_type='Yönetim' (Joker/BM/Kaptan/RTŞ operasyon kapama):
-        #   • KURYEYE ekstra ücret YOK → bordro destek_brut=0 (sabit aylık zaten
-        #     yeterli, ek hak ediş üretmez)
-        #   • RESTORANA fatura YANSIR → daily_entries kaydı durur, restoran
-        #     paket×tarife / saat×tarife olarak faturalanır (collections.py)
-        #   destek_lines'a coverage_kind='Yönetim' ile amount=0 ekleniyor —
-        #   audit trail için. Marj hesabı bu blokları görür ama bordro toplam
-        #   brut'a etki etmez.
+        # Destek hesabı (her destek restoranı ayrı) — ROLE BAZLI HAKEDİŞ
+        # İş kuralı (restorana HER ZAMAN fatura kesilir — collections.py):
+        #   • Bölge Müdürü / Joker → sabit maaşlı, başka restorana gitse de
+        #     EKSTRA hakediş ALMAZ (destek brut = 0). Maaş geri kazanımı
+        #     bu saha günlerinden ölçülür (top_recovery).
+        #   • Restoran Takım Şefi / Kaptan / Kurye → kendi restoranı DIŞINDA
+        #     çalıştığı destek günlerinde paket × tarife + saat × tarife
+        #     üzerinden EKSTRA hakediş alır (sabit maaşına EK).
+        cur_role = (p.get("role") or "").strip()
+        role_no_extra = cur_role in ("Bölge Müdürü", "Joker")
+
         destek_by_rest: dict[int, dict] = {}
         for e in my_entries:
             rid = e["rid"]
             cov = (e.get("coverage_type") or "").strip()
-            is_yonetim_cover = cov == "Yönetim"
             is_support = (
-                cov == "Destek"
-                or is_yonetim_cover
+                cov in ("Destek", "Yönetim")
                 or (assigned_rid is not None and rid != assigned_rid)
             )
             if not is_support or not rid:
                 continue
-            d = destek_by_rest.setdefault(
-                rid,
-                {"hours": 0, "pkts": 0, "days": 0, "yonetim": False},
-            )
+            d = destek_by_rest.setdefault(rid, {"hours": 0, "pkts": 0, "days": 0})
             d["hours"] += float(e.get("worked_hours") or 0)
             d["pkts"] += int(e.get("package_count") or 0)
             d["days"] += 1
-            # Bir gün bile Yönetim kaydı varsa o restoran-destek bloğu
-            # yönetim olarak işaretlenir (fiyatlandırma yapılmaz).
-            if is_yonetim_cover:
-                d["yonetim"] = True
 
         for rid, dvals in destek_by_rest.items():
             rest_data = pricing_map.get(rid, {})
@@ -461,11 +454,11 @@ def list_personnel_payroll(period: str) -> list[dict]:
                 (rest_data.get("courier_pricing_model") or pm or "").strip()
             )
 
-            # Yönetim destek satırı → ekstra ücret yok
-            if dvals.get("yonetim"):
+            if role_no_extra:
+                # BM / Joker → ekstra hakediş yok (sabit maaş yeterli)
                 amt = 0.0
             else:
-                # Bu restorandaki destek paket eşiği — kurye eşiği (default 390)
+                # Kurye / RTŞ / Kaptan → tarife bazlı ekstra hakediş
                 crossed = False
                 if courier_pm_support == "threshold_package" or pm == "threshold_package":
                     threshold = int(
@@ -474,8 +467,6 @@ def list_personnel_payroll(period: str) -> list[dict]:
                         or 390
                     )
                     crossed = dvals["pkts"] > threshold
-                # Destek hesabı — restoran modelinden bağımsız, kurye threshold
-                # default'u uygulanır (250/390/20/25 + courier_* override).
                 amt = _calc_brut_for_restaurant(
                     pm, rest_data, dvals["hours"], dvals["pkts"], crossed,
                 )
@@ -492,7 +483,7 @@ def list_personnel_payroll(period: str) -> list[dict]:
                 "hours": dvals["hours"],
                 "packages": dvals["pkts"],
                 "amount": round(amt, 2),
-                "coverage_kind": "Yönetim" if dvals.get("yonetim") else "Destek",
+                "coverage_kind": "Yönetim" if role_no_extra else "Destek",
             })
 
         # Kaptan bonusu

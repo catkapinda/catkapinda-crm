@@ -1190,10 +1190,10 @@ function CellPopover({
               </select>
             )}
             <div className="mt-1.5 text-[10px] text-amber-900/80 leading-snug">
-              <strong>Destek</strong>: başka restoran kuryesi → kurye paket × tarife
-              ücret ALIR + restorana fatura yansır. <strong>Yönetim</strong>:
-              Joker/BM/Kaptan/RTŞ → kuryeye ekstra ücret YOK ama restorana
-              paket × tarife faturası yansır.
+              Hakediş kişinin rolüne göre hesaplanır:{' '}
+              <strong>Kurye / RTŞ / Kaptan</strong> başka restorana gidince
+              paket × tarife EKSTRA hakediş alır. <strong>BM / Joker</strong>{' '}
+              sabit maaşlı — ekstra ücret YOK. Her durumda restorana fatura yansır.
             </div>
             {cell.covers_personnel_name && coversId === cell.covers_personnel_id && (
               <div className="mt-1.5 text-[11px] text-amber-800">
