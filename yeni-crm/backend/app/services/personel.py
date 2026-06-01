@@ -442,9 +442,19 @@ def page_insights(period: str) -> dict:
             continue
         if m["role"] not in ("Bölge Müdürü", "Joker"):
             continue
-        cover = m["cover_hours"] * 200 + m["cover_packages"] * 25
-        pct = min(1.0, cover / m["salary"]) if m["salary"] else 0
-        scored.append({**m, "recovery_pct": round(pct, 3)})
+        # BM/Joker sabit maaşlıdır; SAHADAKİ HER GÜN (kendi restoranı dahil)
+        # restoran faturasına yansır → maaş geri kazanımına sayılır.
+        # field_* tüm saha günlerini kapsar (cover_* yalnızca kendi restoranı
+        # dışıydı; BM tek restorana atanmışsa cover=0 olup yanlış 0% çıkıyordu).
+        field_hours = m.get("field_hours", m["cover_hours"])
+        field_packages = m.get("field_packages", m["cover_packages"])
+        recovered = field_hours * 200 + field_packages * 25
+        pct = min(1.0, recovered / m["salary"]) if m["salary"] else 0
+        scored.append({
+            **m,
+            "recovery_pct": round(pct, 3),
+            "recovered_amount": round(recovered, 2),
+        })
     scored.sort(key=lambda x: -x["recovery_pct"])
     insights["top_recovery"] = scored[:2]
 
@@ -514,22 +524,41 @@ def management_summary(period: str) -> list[dict]:
           QC entry  → QC IS DISTINCT FROM QC → FALSE → dışlanır ✓
           Başka  → Other IS DISTINCT FROM QC → TRUE  → dahil ✓
     """
+    # İki ayrı toplam:
+    #   cover_* → kendi atandığı restoran DIŞINDAKİ günler (RTŞ/Kaptan için
+    #             "ekstra destek" anlamı taşır)
+    #   field_* → TÜM saha günleri (assigned dahil). BM/Joker bizim cebimizden
+    #             sabit maaş alır; nerede çalışırsa çalışsın o gün restoran
+    #             faturasına yansır → maaş geri kazanımı bunun üzerinden ölçülür.
     sql = """
         SELECT
             p.id, p.full_name, p.person_code, p.role,
             COALESCE(p.monthly_fixed_cost, 0) AS salary,
-            COALESCE(SUM(d.worked_hours) FILTER (WHERE d.worked_hours > 0), 0) AS cover_hours,
-            COALESCE(SUM(d.package_count) FILTER (WHERE d.worked_hours > 0), 0) AS cover_packages,
-            COUNT(*) FILTER (WHERE d.worked_hours > 0) AS cover_days
+            -- Kendi restoranı dışı (cover)
+            COALESCE(SUM(d.worked_hours) FILTER (
+                WHERE d.worked_hours > 0
+                  AND d.restaurant_id IS DISTINCT FROM p.assigned_restaurant_id
+            ), 0) AS cover_hours,
+            COALESCE(SUM(d.package_count) FILTER (
+                WHERE d.worked_hours > 0
+                  AND d.restaurant_id IS DISTINCT FROM p.assigned_restaurant_id
+            ), 0) AS cover_packages,
+            COUNT(*) FILTER (
+                WHERE d.worked_hours > 0
+                  AND d.restaurant_id IS DISTINCT FROM p.assigned_restaurant_id
+            ) AS cover_days,
+            -- Tüm saha günleri (assigned dahil)
+            COALESCE(SUM(d.worked_hours) FILTER (WHERE d.worked_hours > 0), 0) AS field_hours,
+            COALESCE(SUM(d.package_count) FILTER (WHERE d.worked_hours > 0), 0) AS field_packages,
+            COUNT(*) FILTER (WHERE d.worked_hours > 0) AS field_days
         FROM personnel p
         LEFT JOIN daily_entries d
             ON d.actual_personnel_id = p.id
            AND LEFT(d.entry_date::text, 7) = %s
-           AND d.restaurant_id IS DISTINCT FROM p.assigned_restaurant_id
         WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
           AND p.role IN ('Bölge Müdürü', 'Joker', 'Kaptan', 'Restoran Takım Şefi')
         GROUP BY p.id, p.full_name, p.person_code, p.role, p.monthly_fixed_cost
-        ORDER BY salary DESC, cover_packages DESC
+        ORDER BY salary DESC, field_packages DESC
     """
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -546,6 +575,9 @@ def management_summary(period: str) -> list[dict]:
             "cover_hours": float(r["cover_hours"] or 0),
             "cover_packages": int(r["cover_packages"] or 0),
             "cover_days": int(r["cover_days"] or 0),
+            "field_hours": float(r["field_hours"] or 0),
+            "field_packages": int(r["field_packages"] or 0),
+            "field_days": int(r["field_days"] or 0),
         })
     return out
 

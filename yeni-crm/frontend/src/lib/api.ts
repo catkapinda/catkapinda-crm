@@ -269,6 +269,12 @@ export type ManagementMember = {
   cover_hours: number;
   cover_packages: number;
   cover_days: number;
+  // Tüm saha günleri (assigned dahil) — BM/Joker maaş geri kazanımı için
+  field_hours?: number;
+  field_packages?: number;
+  field_days?: number;
+  recovery_pct?: number;
+  recovered_amount?: number;
 };
 
 export async function getManagementSummary(
