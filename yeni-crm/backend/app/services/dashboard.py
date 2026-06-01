@@ -436,12 +436,27 @@ def _generate_ai_insights(
 
 
 def get_available_periods() -> list[str]:
-    """Sistemde gerçek veri (puantaj veya fatura) olan ayların listesi.
+    """Sistemde gerçek veri (puantaj veya fatura) olan aylar + ileri aylar.
 
     En yeniden eskiye doğru sıralı, max 24 ay döner.
-    Boş ay (puantajı sıfır + faturası sıfır) döndürmez.
+    Veri olan aylara ek olarak bu ay + yıl sonuna kadar (en az +6 ay)
+    boş gelecek aylar da eklenir; böylece Ekim/Kasım/Aralık gibi aylar
+    o aylar gelmeden bordro/fatura/dashboard dropdown'larında seçilebilir.
     """
+    from datetime import date as _date_cls
+
     periods: set[str] = set()
+
+    # Bu ay + yıl sonuna kadar (en az +6 ay) ileri aylar — veri olmasa da
+    today = _date_cls.today()
+    y, m = today.year, today.month
+    future_count = max(12 - m, 6)
+    for i in range(0, future_count + 1):
+        mm, yy = m + i, y
+        while mm > 12:
+            mm -= 12
+            yy += 1
+        periods.add(f"{yy:04d}-{mm:02d}")
     try:
         with get_connection() as conn:
             with conn.cursor() as cur:

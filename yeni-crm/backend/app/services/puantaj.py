@@ -697,11 +697,11 @@ def daily_matrix(period: str) -> dict:
 
 
 def available_periods() -> list[str]:
-    """Veride mevcut olan + ileri 3 ay (henüz veri olmayan) aylar.
+    """Veride mevcut olan + ileri aylar (yıl sonuna kadar, henüz veri yok).
 
-    Yeni → eski sırada. Operasyon ekibi Mayıs/Haziran gibi yeni ayları
-    önceden doldurmaya başlayabilsin diye, mevcut + bir önceki + bugünkü
-    ay + sonraki 3 ay listeye katılır.
+    Yeni → eski sırada. Operasyon ekibi Ekim/Kasım/Aralık gibi ayları
+    önceden doldurmaya başlayabilsin diye, geçmiş 3 ay + bugünkü ay +
+    yıl sonuna kadar (en az +6 ay) tüm aylar listeye katılır.
     """
     from datetime import date as _date_cls
 
@@ -717,13 +717,17 @@ def available_periods() -> list[str]:
             rows = cur.fetchall()
     db_periods = [r[0] for r in rows if r[0]]
 
-    # Geçmiş 3 ay + bu ay + ileri 3 ay (boş ay olarak girilebilsin).
-    # Geçmiş aylar da eklenir ki henüz veri girilmemiş yakın aylar
-    # (örn. Mayıs) dropdown'da görünüp doldurulmaya başlanabilsin.
+    # Geçmiş 3 ay + bu ay + ileri aylar (yıl sonuna kadar, en az +6 ay).
+    # Operasyon ekibi Ekim/Kasım/Aralık gibi ayları, o aylar gelmeden
+    # önceden seçip doldurmaya başlayabilsin diye ileri pencere yılın
+    # sonuna kadar uzatılır (yıl sonuna yaklaşınca min +6 ay ile sonraki
+    # yıla da taşar). Geçmiş aylar da eklenir ki henüz veri girilmemiş
+    # yakın aylar (örn. Mayıs) dropdown'da görünüp doldurulabilsin.
     today = _date_cls.today()
     y, m = today.year, today.month
+    future_count = max(12 - m, 6)  # bu aydan yıl sonuna; en az 6 ay ileri
     extra: list[str] = []
-    for i in range(-3, 4):  # 3 ay önce ... 3 ay sonra
+    for i in range(-3, future_count + 1):
         mm = m + i
         yy = y
         while mm > 12:
