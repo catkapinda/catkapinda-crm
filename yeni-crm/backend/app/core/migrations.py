@@ -971,16 +971,25 @@ MIGRATIONS: list[tuple[str, str]] = [
 
 
 def run_migrations() -> None:
-    """Startup migration'larını çalıştır. Hatalar log'a yazılır, app açılmaya devam eder."""
+    """Startup migration'larını çalıştır. Hatalar log'a yazılır, app açılmaya devam eder.
+
+    ÖNEMLİ: Her migration AYRI transaction'da çalışır (başarılıysa commit,
+    hatalıysa rollback). Aksi halde PostgreSQL'de tek bir migration patlayınca
+    transaction 'aborted' duruma geçer; sonraki TÜM migration'lar düşer ve
+    sondaki tek commit her şeyi geri alır → başarıyla eklenmiş kolonlar
+    (ör. motor_end_date) bile kalıcı olmaz. Bu da bordro gibi yeni kolona
+    bağımlı endpoint'lerde 500'e yol açar.
+    """
     try:
         with get_connection() as conn:
-            with conn.cursor() as cur:
-                for name, sql in MIGRATIONS:
-                    try:
+            for name, sql in MIGRATIONS:
+                try:
+                    with conn.cursor() as cur:
                         cur.execute(sql)
-                        log.info("migration ok: %s", name)
-                    except Exception as e:
-                        log.warning("migration failed %s: %s", name, e)
-                conn.commit()
+                    conn.commit()  # her başarılı migration hemen kalıcı olsun
+                    log.info("migration ok: %s", name)
+                except Exception as e:
+                    conn.rollback()  # transaction'ı temizle ki sonrakiler çalışsın
+                    log.warning("migration failed %s: %s", name, e)
     except Exception as e:
         log.error("migrations connection failed: %s", e)
