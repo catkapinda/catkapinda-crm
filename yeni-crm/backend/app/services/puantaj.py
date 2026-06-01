@@ -717,16 +717,21 @@ def available_periods() -> list[str]:
             rows = cur.fetchall()
     db_periods = [r[0] for r in rows if r[0]]
 
-    # İleri 3 ay (boş ay olarak girilebilsin)
+    # Geçmiş 3 ay + bu ay + ileri 3 ay (boş ay olarak girilebilsin).
+    # Geçmiş aylar da eklenir ki henüz veri girilmemiş yakın aylar
+    # (örn. Mayıs) dropdown'da görünüp doldurulmaya başlanabilsin.
     today = _date_cls.today()
     y, m = today.year, today.month
     extra: list[str] = []
-    for i in range(0, 4):  # bu ay + 3 sonraki ay
+    for i in range(-3, 4):  # 3 ay önce ... 3 ay sonra
         mm = m + i
         yy = y
         while mm > 12:
             mm -= 12
             yy += 1
+        while mm < 1:
+            mm += 12
+            yy -= 1
         extra.append(f"{yy:04d}-{mm:02d}")
 
     # Merge — yeni → eski sıralı
