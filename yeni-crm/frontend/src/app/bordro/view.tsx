@@ -235,11 +235,11 @@ export function BordroView({
           />
           <RibbonStat
             label="Kesinti"
-            value={`−${m(payroll.summary.total_kesinti)} ₺`}
+            value={`−${m(payroll.summary.total_kesinti - (payroll.summary.total_tevkifat ?? 0))} ₺`}
             color="text-red-200"
           />
           <RibbonStat
-            label="Tevkifat"
+            label="Tevkifat → Devlet"
             value={`−${m(payroll.summary.total_tevkifat ?? 0)} ₺`}
             color="text-orange-200"
           />
@@ -270,7 +270,7 @@ export function BordroView({
           suffix="₺"
           accent="danger"
           icon={<ReceiptText className="w-4 h-4" strokeWidth={2.2} />}
-          meta={`tevkifat ${m(payroll.summary.total_tevkifat ?? 0)} ₺ dahil`}
+          meta={`+ tevkifat ${m(payroll.summary.total_tevkifat ?? 0)} ₺ devlete (CK karı değil)`}
         />
         <KpiCard
           label="Net Ödenecek"

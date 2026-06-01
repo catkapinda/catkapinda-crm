@@ -310,7 +310,7 @@ export function KarZararView({
               />
             </div>
             <DetailRow
-              label="− KDV Tevkifatı (devlete giden)"
+              label="− KDV Tevkifatı (kuryeden kesilip devlete ödenir, CK kârı değil)"
               value={`−${m(analytics.tevkifat_total)}`}
               accent="text-orange-700"
             />
