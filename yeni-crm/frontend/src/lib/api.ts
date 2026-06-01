@@ -107,6 +107,8 @@ export type Personnel = {
   motor_purchase_monthly_deduction?: number | null;
   motor_rental?: string | null;
   motor_rental_monthly_amount?: number | null;
+  motor_rental_effective_date?: string | null;
+  motor_end_date?: string | null;
   // Muhasebe
   accounting_type?: string | null;
   accountant_cost?: number | null;

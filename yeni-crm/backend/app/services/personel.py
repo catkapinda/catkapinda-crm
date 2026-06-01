@@ -23,6 +23,7 @@ EDITABLE_COLUMNS: set[str] = {
     "motor_purchase_installment_count", "motor_purchase_monthly_amount",
     "motor_purchase_monthly_deduction",
     "motor_rental", "motor_rental_monthly_amount",
+    "motor_rental_effective_date", "motor_end_date",
     # Muhasebe
     "accounting_type", "accountant_cost", "accounting_revenue",
     "accounting_effective_date",
@@ -42,7 +43,8 @@ DETAIL_COLUMNS = """
     motor_purchase, motor_purchase_sale_price, motor_purchase_start_date,
     motor_purchase_commitment_months, motor_purchase_installment_count,
     motor_purchase_monthly_amount, motor_purchase_monthly_deduction,
-    motor_rental, motor_rental_monthly_amount,
+    motor_rental, motor_rental_monthly_amount, motor_rental_effective_date,
+    motor_end_date,
     accounting_type, accountant_cost, accounting_revenue,
     accounting_effective_date,
     new_company_setup, company_setup_cost, company_setup_revenue,

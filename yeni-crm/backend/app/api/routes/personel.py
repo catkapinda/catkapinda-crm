@@ -50,6 +50,8 @@ class PersonnelUpdate(BaseModel):
     motor_purchase_monthly_deduction: float | None = None
     motor_rental: str | None = None
     motor_rental_monthly_amount: float | None = None
+    motor_rental_effective_date: str | None = None
+    motor_end_date: str | None = None
     # Muhasebe
     accounting_type: str | None = None
     accountant_cost: float | None = None

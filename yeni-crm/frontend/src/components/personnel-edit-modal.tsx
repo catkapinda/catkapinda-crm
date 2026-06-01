@@ -56,6 +56,8 @@ type FormState = {
   vehicle_type: string;
   current_plate: string;
   motor_rental_monthly_amount: number;
+  motor_rental_effective_date: string;
+  motor_end_date: string;
   motor_purchase_monthly_amount: number;
   motor_purchase_installment_count: number;
   motor_purchase_start_date: string;
@@ -94,6 +96,8 @@ const EMPTY_FORM: FormState = {
   vehicle_type: 'Çat Kapında Kiralık',
   current_plate: '',
   motor_rental_monthly_amount: 13000,
+  motor_rental_effective_date: '',
+  motor_end_date: '',
   motor_purchase_monthly_amount: 0,
   motor_purchase_installment_count: 18,
   motor_purchase_start_date: '',
@@ -163,6 +167,8 @@ export function PersonnelEditModal({
         vehicle_type: personnel.vehicle_type ?? 'Çat Kapında Kiralık',
         current_plate: personnel.current_plate ?? '',
         motor_rental_monthly_amount: personnel.motor_rental_monthly_amount ?? 0,
+        motor_rental_effective_date: personnel.motor_rental_effective_date ?? '',
+        motor_end_date: personnel.motor_end_date ?? '',
         motor_purchase_monthly_amount: personnel.motor_purchase_monthly_amount ?? 0,
         motor_purchase_installment_count: personnel.motor_purchase_installment_count ?? 0,
         motor_purchase_start_date: personnel.motor_purchase_start_date ?? '',
@@ -245,12 +251,20 @@ export function PersonnelEditModal({
           form.vehicle_type === 'Çat Kapında Satış' ? 'Evet' : 'Hayır',
         motor_rental_monthly_amount:
           form.motor_rental_monthly_amount || undefined,
+        motor_rental_effective_date:
+          form.vehicle_type === 'Çat Kapında Kiralık'
+            ? (form.motor_rental_effective_date || undefined)
+            : undefined,
         motor_purchase_monthly_amount:
           form.motor_purchase_monthly_amount || undefined,
         motor_purchase_installment_count:
           form.motor_purchase_installment_count || undefined,
         motor_purchase_start_date: form.motor_purchase_start_date || undefined,
         motor_purchase_sale_price: form.motor_purchase_sale_price || undefined,
+        motor_end_date:
+          form.vehicle_type === 'Kendi Motoru'
+            ? undefined
+            : (form.motor_end_date || undefined),
         accounting_type: form.accounting_type || undefined,
         accountant_cost: form.accountant_cost || undefined,
         accounting_revenue: form.accounting_revenue || undefined,
@@ -623,17 +637,29 @@ export function PersonnelEditModal({
               {form.vehicle_type === 'Çat Kapında Kiralık' && (
                 <>
                   <Banner color="brand" icon="i">
-                    Kira <strong>işe giriş tarihinden itibaren</strong> başlar —
-                    ayrıca tarih girmeniz gerekmez. Bakım maliyetlerini Çat
-                    Kapında karşılar.
+                    Kira <strong>tam ay değil, gün bazlı orantılı</strong>
+                    {' '}kesilir (örn. 15'inde başlar/biterse o ay yarım).
+                    Başlangıç boşsa işe giriş tarihinden başlar; aşağıdaki
+                    {' '}<strong>Motor Bitiş Tarihi</strong> doluysa o güne kadar
+                    {' '}kesilir (motoru bıraktı / kendi motoruna geçti).
                   </Banner>
-                  <Field label="Aylık Kira" optional hint="bilgi amaçlı · şirket maliyeti">
-                    <NumberSuffix
-                      value={form.motor_rental_monthly_amount}
-                      onChange={(v) => set('motor_rental_monthly_amount', v)}
-                      suffix="₺/ay"
-                    />
-                  </Field>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Aylık Kira" optional hint="şirket maliyeti">
+                      <NumberSuffix
+                        value={form.motor_rental_monthly_amount}
+                        onChange={(v) => set('motor_rental_monthly_amount', v)}
+                        suffix="₺/ay"
+                      />
+                    </Field>
+                    <Field label="Kira Başlangıç Tarihi" optional hint="bordro orantısı">
+                      <input
+                        type="date"
+                        value={form.motor_rental_effective_date}
+                        onChange={(e) => set('motor_rental_effective_date', e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition"
+                      />
+                    </Field>
+                  </div>
                 </>
               )}
 
@@ -682,6 +708,28 @@ export function PersonnelEditModal({
                     </Field>
                   </Row>
                 </>
+              )}
+
+              {(form.vehicle_type === 'Çat Kapında Kiralık' ||
+                form.vehicle_type === 'Çat Kapında Satış') && (
+                <Field
+                  label="Motor Bitiş / İade Tarihi"
+                  optional
+                  hint="motoru bıraktı / kendi motoruna geçti"
+                >
+                  <input
+                    type="date"
+                    value={form.motor_end_date}
+                    onChange={(e) => set('motor_end_date', e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition"
+                  />
+                  <p className="mt-1 text-[11px] leading-snug text-text-3">
+                    Doluysa motor kira/satış bu güne kadar gün bazlı kesilir.
+                    İş çıkışı (pasife alma) ayrıca çıkış tarihinden okunur —
+                    bu alanı sadece motoru bırakma / kendi motoruna geçişte
+                    doldurun.
+                  </p>
+                </Field>
               )}
 
               {form.vehicle_type === 'Kendi Motoru' && (

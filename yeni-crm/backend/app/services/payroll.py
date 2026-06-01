@@ -84,6 +84,58 @@ def active_days_in_period(
     return max(0, (active_end - active_start).days + 1)
 
 
+def motor_prorate(
+    period: str,
+    lower_starts: list[object | None],
+    upper_ends: list[object | None],
+) -> tuple[int, int]:
+    """Motor kira/satış için ay içi orantı gün sayısı.
+
+    Motor kira ve satış TAM AY değil, kuryenin motora sahip olduğu /
+    çalıştığı gün kadar kesilir. PAYDA HER ZAMAN 30'dur (ay kaç gün
+    çekerse çeksin); günlük = aylık / 30. Örn. 13.000 ₺/ay →
+    günlük 433,33 ₺. Motoru ayın 25'inde getirirse 25 × 433,33,
+    22'sinde pasife alınırsa 22 gün, 21'inde kendi motoruna
+    geçerse 21 gün. Tam ay = 30 gün (31'lik ayda da 30'la sınırlı).
+
+    - lower_starts: alt sınır adayları (motor başlangıç tarihi, işe
+      giriş tarihi). En GEÇ olanı (max) aktif başlangıç olur.
+    - upper_ends: üst sınır adayları (motor bitiş/iade tarihi —
+      bırakma/kendi motoruna geçiş, ve exit_date — pasife alma).
+      En ERKEN olanı (min) aktif bitiş olur.
+
+    Dönüş: (orantili_gun, 30). Gün sayısı 0..30 arası; her iki sınır
+    dahil (inclusive). Payda sabit 30.
+    """
+    try:
+        y, m = period.split("-")
+        yi, mi = int(y), int(m)
+    except (ValueError, AttributeError):
+        return 30, 30
+
+    last_day = monthrange(yi, mi)[1]
+    period_start = date(yi, mi, 1)
+    period_end = date(yi, mi, last_day)
+
+    starts = [period_start]
+    for s in lower_starts:
+        d = _parse_date(s)
+        if d:
+            starts.append(d)
+    active_start = max(starts)
+
+    ends = [period_end]
+    for e in upper_ends:
+        d = _parse_date(e)
+        if d:
+            ends.append(d)
+    active_end = min(ends)
+
+    days = max(0, (active_end - active_start).days + 1)
+    # Payda sabit 30 → tam ay 30 günle sınırlı (31'lik ayda fazla kesme).
+    return min(days, 30), 30
+
+
 KAPTAN_BONUS = 3000.0
 
 # KDV tevkifat parametreleri (v2'den taşındı)
@@ -182,8 +234,11 @@ def list_personnel_payroll(period: str) -> list[dict]:
                     ) AS standard_daily_hours,
                     COALESCE(p.motor_purchase_monthly_amount, 0) AS motor_taksit,
                     COALESCE(p.motor_purchase, '') AS motor_purchase_flag,
+                    COALESCE(p.motor_purchase_start_date::text, '') AS motor_purchase_start,
                     COALESCE(p.motor_rental_monthly_amount, 0) AS motor_kira_aylik,
                     COALESCE(p.motor_rental, '') AS motor_rental_flag,
+                    COALESCE(p.motor_rental_effective_date::text, '') AS motor_rental_start,
+                    COALESCE(p.motor_end_date::text, '') AS motor_end_date,
                     COALESCE(p.vehicle_type, '') AS vehicle_type,
                     COALESCE(p.accountant_cost, 0) AS muhasebe_aylik,
                     COALESCE(p.new_company_setup, 'Hayır') AS sirket,
@@ -516,25 +571,42 @@ def list_personnel_payroll(period: str) -> list[dict]:
         vehicle_type = (p.get("vehicle_type") or "").strip()
         is_own_motor = vehicle_type == "Kendi Motoru"
 
-        # Motor satış taksiti — sadece "Çat Kapında Satış" + flag "Evet" + tutar > 0
-        # Kendi motoru ile çalışan kuryelerden taksit kesilmez
+        # Motor satış taksiti VE kirası — GÜN BAZLI ORANTILI.
+        # Tam ay değil; kuryenin motora sahip olduğu / çalıştığı gün
+        # kadar kesilir. Payda = ayın gerçek gün sayısı.
+        #   Alt sınır (başlangıç): motor başlangıç tarihi + işe giriş
+        #   Üst sınır (bitiş)    : motor bitiş/iade tarihi (bırakma /
+        #     kendi motoruna geçiş) + exit_date (pasife alma)
+        # En geç başlangıç ile en erken bitiş arası gün sayısı / ay günü.
+        # Kendi motoru ile çalışan kuryelerden motor kesintisi yapılmaz.
+        motor_end = p.get("motor_end_date")  # bırakma / kendi motoruna geçiş
+
+        # Motor satış taksiti
         motor_taksit = 0.0
         if not is_own_motor and p.get("motor_purchase_flag") == "Evet":
-            motor_taksit = float(p["motor_taksit"] or 0)
+            taksit_aylik = float(p["motor_taksit"] or 0)
+            if taksit_aylik > 0:
+                gun, ay_gun = motor_prorate(
+                    period,
+                    lower_starts=[p.get("motor_purchase_start"), p.get("start_date")],
+                    upper_ends=[motor_end, p.get("exit_date")],
+                )
+                motor_taksit = taksit_aylik * (gun / ay_gun) if ay_gun else 0.0
 
-        # Motor kirası — ay içindeki aktif gün × (aylık tutar / 30)
-        # Sude 31.03 işe girdiyse 1 gün × 13.000/30 = 433,33 ₺
-        # Kendi motoru ile çalışan kuryelerden kira kesilmez
+        # Motor kirası
         motor_kira = 0.0
         if not is_own_motor and p.get("motor_rental_flag") == "Evet":
             kira_aylik = float(p.get("motor_kira_aylik") or 0)
             if kira_aylik > 0:
-                aktif_gun = active_days_in_period(
-                    period, p.get("start_date"), p.get("exit_date")
+                gun, ay_gun = motor_prorate(
+                    period,
+                    lower_starts=[p.get("motor_rental_start"), p.get("start_date")],
+                    upper_ends=[motor_end, p.get("exit_date")],
                 )
-                # Tam ay (30+) tam kira, daha azsa orantılı
-                prorate = min(aktif_gun, 30) / 30
-                motor_kira = kira_aylik * prorate
+                motor_kira = kira_aylik * (gun / ay_gun) if ay_gun else 0.0
+
+        motor_taksit = round(motor_taksit, 2)
+        motor_kira = round(motor_kira, 2)
 
         muhasebe = (
             float(p["muhasebe_aylik"] or 0)

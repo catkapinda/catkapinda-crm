@@ -856,6 +856,26 @@ MIGRATIONS: list[tuple[str, str]] = [
         WHERE covers_personnel_id IS NOT NULL
         """,
     ),
+    # ─── Motor kira başlangıç tarihi (bordro orantılı hesap) ───────
+    (
+        "personnel.motor_rental_effective_date",
+        """
+        ALTER TABLE personnel
+        ADD COLUMN IF NOT EXISTS motor_rental_effective_date date
+        """,
+    ),
+    # ─── Motor bitiş/iade tarihi (bırakma / kendi motoruna geçiş) ──
+    # Motor kira ve satış gün bazlı orantılı kesilir. Kurye motoru
+    # bıraktıysa ya da kendi motoruna geçtiyse, o güne kadar kesilir.
+    # (İş çıkışı zaten exit_date'ten okunur; bu alan motorun bittiği
+    # günü ayrıca tutar.)
+    (
+        "personnel.motor_end_date",
+        """
+        ALTER TABLE personnel
+        ADD COLUMN IF NOT EXISTS motor_end_date date
+        """,
+    ),
     # ─── users.phone normalize (SMS OTP eşleşme bug fix) ───────────
     # Seed sırasında REGEXP_REPLACE baştaki 0'ı koruyordu → DB'de
     # '05419073196' (11 hane). Login _normalize_phone ise 0'ı atıp
