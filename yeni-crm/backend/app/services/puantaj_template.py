@@ -389,9 +389,9 @@ def generate_puantaj_template(
         row=2, column=1,
         value=(
             "Personel için sadece KOD yazın (örn: K001) · Restoran için sadece "
-            "ID veya kısa marka adı yeterlidir · Tarihler ayın günlerine göre "
-            "otomatik dolduruldu, ihtiyacınız varsa aynı tarih için satır "
-            "kopyalayıp altına yapıştırabilirsiniz."
+            "ID veya kısa marka adı yeterlidir · Tarihler otomatik dolduruldu. "
+            "AYNI GÜNE 2+ KURYE: aşağıdaki '↓ EK SATIRLAR' bölümüne aynı tarihi "
+            "elle yazıp her kurye için ayrı satır açın (sınır yok)."
         ),
     )
     support_ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=7)
@@ -423,6 +423,39 @@ def generate_puantaj_template(
             cc.font = Font(name="Arial", size=10)
             cc.alignment = Alignment(
                 horizontal="center" if col in (4, 5, 6) else "left",
+                vertical="center",
+            )
+            cc.border = Border(
+                top=_thin_side(), bottom=_thin_side(),
+                left=_thin_side(), right=_thin_side(),
+            )
+
+    # ──────── EK SATIRLAR (aynı gün 2.+ kurye / fazladan ziyaret) ────────
+    # Her gün için tek hazır satır var; aynı güne ikinci/üçüncü kurye gittiyse
+    # buraya TARİHİ ELLE yazıp yeni satır eklenir (sınır yok — istenirse
+    # daha da çoğaltılır). Import tarihe göre değil SATIR bazında okur,
+    # yani aynı tarih birden çok satırda olabilir.
+    extra_start = 2 + n_days + 1
+    # Ayraç başlık satırı
+    sep = support_ws.cell(
+        row=extra_start, column=1,
+        value="↓ EK SATIRLAR — aynı güne 2. kurye / fazladan ziyaret (TARİHİ elle yazın)",
+    )
+    sep.font = Font(name="Arial", size=9, bold=True, italic=True, color=BRAND_DARK)
+    support_ws.merge_cells(
+        start_row=extra_start, start_column=1, end_row=extra_start, end_column=7,
+    )
+    sep.alignment = Alignment(horizontal="left", vertical="center")
+    sep.fill = PatternFill("solid", start_color=CREAM_50)
+    support_ws.row_dimensions[extra_start].height = 18
+
+    EXTRA_BLANK_ROWS = 40
+    for er in range(extra_start + 1, extra_start + 1 + EXTRA_BLANK_ROWS):
+        for col in range(1, 8):
+            cc = support_ws.cell(row=er, column=col, value=None)
+            cc.font = Font(name="Arial", size=10)
+            cc.alignment = Alignment(
+                horizontal="center" if col in (1, 4, 5, 6) else "left",
                 vertical="center",
             )
             cc.border = Border(
@@ -587,7 +620,14 @@ def generate_puantaj_template(
         "  BM Cihan bir restorana gitti:",
         "    → 2026-03-15 satırı | BM001 | Fasuli | Y | 8 | 20",
         "",
-        "Aynı gün birden fazla ziyaret varsa o satırı kopyalayıp altına yapıştırın.",
+        "AYNI GÜN BİRDEN FAZLA KURYE / ZİYARET:",
+        "  Her gün için tek hazır satır var. Aynı güne 2. (veya 3.) kurye",
+        "  gittiyse, sayfanın altındaki '↓ EK SATIRLAR' bölümüne git, o günün",
+        "  TARİHİNİ elle yaz (örn 2026-03-12) ve her kurye için ayrı bir satır",
+        "  doldur. İstediğin kadar satır ekleyebilirsin — sistem tarihe göre",
+        "  değil, her satırı ayrı ayrı okur. Örnek (12 Mart'a 2 destek):",
+        "    2026-03-12 | K001 | 12 | D | 11 | 30",
+        "    2026-03-12 | K007 | 12 | D |  9 | 22",
         "",
         "─── REFERANS SEKMELERİ ───",
         "",
