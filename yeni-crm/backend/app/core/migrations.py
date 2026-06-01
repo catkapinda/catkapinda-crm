@@ -856,6 +856,28 @@ MIGRATIONS: list[tuple[str, str]] = [
         WHERE covers_personnel_id IS NOT NULL
         """,
     ),
+    # ─── users.phone normalize (SMS OTP eşleşme bug fix) ───────────
+    # Seed sırasında REGEXP_REPLACE baştaki 0'ı koruyordu → DB'de
+    # '05419073196' (11 hane). Login _normalize_phone ise 0'ı atıp
+    # '5419073196' (10 hane) arıyor → EŞLEŞMEZ → SMS gönderilmiyordu.
+    # Bu migration tüm users.phone değerlerini 10 haneye normalize eder.
+    (
+        "users.normalize_phone_20260601",
+        """
+        UPDATE users
+        SET phone = CASE
+            WHEN phone ~ '^90[0-9]{10}$' THEN SUBSTRING(phone FROM 3)
+            WHEN phone ~ '^0[0-9]{10}$'  THEN SUBSTRING(phone FROM 2)
+            ELSE phone
+        END
+        WHERE phone IS NOT NULL
+          AND phone <> CASE
+            WHEN phone ~ '^90[0-9]{10}$' THEN SUBSTRING(phone FROM 3)
+            WHEN phone ~ '^0[0-9]{10}$'  THEN SUBSTRING(phone FROM 2)
+            ELSE phone
+          END
+        """,
+    ),
     # ─── Restoran sözleşme/operasyon tarihleri ─────────────────────
     # start_date = operasyon (paket atımı) başlangıç tarihi → ZATEN VAR
     # agreement_date = sözleşme imza/anlaşma tarihi (operasyondan önce)
