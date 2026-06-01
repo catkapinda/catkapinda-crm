@@ -876,6 +876,17 @@ MIGRATIONS: list[tuple[str, str]] = [
         ADD COLUMN IF NOT EXISTS motor_end_date date
         """,
     ),
+    # ─── Talep geçerlilik tarihi (motor/muhasebe değişikliği yürürlük) ──
+    # Talep onaylanınca personel kaydına yazılır: motor → vehicle_to'ya
+    # göre motor_end_date / motor_rental_effective_date /
+    # motor_purchase_start_date; muhasebe → accounting_effective_date.
+    (
+        "courier_requests.effective_date",
+        """
+        ALTER TABLE courier_requests
+        ADD COLUMN IF NOT EXISTS effective_date date
+        """,
+    ),
     # ─── users.phone normalize (SMS OTP eşleşme bug fix) ───────────
     # Seed sırasında REGEXP_REPLACE baştaki 0'ı koruyordu → DB'de
     # '05419073196' (11 hane). Login _normalize_phone ise 0'ı atıp

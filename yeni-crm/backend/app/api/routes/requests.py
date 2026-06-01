@@ -30,6 +30,8 @@ class RequestCreate(BaseModel):
     # Muhasebe Değişimi için
     accounting_from: str | None = None
     accounting_to: str | None = None
+    # Geçerlilik tarihi (motor/muhasebe yürürlük — bordro orantısı için)
+    effective_date: str | None = None
 
 
 class RequestDecide(BaseModel):

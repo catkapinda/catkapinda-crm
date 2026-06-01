@@ -1214,6 +1214,8 @@ export type CourierRequest = {
   // Muhasebe Değişimi detayları
   accounting_from?: string | null;
   accounting_to?: string | null;
+  // Geçerlilik tarihi (motor/muhasebe yürürlük)
+  effective_date?: string | null;
 };
 
 export type CourierRequestCounts = {
@@ -1236,6 +1238,8 @@ export type CourierRequestCreate = {
   // Muhasebe Değişimi için
   accounting_from?: string | null;
   accounting_to?: string | null;
+  // Geçerlilik tarihi (motor/muhasebe yürürlük — bordro orantısı için)
+  effective_date?: string | null;
 };
 
 export type CourierRequestDecide = {

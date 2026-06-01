@@ -82,6 +82,10 @@ export function NewRequestModal({
   // Muhasebe
   const [accountingFrom, setAccountingFrom] = useState<string>('');
   const [accountingTo, setAccountingTo] = useState<string>('');
+  // Geçerlilik tarihi (motor/muhasebe yürürlük — bordro orantısı için)
+  const [effectiveDate, setEffectiveDate] = useState<string>(
+    () => new Date().toISOString().slice(0, 10),
+  );
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,6 +164,10 @@ export function NewRequestModal({
         return;
       }
     }
+    if (!effectiveDate) {
+      setError('Geçerlilik tarihini gir (bordro hesabı bu tarihten itibaren yapılır)');
+      return;
+    }
 
     setBusy(true);
     setError(null);
@@ -169,6 +177,7 @@ export function NewRequestModal({
         request_type: type,
         amount: 0,
         reason: reason.trim() || null,
+        effective_date: effectiveDate || null,
         ...(type === 'Motor Değişikliği' && {
           vehicle_from: vehicleFrom,
           vehicle_to: vehicleTo,
@@ -405,10 +414,40 @@ export function NewRequestModal({
             </div>
           )}
 
+          {/* GEÇERLİLİK TARİHİ */}
+          <div>
+            <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-2">
+              {type === 'Motor Değişikliği' ? '6. Geçerlilik Tarihi' : '4. Geçerlilik Tarihi'}
+            </div>
+            <input
+              type="date"
+              value={effectiveDate}
+              onChange={(e) => setEffectiveDate(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-[14px] focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition"
+            />
+            <div className="text-[11px] text-text-3 mt-1 leading-snug">
+              {type === 'Motor Değişikliği' ? (
+                <>
+                  Değişikliğin yürürlük günü. Onaylanınca bordro bu tarihten
+                  itibaren hesaplanır:{' '}
+                  {vehicleTo === 'Kendi Motoru'
+                    ? 'mevcut kira/satış bu güne kadar gün bazlı kesilir (motor bitiş tarihi).'
+                    : vehicleTo === 'Çat Kapında Kiralık'
+                    ? 'kira bu tarihten itibaren gün bazlı başlar.'
+                    : vehicleTo === 'Çat Kapında Satış'
+                    ? 'satış taksiti bu tarihten itibaren başlar.'
+                    : 'yeni araç tipini seçince ne olacağı burada görünür.'}
+                </>
+              ) : (
+                'Muhasebe geçişinin yürürlük günü. Onaylanınca bu tarihten itibaren geçerli olur.'
+              )}
+            </div>
+          </div>
+
           {/* GENEL AÇIKLAMA */}
           <div>
             <div className="text-[11px] uppercase tracking-wider text-text-3 font-bold mb-2">
-              {type === 'Motor Değişikliği' ? '6. Ek Not (opsiyonel)' : '4. Açıklama (opsiyonel)'}
+              {type === 'Motor Değişikliği' ? '7. Ek Not (opsiyonel)' : '5. Açıklama (opsiyonel)'}
             </div>
             <textarea
               placeholder={

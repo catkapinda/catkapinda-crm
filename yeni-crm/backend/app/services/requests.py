@@ -40,6 +40,7 @@ def list_requests(
             r.plate,
             r.accounting_from,
             r.accounting_to,
+            r.effective_date,
             p.full_name AS personnel_name,
             p.person_code,
             p.role AS personnel_role,
@@ -106,6 +107,7 @@ def create_request(fields: dict) -> dict | None:
     plate = (fields.get("plate") or "").strip().upper() or None
     accounting_from = (fields.get("accounting_from") or "").strip() or None
     accounting_to = (fields.get("accounting_to") or "").strip() or None
+    effective_date = (fields.get("effective_date") or "").strip() or None
 
     # Motor Değişikliği için from/to + reason zorunlu
     if request_type == "Motor Değişikliği":
@@ -123,9 +125,9 @@ def create_request(fields: dict) -> dict | None:
         INSERT INTO courier_requests (
             personnel_id, request_type, amount, reason, status,
             vehicle_from, vehicle_to, vehicle_reason, plate,
-            accounting_from, accounting_to
+            accounting_from, accounting_to, effective_date
         )
-        VALUES (%s, %s, %s, %s, 'Beklemede', %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, 'Beklemede', %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
     with get_connection() as conn:
@@ -133,7 +135,7 @@ def create_request(fields: dict) -> dict | None:
             cur.execute(sql, (
                 personnel_id, request_type, amount, reason,
                 vehicle_from, vehicle_to, vehicle_reason, plate,
-                accounting_from, accounting_to,
+                accounting_from, accounting_to, effective_date,
             ))
             row = cur.fetchone()
             conn.commit()
@@ -178,6 +180,10 @@ def decide_request(
                 pid = existing["personnel_id"]
                 rtype = existing["request_type"]
 
+                # Geçerlilik tarihi (boşsa bugün) — bordro orantısı bu tarihten
+                eff = existing.get("effective_date")
+                eff_str = eff.isoformat() if hasattr(eff, "isoformat") else (eff or None)
+
                 if rtype == "Motor Değişikliği" and existing.get("vehicle_to"):
                     new_vehicle = existing["vehicle_to"]
                     new_plate = existing.get("plate")
@@ -198,13 +204,57 @@ def decide_request(
                         """,
                         (new_vehicle, flags_purchase, flags_rental, new_plate or "", pid),
                     )
+                    # Geçerlilik tarihini doğru kolona yaz (bordro orantısı için):
+                    #   • Kendi Motoru'na geçiş → motor_end_date (eski kira/satış
+                    #     bu güne kadar gün bazlı kesilir)
+                    #   • ÇK Kiralık'a geçiş → motor_rental_effective_date (kira
+                    #     bu tarihten başlar) + motor_end_date temizle
+                    #   • ÇK Satış'a geçiş → motor_purchase_start_date (taksit bu
+                    #     tarihten başlar) + motor_end_date temizle
+                    if eff_str:
+                        if new_vehicle == "Kendi Motoru":
+                            cur.execute(
+                                "UPDATE personnel SET motor_end_date = %s WHERE id = %s",
+                                (eff_str, pid),
+                            )
+                        elif new_vehicle == "Çat Kapında Kiralık":
+                            cur.execute(
+                                """
+                                UPDATE personnel
+                                SET motor_rental_effective_date = %s,
+                                    motor_end_date = NULL
+                                WHERE id = %s
+                                """,
+                                (eff_str, pid),
+                            )
+                        elif new_vehicle == "Çat Kapında Satış":
+                            cur.execute(
+                                """
+                                UPDATE personnel
+                                SET motor_purchase_start_date = %s,
+                                    motor_end_date = NULL
+                                WHERE id = %s
+                                """,
+                                (eff_str, pid),
+                            )
 
                 elif rtype == "Muhasebe Değişimi" and existing.get("accounting_to"):
                     new_acc = existing["accounting_to"]
-                    cur.execute(
-                        "UPDATE personnel SET accounting_type = %s WHERE id = %s",
-                        (new_acc, pid),
-                    )
+                    if eff_str:
+                        cur.execute(
+                            """
+                            UPDATE personnel
+                            SET accounting_type = %s,
+                                accounting_effective_date = %s
+                            WHERE id = %s
+                            """,
+                            (new_acc, eff_str, pid),
+                        )
+                    else:
+                        cur.execute(
+                            "UPDATE personnel SET accounting_type = %s WHERE id = %s",
+                            (new_acc, pid),
+                        )
 
                 elif rtype == "Avans" and float(existing.get("amount") or 0) > 0:
                     # Avans onaylandı → bordro kesintisi olarak ekle
@@ -284,4 +334,10 @@ def _serialize(r: dict) -> dict:
         # Muhasebe Değişimi detayları
         "accounting_from": r.get("accounting_from"),
         "accounting_to": r.get("accounting_to"),
+        # Geçerlilik tarihi (motor/muhasebe yürürlük)
+        "effective_date": (
+            r["effective_date"].isoformat()
+            if r.get("effective_date") and hasattr(r["effective_date"], "isoformat")
+            else (r.get("effective_date") or None)
+        ),
     }
