@@ -586,15 +586,26 @@ def list_personnel_payroll(period: str) -> list[dict]:
         # ÇK Kiralık → Kendi Motoru), o ayın kira/taksiti bitiş gününe kadar
         # YİNE KESİLMELİDİR. Onay anında vehicle_type 'Kendi Motoru' olup
         # flag 'Hayır'a düşse de, motor_end_date dolu olduğu için o aralık
-        # faturalanır. Bu yüzden koşul artık 'flag Evet VEYA motor_end_date var'
-        # — gerçek kesilen tutarı motor_prorate (gün penceresi) belirler;
-        # bitiş ayından sonraki aylarda gün=0 olur, kesinti yapılmaz.
-
-        # Motor satış taksiti
-        motor_taksit = 0.0
+        # faturalanır. Koşul: 'flag Evet VEYA (motor_end var VE doğru araç tipi)'.
+        #
+        # DİKKAT: motor_end_date HEM kira HEM satış için ORTAK bir alandır.
+        # Bu yüzden tek başına motor_end ile İKİSİNİ birden kesmek YANLIŞ olur
+        # (Neçirvan kiralıktaydı ama kayıtta sıfır olmayan bir satış tutarı
+        # varsa satış taksidi de kesiliyordu). Doğru ayrım:
+        #   • Satış taksiti: flag Evet  → satış aktif; ya da arrangement bitti
+        #     VE kira tutarı YOK (kira>0 ise bu bir kira aracıydı, satış değil).
+        #   • Kira:          flag Evet  → kira aktif; ya da arrangement bitti
+        #     (kira tutarı varsa kira aracıdır → öncelik kirada).
+        kira_aylik = float(p.get("motor_kira_aylik") or 0)
         taksit_aylik = float(p["motor_taksit"] or 0)
+        rental_active = p.get("motor_rental_flag") == "Evet"
         purchase_active = p.get("motor_purchase_flag") == "Evet"
-        if taksit_aylik > 0 and (purchase_active or motor_end):
+
+        # Motor satış taksiti — sadece kişi GERÇEKTEN satış motorundaysa
+        motor_taksit = 0.0
+        if taksit_aylik > 0 and (
+            purchase_active or (motor_end and kira_aylik <= 0)
+        ):
             gun, ay_gun = motor_prorate(
                 period,
                 lower_starts=[p.get("motor_purchase_start"), p.get("start_date")],
@@ -603,10 +614,8 @@ def list_personnel_payroll(period: str) -> list[dict]:
             if gun > 0 and ay_gun:
                 motor_taksit = taksit_aylik * (gun / ay_gun)
 
-        # Motor kirası
+        # Motor kirası — kira tutarı varsa (kira aracı) önceliklidir
         motor_kira = 0.0
-        kira_aylik = float(p.get("motor_kira_aylik") or 0)
-        rental_active = p.get("motor_rental_flag") == "Evet"
         if kira_aylik > 0 and (rental_active or motor_end):
             gun, ay_gun = motor_prorate(
                 period,
