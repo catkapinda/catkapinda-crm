@@ -242,6 +242,7 @@ def list_personnel_payroll(period: str) -> list[dict]:
                     COALESCE(p.vehicle_type, '') AS vehicle_type,
                     COALESCE(p.accountant_cost, 0) AS muhasebe_aylik,
                     COALESCE(p.accounting_revenue, 0) AS muhasebe_gelir,
+                    COALESCE(p.accounting_effective_date::text, '') AS muhasebe_tarih,
                     COALESCE(p.new_company_setup, 'Hayır') AS sirket,
                     COALESCE(p.company_setup_cost, 0) AS sirket_acilis,
                     COALESCE(p.company_setup_effective_date::text, '') AS sirket_tarih,
@@ -633,11 +634,17 @@ def list_personnel_payroll(period: str) -> list[dict]:
         # Örn. Neçirvan: muhasebeciye 1.400 ödüyoruz ama kuryeden 2.000
         # kesiyoruz → 600 ÇK kârı. Bordroda kuryeye 2.000 yansımalı.
         # accounting_revenue boşsa eski davranışa (cost) düş.
+        # GEÇİŞ TARİHİ: 'Muhasebe Geçiş Tarihi' (accounting_effective_date)
+        # doluysa kesinti o AYDAN İTİBAREN başlar; önceki aylarda kesilmez.
+        # Örn. Yunus Emre 10.04.2026'da ÇK Muhasebe'ye geçti → Mart'a YANSIMAZ,
+        # Nisan'dan itibaren tam ay kesilir. (Muhasebe tam ay; gün bazlı değil.)
         muhasebe = 0.0
         if p["muhasebe_tipi"] == "Çat Kapında Muhasebe":
-            muhasebe = float(p.get("muhasebe_gelir") or 0)
-            if muhasebe <= 0:
-                muhasebe = float(p["muhasebe_aylik"] or 0)
+            muh_tarih_ay = (p.get("muhasebe_tarih") or "")[:7]  # YYYY-MM
+            if not muh_tarih_ay or muh_tarih_ay <= period:
+                muhasebe = float(p.get("muhasebe_gelir") or 0)
+                if muhasebe <= 0:
+                    muhasebe = float(p["muhasebe_aylik"] or 0)
         sirket_acilis = 0.0
         # Şirket açılış bedeli — sadece o ay yapıldıysa düş
         if p["sirket"] == "Evet" and p["sirket_tarih"]:
