@@ -39,6 +39,7 @@ class PersonnelUpdate(BaseModel):
     # Hakediş & faturalandırma
     monthly_fixed_cost: float | None = None
     fixed_monthly_billing: float | None = None
+    standard_daily_hours: float | None = None
     # Araç
     vehicle_type: str | None = None
     motor_purchase: str | None = None

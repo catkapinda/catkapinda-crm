@@ -52,6 +52,7 @@ type FormState = {
   assigned_restaurant_id: number | null;
   monthly_fixed_cost: number;
   fixed_monthly_billing: number;
+  standard_daily_hours: number;
   // 3. Araç
   vehicle_type: string;
   current_plate: string;
@@ -93,6 +94,7 @@ const EMPTY_FORM: FormState = {
   assigned_restaurant_id: null,
   monthly_fixed_cost: 0,
   fixed_monthly_billing: 0,
+  standard_daily_hours: 10,
   vehicle_type: 'Çat Kapında Kiralık',
   current_plate: '',
   motor_rental_monthly_amount: 13000,
@@ -164,6 +166,7 @@ export function PersonnelEditModal({
         assigned_restaurant_id: personnel.assigned_restaurant_id ?? null,
         monthly_fixed_cost: personnel.monthly_fixed_cost ?? 0,
         fixed_monthly_billing: personnel.fixed_monthly_billing ?? 0,
+        standard_daily_hours: personnel.standard_daily_hours ?? 10,
         vehicle_type: personnel.vehicle_type ?? 'Çat Kapında Kiralık',
         current_plate: personnel.current_plate ?? '',
         motor_rental_monthly_amount: personnel.motor_rental_monthly_amount ?? 0,
@@ -244,6 +247,7 @@ export function PersonnelEditModal({
         start_date: form.start_date || undefined,
         monthly_fixed_cost: form.monthly_fixed_cost || undefined,
         fixed_monthly_billing: form.fixed_monthly_billing || undefined,
+        standard_daily_hours: form.standard_daily_hours || undefined,
         vehicle_type: form.vehicle_type || undefined,
         motor_rental:
           form.vehicle_type === 'Çat Kapında Kiralık' ? 'Evet' : 'Hayır',
@@ -1223,6 +1227,27 @@ function GorevHakedis({
               />
             </Field>
           </Row>
+
+          {/* Bayram x2 hesabı için normal günlük saat */}
+          <Field
+            label="Standart Günlük Saat"
+            optional
+            hint="bayram x2 bazı · normal mesai saati (boş = 10)"
+          >
+            <NumberSuffix
+              value={form.standard_daily_hours}
+              onChange={(v) => set('standard_daily_hours', v)}
+              suffix="saat"
+              placeholder="örn 10"
+            />
+          </Field>
+          <Banner color="cream" icon="i">
+            Dini bayramların ilk 2 günü <strong>×2 mesai</strong>: puantaja o gün
+            normal saatin 2 katı (örn 10 → 20) yazılır. Sabit maaşlı kişide her
+            böyle gün <strong>+1 günlük</strong> (maaş/30) ekstra olarak eklenir.
+            Doğru hesap için bu alanın <strong>gerçek normal saate</strong> (örn
+            10) eşit olması gerekir.
+          </Banner>
 
           {/* Canlı KDV dahil + kar göstergesi */}
           {form.fixed_monthly_billing > 0 && (

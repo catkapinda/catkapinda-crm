@@ -12,6 +12,7 @@ EDITABLE_COLUMNS: set[str] = {
     # Hakediş & faturalandırma
     "monthly_fixed_cost",            # kuryeye ödenen aylık (sabit)
     "fixed_monthly_billing",         # restorana yansıyan sabit aylık (KDV hariç)
+    "standard_daily_hours",          # normal günlük çalışma saati (bayram x2 bazı)
     # Kimlik & banka
     "tc_no", "iban", "tax_number", "tax_office",
     # Adres & acil durum
@@ -38,7 +39,7 @@ EDITABLE_COLUMNS: set[str] = {
 DETAIL_COLUMNS = """
     id, person_code, full_name, role, status, phone, current_plate,
     assigned_restaurant_id, start_date, exit_date,
-    monthly_fixed_cost, fixed_monthly_billing,
+    monthly_fixed_cost, fixed_monthly_billing, standard_daily_hours,
     vehicle_type,
     motor_purchase, motor_purchase_sale_price, motor_purchase_start_date,
     motor_purchase_commitment_months, motor_purchase_installment_count,
