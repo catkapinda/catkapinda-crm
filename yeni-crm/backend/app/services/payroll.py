@@ -170,6 +170,25 @@ def calculate_tevkifat(invoice_total: float) -> dict:
     }
 
 
+def _is_fixed_restaurant(rest_data: dict) -> bool:
+    """Restoran 'sabit anlaşmalı' (aylık sabit) mı?
+
+    pricing_model 'sabit/fixed/aylık/monthly' içeriyorsa ya da yalnızca
+    fixed_monthly_fee doluysa (saat/paket tarifeleri boş) sabit kabul edilir.
+    Sabit restoranlarda destek günlüğü saat/paket tarifesiyle DEĞİL, atanmış
+    kuryenin aylık sabit maliyeti / 30 ile hesaplanır.
+    """
+    model = str(rest_data.get("pricing_model") or "").lower()
+    if any(k in model for k in ("sabit", "fixed", "aylık", "aylik", "monthly")):
+        return True
+    fixed_fee = float(rest_data.get("fixed_monthly_fee") or 0)
+    hourly = float(rest_data.get("hourly_rate") or 0)
+    pkg = float(rest_data.get("package_rate") or 0)
+    lo = float(rest_data.get("package_rate_low") or 0)
+    hi = float(rest_data.get("package_rate_high") or 0)
+    return fixed_fee > 0 and hourly == 0 and pkg == 0 and lo == 0 and hi == 0
+
+
 def _calc_brut_for_restaurant(
     pricing_model: str | None,
     rest_data: dict,
@@ -344,6 +363,20 @@ def list_personnel_payroll(period: str) -> list[dict]:
 
     # Personellerin assigned_restaurant_id'sini kolayca al
     assigned_map = {p["id"]: p["assigned_restaurant_id"] for p in personnel}
+
+    # Sabit anlaşmalı restoranlarda destek günlüğü için: restoran → o restorana
+    # atanmış kuryenin sabit aylık maliyeti (KDV dahil). Örn. SC Petshop kurye
+    # 73.600 ₺/ay → günlük 73.600/30 = 2.453,33. Destek o restorana giderse
+    # gün × günlük kadar ödenir (saat/paket tarifesi DEĞİL). Birden çok kurye
+    # varsa en yüksek sabit maliyet alınır.
+    rest_fixed_courier_cost: dict[int, float] = {}
+    for p in personnel:
+        rid_a = p.get("assigned_restaurant_id")
+        mfc = float(p.get("monthly_fixed_cost") or 0)
+        if rid_a and mfc > 0:
+            if mfc > rest_fixed_courier_cost.get(rid_a, 0):
+                rest_fixed_courier_cost[rid_a] = mfc
+
     pricing_map: dict[int, dict] = {}
     for e in entries:
         if e["rid"] is not None:
@@ -514,6 +547,13 @@ def list_personnel_payroll(period: str) -> list[dict]:
             if role_no_extra:
                 # BM / Joker → ekstra hakediş yok (sabit maaş yeterli)
                 amt = 0.0
+            elif _is_fixed_restaurant(rest_data) and rest_fixed_courier_cost.get(rid, 0) > 0:
+                # SABİT ANLAŞMALI RESTORAN: destek günlüğü = o restoranın
+                # atanmış kuryesinin aylık sabit maliyeti / 30 × gün.
+                # Saat/paket tarifesi KULLANILMAZ. Örn. SC Petshop 73.600/ay
+                # → 2.453,33/gün; 1 gün destek = 2.453,33 (2.500 değil).
+                daily = rest_fixed_courier_cost[rid] / 30.0
+                amt = daily * dvals["days"]
             else:
                 # Kurye / RTŞ / Kaptan → tarife bazlı ekstra hakediş
                 crossed = False
