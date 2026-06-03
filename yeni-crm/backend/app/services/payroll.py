@@ -241,6 +241,7 @@ def list_personnel_payroll(period: str) -> list[dict]:
                     COALESCE(p.motor_end_date::text, '') AS motor_end_date,
                     COALESCE(p.vehicle_type, '') AS vehicle_type,
                     COALESCE(p.accountant_cost, 0) AS muhasebe_aylik,
+                    COALESCE(p.accounting_revenue, 0) AS muhasebe_gelir,
                     COALESCE(p.new_company_setup, 'Hayır') AS sirket,
                     COALESCE(p.company_setup_cost, 0) AS sirket_acilis,
                     COALESCE(p.company_setup_effective_date::text, '') AS sirket_tarih,
@@ -581,38 +582,53 @@ def list_personnel_payroll(period: str) -> list[dict]:
         # Kendi motoru ile çalışan kuryelerden motor kesintisi yapılmaz.
         motor_end = p.get("motor_end_date")  # bırakma / kendi motoruna geçiş
 
+        # ÖNEMLİ: Kurye ay ortasında kendi motoruna geçtiyse (örn. 28 Nisan'da
+        # ÇK Kiralık → Kendi Motoru), o ayın kira/taksiti bitiş gününe kadar
+        # YİNE KESİLMELİDİR. Onay anında vehicle_type 'Kendi Motoru' olup
+        # flag 'Hayır'a düşse de, motor_end_date dolu olduğu için o aralık
+        # faturalanır. Bu yüzden koşul artık 'flag Evet VEYA motor_end_date var'
+        # — gerçek kesilen tutarı motor_prorate (gün penceresi) belirler;
+        # bitiş ayından sonraki aylarda gün=0 olur, kesinti yapılmaz.
+
         # Motor satış taksiti
         motor_taksit = 0.0
-        if not is_own_motor and p.get("motor_purchase_flag") == "Evet":
-            taksit_aylik = float(p["motor_taksit"] or 0)
-            if taksit_aylik > 0:
-                gun, ay_gun = motor_prorate(
-                    period,
-                    lower_starts=[p.get("motor_purchase_start"), p.get("start_date")],
-                    upper_ends=[motor_end, p.get("exit_date")],
-                )
-                motor_taksit = taksit_aylik * (gun / ay_gun) if ay_gun else 0.0
+        taksit_aylik = float(p["motor_taksit"] or 0)
+        purchase_active = p.get("motor_purchase_flag") == "Evet"
+        if taksit_aylik > 0 and (purchase_active or motor_end):
+            gun, ay_gun = motor_prorate(
+                period,
+                lower_starts=[p.get("motor_purchase_start"), p.get("start_date")],
+                upper_ends=[motor_end, p.get("exit_date")],
+            )
+            if gun > 0 and ay_gun:
+                motor_taksit = taksit_aylik * (gun / ay_gun)
 
         # Motor kirası
         motor_kira = 0.0
-        if not is_own_motor and p.get("motor_rental_flag") == "Evet":
-            kira_aylik = float(p.get("motor_kira_aylik") or 0)
-            if kira_aylik > 0:
-                gun, ay_gun = motor_prorate(
-                    period,
-                    lower_starts=[p.get("motor_rental_start"), p.get("start_date")],
-                    upper_ends=[motor_end, p.get("exit_date")],
-                )
-                motor_kira = kira_aylik * (gun / ay_gun) if ay_gun else 0.0
+        kira_aylik = float(p.get("motor_kira_aylik") or 0)
+        rental_active = p.get("motor_rental_flag") == "Evet"
+        if kira_aylik > 0 and (rental_active or motor_end):
+            gun, ay_gun = motor_prorate(
+                period,
+                lower_starts=[p.get("motor_rental_start"), p.get("start_date")],
+                upper_ends=[motor_end, p.get("exit_date")],
+            )
+            if gun > 0 and ay_gun:
+                motor_kira = kira_aylik * (gun / ay_gun)
 
         motor_taksit = round(motor_taksit, 2)
         motor_kira = round(motor_kira, 2)
 
-        muhasebe = (
-            float(p["muhasebe_aylik"] or 0)
-            if p["muhasebe_tipi"] == "Çat Kapında Muhasebe"
-            else 0
-        )
+        # Muhasebe kesintisi = KURYEDEN ALINAN tutar (accounting_revenue),
+        # muhasebeciye ödediğimiz maliyet (accountant_cost) DEĞİL.
+        # Örn. Neçirvan: muhasebeciye 1.400 ödüyoruz ama kuryeden 2.000
+        # kesiyoruz → 600 ÇK kârı. Bordroda kuryeye 2.000 yansımalı.
+        # accounting_revenue boşsa eski davranışa (cost) düş.
+        muhasebe = 0.0
+        if p["muhasebe_tipi"] == "Çat Kapında Muhasebe":
+            muhasebe = float(p.get("muhasebe_gelir") or 0)
+            if muhasebe <= 0:
+                muhasebe = float(p["muhasebe_aylik"] or 0)
         sirket_acilis = 0.0
         # Şirket açılış bedeli — sadece o ay yapıldıysa düş
         if p["sirket"] == "Evet" and p["sirket_tarih"]:

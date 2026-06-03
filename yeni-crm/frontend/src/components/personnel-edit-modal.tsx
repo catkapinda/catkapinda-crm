@@ -394,7 +394,7 @@ export function PersonnelEditModal({
         : 0;
     const accDed =
       form.accounting_type === 'Çat Kapında Muhasebe'
-        ? form.accountant_cost
+        ? (form.accounting_revenue || form.accountant_cost)
         : 0;
     const setupDed =
       form.accounting_type === 'Çat Kapında Muhasebe' &&
@@ -789,9 +789,9 @@ export function PersonnelEditModal({
               {form.accounting_type === 'Çat Kapında Muhasebe' && (
                 <>
                   <Field
-                    label="Aylık Muhasebe Bedeli"
+                    label="Muhasebeciye Ödenen (Gider)"
                     optional
-                    hint="kuryeye yansıyan · her ay otomatik düşer"
+                    hint="ÇK'nın muhasebeciye ödediği · kâr-zarara gider"
                   >
                     <NumberSuffix
                       value={form.accountant_cost}
@@ -800,9 +800,9 @@ export function PersonnelEditModal({
                     />
                   </Field>
                   <Field
-                    label="Aylık Muhasebe Geliri"
+                    label="Kuryeden Alınan (Bordro Kesintisi)"
                     optional
-                    hint="bana kalan kar"
+                    hint="kuryenin bordrosundan kesilen tutar · kâr = alınan − ödenen"
                   >
                     <NumberSuffix
                       value={form.accounting_revenue}

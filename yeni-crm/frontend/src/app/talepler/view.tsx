@@ -459,6 +459,12 @@ function RequestCard({
                 <span className="font-mono font-bold">{r.plate}</span>
               </div>
             )}
+            {r.effective_date && (
+              <div className="text-orange-800">
+                <strong className="text-[10px] uppercase tracking-wider opacity-75">Geçerlilik:</strong>{' '}
+                <span className="font-semibold">{r.effective_date.split('-').reverse().join('.')}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -475,6 +481,12 @@ function RequestCard({
               {r.accounting_to ?? '—'}
             </span>
           </div>
+          {r.effective_date && (
+            <div className="text-[11.5px] text-purple-800 mt-2">
+              <strong className="text-[10px] uppercase tracking-wider opacity-75">Geçerlilik:</strong>{' '}
+              <span className="font-semibold">{r.effective_date.split('-').reverse().join('.')}</span>
+            </div>
+          )}
         </div>
       )}
 
