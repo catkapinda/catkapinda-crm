@@ -60,12 +60,18 @@ export default async function DashboardPage({
     availablePeriods = [];
   }
 
-  // Seçili dönem: URL'den gelen, yoksa en yeni veri olan ay, o da yoksa bu ay
+  // Seçili dönem: URL'den gelen; yoksa bu ay (listede varsa); yoksa bu aydan
+  // geriye en yakın veri olan ay; o da yoksa en yeni ay.
+  // (Liste ileride Aralık'a kadar boş ayları da içerdiği için en yeni ay
+  // çoğu zaman boş Aralık olur — bu yüzden bu ayı önceliklendiriyoruz.)
   const today = new Date();
   const thisMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const pastOrNow = [...availablePeriods].filter((p) => p <= thisMonth).sort();
   const period = ay && availablePeriods.includes(ay)
     ? ay
-    : availablePeriods[0] ?? thisMonth;
+    : availablePeriods.includes(thisMonth)
+    ? thisMonth
+    : pastOrNow[pastOrNow.length - 1] ?? availablePeriods[0] ?? thisMonth;
 
   let summary: DashboardSummary | null = null;
   let counts: SidebarCounts | null = null;
@@ -128,10 +134,25 @@ export default async function DashboardPage({
     { key: 'profil', label: 'Profil onayı', count: counts.profil_onay, href: '/profil-onaylari', icon: Users, urgent: false },
   ].filter((a) => a.count > 0) : [];
 
-  // Ay seçici listesi: backend'den gelen veri olan aylar (eskiden yeniye sırayla)
-  const periodPills = availablePeriods.length > 0
-    ? [...availablePeriods].slice(0, 6).reverse()
-    : [period];
+  // Ay seçici listesi (eskiden yeniye): bu aya çapalı 6 pill. Önce bu ay ve
+  // öncesi (en yakın 6); 6'ya ulaşmazsa yakın gelecek aylarla tamamlanır.
+  // Böylece liste Aralık'a kadar boş ayları içerse bile Mart/Nisan/Mayıs/
+  // Haziran gibi gerçek aylar dışarı itilmez.
+  const periodPills = (() => {
+    if (availablePeriods.length === 0) return [period];
+    const asc = [...availablePeriods].sort();
+    const upToNow = asc.filter((p) => p <= thisMonth);
+    let pills = upToNow.slice(-6);
+    if (pills.length < 6) {
+      const future = asc.filter((p) => p > thisMonth);
+      pills = [...pills, ...future.slice(0, 6 - pills.length)];
+    }
+    // Seçili dönem listede yoksa (ör. ileri bir ay seçildi) başa ekle
+    if (!pills.includes(period)) {
+      pills = [...pills, period].sort();
+    }
+    return pills;
+  })();
 
   return (
     <div className="grid grid-cols-[252px_1fr] min-h-screen bg-bg">
