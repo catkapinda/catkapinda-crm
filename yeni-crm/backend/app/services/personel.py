@@ -124,14 +124,18 @@ class DeactivationError(Exception):
 
 
 def _last_period_with_entries(personnel_id: int) -> str | None:
-    """Kişinin daily_entries içinde puantajı olan en son ayı döner (YYYY-MM)."""
+    """Kişinin daily_entries içinde puantajı olan en son ayı döner (YYYY-MM).
+
+    NOT: daily_entries'te kurye kolonu 'actual_personnel_id'dir
+    (personnel_id YOK). Yanlış kolon adı 500'e yol açıyordu.
+    """
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT TO_CHAR(MAX(entry_date), 'YYYY-MM') AS last_period
                 FROM daily_entries
-                WHERE personnel_id = %s
+                WHERE actual_personnel_id = %s
                 """,
                 (personnel_id,),
             )
