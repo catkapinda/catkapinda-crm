@@ -45,7 +45,16 @@ function formatDate(iso: string | null | undefined): string {
   return `${m[3]}.${m[2]}.${m[1].slice(2)}`;
 }
 
-const PERIODS = ['2026-03', '2026-02', '2026-01'];
+// İçinde bulunulan yılın 12 ayı (yeni → eski). Ocak…Aralık hepsi seçilebilir;
+// gelecek aylar veri girilene kadar boş listelenir. Yıl değişince otomatik kayar.
+const PERIODS = (() => {
+  const y = new Date().getFullYear();
+  const out: string[] = [];
+  for (let m = 12; m >= 1; m -= 1) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
+  }
+  return out;
+})();
 
 export function KesintilerView({
   deductions, personnel, typesByMonth, allTypes, period,
