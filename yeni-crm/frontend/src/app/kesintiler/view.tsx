@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X } from 'lucide-react';
+import { X, Pencil } from 'lucide-react';
 
 import {
   type Deduction,
   type DeductionByType,
   type Personnel,
   createDeduction,
+  updateDeduction,
+  deleteDeduction,
 } from '@/lib/api';
 import { normalizeTr } from '@/lib/format';
 
@@ -68,6 +70,7 @@ export function KesintilerView({
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Deduction | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr-TR');
@@ -232,6 +235,7 @@ export function KesintilerView({
                 <th className="text-left px-3 py-2.5 font-semibold">Tip</th>
                 <th className="text-left px-3 py-2.5 font-semibold">Açıklama</th>
                 <th className="text-right px-3 py-2.5 font-semibold">Tutar</th>
+                <th className="text-right px-3 py-2.5 font-semibold">İşlem</th>
               </tr>
             </thead>
             <tbody>
@@ -277,6 +281,21 @@ export function KesintilerView({
                     <td className="px-3 py-2.5 text-right font-mono num font-semibold text-red-600">
                       −{tr(d.amount)} ₺
                     </td>
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                      {d.equipment_issue_id ? (
+                        <span className="text-[10.5px] text-text-3">otomatik</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditing(d)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11.5px] font-semibold text-brand border border-brand/25 hover:bg-brand-soft transition"
+                          title="Kesintiyi düzenle"
+                        >
+                          <Pencil className="w-3 h-3" strokeWidth={2.4} />
+                          Düzenle
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -289,6 +308,7 @@ export function KesintilerView({
                 <td className="px-3 py-3 text-right font-display text-brand text-[15px] num">
                   {tr(total)} ₺
                 </td>
+                <td className="px-3 py-3" />
               </tr>
             </tfoot>
           </table>
@@ -300,6 +320,15 @@ export function KesintilerView({
           personnel={personnel}
           types={allTypes}
           onClose={() => setCreating(false)}
+        />
+      )}
+
+      {editing && (
+        <NewDeductionModal
+          personnel={personnel}
+          types={allTypes}
+          edit={editing}
+          onClose={() => setEditing(null)}
         />
       )}
     </>
@@ -315,21 +344,24 @@ function formatPeriod(period: string): string {
 }
 
 function NewDeductionModal({
-  personnel, types, onClose,
+  personnel, types, onClose, edit,
 }: {
   personnel: Personnel[];
   types: string[];
   onClose: () => void;
+  edit?: Deduction;
 }) {
   const router = useRouter();
+  const isEdit = !!edit;
   const [form, setForm] = useState({
-    personnel_id: 0,
-    deduction_type: types[0] ?? 'Yakıt',
-    amount: 0,
-    deduction_date: new Date().toISOString().slice(0, 10),
-    notes: '',
+    personnel_id: edit?.personnel_id ?? 0,
+    deduction_type: edit?.deduction_type ?? (types[0] ?? 'Yakıt'),
+    amount: edit?.amount ?? 0,
+    deduction_date: (edit?.deduction_date ?? new Date().toISOString()).slice(0, 10),
+    notes: edit?.notes ?? '',
   });
   const [saving, setSaving] = useState(false);
+  const [deletingBusy, setDeletingBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
@@ -341,13 +373,32 @@ function NewDeductionModal({
     setSaving(true);
     setError(null);
     try {
-      await createDeduction(form);
+      if (isEdit && edit) {
+        await updateDeduction(edit.id, form);
+      } else {
+        await createDeduction(form);
+      }
       onClose();
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kaydedilemedi');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!edit) return;
+    if (!window.confirm('Bu kesinti silinsin mi? Bordrodan da düşülmeyecek.')) return;
+    setDeletingBusy(true);
+    setError(null);
+    try {
+      await deleteDeduction(edit.id);
+      onClose();
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Silinemedi');
+      setDeletingBusy(false);
     }
   }
 
@@ -362,10 +413,12 @@ function NewDeductionModal({
         <div className="bg-gradient-to-r from-brand-dark to-brand text-white px-6 py-4 rounded-t-2xl flex justify-between items-start">
           <div>
             <div className="text-[11px] uppercase tracking-wider opacity-80 font-semibold">
-              Yeni Kesinti
+              {isEdit ? 'Kesinti Düzenle' : 'Yeni Kesinti'}
             </div>
             <div className="font-display text-lg font-semibold tracking-tight mt-0.5">
-              Kuryenin hakedişinden düşülecek tutar
+              {isEdit
+                ? 'Mevcut kesintiyi güncelle'
+                : 'Kuryenin hakedişinden düşülecek tutar'}
             </div>
           </div>
           <button
@@ -468,21 +521,32 @@ function NewDeductionModal({
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+          <div className="flex items-center gap-2 pt-2 border-t border-border">
+            {isEdit && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={saving || deletingBusy}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-red-600 border border-red-200 hover:bg-red-50 transition disabled:opacity-60"
+              >
+                {deletingBusy ? 'Siliniyor…' : 'Sil'}
+              </button>
+            )}
+            <div className="flex-1" />
             <button
               type="button"
               onClick={onClose}
               className="px-4 py-2 rounded-lg text-sm font-medium text-text-2 hover:bg-bg-surface2 transition"
-              disabled={saving}
+              disabled={saving || deletingBusy}
             >
               Vazgeç
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || deletingBusy}
               className="px-4 py-2 rounded-lg text-sm font-semibold bg-brand text-white shadow-sm hover:bg-brand-dark transition disabled:opacity-60"
             >
-              {saving ? 'Kaydediliyor…' : '+ Kesintiyi Ekle'}
+              {saving ? 'Kaydediliyor…' : isEdit ? 'Kaydet' : '+ Kesintiyi Ekle'}
             </button>
           </div>
         </form>

@@ -590,6 +590,23 @@ export async function createDeduction(payload: {
   return apiMutate<Deduction>(`/api/deductions`, payload, 'POST');
 }
 
+export async function updateDeduction(
+  id: number,
+  payload: {
+    personnel_id?: number;
+    deduction_type?: string;
+    amount?: number;
+    deduction_date?: string;
+    notes?: string | null;
+  },
+): Promise<Deduction> {
+  return apiMutate<Deduction>(`/api/deductions/${id}`, payload, 'PATCH');
+}
+
+export async function deleteDeduction(id: number): Promise<{ deleted: boolean; id: number }> {
+  return apiMutate<{ deleted: boolean; id: number }>(`/api/deductions/${id}`, {}, 'DELETE');
+}
+
 // ─────────────────────────────────────────────────────────────
 // Ekipman & Zimmet
 // ─────────────────────────────────────────────────────────────

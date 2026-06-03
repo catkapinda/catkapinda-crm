@@ -130,6 +130,44 @@ def create_deduction(fields: dict) -> dict | None:
     return next((i for i in items if i["id"] == row[0]), None)
 
 
+def update_deduction(deduction_id: int, fields: dict) -> dict | None:
+    """Mevcut kesintiyi güncelle (manuel kesintiler için).
+
+    Sadece EDITABLE_COLUMNS güncellenir. Otomatik üretilen kesintiler
+    (zimmet taksiti — equipment_issue_id dolu) yine düzenlenebilir ama
+    UI tarafında bu tip için düzenleme gösterilmez.
+    """
+    safe = {k: v for k, v in fields.items() if k in EDITABLE_COLUMNS}
+    if not safe:
+        # Güncellenecek alan yok → mevcut kaydı döndür
+        items = list_deductions(limit=5000)
+        return next((i for i in items if i["id"] == deduction_id), None)
+
+    set_clause = ", ".join(f"{k} = %s" for k in safe.keys())
+    vals = list(safe.values())
+    vals.append(deduction_id)
+    sql = f"UPDATE deductions SET {set_clause} WHERE id = %s"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, vals)
+            updated = cur.rowcount > 0
+            conn.commit()
+    if not updated:
+        return None
+    items = list_deductions(limit=5000)
+    return next((i for i in items if i["id"] == deduction_id), None)
+
+
+def delete_deduction(deduction_id: int) -> bool:
+    """Kesintiyi sil."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM deductions WHERE id = %s", (deduction_id,))
+            ok = cur.rowcount > 0
+            conn.commit()
+    return ok
+
+
 def deductions_summary_by_personnel(period: str) -> list[dict]:
     """Personel başına aylık toplam kesinti özeti."""
     sql = """
