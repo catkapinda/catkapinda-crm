@@ -251,6 +251,12 @@ def list_personnel_payroll(period: str) -> list[dict]:
                         NULLIF(p.standard_daily_hours, 0),
                         11
                     ) AS standard_daily_hours,
+                    -- Bayram x2 günlük bazı: SADECE personelin kendi normal
+                    -- saati (restoran override ETMEZ; joker'in atanmış restoranı
+                    -- olsa bile onun saati değil kişinin saati kullanılır).
+                    -- Boşsa 10 (şirket normali).
+                    COALESCE(NULLIF(p.standard_daily_hours, 0), 10)
+                        AS personnel_std_hours,
                     COALESCE(p.motor_purchase_monthly_amount, 0) AS motor_taksit,
                     COALESCE(p.motor_purchase, '') AS motor_purchase_flag,
                     COALESCE(p.motor_purchase_start_date::text, '') AS motor_purchase_start,
@@ -471,27 +477,31 @@ def list_personnel_payroll(period: str) -> list[dict]:
         ekstra_mesai_days = 0.0
         is_fixed_billing = float(p["monthly_fixed_cost"] or 0) > 0
         std_daily = float(p.get("standard_daily_hours") or 11)
+        # Bayram x2 bazı: kişinin KENDİ normal saati (restoran override etmez,
+        # joker'in atanmış restoranı olsa bile). Boşsa 10.
+        bayram_std = float(p.get("personnel_std_hours") or 10)
 
         if is_fixed_billing:
             # Sabit aylık personel — formül atlanır
             ana_brut = float(p["monthly_fixed_cost"])
 
-            # Bayram / ekstra mesai: günlük standart üstündeki saatler
-            # (örn 22 saat yazılan bayram günü → 11 saat fazla = 1 gün ekstra)
-            if std_daily > 0:
+            # Bayram / ekstra mesai: günlük NORMAL saatin üstündeki saatler.
+            # Örn. joker bayramda 10 yerine 20 saat → 10 saat fazla = 1 gün
+            # ekstra (maaş/30). İlk 2 bayram günü → +2 gün → maaş/30 × 32.
+            # Tüm saha günleri (kendi restoranı + destek/yönetim) dahil.
+            if bayram_std > 0:
                 overtime_hours = 0.0
                 for e in my_entries:
-                    cov = (e.get("coverage_type") or "").strip()
-                    if cov == "Destek":
-                        continue  # destek günleri ana atamada sayılmaz
-                    e_assigned = e.get("assigned_restaurant_id")
-                    if e_assigned is not None and e["rid"] != e_assigned:
-                        continue  # destek (ana atama dışı)
+                    # 'Destek' (ücretli) günleri ayrı hesaplanır (destek_brut);
+                    # burada sayma. 'Yönetim' (joker/BM cover) günleri ise sabit
+                    # maaşın parçası → bayram fazlası buradan eklenir.
+                    if (e.get("coverage_type") or "").strip() == "Destek":
+                        continue
                     wh = float(e.get("worked_hours") or 0)
-                    if wh > std_daily:
-                        overtime_hours += wh - std_daily
+                    if wh > bayram_std:
+                        overtime_hours += wh - bayram_std
                 if overtime_hours > 0:
-                    ekstra_mesai_days = overtime_hours / std_daily
+                    ekstra_mesai_days = overtime_hours / bayram_std
                     daily_rate = ana_brut / 30
                     ekstra_mesai_brut = daily_rate * ekstra_mesai_days
                     ana_brut += ekstra_mesai_brut
