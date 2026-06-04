@@ -827,7 +827,7 @@ function TopRestaurantsPanel({
               return (
                 <Link
                   key={r.id}
-                  href={`/restoranlar/${r.id}`}
+                  href={`/restoranlar/${r.id}?ay=${period}`}
                   className="flex items-center gap-3 p-3 rounded-xl bg-bg-surface2 border border-border hover:border-brand hover:shadow-sm transition group"
                 >
                   <div className="w-7 h-7 rounded-lg bg-bg-surface border border-border flex items-center justify-center text-xs font-bold text-text-2 group-hover:bg-brand-soft group-hover:text-brand group-hover:border-brand-border transition">

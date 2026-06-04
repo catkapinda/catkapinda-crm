@@ -299,46 +299,60 @@ def _get_revenue_trend_lite(current_period: str) -> list[dict]:
 
 
 def _get_restaurant_breakdown(period: str) -> list[dict]:
-    """Restoranlar bazında aylık fatura (invoiced + net paid)."""
+    """Restoranlar bazında aylık fatura (Top Restoranlar paneli).
+
+    Fatura tutarı, /faturalar ile AYNI yetkili kaynaktan gelir
+    (_compute_auto_invoice_map): tarife modeline göre (sabit aylık,
+    saatlik, paketli, eşikli, karma) + tarih-bazlı tarife geçmişiyle
+    hesaplanır. Eski 'worked_hours × hourly_rate' kestirmesi paketleri,
+    sabit aylık ücreti ve eşikli modeli yok saydığı için yanlıştı.
+    """
+    # Yetkili fatura haritası (KDV hariç) — /faturalar ile birebir aynı hesap
+    try:
+        from app.services.collections import _compute_auto_invoice_map
+        inv_map = _compute_auto_invoice_map(period)
+    except Exception:
+        inv_map = {}
+
     with get_connection() as conn:
-      with conn.cursor(row_factory=dict_row) as cur:
-        cur.execute(
-            """
-            SELECT
-                r.id, r.brand, r.branch, r.pricing_model,
-                COUNT(DISTINCT CASE WHEN de.actual_personnel_id IS NOT NULL
-                                  THEN de.actual_personnel_id END) AS courier_count,
-                COALESCE(SUM(
-                    CASE
-                        WHEN de.worked_hours > 0 THEN de.worked_hours * r.hourly_rate
-                        ELSE 0
-                    END
-                ), 0) AS invoiced_partial
-            FROM restaurants r
-            LEFT JOIN daily_entries de ON de.restaurant_id = r.id
-                                     AND LEFT(de.entry_date::text, 7) = %s
-            WHERE r.active = 1
-            GROUP BY r.id, r.brand, r.branch, r.pricing_model
-            ORDER BY invoiced_partial DESC
-            LIMIT 8
-            """,
-            (period,)
-        )
-        restaurants = cur.fetchall()
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    r.id, r.brand, r.branch, r.pricing_model,
+                    COUNT(DISTINCT de.actual_personnel_id) FILTER (
+                        WHERE de.actual_personnel_id IS NOT NULL
+                          AND COALESCE(de.worked_hours, 0) > 0
+                    ) AS courier_count
+                FROM restaurants r
+                LEFT JOIN daily_entries de ON de.restaurant_id = r.id
+                                         AND LEFT(de.entry_date::text, 7) = %s
+                WHERE r.active = 1
+                GROUP BY r.id, r.brand, r.branch, r.pricing_model
+                """,
+                (period,),
+            )
+            restaurants = cur.fetchall()
 
     result = []
     for r in restaurants:
+        rid = int(r["id"])
+        inv = inv_map.get(rid, {})
+        invoiced = float(inv.get("auto_invoice_excl_vat") or 0)
+        if invoiced <= 0:
+            continue  # bu ay faturası olmayan restoranı listeleme
         result.append({
-            "id": int(r["id"]),
+            "id": rid,
             "brand": r["brand"] or "—",
             "branch": r["branch"] or "—",
             "courier_count": int(r.get("courier_count") or 0),
-            "invoiced": float(r.get("invoiced_partial") or 0),
-            "net_paid": float(r.get("invoiced_partial") or 0) * 0.7,  # Approx
+            "invoiced": invoiced,
+            "net_paid": invoiced * 0.7,  # yaklaşık net (trend grafiği için)
             "pricing_model": r["pricing_model"] or "?",
         })
 
-    return result
+    result.sort(key=lambda x: x["invoiced"], reverse=True)
+    return result[:8]
 
 
 def _get_personnel_performance(period: str) -> list[dict]:
