@@ -92,13 +92,21 @@ export function TaleplerView({
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Bu sayfa yalnız Motor + Muhasebe gösterir (Avans ayrı sayfada).
+  // Sayımlar da SADECE bu tiplerden türetilmeli; aksi halde reddedilmiş
+  // bir Avans 'Reddedildi 1' rozetinde sayılıp listede görünmez (tutarsızlık).
+  const scopedRequests = useMemo(
+    () => requests.filter((r) => r.request_type !== 'Avans'),
+    [requests],
+  );
+
   const counts = useMemo(() => {
-    const c = { Beklemede: 0, Onaylandı: 0, Reddedildi: 0, total: requests.length };
-    for (const r of requests) {
+    const c = { Beklemede: 0, Onaylandı: 0, Reddedildi: 0, total: scopedRequests.length };
+    for (const r of scopedRequests) {
       if (r.status in c) c[r.status as StatusKey]++;
     }
     return c;
-  }, [requests]);
+  }, [scopedRequests]);
 
   const typeCounts = useMemo(() => {
     const c: Record<string, number> = { 'Motor Değişikliği': 0, 'Muhasebe Değişimi': 0 };
