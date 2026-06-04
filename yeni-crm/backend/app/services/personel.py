@@ -563,7 +563,11 @@ def management_summary(period: str) -> list[dict]:
             ON d.actual_personnel_id = p.id
            AND LEFT(d.entry_date::text, 7) = %s
         WHERE COALESCE(p.status, 'Aktif') = 'Aktif'
-          AND p.role IN ('Bölge Müdürü', 'Joker', 'Kaptan', 'Restoran Takım Şefi')
+          -- Kaptan HARİÇ: Kaptan normal kurye gibidir — nerede çalışırsa
+          -- çalışsın attığı paket/saatten ekstra hakediş alır VE restorana
+          -- fatura edilir; sabit maliyet (geri kazanılacak maaş) DEĞİLDİR.
+          -- Bu panel yalnız BM/Joker (cebimizden sabit maaş) + sabit maaşlı RTŞ.
+          AND p.role IN ('Bölge Müdürü', 'Joker', 'Restoran Takım Şefi')
         GROUP BY p.id, p.full_name, p.person_code, p.role, p.monthly_fixed_cost
         ORDER BY salary DESC, field_packages DESC
     """
