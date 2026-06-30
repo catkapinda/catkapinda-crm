@@ -14,22 +14,27 @@ def get_pool() -> ConnectionPool:
     global _pool
     if _pool is None:
         settings = get_settings()
-        # Havuz büyütüldü + dayanıklılık eklendi:
-        #  - max_size 10→20: Genel Bakış tek seferde 5+ paralel sorgu açıyor;
-        #    eşzamanlı yükte 10 bağlantı tükenip "couldn't get a connection
-        #    after 10s" hatasına (ör. forgot_password e-posta gönderememe)
-        #    yol açıyordu.
-        #  - check: bir bağlantı havuzdan verilmeden önce canlı mı diye
-        #    doğrulanır → Supabase boşta kalan bağlantıları düşürdüğünde
-        #    ölü bağlantı verilmesini önler.
-        #  - max_idle / max_lifetime: bağlantılar periyodik geri dönüştürülür.
+        # KÜÇÜK AYAK İZİ — Supabase bağlantı limiti dolmasın.
+        # Asıl sorun havuz boyutu DEĞİL: Supabase'in toplam bağlantı limiti
+        # doluyordu (boşta tutulan bağlantılar + deploy sırasında eski/yeni
+        # instance'ların üst üste binmesi). 'couldn't get a connection after
+        # Ns' hatası app genelinde (migrations, welcome_sms, forgot_password)
+        # görülüyordu — yeni instance startup'ta migration için bile bağlantı
+        # alamıyordu. Bu yüzden uygulamanın STANDING bağlantı sayısı düşük
+        # tutulur:
+        #  - min_size=0: boşta bağlantı TUTMA → Supabase slotlarını işgal etme
+        #  - max_size=5: tek instance en fazla 5; iki instance çakışsa bile 10
+        #  - max_idle=30: boşta kalan bağlantı 30 sn'de kapanır (slot serbest)
+        #  - check: bağlantı verilmeden canlı mı diye doğrulanır (stale önler)
+        # KALICI ÇÖZÜM: DATABASE_URL Supabase 'Transaction pooler'a (pgbouncer,
+        # port 6543) çevrilmeli — yüzlerce client bağlantısını multipleksler.
         _pool = ConnectionPool(
             conninfo=settings.database_url,
-            min_size=1,
-            max_size=20,
-            timeout=15,
-            max_idle=300.0,       # 5 dk boşta kalan fazlalık bağlantı kapanır
-            max_lifetime=1800.0,  # her bağlantı en fazla 30 dk yaşar
+            min_size=0,
+            max_size=5,
+            timeout=10,
+            max_idle=30.0,
+            max_lifetime=600.0,
             check=ConnectionPool.check_connection,
         )
     return _pool
